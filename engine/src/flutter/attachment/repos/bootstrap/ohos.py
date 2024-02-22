@@ -123,17 +123,16 @@ def findNativeInCurrentDir():
 
 
 def getNdkHome():
-    OHOS_NDK_HOME = os.getenv("OHOS_NDK_HOME")
-    if not OHOS_NDK_HOME:
-        OHOS_NDK_HOME = findNativeInCurrentDir()
-    if not OHOS_NDK_HOME:
-        OHOS_SDK_HOME = os.getenv("OHOS_SDK_HOME")
+    HOS_NDK_HOME = os.getenv("HOS_NDK_HOME")
+    if not HOS_NDK_HOME:
+        HOS_NDK_HOME = findNativeInCurrentDir()
+    if not HOS_NDK_HOME:
+        HOS_SDK_HOME = os.getenv("HOS_SDK_HOME")
         sdkInt = 0
         if ('openharmony' in os.getenv("HOS_SDK_HOME")):
-            print('dddd')
-            OHOS_SDK_HOME = "%s/openharmony" % os.getenv("HOS_SDK_HOME")
-            if os.path.exists(OHOS_SDK_HOME):
-                for dir in os.listdir(OHOS_SDK_HOME):
+            HOS_SDK_HOME = "%s/openharmony" % os.getenv("HOS_SDK_HOME")
+            if os.path.exists(HOS_SDK_HOME):
+                for dir in os.listdir(HOS_SDK_HOME):
                     try:
                         tmpInt = int(dir)
                         sdkInt = max(sdkInt, tmpInt)
@@ -142,46 +141,45 @@ def getNdkHome():
             if sdkInt == 0:
                 logging.error(
                     "Ohos sdkInt parse failed, please config the correct environment variable."
-                    " Such as: 'export OHOS_SDK_HOME=~/ohos/sdk/openharmony'."
+                    " Such as: 'export HOS_SDK_HOME=~/ohos/sdk/openharmony'."
                 )
                 exit(20)
-            OHOS_NDK_HOME = os.path.join(OHOS_SDK_HOME, str(sdkInt), "native")
+            HOS_NDK_HOME = os.path.join(HOS_SDK_HOME, str(sdkInt), "native")
         else:
-            print('go here')
-            OHOS_NDK_HOME = "%s/HarmonyOS-NEXT-DP1/base/native" % os.getenv("HOS_SDK_HOME")
-    logging.info("OHOS_NDK_HOME = %s" % OHOS_NDK_HOME)
+            HOS_NDK_HOME = "%s/HarmonyOS-NEXT-DP1/base/native" % os.getenv("HOS_SDK_HOME")
+    logging.info("HOS_NDK_HOME = %s" % HOS_NDK_HOME)
     if (
-        (not os.path.exists(OHOS_NDK_HOME))
-        or (not os.path.exists(OHOS_NDK_HOME + "/sysroot"))
-        or (not os.path.exists(OHOS_NDK_HOME + "/llvm/bin"))
-        or (not os.path.exists(OHOS_NDK_HOME + "/build-tools/cmake/bin"))
+        (not os.path.exists(HOS_NDK_HOME))
+        or (not os.path.exists(HOS_NDK_HOME + "/sysroot"))
+        or (not os.path.exists(HOS_NDK_HOME + "/llvm/bin"))
+        or (not os.path.exists(HOS_NDK_HOME + "/build-tools/cmake/bin"))
     ):
         logging.error(
             """
-    Please set the environment variables for HarmonyOS SDK to "HOS_SDK_HOME" or "OHOS_SDK_HOME".
+    Please set the environment variables for HarmonyOS SDK to "HOS_SDK_HOME" or "HOS_SDK_HOME".
     We will use both native/llvm and native/sysroot.
     Please ensure that the file "native/llvm/bin/clang" exists and is executable."""
         )
         exit(10)
-    return OHOS_NDK_HOME
+    return HOS_NDK_HOME
 
 
 # 指定engine编译的配置参数
 def engineConfig(buildInfo, extraParam=""):
-    OHOS_NDK_HOME = getNdkHome()
-    # export PATH=$OHOS_NDK_HOME/build-tools/cmake/bin:$OHOS_NDK_HOME/llvm/bin:$PATH
+    HOS_NDK_HOME = getNdkHome()
+    # export PATH=$HOS_NDK_HOME/build-tools/cmake/bin:$HOS_NDK_HOME/llvm/bin:$PATH
     lastPath = os.getenv("PATH")
     os.environ["PATH"] = (
-        "%s%s" % (os.path.join(OHOS_NDK_HOME, "build-tools", "cmake", "bin"), PATH_SEP)
-        + "%s%s" % (os.path.join(OHOS_NDK_HOME, "build-tools", "llvm", "bin"), PATH_SEP)
+        "%s%s" % (os.path.join(HOS_NDK_HOME, "build-tools", "cmake", "bin"), PATH_SEP)
+        + "%s%s" % (os.path.join(HOS_NDK_HOME, "build-tools", "llvm", "bin"), PATH_SEP)
         + "%s%s" % (os.path.abspath("depot_tools"), PATH_SEP)
         + lastPath
     )
     unixCommand = ""
     if not IS_WINDOWS:
         unixCommand = (
-            "--target-sysroot %s " % os.path.join(OHOS_NDK_HOME, "sysroot")
-            + "--target-toolchain %s " % os.path.join(OHOS_NDK_HOME, "llvm")
+            "--target-sysroot %s " % os.path.join(HOS_NDK_HOME, "sysroot")
+            + "--target-toolchain %s " % os.path.join(HOS_NDK_HOME, "llvm")
             + "--target-triple %s " % buildInfo.targetTriple
         )
     OPT = "--unoptimized --no-lto " if buildInfo.buildType == "debug" else ""

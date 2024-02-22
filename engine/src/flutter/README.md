@@ -53,10 +53,10 @@ Flutter Engine
 
 3. 同步代码：在engine目录，执行`gclient sync`；这里会同步engine源码、官方packages仓，还有执行ohos_setup任务；
 
-4. 下载sdk： 在[每日构建](http://ci.openharmony.cn/workbench/cicd/dailybuild/dailylist)下载ohos-sdk-full，配置以下环境变量:
+4. 下载sdk： 从[鸿蒙套件列表](https://developer.harmonyos.com/deveco-developer-suite/enabling/kit?currentPage=1&pageSize=100)下载配套开发工具，暂不支持非该渠道下载的套件
 
 ```sh
-export OHOS_SDK_HOME=<ohos-sdk-full>
+export HOS_SDK_HOME=<ohos-sdk-full>
 ```
 
 5. 开始构建：在engine目录，执行`./ohos`，即可开始构建支持ohos设备的flutter engine。
