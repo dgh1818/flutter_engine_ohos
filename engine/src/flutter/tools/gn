@@ -280,9 +280,6 @@ def to_gn_args(args):
   if args.enable_unittests:
     gn_args['enable_unittests'] = args.enable_unittests
 
-  gn_args['enable_unittests'] =  False
-  print("enable_unittests:%s" % gn_args['enable_unittests'] );
-
   # Skia GN args.
   gn_args['skia_enable_flutter_defines'
          ] = True  # Enable Flutter API guards in Skia.
