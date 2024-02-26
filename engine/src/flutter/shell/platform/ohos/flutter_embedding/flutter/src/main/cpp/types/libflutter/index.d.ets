@@ -100,3 +100,11 @@ export const nativeXComponentDetachFlutterEngine: (xcomponentId: number, nativeS
 export const nativeDestroy: (
   nativeShellHolderId: number
 ) => void;
+
+export const nativeInitNativeImage: (nativeShellHolderId: number, textureId: number, aImage: image.Image) => void;
+
+export const nativeUnregisterTexture: (nativeShellHolderId: number, textureId: number) => void;
+
+export const nativeRegisterPixelMap: (nativeShellHolderId: number, textureId: number, pixelMap: PixelMap) => void;
+
+export const nativeRegisterTexture: (nativeShellHolderId: number, textureId: number) => number;

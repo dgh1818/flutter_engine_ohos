@@ -373,6 +373,26 @@ export default class FlutterNapi {
   detachFromNativeAndReleaseResources() {
     flutter.nativeDestroy(this.nativeShellHolderId!!);
   }
+
+  initNativeImage(textureId: number, aImage: image.Image) {
+    Log.d(TAG, "called initNativeImage ");
+    flutter.nativeInitNativeImage(this.nativeShellHolderId!, textureId, aImage);
+  }
+
+  unregisterTexture(textureId: number): void {
+    Log.d(TAG, "called unregisterTexture ");
+    flutter.nativeUnregisterTexture(this.nativeShellHolderId!, textureId);
+  }
+
+  registerPixelMap(textureId: number, pixelMap: PixelMap): void {
+    Log.d(TAG, "called registerPixelMap ");
+    flutter.nativeRegisterPixelMap(this.nativeShellHolderId!, textureId, pixelMap);
+  }
+
+  registerTexture(textureId: number): number {
+    Log.d(TAG, "called unregisterTexture ");
+    return flutter.nativeRegisterTexture(this.nativeShellHolderId!, textureId);
+  }
 }
 
 export interface AccessibilityDelegate {

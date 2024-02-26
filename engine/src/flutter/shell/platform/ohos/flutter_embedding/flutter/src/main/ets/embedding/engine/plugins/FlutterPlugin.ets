@@ -17,6 +17,7 @@ import common from '@ohos.app.ability.common';
 import { BinaryMessenger } from '../../../plugin/common/BinaryMessenger';
 import PlatformViewFactory from '../../../plugin/platform/PlatformViewFactory';
 import PlatformViewRegistry from '../../../plugin/platform/PlatformViewRegistry';
+import { TextureRegistry } from '../../../view/TextureRegistry';
 import FlutterEngine from '../FlutterEngine';
 
 export interface FlutterPlugin {
@@ -52,13 +53,15 @@ export class FlutterPluginBinding {
   private flutterEngine: FlutterEngine;
   private binaryMessenger: BinaryMessenger;
   private flutterAssets: FlutterAssets;
+  private textureRegistry: TextureRegistry;
   private platformViewRegistry: PlatformViewRegistry;
 
-  constructor(applicationContext: common.Context, flutterEngine: FlutterEngine, binaryMessenger: BinaryMessenger, flutterAssets: FlutterAssets, platformViewRegistry?: PlatformViewRegistry) {
+  constructor(applicationContext: common.Context, flutterEngine: FlutterEngine, binaryMessenger: BinaryMessenger, flutterAssets: FlutterAssets, textureRegistry: TextureRegistry, platformViewRegistry?: PlatformViewRegistry) {
     this.applicationContext = applicationContext;
     this.flutterEngine = flutterEngine;
     this.binaryMessenger = binaryMessenger;
     this.flutterAssets = flutterAssets;
+    this.textureRegistry = textureRegistry;
     this.platformViewRegistry = platformViewRegistry ?? new EmptyPlatformViewRegistry();
   }
 
@@ -78,6 +81,10 @@ export class FlutterPluginBinding {
     return this.flutterAssets;
   }
 
+  getTextureRegistry(): TextureRegistry {
+    return this.textureRegistry;
+  }
+  
   public getPlatformViewRegistry(): PlatformViewRegistry {
     return this.platformViewRegistry;
   }
