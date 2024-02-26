@@ -25,6 +25,9 @@
 #include "napi_common.h"
 #include "ohos_context_gl_impeller.h"
 #include "ohos_surface_gl_impeller.h"
+#include "ohos_external_texture_gl.h"
+
+#include <GLES2/gl2ext.h>
 
 namespace flutter {
 
@@ -386,5 +389,98 @@ void PlatformViewOHOS::FireFirstFrameCallback() {
   FML_DLOG(INFO) << "FlutterViewOnFirstFrame";
   napi_facade_->FlutterViewOnFirstFrame();
 }
+
+void PlatformViewOHOS::RegisterExternalTextureByImage(
+    int64_t texture_id,
+    ImageNative* image) {
+  if(ohos_context_->RenderingApi() == OHOSRenderingAPI::kOpenGLES) {
+    auto iter = external_texture_gl_.find(texture_id);
+    if(iter != external_texture_gl_.end()) {
+      iter->second->DispatchImage(image);
+    } else {
+      std::shared_ptr<OHOSExternalTextureGL> ohos_external_gl = std::make_shared<OHOSExternalTextureGL>(texture_id, ohos_surface_);
+      external_texture_gl_[texture_id] = ohos_external_gl;
+      RegisterTexture(ohos_external_gl);
+      ohos_external_gl->DispatchImage(image);
+    }
+  }
+}
+
+uint64_t PlatformViewOHOS::RegisterExternalTexture(int64_t texture_id) {
+  uint64_t surface_id = 0;
+  int ret = -1;
+  if (ohos_context_->RenderingApi() == OHOSRenderingAPI::kOpenGLES) {
+    std::shared_ptr<OHOSExternalTextureGL> ohos_external_gl = std::make_shared<OHOSExternalTextureGL>(texture_id, ohos_surface_);
+    ohos_external_gl->nativeImage_ = OH_NativeImage_Create(texture_id, GL_TEXTURE_EXTERNAL_OES);
+    if (ohos_external_gl->nativeImage_ == nullptr) {
+      FML_DLOG(ERROR) << "Error with OH_NativeImage_Create";
+      return surface_id;
+    }
+    void* contextData = new OhosImageFrameData(this, texture_id);
+    nativeImageFrameAvailableListener_.context = contextData;
+    nativeImageFrameAvailableListener_.onFrameAvailable = &PlatformViewOHOS::OnNativeImageFrameAvailable;
+    ret = OH_NativeImage_SetOnFrameAvailableListener(ohos_external_gl->nativeImage_, nativeImageFrameAvailableListener_);
+    if (ret != 0) {
+      FML_DLOG(ERROR) << "Error with OH_NativeImage_SetOnFrameAvailableListener";
+      return surface_id;
+    }
+    ret = OH_NativeImage_GetSurfaceId(ohos_external_gl->nativeImage_, &surface_id);
+    if (ret != 0) {
+      FML_DLOG(ERROR) << "Error with OH_NativeImage_GetSurfaceId";
+      return surface_id;
+    }
+    RegisterTexture(ohos_external_gl);
+  }
+  return surface_id;
+}
+
+void PlatformViewOHOS::OnNativeImageFrameAvailable(void *data) {
+  auto frameData = reinterpret_cast<OhosImageFrameData *>(data);
+  if (frameData == nullptr || frameData->context_ == nullptr) {
+    FML_DLOG(ERROR) << "OnNativeImageFrameAvailable, frameData or context_ is null.";
+    return;
+  }
+  std::shared_ptr<OHOSSurface> ohos_surface = frameData->context_->ohos_surface_;
+  const TaskRunners task_runners = frameData->context_->task_runners_;;
+  if (ohos_surface) {
+    fml::AutoResetWaitableEvent latch;
+    fml::TaskRunner::RunNowOrPostTask(
+        task_runners.GetPlatformTaskRunner(),
+        [&latch, surface = ohos_surface.get(), frameData]() {
+          frameData->context_->MarkTextureFrameAvailable(frameData->texture_id_);
+          latch.Signal();
+        });
+    latch.Wait();
+  }
+}
+
+void PlatformViewOHOS::UnRegisterExternalTexture(int64_t texture_id)
+{
+  external_texture_gl_.erase(texture_id);
+  UnregisterTexture(texture_id);
+}
+
+void PlatformViewOHOS::RegisterExternalTextureByPixelMap(int64_t texture_id, NativePixelMap* pixelMap)
+{
+  if (ohos_context_->RenderingApi() == OHOSRenderingAPI::kOpenGLES) {
+    auto iter = external_texture_gl_.find(texture_id);
+    if (iter != external_texture_gl_.end()) {
+      iter->second->DispatchPixelMap(pixelMap);
+    } else {
+      std::shared_ptr<OHOSExternalTextureGL> ohos_external_gl = std::make_shared<OHOSExternalTextureGL>(texture_id, ohos_surface_);
+      external_texture_gl_[texture_id] = ohos_external_gl;
+      RegisterTexture(ohos_external_gl);
+      ohos_external_gl->DispatchPixelMap(pixelMap);
+    }
+    MarkTextureFrameAvailable(texture_id);
+  }
+}
+
+OhosImageFrameData::OhosImageFrameData(
+    PlatformViewOHOS* context,
+    int64_t texture_id)
+    : context_(context), texture_id_(texture_id) {}
+
+OhosImageFrameData::~OhosImageFrameData() = default;
 
 }  // namespace flutter

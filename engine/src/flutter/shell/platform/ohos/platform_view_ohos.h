@@ -31,6 +31,9 @@
 #include "flutter/shell/platform/ohos/surface/ohos_snapshot_surface_producer.h"
 #include "flutter/shell/platform/ohos/surface/ohos_surface.h"
 #include "flutter/shell/platform/ohos/vsync_waiter_ohos.h"
+#include <multimedia/image_framework/image_mdk.h>
+#include "ohos_external_texture_gl.h"
+#include <multimedia/image_framework/image_pixel_map_mdk.h>
 
 namespace flutter {
 
@@ -84,6 +87,15 @@ class PlatformViewOHOS final : public PlatformView {
                                int action,
                                void* actionData,
                                int actionDataLenth);
+  void RegisterExternalTextureByImage(
+      int64_t texture_id,
+      ImageNative* image);
+
+  uint64_t RegisterExternalTexture(int64_t texture_id);
+
+  void RegisterExternalTextureByPixelMap(int64_t texture_id, NativePixelMap* pixelMap);
+
+  void UnRegisterExternalTexture(int64_t texture_id);
 
   // |PlatformView|
   void LoadDartDeferredLibrary(
@@ -117,6 +129,7 @@ class PlatformViewOHOS final : public PlatformView {
   std::shared_ptr<PlatformMessageHandlerOHOS> platform_message_handler_;
 
   std::shared_ptr<OhosSurfaceFactoryImpl> surface_factory_;
+  std::map<int64_t, std::shared_ptr<OHOSExternalTextureGL>> external_texture_gl_;
 
   // |PlatformView|
   void UpdateSemantics(
@@ -164,6 +177,23 @@ class PlatformViewOHOS final : public PlatformView {
   void FireFirstFrameCallback();
 
   FML_DISALLOW_COPY_AND_ASSIGN(PlatformViewOHOS);
+
+  OH_OnFrameAvailableListener nativeImageFrameAvailableListener_{};
+
+  static void OnNativeImageFrameAvailable(void *data);
 };
+
+class OhosImageFrameData {
+ public:
+  OhosImageFrameData(PlatformViewOHOS* context,
+                     int64_t texture_id);
+
+  ~OhosImageFrameData();
+
+  PlatformViewOHOS* context_;
+
+  int64_t texture_id_;
+};
+
 }  // namespace flutter
 #endif

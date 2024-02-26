@@ -143,6 +143,21 @@ class PlatformViewOHOSNapi {
       napi_env env,
       napi_callback_info info);  // 应用下发系统语言设置
 
+  static napi_value nativeInitNativeImage(napi_env env,
+      napi_callback_info info);
+
+  static napi_value nativeUnregisterTexture(napi_env env,
+      napi_callback_info info);
+
+  static napi_value nativeMarkTextureFrameAvailable(napi_env env,
+      napi_callback_info info);
+
+  static napi_value nativeRegisterPixelMap(napi_env env,
+      napi_callback_info info);
+
+  static napi_value nativeRegisterTexture(napi_env env,
+      napi_callback_info info);
+
   // Surface相关，XComponent调用
   static void SurfaceCreated(int64_t shell_holder, void* window);
   static void SurfaceChanged(int64_t shell_holder,
