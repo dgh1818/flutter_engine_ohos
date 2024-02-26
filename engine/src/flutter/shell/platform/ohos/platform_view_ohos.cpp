@@ -448,7 +448,7 @@ void PlatformViewOHOS::OnNativeImageFrameAvailable(void *data)
     return;
   }
   std::shared_ptr<OHOSSurface> ohos_surface = frameData->context_->ohos_surface_;
-  const TaskRunners task_runners = frameData->context_->task_runners_;;
+  const TaskRunners task_runners = frameData->context_->task_runners_;
   if (ohos_surface) {
     fml::AutoResetWaitableEvent latch;
     fml::TaskRunner::RunNowOrPostTask(
@@ -474,7 +474,7 @@ void PlatformViewOHOS::RegisterExternalTextureByPixelMap(int64_t texture_id, Nat
     if (iter != external_texture_gl_.end()) {
       iter->second->DispatchPixelMap(pixelMap);
     } else {
-      std::shared_ptr<OHOSExternalTextureGL> ohos_external_gl = 
+      std::shared_ptr<OHOSExternalTextureGL> ohos_external_gl =
           std::make_shared<OHOSExternalTextureGL>(texture_id, ohos_surface_);
       external_texture_gl_[texture_id] = ohos_external_gl;
       RegisterTexture(ohos_external_gl);

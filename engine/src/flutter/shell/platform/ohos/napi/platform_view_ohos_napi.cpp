@@ -1443,7 +1443,8 @@ napi_value PlatformViewOHOSNapi::nativeInitNativeImage(
 
 napi_value PlatformViewOHOSNapi::nativeRegisterTexture(
     napi_env env,
-    napi_callback_info info) {
+    napi_callback_info info)
+{
   FML_DLOG(INFO)<<"PlatformViewOHOSNapi::nativeRegisterTexture";
   size_t argc = 2;
   napi_value args[2] = {nullptr};
@@ -1460,7 +1461,8 @@ napi_value PlatformViewOHOSNapi::nativeRegisterTexture(
 
 napi_value PlatformViewOHOSNapi::nativeUnregisterTexture(
   napi_env env,
-  napi_callback_info info) {
+  napi_callback_info info)
+{
   FML_DLOG(INFO)<<"PlatformViewOHOSNapi::nativeUnregisterTexture";
   size_t argc = 2;
   napi_value args[2] = {nullptr};
@@ -1475,7 +1477,8 @@ napi_value PlatformViewOHOSNapi::nativeUnregisterTexture(
 
 napi_value PlatformViewOHOSNapi::nativeMarkTextureFrameAvailable(
   napi_env env,
-  napi_callback_info info) {
+  napi_callback_info info)
+{
   size_t argc = 2;
   napi_value args[2] = {nullptr};
   int64_t shell_holder;
@@ -1489,7 +1492,8 @@ napi_value PlatformViewOHOSNapi::nativeMarkTextureFrameAvailable(
 
 napi_value PlatformViewOHOSNapi::nativeRegisterPixelMap(
   napi_env env,
-  napi_callback_info info) {
+  napi_callback_info info)
+{
   FML_DLOG(INFO)<<"PlatformViewOHOSNapi::nativeRegisterPixelMap";
   size_t argc = 3;
   napi_value args[3] = {nullptr};

@@ -27,8 +27,9 @@
 #include "third_party/skia/include/gpu/GrDirectContext.h"
 
 #define EGL_PLATFORM_OHOS_KHR             0x34E0
-#define DMA_SIZE 256 // DMA内存分配的分块大小
-#define PIXEL_SIZE 4 // 像素点占用4个字节
+
+const int DMA_SIZE = 256 // DMA内存分配的分块大小
+const int PIXEL_SIZE = 4 // 像素点占用4个字节
 
 namespace flutter {
 using GetPlatformDisplayExt = PFNEGLGETPLATFORMDISPLAYEXTPROC;
@@ -57,7 +58,8 @@ OHOSExternalTextureGL::~OHOSExternalTextureGL()
   }
 }
 
-void OHOSExternalTextureGL::Attach() {
+void OHOSExternalTextureGL::Attach()
+{
   OHOSSurface* ohos_surface_ptr = ohos_surface_.get();
   OhosSurfaceGLSkia* ohosSurfaceGLSkia_ = (OhosSurfaceGLSkia*)ohos_surface_ptr;
   auto result = ohosSurfaceGLSkia_->GLContextMakeCurrent();
@@ -142,7 +144,8 @@ void OHOSExternalTextureGL::OnGrContextCreated()
   state_ = AttachmentState::uninitialized;
 }
 
-void OHOSExternalTextureGL::OnGrContextDestroyed() {
+void OHOSExternalTextureGL::OnGrContextDestroyed()
+{
   FML_DLOG(INFO)<<" OHOSExternalTextureGL::OnGrContextDestroyed";
   if (state_ == AttachmentState::attached) {
     Detach();
@@ -206,7 +209,8 @@ void OHOSExternalTextureGL::DispatchImage(ImageNative* image)
   lastImage_ = image;
 }
 
-void OHOSExternalTextureGL::HandlePixelMapBuffer() {
+void OHOSExternalTextureGL::HandlePixelMapBuffer()
+{
   BufferHandle *handle = OH_NativeWindow_GetBufferHandleFromNative(buffer_);
   // get virAddr of bufferHandl by mmap sys interface
   void *mappedAddr = mmap(handle->virAddr, handle->size, PROT_READ | PROT_WRITE, MAP_SHARED, handle->fd, 0);
@@ -243,7 +247,7 @@ void OHOSExternalTextureGL::HandlePixelMapBuffer() {
   }
 
   OH_PixelMap_UnAccessPixels(pixelMap_);
-  //munmap after use
+  // munmap after use
   ret = munmap(mappedAddr, handle->size);
   if (ret == -1) {
     FML_DLOG(FATAL)<<"OHOSExternalTextureGL munmap failed";
@@ -290,7 +294,8 @@ void OHOSExternalTextureGL::ProducePixelMapToNativeImage()
 }
 
 EGLDisplay OHOSExternalTextureGL::GetPlatformEglDisplay(EGLenum platform, void *native_display,
-    const EGLint *attrib_list) {
+    const EGLint *attrib_list)
+{
   GetPlatformDisplayExt eglGetPlatformDisplayExt = NULL;
 
   if (!eglGetPlatformDisplayExt) {
