@@ -28,8 +28,8 @@
 
 #define EGL_PLATFORM_OHOS_KHR             0x34E0
 
-const int DMA_SIZE = 256 // DMA内存分配的分块大小
-const int PIXEL_SIZE = 4 // 像素点占用4个字节
+const int DMA_SIZE = 256; // DMA内存分配的分块大小
+const int PIXEL_SIZE = 4; // 像素点占用4个字节
 
 namespace flutter {
 using GetPlatformDisplayExt = PFNEGLGETPLATFORMDISPLAYEXTPROC;
