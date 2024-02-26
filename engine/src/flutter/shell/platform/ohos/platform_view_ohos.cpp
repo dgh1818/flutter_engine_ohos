@@ -170,7 +170,8 @@ void PlatformViewOHOS::NotifyChanged(const SkISize& size) {
 }
 
 // |PlatformView|
-void PlatformViewOHOS::NotifyDestroyed() {
+void PlatformViewOHOS::NotifyDestroyed()
+{
   LOGI("PlatformViewOHOS NotifyDestroyed enter");
   PlatformView::NotifyDestroyed();
   if (ohos_surface_) {
@@ -392,13 +393,15 @@ void PlatformViewOHOS::FireFirstFrameCallback() {
 
 void PlatformViewOHOS::RegisterExternalTextureByImage(
     int64_t texture_id,
-    ImageNative* image) {
-  if(ohos_context_->RenderingApi() == OHOSRenderingAPI::kOpenGLES) {
+    ImageNative* image)
+{
+  if (ohos_context_->RenderingApi() == OHOSRenderingAPI::kOpenGLES) {
     auto iter = external_texture_gl_.find(texture_id);
-    if(iter != external_texture_gl_.end()) {
+    if (iter != external_texture_gl_.end()) {
       iter->second->DispatchImage(image);
     } else {
-      std::shared_ptr<OHOSExternalTextureGL> ohos_external_gl = std::make_shared<OHOSExternalTextureGL>(texture_id, ohos_surface_);
+      std::shared_ptr<OHOSExternalTextureGL> ohos_external_gl =
+        std::make_shared<OHOSExternalTextureGL>(texture_id, ohos_surface_);
       external_texture_gl_[texture_id] = ohos_external_gl;
       RegisterTexture(ohos_external_gl);
       ohos_external_gl->DispatchImage(image);
@@ -406,20 +409,23 @@ void PlatformViewOHOS::RegisterExternalTextureByImage(
   }
 }
 
-uint64_t PlatformViewOHOS::RegisterExternalTexture(int64_t texture_id) {
+uint64_t PlatformViewOHOS::RegisterExternalTexture(int64_t texture_id)
+{
   uint64_t surface_id = 0;
   int ret = -1;
   if (ohos_context_->RenderingApi() == OHOSRenderingAPI::kOpenGLES) {
-    std::shared_ptr<OHOSExternalTextureGL> ohos_external_gl = std::make_shared<OHOSExternalTextureGL>(texture_id, ohos_surface_);
+    std::shared_ptr<OHOSExternalTextureGL> ohos_external_gl =
+      std::make_shared<OHOSExternalTextureGL>(texture_id, ohos_surface_);
     ohos_external_gl->nativeImage_ = OH_NativeImage_Create(texture_id, GL_TEXTURE_EXTERNAL_OES);
     if (ohos_external_gl->nativeImage_ == nullptr) {
       FML_DLOG(ERROR) << "Error with OH_NativeImage_Create";
       return surface_id;
     }
     void* contextData = new OhosImageFrameData(this, texture_id);
-    nativeImageFrameAvailableListener_.context = contextData;
-    nativeImageFrameAvailableListener_.onFrameAvailable = &PlatformViewOHOS::OnNativeImageFrameAvailable;
-    ret = OH_NativeImage_SetOnFrameAvailableListener(ohos_external_gl->nativeImage_, nativeImageFrameAvailableListener_);
+    OH_OnFrameAvailableListener listener;
+    listener.context = contextData;
+    listener.onFrameAvailable = &PlatformViewOHOS::OnNativeImageFrameAvailable;
+    ret = OH_NativeImage_SetOnFrameAvailableListener(ohos_external_gl->nativeImage_, listener);
     if (ret != 0) {
       FML_DLOG(ERROR) << "Error with OH_NativeImage_SetOnFrameAvailableListener";
       return surface_id;
@@ -434,7 +440,8 @@ uint64_t PlatformViewOHOS::RegisterExternalTexture(int64_t texture_id) {
   return surface_id;
 }
 
-void PlatformViewOHOS::OnNativeImageFrameAvailable(void *data) {
+void PlatformViewOHOS::OnNativeImageFrameAvailable(void *data)
+{
   auto frameData = reinterpret_cast<OhosImageFrameData *>(data);
   if (frameData == nullptr || frameData->context_ == nullptr) {
     FML_DLOG(ERROR) << "OnNativeImageFrameAvailable, frameData or context_ is null.";
@@ -467,7 +474,8 @@ void PlatformViewOHOS::RegisterExternalTextureByPixelMap(int64_t texture_id, Nat
     if (iter != external_texture_gl_.end()) {
       iter->second->DispatchPixelMap(pixelMap);
     } else {
-      std::shared_ptr<OHOSExternalTextureGL> ohos_external_gl = std::make_shared<OHOSExternalTextureGL>(texture_id, ohos_surface_);
+      std::shared_ptr<OHOSExternalTextureGL> ohos_external_gl = 
+          std::make_shared<OHOSExternalTextureGL>(texture_id, ohos_surface_);
       external_texture_gl_[texture_id] = ohos_external_gl;
       RegisterTexture(ohos_external_gl);
       ohos_external_gl->DispatchPixelMap(pixelMap);

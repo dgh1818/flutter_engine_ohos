@@ -41,7 +41,7 @@ class OHOSUnifiedSurface : public GPUSurfaceGLDelegate,
 
   bool SetNativeWindow(fml::RefPtr<OHOSNativeWindow> window) {}
 
-  std::unique_ptr<Surface> CreateSnapshotSurface() 
+  std::unique_ptr<Surface> CreateSnapshotSurface()
 
   std::unique_ptr<Surface> CreateGPUSurface(
       GrDirectContext* gr_context = nullptr) {}

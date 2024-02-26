@@ -21,19 +21,20 @@
 #include <unordered_map>
 #include <vector>
 
+#include <multimedia/image_framework/image_mdk.h>
+#include <multimedia/image_framework/image_pixel_map_mdk.h>
+
 #include "flutter/fml/memory/weak_ptr.h"
 #include "flutter/lib/ui/window/platform_message.h"
 #include "flutter/shell/common/platform_view.h"
 #include "flutter/shell/platform/ohos/context/ohos_context.h"
 #include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
+#include "flutter/shell/platform/ohos/ohos_external_texture_gl.h"
 #include "flutter/shell/platform/ohos/platform_message_handler_ohos.h"
 #include "flutter/shell/platform/ohos/surface/ohos_native_window.h"
 #include "flutter/shell/platform/ohos/surface/ohos_snapshot_surface_producer.h"
 #include "flutter/shell/platform/ohos/surface/ohos_surface.h"
 #include "flutter/shell/platform/ohos/vsync_waiter_ohos.h"
-#include <multimedia/image_framework/image_mdk.h>
-#include "ohos_external_texture_gl.h"
-#include <multimedia/image_framework/image_pixel_map_mdk.h>
 
 namespace flutter {
 
@@ -177,8 +178,6 @@ class PlatformViewOHOS final : public PlatformView {
   void FireFirstFrameCallback();
 
   FML_DISALLOW_COPY_AND_ASSIGN(PlatformViewOHOS);
-
-  OH_OnFrameAvailableListener nativeImageFrameAvailableListener_{};
 
   static void OnNativeImageFrameAvailable(void *data);
 };

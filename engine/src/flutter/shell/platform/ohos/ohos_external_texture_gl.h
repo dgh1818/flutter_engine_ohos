@@ -20,15 +20,16 @@
 #include <EGL/eglext.h>
 #include <GLES3/gl3.h>
 
-#include "flutter/common/graphics/texture.h"
-#include "flutter/shell/platform/ohos/surface/ohos_surface.h"
-#include "flutter/shell/platform/ohos/ohos_surface_gl_skia.h"
-#include "napi/platform_view_ohos_napi.h"
 #include <multimedia/image_framework/image_mdk.h>
-#include <native_window/external_window.h>
-#include <native_image/native_image.h>
 #include <multimedia/image_framework/image_pixel_map_mdk.h>
 #include <native_buffer/native_buffer.h>
+#include <native_window/external_window.h>
+#include <native_image/native_image.h>
+
+#include "flutter/common/graphics/texture.h"
+#include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
+#include "flutter/shell/platform/ohos/ohos_surface_gl_skia.h"
+#include "flutter/shell/platform/ohos/surface/ohos_surface.h"
 
 // maybe now unused
 namespace flutter {
@@ -59,6 +60,8 @@ class OHOSExternalTextureGL : public flutter::Texture {
   void DispatchPixelMap(NativePixelMap* pixelMap);
 
  private:
+  void Attach();
+
   void Update();
 
   void Detach();
@@ -68,6 +71,8 @@ class OHOSExternalTextureGL : public flutter::Texture {
   EGLDisplay GetPlatformEglDisplay(EGLenum platform, void *native_display, const EGLint *attrib_list);
 
   bool CheckEglExtension(const char *extensions, const char *extension);
+
+  void HandlePixelMapBuffer();
 
   void ProducePixelMapToNativeImage();
 

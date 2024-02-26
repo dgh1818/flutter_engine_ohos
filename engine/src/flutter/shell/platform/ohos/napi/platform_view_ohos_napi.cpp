@@ -16,20 +16,21 @@
 #include "platform_view_ohos_napi.h"
 #include <dlfcn.h>
 #include <js_native_api.h>
+#include <multimedia/image_framework/image_mdk.h>
+#include <multimedia/image_framework/image_pixel_map_mdk.h>
+#include <native_image/native_image.h>
 #include <rawfile/raw_file.h>
 #include <rawfile/raw_file_manager.h>
 #include <string>
-#include "../types.h"
+
 #include "flutter/fml/make_copyable.h"
 #include "flutter/fml/platform/ohos/napi_util.h"
 #include "flutter/shell/platform/ohos/ohos_main.h"
 #include "flutter/shell/platform/ohos/ohos_shell_holder.h"
 #include "flutter/shell/platform/ohos/surface/ohos_native_window.h"
+#include "flutter/shell/platform/ohos/types.h"
 #include "unicode/uchar.h"
 #include "flutter/shell/platform/ohos/ohos_xcomponent_adapter.h"
-#include <native_image/native_image.h>
-#include <multimedia/image_framework/image_mdk.h>
-#include <multimedia/image_framework/image_pixel_map_mdk.h>
 
 #define OHOS_SHELL_HOLDER (reinterpret_cast<OHOSShellHolder*>(shell_holder))
 namespace flutter {
@@ -1424,11 +1425,13 @@ napi_value PlatformViewOHOSNapi::nativeGetSystemLanguages(
 
 napi_value PlatformViewOHOSNapi::nativeInitNativeImage(
     napi_env env,
-    napi_callback_info info) {
+    napi_callback_info info)
+{
   FML_DLOG(INFO)<<"PlatformViewOHOSNapi::nativeInitNativeImage";
   size_t argc = 3;
   napi_value args[3] = {nullptr};
-  int64_t shell_holder, textureId;
+  int64_t shell_holder;
+  int64_t textureId;
   NAPI_CALL(env, napi_get_cb_info(env, info, &argc, args, nullptr, nullptr));
   NAPI_CALL(env, napi_get_value_int64(env, args[0], &shell_holder));
   NAPI_CALL(env, napi_get_value_int64(env, args[1], &textureId));
@@ -1438,13 +1441,14 @@ napi_value PlatformViewOHOSNapi::nativeInitNativeImage(
   return nullptr;
 }
 
-napi_value PlatformViewOHOSNapi::nativeRegisterTexture(napi_env env,
-      napi_callback_info info)
-{
+napi_value PlatformViewOHOSNapi::nativeRegisterTexture(
+    napi_env env,
+    napi_callback_info info) {
   FML_DLOG(INFO)<<"PlatformViewOHOSNapi::nativeRegisterTexture";
   size_t argc = 2;
   napi_value args[2] = {nullptr};
-  int64_t shell_holder, textureId;
+  int64_t shell_holder;
+  int64_t textureId;
   NAPI_CALL(env, napi_get_cb_info(env, info, &argc, args, nullptr, nullptr));
   NAPI_CALL(env, napi_get_value_int64(env, args[0], &shell_holder));
   NAPI_CALL(env, napi_get_value_int64(env, args[1], &textureId));
@@ -1455,12 +1459,13 @@ napi_value PlatformViewOHOSNapi::nativeRegisterTexture(napi_env env,
 }
 
 napi_value PlatformViewOHOSNapi::nativeUnregisterTexture(
-  napi_env env, napi_callback_info info)
-{
+  napi_env env,
+  napi_callback_info info) {
   FML_DLOG(INFO)<<"PlatformViewOHOSNapi::nativeUnregisterTexture";
   size_t argc = 2;
   napi_value args[2] = {nullptr};
-  int64_t shell_holder, textureId;
+  int64_t shell_holder;
+  int64_t textureId;
   NAPI_CALL(env, napi_get_cb_info(env, info, &argc, args, nullptr, nullptr));
   NAPI_CALL(env, napi_get_value_int64(env, args[0], &shell_holder));
   NAPI_CALL(env, napi_get_value_int64(env, args[1], &textureId));
@@ -1469,11 +1474,12 @@ napi_value PlatformViewOHOSNapi::nativeUnregisterTexture(
 }
 
 napi_value PlatformViewOHOSNapi::nativeMarkTextureFrameAvailable(
-  napi_env env, napi_callback_info info)
-{
+  napi_env env,
+  napi_callback_info info) {
   size_t argc = 2;
   napi_value args[2] = {nullptr};
-  int64_t shell_holder, textureId;
+  int64_t shell_holder;
+  int64_t textureId;
   NAPI_CALL(env, napi_get_cb_info(env, info, &argc, args, nullptr, nullptr));
   NAPI_CALL(env, napi_get_value_int64(env, args[0], &shell_holder));
   NAPI_CALL(env, napi_get_value_int64(env, args[1], &textureId));
@@ -1481,13 +1487,14 @@ napi_value PlatformViewOHOSNapi::nativeMarkTextureFrameAvailable(
   return nullptr;
 }
 
-napi_value PlatformViewOHOSNapi::nativeRegisterPixelMap(napi_env env,
-  napi_callback_info info)
-{
+napi_value PlatformViewOHOSNapi::nativeRegisterPixelMap(
+  napi_env env,
+  napi_callback_info info) {
   FML_DLOG(INFO)<<"PlatformViewOHOSNapi::nativeRegisterPixelMap";
   size_t argc = 3;
   napi_value args[3] = {nullptr};
-  int64_t shell_holder, textureId;
+  int64_t shell_holder;
+  int64_t textureId;
   NAPI_CALL(env, napi_get_cb_info(env, info, &argc, args, nullptr, nullptr));
   NAPI_CALL(env, napi_get_value_int64(env, args[0], &shell_holder));
   NAPI_CALL(env, napi_get_value_int64(env, args[1], &textureId));
