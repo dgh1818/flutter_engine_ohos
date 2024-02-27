@@ -403,6 +403,10 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     return this.flutterEngine?.getFlutterNapi() ?? null
   }
 
+  getFlutterEngine(): FlutterEngine | null {
+    return this.flutterEngine ?? null;
+  }
+
   detachFromFlutterEngine() {
     if (this.host?.shouldDestroyEngineWithHost()) {
       // The host owns the engine and should never have its engine taken by another exclusive

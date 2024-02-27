@@ -339,7 +339,7 @@ export default class StandardMessageCodec implements MessageCodec<ESObject> {
                 break;
             }
             default:
-                throw new Error("Message corrupted");
+                throw new Error("Message corrupted, type=" + type);
         }
         return result;
     }

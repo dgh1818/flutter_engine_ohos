@@ -16,7 +16,6 @@
 #ifndef PLATFORM_VIEW_OHOS_NAPI_H
 #define PLATFORM_VIEW_OHOS_NAPI_H
 #include <memory>
-#include "../napi_common.h"
 #include "flutter/assets/directory_asset_bundle.h"
 #include "flutter/common/settings.h"
 #include "flutter/fml/file.h"
@@ -27,6 +26,7 @@
 #include "flutter/lib/ui/plugins/callback_cache.h"
 #include "flutter/runtime/dart_service_isolate.h"
 #include "flutter/shell/common/run_configuration.h"
+#include "flutter/shell/platform/ohos/napi_common.h"
 #include "napi/native_api.h"
 // class for all c++ to call js function
 namespace flutter {
@@ -143,11 +143,34 @@ class PlatformViewOHOSNapi {
       napi_env env,
       napi_callback_info info);  // 应用下发系统语言设置
 
+  static napi_value nativeInitNativeImage(
+      napi_env env,
+      napi_callback_info info);
+
+  static napi_value nativeUnregisterTexture(
+      napi_env env,
+      napi_callback_info info);
+
+  static napi_value nativeMarkTextureFrameAvailable(
+      napi_env env,
+      napi_callback_info info);
+
+  static napi_value nativeRegisterPixelMap(
+      napi_env env,
+      napi_callback_info info);
+
+  static napi_value nativeRegisterTexture(
+      napi_env env,
+      napi_callback_info info);
+
   // Surface相关，XComponent调用
   static void SurfaceCreated(int64_t shell_holder, void* window);
-  static void SurfaceChanged(int64_t shell_holder,
-                             int32_t width,
-                             int32_t height);
+
+  static void SurfaceChanged(
+      int64_t shell_holder,
+      int32_t width,
+      int32_t height);
+
   static void SurfaceDestroyed(int64_t shell_holder);
   static int64_t GetShellHolder();
   static napi_value nativeXComponentAttachFlutterEngine(
