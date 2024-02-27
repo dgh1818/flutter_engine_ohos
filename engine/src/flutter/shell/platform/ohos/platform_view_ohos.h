@@ -21,11 +21,15 @@
 #include <unordered_map>
 #include <vector>
 
+#include <multimedia/image_framework/image_mdk.h>
+#include <multimedia/image_framework/image_pixel_map_mdk.h>
+
 #include "flutter/fml/memory/weak_ptr.h"
 #include "flutter/lib/ui/window/platform_message.h"
 #include "flutter/shell/common/platform_view.h"
 #include "flutter/shell/platform/ohos/context/ohos_context.h"
 #include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
+#include "flutter/shell/platform/ohos/ohos_external_texture_gl.h"
 #include "flutter/shell/platform/ohos/platform_message_handler_ohos.h"
 #include "flutter/shell/platform/ohos/surface/ohos_native_window.h"
 #include "flutter/shell/platform/ohos/surface/ohos_snapshot_surface_producer.h"
@@ -84,6 +88,15 @@ class PlatformViewOHOS final : public PlatformView {
                                int action,
                                void* actionData,
                                int actionDataLenth);
+  void RegisterExternalTextureByImage(
+      int64_t texture_id,
+      ImageNative* image);
+
+  uint64_t RegisterExternalTexture(int64_t texture_id);
+
+  void RegisterExternalTextureByPixelMap(int64_t texture_id, NativePixelMap* pixelMap);
+
+  void UnRegisterExternalTexture(int64_t texture_id);
 
   // |PlatformView|
   void LoadDartDeferredLibrary(
@@ -117,6 +130,7 @@ class PlatformViewOHOS final : public PlatformView {
   std::shared_ptr<PlatformMessageHandlerOHOS> platform_message_handler_;
 
   std::shared_ptr<OhosSurfaceFactoryImpl> surface_factory_;
+  std::map<int64_t, std::shared_ptr<OHOSExternalTextureGL>> external_texture_gl_;
 
   // |PlatformView|
   void UpdateSemantics(
@@ -164,6 +178,21 @@ class PlatformViewOHOS final : public PlatformView {
   void FireFirstFrameCallback();
 
   FML_DISALLOW_COPY_AND_ASSIGN(PlatformViewOHOS);
+
+  static void OnNativeImageFrameAvailable(void *data);
 };
+
+class OhosImageFrameData {
+ public:
+  OhosImageFrameData(PlatformViewOHOS* context,
+                     int64_t texture_id);
+
+  ~OhosImageFrameData();
+
+  PlatformViewOHOS* context_;
+
+  int64_t texture_id_;
+};
+
 }  // namespace flutter
 #endif

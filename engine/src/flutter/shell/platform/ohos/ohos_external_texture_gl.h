@@ -15,19 +15,32 @@
 
 #ifndef OHOS_EXTERNAL_TEXTURE_GL_H
 #define OHOS_EXTERNAL_TEXTURE_GL_H
-#include <GLES/gl.h>
+
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
+#include <GLES3/gl3.h>
+
+#include <multimedia/image_framework/image_mdk.h>
+#include <multimedia/image_framework/image_pixel_map_mdk.h>
+#include <native_buffer/native_buffer.h>
+#include <native_window/external_window.h>
+#include <native_image/native_image.h>
 
 #include "flutter/common/graphics/texture.h"
-#include "napi/platform_view_ohos_napi.h"
+#include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
+#include "flutter/shell/platform/ohos/ohos_surface_gl_skia.h"
+#include "flutter/shell/platform/ohos/surface/ohos_surface.h"
 
 // maybe now unused
 namespace flutter {
 
 class OHOSExternalTextureGL : public flutter::Texture {
  public:
-  explicit OHOSExternalTextureGL(int id);
+  explicit OHOSExternalTextureGL(int64_t id, const std::shared_ptr<OHOSSurface>& ohos_surface);
 
   ~OHOSExternalTextureGL() override;
+
+  OH_NativeImage *nativeImage_;
 
   void Paint(PaintContext& context,
              const SkRect& bounds,
@@ -42,14 +55,26 @@ class OHOSExternalTextureGL : public flutter::Texture {
 
   void OnTextureUnregistered() override;
 
+  void DispatchImage(ImageNative* image);
+
+  void DispatchPixelMap(NativePixelMap* pixelMap);
+
  private:
-  void Attach(int textureName);
+  void Attach();
 
   void Update();
 
   void Detach();
 
   void UpdateTransform();
+
+  EGLDisplay GetPlatformEglDisplay(EGLenum platform, void *native_display, const EGLint *attrib_list);
+
+  bool CheckEglExtension(const char *extensions, const char *extension);
+
+  void HandlePixelMapBuffer();
+
+  void ProducePixelMapToNativeImage();
 
   enum class AttachmentState { uninitialized, attached, detached };
 
@@ -59,7 +84,24 @@ class OHOSExternalTextureGL : public flutter::Texture {
 
   GLuint texture_name_ = 0;
 
+  std::shared_ptr<OHOSSurface> ohos_surface_;
+
   SkMatrix transform;
+
+  OHNativeWindow *nativeWindow_;
+
+  OHNativeWindowBuffer *buffer_;
+
+  NativePixelMap* pixelMap_;
+
+  ImageNative* lastImage_;
+
+  OhosPixelMapInfos pixelMapInfo;
+
+  int fenceFd = -1;
+
+  EGLContext eglContext_;
+  EGLDisplay eglDisplay_;
 
   FML_DISALLOW_COPY_AND_ASSIGN(OHOSExternalTextureGL);
 };

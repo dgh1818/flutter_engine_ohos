@@ -74,7 +74,7 @@ export default class BasicMessageChannel<T> {
    *
    * @param handler a {@link MessageHandler}, or null to deregister.
    */
-  setMessageHandler(handler: MessageHandler<T>): void {
+  setMessageHandler(handler: MessageHandler<T> | null): void {
     // We call the 2 parameter variant specifically to avoid breaking changes in
     // mock verify calls.
     // See https://github.com/flutter/flutter/issues/92582.
@@ -136,7 +136,7 @@ class IncomingReplyHandler <T> implements BinaryReply {
     this.codec = codec
   }
 
-  reply(reply: ArrayBuffer) {
+  reply(reply: ArrayBuffer | null) {
     try {
       this.callback(this.codec.decodeMessage(reply));
     } catch (e) {
@@ -146,17 +146,17 @@ class IncomingReplyHandler <T> implements BinaryReply {
 }
 
 class IncomingMessageHandler<T> implements BinaryMessageHandler {
-  private handler: MessageHandler<T>
+  private handler: MessageHandler<T> | null
   private codec: MessageCodec<T>
 
-  constructor(handler: MessageHandler<T>, codec: MessageCodec<T>) {
+  constructor(handler: MessageHandler<T> | null, codec: MessageCodec<T>) {
     this.handler = handler;
     this.codec = codec
   }
 
   onMessage(message: ArrayBuffer, callback: BinaryReply) {
     try {
-      this.handler.onMessage(
+      this.handler?.onMessage(
         this.codec.decodeMessage(message),
         {
           reply: (reply: T): void => {

@@ -55,7 +55,7 @@ export default class FlutterEngineConnectionRegistry implements PluginRegistry, 
 
   constructor(appContext: common.Context, flutterEngine: FlutterEngine, flutterLoader: FlutterLoader) {
     this.flutterEngine = flutterEngine;
-    this.pluginBinding = new FlutterPluginBinding(appContext, flutterEngine, flutterEngine.getDartExecutor(), new DefaultFlutterAssets(flutterLoader), flutterEngine.getPlatformViewsController()?.getRegistry());
+    this.pluginBinding = new FlutterPluginBinding(appContext, flutterEngine, flutterEngine.getDartExecutor(), new DefaultFlutterAssets(flutterLoader), flutterEngine.getFlutterRenderer(), flutterEngine.getPlatformViewsController()?.getRegistry());
   }
 
   add(plugin: FlutterPlugin): void {

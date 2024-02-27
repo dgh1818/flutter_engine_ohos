@@ -35,18 +35,18 @@ const TAG = "FlutterPage";
  */
 @Component
 export struct FlutterPage {
-  @State rootDvModel: DVModel | undefined = undefined
+  @State rootDvModel: DVModelChildren | undefined = undefined
   @Prop viewId: string = ""
   private flutterView?: FlutterView | null
 
   aboutToAppear() {
     this.flutterView = FlutterManager.getInstance().getFlutterView(this.viewId);
-    this.rootDvModel = this.flutterView!!.getDVModel()
+    this.rootDvModel = this.flutterView!!.getDVModel().children
   }
 
   build() {
     Stack() {
-      XComponent({ id: this.viewId, type: 'texture', libraryname: 'flutter' })
+      XComponent({ id: this.viewId, type: XComponentType.TEXTURE, libraryname: 'flutter' })
         .focusable(true)
         .onLoad((context) => {
           this.flutterView?.onSurfaceCreated()
@@ -56,13 +56,14 @@ export struct FlutterPage {
           Log.d(TAG, "XComponent onDestroy ");
           this.flutterView?.onSurfaceDestroyed()
         })
-      DynamicView({
-        model: this.rootDvModel,
-        params: this.rootDvModel!!.params as DVModelParameters,
-        events: this.rootDvModel!!.events as DVModelEvents,
-        children: this.rootDvModel!!.children as DVModelChildren,
-        customBuilder: this.rootDvModel!!.builder as ($$: Record<"params", DVModelParameters>) => void
-        //customBuilder: this.rootDvModel.model.builder as ($$: { params: DVModelParameters }) => void
+      ForEach(this.rootDvModel!!, (child:ESObject) =>{
+        DynamicView({
+          model: child as DVModel,
+          params:child.params,
+          events:child.events,
+          children:child.children,
+          customBuilder:child.builder
+        })
       })
     }
     .onAreaChange((oldValue: Area, newValue: Area) => {

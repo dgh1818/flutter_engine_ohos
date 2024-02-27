@@ -38,26 +38,31 @@ export default class FlutterEntry implements Host {
   private flutterView: FlutterView | null = null
   private context: Context;
   private windowStage: window.WindowStage | null = null
-  private parameters: ESObject = {};
+  private parameters: Record<string, Object> = {};
   private engineConfigurator: FlutterEngineConfigurator | null = null
+  private hasInit: boolean = false;
 
-  constructor(context: Context, params: ESObject = {}) {
+  constructor(context: Context, params: Record<string, Object> = {}) {
     this.context = context;
     this.uiAbility = FlutterManager.getInstance().getUIAbility(context);
     this.parameters = params;
     this.windowStage = FlutterManager.getInstance().getWindowStage(this.uiAbility);
+    this.hasInit = false;
   }
 
   async aboutToAppear() {
     Log.i(TAG, 'aboutToAppear');
-    this.delegate = new FlutterAbilityAndEntryDelegate(this);
-    this.flutterView = this.delegate?.createView(this.context);
-    await this?.delegate?.onAttach(this.context);
-    Log.i(TAG, 'onAttach end');
-    this?.delegate?.platformPlugin?.setUIAbilityContext(this.uiAbility!!.context);
-    this.delegate?.onCreate();
-    this.delegate?.onWindowStageCreate()
-    this.windowStage?.on('windowStageEvent', this.windowStageEventCallback);
+    if (this.hasInit == false) {
+      this.delegate = new FlutterAbilityAndEntryDelegate(this);
+      this.flutterView = this.delegate?.createView(this.context);
+      await this?.delegate?.onAttach(this.context);
+      Log.i(TAG, 'onAttach end');
+      this?.delegate?.platformPlugin?.setUIAbilityContext(this.uiAbility!!.context);
+      this.delegate?.onCreate();
+      this.delegate?.onWindowStageCreate()
+      this.windowStage?.on('windowStageEvent', this.windowStageEventCallback);
+      this.hasInit = true;
+    }
   }
 
   private windowStageEventCallback = (data: window.WindowStageEventType) => {
@@ -117,6 +122,11 @@ export default class FlutterEntry implements Host {
   onPageHide() { //生命周期
     Log.d(TAG, "FlutterEntry onPageHide===");
     this?.delegate?.onBackground();
+  }
+
+  onBackPress() {
+    Log.d(TAG, "FlutterEntry onBackPress===");
+    this?.delegate?.flutterEngine?.getNavigationChannel()?.popRoute();
   }
 
   shouldDispatchAppLifecycleState(): boolean {

@@ -39,6 +39,7 @@ import GeneratedPluginRegister from '../engine/plugins/util/GeneratedPluginRegis
 import { UIContext } from '@ohos.arkui.UIContext';
 import { FlutterView } from '../../view/FlutterView';
 import FlutterManager from './FlutterManager';
+import router from '@ohos.router';
 
 const TAG = "FlutterAbilityDelegate";
 const PLUGINS_RESTORATION_BUNDLE_KEY = "plugins";
@@ -97,7 +98,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     }
     if (this.flutterEngine) {
       this.textInputPlugin = new TextInputPlugin(this.flutterEngine.getTextInputChannel()!);
-      this.platformPlugin = new PlatformPlugin(this.flutterEngine.getPlatformChannel()!, this.context);
+      this.platformPlugin = new PlatformPlugin(this.flutterEngine.getPlatformChannel()!, this.context, this);
       this.settings = new Settings(this.flutterEngine.getSettingsChannel()!);
       this.flutterEngine.getSystemLanguages();
     }
@@ -105,6 +106,11 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
       this.flutterView.attachToFlutterEngine(this.flutterEngine!!);
     }
     this.host?.configureFlutterEngine(this.flutterEngine!!);
+  }
+
+  popSystemNavigator(): boolean {
+    router.back();
+    return true;
   }
 
   /**
@@ -395,6 +401,10 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
 
   getFlutterNapi() : FlutterNapi | null {
     return this.flutterEngine?.getFlutterNapi() ?? null
+  }
+
+  getFlutterEngine(): FlutterEngine | null {
+    return this.flutterEngine ?? null;
   }
 
   detachFromFlutterEngine() {

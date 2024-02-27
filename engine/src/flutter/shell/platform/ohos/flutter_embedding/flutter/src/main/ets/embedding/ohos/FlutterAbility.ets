@@ -208,6 +208,10 @@ export class FlutterAbility extends UIAbility implements Host {
     return this;
   }
 
+  getFlutterAbilityAndEntryDelegate(): FlutterAbilityAndEntryDelegate | null{
+    return this.delegate ?? null;
+  }
+
   shouldDispatchAppLifecycleState(): boolean {
     return true;
   }
