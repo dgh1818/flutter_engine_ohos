@@ -14,6 +14,10 @@
 */
 
 import ToolUtils from '../../util/ToolUtils';
+import TreeMap from '@ohos.util.TreeMap';
+import HashMap from '@ohos.util.HashMap';
+import LightWeightMap from '@ohos.util.LightWeightMap';
+
 /** Command object representing a method call on a {@link MethodChannel}. */
 export default class MethodCall {
   /** The name of the called method. */
@@ -30,7 +34,16 @@ export default class MethodCall {
 
   constructor(method: string, args: ESObject) {
     this.method = method
-    this.args = args
+    if (args instanceof Map || args instanceof HashMap || args instanceof TreeMap
+        || args instanceof LightWeightMap ) {
+      let obj: ESObject = {};
+      args.forEach((value: ESObject, key: ESObject)=>{
+         obj[key] = value;
+      })
+      this.args = obj;
+    }else {
+      this.args = args;
+    }
   }
 
   argument(key: string): ESObject {
