@@ -34,7 +34,7 @@ import common from '@ohos.app.ability.common';
  */
 export default class PlatformPlugin {
   private static TAG = "PlatformPlugin";
-  private callback = new PlatformPluginCallback();
+  callback = new PlatformPluginCallback();
 
   constructor(platformChannel: PlatformChannel, context: common.Context, platformPluginDelegate?: PlatformPluginDelegate) {
     this.callback.platformChannel = platformChannel;
@@ -92,7 +92,7 @@ export interface PlatformPluginDelegate {
   popSystemNavigator(): boolean;
 }
 
-class PlatformPluginCallback implements PlatformMessageHandler {
+export class PlatformPluginCallback implements PlatformMessageHandler {
   private static TAG = "PlatformPluginCallback";
   platform: PlatformPlugin | null = null;
   windowClass: window.Window | null = null;
