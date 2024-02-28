@@ -68,6 +68,18 @@ export default class JSONMessageCodec implements MessageCodec<Object> {
           messageObj[this.toBaseData(key)] = this.toBaseData(value);
         });
         return messageObj;
+    } else if (message instanceof Array) {
+      let messageArr:Array<ESObject> = [];
+      message.forEach((value:ESObject)=>{
+        messageArr.push(this.toBaseData(value));
+      })
+      return messageArr;
+    } else if (message instanceof Object) {
+      let messageObj: ESObject = {};
+      Object.keys(message).forEach((key:ESObject)=>{
+        messageObj[this.toBaseData(key)] = this.toBaseData(message[key]);
+      })
+      return messageObj;
     } else {
         return message;
     }
