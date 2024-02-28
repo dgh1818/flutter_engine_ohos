@@ -301,8 +301,9 @@ def to_gn_args(args):
   gn_args['android_full_debug'
          ] = args.target_os == 'android' and args.unoptimized
   
-  gn_args['ohos_api_int'] = args.ohos_api_int
-  
+  if  args.target_os == 'ohos':
+      gn_args['ohos_api_int'] = args.ohos_api_int
+
   if args.clang is None:
     gn_args['is_clang'] = True
   else:
