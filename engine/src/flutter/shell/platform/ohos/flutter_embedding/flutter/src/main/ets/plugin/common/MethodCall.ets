@@ -33,17 +33,8 @@ export default class MethodCall {
   args: ESObject;
 
   constructor(method: string, args: ESObject) {
-    this.method = method
-    if (args instanceof Map || args instanceof HashMap || args instanceof TreeMap
-        || args instanceof LightWeightMap ) {
-      let obj: ESObject = {};
-      args.forEach((value: ESObject, key: ESObject)=>{
-         obj[key] = value;
-      })
-      this.args = obj;
-    }else {
-      this.args = args;
-    }
+    this.method = method;
+    this.args = args;
   }
 
   argument(key: string): ESObject {
