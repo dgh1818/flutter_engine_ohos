@@ -124,7 +124,7 @@ export class FlutterAbility extends UIAbility implements Host {
    * window状态改变回调
    * @param windowStage
    */
-  async onWindowStageCreate(windowStage: window.WindowStage) {
+  onWindowStageCreate(windowStage: window.WindowStage) {
     FlutterManager.getInstance().pushWindowStage(this, windowStage);
     this.mainWindow = windowStage.getMainWindowSync();
     try {
