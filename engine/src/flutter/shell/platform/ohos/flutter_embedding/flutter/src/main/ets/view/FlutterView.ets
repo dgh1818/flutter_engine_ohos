@@ -177,7 +177,7 @@ export class FlutterView {
     this.updateViewportMetrics()
   }
 
-  private isAttachedToFlutterEngine(): boolean {
+  public isAttachedToFlutterEngine(): boolean {
     return this.flutterEngine != null
   }
 
