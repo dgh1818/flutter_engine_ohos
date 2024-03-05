@@ -57,9 +57,9 @@ export class FlutterRenderer implements TextureRegistry {
   }
 
   registerPixelMap(pixelMap: PixelMap): number {
-    let textureId = this.nextTextureId + 1;
-    this.flutterNapi.registerPixelMap(textureId, pixelMap);
-    return textureId;
+    this.nextTextureId = this.nextTextureId + 1;
+    this.flutterNapi.registerPixelMap(this.nextTextureId, pixelMap);
+    return this.nextTextureId;
   }
 
   unregisterTexture(textureId: number): void {
