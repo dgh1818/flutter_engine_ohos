@@ -76,6 +76,17 @@ export OHOS_SDK_HOME=<ohos-sdk-full>
 
 4. 查看帮助：`./ohos -h`
 
+5. 由于windows和mac、linux对换行符处理方式不同，在应用dart补丁时会造成dart vm snapshot hash结果不同，可通过以下方法获取当前snapshot hash值
+
+   ```shell
+   python xxx/src/third_party/dart/tools/make_version.py --format='{{SNAPSHOT_HASH}}'
+   ```
+
+   其中xxx为你自己创建的engine路径
+
+   如果获取到的值不是“8af474944053df1f0a3be6e6165fa7cf”那么就需要检查xxx/src/third_party/dart/runtime/vm/dart.cc文件和xxx/src/third_party/dart/runtime/vm/image_snapshot.cc文件中全部行的结尾是不是以LF结尾的，windows可以使用notepad++查看，其他系统具体方法请自行查询
+
+
 ## embedding层代码构建指导
 
 1. 编辑shell/platform/ohos/flutter_embedding/local.properties：
