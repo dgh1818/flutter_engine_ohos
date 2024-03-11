@@ -407,6 +407,10 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     }
   }
 
+  public getFlutterView(): FlutterView | null {
+    return this.flutterView;
+  }
+
   public attachTextInputPlugin(textInputPlugin: TextInputPlugin): void {
     this.textInputPlugin = textInputPlugin;
   }
