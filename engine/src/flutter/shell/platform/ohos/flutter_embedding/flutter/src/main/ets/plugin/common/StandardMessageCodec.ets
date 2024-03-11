@@ -219,7 +219,7 @@ export default class StandardMessageCodec implements MessageCodec<ESObject> {
         if (value < 254) {
             return value;
         } else if (value == 254) {
-            return buffer.readInt16(true);
+            return buffer.readUint16(true);
         } else {
             return buffer.readInt32(true);
         }

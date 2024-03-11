@@ -273,7 +273,7 @@ export class SystemChromeStyle {
   }
 }
 
-enum DeviceOrientation {
+export enum DeviceOrientation {
   PORTRAIT_UP = "DeviceOrientation.portraitUp",
   PORTRAIT_DOWN = "DeviceOrientation.portraitDown",
   LANDSCAPE_LEFT = "DeviceOrientation.landscapeLeft",
