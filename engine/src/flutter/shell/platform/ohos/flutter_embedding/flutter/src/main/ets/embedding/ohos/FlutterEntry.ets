@@ -14,6 +14,7 @@
 */
 
 import FlutterEngine from '../engine/FlutterEngine';
+import PlatformPlugin from '../../plugin/PlatformPlugin';
 import Want from '@ohos.app.ability.Want';
 import FlutterShellArgs from '../engine/FlutterShellArgs';
 import UIAbility from '@ohos.app.ability.UIAbility';
@@ -225,6 +226,10 @@ export default class FlutterEntry implements Host {
 
   provideFlutterEngine(context: Context): FlutterEngine | null {
     return null;
+  }
+
+  providePlatformPlugin(flutterEngine: FlutterEngine): PlatformPlugin | undefined {
+    return new PlatformPlugin(flutterEngine.getPlatformChannel()!, this.context, this);
   }
 
   configureFlutterEngine(flutterEngine: FlutterEngine) {

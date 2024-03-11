@@ -89,7 +89,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
       this.flutterEngine?.getAbilityControlSurface()?.attachToAbility(this);
     }
     //providePlatformPlugin
-
+    this.platformPlugin = this.host?.providePlatformPlugin(this.flutterEngine!)
     //configureFlutterEngine
     this.isAttached = true;
     const plugins = this.host?.getPlugins()
@@ -98,7 +98,6 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     }
     if (this.flutterEngine) {
       this.textInputPlugin = new TextInputPlugin(this.flutterEngine.getTextInputChannel()!);
-      this.platformPlugin = new PlatformPlugin(this.flutterEngine.getPlatformChannel()!, this.context, this);
       this.settings = new Settings(this.flutterEngine.getSettingsChannel()!);
       this.flutterEngine.getSystemLanguages();
     }
@@ -547,6 +546,8 @@ interface Host extends FlutterEngineProvider, FlutterEngineConfigurator, Platfor
 
   /* Return the ExclusiveAppComponent */
   getExclusiveAppComponent(): ExclusiveAppComponent<UIAbility> | null
+
+  providePlatformPlugin(flutterEngine: FlutterEngine): PlatformPlugin | undefined
 }
 
 export { Host, FlutterAbilityAndEntryDelegate }

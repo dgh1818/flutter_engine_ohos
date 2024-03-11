@@ -18,6 +18,7 @@ import window from '@ohos.window';
 import { FlutterAbilityAndEntryDelegate, Host } from './FlutterAbilityAndEntryDelegate';
 import Log from '../../util/Log';
 import FlutterEngine from '../engine/FlutterEngine';
+import PlatformPlugin from '../../plugin/PlatformPlugin';
 import FlutterShellArgs from '../engine/FlutterShellArgs';
 import FlutterAbilityLaunchConfigs from './FlutterAbilityLaunchConfigs';
 import common from '@ohos.app.ability.common';
@@ -218,6 +219,10 @@ export class FlutterAbility extends UIAbility implements Host {
 
   provideFlutterEngine(context: common.Context): FlutterEngine | null {
     return null;
+  }
+
+  providePlatformPlugin(flutterEngine: FlutterEngine): PlatformPlugin | undefined {
+    return new PlatformPlugin(flutterEngine.getPlatformChannel()!, this.context, this);
   }
 
   configureFlutterEngine(flutterEngine: FlutterEngine) {
