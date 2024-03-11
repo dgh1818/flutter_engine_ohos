@@ -233,9 +233,11 @@ export class PlatformPluginCallback implements PlatformMessageHandler {
       switch (systemChromeStyle.statusBarIconBrightness) {
         case Brightness.DARK:
           isStatusBarLightIconValue = false;
+          statusBarContentColorValue = '#000000';
           break;
         case Brightness.LIGHT:
           isStatusBarLightIconValue = true;
+          statusBarContentColorValue = '#FFFFFF';
           break;
       }
     }
