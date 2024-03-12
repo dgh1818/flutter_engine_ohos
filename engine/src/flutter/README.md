@@ -96,12 +96,15 @@ export OHOS_SDK_HOME=<ohos-sdk-full>
     nodejs.dir=<nodejs的sdk目录>
     ```
 
-2. 在shell/platform/ohos/flutter_embedding目录下，执行 
+2. 你需要复制文件 `libflutter.so` 到 `shell/platform/ohos/flutter_embedding/libs/arm64-v8a/`
+
+3. 在shell/platform/ohos/flutter_embedding目录下，执行 
 
     ```
-    ./hvigorw --mode module -p module=flutter@default -p product=default assembleHar --no-daemon
+    # buildMode可选值为: debug release profile
+    ./hvigorw --mode module -p module=flutter@default -p product=default -p buildMode=debug assembleHar --no-daemon
     ```
 
-3. har文件输出路径为：shell/platform/ohos/flutter_embedding/flutter/build
+4. har文件输出路径为：shell/platform/ohos/flutter_embedding/flutter/build/default/outputs/default/flutter.har
 
 ps:如果你使用的是DevEco Studio的Beta版本，编译工程时遇到“must have required property 'compatibleSdkVersion', location: build-profile.json5:17:11"错误，请参考《DevEco Studio环境配置指导.docx》中的‘6 创建工程和运行Hello World’【配置插件】章节修改 shell/platform/ohos/flutter_embedding/hvigor/hvigor-config.json5文件。

@@ -92,14 +92,17 @@ export OHOS_SDK_HOME=<ohos-sdk-full>
      nodejs.dir=<nodejs sdk directory>
      ```
 
-2. In the shell/platform/ohos/flutter_embedding directory, execute
+2. You need to copy the file `libflutter.so` to `shell/platform/ohos/flutter_embedding/libs/arm64-v8a/` 
+
+3. In the shell/platform/ohos/flutter_embedding directory, execute
 
      ```
-     ./hvigorw --mode module -p module=flutter@default -p product=default assembleHar --no-daemon
+     # The optional values for buildMode are: debug release profile
+     ./hvigorw --mode module -p module=flutter@default -p product=default -p buildMode=debug assembleHar --no-daemon
      ```
 
 
 
-3. The har file output path is: shell/platform/ohos/flutter_embedding/flutter/build
+4. The har file output path is: shell/platform/ohos/flutter_embedding/flutter/build/default/outputs/default/flutter.har
 
 ps: If you are using the Beta version of DevEco Studio and encounter the error "must have required property 'compatibleSdkVersion', location: build-profile.json5:17:11" when compiling the project, please refer to the "DevEco Studio Environment Configuration Guide." docx》Chapter '6 Creating Projects and Running Hello World' [Configuration Plugin] Modify the shell/platform/ohos/flutter_embedding/hvigor/hvigor-config.json5 file.
