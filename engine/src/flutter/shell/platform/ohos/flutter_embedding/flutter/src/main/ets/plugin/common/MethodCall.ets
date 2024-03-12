@@ -50,10 +50,10 @@ export default class MethodCall {
   }
 
   hasArgument(key: string): boolean {
-    if (arguments == null) {
+    if (this.args == null) {
       return false;
-    } else if (arguments instanceof Map) {
-      return (this.args as Map<ESObject, ESObject>).has(key);
+    } else if (this.args instanceof Map) {
+      return (this.args as Map<ESObject, ESObject>).get(key);
     } else if (ToolUtils.isObj(this.args)) {
       return this.args.hasOwnProperty(key);
     } else {
