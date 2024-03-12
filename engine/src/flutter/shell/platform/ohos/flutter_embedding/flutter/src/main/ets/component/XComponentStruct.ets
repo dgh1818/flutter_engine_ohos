@@ -12,16 +12,17 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
+import Any from '../plugin/common/Any';
 
 import { BuilderParams, DVModelParameters } from '../view/DynamicView/dynamicView';
 
 @Component
 struct XComponentStruct {
-  private context:ESObject;
+  private context: Any;
   dvModelParams: DVModelParameters = new DVModelParameters();
 
   build() {
-    XComponent({ id: (this.dvModelParams as Record<string, ESObject>)["xComponentId"], type: XComponentType.SURFACE, libraryname: 'flutter'})
+    XComponent({ id: (this.dvModelParams as Record<string, Any>)["xComponentId"], type: XComponentType.TEXTURE, libraryname: 'flutter'})
       .onLoad((context) => {
         this.context = context;
       })

@@ -40,6 +40,7 @@ import { UIContext } from '@ohos.arkui.UIContext';
 import { FlutterView } from '../../view/FlutterView';
 import FlutterManager from './FlutterManager';
 import router from '@ohos.router';
+import Any from '../../plugin/common/Any';
 
 const TAG = "FlutterAbilityDelegate";
 const PLUGINS_RESTORATION_BUNDLE_KEY = "plugins";
@@ -169,8 +170,8 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
       return result
     }
     if (typeof wantParam[FRAMEWORK_RESTORATION_BUNDLE_KEY] == 'object') {
-      let data: Record<string, ESObject> = wantParam[FRAMEWORK_RESTORATION_BUNDLE_KEY] as Record<string,
-      ESObject>;
+      let data: Record<string, Any> = wantParam[FRAMEWORK_RESTORATION_BUNDLE_KEY] as Record<string,
+      Any>;
       let byteArray: Array<number> = new Array;
       Object.keys(data).forEach(
         key => {

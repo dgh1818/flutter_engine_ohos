@@ -21,6 +21,7 @@ import DartExecutor from '../dart/DartExecutor';
 import pasteboard from '@ohos.pasteboard';
 import bundleManager from '@ohos.bundle.bundleManager';
 import window from '@ohos.window';
+import Any from '../../../plugin/common/Any';
 
 export default class PlatformChannel {
   private static TAG = "PlatformChannel";
@@ -295,7 +296,7 @@ class PlatformMethodCallback implements MethodCallHandler {
     }
 
     let method: string = call.method;
-    let args: ESObject = call.args;
+    let args: Any = call.args;
     Log.d(PlatformMethodCallback.TAG, "Received '" + method + "' message.");
     try {
       switch (method) {
@@ -381,10 +382,10 @@ class PlatformMethodCallback implements MethodCallHandler {
           let pasteBoard = pasteboard.getSystemPasteboard();
           pasteBoard.getData().then((pasteData) => {
             let text = pasteData.getPrimaryText();
-            let response: ESObject = new Map().set("text", "");
+            let response: Any = new Map().set("text", "");
             response.text = text;
             result.success(response);
-          }).catch((err: ESObject) => {
+          }).catch((err: Any) => {
             Log.e(PlatformMethodCallback.TAG, "Failed to get PasteData. Cause: " + JSON.stringify(err));
           });
           break;
@@ -395,21 +396,21 @@ class PlatformMethodCallback implements MethodCallHandler {
           break;
         case "Clipboard.hasStrings":
           let hasStrings: boolean = false;
-          let response: ESObject = new Map().set("value", false);
+          let response: Any = new Map().set("value", false);
           let systemPasteboard = pasteboard.getSystemPasteboard();
           systemPasteboard.hasData().then((hasData) => {
             if (!hasData) {
               response.value = hasData;
               result.success(response);
             }
-          }).catch((err: ESObject) => {
+          }).catch((err: Any) => {
             Log.e(PlatformMethodCallback.TAG, "systemPasteboard.hasData err: " + JSON.stringify(err));
           })
           systemPasteboard.getData().then((pasteData) => {
             hasStrings = pasteData.hasType(pasteboard.MIMETYPE_TEXT_PLAIN);
             response.value = hasStrings;
             result.success(response);
-          }).catch((err: ESObject) => {
+          }).catch((err: Any) => {
             Log.e(PlatformMethodCallback.TAG, "getData err: " + JSON.stringify(err));
           })
           break;
@@ -454,7 +455,7 @@ class PlatformMethodCallback implements MethodCallHandler {
     }
   }
 
-  private decodeSystemChromeStyle(encodedStyle: ESObject): SystemChromeStyle {
+  private decodeSystemChromeStyle(encodedStyle: Any): SystemChromeStyle {
     let statusBarColor: number | null = null;
     let statusBarIconBrightness: Brightness | null = null;
     let systemStatusBarContrastEnforced: boolean | null = null;

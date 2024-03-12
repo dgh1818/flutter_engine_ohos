@@ -22,6 +22,7 @@ import DartExecutor from '../dart/DartExecutor';
 import inputMethod from '@ohos.inputMethod';
 import ArrayList from '@ohos.util.ArrayList';
 import { TextEditingDelta, TextEditingDeltaJson } from '../../../plugin/editing/TextEditingDelta';
+import Any from '../../../plugin/common/Any';
 
 const TAG = "TextInputChannel";
 
@@ -82,13 +83,13 @@ export default class TextInputChannel {
     Log.d(TAG, "updateEditingState:"
       + "Text: " + text + " Selection start: " + selectionStart + " Selection end: "
       + selectionEnd + " Composing start: " + composingStart + " Composing end: " + composingEnd);
-    const state: ESObject = this.createEditingStateJSON(text, selectionStart, selectionEnd, composingStart, composingEnd);
+    const state: Any = this.createEditingStateJSON(text, selectionStart, selectionEnd, composingStart, composingEnd);
     this.channel.invokeMethod('TextInputClient.updateEditingState', [inputClientId, state]);
   }
 
   updateEditingStateWithDeltas(inputClientId: number, batchDeltas: ArrayList<TextEditingDelta>): void {
     Log.d(TAG, "updateEditingStateWithDeltas:" + "batchDeltas length: " + batchDeltas.length);
-    const state: ESObject = this.createEditingDeltaJSON(batchDeltas);
+    const state: Any = this.createEditingDeltaJSON(batchDeltas);
     this.channel.invokeMethod('TextInputClient.updateEditingStateWithDeltas', [inputClientId, state]);
   }
 
@@ -141,7 +142,7 @@ export default class TextInputChannel {
     Log.d(TAG, "Sending 'onConnectionClosed' message.");
   }
 
-  performPrivateCommand(inputClientId: number, action: string, data: ESObject) {
+  performPrivateCommand(inputClientId: number, action: string, data: Any) {
 
   }
 }
@@ -256,23 +257,23 @@ export class Configuration {
     }
   }
 
-  static fromJson(json: ESObject) {
+  static fromJson(json: Any) {
     const inputActionName: string = json.inputAction;
     if (!inputActionName) {
       throw new Error("Configuration JSON missing 'inputAction' property.");
     }
 
-    let fields: Array<ESObject> = new Array();
+    let fields: Array<Any> = new Array();
     if (json.fields !== null && json.fields !== undefined) {
-      fields = json.fields.map((field: ESObject): ESObject => Configuration.fromJson(field));
+      fields = json.fields.map((field: Any): Any => Configuration.fromJson(field));
     }
 
     const inputAction: number = Configuration.inputActionFromTextInputAction(inputActionName);
 
     // Build list of content commit mime types from the data in the JSON list.
-    const contentList: Array<ESObject> = [];
+    const contentList: Array<Any> = [];
     if (json.contentCommitMimeTypes !== null && json.contentCommitMimeTypes !== undefined) {
-      json.contentCommitMimeTypes.forEach((type: ESObject) => {
+      json.contentCommitMimeTypes.forEach((type: Any) => {
         contentList.push(type);
       });
     }
@@ -287,7 +288,7 @@ export class Configuration {
       inputAction,
       json.actionLabel ?? null,
       json.autofill ?? null,
-      contentList as ESObject,
+      contentList as Any,
       fields
     );
   }
@@ -325,7 +326,7 @@ export class InputType {
     this.isDecimal = isDecimal;
   }
 
-  static fromJson(json: ESObject): InputType {
+  static fromJson(json: Any): InputType {
     return new InputType(InputType.getTextInputTypeFromValue(json.name as string),
       json.signed as boolean, json.decimal as boolean)
   }
@@ -393,7 +394,7 @@ export class TextEditState {
     return this.composingStart >= 0 && this.composingEnd > this.composingStart;
   }
 
-  static fromJson(textEditState: ESObject): TextEditState {
+  static fromJson(textEditState: Any): TextEditState {
     return new TextEditState(
       textEditState.text,
       textEditState.selectionBase,
@@ -416,7 +417,7 @@ class TextInputCallback implements MethodCallHandler {
       return;
     }
     let method: string = call.method;
-    let args: ESObject = call.args;
+    let args: Any = call.args;
     Log.d(TAG, "Received '" + method + "' message.");
     switch (method) {
       case "TextInput.show":

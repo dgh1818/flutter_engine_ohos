@@ -47,7 +47,7 @@ export default class Log {
    * @param args Indicates the log parameters.
    * @since 7
    */
-  static d(tag: string, format: string, ...args: ESObject[]) {
+  static d(tag: string, format: string, ...args: Object[]) {
     if (Log.isLoggable(HiLog.LogLevel.DEBUG)) {
       HiLog.debug(DOMAIN, TAG, tag + SYMBOL + format, args);
     }
@@ -61,7 +61,7 @@ export default class Log {
    * @param args Indicates the log parameters.
    * @since 7
    */
-  static i(tag: string, format: string, ...args: ESObject[]) {
+  static i(tag: string, format: string, ...args: Object[]) {
     if (Log.isLoggable(HiLog.LogLevel.INFO)) {
       HiLog.info(DOMAIN, TAG, tag + SYMBOL + format, args);
     }
@@ -75,7 +75,7 @@ export default class Log {
    * @param args Indicates the log parameters.
    * @since 7
    */
-  static w(tag: string, format: string, ...args: ESObject[]) {
+  static w(tag: string, format: string, ...args: Object[]) {
     if (Log.isLoggable(HiLog.LogLevel.WARN)) {
       HiLog.warn(DOMAIN, TAG, tag + SYMBOL + format, args);
     }
@@ -89,9 +89,9 @@ export default class Log {
    * @param args Indicates the log parameters.
    * @since 7
    */
-  static e(tag: string, format: string, ...args: ESObject[]) {
+  static e(tag: string, format: string, ...args: Object[]) {
     if (Log.isLoggable(HiLog.LogLevel.ERROR)) {
-      args.forEach((item: ESObject, index: number) => {
+      args.forEach((item: Object, index: number) => {
         if (item instanceof Error) {
           args[index] = item.message + item.stack;
         }
@@ -109,7 +109,7 @@ export default class Log {
    * @param args Indicates the log parameters.
    * @since 7
    */
-  static f(tag: string, format: string, ...args: ESObject[]) {
+  static f(tag: string, format: string, ...args: Object[]) {
     if (Log.isLoggable(HiLog.LogLevel.FATAL)) {
       HiLog.fatal(DOMAIN, TAG, tag + SYMBOL + format, args);
     }

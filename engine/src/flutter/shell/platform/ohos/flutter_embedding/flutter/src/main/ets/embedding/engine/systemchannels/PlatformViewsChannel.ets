@@ -12,6 +12,7 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
+import Any from '../../../plugin/common/Any';
 
 import MethodCall from '../../../plugin/common/MethodCall';
 import MethodChannel, { MethodCallHandler, MethodResult } from '../../../plugin/common/MethodChannel';
@@ -58,7 +59,7 @@ export default class PlatformViewsChannel {
   }
 
   create(call: MethodCall, result: MethodResult): void {
-    const createArgs: Map<string, ESObject> = call.args;
+    const createArgs: Map<string, Any> = call.args;
     const usesPlatformViewLayer: boolean = createArgs.has("hybrid") && createArgs.get("hybrid") as boolean;
     const additionalParams: ByteBuffer = createArgs.has("params") ? createArgs.get("params") : null;
 
@@ -129,7 +130,7 @@ export default class PlatformViewsChannel {
   }
 
   dispose(call: MethodCall, result: MethodResult): void {
-    const disposeArgs: Map<string, ESObject> = call.args;
+    const disposeArgs: Map<string, Any> = call.args;
     const viewId: number = disposeArgs.get("id");
     try {
       this.handler?.dispose(viewId);
@@ -141,7 +142,7 @@ export default class PlatformViewsChannel {
   }
 
   resize(call: MethodCall, result: MethodResult): void {
-    const resizeArgs: Map<string, ESObject> = call.args;
+    const resizeArgs: Map<string, Any> = call.args;
     const resizeRequest: PlatformViewResizeRequest = new PlatformViewResizeRequest(
       resizeArgs.get("id"),
       resizeArgs.get("width"),
@@ -158,7 +159,7 @@ export default class PlatformViewsChannel {
   }
 
   offset(call: MethodCall, result: MethodResult): void {
-    const offsetArgs: Map<string, ESObject> = call.args;
+    const offsetArgs: Map<string, Any> = call.args;
     try {
       this.handler?.offset(
         offsetArgs.get("id"),
@@ -172,7 +173,7 @@ export default class PlatformViewsChannel {
   }
 
   touch(call: MethodCall, result: MethodResult): void {
-    const args: Array<ESObject> = call.args;
+    const args: Array<Any> = call.args;
     let index = 0;
     const touch: PlatformViewTouch = new PlatformViewTouch(
       args[index++],
@@ -203,7 +204,7 @@ export default class PlatformViewsChannel {
   }
 
   setDirection(call: MethodCall, result: MethodResult): void {
-    const setDirectionArgs: Map<string, ESObject> = call.args;
+    const setDirectionArgs: Map<string, Any> = call.args;
     const newDirectionViewId: number = setDirectionArgs.get("id");
     const direction: number = setDirectionArgs.get("direction");
 
@@ -427,10 +428,10 @@ export class PlatformViewTouch {
   public pointerCount: number;
 
   /** Properties for each pointer, encoded in a raw format. */
-  public rawPointerPropertiesList: ESObject;
+  public rawPointerPropertiesList: Any;
 
   /** Coordinates for each pointer, encoded in a raw format. */
-  public rawPointerCoords: ESObject;
+  public rawPointerCoords: Any;
 
   public metaState: number;
 
@@ -457,8 +458,8 @@ export class PlatformViewTouch {
               eventTime: number,
               action: number,
               pointerCount: number,
-              rawPointerPropertiesList: ESObject,
-              rawPointerCoords: ESObject,
+              rawPointerPropertiesList: Any,
+              rawPointerCoords: Any,
               metaState: number,
               buttonState: number,
               xPrecision: number,
@@ -542,7 +543,7 @@ class ResizeCallback extends PlatformViewBufferResized {
     if (bufferSize == null) {
       this.result?.error("error", "Failed to resize the platform view", null);
     } else {
-      const response: Map<string, ESObject> = new Map();
+      const response: Map<string, Any> = new Map();
       response.set("width", bufferSize.width);
       response.set("height", bufferSize.height);
       this.result?.success(response);

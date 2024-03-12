@@ -34,6 +34,7 @@ import ToolUtils from '../../util/ToolUtils';
 import AbilityControlSurface from './plugins/ability/AbilityControlSurface';
 import ExclusiveAppComponent from '../ohos/ExclusiveAppComponent';
 import FlutterEngineGroup from './FlutterEngineGroup';
+import Any from '../../plugin/common/Any';
 
 const TAG = "FlutterEngineCxnRegistry";
 
@@ -82,7 +83,7 @@ export default class FlutterEngineConnectionRegistry implements PluginRegistry, 
       // plugins, and if this engine is currently attached to an Ability,
       // notify the AbilityAware plugin that it is now attached to an Ability.
       if (ToolUtils.implementsInterface(plugin, "onAttachedToAbility")) {
-        const abilityAware: ESObject = plugin;
+        const abilityAware: Any = plugin;
         this.abilityAwarePlugins.set(plugin.getUniqueClassName(), abilityAware);
         if (this.isAttachedToAbility()) {
           abilityAware.onAttachedToAbility(this.abilityPluginBinding);
@@ -112,7 +113,7 @@ export default class FlutterEngineConnectionRegistry implements PluginRegistry, 
     }
     if (ToolUtils.implementsInterface(plugin, "onAttachedToAbility")) {
       if (this.isAttachedToAbility()) {
-        const abilityAware: ESObject = plugin;
+        const abilityAware: Any = plugin;
         abilityAware.onDetachedFromAbility();
       }
       this.abilityAwarePlugins.delete(pluginClassName);

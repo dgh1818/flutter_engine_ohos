@@ -21,6 +21,7 @@ import FlutterNapi, {AccessibilityDelegate} from '../FlutterNapi';
 import { Action } from '../../../view/AccessibilityBridge'
 import StandardMessageCodec from '../../../plugin/common/StandardMessageCodec';
 import StringUtils from '../../../util/StringUtils';
+import Any from '../../../plugin/common/Any';
 
 /**
 * 辅助功能channel
@@ -39,9 +40,9 @@ export default class AccessibilityChannel implements MessageHandler<object>{
             reply.reply(StringUtils.stringToArrayBuffer(""));
             return;
         }
-        let annotatedEvent: HashMap<string, ESObject> = message as HashMap<string, ESObject>;
+        let annotatedEvent: HashMap<string, Any> = message as HashMap<string, Any>;
         let type: string = annotatedEvent.get("type") as string;
-        let data: HashMap<string, ESObject> = annotatedEvent.get("data") as HashMap<string, ESObject>;
+        let data: HashMap<string, Any> = annotatedEvent.get("data") as HashMap<string, Any>;
 
         Log.i(AccessibilityChannel.TAG, "Received " + type + " message.");
         switch (type) {

@@ -20,6 +20,7 @@ import FlutterManager from '../embedding/ohos/FlutterManager';
 import window from '@ohos.window';
 import KeyboardManager from '../embedding/ohos/KeyboardManager';
 import MouseCursorPlugin from '../plugin/mouse/MouseCursorPlugin';
+import Any from '../plugin/common/Any';
 
 const TAG = "FlutterView";
 
@@ -70,7 +71,7 @@ export class FlutterView {
     Log.i(TAG, "windowSizeChangeCallback");
     this.onAreaChange(null);
   }
-  private avoidAreaChangeCallback = (data: ESObject) => {
+  private avoidAreaChangeCallback = (data: Any) => {
     Log.i(TAG, "avoidAreaChangeCallback");
     this.onAreaChange(null);
   }
