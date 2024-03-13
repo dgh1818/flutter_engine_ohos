@@ -25,6 +25,7 @@ import { ByteBuffer } from '../../util/ByteBuffer';
 import { Action } from '../../view/AccessibilityBridge'
 import LocalizationPlugin from '../../plugin/localization/LocalizationPlugin';
 import i18n from '@ohos.i18n';
+import Any from '../../plugin/common/Any';
 
 const TAG = "FlutterNapi";
 
@@ -279,7 +280,7 @@ export default class FlutterNapi {
     }).then(imageInfo => {
       Log.d(TAG, `nativeImageHeaderCallback width=${imageInfo.size.width}  height=${imageInfo.size.height} imageGeneratorAddress=${imageGeneratorAddress}`)
       flutter.nativeImageDecodeCallback(imageInfo.size.width, imageInfo.size.height, imageGeneratorAddress, tempPixelMap)
-    }).catch((error: ESObject) => {
+    }).catch((error: Any) => {
       Log.d(TAG, "decodeImage error=" + JSON.stringify(error))
       flutter.nativeImageDecodeCallback(0, 0, imageGeneratorAddress, null);
     })

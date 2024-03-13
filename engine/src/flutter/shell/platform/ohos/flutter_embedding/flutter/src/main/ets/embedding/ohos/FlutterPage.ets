@@ -12,6 +12,7 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
+import Any from '../../plugin/common/Any';
 import { PlatformViewWrapper } from '../../plugin/platform/PlatformViewWrapper';
 import { RootDvModeManager } from '../../plugin/platform/RootDvModelManager';
 import Log from '../../util/Log';
@@ -56,7 +57,7 @@ export struct FlutterPage {
           Log.d(TAG, "XComponent onDestroy ");
           this.flutterView?.onSurfaceDestroyed()
         })
-      ForEach(this.rootDvModel!!, (child:ESObject) =>{
+      ForEach(this.rootDvModel!!, (child:Any) =>{
         DynamicView({
           model: child as DVModel,
           params:child.params,

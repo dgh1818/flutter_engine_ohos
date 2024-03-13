@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 import matrix4 from '@ohos.matrix4';
+import Any from '../../plugin/common/Any';
 import Log from '../../util/Log';
 
 /**
@@ -69,9 +70,9 @@ export class DVModel {
   params: DVModelParameters;
   events: DVModelEvents;
   children: DVModelChildren;
-  builder: ESObject;
+  builder: Any;
 
-  constructor(compType: string, params: DVModelParameters, events: DVModelEvents, children: DVModelChildren, builder?: ESObject) {
+  constructor(compType: string, params: DVModelParameters, events: DVModelEvents, children: DVModelChildren, builder?: Any) {
     this.id_ = nextId++;
     this.compType = compType;
     this.params = params ?? new DVModelParameters;
@@ -132,13 +133,13 @@ export struct DynamicView {
   @BuilderParam customBuilder?: ($$: BuilderParams) => void;
 
 
-  getParams: (params: DVModelParameters, element: string) => string | ESObject = (params: DVModelParameters, element: string): string | ESObject => {
-    let params2 = params as Record<string, ESObject>;
+  getParams: (params: DVModelParameters, element: string) => string | Any = (params: DVModelParameters, element: string): string | Any => {
+    let params2 = params as Record<string, Any>;
     return params2[element];
   }
 
-  getEvents: (events: DVModelEvents, element: string) => ESObject = (events: DVModelEvents, element: string): ESObject => {
-    let events2 = events as Record<string, ESObject>;
+  getEvents: (events: DVModelEvents, element: string) => Any = (events: DVModelEvents, element: string): Any => {
+    let events2 = events as Record<string, Any>;
     return events2[element];
   }
   /*
@@ -183,7 +184,7 @@ export struct DynamicView {
 
   @Builder buildChildren() {
     ForEach(this.children,
-      (child: ESObject) => {
+      (child: Any) => {
         DynamicView({
           model: child as DVModel,
           params: child.params,
@@ -192,7 +193,7 @@ export struct DynamicView {
           customBuilder: child.builder
         })
       },
-      (child: ESObject) => `${child.id_}`
+      (child: Any) => `${child.id_}`
     )
   }
 

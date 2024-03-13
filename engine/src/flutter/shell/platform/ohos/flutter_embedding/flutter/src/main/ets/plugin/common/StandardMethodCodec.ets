@@ -15,6 +15,7 @@
 
 import { ByteBuffer } from '../../util/ByteBuffer';
 import FlutterException from './FlutterException';
+import Any from './Any';
 import MethodCall from './MethodCall';
 import MethodCodec from './MethodCodec';
 import StandardMessageCodec from './StandardMessageCodec';
@@ -49,22 +50,22 @@ export default class StandardMethodCodec implements MethodCodec {
 
   decodeMethodCall(methodCall: ArrayBuffer): MethodCall {
     const buffer = ByteBuffer.from(methodCall);
-    const method: ESObject = this.messageCodec.readValue(buffer);
-    const args: ESObject = this.messageCodec.readValue(buffer);
+    const method: Any = this.messageCodec.readValue(buffer);
+    const args: Any = this.messageCodec.readValue(buffer);
     if (typeof method == 'string' && !buffer.hasRemaining()) {
       return new MethodCall(method, args);
     }
     throw new Error("Method call corrupted");
   }
 
-  encodeSuccessEnvelope(result: ESObject): ArrayBuffer {
+  encodeSuccessEnvelope(result: Any): ArrayBuffer {
     const stream = ByteBuffer.from(new ArrayBuffer(1024));
     stream.writeInt8(0);
     this.messageCodec.writeValue(stream, result);
     return stream.buffer;
   }
 
-  encodeErrorEnvelope(errorCode: string, errorMessage: string, errorDetails: ESObject): ArrayBuffer {
+  encodeErrorEnvelope(errorCode: string, errorMessage: string, errorDetails: Any): ArrayBuffer {
     const stream = ByteBuffer.from(new ArrayBuffer(1024));
     stream.writeInt8(1);
     this.messageCodec.writeValue(stream, errorCode);
@@ -77,7 +78,7 @@ export default class StandardMethodCodec implements MethodCodec {
     return stream.buffer;
   }
 
-  encodeErrorEnvelopeWithStacktrace(errorCode: string, errorMessage: string, errorDetails: ESObject, errorStacktrace: string): ArrayBuffer {
+  encodeErrorEnvelopeWithStacktrace(errorCode: string, errorMessage: string, errorDetails: Any, errorStacktrace: string): ArrayBuffer {
     const stream = ByteBuffer.from(new ArrayBuffer(1024));
     stream.writeInt8(1);
     this.messageCodec.writeValue(stream, errorCode);
@@ -91,21 +92,21 @@ export default class StandardMethodCodec implements MethodCodec {
     return stream.buffer;
   }
 
-  decodeEnvelope(envelope: ArrayBuffer): ESObject {
+  decodeEnvelope(envelope: ArrayBuffer): Any {
     const buffer = ByteBuffer.from(envelope);
     const flag = buffer.readInt8();
     switch (flag) {
       case 0: {
-        const result: ESObject = this.messageCodec.readValue(buffer);
+        const result: Any = this.messageCodec.readValue(buffer);
         if (!buffer.hasRemaining()) {
           return result;
         }
         // Falls through intentionally.
       }
       case 1: {
-        const code: ESObject = this.messageCodec.readValue(buffer);
-        const message: ESObject = this.messageCodec.readValue(buffer);
-        const details: ESObject = this.messageCodec.readValue(buffer);
+        const code: Any = this.messageCodec.readValue(buffer);
+        const message: Any = this.messageCodec.readValue(buffer);
+        const details: Any = this.messageCodec.readValue(buffer);
         if (typeof code == 'string' && (message == null || typeof message == 'string') && !buffer.hasRemaining()) {
           throw new FlutterException(code, message, details);
         }

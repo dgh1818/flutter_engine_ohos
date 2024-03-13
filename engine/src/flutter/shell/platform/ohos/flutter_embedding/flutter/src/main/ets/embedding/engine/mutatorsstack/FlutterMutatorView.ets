@@ -18,6 +18,7 @@ import { DVModel, DVModelEvents, DVModelParameters } from '../../../view/Dynamic
 import { createDVModelFromJson } from '../../../view/DynamicView/dynamicViewJson';
 import OhosTouchProcessor from '../../ohos/OhosTouchProcessor';
 import { FlutterMutator, FlutterMutatorsStack } from './FlutterMutatorsStack'
+import Any from '../../../plugin/common/Any';
 
 export class FlutterMutatorView {
   private mutatorsStack: FlutterMutatorsStack | null = null;
@@ -27,7 +28,7 @@ export class FlutterMutatorView {
   private prevLeft: number = 0;
   private prevTop: number = 0;
 
-  private onTouch = (touchEvent: ESObject) => {
+  private onTouch = (touchEvent: Any) => {
     let params = this.model.params as Record<string, number>;
     switch (touchEvent.type) {
       case TouchType.Down:
@@ -123,10 +124,10 @@ export class FlutterMutatorView {
 class DVModelParam {
   compType: string
   children: []
-  attributes: ESObject
-  events: ESObject
+  attributes: Any
+  events: Any
 
-  constructor(compType: string, children: [], attributes: ESObject, events: ESObject) {
+  constructor(compType: string, children: [], attributes: Any, events: Any) {
     this.compType = compType;
     this.children = children;
     this.attributes = attributes;

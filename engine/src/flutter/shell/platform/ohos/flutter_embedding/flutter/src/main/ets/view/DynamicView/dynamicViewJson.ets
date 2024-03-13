@@ -12,6 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import Any from '../../plugin/common/Any';
 
 import { DVModel, DVModelParameters, DVModelEvents, DVModelChildren } from "./dynamicView";
 
@@ -31,8 +32,8 @@ export function createDVModelFromJson(json: Object): DVModel {
     return result;
   }
 
-  let setParams: (result: DVModelParameters | DVModelEvents, key: ESObject, element: Object ) => void = (result: DVModelParameters,  key: ESObject, element: ESObject): void => {
-    let newResult = result as Record<string, ESObject>;
+  let setParams: (result: DVModelParameters | DVModelEvents, key: Any, element: Object ) => void = (result: DVModelParameters, key: Any, element: Any): void => {
+    let newResult = result as Record<string, Any>;
     newResult[key] = element[key];
   }
 
@@ -57,7 +58,7 @@ export function createDVModelFromJson(json: Object): DVModel {
     return new DVModel("", "", "", createChildrenFrom([]));
   }
 
-  let jsonObject = json as Record<string, string | ESObject>;
+  let jsonObject = json as Record<string, string | Any>;
   return new DVModel(
     jsonObject["compType"],
     createAttributesFrom(jsonObject["attributes"]),
