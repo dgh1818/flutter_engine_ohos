@@ -92,7 +92,6 @@ used to filter file path.
 
         <filefilterlist>
             <filefilter name="defaultFilter" desc="Files not to check">
-                <filteritem type="filepath" name="*.md" desc="markdown文件" />
                 <filteritem type="filename" name="*.iml|*.json|*.txt" desc="desc files" />
                 <filteritem type="filename"
                     name="*.png|*.ico|*.jpg|*.ttf|*.enc|*.mp4|*.ttc|*.key|*.heic|*.res|*.gif|*.otf|*.compiled|*.webp"

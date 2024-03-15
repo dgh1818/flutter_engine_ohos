@@ -137,12 +137,12 @@ def getNdkHome():
     if not isNdkValid(OHOS_NDK_HOME):
         logging.error(
             """
-    Please set the environment variables for HarmonyOS SDK to "HOS_SDK_HOME" or "HOS_SDK_HOME".
+    Please set the environment variables for HarmonyOS SDK to "HOS_SDK_HOME" or "OHOS_SDK_HOME".
     We will use both native/llvm and native/sysroot.
     Please ensure that the file "native/llvm/bin/clang" exists and is executable."""
         )
         exit(10)
-    return HOS_NDK_HOME
+    return OHOS_NDK_HOME
 
 # 校验 native
 def isNdkValid(path):
@@ -162,20 +162,20 @@ def isNdkValid(path):
 
 # 指定engine编译的配置参数
 def engineConfig(buildInfo, extraParam=""):
-    HOS_NDK_HOME = getNdkHome()
-    # export PATH=$HOS_NDK_HOME/build-tools/cmake/bin:$HOS_NDK_HOME/llvm/bin:$PATH
+    OHOS_NDK_HOME = getNdkHome()
+    # export PATH=$OHOS_NDK_HOME/build-tools/cmake/bin:$OHOS_NDK_HOME/llvm/bin:$PATH
     lastPath = os.getenv("PATH")
     os.environ["PATH"] = (
-        "%s%s" % (os.path.join(HOS_NDK_HOME, "build-tools", "cmake", "bin"), PATH_SEP)
-        + "%s%s" % (os.path.join(HOS_NDK_HOME, "build-tools", "llvm", "bin"), PATH_SEP)
+        "%s%s" % (os.path.join(OHOS_NDK_HOME, "build-tools", "cmake", "bin"), PATH_SEP)
+        + "%s%s" % (os.path.join(OHOS_NDK_HOME, "build-tools", "llvm", "bin"), PATH_SEP)
         + "%s%s" % (os.path.abspath("depot_tools"), PATH_SEP)
         + lastPath
     )
     unixCommand = ""
     if not IS_WINDOWS:
         unixCommand = (
-            "--target-sysroot %s " % os.path.join(HOS_NDK_HOME, "sysroot")
-            + "--target-toolchain %s " % os.path.join(HOS_NDK_HOME, "llvm")
+            "--target-sysroot %s " % os.path.join(OHOS_NDK_HOME, "sysroot")
+            + "--target-toolchain %s " % os.path.join(OHOS_NDK_HOME, "llvm")
             + "--target-triple %s " % buildInfo.targetTriple
         )
     OPT = "--unoptimized --no-lto " if buildInfo.buildType == "debug" else ""
