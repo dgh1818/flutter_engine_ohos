@@ -41,6 +41,7 @@ import Log from '../../util/Log'
 import OhosTouchProcessor from '../../embedding/ohos/OhosTouchProcessor'
 import PlatformViewFactory from './PlatformViewFactory'
 import { ByteBuffer } from '../../util/ByteBuffer';
+import Any from '../common/Any';
 
 const TAG = "PlatformViewsController"
 
@@ -130,8 +131,8 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     }
   }
 
-  setParams: (params: DVModelParameters, key: string, element: ESObject ) => void = (params: DVModelParameters, key: string, element: ESObject): void => {
-    let params2 = params as Record<string, ESObject>;
+  setParams: (params: DVModelParameters, key: string, element: Any ) => void = (params: DVModelParameters, key: string, element: Any): void => {
+    let params2 = params as Record<string, Any>;
     params2[key] =element;
   }
 
@@ -285,7 +286,7 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
       throw new Error("Trying to create a platform view of unregistered type: " + request.viewType)
     }
 
-    let createParams: ESObject = null;
+    let createParams: Any = null;
     if (request.params != null) {
       let byteParas : ByteBuffer = request.params as ByteBuffer;
       createParams = viewFactory.getCreateArgsCodec().decodeMessage(byteParas.buffer);
@@ -405,6 +406,10 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     for (let platformView of this.platformViews.values()) {
       platformView.onFlutterViewDetached();
     }
+  }
+
+  public getFlutterView(): FlutterView | null {
+    return this.flutterView;
   }
 
   public attachTextInputPlugin(textInputPlugin: TextInputPlugin): void {

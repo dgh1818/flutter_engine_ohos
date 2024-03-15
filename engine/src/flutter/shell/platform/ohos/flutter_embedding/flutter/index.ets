@@ -107,6 +107,7 @@ import PathUtils from './src/main/ets/util/PathUtils';
 import StringUtils from './src/main/ets/util/StringUtils';
 import ToolUtils from './src/main/ets/util/ToolUtils';
 import { TraceSection } from './src/main/ets/util/TraceSection';
+import Any from './src/main/ets/plugin/common/Any';
 
 export {
   FlutterInjector,
@@ -202,4 +203,5 @@ export {
   StringUtils,
   ToolUtils,
   TraceSection,
+  Any,
 }

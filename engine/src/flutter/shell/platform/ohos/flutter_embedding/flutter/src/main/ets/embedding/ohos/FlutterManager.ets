@@ -68,6 +68,10 @@ export default class FlutterManager {
     return this.flutterViewList.get(viewId) ?? null;
   }
 
+  getFlutterViewList(): Map<String, FlutterView> {
+    return this.flutterViewList;
+  }
+
   private putFlutterView(viewId: string, flutterView?: FlutterView): void {
     if (flutterView != null) {
       this.flutterViewList.set(viewId, flutterView);

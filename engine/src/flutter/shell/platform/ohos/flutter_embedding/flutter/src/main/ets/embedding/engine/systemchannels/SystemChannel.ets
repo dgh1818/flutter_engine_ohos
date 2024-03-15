@@ -14,6 +14,7 @@
 */
 
 import BasicMessageChannel from '../../../plugin/common/BasicMessageChannel';
+import Any from '../../../plugin/common/Any';
 import JSONMessageCodec from '../../../plugin/common/JSONMessageCodec';
 import Log from '../../../util/Log';
 import DartExecutor from '../dart/DartExecutor';
@@ -26,7 +27,7 @@ export default class SystemChannel {
   public channel: BasicMessageChannel<object>;
 
   constructor(dartExecutor: DartExecutor) {
-    this.channel = new BasicMessageChannel<ESObject>(dartExecutor, "flutter/system", JSONMessageCodec.INSTANCE);
+    this.channel = new BasicMessageChannel<Any>(dartExecutor, "flutter/system", JSONMessageCodec.INSTANCE);
   }
 
   public sendMemoryPressureWarning(): void {

@@ -18,6 +18,7 @@ import window from '@ohos.window';
 import { FlutterAbilityAndEntryDelegate, Host } from './FlutterAbilityAndEntryDelegate';
 import Log from '../../util/Log';
 import FlutterEngine from '../engine/FlutterEngine';
+import PlatformPlugin from '../../plugin/PlatformPlugin';
 import FlutterShellArgs from '../engine/FlutterShellArgs';
 import FlutterAbilityLaunchConfigs from './FlutterAbilityLaunchConfigs';
 import common from '@ohos.app.ability.common';
@@ -124,7 +125,7 @@ export class FlutterAbility extends UIAbility implements Host {
    * window状态改变回调
    * @param windowStage
    */
-  async onWindowStageCreate(windowStage: window.WindowStage) {
+  onWindowStageCreate(windowStage: window.WindowStage) {
     FlutterManager.getInstance().pushWindowStage(this, windowStage);
     this.mainWindow = windowStage.getMainWindowSync();
     try {
@@ -208,12 +209,20 @@ export class FlutterAbility extends UIAbility implements Host {
     return this;
   }
 
+  getFlutterAbilityAndEntryDelegate(): FlutterAbilityAndEntryDelegate | null{
+    return this.delegate ?? null;
+  }
+
   shouldDispatchAppLifecycleState(): boolean {
     return true;
   }
 
   provideFlutterEngine(context: common.Context): FlutterEngine | null {
     return null;
+  }
+
+  providePlatformPlugin(flutterEngine: FlutterEngine): PlatformPlugin | undefined {
+    return new PlatformPlugin(flutterEngine.getPlatformChannel()!, this.context, this);
   }
 
   configureFlutterEngine(flutterEngine: FlutterEngine) {

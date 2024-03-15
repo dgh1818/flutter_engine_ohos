@@ -12,25 +12,33 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
+import image from '@ohos.multimedia.image';
 
 export interface TextureRegistry {
 
   createSurfaceTexture(): SurfaceTextureEntry;
-  registerSurfaceTexture(): SurfaceTextureEntry;
-
+  getTextureId(): number;
+  registerTexture(textureId: number): SurfaceTextureEntry;
+  registerSurfaceTexture(receiver: image.ImageReceiver): SurfaceTextureEntry;
+  registerPixelMap(pixelMap: PixelMap): number;
+  unregisterTexture(textureId: number): void;
   onTrimMemory(level: number) : void;
 }
 
-interface SurfaceTextureEntry {
-  id(): number;
+export interface SurfaceTextureEntry {
+  getTextureId(): number;
+
+  getSurfaceId(): number;
+
+  getImageReceiver(): image.ImageReceiver;
 
   release(): void;
 }
 
-interface OnFrameConsumedListener {
+export interface OnFrameConsumedListener {
   onFrameConsumed(): void;
 }
 
-interface OnTrimMemoryListener {
+export interface OnTrimMemoryListener {
   onTrimMemory(level: number) : void;
 }

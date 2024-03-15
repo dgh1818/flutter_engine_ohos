@@ -280,9 +280,6 @@ def to_gn_args(args):
   if args.enable_unittests:
     gn_args['enable_unittests'] = args.enable_unittests
 
-  gn_args['enable_unittests'] =  False
-  print("enable_unittests:%s" % gn_args['enable_unittests'] );
-
   # Skia GN args.
   gn_args['skia_enable_flutter_defines'
          ] = True  # Enable Flutter API guards in Skia.
@@ -304,8 +301,9 @@ def to_gn_args(args):
   gn_args['android_full_debug'
          ] = args.target_os == 'android' and args.unoptimized
   
-  gn_args['ohos_api_int'] = args.ohos_api_int
-  
+  if  args.target_os == 'ohos':
+      gn_args['ohos_api_int'] = args.ohos_api_int
+
   if args.clang is None:
     gn_args['is_clang'] = True
   else:
@@ -765,7 +763,7 @@ def parse_args(args):
       '--ohos-cpu', type=str, choices=['x64', 'x86', 'arm64', 'arm']
   )
   parser.add_argument(
-      '--ohos-api-int', type=int, choices=[10, 11], default=10
+      '--ohos-api-int', type=int, choices=[10, 11], default=11
   )
   parser.add_argument(
       '--fuchsia-cpu', type=str, choices=['x64', 'arm64'], default='x64'

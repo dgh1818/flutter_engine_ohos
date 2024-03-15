@@ -170,7 +170,6 @@ export default class FlutterLoader {
     if (this.initialized) {
       return;
     }
-    Log.d(TAG, "ensureInitializationComplete")
     if (shellArgs == null) {
       shellArgs = new Array<string>();
     }
@@ -231,6 +230,7 @@ export default class FlutterLoader {
       costTime
     );
     this.initialized = true;
+    Log.d(TAG, "ensureInitializationComplete")
   }
 
   findAppBundlePath(): string {
@@ -272,6 +272,10 @@ export default class FlutterLoader {
         displayName: [`${TIMESTAMP_PREFIX}*`]
       }
     }) : new Array();
+  }
+
+  isInitialized(): boolean {
+    return this.initialized;
   }
 
 }

@@ -225,6 +225,9 @@ shared_library("flutter_shell_native") {
   ldflags += ["-lrawfile.z"]
   ldflags += ["-lEGL"]
   ldflags += ["-lGLESv3"]
+  # ldflags += ["-lGLESv2"]
+  ldflags += ["-limage_ndk.z"]
+  ldflags += ["-lnative_image"]
 
   ldflags += ["-lc++_shared"]
   ldflags += ["-lm"]

@@ -40,6 +40,7 @@ import { UIContext } from '@ohos.arkui.UIContext';
 import { FlutterView } from '../../view/FlutterView';
 import FlutterManager from './FlutterManager';
 import router from '@ohos.router';
+import Any from '../../plugin/common/Any';
 
 const TAG = "FlutterAbilityDelegate";
 const PLUGINS_RESTORATION_BUNDLE_KEY = "plugins";
@@ -89,7 +90,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
       this.flutterEngine?.getAbilityControlSurface()?.attachToAbility(this);
     }
     //providePlatformPlugin
-
+    this.platformPlugin = this.host?.providePlatformPlugin(this.flutterEngine!)
     //configureFlutterEngine
     this.isAttached = true;
     const plugins = this.host?.getPlugins()
@@ -98,7 +99,6 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     }
     if (this.flutterEngine) {
       this.textInputPlugin = new TextInputPlugin(this.flutterEngine.getTextInputChannel()!);
-      this.platformPlugin = new PlatformPlugin(this.flutterEngine.getPlatformChannel()!, this.context, this);
       this.settings = new Settings(this.flutterEngine.getSettingsChannel()!);
       this.flutterEngine.getSystemLanguages();
     }
@@ -170,8 +170,8 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
       return result
     }
     if (typeof wantParam[FRAMEWORK_RESTORATION_BUNDLE_KEY] == 'object') {
-      let data: Record<string, ESObject> = wantParam[FRAMEWORK_RESTORATION_BUNDLE_KEY] as Record<string,
-      ESObject>;
+      let data: Record<string, Any> = wantParam[FRAMEWORK_RESTORATION_BUNDLE_KEY] as Record<string,
+      Any>;
       let byteArray: Array<number> = new Array;
       Object.keys(data).forEach(
         key => {
@@ -403,6 +403,10 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     return this.flutterEngine?.getFlutterNapi() ?? null
   }
 
+  getFlutterEngine(): FlutterEngine | null {
+    return this.flutterEngine ?? null;
+  }
+
   detachFromFlutterEngine() {
     if (this.host?.shouldDestroyEngineWithHost()) {
       // The host owns the engine and should never have its engine taken by another exclusive
@@ -543,6 +547,8 @@ interface Host extends FlutterEngineProvider, FlutterEngineConfigurator, Platfor
 
   /* Return the ExclusiveAppComponent */
   getExclusiveAppComponent(): ExclusiveAppComponent<UIAbility> | null
+
+  providePlatformPlugin(flutterEngine: FlutterEngine): PlatformPlugin | undefined
 }
 
 export { Host, FlutterAbilityAndEntryDelegate }

@@ -12,6 +12,7 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
+import Any from './Any';
 
 import MethodCall from './MethodCall';
 /**
@@ -49,7 +50,7 @@ export default interface MethodCodec {
    * @return a {@link ByteBuffer} containing the encoding between position 0 and the current
    *     position.
    */
-  encodeSuccessEnvelope(result: ESObject): ArrayBuffer;
+  encodeSuccessEnvelope(result: Any): ArrayBuffer;
 
   /**
    * Encodes an error result into a binary envelope message.
@@ -61,7 +62,7 @@ export default interface MethodCodec {
    * @return a {@link ByteBuffer} containing the encoding between position 0 and the current
    *     position.
    */
-  encodeErrorEnvelope(errorCode: string, errorMessage: string, errorDetails: ESObject): ArrayBuffer;
+  encodeErrorEnvelope(errorCode: string, errorMessage: string, errorDetails: Any): ArrayBuffer;
 
   /**
    * Encodes an error result into a binary envelope message with the native stacktrace.
@@ -74,7 +75,7 @@ export default interface MethodCodec {
    * @return a {@link ByteBuffer} containing the encoding between position 0 and the current
    *     position.
    */
-  encodeErrorEnvelopeWithStacktrace(errorCode: string, errorMessage: string, errorDetails: ESObject, errorStacktrace: string): ArrayBuffer
+  encodeErrorEnvelopeWithStacktrace(errorCode: string, errorMessage: string, errorDetails: Any, errorStacktrace: string): ArrayBuffer
 
   /**
    * Decodes a result envelope from binary.
@@ -83,5 +84,5 @@ export default interface MethodCodec {
    * @return the enveloped result Object.
    * @throws FlutterException if the envelope was an error envelope.
    */
-  decodeEnvelope(envelope: ArrayBuffer): ESObject
+  decodeEnvelope(envelope: ArrayBuffer): Any
 }

@@ -17,6 +17,7 @@ import MouseCursorChannel, { MouseCursorMethodHandler } from '../../embedding/en
 import pointer from '@ohos.multimodalInput.pointer';
 import HashMap from '@ohos.util.HashMap';
 import Log from '../../util/Log';
+import Any from '../common/Any';
 
 const TAG: string = "MouseCursorPlugin";
 export default class MouseCursorPlugin implements MouseCursorMethodHandler{
@@ -40,7 +41,7 @@ export default class MouseCursorPlugin implements MouseCursorMethodHandler{
     }
     let pointStyle: pointer.PointerStyle = this.resolveSystemCursor(kind);
     try {
-      pointer.setPointerStyle(this.windowId, pointStyle, (err: ESObject) => {
+      pointer.setPointerStyle(this.windowId, pointStyle, (err: Any) => {
         Log.i(TAG, "set point style success kind : " + kind);
       })
     } catch (e) {

@@ -16,6 +16,7 @@ import Log from '../../util/Log';
 
 import ToolUtils from '../../util/ToolUtils';
 import FlutterException from './FlutterException';
+import Any from './Any';
 import JSONMessageCodec from './JSONMessageCodec';
 import MethodCall from './MethodCall';
 import MethodCodec from './MethodCodec';
@@ -35,7 +36,7 @@ export default class JSONMethodCodec implements MethodCodec {
 
   encodeMethodCall(methodCall: MethodCall): ArrayBuffer {
     try {
-      const map: Record<string, ESObject> = {
+      const map: Record<string, Any> = {
         "method": methodCall.method, "args": methodCall.args
       }
 
@@ -47,10 +48,10 @@ export default class JSONMethodCodec implements MethodCodec {
 
   decodeMethodCall(message: ArrayBuffer): MethodCall {
     try {
-      const json: ESObject = JSONMessageCodec.INSTANCE.decodeMessage(message);
+      const json: Any = JSONMessageCodec.INSTANCE.decodeMessage(message);
       if (ToolUtils.isObj(json)) {
         const method: string = json["method"];
-        const args: ESObject = json["args"];
+        const args: Any = json["args"];
         if (typeof method == 'string') {
           return new MethodCall(method, args);
         }
@@ -61,21 +62,21 @@ export default class JSONMethodCodec implements MethodCodec {
     }
   }
 
-  encodeSuccessEnvelope(result: ESObject): ArrayBuffer {
+  encodeSuccessEnvelope(result: Any): ArrayBuffer {
     return JSONMessageCodec.INSTANCE.encodeMessage([result]);
   }
 
-  encodeErrorEnvelope(errorCode: ESObject, errorMessage: string, errorDetails: ESObject) {
+  encodeErrorEnvelope(errorCode: Any, errorMessage: string, errorDetails: Any) {
     return JSONMessageCodec.INSTANCE.encodeMessage([errorCode, errorMessage, errorDetails]);
   }
 
-  encodeErrorEnvelopeWithStacktrace(errorCode: string, errorMessage: string, errorDetails: ESObject, errorStacktrace: string): ArrayBuffer {
+  encodeErrorEnvelopeWithStacktrace(errorCode: string, errorMessage: string, errorDetails: Any, errorStacktrace: string): ArrayBuffer {
     return JSONMessageCodec.INSTANCE.encodeMessage([errorCode, errorMessage, errorDetails, errorStacktrace])
   }
 
-  decodeEnvelope(envelope: ArrayBuffer): ESObject {
+  decodeEnvelope(envelope: ArrayBuffer): Any {
     try {
-      const json: ESObject = JSONMessageCodec.INSTANCE.decodeMessage(envelope);
+      const json: Any = JSONMessageCodec.INSTANCE.decodeMessage(envelope);
       if (json instanceof Array) {
         if (json.length == 1) {
           return json[0];
@@ -83,7 +84,7 @@ export default class JSONMethodCodec implements MethodCodec {
         if (json.length == 3) {
           const code: string = json[0];
           const message: string = json[1];
-          const details: ESObject = json[2];
+          const details: Any = json[2];
           if (typeof code == 'string' && (message == null || typeof message == 'string')) {
             throw new FlutterException(code, message, details);
           }

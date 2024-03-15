@@ -105,7 +105,7 @@ def engineClean(buildInfo):
 
 
 def findFile(path, search, results):
-    if not os.path.exists(path):
+    if not path or not os.path.exists(path):
         return
     for item in os.listdir(path):
         cur_path = os.path.join(path, item)
@@ -123,37 +123,18 @@ def findNativeInCurrentDir():
 
 
 def getNdkHome():
-    HOS_NDK_HOME = os.getenv("HOS_NDK_HOME")
-    if not HOS_NDK_HOME:
-        HOS_NDK_HOME = findNativeInCurrentDir()
-    if not HOS_NDK_HOME:
-        HOS_SDK_HOME = os.getenv("HOS_SDK_HOME")
-        sdkInt = 0
-        if ('openharmony' in os.getenv("HOS_SDK_HOME")):
-            HOS_SDK_HOME = "%s/openharmony" % os.getenv("HOS_SDK_HOME")
-            if os.path.exists(HOS_SDK_HOME):
-                for dir in os.listdir(HOS_SDK_HOME):
-                    try:
-                        tmpInt = int(dir)
-                        sdkInt = max(sdkInt, tmpInt)
-                    except:
-                        logging.warning("Parse int error, dir=%s" % dir)
-            if sdkInt == 0:
-                logging.error(
-                    "Ohos sdkInt parse failed, please config the correct environment variable."
-                    " Such as: 'export HOS_SDK_HOME=~/ohos/sdk/openharmony'."
-                )
-                exit(20)
-            HOS_NDK_HOME = os.path.join(HOS_SDK_HOME, str(sdkInt), "native")
-        else:
-            HOS_NDK_HOME = "%s/HarmonyOS-NEXT-DP1/base/native" % os.getenv("HOS_SDK_HOME")
-    logging.info("HOS_NDK_HOME = %s" % HOS_NDK_HOME)
-    if (
-        (not os.path.exists(HOS_NDK_HOME))
-        or (not os.path.exists(HOS_NDK_HOME + "/sysroot"))
-        or (not os.path.exists(HOS_NDK_HOME + "/llvm/bin"))
-        or (not os.path.exists(HOS_NDK_HOME + "/build-tools/cmake/bin"))
-    ):
+    OHOS_NDK_HOME = os.getenv("OHOS_NDK_HOME")
+    if not OHOS_NDK_HOME:
+        OHOS_NDK_HOME = findNativeInCurrentDir()
+    if not OHOS_NDK_HOME:
+        dirs = []
+        findFile(os.getenv("OHOS_SDK_HOME"), "native", dirs)
+        findFile(os.getenv("HOS_SDK_HOME"), "native", dirs)
+        for dir in dirs:
+            if isNdkValid(dir):
+                OHOS_NDK_HOME = dir
+    logging.info("OHOS_NDK_HOME = %s" % OHOS_NDK_HOME)
+    if not isNdkValid(OHOS_NDK_HOME):
         logging.error(
             """
     Please set the environment variables for HarmonyOS SDK to "HOS_SDK_HOME" or "HOS_SDK_HOME".
@@ -162,6 +143,21 @@ def getNdkHome():
         )
         exit(10)
     return HOS_NDK_HOME
+
+# 校验 native
+def isNdkValid(path):
+    if not path:
+        return False
+    dirs = [
+        os.path.join(path),
+        os.path.join(path, 'sysroot'),
+        os.path.join(path, 'llvm', 'bin'),
+        os.path.join(path, 'build-tools', 'cmake', 'bin')
+    ]
+    for dir in dirs:
+        if not os.path.exists(dir):
+            return False
+    return True
 
 
 # 指定engine编译的配置参数
@@ -207,49 +203,21 @@ def engineCompile(buildInfo):
     runCommand("ninja -C %s" % os.path.join("src", "out", getOutput(buildInfo)))
 
 
-# 替换文件中的字符串
-def replaceStr(file, regex, newstr):
-    with open(file, "r", encoding="utf-8") as f1:
-        lines = f1.readlines()
-    with open(file, "w+", encoding="utf-8") as f2:
-        for line in lines:
-            a = re.sub(regex, newstr, line)
-            f2.writelines(a)
-
-
 # 编译har文件
 def harBuild(buildInfo):
     buildType = buildInfo.buildType
-    isDebug = "true" if buildType == "debug" else "false"
-    isProfile = "true" if buildType == "profile" else "false"
-    dirEmbedding = os.path.abspath(
-        "%s/src/flutter/shell/platform/ohos/flutter_embedding" % DIR_ROOT
-    )
-    targetFile = os.path.abspath(
-        "%s/flutter/src/main/ets/embedding/engine/loader/FlutterApplicationInfo.ets"
-        % dirEmbedding
-    )
-    logging.info("isDebugMode=%s, isProfile=%s" % (isDebug, isProfile))
-    replaceStr(targetFile, "isDebugMode = .*", "isDebugMode = %s;" % isDebug)
-    replaceStr(targetFile, "isProfile = .*", "isProfile = %s;" % isProfile)
+    buildOut = getOutput(buildInfo)
     runCommand(
-        ("cd %s && " % dirEmbedding)
-        + (".%s" % os.sep)
-        + "hvigorw --mode module -p module=flutter@default -p product=default assembleHar --no-daemon"
-        + " && cd %s" % DIR_ROOT
+        "python3 ./src/build/ohos/ohos_create_flutter_har.py "
+        + "--embedding_src ./src/flutter/shell/platform/ohos/flutter_embedding "
+        + "--build_dir ./src/out/%s/obj/ohos/flutter_embedding " % buildOut
+        + "--build_type %s " % buildType
+        + "--output ./src/out/%s/flutter.har " % buildOut
+        + "--native_lib ./src/out/%s/libflutter.so " % buildOut
+        + "--ohos_abi %s " % "arm64-v8a"
+        + "--ohos_api_int %s " % 11
     )
-    fileSrc = os.path.abspath(
-        "%s/flutter/build/default/outputs/default/flutter.har" % (dirEmbedding)
-    )
-    fileDest = safeGetPath(
-        "%s/src/out/%s/ohos/flutter_embedding.har" % (DIR_ROOT, getOutput(buildInfo)),
-        isDirectory=False,
-    )
-    shutil.copy(fileSrc, fileDest)
-    logging.info(
-        "Copy result is %s, from %s to %s"
-        % (os.path.exists(fileDest), fileSrc, fileDest)
-    )
+    
 
 
 def isPathValid(filepath, filename, includes, excludes):
@@ -305,7 +273,7 @@ def zipFiles(buildInfo, useZip2=False):
         sdkVer = getNdkHome()[-30:-12]
     outputName = getOutput(buildInfo)
     fileIn = os.path.abspath("%s/src/out/%s" % (DIR_ROOT, outputName))
-    fileName = "ohos_api%s_%s-%s-%s-%s" % (
+    fileName = "ohos_%s_%s-%s-%s-%s" % (
         sdkVer,
         buildInfo.buildType,
         OS_NAME,
@@ -357,6 +325,7 @@ def updateCode(args):
         runCommand("git -C %s stash save 'Auto stash save.'" % dir)
         runCommand("git -C %s checkout %s" % (dir, args.branch))
         runCommand("git -C %s pull --rebase" % dir, checkCode=False)
+        runCommand("git -C %s log -1" % dir)
         runCommand("python3 src/flutter/attachment/scripts/ohos_setup.py")
 
 

@@ -22,6 +22,7 @@ import TextInputChannel, {
 import inputMethod from '@ohos.inputMethod';
 import Log from '../../util/Log';
 import { EditingStateWatcher, ListenableEditingState } from './ListenableEditingState';
+import Any from '../common/Any';
 
 export default class TextInputPlugin implements EditingStateWatcher {
   private static TAG = "TextInputPlugin";
@@ -74,11 +75,11 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   public configuration: Configuration | null = null;
   mEditable: ListenableEditingState;
   private mRestartInputPending: boolean = false;
-  private plugin: EditingStateWatcher | ESObject;
+  private plugin: EditingStateWatcher | Any;
   private keyboardStatus: inputMethod.KeyboardStatus = KeyboardStatus.NONE;
   private imcFlag: boolean = false;
 
-  constructor(plugin: TextInputPlugin | ESObject) {
+  constructor(plugin: TextInputPlugin | Any) {
     this.textConfig = {
       inputAttribute: {
         textInputType: 0,
@@ -141,7 +142,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     }
     this.inputMethodController.showTextInput().then(() => {
       Log.d(TextInputMethodHandlerImpl.TAG, "Succeeded in showing softKeyboard");
-    }).catch((err: ESObject) => {
+    }).catch((err: Any) => {
       Log.e(TextInputMethodHandlerImpl.TAG, "Failed to show softKeyboard:" + JSON.stringify(err));
     });
   }
@@ -149,7 +150,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   private async hideTextInput(): Promise<void> {
     this.inputMethodController.hideTextInput().then(() => {
       Log.d(TextInputMethodHandlerImpl.TAG, "Succeeded in hide softKeyboard");
-    }).catch((err: ESObject) => {
+    }).catch((err: Any) => {
       Log.e(TextInputMethodHandlerImpl.TAG, "Failed to hide softKeyboard:" + JSON.stringify(err));
     })
   }
@@ -168,7 +169,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
       this.configuration = configuration;
       if (configuration.inputType) {
         this.textConfig.inputAttribute.textInputType = INPUT_TYPE_NAME.indexOf(configuration.inputType.type)
-        this.textConfig.inputAttribute.enterKeyType = configuration.inputAction as ESObject;
+        this.textConfig.inputAttribute.enterKeyType = configuration.inputAction as Any;
       }
     }
     if (this.canShowTextInput()) {

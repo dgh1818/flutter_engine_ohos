@@ -42,7 +42,7 @@ import PlatformViewsController from '../../plugin/platform/PlatformViewsControll
 import { FlutterPlugin } from './plugins/FlutterPlugin';
 import List from '@ohos.util.List';
 import GeneratedPluginRegister from './plugins/util/GeneratedPluginRegister';
-
+import { FlutterRenderer } from './renderer/FlutterRenderer';
 
 const TAG = "FlutterEngine";
 
@@ -68,6 +68,7 @@ export default class FlutterEngine implements EngineLifecycleListener{
   private accessibilityChannel: AccessibilityChannel | null = null;
   private localeChannel: LocalizationChannel | null = null;
   private flutterNapi: FlutterNapi;
+  private renderer: FlutterRenderer;
   private pluginRegistry: FlutterEngineConnectionRegistry | null = null;
   private textInputPlugin: TextInputPlugin | null = null;
   private localizationPlugin: LocalizationPlugin | null = null;
@@ -98,6 +99,8 @@ export default class FlutterEngine implements EngineLifecycleListener{
       flutterLoader = injector.getFlutterLoader();
     }
     this.flutterLoader = flutterLoader;
+
+    this.renderer = new FlutterRenderer(this.flutterNapi);
 
     if(platformViewsController == null) {
       platformViewsController = new PlatformViewsController();
@@ -141,6 +144,8 @@ export default class FlutterEngine implements EngineLifecycleListener{
     if (automaticallyRegisterPlugins && plugins) {
       GeneratedPluginRegister.registerGeneratedPlugins(this, plugins);
     }
+
+    Log.d(TAG, "Call init finished.")
   }
 
   private attachToNapi(): void {
@@ -218,6 +223,10 @@ export default class FlutterEngine implements EngineLifecycleListener{
     return this.flutterNapi;
   }
 
+  getFlutterRenderer(): FlutterRenderer {
+    return this.renderer;
+  }
+
   getDartExecutor(): DartExecutor {
     return this.dartExecutor
   }
@@ -232,6 +241,10 @@ export default class FlutterEngine implements EngineLifecycleListener{
 
   getSettingsChannel() {
     return this.settingsChannel;
+  }
+
+  getFlutterLoader() {
+    return this.flutterLoader;
   }
 
   onPreEngineRestart(): void {

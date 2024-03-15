@@ -12,15 +12,16 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
+import Any from './Any';
 
 export default class FlutterException implements Error {
   stack?: string;
   message: string;
   name: string = "";
   code: string;
-  details: ESObject
+  details: Any
 
-  constructor(code: string, message: string, details: ESObject) {
+  constructor(code: string, message: string, details: Any) {
     this.message = message;
     this.code = code;
     this.details =details;

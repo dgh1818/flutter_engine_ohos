@@ -17,6 +17,7 @@ import Log from '../../util/Log';
 import MessageChannelUtils from '../../util/MessageChannelUtils';
 import StringUtils from '../../util/StringUtils';
 import { BinaryMessageHandler, BinaryMessenger, BinaryReply, TaskQueue } from './BinaryMessenger';
+import Any from './Any';
 import MethodCall from './MethodCall';
 import MethodCodec from './MethodCodec';
 import StandardMethodCodec from './StandardMethodCodec';
@@ -57,7 +58,7 @@ export default class MethodChannel {
    * @param arguments the arguments for the invocation, possibly null.
    * @param callback a {@link Result} callback for the invocation result, or null.
    */
-  invokeMethod(method: string, args: ESObject, callback?: MethodResult): void {
+  invokeMethod(method: string, args: Any, callback?: MethodResult): void {
     this.messenger.send(this.name, this.codec.encodeMethodCall(new MethodCall(method, args)), callback == null ? null : new IncomingResultHandler(callback, this.codec));
   }
 
@@ -139,7 +140,7 @@ export interface MethodResult {
    *     codec. For instance, if you are using {@link StandardMessageCodec} (default), please see
    *     its documentation on what types are supported.
    */
-  success: (result: ESObject) => void;
+  success: (result: Any) => void;
 
   /**
    * Handles an error result.
@@ -150,7 +151,7 @@ export interface MethodResult {
    *     supported by the codec. For instance, if you are using {@link StandardMessageCodec}
    *     (default), please see its documentation on what types are supported.
    */
-  error: (errorCode: string, errorMessage: string, errorDetails: ESObject) => void;
+  error: (errorCode: string, errorMessage: string, errorDetails: Any) => void;
 
   /** Handles a call to an unimplemented method. */
   notImplemented: () => void;
@@ -196,11 +197,11 @@ export class IncomingMethodCallHandler implements BinaryMessageHandler {
     try {
       this.handler.onMethodCall(
         call, {
-        success: (result: ESObject): void => {
+        success: (result: Any): void => {
           reply.reply(this.codec.encodeSuccessEnvelope(result));
         },
 
-        error: (errorCode: string, errorMessage: string, errorDetails: ESObject): void => {
+        error: (errorCode: string, errorMessage: string, errorDetails: Any): void => {
           reply.reply(this.codec.encodeErrorEnvelope(errorCode, errorMessage, errorDetails));
         },
 
