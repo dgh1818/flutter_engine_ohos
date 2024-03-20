@@ -54,7 +54,7 @@ export default class MethodCall {
     if (this.args == null) {
       return false;
     } else if (this.args instanceof Map) {
-      return (this.args as Map<Any, Any>).get(key);
+      return (this.args as Map<Any, Any>).has(key);
     } else if (ToolUtils.isObj(this.args)) {
       return this.args.hasOwnProperty(key);
     } else {
