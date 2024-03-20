@@ -38,6 +38,7 @@ const TAG = "FlutterPage";
 export struct FlutterPage {
   @State rootDvModel: DVModelChildren | undefined = undefined
   @Prop viewId: string = ""
+  @Prop xComponentType: XComponentType = XComponentType.SURFACE
   private flutterView?: FlutterView | null
 
   aboutToAppear() {
@@ -47,7 +48,7 @@ export struct FlutterPage {
 
   build() {
     Stack() {
-      XComponent({ id: this.viewId, type: XComponentType.SURFACE, libraryname: 'flutter' })
+      XComponent({ id: this.viewId, type: this.xComponentType, libraryname: 'flutter' })
         .focusable(true)
         .onLoad((context) => {
           this.flutterView?.onSurfaceCreated()
