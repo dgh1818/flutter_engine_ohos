@@ -26,6 +26,8 @@ import {
 } from '../../view/DynamicView/dynamicView';
 import { createDVModelFromJson } from '../../view/DynamicView/dynamicViewJson';
 import { FlutterView } from '../../view/FlutterView';
+import ApplicationInfoLoader from '../engine/loader/ApplicationInfoLoader';
+import FlutterApplicationInfo from '../engine/loader/FlutterApplicationInfo';
 import KeyEventChannel from '../engine/systemchannels/KeyEventChannel';
 import FlutterManager from './FlutterManager';
 
@@ -40,6 +42,7 @@ export struct FlutterPage {
   @Prop viewId: string = ""
   @Prop xComponentType: XComponentType = XComponentType.SURFACE
   private flutterView?: FlutterView | null
+  private applicationInfo = ApplicationInfoLoader.load(getContext());
 
   aboutToAppear() {
     this.flutterView = FlutterManager.getInstance().getFlutterView(this.viewId);
@@ -48,16 +51,32 @@ export struct FlutterPage {
 
   build() {
     Stack() {
-      XComponent({ id: this.viewId, type: this.xComponentType, libraryname: 'flutter' })
-        .focusable(true)
-        .onLoad((context) => {
-          this.flutterView?.onSurfaceCreated()
-          Log.d(TAG, "XComponent onLoad ");
-        })
-        .onDestroy(() => {
-          Log.d(TAG, "XComponent onDestroy ");
-          this.flutterView?.onSurfaceDestroyed()
-        })
+      // todo OS解决默认背景色后可以移除冗余重复代码,仅保留差异的backgroundColor属性条件配置
+      if (this.applicationInfo.isDebugMode) {
+        XComponent({ id: this.viewId, type: this.xComponentType, libraryname: 'flutter' })
+          .focusable(true)
+          .onLoad((context) => {
+            this.flutterView?.onSurfaceCreated()
+            Log.d(TAG, "XComponent onLoad ");
+          })
+          .onDestroy(() => {
+            Log.d(TAG, "XComponent onDestroy ");
+            this.flutterView?.onSurfaceDestroyed()
+          })
+          .backgroundColor(Color.White)
+      } else {
+        XComponent({ id: this.viewId, type: this.xComponentType, libraryname: 'flutter' })
+          .focusable(true)
+          .onLoad((context) => {
+            this.flutterView?.onSurfaceCreated()
+            Log.d(TAG, "XComponent onLoad ");
+          })
+          .onDestroy(() => {
+            Log.d(TAG, "XComponent onDestroy ");
+            this.flutterView?.onSurfaceDestroyed()
+          })
+      }
+
       ForEach(this.rootDvModel!!, (child:Any) =>{
         DynamicView({
           model: child as DVModel,
