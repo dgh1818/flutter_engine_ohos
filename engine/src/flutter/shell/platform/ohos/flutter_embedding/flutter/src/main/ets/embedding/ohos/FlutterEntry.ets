@@ -216,10 +216,6 @@ export default class FlutterEntry implements Host {
     return true;
   }
 
-  getPlugins(): List<FlutterPlugin> {
-    return new List()
-  }
-
   getExclusiveAppComponent(): ExclusiveAppComponent<UIAbility> | null {
     return this.delegate ? this.delegate : null
   }
