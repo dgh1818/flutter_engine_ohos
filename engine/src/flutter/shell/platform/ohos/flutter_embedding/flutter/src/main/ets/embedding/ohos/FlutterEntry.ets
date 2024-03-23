@@ -56,6 +56,7 @@ export default class FlutterEntry implements Host {
     if (this.hasInit == false) {
       this.delegate = new FlutterAbilityAndEntryDelegate(this);
       this.flutterView = this.delegate?.createView(this.context);
+      this.flutterView?.onWindowCreated();
       await this?.delegate?.onAttach(this.context);
       Log.i(TAG, 'onAttach end');
       this?.delegate?.platformPlugin?.setUIAbilityContext(this.uiAbility!!.context);

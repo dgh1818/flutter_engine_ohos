@@ -21,6 +21,7 @@ import window from '@ohos.window';
 import KeyboardManager from '../embedding/ohos/KeyboardManager';
 import MouseCursorPlugin from '../plugin/mouse/MouseCursorPlugin';
 import Any from '../plugin/common/Any';
+import Settings from '../embedding/ohos/Settings';
 
 const TAG = "FlutterView";
 
@@ -53,6 +54,8 @@ export class FlutterView {
   private keyboardManager: KeyboardManager | null = null;
   private mainWindow: window.Window
   private mouseCursorPlugin?: MouseCursorPlugin;
+  private uiContext?: UIContext | undefined;
+  private settings?: Settings;
 
   constructor(viewId: string, context: Context) {
     this.id = viewId
@@ -121,6 +124,8 @@ export class FlutterView {
     this.updateViewportMetrics()
     let windowId = this.mainWindow?.getWindowProperties()?.id
     this.mouseCursorPlugin = new MouseCursorPlugin(windowId, this.flutterEngine?.getMouseCursorChannel()!);
+    this.settings = new Settings(this.flutterEngine.getSettingsChannel()!);
+    this.sendSettings();
   }
 
   detachFromFlutterEngine(): void {
@@ -135,6 +140,22 @@ export class FlutterView {
     this.flutterEngine?.getPlatformViewsController()?.detachFromView();
     this.flutterEngine = null;
     this.keyboardManager = null;
+  }
+
+  onWindowCreated() {
+    Log.d(TAG, "received onwindowCreated.");
+    let _UIContext = this.mainWindow?.getUIContext();
+    this.uiContext = _UIContext;
+    this.sendSettings();
+    Log.d(TAG, "uiContext init and sendSettings finished.");
+  }
+
+  sendSettings(): void {
+    if (this.uiContext != undefined && this.isAttachedToFlutterEngine()) {
+      this.settings?.sendSettings(this.uiContext.getMediaQuery());
+    } else {
+      Log.e(TAG, "UIContext is null, cannot send Settings!");
+    }
   }
 
   onSurfaceCreated() {
