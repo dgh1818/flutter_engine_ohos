@@ -33,8 +33,6 @@ import FlutterEngineCache from '../engine/FlutterEngineCache';
 import FlutterEngineGroupCache from '../engine/FlutterEngineGroupCache';
 import FlutterEngineGroup, { Options } from '../engine/FlutterEngineGroup';
 import FlutterNapi from '../engine/FlutterNapi';
-import List from '@ohos.util.List';
-import GeneratedPluginRegister from '../engine/plugins/util/GeneratedPluginRegister';
 import { FlutterView } from '../../view/FlutterView';
 import FlutterManager from './FlutterManager';
 import router from '@ohos.router';
@@ -89,10 +87,6 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     this.platformPlugin = this.host?.providePlatformPlugin(this.flutterEngine!)
     //configureFlutterEngine
     this.isAttached = true;
-    const plugins = this.host?.getPlugins()
-    if (plugins) {
-      GeneratedPluginRegister.registerGeneratedPlugins(this.flutterEngine!, plugins);
-    }
     if (this.flutterEngine) {
       this.textInputPlugin = new TextInputPlugin(this.flutterEngine.getTextInputChannel()!);
       this.flutterEngine.getSystemLanguages();
@@ -242,7 +236,6 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     }
     if (this.context) {
       this.flutterEngine = await group?.createAndRunEngineByOptions(this.addEntrypointOptions(new Options(this.context)
-        .setAutomaticallyRegisterPlugins(false)
         .setWaitForRestorationData(this.host?.shouldRestoreAndSaveState() || false)));
     }
     this.isFlutterEngineFromHostOrCache = false;
@@ -523,9 +516,6 @@ interface Host extends FlutterEngineProvider, FlutterEngineConfigurator, Platfor
   getWant(): Want;
 
   shouldRestoreAndSaveState(): boolean;
-
-  /** Return the plugins */
-  getPlugins(): List<FlutterPlugin>;
 
   /* Return the ExclusiveAppComponent */
   getExclusiveAppComponent(): ExclusiveAppComponent<UIAbility> | null
