@@ -36,7 +36,6 @@ import { FlutterPlugin } from './src/main/ets/embedding/engine/plugins/FlutterPl
 import AbilityAware from './src/main/ets/embedding/engine/plugins/ability/AbilityAware';
 import AbilityControlSurface from './src/main/ets/embedding/engine/plugins/ability/AbilityControlSurface';
 import { AbilityPluginBinding } from './src/main/ets/embedding/engine/plugins/ability/AbilityPluginBinding';
-import GeneratedPluginRegister from './src/main/ets/embedding/engine/plugins/util/GeneratedPluginRegister';
 import { FlutterUiDisplayListener } from './src/main/ets/embedding/engine/renderer/FlutterUiDisplayListener';
 import AccessibilityChannel from './src/main/ets/embedding/engine/systemchannels/AccessibilityChannel';
 import KeyEventChannel from './src/main/ets/embedding/engine/systemchannels/KeyEventChannel';
@@ -133,7 +132,6 @@ export {
   AbilityAware,
   AbilityControlSurface,
   AbilityPluginBinding,
-  GeneratedPluginRegister,
   FlutterUiDisplayListener,
   AccessibilityChannel,
   KeyEventChannel,
