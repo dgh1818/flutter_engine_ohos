@@ -304,11 +304,6 @@ export class FlutterAbility extends UIAbility implements Host {
     return true;
   }
 
-  getPlugins(): List<FlutterPlugin>{
-    // Subclasses should override this function.
-    return new List()
-  }
-
   getExclusiveAppComponent(): ExclusiveAppComponent<UIAbility> | null {
     return this.delegate ? this.delegate : null
   }

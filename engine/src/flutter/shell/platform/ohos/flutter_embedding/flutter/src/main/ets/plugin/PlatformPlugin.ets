@@ -23,6 +23,7 @@ import PlatformChannel, {
   SystemUiMode,
   SystemUiOverlay
 } from '../embedding/engine/systemchannels/PlatformChannel';
+import FlutterManager from '../embedding/ohos/FlutterManager';
 import pasteboard from '@ohos.pasteboard';
 import Log from '../util/Log';
 import vibrator from '@ohos.vibrator';
@@ -48,8 +49,11 @@ export default class PlatformPlugin {
           Log.e(PlatformPlugin.TAG, "Failed to obtain the top window. Cause: " + JSON.stringify(err));
           return;
         }
-        this.callback.windowClass = data;
+        this.callback.lastWindow = data;
       });
+      const uiAbility = FlutterManager.getInstance().getUIAbility(context);
+      const windowStage = FlutterManager.getInstance().getWindowStage(uiAbility);
+      this.callback.mainWindow = windowStage.getMainWindowSync();
     } catch (err) {
       Log.e(PlatformPlugin.TAG, "Failed to obtain the top window. Cause: " + JSON.stringify(err));
     }
@@ -59,7 +63,7 @@ export default class PlatformPlugin {
 
 
   updateSystemUiOverlays(): void {
-    this.callback.windowClass?.setWindowSystemBarEnable(this.callback.showBarOrNavigation);
+    this.callback.mainWindow?.setWindowSystemBarEnable(this.callback.showBarOrNavigation);
     if (this.callback.currentTheme != null) {
       this.callback.setSystemChromeSystemUIOverlayStyle(this.callback.currentTheme);
     }
@@ -95,7 +99,8 @@ export interface PlatformPluginDelegate {
 export class PlatformPluginCallback implements PlatformMessageHandler {
   private static TAG = "PlatformPluginCallback";
   platform: PlatformPlugin | null = null;
-  windowClass: window.Window | null = null;
+  mainWindow: window.Window | null = null;
+  lastWindow: window.Window | null = null;
   platformChannel: PlatformChannel | null = null;
   platformPluginDelegate: PlatformPluginDelegate | null = null;
   context: common.Context | null = null;
@@ -135,7 +140,7 @@ export class PlatformPluginCallback implements PlatformMessageHandler {
 
   setPreferredOrientations(ohosOrientation: number) {
     Log.d(PlatformPluginCallback.TAG, "ohosOrientation: " + ohosOrientation);
-    this.windowClass?.setPreferredOrientation(ohosOrientation);
+    this.mainWindow?.setPreferredOrientation(ohosOrientation);
   }
 
   setApplicationSwitcherDescription(description: AppSwitcherDescription) {
@@ -200,19 +205,19 @@ export class PlatformPluginCallback implements PlatformMessageHandler {
     let uiConfig: ('status' | 'navigation')[] = [];
     if (mode == SystemUiMode.LEAN_BACK) {
       //全屏显示，通过点击显示器上的任何位置都可以显示状态和导航栏
-      this.windowClass?.setWindowLayoutFullScreen(false);
+      this.lastWindow?.setWindowLayoutFullScreen(false);
 
     } else if (mode == SystemUiMode.IMMERSIVE) {
       //全屏显示，通过在显示器边缘的滑动手势可以显示状态和导航栏,应用程序不会接收到此手势
-      this.windowClass?.setWindowLayoutFullScreen(true);
+      this.lastWindow?.setWindowLayoutFullScreen(true);
 
     } else if (mode == SystemUiMode.IMMERSIVE_STICKY) {
       //全屏显示，通过在显示器边缘的滑动手势可以显示状态和导航栏,此手势由应用程序接收
-      this.windowClass?.setWindowLayoutFullScreen(true);
+      this.lastWindow?.setWindowLayoutFullScreen(true);
 
     } else if (mode == SystemUiMode.EDGE_TO_EDGE) {
       //全屏显示，在应用程序上呈现状态和导航元素
-      this.windowClass?.setWindowLayoutFullScreen(false);
+      this.lastWindow?.setWindowLayoutFullScreen(false);
       uiConfig = ['status', 'navigation'];
 
     } else {
@@ -276,7 +281,7 @@ export class PlatformPluginCallback implements PlatformMessageHandler {
     systemBarProperties.isNavigationBarLightIcon = isNavigationBarLightIconValue;
     systemBarProperties.navigationBarContentColor = navigationBarContentColorValue;
     Log.d(PlatformPluginCallback.TAG, "systemBarProperties: " + JSON.stringify(systemBarProperties));
-    this.windowClass?.setWindowSystemBarProperties(systemBarProperties);
+    this.mainWindow?.setWindowSystemBarProperties(systemBarProperties);
   }
 
   setSystemChromeEnabledSystemUIOverlays(overlays: SystemUiOverlay[]): void {
