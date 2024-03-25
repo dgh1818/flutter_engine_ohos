@@ -162,6 +162,7 @@ export class FlutterAbility extends UIAbility implements Host {
           Log.e(TAG, 'Failed to load the content. Cause: %{public}s', JSON.stringify(err) ?? '');
           return;
         }
+        this.flutterView?.onWindowCreated();
 
         Log.i(TAG, 'Succeeded in loading the content. Data: %{public}s', JSON.stringify(data) ?? '');
       });
@@ -226,9 +227,7 @@ export class FlutterAbility extends UIAbility implements Host {
   }
 
   configureFlutterEngine(flutterEngine: FlutterEngine) {
-    let _UIContext = this.mainWindow?.getUIContext();
-    this.delegate?.setUIContext(_UIContext);
-    this.delegate?.sendSettings();
+
   }
 
   cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
