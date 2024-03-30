@@ -450,14 +450,11 @@ void PlatformViewOHOS::OnNativeImageFrameAvailable(void *data)
   std::shared_ptr<OHOSSurface> ohos_surface = frameData->context_->ohos_surface_;
   const TaskRunners task_runners = frameData->context_->task_runners_;
   if (ohos_surface) {
-    fml::AutoResetWaitableEvent latch;
     fml::TaskRunner::RunNowOrPostTask(
         task_runners.GetPlatformTaskRunner(),
-        [&latch, surface = ohos_surface.get(), frameData]() {
+        [frameData]() {
           frameData->context_->MarkTextureFrameAvailable(frameData->texture_id_);
-          latch.Signal();
         });
-    latch.Wait();
   }
 }
 
