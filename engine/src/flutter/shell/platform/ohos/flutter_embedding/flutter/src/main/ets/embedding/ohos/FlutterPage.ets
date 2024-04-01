@@ -51,31 +51,17 @@ export struct FlutterPage {
 
   build() {
     Stack() {
-      // todo OS解决默认背景色后可以移除冗余重复代码,仅保留差异的backgroundColor属性条件配置
-      if (this.applicationInfo.isDebugMode) {
-        XComponent({ id: this.viewId, type: this.xComponentType, libraryname: 'flutter' })
-          .focusable(true)
-          .onLoad((context) => {
-            this.flutterView?.onSurfaceCreated()
-            Log.d(TAG, "XComponent onLoad ");
-          })
-          .onDestroy(() => {
-            Log.d(TAG, "XComponent onDestroy ");
-            this.flutterView?.onSurfaceDestroyed()
-          })
-          .backgroundColor(Color.White)
-      } else {
-        XComponent({ id: this.viewId, type: this.xComponentType, libraryname: 'flutter' })
-          .focusable(true)
-          .onLoad((context) => {
-            this.flutterView?.onSurfaceCreated()
-            Log.d(TAG, "XComponent onLoad ");
-          })
-          .onDestroy(() => {
-            Log.d(TAG, "XComponent onDestroy ");
-            this.flutterView?.onSurfaceDestroyed()
-          })
-      }
+      XComponent({ id: this.viewId, type: this.xComponentType, libraryname: 'flutter' })
+        .focusable(true)
+        .onLoad((context) => {
+          this.flutterView?.onSurfaceCreated()
+          Log.d(TAG, "XComponent onLoad ");
+        })
+        .onDestroy(() => {
+          Log.d(TAG, "XComponent onDestroy ");
+          this.flutterView?.onSurfaceDestroyed()
+        })
+        .backgroundColor(Color.Transparent)
 
       ForEach(this.rootDvModel!!, (child:Any) =>{
         DynamicView({
