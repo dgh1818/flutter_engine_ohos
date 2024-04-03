@@ -28,11 +28,17 @@ export default class StringUtils {
   }
 
   static arrayBufferToString(buffer: ArrayBuffer): string {
+    if (buffer.byteLength <= 0) {
+      return "";
+    }
     let textDecoder = util.TextDecoder.create('utf-8', { ignoreBOM : true })
     return textDecoder.decode(new Uint8Array(buffer));
   }
 
   static uint8ArrayToString(buffer: Uint8Array): string {
+    if (buffer.length <= 0) {
+      return "";
+    }
     let textDecoder = util.TextDecoder.create('utf-8', { ignoreBOM : true })
     return textDecoder.decodeWithStream(buffer);
   }
