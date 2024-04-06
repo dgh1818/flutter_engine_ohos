@@ -130,9 +130,11 @@ def getNdkHome():
         dirs = []
         findFile(os.getenv("OHOS_SDK_HOME"), "native", dirs)
         findFile(os.getenv("HOS_SDK_HOME"), "native", dirs)
+        dirs.sort(reverse=True)
         for dir in dirs:
             if isNdkValid(dir):
                 OHOS_NDK_HOME = dir
+                break;
     logging.info("OHOS_NDK_HOME = %s" % OHOS_NDK_HOME)
     if not isNdkValid(OHOS_NDK_HOME):
         logging.error(
