@@ -182,7 +182,13 @@ export class FlutterView {
       this.viewportMetrics.physicalHeight = vp2px(newArea.height as number);
     }
 
-    this.viewportMetrics.physicalViewPaddingTop = systemAvoidArea!.topRect.height
+    // 根据是否全屏显示，设置标题栏高度
+    if (this.mainWindow.getWindowProperties().isLayoutFullScreen) { // 全屏显示
+      this.viewportMetrics.physicalViewPaddingTop = systemAvoidArea!.topRect.height
+    } else { // 非全屏显示
+      this.viewportMetrics.physicalViewPaddingTop = 0;
+    }
+
     this.viewportMetrics.physicalViewPaddingLeft = systemAvoidArea!.leftRect.width
     this.viewportMetrics.physicalViewPaddingBottom = systemAvoidArea!.bottomRect.height
     this.viewportMetrics.physicalViewPaddingRight = systemAvoidArea!.rightRect.width
