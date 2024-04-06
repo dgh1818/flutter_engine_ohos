@@ -135,7 +135,9 @@ export default class FlutterLoader {
         fs.rmdirSync(filePath);
       }
 
-      fs.mkdirSync(filePath)
+      if (!fs.accessSync(filePath)) {
+        fs.mkdirSync(filePath)
+      }
 
       let icudtlBuffer = await this.context.resourceManager.getRawFileContent(this.flutterApplicationInfo!.flutterAssetsDir + "/icudtl.dat")
       let icudtlFile = fs.openSync(filePath + FILE_SEPARATOR + "/icudtl.dat", fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE)
