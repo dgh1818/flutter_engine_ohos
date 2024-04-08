@@ -213,6 +213,7 @@ void OHOSExternalTextureGL::HandlePixelMapBuffer()
 {
   BufferHandle *handle = OH_NativeWindow_GetBufferHandleFromNative(buffer_);
   // get virAddr of bufferHandl by mmap sys interface
+  uint32_t stride = handle-->getStride();
   void *mappedAddr = mmap(handle->virAddr, handle->size, PROT_READ | PROT_WRITE, MAP_SHARED, handle->fd, 0);
   if (mappedAddr == MAP_FAILED) {
     FML_DLOG(FATAL)<<"OHOSExternalTextureGL mmap failed";
@@ -240,15 +241,15 @@ void OHOSExternalTextureGL::HandlePixelMapBuffer()
   FML_DLOG(INFO) << "OHOSExternalTextureGL pixelMapInfo rowDataSize:" << rowDataSize;
 
   // 复制图片纹理数据到内存中，需要处理DMA内存补齐相关的逻辑
-  if (pixelMapInfo.width * PIXEL_SIZE == rowDataSize) {
+  if (pixelMapInfo.width * PIXEL_SIZE != pixelMapInfo.rowSize) {
     // 直接复制整块内存
-    memcpy(pixel, value, pixelMapInfo.width * pixelMapInfo.height * 4);
+    memcpy(pixel, value, pixelMapInfo.height * pixelMapInfo.rowSize);
   } else {
     // 需要处理DMA内存补齐相关的逻辑
     for (uint32_t i = 0; i < pixelMapInfo.height; i++) {
-      memcpy(pixel, value, rowDataSize);
-      pixel += rowDataSize / PIXEL_SIZE;
-      value += pixelMapInfo.width;
+      memcpy(pixel, value, pixelMapInfo.rowSize);
+      pixel += pixelMapInfo.rowSize;
+      value += stride;
     }
   }
   OH_PixelMap_UnAccessPixels(pixelMap_);
