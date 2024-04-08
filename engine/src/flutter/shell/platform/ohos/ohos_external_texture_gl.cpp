@@ -249,7 +249,7 @@ void OHOSExternalTextureGL::HandlePixelMapBuffer()
     // 需要处理DMA内存补齐相关的逻辑
     for (uint32_t i = 0; i < pixelMapInfo.height; i++) {
       memcpy(pixel, value, pixelMapInfo.rowSize);
-      pixel += rowDataSize / PIXEL_SIZE;
+      pixel += pixelMapInfo.rowSize / PIXEL_SIZE;
       value += stride / PIXEL_SIZE;
     }
   }
