@@ -242,15 +242,15 @@ void OHOSExternalTextureGL::HandlePixelMapBuffer()
   FML_DLOG(INFO) << "OHOSExternalTextureGL pixelMapInfo rowDataSize:" << rowDataSize;
 
   // 复制图片纹理数据到内存中，需要处理DMA内存补齐相关的逻辑
-  if (pixelMapInfo.width * PIXEL_SIZE == pixelMapInfo.rowSize) {
+  if (pixelMapInfo.width * PIXEL_SIZE != pixelMapInfo.rowSize) {
     // 直接复制整块内存
     memcpy(pixel, value, pixelMapInfo.height * pixelMapInfo.rowSize);
   } else {
     // 需要处理DMA内存补齐相关的逻辑
     for (uint32_t i = 0; i < pixelMapInfo.height; i++) {
       memcpy(pixel, value, pixelMapInfo.rowSize);
-      pixel += pixelMapInfo.rowSize;
-      value += stride;
+      pixel += rowDataSize / PIXEL_SIZE;
+      value += stride / PIXEL_SIZE;
     }
   }
   OH_PixelMap_UnAccessPixels(pixelMap_);
