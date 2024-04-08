@@ -240,12 +240,17 @@ void OHOSExternalTextureGL::HandlePixelMapBuffer()
   FML_DLOG(INFO) << "OHOSExternalTextureGL pixelMapInfo rowDataSize:" << rowDataSize;
 
   // 复制图片纹理数据到内存中，需要处理DMA内存补齐相关的逻辑
-  for (uint32_t i = 0; i < pixelMapInfo.height; i++) {
-    memcpy(pixel, value, rowDataSize);
-    pixel += rowDataSize / PIXEL_SIZE;
-    value += pixelMapInfo.width;
+  if (pixelMapInfo.width % PIXEL_SIZE == 0) {
+    // 直接复制整块内存
+    memcpy(pixel, value, pixelMapInfo.width * pixelMapInfo.height * 4);
+  } else {
+    // 需要处理DMA内存补齐相关的逻辑
+    for (uint32_t i = 0; i < pixelMapInfo.height; i++) {
+      memcpy(pixel, value, rowDataSize);
+      pixel += rowDataSize / PIXEL_SIZE;
+      value += pixelMapInfo.width;
+    }
   }
-
   OH_PixelMap_UnAccessPixels(pixelMap_);
   // munmap after use
   ret = munmap(mappedAddr, handle->size);
