@@ -213,7 +213,7 @@ void OHOSExternalTextureGL::HandlePixelMapBuffer()
 {
   BufferHandle *handle = OH_NativeWindow_GetBufferHandleFromNative(buffer_);
   // get virAddr of bufferHandl by mmap sys interface
-  uint32_t stride = handle-->getpagesize();
+  uint32_t stride = handle-->getstride();
   void *mappedAddr = mmap(handle->virAddr, handle->size, PROT_READ | PROT_WRITE, MAP_SHARED, handle->fd, 0);
   if (mappedAddr == MAP_FAILED) {
     FML_DLOG(FATAL)<<"OHOSExternalTextureGL mmap failed";
