@@ -22,6 +22,7 @@ import KeyboardManager from '../embedding/ohos/KeyboardManager';
 import MouseCursorPlugin from '../plugin/mouse/MouseCursorPlugin';
 import Any from '../plugin/common/Any';
 import Settings from '../embedding/ohos/Settings';
+import ArrayList from '@ohos.util.ArrayList';
 
 const TAG = "FlutterView";
 
@@ -56,6 +57,8 @@ export class FlutterView {
   private mouseCursorPlugin?: MouseCursorPlugin;
   private uiContext?: UIContext | undefined;
   private settings?: Settings;
+  private mFirstFrameListeners: ArrayList<FirstFrameListener>;
+  private didRenderFirstFrame = false;
 
   constructor(viewId: string, context: Context) {
     this.id = viewId
@@ -64,6 +67,7 @@ export class FlutterView {
     this.mainWindow = FlutterManager.getInstance()
       .getWindowStage(FlutterManager.getInstance().getUIAbility(context))
       .getMainWindowSync();
+    this.mFirstFrameListeners = new ArrayList<FirstFrameListener>();
 
     this.mainWindow?.on('windowSizeChange', this.windowSizeChangeCallback);
     this.mainWindow?.on('avoidAreaChange', this.avoidAreaChangeCallback);
@@ -236,4 +240,28 @@ export class FlutterView {
   onKeyEvent(event: KeyEvent) {
     this.keyboardManager?.handleKeyEvent(event)
   }
+
+  addFirstFrameListener(listener: FirstFrameListener) {
+    this.mFirstFrameListeners.add(listener);
+  }
+
+  removeFirstFrameListener(listener: FirstFrameListener) {
+    this.mFirstFrameListeners.remove(listener);
+  }
+
+  hasRenderedFirstFrame(): boolean {
+    return this.didRenderFirstFrame;
+  }
+
+  onFirstFrame() {
+    this.didRenderFirstFrame = true;
+    let listeners = this.mFirstFrameListeners.clone();
+    listeners.forEach((listener) => {
+      listener.onFirstFrame();
+    })
+  }
+}
+
+export interface FirstFrameListener {
+  onFirstFrame(): void;
 }

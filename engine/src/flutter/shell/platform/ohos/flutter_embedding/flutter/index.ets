@@ -97,7 +97,7 @@ import PlatformViewsController from './src/main/ets/plugin/platform/PlatformView
 import AccessibilityBridge from './src/main/ets/view/AccessibilityBridge';
 import { FlutterCallbackInformation } from './src/main/ets/view/FlutterCallbackInformation';
 import FlutterRunArguments from './src/main/ets/view/FlutterRunArguments';
-import { FlutterView } from './src/main/ets/view/FlutterView';
+import { FirstFrameListener, FlutterView } from './src/main/ets/view/FlutterView';
 import { TextureRegistry } from './src/main/ets/view/TextureRegistry';
 import { ByteBuffer } from './src/main/ets/util/ByteBuffer';
 import Log from './src/main/ets/util/Log';
@@ -202,4 +202,5 @@ export {
   ToolUtils,
   TraceSection,
   Any,
+  FirstFrameListener,
 }
