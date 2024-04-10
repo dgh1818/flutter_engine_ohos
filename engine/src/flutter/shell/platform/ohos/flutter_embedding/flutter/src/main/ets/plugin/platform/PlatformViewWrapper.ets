@@ -19,6 +19,7 @@ import { createDVModelFromJson } from '../../view/DynamicView/dynamicViewJson';
 import { RootDvModeManager } from './RootDvModelManager';
 import matrix4 from '@ohos.matrix4'
 import Log from '../../util/Log';
+import Any from '../common/Any';
 
 const TAG: string = "PlatformViewWrapper";
 export class PlatformViewWrapper {
@@ -44,13 +45,13 @@ export class PlatformViewWrapper {
     return this.model;
   }
 
-  setParams: (params: DVModelParameters, key: string, element: ESObject ) => void = (params: DVModelParameters, key: string, element: ESObject): void => {
-    let params2 = params as Record<string, ESObject>;
+  setParams: (params: DVModelParameters, key: string, element: Any ) => void = (params: DVModelParameters, key: string, element: Any): void => {
+    let params2 = params as Record<string, Any>;
     params2[key] =element;
   }
 
-  getParams: (params: DVModelParameters, element: string) => string | ESObject = (params: DVModelParameters, element: string): string | ESObject => {
-    let params2 = params as Record<string, ESObject>;
+  getParams: (params: DVModelParameters, element: string) => string | Any = (params: DVModelParameters, element: string): string | Any => {
+    let params2 = params as Record<string, Any>;
     return params2[element];
   }
 

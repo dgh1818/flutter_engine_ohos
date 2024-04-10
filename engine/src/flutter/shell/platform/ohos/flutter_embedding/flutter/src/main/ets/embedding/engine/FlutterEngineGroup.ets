@@ -20,8 +20,6 @@ import FlutterInjector from '../../FlutterInjector'
 import { DartEntrypoint } from './dart/DartExecutor'
 import PlatformViewsController from '../../plugin/platform/PlatformViewsController'
 import ArrayList from '@ohos.util.ArrayList'
-import { FlutterPlugin } from './plugins/FlutterPlugin'
-import List from '@ohos.util.List';
 import Log from '../../util/Log';
 
 const TAG = "FlutterEngineGroup"
@@ -48,9 +46,7 @@ export default class FlutterEngineGroup {
     let initialRoute: string = options.getInitialRoute();
     let dartEntrypointArgs: Array<string> = options.getDartEntrypointArgs();
     let platformViewsController: PlatformViewsController | null = options.getPlatformViewsController();
-    let automaticallyRegisterPlugins: boolean = options.getAutomaticallyRegisterPlugins();
     let waitForRestorationData: boolean = options.getWaitForRestorationData();
-    let plugins: List<FlutterPlugin>| null = options.getPlugins()
 
     if (dartEntrypoint == null) {
       dartEntrypoint = DartEntrypoint.createDefault();
@@ -64,13 +60,11 @@ export default class FlutterEngineGroup {
     if (this.activeEngines.length == 0) {
       engine = this.createEngine(context, platformViewsController);
       await engine.init(context, null, // String[]. The Dart VM has already started, this arguments will have no effect.
-        automaticallyRegisterPlugins, // boolean.
-        waitForRestorationData, // boolean.
-        null,
-        plugins)
+        waitForRestorationData)
       if (initialRoute != null) {
         engine.getNavigationChannel()?.setInitialRoute(initialRoute);
       }
+      engine.getDartExecutor().executeDartEntrypoint(dartEntrypoint, dartEntrypointArgs)
     } else {
       engine = await this.activeEngines[0]
         .spawn(
@@ -79,7 +73,6 @@ export default class FlutterEngineGroup {
           initialRoute,
           dartEntrypointArgs,
           platformViewsController,
-          automaticallyRegisterPlugins,
           waitForRestorationData);
     }
     this.activeEngines.add(engine);
@@ -125,9 +118,7 @@ export class Options {
   private initialRoute: string = '';
   private dartEntrypointArgs: Array<string> = [];
   private platformViewsController: PlatformViewsController | null = null;
-  private automaticallyRegisterPlugins: boolean = true;
   private waitForRestorationData: boolean = false;
-  private plugins: List<FlutterPlugin> | null = null;
 
   constructor(context: common.Context) {
     this.context = context;
@@ -149,20 +140,12 @@ export class Options {
     return this.dartEntrypointArgs;
   }
 
-  getAutomaticallyRegisterPlugins(): boolean {
-    return this.automaticallyRegisterPlugins;
-  }
-
   getWaitForRestorationData(): boolean {
     return this.waitForRestorationData;
   }
 
   getPlatformViewsController(): PlatformViewsController | null {
     return this.platformViewsController;
-  }
-
-  getPlugins(): List<FlutterPlugin> | null {
-    return this.plugins;
   }
 
   setDartEntrypoint(dartEntrypoint: DartEntrypoint): Options {
@@ -180,11 +163,6 @@ export class Options {
     return this;
   }
 
-  setAutomaticallyRegisterPlugins(automaticallyRegisterPlugins: boolean): Options {
-    this.automaticallyRegisterPlugins = automaticallyRegisterPlugins;
-    return this;
-  }
-
   setWaitForRestorationData(waitForRestorationData: boolean): Options {
     this.waitForRestorationData = waitForRestorationData;
     return this;
@@ -192,11 +170,6 @@ export class Options {
 
   setPlatformViewsController(platformViewsController: PlatformViewsController): Options {
     this.platformViewsController = platformViewsController;
-    return this;
-  }
-
-  setPlugins(plugins: List<FlutterPlugin>): Options {
-    this.plugins = plugins;
     return this;
   }
 }

@@ -14,6 +14,7 @@
 */
 
 import { TouchEvent } from '@ohos.multimodalInput.touchEvent';
+import Any from '../../plugin/common/Any';
 
 export default class OhosTouchProcessor {
   private static POINTER_DATA_FIELD_COUNT: number = 35;
@@ -22,7 +23,7 @@ export default class OhosTouchProcessor {
 
   private static POINTER_DATA_FLAG_BATCHED: number = 1;
 
-  public onTouchEvent(event: TouchEvent, transformMatrix: ESObject): void {
+  public onTouchEvent(event: TouchEvent, transformMatrix: Any): void {
 
   }
 }

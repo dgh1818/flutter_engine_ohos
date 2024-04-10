@@ -20,6 +20,9 @@ import TextInputPlugin from '../../../plugin/editing/TextInputPlugin';
 import Log from '../../../util/Log';
 import DartExecutor from '../dart/DartExecutor';
 import inputMethod from '@ohos.inputMethod';
+import ArrayList from '@ohos.util.ArrayList';
+import { TextEditingDelta, TextEditingDeltaJson } from '../../../plugin/editing/TextEditingDelta';
+import Any from '../../../plugin/common/Any';
 
 const TAG = "TextInputChannel";
 
@@ -56,6 +59,18 @@ export default class TextInputChannel {
     return state;
   }
 
+  createEditingDeltaJSON(batchDeltas: ArrayList<TextEditingDelta>): EditingDelta {
+    let deltas: Array<TextEditingDeltaJson> = [];
+    batchDeltas.forEach((val, idx, array) => {
+      deltas.push(val.toJSON());
+    })
+
+    let state: EditingDelta = {
+      deltas: deltas,
+    };
+    return state;
+  }
+
   /**
    * Instructs Flutter to update its text input editing state to reflect the given configuration.
    */
@@ -68,8 +83,14 @@ export default class TextInputChannel {
     Log.d(TAG, "updateEditingState:"
       + "Text: " + text + " Selection start: " + selectionStart + " Selection end: "
       + selectionEnd + " Composing start: " + composingStart + " Composing end: " + composingEnd);
-    const state: ESObject = this.createEditingStateJSON(text, selectionStart, selectionEnd, composingStart, composingEnd);
+    const state: Any = this.createEditingStateJSON(text, selectionStart, selectionEnd, composingStart, composingEnd);
     this.channel.invokeMethod('TextInputClient.updateEditingState', [inputClientId, state]);
+  }
+
+  updateEditingStateWithDeltas(inputClientId: number, batchDeltas: ArrayList<TextEditingDelta>): void {
+    Log.d(TAG, "updateEditingStateWithDeltas:" + "batchDeltas length: " + batchDeltas.length);
+    const state: Any = this.createEditingDeltaJSON(batchDeltas);
+    this.channel.invokeMethod('TextInputClient.updateEditingStateWithDeltas', [inputClientId, state]);
   }
 
   newline(inputClientId: number): void {
@@ -121,10 +142,9 @@ export default class TextInputChannel {
     Log.d(TAG, "Sending 'onConnectionClosed' message.");
   }
 
-  performPrivateCommand(inputClientId: number, action: string, data: ESObject) {
+  performPrivateCommand(inputClientId: number, action: string, data: Any) {
 
   }
-
 }
 
 interface EditingState {
@@ -134,6 +154,12 @@ interface EditingState {
   composingBase: number;
   composingExtent: number;
 }
+
+
+interface EditingDelta {
+  deltas: Array<TextEditingDeltaJson>;
+}
+
 
 export interface TextInputMethodHandler {
   show(): void;
@@ -175,12 +201,12 @@ export class Configuration {
               enableSuggestions: boolean,
               enableIMEPersonalizedLearning: boolean,
               enableDeltaModel: boolean,
-              textCapitalization:TextCapitalization,
+              textCapitalization: TextCapitalization,
               inputType: InputType,
               inputAction: Number,
               actionLabel: String,
-              autofill :boolean,
-              contentListString:[],
+              autofill: boolean,
+              contentListString: [],
               fields: Configuration[]
   ) {
     this.obscureText = obscureText;
@@ -197,8 +223,9 @@ export class Configuration {
     this.fields = fields
 
   }
+
   static getTextCapitalizationFromValue(encodedName: string): TextCapitalization {
-    let textKeys= ["CHARACTERS", "WORDS","SENTENCES", "NONE"];
+    let textKeys = ["CHARACTERS", "WORDS", "SENTENCES", "NONE"];
     for (let textKey of textKeys) {
       if (TextCapitalization[textKey] === encodedName) {
         return textKey as TextCapitalization;
@@ -206,8 +233,9 @@ export class Configuration {
     }
     throw new Error("No such TextCapitalization: " + encodedName);
   }
-  private static inputActionFromTextInputAction(inputActionName:string):number{
-    switch(inputActionName){
+
+  private static inputActionFromTextInputAction(inputActionName: string): number {
+    switch (inputActionName) {
       case "TextInputAction.previous":
         return inputMethod.EnterKeyType.PREVIOUS
       case "TextInputAction.unspecified":
@@ -228,23 +256,24 @@ export class Configuration {
 
     }
   }
-  static fromJson(json:ESObject) {
-    const inputActionName:string = json.inputAction;
+
+  static fromJson(json: Any) {
+    const inputActionName: string = json.inputAction;
     if (!inputActionName) {
       throw new Error("Configuration JSON missing 'inputAction' property.");
     }
 
-    let fields:Array<ESObject> = new Array();
+    let fields: Array<Any> = new Array();
     if (json.fields !== null && json.fields !== undefined) {
-      fields = json.fields.map((field:ESObject):ESObject => Configuration.fromJson(field));
+      fields = json.fields.map((field: Any): Any => Configuration.fromJson(field));
     }
 
-    const inputAction:number = Configuration.inputActionFromTextInputAction(inputActionName);
+    const inputAction: number = Configuration.inputActionFromTextInputAction(inputActionName);
 
     // Build list of content commit mime types from the data in the JSON list.
-    const contentList:Array<ESObject> = [];
+    const contentList: Array<Any> = [];
     if (json.contentCommitMimeTypes !== null && json.contentCommitMimeTypes !== undefined) {
-      json.contentCommitMimeTypes.forEach((type:ESObject) => {
+      json.contentCommitMimeTypes.forEach((type: Any) => {
         contentList.push(type);
       });
     }
@@ -259,11 +288,10 @@ export class Configuration {
       inputAction,
       json.actionLabel ?? null,
       json.autofill ?? null,
-      contentList as ESObject,
+      contentList as Any,
       fields
     );
   }
-
 }
 
 enum TextCapitalization {
@@ -298,13 +326,13 @@ export class InputType {
     this.isDecimal = isDecimal;
   }
 
-  static fromJson(json: ESObject): InputType {
+  static fromJson(json: Any): InputType {
     return new InputType(InputType.getTextInputTypeFromValue(json.name as string),
       json.signed as boolean, json.decimal as boolean)
   }
 
   static getTextInputTypeFromValue(encodedName: string): TextInputType {
-    let textKeys = [  "TEXT", "DATETIME","NAME" , "POSTAL_ADDRESS", "NUMBER", "PHONE", "MULTILINE", "EMAIL_ADDRESS", "URL", "VISIBLE_PASSWORD", "NONE" ,];
+    let textKeys = ["TEXT", "DATETIME", "NAME", "POSTAL_ADDRESS", "NUMBER", "PHONE", "MULTILINE", "EMAIL_ADDRESS", "URL", "VISIBLE_PASSWORD", "NONE",];
     for (let textKey of textKeys) {
       if (TextInputType[textKey] === encodedName) {
         return textKey as TextInputType;
@@ -366,7 +394,7 @@ export class TextEditState {
     return this.composingStart >= 0 && this.composingEnd > this.composingStart;
   }
 
-  static fromJson(textEditState: ESObject): TextEditState {
+  static fromJson(textEditState: Any): TextEditState {
     return new TextEditState(
       textEditState.text,
       textEditState.selectionBase,
@@ -389,7 +417,7 @@ class TextInputCallback implements MethodCallHandler {
       return;
     }
     let method: string = call.method;
-    let args: ESObject = call.args;
+    let args: Any = call.args;
     Log.d(TAG, "Received '" + method + "' message.");
     switch (method) {
       case "TextInput.show":
@@ -403,7 +431,7 @@ class TextInputCallback implements MethodCallHandler {
         break;
       case "TextInput.setClient":
         const textInputClientId: number = args[0] as number;
-        const jsonConfiguration :string = args[1] ;
+        const jsonConfiguration: string = args[1];
         const config: Configuration | null = Configuration.fromJson(jsonConfiguration);
 
         this.textInputMethodHandler.setClient(textInputClientId, config);
@@ -442,5 +470,4 @@ class TextInputCallback implements MethodCallHandler {
         break;
     }
   }
-
 }

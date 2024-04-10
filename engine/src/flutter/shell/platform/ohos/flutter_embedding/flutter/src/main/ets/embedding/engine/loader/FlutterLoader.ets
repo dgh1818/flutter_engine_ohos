@@ -135,7 +135,9 @@ export default class FlutterLoader {
         fs.rmdirSync(filePath);
       }
 
-      fs.mkdirSync(filePath)
+      if (!fs.accessSync(filePath)) {
+        fs.mkdirSync(filePath)
+      }
 
       let icudtlBuffer = await this.context.resourceManager.getRawFileContent(this.flutterApplicationInfo!.flutterAssetsDir + "/icudtl.dat")
       let icudtlFile = fs.openSync(filePath + FILE_SEPARATOR + "/icudtl.dat", fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE)
@@ -170,7 +172,6 @@ export default class FlutterLoader {
     if (this.initialized) {
       return;
     }
-    Log.d(TAG, "ensureInitializationComplete")
     if (shellArgs == null) {
       shellArgs = new Array<string>();
     }
@@ -231,6 +232,7 @@ export default class FlutterLoader {
       costTime
     );
     this.initialized = true;
+    Log.d(TAG, "ensureInitializationComplete")
   }
 
   findAppBundlePath(): string {
@@ -272,6 +274,10 @@ export default class FlutterLoader {
         displayName: [`${TIMESTAMP_PREFIX}*`]
       }
     }) : new Array();
+  }
+
+  isInitialized(): boolean {
+    return this.initialized;
   }
 
 }

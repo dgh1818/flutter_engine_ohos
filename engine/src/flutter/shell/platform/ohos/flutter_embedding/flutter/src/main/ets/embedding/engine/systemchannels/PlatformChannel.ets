@@ -21,6 +21,7 @@ import DartExecutor from '../dart/DartExecutor';
 import pasteboard from '@ohos.pasteboard';
 import bundleManager from '@ohos.bundle.bundleManager';
 import window from '@ohos.window';
+import Any from '../../../plugin/common/Any';
 
 export default class PlatformChannel {
   private static TAG = "PlatformChannel";
@@ -273,7 +274,7 @@ export class SystemChromeStyle {
   }
 }
 
-enum DeviceOrientation {
+export enum DeviceOrientation {
   PORTRAIT_UP = "DeviceOrientation.portraitUp",
   PORTRAIT_DOWN = "DeviceOrientation.portraitDown",
   LANDSCAPE_LEFT = "DeviceOrientation.landscapeLeft",
@@ -295,7 +296,7 @@ class PlatformMethodCallback implements MethodCallHandler {
     }
 
     let method: string = call.method;
-    let args: ESObject = call.args;
+    let args: Any = call.args;
     Log.d(PlatformMethodCallback.TAG, "Received '" + method + "' message.");
     try {
       switch (method) {
@@ -381,10 +382,10 @@ class PlatformMethodCallback implements MethodCallHandler {
           let pasteBoard = pasteboard.getSystemPasteboard();
           pasteBoard.getData().then((pasteData) => {
             let text = pasteData.getPrimaryText();
-            let response: ESObject = new Map().set("text", "");
+            let response: Any = new Map().set("text", "");
             response.text = text;
             result.success(response);
-          }).catch((err: ESObject) => {
+          }).catch((err: Any) => {
             Log.e(PlatformMethodCallback.TAG, "Failed to get PasteData. Cause: " + JSON.stringify(err));
           });
           break;
@@ -395,21 +396,21 @@ class PlatformMethodCallback implements MethodCallHandler {
           break;
         case "Clipboard.hasStrings":
           let hasStrings: boolean = false;
-          let response: ESObject = new Map().set("value", false);
+          let response: Any = new Map().set("value", false);
           let systemPasteboard = pasteboard.getSystemPasteboard();
           systemPasteboard.hasData().then((hasData) => {
             if (!hasData) {
               response.value = hasData;
               result.success(response);
             }
-          }).catch((err: ESObject) => {
+          }).catch((err: Any) => {
             Log.e(PlatformMethodCallback.TAG, "systemPasteboard.hasData err: " + JSON.stringify(err));
           })
           systemPasteboard.getData().then((pasteData) => {
             hasStrings = pasteData.hasType(pasteboard.MIMETYPE_TEXT_PLAIN);
             response.value = hasStrings;
             result.success(response);
-          }).catch((err: ESObject) => {
+          }).catch((err: Any) => {
             Log.e(PlatformMethodCallback.TAG, "getData err: " + JSON.stringify(err));
           })
           break;
@@ -454,7 +455,7 @@ class PlatformMethodCallback implements MethodCallHandler {
     }
   }
 
-  private decodeSystemChromeStyle(encodedStyle: ESObject): SystemChromeStyle {
+  private decodeSystemChromeStyle(encodedStyle: Map<string, Object> | null): SystemChromeStyle {
     let statusBarColor: number | null = null;
     let statusBarIconBrightness: Brightness | null = null;
     let systemStatusBarContrastEnforced: boolean | null = null;
@@ -462,28 +463,26 @@ class PlatformMethodCallback implements MethodCallHandler {
     let systemNavigationBarIconBrightness: Brightness | null = null;
     let systemNavigationBarDividerColor: number | null = null;
     let systemNavigationBarContrastEnforced: boolean | null = null;
-    if(encodedStyle.statusBarColor != null) {
-      statusBarColor = encodedStyle.statusBarColor as number;
+    if (encodedStyle?.get('statusBarColor') != null) {
+      statusBarColor = encodedStyle.get('statusBarColor') as number;
     }
-    if(encodedStyle.statusBarIconBrightness != null) {
-      statusBarIconBrightness =
-      this.platform.getBrightnessFromValue(encodedStyle.statusBarIconBrightness as string);
+    if (encodedStyle?.get('statusBarIconBrightness') != null) {
+      statusBarIconBrightness = this.platform.getBrightnessFromValue(encodedStyle.get('statusBarIconBrightness') as string);
     }
-    if(encodedStyle.systemStatusBarContrastEnforced != null) {
-      systemStatusBarContrastEnforced = encodedStyle.systemStatusBarContrastEnforced as boolean;
+    if (encodedStyle?.get('systemStatusBarContrastEnforced') != null) {
+      systemStatusBarContrastEnforced = encodedStyle.get('systemStatusBarContrastEnforced') as boolean;
     }
-    if(encodedStyle.systemNavigationBarColor != null) {
-      systemNavigationBarColor = encodedStyle.systemNavigationBarColor as number;
+    if (encodedStyle?.get('systemNavigationBarColor') != null) {
+      systemNavigationBarColor = encodedStyle.get('systemNavigationBarColor') as number;
     }
-    if(encodedStyle.systemNavigationBarIconBrightness != null) {
-      systemNavigationBarIconBrightness =
-      this.platform.getBrightnessFromValue(encodedStyle.systemNavigationBarIconBrightness as string);
+    if (encodedStyle?.get('systemNavigationBarIconBrightness') != null) {
+      systemNavigationBarIconBrightness = this.platform.getBrightnessFromValue(encodedStyle.get('systemNavigationBarIconBrightness') as string);
     }
-    if(encodedStyle.systemNavigationBarDividerColor != null) {
-      systemNavigationBarDividerColor = encodedStyle.systemNavigationBarDividerColor as number;
+    if (encodedStyle?.get('systemNavigationBarDividerColor') != null) {
+      systemNavigationBarDividerColor = encodedStyle.get('systemNavigationBarDividerColor') as number;
     }
-    if(encodedStyle.systemNavigationBarContrastEnforced != null) {
-      systemNavigationBarContrastEnforced = encodedStyle.systemNavigationBarContrastEnforced as boolean;
+    if (encodedStyle?.get('systemNavigationBarContrastEnforced') != null) {
+      systemNavigationBarContrastEnforced = encodedStyle.get('systemNavigationBarContrastEnforced') as boolean;
     }
     return new SystemChromeStyle(
       statusBarColor,

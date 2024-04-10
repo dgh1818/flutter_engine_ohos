@@ -12,6 +12,7 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
+import Any from '../../../plugin/common/Any';
 
 import MethodCall from '../../../plugin/common/MethodCall';
 import MethodChannel, { MethodCallHandler, MethodResult } from '../../../plugin/common/MethodChannel';
@@ -110,11 +111,11 @@ export default class RestorationChannel {
       // e.g. when the engine is attached to a new activity.
       this.channel?.invokeMethod(
         "push", RestorationChannelMethodCallHandler.packageData(data), {
-        success: (result: ESObject): void => {
+        success: (result: Any): void => {
           this.restorationData = data;
         },
 
-        error: (errorCode: string, errorMessage: string, errorDetails: ESObject): void => {
+        error: (errorCode: string, errorMessage: string, errorDetails: Any): void => {
           Log.e(
             RestorationChannel.TAG,
             "Error " + errorCode + " while sending restoration data to framework: " + errorMessage
@@ -151,7 +152,7 @@ class RestorationChannelMethodCallHandler implements MethodCallHandler {
 
   onMethodCall(call: MethodCall, result: MethodResult): void {
     const method = call.method;
-    const args: ESObject = call.args;
+    const args: Any = call.args;
     switch (method) {
       case "put": {
         this.channel.setRestorationDataOnly(args);
@@ -178,8 +179,8 @@ class RestorationChannelMethodCallHandler implements MethodCallHandler {
     }
   }
 
-  static packageData(data: Uint8Array): Map<string, ESObject> {
-    const packaged: Map<string, ESObject> = new Map();
+  static packageData(data: Uint8Array): Map<string, Any> {
+    const packaged: Map<string, Any> = new Map();
     packaged.set("enabled", true);
     packaged.set("data", data);
     return packaged;

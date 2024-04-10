@@ -31,6 +31,7 @@
  */
 import Log from '../../util/Log';
 import { BinaryMessageHandler, BinaryMessenger, BinaryReply, TaskQueue } from './BinaryMessenger';
+import Any from './Any';
 import MethodCodec from './MethodCodec';
 import StandardMethodCodec from './StandardMethodCodec';
 
@@ -40,13 +41,13 @@ export default class EventChannel {
   private messenger: BinaryMessenger;
   private name: string;
   private codec: MethodCodec;
-  private taskQueue: TaskQueue;
+  private taskQueue: TaskQueue | null;
 
   constructor(messenger: BinaryMessenger, name: string, codec?: MethodCodec, taskQueue?: TaskQueue) {
     this.messenger = messenger
     this.name = name
     this.codec = codec ? codec : StandardMethodCodec.INSTANCE
-    this.taskQueue = taskQueue
+    this.taskQueue = taskQueue ?? null
   }
 
 
@@ -93,7 +94,7 @@ export interface StreamHandler {
    * @param arguments stream configuration arguments, possibly null.
    * @param events an {@link EventSink} for emitting events to the Flutter receiver.
    */
-  onListen(args: ESObject, events: EventSink): void;
+  onListen(args: Any, events: EventSink): void;
 
   /**
    * Handles a request to tear down the most recently created event stream.
@@ -107,7 +108,7 @@ export interface StreamHandler {
    *
    * @param arguments stream configuration arguments, possibly null.
    */
-  onCancel(args: ESObject): void;
+  onCancel(args: Any): void;
 }
 
 /**
@@ -121,7 +122,7 @@ export interface EventSink {
    *
    * @param event the event, possibly null.
    */
-  success(event: ESObject): void;
+  success(event: Any): void;
 
   /**
    * Consumes an error event.
@@ -130,7 +131,7 @@ export interface EventSink {
    * @param errorMessage a human-readable error message String, possibly null.
    * @param errorDetails error details, possibly null
    */
-  error(errorCode: string, errorMessage: string, errorDetails: ESObject): void;
+  error(errorCode: string, errorMessage: string, errorDetails: Any): void;
 
   /**
    * Consumes end of stream. Ensuing calls to {@link #success(Object)} or {@link #error(String,
@@ -164,7 +165,7 @@ class IncomingStreamRequestHandler implements BinaryMessageHandler {
     }
   }
 
-  onListen(args: ESObject, callback: BinaryReply): void {
+  onListen(args: Any, callback: BinaryReply): void {
     const eventSink = new EventSinkImplementation(this.activeSink, this.name, this.codec, this.messenger);
     const oldSink = this.activeSink.getAndSet(eventSink);
     if (oldSink != null) {
@@ -186,7 +187,7 @@ class IncomingStreamRequestHandler implements BinaryMessageHandler {
     }
   }
 
-  onCancel(args: ESObject, callback: BinaryReply): void {
+  onCancel(args: Any, callback: BinaryReply): void {
     const oldSink = this.activeSink.getAndSet(null);
     if (oldSink != null) {
       try {
@@ -216,14 +217,14 @@ class EventSinkImplementation implements EventSink {
     this.messenger = messenger;
   }
 
-  success(event: ESObject): void {
+  success(event: Any): void {
     if (this.hasEnded || this.activeSink.get() != this) {
       return;
     }
     this.messenger.send(this.name, this.codec.encodeSuccessEnvelope(event));
   }
 
-  error(errorCode: string, errorMessage: string, errorDetails: ESObject) {
+  error(errorCode: string, errorMessage: string, errorDetails: Any) {
     if (this.hasEnded || this.activeSink.get() != this) {
       return;
     }
@@ -236,26 +237,26 @@ class EventSinkImplementation implements EventSink {
       return;
     }
     this.hasEnded = true;
-    this.messenger.send(this.name, null);
+    this.messenger.send(this.name, new ArrayBuffer(0));
   }
 }
 
 class AtomicReference<T> {
-  private value: T;
+  private value: T | null;
 
-  constructor(value: T) {
+  constructor(value: T | null) {
     this.value = value
   }
 
-  get(): T {
+  get(): T | null {
     return this.value;
   }
 
-  set(newValue: T): void {
+  set(newValue: T | null): void {
     this.value = newValue;
   }
 
-  getAndSet(newValue: T) {
+  getAndSet(newValue: T | null) {
     const oldValue = this.value;
     this.value = newValue;
     return oldValue;

@@ -107,8 +107,25 @@ static napi_value Init(napi_env env, napi_value exports) {
       DECLARE_NAPI_FUNCTION(
           "nativeXComponentDetachFlutterEngine",
           flutter::PlatformViewOHOSNapi::nativeXComponentDetachFlutterEngine),
+      DECLARE_NAPI_FUNCTION(
+          "nativeInitNativeImage",
+          flutter::PlatformViewOHOSNapi::nativeInitNativeImage),
+      DECLARE_NAPI_FUNCTION(
+          "nativeRegisterTexture",
+          flutter::PlatformViewOHOSNapi::nativeRegisterTexture),
+      DECLARE_NAPI_FUNCTION(
+          "nativeUnregisterTexture",
+          flutter::PlatformViewOHOSNapi::nativeUnregisterTexture),
+      DECLARE_NAPI_FUNCTION(
+          "nativeMarkTextureFrameAvailable",
+          flutter::PlatformViewOHOSNapi::nativeMarkTextureFrameAvailable),
+      DECLARE_NAPI_FUNCTION(
+          "nativeRegisterPixelMap",
+          flutter::PlatformViewOHOSNapi::nativeRegisterPixelMap),
 
   };
+
+  FML_DLOG(INFO) << "Init NAPI size=" << sizeof(desc) / sizeof(desc[0]);
   napi_define_properties(env, exports, sizeof(desc) / sizeof(desc[0]), desc);
   bool ret = flutter::XComponentAdapter::GetInstance()->Export(env, exports);
   if (!ret) {

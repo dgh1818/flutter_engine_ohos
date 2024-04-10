@@ -8,3 +8,5 @@
 /.clang-format
 /.clang-tidy
 **/.test
+local.properties
+oh-package-lock.json5

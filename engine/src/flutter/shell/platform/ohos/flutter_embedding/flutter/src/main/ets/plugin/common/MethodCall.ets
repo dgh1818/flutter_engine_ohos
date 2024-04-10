@@ -14,6 +14,11 @@
 */
 
 import ToolUtils from '../../util/ToolUtils';
+import TreeMap from '@ohos.util.TreeMap';
+import HashMap from '@ohos.util.HashMap';
+import LightWeightMap from '@ohos.util.LightWeightMap';
+import Any from './Any';
+
 /** Command object representing a method call on a {@link MethodChannel}. */
 export default class MethodCall {
   /** The name of the called method. */
@@ -26,18 +31,18 @@ export default class MethodCall {
    * Consider using {@link #argument(String)} when that run-time type is {@link Map} or {@link
    * JSONObject}.
    */
-  args: ESObject;
+  args: Any;
 
-  constructor(method: string, args: ESObject) {
-    this.method = method
-    this.args = args
+  constructor(method: string, args: Any) {
+    this.method = method;
+    this.args = args;
   }
 
-  argument(key: string): ESObject {
+  argument(key: string): Any {
     if (this.args == null) {
       return null;
     } else if (this.args instanceof Map) {
-      return (this.args as Map<ESObject, ESObject>).get(key);
+      return (this.args as Map<Any, Any>).get(key);
     } else if (ToolUtils.isObj(this.args)) {
       return this.args[key]
     } else {
@@ -46,10 +51,10 @@ export default class MethodCall {
   }
 
   hasArgument(key: string): boolean {
-    if (arguments == null) {
+    if (this.args == null) {
       return false;
-    } else if (arguments instanceof Map) {
-      return (this.args as Map<ESObject, ESObject>).has(key);
+    } else if (this.args instanceof Map) {
+      return (this.args as Map<Any, Any>).has(key);
     } else if (ToolUtils.isObj(this.args)) {
       return this.args.hasOwnProperty(key);
     } else {

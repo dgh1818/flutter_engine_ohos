@@ -52,10 +52,14 @@ This warehouse is based on the extension of Flutter's official engine warehouse 
 
 3. Synchronize code: In the engine directory, execute `gclient sync`; here the engine source code, official packages repository will be synchronized, and the ohos_setup task will be executed;
 
-4. Download sdk: Download ohos-sdk-full in [the daily build](http://ci.openharmony.cn/workbench/cicd/dailybuild/dailylist), configure the following environment variables:
+4. Download sdk: From [HarmonyOS Kit List]（ https://developer.harmonyos.com/deveco-developer-suite/enabling/kit?currentPage=1&pageSize=100 ）Download supporting development tools, currently not supporting packages downloaded from other channels
 
 ```sh
-export OHOS_SDK_HOME=<ohos-sdk-full>
+#HarmonyOS SDK, extract the directory after sdk/xxSDK.zip from the development kit package
+export HOS_SDK_HOME=/home/<user>/ohos/sdk
+
+#Unzip the bin subdirectory after commandline/commandline tools xxxx.zip in the development kit package
+export PATH=$PATH:/home/<user>/ohos/command-line-tools/bin
 ```
 
 5. Start building: In the engine directory, execute `./ohos` to start building the flutter engine that supports ohos devices.
@@ -64,12 +68,23 @@ export OHOS_SDK_HOME=<ohos-sdk-full>
 
 ## FAQ:
 1. When running the project, an error of Member notfound:'isOhos' is reported: Please ensure that all dart patches are applied in the src/third_party/dart directory (the patches are located in the src/flutter/attachment/repos directory, and you can use git apply to apply the patch). Recompile the engine after patching
-   
+
 2. Prompt Permission denied: Execute chmod +x <script file> to add execution permissions
 
 3. Compile the engine in debug/release/profile mode separately: `./ohos -t debug|release|profile`
 
 4. See help: `./ohos -h`
+
+5. Due to the different ways Windows, macOS, and Linux handle line endings, applying Dart patches can result in different Dart VM snapshot hash values. You can obtain the current snapshot hash value using the following method:
+
+   ```shell
+   python xxx/src/third_party/dart/tools/make_version.py --format='{{SNAPSHOT_HASH}}'
+   ```
+
+   Here, xxx is the engine path you created yourself.
+
+   If the obtained value is not "8af474944053df1f0a3be6e6165fa7cf", then you need to check whether all lines at the end of the xxx/src/third_party/dart/runtime/vm/dart.cc file and the xxx/src/third_party/dart/runtime/vm/image_snapshot.cc file end with LF. On Windows, you can use Notepad++; for other systems, please consult specific methods on your own.
+
 
 
 ## Embedding layer code construction guide
@@ -81,16 +96,17 @@ export OHOS_SDK_HOME=<ohos-sdk-full>
      nodejs.dir=<nodejs sdk directory>
      ```
 
-2. In the shell/platform/ohos/flutter_embedding directory, execute
+2. You need to copy the file `libflutter.so` to `shell/platform/ohos/flutter_embedding/libs/arm64-v8a/` 
+
+3. In the shell/platform/ohos/flutter_embedding directory, execute
 
      ```
-     ./hvigorw --mode module -p module=flutter@default -p product=default assembleHar --no-daemon
+     # The optional values for buildMode are: debug release profile
+     ./hvigorw --mode module -p module=flutter@default -p product=default -p buildMode=debug assembleHar --no-daemon
      ```
 
 
 
-3. The har file output path is: shell/platform/ohos/flutter_embedding/flutter/build
+4. The har file output path is: shell/platform/ohos/flutter_embedding/flutter/build/default/outputs/default/flutter.har
 
 ps: If you are using the Beta version of DevEco Studio and encounter the error "must have required property 'compatibleSdkVersion', location: build-profile.json5:17:11" when compiling the project, please refer to the "DevEco Studio Environment Configuration Guide." docx》Chapter '6 Creating Projects and Running Hello World' [Configuration Plugin] Modify the shell/platform/ohos/flutter_embedding/hvigor/hvigor-config.json5 file.
-
-[hvigor-dependencies-config](shell/platform/ohos/flutter_embedding/dependencies/hvigor-dependencies-config.md)

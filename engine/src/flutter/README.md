@@ -53,10 +53,14 @@ Flutter Engine
 
 3. 同步代码：在engine目录，执行`gclient sync`；这里会同步engine源码、官方packages仓，还有执行ohos_setup任务；
 
-4. 下载sdk： 在[每日构建](http://ci.openharmony.cn/workbench/cicd/dailybuild/dailylist)下载ohos-sdk-full，配置以下环境变量:
+4. 下载sdk： 从[鸿蒙套件列表](https://developer.harmonyos.com/deveco-developer-suite/enabling/kit?currentPage=1&pageSize=100)下载配套开发工具，暂不支持非该渠道下载的套件
 
 ```sh
-export OHOS_SDK_HOME=<ohos-sdk-full>
+# HarmonyOS SDK，解压开发套件包中 sdk/xxSDK.zip 之后的目录
+export HOS_SDK_HOME=/home/<user>/ohos/sdk
+
+# 解压开发套件包中 commandline/commandline-tools-xxxx.zip 之后 bin 子目录
+export PATH=$PATH:/home/<user>/ohos/command-line-tools/bin
 ```
 
 5. 开始构建：在engine目录，执行`./ohos`，即可开始构建支持ohos设备的flutter engine。
@@ -76,6 +80,17 @@ export OHOS_SDK_HOME=<ohos-sdk-full>
 
 4. 查看帮助：`./ohos -h`
 
+5. 由于windows和mac、linux对换行符处理方式不同，在应用dart补丁时会造成dart vm snapshot hash结果不同，可通过以下方法获取当前snapshot hash值
+
+   ```shell
+   python xxx/src/third_party/dart/tools/make_version.py --format='{{SNAPSHOT_HASH}}'
+   ```
+
+   其中xxx为创建的engine路径
+
+   如果获取到的值不是“8af474944053df1f0a3be6e6165fa7cf”那么就需要检查xxx/src/third_party/dart/runtime/vm/dart.cc文件和xxx/src/third_party/dart/runtime/vm/image_snapshot.cc文件中全部行的结尾是不是以LF结尾的，windows可以使用notepad++查看，其它系统具体方法请自行查询
+
+
 ## embedding层代码构建指导
 
 1. 编辑shell/platform/ohos/flutter_embedding/local.properties：
@@ -85,14 +100,15 @@ export OHOS_SDK_HOME=<ohos-sdk-full>
     nodejs.dir=<nodejs的sdk目录>
     ```
 
-2. 在shell/platform/ohos/flutter_embedding目录下，执行 
+2. 你需要复制文件 `libflutter.so` 到 `shell/platform/ohos/flutter_embedding/libs/arm64-v8a/`
+
+3. 在shell/platform/ohos/flutter_embedding目录下，执行 
 
     ```
-    ./hvigorw --mode module -p module=flutter@default -p product=default assembleHar --no-daemon
+    # buildMode可选值为: debug release profile
+    ./hvigorw --mode module -p module=flutter@default -p product=default -p buildMode=debug assembleHar --no-daemon
     ```
 
-3. har文件输出路径为：shell/platform/ohos/flutter_embedding/flutter/build
+4. har文件输出路径为：shell/platform/ohos/flutter_embedding/flutter/build/default/outputs/default/flutter.har
 
 ps:如果你使用的是DevEco Studio的Beta版本，编译工程时遇到“must have required property 'compatibleSdkVersion', location: build-profile.json5:17:11"错误，请参考《DevEco Studio环境配置指导.docx》中的‘6 创建工程和运行Hello World’【配置插件】章节修改 shell/platform/ohos/flutter_embedding/hvigor/hvigor-config.json5文件。
-
-[hvigor本地依赖配置](shell/platform/ohos/flutter_embedding/dependencies/hvigor-dependencies-config.md)

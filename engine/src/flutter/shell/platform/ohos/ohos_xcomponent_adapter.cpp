@@ -147,10 +147,7 @@ static int32_t SetNativeWindowOpt(OHNativeWindow* nativeWindow,
                                   int height) {
   // Set the read and write scenarios of the native window buffer.
   int code = SET_USAGE;
-  int32_t usage =
-      BUFFER_USAGE_CPU_READ | BUFFER_USAGE_CPU_WRITE | BUFFER_USAGE_MEM_DMA;
-  int32_t ret =
-      OH_NativeWindow_NativeWindowHandleOpt(nativeWindow, code, usage);
+  int32_t ret = OH_NativeWindow_NativeWindowHandleOpt(nativeWindow, code, BUFFER_USAGE_MEM_DMA);
   if (ret) {
     LOGE(
         "Set NativeWindow Usage Failed :window:%{public}p ,w:%{public}d x "
@@ -268,10 +265,9 @@ void XComponentBase::DetachFlutterEngine() {
   if (window_ != nullptr) {
     PlatformViewOHOSNapi::SurfaceDestroyed(std::stoll(shellholderId_));
   } else {
-    LOGE("OnSurfaceCreated XComponentBase is not attached");
+    LOGE("DetachFlutterEngine XComponentBase is not attached");
   }
   shellholderId_ = "";
-  window_ = nullptr;
   isEngineAttached_ = false;
 }
 
