@@ -26,6 +26,7 @@ import { Action } from '../../view/AccessibilityBridge'
 import LocalizationPlugin from '../../plugin/localization/LocalizationPlugin';
 import i18n from '@ohos.i18n';
 import Any from '../../plugin/common/Any';
+import FlutterManager from '../ohos/FlutterManager';
 
 const TAG = "FlutterNapi";
 
@@ -253,6 +254,9 @@ export default class FlutterNapi {
   // Called by native to notify first Flutter frame rendered.
   onFirstFrame(): void {
     Log.d(TAG, "called onFirstFrame")
+    FlutterManager.getInstance().getFlutterViewList().forEach((value)=> {
+      value.onFirstFrame();
+    });
   }
 
   // Called by native.
