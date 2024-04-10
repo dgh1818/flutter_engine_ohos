@@ -455,7 +455,7 @@ class PlatformMethodCallback implements MethodCallHandler {
     }
   }
 
-  private decodeSystemChromeStyle(encodedStyle: Any): SystemChromeStyle {
+  private decodeSystemChromeStyle(encodedStyle: Map<string, Object> | null): SystemChromeStyle {
     let statusBarColor: number | null = null;
     let statusBarIconBrightness: Brightness | null = null;
     let systemStatusBarContrastEnforced: boolean | null = null;
@@ -463,28 +463,26 @@ class PlatformMethodCallback implements MethodCallHandler {
     let systemNavigationBarIconBrightness: Brightness | null = null;
     let systemNavigationBarDividerColor: number | null = null;
     let systemNavigationBarContrastEnforced: boolean | null = null;
-    if(encodedStyle.statusBarColor != null) {
-      statusBarColor = encodedStyle.statusBarColor as number;
+    if (encodedStyle?.get('statusBarColor') != null) {
+      statusBarColor = encodedStyle.get('statusBarColor') as number;
     }
-    if(encodedStyle.statusBarIconBrightness != null) {
-      statusBarIconBrightness =
-      this.platform.getBrightnessFromValue(encodedStyle.statusBarIconBrightness as string);
+    if (encodedStyle?.get('statusBarIconBrightness') != null) {
+      statusBarIconBrightness = this.platform.getBrightnessFromValue(encodedStyle.get('statusBarIconBrightness') as string);
     }
-    if(encodedStyle.systemStatusBarContrastEnforced != null) {
-      systemStatusBarContrastEnforced = encodedStyle.systemStatusBarContrastEnforced as boolean;
+    if (encodedStyle?.get('systemStatusBarContrastEnforced') != null) {
+      systemStatusBarContrastEnforced = encodedStyle.get('systemStatusBarContrastEnforced') as boolean;
     }
-    if(encodedStyle.systemNavigationBarColor != null) {
-      systemNavigationBarColor = encodedStyle.systemNavigationBarColor as number;
+    if (encodedStyle?.get('systemNavigationBarColor') != null) {
+      systemNavigationBarColor = encodedStyle.get('systemNavigationBarColor') as number;
     }
-    if(encodedStyle.systemNavigationBarIconBrightness != null) {
-      systemNavigationBarIconBrightness =
-      this.platform.getBrightnessFromValue(encodedStyle.systemNavigationBarIconBrightness as string);
+    if (encodedStyle?.get('systemNavigationBarIconBrightness') != null) {
+      systemNavigationBarIconBrightness = this.platform.getBrightnessFromValue(encodedStyle.get('systemNavigationBarIconBrightness') as string);
     }
-    if(encodedStyle.systemNavigationBarDividerColor != null) {
-      systemNavigationBarDividerColor = encodedStyle.systemNavigationBarDividerColor as number;
+    if (encodedStyle?.get('systemNavigationBarDividerColor') != null) {
+      systemNavigationBarDividerColor = encodedStyle.get('systemNavigationBarDividerColor') as number;
     }
-    if(encodedStyle.systemNavigationBarContrastEnforced != null) {
-      systemNavigationBarContrastEnforced = encodedStyle.systemNavigationBarContrastEnforced as boolean;
+    if (encodedStyle?.get('systemNavigationBarContrastEnforced') != null) {
+      systemNavigationBarContrastEnforced = encodedStyle.get('systemNavigationBarContrastEnforced') as boolean;
     }
     return new SystemChromeStyle(
       statusBarColor,
