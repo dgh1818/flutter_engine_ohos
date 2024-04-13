@@ -251,7 +251,7 @@ export class Configuration {
       case "TextInputAction.next":
         return inputMethod.EnterKeyType.NEXT
       case "TextInputAction.newline":
-              return inputMethod.EnterKeyType.NONE
+        return inputMethod.EnterKeyType.NONE
       default:
       // Present default key if bad input type is given.
         return inputMethod.EnterKeyType.UNSPECIFIED
