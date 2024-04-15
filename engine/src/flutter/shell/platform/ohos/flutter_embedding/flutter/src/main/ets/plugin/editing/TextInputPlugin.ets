@@ -226,6 +226,9 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
 
     try {
       this.inputMethodController.on('sendFunctionKey', (functionKey) => {
+        if(functionKey.enterKeyType == inputMethod.EnterKeyType.NONE) {
+          this.mEditable.handleNewlineEvent();
+        }
         this.mEditable.handleFunctionKey(functionKey);
       })
     } catch (err) {

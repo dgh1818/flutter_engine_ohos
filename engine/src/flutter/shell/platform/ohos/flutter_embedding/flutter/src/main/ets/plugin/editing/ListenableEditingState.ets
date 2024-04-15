@@ -282,6 +282,31 @@ export class ListenableEditingState {
     this.notifyListenersIfNeeded(true, true, false);
   }
 
+  handleNewlineEvent(): void {
+    let start = this.mSelectionStartCache < this.mSelectionEndCache ? this.mSelectionStartCache : this.mSelectionEndCache;
+    let end = this.mSelectionStartCache > this.mSelectionEndCache ? this.mSelectionStartCache : this.mSelectionEndCache;
+
+    if (this.mStringCache.length == this.mSelectionStartCache) {
+      //Insert text one by one
+      let tempStr: string = this.mStringCache.substring(0, start) + '\n' + this.mStringCache.substring(end);
+      this.mStringCache = tempStr;
+      this.setSelectionStart(this.mStringCache.length);
+      this.setSelectionEnd(this.mStringCache.length);
+
+    } else if (this.mStringCache.length > this.mSelectionStartCache) {
+      //Insert text in the middle of string
+      let tempStr: string = this.mStringCache.substring(0, start) + '\n' + this.mStringCache.substring(end);
+      this.mStringCache = tempStr;
+      this.mSelectionStartCache = start;
+      this.mSelectionEndCache = this.mSelectionStartCache;
+    }
+    if (this.mListeners == null) {
+      Log.e(TAG, "mListeners is null");
+      return;
+    }
+    this.notifyListenersIfNeeded(true, true, false);
+  }
+
   handleFunctionKey(functionKey: inputMethod.FunctionKey): void {
     if(!this.TextInputChannel)
     {
