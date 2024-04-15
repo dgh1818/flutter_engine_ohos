@@ -282,6 +282,35 @@ export class ListenableEditingState {
     this.notifyListenersIfNeeded(true, true, false);
   }
 
+  handleNewlineEvent(): void {
+    // 获取光标所在位置;
+    // 当光标移动前位置小于移动后的位置时，获取光标移动前位置;反之获取移动后位置
+    let start = this.mSelectionStartCache < this.mSelectionEndCache ? this.mSelectionStartCache : this.mSelectionEndCache;
+    // 当光标移动前位置大于移动后的位置时，获取光标移动前位置;反之获取移动后位置
+    let end = this.mSelectionStartCache > this.mSelectionEndCache ? this.mSelectionStartCache : this.mSelectionEndCache;
+
+    // 对光标位置和字符串长度进行对比，决定光标位置的计算方法
+    if (this.mStringCache.length == this.mSelectionStartCache) {
+      //Insert newline one by one
+      let tempStr: string = this.mStringCache.substring(0, start) + '\n' + this.mStringCache.substring(end);
+      this.mStringCache = tempStr;
+      this.setSelectionStart(this.mStringCache.length);
+      this.setSelectionEnd(this.mStringCache.length);
+
+    } else if (this.mStringCache.length > this.mSelectionStartCache) {
+      //Insert newline in the middle of string
+      let tempStr: string = this.mStringCache.substring(0, start) + '\n' + this.mStringCache.substring(end);
+      this.mStringCache = tempStr;
+      this.mSelectionStartCache = start + 1;
+      this.mSelectionEndCache = this.mSelectionStartCache;
+    }
+    if (this.mListeners == null) {
+      Log.e(TAG, "mListeners is null");
+      return;
+    }
+    this.notifyListenersIfNeeded(true, true, false);
+  }
+
   handleFunctionKey(functionKey: inputMethod.FunctionKey): void {
     if(!this.TextInputChannel)
     {
