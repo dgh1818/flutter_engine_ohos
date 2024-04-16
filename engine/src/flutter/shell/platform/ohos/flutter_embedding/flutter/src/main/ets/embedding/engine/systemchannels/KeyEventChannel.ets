@@ -52,7 +52,8 @@ export default class KeyEventChannel {
     message.set("keyCode", keyEvent.event.keyCode);
     message.set("deviceId", keyEvent.event.deviceId);
     message.set("character", keyEvent.event.keyText);
-    message.set("repeatCount", 1);
+    message.set("metaState", keyEvent.event.metaKey);
+    message.set("source", keyEvent.event.metaKey);
     return message;
   }
 }
