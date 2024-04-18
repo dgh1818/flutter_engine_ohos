@@ -397,13 +397,23 @@ export class TextEditState {
   }
 
   static fromJson(textEditState: Any): TextEditState {
-    return new TextEditState(
-      textEditState.text,
-      textEditState.selectionBase,
-      textEditState.selectionExtent,
-      textEditState.composingBase,
-      textEditState.composingExtent
-    )
+    if(textEditState.text != null && textEditState.text != undefined && textEditState.text != "") {
+      return new TextEditState(
+        textEditState.text,
+        textEditState.selectionBase,
+        textEditState.selectionExtent,
+        textEditState.composingBase,
+        textEditState.composingExtent
+      )
+    } else {
+      return new TextEditState(
+        textEditState.get('text'),
+        textEditState.get('selectionBase'),
+        textEditState.get('selectionExtent'),
+        textEditState.get('composingBase'),
+        textEditState.get('composingExtent')
+      )
+    }
   }
 }
 
