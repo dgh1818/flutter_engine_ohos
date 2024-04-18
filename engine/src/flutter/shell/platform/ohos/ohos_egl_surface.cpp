@@ -81,16 +81,10 @@ class OhosEGLSurfaceDamage {
       set_damage_region_ = reinterpret_cast<PFNEGLSETDAMAGEREGIONKHRPROC>(
           eglGetProcAddress("eglSetDamageRegionKHR"));
     }
-
-    if (HasExtension(extensions, "EGL_EXT_swap_buffers_with_damage")) {
-      swap_buffers_with_damage_ =
-          reinterpret_cast<PFNEGLSWAPBUFFERSWITHDAMAGEEXTPROC>(
-              eglGetProcAddress("eglSwapBuffersWithDamageEXT"));
-    } else if (HasExtension(extensions, "EGL_KHR_swap_buffers_with_damage")) {
-      swap_buffers_with_damage_ =
-          reinterpret_cast<PFNEGLSWAPBUFFERSWITHDAMAGEEXTPROC>(
-              eglGetProcAddress("eglSwapBuffersWithDamageKHR"));
-    }
+    // ohos 暂没公开拓展，但支持接口调用
+    swap_buffers_with_damage_ =
+        reinterpret_cast<PFNEGLSWAPBUFFERSWITHDAMAGEEXTPROC>(
+            eglGetProcAddress("eglSwapBuffersWithDamageKHR"));
 
     partial_redraw_supported_ =
         set_damage_region_ != nullptr && swap_buffers_with_damage_ != nullptr;
