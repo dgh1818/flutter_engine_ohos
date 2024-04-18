@@ -58,7 +58,7 @@ export class FlutterView {
   private uiContext?: UIContext | undefined;
   private settings?: Settings;
   private mFirstFrameListeners: ArrayList<FirstFrameListener>;
-  private didRenderFirstFrame = false;
+  private isFlutterUiDisplayed: boolean = false;
 
   constructor(viewId: string, context: Context) {
     this.id = viewId
@@ -130,6 +130,10 @@ export class FlutterView {
     this.mouseCursorPlugin = new MouseCursorPlugin(windowId, this.flutterEngine?.getMouseCursorChannel()!);
     this.settings = new Settings(this.flutterEngine.getSettingsChannel()!);
     this.sendSettings();
+    this.isFlutterUiDisplayed = this.flutterEngine.getFlutterNapi().isDisplayingFlutterUi;
+    if (this.isFlutterUiDisplayed) {
+      this.onFirstFrame();
+    }
   }
 
   detachFromFlutterEngine(): void {
@@ -250,11 +254,10 @@ export class FlutterView {
   }
 
   hasRenderedFirstFrame(): boolean {
-    return this.didRenderFirstFrame;
+    return this.isFlutterUiDisplayed;
   }
 
   onFirstFrame() {
-    this.didRenderFirstFrame = true;
     let listeners = this.mFirstFrameListeners.clone();
     listeners.forEach((listener) => {
       listener.onFirstFrame();

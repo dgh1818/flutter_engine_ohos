@@ -19,8 +19,6 @@ import Want from '@ohos.app.ability.Want';
 import FlutterShellArgs from '../engine/FlutterShellArgs';
 import UIAbility from '@ohos.app.ability.UIAbility';
 import ExclusiveAppComponent from './ExclusiveAppComponent';
-import { FlutterPlugin } from '../engine/plugins/FlutterPlugin';
-import List from '@ohos.util.List';
 import { FlutterAbilityAndEntryDelegate, Host } from './FlutterAbilityAndEntryDelegate';
 import FlutterAbilityLaunchConfigs from './FlutterAbilityLaunchConfigs';
 import Log from '../../util/Log';
@@ -36,12 +34,12 @@ export default class FlutterEntry implements Host {
 
   protected uiAbility: UIAbility | null = null
   protected delegate: FlutterAbilityAndEntryDelegate | null = null
-  private flutterView: FlutterView | null = null
-  private context: Context;
-  private windowStage: window.WindowStage | null = null
+  protected flutterView: FlutterView | null = null
+  protected context: Context;
+  protected windowStage: window.WindowStage | null = null
   private parameters: Record<string, Object> = {};
-  private engineConfigurator: FlutterEngineConfigurator | null = null
-  private hasInit: boolean = false;
+  protected engineConfigurator: FlutterEngineConfigurator | null = null
+  protected hasInit: boolean = false;
 
   constructor(context: Context, params: Record<string, Object> = {}) {
     this.context = context;
@@ -67,7 +65,7 @@ export default class FlutterEntry implements Host {
     }
   }
 
-  private windowStageEventCallback = (data: window.WindowStageEventType) => {
+  protected windowStageEventCallback = (data: window.WindowStageEventType) => {
     let stageEventType: window.WindowStageEventType = data;
     switch (stageEventType) {
       case window.WindowStageEventType.SHOWN: // 切到前台

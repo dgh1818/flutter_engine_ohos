@@ -48,12 +48,12 @@ const FRAMEWORK_RESTORATION_BUNDLE_KEY = "framework";
  * 2、处理ability生命周期回调
  */
 class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility> {
-  private host?: Host | null;
+  protected host?: Host | null;
   flutterEngine?: FlutterEngine | null;
   platformPlugin?: PlatformPlugin;
-  private context?: common.Context;
-  private textInputPlugin?: TextInputPlugin;
-  private isFlutterEngineFromHostOrCache: boolean = false;
+  protected context?: common.Context;
+  protected textInputPlugin?: TextInputPlugin;
+  protected isFlutterEngineFromHostOrCache: boolean = false;
   private engineGroup?: FlutterEngineGroup;
   private isHost:boolean = false;
   private flutterView?: FlutterView
