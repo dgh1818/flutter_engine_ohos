@@ -49,6 +49,8 @@ export default class FlutterNapi {
   accessibilityDelegate: AccessibilityDelegate | null = null;
   localizationPlugin: LocalizationPlugin | null = null;
 
+  isDisplayingFlutterUi: boolean = false;
+
   /**
    * 更新刷新率
    * @param rate
@@ -253,6 +255,7 @@ export default class FlutterNapi {
 
   // Called by native to notify first Flutter frame rendered.
   onFirstFrame(): void {
+    this.isDisplayingFlutterUi = true;
     Log.d(TAG, "called onFirstFrame")
     FlutterManager.getInstance().getFlutterViewList().forEach((value)=> {
       value.onFirstFrame();
