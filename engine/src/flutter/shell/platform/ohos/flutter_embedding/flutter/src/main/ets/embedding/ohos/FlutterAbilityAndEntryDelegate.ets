@@ -294,10 +294,6 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
       this.flutterEngine?.getLifecycleChannel()?.appIsDetached();
     }
 
-    if (this.textInputPlugin) {
-      this.textInputPlugin?.detach();
-    }
-
     if (this.platformPlugin) {
       this.platformPlugin.destroy();
     }
