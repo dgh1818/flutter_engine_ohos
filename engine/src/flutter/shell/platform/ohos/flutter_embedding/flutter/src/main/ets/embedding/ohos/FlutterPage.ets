@@ -27,7 +27,7 @@ const TAG = "FlutterPage";
 export struct FlutterPage {
   @State rootDvModel: DVModelChildren | undefined = undefined
   @Prop viewId: string = ""
-  @Prop xComponentType: XComponentType = XComponentType.SURFACE
+  @Prop xComponentType: XComponentType = XComponentType.TEXTURE
 
   @Builder doNothingBuilder() {}
   @BuilderParam splashScreenView: () => void = this.doNothingBuilder;
