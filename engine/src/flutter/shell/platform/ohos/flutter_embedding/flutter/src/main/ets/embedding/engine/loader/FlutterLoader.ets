@@ -53,6 +53,8 @@ const FILE_SEPARATOR = "/";
 
 const TIMESTAMP_PREFIX = "res_timestamp-";
 
+const OH_ICU_DATA_FILE_PATH = "/system/usr/ohos_icu/"
+
 /**
  * 定位在hap包中的flutter资源，并且加载flutter native library.
  */
@@ -87,8 +89,6 @@ export default class FlutterLoader {
     this.flutterApplicationInfo = ApplicationInfoLoader.load(context);
     if (this.flutterApplicationInfo!.isDebugMode) {
       await this.copyResource(context)
-    } else {
-      await this.copyICU(context)
     }
     this.initResult = new InitResult(
       `${context.filesDir}/`,
@@ -98,28 +98,6 @@ export default class FlutterLoader {
     Log.d(TAG, "flutterLoader end init")
   }
 
-  private async copyICU(context: common.Context) {
-    let filePath = context.filesDir + FILE_SEPARATOR + this.flutterApplicationInfo!.flutterAssetsDir
-    const timestamp = await this.checkTimestamp(filePath);
-    if (timestamp == null) {
-      Log.d(TAG, "no need copyICU")
-      return;
-    }
-    if (this.context != null) {
-      Log.d(TAG, "start copyICU")
-      if (fs.accessSync(filePath)) {
-        fs.rmdirSync(filePath);
-      }
-      fs.mkdirSync(filePath)
-      let icudtlBuffer = await this.context.resourceManager.getRawFileContent(this.flutterApplicationInfo!.flutterAssetsDir + "/icudtl.dat")
-      let icudtlFile = fs.openSync(filePath + FILE_SEPARATOR + "/icudtl.dat", fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE)
-      fs.writeSync(icudtlFile.fd, icudtlBuffer.buffer)
-      if (timestamp != null) {
-        fs.openSync(filePath + FILE_SEPARATOR + timestamp, fs.OpenMode.READ_ONLY | fs.OpenMode.CREATE)
-      }
-      Log.d(TAG, "copyICU end")
-    }
-  }
 
   private async copyResource(context: common.Context) {
     let filePath = context.filesDir + FILE_SEPARATOR + this.flutterApplicationInfo!.flutterAssetsDir
@@ -201,8 +179,20 @@ export default class FlutterLoader {
           + this.flutterApplicationInfo!.nativeLibraryDir
           + FILE_SEPARATOR
           + this.flutterApplicationInfo!.aotSharedLibraryName);
-      const snapshotAssetPath = this.initResult!.dataDirPath + FILE_SEPARATOR + this.flutterApplicationInfo!.flutterAssetsDir;
-      shellArgs.push("--icu-data-file-path=" + snapshotAssetPath + "/icudtl.dat")
+      
+      const fileIsAccess = fs.accessSync(OH_ICU_DATA_FILE_PATH)
+
+      if (fileIsAccess) {
+        const ICUPath = fs.listFileSync(OH_ICU_DATA_FILE_PATH);
+        if (ICUPath.length == 1) {
+          shellArgs.push("--icu-data-file-path=" + OH_ICU_DATA_FILE_PATH + ICUPath[0]);
+        } else {
+          Log.e(TAG, "The file in the " + OH_ICU_DATA_FILE_PATH + " directory is not unique")
+        }
+      } else {
+        Log.e(TAG, "The file " + OH_ICU_DATA_FILE_PATH + " does not exist")
+      }
+
       if (this.flutterApplicationInfo!.isProfile) {
         shellArgs.push("--" + AOT_VMSERVICE_SHARED_LIBRARY_NAME + "=" + VMSERVICE_SNAPSHOT_LIBRARY);
       }
