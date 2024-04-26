@@ -168,7 +168,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     if (configuration) {
       this.configuration = configuration;
       if (configuration.inputType) {
-        this.textConfig.inputAttribute.textInputType = INPUT_TYPE_NAME.indexOf(configuration.inputType.type)
+        this.textConfig.inputAttribute.textInputType = INPUT_TYPE_NAME.indexOf(configuration.inputType.type) - 1
         this.textConfig.inputAttribute.enterKeyType = configuration.inputAction as Any;
       }
     }
