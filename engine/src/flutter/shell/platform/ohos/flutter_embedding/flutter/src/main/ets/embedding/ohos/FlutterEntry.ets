@@ -167,6 +167,10 @@ export default class FlutterEntry implements Host {
     return true;
   }
 
+  attachToEngineAutomatically(): boolean {
+    return true;
+  }
+
   getFlutterShellArgs(): FlutterShellArgs {
     return new FlutterShellArgs();
   }
