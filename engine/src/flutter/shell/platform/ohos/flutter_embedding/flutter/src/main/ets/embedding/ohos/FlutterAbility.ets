@@ -116,7 +116,7 @@ export class FlutterAbility extends UIAbility implements Host {
 
     this.release()
   }
-  
+
   onSaveState(reason: AbilityConstant.StateType, wantParam: Record<string, Object>): AbilityConstant.OnSaveResult {
     return this?.delegate?.onSaveState(reason, wantParam) ?? AbilityConstant.OnSaveResult.ALL_REJECT;
   }
@@ -290,6 +290,10 @@ export class FlutterAbility extends UIAbility implements Host {
       // Only destroy a cached engine if explicitly requested by app developer.
       return false;
     }
+    return true;
+  }
+
+  attachToEngineAutomatically(): boolean {
     return true;
   }
 
