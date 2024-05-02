@@ -229,7 +229,6 @@ shared_library("flutter_shell_native") {
   ldflags += ["-limage_ndk.z"]
   ldflags += ["-lnative_image"]
 
-  ldflags += ["-lc++_shared"]
   ldflags += ["-lm"]
   ldflags += ["-lpthread"]
   ldflags += ["-lpixelmap_ndk.z"]
