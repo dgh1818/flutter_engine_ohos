@@ -28,7 +28,7 @@ struct XComponentStruct {
     if (this.applicationInfo.isDebugMode) {
       XComponent({
         id: (this.dvModelParams as Record<string, Any>)["xComponentId"],
-        type: XComponentType.SURFACE,
+        type: XComponentType.TEXTURE,
         libraryname: 'flutter'
       })
         .onLoad((context) => {
@@ -40,7 +40,7 @@ struct XComponentStruct {
     } else {
       XComponent({
         id: (this.dvModelParams as Record<string, Any>)["xComponentId"],
-        type: XComponentType.SURFACE,
+        type: XComponentType.TEXTURE,
         libraryname: 'flutter'
       })
         .onLoad((context) => {

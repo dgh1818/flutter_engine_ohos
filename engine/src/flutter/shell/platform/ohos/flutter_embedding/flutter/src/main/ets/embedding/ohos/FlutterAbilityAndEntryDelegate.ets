@@ -48,12 +48,12 @@ const FRAMEWORK_RESTORATION_BUNDLE_KEY = "framework";
  * 2、处理ability生命周期回调
  */
 class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility> {
-  private host?: Host | null;
+  protected host?: Host | null;
   flutterEngine?: FlutterEngine | null;
   platformPlugin?: PlatformPlugin;
-  private context?: common.Context;
-  private textInputPlugin?: TextInputPlugin;
-  private isFlutterEngineFromHostOrCache: boolean = false;
+  protected context?: common.Context;
+  protected textInputPlugin?: TextInputPlugin;
+  protected isFlutterEngineFromHostOrCache: boolean = false;
   private engineGroup?: FlutterEngineGroup;
   private isHost:boolean = false;
   private flutterView?: FlutterView
@@ -91,7 +91,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
       this.textInputPlugin = new TextInputPlugin(this.flutterEngine.getTextInputChannel()!);
       this.flutterEngine.getSystemLanguages();
     }
-    if (this.flutterEngine && this.flutterView) {
+    if (this.flutterEngine && this.flutterView && this.host?.attachToEngineAutomatically()) {
       this.flutterView.attachToFlutterEngine(this.flutterEngine!!);
     }
     this.host?.configureFlutterEngine(this.flutterEngine!!);
@@ -265,7 +265,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
 
   createView(context: Context): FlutterView {
     this.flutterView = FlutterManager.getInstance().createFlutterView(context)
-    if (this.flutterEngine) {
+    if (this.flutterEngine && this.host?.attachToEngineAutomatically()) {
       this.flutterView.attachToFlutterEngine(this.flutterEngine!!);
     }
     return this.flutterView
@@ -292,10 +292,6 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
 
     if (this.host?.shouldDispatchAppLifecycleState() && this.flutterEngine != null) {
       this.flutterEngine?.getLifecycleChannel()?.appIsDetached();
-    }
-
-    if (this.textInputPlugin) {
-      this.textInputPlugin?.detach();
     }
 
     if (this.platformPlugin) {
@@ -521,6 +517,18 @@ interface Host extends FlutterEngineProvider, FlutterEngineConfigurator, Platfor
   getExclusiveAppComponent(): ExclusiveAppComponent<UIAbility> | null
 
   providePlatformPlugin(flutterEngine: FlutterEngine): PlatformPlugin | undefined
+
+  /**
+   * Whether to automatically attach the {@link FlutterView} to the engine.
+   *
+   * <p>In the add-to-app scenario where multiple {@link FlutterView} share the same {@link
+   * FlutterEngine}, the host application desires to determine the timing of attaching the {@link
+   * FlutterView} to the engine, for example, during the {@code onResume} instead of the {@code
+   * onCreateView}.
+   *
+   * <p>Defaults to {@code true}.
+   */
+  attachToEngineAutomatically(): boolean;
 }
 
 export { Host, FlutterAbilityAndEntryDelegate }

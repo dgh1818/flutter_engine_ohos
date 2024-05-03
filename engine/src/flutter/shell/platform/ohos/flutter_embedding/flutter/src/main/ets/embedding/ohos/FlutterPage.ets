@@ -27,7 +27,7 @@ const TAG = "FlutterPage";
 export struct FlutterPage {
   @State rootDvModel: DVModelChildren | undefined = undefined
   @Prop viewId: string = ""
-  @Prop xComponentType: XComponentType = XComponentType.SURFACE
+  @Prop xComponentType: XComponentType = XComponentType.TEXTURE
 
   @Builder doNothingBuilder() {}
   @BuilderParam splashScreenView: () => void = this.doNothingBuilder;
@@ -53,6 +53,7 @@ export struct FlutterPage {
     Stack() {
       XComponent({ id: this.viewId, type: this.xComponentType, libraryname: 'flutter' })
         .focusable(true)
+        .focusOnTouch(true)
         .onLoad((context) => {
           this.flutterView?.onSurfaceCreated()
           Log.d(TAG, "XComponent onLoad ");

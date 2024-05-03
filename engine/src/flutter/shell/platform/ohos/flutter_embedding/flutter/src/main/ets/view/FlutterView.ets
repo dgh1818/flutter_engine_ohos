@@ -58,7 +58,7 @@ export class FlutterView {
   private uiContext?: UIContext | undefined;
   private settings?: Settings;
   private mFirstFrameListeners: ArrayList<FirstFrameListener>;
-  private didRenderFirstFrame = false;
+  private isFlutterUiDisplayed: boolean = false;
 
   constructor(viewId: string, context: Context) {
     this.id = viewId
@@ -130,6 +130,10 @@ export class FlutterView {
     this.mouseCursorPlugin = new MouseCursorPlugin(windowId, this.flutterEngine?.getMouseCursorChannel()!);
     this.settings = new Settings(this.flutterEngine.getSettingsChannel()!);
     this.sendSettings();
+    this.isFlutterUiDisplayed = this.flutterEngine.getFlutterNapi().isDisplayingFlutterUi;
+    if (this.isFlutterUiDisplayed) {
+      this.onFirstFrame();
+    }
   }
 
   detachFromFlutterEngine(): void {
@@ -178,6 +182,7 @@ export class FlutterView {
 
   onAreaChange(newArea: Area | null) {
     let systemAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
+    let navigationAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR);
     let gestureAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM_GESTURE);
     let keyboardAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_KEYBOARD);
 
@@ -189,12 +194,13 @@ export class FlutterView {
     // 根据是否全屏显示，设置标题栏高度
     if (this.mainWindow.getWindowProperties().isLayoutFullScreen) { // 全屏显示
       this.viewportMetrics.physicalViewPaddingTop = systemAvoidArea!.topRect.height
+      this.viewportMetrics.physicalViewPaddingBottom = navigationAvoidArea!.bottomRect.height
     } else { // 非全屏显示
       this.viewportMetrics.physicalViewPaddingTop = 0;
+      this.viewportMetrics.physicalViewPaddingBottom = 0;
     }
 
     this.viewportMetrics.physicalViewPaddingLeft = systemAvoidArea!.leftRect.width
-    this.viewportMetrics.physicalViewPaddingBottom = systemAvoidArea!.bottomRect.height
     this.viewportMetrics.physicalViewPaddingRight = systemAvoidArea!.rightRect.width
 
     this.viewportMetrics.physicalViewInsetTop = keyboardAvoidArea!.topRect.height
@@ -250,11 +256,10 @@ export class FlutterView {
   }
 
   hasRenderedFirstFrame(): boolean {
-    return this.didRenderFirstFrame;
+    return this.isFlutterUiDisplayed;
   }
 
   onFirstFrame() {
-    this.didRenderFirstFrame = true;
     let listeners = this.mFirstFrameListeners.clone();
     listeners.forEach((listener) => {
       listener.onFirstFrame();

@@ -75,7 +75,7 @@ export default class JSONMessageCodec implements MessageCodec<Object> {
     if (message == null || message == undefined) {
       return "";
     } else if (message instanceof List || message instanceof LinkedList) {
-      return message.convertToArray();
+      return this.toBaseData(message.convertToArray());
     } else if (message instanceof Map || message instanceof HashMap || message instanceof TreeMap
       || message instanceof LightWeightMap || message instanceof PlainArray) {
       let messageObj: Any = {};

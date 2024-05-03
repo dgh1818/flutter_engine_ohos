@@ -168,7 +168,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     if (configuration) {
       this.configuration = configuration;
       if (configuration.inputType) {
-        this.textConfig.inputAttribute.textInputType = INPUT_TYPE_NAME.indexOf(configuration.inputType.type)
+        this.textConfig.inputAttribute.textInputType = INPUT_TYPE_NAME.indexOf(configuration.inputType.type) - 1
         this.textConfig.inputAttribute.enterKeyType = configuration.inputAction as Any;
       }
     }
@@ -226,6 +226,9 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
 
     try {
       this.inputMethodController.on('sendFunctionKey', (functionKey) => {
+        if(functionKey.enterKeyType == inputMethod.EnterKeyType.NONE) {
+          this.mEditable.handleNewlineEvent();
+        }
         this.mEditable.handleFunctionKey(functionKey);
       })
     } catch (err) {
