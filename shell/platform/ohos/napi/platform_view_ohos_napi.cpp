@@ -307,6 +307,7 @@ void PlatformViewOHOSNapi::FlutterViewHandlePlatformMessage(
   if (message->hasData()) {
     fml::MallocMapping mapping = message->releaseData();
     char* mapData = (char*)mapping.Release();
+    mapData[mapping.GetSize()] = '\0';
     status = napi_create_string_utf8(env_, mapData, strlen(mapData),
                                      &callbackParam[3]);
     if (status != napi_ok) {
