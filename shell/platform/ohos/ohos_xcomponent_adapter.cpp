@@ -312,6 +312,7 @@ void XComponentBase::OnSurfaceCreated(OH_NativeXComponent* component,
   }
   if (isEngineAttached_) {
     PlatformViewOHOSNapi::SurfaceCreated(std::stoll(shellholderId_), window);
+    isSurfaceCreated_ = true;
   } else {
     LOGE("OnSurfaceCreated XComponentBase is not attached");
   }
@@ -339,6 +340,7 @@ void XComponentBase::OnSurfaceDestroyed(OH_NativeXComponent* component,
   window_ = nullptr;
   LOGD("XComponentManger::OnSurfaceDestroyed");
   if (isEngineAttached_) {
+    isSurfaceCreated_ = false;
     PlatformViewOHOSNapi::SurfaceDestroyed(std::stoll(shellholderId_));
   } else {
     LOGE("OnSurfaceCreated OnSurfaceDestroyed is not attached");
