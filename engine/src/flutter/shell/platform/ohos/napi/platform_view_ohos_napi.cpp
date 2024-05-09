@@ -1594,14 +1594,6 @@ void PlatformViewOHOSNapi::SurfaceCreated(int64_t shell_holder, void* window) {
   OHOS_SHELL_HOLDER->GetPlatformView()->NotifyCreate(std::move(native_window));
 }
 
-void PlatformViewOHOSNapi::SurfaceWindowChanged(int64_t shell_holder,
-                                                void* window) {
-  auto native_window = fml::MakeRefCounted<OHOSNativeWindow>(
-      static_cast<OHNativeWindow*>(window));
-  OHOS_SHELL_HOLDER->GetPlatformView()->NotifySurfaceWindowChanged(
-      std::move(native_window));
-}
-
 void PlatformViewOHOSNapi::SurfaceChanged(int64_t shell_holder,
                                           int32_t width,
                                           int32_t height) {
