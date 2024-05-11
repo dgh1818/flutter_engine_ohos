@@ -378,7 +378,7 @@ export default class FlutterNapi {
    * xcomponet绑定flutterEngine
    * @param xcomponentId
    */
-  xComponentAttachFlutterEngine(xcomponentId: number) {
+  xComponentAttachFlutterEngine(xcomponentId: string) {
     flutter.nativeXComponentAttachFlutterEngine(xcomponentId, this.nativeShellHolderId!);
   }
 
@@ -386,7 +386,7 @@ export default class FlutterNapi {
    * xcomponet解除绑定flutterEngine
    * @param xcomponentId
    */
-  xComponentDetachFlutterEngine(xcomponentId: number) {
+  xComponentDetachFlutterEngine(xcomponentId: string) {
     flutter.nativeXComponentDetachFlutterEngine(xcomponentId, this.nativeShellHolderId!);
   }
 

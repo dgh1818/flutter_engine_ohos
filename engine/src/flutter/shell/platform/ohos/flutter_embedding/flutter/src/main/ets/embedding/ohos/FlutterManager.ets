@@ -81,7 +81,7 @@ export default class FlutterManager {
   }
 
   createFlutterView(context: Context): FlutterView {
-    let flutterView = new FlutterView((this.flutterViewIndex++).toString(), context);
+    let flutterView = new FlutterView(`oh_flutter_${this.flutterViewIndex++}`, context);
     this.putFlutterView(flutterView.getId(), flutterView);
     return flutterView;
   }
