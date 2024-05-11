@@ -72,7 +72,7 @@ export struct FlutterPage {
           children: child.children,
           customBuilder: child.builder
         })
-      })
+      },(child: Any) => `${child.id_}`)
 
       if (this.showSplashScreen) {
         this.splashScreenView();
