@@ -382,15 +382,14 @@ class PlatformMethodCallback implements MethodCallHandler {
           let pasteBoard = pasteboard.getSystemPasteboard();
           pasteBoard.getData().then((pasteData) => {
             let text = pasteData.getPrimaryText();
-            let response: Any = new Map().set("text", "");
-            response.text = text;
+            let response: Any = new Map().set("text", text);
             result.success(response);
           }).catch((err: Any) => {
             Log.e(PlatformMethodCallback.TAG, "Failed to get PasteData. Cause: " + JSON.stringify(err));
           });
           break;
         case "Clipboard.setData":
-          let clipboardContent: string = args.text;
+          let clipboardContent: string = args.get('text');
           this.platform.platformMessageHandler.setClipboardData(clipboardContent);
           result.success(null);
           break;
