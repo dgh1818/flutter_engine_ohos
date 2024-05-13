@@ -127,6 +127,7 @@ export class FlutterAbility extends UIAbility implements Host {
    */
   onWindowStageCreate(windowStage: window.WindowStage) {
     FlutterManager.getInstance().pushWindowStage(this, windowStage);
+    this.delegate?.initWindow();
     this.mainWindow = windowStage.getMainWindowSync();
     try {
       windowStage.on('windowStageEvent', (data) => {
