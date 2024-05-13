@@ -458,6 +458,10 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
   isFlutterEngineFromHost(): boolean {
     return this.isFlutterEngineFromHostOrCache;
   }
+
+  initWindow() {
+    this.platformPlugin?.initWindow()
+  }
 }
 
 
