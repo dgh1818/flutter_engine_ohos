@@ -264,7 +264,7 @@ export class ListenableEditingState {
       let tbEnd = start == end ? -1 : 0;
       let crCode: number = this.mStringCache.charCodeAt(tbStart)
       if ( 0xdc00 <= crCode && crCode <= 0xdffff ) {
-        tbStart = tbStar - 1
+        tbStart = tbStart - 1
       }
       this.replace(tbStart, end, "", 0, tbEnd);
       this.mSelectionStartCache = tbStart;
@@ -279,7 +279,7 @@ export class ListenableEditingState {
       let tbStart = start == end ? 1 : 0;
       let crCode: number = this.mStringCache.charCodeAt(tbStart)
       if ( 0xdc00 <= crCode && crCode <= 0xdffff ) {
-        tbStart = tbStar - 1
+        tbStart = tbStart - 1
       }
       this.replace(start, end, "", tbStart, 0);
       this.mSelectionEndCache = start;
