@@ -260,11 +260,15 @@ export class ListenableEditingState {
       if (start == 0 && end == 0) {
         return;
       }
-      const startData = start == end ? start - 1 : start;
-      const tbEnd = start == end ? -1 : 0;
-      this.replace(startData, end, "", 0, tbEnd);
-      this.mSelectionStartCache = startData;
-      let tempStr: string = this.mStringCache.slice(0, startData) + this.mStringCache.slice(end);
+      let tbStart = start == end ? start - 1 : start;
+      let tbEnd = start == end ? -1 : 0;
+      let crCode: number = this.mStringCache.charCodeAt(tbStart)
+      if ( 0xdc00 <= crCode && crCode <= 0xdffff ) {
+        tbStart = tbStar - 1
+      }
+      this.replace(tbStart, end, "", 0, tbEnd);
+      this.mSelectionStartCache = tbStart;
+      let tempStr: string = this.mStringCache.slice(0, tbStart) + this.mStringCache.slice(end);
       this.mStringCache = tempStr;
       this.mSelectionEndCache = this.mSelectionStartCache;
     } else if (leftOrRight == true) {
@@ -272,7 +276,11 @@ export class ListenableEditingState {
       if (start == this.mStringCache.length) {
         return;
       }
-      const tbStart = start == end ? 1 : 0;
+      let tbStart = start == end ? 1 : 0;
+      let crCode: number = this.mStringCache.charCodeAt(tbStart)
+      if ( 0xdc00 <= crCode && crCode <= 0xdffff ) {
+        tbStart = tbStar - 1
+      }
       this.replace(start, end, "", tbStart, 0);
       this.mSelectionEndCache = start;
       let tempStr: string = this.mStringCache.slice(0, start) + (end + 1 >= this.mStringCache.length ? "" : this.mStringCache.slice(end + 1));
