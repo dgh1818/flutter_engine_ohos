@@ -62,7 +62,15 @@ export default class LocalizationChannel implements MethodCallHandler{
   }
 
   sendLocales(locales: Array<string>): void {
-    this.channel.invokeMethod("setLocale", locales);
+    let data: Array<string> = [];
+    for (let i = 0 ; i < locales.length ; i++) {
+      let locale = new intl.Locale(locales[i]);
+      data.push(locale.language);
+      data.push(locale.region);
+      data.push(locale.script);
+      data.push(locale.script);
+    }
+    this.channel.invokeMethod("setLocale", data);
   }
 }
 
