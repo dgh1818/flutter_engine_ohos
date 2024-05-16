@@ -20,41 +20,39 @@ namespace fml {
 
 void MessageLoopOhos::OnAsyncCallback(uv_async_t* handle)
 {
-  reinterpret_cast<MessageLoopOhos*>(handle->data)->OnEventFired();
+    reinterpret_cast<MessageLoopOhos*>(handle->data)->OnEventFired();
 }
-
 
 MessageLoopOhos::MessageLoopOhos(void* platform_loop)
  {
-  async_handle_.data = this;
-  if (platform_loop != nullptr) {
-    uv_loop_t* loop = reinterpret_cast<uv_loop_t*>(platform_loop);
-    uv_async_init(loop, &async_handle_, OnAsyncCallback);
-  } else {
-    uv_loop_init(&loop_);
-    uv_async_init(&loop_, &async_handle_, OnAsyncCallback);
-  }
+    async_handle_.data = this;
+    if (platform_loop != nullptr) {
+      uv_loop_t* loop = reinterpret_cast<uv_loop_t*>(platform_loop);
+      uv_async_init(loop, &async_handle_, OnAsyncCallback);
+    } else {
+      uv_loop_init(&loop_);
+      uv_async_init(&loop_, &async_handle_, OnAsyncCallback);
+    }
 }
 
 MessageLoopOhos::~MessageLoopOhos() {
-  if (uv_loop_alive(&loop_)) {
-    uv_loop_close(&loop_);
-  }
+    if (uv_loop_alive(&loop_)) {
+      uv_loop_close(&loop_);
+    }
 }
 
 // |fml::MessageLoopImpl|
 void MessageLoopOhos::Run() {
-  uv_run(&loop_, UV_RUN_DEFAULT);
+    uv_run(&loop_, UV_RUN_DEFAULT);
 }
 
 // |fml::MessageLoopImpl|
 void MessageLoopOhos::Terminate() {
-  
 }
 
 // |fml::MessageLoopImpl|
 void MessageLoopOhos::WakeUp(fml::TimePoint time_point) {
-  uv_async_send(&async_handle_);
+    uv_async_send(&async_handle_);
 }
 
 void MessageLoopOhos::OnEventFired() {
