@@ -48,6 +48,7 @@ void MessageLoopOhos::Run() {
 
 // |fml::MessageLoopImpl|
 void MessageLoopOhos::Terminate() {
+    uv_async_init(&loop_, &async_handle_, nullptr);
 }
 
 // |fml::MessageLoopImpl|
