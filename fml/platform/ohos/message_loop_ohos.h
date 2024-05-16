@@ -16,21 +16,16 @@
 #ifndef FLUTTER_FML_PLATFORM_OHOS_MESSAGE_LOOP_OHOS_H_
 #define FLUTTER_FML_PLATFORM_OHOS_MESSAGE_LOOP_OHOS_H_
 
-#include <atomic>
-
 #include <uv.h>
 #include "flutter/fml/macros.h"
 #include "flutter/fml/message_loop_impl.h"
-#include "flutter/fml/unique_fd.h"
 
 namespace fml {
 
 class MessageLoopOhos : public MessageLoopImpl {
  private:
-  uv_poll_t poll_handle_;
+  uv_async_t async_handle_;
   uv_loop_t loop_;
-  fml::UniqueFD timer_fd_;
-  bool running_;
 
   MessageLoopOhos(void* platform_loop);
 
@@ -52,7 +47,7 @@ class MessageLoopOhos : public MessageLoopImpl {
   FML_DISALLOW_COPY_AND_ASSIGN(MessageLoopOhos);
 
  public:
-  static void OnPollCallback(uv_poll_t* handle, int status, int events);
+  static void OnAsyncCallback(uv_async_t* handle);
 };
 
 }  // namespace fml
