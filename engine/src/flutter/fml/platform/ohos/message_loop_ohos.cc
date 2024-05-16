@@ -24,20 +24,20 @@ void MessageLoopOhos::OnAsyncCallback(uv_async_t* handle)
 }
 
 MessageLoopOhos::MessageLoopOhos(void* platform_loop)
- {
+{
     async_handle_.data = this;
     if (platform_loop != nullptr) {
-      uv_loop_t* loop = reinterpret_cast<uv_loop_t*>(platform_loop);
-      uv_async_init(loop, &async_handle_, OnAsyncCallback);
+        uv_loop_t* loop = reinterpret_cast<uv_loop_t*>(platform_loop);
+        uv_async_init(loop, &async_handle_, OnAsyncCallback);
     } else {
-      uv_loop_init(&loop_);
-      uv_async_init(&loop_, &async_handle_, OnAsyncCallback);
+        uv_loop_init(&loop_);
+        uv_async_init(&loop_, &async_handle_, OnAsyncCallback);
     }
 }
 
 MessageLoopOhos::~MessageLoopOhos() {
     if (uv_loop_alive(&loop_)) {
-      uv_loop_close(&loop_);
+        uv_loop_close(&loop_);
     }
 }
 
