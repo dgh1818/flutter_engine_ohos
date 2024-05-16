@@ -23,7 +23,6 @@ const TAG =  "LocalizationPlugin";
 export default class LocalizationPlugin {
   private localizationChannel:LocalizationChannel;
   private context: common.Context;
-  private preLocale: string = '';
 
   localeFromString(localeString: string): intl.Locale {
     localeString = localeString.replace('_','-');
@@ -58,12 +57,6 @@ export default class LocalizationPlugin {
   sendLocaleToFlutter(): void {
     let currentLanguage = i18n.System.getSystemLanguage();
     let systemLanguages = i18n.System.getSystemLanguages();
-
-    if (this.preLocale != currentLanguage) {
-      this.preLocale = currentLanguage;
-    } else {
-      return;
-    }
     let index = systemLanguages.indexOf(currentLanguage);
     
     if (index != 0 && index != -1) {

@@ -68,7 +68,7 @@ export default class LocalizationChannel implements MethodCallHandler{
       data.push(locale.language);
       data.push(locale.region);
       data.push(locale.script);
-      data.push(locale.script);
+      data.push(''); // locale.getVariant locale的一种变体
     }
     this.channel.invokeMethod("setLocale", data);
   }
