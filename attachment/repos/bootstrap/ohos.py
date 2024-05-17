@@ -62,7 +62,7 @@ class BuildInfo:
         targetOS="ohos",
         targetArch="arm64",
         targetTriple="arm64-%s-ohos" % OS_NAME,
-        abi="arm64-v8a"
+        abi="arm64-v8a",
     ):
         self.buildType = buildType
         self.targetOS = targetOS
@@ -136,7 +136,7 @@ def getNdkHome():
         for dir in dirs:
             if isNdkValid(dir):
                 OHOS_NDK_HOME = dir
-                break;
+                break
     logging.info("OHOS_NDK_HOME = %s" % OHOS_NDK_HOME)
     if not isNdkValid(OHOS_NDK_HOME):
         logging.error(
@@ -148,15 +148,16 @@ def getNdkHome():
         exit(10)
     return OHOS_NDK_HOME
 
+
 # 校验 native
 def isNdkValid(path):
     if not path:
         return False
     dirs = [
         os.path.join(path),
-        os.path.join(path, 'sysroot'),
-        os.path.join(path, 'llvm', 'bin'),
-        os.path.join(path, 'build-tools', 'cmake', 'bin')
+        os.path.join(path, "sysroot"),
+        os.path.join(path, "llvm", "bin"),
+        os.path.join(path, "build-tools", "cmake", "bin"),
     ]
     for dir in dirs:
         if not os.path.exists(dir):
@@ -208,7 +209,7 @@ def engineCompile(buildInfo):
 
 
 # 编译har文件
-def harBuild(buildInfo):
+def harBuild(buildInfo, args):
     buildType = buildInfo.buildType
     buildOut = getOutput(buildInfo)
     command = "python3 ./src/flutter/attachment/scripts/ohos_create_flutter_har.py "
@@ -217,10 +218,13 @@ def harBuild(buildInfo):
     command += "--build_type %s " % buildType
     command += "--output ./src/out/%s/flutter.har " % buildOut
     command += "--native_lib ./src/out/%s/libflutter.so " % buildOut
-    if (buildType == 'profile'):
-        command += "--native_lib ./src/out/%s/gen/flutter/shell/vmservice/ohos/libs/%s/libvmservice_snapshot.so " % (buildOut, buildInfo.abi)
+    if buildType == "profile":
+        command += (
+            "--native_lib ./src/out/%s/gen/flutter/shell/vmservice/ohos/libs/%s/libvmservice_snapshot.so "
+            % (buildOut, buildInfo.abi)
+        )
     command += "--ohos_abi %s " % "arm64-v8a"
-    command += "--ohos_api_int %s " % 11
+    command += "--ohos_api_int %s " % args.ohos_api_int
     runCommand(command)
 
 
@@ -270,8 +274,8 @@ def zipFileDir(
 
 def zipFiles(buildInfo, useZip2=False):
     logging.info("zipFiles buildInfo=%s" % buildInfo)
-    sdkVer = ''
-    if ('openharmony' in getNdkHome()):
+    sdkVer = ""
+    if "openharmony" in getNdkHome():
         sdkVer = getNdkHome()[-9:-7]
     else:
         sdkVer = getNdkHome()[-30:-12]
@@ -320,6 +324,9 @@ def addParseParam(parser):
         default="",
         help='Extra param to src/flutter/tools/gn. Such as: -g "\\--enable-unittests"',
     )
+    parser.add_argument(
+        "--ohos_api_int", type=int, choices=[11], default=11, help="Ohos api int."
+    )
 
 
 def updateCode(args):
@@ -357,7 +364,7 @@ def buildByNameAndType(args):
             elif "config" == buildName:
                 engineConfig(buildInfo, args.gn_extra_param)
             elif "har" == buildName:
-                harBuild(buildInfo)
+                harBuild(buildInfo, args)
             elif "compile" == buildName:
                 engineCompile(buildInfo)
             elif "zip" == buildName:
