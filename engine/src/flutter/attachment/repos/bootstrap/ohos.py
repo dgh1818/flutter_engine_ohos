@@ -166,7 +166,7 @@ def isNdkValid(path):
 
 
 # 指定engine编译的配置参数
-def engineConfig(buildInfo, extraParam=""):
+def engineConfig(buildInfo, args):
     OHOS_NDK_HOME = getNdkHome()
     # export PATH=$OHOS_NDK_HOME/build-tools/cmake/bin:$OHOS_NDK_HOME/llvm/bin:$PATH
     lastPath = os.getenv("PATH")
@@ -196,8 +196,9 @@ def engineConfig(buildInfo, extraParam=""):
         + "--embedder-for-target "
         + "--disable-desktop-embeddings "
         + "--no-build-embedder-examples "
+        + "--ohos-api-int %s " % args.ohos_api_int
         + "--verbose "
-        + extraParam.replace("\\", ""),
+        + args.gn_extra_param.replace("\\", ""),
         checkCode=False,
         timeout=600,
     )
@@ -325,7 +326,7 @@ def addParseParam(parser):
         help='Extra param to src/flutter/tools/gn. Such as: -g "\\--enable-unittests"',
     )
     parser.add_argument(
-        "--ohos_api_int", type=int, choices=[11], default=11, help="Ohos api int."
+        "--ohos_api_int", type=int, choices=[11, 12], default=12, help="Ohos api int."
     )
 
 
@@ -362,7 +363,7 @@ def buildByNameAndType(args):
             if "clean" == buildName:
                 engineClean(buildInfo)
             elif "config" == buildName:
-                engineConfig(buildInfo, args.gn_extra_param)
+                engineConfig(buildInfo, args)
             elif "har" == buildName:
                 harBuild(buildInfo, args)
             elif "compile" == buildName:

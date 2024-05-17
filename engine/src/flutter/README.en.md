@@ -96,7 +96,9 @@ export PATH=$PATH:/home/<user>/ohos/command-line-tools/bin
      nodejs.dir=<nodejs sdk directory>
      ```
 
-2. You need to copy the file `libflutter.so` to `shell/platform/ohos/flutter_embedding/libs/arm64-v8a/` 
+2. You need to copy file to `shell/platform/ohos/flutter_embedding/flutter/libs/arm64-v8a/` 
+   1. debug/release，copy `libflutter.so`
+   2. profile，copy `libflutter.so` and `libvmservice_snapshot.so`
 
 3. In the shell/platform/ohos/flutter_embedding directory, execute
 
