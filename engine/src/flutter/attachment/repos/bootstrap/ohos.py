@@ -62,11 +62,13 @@ class BuildInfo:
         targetOS="ohos",
         targetArch="arm64",
         targetTriple="arm64-%s-ohos" % OS_NAME,
+        abi="arm64-v8a"
     ):
         self.buildType = buildType
         self.targetOS = targetOS
         self.targetArch = targetArch
         self.targetTriple = targetTriple
+        self.abi = abi
 
     def __repr__(self):
         return "BuildInfo(buildType=%s)" % (self.buildType)
@@ -209,17 +211,17 @@ def engineCompile(buildInfo):
 def harBuild(buildInfo):
     buildType = buildInfo.buildType
     buildOut = getOutput(buildInfo)
-    runCommand(
-        "python3 ./src/build/ohos/ohos_create_flutter_har.py "
-        + "--embedding_src ./src/flutter/shell/platform/ohos/flutter_embedding "
-        + "--build_dir ./src/out/%s/obj/ohos/flutter_embedding " % buildOut
-        + "--build_type %s " % buildType
-        + "--output ./src/out/%s/flutter.har " % buildOut
-        + "--native_lib ./src/out/%s/libflutter.so " % buildOut
-        + "--ohos_abi %s " % "arm64-v8a"
-        + "--ohos_api_int %s " % 11
-    )
-    
+    command = "python3 ./src/flutter/attachment/scripts/ohos_create_flutter_har.py "
+    command += "--embedding_src ./src/flutter/shell/platform/ohos/flutter_embedding "
+    command += "--build_dir ./src/out/%s/obj/ohos/flutter_embedding " % buildOut
+    command += "--build_type %s " % buildType
+    command += "--output ./src/out/%s/flutter.har " % buildOut
+    command += "--native_lib ./src/out/%s/libflutter.so " % buildOut
+    if (buildType == 'profile'):
+        command += "--native_lib ./src/out/%s/gen/flutter/shell/vmservice/ohos/libs/%s/libvmservice_snapshot.so " % (buildOut, buildInfo.abi)
+    command += "--ohos_abi %s " % "arm64-v8a"
+    command += "--ohos_api_int %s " % 11
+    runCommand(command)
 
 
 def isPathValid(filepath, filename, includes, excludes):
