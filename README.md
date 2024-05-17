@@ -99,7 +99,9 @@ export PATH=$PATH:/home/<user>/ohos/command-line-tools/bin
     nodejs.dir=<nodejs的sdk目录>
     ```
 
-2. 你需要复制文件 `libflutter.so` (从编译后的 engine 目录中获取)到 `shell/platform/ohos/flutter_embedding/flutter/libs/arm64-v8a/`
+2. 你需要复制文件到 `shell/platform/ohos/flutter_embedding/flutter/libs/arm64-v8a/`
+   1. debug/release，复制 `libflutter.so`
+   2. profile，复制 `libflutter.so` 和 `libvmservice_snapshot.so`
 
 3. 在shell/platform/ohos/flutter_embedding目录下，执行 
 
