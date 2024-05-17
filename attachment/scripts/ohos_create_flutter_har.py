@@ -62,8 +62,8 @@ HAR_CONFIG_TEMPLATE = """
 # 更新har的配置文件，指定编译使用的api版本
 def updateConfig(buildDir, apiInt):
     apiVersionMap = {
-      11: "4.1.0(11)",
-      12: "5.0.0(12)",
+        11: "4.1.0(11)",
+        12: "5.0.0(12)",
     }
     apiStr = apiVersionMap[apiInt]
     jsonFile = os.path.join(buildDir, "build-profile.json5")
@@ -86,8 +86,14 @@ def runCommand(command, checkCode=True, timeout=None):
 # 编译har文件，通过hvigorw的命令行参数指定编译类型(debug/release/profile)
 def buildHar(buildDir, apiInt, buildType):
     updateConfig(buildDir, apiInt)
+    hvigorwCommand = (
+        "hvigorw"
+        if not os.path.exists(os.path.join(buildDir, "hvigorw"))
+        and not os.path.exists(os.path.join(buildDir, "hvigorw.bat"))
+        else (".%shvigorw" % os.sep)
+    )
     runCommand(
-        "cd %s && .%shvigorw clean --mode module " % (buildDir, os.sep)
+        "cd %s && %s clean --mode module " % (buildDir, hvigorwCommand)
         + "-p module=flutter@default -p product=default -p buildMode=%s " % buildType
         + "assembleHar --no-daemon"
     )
