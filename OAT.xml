@@ -96,6 +96,7 @@ used to filter file path.
                 <filteritem type="filename"
                     name="*.png|*.ico|*.jpg|*.ttf|*.enc|*.mp4|*.ttc|*.key|*.heic|*.res|*.gif|*.otf|*.compiled|*.webp"
                     desc="app resource files" />
+                <filteritem type="filename" name="*.tgz" desc="hvigor dependencies" />
                 <filteritem type="filepath" name="third_party/ninja/ninja_linux" desc="二进制，构建文件" />
                 <filteritem type="filepath" name="third_party/ninja/ninja_mac" desc="二进制，构建文件" />
                 <filteritem type="filepath" name="attachment/repos/.*" desc="git apply所需patch" />
