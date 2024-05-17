@@ -14,6 +14,7 @@
 */
 
 {
+  "modelVersion": "5.0.0",
   "name": "config",
   "version": "1.0.0",
   "description": "Please describe the basic information.",
