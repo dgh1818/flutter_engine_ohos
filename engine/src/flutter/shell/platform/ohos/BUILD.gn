@@ -231,6 +231,7 @@ shared_library("flutter_shell_native") {
   ldflags += [ "-lm" ]
   ldflags += [ "-lpthread" ]
   ldflags += [ "-lpixelmap_ndk.z" ]
+  ldflags += ["-lqos"]
 
   public_configs = [ "//flutter:config" ]
 }
