@@ -61,7 +61,11 @@ HAR_CONFIG_TEMPLATE = """
 
 # 更新har的配置文件，指定编译使用的api版本
 def updateConfig(buildDir, apiInt):
-    apiStr = "4.1.0(11)" if apiInt == 11 else "4.0.0(10)"
+    apiVersionMap = {
+      11: "4.1.0(11)",
+      12: "5.0.0(12)",
+    }
+    apiStr = apiVersionMap[apiInt]
     jsonFile = os.path.join(buildDir, "build-profile.json5")
     with open(jsonFile, "w", encoding="utf-8") as file:
         file.write(HAR_CONFIG_TEMPLATE % (apiStr, apiStr))
@@ -102,7 +106,7 @@ def main():
     parser.add_argument("--native_lib", action="append", help="Native code library.")
     parser.add_argument("--ohos_abi", help="Native code ABI.")
     parser.add_argument(
-        "--ohos_api_int", type=int, choices=[11], help="Ohos api int."
+        "--ohos_api_int", type=int, choices=[11, 12], help="Ohos api int."
     )
     options = parser.parse_args()
     # copy source code
