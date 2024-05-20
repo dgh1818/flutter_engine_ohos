@@ -57,6 +57,7 @@ MessageLoopOhos::~MessageLoopOhos() {
 	}
   bool removed_source = AddOrRemoveTimerSource(false);
   FML_CHECK(removed_source);
+	uv_close((uv_handle_t*)&async_handle_, OnAsyncHandleClose);
   if (uv_loop_alive(&loop_)) {
     uv_loop_close(&loop_);
   }
@@ -69,7 +70,6 @@ void MessageLoopOhos::Run() {
 
 // |fml::MessageLoopImpl|
 void MessageLoopOhos::Terminate() {
-  //   uv_close(&async_handle_, OnAsyncHandleClose);
   running_ = false;
   WakeUp(fml::TimePoint::Now());
 }
