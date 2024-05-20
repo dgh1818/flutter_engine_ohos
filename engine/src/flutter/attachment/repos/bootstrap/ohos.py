@@ -273,17 +273,12 @@ def zipFileDir(
         os.remove(fileOut2)
 
 
-def zipFiles(buildInfo, useZip2=False):
+def zipFiles(buildInfo, useZip2=False, args=any):
     logging.info("zipFiles buildInfo=%s" % buildInfo)
-    sdkVer = ""
-    if "openharmony" in getNdkHome():
-        sdkVer = getNdkHome()[-9:-7]
-    else:
-        sdkVer = getNdkHome()[-30:-12]
     outputName = getOutput(buildInfo)
     fileIn = os.path.abspath("%s/src/out/%s" % (DIR_ROOT, outputName))
     fileName = "ohos_%s_%s-%s-%s-%s" % (
-        sdkVer,
+        args.ohos_api_int,
         buildInfo.buildType,
         OS_NAME,
         platform.machine(),
@@ -369,9 +364,9 @@ def buildByNameAndType(args):
             elif "compile" == buildName:
                 engineCompile(buildInfo)
             elif "zip" == buildName:
-                zipFiles(buildInfo)
+                zipFiles(buildInfo, False, args)
             elif "zip2" == buildName:
-                zipFiles(buildInfo, True)
+                zipFiles(buildInfo, True, args)
             else:
                 logging.warning("Other name=%s" % buildName)
 
