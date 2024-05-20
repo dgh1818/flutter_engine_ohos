@@ -15,8 +15,8 @@
 
 #include "flutter/fml/platform/ohos/message_loop_ohos.h"
 #include <sys/epoll.h>
-#include "flutter/fml/logging.h"
 #include "flutter/fml/eintr_wrapper.h"
+#include "flutter/fml/logging.h"
 #include "flutter/fml/platform/linux/timerfd.h"
 
 namespace fml {
@@ -29,37 +29,59 @@ void MessageLoopOhos::OnAsyncCallback(uv_async_t* handle) {
 
 void MessageLoopOhos::OnAsyncHandleClose(uv_handle_t* handle) {}
 
+void MessageLoopOhos::OnPollCallback(uv_poll_t* handle,
+                                     int status,
+                                     int events) {
+  if (status < 0) {
+    FML_DLOG(ERROR) << "Poll error:" << uv_strerror(status);
+    return;
+  }
+
+  if (events & UV_READABLE) {
+    reinterpret_cast<MessageLoopOhos*>(handle->data)->OnEventFired();
+  }
+}
+
 MessageLoopOhos::MessageLoopOhos(void* platform_loop)
     : epoll_fd_(FML_HANDLE_EINTR(::epoll_create(1 /* unused */))),
       timer_fd_(::timerfd_create(kClockType, TFD_NONBLOCK | TFD_CLOEXEC)),
-      running_(false) {
+      running_(false),
+      isPlatformLoop(false) {
   FML_CHECK(epoll_fd_.is_valid());
   FML_CHECK(timer_fd_.is_valid());
-	bool added_source = AddOrRemoveTimerSource(true);
-	FML_CHECK(added_source);
+  bool added_source = AddOrRemoveTimerSource(true);
+  FML_CHECK(added_source);
   async_handle_.data = this;
   if (platform_loop != nullptr) {
+    isPlatformLoop = true;
     uv_loop_t* loop = reinterpret_cast<uv_loop_t*>(platform_loop);
-    uv_async_init(loop, &async_handle_, OnAsyncCallback);
-  } else {
-    uv_loop_init(&loop_);
-    uv_async_init(&loop_, &async_handle_, OnAsyncCallback);
-  }
-	timerhandleThread = std::thread([this]() {
+    uv_async_init(loop, &async_handle_,
+                  OnAsyncCallback);  // ohos after API12 not allow use uv_poll
+    timerhandleThread = std::thread([this]() {
       running_ = true;
       TimerFdWatcher();
     });
+  } else {
+    uv_loop_init(&loop_);
+    uv_poll_init(&loop_, &poll_handle_, timer_fd_.get());
+    poll_handle_.data = this;
+    uv_poll_start(&poll_handle_, UV_READABLE, OnPollCallback);
+  }
 }
 
 MessageLoopOhos::~MessageLoopOhos() {
-	if(timerhandleThread.joinable()) {
-		timerhandleThread.join();
-	}
-  bool removed_source = AddOrRemoveTimerSource(false);
-  FML_CHECK(removed_source);
-	uv_close((uv_handle_t*)&async_handle_, OnAsyncHandleClose);
-  if (uv_loop_alive(&loop_)) {
-    uv_loop_close(&loop_);
+  if (isPlatformLoop) {
+    if (timerhandleThread.joinable()) {
+      timerhandleThread.join();
+    }
+    uv_close((uv_handle_t*)&async_handle_, OnAsyncHandleClose);
+    bool removed_source = AddOrRemoveTimerSource(false);
+    FML_CHECK(removed_source);
+  } else {
+    uv_poll_stop(&poll_handle_);
+    if (uv_loop_alive(&loop_)) {
+      uv_loop_close(&loop_);
+    }
   }
 }
 
