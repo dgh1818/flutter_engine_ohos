@@ -12,10 +12,10 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-import Any from '../../plugin/common/Any';
+
 import Log from '../../util/Log';
-import { DVModel, DVModelChildren, DynamicView } from '../../view/DynamicView/dynamicView';
 import { FlutterView } from '../../view/FlutterView';
+import { EmbeddingNodeController } from './EmbeddingNodeController';
 import FlutterManager from './FlutterManager';
 
 const TAG = "FlutterPage";
@@ -25,19 +25,20 @@ const TAG = "FlutterPage";
  */
 @Component
 export struct FlutterPage {
-  @State rootDvModel: DVModelChildren | undefined = undefined
   @Prop viewId: string = ""
   @Prop xComponentType: XComponentType = XComponentType.TEXTURE
 
   @Builder doNothingBuilder() {}
   @BuilderParam splashScreenView: () => void = this.doNothingBuilder;
   @State showSplashScreen: boolean = true;
+  @StorageLink('nodeWidth') storageLinkWidth: number = 0;
+  @StorageLink('nodeHeight') storageLinkHeight: number = 0;
 
   private flutterView?: FlutterView | null
-
+  private nodeController: EmbeddingNodeController | undefined = undefined
   aboutToAppear() {
     this.flutterView = FlutterManager.getInstance().getFlutterView(this.viewId);
-    this.rootDvModel = this.flutterView!!.getDVModel().children
+    this.nodeController = this.flutterView!!.getEmbeddingNodeController();
     this.flutterView?.addFirstFrameListener(this)
   }
 
@@ -51,6 +52,10 @@ export struct FlutterPage {
 
   build() {
     Stack() {
+      NodeContainer(this.nodeController)
+         .width(this.storageLinkWidth)
+         .height(this.storageLinkHeight)
+
       XComponent({ id: this.viewId, type: this.xComponentType, libraryname: 'flutter' })
         .focusable(true)
         .focusOnTouch(true)
@@ -63,16 +68,6 @@ export struct FlutterPage {
           this.flutterView?.onSurfaceDestroyed()
         })
         .backgroundColor(Color.Transparent)
-
-      ForEach(this.rootDvModel!!, (child: Any) => {
-        DynamicView({
-          model: child as DVModel,
-          params: child.params,
-          events: child.events,
-          children: child.children,
-          customBuilder: child.builder
-        })
-      },(child: Any) => `${child.id_}`)
 
       if (this.showSplashScreen) {
         this.splashScreenView();

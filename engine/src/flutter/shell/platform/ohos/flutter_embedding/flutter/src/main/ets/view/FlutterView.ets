@@ -23,6 +23,8 @@ import MouseCursorPlugin from '../plugin/mouse/MouseCursorPlugin';
 import Any from '../plugin/common/Any';
 import Settings from '../embedding/ohos/Settings';
 import ArrayList from '@ohos.util.ArrayList';
+import { EmbeddingNodeController } from '../embedding/ohos/EmbeddingNodeController';
+import PlatformView, { Params } from '../plugin/platform/PlatformView';
 
 const TAG = "FlutterView";
 
@@ -45,10 +47,17 @@ class ViewportMetrics {
   physicalTouchSlop = -1;
 }
 
+export class PlatformViewParas {
+  width: number = 0;
+  height: number = 0;
+  direction: Direction = Direction.Auto;
+}
 export class FlutterView {
   private flutterEngine: FlutterEngine | null = null
   private id: string = ""
   private dVModel: DVModel = new DVModel("Stack", new DVModelParameters(), new DVModelEvents(), new DVModelChildren(), null);
+  private wrapBuilder: WrappedBuilder<[Params]> | undefined = undefined;
+  private platformView: PlatformView | undefined = undefined;
   private isSurfaceAvailableForRendering: boolean = false
   private viewportMetrics = new ViewportMetrics();
   private displayInfo?: display.Display;
@@ -59,6 +68,9 @@ export class FlutterView {
   private settings?: Settings;
   private mFirstFrameListeners: ArrayList<FirstFrameListener>;
   private isFlutterUiDisplayed: boolean = false;
+  private surfaceId: string = "0";
+  private nodeController: EmbeddingNodeController = new EmbeddingNodeController();
+  private platformViewSize: PlatformViewParas = new PlatformViewParas();
 
   constructor(viewId: string, context: Context) {
     this.id = viewId
@@ -89,6 +101,38 @@ export class FlutterView {
 
   getId(): string {
     return this.id
+  }
+
+  setSurfaceId(surfaceId: string): void {
+    this.surfaceId = surfaceId;
+  }
+
+  getSurfaceId(): string {
+    return this.surfaceId;
+  }
+
+  getEmbeddingNodeController(): EmbeddingNodeController {
+    return this.nodeController;
+  }
+
+  setWrappedBuilder(wrappedBuilder: WrappedBuilder<[Params]>) {
+    this.wrapBuilder = wrappedBuilder;
+  }
+
+  getWrappedBuilder(): WrappedBuilder<[Params]> | undefined {
+    return this.wrapBuilder;
+  }
+
+  setPlatformView(platformView: PlatformView) {
+    this.platformView = platformView;
+  }
+
+  getPlatformView(): PlatformView | undefined {
+    return this.platformView;
+  }
+
+  getPlatformViewSize(): PlatformViewParas {
+    return this.platformViewSize;
   }
 
   getDVModel() {

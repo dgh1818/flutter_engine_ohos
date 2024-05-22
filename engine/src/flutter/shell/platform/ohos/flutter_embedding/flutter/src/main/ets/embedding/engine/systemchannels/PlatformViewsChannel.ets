@@ -307,7 +307,7 @@ export interface  PlatformViewsHandler {
    * The Flutter application would like to change the layout direction of an existing Android
    * {@code View}, i.e., platform view.
    */
-  setDirection(viewId: number, direction: number): void;
+  setDirection(viewId: number, direction: Direction): void;
 
   /** Clears the focus from the platform view with a give id if it is currently focused. */
   clearFocus(viewId: number): void;
@@ -355,7 +355,7 @@ export class PlatformViewCreationRequest {
   /**
    * The layout direction of the new platform view.
    */
-  public direction: number;
+  public direction: Direction;
   public displayMode: RequestedDisplayMode;
 
   /** Custom parameters that are unique to the desired platform view. */
