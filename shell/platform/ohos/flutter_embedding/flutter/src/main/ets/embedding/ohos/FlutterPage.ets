@@ -56,6 +56,12 @@ export struct FlutterPage {
          .width(this.storageLinkWidth)
          .height(this.storageLinkHeight)
 
+      Text('')
+        .id('emptyFocusText' + this.viewId)
+        .size({width: 0, height: 0})
+        .opacity(0)
+        .focusable(true)
+      
       XComponent({ id: this.viewId, type: this.xComponentType, libraryname: 'flutter' })
         .focusable(true)
         .focusOnTouch(true)

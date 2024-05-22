@@ -167,7 +167,7 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     let rawPointerCoords1: Array<ESObject> = touch.rawPointerCoords as Array<ESObject> ;
     rawPointerCoords1.forEach((item: ESObject) => {
       let rawPoints: ArrayList<ESObject> = item as ArrayList<ESObject>;
-      let length2 = rawPoints.length
+      let length = rawPoints.length
       pointX = rawPoints[length - 2];
       pointY = rawPoints[length - 1];
     })
@@ -176,7 +176,7 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     timeStamp = timeStamp + 10000;
     let touches1: CustomTouchObject = new CustomTouchObject(touch.action, 0, pointX, pointY, pointX, pointY, pointX, pointY, pointX, pointY);
     let changedTouches1: CustomTouchObject = new CustomTouchObject(touch.action, 0, pointX, pointY, pointX, pointY, pointX, pointY, pointX, pointY);
-    let customTouchEvent11: CustomTouchEvent = new CustomTouchEvent(touch.action, [touches1], [changedTouches1], timeStamp, 2, 1, 0, 0, 1)
+    let customTouchEvent1: CustomTouchEvent = new CustomTouchEvent(touch.action, [touches1], [changedTouches1], timeStamp, 2, 1, 0, 0, 1)
 
     if (this.flutterView == null) {
       Log.e(TAG, "flutterView is null")
@@ -204,7 +204,7 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
       Log.e(TAG, "Setting direction to a null view with id: " + viewId);
       return;
     }
-    focusControl.requestFocus(this.flutterView?.getId());
+    focusControl.requestFocus('emptyFocusText' + this.flutterView?.getId());
   }
   synchronizeToNativeViewHierarchy(yes: boolean): void {
     throw new Error('Method not implemented.');
