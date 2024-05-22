@@ -38,6 +38,12 @@ export class CustomTouchEvent implements TouchEvent {
     this.sourceTool = sourceTool;
   }
 
+  preventDefault: () => void = () => {};
+
+  getModifierKeyState(keys: string[]): boolean {
+    throw new Error('Method not implemented.');
+  }
+
   target: EventTarget = new CustomEventTarget(new CustomArea(0, 0, {x: 0, y: 0}, {x: 0, y: 0}));
 
   getHistoricalPoints(): HistoricalPoint[] {
