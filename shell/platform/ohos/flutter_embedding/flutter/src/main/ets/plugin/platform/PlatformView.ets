@@ -15,11 +15,15 @@
 
 import { DVModel, DynamicView } from '../../view/DynamicView/dynamicView'
 
+export declare class Params {
+  direction: Direction
+  platformView : PlatformView
+}
+
 /** A handle to an DynamicView to be embedded in the Flutter hierarchy. */
 export default abstract class PlatformView {
   /** Returns the DynamicView to be embedded in the Flutter hierarchy. */
-  abstract getView(): DVModel;
-
+  abstract getView(): WrappedBuilder<[Params]>;
   /**
    * Called by the {@link io.flutter.embedding.engine.FlutterEngine} that owns this {@code
    * PlatformView} when the DynamicView responsible for rendering a Flutter UI is
