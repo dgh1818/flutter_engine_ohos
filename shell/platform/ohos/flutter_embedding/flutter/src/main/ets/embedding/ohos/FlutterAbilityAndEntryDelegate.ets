@@ -460,7 +460,9 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
   }
 
   initWindow() {
-    this.platformPlugin?.initWindow()
+    if (this.flutterEngine && this.isAttached) {
+      this.platformPlugin?.initWindow()
+    }
   }
 }
 

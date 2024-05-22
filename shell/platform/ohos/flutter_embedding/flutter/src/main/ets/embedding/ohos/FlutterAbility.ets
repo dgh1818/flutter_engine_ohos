@@ -36,6 +36,7 @@ import errorManager from '@ohos.app.ability.errorManager';
 import appRecovery from '@ohos.app.ability.appRecovery';
 import FlutterManager from './FlutterManager';
 import { FlutterView } from '../../view/FlutterView';
+import ApplicationInfoLoader from '../engine/loader/ApplicationInfoLoader';
 
 const TAG = "FlutterAbility";
 const EVENT_BACK_PRESS = 'EVENT_BACK_PRESS';
@@ -98,6 +99,12 @@ export class FlutterAbility extends UIAbility implements Host {
       }
     }
     this.errorManagerId = errorManager.on('error', observer);
+
+    let flutterApplicationInfo = ApplicationInfoLoader.load(this.context);
+
+    if (flutterApplicationInfo.isDebugMode) {
+      this.delegate?.initWindow();
+    }
   }
 
   onDestroy() {
