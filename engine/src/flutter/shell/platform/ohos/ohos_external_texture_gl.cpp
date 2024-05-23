@@ -191,9 +191,9 @@ void OHOSExternalTextureGL::Detach() {
 void OHOSExternalTextureGL::UpdateTransform()
 {
   float m[16] = { 0.0f };
-  int32_t ret = OH_NativeImage_GetTransformMatrixV2(nativeImage_, m);
+  int32_t ret = OH_NativeImage_GetTransformMatrix(nativeImage_, m);
   if (ret != 0) {
-    FML_DLOG(FATAL)<<"OHOSExternalTextureGL OH_NativeImage_GetTransformMatrixV2 err code:"<< ret;
+    FML_DLOG(FATAL)<<"OHOSExternalTextureGL OH_NativeImage_GetTransformMatrix err code:"<< ret;
   }
   // transform_ ohos 4x4 matrix to skia 3x3 matrix
   SkScalar matrix3[] = {
