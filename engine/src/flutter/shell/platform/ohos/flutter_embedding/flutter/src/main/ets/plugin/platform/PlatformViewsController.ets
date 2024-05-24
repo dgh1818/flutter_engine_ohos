@@ -67,8 +67,6 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
   private currentFrameUsedOverlayLayerIds: HashSet<number>;
   private currentFrameUsedPlatformViewIds: HashSet<number>;
   private platformViewParent: Map<number, FlutterMutatorView>;
-  private nodeWidthLink: SubscribedAbstractProperty<number> = AppStorage.link('nodeWidth');
-  private nodeHeightLink: SubscribedAbstractProperty<number> = AppStorage.link('nodeHeight');
 
   constructor() {
     this.registry = new PlatformViewRegistryImpl();
@@ -140,14 +138,17 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     let physicalHeight: number = this.toPhysicalPixels(request.newLogicalHeight);
     let viewId: number = request.viewId;
     Log.i(TAG, `Resize viewId ${viewId}, pw:${physicalWidth}, ph:${physicalHeight},lw:${request.newLogicalWidth}, lh:${request.newLogicalHeight}`);
+ 
+    let nodeWidthLink: SubscribedAbstractProperty<number> = AppStorage.link('nodeWidth');
+    let nodeHeightLink: SubscribedAbstractProperty<number> = AppStorage.link('nodeHeight');
     let oldNodeWidth: number = AppStorage.get('nodeWidth')!
     let oldNodeHeight: number = AppStorage.get('nodeHeight')!
     if ((oldNodeWidth == physicalWidth) && (oldNodeHeight == physicalHeight)) {
       onComplete.run(new PlatformViewBufferSize(physicalWidth, physicalHeight));
       return;
     }
-    this.nodeWidthLink.set(physicalWidth);
-    this.nodeHeightLink.set(physicalHeight);
+    nodeWidthLink.set(physicalWidth);
+    nodeHeightLink.set(physicalHeight);
     this.flutterView!.getPlatformViewSize().direction = Direction.Rtl;
     this.flutterView!.getEmbeddingNodeController().setRenderOption(this.flutterView!.getPlatformView()!, this.flutterView!.getSurfaceId(), NodeRenderType.RENDER_TYPE_TEXTURE, this.flutterView!.getPlatformViewSize().direction);
     this.flutterView!.getEmbeddingNodeController().rebuild();
@@ -277,10 +278,12 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     let wrappedBuilder: WrappedBuilder<[Params]> = platformView.getView();
     this.flutterView?.setWrappedBuilder(wrappedBuilder);
     this.flutterView?.setPlatformView(platformView);
+    let nodeWidthLink: SubscribedAbstractProperty<number> = AppStorage.link('nodeWidth');
+    let nodeHeightLink: SubscribedAbstractProperty<number> = AppStorage.link('nodeHeight');
     let physicalWidth: number = this.toPhysicalPixels(request.logicalWidth);
     let physicalHeight: number = this.toPhysicalPixels(request.logicalHeight);
-    this.nodeWidthLink.set(physicalWidth);
-    this.nodeHeightLink.set(physicalHeight);
+    nodeWidthLink.set(physicalWidth);
+    nodeHeightLink.set(physicalHeight);
     this.flutterView!.getEmbeddingNodeController().setRenderOption(platformView, surfaceId, NodeRenderType.RENDER_TYPE_TEXTURE, request.direction);
     this.flutterView!.getEmbeddingNodeController().rebuild();
     Log.i(TAG, "Create platform view success");
