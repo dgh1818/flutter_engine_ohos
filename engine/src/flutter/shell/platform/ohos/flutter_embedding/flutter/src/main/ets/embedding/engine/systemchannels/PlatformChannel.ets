@@ -76,7 +76,7 @@ export default class PlatformChannel {
       case 0x01:
         return window.Orientation.PORTRAIT;
       case 0x02:
-        return window.Orientation.LANDSCAPE;
+        return window.Orientation.LANDSCAPE_INVERTED;
       case 0x03:
       case 0x04:
         return window.Orientation.PORTRAIT_INVERTED;
@@ -85,7 +85,7 @@ export default class PlatformChannel {
       case 0x06:
       case 0x07:
       case 0x08:
-        return window.Orientation.LANDSCAPE_INVERTED;
+        return window.Orientation.LANDSCAPE;
       case 0x09:
       case 0x0a:
         return window.Orientation.AUTO_ROTATION_LANDSCAPE;
@@ -98,11 +98,11 @@ export default class PlatformChannel {
               case 0x01:
                 return bundleManager.DisplayOrientation.PORTRAIT;
               case 0x02:
-                return bundleManager.DisplayOrientation.LANDSCAPE;
+                return bundleManager.DisplayOrientation.LANDSCAPE_INVERTED;
               case 0x04:
                 return bundleManager.DisplayOrientation.PORTRAIT_INVERTED;
               case 0x08:
-                return bundleManager.DisplayOrientation.LANDSCAPE_INVERTED;
+                return bundleManager.DisplayOrientation.LANDSCAPE;
             }
       case 0x0f:
     }
