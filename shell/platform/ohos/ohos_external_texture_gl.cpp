@@ -155,7 +155,7 @@ void OHOSExternalTextureGL::OnGrContextCreated() {
 
 void OHOSExternalTextureGL::OnGrContextDestroyed() {
   FML_DLOG(INFO) << " OHOSExternalTextureGL::OnGrContextDestroyed";
-  if (state_ == AttachmentState::attached) {
+  if (state_ == AttachmentState::attached && pixelMap_ == nullptr) {
     Detach();
     glDeleteTextures(1, &texture_name_);
     OH_NativeImage_Destroy(&nativeImage_);
