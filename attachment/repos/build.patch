@@ -102,16 +102,16 @@ index b8d0f47..a3d1ed9 100644
 @@ -313,7 +334,7 @@ if (!is_clang && using_sanitizer) {
    is_clang = true
  }
- 
+
 -use_flutter_cxx = is_clang && (is_linux || is_android || is_mac || is_ios)
 +use_flutter_cxx = is_clang && (is_linux || is_android || is_mac || is_ios || is_ohos )
- 
+
  if (is_msan && !is_linux) {
    assert(false, "Memory sanitizer is only available on Linux.")
 @@ -365,7 +386,9 @@ if (is_posix) {
    ]
  }
- 
+
 -if (is_linux) {
 +if (is_ohos || (is_linux && host_os == "mac")) {
 +  _native_compiler_configs += [ "//build/config/ohos:sdk" ]
@@ -160,7 +160,7 @@ index b8d0f47..a3d1ed9 100644
    if (is_clang) {
      host_toolchain = "//build/toolchain/linux:clang_$host_cpu"
 diff --git a/build/config/compiler/BUILD.gn b/build/config/compiler/BUILD.gn
-index ba20010..67371f5 100644
+index ba20010..17e0487 100644
 --- a/build/config/compiler/BUILD.gn
 +++ b/build/config/compiler/BUILD.gn
 @@ -191,10 +191,16 @@ config("compiler") {
@@ -185,7 +185,7 @@ index ba20010..67371f5 100644
      } else if (current_cpu == "x86") {
        cflags += [ "-m32" ]
 @@ -315,7 +321,7 @@ config("compiler") {
- 
+
    # Linux/Android common flags setup.
    # ---------------------------------
 -  if (is_linux || is_android) {
@@ -194,7 +194,7 @@ index ba20010..67371f5 100644
        "-fPIC",
        "-pipe",  # Use pipes for communicating between sub-processes. Faster.
 @@ -334,7 +340,16 @@ config("compiler") {
- 
+
    # Linux-specific compiler flags setup.
    # ------------------------------------
 -  if (is_linux) {
@@ -210,7 +210,7 @@ index ba20010..67371f5 100644
 +  } else if (is_linux) {
      cflags += [ "-pthread" ]
      ldflags += [ "-pthread" ]
- 
+
 @@ -521,9 +536,13 @@ config("runtime_library") {
        ldflags += [ "-nostdlib++" ]
      }
@@ -224,8 +224,45 @@ index ba20010..67371f5 100644
 +      include_dirs += [ "//third_party/libcxx/include" ]
 +    }
    }
- 
+
    # Android standard library setup.
+@@ -860,17 +879,35 @@ config("optimize") {
+     cflags = [ "-Oz" ] + common_optimize_on_cflags  # Favor size over speed.
+   } else if (is_wasm) {
+     cflags = [ "-Oz" ]
++  } else if (is_ohos) {
++      cflags = [ "-O3" ] + common_optimize_on_cflags
+   } else {
+     cflags = [ "-O2" ] + common_optimize_on_cflags
+   }
+
+   lto_flags = []
+-  if (enable_lto && (is_ios || is_android || is_fuchsia || is_wasm)) {
++  if (enable_lto && (is_ios || is_android || is_fuchsia || is_wasm || is_ohos)) {
+     lto_flags += [ "-flto" ]
+   }
+
++  if (is_ohos) {
++    cflags += [
++      "-mcpu=tsv110",
++      "-fwhole-program-vtables",
++    ]
++  }
++
+   ldflags = common_optimize_on_ldflags + lto_flags
+   cflags += lto_flags
++
++  if (is_ohos) {
++    ldflags += [
++      "-Wl,--lto-O2",
++      "-Wl,--plugin-opt=-mcpu=tsv110",
++      "-Wl,-mllvm",
++      "-Wl,-wholeprogramdevirt-check=fallback",
++    ]
++  }
+ }
+
+ # Turn off optimizations.
 diff --git a/build/config/ohos/BUILD.gn b/build/config/ohos/BUILD.gn
 new file mode 100644
 index 0000000..b2675d2
@@ -827,7 +864,7 @@ index cad6cbc..c17950b 100644
 +++ b/build/secondary/third_party/glfw/BUILD.gn
 @@ -47,6 +47,34 @@ source_set("glfw") {
      ]
- 
+
      defines = [ "_GLFW_WIN32" ]
 +  } else if (is_ohos) {
 +    sources += [
@@ -877,6 +914,6 @@ index 65b1623..a89742a 100644
 +  readelf = "${toolchain_bin}/llvm-readelf"
 +  nm = "${toolchain_bin}/llvm-nm"
 +  strip = "${toolchain_bin}/llvm-strip"
- 
+
    target_triple_flags = "--target=${custom_target_triple}"
    sysroot_flags = "--sysroot ${custom_sysroot}"
