@@ -14,7 +14,6 @@
  */
 
 #include "flutter/fml/platform/ohos/message_loop_ohos.h"
-#include <sys/epoll.h>
 #include "flutter/fml/eintr_wrapper.h"
 #include "flutter/fml/logging.h"
 #include "flutter/fml/platform/linux/timerfd.h"
