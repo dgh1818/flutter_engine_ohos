@@ -39,8 +39,7 @@ namespace flutter {
 class OHOSShellHolder {
  public:
   OHOSShellHolder(const flutter::Settings& settings,
-                  std::shared_ptr<PlatformViewOHOSNapi> napi_facade,
-                  void* plateform_loop);
+                  std::shared_ptr<PlatformViewOHOSNapi> napi_facade);
 
   ~OHOSShellHolder();
   bool IsValid() const;

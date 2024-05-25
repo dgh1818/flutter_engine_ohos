@@ -462,14 +462,8 @@ napi_value PlatformViewOHOSNapi::nativeAttach(napi_env env,
       std::make_shared<PlatformViewOHOSNapi>(env);
   napi_create_reference(env, argv[0], 1, &(napi_facade->ref_napi_obj_));
 
-  uv_loop_t* platform_loop = nullptr;
-  status = napi_get_uv_event_loop(env, &platform_loop);
-  if (status != napi_ok) {
-    FML_DLOG(ERROR) << "nativeAttach napi_get_uv_event_loop  fail";
-  }
-
   auto shell_holder = std::make_unique<OHOSShellHolder>(
-      OhosMain::Get().GetSettings(), napi_facade, platform_loop);
+      OhosMain::Get().GetSettings(), napi_facade);
   if (shell_holder->IsValid()) {
     int64_t shell_holder_value = reinterpret_cast<int64_t>(shell_holder.get());
     FML_DLOG(INFO) << "PlatformViewOHOSNapi shell_holder:"

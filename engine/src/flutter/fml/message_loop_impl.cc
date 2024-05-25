@@ -28,7 +28,7 @@
 
 namespace fml {
 
-fml::RefPtr<MessageLoopImpl> MessageLoopImpl::Create(void* platform_loop) {
+fml::RefPtr<MessageLoopImpl> MessageLoopImpl::Create() {
 #if FML_OS_MACOSX
   return fml::MakeRefCounted<MessageLoopDarwin>();
 #elif FML_OS_ANDROID
@@ -36,7 +36,7 @@ fml::RefPtr<MessageLoopImpl> MessageLoopImpl::Create(void* platform_loop) {
 #elif OS_FUCHSIA
   return fml::MakeRefCounted<MessageLoopFuchsia>();
 #elif FML_OS_OHOS
-return fml::MakeRefCounted<MessageLoopOhos>(platform_loop);
+return fml::MakeRefCounted<MessageLoopOhos>();
 #elif FML_OS_LINUX
   return fml::MakeRefCounted<MessageLoopLinux>();
 #elif FML_OS_WIN

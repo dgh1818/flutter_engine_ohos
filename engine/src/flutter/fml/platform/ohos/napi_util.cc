@@ -17,6 +17,7 @@
 #include <node_api.h>
 #include <cstdarg>
 #include <string>
+#include <uv.h>
 
 namespace fml {
 namespace napi {
@@ -238,24 +239,50 @@ napi_status InvokeJsMethod(napi_env env_,
                            const char* methodName,
                            size_t argc,
                            const napi_value* argv) {
-  napi_value fn, napi_obj, ret;
+  uv_loop_s* loop = nullptr;
+  napi_value fn, napi_obj;
   napi_status status;
+  status = napi_get_uv_event_loop(env_, &loop);
+  if (!loop) {
+    FML_DLOG(ERROR) << "napi_get_uv_event_loop fail ";
+    return status;
+  }
   status = napi_get_reference_value(env_, ref_napi_obj_, &napi_obj);
   if (status != napi_ok) {
     FML_DLOG(ERROR) << "napi_get_reference_value fail ";
     return status;
   }
-
   status = napi_get_named_property(env_, napi_obj, methodName, &fn);
   if (status != napi_ok) {
     FML_DLOG(ERROR) << "napi_get_named_property fail " << methodName;
     return status;
   }
-  status = napi_call_function(env_, napi_obj, fn, argc, argv, &ret);
-  if (status != napi_ok) {
-    FML_DLOG(ERROR) << "napi_call_function fail " << methodName;
-    return status;
-  }
+  std::unique_ptr<AsyscContext> asyncCtx =
+      std::make_unique<AsyscContext>(env_, napi_obj, fn, argc, argv);
+  uv_work_t* work = new (std::nothrow) uv_work_t;
+  work->data = asyncCtx.get();
+  int ret = uv_queue_work(
+      loop, work, [](uv_work_t* work) {},
+      [](uv_work_t* work, int status) {
+        AsyscContext* asyncCtx = reinterpret_cast<AsyscContext*>(work->data);
+        napi_value ret;
+        if (asyncCtx) {
+          status =
+              napi_call_function(asyncCtx->env_, asyncCtx->ref_value_, asyncCtx->fn_,
+                                 asyncCtx->argc_, asyncCtx->argv_, &ret);
+          if (status != napi_ok) {
+            FML_DLOG(ERROR) << "napi_call_function fail";
+          }
+          delete asyncCtx;
+        }
+        delete work;
+      });
+			if(ret) {
+				FML_DLOG(ERROR) << "failed to execute work";
+        delete work;
+    } else {
+        asyncCtx.release();
+    }
   return napi_ok;
 }
 
