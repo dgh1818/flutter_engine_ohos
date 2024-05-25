@@ -63,7 +63,8 @@ static PlatformData GetDefaultPlatformData() {
 
 OHOSShellHolder::OHOSShellHolder(
     const flutter::Settings& settings,
-    std::shared_ptr<PlatformViewOHOSNapi> napi_facade)
+    std::shared_ptr<PlatformViewOHOSNapi> napi_facade,
+    void* platform_loop)
     : settings_(settings), napi_facade_(napi_facade) {
   FML_DLOG(INFO) << " ohos shell holder constructor";
   static size_t thread_host_count = 1;
@@ -125,7 +126,7 @@ OHOSShellHolder::OHOSShellHolder(
 
   // The current thread will be used as the platform thread. Ensure that the
   // message loop is initialized.
-  fml::MessageLoop::EnsureInitializedForCurrentThread();
+  fml::MessageLoop::EnsureInitializedForCurrentThread(platform_loop);
   fml::RefPtr<fml::TaskRunner> raster_runner;
   fml::RefPtr<fml::TaskRunner> ui_runner;
   fml::RefPtr<fml::TaskRunner> io_runner;
