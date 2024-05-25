@@ -29,23 +29,15 @@ void MessageLoop::EnsureInitializedForCurrentThread() {
     // Already initialized.
     return;
   }
-  tls_message_loop.reset(new MessageLoop(nullptr));
-}
-
-void MessageLoop::EnsureInitializedForCurrentThread(void* platform_loop) {
-  if (tls_message_loop.get() != nullptr) {
-    // Already initialized.
-    return;
-  }
-  tls_message_loop.reset(new MessageLoop(platform_loop));
+  tls_message_loop.reset(new MessageLoop());
 }
 
 bool MessageLoop::IsInitializedForCurrentThread() {
   return tls_message_loop.get() != nullptr;
 }
 
-MessageLoop::MessageLoop(void* platform_loop)
-    : loop_(MessageLoopImpl::Create(platform_loop)),
+MessageLoop::MessageLoop()
+    : loop_(MessageLoopImpl::Create()),
       task_runner_(fml::MakeRefCounted<fml::TaskRunner>(loop_)) {
   FML_CHECK(loop_);
   FML_CHECK(task_runner_);

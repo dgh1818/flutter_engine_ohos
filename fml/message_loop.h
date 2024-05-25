@@ -46,8 +46,6 @@ class MessageLoop {
 
   static void EnsureInitializedForCurrentThread();
 
-  static void EnsureInitializedForCurrentThread(void* platform_loop);
-
   /// Returns true if \p EnsureInitializedForCurrentThread has been called on
   /// this thread already.
   static bool IsInitializedForCurrentThread();
@@ -66,7 +64,7 @@ class MessageLoop {
   fml::RefPtr<MessageLoopImpl> loop_;
   fml::RefPtr<fml::TaskRunner> task_runner_;
 
-  MessageLoop(void* platform_loop);
+  MessageLoop();
 
   fml::RefPtr<MessageLoopImpl> GetLoopImpl() const;
 
