@@ -16,6 +16,7 @@
 #ifndef OHOS_FLUTTER_NAPI_UTIL_H
 #define OHOS_FLUTTER_NAPI_UTIL_H
 #include <string.h>
+#include <uv.h>
 #include <string>
 #include <vector>
 #include "flutter/fml/logging.h"
@@ -23,21 +24,6 @@
 
 namespace fml {
 namespace napi {
-
-struct AsyscContext {
-  const napi_env env_;
-  const napi_value ref_value_;
-  const napi_value fn_;
-  const size_t argc_;
-  const napi_value* argv_;
-  AsyscContext(const napi_env env,
-               const napi_value ref,
-               const napi_value fn,
-               const size_t argc,
-               const napi_value* argv)
-      : env_(env), ref_value_(ref), fn_(fn), argc_(argc), argv_(argv){};
-};
-
 enum {
   SUCCESS = 0,
   ERROR_TYPE = -100,
