@@ -71,14 +71,9 @@ MessageLoopOhos::MessageLoopOhos(void* platform_loop)
 
 MessageLoopOhos::~MessageLoopOhos() {
   if (isPlatformLoop) {
-    if (timerhandleThread.joinable()) {
-      timerhandleThread.join();
-    }
-    uv_close((uv_handle_t*)&async_handle_, OnAsyncHandleClose);
     bool removed_source = AddOrRemoveTimerSource(false);
     FML_CHECK(removed_source);
   } else {
-    uv_poll_stop(&poll_handle_);
     if (uv_loop_alive(&loop_)) {
       uv_loop_close(&loop_);
     }
@@ -94,6 +89,15 @@ void MessageLoopOhos::Run() {
 void MessageLoopOhos::Terminate() {
   running_ = false;
   WakeUp(fml::TimePoint::Now());
+  if (isPlatformLoop) {
+    if (timerhandleThread.joinable()) {
+      timerhandleThread.join();
+    }
+    uv_close((uv_handle_t*)&async_handle_, OnAsyncHandleClose);
+  } else {
+    uv_poll_stop(&poll_handle_);
+    uv_stop(&loop_);
+  }
 }
 
 // |fml::MessageLoopImpl|
