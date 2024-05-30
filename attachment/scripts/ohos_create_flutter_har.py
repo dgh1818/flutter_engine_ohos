@@ -59,6 +59,15 @@ HAR_CONFIG_TEMPLATE = """
 """
 
 
+HVIGOR_CONFIG = """
+{
+  "modelVersion": "5.0.0",
+  "dependencies": {
+  }
+}
+"""
+
+
 # 更新har的配置文件，指定编译使用的api版本
 def updateConfig(buildDir, apiInt):
     apiVersionMap = {
@@ -66,9 +75,18 @@ def updateConfig(buildDir, apiInt):
         12: "5.0.0(12)",
     }
     apiStr = apiVersionMap[apiInt]
-    jsonFile = os.path.join(buildDir, "build-profile.json5")
-    with open(jsonFile, "w", encoding="utf-8") as file:
+    with open(
+        os.path.join(buildDir, "build-profile.json5"), "w", encoding="utf-8"
+    ) as file:
         file.write(HAR_CONFIG_TEMPLATE % (apiStr, apiStr))
+
+    if apiInt != 11:
+        with open(
+            os.path.join(buildDir, "hvigor", "hvigor-config.json5"),
+            "w",
+            encoding="utf-8",
+        ) as file:
+            file.write(HVIGOR_CONFIG)
 
 
 # 执行命令
@@ -86,12 +104,7 @@ def runCommand(command, checkCode=True, timeout=None):
 # 编译har文件，通过hvigorw的命令行参数指定编译类型(debug/release/profile)
 def buildHar(buildDir, apiInt, buildType):
     updateConfig(buildDir, apiInt)
-    hvigorwCommand = (
-        "hvigorw"
-        if not os.path.exists(os.path.join(buildDir, "hvigorw"))
-        and not os.path.exists(os.path.join(buildDir, "hvigorw.bat"))
-        else (".%shvigorw" % os.sep)
-    )
+    hvigorwCommand = "hvigorw" if apiInt != 11 else (".%shvigorw" % os.sep)
     runCommand(
         "cd %s && %s clean --mode module " % (buildDir, hvigorwCommand)
         + "-p module=flutter@default -p product=default -p buildMode=%s " % buildType
