@@ -143,16 +143,13 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     let nodeHeightLink: SubscribedAbstractProperty<number> = AppStorage.link('nodeHeight');
     let oldNodeWidth: number = AppStorage.get('nodeWidth')!
     let oldNodeHeight: number = AppStorage.get('nodeHeight')!
-    if ((oldNodeWidth == physicalWidth) && (oldNodeHeight == physicalHeight)) {
+    if (oldNodeWidth == physicalWidth) {
       onComplete.run(new PlatformViewBufferSize(physicalWidth, physicalHeight));
       return;
     }
     nodeWidthLink.set(physicalWidth);
     nodeHeightLink.set(physicalHeight);
-    this.flutterView!.getPlatformViewSize().direction = Direction.Rtl;
-    this.flutterView!.getEmbeddingNodeController().setRenderOption(this.flutterView!.getPlatformView()!, this.flutterView!.getSurfaceId(), NodeRenderType.RENDER_TYPE_TEXTURE, this.flutterView!.getPlatformViewSize().direction);
     this.flutterView!.getEmbeddingNodeController().rebuild();
-    
 
     onComplete.run(new PlatformViewBufferSize(physicalWidth, physicalHeight));
   }
