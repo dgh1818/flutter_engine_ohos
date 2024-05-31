@@ -59,6 +59,14 @@ export default class FlutterNapi {
     flutter.nativeUpdateRefreshRate(refreshRateFPS);
   }
 
+  updateSize(width : number, height : number) {
+    flutter.nativeUpdateSize(width, height);
+  }
+
+  updateDensity(densityPixels : number) {
+    flutter.nativeUpdateDensity(densityPixels);
+  }
+
   init(context: common.Context,
        args: Array<string>,
        bundlePath: string,

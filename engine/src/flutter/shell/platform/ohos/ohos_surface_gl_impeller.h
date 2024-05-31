@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#ifndef OHOS_SURFACE_GL_IMPELLER_H
-#define OHOS_SURFACE_GL_IMPELLER_H
+#ifndef FLUTTER_SHELL_PLATFORM_OHOS_OHOS_SURFACE_GL_IMPELLER_H_
+#define FLUTTER_SHELL_PLATFORM_OHOS_OHOS_SURFACE_GL_IMPELLER_H_
 
 #include "flutter/fml/macros.h"
 #include "flutter/impeller/renderer/context.h"
@@ -28,7 +28,8 @@ namespace flutter {
 class OHOSSurfaceGLImpeller final : public GPUSurfaceGLDelegate,
                                     public OHOSSurface {
  public:
-  OHOSSurfaceGLImpeller(const std::shared_ptr<OHOSContext>& ohos_context);
+  OHOSSurfaceGLImpeller(const std::shared_ptr<OHOSContext>& ohos_context,
+                        bool enable_gpu_tracing);
 
   ~OHOSSurfaceGLImpeller() override;
 
@@ -104,4 +105,4 @@ class OHOSSurfaceGLImpeller final : public GPUSurfaceGLDelegate,
 };
 
 }  // namespace flutter
-#endif
+#endif  // FLUTTER_SHELL_PLATFORM_OHOS_OHOS_SURFACE_GL_IMPELLER_H_

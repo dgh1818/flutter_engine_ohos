@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#ifndef __OHOS__LOGGER_H
-#define __OHOS__LOGGER_H
+#ifndef FLUTTER_SHELL_PLATFORM_OHOS_OHOS_LOGGER_H_
+#define FLUTTER_SHELL_PLATFORM_OHOS_OHOS_LOGGER_H_
 #include <hilog/log.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -43,4 +43,4 @@ extern int ohos_log(OhosLogLevel level, const char* fmt, ...);
 }  // end extern
 #endif
 
-#endif
+#endif  // FLUTTER_SHELL_PLATFORM_OHOS_OHOS_LOGGER_H_

@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#ifndef OHOS_SHELL_HOLDER_H
-#define OHOS_SHELL_HOLDER_H
+#ifndef FLUTTER_SHELL_PLATFORM_OHOS_OHOS_SHELL_HOLDER_H_
+#define FLUTTER_SHELL_PLATFORM_OHOS_OHOS_SHELL_HOLDER_H_
 #define FML_USED_ON_EMBEDDER
 #include "flutter/assets/asset_manager.h"
 #include "flutter/fml/macros.h"
@@ -99,4 +99,4 @@ class OHOSShellHolder {
 };
 }  // namespace flutter
 
-#endif
+#endif  // FLUTTER_SHELL_PLATFORM_OHOS_OHOS_SHELL_HOLDER_H_

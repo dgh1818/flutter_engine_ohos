@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#ifndef OHOS_DISPLAY_H
-#define OHOS_DISPLAY_H
+#ifndef FLUTTER_SHELL_PLATFORM_OHOS_OHOS_DISPLAY_H_
+#define FLUTTER_SHELL_PLATFORM_OHOS_OHOS_DISPLAY_H_
 
 #include <cstdint>
 
@@ -30,9 +30,18 @@ class OHOSDisplay : public Display {
 
   double GetRefreshRate() const override;
 
+  // |Display|
+  virtual double GetWidth() const override;
+
+  // |Display|
+  virtual double GetHeight() const override;
+
+  // |Display|
+  virtual double GetDevicePixelRatio() const override;
+
  private:
   std::shared_ptr<PlatformViewOHOSNapi> napi_facade_;
   FML_DISALLOW_COPY_AND_ASSIGN(OHOSDisplay);
 };
 }  // namespace flutter
-#endif
+#endif  // FLUTTER_SHELL_PLATFORM_OHOS_OHOS_DISPLAY_H_

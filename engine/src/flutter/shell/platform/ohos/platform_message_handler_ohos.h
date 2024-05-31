@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#ifndef PLATFORM_MESSAGE_HANDLER_OHOS_H
-#define PLATFORM_MESSAGE_HANDLER_OHOS_H
+#ifndef FLUTTER_SHELL_PLATFORM_OHOS_PLATFORM_MESSAGE_HANDLER_OHOS_H_
+#define FLUTTER_SHELL_PLATFORM_OHOS_PLATFORM_MESSAGE_HANDLER_OHOS_H_
 #include <memory>
 #include <mutex>
 #include <unordered_map>
@@ -51,4 +51,4 @@ class PlatformMessageHandlerOHOS : public PlatformMessageHandler {
 };
 
 }  // namespace flutter
-#endif
+#endif  // FLUTTER_SHELL_PLATFORM_OHOS_PLATFORM_MESSAGE_HANDLER_OHOS_H_

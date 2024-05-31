@@ -38,10 +38,11 @@ void PlatformView::DispatchPointerDataPacket(
       pointer_data_packet_converter_.Convert(std::move(packet)));
 }
 
-void PlatformView::DispatchSemanticsAction(int32_t id,
+void PlatformView::DispatchSemanticsAction(int32_t node_id,
                                            SemanticsAction action,
                                            fml::MallocMapping args) {
-  delegate_.OnPlatformViewDispatchSemanticsAction(id, action, std::move(args));
+  delegate_.OnPlatformViewDispatchSemanticsAction(node_id, action,
+                                                  std::move(args));
 }
 
 void PlatformView::SetSemanticsEnabled(bool enabled) {
@@ -52,8 +53,9 @@ void PlatformView::SetAccessibilityFeatures(int32_t flags) {
   delegate_.OnPlatformViewSetAccessibilityFeatures(flags);
 }
 
-void PlatformView::SetViewportMetrics(const ViewportMetrics& metrics) {
-  delegate_.OnPlatformViewSetViewportMetrics(metrics);
+void PlatformView::SetViewportMetrics(int64_t view_id,
+                                      const ViewportMetrics& metrics) {
+  delegate_.OnPlatformViewSetViewportMetrics(view_id, metrics);
 }
 
 void PlatformView::NotifyCreated() {
@@ -113,6 +115,8 @@ void PlatformView::UpdateSemantics(
     SemanticsNodeUpdates update,  // NOLINT(performance-unnecessary-value-param)
     // NOLINTNEXTLINE(performance-unnecessary-value-param)
     CustomAccessibilityActionUpdates actions) {}
+
+void PlatformView::SendChannelUpdate(const std::string& name, bool listening) {}
 
 void PlatformView::HandlePlatformMessage(
     std::unique_ptr<PlatformMessage> message) {
@@ -197,6 +201,14 @@ PlatformView::GetPlatformMessageHandler() const {
 
 const Settings& PlatformView::GetSettings() const {
   return delegate_.OnPlatformViewGetSettings();
+}
+
+double PlatformView::GetScaledFontSize(double unscaled_font_size,
+                                       int configuration_id) const {
+  // Unreachable by default, as most platforms do not support nonlinear scaling
+  // and the Flutter application never invokes this method.
+  FML_UNREACHABLE();
+  return -1;
 }
 
 }  // namespace flutter

@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#ifndef OHOS_TOUCH_PROCESSOR_H
-#define OHOS_TOUCH_PROCESSOR_H
+#ifndef FLUTTER_SHELL_PLATFORM_OHOS_OHOS_TOUCH_PROCESSOR_H_
+#define FLUTTER_SHELL_PLATFORM_OHOS_OHOS_TOUCH_PROCESSOR_H_
 #include <ace/xcomponent/native_interface_xcomponent.h>
 #include <vector>
 #include "flutter/lib/ui/window/pointer_data.h"
@@ -37,4 +37,4 @@ class OhosTouchProcessor {
  private:
 };
 }  // namespace flutter
-#endif  // XComponent_OhosTouchProcessor_H
+#endif  // FLUTTER_SHELL_PLATFORM_OHOS_OHOS_TOUCH_PROCESSOR_H_

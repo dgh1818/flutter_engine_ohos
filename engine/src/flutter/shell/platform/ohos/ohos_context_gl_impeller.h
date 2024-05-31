@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#ifndef OHOS_CONTEXT_GL_IMPELLER_H
-#define OHOS_CONTEXT_GL_IMPELLER_H
+#ifndef FLUTTER_SHELL_PLATFORM_OHOS_OHOS_CONTEXT_GL_IMPELLER_H_
+#define FLUTTER_SHELL_PLATFORM_OHOS_OHOS_CONTEXT_GL_IMPELLER_H_
 #include "context/ohos_context.h"
 #include "flutter/fml/macros.h"
 
@@ -31,4 +31,4 @@ class OHOSContextGLImpeller : public OHOSContext {
   FML_DISALLOW_COPY_AND_ASSIGN(OHOSContextGLImpeller);
 };
 }  // namespace flutter
-#endif
+#endif  // FLUTTER_SHELL_PLATFORM_OHOS_OHOS_CONTEXT_GL_IMPELLER_H_

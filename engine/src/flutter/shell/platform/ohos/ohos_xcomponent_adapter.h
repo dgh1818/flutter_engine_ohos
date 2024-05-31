@@ -13,22 +13,21 @@
  * limitations under the License.
  */
 
-#ifndef OHOS_XCOMPONENT_ADAPTER_H
-#define OHOS_XCOMPONENT_ADAPTER_H
+#ifndef FLUTTER_SHELL_PLATFORM_OHOS_OHOS_XCOMPONENT_ADAPTER_H_
+#define FLUTTER_SHELL_PLATFORM_OHOS_OHOS_XCOMPONENT_ADAPTER_H_
 #include <ace/xcomponent/native_interface_xcomponent.h>
+#include <map>
 #include <string>
 #include "flutter/shell/platform/ohos/ohos_touch_processor.h"
 #include "napi/native_api.h"
 #include "napi_common.h"
-#include <map>
 namespace flutter {
 
-class XComponentBase
-{
-private:
+class XComponentBase {
+ private:
   void BindXComponentCallback();
-  
-public:
+
+ public:
   XComponentBase(std::string id);
   ~XComponentBase();
 
@@ -54,7 +53,6 @@ public:
   uint64_t width_;
   uint64_t height_;
   OhosTouchProcessor ohosTouchProcessor_;
-
 };
 
 class XComponentAdapter {
@@ -77,4 +75,4 @@ class XComponentAdapter {
 
 }  // namespace flutter
 
-#endif
+#endif  // FLUTTER_SHELL_PLATFORM_OHOS_OHOS_XCOMPONENT_ADAPTER_H_

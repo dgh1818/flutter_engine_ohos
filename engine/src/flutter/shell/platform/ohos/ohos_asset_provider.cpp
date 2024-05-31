@@ -150,4 +150,12 @@ std::unique_ptr<OHOSAssetProvider> OHOSAssetProvider::Clone() const {
   return std::make_unique<OHOSAssetProvider>(assetHandle_);
 }
 
+bool OHOSAssetProvider::operator==(const AssetResolver& other) const {
+  auto other_provider = other.as_ohos_asset_provider();
+  if (!other_provider) {
+    return false;
+  }
+  return assetHandle_ == other_provider->assetHandle_;
+}
+
 }  // namespace flutter

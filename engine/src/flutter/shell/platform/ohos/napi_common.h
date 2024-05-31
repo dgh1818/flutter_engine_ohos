@@ -19,8 +19,8 @@
 // Node APIs are not fully supported. To solve the compilation error of the
 // interface cannot be found, please include "napi/native_api.h".
 
-#ifndef XComponentDemo_native_common_H
-#define XComponentDemo_native_common_H
+#ifndef FLUTTER_SHELL_PLATFORM_OHOS_NAPI_COMMON_H_
+#define FLUTTER_SHELL_PLATFORM_OHOS_NAPI_COMMON_H_
 
 #include <hilog/log.h>
 #define APP_LOG_DOMAIN 0x0000
@@ -115,4 +115,4 @@
         nullptr                                                          \
   }
 
-#endif  // XComponentDemo_native_common_H
+#endif  // FLUTTER_SHELL_PLATFORM_OHOS_NAPI_COMMON_H_

@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#ifndef __OHOS__MAIN__H
-#define __OHOS__MAIN__H
+#ifndef FLUTTER_SHELL_PLATFORM_OHOS_OHOS_MAIN_H_
+#define FLUTTER_SHELL_PLATFORM_OHOS_OHOS_MAIN_H_
 #define FML_USED_ON_EMBEDDER
 #include "flutter/common/settings.h"
 #include "flutter/fml/macros.h"
@@ -43,4 +43,4 @@ class OhosMain {
   FML_DISALLOW_COPY_AND_ASSIGN(OhosMain);
 };
 }  // namespace flutter
-#endif
+#endif  // FLUTTER_SHELL_PLATFORM_OHOS_OHOS_MAIN_H_

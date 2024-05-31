@@ -1,0 +1,212 @@
+{
+    "builds": [
+        {
+            "archives": [
+                {
+                    "base_path": "out/android_profile/zip_archives/",
+                    "type": "gcs",
+                    "include_paths": [
+                        "out/android_profile/zip_archives/android-arm-profile/windows-x64.zip"
+                    ],
+                    "name": "android_profile",
+                    "realm": "production"
+                }
+            ],
+            "drone_dimensions": [
+                "device_type=none",
+                "os=Windows-10"
+            ],
+            "gclient_variables": {
+                "use_rbe": true
+            },
+            "gn": [
+                "--runtime-mode",
+                "profile",
+                "--android",
+                "--no-goma",
+                "--rbe"
+            ],
+            "name": "android_profile",
+            "ninja": {
+                "config": "android_profile",
+                "targets": [
+                    "flutter/build/archives:archive_win_gen_snapshot"
+                ]
+            }
+        },
+        {
+            "archives": [
+                {
+                    "base_path": "out/android_profile_arm64/zip_archives/",
+                    "type": "gcs",
+                    "include_paths": [
+                        "out/android_profile_arm64/zip_archives/android-arm64-profile/windows-x64.zip"
+                    ],
+                    "name": "android_profile_arm64",
+                    "realm": "production"
+                }
+            ],
+            "drone_dimensions": [
+                "device_type=none",
+                "os=Windows-10"
+            ],
+            "gclient_variables": {
+                "use_rbe": true
+            },
+            "gn": [
+                "--runtime-mode",
+                "profile",
+                "--android",
+                "--android-cpu=arm64",
+                "--no-goma",
+                "--rbe"
+            ],
+            "name": "android_profile_arm64",
+            "ninja": {
+                "config": "android_profile_arm64",
+                "targets": [
+                    "flutter/build/archives:archive_win_gen_snapshot"
+                ]
+            }
+        },
+        {
+            "archives": [
+                {
+                    "base_path": "out/android_profile_x64/zip_archives/",
+                    "type": "gcs",
+                    "include_paths": [
+                        "out/android_profile_x64/zip_archives/android-x64-profile/windows-x64.zip"
+                    ],
+                    "name": "android_profile_x64",
+                    "realm": "production"
+                }
+            ],
+            "drone_dimensions": [
+                "device_type=none",
+                "os=Windows-10"
+            ],
+            "gclient_variables": {
+                "use_rbe": true
+            },
+            "gn": [
+                "--runtime-mode",
+                "profile",
+                "--android",
+                "--android-cpu=x64",
+                "--no-goma",
+                "--rbe"
+            ],
+            "name": "android_profile_x64",
+            "ninja": {
+                "config": "android_profile_x64",
+                "targets": [
+                    "flutter/build/archives:archive_win_gen_snapshot"
+                ]
+            }
+        },
+        {
+            "archives": [
+                {
+                    "base_path": "out/android_release/zip_archives/",
+                    "type": "gcs",
+                    "include_paths": [
+                        "out/android_release/zip_archives/android-arm-release/windows-x64.zip"
+                    ],
+                    "name": "android_release",
+                    "realm": "production"
+                }
+            ],
+            "drone_dimensions": [
+                "device_type=none",
+                "os=Windows-10"
+            ],
+            "gclient_variables": {
+                "use_rbe": true
+            },
+            "gn": [
+                "--runtime-mode",
+                "release",
+                "--android",
+                "--no-goma",
+                "--rbe"
+            ],
+            "name": "android_release",
+            "ninja": {
+                "config": "android_release",
+                "targets": [
+                    "flutter/build/archives:archive_win_gen_snapshot"
+                ]
+            }
+        },
+        {
+            "archives": [
+                {
+                    "base_path": "out/android_release_arm64/zip_archives/",
+                    "type": "gcs",
+                    "include_paths": [
+                        "out/android_release_arm64/zip_archives/android-arm64-release/windows-x64.zip"
+                    ],
+                    "name": "android_release_arm64",
+                    "realm": "production"
+                }
+            ],
+            "drone_dimensions": [
+                "device_type=none",
+                "os=Windows-10"
+            ],
+            "gclient_variables": {
+                "use_rbe": true
+            },
+            "gn": [
+                "--runtime-mode",
+                "release",
+                "--android",
+                "--android-cpu=arm64",
+                "--no-goma",
+                "--rbe"
+            ],
+            "name": "android_release_arm64",
+            "ninja": {
+                "config": "android_release_arm64",
+                "targets": [
+                    "flutter/build/archives:archive_win_gen_snapshot"
+                ]
+            }
+        },
+        {
+            "archives": [
+                {
+                    "base_path": "out/android_release_x64/zip_archives/",
+                    "type": "gcs",
+                    "include_paths": [
+                        "out/android_release_x64/zip_archives/android-x64-release/windows-x64.zip"
+                    ],
+                    "name": "android_release_x64",
+                    "realm": "production"
+                }
+            ],
+            "drone_dimensions": [
+                "device_type=none",
+                "os=Windows-10"
+            ],
+            "gclient_variables": {
+                "use_rbe": true
+            },
+            "gn": [
+                "--runtime-mode",
+                "release",
+                "--android",
+                "--android-cpu=x64",
+                "--no-goma",
+                "--rbe"
+            ],
+            "name": "android_release_x64",
+            "ninja": {
+                "config": "android_release_x64",
+                "targets": [
+                    "flutter/build/archives:archive_win_gen_snapshot"
+                ]
+            }
+        }
+    ]
+}

@@ -32,19 +32,19 @@ static void OHOSPlatformThreadConfigSetter(
   fml::Thread::SetCurrentThreadName(config);
   // set thread priority
   switch (config.priority) {
-    case fml::Thread::ThreadPriority::BACKGROUND: {
+    case fml::Thread::ThreadPriority::kBackground: {
       if (::setpriority(PRIO_PROCESS, 0, 10) != 0) {
         FML_DLOG(ERROR) << "Failed to set IO task runner priority";
       }
       break;
     }
-    case fml::Thread::ThreadPriority::DISPLAY: {
+    case fml::Thread::ThreadPriority::kDisplay: {
       if (::setpriority(PRIO_PROCESS, 0, -1) != 0) {
         FML_DLOG(ERROR) << "Failed to set UI task runner priority";
       }
       break;
     }
-    case fml::Thread::ThreadPriority::RASTER: {
+    case fml::Thread::ThreadPriority::kRaster: {
       // Android describes -8 as "most important display threads, for
       // compositing the screen and retrieving input events". Conservatively
       // set the raster thread to slightly lower priority than it.
@@ -81,22 +81,22 @@ OHOSShellHolder::OHOSShellHolder(
   auto thread_label = std::to_string(thread_host_count++);
 
   auto mask =
-      ThreadHost::Type::UI | ThreadHost::Type::RASTER | ThreadHost::Type::IO;
+      ThreadHost::Type::kUi | ThreadHost::Type::kRaster | ThreadHost::Type::kIo;
 
   flutter::ThreadHost::ThreadHostConfig host_config(
       thread_label, mask, OHOSPlatformThreadConfigSetter);
   host_config.ui_config = fml::Thread::ThreadConfig(
       flutter::ThreadHost::ThreadHostConfig::MakeThreadName(
-          flutter::ThreadHost::Type::UI, thread_label),
-      fml::Thread::ThreadPriority::DISPLAY);
+          flutter::ThreadHost::Type::kUi, thread_label),
+      fml::Thread::ThreadPriority::kDisplay);
   host_config.raster_config = fml::Thread::ThreadConfig(
       flutter::ThreadHost::ThreadHostConfig::MakeThreadName(
-          flutter::ThreadHost::Type::RASTER, thread_label),
-      fml::Thread::ThreadPriority::RASTER);
+          flutter::ThreadHost::Type::kRaster, thread_label),
+      fml::Thread::ThreadPriority::kRaster);
   host_config.io_config = fml::Thread::ThreadConfig(
       flutter::ThreadHost::ThreadHostConfig::MakeThreadName(
-          flutter::ThreadHost::Type::IO, thread_label),
-      fml::Thread::ThreadPriority::NORMAL);
+          flutter::ThreadHost::Type::kIo, thread_label),
+      fml::Thread::ThreadPriority::kNormal);
 
   thread_host_ = std::make_shared<ThreadHost>(host_config);
   FML_DLOG(INFO) << "thred host config finish";
@@ -123,8 +123,7 @@ OHOSShellHolder::OHOSShellHolder(
         displays.push_back(std::make_unique<OHOSDisplay>(napi_facade));
         FML_DLOG(INFO) << "on_create_platform_view LOGI3";
         FML_LOG(INFO) << "on_create_platform_view end3";
-        shell.OnDisplayUpdates(DisplayUpdateType::kStartup,
-                               std::move(displays));
+        shell.OnDisplayUpdates(std::move(displays));
         LOGI("on_create_platform_view LOGI4");
         FML_LOG(INFO) << "on_create_platform_view end3";
         return platform_view_OHOS;
@@ -246,8 +245,8 @@ std::unique_ptr<OHOSShellHolder> OHOSShellHolder::Spawn(
         platform_view_ohos = std::make_unique<PlatformViewOHOS>(
             shell,                   // delegate
             shell.GetTaskRunners(),  // task runners
-            napi_facade,              // JNI interop
-            ohos_context          // Ohos context
+            napi_facade,             // JNI interop
+            ohos_context             // Ohos context
         );
         weak_platform_view = platform_view_ohos->GetWeakPtr();
         return platform_view_ohos;

@@ -124,6 +124,8 @@ export class FlutterView {
       this.flutterEngine.getFlutterNapi().xComponentAttachFlutterEngine(Number(this.id))
     }
     this.flutterEngine?.getFlutterNapi()?.updateRefreshRate(this.displayInfo!.refreshRate)
+    this.flutterEngine?.getFlutterNapi()?.updateSize(this.displayInfo!.width, this.displayInfo!.height)
+    this.flutterEngine?.getFlutterNapi()?.updateDensity(this.displayInfo!.densityPixels)
     flutterEngine.getPlatformViewsController()?.attachToView(this);
     this.updateViewportMetrics()
     let windowId = this.mainWindow?.getWindowProperties()?.id

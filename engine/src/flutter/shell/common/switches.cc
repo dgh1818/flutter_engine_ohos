@@ -17,7 +17,7 @@
 // Include once for the default enum definition.
 #include "flutter/shell/common/switches.h"
 
-#undef SHELL_COMMON_SWITCHES_H_
+#undef FLUTTER_SHELL_COMMON_SWITCHES_H_
 
 struct SwitchDesc {
   flutter::Switch sw;
@@ -76,14 +76,13 @@ static const std::string kAllowedDartFlags[] = {
 // Define symbols for the ICU data that is linked into the Flutter library on
 // Android.  This is a workaround for crashes seen when doing dynamic lookups
 // of the engine's own symbols on some older versions of Android.
-#if FML_OS_ANDROID 
+#if FML_OS_ANDROID
 extern uint8_t _binary_icudtl_dat_start[];
-extern uint8_t _binary_icudtl_dat_end[];
+extern size_t _binary_icudtl_dat_size;
 
 static std::unique_ptr<fml::Mapping> GetICUStaticMapping() {
-  return std::make_unique<fml::NonOwnedMapping>(
-      _binary_icudtl_dat_start,
-      _binary_icudtl_dat_end - _binary_icudtl_dat_start);
+  return std::make_unique<fml::NonOwnedMapping>(_binary_icudtl_dat_start,
+                                                _binary_icudtl_dat_size);
 }
 #endif
 
@@ -235,33 +234,55 @@ Settings SettingsFromCommandLine(const fml::CommandLine& command_line) {
     settings.executable_name = command_line.argv0();
   }
 
-  // Enable Observatory
-  settings.enable_observatory =
+  // Enable the VM Service
+  settings.enable_vm_service =
+      !command_line.HasOption(FlagForSwitch(Switch::DisableVMService)) &&
+      // TODO(bkonyi): remove once flutter_tools no longer uses this option.
+      // See https://github.com/dart-lang/sdk/issues/50233
       !command_line.HasOption(FlagForSwitch(Switch::DisableObservatory));
 
-  // Enable mDNS Observatory Publication
-  settings.enable_observatory_publication = !command_line.HasOption(
-      FlagForSwitch(Switch::DisableObservatoryPublication));
+  // Enable mDNS VM Service Publication
+  settings.enable_vm_service_publication =
+      !command_line.HasOption(
+          FlagForSwitch(Switch::DisableVMServicePublication)) &&
+      !command_line.HasOption(
+          FlagForSwitch(Switch::DisableObservatoryPublication));
 
-  // Set Observatory Host
-  if (command_line.HasOption(FlagForSwitch(Switch::DeviceObservatoryHost))) {
+  // Set VM Service Host
+  if (command_line.HasOption(FlagForSwitch(Switch::DeviceVMServiceHost))) {
+    command_line.GetOptionValue(FlagForSwitch(Switch::DeviceVMServiceHost),
+                                &settings.vm_service_host);
+  } else if (command_line.HasOption(
+                 FlagForSwitch(Switch::DeviceObservatoryHost))) {
+    // TODO(bkonyi): remove once flutter_tools no longer uses this option.
+    // See https://github.com/dart-lang/sdk/issues/50233
     command_line.GetOptionValue(FlagForSwitch(Switch::DeviceObservatoryHost),
-                                &settings.observatory_host);
+                                &settings.vm_service_host);
   }
-  // Default the observatory port based on --ipv6 if not set.
-  if (settings.observatory_host.empty()) {
-    settings.observatory_host =
+  // Default the VM Service port based on --ipv6 if not set.
+  if (settings.vm_service_host.empty()) {
+    settings.vm_service_host =
         command_line.HasOption(FlagForSwitch(Switch::IPv6)) ? "::1"
                                                             : "127.0.0.1";
   }
 
-  // Set Observatory Port
-  if (command_line.HasOption(FlagForSwitch(Switch::DeviceObservatoryPort))) {
-    if (!GetSwitchValue(command_line, Switch::DeviceObservatoryPort,
-                        &settings.observatory_port)) {
+  // Set VM Service Port
+  if (command_line.HasOption(FlagForSwitch(Switch::DeviceVMServicePort))) {
+    if (!GetSwitchValue(command_line, Switch::DeviceVMServicePort,
+                        &settings.vm_service_port)) {
       FML_LOG(INFO)
-          << "Observatory port specified was malformed. Will default to "
-          << settings.observatory_port;
+          << "VM Service port specified was malformed. Will default to "
+          << settings.vm_service_port;
+    }
+  } else if (command_line.HasOption(
+                 FlagForSwitch(Switch::DeviceObservatoryPort))) {
+    // TODO(bkonyi): remove once flutter_tools no longer uses this option.
+    // See https://github.com/dart-lang/sdk/issues/50233
+    if (!GetSwitchValue(command_line, Switch::DeviceObservatoryPort,
+                        &settings.vm_service_port)) {
+      FML_LOG(INFO)
+          << "VM Service port specified was malformed. Will default to "
+          << settings.vm_service_port;
     }
   }
 
@@ -331,6 +352,9 @@ Settings SettingsFromCommandLine(const fml::CommandLine& command_line) {
 
   settings.trace_systrace =
       command_line.HasOption(FlagForSwitch(Switch::TraceSystrace));
+
+  command_line.GetOptionValue(FlagForSwitch(Switch::TraceToFile),
+                              &settings.trace_to_file);
 
   settings.skia_deterministic_rendering_on_cpu =
       command_line.HasOption(FlagForSwitch(Switch::SkiaDeterministicRendering));
@@ -406,7 +430,7 @@ Settings SettingsFromCommandLine(const fml::CommandLine& command_line) {
       command_line.GetOptionValue(FlagForSwitch(Switch::ICUNativeLibPath),
                                   &native_lib_path);
 
-#if FML_OS_ANDROID 
+#if FML_OS_ANDROID
       settings.icu_mapper = GetICUStaticMapping;
 #else
       settings.icu_mapper = [icu_symbol_prefix, native_lib_path] {
@@ -421,12 +445,34 @@ Settings SettingsFromCommandLine(const fml::CommandLine& command_line) {
   settings.use_asset_fonts =
       !command_line.HasOption(FlagForSwitch(Switch::DisableAssetFonts));
 
-  std::string enable_skparagraph = command_line.GetOptionValueWithDefault(
-      FlagForSwitch(Switch::EnableSkParagraph), "");
-  settings.enable_skparagraph = enable_skparagraph != "false";
+  {
+    std::string enable_impeller_value;
+    if (command_line.GetOptionValue(FlagForSwitch(Switch::EnableImpeller),
+                                    &enable_impeller_value)) {
+      settings.enable_impeller =
+          enable_impeller_value.empty() || "true" == enable_impeller_value;
+    }
+  }
 
-  settings.enable_impeller =
-      command_line.HasOption(FlagForSwitch(Switch::EnableImpeller));
+  {
+    std::string impeller_backend_value;
+    if (command_line.GetOptionValue(FlagForSwitch(Switch::ImpellerBackend),
+                                    &impeller_backend_value)) {
+      if (!impeller_backend_value.empty()) {
+        settings.requested_rendering_backend = impeller_backend_value;
+      }
+    }
+  }
+
+  settings.enable_vulkan_validation =
+      command_line.HasOption(FlagForSwitch(Switch::EnableVulkanValidation));
+  settings.enable_opengl_gpu_tracing =
+      command_line.HasOption(FlagForSwitch(Switch::EnableOpenGLGPUTracing));
+  settings.enable_vulkan_gpu_tracing =
+      command_line.HasOption(FlagForSwitch(Switch::EnableVulkanGPUTracing));
+
+  settings.enable_embedder_api =
+      command_line.HasOption(FlagForSwitch(Switch::EnableEmbedderAPI));
 
   settings.prefetched_default_font_manager = command_line.HasOption(
       FlagForSwitch(Switch::PrefetchedDefaultFontManager));
@@ -436,7 +482,7 @@ Settings SettingsFromCommandLine(const fml::CommandLine& command_line) {
                                   &all_dart_flags)) {
     // Assume that individual flags are comma separated.
     std::vector<std::string> flags = ParseCommaDelimited(all_dart_flags);
-    for (auto flag : flags) {
+    for (const auto& flag : flags) {
       if (!IsAllowedDartVMFlag(flag)) {
         FML_LOG(FATAL) << "Encountered disallowed Dart VM flag: " << flag;
       }
@@ -495,6 +541,7 @@ Settings SettingsFromCommandLine(const fml::CommandLine& command_line) {
                       << "' (expected 0, 1, 2, 4, 8, or 16).";
     }
   }
+
   return settings;
 }
 

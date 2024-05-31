@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#ifndef VSYNC_WAITER_OHOS_H
-#define VSYNC_WAITER_OHOS_H
+#ifndef FLUTTER_SHELL_PLATFORM_OHOS_VSYNC_WAITER_OHOS_H_
+#define FLUTTER_SHELL_PLATFORM_OHOS_VSYNC_WAITER_OHOS_H_
 #include <memory>
 
 #include <native_vsync/native_vsync.h>
@@ -43,4 +43,4 @@ class VsyncWaiterOHOS final : public VsyncWaiter {
   FML_DISALLOW_COPY_AND_ASSIGN(VsyncWaiterOHOS);
 };
 }  // namespace flutter
-#endif
+#endif  // FLUTTER_SHELL_PLATFORM_OHOS_VSYNC_WAITER_OHOS_H_

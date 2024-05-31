@@ -13,23 +13,22 @@
  * limitations under the License.
  */
 
-#ifndef OHOS_UNIFIED_SURFACE_H
-#define OHOS_UNIFIED_SURFACE_H
+#ifndef FLUTTER_SHELL_PLATFORM_OHOS_OHOS_UNIFIED_SURFACE_H_
+#define FLUTTER_SHELL_PLATFORM_OHOS_OHOS_UNIFIED_SURFACE_H_
 
 #include <memory>
 #include "flutter/flow/surface.h"
 #include "flutter/shell/platform/ohos/context/ohos_context.h"
+#include "flutter/shell/platform/ohos/ohos_surface_gl_skia.h"
 #include "flutter/shell/platform/ohos/surface/ohos_native_window.h"
 #include "flutter/shell/platform/ohos/surface/ohos_surface.h"
-#include "flutter/shell/platform/ohos/ohos_surface_gl_skia.h"
 #include "third_party/skia/include/core/SkSize.h"
 
 namespace flutter {
 
-class OHOSUnifiedSurface : public GPUSurfaceGLDelegate,
-                           public OHOSSurface {
+class OHOSUnifiedSurface : public GPUSurfaceGLDelegate, public OHOSSurface {
  public:
-   ~OHOSUnifiedSurface() {}
+  ~OHOSUnifiedSurface() {}
   bool IsValid() {}
   void TeardownOnScreenContext() {}
 
@@ -43,8 +42,8 @@ class OHOSUnifiedSurface : public GPUSurfaceGLDelegate,
 
   std::unique_ptr<Surface> CreateSnapshotSurface()
 
-  std::unique_ptr<Surface> CreateGPUSurface(
-      GrDirectContext* gr_context = nullptr) {}
+      std::unique_ptr<Surface> CreateGPUSurface(
+          GrDirectContext* gr_context = nullptr) {}
 
   std::shared_ptr<impeller::Context> GetImpellerContext() {}
 
@@ -68,13 +67,12 @@ class OHOSUnifiedSurface : public GPUSurfaceGLDelegate,
 
   static sk_sp<const GrGLInterface> GetDefaultPlatformGLInterface() {}
 
-  using GLProcResolver =
-      std::function<void* (const char*)>;
- 
+  using GLProcResolver = std::function<void*(const char*)>;
+
   GLProcResolver GetGLProcResolver() {}
 
   bool AllowsDrawingWhenGpuDisabled() {}
 };
 }  // namespace flutter
 
-#endif
+#endif  // FLUTTER_SHELL_PLATFORM_OHOS_OHOS_UNIFIED_SURFACE_H_

@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#ifndef OHOS_SURFACE_GL_SKIA_H
-#define OHOS_SURFACE_GL_SKIA_H
+#ifndef FLUTTER_SHELL_PLATFORM_OHOS_OHOS_SURFACE_GL_SKIA_H_
+#define FLUTTER_SHELL_PLATFORM_OHOS_OHOS_SURFACE_GL_SKIA_H_
 
 #include <memory>
 
@@ -102,4 +102,4 @@ class OhosSurfaceGLSkia final : public GPUSurfaceGLDelegate,
 
 }  // namespace flutter
 
-#endif
+#endif  // FLUTTER_SHELL_PLATFORM_OHOS_OHOS_SURFACE_GL_SKIA_H_

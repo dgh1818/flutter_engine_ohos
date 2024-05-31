@@ -19,6 +19,7 @@
 #include "flutter/fml/logging.h"
 #include "napi_common.h"
 #include "third_party/skia/include/core/SkImage.h"
+#include "third_party/skia/include/core/SkSurface.h"
 #include "types.h"
 
 namespace flutter {
@@ -125,7 +126,7 @@ sk_sp<SkSurface> OHOSSurfaceSoftware::AcquireBackingStore(const SkISize& size) {
                         target_alpha_type_, SkColorSpace::MakeSRGB());
 
   FML_DLOG(INFO) << "AcquireBackingStore...MakeRaster ";
-  sk_surface_ = SkSurface::MakeRaster(image_info);
+  sk_surface_ = SkSurfaces::Raster(image_info);
 
   LOGD("AcquireBackingStore end");
   return sk_surface_;

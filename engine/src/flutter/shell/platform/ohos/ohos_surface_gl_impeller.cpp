@@ -58,7 +58,8 @@ class OHOSSurfaceGLImpeller::ReactorWorker final
 
 // for init use
 static std::shared_ptr<impeller::Context> CreateImpellerContext(
-    const std::shared_ptr<impeller::ReactorGLES::Worker>& worker) {
+    const std::shared_ptr<impeller::ReactorGLES::Worker>& worker,
+    bool enable_gpu_tracing) {
   auto proc_table = std::make_unique<impeller::ProcTableGLES>(
       impeller::egl::CreateProcAddressResolver());
 
@@ -73,8 +74,8 @@ static std::shared_ptr<impeller::Context> CreateImpellerContext(
           impeller_entity_shaders_gles_length),
   };
 
-  auto context =
-      impeller::ContextGLES::Create(std::move(proc_table), shader_mappings);
+  auto context = impeller::ContextGLES::Create(
+      std::move(proc_table), shader_mappings, enable_gpu_tracing);
   if (!context) {
     FML_LOG(ERROR) << "Could not create OpenGLES Impeller Context.";
     return nullptr;
@@ -90,7 +91,8 @@ static std::shared_ptr<impeller::Context> CreateImpellerContext(
 }
 
 OHOSSurfaceGLImpeller::OHOSSurfaceGLImpeller(
-    const std::shared_ptr<OHOSContext>& ohos_context)
+    const std::shared_ptr<OHOSContext>& ohos_context,
+    bool enable_gpu_tracing)
     : OHOSSurface(ohos_context),
       reactor_worker_(std::make_shared<ReactorWorker>()) {
   auto display = std::make_unique<impeller::egl::Display>();
@@ -145,7 +147,8 @@ OHOSSurfaceGLImpeller::OHOSSurfaceGLImpeller(
     return;
   }
 
-  auto impeller_context = CreateImpellerContext(reactor_worker_);
+  auto impeller_context =
+      CreateImpellerContext(reactor_worker_, enable_gpu_tracing);
 
   if (!impeller_context) {
     FML_DLOG(ERROR) << "Could not create Impeller context.";
@@ -199,8 +202,9 @@ bool OHOSSurfaceGLImpeller::IsValid() const {
 std::unique_ptr<Surface> OHOSSurfaceGLImpeller::CreateGPUSurface(
     GrDirectContext* gr_context) {
   auto surface =
-      std::make_unique<GPUSurfaceGLImpeller>(this,              // delegate
-                                             impeller_context_  // context
+      std::make_unique<GPUSurfaceGLImpeller>(this,               // delegate
+                                             impeller_context_,  // context
+                                             true  // bool render_to_surface
       );
   if (!surface->IsValid()) {
     return nullptr;
@@ -336,26 +340,3 @@ bool OHOSSurfaceGLImpeller::
 }
 
 }  // namespace flutter
-
-// todo //flutter/impeller/toolkit/egl/display.cc
-// 中的该方法一直链接不上，其他方法都可以，无奈之举
-namespace impeller {
-namespace egl {
-std::unique_ptr<Surface> Display::CreateWindowSurface(
-    const Config& config,
-    EGLNativeWindowType window) {
-  const EGLint attribs[] = {EGL_NONE};
-  auto surface = ::eglCreateWindowSurface(display_,            // display
-                                          config.GetHandle(),  // config
-                                          window,              // window
-                                          attribs              // attrib_list
-  );
-  if (surface == EGL_NO_SURFACE) {
-    IMPELLER_LOG_EGL_ERROR;
-    return nullptr;
-  }
-  return std::make_unique<Surface>(display_, surface);
-}
-
-}  // namespace egl
-}  // namespace impeller

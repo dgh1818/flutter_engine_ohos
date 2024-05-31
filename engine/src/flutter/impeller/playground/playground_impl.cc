@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "impeller/playground/playground_impl.h"
+#include "flutter/testing/testing.h"
 
 #define GLFW_INCLUDE_NONE
 #include "third_party/glfw/include/GLFW/glfw3.h"
@@ -26,19 +27,26 @@
 namespace impeller {
 
 std::unique_ptr<PlaygroundImpl> PlaygroundImpl::Create(
-    PlaygroundBackend backend) {
+    PlaygroundBackend backend,
+    PlaygroundSwitches switches) {
   switch (backend) {
 #if IMPELLER_ENABLE_METAL
     case PlaygroundBackend::kMetal:
-      return std::make_unique<PlaygroundImplMTL>();
+      return std::make_unique<PlaygroundImplMTL>(switches);
 #endif  // IMPELLER_ENABLE_METAL
 #if IMPELLER_ENABLE_OPENGLES
     case PlaygroundBackend::kOpenGLES:
-      return std::make_unique<PlaygroundImplGLES>();
+      return std::make_unique<PlaygroundImplGLES>(switches);
 #endif  // IMPELLER_ENABLE_OPENGLES
 #if IMPELLER_ENABLE_VULKAN
     case PlaygroundBackend::kVulkan:
-      return std::make_unique<PlaygroundImplVK>();
+      if (!PlaygroundImplVK::IsVulkanDriverPresent()) {
+        FML_CHECK(false) << "Attempted to create playground with backend that "
+                            "isn't available or was disabled on this platform: "
+                         << PlaygroundBackendToString(backend);
+      }
+      switches.enable_vulkan_validation = true;
+      return std::make_unique<PlaygroundImplVK>(switches);
 #endif  // IMPELLER_ENABLE_VULKAN
     default:
       FML_CHECK(false) << "Attempted to create playground with backend that "
@@ -48,7 +56,8 @@ std::unique_ptr<PlaygroundImpl> PlaygroundImpl::Create(
   FML_UNREACHABLE();
 }
 
-PlaygroundImpl::PlaygroundImpl() = default;
+PlaygroundImpl::PlaygroundImpl(PlaygroundSwitches switches)
+    : switches_(switches) {}
 
 PlaygroundImpl::~PlaygroundImpl() = default;
 

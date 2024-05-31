@@ -12,8 +12,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef OHOS_TYPES_H
-#define OHOS_TYPES_H
+#ifndef FLUTTER_SHELL_PLATFORM_OHOS_TYPES_H_
+#define FLUTTER_SHELL_PLATFORM_OHOS_TYPES_H_
 namespace flutter {
 
 constexpr int PIXEL_FMT_RGBA_8888 = 12;
@@ -25,4 +25,4 @@ enum Locales {
 };
 
 }  // namespace flutter
-#endif
+#endif  // FLUTTER_SHELL_PLATFORM_OHOS_TYPES_H_

@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#ifndef OHOS_SURFACE_VULKAN_IMPELLER_H
-#define OHOS_SURFACE_VULKAN_IMPELLER_H
+#ifndef FLUTTER_SHELL_PLATFORM_OHOS_OHOS_SURFACE_VULKAN_IMPELLER_H_
+#define FLUTTER_SHELL_PLATFORM_OHOS_OHOS_SURFACE_VULKAN_IMPELLER_H_
 
 #include "flutter/fml/concurrent_message_loop.h"
 #include "flutter/fml/macros.h"
@@ -67,4 +67,4 @@ class OHOSSurfaceVulkanImpeller : public OHOSSurface {
   FML_DISALLOW_COPY_AND_ASSIGN(OHOSSurfaceVulkanImpeller);
 };
 }  // namespace flutter
-#endif
+#endif  // FLUTTER_SHELL_PLATFORM_OHOS_OHOS_SURFACE_VULKAN_IMPELLER_H_

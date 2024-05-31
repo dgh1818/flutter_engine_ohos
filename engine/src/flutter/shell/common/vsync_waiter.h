@@ -18,6 +18,9 @@ namespace flutter {
 
 /// Abstract Base Class that represents a platform specific mechanism for
 /// getting callbacks when a vsync event happens.
+///
+/// @see VsyncWaiterAndroid
+/// @see VsyncWaiterEmbedder
 class VsyncWaiter : public std::enable_shared_from_this<VsyncWaiter> {
  public:
   using Callback = std::function<void(std::unique_ptr<FrameTimingsRecorder>)>;
@@ -77,8 +80,8 @@ class VsyncWaiter : public std::enable_shared_from_this<VsyncWaiter> {
   Callback callback_;
   std::unordered_map<uintptr_t, fml::closure> secondary_callbacks_;
 
-  void PauseDartMicroTasks();
-  static void ResumeDartMicroTasks(fml::TaskQueueId ui_task_queue_id);
+  void PauseDartEventLoopTasks();
+  static void ResumeDartEventLoopTasks(fml::TaskQueueId ui_task_queue_id);
 
   FML_DISALLOW_COPY_AND_ASSIGN(VsyncWaiter);
 };

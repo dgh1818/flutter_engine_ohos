@@ -7,6 +7,7 @@
 #include <iostream>
 
 #include "flutter/fml/build_config.h"
+#include "flutter/fml/log_level.h"
 #include "flutter/fml/log_settings.h"
 #include "flutter/fml/logging.h"
 
@@ -15,7 +16,10 @@
 #elif defined(FML_OS_IOS)
 #include <syslog.h>
 #elif defined(OS_FUCHSIA)
-#include <lib/syslog/global.h>
+#include <lib/syslog/structured_backend/cpp/fuchsia_syslog.h>
+#include <lib/syslog/structured_backend/fuchsia_syslog.h>
+#include <zircon/process.h>
+#include "flutter/fml/platform/fuchsia/log_state.h"
 #endif
 
 #ifdef FML_OS_OHOS
@@ -62,15 +66,16 @@ namespace fml {
 namespace {
 
 #if !defined(OS_FUCHSIA)
-const char* const kLogSeverityNames[LOG_NUM_SEVERITIES] = {"INFO", "WARNING",
-                                                           "ERROR", "FATAL"};
+const char* const kLogSeverityNames[kLogNumSeverities] = {
+    "INFO", "WARNING", "ERROR", "IMPORTANT", "FATAL"};
 
 const char* GetNameForLogSeverity(LogSeverity severity) {
-  if (severity >= LOG_INFO && severity < LOG_NUM_SEVERITIES) {
+  if (severity >= kLogInfo && severity < kLogNumSeverities) {
     return kLogSeverityNames[severity];
   }
   return "UNKNOWN";
 }
+#endif
 
 const char* StripDots(const char* path) {
   while (strncmp(path, "../", 3) == 0) {
@@ -79,13 +84,43 @@ const char* StripDots(const char* path) {
   return path;
 }
 
-const char* StripPath(const char* path) {
-  auto* p = strrchr(path, '/');
-  if (p) {
-    return p + 1;
-  }
-  return path;
+#if defined(OS_FUCHSIA)
+
+zx_koid_t GetKoid(zx_handle_t handle) {
+  zx_info_handle_basic_t info;
+  zx_status_t status = zx_object_get_info(handle, ZX_INFO_HANDLE_BASIC, &info,
+                                          sizeof(info), nullptr, nullptr);
+  return status == ZX_OK ? info.koid : ZX_KOID_INVALID;
 }
+
+thread_local zx_koid_t tls_thread_koid{ZX_KOID_INVALID};
+
+zx_koid_t GetCurrentThreadKoid() {
+  if (unlikely(tls_thread_koid == ZX_KOID_INVALID)) {
+    tls_thread_koid = GetKoid(zx_thread_self());
+  }
+  ZX_DEBUG_ASSERT(tls_thread_koid != ZX_KOID_INVALID);
+  return tls_thread_koid;
+}
+
+static zx_koid_t pid = GetKoid(zx_process_self());
+
+static thread_local zx_koid_t tid = GetCurrentThreadKoid();
+
+std::string GetProcessName(zx_handle_t handle) {
+  char process_name[ZX_MAX_NAME_LEN];
+  zx_status_t status = zx_object_get_property(
+      handle, ZX_PROP_NAME, &process_name, sizeof(process_name));
+  if (status != ZX_OK) {
+    process_name[0] = '\0';
+  }
+  return process_name;
+}
+
+static std::string process_name = GetProcessName(zx_process_self());
+
+static const zx::socket& socket = LogState::Default().socket();
+
 #endif
 
 }  // namespace
@@ -94,16 +129,15 @@ LogMessage::LogMessage(LogSeverity severity,
                        const char* file,
                        int line,
                        const char* condition)
-    : severity_(severity), file_(file), line_(line) {
+    : severity_(severity), file_(StripDots(file)), line_(line) {
 #if !defined(OS_FUCHSIA)
   stream_ << "[";
-  if (severity >= LOG_INFO) {
+  if (severity >= kLogInfo) {
     stream_ << GetNameForLogSeverity(severity);
   } else {
     stream_ << "VERBOSE" << -severity;
   }
-  stream_ << ":" << (severity > LOG_INFO ? StripDots(file_) : StripPath(file_))
-          << "(" << line_ << ")] ";
+  stream_ << ":" << file_ << "(" << line_ << ")] ";
 #endif
 
   if (condition) {
@@ -111,56 +145,97 @@ LogMessage::LogMessage(LogSeverity severity,
   }
 }
 
+// static
+thread_local std::ostringstream* LogMessage::capture_next_log_stream_ = nullptr;
+
+namespace testing {
+
+LogCapture::LogCapture() {
+  fml::LogMessage::CaptureNextLog(&stream_);
+}
+
+LogCapture::~LogCapture() {
+  fml::LogMessage::CaptureNextLog(nullptr);
+}
+
+std::string LogCapture::str() const {
+  return stream_.str();
+}
+
+}  // namespace testing
+
+// static
+void LogMessage::CaptureNextLog(std::ostringstream* stream) {
+  LogMessage::capture_next_log_stream_ = stream;
+}
+
 LogMessage::~LogMessage() {
 #if !defined(OS_FUCHSIA)
   stream_ << std::endl;
 #endif
-
+  if (capture_next_log_stream_) {
+    *capture_next_log_stream_ << stream_.str();
+    capture_next_log_stream_ = nullptr;
+  } else {
 #if defined(FML_OS_ANDROID)
-  android_LogPriority priority =
-      (severity_ < 0) ? ANDROID_LOG_VERBOSE : ANDROID_LOG_UNKNOWN;
-  switch (severity_) {
-    case LOG_INFO:
-      priority = ANDROID_LOG_INFO;
-      break;
-    case LOG_WARNING:
-      priority = ANDROID_LOG_WARN;
-      break;
-    case LOG_ERROR:
-      priority = ANDROID_LOG_ERROR;
-      break;
-    case LOG_FATAL:
-      priority = ANDROID_LOG_FATAL;
-      break;
-  }
-  __android_log_write(priority, "flutter", stream_.str().c_str());
+    android_LogPriority priority =
+        (severity_ < 0) ? ANDROID_LOG_VERBOSE : ANDROID_LOG_UNKNOWN;
+    switch (severity_) {
+      case kLogImportant:
+      case kLogInfo:
+        priority = ANDROID_LOG_INFO;
+        break;
+      case kLogWarning:
+        priority = ANDROID_LOG_WARN;
+        break;
+      case kLogError:
+        priority = ANDROID_LOG_ERROR;
+        break;
+      case kLogFatal:
+        priority = ANDROID_LOG_FATAL;
+        break;
+    }
+    __android_log_write(priority, "flutter", stream_.str().c_str());
 #elif defined(FML_OS_IOS)
-  syslog(LOG_ALERT, "%s", stream_.str().c_str());
+    syslog(LOG_ALERT, "%s", stream_.str().c_str());
 #elif defined(OS_FUCHSIA)
-  fx_log_severity_t fx_severity;
-  switch (severity_) {
-    case LOG_INFO:
-      fx_severity = FX_LOG_INFO;
-      break;
-    case LOG_WARNING:
-      fx_severity = FX_LOG_WARNING;
-      break;
-    case LOG_ERROR:
-      fx_severity = FX_LOG_ERROR;
-      break;
-    case LOG_FATAL:
-      fx_severity = FX_LOG_FATAL;
-      break;
-    default:
-      if (severity_ < 0) {
-        fx_severity = fx_log_severity_from_verbosity(-severity_);
-      } else {
-        // Unknown severity. Use INFO.
-        fx_severity = FX_LOG_INFO;
+    FuchsiaLogSeverity severity;
+    switch (severity_) {
+      case kLogImportant:
+      case kLogInfo:
+        severity = FUCHSIA_LOG_INFO;
+        break;
+      case kLogWarning:
+        severity = FUCHSIA_LOG_WARNING;
+        break;
+      case kLogError:
+        severity = FUCHSIA_LOG_ERROR;
+        break;
+      case kLogFatal:
+        severity = FUCHSIA_LOG_FATAL;
+        break;
+      default:
+        if (severity_ < 0) {
+          severity = FUCHSIA_LOG_DEBUG;
+        } else {
+          // Unknown severity. Use INFO.
+          severity = FUCHSIA_LOG_INFO;
+        }
+        break;
+    }
+    fuchsia_syslog::LogBuffer buffer;
+    buffer.BeginRecord(severity, std::string_view(file_), line_,
+                       std::string_view(stream_.str()), socket.borrow(), 0, pid,
+                       tid);
+    if (!process_name.empty()) {
+      buffer.WriteKeyValue("tag", process_name);
+    }
+    if (auto tags_ptr = LogState::Default().tags()) {
+      for (auto& tag : *tags_ptr) {
+        buffer.WriteKeyValue("tag", tag);
       }
-  }
-  fx_logger_log_with_source(fx_log_get_logger(), fx_severity, nullptr, file_,
-                            line_, stream_.str().c_str());
+    }
+    buffer.FlushRecord();
 #elif defined(FML_OS_OHOS)
   HiLog_LogLevel fx_severity;
 
@@ -185,18 +260,21 @@ LogMessage::~LogMessage() {
 
   std::cerr << stream_.str();
   std::cerr.flush();
+   
 #else
-  std::cerr << stream_.str();
-  std::cerr.flush();
+    // Don't use std::cerr here, because it may not be initialized properly yet.
+    fprintf(stderr, "%s", stream_.str().c_str());
+    fflush(stderr);
 #endif
+  }
 
-  if (severity_ >= LOG_FATAL) {
+  if (severity_ >= kLogFatal) {
     KillProcess();
   }
 }
 
 int GetVlogVerbosity() {
-  return std::max(-1, LOG_INFO - GetMinLogLevel());
+  return std::max(-1, kLogInfo - GetMinLogLevel());
 }
 
 bool ShouldCreateLogMessage(LogSeverity severity) {

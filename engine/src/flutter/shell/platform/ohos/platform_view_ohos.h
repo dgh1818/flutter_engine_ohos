@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#ifndef OHOS_PLATFORM_VIEW_H
-#define OHOS_PLATFORM_VIEW_H
+#ifndef FLUTTER_SHELL_PLATFORM_OHOS_PLATFORM_VIEW_OHOS_H_
+#define FLUTTER_SHELL_PLATFORM_OHOS_PLATFORM_VIEW_OHOS_H_
 
 #include <memory>
 #include <string>
@@ -88,13 +88,12 @@ class PlatformViewOHOS final : public PlatformView {
                                int action,
                                void* actionData,
                                int actionDataLenth);
-  void RegisterExternalTextureByImage(
-      int64_t texture_id,
-      ImageNative* image);
+  void RegisterExternalTextureByImage(int64_t texture_id, ImageNative* image);
 
   uint64_t RegisterExternalTexture(int64_t texture_id);
 
-  void RegisterExternalTextureByPixelMap(int64_t texture_id, NativePixelMap* pixelMap);
+  void RegisterExternalTextureByPixelMap(int64_t texture_id,
+                                         NativePixelMap* pixelMap);
 
   void UnRegisterExternalTexture(int64_t texture_id);
 
@@ -113,9 +112,7 @@ class PlatformViewOHOS final : public PlatformView {
       std::unique_ptr<AssetResolver> updated_asset_resolver,
       AssetResolver::AssetResolverType type) override;
 
-  const std::shared_ptr<OHOSContext>& GetOHOSContext() {
-    return ohos_context_;
-  }
+  const std::shared_ptr<OHOSContext>& GetOHOSContext() { return ohos_context_; }
 
   std::shared_ptr<PlatformMessageHandler> GetPlatformMessageHandler()
       const override {
@@ -130,7 +127,8 @@ class PlatformViewOHOS final : public PlatformView {
   std::shared_ptr<PlatformMessageHandlerOHOS> platform_message_handler_;
 
   std::shared_ptr<OhosSurfaceFactoryImpl> surface_factory_;
-  std::map<int64_t, std::shared_ptr<OHOSExternalTextureGL>> external_texture_gl_;
+  std::map<int64_t, std::shared_ptr<OHOSExternalTextureGL>>
+      external_texture_gl_;
 
   // |PlatformView|
   void UpdateSemantics(
@@ -179,13 +177,12 @@ class PlatformViewOHOS final : public PlatformView {
 
   FML_DISALLOW_COPY_AND_ASSIGN(PlatformViewOHOS);
 
-  static void OnNativeImageFrameAvailable(void *data);
+  static void OnNativeImageFrameAvailable(void* data);
 };
 
 class OhosImageFrameData {
  public:
-  OhosImageFrameData(PlatformViewOHOS* context,
-                     int64_t texture_id);
+  OhosImageFrameData(PlatformViewOHOS* context, int64_t texture_id);
 
   ~OhosImageFrameData();
 
@@ -195,4 +192,4 @@ class OhosImageFrameData {
 };
 
 }  // namespace flutter
-#endif
+#endif  // FLUTTER_SHELL_PLATFORM_OHOS_PLATFORM_VIEW_OHOS_H_
