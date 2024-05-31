@@ -4,32 +4,30 @@
 
 #include "flutter/flow/layers/layer_tree.h"
 
+#include "flutter/display_list/skia/dl_sk_canvas.h"
 #include "flutter/flow/embedded_views.h"
 #include "flutter/flow/frame_timings.h"
 #include "flutter/flow/layer_snapshot_store.h"
-#include "flutter/flow/layers/cacheable_layer.h"
 #include "flutter/flow/layers/layer.h"
 #include "flutter/flow/paint_utils.h"
 #include "flutter/flow/raster_cache.h"
+#include "flutter/flow/raster_cache_item.h"
 #include "flutter/fml/time/time_point.h"
 #include "flutter/fml/trace_event.h"
-#include "include/core/SkMatrix.h"
-#include "third_party/skia/include/core/SkPictureRecorder.h"
-#include "third_party/skia/include/utils/SkNWayCanvas.h"
+#include "include/core/SkColorSpace.h"
 
 namespace flutter {
 
-LayerTree::LayerTree(const SkISize& frame_size, float device_pixel_ratio)
-    : frame_size_(frame_size),
-      device_pixel_ratio_(device_pixel_ratio),
-      rasterizer_tracing_threshold_(0),
-      checkerboard_raster_cache_images_(false),
-      checkerboard_offscreen_layers_(false) {
-  FML_CHECK(device_pixel_ratio_ != 0.0f);
-}
+LayerTree::LayerTree(const Config& config, const SkISize& frame_size)
+    : root_layer_(config.root_layer),
+      frame_size_(frame_size),
+      rasterizer_tracing_threshold_(config.rasterizer_tracing_threshold),
+      checkerboard_raster_cache_images_(
+          config.checkerboard_raster_cache_images),
+      checkerboard_offscreen_layers_(config.checkerboard_offscreen_layers) {}
 
-inline SkColorSpace* GetColorSpace(SkCanvas* canvas) {
-  return canvas ? canvas->imageInfo().colorSpace() : nullptr;
+inline SkColorSpace* GetColorSpace(DlCanvas* canvas) {
+  return canvas ? canvas->GetImageInfo().colorSpace() : nullptr;
 }
 
 bool LayerTree::Preroll(CompositorContext::ScopedFrame& frame,
@@ -58,14 +56,12 @@ bool LayerTree::Preroll(CompositorContext::ScopedFrame& frame,
       .gr_context                    = frame.gr_context(),
       .view_embedder                 = frame.view_embedder(),
       .state_stack                   = state_stack,
-      .dst_color_space               = color_space,
+      .dst_color_space               = sk_ref_sp<SkColorSpace>(color_space),
       .surface_needs_readback        = false,
       .raster_time                   = frame.context().raster_time(),
       .ui_time                       = frame.context().ui_time(),
       .texture_registry              = frame.context().texture_registry(),
-      .frame_device_pixel_ratio      = device_pixel_ratio_,
       .raster_cached_entries         = &raster_cache_items_,
-      .display_list_enabled          = frame.display_list_builder() != nullptr,
       // clang-format on
   };
 
@@ -112,16 +108,14 @@ void LayerTree::Paint(CompositorContext::ScopedFrame& frame,
   }
 
   LayerStateStack state_stack;
-  if (checkerboard_offscreen_layers_) {
+
+  // DrawCheckerboard is not supported on Impeller.
+  if (checkerboard_offscreen_layers_ && !frame.aiks_context()) {
     state_stack.set_checkerboard_func(DrawCheckerboard);
   }
 
-  DisplayListBuilder* builder = frame.display_list_builder();
-  if (builder) {
-    state_stack.set_delegate(builder);
-  } else {
-    state_stack.set_delegate(frame.canvas());
-  }
+  DlCanvas* canvas = frame.canvas();
+  state_stack.set_delegate(canvas);
 
   // clear the previous snapshots.
   LayerSnapshotStore* snapshot_store = nullptr;
@@ -136,18 +130,17 @@ void LayerTree::Paint(CompositorContext::ScopedFrame& frame,
   PaintContext context = {
       // clang-format off
       .state_stack                   = state_stack,
-      .canvas                        = frame.canvas(),
-      .builder                       = builder,
+      .canvas                        = canvas,
       .gr_context                    = frame.gr_context(),
-      .dst_color_space               = color_space,
+      .dst_color_space               = sk_ref_sp(color_space),
       .view_embedder                 = frame.view_embedder(),
       .raster_time                   = frame.context().raster_time(),
       .ui_time                       = frame.context().ui_time(),
       .texture_registry              = frame.context().texture_registry(),
       .raster_cache                  = cache,
-      .frame_device_pixel_ratio      = device_pixel_ratio_,
       .layer_snapshot_store          = snapshot_store,
       .enable_leaf_layer_tracing     = enable_leaf_layer_tracing_,
+      .impeller_enabled              = !!frame.aiks_context(),
       .aiks_context                  = frame.aiks_context(),
       // clang-format on
   };
@@ -168,7 +161,7 @@ sk_sp<DisplayList> LayerTree::Flatten(
     GrDirectContext* gr_context) {
   TRACE_EVENT0("flutter", "LayerTree::Flatten");
 
-  DisplayListCanvasRecorder recorder(bounds);
+  DisplayListBuilder builder(bounds);
 
   const FixedRefreshRateStopwatch unused_stopwatch;
 
@@ -186,17 +179,15 @@ sk_sp<DisplayList> LayerTree::Flatten(
       .raster_time                   = unused_stopwatch,
       .ui_time                       = unused_stopwatch,
       .texture_registry              = texture_registry,
-      .frame_device_pixel_ratio      = device_pixel_ratio_
       // clang-format on
   };
 
   LayerStateStack paint_state_stack;
-  paint_state_stack.set_delegate(recorder);
+  paint_state_stack.set_delegate(&builder);
   PaintContext paint_context = {
       // clang-format off
       .state_stack                   = paint_state_stack,
-      .canvas                        = &recorder,
-      .builder                       = recorder.builder().get(),
+      .canvas                        = &builder,
       .gr_context                    = gr_context,
       .dst_color_space               = nullptr,
       .view_embedder                 = nullptr,
@@ -204,7 +195,6 @@ sk_sp<DisplayList> LayerTree::Flatten(
       .ui_time                       = unused_stopwatch,
       .texture_registry              = texture_registry,
       .raster_cache                  = nullptr,
-      .frame_device_pixel_ratio      = device_pixel_ratio_,
       .layer_snapshot_store          = nullptr,
       .enable_leaf_layer_tracing     = false,
       // clang-format on
@@ -221,7 +211,7 @@ sk_sp<DisplayList> LayerTree::Flatten(
     }
   }
 
-  return recorder.Build();
+  return builder.Build();
 }
 
 }  // namespace flutter

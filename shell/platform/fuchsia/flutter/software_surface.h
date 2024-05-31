@@ -2,13 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_SHELL_PLATFORM_FUCHSIA_FLUTTER_SOFTWARE_SURFACE_H_
+#define FLUTTER_SHELL_PLATFORM_FUCHSIA_FLUTTER_SOFTWARE_SURFACE_H_
 
 #include <fuchsia/sysmem/cpp/fidl.h>
 #include <fuchsia/ui/composition/cpp/fidl.h>
 #include <lib/async/cpp/wait.h>
-#include <lib/ui/scenic/cpp/id.h>
-#include <lib/ui/scenic/cpp/resources.h>
 #include <lib/zx/event.h>
 #include <lib/zx/vmo.h>
 
@@ -28,7 +27,6 @@ class SoftwareSurface final : public SurfaceProducerSurface {
  public:
   SoftwareSurface(fuchsia::sysmem::AllocatorSyncPtr& sysmem_allocator,
                   fuchsia::ui::composition::AllocatorPtr& flatland_allocator,
-                  scenic::Session* session,
                   const SkISize& size);
 
   ~SoftwareSurface() override;
@@ -88,11 +86,7 @@ class SoftwareSurface final : public SurfaceProducerSurface {
   bool CreateFences();
 
   void Reset();
-
-  static uint32_t sNextBufferId;  // For legacy gfx; counter for `buffer_id_`.
-
-  scenic::Session* session_;        // Legacy gfx API endpoint.
-  scenic::ResourceId image_id_{0};  // Legacy gfx image ID.
+  uint32_t image_id_ = 0;
 
   sk_sp<SkSurface> sk_surface_;
 
@@ -105,12 +99,11 @@ class SoftwareSurface final : public SurfaceProducerSurface {
   // `SoftwareSurfaceProducer` to re-use the surface.
   std::function<void()> surface_read_finished_callback_;
   // Called when the surface is destroyed, to allow
-  // `FlatlandExternalViewEmbedder` to release the associated Flatland image.
+  // `ExternalViewEmbedder` to release the associated Flatland image.
   ReleaseImageCallback release_image_callback_;
 
   // Allows Flatland to associate this surface with a Flatland Image.
   fuchsia::ui::composition::BufferCollectionImportToken import_token_;
-  uint32_t buffer_id_{0};    // Legacy gfx version of the import_token_.
   zx::event acquire_event_;  // Signals to scenic that writing is finished.
   zx::event release_event_;  // Signalled by scenic that reading is finished.
   zx::vmo surface_vmo_;      // VMO that is backing the surface memory.
@@ -125,3 +118,5 @@ class SoftwareSurface final : public SurfaceProducerSurface {
 };
 
 }  // namespace flutter_runner
+
+#endif  // FLUTTER_SHELL_PLATFORM_FUCHSIA_FLUTTER_SOFTWARE_SURFACE_H_

@@ -8,6 +8,7 @@
 #include <iostream>
 #include <string>
 
+#include "basic_message_channel.h"
 #include "binary_messenger.h"
 #include "engine_method_result.h"
 #include "method_call.h"
@@ -91,9 +92,10 @@ class MethodChannel {
   // Registers a handler that should be called any time a method call is
   // received on this channel. A null handler will remove any previous handler.
   //
-  // Note that the MethodChannel does not own the handler, and will not
-  // unregister it on destruction, so the caller is responsible for
-  // unregistering explicitly if it should no longer be called.
+  // The handler will be owned by the underlying BinaryMessageHandler.
+  // Destroying the MethodChannel will not unregister the handler, so
+  // the caller is responsible for unregistering explicitly if the handler
+  // stops being valid before the engine is destroyed.
   void SetMethodCallHandler(MethodCallHandler<T> handler) const {
     if (!handler) {
       messenger_->SetMessageHandler(name_, nullptr);
@@ -119,6 +121,23 @@ class MethodChannel {
       handler(*method_call, std::move(result));
     };
     messenger_->SetMessageHandler(name_, std::move(binary_handler));
+  }
+
+  // Adjusts the number of messages that will get buffered when sending messages
+  // to channels that aren't fully set up yet. For example, the engine isn't
+  // running yet or the channel's message handler isn't set up on the Dart side
+  // yet.
+  void Resize(int new_size) {
+    internal::ResizeChannel(messenger_, name_, new_size);
+  }
+
+  // Defines whether the channel should show warning messages when discarding
+  // messages due to overflow.
+  //
+  // When |warns| is false, the channel is expected to overflow and warning
+  // messages will not be shown.
+  void SetWarnsOnOverflow(bool warns) {
+    internal::SetChannelWarnsOnOverflow(messenger_, name_, warns);
   }
 
  private:

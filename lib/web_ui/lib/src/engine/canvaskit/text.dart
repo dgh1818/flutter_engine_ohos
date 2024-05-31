@@ -5,16 +5,18 @@
 import 'dart:typed_data';
 
 import 'package:meta/meta.dart';
+import 'package:ui/src/engine.dart';
 import 'package:ui/ui.dart' as ui;
+import 'package:ui/ui_web/src/ui_web.dart' as ui_web;
 
-import '../safe_browser_api.dart';
-import '../util.dart';
-import 'canvaskit_api.dart';
-import 'font_fallbacks.dart';
-import 'painting.dart';
-import 'renderer.dart';
-import 'skia_object_cache.dart';
-import 'util.dart';
+final bool _ckRequiresClientICU = canvasKit.ParagraphBuilder.RequiresClientICU();
+
+final List<String> _testFonts = <String>['FlutterTest', 'Ahem'];
+String? _computeEffectiveFontFamily(String? fontFamily) {
+  return ui_web.debugEmulateFlutterTesterEnvironment && !_testFonts.contains(fontFamily)
+    ? _testFonts.first
+    : fontFamily;
+}
 
 @immutable
 class CkParagraphStyle implements ui.ParagraphStyle {
@@ -35,7 +37,7 @@ class CkParagraphStyle implements ui.ParagraphStyle {
           textAlign,
           textDirection,
           maxLines,
-          ui.debugEmulateFlutterTesterEnvironment ? 'Ahem' : fontFamily,
+          _computeEffectiveFontFamily(fontFamily),
           fontSize,
           height,
           textHeightBehavior,
@@ -45,20 +47,36 @@ class CkParagraphStyle implements ui.ParagraphStyle {
           ellipsis,
           locale,
         ),
-        _fontFamily = ui.debugEmulateFlutterTesterEnvironment ? 'Ahem' : fontFamily,
+        _textAlign = textAlign,
+        _textDirection = textDirection,
+        _fontWeight = fontWeight,
+        _fontStyle = fontStyle,
+        _maxLines = maxLines,
+        _originalFontFamily = fontFamily,
+        _effectiveFontFamily = _computeEffectiveFontFamily(fontFamily),
         _fontSize = fontSize,
         _height = height,
-        _leadingDistribution = textHeightBehavior?.leadingDistribution,
-        _fontWeight = fontWeight,
-        _fontStyle = fontStyle;
+        _textHeightBehavior = textHeightBehavior,
+        _strutStyle = strutStyle,
+        _ellipsis = ellipsis,
+        _locale = locale;
+
 
   final SkParagraphStyle skParagraphStyle;
-  final String? _fontFamily;
-  final double? _fontSize;
-  final double? _height;
+
+  final ui.TextAlign? _textAlign;
+  final ui.TextDirection? _textDirection;
   final ui.FontWeight? _fontWeight;
   final ui.FontStyle? _fontStyle;
-  final ui.TextLeadingDistribution? _leadingDistribution;
+  final int? _maxLines;
+  final String? _originalFontFamily;
+  final String? _effectiveFontFamily;
+  final double? _fontSize;
+  final double? _height;
+  final ui.TextHeightBehavior? _textHeightBehavior;
+  final ui.StrutStyle? _strutStyle;
+  final String? _ellipsis;
+  final ui.Locale? _locale;
 
   static SkTextStyleProperties toSkTextStyleProperties(
     String? fontFamily,
@@ -80,7 +98,7 @@ class CkParagraphStyle implements ui.ParagraphStyle {
       skTextStyle.heightMultiplier = height;
     }
 
-    skTextStyle.fontFamilies = _getEffectiveFontFamilies(fontFamily);
+    skTextStyle.fontFamilies = _computeCombinedFontFamilies(fontFamily);
 
     return skTextStyle;
   }
@@ -90,7 +108,7 @@ class CkParagraphStyle implements ui.ParagraphStyle {
     final CkStrutStyle style = value as CkStrutStyle;
     final SkStrutStyleProperties skStrutStyle = SkStrutStyleProperties();
     skStrutStyle.fontFamilies =
-        _getEffectiveFontFamilies(style._fontFamily, style._fontFamilyFallback);
+        _computeCombinedFontFamilies(style._fontFamily, style._fontFamilyFallback);
 
     if (style._fontSize != null) {
       skStrutStyle.fontSize = style._fontSize;
@@ -108,10 +126,8 @@ class CkParagraphStyle implements ui.ParagraphStyle {
         break;
       case ui.TextLeadingDistribution.even:
         skStrutStyle.halfLeading = true;
-        break;
       case ui.TextLeadingDistribution.proportional:
         skStrutStyle.halfLeading = false;
-        break;
     }
 
     if (style._leading != null) {
@@ -181,19 +197,107 @@ class CkParagraphStyle implements ui.ParagraphStyle {
     properties.replaceTabCharacters = true;
     properties.textStyle = toSkTextStyleProperties(
         fontFamily, fontSize, height, fontWeight, fontStyle);
+    properties.applyRoundingHack = false;
 
     return canvasKit.ParagraphStyle(properties);
   }
 
   CkTextStyle getTextStyle() {
-    return CkTextStyle(
-      fontFamily: _fontFamily,
+    return CkTextStyle._(
+      originalFontFamily: _originalFontFamily,
+      effectiveFontFamily: _effectiveFontFamily,
       fontSize: _fontSize,
       height: _height,
-      leadingDistribution: _leadingDistribution,
+      leadingDistribution: _textHeightBehavior?.leadingDistribution,
       fontWeight: _fontWeight,
       fontStyle: _fontStyle,
+
+      // Use defaults for everything else.
+      color: null,
+      decoration: null,
+      decorationColor: null,
+      decorationStyle: null,
+      decorationThickness: null,
+      textBaseline: null,
+      originalFontFamilyFallback: null,
+      effectiveFontFamilyFallback: null,
+      letterSpacing: null,
+      wordSpacing: null,
+      locale: null,
+      background: null,
+      foreground: null,
+      shadows: null,
+      fontFeatures: null,
+      fontVariations: null,
     );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+    if (other.runtimeType != runtimeType) {
+      return false;
+    }
+    return other is CkParagraphStyle &&
+        other._textAlign == _textAlign &&
+        other._textDirection == _textDirection &&
+        other._fontWeight == _fontWeight &&
+        other._fontStyle == _fontStyle &&
+        other._maxLines == _maxLines &&
+        other._originalFontFamily == _originalFontFamily &&
+        // effectiveFontFamily is not compared as it's a computed value.
+        other._fontSize == _fontSize &&
+        other._height == _height &&
+        other._textHeightBehavior == _textHeightBehavior &&
+        other._strutStyle == _strutStyle &&
+        other._ellipsis == _ellipsis &&
+        other._locale == _locale;
+  }
+
+  @override
+  int get hashCode {
+    return Object.hash(
+      _textAlign,
+      _textDirection,
+      _fontWeight,
+      _fontStyle,
+      _maxLines,
+      _originalFontFamily,
+      // effectiveFontFamily is not included as it's a computed value.
+      _fontSize,
+      _height,
+      _textHeightBehavior,
+      _strutStyle,
+      _ellipsis,
+      _locale,
+    );
+  }
+
+  @override
+  String toString() {
+    String result = super.toString();
+    assert(() {
+      final double? fontSize = _fontSize;
+      final double? height = _height;
+      result = 'ParagraphStyle('
+          'textAlign: ${_textAlign ?? "unspecified"}, '
+          'textDirection: ${_textDirection ?? "unspecified"}, '
+          'fontWeight: ${_fontWeight ?? "unspecified"}, '
+          'fontStyle: ${_fontStyle ?? "unspecified"}, '
+          'maxLines: ${_maxLines ?? "unspecified"}, '
+          'textHeightBehavior: ${_textHeightBehavior ?? "unspecified"}, '
+          'fontFamily: ${_originalFontFamily ?? "unspecified"}, '
+          'fontSize: ${fontSize != null ? fontSize.toStringAsFixed(1) : "unspecified"}, '
+          'height: ${height != null ? "${height.toStringAsFixed(1)}x" : "unspecified"}, '
+          'strutStyle: ${_strutStyle ?? "unspecified"}, '
+          'ellipsis: ${_ellipsis != null ? '"$_ellipsis"' : "unspecified"}, '
+          'locale: ${_locale ?? "unspecified"}'
+          ')';
+      return true;
+    }());
+    return result;
   }
 }
 
@@ -222,54 +326,63 @@ class CkTextStyle implements ui.TextStyle {
     List<ui.FontFeature>? fontFeatures,
     List<ui.FontVariation>? fontVariations,
   }) {
+    assert(
+      color == null || foreground == null,
+      'Cannot provide both a color and a foreground\n'
+      'The color argument is just a shorthand for "foreground: Paint()..color = color".',
+    );
     return CkTextStyle._(
-      color,
-      decoration,
-      decorationColor,
-      decorationStyle,
-      decorationThickness,
-      fontWeight,
-      fontStyle,
-      textBaseline,
-      ui.debugEmulateFlutterTesterEnvironment ? 'Ahem' : fontFamily,
-      ui.debugEmulateFlutterTesterEnvironment ? null : fontFamilyFallback,
-      fontSize,
-      letterSpacing,
-      wordSpacing,
-      height,
-      leadingDistribution,
-      locale,
-      background,
-      foreground,
-      shadows,
-      fontFeatures,
-      fontVariations,
+      color: color,
+      decoration: decoration,
+      decorationColor: decorationColor,
+      decorationStyle: decorationStyle,
+      decorationThickness: decorationThickness,
+      fontWeight: fontWeight,
+      fontStyle: fontStyle,
+      textBaseline: textBaseline,
+      originalFontFamily: fontFamily,
+      effectiveFontFamily: _computeEffectiveFontFamily(fontFamily),
+      originalFontFamilyFallback: fontFamilyFallback,
+      effectiveFontFamilyFallback: ui_web.debugEmulateFlutterTesterEnvironment ? null : fontFamilyFallback,
+      fontSize: fontSize,
+      letterSpacing: letterSpacing,
+      wordSpacing: wordSpacing,
+      height: height,
+      leadingDistribution: leadingDistribution,
+      locale: locale,
+      background: background,
+      foreground: foreground,
+      shadows: shadows,
+      fontFeatures: fontFeatures,
+      fontVariations: fontVariations,
     );
   }
 
-  CkTextStyle._(
-    this.color,
-    this.decoration,
-    this.decorationColor,
-    this.decorationStyle,
-    this.decorationThickness,
-    this.fontWeight,
-    this.fontStyle,
-    this.textBaseline,
-    this.fontFamily,
-    this.fontFamilyFallback,
-    this.fontSize,
-    this.letterSpacing,
-    this.wordSpacing,
-    this.height,
-    this.leadingDistribution,
-    this.locale,
-    this.background,
-    this.foreground,
-    this.shadows,
-    this.fontFeatures,
-    this.fontVariations,
-  );
+  CkTextStyle._({
+    required this.color,
+    required this.decoration,
+    required this.decorationColor,
+    required this.decorationStyle,
+    required this.decorationThickness,
+    required this.fontWeight,
+    required this.fontStyle,
+    required this.textBaseline,
+    required this.originalFontFamily,
+    required this.effectiveFontFamily,
+    required this.originalFontFamilyFallback,
+    required this.effectiveFontFamilyFallback,
+    required this.fontSize,
+    required this.letterSpacing,
+    required this.wordSpacing,
+    required this.height,
+    required this.leadingDistribution,
+    required this.locale,
+    required this.background,
+    required this.foreground,
+    required this.shadows,
+    required this.fontFeatures,
+    required this.fontVariations,
+  });
 
   final ui.Color? color;
   final ui.TextDecoration? decoration;
@@ -279,8 +392,10 @@ class CkTextStyle implements ui.TextStyle {
   final ui.FontWeight? fontWeight;
   final ui.FontStyle? fontStyle;
   final ui.TextBaseline? textBaseline;
-  final String? fontFamily;
-  final List<String>? fontFamilyFallback;
+  final String? originalFontFamily;
+  final String? effectiveFontFamily;
+  final List<String>? originalFontFamilyFallback;
+  final List<String>? effectiveFontFamilyFallback;
   final double? fontSize;
   final double? letterSpacing;
   final double? wordSpacing;
@@ -298,7 +413,7 @@ class CkTextStyle implements ui.TextStyle {
   /// The values in this text style are used unless [other] specifically
   /// overrides it.
   CkTextStyle mergeWith(CkTextStyle other) {
-    return CkTextStyle(
+    return CkTextStyle._(
       color: other.color ?? color,
       decoration: other.decoration ?? decoration,
       decorationColor: other.decorationColor ?? decorationColor,
@@ -307,8 +422,10 @@ class CkTextStyle implements ui.TextStyle {
       fontWeight: other.fontWeight ?? fontWeight,
       fontStyle: other.fontStyle ?? fontStyle,
       textBaseline: other.textBaseline ?? textBaseline,
-      fontFamily: other.fontFamily ?? fontFamily,
-      fontFamilyFallback: other.fontFamilyFallback ?? fontFamilyFallback,
+      originalFontFamily: other.originalFontFamily ?? originalFontFamily,
+      effectiveFontFamily: other.effectiveFontFamily ?? effectiveFontFamily,
+      originalFontFamilyFallback: other.originalFontFamilyFallback ?? originalFontFamilyFallback,
+      effectiveFontFamilyFallback: other.effectiveFontFamilyFallback ?? effectiveFontFamilyFallback,
       fontSize: other.fontSize ?? fontSize,
       letterSpacing: other.letterSpacing ?? letterSpacing,
       wordSpacing: other.wordSpacing ?? wordSpacing,
@@ -323,9 +440,9 @@ class CkTextStyle implements ui.TextStyle {
     );
   }
 
-  /// Lazy-initialized list of font families sent to Skia.
-  late final List<String> effectiveFontFamilies =
-      _getEffectiveFontFamilies(fontFamily, fontFamilyFallback);
+  /// Lazy-initialized combination of font family and font family fallback sent to Skia.
+  late final List<String> combinedFontFamilies =
+      _computeCombinedFontFamilies(effectiveFontFamily, effectiveFontFamilyFallback);
 
   /// Lazy-initialized Skia style used to pass the style to Skia.
   ///
@@ -413,17 +530,15 @@ class CkTextStyle implements ui.TextStyle {
         break;
       case ui.TextLeadingDistribution.even:
         properties.halfLeading = true;
-        break;
       case ui.TextLeadingDistribution.proportional:
         properties.halfLeading = false;
-        break;
     }
 
     if (locale != null) {
       properties.locale = locale.toLanguageTag();
     }
 
-    properties.fontFamilies = effectiveFontFamilies;
+    properties.fontFamilies = combinedFontFamilies;
 
     if (fontWeight != null || fontStyle != null) {
       properties.fontStyle = toSkFontStyle(fontWeight, fontStyle);
@@ -469,6 +584,104 @@ class CkTextStyle implements ui.TextStyle {
 
     return canvasKit.TextStyle(properties);
   }();
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+    return other is CkTextStyle
+        && other.color == color
+        && other.decoration == decoration
+        && other.decorationColor == decorationColor
+        && other.decorationStyle == decorationStyle
+        && other.fontWeight == fontWeight
+        && other.fontStyle == fontStyle
+        && other.textBaseline == textBaseline
+        && other.leadingDistribution == leadingDistribution
+        && other.originalFontFamily == originalFontFamily
+        && other.fontSize == fontSize
+        && other.letterSpacing == letterSpacing
+        && other.wordSpacing == wordSpacing
+        && other.height == height
+        && other.decorationThickness == decorationThickness
+        && other.locale == locale
+        && other.background == background
+        && other.foreground == foreground
+        && listEquals<ui.Shadow>(other.shadows, shadows)
+        && listEquals<String>(other.originalFontFamilyFallback, originalFontFamilyFallback)
+        && listEquals<ui.FontFeature>(other.fontFeatures, fontFeatures)
+        && listEquals<ui.FontVariation>(other.fontVariations, fontVariations);
+  }
+
+  @override
+  int get hashCode {
+    final List<ui.Shadow>? shadows = this.shadows;
+    final List<ui.FontFeature>? fontFeatures = this.fontFeatures;
+    final List<ui.FontVariation>? fontVariations = this.fontVariations;
+    final List<String>? fontFamilyFallback = originalFontFamilyFallback;
+    return Object.hash(
+      color,
+      decoration,
+      decorationColor,
+      decorationStyle,
+      fontWeight,
+      fontStyle,
+      textBaseline,
+      leadingDistribution,
+      originalFontFamily,
+      fontFamilyFallback == null ? null : Object.hashAll(fontFamilyFallback),
+      fontSize,
+      letterSpacing,
+      wordSpacing,
+      height,
+      locale,
+      background,
+      foreground,
+      shadows == null ? null : Object.hashAll(shadows),
+      decorationThickness,
+      // Object.hash goes up to 20 arguments, but we have 21
+      Object.hash(
+        fontFeatures == null ? null : Object.hashAll(fontFeatures),
+        fontVariations == null ? null : Object.hashAll(fontVariations),
+      )
+    );
+  }
+
+  @override
+  String toString() {
+    String result = super.toString();
+    assert(() {
+      final List<String>? fontFamilyFallback = originalFontFamilyFallback;
+      final double? fontSize = this.fontSize;
+      final double? height = this.height;
+      result = 'TextStyle('
+          'color: ${color ?? "unspecified"}, '
+          'decoration: ${decoration ?? "unspecified"}, '
+          'decorationColor: ${decorationColor ?? "unspecified"}, '
+          'decorationStyle: ${decorationStyle ?? "unspecified"}, '
+          'decorationThickness: ${decorationThickness ?? "unspecified"}, '
+          'fontWeight: ${fontWeight ?? "unspecified"}, '
+          'fontStyle: ${fontStyle ?? "unspecified"}, '
+          'textBaseline: ${textBaseline ?? "unspecified"}, '
+          'fontFamily: ${originalFontFamily ?? "unspecified"}, '
+          'fontFamilyFallback: ${fontFamilyFallback != null && fontFamilyFallback.isNotEmpty ? fontFamilyFallback : "unspecified"}, '
+          'fontSize: ${fontSize != null ? fontSize.toStringAsFixed(1) : "unspecified"}, '
+          'letterSpacing: ${letterSpacing != null ? "${letterSpacing}x" : "unspecified"}, '
+          'wordSpacing: ${wordSpacing != null ? "${wordSpacing}x" : "unspecified"}, '
+          'height: ${height != null ? "${height.toStringAsFixed(1)}x" : "unspecified"}, '
+          'leadingDistribution: ${leadingDistribution ?? "unspecified"}, '
+          'locale: ${locale ?? "unspecified"}, '
+          'background: ${background ?? "unspecified"}, '
+          'foreground: ${foreground ?? "unspecified"}, '
+          'shadows: ${shadows ?? "unspecified"}, '
+          'fontFeatures: ${fontFeatures ?? "unspecified"}, '
+          'fontVariations: ${fontVariations ?? "unspecified"}'
+          ')';
+      return true;
+    }());
+    return result;
+  }
 }
 
 class CkStrutStyle implements ui.StrutStyle {
@@ -483,8 +696,8 @@ class CkStrutStyle implements ui.StrutStyle {
     ui.FontWeight? fontWeight,
     ui.FontStyle? fontStyle,
     bool? forceStrutHeight,
-  })  : _fontFamily = ui.debugEmulateFlutterTesterEnvironment ? 'Ahem' : fontFamily,
-        _fontFamilyFallback = ui.debugEmulateFlutterTesterEnvironment ? null : fontFamilyFallback,
+  })  : _fontFamily = _computeEffectiveFontFamily(fontFamily),
+        _fontFamilyFallback = ui_web.debugEmulateFlutterTesterEnvironment ? null : fontFamilyFallback,
         _fontSize = fontSize,
         _height = height,
         _leadingDistribution = leadingDistribution,
@@ -521,9 +734,11 @@ class CkStrutStyle implements ui.StrutStyle {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode {
+    final List<String>? fontFamilyFallback = _fontFamilyFallback;
+    return Object.hash(
         _fontFamily,
-        _fontFamilyFallback,
+        fontFamilyFallback != null ? Object.hashAll(fontFamilyFallback) : null,
         _fontSize,
         _height,
         _leading,
@@ -532,6 +747,7 @@ class CkStrutStyle implements ui.StrutStyle {
         _fontStyle,
         _forceStrutHeight,
       );
+  }
 }
 
 SkFontStyle toSkFontStyle(ui.FontWeight? fontWeight, ui.FontStyle? fontStyle) {
@@ -546,23 +762,20 @@ SkFontStyle toSkFontStyle(ui.FontWeight? fontWeight, ui.FontStyle? fontStyle) {
 }
 
 /// The CanvasKit implementation of [ui.Paragraph].
-///
-/// This class does not use [ManagedSkiaObject] because it requires that its
-/// memory is reclaimed synchronously. This protects our memory usage from
-/// blowing up if within a single frame the framework needs to layout a lot of
-/// paragraphs. One common use-case is `ListView.builder`, which needs to layout
-/// more of its content than it actually renders to compute the scroll position.
-/// More generally, this protects from the pattern of laying out a lot of text
-/// while painting a small subset of it. To achieve this a
-/// [SynchronousSkiaObjectCache] is used that limits the number of live laid out
-/// paragraphs at any point in time within or outside the frame.
-class CkParagraph extends SkiaObject<SkParagraph> implements ui.Paragraph {
-  CkParagraph(this._skParagraph, this._paragraphStyle, this._paragraphCommands);
+class CkParagraph implements ui.Paragraph {
+  CkParagraph(SkParagraph skParagraph, this._paragraphStyle) {
+    _ref = UniqueRef<SkParagraph>(this, skParagraph, 'Paragraph');
+  }
 
-  /// The result of calling `build()` on the JS CkParagraphBuilder.
+  late final UniqueRef<SkParagraph> _ref;
+
+  SkParagraph get skiaObject => _ref.nativeObject;
+
+  /// The constraints from the last time we laid the paragraph out.
   ///
-  /// This may be invalidated later.
-  SkParagraph? _skParagraph;
+  /// This is used to resurrect the paragraph if the initial paragraph
+  /// is deleted.
+  double _lastLayoutConstraints = double.negativeInfinity;
 
   /// The paragraph style used to build this paragraph.
   ///
@@ -570,119 +783,6 @@ class CkParagraph extends SkiaObject<SkParagraph> implements ui.Paragraph {
   /// is deleted.
   final CkParagraphStyle _paragraphStyle;
 
-  /// The paragraph builder commands used to build this paragraph.
-  ///
-  /// This is used to resurrect the paragraph if the initial paragraph
-  /// is deleted.
-  final List<_ParagraphCommand> _paragraphCommands;
-
-  /// The constraints from the last time we laid the paragraph out.
-  ///
-  /// This is used to resurrect the paragraph if the initial paragraph
-  /// is deleted.
-  ui.ParagraphConstraints? _lastLayoutConstraints;
-
-  @override
-  SkParagraph get skiaObject => _ensureInitialized(_lastLayoutConstraints!);
-
-  SkParagraph _ensureInitialized(ui.ParagraphConstraints constraints) {
-    SkParagraph? paragraph = _skParagraph;
-
-    // Paragraph objects are immutable. It's OK to skip initialization and reuse
-    // existing object.
-    bool didRebuildSkiaObject = false;
-    if (paragraph == null) {
-      final CkParagraphBuilder builder = CkParagraphBuilder(_paragraphStyle);
-      for (final _ParagraphCommand command in _paragraphCommands) {
-        switch (command.type) {
-          case _ParagraphCommandType.addText:
-            builder.addText(command.text!);
-            break;
-          case _ParagraphCommandType.pop:
-            builder.pop();
-            break;
-          case _ParagraphCommandType.pushStyle:
-            builder.pushStyle(command.style!);
-            break;
-          case _ParagraphCommandType.addPlaceholder:
-            builder._addPlaceholder(command.placeholderStyle!);
-            break;
-        }
-      }
-      paragraph = builder._buildSkParagraph();
-      _skParagraph = paragraph;
-      didRebuildSkiaObject = true;
-    }
-
-    final bool constraintsChanged = _lastLayoutConstraints != constraints;
-    if (didRebuildSkiaObject || constraintsChanged) {
-      _lastLayoutConstraints = constraints;
-      // TODO(het): CanvasKit throws an exception when laid out with
-      // a font that wasn't registered.
-      try {
-        paragraph.layout(constraints.width);
-        _alphabeticBaseline = paragraph.getAlphabeticBaseline();
-        _didExceedMaxLines = paragraph.didExceedMaxLines();
-        _height = paragraph.getHeight();
-        _ideographicBaseline = paragraph.getIdeographicBaseline();
-        _longestLine = paragraph.getLongestLine();
-        _maxIntrinsicWidth = paragraph.getMaxIntrinsicWidth();
-        _minIntrinsicWidth = paragraph.getMinIntrinsicWidth();
-        _width = paragraph.getMaxWidth();
-        _boxesForPlaceholders =
-            skRectsToTextBoxes(
-                paragraph.getRectsForPlaceholders().cast<Float32List>());
-      } catch (e) {
-        printWarning('CanvasKit threw an exception while laying '
-            'out the paragraph. The font was "${_paragraphStyle._fontFamily}". '
-            'Exception:\n$e');
-        rethrow;
-      }
-    }
-
-    return paragraph;
-  }
-
-  // Caches laid out paragraphs and synchronously reclaims memory if there's
-  // memory pressure.
-  //
-  // On May 26, 2021, 500 seemed like a reasonable number to pick for the cache
-  // size. At the time a single laid out SkParagraph used 100KB of memory. So,
-  // 500 items in the cache is roughly 50MB of memory, which is not too high,
-  // while at the same time enough for most use-cases.
-  //
-  // TODO(yjbanov): this strategy is not sufficient for the use-case where a
-  //                lot of paragraphs are laid out _and_ rendered. To support
-  //                this use-case without blowing up memory usage we need this:
-  //                https://github.com/flutter/flutter/issues/81224
-  static final SynchronousSkiaObjectCache _paragraphCache =
-      SynchronousSkiaObjectCache(500);
-
-  /// Marks this paragraph as having been used this frame.
-  ///
-  /// Puts this paragraph in a [SynchronousSkiaObjectCache], which will delete it
-  /// if there's memory pressure to do so. This protects our memory usage from
-  /// blowing up if within a single frame the framework needs to layout a lot of
-  /// paragraphs. One common use-case is `ListView.builder`, which needs to layout
-  /// more of its content than it actually renders to compute the scroll position.
-  void markUsed() {
-    // If the paragraph is already in the cache, just mark it as most recently
-    // used. Otherwise, add to cache.
-    if (!_paragraphCache.markUsed(this)) {
-      _paragraphCache.add(this);
-    }
-  }
-
-  @override
-  void delete() {
-    _skParagraph?.delete();
-    _skParagraph = null;
-  }
-
-  @override
-  void didDelete() {
-    _skParagraph = null;
-  }
 
   @override
   double get alphabeticBaseline => _alphabeticBaseline;
@@ -727,28 +827,29 @@ class CkParagraph extends SkiaObject<SkParagraph> implements ui.Paragraph {
     ui.BoxHeightStyle boxHeightStyle = ui.BoxHeightStyle.tight,
     ui.BoxWidthStyle boxWidthStyle = ui.BoxWidthStyle.tight,
   }) {
+    assert(!_disposed, 'Paragraph has been disposed.');
     if (start < 0 || end < 0) {
       return const <ui.TextBox>[];
     }
 
-    final SkParagraph paragraph = _ensureInitialized(_lastLayoutConstraints!);
-    final List<Float32List> skRects = paragraph.getRectsForRange(
-      start,
-      end,
+    final List<SkRectWithDirection> skRects = skiaObject.getRectsForRange(
+      start.toDouble(),
+      end.toDouble(),
       toSkRectHeightStyle(boxHeightStyle),
       toSkRectWidthStyle(boxWidthStyle),
-    ).cast<Float32List>();
+    );
 
     return skRectsToTextBoxes(skRects);
   }
 
-  List<ui.TextBox> skRectsToTextBoxes(List<Float32List> skRects) {
+  List<ui.TextBox> skRectsToTextBoxes(List<SkRectWithDirection> skRects) {
+    assert(!_disposed, 'Paragraph has been disposed.');
     final List<ui.TextBox> result = <ui.TextBox>[];
 
     for (int i = 0; i < skRects.length; i++) {
-      final Float32List rect = skRects[i];
-      final int skTextDirection =
-          getJsProperty(getJsProperty(rect, 'direction'), 'value');
+      final SkRectWithDirection skRect = skRects[i];
+      final Float32List rect = skRect.rect;
+      final int skTextDirection = skRect.dir.value.toInt();
       result.add(ui.TextBox.fromLTRBD(
         rect[0],
         rect[1],
@@ -763,9 +864,8 @@ class CkParagraph extends SkiaObject<SkParagraph> implements ui.Paragraph {
 
   @override
   ui.TextPosition getPositionForOffset(ui.Offset offset) {
-    final SkParagraph paragraph = _ensureInitialized(_lastLayoutConstraints!);
-    final SkTextPosition positionWithAffinity =
-        paragraph.getGlyphPositionAtCoordinate(
+    assert(!_disposed, 'Paragraph has been disposed.');
+    final SkTextPosition positionWithAffinity = skiaObject.getGlyphPositionAtCoordinate(
       offset.dx,
       offset.dy,
     );
@@ -773,38 +873,69 @@ class CkParagraph extends SkiaObject<SkParagraph> implements ui.Paragraph {
   }
 
   @override
+  ui.GlyphInfo? getClosestGlyphInfoForOffset(ui.Offset offset) {
+    assert(!_disposed, 'Paragraph has been disposed.');
+    return skiaObject.getClosestGlyphInfoAt(offset.dx, offset.dy);
+  }
+
+  @override
+  ui.GlyphInfo? getGlyphInfoAt(int codeUnitOffset) {
+    assert(!_disposed, 'Paragraph has been disposed.');
+    return skiaObject.getGlyphInfoAt(codeUnitOffset.toDouble());
+  }
+
+  @override
   ui.TextRange getWordBoundary(ui.TextPosition position) {
-    final SkParagraph paragraph = _ensureInitialized(_lastLayoutConstraints!);
+    assert(!_disposed, 'Paragraph has been disposed.');
     final int characterPosition;
     switch (position.affinity) {
       case ui.TextAffinity.upstream:
         characterPosition = position.offset - 1;
-        break;
       case ui.TextAffinity.downstream:
         characterPosition = position.offset;
-        break;
     }
-    final SkTextRange skRange = paragraph.getWordBoundary(characterPosition);
+    final SkTextRange skRange = skiaObject.getWordBoundary(characterPosition.toDouble());
     return ui.TextRange(start: skRange.start.toInt(), end: skRange.end.toInt());
   }
 
   @override
   void layout(ui.ParagraphConstraints constraints) {
-    if (_lastLayoutConstraints == constraints) {
+    assert(!_disposed, 'Paragraph has been disposed.');
+    if (_lastLayoutConstraints == constraints.width) {
       return;
     }
-    _ensureInitialized(constraints);
 
-    // See class-level and _paragraphCache doc comments for why we're releasing
-    // the paragraph immediately after layout.
-    markUsed();
+    _lastLayoutConstraints = constraints.width;
+
+    // TODO(het): CanvasKit throws an exception when laid out with
+    // a font that wasn't registered.
+    try {
+      final SkParagraph paragraph = skiaObject;
+      paragraph.layout(constraints.width);
+      _alphabeticBaseline = paragraph.getAlphabeticBaseline();
+      _didExceedMaxLines = paragraph.didExceedMaxLines();
+      _height = paragraph.getHeight();
+      _ideographicBaseline = paragraph.getIdeographicBaseline();
+      _longestLine = paragraph.getLongestLine();
+      _maxIntrinsicWidth = paragraph.getMaxIntrinsicWidth();
+      _minIntrinsicWidth = paragraph.getMinIntrinsicWidth();
+      _width = paragraph.getMaxWidth();
+      _boxesForPlaceholders =
+          skRectsToTextBoxes(paragraph.getRectsForPlaceholders());
+    } catch (e) {
+      printWarning(
+        'CanvasKit threw an exception while laying '
+        'out the paragraph. The font was "${_paragraphStyle._originalFontFamily}". '
+        'Exception:\n$e',
+      );
+      rethrow;
+    }
   }
 
   @override
   ui.TextRange getLineBoundary(ui.TextPosition position) {
-    final SkParagraph paragraph = _ensureInitialized(_lastLayoutConstraints!);
-    final List<SkLineMetrics> metrics =
-        paragraph.getLineMetrics().cast<SkLineMetrics>();
+    assert(!_disposed, 'Paragraph has been disposed.');
+    final List<SkLineMetrics> metrics = skiaObject.getLineMetrics();
     final int offset = position.offset;
     for (final SkLineMetrics metric in metrics) {
       if (offset >= metric.startIndex && offset <= metric.endIndex) {
@@ -816,9 +947,8 @@ class CkParagraph extends SkiaObject<SkParagraph> implements ui.Paragraph {
 
   @override
   List<ui.LineMetrics> computeLineMetrics() {
-    final SkParagraph paragraph = _ensureInitialized(_lastLayoutConstraints!);
-    final List<SkLineMetrics> skLineMetrics =
-        paragraph.getLineMetrics().cast<SkLineMetrics>();
+    assert(!_disposed, 'Paragraph has been disposed.');
+    final List<SkLineMetrics> skLineMetrics = skiaObject.getLineMetrics();
     final List<ui.LineMetrics> result = <ui.LineMetrics>[];
     for (final SkLineMetrics metric in skLineMetrics) {
       result.add(CkLineMetrics._(metric));
@@ -826,20 +956,47 @@ class CkParagraph extends SkiaObject<SkParagraph> implements ui.Paragraph {
     return result;
   }
 
+  @override
+  ui.LineMetrics? getLineMetricsAt(int lineNumber) {
+    assert(!_disposed, 'Paragraph has been disposed.');
+    final SkLineMetrics? metrics = skiaObject.getLineMetricsAt(lineNumber.toDouble());
+    return metrics == null ? null : CkLineMetrics._(metrics);
+  }
+
+  @override
+  int get numberOfLines {
+    assert(!_disposed, 'Paragraph has been disposed.');
+    return skiaObject.getNumberOfLines().toInt();
+  }
+
+  @override
+  int? getLineNumberAt(int codeUnitOffset) {
+    assert(!_disposed, 'Paragraph has been disposed.');
+    final int lineNumber = skiaObject.getLineNumberAt(codeUnitOffset.toDouble()).toInt();
+    return lineNumber >= 0 ? lineNumber : null;
+  }
+
   bool _disposed = false;
 
   @override
   void dispose() {
-    delete();
-    didDelete();
+    assert(!_disposed, 'Paragraph has been disposed.');
+    _ref.dispose();
     _disposed = true;
   }
 
   @override
   bool get debugDisposed {
-    if (assertionsEnabled) {
-      return _disposed;
+    bool? result;
+    assert(() {
+      result = _disposed;
+      return true;
+    }());
+
+    if (result != null) {
+      return result!;
     }
+
     throw StateError('Paragraph.debugDisposed is only available when asserts are enabled.');
   }
 }
@@ -881,21 +1038,19 @@ class CkLineMetrics implements ui.LineMetrics {
 
 class CkParagraphBuilder implements ui.ParagraphBuilder {
   CkParagraphBuilder(ui.ParagraphStyle style)
-      : _commands = <_ParagraphCommand>[],
-        _style = style as CkParagraphStyle,
+      : _style = style as CkParagraphStyle,
         _placeholderCount = 0,
         _placeholderScales = <double>[],
         _styleStack = <CkTextStyle>[],
-        _paragraphBuilder = canvasKit.ParagraphBuilder.MakeFromFontProvider(
+        _paragraphBuilder = canvasKit.ParagraphBuilder.MakeFromFontCollection(
           style.skParagraphStyle,
-          CanvasKitRenderer.instance.fontCollection.fontProvider,
+          CanvasKitRenderer.instance.fontCollection.skFontCollection,
         ) {
     _styleStack.add(_style.getTextStyle());
   }
 
   final SkParagraphBuilder _paragraphBuilder;
   final CkParagraphStyle _style;
-  final List<_ParagraphCommand> _commands;
   int _placeholderCount;
   final List<double> _placeholderScales;
   final List<CkTextStyle> _styleStack;
@@ -927,7 +1082,6 @@ class CkParagraphBuilder implements ui.ParagraphBuilder {
   }
 
   void _addPlaceholder(_CkParagraphPlaceholder placeholderStyle) {
-    _commands.add(_ParagraphCommand.addPlaceholder(placeholderStyle));
     _paragraphBuilder.addPlaceholder(
       placeholderStyle.width,
       placeholderStyle.height,
@@ -958,25 +1112,27 @@ class CkParagraphBuilder implements ui.ParagraphBuilder {
   void addText(String text) {
     final List<String> fontFamilies = <String>[];
     final CkTextStyle style = _peekStyle();
-    if (style.fontFamily != null) {
-      fontFamilies.add(style.fontFamily!);
+    if (style.effectiveFontFamily != null) {
+      fontFamilies.add(style.effectiveFontFamily!);
     }
-    if (style.fontFamilyFallback != null) {
-      fontFamilies.addAll(style.fontFamilyFallback!);
+    if (style.effectiveFontFamilyFallback != null) {
+      fontFamilies.addAll(style.effectiveFontFamilyFallback!);
     }
-    FontFallbackData.instance.ensureFontsSupportText(text, fontFamilies);
-    _commands.add(_ParagraphCommand.addText(text));
+    renderer.fontCollection.fontFallbackManager!.ensureFontsSupportText(text, fontFamilies);
     _paragraphBuilder.addText(text);
   }
 
   @override
   CkParagraph build() {
     final SkParagraph builtParagraph = _buildSkParagraph();
-    return CkParagraph(builtParagraph, _style, _commands);
+    return CkParagraph(builtParagraph, _style);
   }
 
   /// Builds the CkParagraph with the builder and deletes the builder.
   SkParagraph _buildSkParagraph() {
+    if (_ckRequiresClientICU) {
+      injectClientICU(_paragraphBuilder);
+    }
     final SkParagraph result = _paragraphBuilder.build();
     _paragraphBuilder.delete();
     return result;
@@ -992,15 +1148,15 @@ class CkParagraphBuilder implements ui.ParagraphBuilder {
   void pop() {
     if (_styleStack.length <= 1) {
       // The top-level text style is paragraph-level. We don't pop it off.
-      if (assertionsEnabled) {
+      assert(() {
         printWarning(
           'Cannot pop text style in ParagraphBuilder. '
           'Already popped all text styles from the style stack.',
         );
-      }
+        return true;
+      }());
       return;
     }
-    _commands.add(const _ParagraphCommand.pop());
     _styleStack.removeLast();
     _paragraphBuilder.pop();
   }
@@ -1027,12 +1183,11 @@ class CkParagraphBuilder implements ui.ParagraphBuilder {
     final CkTextStyle ckStyle = style as CkTextStyle;
     final CkTextStyle skStyle = baseStyle.mergeWith(ckStyle);
     _styleStack.add(skStyle);
-    _commands.add(_ParagraphCommand.pushStyle(ckStyle));
     if (skStyle.foreground != null || skStyle.background != null) {
       SkPaint? foreground = skStyle.foreground?.skiaObject;
       if (foreground == null) {
         _defaultTextForeground.setColorInt(
-          skStyle.color?.value ?? 0xFF000000,
+          (skStyle.color?.value ?? 0xFF000000).toDouble(),
         );
         foreground = _defaultTextForeground;
       }
@@ -1063,42 +1218,7 @@ class _CkParagraphPlaceholder {
   final double offset;
 }
 
-class _ParagraphCommand {
-  const _ParagraphCommand._(
-    this.type,
-    this.text,
-    this.style,
-    this.placeholderStyle,
-  );
-
-  const _ParagraphCommand.addText(String text)
-      : this._(_ParagraphCommandType.addText, text, null, null);
-
-  const _ParagraphCommand.pop()
-      : this._(_ParagraphCommandType.pop, null, null, null);
-
-  const _ParagraphCommand.pushStyle(CkTextStyle style)
-      : this._(_ParagraphCommandType.pushStyle, null, style, null);
-
-  const _ParagraphCommand.addPlaceholder(
-      _CkParagraphPlaceholder placeholderStyle)
-      : this._(
-            _ParagraphCommandType.addPlaceholder, null, null, placeholderStyle);
-
-  final _ParagraphCommandType type;
-  final String? text;
-  final CkTextStyle? style;
-  final _CkParagraphPlaceholder? placeholderStyle;
-}
-
-enum _ParagraphCommandType {
-  addText,
-  pop,
-  pushStyle,
-  addPlaceholder,
-}
-
-List<String> _getEffectiveFontFamilies(String? fontFamily,
+List<String> _computeCombinedFontFamilies(String? fontFamily,
     [List<String>? fontFamilyFallback]) {
   final List<String> fontFamilies = <String>[];
   if (fontFamily != null) {
@@ -1108,6 +1228,8 @@ List<String> _getEffectiveFontFamilies(String? fontFamily,
       !fontFamilyFallback.every((String font) => fontFamily == font)) {
     fontFamilies.addAll(fontFamilyFallback);
   }
-  fontFamilies.addAll(FontFallbackData.instance.globalFontFallbacks);
+  fontFamilies.addAll(
+    renderer.fontCollection.fontFallbackManager!.globalFontFallbacks
+  );
   return fontFamilies;
 }

@@ -5,6 +5,7 @@
 #ifndef FLUTTER_SHELL_PLATFORM_WINDOWS_TESTING_MOCK_DIRECT_MANIPULATION_H_
 #define FLUTTER_SHELL_PLATFORM_WINDOWS_TESTING_MOCK_DIRECT_MANIPULATION_H_
 
+#include "flutter/fml/macros.h"
 #include "flutter/shell/platform/windows/direct_manipulation.h"
 #include "gmock/gmock.h"
 
@@ -14,11 +15,11 @@ namespace testing {
 /// Mock for the |DirectManipulationOwner| base class.
 class MockDirectManipulationOwner : public DirectManipulationOwner {
  public:
-  explicit MockDirectManipulationOwner(Window* window)
+  explicit MockDirectManipulationOwner(FlutterWindow* window)
       : DirectManipulationOwner(window){};
   virtual ~MockDirectManipulationOwner() = default;
 
-  MOCK_METHOD1(SetContact, void(UINT contact_id));
+  MOCK_METHOD(void, SetContact, (UINT contact_id), (override));
 
  private:
   FML_DISALLOW_COPY_AND_ASSIGN(MockDirectManipulationOwner);

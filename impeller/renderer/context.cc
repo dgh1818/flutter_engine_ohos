@@ -4,22 +4,16 @@
 
 #include "impeller/renderer/context.h"
 
+#include "impeller/core/capture.h"
+
 namespace impeller {
 
 Context::~Context() = default;
 
-Context::Context() = default;
+Context::Context() : capture(CaptureContext::MakeInactive()) {}
 
-bool Context::HasThreadingRestrictions() const {
+bool Context::UpdateOffscreenLayerPixelFormat(PixelFormat format) {
   return false;
-}
-
-std::shared_ptr<GPUTracer> Context::GetGPUTracer() const {
-  return nullptr;
-}
-
-PixelFormat Context::GetColorAttachmentPixelFormat() const {
-  return PixelFormat::kDefaultColor;
 }
 
 }  // namespace impeller

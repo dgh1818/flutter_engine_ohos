@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifndef FLUTTER_SHELL_PLATFORM_DARWIN_GRAPHICS_FLUTTERDARWINEXTERNALTEXTUREMETAL_H_
+#define FLUTTER_SHELL_PLATFORM_DARWIN_GRAPHICS_FLUTTERDARWINEXTERNALTEXTUREMETAL_H_
+
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
 
@@ -36,7 +39,7 @@
 - (void)paintContext:(flutter::Texture::PaintContext&)context
               bounds:(const SkRect&)bounds
               freeze:(BOOL)freeze
-            sampling:(const SkSamplingOptions&)sampling;
+            sampling:(const flutter::DlImageSampling)sampling;
 
 - (void)onGrContextCreated;
 
@@ -49,3 +52,5 @@
 @property(nonatomic, readonly) int64_t textureID;
 
 @end
+
+#endif  // FLUTTER_SHELL_PLATFORM_DARWIN_GRAPHICS_FLUTTERDARWINEXTERNALTEXTUREMETAL_H_

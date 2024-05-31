@@ -17,7 +17,6 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.Configuration;
 import android.content.res.Resources.NotFoundException;
 import android.graphics.drawable.Drawable;
-import android.os.Build;
 import android.os.Bundle;
 import android.util.TypedValue;
 import android.view.View;
@@ -137,12 +136,10 @@ public final class FlutterActivityDelegate
 
   @Override
   public void onCreate(Bundle savedInstanceState) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-      Window window = activity.getWindow();
-      window.addFlags(LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-      window.setStatusBarColor(0x40000000);
-      window.getDecorView().setSystemUiVisibility(PlatformPlugin.DEFAULT_SYSTEM_UI);
-    }
+    Window window = activity.getWindow();
+    window.addFlags(LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+    window.setStatusBarColor(0x40000000);
+    window.getDecorView().setSystemUiVisibility(PlatformPlugin.DEFAULT_SYSTEM_UI);
 
     String[] args = getArgsFromIntent(activity.getIntent());
     FlutterMain.ensureInitializationComplete(activity.getApplicationContext(), args);
@@ -261,6 +258,11 @@ public final class FlutterActivityDelegate
   }
 
   @Override
+  public void onWindowFocusChanged(boolean hasFocus) {
+    flutterView.getPluginRegistry().onWindowFocusChanged(hasFocus);
+  }
+
+  @Override
   public void onTrimMemory(int level) {
     // Use a trim level delivered while the application is running so the
     // framework has a chance to react to the notification.
@@ -309,6 +311,9 @@ public final class FlutterActivityDelegate
     if (intent.getBooleanExtra("trace-systrace", false)) {
       args.add("--trace-systrace");
     }
+    if (intent.hasExtra("trace-to-file")) {
+      args.add("--trace-to-file=" + intent.getStringExtra("trace-to-file"));
+    }
     if (intent.getBooleanExtra("dump-skp-on-shader-compilation", false)) {
       args.add("--dump-skp-on-shader-compilation");
     }
@@ -321,15 +326,22 @@ public final class FlutterActivityDelegate
     if (intent.getBooleanExtra("verbose-logging", false)) {
       args.add("--verbose-logging");
     }
-    final int observatoryPort = intent.getIntExtra("observatory-port", 0);
-    if (observatoryPort > 0) {
-      args.add("--observatory-port=" + Integer.toString(observatoryPort));
+    int vmServicePort = intent.getIntExtra("vm-service-port", 0);
+    if (vmServicePort > 0) {
+      args.add("--vm-service-port=" + Integer.toString(vmServicePort));
+    } else {
+      // TODO(bkonyi): remove once flutter_tools no longer uses this option.
+      // See https://github.com/dart-lang/sdk/issues/50233
+      vmServicePort = intent.getIntExtra("observatory-port", 0);
+      if (vmServicePort > 0) {
+        args.add("--vm-service-port=" + Integer.toString(vmServicePort));
+      }
     }
     if (intent.getBooleanExtra("endless-trace-buffer", false)) {
       args.add("--endless-trace-buffer");
     }
     // NOTE: all flags provided with this argument are subject to filtering
-    // based on a a list of allowed flags in shell/common/switches.cc. If any
+    // based on a list of allowed flags in shell/common/switches.cc. If any
     // flag provided is not allowed, the process will immediately terminate.
     if (intent.hasExtra("dart-flags")) {
       args.add("--dart-flags=" + intent.getStringExtra("dart-flags"));

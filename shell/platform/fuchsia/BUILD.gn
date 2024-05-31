@@ -4,11 +4,11 @@
 
 assert(is_fuchsia)
 
-import("//build/fuchsia/sdk.gni")
 import("//flutter/common/config.gni")
 import("//flutter/testing/testing.gni")
 import("//flutter/tools/fuchsia/dart.gni")
 import("//flutter/tools/fuchsia/fuchsia_host_bundle.gni")
+import("//flutter/tools/fuchsia/gn-sdk/src/gn_configs.gni")
 
 product_suffix = ""
 
@@ -90,6 +90,7 @@ if (enable_unittests) {
     testonly = true
 
     deps = [
+      "dart-pkg/zircon:tests",
       "dart_runner:tests",
       "flutter:tests",
     ]

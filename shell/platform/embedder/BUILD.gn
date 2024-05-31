@@ -5,6 +5,7 @@
 import("//build/toolchain/clang.gni")
 import("//flutter/build/zip_bundle.gni")
 import("//flutter/common/config.gni")
+import("//flutter/impeller/tools/impeller.gni")
 import("//flutter/shell/gpu/gpu.gni")
 import("//flutter/shell/platform/embedder/embedder.gni")
 import("//flutter/testing/testing.gni")
@@ -75,6 +76,10 @@ template("embedder_source_set") {
       "embedder_render_target.h",
       "embedder_render_target_cache.cc",
       "embedder_render_target_cache.h",
+      "embedder_render_target_skia.cc",
+      "embedder_render_target_skia.h",
+      "embedder_semantics_update.cc",
+      "embedder_semantics_update.h",
       "embedder_struct_macros.h",
       "embedder_surface.cc",
       "embedder_surface.h",
@@ -85,10 +90,28 @@ template("embedder_source_set") {
       "embedder_thread_host.cc",
       "embedder_thread_host.h",
       "pixel_formats.cc",
+      "pixel_formats.h",
       "platform_view_embedder.cc",
       "platform_view_embedder.h",
       "vsync_waiter_embedder.cc",
       "vsync_waiter_embedder.h",
+    ]
+
+    public_deps = [ ":embedder_headers" ]
+    deps = [
+      ":embedder_gpu_configuration",
+      "$dart_src/runtime/bin:dart_io_api",
+      "$dart_src/runtime/bin:elf_loader",
+      "//flutter/assets",
+      "//flutter/common",
+      "//flutter/common/graphics",
+      "//flutter/flow",
+      "//flutter/fml",
+      "//flutter/lib/ui",
+      "//flutter/runtime:libdart",
+      "//flutter/shell/common",
+      "//flutter/skia",
+      "//flutter/third_party/tonic",
     ]
 
     if (embedder_enable_gl) {
@@ -98,25 +121,26 @@ template("embedder_source_set") {
         "embedder_surface_gl.cc",
         "embedder_surface_gl.h",
       ]
+
+      if (impeller_supports_rendering) {
+        sources += [
+          "embedder_surface_gl_impeller.cc",
+          "embedder_surface_gl_impeller.h",
+        ]
+        deps += [ "//flutter/impeller/renderer/backend/gles" ]
+      }
     }
 
-    deps = [
-      ":embedder_gpu_configuration",
-      "//flutter/assets",
-      "//flutter/common",
-      "//flutter/common/graphics",
-      "//flutter/flow",
-      "//flutter/fml",
-      "//flutter/lib/ui",
-      "//flutter/runtime:libdart",
-      "//flutter/shell/common",
-      "//flutter/third_party/tonic",
-      "//third_party/dart/runtime/bin:dart_io_api",
-      "//third_party/dart/runtime/bin:elf_loader",
-      "//third_party/skia",
-    ]
-    if( is_ohos ){
-       #libs +=["hilog_ndk.z"]
+    if (impeller_supports_rendering) {
+      sources += [
+        "embedder_render_target_impeller.cc",
+        "embedder_render_target_impeller.h",
+      ]
+
+      deps += [
+        "//flutter/impeller",
+        "//flutter/impeller/renderer",
+      ]
     }
 
     if (embedder_enable_metal) {
@@ -126,6 +150,14 @@ template("embedder_source_set") {
         "embedder_surface_metal.h",
         "embedder_surface_metal.mm",
       ]
+
+      if (impeller_supports_rendering) {
+        sources += [
+          "embedder_surface_metal_impeller.h",
+          "embedder_surface_metal_impeller.mm",
+        ]
+        deps += [ "//flutter/impeller/renderer/backend/metal" ]
+      }
 
       cflags_objc = flutter_cflags_objc
       cflags_objcc = flutter_cflags_objcc
@@ -145,12 +177,17 @@ template("embedder_source_set") {
       ]
     }
 
-    public_deps = [ ":embedder_headers" ]
+    # Depend on 'icudtl.dat.S' to avoid dynamic lookups of engine library symbols.
+    if (is_android) {
+      deps += [ "//flutter/shell/platform/android:icudtl_asm" ]
+      sources += [ "$root_build_dir/gen/flutter/shell/platform/android/flutter/third_party/icu/flutter/icudtl.dat.S" ]
+    }
 
     public_configs += [
       ":embedder_gpu_configuration_config",
       ":embedder_header_config",
       "//flutter:config",
+      "//flutter/impeller:impeller_public_config",
     ]
   }
 }
@@ -201,9 +238,11 @@ test_fixtures("fixtures") {
     "fixtures/compositor_software.png",
     "fixtures/compositor_with_platform_layer_on_bottom.png",
     "fixtures/compositor_with_root_layer_only.png",
+    "fixtures/compositor_platform_layer_with_no_overlay.png",
     "fixtures/dpr_noxform.png",
     "fixtures/dpr_xform.png",
     "fixtures/gradient.png",
+    "fixtures/impeller_gl_test.png",
     "fixtures/vk_dpr_noxform.png",
     "fixtures/vk_gradient.png",
     "fixtures/gradient_metal.png",
@@ -232,6 +271,7 @@ if (enable_unittests) {
       "platform_view_embedder_unittests.cc",
       "tests/embedder_config_builder.cc",
       "tests/embedder_config_builder.h",
+      "tests/embedder_frozen.h",
       "tests/embedder_test.cc",
       "tests/embedder_test.h",
       "tests/embedder_test_backingstore_producer.cc",
@@ -251,16 +291,16 @@ if (enable_unittests) {
       ":embedder",
       ":embedder_gpu_configuration",
       ":fixtures",
+      "$dart_src/runtime/bin:elf_loader",
       "//flutter/flow",
       "//flutter/lib/snapshot",
       "//flutter/lib/ui",
       "//flutter/runtime",
+      "//flutter/skia",
       "//flutter/testing",
       "//flutter/testing:dart",
       "//flutter/testing:skia",
       "//flutter/third_party/tonic",
-      "//third_party/dart/runtime/bin:elf_loader",
-      "//third_party/skia",
     ]
 
     if (test_enable_gl) {
@@ -273,7 +313,7 @@ if (enable_unittests) {
 
       public_deps += [
         "//flutter/testing:opengl",
-        "//third_party/vulkan-deps/vulkan-headers/src:vulkan_headers",
+        "//flutter/third_party/vulkan-deps/vulkan-headers/src:vulkan_headers",
       ]
     }
 
@@ -315,16 +355,23 @@ if (enable_unittests) {
 
     include_dirs = [ "." ]
 
-    sources = [ "tests/embedder_unittests.cc" ]
+    sources = [
+      "tests/embedder_frozen_unittests.cc",
+      "tests/embedder_unittests.cc",
+    ]
 
     deps = [ ":embedder_unittests_library" ]
 
     if (test_enable_gl) {
-      sources += [ "tests/embedder_unittests_gl.cc" ]
+      sources += [ "tests/embedder_gl_unittests.cc" ]
     }
 
     if (test_enable_metal) {
-      sources += [ "tests/embedder_unittests_metal.mm" ]
+      sources += [ "tests/embedder_metal_unittests.mm" ]
+    }
+
+    if (test_enable_vulkan) {
+      sources += [ "tests/embedder_vk_unittests.cc" ]
     }
   }
 
@@ -369,8 +416,8 @@ if (enable_unittests) {
       #"//flutter/testing:dart",
       #"//flutter/testing:skia",
       #"//flutter/third_party/tonic",
-      #"//third_party/dart/runtime/bin:elf_loader",
-      #"//third_party/skia",
+      #"$dart_src/runtime/bin:elf_loader",
+      #"//flutter/skia",
     ]
   }
 }
@@ -412,7 +459,7 @@ if (is_mac && !embedder_for_target) {
 
   copy("copy_icu") {
     visibility = [ ":*" ]
-    sources = [ "//third_party/icu/flutter/icudtl.dat" ]
+    sources = [ "//flutter/third_party/icu/flutter/icudtl.dat" ]
     outputs =
         [ "$_flutter_embedder_framework_dir/Versions/A/Resources/icudtl.dat" ]
   }
@@ -533,7 +580,8 @@ if (is_mac) {
 
 if (host_os == "linux" || host_os == "win") {
   zip_bundle("embedder-archive") {
-    output = "$full_platform_name/$full_platform_name-embedder.zip"
+    output =
+        "$full_target_platform_name/$full_target_platform_name-embedder.zip"
     deps = [
       "//flutter/shell/platform/embedder:copy_headers",
       "//flutter/shell/platform/embedder:flutter_engine_library",

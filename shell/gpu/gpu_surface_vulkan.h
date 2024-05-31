@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef SHELL_GPU_GPU_SURFACE_VULKAN_H_
-#define SHELL_GPU_GPU_SURFACE_VULKAN_H_
+#ifndef FLUTTER_SHELL_GPU_GPU_SURFACE_VULKAN_H_
+#define FLUTTER_SHELL_GPU_GPU_SURFACE_VULKAN_H_
 
 #include <memory>
 
@@ -14,7 +14,9 @@
 #include "flutter/vulkan/vulkan_backbuffer.h"
 #include "flutter/vulkan/vulkan_native_surface.h"
 #include "flutter/vulkan/vulkan_window.h"
-#include "include/core/SkRefCnt.h"
+
+#include "third_party/skia/include/core/SkRefCnt.h"
+#include "third_party/skia/include/core/SkSurface.h"
 
 namespace flutter {
 
@@ -64,4 +66,4 @@ class GPUSurfaceVulkan : public Surface {
 
 }  // namespace flutter
 
-#endif  // SHELL_GPU_GPU_SURFACE_VULKAN_H_
+#endif  // FLUTTER_SHELL_GPU_GPU_SURFACE_VULKAN_H_

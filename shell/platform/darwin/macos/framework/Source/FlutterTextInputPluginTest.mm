@@ -4,10 +4,12 @@
 
 #import "flutter/shell/platform/darwin/macos/framework/Headers/FlutterViewController.h"
 #import "flutter/shell/platform/darwin/macos/framework/Source/FlutterDartProject_Internal.h"
+#import "flutter/shell/platform/darwin/macos/framework/Source/FlutterEngineTestUtils.h"
 #import "flutter/shell/platform/darwin/macos/framework/Source/FlutterEngine_Internal.h"
 #import "flutter/shell/platform/darwin/macos/framework/Source/FlutterTextInputPlugin.h"
 #import "flutter/shell/platform/darwin/macos/framework/Source/FlutterTextInputSemanticsObject.h"
 #import "flutter/shell/platform/darwin/macos/framework/Source/FlutterViewController_Internal.h"
+#import "flutter/shell/platform/darwin/macos/framework/Source/NSView+ClipsToBounds.h"
 
 #import <OCMock/OCMock.h>
 #import "flutter/testing/testing.h"
@@ -37,6 +39,16 @@
 - (BOOL)isActive;
 @end
 
+@interface TextInputTestViewController : FlutterViewController
+@end
+
+@implementation TextInputTestViewController
+- (nonnull FlutterView*)createFlutterViewWithMTLDevice:(id<MTLDevice>)device
+                                          commandQueue:(id<MTLCommandQueue>)commandQueue {
+  return OCMClassMock([NSView class]);
+}
+@end
+
 @interface FlutterInputPluginTestObjc : NSObject
 - (bool)testEmptyCompositionRange;
 - (bool)testClearClientDuringComposing;
@@ -45,7 +57,7 @@
 @implementation FlutterInputPluginTestObjc
 
 - (bool)testEmptyCompositionRange {
-  id engineMock = OCMClassMock([FlutterEngine class]);
+  id engineMock = flutter::testing::CreateMockFlutterEngine(@"");
   id binaryMessengerMock = OCMProtocolMock(@protocol(FlutterBinaryMessenger));
   OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
       [engineMock binaryMessenger])
@@ -58,14 +70,12 @@
   FlutterTextInputPlugin* plugin =
       [[FlutterTextInputPlugin alloc] initWithViewController:viewController];
 
-  [plugin handleMethodCall:[FlutterMethodCall
-                               methodCallWithMethodName:@"TextInput.setClient"
-                                              arguments:@[
-                                                @(1), @{
-                                                  @"inputAction" : @"action",
-                                                  @"inputType" : @{@"name" : @"inputName"},
-                                                }
-                                              ]]
+  NSDictionary* setClientConfig = @{
+    @"inputAction" : @"action",
+    @"inputType" : @{@"name" : @"inputName"},
+  };
+  [plugin handleMethodCall:[FlutterMethodCall methodCallWithMethodName:@"TextInput.setClient"
+                                                             arguments:@[ @(1), setClientConfig ]]
                     result:^(id){
                     }];
 
@@ -78,39 +88,24 @@
                                                                 @"composingExtent" : @(-1),
                                                               }];
 
-  NSDictionary* expectedState = @{
-    @"selectionBase" : @(0),
-    @"selectionExtent" : @(0),
-    @"selectionAffinity" : @"TextAffinity.upstream",
-    @"selectionIsDirectional" : @(NO),
-    @"composingBase" : @(-1),
-    @"composingExtent" : @(-1),
-    @"text" : @"Text",
-  };
-
-  NSData* updateCall = [[FlutterJSONMethodCodec sharedInstance]
-      encodeMethodCall:[FlutterMethodCall
-                           methodCallWithMethodName:@"TextInputClient.updateEditingState"
-                                          arguments:@[ @(1), expectedState ]]];
-
-  OCMExpect(  // NOLINT(google-objc-avoid-throwing-exception)
-      [binaryMessengerMock sendOnChannel:@"flutter/textinput" message:updateCall]);
-
   [plugin handleMethodCall:call
                     result:^(id){
                     }];
 
-  @try {
-    OCMVerify(  // NOLINT(google-objc-avoid-throwing-exception)
-        [binaryMessengerMock sendOnChannel:@"flutter/textinput" message:updateCall]);
-  } @catch (...) {
-    return false;
-  }
+  // Verify editing state was set.
+  NSDictionary* editingState = [plugin editingState];
+  EXPECT_STREQ([editingState[@"text"] UTF8String], "Text");
+  EXPECT_STREQ([editingState[@"selectionAffinity"] UTF8String], "TextAffinity.upstream");
+  EXPECT_FALSE([editingState[@"selectionIsDirectional"] boolValue]);
+  EXPECT_EQ([editingState[@"selectionBase"] intValue], 0);
+  EXPECT_EQ([editingState[@"selectionExtent"] intValue], 0);
+  EXPECT_EQ([editingState[@"composingBase"] intValue], -1);
+  EXPECT_EQ([editingState[@"composingExtent"] intValue], -1);
   return true;
 }
 
 - (bool)testSetMarkedTextWithSelectionChange {
-  id engineMock = OCMClassMock([FlutterEngine class]);
+  id engineMock = flutter::testing::CreateMockFlutterEngine(@"");
   id binaryMessengerMock = OCMProtocolMock(@protocol(FlutterBinaryMessenger));
   OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
       [engineMock binaryMessenger])
@@ -123,14 +118,12 @@
   FlutterTextInputPlugin* plugin =
       [[FlutterTextInputPlugin alloc] initWithViewController:viewController];
 
-  [plugin handleMethodCall:[FlutterMethodCall
-                               methodCallWithMethodName:@"TextInput.setClient"
-                                              arguments:@[
-                                                @(1), @{
-                                                  @"inputAction" : @"action",
-                                                  @"inputType" : @{@"name" : @"inputName"},
-                                                }
-                                              ]]
+  NSDictionary* setClientConfig = @{
+    @"inputAction" : @"action",
+    @"inputType" : @{@"name" : @"inputName"},
+  };
+  [plugin handleMethodCall:[FlutterMethodCall methodCallWithMethodName:@"TextInput.setClient"
+                                                             arguments:@[ @(1), setClientConfig ]]
                     result:^(id){
                     }];
 
@@ -178,7 +171,7 @@
 }
 
 - (bool)testSetMarkedTextWithReplacementRange {
-  id engineMock = OCMClassMock([FlutterEngine class]);
+  id engineMock = flutter::testing::CreateMockFlutterEngine(@"");
   id binaryMessengerMock = OCMProtocolMock(@protocol(FlutterBinaryMessenger));
   OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
       [engineMock binaryMessenger])
@@ -191,14 +184,12 @@
   FlutterTextInputPlugin* plugin =
       [[FlutterTextInputPlugin alloc] initWithViewController:viewController];
 
-  [plugin handleMethodCall:[FlutterMethodCall
-                               methodCallWithMethodName:@"TextInput.setClient"
-                                              arguments:@[
-                                                @(1), @{
-                                                  @"inputAction" : @"action",
-                                                  @"inputType" : @{@"name" : @"inputName"},
-                                                }
-                                              ]]
+  NSDictionary* setClientConfig = @{
+    @"inputAction" : @"action",
+    @"inputType" : @{@"name" : @"inputName"},
+  };
+  [plugin handleMethodCall:[FlutterMethodCall methodCallWithMethodName:@"TextInput.setClient"
+                                                             arguments:@[ @(1), setClientConfig ]]
                     result:^(id){
                     }];
 
@@ -246,7 +237,7 @@
 }
 
 - (bool)testComposingRegionRemovedByFramework {
-  id engineMock = OCMClassMock([FlutterEngine class]);
+  id engineMock = flutter::testing::CreateMockFlutterEngine(@"");
   id binaryMessengerMock = OCMProtocolMock(@protocol(FlutterBinaryMessenger));
   OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
       [engineMock binaryMessenger])
@@ -259,14 +250,12 @@
   FlutterTextInputPlugin* plugin =
       [[FlutterTextInputPlugin alloc] initWithViewController:viewController];
 
-  [plugin handleMethodCall:[FlutterMethodCall
-                               methodCallWithMethodName:@"TextInput.setClient"
-                                              arguments:@[
-                                                @(1), @{
-                                                  @"inputAction" : @"action",
-                                                  @"inputType" : @{@"name" : @"inputName"},
-                                                }
-                                              ]]
+  NSDictionary* setClientConfig = @{
+    @"inputAction" : @"action",
+    @"inputType" : @{@"name" : @"inputName"},
+  };
+  [plugin handleMethodCall:[FlutterMethodCall methodCallWithMethodName:@"TextInput.setClient"
+                                                             arguments:@[ @(1), setClientConfig ]]
                     result:^(id){
                     }];
 
@@ -295,36 +284,21 @@
                     result:^(id){
                     }];
 
-  NSDictionary* expectedState = @{
-    @"selectionBase" : @(2),
-    @"selectionExtent" : @(2),
-    @"selectionAffinity" : @"TextAffinity.upstream",
-    @"selectionIsDirectional" : @(NO),
-    @"composingBase" : @(-1),
-    @"composingExtent" : @(-1),
-    @"text" : @"Te",
-  };
-
-  NSData* updateCall = [[FlutterJSONMethodCodec sharedInstance]
-      encodeMethodCall:[FlutterMethodCall
-                           methodCallWithMethodName:@"TextInputClient.updateEditingState"
-                                          arguments:@[ @(1), expectedState ]]];
-
-  OCMExpect(  // NOLINT(google-objc-avoid-throwing-exception)
-      [binaryMessengerMock sendOnChannel:@"flutter/textinput" message:updateCall]);
-
-  @try {
-    OCMVerify(  // NOLINT(google-objc-avoid-throwing-exception)
-        [binaryMessengerMock sendOnChannel:@"flutter/textinput" message:updateCall]);
-  } @catch (...) {
-    return false;
-  }
+  // Verify editing state was set.
+  NSDictionary* editingState = [plugin editingState];
+  EXPECT_STREQ([editingState[@"text"] UTF8String], "Te");
+  EXPECT_STREQ([editingState[@"selectionAffinity"] UTF8String], "TextAffinity.upstream");
+  EXPECT_FALSE([editingState[@"selectionIsDirectional"] boolValue]);
+  EXPECT_EQ([editingState[@"selectionBase"] intValue], 2);
+  EXPECT_EQ([editingState[@"selectionExtent"] intValue], 2);
+  EXPECT_EQ([editingState[@"composingBase"] intValue], -1);
+  EXPECT_EQ([editingState[@"composingExtent"] intValue], -1);
   return true;
 }
 
 - (bool)testClearClientDuringComposing {
   // Set up FlutterTextInputPlugin.
-  id engineMock = OCMClassMock([FlutterEngine class]);
+  id engineMock = flutter::testing::CreateMockFlutterEngine(@"");
   id binaryMessengerMock = OCMProtocolMock(@protocol(FlutterBinaryMessenger));
   OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
       [engineMock binaryMessenger])
@@ -336,14 +310,12 @@
       [[FlutterTextInputPlugin alloc] initWithViewController:viewController];
 
   // Set input client 1.
-  [plugin handleMethodCall:[FlutterMethodCall
-                               methodCallWithMethodName:@"TextInput.setClient"
-                                              arguments:@[
-                                                @(1), @{
-                                                  @"inputAction" : @"action",
-                                                  @"inputType" : @{@"name" : @"inputName"},
-                                                }
-                                              ]]
+  NSDictionary* setClientConfig = @{
+    @"inputAction" : @"action",
+    @"inputType" : @{@"name" : @"inputName"},
+  };
+  [plugin handleMethodCall:[FlutterMethodCall methodCallWithMethodName:@"TextInput.setClient"
+                                                             arguments:@[ @(1), setClientConfig ]]
                     result:^(id){
                     }];
 
@@ -376,27 +348,313 @@
   return true;
 }
 
-- (bool)testFirstRectForCharacterRange {
-  id engineMock = OCMClassMock([FlutterEngine class]);
+- (bool)testAutocompleteDisabledWhenAutofillNotSet {
+  // Set up FlutterTextInputPlugin.
+  id engineMock = flutter::testing::CreateMockFlutterEngine(@"");
   id binaryMessengerMock = OCMProtocolMock(@protocol(FlutterBinaryMessenger));
   OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
       [engineMock binaryMessenger])
       .andReturn(binaryMessengerMock);
-  FlutterViewController* controllerMock = OCMClassMock([FlutterViewController class]);
-  OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
-      [controllerMock engine])
-      .andReturn(engineMock);
+  FlutterViewController* viewController = [[FlutterViewController alloc] initWithEngine:engineMock
+                                                                                nibName:@""
+                                                                                 bundle:nil];
+  FlutterTextInputPlugin* plugin =
+      [[FlutterTextInputPlugin alloc] initWithViewController:viewController];
 
-  id viewMock = OCMClassMock([NSView class]);
+  // Set input client 1.
+  NSDictionary* setClientConfig = @{
+    @"inputAction" : @"action",
+    @"inputType" : @{@"name" : @"inputName"},
+  };
+  [plugin handleMethodCall:[FlutterMethodCall methodCallWithMethodName:@"TextInput.setClient"
+                                                             arguments:@[ @(1), setClientConfig ]]
+                    result:^(id){
+                    }];
+
+  // Verify autocomplete is disabled.
+  EXPECT_FALSE([plugin isAutomaticTextCompletionEnabled]);
+  return true;
+}
+
+- (bool)testAutocompleteEnabledWhenAutofillSet {
+  // Set up FlutterTextInputPlugin.
+  id engineMock = flutter::testing::CreateMockFlutterEngine(@"");
+  id binaryMessengerMock = OCMProtocolMock(@protocol(FlutterBinaryMessenger));
+  OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
+      [engineMock binaryMessenger])
+      .andReturn(binaryMessengerMock);
+  FlutterViewController* viewController = [[FlutterViewController alloc] initWithEngine:engineMock
+                                                                                nibName:@""
+                                                                                 bundle:nil];
+  FlutterTextInputPlugin* plugin =
+      [[FlutterTextInputPlugin alloc] initWithViewController:viewController];
+
+  // Set input client 1.
+  NSDictionary* setClientConfig = @{
+    @"inputAction" : @"action",
+    @"inputType" : @{@"name" : @"inputName"},
+    @"autofill" : @{
+      @"uniqueIdentifier" : @"field1",
+      @"hints" : @[ @"name" ],
+      @"editingValue" : @{@"text" : @""},
+    }
+  };
+  [plugin handleMethodCall:[FlutterMethodCall methodCallWithMethodName:@"TextInput.setClient"
+                                                             arguments:@[ @(1), setClientConfig ]]
+                    result:^(id){
+                    }];
+
+  // Verify autocomplete is enabled.
+  EXPECT_TRUE([plugin isAutomaticTextCompletionEnabled]);
+
+  // Verify content type is nil for unsupported content types.
+  if (@available(macOS 11.0, *)) {
+    EXPECT_EQ([plugin contentType], nil);
+  }
+  return true;
+}
+
+- (bool)testAutocompleteEnabledWhenAutofillSetNoHint {
+  // Set up FlutterTextInputPlugin.
+  id engineMock = flutter::testing::CreateMockFlutterEngine(@"");
+  id binaryMessengerMock = OCMProtocolMock(@protocol(FlutterBinaryMessenger));
+  OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
+      [engineMock binaryMessenger])
+      .andReturn(binaryMessengerMock);
+  FlutterViewController* viewController = [[FlutterViewController alloc] initWithEngine:engineMock
+                                                                                nibName:@""
+                                                                                 bundle:nil];
+  FlutterTextInputPlugin* plugin =
+      [[FlutterTextInputPlugin alloc] initWithViewController:viewController];
+
+  // Set input client 1.
+  NSDictionary* setClientConfig = @{
+    @"inputAction" : @"action",
+    @"inputType" : @{@"name" : @"inputName"},
+    @"autofill" : @{
+      @"uniqueIdentifier" : @"field1",
+      @"hints" : @[],
+      @"editingValue" : @{@"text" : @""},
+    }
+  };
+  [plugin handleMethodCall:[FlutterMethodCall methodCallWithMethodName:@"TextInput.setClient"
+                                                             arguments:@[ @(1), setClientConfig ]]
+                    result:^(id){
+                    }];
+
+  // Verify autocomplete is enabled.
+  EXPECT_TRUE([plugin isAutomaticTextCompletionEnabled]);
+  return true;
+}
+
+- (bool)testAutocompleteDisabledWhenObscureTextSet {
+  // Set up FlutterTextInputPlugin.
+  id engineMock = flutter::testing::CreateMockFlutterEngine(@"");
+  id binaryMessengerMock = OCMProtocolMock(@protocol(FlutterBinaryMessenger));
+  OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
+      [engineMock binaryMessenger])
+      .andReturn(binaryMessengerMock);
+  FlutterViewController* viewController = [[FlutterViewController alloc] initWithEngine:engineMock
+                                                                                nibName:@""
+                                                                                 bundle:nil];
+  FlutterTextInputPlugin* plugin =
+      [[FlutterTextInputPlugin alloc] initWithViewController:viewController];
+
+  // Set input client 1.
+  NSDictionary* setClientConfig = @{
+    @"inputAction" : @"action",
+    @"inputType" : @{@"name" : @"inputName"},
+    @"obscureText" : @YES,
+    @"autofill" : @{
+      @"uniqueIdentifier" : @"field1",
+      @"editingValue" : @{@"text" : @""},
+    }
+  };
+  [plugin handleMethodCall:[FlutterMethodCall methodCallWithMethodName:@"TextInput.setClient"
+                                                             arguments:@[ @(1), setClientConfig ]]
+                    result:^(id){
+                    }];
+
+  // Verify autocomplete is disabled.
+  EXPECT_FALSE([plugin isAutomaticTextCompletionEnabled]);
+  return true;
+}
+
+- (bool)testAutocompleteDisabledWhenPasswordAutofillSet {
+  // Set up FlutterTextInputPlugin.
+  id engineMock = flutter::testing::CreateMockFlutterEngine(@"");
+  id binaryMessengerMock = OCMProtocolMock(@protocol(FlutterBinaryMessenger));
+  OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
+      [engineMock binaryMessenger])
+      .andReturn(binaryMessengerMock);
+  FlutterViewController* viewController = [[FlutterViewController alloc] initWithEngine:engineMock
+                                                                                nibName:@""
+                                                                                 bundle:nil];
+  FlutterTextInputPlugin* plugin =
+      [[FlutterTextInputPlugin alloc] initWithViewController:viewController];
+
+  // Set input client 1.
+  NSDictionary* setClientConfig = @{
+    @"inputAction" : @"action",
+    @"inputType" : @{@"name" : @"inputName"},
+    @"autofill" : @{
+      @"uniqueIdentifier" : @"field1",
+      @"hints" : @[ @"password" ],
+      @"editingValue" : @{@"text" : @""},
+    }
+  };
+  [plugin handleMethodCall:[FlutterMethodCall methodCallWithMethodName:@"TextInput.setClient"
+                                                             arguments:@[ @(1), setClientConfig ]]
+                    result:^(id){
+                    }];
+
+  // Verify autocomplete is disabled.
+  EXPECT_FALSE([plugin isAutomaticTextCompletionEnabled]);
+
+  // Verify content type is password.
+  if (@available(macOS 11.0, *)) {
+    EXPECT_EQ([plugin contentType], NSTextContentTypePassword);
+  }
+  return true;
+}
+
+- (bool)testAutocompleteDisabledWhenAutofillGroupIncludesPassword {
+  // Set up FlutterTextInputPlugin.
+  id engineMock = flutter::testing::CreateMockFlutterEngine(@"");
+  id binaryMessengerMock = OCMProtocolMock(@protocol(FlutterBinaryMessenger));
+  OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
+      [engineMock binaryMessenger])
+      .andReturn(binaryMessengerMock);
+  FlutterViewController* viewController = [[FlutterViewController alloc] initWithEngine:engineMock
+                                                                                nibName:@""
+                                                                                 bundle:nil];
+  FlutterTextInputPlugin* plugin =
+      [[FlutterTextInputPlugin alloc] initWithViewController:viewController];
+
+  // Set input client 1.
+  NSDictionary* setClientConfig = @{
+    @"inputAction" : @"action",
+    @"inputType" : @{@"name" : @"inputName"},
+    @"fields" : @[
+      @{
+        @"inputAction" : @"action",
+        @"inputType" : @{@"name" : @"inputName"},
+        @"autofill" : @{
+          @"uniqueIdentifier" : @"field1",
+          @"hints" : @[ @"password" ],
+          @"editingValue" : @{@"text" : @""},
+        }
+      },
+      @{
+        @"inputAction" : @"action",
+        @"inputType" : @{@"name" : @"inputName"},
+        @"autofill" : @{
+          @"uniqueIdentifier" : @"field2",
+          @"hints" : @[ @"name" ],
+          @"editingValue" : @{@"text" : @""},
+        }
+      }
+    ]
+  };
+  [plugin handleMethodCall:[FlutterMethodCall methodCallWithMethodName:@"TextInput.setClient"
+                                                             arguments:@[ @(1), setClientConfig ]]
+                    result:^(id){
+                    }];
+
+  // Verify autocomplete is disabled.
+  EXPECT_FALSE([plugin isAutomaticTextCompletionEnabled]);
+  return true;
+}
+
+- (bool)testContentTypeWhenAutofillTypeIsUsername {
+  // Set up FlutterTextInputPlugin.
+  id engineMock = flutter::testing::CreateMockFlutterEngine(@"");
+  id binaryMessengerMock = OCMProtocolMock(@protocol(FlutterBinaryMessenger));
+  OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
+      [engineMock binaryMessenger])
+      .andReturn(binaryMessengerMock);
+  FlutterViewController* viewController = [[FlutterViewController alloc] initWithEngine:engineMock
+                                                                                nibName:@""
+                                                                                 bundle:nil];
+  FlutterTextInputPlugin* plugin =
+      [[FlutterTextInputPlugin alloc] initWithViewController:viewController];
+
+  // Set input client 1.
+  NSDictionary* setClientConfig = @{
+    @"inputAction" : @"action",
+    @"inputType" : @{@"name" : @"inputName"},
+    @"autofill" : @{
+      @"uniqueIdentifier" : @"field1",
+      @"hints" : @[ @"name" ],
+      @"editingValue" : @{@"text" : @""},
+    }
+  };
+  [plugin handleMethodCall:[FlutterMethodCall methodCallWithMethodName:@"TextInput.setClient"
+                                                             arguments:@[ @(1), setClientConfig ]]
+                    result:^(id){
+                    }];
+
+  // Verify autocomplete is disabled.
+  EXPECT_FALSE([plugin isAutomaticTextCompletionEnabled]);
+
+  // Verify content type is username.
+  if (@available(macOS 11.0, *)) {
+    EXPECT_EQ([plugin contentType], NSTextContentTypeUsername);
+  }
+  return true;
+}
+
+- (bool)testContentTypeWhenAutofillTypeIsOneTimeCode {
+  // Set up FlutterTextInputPlugin.
+  id engineMock = flutter::testing::CreateMockFlutterEngine(@"");
+  id binaryMessengerMock = OCMProtocolMock(@protocol(FlutterBinaryMessenger));
+  OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
+      [engineMock binaryMessenger])
+      .andReturn(binaryMessengerMock);
+  FlutterViewController* viewController = [[FlutterViewController alloc] initWithEngine:engineMock
+                                                                                nibName:@""
+                                                                                 bundle:nil];
+  FlutterTextInputPlugin* plugin =
+      [[FlutterTextInputPlugin alloc] initWithViewController:viewController];
+
+  // Set input client 1.
+  NSDictionary* setClientConfig = @{
+    @"inputAction" : @"action",
+    @"inputType" : @{@"name" : @"inputName"},
+    @"autofill" : @{
+      @"uniqueIdentifier" : @"field1",
+      @"hints" : @[ @"oneTimeCode" ],
+      @"editingValue" : @{@"text" : @""},
+    }
+  };
+  [plugin handleMethodCall:[FlutterMethodCall methodCallWithMethodName:@"TextInput.setClient"
+                                                             arguments:@[ @(1), setClientConfig ]]
+                    result:^(id){
+                    }];
+
+  // Verify autocomplete is disabled.
+  EXPECT_FALSE([plugin isAutomaticTextCompletionEnabled]);
+
+  // Verify content type is username.
+  if (@available(macOS 11.0, *)) {
+    EXPECT_EQ([plugin contentType], NSTextContentTypeOneTimeCode);
+  }
+  return true;
+}
+
+- (bool)testFirstRectForCharacterRange {
+  id engineMock = flutter::testing::CreateMockFlutterEngine(@"");
+  id binaryMessengerMock = OCMProtocolMock(@protocol(FlutterBinaryMessenger));
+  OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
+      [engineMock binaryMessenger])
+      .andReturn(binaryMessengerMock);
+  FlutterViewController* controllerMock =
+      [[TextInputTestViewController alloc] initWithEngine:engineMock nibName:nil bundle:nil];
+  [controllerMock loadView];
+  id viewMock = controllerMock.flutterView;
   OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
       [viewMock bounds])
       .andReturn(NSMakeRect(0, 0, 200, 200));
-  OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
-      controllerMock.viewLoaded)
-      .andReturn(YES);
-  OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
-      [controllerMock flutterView])
-      .andReturn(viewMock);
 
   id windowMock = OCMClassMock([NSWindow class]);
   OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
@@ -453,26 +711,18 @@
 }
 
 - (bool)testFirstRectForCharacterRangeAtInfinity {
-  id engineMock = OCMClassMock([FlutterEngine class]);
+  id engineMock = flutter::testing::CreateMockFlutterEngine(@"");
   id binaryMessengerMock = OCMProtocolMock(@protocol(FlutterBinaryMessenger));
   OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
       [engineMock binaryMessenger])
       .andReturn(binaryMessengerMock);
-  FlutterViewController* controllerMock = OCMClassMock([FlutterViewController class]);
-  OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
-      [controllerMock engine])
-      .andReturn(engineMock);
-
-  id viewMock = OCMClassMock([NSView class]);
+  FlutterViewController* controllerMock =
+      [[TextInputTestViewController alloc] initWithEngine:engineMock nibName:nil bundle:nil];
+  [controllerMock loadView];
+  id viewMock = controllerMock.flutterView;
   OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
       [viewMock bounds])
       .andReturn(NSMakeRect(0, 0, 200, 200));
-  OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
-      controllerMock.viewLoaded)
-      .andReturn(YES);
-  OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
-      [controllerMock flutterView])
-      .andReturn(viewMock);
 
   id windowMock = OCMClassMock([NSWindow class]);
   OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
@@ -515,26 +765,18 @@
 }
 
 - (bool)testFirstRectForCharacterRangeWithEsotericAffineTransform {
-  id engineMock = OCMClassMock([FlutterEngine class]);
+  id engineMock = flutter::testing::CreateMockFlutterEngine(@"");
   id binaryMessengerMock = OCMProtocolMock(@protocol(FlutterBinaryMessenger));
   OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
       [engineMock binaryMessenger])
       .andReturn(binaryMessengerMock);
-  FlutterViewController* controllerMock = OCMClassMock([FlutterViewController class]);
-  OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
-      [controllerMock engine])
-      .andReturn(engineMock);
-
-  id viewMock = OCMClassMock([NSView class]);
+  FlutterViewController* controllerMock =
+      [[TextInputTestViewController alloc] initWithEngine:engineMock nibName:nil bundle:nil];
+  [controllerMock loadView];
+  id viewMock = controllerMock.flutterView;
   OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
       [viewMock bounds])
       .andReturn(NSMakeRect(0, 0, 200, 200));
-  OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
-      controllerMock.viewLoaded)
-      .andReturn(YES);
-  OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
-      [controllerMock flutterView])
-      .andReturn(viewMock);
 
   id windowMock = OCMClassMock([NSWindow class]);
   OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
@@ -595,7 +837,7 @@
 }
 
 - (bool)testSetEditingStateWithTextEditingDelta {
-  id engineMock = OCMClassMock([FlutterEngine class]);
+  id engineMock = flutter::testing::CreateMockFlutterEngine(@"");
   id binaryMessengerMock = OCMProtocolMock(@protocol(FlutterBinaryMessenger));
   OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
       [engineMock binaryMessenger])
@@ -608,15 +850,13 @@
   FlutterTextInputPlugin* plugin =
       [[FlutterTextInputPlugin alloc] initWithViewController:viewController];
 
-  [plugin handleMethodCall:[FlutterMethodCall
-                               methodCallWithMethodName:@"TextInput.setClient"
-                                              arguments:@[
-                                                @(1), @{
-                                                  @"inputAction" : @"action",
-                                                  @"enableDeltaModel" : @"true",
-                                                  @"inputType" : @{@"name" : @"inputName"},
-                                                }
-                                              ]]
+  NSDictionary* setClientConfig = @{
+    @"inputAction" : @"action",
+    @"enableDeltaModel" : @"true",
+    @"inputType" : @{@"name" : @"inputName"},
+  };
+  [plugin handleMethodCall:[FlutterMethodCall methodCallWithMethodName:@"TextInput.setClient"
+                                                             arguments:@[ @(1), setClientConfig ]]
                     result:^(id){
                     }];
 
@@ -633,25 +873,20 @@
                     result:^(id){
                     }];
 
-  // The setEditingState call is ACKed back to the framework.
-  @try {
-    OCMVerify(  // NOLINT(google-objc-avoid-throwing-exception)
-        [binaryMessengerMock
-            sendOnChannel:@"flutter/textinput"
-                  message:[OCMArg checkWithBlock:^BOOL(NSData* callData) {
-                    FlutterMethodCall* call =
-                        [[FlutterJSONMethodCodec sharedInstance] decodeMethodCall:callData];
-                    return [[call method]
-                        isEqualToString:@"TextInputClient.updateEditingStateWithDeltas"];
-                  }]]);
-  } @catch (...) {
-    return false;
-  }
+  // Verify editing state was set.
+  NSDictionary* editingState = [plugin editingState];
+  EXPECT_STREQ([editingState[@"text"] UTF8String], "Text");
+  EXPECT_STREQ([editingState[@"selectionAffinity"] UTF8String], "TextAffinity.upstream");
+  EXPECT_FALSE([editingState[@"selectionIsDirectional"] boolValue]);
+  EXPECT_EQ([editingState[@"selectionBase"] intValue], 0);
+  EXPECT_EQ([editingState[@"selectionExtent"] intValue], 0);
+  EXPECT_EQ([editingState[@"composingBase"] intValue], -1);
+  EXPECT_EQ([editingState[@"composingExtent"] intValue], -1);
   return true;
 }
 
 - (bool)testOperationsThatTriggerDelta {
-  id engineMock = OCMClassMock([FlutterEngine class]);
+  id engineMock = flutter::testing::CreateMockFlutterEngine(@"");
   id binaryMessengerMock = OCMProtocolMock(@protocol(FlutterBinaryMessenger));
   OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
       [engineMock binaryMessenger])
@@ -664,15 +899,13 @@
   FlutterTextInputPlugin* plugin =
       [[FlutterTextInputPlugin alloc] initWithViewController:viewController];
 
-  [plugin handleMethodCall:[FlutterMethodCall
-                               methodCallWithMethodName:@"TextInput.setClient"
-                                              arguments:@[
-                                                @(1), @{
-                                                  @"inputAction" : @"action",
-                                                  @"enableDeltaModel" : @"true",
-                                                  @"inputType" : @{@"name" : @"inputName"},
-                                                }
-                                              ]]
+  NSDictionary* setClientConfig = @{
+    @"inputAction" : @"action",
+    @"enableDeltaModel" : @"true",
+    @"inputType" : @{@"name" : @"inputName"},
+  };
+  [plugin handleMethodCall:[FlutterMethodCall methodCallWithMethodName:@"TextInput.setClient"
+                                                             arguments:@[ @(1), setClientConfig ]]
                     result:^(id){
                     }];
   [plugin insertText:@"text to insert"];
@@ -712,8 +945,8 @@
     @"deltaText" : @"marked text",
     @"deltaStart" : @(14),
     @"deltaEnd" : @(14),
-    @"selectionBase" : @(25),
-    @"selectionExtent" : @(25),
+    @"selectionBase" : @(14),
+    @"selectionExtent" : @(15),
     @"selectionAffinity" : @"TextAffinity.upstream",
     @"selectionIsDirectional" : @(false),
     @"composingBase" : @(14),
@@ -768,7 +1001,7 @@
 }
 
 - (bool)testComposingWithDelta {
-  id engineMock = OCMClassMock([FlutterEngine class]);
+  id engineMock = flutter::testing::CreateMockFlutterEngine(@"");
   id binaryMessengerMock = OCMProtocolMock(@protocol(FlutterBinaryMessenger));
   OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
       [engineMock binaryMessenger])
@@ -781,15 +1014,13 @@
   FlutterTextInputPlugin* plugin =
       [[FlutterTextInputPlugin alloc] initWithViewController:viewController];
 
-  [plugin handleMethodCall:[FlutterMethodCall
-                               methodCallWithMethodName:@"TextInput.setClient"
-                                              arguments:@[
-                                                @(1), @{
-                                                  @"inputAction" : @"action",
-                                                  @"enableDeltaModel" : @"true",
-                                                  @"inputType" : @{@"name" : @"inputName"},
-                                                }
-                                              ]]
+  NSDictionary* setClientConfig = @{
+    @"inputAction" : @"action",
+    @"enableDeltaModel" : @"true",
+    @"inputType" : @{@"name" : @"inputName"},
+  };
+  [plugin handleMethodCall:[FlutterMethodCall methodCallWithMethodName:@"TextInput.setClient"
+                                                             arguments:@[ @(1), setClientConfig ]]
                     result:^(id){
                     }];
   [plugin setMarkedText:@"m" selectedRange:NSMakeRange(0, 1)];
@@ -799,7 +1030,7 @@
     @"deltaText" : @"m",
     @"deltaStart" : @(0),
     @"deltaEnd" : @(0),
-    @"selectionBase" : @(1),
+    @"selectionBase" : @(0),
     @"selectionExtent" : @(1),
     @"selectionAffinity" : @"TextAffinity.upstream",
     @"selectionIsDirectional" : @(false),
@@ -829,8 +1060,8 @@
     @"deltaText" : @"ma",
     @"deltaStart" : @(0),
     @"deltaEnd" : @(1),
-    @"selectionBase" : @(2),
-    @"selectionExtent" : @(2),
+    @"selectionBase" : @(0),
+    @"selectionExtent" : @(1),
     @"selectionAffinity" : @"TextAffinity.upstream",
     @"selectionIsDirectional" : @(false),
     @"composingBase" : @(0),
@@ -859,8 +1090,8 @@
     @"deltaText" : @"mar",
     @"deltaStart" : @(0),
     @"deltaEnd" : @(2),
-    @"selectionBase" : @(3),
-    @"selectionExtent" : @(3),
+    @"selectionBase" : @(0),
+    @"selectionExtent" : @(1),
     @"selectionAffinity" : @"TextAffinity.upstream",
     @"selectionIsDirectional" : @(false),
     @"composingBase" : @(0),
@@ -889,8 +1120,8 @@
     @"deltaText" : @"mark",
     @"deltaStart" : @(0),
     @"deltaEnd" : @(3),
-    @"selectionBase" : @(4),
-    @"selectionExtent" : @(4),
+    @"selectionBase" : @(0),
+    @"selectionExtent" : @(1),
     @"selectionAffinity" : @"TextAffinity.upstream",
     @"selectionIsDirectional" : @(false),
     @"composingBase" : @(0),
@@ -919,8 +1150,8 @@
     @"deltaText" : @"marke",
     @"deltaStart" : @(0),
     @"deltaEnd" : @(4),
-    @"selectionBase" : @(5),
-    @"selectionExtent" : @(5),
+    @"selectionBase" : @(0),
+    @"selectionExtent" : @(1),
     @"selectionAffinity" : @"TextAffinity.upstream",
     @"selectionIsDirectional" : @(false),
     @"composingBase" : @(0),
@@ -949,8 +1180,8 @@
     @"deltaText" : @"marked",
     @"deltaStart" : @(0),
     @"deltaEnd" : @(5),
-    @"selectionBase" : @(6),
-    @"selectionExtent" : @(6),
+    @"selectionBase" : @(0),
+    @"selectionExtent" : @(1),
     @"selectionAffinity" : @"TextAffinity.upstream",
     @"selectionIsDirectional" : @(false),
     @"composingBase" : @(0),
@@ -1005,7 +1236,7 @@
 }
 
 - (bool)testComposingWithDeltasWhenSelectionIsActive {
-  id engineMock = OCMClassMock([FlutterEngine class]);
+  id engineMock = flutter::testing::CreateMockFlutterEngine(@"");
   id binaryMessengerMock = OCMProtocolMock(@protocol(FlutterBinaryMessenger));
   OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
       [engineMock binaryMessenger])
@@ -1018,15 +1249,13 @@
   FlutterTextInputPlugin* plugin =
       [[FlutterTextInputPlugin alloc] initWithViewController:viewController];
 
-  [plugin handleMethodCall:[FlutterMethodCall
-                               methodCallWithMethodName:@"TextInput.setClient"
-                                              arguments:@[
-                                                @(1), @{
-                                                  @"inputAction" : @"action",
-                                                  @"enableDeltaModel" : @"true",
-                                                  @"inputType" : @{@"name" : @"inputName"},
-                                                }
-                                              ]]
+  NSDictionary* setClientConfig = @{
+    @"inputAction" : @"action",
+    @"enableDeltaModel" : @"true",
+    @"inputType" : @{@"name" : @"inputName"},
+  };
+  [plugin handleMethodCall:[FlutterMethodCall methodCallWithMethodName:@"TextInput.setClient"
+                                                             arguments:@[ @(1), setClientConfig ]]
                     result:^(id){
                     }];
 
@@ -1133,8 +1362,91 @@
   return true;
 }
 
+- (bool)handleArrowKeyWhenImePopoverIsActive {
+  id engineMock = flutter::testing::CreateMockFlutterEngine(@"");
+  id binaryMessengerMock = OCMProtocolMock(@protocol(FlutterBinaryMessenger));
+  OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
+      [engineMock binaryMessenger])
+      .andReturn(binaryMessengerMock);
+  OCMStub([[engineMock ignoringNonObjectArgs] sendKeyEvent:FlutterKeyEvent {}
+                                                  callback:nil
+                                                  userData:nil]);
+
+  NSTextInputContext* textInputContext = OCMClassMock([NSTextInputContext class]);
+  OCMStub([textInputContext handleEvent:[OCMArg any]]).andReturn(YES);
+
+  FlutterViewController* viewController = [[FlutterViewController alloc] initWithEngine:engineMock
+                                                                                nibName:@""
+                                                                                 bundle:nil];
+
+  FlutterTextInputPlugin* plugin =
+      [[FlutterTextInputPlugin alloc] initWithViewController:viewController];
+
+  plugin.textInputContext = textInputContext;
+
+  NSDictionary* setClientConfig = @{
+    @"inputAction" : @"action",
+    @"enableDeltaModel" : @"true",
+    @"inputType" : @{@"name" : @"inputName"},
+  };
+  [plugin handleMethodCall:[FlutterMethodCall methodCallWithMethodName:@"TextInput.setClient"
+                                                             arguments:@[ @(1), setClientConfig ]]
+                    result:^(id){
+                    }];
+
+  [plugin handleMethodCall:[FlutterMethodCall methodCallWithMethodName:@"TextInput.show"
+                                                             arguments:@[]]
+                    result:^(id){
+                    }];
+
+  // Set marked text, simulate active IME popover.
+  [plugin setMarkedText:@"m"
+          selectedRange:NSMakeRange(0, 1)
+       replacementRange:NSMakeRange(NSNotFound, 0)];
+
+  // Right arrow key. This, unlike the key below should be handled by the plugin.
+  NSEvent* event = [NSEvent keyEventWithType:NSEventTypeKeyDown
+                                    location:NSZeroPoint
+                               modifierFlags:0xa00100
+                                   timestamp:0
+                                windowNumber:0
+                                     context:nil
+                                  characters:@"\uF702"
+                 charactersIgnoringModifiers:@"\uF702"
+                                   isARepeat:NO
+                                     keyCode:0x4];
+
+  // Plugin should mark the event as key equivalent.
+  [plugin performKeyEquivalent:event];
+
+  if ([plugin handleKeyEvent:event] != true) {
+    return false;
+  }
+
+  // CTRL+H (delete backwards)
+  event = [NSEvent keyEventWithType:NSEventTypeKeyDown
+                           location:NSZeroPoint
+                      modifierFlags:0x40101
+                          timestamp:0
+                       windowNumber:0
+                            context:nil
+                         characters:@"\uF702"
+        charactersIgnoringModifiers:@"\uF702"
+                          isARepeat:NO
+                            keyCode:0x4];
+
+  // Plugin should mark the event as key equivalent.
+  [plugin performKeyEquivalent:event];
+
+  if ([plugin handleKeyEvent:event] != false) {
+    return false;
+  }
+
+  return true;
+}
+
 - (bool)unhandledKeyEquivalent {
-  id engineMock = OCMClassMock([FlutterEngine class]);
+  id engineMock = flutter::testing::CreateMockFlutterEngine(@"");
   id binaryMessengerMock = OCMProtocolMock(@protocol(FlutterBinaryMessenger));
   OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
       [engineMock binaryMessenger])
@@ -1147,15 +1459,13 @@
   FlutterTextInputPlugin* plugin =
       [[FlutterTextInputPlugin alloc] initWithViewController:viewController];
 
-  [plugin handleMethodCall:[FlutterMethodCall
-                               methodCallWithMethodName:@"TextInput.setClient"
-                                              arguments:@[
-                                                @(1), @{
-                                                  @"inputAction" : @"action",
-                                                  @"enableDeltaModel" : @"true",
-                                                  @"inputType" : @{@"name" : @"inputName"},
-                                                }
-                                              ]]
+  NSDictionary* setClientConfig = @{
+    @"inputAction" : @"action",
+    @"enableDeltaModel" : @"true",
+    @"inputType" : @{@"name" : @"inputName"},
+  };
+  [plugin handleMethodCall:[FlutterMethodCall methodCallWithMethodName:@"TextInput.setClient"
+                                                             arguments:@[ @(1), setClientConfig ]]
                     result:^(id){
                     }];
 
@@ -1209,8 +1519,171 @@
   return true;
 }
 
+- (bool)testInsertNewLine {
+  id engineMock = flutter::testing::CreateMockFlutterEngine(@"");
+  id binaryMessengerMock = OCMProtocolMock(@protocol(FlutterBinaryMessenger));
+  OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
+      [engineMock binaryMessenger])
+      .andReturn(binaryMessengerMock);
+  OCMStub([[engineMock ignoringNonObjectArgs] sendKeyEvent:FlutterKeyEvent {}
+                                                  callback:nil
+                                                  userData:nil]);
+
+  FlutterViewController* viewController = [[FlutterViewController alloc] initWithEngine:engineMock
+                                                                                nibName:@""
+                                                                                 bundle:nil];
+
+  FlutterTextInputPlugin* plugin =
+      [[FlutterTextInputPlugin alloc] initWithViewController:viewController];
+
+  NSDictionary* setClientConfig = @{
+    @"inputType" : @{@"name" : @"TextInputType.multiline"},
+    @"inputAction" : @"TextInputAction.newline",
+  };
+  [plugin handleMethodCall:[FlutterMethodCall methodCallWithMethodName:@"TextInput.setClient"
+                                                             arguments:@[ @(1), setClientConfig ]]
+                    result:^(id){
+                    }];
+
+  FlutterMethodCall* call = [FlutterMethodCall methodCallWithMethodName:@"TextInput.setEditingState"
+                                                              arguments:@{
+                                                                @"text" : @"Text",
+                                                                @"selectionBase" : @(4),
+                                                                @"selectionExtent" : @(4),
+                                                                @"composingBase" : @(-1),
+                                                                @"composingExtent" : @(-1),
+                                                              }];
+
+  [plugin handleMethodCall:call
+                    result:^(id){
+                    }];
+
+  // Verify editing state was set.
+  NSDictionary* editingState = [plugin editingState];
+  EXPECT_STREQ([editingState[@"text"] UTF8String], "Text");
+  EXPECT_STREQ([editingState[@"selectionAffinity"] UTF8String], "TextAffinity.upstream");
+  EXPECT_FALSE([editingState[@"selectionIsDirectional"] boolValue]);
+  EXPECT_EQ([editingState[@"selectionBase"] intValue], 4);
+  EXPECT_EQ([editingState[@"selectionExtent"] intValue], 4);
+  EXPECT_EQ([editingState[@"composingBase"] intValue], -1);
+  EXPECT_EQ([editingState[@"composingExtent"] intValue], -1);
+
+  [plugin doCommandBySelector:@selector(insertNewline:)];
+
+  // Verify editing state was set.
+  editingState = [plugin editingState];
+  EXPECT_STREQ([editingState[@"text"] UTF8String], "Text\n");
+  EXPECT_STREQ([editingState[@"selectionAffinity"] UTF8String], "TextAffinity.upstream");
+  EXPECT_FALSE([editingState[@"selectionIsDirectional"] boolValue]);
+  EXPECT_EQ([editingState[@"selectionBase"] intValue], 5);
+  EXPECT_EQ([editingState[@"selectionExtent"] intValue], 5);
+  EXPECT_EQ([editingState[@"composingBase"] intValue], -1);
+  EXPECT_EQ([editingState[@"composingExtent"] intValue], -1);
+
+  return true;
+}
+
+- (bool)testSendActionDoNotInsertNewLine {
+  id engineMock = flutter::testing::CreateMockFlutterEngine(@"");
+  id binaryMessengerMock = OCMProtocolMock(@protocol(FlutterBinaryMessenger));
+  OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
+      [engineMock binaryMessenger])
+      .andReturn(binaryMessengerMock);
+  OCMStub([[engineMock ignoringNonObjectArgs] sendKeyEvent:FlutterKeyEvent {}
+                                                  callback:nil
+                                                  userData:nil]);
+
+  FlutterViewController* viewController = [[FlutterViewController alloc] initWithEngine:engineMock
+                                                                                nibName:@""
+                                                                                 bundle:nil];
+
+  FlutterTextInputPlugin* plugin =
+      [[FlutterTextInputPlugin alloc] initWithViewController:viewController];
+
+  NSDictionary* setClientConfig = @{
+    @"inputType" : @{@"name" : @"TextInputType.multiline"},
+    @"inputAction" : @"TextInputAction.send",
+  };
+  [plugin handleMethodCall:[FlutterMethodCall methodCallWithMethodName:@"TextInput.setClient"
+                                                             arguments:@[ @(1), setClientConfig ]]
+                    result:^(id){
+                    }];
+
+  FlutterMethodCall* call = [FlutterMethodCall methodCallWithMethodName:@"TextInput.setEditingState"
+                                                              arguments:@{
+                                                                @"text" : @"Text",
+                                                                @"selectionBase" : @(4),
+                                                                @"selectionExtent" : @(4),
+                                                                @"composingBase" : @(-1),
+                                                                @"composingExtent" : @(-1),
+                                                              }];
+
+  NSDictionary* expectedState = @{
+    @"selectionBase" : @(4),
+    @"selectionExtent" : @(4),
+    @"selectionAffinity" : @"TextAffinity.upstream",
+    @"selectionIsDirectional" : @(NO),
+    @"composingBase" : @(-1),
+    @"composingExtent" : @(-1),
+    @"text" : @"Text",
+  };
+
+  NSData* updateCall = [[FlutterJSONMethodCodec sharedInstance]
+      encodeMethodCall:[FlutterMethodCall
+                           methodCallWithMethodName:@"TextInputClient.updateEditingState"
+                                          arguments:@[ @(1), expectedState ]]];
+
+  OCMExpect(  // NOLINT(google-objc-avoid-throwing-exception)
+      [binaryMessengerMock sendOnChannel:@"flutter/textinput" message:updateCall]);
+
+  [plugin handleMethodCall:call
+                    result:^(id){
+                    }];
+
+  [plugin doCommandBySelector:@selector(insertNewline:)];
+
+  NSData* performActionCall = [[FlutterJSONMethodCodec sharedInstance]
+      encodeMethodCall:[FlutterMethodCall
+                           methodCallWithMethodName:@"TextInputClient.performAction"
+                                          arguments:@[ @(1), @"TextInputAction.send" ]]];
+
+  // Input action should be notified.
+  @try {
+    OCMVerify(  // NOLINT(google-objc-avoid-throwing-exception)
+        [binaryMessengerMock sendOnChannel:@"flutter/textinput" message:performActionCall]);
+  } @catch (...) {
+    return false;
+  }
+
+  NSDictionary* updatedState = @{
+    @"selectionBase" : @(5),
+    @"selectionExtent" : @(5),
+    @"selectionAffinity" : @"TextAffinity.upstream",
+    @"selectionIsDirectional" : @(NO),
+    @"composingBase" : @(-1),
+    @"composingExtent" : @(-1),
+    @"text" : @"Text\n",
+  };
+
+  updateCall = [[FlutterJSONMethodCodec sharedInstance]
+      encodeMethodCall:[FlutterMethodCall
+                           methodCallWithMethodName:@"TextInputClient.updateEditingState"
+                                          arguments:@[ @(1), updatedState ]]];
+
+  // Verify that editing state was not be updated.
+  @try {
+    OCMVerify(  // NOLINT(google-objc-avoid-throwing-exception)
+        [binaryMessengerMock sendOnChannel:@"flutter/textinput" message:updateCall]);
+    return false;
+  } @catch (...) {
+    // Expected.
+  }
+
+  return true;
+}
+
 - (bool)testLocalTextAndSelectionUpdateAfterDelta {
-  id engineMock = OCMClassMock([FlutterEngine class]);
+  id engineMock = flutter::testing::CreateMockFlutterEngine(@"");
   id binaryMessengerMock = OCMProtocolMock(@protocol(FlutterBinaryMessenger));
   OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
       [engineMock binaryMessenger])
@@ -1223,15 +1696,13 @@
   FlutterTextInputPlugin* plugin =
       [[FlutterTextInputPlugin alloc] initWithViewController:viewController];
 
-  [plugin handleMethodCall:[FlutterMethodCall
-                               methodCallWithMethodName:@"TextInput.setClient"
-                                              arguments:@[
-                                                @(1), @{
-                                                  @"inputAction" : @"action",
-                                                  @"enableDeltaModel" : @"true",
-                                                  @"inputType" : @{@"name" : @"inputName"},
-                                                }
-                                              ]]
+  NSDictionary* setClientConfig = @{
+    @"inputAction" : @"action",
+    @"enableDeltaModel" : @"true",
+    @"inputType" : @{@"name" : @"inputName"},
+  };
+  [plugin handleMethodCall:[FlutterMethodCall methodCallWithMethodName:@"TextInput.setClient"
+                                                             arguments:@[ @(1), setClientConfig ]]
                     result:^(id){
                     }];
   [plugin insertText:@"text to insert"];
@@ -1271,7 +1742,7 @@
 }
 
 - (bool)testSelectorsAreForwardedToFramework {
-  id engineMock = OCMClassMock([FlutterEngine class]);
+  id engineMock = flutter::testing::CreateMockFlutterEngine(@"");
   id binaryMessengerMock = OCMProtocolMock(@protocol(FlutterBinaryMessenger));
   OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
       [engineMock binaryMessenger])
@@ -1284,15 +1755,13 @@
   FlutterTextInputPlugin* plugin =
       [[FlutterTextInputPlugin alloc] initWithViewController:viewController];
 
-  [plugin handleMethodCall:[FlutterMethodCall
-                               methodCallWithMethodName:@"TextInput.setClient"
-                                              arguments:@[
-                                                @(1), @{
-                                                  @"inputAction" : @"action",
-                                                  @"enableDeltaModel" : @"true",
-                                                  @"inputType" : @{@"name" : @"inputName"},
-                                                }
-                                              ]]
+  NSDictionary* setClientConfig = @{
+    @"inputAction" : @"action",
+    @"enableDeltaModel" : @"true",
+    @"inputType" : @{@"name" : @"inputName"},
+  };
+  [plugin handleMethodCall:[FlutterMethodCall methodCallWithMethodName:@"TextInput.setClient"
+                                                             arguments:@[ @(1), setClientConfig ]]
                     result:^(id){
                     }];
 
@@ -1367,6 +1836,31 @@ TEST(FlutterTextInputPluginTest, TestClearClientDuringComposing) {
   ASSERT_TRUE([[FlutterInputPluginTestObjc alloc] testClearClientDuringComposing]);
 }
 
+TEST(FlutterTextInputPluginTest, TestAutocompleteDisabledWhenAutofillNotSet) {
+  ASSERT_TRUE([[FlutterInputPluginTestObjc alloc] testAutocompleteDisabledWhenAutofillNotSet]);
+}
+
+TEST(FlutterTextInputPluginTest, TestAutocompleteEnabledWhenAutofillSet) {
+  ASSERT_TRUE([[FlutterInputPluginTestObjc alloc] testAutocompleteEnabledWhenAutofillSet]);
+}
+
+TEST(FlutterTextInputPluginTest, TestAutocompleteEnabledWhenAutofillSetNoHint) {
+  ASSERT_TRUE([[FlutterInputPluginTestObjc alloc] testAutocompleteEnabledWhenAutofillSetNoHint]);
+}
+
+TEST(FlutterTextInputPluginTest, TestAutocompleteDisabledWhenObscureTextSet) {
+  ASSERT_TRUE([[FlutterInputPluginTestObjc alloc] testAutocompleteDisabledWhenObscureTextSet]);
+}
+
+TEST(FlutterTextInputPluginTest, TestAutocompleteDisabledWhenPasswordAutofillSet) {
+  ASSERT_TRUE([[FlutterInputPluginTestObjc alloc] testAutocompleteDisabledWhenPasswordAutofillSet]);
+}
+
+TEST(FlutterTextInputPluginTest, TestAutocompleteDisabledWhenAutofillGroupIncludesPassword) {
+  ASSERT_TRUE([[FlutterInputPluginTestObjc alloc]
+      testAutocompleteDisabledWhenAutofillGroupIncludesPassword]);
+}
+
 TEST(FlutterTextInputPluginTest, TestFirstRectForCharacterRange) {
   ASSERT_TRUE([[FlutterInputPluginTestObjc alloc] testFirstRectForCharacterRange]);
 }
@@ -1404,6 +1898,10 @@ TEST(FlutterTextInputPluginTest, TestPerformKeyEquivalent) {
   ASSERT_TRUE([[FlutterInputPluginTestObjc alloc] testPerformKeyEquivalent]);
 }
 
+TEST(FlutterTextInputPluginTest, HandleArrowKeyWhenImePopoverIsActive) {
+  ASSERT_TRUE([[FlutterInputPluginTestObjc alloc] handleArrowKeyWhenImePopoverIsActive]);
+}
+
 TEST(FlutterTextInputPluginTest, UnhandledKeyEquivalent) {
   ASSERT_TRUE([[FlutterInputPluginTestObjc alloc] unhandledKeyEquivalent]);
 }
@@ -1412,15 +1910,20 @@ TEST(FlutterTextInputPluginTest, TestSelectorsAreForwardedToFramework) {
   ASSERT_TRUE([[FlutterInputPluginTestObjc alloc] testSelectorsAreForwardedToFramework]);
 }
 
+TEST(FlutterTextInputPluginTest, TestInsertNewLine) {
+  ASSERT_TRUE([[FlutterInputPluginTestObjc alloc] testInsertNewLine]);
+}
+
+TEST(FlutterTextInputPluginTest, TestSendActionDoNotInsertNewLine) {
+  ASSERT_TRUE([[FlutterInputPluginTestObjc alloc] testSendActionDoNotInsertNewLine]);
+}
+
 TEST(FlutterTextInputPluginTest, CanWorkWithFlutterTextField) {
   FlutterEngine* engine = CreateTestEngine();
-  NSString* fixtures = @(testing::GetFixturesPath());
-  FlutterDartProject* project = [[FlutterDartProject alloc]
-      initWithAssetsPath:fixtures
-             ICUDataPath:[fixtures stringByAppendingString:@"/icudtl.dat"]];
-  FlutterViewController* viewController = [[FlutterViewController alloc] initWithProject:project];
+  FlutterViewController* viewController = [[FlutterViewController alloc] initWithEngine:engine
+                                                                                nibName:nil
+                                                                                 bundle:nil];
   [viewController loadView];
-  [engine setViewController:viewController];
   // Create a NSWindow so that the native text field can become first responder.
   NSWindow* window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 800, 600)
                                                  styleMask:NSBorderlessWindowMask
@@ -1430,14 +1933,14 @@ TEST(FlutterTextInputPluginTest, CanWorkWithFlutterTextField) {
 
   engine.semanticsEnabled = YES;
 
-  auto bridge = engine.accessibilityBridge.lock();
+  auto bridge = viewController.accessibilityBridge.lock();
   FlutterPlatformNodeDelegateMac delegate(bridge, viewController);
   ui::AXTree tree;
   ui::AXNode ax_node(&tree, nullptr, 0, 0);
   ui::AXNodeData node_data;
   node_data.SetValue("initial text");
   ax_node.SetData(node_data);
-  delegate.Init(engine.accessibilityBridge, &ax_node);
+  delegate.Init(viewController.accessibilityBridge, &ax_node);
   {
     FlutterTextPlatformNode text_platform_node(&delegate, viewController);
 
@@ -1447,25 +1950,24 @@ TEST(FlutterTextInputPluginTest, CanWorkWithFlutterTextField) {
     [viewController.view addSubview:mockTextField];
     [mockTextField startEditing];
 
-    NSDictionary* arguments = @{
+    NSDictionary* setClientConfig = @{
       @"inputAction" : @"action",
       @"inputType" : @{@"name" : @"inputName"},
     };
     FlutterMethodCall* methodCall =
         [FlutterMethodCall methodCallWithMethodName:@"TextInput.setClient"
-                                          arguments:@[ @(1), arguments ]];
+                                          arguments:@[ @(1), setClientConfig ]];
     FlutterResult result = ^(id result) {
     };
     [viewController.textInputPlugin handleMethodCall:methodCall result:result];
 
-    arguments = @{
+    NSDictionary* arguments = @{
       @"text" : @"new text",
       @"selectionBase" : @(1),
       @"selectionExtent" : @(2),
       @"composingBase" : @(-1),
       @"composingExtent" : @(-1),
     };
-
     methodCall = [FlutterMethodCall methodCallWithMethodName:@"TextInput.setEditingState"
                                                    arguments:arguments];
     [viewController.textInputPlugin handleMethodCall:methodCall result:result];
@@ -1483,13 +1985,10 @@ TEST(FlutterTextInputPluginTest, CanWorkWithFlutterTextField) {
 
 TEST(FlutterTextInputPluginTest, CanNotBecomeResponderIfNoViewController) {
   FlutterEngine* engine = CreateTestEngine();
-  NSString* fixtures = @(testing::GetFixturesPath());
-  FlutterDartProject* project = [[FlutterDartProject alloc]
-      initWithAssetsPath:fixtures
-             ICUDataPath:[fixtures stringByAppendingString:@"/icudtl.dat"]];
-  FlutterViewController* viewController = [[FlutterViewController alloc] initWithProject:project];
+  FlutterViewController* viewController = [[FlutterViewController alloc] initWithEngine:engine
+                                                                                nibName:nil
+                                                                                 bundle:nil];
   [viewController loadView];
-  [engine setViewController:viewController];
   // Creates a NSWindow so that the native text field can become first responder.
   NSWindow* window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 800, 600)
                                                  styleMask:NSBorderlessWindowMask
@@ -1499,14 +1998,14 @@ TEST(FlutterTextInputPluginTest, CanNotBecomeResponderIfNoViewController) {
 
   engine.semanticsEnabled = YES;
 
-  auto bridge = engine.accessibilityBridge.lock();
+  auto bridge = viewController.accessibilityBridge.lock();
   FlutterPlatformNodeDelegateMac delegate(bridge, viewController);
   ui::AXTree tree;
   ui::AXNode ax_node(&tree, nullptr, 0, 0);
   ui::AXNodeData node_data;
   node_data.SetValue("initial text");
   ax_node.SetData(node_data);
-  delegate.Init(engine.accessibilityBridge, &ax_node);
+  delegate.Init(viewController.accessibilityBridge, &ax_node);
   FlutterTextPlatformNode text_platform_node(&delegate, viewController);
 
   FlutterTextField* textField = text_platform_node.GetNativeViewAccessible();
@@ -1520,13 +2019,10 @@ TEST(FlutterTextInputPluginTest, CanNotBecomeResponderIfNoViewController) {
 
 TEST(FlutterTextInputPluginTest, IsAddedAndRemovedFromViewHierarchy) {
   FlutterEngine* engine = CreateTestEngine();
-  NSString* fixtures = @(testing::GetFixturesPath());
-  FlutterDartProject* project = [[FlutterDartProject alloc]
-      initWithAssetsPath:fixtures
-             ICUDataPath:[fixtures stringByAppendingString:@"/icudtl.dat"]];
-  FlutterViewController* viewController = [[FlutterViewController alloc] initWithProject:project];
+  FlutterViewController* viewController = [[FlutterViewController alloc] initWithEngine:engine
+                                                                                nibName:nil
+                                                                                 bundle:nil];
   [viewController loadView];
-  [engine setViewController:viewController];
 
   NSWindow* window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 800, 600)
                                                  styleMask:NSBorderlessWindowMask
@@ -1552,6 +2048,59 @@ TEST(FlutterTextInputPluginTest, IsAddedAndRemovedFromViewHierarchy) {
 
   ASSERT_EQ(viewController.textInputPlugin.superview, nil);
   ASSERT_FALSE(window.firstResponder == viewController.textInputPlugin);
+}
+
+TEST(FlutterTextInputPluginTest, FirstResponderIsCorrect) {
+  FlutterEngine* engine = CreateTestEngine();
+  FlutterViewController* viewController = [[FlutterViewController alloc] initWithEngine:engine
+                                                                                nibName:nil
+                                                                                 bundle:nil];
+  [viewController loadView];
+
+  NSWindow* window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 800, 600)
+                                                 styleMask:NSBorderlessWindowMask
+                                                   backing:NSBackingStoreBuffered
+                                                     defer:NO];
+  window.contentView = viewController.view;
+
+  ASSERT_TRUE(viewController.flutterView.acceptsFirstResponder);
+
+  [window makeFirstResponder:viewController.flutterView];
+
+  [viewController.textInputPlugin
+      handleMethodCall:[FlutterMethodCall methodCallWithMethodName:@"TextInput.show" arguments:@[]]
+                result:^(id){
+                }];
+
+  ASSERT_TRUE(window.firstResponder == viewController.textInputPlugin);
+
+  ASSERT_FALSE(viewController.flutterView.acceptsFirstResponder);
+
+  [viewController.textInputPlugin
+      handleMethodCall:[FlutterMethodCall methodCallWithMethodName:@"TextInput.hide" arguments:@[]]
+                result:^(id){
+                }];
+
+  ASSERT_TRUE(viewController.flutterView.acceptsFirstResponder);
+  ASSERT_TRUE(window.firstResponder == viewController.flutterView);
+}
+
+TEST(FlutterTextInputPluginTest, HasZeroSizeAndClipsToBounds) {
+  id engineMock = flutter::testing::CreateMockFlutterEngine(@"");
+  id binaryMessengerMock = OCMProtocolMock(@protocol(FlutterBinaryMessenger));
+  OCMStub(  // NOLINT(google-objc-avoid-throwing-exception)
+      [engineMock binaryMessenger])
+      .andReturn(binaryMessengerMock);
+
+  FlutterViewController* viewController = [[FlutterViewController alloc] initWithEngine:engineMock
+                                                                                nibName:@""
+                                                                                 bundle:nil];
+
+  FlutterTextInputPlugin* plugin =
+      [[FlutterTextInputPlugin alloc] initWithViewController:viewController];
+
+  ASSERT_TRUE(NSIsEmptyRect(plugin.frame));
+  ASSERT_TRUE(plugin.clipsToBounds);
 }
 
 }  // namespace flutter::testing

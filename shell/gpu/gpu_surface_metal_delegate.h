@@ -10,7 +10,7 @@
 #include "flutter/fml/macros.h"
 #include "third_party/skia/include/core/SkSize.h"
 #include "third_party/skia/include/core/SkSurface.h"
-#include "third_party/skia/include/gpu/mtl/GrMtlTypes.h"
+#include "third_party/skia/include/gpu/ganesh/mtl/GrMtlTypes.h"
 
 namespace flutter {
 
@@ -26,9 +26,13 @@ typedef void* GPUCAMetalLayerHandle;
 // expected to be id<MTLTexture>
 typedef const void* GPUMTLTextureHandle;
 
+typedef void (*GPUMTLDestructionCallback)(void* /* destruction_context */);
+
 struct GPUMTLTextureInfo {
   int64_t texture_id;
   GPUMTLTextureHandle texture;
+  GPUMTLDestructionCallback destruction_callback;
+  void* destruction_context;
 };
 
 enum class MTLRenderTargetType { kMTLTexture, kCAMetalLayer };

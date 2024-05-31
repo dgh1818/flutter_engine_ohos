@@ -2,24 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import '../browser_detection.dart';
+import 'package:ui/ui_web/src/ui_web.dart' as ui_web;
+
 import '../dom.dart';
-import '../embedder.dart';
 import '../util.dart';
 import 'slots.dart';
-
-/// A function which takes a unique `id` and some `params` and creates an HTML element.
-///
-/// This is made available to end-users through dart:ui in web.
-typedef ParameterizedPlatformViewFactory = DomElement Function(
-  int viewId, {
-  Object? params,
-});
-
-/// A function which takes a unique `id` and creates an HTML element.
-///
-/// This is made available to end-users through dart:ui in web.
-typedef PlatformViewFactory = DomElement Function(int viewId);
 
 /// This class handles the lifecycle of Platform Views in the DOM of a Flutter Web App.
 ///
@@ -36,6 +23,23 @@ typedef PlatformViewFactory = DomElement Function(int viewId);
 /// This class keeps a registry of `factories`, `contents` so the framework can
 /// CRUD Platform Views as needed, regardless of the rendering backend.
 class PlatformViewManager {
+  PlatformViewManager() {
+    // Register some default factories.
+    registerFactory(
+      ui_web.PlatformViewRegistry.defaultVisibleViewType,
+      _defaultFactory,
+    );
+    registerFactory(
+      ui_web.PlatformViewRegistry.defaultInvisibleViewType,
+      _defaultFactory,
+      isVisible: false,
+    );
+  }
+
+  /// The shared instance of PlatformViewManager shared across the engine to handle
+  /// rendering of PlatformViews into the web app.
+  static PlatformViewManager instance = PlatformViewManager();
+
   // The factory functions, indexed by the viewType
   final Map<String, Function> _factories = <String, Function>{};
 
@@ -47,7 +51,7 @@ class PlatformViewManager {
 
   /// Returns `true` if the passed in `viewType` has been registered before.
   ///
-  /// See [registerViewFactory] to understand how factories are registered.
+  /// See [registerFactory] to understand how factories are registered.
   bool knowsViewType(String viewType) {
     return _factories.containsKey(viewType);
   }
@@ -60,6 +64,31 @@ class PlatformViewManager {
     return _contents.containsKey(viewId);
   }
 
+  /// Returns the cached contents of [viewId], to be injected into the DOM.
+  ///
+  /// This is only used by the active `Renderer` object when a platform view needs
+  /// to be injected in the DOM, through `FlutterView.DomManager.injectPlatformView`.
+  ///
+  /// This may return null, if [renderContent] was not called before this. The
+  /// framework seems to allow/need this for some tests, so it is allowed here
+  /// as well.
+  ///
+  /// App programmers should not access this directly, and instead use [getViewById].
+  DomElement? getSlottedContent(int viewId) {
+    return _contents[viewId];
+  }
+
+  /// Returns the HTML element created by a registered factory for [viewId].
+  ///
+  /// Throws an [AssertionError] if [viewId] hasn't been rendered before.
+  DomElement getViewById(int viewId) {
+    assert(knowsViewId(viewId), 'No view has been rendered for viewId: $viewId');
+    // `_contents[viewId]` is the <flt-platform-view> element created by us. The
+    // first (and only) child of that is the element created by the user-supplied
+    // factory function.
+    return _contents[viewId]!.firstElementChild!;
+  }
+
   /// Registers a `factoryFunction` that knows how to render a Platform View of `viewType`.
   ///
   /// `viewType` is selected by the programmer, but it can't be overridden once
@@ -68,8 +97,13 @@ class PlatformViewManager {
   /// `factoryFunction` needs to be a [PlatformViewFactory].
   bool registerFactory(String viewType, Function factoryFunction,
       {bool isVisible = true}) {
-    assert(factoryFunction is PlatformViewFactory ||
-        factoryFunction is ParameterizedPlatformViewFactory);
+    assert(
+      factoryFunction is ui_web.PlatformViewFactory ||
+          factoryFunction is ui_web.ParameterizedPlatformViewFactory,
+      'Factory signature is invalid. Expected either '
+      '{${ui_web.PlatformViewFactory}} or {${ui_web.ParameterizedPlatformViewFactory}} '
+      'but got: {${factoryFunction.runtimeType}}',
+    );
 
     if (_factories.containsKey(viewType)) {
       return false;
@@ -83,14 +117,13 @@ class PlatformViewManager {
 
   /// Creates the HTML markup for the `contents` of a Platform View.
   ///
-  /// The result of this call is cached in the `_contents` Map. This is only
-  /// cached so it can be disposed of later by [clearPlatformView]. _Note that
-  /// there's no `getContents` function in this class._
+  /// The result of this call is cached in the `_contents` Map, so the active
+  /// renderer can inject it as needed.
   ///
   /// The resulting DOM for the `contents` of a Platform View looks like this:
   ///
   /// ```html
-  /// <flt-platform-view slot="...">
+  /// <flt-platform-view id="flt-pv-VIEW_ID" slot="...">
   ///   <arbitrary-html-elements />
   /// </flt-platform-view-slot>
   /// ```
@@ -116,57 +149,33 @@ class PlatformViewManager {
     return _contents.putIfAbsent(viewId, () {
       final DomElement wrapper = domDocument
           .createElement('flt-platform-view')
+            ..id = getPlatformViewDomId(viewId)
             ..setAttribute('slot', slotName);
 
       final Function factoryFunction = _factories[viewType]!;
-      late DomElement content;
+      final DomElement content;
 
-      if (factoryFunction is ParameterizedPlatformViewFactory) {
-        content = factoryFunction(viewId, params: params);
+      if (factoryFunction is ui_web.ParameterizedPlatformViewFactory) {
+        content = factoryFunction(viewId, params: params) as DomElement;
       } else {
-        content = (factoryFunction as PlatformViewFactory).call(viewId);
+        factoryFunction as ui_web.PlatformViewFactory;
+        content = factoryFunction(viewId) as DomElement;
       }
 
       _ensureContentCorrectlySized(content, viewType);
+      wrapper.append(content);
 
-      return wrapper..append(content);
+      return wrapper;
     });
   }
 
   /// Removes a PlatformView by its `viewId` from the manager, and from the DOM.
   ///
-  /// Once a view has been cleared, calls [knowsViewId] will fail, as if it had
+  /// Once a view has been cleared, calls to [knowsViewId] will fail, as if it had
   /// never been rendered before.
   void clearPlatformView(int viewId) {
     // Remove from our cache, and then from the DOM...
-    final DomElement? element = _contents.remove(viewId);
-    _safelyRemoveSlottedElement(element);
-  }
-
-  // We need to remove slotted elements like this because of a Safari bug that
-  // gets triggered when a slotted element is removed in a JS event different
-  // than its slot (after the slot is removed).
-  //
-  // TODO(web): Cleanup https://github.com/flutter/flutter/issues/85816
-  void _safelyRemoveSlottedElement(DomElement? element) {
-    if (element == null) {
-      return;
-    }
-    if (browserEngine != BrowserEngine.webkit) {
-      element.remove();
-      return;
-    }
-    final String tombstoneName = "tombstone-${element.getAttribute('slot')}";
-    // Create and inject a new slot in the shadow root
-    final DomElement slot = domDocument.createElement('slot')
-      ..style.display = 'none'
-      ..setAttribute('name', tombstoneName);
-    flutterViewEmbedder.glassPaneShadow!.append(slot);
-    // Link the element to the new slot
-    element.setAttribute('slot', tombstoneName);
-    // Delete both the element, and the new slot
-    element.remove();
-    slot.remove();
+    _contents.remove(viewId)?.remove();
   }
 
   /// Attempt to ensure that the contents of the user-supplied DOM element will
@@ -204,15 +213,22 @@ class PlatformViewManager {
   bool isVisible(int viewId) => !isInvisible(viewId);
 
   /// Clears the state. Used in tests.
-  ///
-  /// Returns the set of know view ids, so they can be cleaned up.
-  Set<int> debugClear() {
-    final Set<int> result = _contents.keys.toSet();
-    result.forEach(clearPlatformView);
+  void debugClear() {
+    _contents.keys.toList().forEach(clearPlatformView);
     _factories.clear();
     _contents.clear();
     _invisibleViews.clear();
     _viewIdToType.clear();
-    return result;
   }
+}
+
+DomElement _defaultFactory(
+  int viewId, {
+  Object? params,
+}) {
+  params!;
+  params as Map<Object?, Object?>;
+  return domDocument.createElement(params.readString('tagName'))
+    ..style.width = '100%'
+    ..style.height = '100%';
 }

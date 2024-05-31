@@ -36,6 +36,7 @@ enum PointerSignalKind {
 
 class PointerData {
   const PointerData({
+    this.viewId = 0,
     this.embedderId = 0,
     this.timeStamp = Duration.zero,
     this.change = PointerChange.cancel,
@@ -72,6 +73,7 @@ class PointerData {
     this.scale = 0.0,
     this.rotation = 0.0,
   });
+  final int viewId;
   final int embedderId;
   final Duration timeStamp;
   final PointerChange change;
@@ -109,7 +111,7 @@ class PointerData {
   final double rotation;
 
   @override
-  String toString() => 'PointerData(x: $physicalX, y: $physicalY)';
+  String toString() => 'PointerData(viewId: $viewId, x: $physicalX, y: $physicalY)';
   String toStringFull() {
     return '$runtimeType('
            'embedderId: $embedderId, '
@@ -145,13 +147,13 @@ class PointerData {
            'panDeltaX: $panDeltaX, '
            'panDeltaY: $panDeltaY, '
            'scale: $scale, '
-           'rotation: $rotation'
+           'rotation: $rotation, '
+           'viewId: $viewId'
            ')';
   }
 }
 
 class PointerDataPacket {
-  const PointerDataPacket({this.data = const <PointerData>[]})
-      : assert(data != null);
+  const PointerDataPacket({this.data = const <PointerData>[]});
   final List<PointerData> data;
 }

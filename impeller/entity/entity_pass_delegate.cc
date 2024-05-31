@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "impeller/entity/entity_pass_delegate.h"
+#include "impeller/entity/entity_pass.h"
 
 namespace impeller {
 
@@ -18,13 +19,12 @@ class DefaultEntityPassDelegate final : public EntityPassDelegate {
   ~DefaultEntityPassDelegate() override = default;
 
   // |EntityPassDelegate|
-  std::optional<Rect> GetCoverageRect() override { return std::nullopt; }
-
-  // |EntityPassDelegate|
   bool CanElide() override { return false; }
 
   // |EntityPassDelegate|
-  bool CanCollapseIntoParentPass() override { return true; }
+  bool CanCollapseIntoParentPass(EntityPass* entity_pass) override {
+    return true;
+  }
 
   // |EntityPassDelegate|
   std::shared_ptr<Contents> CreateContentsForSubpassTarget(
@@ -36,8 +36,18 @@ class DefaultEntityPassDelegate final : public EntityPassDelegate {
     return  ret;
   }
 
+  // |EntityPassDelgate|
+  std::shared_ptr<FilterContents> WithImageFilter(
+      const FilterInput::Variant& input,
+      const Matrix& effect_transform) const override {
+    return nullptr;
+  }
+
  private:
-  FML_DISALLOW_COPY_AND_ASSIGN(DefaultEntityPassDelegate);
+  DefaultEntityPassDelegate(const DefaultEntityPassDelegate&) = delete;
+
+  DefaultEntityPassDelegate& operator=(const DefaultEntityPassDelegate&) =
+      delete;
 };
 
 std::unique_ptr<EntityPassDelegate> EntityPassDelegate::MakeDefault() {

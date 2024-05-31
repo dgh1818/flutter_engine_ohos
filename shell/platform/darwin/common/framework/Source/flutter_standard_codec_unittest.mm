@@ -4,7 +4,90 @@
 
 #import "flutter/shell/platform/darwin/common/framework/Headers/FlutterCodecs.h"
 
+#include <CoreFoundation/CoreFoundation.h>
+
 #include "gtest/gtest.h"
+
+FLUTTER_ASSERT_ARC
+
+@interface Pair : NSObject
+@property(atomic, readonly, strong, nullable) NSObject* left;
+@property(atomic, readonly, strong, nullable) NSObject* right;
+- (instancetype)initWithLeft:(NSObject*)first right:(NSObject*)right;
+@end
+
+@implementation Pair
+- (instancetype)initWithLeft:(NSObject*)left right:(NSObject*)right {
+  self = [super init];
+  if (self) {
+    _left = left;
+    _right = right;
+  }
+  return self;
+}
+@end
+
+static const UInt8 kDATE = 128;
+static const UInt8 kPAIR = 129;
+
+@interface ExtendedWriter : FlutterStandardWriter
+- (void)writeValue:(id)value;
+@end
+
+@implementation ExtendedWriter
+- (void)writeValue:(id)value {
+  if ([value isKindOfClass:[NSDate class]]) {
+    [self writeByte:kDATE];
+    NSDate* date = value;
+    NSTimeInterval time = date.timeIntervalSince1970;
+    SInt64 ms = (SInt64)(time * 1000.0);
+    [self writeBytes:&ms length:8];
+  } else if ([value isKindOfClass:[Pair class]]) {
+    Pair* pair = value;
+    [self writeByte:kPAIR];
+    [self writeValue:pair.left];
+    [self writeValue:pair.right];
+  } else {
+    [super writeValue:value];
+  }
+}
+@end
+
+@interface ExtendedReader : FlutterStandardReader
+- (id)readValueOfType:(UInt8)type;
+@end
+
+@implementation ExtendedReader
+- (id)readValueOfType:(UInt8)type {
+  switch (type) {
+    case kDATE: {
+      SInt64 value;
+      [self readBytes:&value length:8];
+      NSTimeInterval time = [NSNumber numberWithLong:value].doubleValue / 1000.0;
+      return [NSDate dateWithTimeIntervalSince1970:time];
+    }
+    case kPAIR: {
+      return [[Pair alloc] initWithLeft:[self readValue] right:[self readValue]];
+    }
+    default:
+      return [super readValueOfType:type];
+  }
+}
+@end
+
+@interface ExtendedReaderWriter : FlutterStandardReaderWriter
+- (FlutterStandardWriter*)writerWithData:(NSMutableData*)data;
+- (FlutterStandardReader*)readerWithData:(NSData*)data;
+@end
+
+@implementation ExtendedReaderWriter
+- (FlutterStandardWriter*)writerWithData:(NSMutableData*)data {
+  return [[ExtendedWriter alloc] initWithData:data];
+}
+- (FlutterStandardReader*)readerWithData:(NSData*)data {
+  return [[ExtendedReader alloc] initWithData:data];
+}
+@end
 
 static void CheckEncodeDecode(id value, NSData* expectedEncoding) {
   FlutterStandardMessageCodec* codec = [FlutterStandardMessageCodec sharedInstance];
@@ -134,6 +217,19 @@ TEST(FlutterStandardCodec, CanEncodeAndDecodeStringWithNonBMPCodePoint) {
   CheckEncodeDecode(@"h\U0001F602w", [NSData dataWithBytes:bytes length:8]);
 }
 
+TEST(FlutterStandardCodec, CanEncodeAndDecodeIndirectString) {
+  // This test ensures that an indirect NSString, whose internal string buffer
+  // can't be simply returned by `CFStringGetCStringPtr`, can be encoded without
+  // violating the memory sanitizer. This test only works with `--asan` flag.
+  // See https://github.com/flutter/flutter/issues/142101
+  uint8_t bytes[7] = {0x07, 0x05, 0x68, 0xe2, 0x98, 0xba, 0x77};
+  NSString* target = @"h\u263Aw";
+  // Ensures that this is an indirect string so that this test makes sense.
+  ASSERT_TRUE(CFStringGetCStringPtr((__bridge CFStringRef)target, kCFStringEncodingUTF8) ==
+              nullptr);
+  CheckEncodeDecode(target, [NSData dataWithBytes:bytes length:7]);
+}
+
 TEST(FlutterStandardCodec, CanEncodeAndDecodeArray) {
   NSArray* value = @[ [NSNull null], @"hello", @3.14, @47, @{@42 : @"nested"} ];
   CheckEncodeDecode(value);
@@ -251,4 +347,15 @@ TEST(FlutterStandardCodec, HandlesErrorEnvelopes) {
   NSData* encoded = [codec encodeErrorEnvelope:error];
   id decoded = [codec decodeEnvelope:encoded];
   ASSERT_TRUE([decoded isEqual:error]);
+}
+
+TEST(FlutterStandardCodec, HandlesSubclasses) {
+  ExtendedReaderWriter* extendedReaderWriter = [[ExtendedReaderWriter alloc] init];
+  FlutterStandardMessageCodec* codec =
+      [FlutterStandardMessageCodec codecWithReaderWriter:extendedReaderWriter];
+  Pair* pair = [[Pair alloc] initWithLeft:@1 right:@2];
+  NSData* encoded = [codec encode:pair];
+  Pair* decoded = [codec decode:encoded];
+  ASSERT_TRUE([pair.left isEqual:decoded.left]);
+  ASSERT_TRUE([pair.right isEqual:decoded.right]);
 }

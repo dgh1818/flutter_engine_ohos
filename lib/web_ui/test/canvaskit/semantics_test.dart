@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 @TestOn('chrome || safari || firefox')
+library;
 
 import 'dart:async';
 
@@ -21,7 +22,7 @@ void main() {
 // semantics.
 Future<void> testMain() async {
   group('CanvasKit semantics', () {
-    setUpCanvasKitTest();
+    setUpCanvasKitTest(withImplicitView: true);
 
     runSemanticsTests();
   });

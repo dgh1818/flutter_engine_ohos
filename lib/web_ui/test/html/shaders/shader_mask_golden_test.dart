@@ -10,10 +10,16 @@ import 'package:ui/ui.dart';
 
 import 'package:web_engine_tester/golden_tester.dart';
 
+import '../../common/test_initialization.dart';
+
 /// To debug compositing failures on browsers, set this flag to true and run
 /// flutter run -d chrome --web-renderer=html
 ///        test/golden_tests/engine/shader_mask_golden_test.dart --profile
 const bool debugTest = false;
+
+DomElement get sceneHost =>
+    EnginePlatformDispatcher.instance.implicitView!.dom.renderingHost
+        .querySelector(DomManager.sceneHostTagName)!;
 
 Future<void> main() async {
   if (!debugTest) {
@@ -29,20 +35,22 @@ Future<void> main() async {
 // https://github.com/flutter/flutter/issues/86623
 
 Future<void> testMain() async {
+  setUpUnitTests(
+    withImplicitView: true,
+    emulateTesterEnvironment: false,
+    setUpTestViewDimensions: false,
+  );
+
   setUpAll(() async {
     debugShowClipLayers = true;
-    await webOnlyInitializePlatform();
   });
 
   setUp(() async {
     SurfaceSceneBuilder.debugForgetFrameScene();
-    for (final DomNode scene in
-        flutterViewEmbedder.sceneHostElement!.querySelectorAll('flt-scene').cast<DomNode>()) {
+    for (final DomNode scene in sceneHost.querySelectorAll('flt-scene').cast<DomNode>()) {
       scene.remove();
     }
     initWebGl();
-    await renderer.fontCollection.debugDownloadTestFonts();
-    renderer.fontCollection.registerDownloadedFonts();
   });
 
   /// Should render the picture unmodified.
@@ -160,7 +168,7 @@ void _renderCirclesScene(BlendMode blendMode) {
   builder.addPicture(Offset.zero, circles2);
   builder.pop();
 
-  flutterViewEmbedder.sceneHostElement!.append(builder.build().webOnlyRootElement!);
+  sceneHost.append(builder.build().webOnlyRootElement!);
 }
 
 Picture _drawTestPictureWithText(
@@ -215,5 +223,5 @@ void _renderTextScene(BlendMode blendMode) {
   builder.addPicture(Offset.zero, textPicture2);
   builder.pop();
 
-  flutterViewEmbedder.sceneHostElement!.append(builder.build().webOnlyRootElement!);
+  sceneHost.append(builder.build().webOnlyRootElement!);
 }

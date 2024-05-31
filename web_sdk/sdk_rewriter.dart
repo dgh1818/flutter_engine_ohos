@@ -11,34 +11,40 @@ final ArgParser argParser = ArgParser()
   ..addOption('output-dir')
   ..addOption('input-dir')
   ..addFlag('ui')
+  ..addFlag('public')
   ..addOption('library-name')
   ..addOption('api-file')
   ..addMultiOption('source-file')
-  ..addOption('stamp');
+  ..addOption('stamp')
+  ..addOption('depfile')
+  ..addOption('exclude-pattern')
+  ..addOption('build-dir');
 
 final List<Replacer> uiPatterns = <Replacer>[
   AllReplacer(RegExp(r'library\s+ui;'), 'library dart.ui;'),
   AllReplacer(RegExp(r'part\s+of\s+ui;'), 'part of dart.ui;'),
+
+  // import 'src/engine.dart' as engine;
   AllReplacer(RegExp(r'''
 import\s*'src/engine.dart'\s*as\s+engine;
 '''), r'''
 import 'dart:_engine' as engine;
 '''),
-  AllReplacer(RegExp(
-    r'''
-export\s*'src/engine.dart'
+
+  // import 'ui_web/src/ui_web.dart' as ui_web;
+  AllReplacer(RegExp(r'''
+import\s*'ui_web/src/ui_web.dart'\s*as\s+ui_web;
+'''), r'''
+import 'dart:ui_web' as ui_web;
 '''),
-    r'''
-export 'dart:_engine'
-''',
-  ),
 ];
 
-List<Replacer> generateApiFilePatterns(String libraryName, List<String> extraImports) {
+List<Replacer> generateApiFilePatterns(String libraryName, bool isPublic, List<String> extraImports) {
+  final String libraryPrefix = isPublic ? '' : '_';
   return <Replacer>[
     AllReplacer(RegExp('library\\s+$libraryName;'), '''
 @JS()
-library dart._$libraryName;
+library dart.$libraryPrefix$libraryName;
 
 import 'dart:async';
 import 'dart:collection';
@@ -46,6 +52,8 @@ import 'dart:convert' hide Codec;
 import 'dart:developer' as developer;
 import 'dart:js_util' as js_util;
 import 'dart:_js_annotations';
+import 'dart:js_interop' hide JS;
+import 'dart:js_interop_unsafe';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -62,9 +70,10 @@ part '$libraryName/${match.group(1)}';
   ];
 }
 
-List<Replacer> generatePartsPatterns(String libraryName) {
+List<Replacer> generatePartsPatterns(String libraryName, bool isPublic) {
+  final String libraryPrefix = isPublic ? '' : '_';
   return <Replacer>[
-    AllReplacer(RegExp('part\\s+of\\s+$libraryName;'), 'part of dart._$libraryName;'),
+    AllReplacer(RegExp('part\\s+of\\s+$libraryName;'), 'part of dart.$libraryPrefix$libraryName;'),
     // Remove library-level JS annotations.
     AllReplacer(RegExp(r'\n@JS(.*)\nlibrary .+;'), ''),
     // Remove library directives.
@@ -72,6 +81,7 @@ List<Replacer> generatePartsPatterns(String libraryName) {
     // Remove imports/exports from all part files.
     AllReplacer(RegExp(r'\nimport\s*.*'), ''),
     AllReplacer(RegExp(r'\nexport\s*.*'), ''),
+    AllReplacer(RegExp(r'\n@DefaultAsset(.*)'), ''),
   ];
 }
 
@@ -85,6 +95,7 @@ final List<Replacer> stripMetaPatterns = <Replacer>[
 ];
 
 const Set<String> rootLibraryNames = <String>{
+  'ui_web',
   'engine',
   'skwasm_stub',
   'skwasm_impl',
@@ -92,8 +103,10 @@ const Set<String> rootLibraryNames = <String>{
 
 final Map<Pattern, String> extraImportsMap = <Pattern, String>{
   RegExp('skwasm_(stub|impl)'): "import 'dart:_skwasm_stub' if (dart.library.ffi) 'dart:_skwasm_impl';",
+  'ui_web': "import 'dart:ui_web' as ui_web;",
   'engine': "import 'dart:_engine';",
   'web_unicode': "import 'dart:_web_unicode';",
+  'web_test_fonts': "import 'dart:_web_test_fonts';",
   'web_locale_keymap': "import 'dart:_web_locale_keymap' as locale_keymap;",
 };
 
@@ -103,28 +116,46 @@ void main(List<String> arguments) {
   final ArgResults results = argParser.parse(arguments);
   final Directory directory = Directory(results['output-dir'] as String);
   final String inputDirectoryPath = results['input-dir'] as String;
+  final String? excludePattern = results['exclude-pattern'] as String?;
+  final String stampfilePath = results['stamp'] as String;
+  final String depfilePath = results['depfile'] as String;
+  final String buildDirPath = results['build-dir'] as String;
 
   String Function(String source)? preprocessor;
   List<Replacer> replacementPatterns;
   String? libraryName;
 
+  final bool isPublic = results['public'] as bool;
+
   if (results['ui'] as bool) {
     replacementPatterns = uiPatterns;
   } else {
-    libraryName = results['library-name'] as String;
+    libraryName = results['library-name'] as String?;
     if (libraryName == null) {
       throw Exception('library-name must be specified if not rewriting ui');
     }
     preprocessor = (String source) => preprocessPartFile(source, libraryName!);
-    replacementPatterns = generatePartsPatterns(libraryName);
+    replacementPatterns = generatePartsPatterns(libraryName, isPublic);
   }
-  for (final String inputFilePath in results['source-file'] as Iterable<String>) {
-    String pathSuffix = inputFilePath.substring(inputDirectoryPath.length);
+
+  final List<String> inputFiles = <String>[];
+  final List<FileSystemEntity> entries = Directory(inputDirectoryPath).listSync(
+    recursive: true, followLinks: false,
+  );
+  for (final File inputFile in entries.whereType<File>()) {
+    if (excludePattern != null && inputFile.path.startsWith(excludePattern)) {
+      continue;
+    }
+    if (!inputFile.path.endsWith('.dart') || inputFile.path.endsWith('_test.dart')) {
+      continue;
+    }
+    inputFiles.add(path.relative(inputFile.path, from: buildDirPath));
+    String pathSuffix = inputFile.path.substring(inputDirectoryPath.length);
     if (libraryName != null) {
       pathSuffix = path.join(libraryName, pathSuffix);
     }
     final String outputFilePath = path.join(directory.path, pathSuffix);
-    processFile(inputFilePath, outputFilePath, preprocessor, replacementPatterns);
+    processFile(inputFile.path, outputFilePath, preprocessor, replacementPatterns);
   }
 
   if (results['api-file'] != null) {
@@ -137,7 +168,7 @@ void main(List<String> arguments) {
         directory.path, path.basename(inputFilePath));
 
     final List<String> extraImports = getExtraImportsForLibrary(libraryName);
-    replacementPatterns = generateApiFilePatterns(libraryName, extraImports);
+    replacementPatterns = generateApiFilePatterns(libraryName, isPublic, extraImports);
 
     processFile(
       inputFilePath,
@@ -147,10 +178,15 @@ void main(List<String> arguments) {
     );
   }
 
+  File(stampfilePath).writeAsStringSync('stamp');
+  writeDepfile(depfilePath, stampfilePath, inputFiles);
+}
 
-  if (results['stamp'] != null) {
-    File(results['stamp'] as String).writeAsStringSync('stamp');
-  }
+void writeDepfile(String depfilePath, String stampfilePath, List<String> inputFiles) {
+  final StringBuffer outBuf = StringBuffer();
+  outBuf.write('$stampfilePath: ');
+  outBuf.write(inputFiles.join(' '));
+  File(depfilePath).writeAsStringSync(outBuf.toString());
 }
 
 List<String> getExtraImportsForLibrary(String libraryName) {
@@ -165,6 +201,9 @@ List<String> getExtraImportsForLibrary(String libraryName) {
     if (entry.key.matchAsPrefix(libraryName) == null) {
       extraImports.add(entry.value);
     }
+  }
+  if (libraryName == 'skwasm_impl') {
+    extraImports.add("import 'dart:_wasm';");
   }
   return extraImports;
 }
@@ -224,6 +263,17 @@ String validateApiFile(String apiFilePath, String apiFileCode, String libraryNam
 
     if (line.startsWith('export')) {
       // Exports are OK
+      continue;
+    }
+
+    if (line.startsWith('@DefaultAsset')) {
+      // Default asset annotations are OK
+      continue;
+    }
+
+    if (line.startsWith("import 'dart:ffi';")) {
+      // dart:ffi import is an exception to the import rule, since the
+      // @DefaultAsset annotation comes from dart:ffi.
       continue;
     }
 

@@ -17,10 +17,22 @@ source_set("testing_lib") {
 
   sources = [
     "assertions.h",
+    "debugger_detection.cc",
+    "debugger_detection.h",
     "display_list_testing.cc",
     "display_list_testing.h",
+    "logger_listener.cc",
+    "logger_listener.h",
+    "mock_canvas.cc",
+    "mock_canvas.h",
     "post_task_sync.cc",
     "post_task_sync.h",
+    "stream_capture.cc",
+    "stream_capture.h",
+    "test_args.cc",
+    "test_args.h",
+    "test_timeout_listener.cc",
+    "test_timeout_listener.h",
     "testing.cc",
     "testing.h",
     "thread_test.cc",
@@ -30,8 +42,8 @@ source_set("testing_lib") {
   public_deps = [
     "//flutter/display_list",
     "//flutter/fml",
-    "//third_party/googletest:gmock",
-    "//third_party/googletest:gtest",
+    "//flutter/third_party/googletest:gmock",
+    "//flutter/third_party/googletest:gtest",
   ]
   public_configs = [ "//flutter:config" ]
 }
@@ -39,13 +51,12 @@ source_set("testing_lib") {
 source_set("testing") {
   testonly = true
 
-  sources = [
-    "debugger_detection.cc",
-    "debugger_detection.h",
-    "run_all_unittests.cc",
-    "test_timeout_listener.cc",
-    "test_timeout_listener.h",
-  ]
+  sources = [ "run_all_unittests.cc" ]
+
+  if (enable_unittests && is_linux) {
+    # So that we can call gtk_init in main().
+    configs += [ "//flutter/shell/platform/linux/config:gtk" ]
+  }
 
   public_deps = [ ":testing_lib" ]
   public_configs = [ ":dynamic_symbols" ]
@@ -65,12 +76,12 @@ source_set("dart") {
 
   public_deps = [
     ":testing_lib",
+    "$dart_src/runtime/bin:elf_loader",
     "//flutter/common",
     "//flutter/runtime",
     "//flutter/runtime:libdart",
+    "//flutter/skia",
     "//flutter/third_party/tonic",
-    "//third_party/dart/runtime/bin:elf_loader",
-    "//third_party/skia",
   ]
 }
 
@@ -81,13 +92,11 @@ source_set("skia") {
     "assertions_skia.cc",
     "assertions_skia.h",
     "canvas_test.h",
-    "mock_canvas.cc",
-    "mock_canvas.h",
   ]
 
   public_deps = [
     ":testing_lib",
-    "//third_party/skia",
+    "//flutter/skia",
   ]
 }
 
@@ -124,7 +133,20 @@ source_set("fixture_test") {
   }
 }
 
-if (enable_unittests) {
+if (is_mac || is_ios) {
+  source_set("autoreleasepool_test") {
+    testonly = true
+
+    sources = [ "autoreleasepool_test.h" ]
+
+    deps = [
+      "//flutter/fml",
+      "//flutter/third_party/googletest:gtest",
+    ]
+  }
+}
+
+if (enable_unittests && shell_enable_vulkan) {
   source_set("vulkan") {
     testonly = true
 
@@ -149,11 +171,13 @@ if (enable_unittests) {
     ]
 
     if (!is_fuchsia) {
-      deps += [ "//third_party/swiftshader" ]
-      configs += [ "//third_party/swiftshader:swiftshader_config" ]
+      deps += [ "//flutter/third_party/swiftshader" ]
+      configs += [ "//flutter/third_party/swiftshader:swiftshader_config" ]
     }
   }
+}
 
+if (enable_unittests) {
   test_fixtures("testing_fixtures") {
     fixtures = []
   }
@@ -170,13 +194,16 @@ if (enable_unittests) {
       ":testing",
       ":testing_fixtures",
       "//flutter/runtime:libdart",
-      "//flutter/vulkan",
     ]
 
     if (shell_enable_metal) {
       sources += [ "test_metal_surface_unittests.cc" ]
 
       deps += [ ":metal" ]
+    }
+
+    if (shell_enable_vulkan) {
+      deps += [ "//flutter/vulkan" ]
     }
   }
 }
@@ -207,7 +234,7 @@ if (is_mac || is_ios) {
 
       # Skia's Vulkan support is enabled for all platforms (except iOS), and so parts of
       # Skia's graphics context reference Vulkan symbols.
-      if (!is_ios) {
+      if (shell_enable_vulkan) {
         deps += [ "//flutter/vulkan" ]
       }
     }
@@ -217,32 +244,30 @@ if (is_mac || is_ios) {
 }
 
 # We only use SwiftShader on unittests
-use_swiftshader = enable_unittests && !is_fuchsia
+use_swiftshader = enable_unittests && shell_enable_gl
+if (use_swiftshader) {
+  source_set("opengl") {
+    testonly = true
 
-source_set("opengl") {
-  testonly = true
+    sources = [
+      "test_gl_surface.cc",
+      "test_gl_surface.h",
+    ]
 
-  sources = [
-    "test_gl_surface.cc",
-    "test_gl_surface.h",
-  ]
+    deps = [
+      ":skia",
+      "//flutter/fml",
+    ]
 
-  deps = [
-    ":skia",
-    "//flutter/fml",
-  ]
-
-  if (use_swiftshader) {
     configs -= [ "//build/config/clang:extra_warnings" ]
     configs += [
-      "//flutter/vulkan:vulkan_config",  # for swiftshader
-      "//third_party/angle:gl_prototypes",
-      "//third_party/swiftshader:swiftshader_config",
+      "//flutter/third_party/angle:gl_prototypes",
+      "//flutter/third_party/swiftshader:swiftshader_config",
     ]
     deps += [
-      "//third_party/angle:libEGL_static",
-      "//third_party/angle:libGLESv2_static",
-      "//third_party/swiftshader",
+      "//flutter/third_party/angle:libEGL_static",
+      "//flutter/third_party/angle:libGLESv2_static",
+      "//flutter/third_party/swiftshader",
     ]
   }
 }

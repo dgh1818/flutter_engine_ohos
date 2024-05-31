@@ -9,8 +9,14 @@ import 'package:litetest/litetest.dart';
 import 'package:vm_service/vm_service.dart' as vms;
 import 'package:vm_service/vm_service_io.dart';
 
+import '../impeller_enabled.dart';
+
 void main() {
   test('simple iplr shader can be re-initialized', () async {
+    if (impellerEnabled) {
+      // Needs https://github.com/flutter/flutter/issues/129659
+      return;
+    }
     vms.VmService? vmService;
     FragmentShader? shader;
     try {
@@ -23,7 +29,7 @@ void main() {
       final developer.ServiceProtocolInfo info = await developer.Service.getInfo();
 
       if (info.serverUri == null) {
-        fail('This test must not be run with --disable-observatory.');
+        fail('This test must not be run with --disable-vm-service.');
       }
 
       vmService = await vmServiceConnectUri(

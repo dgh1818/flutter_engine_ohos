@@ -4,6 +4,8 @@
 
 package io.flutter.plugin.editing;
 
+import static io.flutter.Build.API_LEVELS;
+
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Rect;
@@ -15,7 +17,6 @@ import android.util.SparseArray;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewStructure;
-import android.view.WindowInsets;
 import android.view.autofill.AutofillId;
 import android.view.autofill.AutofillManager;
 import android.view.autofill.AutofillValue;
@@ -70,7 +71,7 @@ public class TextInputPlugin implements ListenableEditingState.EditingStateWatch
     // Create a default object.
     mEditable = new ListenableEditingState(null, mView);
     mImm = (InputMethodManager) view.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+    if (Build.VERSION.SDK_INT >= API_LEVELS.API_26) {
       afm = view.getContext().getSystemService(AutofillManager.class);
     } else {
       afm = null;
@@ -79,20 +80,8 @@ public class TextInputPlugin implements ListenableEditingState.EditingStateWatch
     // Sets up syncing ime insets with the framework, allowing
     // the Flutter view to grow and shrink to accommodate Android
     // controlled keyboard animations.
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-      int mask = 0;
-      if ((View.SYSTEM_UI_FLAG_HIDE_NAVIGATION & mView.getWindowSystemUiVisibility()) == 0) {
-        mask = mask | WindowInsets.Type.navigationBars();
-      }
-      if ((View.SYSTEM_UI_FLAG_FULLSCREEN & mView.getWindowSystemUiVisibility()) == 0) {
-        mask = mask | WindowInsets.Type.statusBars();
-      }
-      imeSyncCallback =
-          new ImeSyncDeferringInsetsCallback(
-              view,
-              mask, // Overlay, insets that should be merged with the deferred insets
-              WindowInsets.Type.ime() // Deferred, insets that will animate
-              );
+    if (Build.VERSION.SDK_INT >= API_LEVELS.API_30) {
+      imeSyncCallback = new ImeSyncDeferringInsetsCallback(view);
       imeSyncCallback.install();
     }
 
@@ -120,7 +109,7 @@ public class TextInputPlugin implements ListenableEditingState.EditingStateWatch
 
           @Override
           public void finishAutofillContext(boolean shouldSave) {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || afm == null) {
+            if (Build.VERSION.SDK_INT < API_LEVELS.API_26 || afm == null) {
               return;
             }
             if (shouldSave) {
@@ -274,7 +263,11 @@ public class TextInputPlugin implements ListenableEditingState.EditingStateWatch
       textType |= InputType.TYPE_TEXT_VARIATION_PASSWORD;
     } else {
       if (autocorrect) textType |= InputType.TYPE_TEXT_FLAG_AUTO_CORRECT;
-      if (!enableSuggestions) textType |= InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS;
+      if (!enableSuggestions) {
+        // Note: both required. Some devices ignore TYPE_TEXT_FLAG_NO_SUGGESTIONS.
+        textType |= InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS;
+        textType |= InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD;
+      }
     }
 
     if (textCapitalization == TextInputChannel.TextCapitalization.CHARACTERS) {
@@ -321,7 +314,7 @@ public class TextInputPlugin implements ListenableEditingState.EditingStateWatch
             configuration.textCapitalization);
     outAttrs.imeOptions = EditorInfo.IME_FLAG_NO_FULLSCREEN;
 
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+    if (Build.VERSION.SDK_INT >= API_LEVELS.API_26
         && !configuration.enableIMEPersonalizedLearning) {
       outAttrs.imeOptions |= EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING;
     }
@@ -385,16 +378,11 @@ public class TextInputPlugin implements ListenableEditingState.EditingStateWatch
     mImm.sendAppPrivateCommand(mView, action, data);
   }
 
-  private boolean canShowTextInput() {
-    if (configuration == null || configuration.inputType == null) {
-      return true;
-    }
-    return configuration.inputType.type != TextInputChannel.TextInputType.NONE;
-  }
-
   @VisibleForTesting
   void showTextInput(View view) {
-    if (canShowTextInput()) {
+    if (configuration == null
+        || configuration.inputType == null
+        || configuration.inputType.type != TextInputChannel.TextInputType.NONE) {
       view.requestFocus();
       mImm.showSoftInput(view, 0);
     } else {
@@ -418,11 +406,7 @@ public class TextInputPlugin implements ListenableEditingState.EditingStateWatch
     // Call notifyViewExited on the previous field.
     notifyViewExited();
     this.configuration = configuration;
-    if (canShowTextInput()) {
-      inputTarget = new InputTarget(InputTarget.Type.FRAMEWORK_CLIENT, client);
-    } else {
-      inputTarget = new InputTarget(InputTarget.Type.NO_TARGET, client);
-    }
+    inputTarget = new InputTarget(InputTarget.Type.FRAMEWORK_CLIENT, client);
 
     mEditable.removeEditingStateListener(this);
     mEditable =
@@ -567,6 +551,10 @@ public class TextInputPlugin implements ListenableEditingState.EditingStateWatch
     inputTarget = new InputTarget(InputTarget.Type.NO_TARGET, 0);
     unlockPlatformViewInputConnection();
     lastClientRect = null;
+
+    // Call restartInput to reset IME internal states. Otherwise some IMEs (Gboard for instance)
+    // keep reacting based on the previous input configuration until a new configuration is set.
+    mImm.restartInput(mView);
   }
 
   private static class InputTarget {
@@ -690,7 +678,7 @@ public class TextInputPlugin implements ListenableEditingState.EditingStateWatch
   }
 
   private void notifyViewEntered() {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || afm == null || !needsAutofill()) {
+    if (Build.VERSION.SDK_INT < API_LEVELS.API_26 || afm == null || !needsAutofill()) {
       return;
     }
 
@@ -703,7 +691,7 @@ public class TextInputPlugin implements ListenableEditingState.EditingStateWatch
   }
 
   private void notifyViewExited() {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O
+    if (Build.VERSION.SDK_INT < API_LEVELS.API_26
         || afm == null
         || configuration == null
         || configuration.autofill == null
@@ -716,7 +704,7 @@ public class TextInputPlugin implements ListenableEditingState.EditingStateWatch
   }
 
   private void notifyValueChanged(String newValue) {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || afm == null || !needsAutofill()) {
+    if (Build.VERSION.SDK_INT < API_LEVELS.API_26 || afm == null || !needsAutofill()) {
       return;
     }
 
@@ -725,7 +713,7 @@ public class TextInputPlugin implements ListenableEditingState.EditingStateWatch
   }
 
   private void updateAutofillConfigurationIfNeeded(TextInputChannel.Configuration configuration) {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+    if (Build.VERSION.SDK_INT < API_LEVELS.API_26) {
       return;
     }
 
@@ -755,7 +743,7 @@ public class TextInputPlugin implements ListenableEditingState.EditingStateWatch
   }
 
   public void onProvideAutofillVirtualStructure(@NonNull ViewStructure structure, int flags) {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || !needsAutofill()) {
+    if (Build.VERSION.SDK_INT < API_LEVELS.API_26 || !needsAutofill()) {
       return;
     }
 
@@ -803,7 +791,7 @@ public class TextInputPlugin implements ListenableEditingState.EditingStateWatch
   }
 
   public void autofill(@NonNull SparseArray<AutofillValue> values) {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+    if (Build.VERSION.SDK_INT < API_LEVELS.API_26) {
       return;
     }
 

@@ -1,3 +1,7 @@
+// Copyright 2013 The Flutter Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
 package io.flutter.plugin.platform;
 
 import static android.os.Looper.getMainLooper;
@@ -7,10 +11,12 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.robolectric.Shadows.shadowOf;
 
+import android.app.Presentation;
 import android.content.Context;
 import android.content.MutableContextWrapper;
 import android.content.res.AssetManager;
 import android.graphics.SurfaceTexture;
+import android.media.Image;
 import android.util.SparseArray;
 import android.view.MotionEvent;
 import android.view.Surface;
@@ -20,12 +26,13 @@ import android.view.View;
 import android.view.ViewParent;
 import android.widget.FrameLayout;
 import android.widget.FrameLayout.LayoutParams;
+import androidx.annotation.NonNull;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import io.flutter.embedding.android.FlutterImageView;
+import io.flutter.embedding.android.FlutterSurfaceView;
 import io.flutter.embedding.android.FlutterView;
 import io.flutter.embedding.android.MotionEventTracker;
-import io.flutter.embedding.android.RenderMode;
 import io.flutter.embedding.engine.FlutterEngine;
 import io.flutter.embedding.engine.FlutterJNI;
 import io.flutter.embedding.engine.FlutterOverlaySurface;
@@ -35,9 +42,12 @@ import io.flutter.embedding.engine.mutatorsstack.FlutterMutatorsStack;
 import io.flutter.embedding.engine.renderer.FlutterRenderer;
 import io.flutter.embedding.engine.systemchannels.AccessibilityChannel;
 import io.flutter.embedding.engine.systemchannels.MouseCursorChannel;
+import io.flutter.embedding.engine.systemchannels.PlatformViewsChannel;
+import io.flutter.embedding.engine.systemchannels.PlatformViewsChannel.PlatformViewTouch;
 import io.flutter.embedding.engine.systemchannels.SettingsChannel;
 import io.flutter.embedding.engine.systemchannels.TextInputChannel;
 import io.flutter.plugin.common.MethodCall;
+import io.flutter.plugin.common.StandardMessageCodec;
 import io.flutter.plugin.common.StandardMethodCodec;
 import io.flutter.plugin.localization.LocalizationPlugin;
 import io.flutter.view.TextureRegistry;
@@ -53,52 +63,130 @@ import org.mockito.ArgumentCaptor;
 import org.robolectric.annotation.Config;
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
+import org.robolectric.shadows.ShadowDialog;
 import org.robolectric.shadows.ShadowSurfaceView;
 
 @Config(manifest = Config.NONE)
 @RunWith(AndroidJUnit4.class)
 public class PlatformViewsControllerTest {
+  // An implementation of PlatformView that counts invocations of its lifecycle callbacks.
+  class CountingPlatformView implements PlatformView {
+    static final String VIEW_TYPE_ID = "CountingPlatformView";
+    private View view;
 
-  @Ignore
+    public CountingPlatformView(Context context) {
+      view = new SurfaceView(context);
+    }
+
+    public int disposeCalls = 0;
+    public int attachCalls = 0;
+    public int detachCalls = 0;
+
+    @Override
+    public void dispose() {
+      // We have been removed from the view hierarhy before the call to dispose.
+      assertNull(view.getParent());
+      disposeCalls++;
+    }
+
+    @Override
+    public View getView() {
+      return view;
+    }
+
+    @Override
+    public void onFlutterViewAttached(View flutterView) {
+      attachCalls++;
+    }
+
+    @Override
+    public void onFlutterViewDetached() {
+      detachCalls++;
+    }
+  }
+
   @Test
-  public void itNotifiesVirtualDisplayControllersOfViewAttachmentAndDetachment() {
-    // Setup test structure.
-    FlutterView fakeFlutterView = new FlutterView(ApplicationProvider.getApplicationContext());
-
-    // Create fake VirtualDisplayControllers. This requires internal knowledge of
-    // PlatformViewsController. We know that all PlatformViewsController does is
-    // forward view attachment/detachment calls to it's VirtualDisplayControllers.
-    //
-    // TODO(mattcarroll): once PlatformViewsController is refactored into testable
-    // pieces, remove this test and avoid verifying private behavior.
-    VirtualDisplayController fakeVdController1 = mock(VirtualDisplayController.class);
-    VirtualDisplayController fakeVdController2 = mock(VirtualDisplayController.class);
-
-    // Create the PlatformViewsController that is under test.
+  @Config(shadows = {ShadowFlutterJNI.class, ShadowPlatformTaskQueue.class})
+  public void itRemovesPlatformViewBeforeDiposeIsCalled() {
     PlatformViewsController platformViewsController = new PlatformViewsController();
+    FlutterJNI jni = new FlutterJNI();
+    attach(jni, platformViewsController);
+    // Get the platform view registry.
+    PlatformViewRegistry registry = platformViewsController.getRegistry();
 
-    // Manually inject fake VirtualDisplayControllers into the PlatformViewsController.
-    platformViewsController.vdControllers.put(0, fakeVdController1);
-    platformViewsController.vdControllers.put(1, fakeVdController1);
+    // Register a factory for our platform view.
+    registry.registerViewFactory(
+        CountingPlatformView.VIEW_TYPE_ID,
+        new PlatformViewFactory(StandardMessageCodec.INSTANCE) {
+          @Override
+          public PlatformView create(Context context, int viewId, Object args) {
+            return new CountingPlatformView(context);
+          }
+        });
 
-    // Execute test & verify results.
-    // Attach PlatformViewsController to the fake Flutter View.
-    platformViewsController.attachToView(fakeFlutterView);
+    // Create the platform view.
+    int viewId = 0;
+    final PlatformViewsChannel.PlatformViewCreationRequest request =
+        new PlatformViewsChannel.PlatformViewCreationRequest(
+            viewId,
+            CountingPlatformView.VIEW_TYPE_ID,
+            0,
+            0,
+            128,
+            128,
+            View.LAYOUT_DIRECTION_LTR,
+            null);
+    PlatformView pView = platformViewsController.createPlatformView(request, true);
+    assertTrue(pView instanceof CountingPlatformView);
+    CountingPlatformView cpv = (CountingPlatformView) pView;
+    platformViewsController.configureForTextureLayerComposition(pView, request);
+    assertEquals(0, cpv.disposeCalls);
+    platformViewsController.disposePlatformView(viewId);
+    assertEquals(1, cpv.disposeCalls);
+  }
 
-    // Verify that all virtual display controllers were notified of View attachment.
-    verify(fakeVdController1, times(1)).onFlutterViewAttached(eq(fakeFlutterView));
-    verify(fakeVdController1, never()).onFlutterViewDetached();
-    verify(fakeVdController2, times(1)).onFlutterViewAttached(eq(fakeFlutterView));
-    verify(fakeVdController2, never()).onFlutterViewDetached();
+  @Test
+  @Config(shadows = {ShadowFlutterJNI.class, ShadowPlatformTaskQueue.class})
+  public void itNotifiesPlatformViewsOfEngineAttachmentAndDetachment() {
+    PlatformViewsController platformViewsController = new PlatformViewsController();
+    FlutterJNI jni = new FlutterJNI();
+    attach(jni, platformViewsController);
+    // Get the platform view registry.
+    PlatformViewRegistry registry = platformViewsController.getRegistry();
 
-    // Detach PlatformViewsController from the fake Flutter View.
+    // Register a factory for our platform view.
+    registry.registerViewFactory(
+        CountingPlatformView.VIEW_TYPE_ID,
+        new PlatformViewFactory(StandardMessageCodec.INSTANCE) {
+          @Override
+          public PlatformView create(Context context, int viewId, Object args) {
+            return new CountingPlatformView(context);
+          }
+        });
+
+    // Create the platform view.
+    int viewId = 0;
+    final PlatformViewsChannel.PlatformViewCreationRequest request =
+        new PlatformViewsChannel.PlatformViewCreationRequest(
+            viewId,
+            CountingPlatformView.VIEW_TYPE_ID,
+            0,
+            0,
+            128,
+            128,
+            View.LAYOUT_DIRECTION_LTR,
+            null);
+    PlatformView pView = platformViewsController.createPlatformView(request, true);
+    assertTrue(pView instanceof CountingPlatformView);
+    CountingPlatformView cpv = (CountingPlatformView) pView;
+    assertEquals(1, cpv.attachCalls);
+    assertEquals(0, cpv.detachCalls);
+    assertEquals(0, cpv.disposeCalls);
     platformViewsController.detachFromView();
-
-    // Verify that all virtual display controllers were notified of the View detachment.
-    verify(fakeVdController1, times(1)).onFlutterViewAttached(eq(fakeFlutterView));
-    verify(fakeVdController1, times(1)).onFlutterViewDetached();
-    verify(fakeVdController2, times(1)).onFlutterViewAttached(eq(fakeFlutterView));
-    verify(fakeVdController2, times(1)).onFlutterViewDetached();
+    assertEquals(1, cpv.attachCalls);
+    assertEquals(1, cpv.detachCalls);
+    assertEquals(0, cpv.disposeCalls);
+    platformViewsController.disposePlatformView(viewId);
   }
 
   @Ignore
@@ -148,6 +236,36 @@ public class PlatformViewsControllerTest {
 
     // Trigger the callback to ensure that it doesn't crash.
     resizeCallbackCaptor.getValue().run();
+  }
+
+  @Test
+  @Config(shadows = {ShadowFlutterJNI.class, ShadowPlatformTaskQueue.class})
+  public void virtualDisplay_ensureDisposeVirtualDisplayController() {
+    final int platformViewId = 0;
+    FlutterView fakeFlutterView = new FlutterView(ApplicationProvider.getApplicationContext());
+    VirtualDisplayController fakeVdController = mock(VirtualDisplayController.class);
+    PlatformViewsController platformViewsController = new PlatformViewsController();
+    FlutterJNI jni = new FlutterJNI();
+    attach(jni, platformViewsController);
+    platformViewsController.attachToView(fakeFlutterView);
+
+    PlatformViewFactory viewFactory = mock(PlatformViewFactory.class);
+    PlatformView platformView = mock(PlatformView.class);
+    Context context = ApplicationProvider.getApplicationContext();
+    View androidView = new View(context);
+    when(platformView.getView()).thenReturn(androidView);
+    when(viewFactory.create(any(), eq(platformViewId), any())).thenReturn(platformView);
+    platformViewsController.getRegistry().registerViewFactory("testType", viewFactory);
+    createPlatformView(
+        jni, platformViewsController, platformViewId, "testType", /* hybrid=*/ false);
+
+    platformViewsController.vdControllers.put(platformViewId, fakeVdController);
+
+    // Simulate dispose call from the framework.
+    disposePlatformView(jni, platformViewsController, platformViewId);
+
+    // Ensure VirtualDisplayController.dispose() is called
+    verify(fakeVdController, times(1)).dispose();
   }
 
   @Test
@@ -239,8 +357,8 @@ public class PlatformViewsControllerTest {
             frameWorkTouch,
             false // usingVirtualDisplays
             );
-    assertEquals(resolvedEvent.getAction(), frameWorkTouch.action);
-    assertNotEquals(resolvedEvent.getAction(), original.getAction());
+    assertEquals(resolvedEvent.getAction(), original.getAction());
+    assertNotEquals(resolvedEvent.getAction(), frameWorkTouch.action);
   }
 
   @Ignore
@@ -531,7 +649,8 @@ public class PlatformViewsControllerTest {
   }
 
   @Test
-  @Config(shadows = {ShadowFlutterJNI.class, ShadowPlatformTaskQueue.class})
+  @Config(
+      shadows = {ShadowFlutterJNI.class, ShadowPlatformTaskQueue.class, ShadowPresentation.class})
   public void onDetachedFromJNI_clearsPlatformViewContext() {
     PlatformViewsController platformViewsController = new PlatformViewsController();
 
@@ -562,7 +681,8 @@ public class PlatformViewsControllerTest {
   }
 
   @Test
-  @Config(shadows = {ShadowFlutterJNI.class, ShadowPlatformTaskQueue.class})
+  @Config(
+      shadows = {ShadowFlutterJNI.class, ShadowPlatformTaskQueue.class, ShadowPresentation.class})
   public void onPreEngineRestart_clearsPlatformViewContext() {
     PlatformViewsController platformViewsController = new PlatformViewsController();
 
@@ -776,8 +896,7 @@ public class PlatformViewsControllerTest {
     PlatformViewFactory viewFactory = mock(PlatformViewFactory.class);
     PlatformView platformView = mock(PlatformView.class);
 
-    Context context = ApplicationProvider.getApplicationContext();
-    View androidView = new View(context);
+    View androidView = mock(View.class);
     when(platformView.getView()).thenReturn(androidView);
     when(viewFactory.create(any(), eq(platformViewId), any())).thenReturn(platformView);
     platformViewsController.getRegistry().registerViewFactory("testType", viewFactory);
@@ -1240,6 +1359,74 @@ public class PlatformViewsControllerTest {
     verify(newFlutterView, times(1)).addView(any(PlatformViewWrapper.class));
   }
 
+  @Config(
+      shadows = {
+        ShadowFlutterSurfaceView.class,
+        ShadowFlutterJNI.class,
+        ShadowPlatformTaskQueue.class
+      })
+  public void revertImageViewAndRemoveImageView() {
+    final PlatformViewsController platformViewsController = new PlatformViewsController();
+
+    final int platformViewId = 0;
+    assertNull(platformViewsController.getPlatformViewById(platformViewId));
+
+    final PlatformViewFactory viewFactory = mock(PlatformViewFactory.class);
+    final PlatformView platformView = mock(PlatformView.class);
+    final View androidView = mock(View.class);
+    when(platformView.getView()).thenReturn(androidView);
+    when(viewFactory.create(any(), eq(platformViewId), any())).thenReturn(platformView);
+
+    platformViewsController.getRegistry().registerViewFactory("testType", viewFactory);
+
+    final FlutterJNI jni = new FlutterJNI();
+    jni.attachToNative();
+
+    final FlutterView flutterView = attach(jni, platformViewsController);
+
+    jni.onFirstFrame();
+
+    // Simulate create call from the framework.
+    createPlatformView(jni, platformViewsController, platformViewId, "testType", /* hybrid=*/ true);
+
+    // The simulation creates an Overlay on top of the PlatformView
+    // This is going to be called `flutterView.convertToImageView`
+    platformViewsController.createOverlaySurface();
+    platformViewsController.onDisplayOverlaySurface(platformViewId, 0, 0, 10, 10);
+
+    // This will contain three views: Background ImageView、PlatformView、Overlay ImageView
+    assertEquals(flutterView.getChildCount(), 3);
+
+    FlutterImageView imageView = flutterView.getCurrentImageSurface();
+
+    // Make sure the ImageView is inside the current FlutterView.
+    assertTrue(imageView != null);
+    assertTrue(flutterView.indexOfChild(imageView) != -1);
+
+    // Make sure the overlayView is inside the current FlutterView
+    assertTrue(platformViewsController.getOverlayLayerViews().size() != 0);
+    PlatformOverlayView overlayView = platformViewsController.getOverlayLayerViews().get(0);
+    assertTrue(overlayView != null);
+    assertTrue(flutterView.indexOfChild(overlayView) != -1);
+
+    // Simulate in a new frame, there's no PlatformView, which is called
+    // `flutterView.revertImageView`. And register a `FlutterUiDisplayListener` callback.
+    // During callback execution it will invoke `flutterImageView.detachFromRenderer()`.
+    platformViewsController.onBeginFrame();
+    platformViewsController.onEndFrame();
+
+    // Invoke all registered `FlutterUiDisplayListener` callback
+    jni.onFirstFrame();
+
+    assertEquals(null, flutterView.getCurrentImageSurface());
+
+    // Make sure the background ImageVIew is not in the FlutterView
+    assertTrue(flutterView.indexOfChild(imageView) == -1);
+
+    // Make sure the overlay ImageVIew is not in the FlutterView
+    assertTrue(flutterView.indexOfChild(overlayView) == -1);
+  }
+
   private static ByteBuffer encodeMethodCall(MethodCall call) {
     final ByteBuffer buffer = StandardMethodCodec.INSTANCE.encodeMethodCall(call);
     buffer.rewind();
@@ -1339,7 +1526,7 @@ public class PlatformViewsControllerTest {
       FlutterJNI jni, PlatformViewsController platformViewsController) {
     final Context context = ApplicationProvider.getApplicationContext();
     final FlutterView flutterView =
-        new FlutterView(context, RenderMode.surface) {
+        new FlutterView(context, new FlutterSurfaceView(context)) {
           @Override
           public FlutterImageView createImageView() {
             final FlutterImageView view = mock(FlutterImageView.class);
@@ -1369,6 +1556,7 @@ public class PlatformViewsControllerTest {
           @Override
           public SurfaceTextureEntry registerSurfaceTexture(SurfaceTexture surfaceTexture) {
             return new SurfaceTextureEntry() {
+              @NonNull
               @Override
               public SurfaceTexture surfaceTexture() {
                 return mock(SurfaceTexture.class);
@@ -1383,6 +1571,55 @@ public class PlatformViewsControllerTest {
               public void release() {}
             };
           }
+
+          @Override
+          public ImageTextureEntry createImageTexture() {
+            return new ImageTextureEntry() {
+              @Override
+              public long id() {
+                return 0;
+              }
+
+              @Override
+              public void release() {}
+
+              @Override
+              public void pushImage(Image image) {}
+            };
+          }
+
+          @Override
+          public SurfaceProducer createSurfaceProducer() {
+            return new SurfaceProducer() {
+              @Override
+              public long id() {
+                return 0;
+              }
+
+              @Override
+              public void release() {}
+
+              @Override
+              public int getWidth() {
+                return 0;
+              }
+
+              @Override
+              public int getHeight() {
+                return 0;
+              }
+
+              @Override
+              public void setSize(int width, int height) {}
+
+              @Override
+              public Surface getSurface() {
+                return null;
+              }
+
+              public void scheduleFrame() {}
+            };
+          }
         };
 
     platformViewsController.attach(context, registry, executor);
@@ -1395,6 +1632,7 @@ public class PlatformViewsControllerTest {
     when(engine.getPlatformViewsController()).thenReturn(platformViewsController);
     when(engine.getLocalizationPlugin()).thenReturn(mock(LocalizationPlugin.class));
     when(engine.getAccessibilityChannel()).thenReturn(mock(AccessibilityChannel.class));
+    when(engine.getDartExecutor()).thenReturn(executor);
 
     flutterView.attachToFlutterEngine(engine);
     platformViewsController.attachToView(flutterView);
@@ -1411,6 +1649,34 @@ public class PlatformViewsControllerTest {
     @Implementation
     public void dispatch(Runnable runnable) {
       runnable.run();
+    }
+  }
+
+  /**
+   * The shadow class of {@link Presentation} to simulate Presentation showing logic.
+   *
+   * <p>Robolectric doesn't support VirtualDisplay creating correctly now, so this shadow class is
+   * used to simulate custom logic for Presentation.
+   */
+  @Implements(Presentation.class)
+  public static class ShadowPresentation extends ShadowDialog {
+    private boolean isShowing = false;
+
+    public ShadowPresentation() {}
+
+    @Implementation
+    protected void show() {
+      isShowing = true;
+    }
+
+    @Implementation
+    protected void dismiss() {
+      isShowing = false;
+    }
+
+    @Implementation
+    protected boolean isShowing() {
+      return isShowing;
     }
   }
 

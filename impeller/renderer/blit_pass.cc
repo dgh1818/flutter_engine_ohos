@@ -8,24 +8,18 @@
 
 #include "impeller/base/strings.h"
 #include "impeller/base/validation.h"
-#include "impeller/renderer/blit_command.h"
-#include "impeller/renderer/host_buffer.h"
+#include "impeller/core/formats.h"
 
 namespace impeller {
 
-BlitPass::BlitPass() : transients_buffer_(HostBuffer::Create()) {}
+BlitPass::BlitPass() {}
 
 BlitPass::~BlitPass() = default;
-
-HostBuffer& BlitPass::GetTransientsBuffer() {
-  return *transients_buffer_;
-}
 
 void BlitPass::SetLabel(std::string label) {
   if (label.empty()) {
     return;
   }
-  transients_buffer_->SetLabel(SPrintF("%s Transients", label.c_str()));
   OnSetLabel(std::move(label));
 }
 
@@ -48,8 +42,18 @@ bool BlitPass::AddCopy(std::shared_ptr<Texture> source,
     VALIDATION_LOG << SPrintF(
         "The source sample count (%d) must match the destination sample count "
         "(%d) for blits.",
-        source->GetTextureDescriptor().sample_count,
-        destination->GetTextureDescriptor().sample_count);
+        static_cast<int>(source->GetTextureDescriptor().sample_count),
+        static_cast<int>(destination->GetTextureDescriptor().sample_count));
+    return false;
+  }
+  if (source->GetTextureDescriptor().format !=
+      destination->GetTextureDescriptor().format) {
+    VALIDATION_LOG << SPrintF(
+        "The source pixel format (%s) must match the destination pixel format "
+        "(%s) "
+        "for blits.",
+        PixelFormatToString(source->GetTextureDescriptor().format),
+        PixelFormatToString(destination->GetTextureDescriptor().format));
     return false;
   }
 
@@ -66,7 +70,7 @@ bool BlitPass::AddCopy(std::shared_ptr<Texture> source,
 
   // Clip the destination image.
   source_region = source_region->Intersection(
-      IRect(-destination_origin, destination->GetSize()));
+      IRect::MakeOriginSize(-destination_origin, destination->GetSize()));
   if (!source_region.has_value()) {
     return true;  // Nothing to blit.
   }
@@ -96,11 +100,11 @@ bool BlitPass::AddCopy(std::shared_ptr<Texture> source,
 
   auto bytes_per_pixel =
       BytesPerPixelForPixelFormat(source->GetTextureDescriptor().format);
-  auto bytes_per_image = source_region->size.Area() * bytes_per_pixel;
+  auto bytes_per_image = source_region->Area() * bytes_per_pixel;
   if (destination_offset + bytes_per_image >
       destination->GetDeviceBufferDescriptor().size) {
     VALIDATION_LOG
-        << "Attempted to add a texture blit with out fo bounds access.";
+        << "Attempted to add a texture blit with out of bounds access.";
     return false;
   }
 
@@ -114,6 +118,30 @@ bool BlitPass::AddCopy(std::shared_ptr<Texture> source,
   return OnCopyTextureToBufferCommand(std::move(source), std::move(destination),
                                       source_region.value(), destination_offset,
                                       std::move(label));
+}
+
+bool BlitPass::AddCopy(BufferView source,
+                       std::shared_ptr<Texture> destination,
+                       IPoint destination_origin,
+                       std::string label) {
+  if (!destination) {
+    VALIDATION_LOG << "Attempted to add a texture blit with no destination.";
+    return false;
+  }
+
+  auto bytes_per_pixel =
+      BytesPerPixelForPixelFormat(destination->GetTextureDescriptor().format);
+  auto bytes_per_image =
+      destination->GetTextureDescriptor().size.Area() * bytes_per_pixel;
+
+  if (source.range.length != bytes_per_image) {
+    VALIDATION_LOG
+        << "Attempted to add a texture blit with out of bounds access.";
+    return false;
+  }
+
+  return OnCopyBufferToTextureCommand(std::move(source), std::move(destination),
+                                      destination_origin, std::move(label));
 }
 
 bool BlitPass::GenerateMipmap(std::shared_ptr<Texture> texture,

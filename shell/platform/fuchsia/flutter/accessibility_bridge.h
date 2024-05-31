@@ -10,10 +10,9 @@
 #undef FALSE
 
 #include <fuchsia/accessibility/semantics/cpp/fidl.h>
-#include <fuchsia/sys/cpp/fidl.h>
 #include <fuchsia/ui/gfx/cpp/fidl.h>
 #include <lib/fidl/cpp/binding_set.h>
-#include <lib/sys/inspect/cpp/component.h>
+#include <lib/inspect/component/cpp/component.h>
 #include <zircon/types.h>
 
 #include <memory>

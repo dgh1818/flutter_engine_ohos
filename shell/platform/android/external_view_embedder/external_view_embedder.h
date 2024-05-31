@@ -2,19 +2,17 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef FLUTTER_SHELL_PLATFORM_ANDROID_EXTERNAL_VIEW_EMBEDDER_H_
-#define FLUTTER_SHELL_PLATFORM_ANDROID_EXTERNAL_VIEW_EMBEDDER_H_
+#ifndef FLUTTER_SHELL_PLATFORM_ANDROID_EXTERNAL_VIEW_EMBEDDER_EXTERNAL_VIEW_EMBEDDER_H_
+#define FLUTTER_SHELL_PLATFORM_ANDROID_EXTERNAL_VIEW_EMBEDDER_EXTERNAL_VIEW_EMBEDDER_H_
 
 #include <unordered_map>
 
 #include "flutter/common/task_runners.h"
 #include "flutter/flow/embedded_views.h"
-#include "flutter/flow/rtree.h"
 #include "flutter/shell/platform/android/context/android_context.h"
 #include "flutter/shell/platform/android/external_view_embedder/surface_pool.h"
 #include "flutter/shell/platform/android/jni/platform_view_android_jni.h"
 #include "flutter/shell/platform/android/surface/android_surface.h"
-#include "third_party/skia/include/core/SkPictureRecorder.h"
 
 namespace flutter {
 
@@ -38,46 +36,43 @@ class AndroidExternalViewEmbedder final : public ExternalViewEmbedder {
 
   // |ExternalViewEmbedder|
   void PrerollCompositeEmbeddedView(
-      int view_id,
+      int64_t view_id,
       std::unique_ptr<flutter::EmbeddedViewParams> params) override;
 
   // |ExternalViewEmbedder|
-  EmbedderPaintContext CompositeEmbeddedView(int view_id) override;
+  DlCanvas* CompositeEmbeddedView(int64_t view_id) override;
 
   // |ExternalViewEmbedder|
-  std::vector<SkCanvas*> GetCurrentCanvases() override;
-
-  // |ExternalViewEmbedder|
-  // Similar call to GetCurrentCanvases but will return the array of
-  // builders being used by PlatformViews on platforms that provide
-  // optional DisplayListBuilder objects for rendering.
-  std::vector<DisplayListBuilder*> GetCurrentBuilders() override;
-
-  // |ExternalViewEmbedder|
-  void SubmitFrame(GrDirectContext* context,
-                   std::unique_ptr<SurfaceFrame> frame) override;
+  void SubmitFlutterView(
+      int64_t flutter_view_id,
+      GrDirectContext* context,
+      const std::shared_ptr<impeller::AiksContext>& aiks_context,
+      std::unique_ptr<SurfaceFrame> frame) override;
 
   // |ExternalViewEmbedder|
   PostPrerollResult PostPrerollAction(
-      fml::RefPtr<fml::RasterThreadMerger> raster_thread_merger) override;
+      const fml::RefPtr<fml::RasterThreadMerger>& raster_thread_merger)
+      override;
 
   // |ExternalViewEmbedder|
-  SkCanvas* GetRootCanvas() override;
+  DlCanvas* GetRootCanvas() override;
 
   // |ExternalViewEmbedder|
-  void BeginFrame(
-      SkISize frame_size,
-      GrDirectContext* context,
-      double device_pixel_ratio,
-      fml::RefPtr<fml::RasterThreadMerger> raster_thread_merger) override;
+  void BeginFrame(GrDirectContext* context,
+                  const fml::RefPtr<fml::RasterThreadMerger>&
+                      raster_thread_merger) override;
+
+  // |ExternalViewEmbedder|
+  void PrepareFlutterView(SkISize frame_size,
+                          double device_pixel_ratio) override;
 
   // |ExternalViewEmbedder|
   void CancelFrame() override;
 
   // |ExternalViewEmbedder|
-  void EndFrame(
-      bool should_resubmit_frame,
-      fml::RefPtr<fml::RasterThreadMerger> raster_thread_merger) override;
+  void EndFrame(bool should_resubmit_frame,
+                const fml::RefPtr<fml::RasterThreadMerger>&
+                    raster_thread_merger) override;
 
   bool SupportsDynamicThreadMerging() override;
 
@@ -85,7 +80,7 @@ class AndroidExternalViewEmbedder final : public ExternalViewEmbedder {
 
   // Gets the rect based on the device pixel ratio of a platform view displayed
   // on the screen.
-  SkRect GetViewRect(int view_id) const;
+  SkRect GetViewRect(int64_t view_id) const;
 
  private:
   // The number of frames the rasterizer task runner will continue
@@ -154,4 +149,4 @@ class AndroidExternalViewEmbedder final : public ExternalViewEmbedder {
 
 }  // namespace flutter
 
-#endif  // FLUTTER_SHELL_PLATFORM_ANDROID_EXTERNAL_VIEW_EMBEDDER_H_
+#endif  // FLUTTER_SHELL_PLATFORM_ANDROID_EXTERNAL_VIEW_EMBEDDER_EXTERNAL_VIEW_EMBEDDER_H_

@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifndef FLUTTER_SHELL_PLATFORM_DARWIN_MACOS_FRAMEWORK_SOURCE_FLUTTERRENDERER_H_
+#define FLUTTER_SHELL_PLATFORM_DARWIN_MACOS_FRAMEWORK_SOURCE_FLUTTERRENDERER_H_
+
 #import <Cocoa/Cocoa.h>
 
 #import "flutter/shell/platform/darwin/macos/framework/Headers/FlutterEngine.h"
@@ -36,24 +39,11 @@
 - (FlutterRendererConfig)createRendererConfig;
 
 /**
- * Called by the engine when the given view's buffers should be swapped.
- */
-- (BOOL)present:(uint64_t)viewId;
-
-/**
- * Tells the renderer that there is no Flutter content available for this frame.
- */
-- (void)presentWithoutContent:(uint64_t)viewId;
-
-/**
- * Creates a Metal texture for the given view with the given size.
- */
-- (FlutterMetalTexture)createTextureForView:(uint64_t)viewId size:(CGSize)size;
-
-/**
  * Populates the texture registry with the provided metalTexture.
  */
 - (BOOL)populateTextureWithIdentifier:(int64_t)textureID
                          metalTexture:(nonnull FlutterMetalExternalTexture*)metalTexture;
 
 @end
+
+#endif  // FLUTTER_SHELL_PLATFORM_DARWIN_MACOS_FRAMEWORK_SOURCE_FLUTTERRENDERER_H_

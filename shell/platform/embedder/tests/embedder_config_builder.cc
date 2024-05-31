@@ -4,11 +4,12 @@
 
 #include "flutter/shell/platform/embedder/tests/embedder_config_builder.h"
 
+#include "flutter/common/constants.h"
 #include "flutter/runtime/dart_vm.h"
 #include "flutter/shell/platform/embedder/embedder.h"
 #include "tests/embedder_test_context.h"
 #include "third_party/skia/include/core/SkBitmap.h"
-#include "vulkan/vulkan_core.h"
+#include "third_party/skia/include/core/SkImage.h"
 
 #ifdef SHELL_ENABLE_GL
 #include "flutter/shell/platform/embedder/tests/embedder_test_compositor_gl.h"
@@ -17,7 +18,8 @@
 
 #ifdef SHELL_ENABLE_VULKAN
 #include "flutter/shell/platform/embedder/tests/embedder_test_context_vulkan.h"
-#include "flutter/vulkan/vulkan_device.h"
+#include "flutter/vulkan/vulkan_device.h"  // nogncheck
+#include "vulkan/vulkan_core.h"            // nogncheck
 #endif
 
 #ifdef SHELL_ENABLE_METAL
@@ -100,7 +102,7 @@ EmbedderConfigBuilder::EmbedderConfigBuilder(
         }
         bitmap.setImmutable();
         return reinterpret_cast<EmbedderTestContextSoftware*>(context)->Present(
-            SkImage::MakeFromBitmap(bitmap));
+            SkImages::RasterFromBitmap(bitmap));
       };
 
   // The first argument is always the executable name. Don't make tests have to
@@ -113,7 +115,8 @@ EmbedderConfigBuilder::EmbedderConfigBuilder(
     SetSemanticsCallbackHooks();
     SetLogMessageCallbackHook();
     SetLocalizationCallbackHooks();
-    AddCommandLineArgument("--disable-observatory");
+    SetChannelUpdateCallbackHook();
+    AddCommandLineArgument("--disable-vm-service");
 
     if (preference == InitializationPreference::kSnapshotsInitialize ||
         preference == InitializationPreference::kMultiAOTInitialize) {
@@ -203,10 +206,18 @@ void EmbedderConfigBuilder::SetMetalRendererConfig(SkISize surface_size) {
 #endif
 }
 
-void EmbedderConfigBuilder::SetVulkanRendererConfig(SkISize surface_size) {
+void EmbedderConfigBuilder::SetVulkanRendererConfig(
+    SkISize surface_size,
+    std::optional<FlutterVulkanInstanceProcAddressCallback>
+        instance_proc_address_callback) {
 #ifdef SHELL_ENABLE_VULKAN
   renderer_config_.type = FlutterRendererType::kVulkan;
-  renderer_config_.vulkan = vulkan_renderer_config_;
+  FlutterVulkanRendererConfig vulkan_renderer_config = vulkan_renderer_config_;
+  if (instance_proc_address_callback.has_value()) {
+    vulkan_renderer_config.get_instance_proc_address_callback =
+        instance_proc_address_callback.value();
+  }
+  renderer_config_.vulkan = vulkan_renderer_config;
   context_.SetupSurface(surface_size);
 #endif
 }
@@ -247,6 +258,8 @@ void EmbedderConfigBuilder::SetIsolateCreateCallbackHook() {
 }
 
 void EmbedderConfigBuilder::SetSemanticsCallbackHooks() {
+  project_args_.update_semantics_callback2 =
+      context_.GetUpdateSemanticsCallback2Hook();
   project_args_.update_semantics_callback =
       context_.GetUpdateSemanticsCallbackHook();
   project_args_.update_semantics_node_callback =
@@ -258,6 +271,11 @@ void EmbedderConfigBuilder::SetSemanticsCallbackHooks() {
 void EmbedderConfigBuilder::SetLogMessageCallbackHook() {
   project_args_.log_message_callback =
       EmbedderTestContext::GetLogMessageCallbackHook();
+}
+
+void EmbedderConfigBuilder::SetChannelUpdateCallbackHook() {
+  project_args_.channel_update_callback =
+      context_.GetChannelUpdateCallbackHook();
 }
 
 void EmbedderConfigBuilder::SetLogTag(std::string tag) {
@@ -337,7 +355,8 @@ void EmbedderConfigBuilder::SetPlatformMessageCallback(
   context_.SetPlatformMessageCallback(callback);
 }
 
-void EmbedderConfigBuilder::SetCompositor(bool avoid_backing_store_cache) {
+void EmbedderConfigBuilder::SetCompositor(bool avoid_backing_store_cache,
+                                          bool use_present_layers_callback) {
   context_.SetupCompositor();
   auto& compositor = context_.GetCompositor();
   compositor_.struct_size = sizeof(compositor_);
@@ -357,16 +376,25 @@ void EmbedderConfigBuilder::SetCompositor(bool avoid_backing_store_cache) {
         return reinterpret_cast<EmbedderTestCompositor*>(user_data)
             ->CollectBackingStore(backing_store);
       };
-  compositor_.present_layers_callback = [](const FlutterLayer** layers,  //
-                                           size_t layers_count,          //
-                                           void* user_data               //
-                                        ) {
-    return reinterpret_cast<EmbedderTestCompositor*>(user_data)->Present(
-        layers,       //
-        layers_count  //
+  if (use_present_layers_callback) {
+    compositor_.present_layers_callback = [](const FlutterLayer** layers,
+                                             size_t layers_count,
+                                             void* user_data) {
+      auto compositor = reinterpret_cast<EmbedderTestCompositor*>(user_data);
 
-    );
-  };
+      // The present layers callback is incompatible with multiple views;
+      // it can only be used to render the implicit view.
+      return compositor->Present(kFlutterImplicitViewId, layers, layers_count);
+    };
+  } else {
+    compositor_.present_view_callback = [](const FlutterPresentViewInfo* info) {
+      auto compositor =
+          reinterpret_cast<EmbedderTestCompositor*>(info->user_data);
+
+      return compositor->Present(info->view_id, info->layers,
+                                 info->layers_count);
+    };
+  }
   compositor_.avoid_backing_store_cache = avoid_backing_store_cache;
   project_args_.compositor = &compositor_;
 }
@@ -510,12 +538,7 @@ void EmbedderConfigBuilder::InitializeVulkanRendererConfig() {
       static_cast<EmbedderTestContextVulkan&>(context_)
           .vulkan_context_->device_->GetQueueHandle();
   vulkan_renderer_config_.get_instance_proc_address_callback =
-      [](void* context, FlutterVulkanInstanceHandle instance,
-         const char* name) -> void* {
-    auto proc_addr = reinterpret_cast<EmbedderTestContextVulkan*>(context)
-                         ->vulkan_context_->vk_->GetInstanceProcAddr;
-    return reinterpret_cast<void*>(proc_addr);
-  };
+      EmbedderTestContextVulkan::InstanceProcAddr;
   vulkan_renderer_config_.get_next_image_callback =
       [](void* context,
          const FlutterFrameInfo* frame_info) -> FlutterVulkanImage {

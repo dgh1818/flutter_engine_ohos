@@ -8,10 +8,7 @@
 #include "flutter/flow/layers/layer.h"
 #include "flutter/flow/raster_cache.h"
 #include "flutter/flow/raster_cache_item.h"
-#include "include/core/SkCanvas.h"
 #include "include/core/SkMatrix.h"
-#include "include/core/SkPoint.h"
-#include "third_party/skia/include/core/SkPictureRecorder.h"
 
 namespace flutter {
 namespace testing {
@@ -26,7 +23,7 @@ void MockRasterCache::AddMockLayer(int width, int height) {
   path.addRect(100, 100, 100 + width, 100 + height);
   int layer_cached_threshold = 1;
   MockCacheableLayer layer =
-      MockCacheableLayer(path, SkPaint(), layer_cached_threshold);
+      MockCacheableLayer(path, DlPaint(), layer_cached_threshold);
   layer.Preroll(&preroll_context_);
   layer.raster_cache_item()->TryToPrepareRasterCache(paint_context_);
   RasterCache::Context r_context = {
@@ -39,7 +36,7 @@ void MockRasterCache::AddMockLayer(int width, int height) {
   };
   UpdateCacheEntry(
       RasterCacheKeyID(layer.unique_id(), RasterCacheKeyType::kLayer),
-      r_context, [&](SkCanvas* canvas) {
+      r_context, [&](DlCanvas* canvas) {
         SkRect cache_rect = RasterCacheUtil::GetDeviceBounds(
             r_context.logical_rect, r_context.matrix);
         return std::make_unique<MockRasterCacheResult>(cache_rect);
@@ -49,12 +46,11 @@ void MockRasterCache::AddMockLayer(int width, int height) {
 void MockRasterCache::AddMockPicture(int width, int height) {
   FML_DCHECK(access_threshold() > 0);
   SkMatrix ctm = SkMatrix::I();
-  DisplayListCanvasRecorder recorder(
-      SkRect::MakeLTRB(0, 0, 200 + width, 200 + height));
+  DisplayListBuilder builder(SkRect::MakeLTRB(0, 0, 200 + width, 200 + height));
   SkPath path;
   path.addRect(100, 100, 100 + width, 100 + height);
-  recorder.drawPath(path, SkPaint());
-  sk_sp<DisplayList> display_list = recorder.Build();
+  builder.DrawPath(path, DlPaint());
+  sk_sp<DisplayList> display_list = builder.Build();
 
   FixedRefreshRateStopwatch raster_time;
   FixedRefreshRateStopwatch ui_time;
@@ -63,8 +59,8 @@ void MockRasterCache::AddMockPicture(int width, int height) {
       GetSamplePaintContextHolder(state_stack, this, &raster_time, &ui_time);
   holder.paint_context.dst_color_space = color_space_;
 
-  DisplayListRasterCacheItem display_list_item(display_list.get(), SkPoint(),
-                                               true, false);
+  DisplayListRasterCacheItem display_list_item(display_list, SkPoint(), true,
+                                               false);
   for (size_t i = 0; i < access_threshold(); i++) {
     AutoCache(&display_list_item, &preroll_context_, ctm);
   }
@@ -78,7 +74,7 @@ void MockRasterCache::AddMockPicture(int width, int height) {
   };
   UpdateCacheEntry(RasterCacheKeyID(display_list->unique_id(),
                                     RasterCacheKeyType::kDisplayList),
-                   r_context, [&](SkCanvas* canvas) {
+                   r_context, [&](DlCanvas* canvas) {
                      SkRect cache_rect = RasterCacheUtil::GetDeviceBounds(
                          r_context.logical_rect, r_context.matrix);
                      return std::make_unique<MockRasterCacheResult>(cache_rect);
@@ -99,12 +95,11 @@ PrerollContextHolder GetSamplePrerollContextHolder(
           .gr_context                    = nullptr,
           .view_embedder                 = nullptr,
           .state_stack                   = state_stack,
-          .dst_color_space               = srgb.get(),
+          .dst_color_space               = srgb,
           .surface_needs_readback        = false,
           .raster_time                   = *raster_time,
           .ui_time                       = *ui_time,
           .texture_registry              = nullptr,
-          .frame_device_pixel_ratio      = 1.0f,
           .has_platform_view             = false,
           .has_texture_layer             = false,
           .raster_cached_entries         = &raster_cache_items_,
@@ -126,13 +121,12 @@ PaintContextHolder GetSamplePaintContextHolder(
         .state_stack                   = state_stack,
         .canvas                        = nullptr,
         .gr_context                    = nullptr,
-        .dst_color_space               = srgb.get(),
+        .dst_color_space               = srgb,
         .view_embedder                 = nullptr,
         .raster_time                   = *raster_time,
         .ui_time                       = *ui_time,
         .texture_registry              = nullptr,
         .raster_cache                  = raster_cache,
-        .frame_device_pixel_ratio      = 1.0f,
     },
                                // clang-format on
                                srgb};

@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef FLUTTER_SHELL_COMMON_RESOURCE_CACHE_LIMIT_CALCULATOR_
-#define FLUTTER_SHELL_COMMON_RESOURCE_CACHE_LIMIT_CALCULATOR_
+#ifndef FLUTTER_SHELL_COMMON_RESOURCE_CACHE_LIMIT_CALCULATOR_H_
+#define FLUTTER_SHELL_COMMON_RESOURCE_CACHE_LIMIT_CALCULATOR_H_
 
 #include <cstdint>
 #include <unordered_map>
@@ -24,13 +24,14 @@ class ResourceCacheLimitItem {
 
 class ResourceCacheLimitCalculator {
  public:
-  ResourceCacheLimitCalculator(size_t max_bytes_threshold)
+  explicit ResourceCacheLimitCalculator(size_t max_bytes_threshold)
       : max_bytes_threshold_(max_bytes_threshold) {}
 
   ~ResourceCacheLimitCalculator() = default;
 
   // This will be called on the platform thread.
-  void AddResourceCacheLimitItem(fml::WeakPtr<ResourceCacheLimitItem> item) {
+  void AddResourceCacheLimitItem(
+      const fml::WeakPtr<ResourceCacheLimitItem>& item) {
     items_.push_back(item);
   }
 
@@ -45,4 +46,4 @@ class ResourceCacheLimitCalculator {
 };
 }  // namespace flutter
 
-#endif  // FLUTTER_SHELL_COMMON_RESOURCE_CACHE_LIMIT_CALCULATOR_
+#endif  // FLUTTER_SHELL_COMMON_RESOURCE_CACHE_LIMIT_CALCULATOR_H_

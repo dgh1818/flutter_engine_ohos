@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'dart:typed_data' show ByteData, Float64List;
+import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:litetest/litetest.dart';
@@ -83,7 +83,6 @@ void main() {
     }
 
     final Scene scene = builder.build();
-    expect(scene != null, true);
     scene.dispose();
   });
 
@@ -402,10 +401,6 @@ void main() {
         BlendMode.color,
         oldLayer: oldLayer as ShaderMaskEngineLayer?,
       );
-    });
-    testNoSharing((SceneBuilder builder, EngineLayer? oldLayer) {
-      // ignore: deprecated_member_use
-      return builder.pushPhysicalShape(path: Path(), color: const Color.fromARGB(0, 0, 0, 0), oldLayer: oldLayer as PhysicalShapeEngineLayer?, elevation: 0.0);
     });
     testNoSharing((SceneBuilder builder, EngineLayer? oldLayer) {
       return builder.pushColorFilter(

@@ -9,6 +9,7 @@
 
 #include "flutter/fml/message_loop.h"
 #include "flutter/lib/ui/window/platform_configuration.h"
+#include "flutter/lib/ui/window/platform_message.h"
 #include "third_party/tonic/converter/dart_converter.h"
 #include "third_party/tonic/dart_message_handler.h"
 
@@ -39,7 +40,8 @@ UIDartState::Context::Context(
     std::string advisory_script_entrypoint,
     std::shared_ptr<VolatilePathTracker> volatile_path_tracker,
     std::shared_ptr<fml::ConcurrentTaskRunner> concurrent_task_runner,
-    bool enable_impeller)
+    bool enable_impeller,
+    impeller::RuntimeStageBackend runtime_stage_backend)
     : task_runners(task_runners),
       snapshot_delegate(std::move(snapshot_delegate)),
       io_manager(std::move(io_manager)),
@@ -50,7 +52,8 @@ UIDartState::Context::Context(
       advisory_script_entrypoint(std::move(advisory_script_entrypoint)),
       volatile_path_tracker(std::move(volatile_path_tracker)),
       concurrent_task_runner(std::move(concurrent_task_runner)),
-      enable_impeller(enable_impeller) {}
+      enable_impeller(enable_impeller),
+      runtime_stage_backend(runtime_stage_backend) {}
 
 UIDartState::UIDartState(
     TaskObserverAdd add_callback,
@@ -60,7 +63,6 @@ UIDartState::UIDartState(
     LogMessageCallback log_message_callback,
     std::shared_ptr<IsolateNameServer> isolate_name_server,
     bool is_root_isolate,
-    bool enable_skparagraph,
     const UIDartState::Context& context)
     : add_callback_(std::move(add_callback)),
       remove_callback_(std::move(remove_callback)),
@@ -69,7 +71,6 @@ UIDartState::UIDartState(
       unhandled_exception_callback_(std::move(unhandled_exception_callback)),
       log_message_callback_(std::move(log_message_callback)),
       isolate_name_server_(std::move(isolate_name_server)),
-      enable_skparagraph_(enable_skparagraph),
       context_(context) {
   AddOrRemoveTaskObserver(true /* add */);
 }
@@ -84,6 +85,10 @@ const std::string& UIDartState::GetAdvisoryScriptURI() const {
 
 bool UIDartState::IsImpellerEnabled() const {
   return context_.enable_impeller;
+}
+
+impeller::RuntimeStageBackend UIDartState::GetRuntimeStageBackend() const {
+  return context_.runtime_stage_backend;
 }
 
 void UIDartState::DidSetIsolate() {
@@ -234,10 +239,6 @@ void UIDartState::LogMessage(const std::string& tag,
   }
 }
 
-bool UIDartState::enable_skparagraph() const {
-  return enable_skparagraph_;
-}
-
 Dart_Handle UIDartState::HandlePlatformMessage(
     std::unique_ptr<PlatformMessage> message) {
   if (platform_configuration_) {
@@ -259,6 +260,12 @@ Dart_Handle UIDartState::HandlePlatformMessage(
 
 int64_t UIDartState::GetRootIsolateToken() const {
   return IsRootIsolate() ? reinterpret_cast<int64_t>(this) : 0;
+}
+
+Dart_Isolate UIDartState::CreatePlatformIsolate(Dart_Handle entry_point,
+                                                char** error) {
+  FML_UNREACHABLE();
+  return nullptr;
 }
 
 }  // namespace flutter

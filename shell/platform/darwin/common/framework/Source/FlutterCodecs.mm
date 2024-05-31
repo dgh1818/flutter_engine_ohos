@@ -6,6 +6,8 @@
 
 #include <cstring>
 
+FLUTTER_ASSERT_ARC
+
 @implementation FlutterBinaryCodec
 + (instancetype)sharedInstance {
   static id _sharedInstance = nil;
@@ -48,7 +50,7 @@
   if (message == nil) {
     return nil;
   }
-  return [[[NSString alloc] initWithData:message encoding:NSUTF8StringEncoding] autorelease];
+  return [[NSString alloc] initWithData:message encoding:NSUTF8StringEncoding];
 }
 @end
 
@@ -87,6 +89,7 @@
   }
   BOOL isSimpleValue = NO;
   id decoded = nil;
+  NSError* error;
   if (0 < message.length) {
     UInt8 first;
     [message getBytes:&first length:1];
@@ -103,9 +106,9 @@
       [expandedMessage replaceBytesInRange:NSMakeRange(message.length + 1, 1) withBytes:&end];
       message = expandedMessage;
     }
-    decoded = [NSJSONSerialization JSONObjectWithData:message options:0 error:nil];
+    decoded = [NSJSONSerialization JSONObjectWithData:message options:0 error:&error];
   }
-  NSAssert(decoded, @"Invalid JSON message, decoding failed");
+  NSAssert(decoded, @"Invalid JSON message, decoding failed: %@", error);
   return isSimpleValue ? ((NSArray*)decoded)[0] : decoded;
 }
 @end

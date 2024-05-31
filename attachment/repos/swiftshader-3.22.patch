@@ -1,0 +1,39 @@
+diff --git a/src/Reactor/BUILD.gn b/src/Reactor/BUILD.gn
+index 67dfeb0ec..a2b995813 100644
+--- a/src/Reactor/BUILD.gn
++++ b/src/Reactor/BUILD.gn
+@@ -337,6 +337,8 @@ if (supports_llvm) {
+       include_dirs += [ "$llvm_dir/configs/android/include/" ]
+     } else if (is_mac) {
+       include_dirs += [ "$llvm_dir/configs/darwin/include/" ]
++    } else if (is_ohos) {
++      include_dirs += [ "$llvm_dir/configs/android/include/" ]
+     } else {
+       assert(false, "llvm not configured for target platform")
+     }
+diff --git a/src/Reactor/reactor.gni b/src/Reactor/reactor.gni
+index 04fad6f81..324003e35 100644
+--- a/src/Reactor/reactor.gni
++++ b/src/Reactor/reactor.gni
+@@ -14,7 +14,7 @@ declare_args() {
+ }
+ 
+ declare_args() {
+-  supports_llvm = is_linux || is_chromeos || is_fuchsia || is_win || is_android
++  supports_llvm = is_linux || is_chromeos || is_fuchsia || is_win || is_android || is_ohos
+     # LLVM uses C++17 features which require macOS 10.12, while Chrome's minimum platform for x86 is 10.11.
+     # Don't build LLVM on Mac, unless we have to. This only happens on ARM64 devices, which launched with 11.0.
+     # TODO(b/174843857): Remove check for !supports_subzero once Chrome supports macOS 10.12
+diff --git a/third_party/llvm-10.0/BUILD.gn b/third_party/llvm-10.0/BUILD.gn
+index 59e52303c..9f59c7ff8 100644
+--- a/third_party/llvm-10.0/BUILD.gn
++++ b/third_party/llvm-10.0/BUILD.gn
+@@ -108,6 +108,8 @@ if (is_linux || is_chromeos) {
+   llvm_include_dirs += [ "configs/windows/include/" ]
+ } else if (is_android) {
+   llvm_include_dirs += [ "configs/android/include/" ]
++} else if (is_ohos) {
++  llvm_include_dirs += [ "configs/android/include/" ]
+ } else if (is_mac) {
+   llvm_include_dirs += [ "configs/darwin/include/" ]
+ } else {

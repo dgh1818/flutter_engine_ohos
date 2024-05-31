@@ -2,12 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_IMPELLER_RENDERER_COMMAND_BUFFER_H_
+#define FLUTTER_IMPELLER_RENDERER_COMMAND_BUFFER_H_
 
 #include <functional>
 #include <memory>
 
-#include "flutter/fml/macros.h"
 #include "impeller/renderer/blit_pass.h"
 #include "impeller/renderer/compute_pass.h"
 
@@ -17,6 +17,11 @@ class ComputePass;
 class Context;
 class RenderPass;
 class RenderTarget;
+class CommandQueue;
+
+namespace testing {
+class CommandBufferMock;
+}
 
 //------------------------------------------------------------------------------
 /// @brief      A collection of encoded commands to be submitted to the GPU for
@@ -30,7 +35,7 @@ class RenderTarget;
 ///
 ///             A command buffer is only meant to be used on a single thread. If
 ///             a frame workload needs to be encoded from multiple threads,
-///             setup and record into multiple command buffers. The order of
+///             set up and record into multiple command buffers. The order of
 ///             submission of commands encoded in multiple command buffers can
 ///             be controlled via either the order in which the command buffers
 ///             were created, or, using the `ReserveSpotInQueue` command which
@@ -38,6 +43,8 @@ class RenderTarget;
 ///             different from the encoding order.
 ///
 class CommandBuffer {
+  friend class testing::CommandBufferMock;
+
  public:
   enum class Status {
     kPending,
@@ -54,16 +61,9 @@ class CommandBuffer {
   virtual void SetLabel(const std::string& label) const = 0;
 
   //----------------------------------------------------------------------------
-  /// @brief      Schedule the command encoded by render passes within this
-  ///             command buffer on the GPU.
+  /// @brief      Force execution of pending GPU commands.
   ///
-  ///             A command buffer may only be committed once.
-  ///
-  /// @param[in]  callback  The completion callback.
-  ///
-  [[nodiscard]] bool SubmitCommands(const CompletionCallback& callback);
-
-  [[nodiscard]] bool SubmitCommands();
+  void WaitUntilScheduled();
 
   //----------------------------------------------------------------------------
   /// @brief      Create a render pass to record render commands into.
@@ -81,14 +81,14 @@ class CommandBuffer {
   ///
   /// @return     A valid blit pass or null.
   ///
-  std::shared_ptr<BlitPass> CreateBlitPass() const;
+  std::shared_ptr<BlitPass> CreateBlitPass();
 
   //----------------------------------------------------------------------------
   /// @brief      Create a compute pass to record compute commands into.
   ///
   /// @return     A valid compute pass or null.
   ///
-  std::shared_ptr<ComputePass> CreateComputePass() const;
+  std::shared_ptr<ComputePass> CreateComputePass();
 
  protected:
   std::weak_ptr<const Context> context_;
@@ -98,14 +98,35 @@ class CommandBuffer {
   virtual std::shared_ptr<RenderPass> OnCreateRenderPass(
       RenderTarget render_target) = 0;
 
-  virtual std::shared_ptr<BlitPass> OnCreateBlitPass() const = 0;
+  virtual std::shared_ptr<BlitPass> OnCreateBlitPass() = 0;
 
   [[nodiscard]] virtual bool OnSubmitCommands(CompletionCallback callback) = 0;
 
-  virtual std::shared_ptr<ComputePass> OnCreateComputePass() const = 0;
+  virtual void OnWaitUntilScheduled() = 0;
+
+  virtual std::shared_ptr<ComputePass> OnCreateComputePass() = 0;
 
  private:
-  FML_DISALLOW_COPY_AND_ASSIGN(CommandBuffer);
+  friend class CommandQueue;
+
+  //----------------------------------------------------------------------------
+  /// @brief      Schedule the command encoded by render passes within this
+  ///             command buffer on the GPU. The encoding of these commnands is
+  ///             performed immediately on the calling thread.
+  ///
+  ///             A command buffer may only be committed once.
+  ///
+  /// @param[in]  callback  The completion callback.
+  ///
+  [[nodiscard]] bool SubmitCommands(const CompletionCallback& callback);
+
+  [[nodiscard]] bool SubmitCommands();
+
+  CommandBuffer(const CommandBuffer&) = delete;
+
+  CommandBuffer& operator=(const CommandBuffer&) = delete;
 };
 
 }  // namespace impeller
+
+#endif  // FLUTTER_IMPELLER_RENDERER_COMMAND_BUFFER_H_

@@ -48,20 +48,24 @@ PlatformViewIOS::PlatformViewIOS(
       ios_context_(context),
       platform_views_controller_(platform_views_controller),
       accessibility_bridge_([this](bool enabled) { PlatformView::SetSemanticsEnabled(enabled); }),
-      platform_message_handler_(new PlatformMessageHandlerIos(task_runners)) {}
+      platform_message_handler_(
+          new PlatformMessageHandlerIos(task_runners.GetPlatformTaskRunner())) {}
 
 PlatformViewIOS::PlatformViewIOS(
     PlatformView::Delegate& delegate,
     IOSRenderingAPI rendering_api,
     const std::shared_ptr<FlutterPlatformViewsController>& platform_views_controller,
-    const flutter::TaskRunners& task_runners)
+    const flutter::TaskRunners& task_runners,
+    const std::shared_ptr<fml::ConcurrentTaskRunner>& worker_task_runner,
+    const std::shared_ptr<const fml::SyncSwitch>& is_gpu_disabled_sync_switch)
     : PlatformViewIOS(
           delegate,
           IOSContext::Create(
               rendering_api,
               delegate.OnPlatformViewGetSettings().enable_impeller ? IOSRenderingBackend::kImpeller
                                                                    : IOSRenderingBackend::kSkia,
-              static_cast<MsaaSampleCount>(delegate.OnPlatformViewGetSettings().msaa_samples)),
+              static_cast<MsaaSampleCount>(delegate.OnPlatformViewGetSettings().msaa_samples),
+              is_gpu_disabled_sync_switch),
           platform_views_controller,
           task_runners) {}
 
@@ -72,12 +76,12 @@ void PlatformViewIOS::HandlePlatformMessage(std::unique_ptr<flutter::PlatformMes
   platform_message_handler_->HandlePlatformMessage(std::move(message));
 }
 
-fml::WeakPtr<FlutterViewController> PlatformViewIOS::GetOwnerViewController() const {
+fml::WeakNSObject<FlutterViewController> PlatformViewIOS::GetOwnerViewController() const {
   return owner_controller_;
 }
 
 void PlatformViewIOS::SetOwnerViewController(
-    const fml::WeakPtr<FlutterViewController>& owner_controller) {
+    const fml::WeakNSObject<FlutterViewController>& owner_controller) {
   FML_DCHECK(task_runners_.GetPlatformTaskRunner()->RunsTasksOnCurrentThread());
   std::lock_guard<std::mutex> guard(ios_surface_mutex_);
   if (ios_surface_ || !owner_controller) {
@@ -219,9 +223,12 @@ std::unique_ptr<std::vector<std::string>> PlatformViewIOS::ComputePlatformResolv
       [NSMutableArray arrayWithCapacity:supported_locale_data.size() / localeDataLength];
   for (size_t i = 0; i < supported_locale_data.size(); i += localeDataLength) {
     NSDictionary<NSString*, NSString*>* dict = @{
-      NSLocaleLanguageCode : [NSString stringWithUTF8String:supported_locale_data[i].c_str()],
-      NSLocaleCountryCode : [NSString stringWithUTF8String:supported_locale_data[i + 1].c_str()],
+      NSLocaleLanguageCode : [NSString stringWithUTF8String:supported_locale_data[i].c_str()]
+          ?: @"",
+      NSLocaleCountryCode : [NSString stringWithUTF8String:supported_locale_data[i + 1].c_str()]
+          ?: @"",
       NSLocaleScriptCode : [NSString stringWithUTF8String:supported_locale_data[i + 2].c_str()]
+          ?: @""
     };
     [supported_locale_identifiers addObject:[NSLocale localeIdentifierFromComponents:dict]];
   }
@@ -243,7 +250,7 @@ std::unique_ptr<std::vector<std::string>> PlatformViewIOS::ComputePlatformResolv
   return out;
 }
 
-PlatformViewIOS::ScopedObserver::ScopedObserver() : observer_(nil) {}
+PlatformViewIOS::ScopedObserver::ScopedObserver() {}
 
 PlatformViewIOS::ScopedObserver::~ScopedObserver() {
   if (observer_) {

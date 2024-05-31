@@ -5,9 +5,9 @@
 #ifndef FLUTTER_SHELL_PLATFORM_WINDOWS_TESTING_MOCK_WINDOW_BINDING_HANDLER_H_
 #define FLUTTER_SHELL_PLATFORM_WINDOWS_TESTING_MOCK_WINDOW_BINDING_HANDLER_H_
 
-#include <windowsx.h>
-
+#include "flutter/fml/macros.h"
 #include "flutter/shell/platform/windows/window_binding_handler.h"
+#include "flutter/third_party/accessibility/ax/platform/ax_platform_node_win.h"
 #include "gmock/gmock.h"
 
 namespace flutter {
@@ -19,25 +19,28 @@ class MockWindowBindingHandler : public WindowBindingHandler {
   MockWindowBindingHandler();
   virtual ~MockWindowBindingHandler();
 
-  // Prevent copying.
-  MockWindowBindingHandler(MockWindowBindingHandler const&) = delete;
-  MockWindowBindingHandler& operator=(MockWindowBindingHandler const&) = delete;
+  MOCK_METHOD(void, SetView, (WindowBindingHandlerDelegate * view), (override));
+  MOCK_METHOD(HWND, GetWindowHandle, (), (override));
+  MOCK_METHOD(float, GetDpiScale, (), (override));
+  MOCK_METHOD(PhysicalWindowBounds, GetPhysicalWindowBounds, (), (override));
+  MOCK_METHOD(void,
+              UpdateFlutterCursor,
+              (const std::string& cursor_name),
+              (override));
+  MOCK_METHOD(void, SetFlutterCursor, (HCURSOR cursor_name), (override));
+  MOCK_METHOD(void, OnCursorRectUpdated, (const Rect& rect), (override));
+  MOCK_METHOD(void, OnResetImeComposing, (), (override));
+  MOCK_METHOD(bool, OnBitmapSurfaceCleared, (), (override));
+  MOCK_METHOD(bool,
+              OnBitmapSurfaceUpdated,
+              (const void* allocation, size_t row_bytes, size_t height),
+              (override));
+  MOCK_METHOD(PointerLocation, GetPrimaryPointerLocation, (), (override));
+  MOCK_METHOD(AlertPlatformNodeDelegate*, GetAlertDelegate, (), (override));
+  MOCK_METHOD(ui::AXPlatformNodeWin*, GetAlert, (), (override));
 
-  MOCK_METHOD1(SetView, void(WindowBindingHandlerDelegate* view));
-  MOCK_METHOD0(GetRenderTarget, WindowsRenderTarget());
-  MOCK_METHOD0(GetPlatformWindow, PlatformWindow());
-  MOCK_METHOD0(GetDpiScale, float());
-  MOCK_METHOD0(IsVisible, bool());
-  MOCK_METHOD0(OnWindowResized, void());
-  MOCK_METHOD0(GetPhysicalWindowBounds, PhysicalWindowBounds());
-  MOCK_METHOD1(UpdateFlutterCursor, void(const std::string& cursor_name));
-  MOCK_METHOD1(OnCursorRectUpdated, void(const Rect& rect));
-  MOCK_METHOD0(OnResetImeComposing, void());
-  MOCK_METHOD3(OnBitmapSurfaceUpdated,
-               bool(const void* allocation, size_t row_bytes, size_t height));
-  MOCK_METHOD0(GetPrimaryPointerLocation, PointerLocation());
-  MOCK_METHOD0(SendInitialAccessibilityFeatures, void());
-  MOCK_METHOD0(GetAccessibilityRootNode, AccessibilityRootNode*());
+ private:
+  FML_DISALLOW_COPY_AND_ASSIGN(MockWindowBindingHandler);
 };
 
 }  // namespace testing

@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifndef FLUTTER_SHELL_PLATFORM_DARWIN_MACOS_FRAMEWORK_SOURCE_FLUTTERPLATFORMVIEWCONTROLLER_H_
+#define FLUTTER_SHELL_PLATFORM_DARWIN_MACOS_FRAMEWORK_SOURCE_FLUTTERPLATFORMVIEWCONTROLLER_H_
+
 #import <Cocoa/Cocoa.h>
 
 #import "FlutterChannels.h"
@@ -17,13 +20,15 @@
 @interface FlutterPlatformViewController ()
 
 /**
- * Creates a platform view of viewType with viewId.
+ * Creates a platform view of viewType with viewId and arguments passed from
+ * the framework's creationParams constructor parameter.
  * FlutterResult is updated to contain nil for success or to contain
  * a FlutterError if there is an error.
  */
-- (void)onCreateWithViewID:(int64_t)viewId
-                  viewType:(nonnull NSString*)viewType
-                    result:(nonnull FlutterResult)result;
+- (void)onCreateWithViewIdentifier:(int64_t)viewId
+                          viewType:(nonnull NSString*)viewType
+                         arguments:(nullable id)args
+                            result:(nonnull FlutterResult)result;
 
 /**
  * Disposes the platform view with `viewId`.
@@ -54,3 +59,5 @@
 - (void)disposePlatformViews;
 
 @end
+
+#endif  // FLUTTER_SHELL_PLATFORM_DARWIN_MACOS_FRAMEWORK_SOURCE_FLUTTERPLATFORMVIEWCONTROLLER_H_

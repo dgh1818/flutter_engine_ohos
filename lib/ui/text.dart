@@ -3,16 +3,51 @@
 // found in the LICENSE file.
 part of dart.ui;
 
-/// Whether to slant the glyphs in the font
+/// Whether to use the italic type variation of glyphs in the font.
+///
+/// Some modern fonts allow this to be selected in a more fine-grained manner.
+/// See [FontVariation.italic] for details.
+///
+/// Italic type is distinct from slanted glyphs. To control the slant of a
+/// glyph, consider the [FontVariation.slant] font feature.
 enum FontStyle {
-  /// Use the upright glyphs
+  /// Use the upright ("Roman") glyphs.
   normal,
 
-  /// Use glyphs designed for slanting
+  /// Use glyphs that have a more pronounced angle and typically a cursive style
+  /// ("italic type").
   italic,
 }
 
-/// The thickness of the glyphs used to draw the text
+/// The thickness of the glyphs used to draw the text.
+///
+/// Fonts are typically weighted on a 9-point scale, which, for historical
+/// reasons, uses the names 100 to 900. In Flutter, these are named `w100` to
+/// `w900` and have the following conventional meanings:
+///
+///  * [w100]: Thin, the thinnest font weight.
+///
+///  * [w200]: Extra light.
+///
+///  * [w300]: Light.
+///
+///  * [w400]: Normal. The constant [FontWeight.normal] is an alias for this value.
+///
+///  * [w500]: Medium.
+///
+///  * [w600]: Semi-bold.
+///
+///  * [w700]: Bold. The constant [FontWeight.bold] is an alias for this value.
+///
+///  * [w800]: Extra-bold.
+///
+///  * [w900]: Black, the thickest font weight.
+///
+/// For example, the font named "Roboto Medium" is typically exposed as a font
+/// with the name "Roboto" and the weight [FontWeight.w500].
+///
+/// Some modern fonts allow the weight to be adjusted in arbitrary increments.
+/// See [FontVariation.weight] for details.
 class FontWeight {
   const FontWeight._(this.index, this.value);
 
@@ -22,31 +57,31 @@ class FontWeight {
   /// The thickness value of this font weight.
   final int value;
 
-  /// Thin, the least thick
+  /// Thin, the least thick.
   static const FontWeight w100 = FontWeight._(0, 100);
 
-  /// Extra-light
+  /// Extra-light.
   static const FontWeight w200 = FontWeight._(1, 200);
 
-  /// Light
+  /// Light.
   static const FontWeight w300 = FontWeight._(2, 300);
 
-  /// Normal / regular / plain
+  /// Normal / regular / plain.
   static const FontWeight w400 = FontWeight._(3, 400);
 
-  /// Medium
+  /// Medium.
   static const FontWeight w500 = FontWeight._(4, 500);
 
-  /// Semi-bold
+  /// Semi-bold.
   static const FontWeight w600 = FontWeight._(5, 600);
 
-  /// Bold
+  /// Bold.
   static const FontWeight w700 = FontWeight._(6, 700);
 
-  /// Extra-bold
+  /// Extra-bold.
   static const FontWeight w800 = FontWeight._(7, 800);
 
-  /// Black, the most thick
+  /// Black, the most thick.
   static const FontWeight w900 = FontWeight._(8, 900);
 
   /// The default font weight.
@@ -65,6 +100,9 @@ class FontWeight {
   /// Rather than using fractional weights, the interpolation rounds to the
   /// nearest weight.
   ///
+  /// For a smoother animation of font weight, consider using
+  /// [FontVariation.weight] if the font in question supports it.
+  ///
   /// If both `a` and `b` are null, then this method will return null. Otherwise,
   /// any null values for `a` or `b` are interpreted as equivalent to [normal]
   /// (also known as [w400]).
@@ -82,7 +120,6 @@ class FontWeight {
   /// Values for `t` are usually obtained from an [Animation<double>], such as
   /// an [AnimationController].
   static FontWeight? lerp(FontWeight? a, FontWeight? b, double t) {
-    assert(t != null);
     if (a == null && b == null) {
       return null;
     }
@@ -119,6 +156,9 @@ class FontWeight {
 /// ** See code in examples/api/lib/ui/text/font_feature.0.dart **
 /// {@end-tool}
 ///
+/// Some fonts also support continuous font variations; see the [FontVariation]
+/// class.
+///
 /// See also:
 ///
 ///  * <https://en.wikipedia.org/wiki/List_of_typographic_features>,
@@ -141,9 +181,7 @@ class FontFeature {
   const FontFeature(
     this.feature,
     [ this.value = 1 ]
-  ) : assert(feature != null),
-      assert(feature.length == 4, 'Feature tag must be exactly four characters long.'),
-      assert(value != null),
+  ) : assert(feature.length == 4, 'Feature tag must be exactly four characters long.'),
       assert(value >= 0, 'Feature value must be zero or a positive integer.');
 
   /// Create a [FontFeature] object that enables the feature with the given tag.
@@ -179,7 +217,7 @@ class FontFeature {
   /// letters. With value 2, the lowercase "a" changes to a stemless
   /// "a", whereas the lowercase "t" changes to a vertical bar instead
   /// of having a curve. By targeting specific letters in the text
-  /// (using [Text.rich]), the desired rendering for each glyph can be
+  /// (using [widgets.Text.rich]), the desired rendering for each glyph can be
   /// achieved.
   ///
   /// ![](https://flutter.github.io/assets-for-api-docs/assets/dart-ui/font_feature_aalt.png)
@@ -343,7 +381,7 @@ class FontFeature {
   /// U+2044 FRACTION SLASH (⁄) are replaced by ligatures that
   /// represent the corresponding fraction.
   ///
-  /// This feature may imply the [FontFeature.numerator] and
+  /// This feature may imply the [FontFeature.numerators] and
   /// [FontFeature.denominator] features.
   ///
   /// {@tool sample}
@@ -941,34 +979,158 @@ class FontFeature {
 /// Some fonts are variable fonts that can generate a range of different
 /// font faces by altering the values of the font's design axes.
 ///
-/// See https://docs.microsoft.com/en-us/typography/opentype/spec/otvaroverview
+/// For example:
 ///
-/// Example:
-/// `TextStyle(fontVariations: <FontVariation>[FontVariation('wght', 800.0)])`
+/// ```dart
+/// const TextStyle(fontVariations: <ui.FontVariation>[ui.FontVariation('wght', 800.0)])
+/// ```
+///
+/// Font variations are distinct from font features, as exposed by the
+/// [FontFeature] class. Where features can be enabled or disabled in a discrete
+/// manner, font variations provide a continuous axis of control.
+///
+/// See also:
+///
+///  * <https://learn.microsoft.com/en-us/typography/opentype/spec/dvaraxisreg#registered-axis-tags>,
+///    which lists registered axis tags.
+///
+///  * <https://docs.microsoft.com/en-us/typography/opentype/spec/otvaroverview>,
+///    an overview of the font variations technology.
 class FontVariation {
   /// Creates a [FontVariation] object, which can be added to a [TextStyle] to
   /// change the variable attributes of a font.
   ///
   /// `axis` is the four-character tag that identifies the design axis.
-  /// These tags are specified by font formats such as OpenType.
-  /// See https://docs.microsoft.com/en-us/typography/opentype/spec/dvaraxisreg
+  /// OpenType lists the [currently registered axis
+  /// tags](https://docs.microsoft.com/en-us/typography/opentype/spec/dvaraxisreg).
   ///
   /// `value` is the value that the axis will be set to. The behavior
   /// depends on how the font implements the axis.
   const FontVariation(
     this.axis,
     this.value,
-  ) : assert(axis != null),
-      assert(axis.length == 4, 'Axis tag must be exactly four characters long.'),
-      assert(value != null);
+  ) : assert(axis.length == 4, 'Axis tag must be exactly four characters long.'),
+      assert(value >= -32768.0 && value < 32768.0, 'Value must be representable as a signed 16.16 fixed-point number, i.e. it must be in this range: -32768.0 ≤ value < 32768.0');
 
-  /// The tag that identifies the design axis.  Must consist of 4 ASCII
-  /// characters.
+  // Constructors below should be alphabetic by axis tag. This makes it easier
+  // to determine when an axis is missing so that we avoid adding duplicates.
+
+  // Start of axis tag list.
+  // ------------------------------------------------------------------------
+
+  /// Variable font style. (`ital`)
+  ///
+  /// Varies the style of glyphs in the font between normal and italic.
+  ///
+  /// Values must in the range 0.0 (meaning normal, or Roman, as in
+  /// [FontStyle.normal]) to 1.0 (meaning fully italic, as in
+  /// [FontStyle.italic]).
+  ///
+  /// This is distinct from [FontVariation.slant], which leans the characters
+  /// without changing the font style.
+  ///
+  /// See also:
+  ///
+  ///  * <https://learn.microsoft.com/en-us/typography/opentype/spec/dvaraxistag_ital>
+  const FontVariation.italic(this.value) : assert(value >= 0.0), assert(value <= 1.0), axis = 'ital';
+
+  /// Optical size optimization. (`opzs`)
+  ///
+  /// Changes the rendering of the font to be optimized for the given text size.
+  /// Normally, the optical size of the font will be derived from the font size.
+  ///
+  /// This feature could be used when the text represents a particular physical
+  /// font size, for example text in the representation of a hardcopy magazine,
+  /// which does not correspond to the actual font size being used to render the
+  /// text. By setting the optical size explicitly, font variations that might
+  /// be applied as the text is zoomed will be fixed at the size being
+  /// represented by the text.
+  ///
+  /// This feature could also be used to smooth animations. If a font varies its
+  /// rendering as the font size is adjusted, it may appear to "quiver" (or, one
+  /// might even say, "flutter") if the font size is animated. By setting a
+  /// fixed optical size, the rendering can be fixed to one particular style as
+  /// the text size animates.
+  ///
+  /// Values must be greater than zero, and are interpreted as points. A point
+  /// is 1/72 of an inch, or 1.333 logical pixels (96/72).
+  ///
+  /// See also:
+  ///
+  ///  * <https://learn.microsoft.com/en-us/typography/opentype/spec/dvaraxistag_opsz>
+  const FontVariation.opticalSize(this.value) : assert(value > 0.0), axis = 'opsz';
+
+  /// Variable font width. (`slnt`)
+  ///
+  /// Varies the slant of glyphs in the font.
+  ///
+  /// Values must be greater than -90.0 and less than +90.0, and represents the
+  /// angle in _counter-clockwise_ degrees relative to "normal", at 0.0.
+  ///
+  /// For example, to lean the glyphs forward by 45 degrees, one would use
+  /// `FontVariation.slant(-45.0)`.
+  ///
+  /// This is distinct from [FontVariation.italic], in that slant leans the
+  /// characters without changing the font style.
+  ///
+  /// See also:
+  ///
+  ///  * <https://learn.microsoft.com/en-us/typography/opentype/spec/dvaraxistag_slnt>
+  const FontVariation.slant(this.value) : assert(value > -90.0), assert(value < 90.0), axis = 'slnt';
+
+  /// Variable font width. (`wdth`)
+  ///
+  /// Varies the width of glyphs in the font.
+  ///
+  /// Values must be greater than zero, with no upper limit. 100.0 represents
+  /// the "normal" width. Smaller values are "condensed", greater values are
+  /// "extended".
+  ///
+  /// See also:
+  ///
+  ///  * <https://learn.microsoft.com/en-us/typography/opentype/spec/dvaraxistag_wdth>
+  const FontVariation.width(this.value) : assert(value >= 0.0), axis = 'wdth';
+
+  /// Variable font weight. (`wght`)
+  ///
+  /// Varies the stroke thickness of the font, similar to [FontWeight] but on a
+  /// continuous axis.
+  ///
+  /// Values must be in the range 1..1000, and are to be interpreted in a manner
+  /// consistent with the values of [FontWeight]. For instance, `400` is the
+  /// "normal" weight, and `700` is "bold".
+  ///
+  /// See also:
+  ///
+  ///  * <https://learn.microsoft.com/en-us/typography/opentype/spec/dvaraxistag_wght>
+  const FontVariation.weight(this.value) : assert(value >= 1), assert(value <= 1000), axis = 'wght';
+
+  // ------------------------------------------------------------------------
+  // End of axis tags list.
+
+  /// The tag that identifies the design axis.
+  ///
+  /// An axis tag must consist of 4 ASCII characters.
   final String axis;
 
   /// The value assigned to this design axis.
   ///
   /// The range of usable values depends on the specification of the axis.
+  ///
+  /// While this property is represented as a [double] in this API
+  /// ([binary64](https://en.wikipedia.org/wiki/Double-precision_floating-point_format)),
+  /// fonts use the fixed-point 16.16 format to represent the value of font
+  /// variations. This means that the actual range is -32768.0 to approximately
+  /// 32767.999985 and in principle the smallest increment between two values is
+  /// approximately 0.000015 (1/65536).
+  ///
+  /// Unfortunately for technical reasons the value is first converted to the
+  /// [binary32 floating point
+  /// format](https://en.wikipedia.org/wiki/Single-precision_floating-point_format),
+  /// which only has 24 bits of precision. This means that for values outside
+  /// the range -256.0 to 256.0, the smallest increment is larger than what is
+  /// technically supported by OpenType. At the extreme edge of the range, the
+  /// smallest increment is only approximately ±0.002.
   final double value;
 
   static const int _kEncodedSize = 8;
@@ -994,8 +1156,90 @@ class FontVariation {
   @override
   int get hashCode => Object.hash(axis, value);
 
+  /// Linearly interpolates between two font variations.
+  ///
+  /// If the two variations have different axis tags, the interpolation switches
+  /// abruptly from one to the other at t=0.5. Otherwise, the value is
+  /// interpolated (see [lerpDouble].
+  ///
+  /// The value is not clamped to the valid values of the axis tag, but it is
+  /// clamped to the valid range of font variations values in general (the range
+  /// of signed 16.16 fixed point numbers).
+  ///
+  /// The `t` argument represents position on the timeline, with 0.0 meaning
+  /// that the interpolation has not started, returning `a` (or something
+  /// equivalent to `a`), 1.0 meaning that the interpolation has finished,
+  /// returning `b` (or something equivalent to `b`), and values in between
+  /// meaning that the interpolation is at the relevant point on the timeline
+  /// between `a` and `b`. The interpolation can be extrapolated beyond 0.0 and
+  /// 1.0, so negative values and values greater than 1.0 are valid (and can
+  /// easily be generated by curves such as [Curves.elasticInOut]).
+  ///
+  /// Values for `t` are usually obtained from an [Animation<double>], such as
+  /// an [AnimationController].
+  static FontVariation? lerp(FontVariation? a, FontVariation? b, double t) {
+    if (a?.axis != b?.axis || (a == null && b == null)) {
+      return t < 0.5 ? a : b;
+    }
+    return FontVariation(
+      a!.axis,
+      clampDouble(lerpDouble(a.value, b!.value, t)!, -32768.0, 32768.0 - 1.0/65536.0),
+    );
+  }
+
   @override
   String toString() => "FontVariation('$axis', $value)";
+}
+
+/// The measurements of a character (or a sequence of visually connected
+/// characters) within a paragraph.
+///
+/// See also:
+///
+///  * [Paragraph.getGlyphInfoAt], which finds the [GlyphInfo] associated with
+///    a code unit in the text.
+///  * [Paragraph.getClosestGlyphInfoForOffset], which finds the [GlyphInfo] of
+///    the glyph(s) onscreen that's closest to the given [Offset].
+final class GlyphInfo {
+  /// Creates a [GlyphInfo] with the specified values.
+  GlyphInfo(this.graphemeClusterLayoutBounds, this.graphemeClusterCodeUnitRange, this.writingDirection);
+
+  GlyphInfo._(double left, double top, double right, double bottom, int graphemeStart, int graphemeEnd, bool isLTR)
+    : graphemeClusterLayoutBounds = Rect.fromLTRB(left, top, right, bottom),
+      graphemeClusterCodeUnitRange = TextRange(start: graphemeStart, end: graphemeEnd),
+      writingDirection = isLTR ? TextDirection.ltr : TextDirection.rtl;
+
+  /// The layout bounding rect of the associated character, in the paragraph's
+  /// coordinates.
+  ///
+  /// This is **not** a tight bounding box that encloses the character's outline.
+  /// The vertical extent reported is derived from the font metrics (instead of
+  /// glyph metrics), and the horizontal extent is the horizontal advance of the
+  /// character.
+  final Rect graphemeClusterLayoutBounds;
+
+  /// The UTF-16 range of the associated character in the text.
+  final TextRange graphemeClusterCodeUnitRange;
+
+  /// The writing direction within the [GlyphInfo].
+  final TextDirection writingDirection;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+    return other is GlyphInfo
+        && graphemeClusterLayoutBounds == other.graphemeClusterLayoutBounds
+        && graphemeClusterCodeUnitRange == other.graphemeClusterCodeUnitRange
+        && writingDirection == other.writingDirection;
+  }
+
+  @override
+  int get hashCode => Object.hash(graphemeClusterLayoutBounds, graphemeClusterCodeUnitRange, writingDirection);
+
+  @override
+  String toString() => 'Glyph($graphemeClusterLayoutBounds, textRange: $graphemeClusterCodeUnitRange, direction: $writingDirection)';
 }
 
 /// Whether and how to align text horizontally.
@@ -1194,7 +1438,7 @@ class TextHeightBehavior {
   /// Whether to apply the [TextStyle.height] modifier to the ascent of the first
   /// line in the paragraph.
   ///
-  /// When true, the [TextStyle.height] modifier will be applied to to the ascent
+  /// When true, the [TextStyle.height] modifier will be applied to the ascent
   /// of the first line. When false, the font's default ascent will be used and
   /// the [TextStyle.height] will have no effect on the ascent of the first line.
   ///
@@ -1206,7 +1450,7 @@ class TextHeightBehavior {
   /// Whether to apply the [TextStyle.height] modifier to the descent of the last
   /// line in the paragraph.
   ///
-  /// When true, the [TextStyle.height] modifier will be applied to to the descent
+  /// When true, the [TextStyle.height] modifier will be applied to the descent
   /// of the last line. When false, the font's default descent will be used and
   /// the [TextStyle.height] will have no effect on the descent of the last line.
   ///
@@ -1555,26 +1799,32 @@ class TextStyle {
   }
 
   @override
-  int get hashCode => Object.hash(
-    Object.hashAll(_encoded),
-    _leadingDistribution,
-    _fontFamily,
-    _fontFamilyFallback,
-    _fontSize,
-    _letterSpacing,
-    _wordSpacing,
-    _height,
-    _locale,
-    _background,
-    _foreground,
-    _shadows == null ? null : Object.hashAll(_shadows!),
-    _decorationThickness,
-    _fontFeatures == null ? null : Object.hashAll(_fontFeatures!),
-    _fontVariations == null ? null : Object.hashAll(_fontVariations!),
-  );
+  int get hashCode {
+    final List<Shadow>? shadows = _shadows;
+    final List<FontFeature>? fontFeatures = _fontFeatures;
+    final List<FontVariation>? fontVariations = _fontVariations;
+    return Object.hash(
+      Object.hashAll(_encoded),
+      _leadingDistribution,
+      _fontFamily,
+      _fontFamilyFallback,
+      _fontSize,
+      _letterSpacing,
+      _wordSpacing,
+      _height,
+      _locale,
+      _background,
+      _foreground,
+      shadows == null ? null : Object.hashAll(shadows),
+      _decorationThickness,
+      fontFeatures == null ? null : Object.hashAll(fontFeatures),
+      fontVariations == null ? null : Object.hashAll(fontVariations),
+    );
+  }
 
   @override
   String toString() {
+    final List<String>? fontFamilyFallback = _fontFamilyFallback;
     return 'TextStyle('
              'color: ${              _encoded[0] & 0x00002 == 0x00002  ? Color(_encoded[1])                           : "unspecified"}, '
              'decoration: ${         _encoded[0] & 0x00004 == 0x00004  ? TextDecoration._(_encoded[2])                : "unspecified"}, '
@@ -1588,8 +1838,8 @@ class TextStyle {
              'fontFamily: ${         _encoded[0] & 0x00200 == 0x00200
                                      && _fontFamily != ''              ? _fontFamily                                  : "unspecified"}, '
              'fontFamilyFallback: ${ _encoded[0] & 0x00200 == 0x00200
-                                     && _fontFamilyFallback != null
-                                     && _fontFamilyFallback!.isNotEmpty ? _fontFamilyFallback                         : "unspecified"}, '
+                                     && fontFamilyFallback != null
+                                     && fontFamilyFallback.isNotEmpty ? fontFamilyFallback                            : "unspecified"}, '
              'fontSize: ${           _encoded[0] & 0x00400 == 0x00400  ? _fontSize                                    : "unspecified"}, '
              'letterSpacing: ${      _encoded[0] & 0x00800 == 0x00800  ? "${_letterSpacing}x"                         : "unspecified"}, '
              'wordSpacing: ${        _encoded[0] & 0x01000 == 0x01000  ? "${_wordSpacing}x"                           : "unspecified"}, '
@@ -1834,8 +2084,9 @@ class ParagraphStyle {
              'fontFamily: ${    _encoded[0] & 0x080 == 0x080 ? _fontFamily                       : "unspecified"}, '
              'fontSize: ${      _encoded[0] & 0x100 == 0x100 ? _fontSize                         : "unspecified"}, '
              'height: ${        _encoded[0] & 0x200 == 0x200 ? "${_height}x"                     : "unspecified"}, '
-             'ellipsis: ${      _encoded[0] & 0x400 == 0x400 ? '"$_ellipsis"'                    : "unspecified"}, '
-             'locale: ${        _encoded[0] & 0x800 == 0x800 ? _locale                           : "unspecified"}'
+             'strutStyle: ${    _encoded[0] & 0x400 == 0x400 ? _strutStyle                       : "unspecified"}, '
+             'ellipsis: ${      _encoded[0] & 0x800 == 0x800 ? '"$_ellipsis"'                    : "unspecified"}, '
+             'locale: ${        _encoded[0] & 0x1000 == 0x1000 ? _locale                         : "unspecified"}'
            ')';
   }
 }
@@ -2059,10 +2310,10 @@ class StrutStyle {
 ///
 /// At the higher levels (specifically starting at the widgets library), an
 /// ambient [Directionality] is introduced, which provides a default. Thus, for
-/// instance, a [Text] widget in the scope of a [MaterialApp] widget does not
-/// need to be given an explicit writing direction. The [Directionality.of]
-/// static method can be used to obtain the ambient text direction for a
-/// particular [BuildContext].
+/// instance, a [widgets.Text] widget in the scope of a [MaterialApp] widget
+/// does not need to be given an explicit writing direction. The
+/// [Directionality.of] static method can be used to obtain the ambient text
+/// direction for a particular [BuildContext].
 ///
 /// ### Known left-to-right biases in Flutter
 ///
@@ -2114,7 +2365,6 @@ enum TextDirection {
 /// A rectangle enclosing a run of text.
 ///
 /// This is similar to [Rect] but includes an inherent [TextDirection].
-@pragma('vm:entry-point')
 class TextBox {
   /// Creates an object that describes a box containing text.
   const TextBox.fromLTRBD(
@@ -2258,8 +2508,7 @@ class TextPosition {
   const TextPosition({
     required this.offset,
     this.affinity = TextAffinity.downstream,
-  }) : assert(offset != null),
-       assert(affinity != null);
+  });
 
   /// The index of the character that immediately follows the position in the
   /// string representation of the text.
@@ -2312,14 +2561,14 @@ class TextRange {
   const TextRange({
     required this.start,
     required this.end,
-  }) : assert(start != null && start >= -1),
-       assert(end != null && end >= -1);
+  }) : assert(start >= -1),
+       assert(end >= -1);
 
   /// A text range that starts and ends at offset.
   ///
   /// The [offset] argument must be non-null and greater than or equal to -1.
   const TextRange.collapsed(int offset)
-      : assert(offset != null && offset >= -1),
+      : assert(offset >= -1),
         start = offset,
         end = offset;
 
@@ -2395,7 +2644,7 @@ class ParagraphConstraints {
   /// The [width] argument must not be null.
   const ParagraphConstraints({
     required this.width,
-  }) : assert(width != null);
+  });
 
   /// The width the paragraph should use whey computing the positions of glyphs.
   ///
@@ -2574,6 +2823,18 @@ class LineMetrics {
     required this.lineNumber,
   });
 
+  LineMetrics._(
+    this.hardBreak,
+    this.ascent,
+    this.descent,
+    this.unscaledAscent,
+    this.height,
+    this.width,
+    this.left,
+    this.baseline,
+    this.lineNumber,
+  );
+
   /// True if this line ends with an explicit line break (e.g. '\n') or is the end
   /// of the paragraph. False otherwise.
   final bool hardBreak;
@@ -2683,59 +2944,42 @@ class LineMetrics {
 ///
 /// Paragraphs can be displayed on a [Canvas] using the [Canvas.drawParagraph]
 /// method.
-@pragma('vm:entry-point')
-class Paragraph extends NativeFieldWrapperClass1 {
-  /// This class is created by the engine, and should not be instantiated
-  /// or extended directly.
-  ///
-  /// To create a [Paragraph] object, use a [ParagraphBuilder].
-  @pragma('vm:entry-point')
-  Paragraph._();
-
-  bool _needsLayout = true;
-
+abstract class Paragraph {
   /// The amount of horizontal space this paragraph occupies.
   ///
   /// Valid only after [layout] has been called.
-  @FfiNative<Double Function(Pointer<Void>)>('Paragraph::width', isLeaf: true)
-  external double get width;
+  double get width;
 
   /// The amount of vertical space this paragraph occupies.
   ///
   /// Valid only after [layout] has been called.
-  @FfiNative<Double Function(Pointer<Void>)>('Paragraph::height', isLeaf: true)
-  external double get height;
+  double get height;
 
   /// The distance from the left edge of the leftmost glyph to the right edge of
   /// the rightmost glyph in the paragraph.
   ///
   /// Valid only after [layout] has been called.
-  @FfiNative<Double Function(Pointer<Void>)>('Paragraph::longestLine', isLeaf: true)
-  external double get longestLine;
+  double get longestLine;
 
   /// The minimum width that this paragraph could be without failing to paint
   /// its contents within itself.
   ///
   /// Valid only after [layout] has been called.
-  @FfiNative<Double Function(Pointer<Void>)>('Paragraph::minIntrinsicWidth', isLeaf: true)
-  external double get minIntrinsicWidth;
+  double get minIntrinsicWidth;
 
   /// Returns the smallest width beyond which increasing the width never
   /// decreases the height.
   ///
   /// Valid only after [layout] has been called.
-  @FfiNative<Double Function(Pointer<Void>)>('Paragraph::maxIntrinsicWidth', isLeaf: true)
-  external double get maxIntrinsicWidth;
+  double get maxIntrinsicWidth;
 
   /// The distance from the top of the paragraph to the alphabetic
   /// baseline of the first line, in logical pixels.
-  @FfiNative<Double Function(Pointer<Void>)>('Paragraph::alphabeticBaseline', isLeaf: true)
-  external double get alphabeticBaseline;
+  double get alphabeticBaseline;
 
   /// The distance from the top of the paragraph to the ideographic
   /// baseline of the first line, in logical pixels.
-  @FfiNative<Double Function(Pointer<Void>)>('Paragraph::ideographicBaseline', isLeaf: true)
-  external double get ideographicBaseline;
+  double get ideographicBaseline;
 
   /// True if there is more vertical content, but the text was truncated, either
   /// because we reached `maxLines` lines of text or because the `maxLines` was
@@ -2744,12 +2988,175 @@ class Paragraph extends NativeFieldWrapperClass1 {
   ///
   /// See the discussion of the `maxLines` and `ellipsis` arguments at
   /// [ParagraphStyle.new].
-  @FfiNative<Bool Function(Pointer<Void>)>('Paragraph::didExceedMaxLines', isLeaf: true)
-  external bool get didExceedMaxLines;
+  bool get didExceedMaxLines;
 
   /// Computes the size and position of each glyph in the paragraph.
   ///
   /// The [ParagraphConstraints] control how wide the text is allowed to be.
+  void layout(ParagraphConstraints constraints);
+
+  /// Returns a list of text boxes that enclose the given text range.
+  ///
+  /// The [boxHeightStyle] and [boxWidthStyle] parameters allow customization
+  /// of how the boxes are bound vertically and horizontally. Both style
+  /// parameters default to the tight option, which will provide close-fitting
+  /// boxes and will not account for any line spacing.
+  ///
+  /// Coordinates of the TextBox are relative to the upper-left corner of the paragraph,
+  /// where positive y values indicate down.
+  ///
+  /// The [boxHeightStyle] and [boxWidthStyle] parameters must not be null.
+  ///
+  /// See [BoxHeightStyle] and [BoxWidthStyle] for full descriptions of each option.
+  List<TextBox> getBoxesForRange(int start, int end, {BoxHeightStyle boxHeightStyle = BoxHeightStyle.tight, BoxWidthStyle boxWidthStyle = BoxWidthStyle.tight});
+
+  /// Returns a list of text boxes that enclose all placeholders in the paragraph.
+  ///
+  /// The order of the boxes are in the same order as passed in through
+  /// [ParagraphBuilder.addPlaceholder].
+  ///
+  /// Coordinates of the [TextBox] are relative to the upper-left corner of the paragraph,
+  /// where positive y values indicate down.
+  List<TextBox> getBoxesForPlaceholders();
+
+  /// Returns the text position closest to the given offset.
+  ///
+  /// This method always returns a [TextPosition] for any given [offset], even
+  /// when the [offset] is not close to any text, or when the paragraph is empty.
+  /// This is useful for determining the text to select when the user drags the
+  /// text selection handle.
+  ///
+  /// See also:
+  ///
+  ///  * [getClosestGlyphInfoForOffset], which returns more information about
+  ///    the closest character to an [Offset].
+  TextPosition getPositionForOffset(Offset offset);
+
+  /// Returns the [GlyphInfo] of the glyph closest to the given `offset` in the
+  /// paragraph coordinate system, or null if if the text is empty, or is
+  /// entirely clipped or ellipsized away.
+  ///
+  /// This method first finds the line closest to `offset.dy`, and then returns
+  /// the [GlyphInfo] of the closest glyph(s) within that line.
+  GlyphInfo? getClosestGlyphInfoForOffset(Offset offset);
+
+  /// Returns the [GlyphInfo] located at the given UTF-16 `codeUnitOffset` in
+  /// the paragraph, or null if the given `codeUnitOffset` is out of the visible
+  /// lines or is ellipsized.
+  GlyphInfo? getGlyphInfoAt(int codeUnitOffset);
+
+  /// Returns the [TextRange] of the word at the given [TextPosition].
+  ///
+  /// Characters not part of a word, such as spaces, symbols, and punctuation,
+  /// have word breaks on both sides. In such cases, this method will return
+  /// (offset, offset+1). Word boundaries are defined more precisely in Unicode
+  /// Standard Annex #29 http://www.unicode.org/reports/tr29/#Word_Boundaries
+  ///
+  /// The [TextPosition] is treated as caret position, its [TextPosition.affinity]
+  /// is used to determine which character this position points to. For example,
+  /// the word boundary at `TextPosition(offset: 5, affinity: TextPosition.upstream)`
+  /// of the `string = 'Hello word'` will return range (0, 5) because the position
+  /// points to the character 'o' instead of the space.
+  TextRange getWordBoundary(TextPosition position);
+
+  /// Returns the [TextRange] of the line at the given [TextPosition].
+  ///
+  /// The newline (if any) is returned as part of the range.
+  ///
+  /// Not valid until after layout.
+  ///
+  /// This can potentially be expensive, since it needs to compute the line
+  /// metrics, so use it sparingly.
+  TextRange getLineBoundary(TextPosition position);
+
+  /// Returns the full list of [LineMetrics] that describe in detail the various
+  /// metrics of each laid out line.
+  ///
+  /// Not valid until after layout.
+  ///
+  /// This can potentially return a large amount of data, so it is not recommended
+  /// to repeatedly call this. Instead, cache the results.
+  List<LineMetrics> computeLineMetrics();
+
+  /// Returns the [LineMetrics] for the line at `lineNumber`, or null if the
+  /// given `lineNumber` is greater than or equal to [numberOfLines].
+  LineMetrics? getLineMetricsAt(int lineNumber);
+
+  /// The total number of visible lines in the paragraph.
+  ///
+  /// Returns a non-negative number. If `maxLines` is non-null, the value of
+  /// [numberOfLines] never exceeds `maxLines`.
+  int get numberOfLines;
+
+  /// Returns the line number of the line that contains the code unit that
+  /// `codeUnitOffset` points to.
+  ///
+  /// This method returns null if the given `codeUnitOffset` is out of bounds, or
+  /// is logically after the last visible codepoint. This includes the case where
+  /// its codepoint belongs to a visible line, but the text layout library
+  /// replaced it with an ellipsis.
+  ///
+  /// If the target code unit points to a control character that introduces
+  /// mandatory line breaks (most notably the line feed character `LF`, typically
+  /// represented in strings as the escape sequence "\n"), to conform to
+  /// [the unicode rules](https://unicode.org/reports/tr14/#LB4), the control
+  /// character itself is always considered to be at the end of "current" line
+  /// rather than the beginning of the new line.
+  int? getLineNumberAt(int codeUnitOffset);
+
+  /// Release the resources used by this object. The object is no longer usable
+  /// after this method is called.
+  void dispose();
+
+  /// Whether this reference to the underlying picture is [dispose]d.
+  ///
+  /// This only returns a valid value if asserts are enabled, and must not be
+  /// used otherwise.
+  bool get debugDisposed;
+}
+
+base class _NativeParagraph extends NativeFieldWrapperClass1 implements Paragraph {
+  /// This class is created by the engine, and should not be instantiated
+  /// or extended directly.
+  ///
+  /// To create a [Paragraph] object, use a [ParagraphBuilder].
+  _NativeParagraph._();
+
+  bool _needsLayout = true;
+
+  @override
+  @Native<Double Function(Pointer<Void>)>(symbol: 'Paragraph::width', isLeaf: true)
+  external double get width;
+
+  @override
+  @Native<Double Function(Pointer<Void>)>(symbol: 'Paragraph::height', isLeaf: true)
+  external double get height;
+
+  @override
+  @Native<Double Function(Pointer<Void>)>(symbol: 'Paragraph::longestLine', isLeaf: true)
+  external double get longestLine;
+
+  @override
+  @Native<Double Function(Pointer<Void>)>(symbol: 'Paragraph::minIntrinsicWidth', isLeaf: true)
+  external double get minIntrinsicWidth;
+
+  @override
+  @Native<Double Function(Pointer<Void>)>(symbol: 'Paragraph::maxIntrinsicWidth', isLeaf: true)
+  external double get maxIntrinsicWidth;
+
+  @override
+  @Native<Double Function(Pointer<Void>)>(symbol: 'Paragraph::alphabeticBaseline', isLeaf: true)
+  external double get alphabeticBaseline;
+
+  @override
+  @Native<Double Function(Pointer<Void>)>(symbol: 'Paragraph::ideographicBaseline', isLeaf: true)
+  external double get ideographicBaseline;
+
+  @override
+  @Native<Bool Function(Pointer<Void>)>(symbol: 'Paragraph::didExceedMaxLines', isLeaf: true)
+  external bool get didExceedMaxLines;
+
+  @override
   void layout(ParagraphConstraints constraints) {
     _layout(constraints.width);
     assert(() {
@@ -2757,7 +3164,7 @@ class Paragraph extends NativeFieldWrapperClass1 {
       return true;
     }());
   }
-  @FfiNative<Void Function(Pointer<Void>, Double)>('Paragraph::layout', isLeaf: true)
+  @Native<Void Function(Pointer<Void>, Double)>(symbol: 'Paragraph::layout', isLeaf: true)
   external void _layout(double width);
 
   List<TextBox> _decodeTextBoxes(Float32List encoded) {
@@ -2776,89 +3183,59 @@ class Paragraph extends NativeFieldWrapperClass1 {
     return boxes;
   }
 
-  /// Returns a list of text boxes that enclose the given text range.
-  ///
-  /// The [boxHeightStyle] and [boxWidthStyle] parameters allow customization
-  /// of how the boxes are bound vertically and horizontally. Both style
-  /// parameters default to the tight option, which will provide close-fitting
-  /// boxes and will not account for any line spacing.
-  ///
-  /// Coordinates of the TextBox are relative to the upper-left corner of the paragraph,
-  /// where positive y values indicate down.
-  ///
-  /// The [boxHeightStyle] and [boxWidthStyle] parameters must not be null.
-  ///
-  /// See [BoxHeightStyle] and [BoxWidthStyle] for full descriptions of each option.
+  @override
   List<TextBox> getBoxesForRange(int start, int end, {BoxHeightStyle boxHeightStyle = BoxHeightStyle.tight, BoxWidthStyle boxWidthStyle = BoxWidthStyle.tight}) {
-    assert(boxHeightStyle != null);
-    assert(boxWidthStyle != null);
     return _decodeTextBoxes(_getBoxesForRange(start, end, boxHeightStyle.index, boxWidthStyle.index));
   }
 
   // See paragraph.cc for the layout of this return value.
-  @FfiNative<Handle Function(Pointer<Void>, Uint32, Uint32, Uint32, Uint32)>('Paragraph::getRectsForRange')
+  @Native<Handle Function(Pointer<Void>, Uint32, Uint32, Uint32, Uint32)>(symbol: 'Paragraph::getRectsForRange')
   external Float32List _getBoxesForRange(int start, int end, int boxHeightStyle, int boxWidthStyle);
 
-  /// Returns a list of text boxes that enclose all placeholders in the paragraph.
-  ///
-  /// The order of the boxes are in the same order as passed in through
-  /// [ParagraphBuilder.addPlaceholder].
-  ///
-  /// Coordinates of the [TextBox] are relative to the upper-left corner of the paragraph,
-  /// where positive y values indicate down.
+  @override
   List<TextBox> getBoxesForPlaceholders() {
     return _decodeTextBoxes(_getBoxesForPlaceholders());
   }
 
-  @FfiNative<Handle Function(Pointer<Void>)>('Paragraph::getRectsForPlaceholders')
+  @Native<Handle Function(Pointer<Void>)>(symbol: 'Paragraph::getRectsForPlaceholders')
   external Float32List _getBoxesForPlaceholders();
 
-  /// Returns the text position closest to the given offset.
+  @override
   TextPosition getPositionForOffset(Offset offset) {
     final List<int> encoded = _getPositionForOffset(offset.dx, offset.dy);
     return TextPosition(offset: encoded[0], affinity: TextAffinity.values[encoded[1]]);
   }
 
-  @FfiNative<Handle Function(Pointer<Void>, Double, Double)>('Paragraph::getPositionForOffset')
+  @Native<Handle Function(Pointer<Void>, Double, Double)>(symbol: 'Paragraph::getPositionForOffset')
   external List<int> _getPositionForOffset(double dx, double dy);
 
-  /// Returns the [TextRange] of the word at the given [TextPosition].
-  ///
-  /// Characters not part of a word, such as spaces, symbols, and punctuation,
-  /// have word breaks on both sides. In such cases, this method will return
-  /// [offset, offset+1]. Word boundaries are defined more precisely in Unicode
-  /// Standard Annex #29 http://www.unicode.org/reports/tr29/#Word_Boundaries
-  ///
-  /// The [TextPosition] is treated as caret position, its [TextPosition.affinity]
-  /// is used to determine which character this position points to. For example,
-  /// the word boundary at `TextPosition(offset: 5, affinity: TextPosition.upstream)`
-  /// of the `string = 'Hello word'` will return range (0, 5) because the position
-  /// points to the character 'o' instead of the space.
+  @override
+  GlyphInfo? getGlyphInfoAt(int codeUnitOffset) => _getGlyphInfoAt(codeUnitOffset, GlyphInfo._);
+  @Native<Handle Function(Pointer<Void>, Uint32, Handle)>(symbol: 'Paragraph::getGlyphInfoAt')
+  external GlyphInfo? _getGlyphInfoAt(int codeUnitOffset, Function constructor);
+
+  @override
+  GlyphInfo? getClosestGlyphInfoForOffset(Offset offset) => _getClosestGlyphInfoForOffset(offset.dx, offset.dy, GlyphInfo._);
+  @Native<Handle Function(Pointer<Void>, Double, Double, Handle)>(symbol: 'Paragraph::getClosestGlyphInfo')
+  external GlyphInfo? _getClosestGlyphInfoForOffset(double dx, double dy, Function constructor);
+
+  @override
   TextRange getWordBoundary(TextPosition position) {
     final int characterPosition;
     switch (position.affinity) {
       case TextAffinity.upstream:
         characterPosition = position.offset - 1;
-        break;
       case TextAffinity.downstream:
         characterPosition = position.offset;
-        break;
     }
     final List<int> boundary = _getWordBoundary(characterPosition);
     return TextRange(start: boundary[0], end: boundary[1]);
   }
 
-  @FfiNative<Handle Function(Pointer<Void>, Uint32)>('Paragraph::getWordBoundary')
+  @Native<Handle Function(Pointer<Void>, Uint32)>(symbol: 'Paragraph::getWordBoundary')
   external List<int> _getWordBoundary(int offset);
 
-  /// Returns the [TextRange] of the line at the given [TextPosition].
-  ///
-  /// The newline (if any) is returned as part of the range.
-  ///
-  /// Not valid until after layout.
-  ///
-  /// This can potentially be expensive, since it needs to compute the line
-  /// metrics, so use it sparingly.
+  @override
   TextRange getLineBoundary(TextPosition position) {
     final List<int> boundary = _getLineBoundary(position.offset);
     final TextRange line = TextRange(start: boundary[0], end: boundary[1]);
@@ -2880,22 +3257,16 @@ class Paragraph extends NativeFieldWrapperClass1 {
     return line;
   }
 
-  @FfiNative<Handle Function(Pointer<Void>, Uint32)>('Paragraph::getLineBoundary')
+  @Native<Handle Function(Pointer<Void>, Uint32)>(symbol: 'Paragraph::getLineBoundary')
   external List<int> _getLineBoundary(int offset);
 
   // Redirecting the paint function in this way solves some dependency problems
   // in the C++ code. If we straighten out the C++ dependencies, we can remove
   // this indirection.
-  @FfiNative<Void Function(Pointer<Void>, Pointer<Void>, Double, Double)>('Paragraph::paint')
-  external void _paint(Canvas canvas, double x, double y);
+  @Native<Void Function(Pointer<Void>, Pointer<Void>, Double, Double)>(symbol: 'Paragraph::paint')
+  external void _paint(_NativeCanvas canvas, double x, double y);
 
-  /// Returns the full list of [LineMetrics] that describe in detail the various
-  /// metrics of each laid out line.
-  ///
-  /// Not valid until after layout.
-  ///
-  /// This can potentially return a large amount of data, so it is not recommended
-  /// to repeatedly call this. Instead, cache the results.
+  @override
   List<LineMetrics> computeLineMetrics() {
     final Float64List encoded = _computeLineMetrics();
     final int count = encoded.length ~/ 9;
@@ -2917,11 +3288,27 @@ class Paragraph extends NativeFieldWrapperClass1 {
     return metrics;
   }
 
-  @FfiNative<Handle Function(Pointer<Void>)>('Paragraph::computeLineMetrics')
+  @Native<Handle Function(Pointer<Void>)>(symbol: 'Paragraph::computeLineMetrics')
   external Float64List _computeLineMetrics();
 
-  /// Release the resources used by this object. The object is no longer usable
-  /// after this method is called.
+  @override
+  LineMetrics? getLineMetricsAt(int lineNumber) => _getLineMetricsAt(lineNumber, LineMetrics._);
+  @Native<Handle Function(Pointer<Void>, Uint32, Handle)>(symbol: 'Paragraph::getLineMetricsAt')
+  external LineMetrics? _getLineMetricsAt(int lineNumber, Function constructor);
+
+  @override
+  @Native<Uint32 Function(Pointer<Void>)>(symbol: 'Paragraph::getNumberOfLines')
+  external int get numberOfLines;
+
+  @override
+  int? getLineNumberAt(int codeUnitOffset) {
+    final int lineNumber = _getLineNumber(codeUnitOffset);
+    return lineNumber < 0 ? null : lineNumber;
+  }
+  @Native<Int32 Function(Pointer<Void>, Uint32)>(symbol: 'Paragraph::getLineNumberAt')
+  external int _getLineNumber(int codeUnitOffset);
+
+  @override
   void dispose() {
     assert(!_disposed);
     assert(() {
@@ -2933,14 +3320,12 @@ class Paragraph extends NativeFieldWrapperClass1 {
 
   /// This can't be a leaf call because the native function calls Dart API
   /// (Dart_SetNativeInstanceField).
-  @FfiNative<Void Function(Pointer<Void>)>('Paragraph::dispose')
+  @Native<Void Function(Pointer<Void>)>(symbol: 'Paragraph::dispose')
   external void _dispose();
 
   bool _disposed = false;
-  /// Whether this reference to the underlying picture is [dispose]d.
-  ///
-  /// This only returns a valid value if asserts are enabled, and must not be
-  /// used otherwise.
+
+  @override
   bool get debugDisposed {
     bool? disposed;
     assert(() {
@@ -2948,6 +3333,27 @@ class Paragraph extends NativeFieldWrapperClass1 {
       return true;
     }());
     return disposed ?? (throw StateError('$runtimeType.debugDisposed is only available when asserts are enabled.'));
+  }
+
+  @override
+  String toString() {
+    String? result;
+    assert(() {
+      if (_disposed && _needsLayout) {
+        result = 'Paragraph(DISPOSED while dirty)';
+      }
+      if (_disposed && !_needsLayout) {
+        result = 'Paragraph(DISPOSED)';
+      }
+      return true;
+    }());
+    if (result != null) {
+      return result!;
+    }
+    if (_needsLayout) {
+      return 'Paragraph(dirty)';
+    }
+    return 'Paragraph()';
   }
 }
 
@@ -2965,162 +3371,21 @@ class Paragraph extends NativeFieldWrapperClass1 {
 ///
 /// After constructing a [Paragraph], call [Paragraph.layout] on it and then
 /// paint it with [Canvas.drawParagraph].
-class ParagraphBuilder extends NativeFieldWrapperClass1 {
-
+abstract class ParagraphBuilder {
   /// Creates a new [ParagraphBuilder] object, which is used to create a
   /// [Paragraph].
-  @pragma('vm:entry-point')
-  ParagraphBuilder(ParagraphStyle style)
-    : _defaultLeadingDistribution = style._leadingDistribution {
-      List<String>? strutFontFamilies;
-      final StrutStyle? strutStyle = style._strutStyle;
-      final ByteData? encodedStrutStyle;
-      if (strutStyle != null && strutStyle._enabled) {
-        final String? fontFamily = strutStyle._fontFamily;
-        strutFontFamilies = <String>[
-          if (fontFamily != null) fontFamily,
-          ...?strutStyle._fontFamilyFallback,
-        ];
-
-        assert(TextLeadingDistribution.values.length <= 2);
-        final TextLeadingDistribution leadingDistribution = strutStyle._leadingDistribution
-          ?? style._leadingDistribution;
-        encodedStrutStyle = strutStyle._encoded;
-        int bitmask = encodedStrutStyle.getInt8(0);
-        bitmask |= (leadingDistribution.index) << 3;
-        encodedStrutStyle.setInt8(0, bitmask);
-      } else {
-        encodedStrutStyle = null;
-      }
-      _constructor(
-        style._encoded,
-        encodedStrutStyle,
-        style._fontFamily ?? '',
-        strutFontFamilies,
-        style._fontSize ?? 0,
-        style._height ?? 0,
-        style._ellipsis ?? '',
-        _encodeLocale(style._locale)
-      );
-  }
-
-  @FfiNative<Void Function(Handle, Handle, Handle, Handle, Handle, Double, Double, Handle, Handle)>('ParagraphBuilder::Create')
-  external void _constructor(
-      Int32List encoded,
-      ByteData? strutData,
-      String fontFamily,
-      List<Object?>? strutFontFamily,
-      double fontSize,
-      double height,
-      String ellipsis,
-      String locale);
+  factory ParagraphBuilder(ParagraphStyle style) = _NativeParagraphBuilder;
 
   /// The number of placeholders currently in the paragraph.
-  int get placeholderCount => _placeholderCount;
-  int _placeholderCount = 0;
+  int get placeholderCount;
 
   /// The scales of the placeholders in the paragraph.
-  List<double> get placeholderScales => _placeholderScales;
-  final List<double> _placeholderScales = <double>[];
+  List<double> get placeholderScales;
 
-  final TextLeadingDistribution _defaultLeadingDistribution;
   /// Applies the given style to the added text until [pop] is called.
   ///
   /// See [pop] for details.
-  void pushStyle(TextStyle style) {
-    final List<String> fullFontFamilies = <String>[];
-    fullFontFamilies.add(style._fontFamily);
-    if (style._fontFamilyFallback != null) {
-      fullFontFamilies.addAll(style._fontFamilyFallback!);
-    }
-
-    final Int32List encoded = style._encoded;
-    final TextLeadingDistribution finalLeadingDistribution = style._leadingDistribution ?? _defaultLeadingDistribution;
-    // ensure the enum can be represented using 1 bit.
-    assert(TextLeadingDistribution.values.length <= 2);
-
-    // Use the leading distribution from the paragraph's style if it's not
-    // explicitly set in `style`.
-    encoded[0] |= finalLeadingDistribution.index << 0;
-
-    ByteData? encodedFontFeatures;
-    final List<FontFeature>? fontFeatures = style._fontFeatures;
-    if (fontFeatures != null) {
-      encodedFontFeatures = ByteData(fontFeatures.length * FontFeature._kEncodedSize);
-      int byteOffset = 0;
-      for (final FontFeature feature in fontFeatures) {
-        feature._encode(ByteData.view(encodedFontFeatures.buffer, byteOffset, FontFeature._kEncodedSize));
-        byteOffset += FontFeature._kEncodedSize;
-      }
-    }
-
-    ByteData? encodedFontVariations;
-    final List<FontVariation>? fontVariations = style._fontVariations;
-    if (fontVariations != null) {
-      encodedFontVariations = ByteData(fontVariations.length * FontVariation._kEncodedSize);
-      int byteOffset = 0;
-      for (final FontVariation variation in fontVariations) {
-        variation._encode(ByteData.view(encodedFontVariations.buffer, byteOffset, FontVariation._kEncodedSize));
-        byteOffset += FontVariation._kEncodedSize;
-      }
-    }
-
-    _pushStyle(
-      encoded,
-      fullFontFamilies,
-      style._fontSize ?? 0,
-      style._letterSpacing ?? 0,
-      style._wordSpacing ?? 0,
-      style._height ?? 0,
-      style._decorationThickness ?? 0,
-      _encodeLocale(style._locale),
-      style._background?._objects,
-      style._background?._data,
-      style._foreground?._objects,
-      style._foreground?._data,
-      Shadow._encodeShadows(style._shadows),
-      encodedFontFeatures,
-      encodedFontVariations,
-    );
-  }
-
-  @FfiNative<
-      Void Function(
-          Pointer<Void>,
-          Handle,
-          Handle,
-          Double,
-          Double,
-          Double,
-          Double,
-          Double,
-          Handle,
-          Handle,
-          Handle,
-          Handle,
-          Handle,
-          Handle,
-          Handle,
-          Handle)>('ParagraphBuilder::pushStyle')
-  external void _pushStyle(
-    Int32List encoded,
-    List<Object?> fontFamilies,
-    double fontSize,
-    double letterSpacing,
-    double wordSpacing,
-    double height,
-    double decorationThickness,
-    String locale,
-    List<Object?>? backgroundObjects,
-    ByteData? backgroundData,
-    List<Object?>? foregroundObjects,
-    ByteData? foregroundData,
-    ByteData shadowsData,
-    ByteData? fontFeaturesData,
-    ByteData? fontVariationsData,
-  );
-
-  static String _encodeLocale(Locale? locale) => locale?.toString() ?? '';
+  void pushStyle(TextStyle style);
 
   /// Ends the effect of the most recent call to [pushStyle].
   ///
@@ -3128,21 +3393,12 @@ class ParagraphBuilder extends NativeFieldWrapperClass1 {
   /// added to the paragraph is affected by all the styles in the stack. Calling
   /// [pop] removes the topmost style in the stack, leaving the remaining styles
   /// in effect.
-  @FfiNative<Void Function(Pointer<Void>)>('ParagraphBuilder::pop', isLeaf: true)
-  external void pop();
+  void pop();
 
   /// Adds the given text to the paragraph.
   ///
   /// The text will be styled according to the current stack of text styles.
-  void addText(String text) {
-    final String? error = _addText(text);
-    if (error != null) {
-      throw ArgumentError(error);
-    }
-  }
-
-  @FfiNative<Handle Function(Pointer<Void>, Handle)>('ParagraphBuilder::addText')
-  external String? _addText(String text);
+  void addText(String text);
 
   /// Adds an inline placeholder space to the paragraph.
   ///
@@ -3195,6 +3451,190 @@ class ParagraphBuilder extends NativeFieldWrapperClass1 {
     double scale = 1.0,
     double? baselineOffset,
     TextBaseline? baseline,
+  });
+
+  /// Applies the given paragraph style and returns a [Paragraph] containing the
+  /// added text and associated styling.
+  ///
+  /// After calling this function, the paragraph builder object is invalid and
+  /// cannot be used further.
+  Paragraph build();
+}
+
+base class _NativeParagraphBuilder extends NativeFieldWrapperClass1 implements ParagraphBuilder {
+  _NativeParagraphBuilder(ParagraphStyle style)
+    : _defaultLeadingDistribution = style._leadingDistribution {
+      List<String>? strutFontFamilies;
+      final StrutStyle? strutStyle = style._strutStyle;
+      final ByteData? encodedStrutStyle;
+      if (strutStyle != null && strutStyle._enabled) {
+        final String? fontFamily = strutStyle._fontFamily;
+        strutFontFamilies = <String>[
+          if (fontFamily != null) fontFamily,
+          ...?strutStyle._fontFamilyFallback,
+        ];
+
+        assert(TextLeadingDistribution.values.length <= 2);
+        final TextLeadingDistribution leadingDistribution = strutStyle._leadingDistribution
+          ?? style._leadingDistribution;
+        encodedStrutStyle = strutStyle._encoded;
+        int bitmask = encodedStrutStyle.getInt8(0);
+        bitmask |= (leadingDistribution.index) << 3;
+        encodedStrutStyle.setInt8(0, bitmask);
+      } else {
+        encodedStrutStyle = null;
+      }
+      _constructor(
+        style._encoded,
+        encodedStrutStyle,
+        style._fontFamily ?? '',
+        strutFontFamilies,
+        style._fontSize ?? 0,
+        style._height ?? 0,
+        style._ellipsis ?? '',
+        _encodeLocale(style._locale),
+      );
+  }
+
+  @Native<Void Function(Handle, Handle, Handle, Handle, Handle, Double, Double, Handle, Handle)>(symbol: 'ParagraphBuilder::Create')
+  external void _constructor(
+      Int32List encoded,
+      ByteData? strutData,
+      String fontFamily,
+      List<Object?>? strutFontFamily,
+      double fontSize,
+      double height,
+      String ellipsis,
+      String locale,
+  );
+
+  @override
+  int get placeholderCount => _placeholderCount;
+  int _placeholderCount = 0;
+
+  @override
+  List<double> get placeholderScales => _placeholderScales;
+  final List<double> _placeholderScales = <double>[];
+
+  final TextLeadingDistribution _defaultLeadingDistribution;
+
+  @override
+  void pushStyle(TextStyle style) {
+    final List<String> fullFontFamilies = <String>[];
+    fullFontFamilies.add(style._fontFamily);
+    final List<String>? fontFamilyFallback = style._fontFamilyFallback;
+    if (fontFamilyFallback != null) {
+      fullFontFamilies.addAll(fontFamilyFallback);
+    }
+
+    final Int32List encoded = style._encoded;
+    final TextLeadingDistribution finalLeadingDistribution = style._leadingDistribution ?? _defaultLeadingDistribution;
+    // ensure the enum can be represented using 1 bit.
+    assert(TextLeadingDistribution.values.length <= 2);
+
+    // Use the leading distribution from the paragraph's style if it's not
+    // explicitly set in `style`.
+    encoded[0] |= finalLeadingDistribution.index << 0;
+
+    ByteData? encodedFontFeatures;
+    final List<FontFeature>? fontFeatures = style._fontFeatures;
+    if (fontFeatures != null) {
+      encodedFontFeatures = ByteData(fontFeatures.length * FontFeature._kEncodedSize);
+      int byteOffset = 0;
+      for (final FontFeature feature in fontFeatures) {
+        feature._encode(ByteData.view(encodedFontFeatures.buffer, byteOffset, FontFeature._kEncodedSize));
+        byteOffset += FontFeature._kEncodedSize;
+      }
+    }
+
+    ByteData? encodedFontVariations;
+    final List<FontVariation>? fontVariations = style._fontVariations;
+    if (fontVariations != null) {
+      encodedFontVariations = ByteData(fontVariations.length * FontVariation._kEncodedSize);
+      int byteOffset = 0;
+      for (final FontVariation variation in fontVariations) {
+        variation._encode(ByteData.view(encodedFontVariations.buffer, byteOffset, FontVariation._kEncodedSize));
+        byteOffset += FontVariation._kEncodedSize;
+      }
+    }
+
+    _pushStyle(
+      encoded,
+      fullFontFamilies,
+      style._fontSize ?? 0,
+      style._letterSpacing ?? 0,
+      style._wordSpacing ?? 0,
+      style._height ?? 0,
+      style._decorationThickness ?? 0,
+      _encodeLocale(style._locale),
+      style._background?._objects,
+      style._background?._data,
+      style._foreground?._objects,
+      style._foreground?._data,
+      Shadow._encodeShadows(style._shadows),
+      encodedFontFeatures,
+      encodedFontVariations,
+    );
+  }
+
+  @Native<
+      Void Function(
+          Pointer<Void>,
+          Handle,
+          Handle,
+          Double,
+          Double,
+          Double,
+          Double,
+          Double,
+          Handle,
+          Handle,
+          Handle,
+          Handle,
+          Handle,
+          Handle,
+          Handle,
+          Handle)>(symbol: 'ParagraphBuilder::pushStyle')
+  external void _pushStyle(
+    Int32List encoded,
+    List<Object?> fontFamilies,
+    double fontSize,
+    double letterSpacing,
+    double wordSpacing,
+    double height,
+    double decorationThickness,
+    String locale,
+    List<Object?>? backgroundObjects,
+    ByteData? backgroundData,
+    List<Object?>? foregroundObjects,
+    ByteData? foregroundData,
+    ByteData shadowsData,
+    ByteData? fontFeaturesData,
+    ByteData? fontVariationsData,
+  );
+
+  static String _encodeLocale(Locale? locale) => locale?.toString() ?? '';
+
+  @override
+  @Native<Void Function(Pointer<Void>)>(symbol: 'ParagraphBuilder::pop', isLeaf: true)
+  external void pop();
+
+  @override
+  void addText(String text) {
+    final String? error = _addText(text);
+    if (error != null) {
+      throw ArgumentError(error);
+    }
+  }
+
+  @Native<Handle Function(Pointer<Void>, Handle)>(symbol: 'ParagraphBuilder::addText')
+  external String? _addText(String text);
+
+  @override
+  void addPlaceholder(double width, double height, PlaceholderAlignment alignment, {
+    double scale = 1.0,
+    double? baselineOffset,
+    TextBaseline? baseline,
   }) {
     // Require a baseline to be specified if using a baseline-based alignment.
     assert(!(alignment == PlaceholderAlignment.aboveBaseline ||
@@ -3208,22 +3648,21 @@ class ParagraphBuilder extends NativeFieldWrapperClass1 {
     _placeholderScales.add(scale);
   }
 
-  @FfiNative<Void Function(Pointer<Void>, Double, Double, Uint32, Double, Uint32)>('ParagraphBuilder::addPlaceholder')
+  @Native<Void Function(Pointer<Void>, Double, Double, Uint32, Double, Uint32)>(symbol: 'ParagraphBuilder::addPlaceholder')
   external void _addPlaceholder(double width, double height, int alignment, double baselineOffset, int baseline);
 
-  /// Applies the given paragraph style and returns a [Paragraph] containing the
-  /// added text and associated styling.
-  ///
-  /// After calling this function, the paragraph builder object is invalid and
-  /// cannot be used further.
+  @override
   Paragraph build() {
-    final Paragraph paragraph = Paragraph._();
+    final _NativeParagraph paragraph = _NativeParagraph._();
     _build(paragraph);
     return paragraph;
   }
 
-  @FfiNative<Void Function(Pointer<Void>, Handle)>('ParagraphBuilder::build')
-  external void _build(Paragraph outParagraph);
+  @Native<Void Function(Pointer<Void>, Handle)>(symbol: 'ParagraphBuilder::build')
+  external void _build(_NativeParagraph outParagraph);
+
+  @override
+  String toString() => 'ParagraphBuilder';
 }
 
 /// Loads a font from a buffer and makes it available for rendering text.
@@ -3240,7 +3679,7 @@ Future<void> loadFontFromList(Uint8List list, {String? fontFamily}) {
   ).then((_) => _sendFontChangeMessage());
 }
 
-final ByteData _fontChangeMessage = utf8.encoder.convert(
+final ByteData _fontChangeMessage = utf8.encode(
   json.encode(<String, Object?>{'type': 'fontsChange'})
 ).buffer.asByteData();
 
@@ -3259,5 +3698,5 @@ FutureOr<void> _sendFontChangeMessage() async {
   }
 }
 
-@FfiNative<Void Function(Handle, Handle, Handle)>('FontCollection::LoadFontFromList')
+@Native<Void Function(Handle, Handle, Handle)>(symbol: 'FontCollection::LoadFontFromList')
 external void _loadFontFromList(Uint8List list, _Callback<void> callback, String fontFamily);

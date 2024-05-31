@@ -4,8 +4,12 @@
 
 #include "impeller/renderer/backend/metal/command_buffer_mtl.h"
 
+#include "flutter/fml/make_copyable.h"
+#include "flutter/fml/synchronization/semaphore.h"
+
 #include "impeller/renderer/backend/metal/blit_pass_mtl.h"
 #include "impeller/renderer/backend/metal/compute_pass_mtl.h"
+#include "impeller/renderer/backend/metal/context_mtl.h"
 #include "impeller/renderer/backend/metal/render_pass_mtl.h"
 
 namespace impeller {
@@ -111,6 +115,7 @@ static bool LogMTLCommandBufferErrorIfPresent(id<MTLCommandBuffer> buffer) {
 }
 
 static id<MTLCommandBuffer> CreateCommandBuffer(id<MTLCommandQueue> queue) {
+#ifndef FLUTTER_RELEASE
   if (@available(iOS 14.0, macOS 11.0, *)) {
     auto desc = [[MTLCommandBufferDescriptor alloc] init];
     // Degrades CPU performance slightly but is well worth the cost for typical
@@ -118,6 +123,7 @@ static id<MTLCommandBuffer> CreateCommandBuffer(id<MTLCommandQueue> queue) {
     desc.errorOptions = MTLCommandBufferErrorOptionEncoderExecutionStatus;
     return [queue commandBufferWithDescriptor:desc];
   }
+#endif  // FLUTTER_RELEASE
   return [queue commandBuffer];
 }
 
@@ -152,6 +158,13 @@ static CommandBuffer::Status ToCommitResult(MTLCommandBufferStatus status) {
 }
 
 bool CommandBufferMTL::OnSubmitCommands(CompletionCallback callback) {
+  auto context = context_.lock();
+  if (!context) {
+    return false;
+  }
+#ifdef IMPELLER_DEBUG
+  ContextMTL::Cast(*context).GetGPUTracer()->RecordCmdBuffer(buffer_);
+#endif  // IMPELLER_DEBUG
   if (callback) {
     [buffer_
         addCompletedHandler:^(id<MTLCommandBuffer> buffer) {
@@ -164,10 +177,12 @@ bool CommandBufferMTL::OnSubmitCommands(CompletionCallback callback) {
   }
 
   [buffer_ commit];
-  [buffer_ waitUntilScheduled];
+
   buffer_ = nil;
   return true;
 }
+
+void CommandBufferMTL::OnWaitUntilScheduled() {}
 
 std::shared_ptr<RenderPass> CommandBufferMTL::OnCreateRenderPass(
     RenderTarget target) {
@@ -175,8 +190,12 @@ std::shared_ptr<RenderPass> CommandBufferMTL::OnCreateRenderPass(
     return nullptr;
   }
 
+  auto context = context_.lock();
+  if (!context) {
+    return nullptr;
+  }
   auto pass = std::shared_ptr<RenderPassMTL>(
-      new RenderPassMTL(context_, target, buffer_));
+      new RenderPassMTL(context, target, buffer_));
   if (!pass->IsValid()) {
     return nullptr;
   }
@@ -184,7 +203,7 @@ std::shared_ptr<RenderPass> CommandBufferMTL::OnCreateRenderPass(
   return pass;
 }
 
-std::shared_ptr<BlitPass> CommandBufferMTL::OnCreateBlitPass() const {
+std::shared_ptr<BlitPass> CommandBufferMTL::OnCreateBlitPass() {
   if (!buffer_) {
     return nullptr;
   }
@@ -197,13 +216,17 @@ std::shared_ptr<BlitPass> CommandBufferMTL::OnCreateBlitPass() const {
   return pass;
 }
 
-std::shared_ptr<ComputePass> CommandBufferMTL::OnCreateComputePass() const {
+std::shared_ptr<ComputePass> CommandBufferMTL::OnCreateComputePass() {
   if (!buffer_) {
+    return nullptr;
+  }
+  auto context = context_.lock();
+  if (!context) {
     return nullptr;
   }
 
   auto pass =
-      std::shared_ptr<ComputePassMTL>(new ComputePassMTL(context_, buffer_));
+      std::shared_ptr<ComputePassMTL>(new ComputePassMTL(context, buffer_));
   if (!pass->IsValid()) {
     return nullptr;
   }

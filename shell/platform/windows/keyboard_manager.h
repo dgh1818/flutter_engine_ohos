@@ -6,10 +6,13 @@
 #define FLUTTER_SHELL_PLATFORM_WINDOWS_KEYBOARD_MANAGER_H_
 
 #include <windows.h>
+
 #include <atomic>
 #include <deque>
 #include <functional>
 #include <map>
+
+#include "flutter/fml/macros.h"
 
 namespace flutter {
 
@@ -23,14 +26,14 @@ namespace flutter {
 // system calls (to allow mocking) and where to send the results of key calls
 // and text calls to.
 //
-// Typically, |KeyboardManager| is owned by a |Window|, which also implements
-// the window delegate. The key calls and text calls are forwarded to those of
-// |Window|'s, and consequently, those of |FlutterWindowsView|'s.
+// Typically, |KeyboardManager| is owned by a |FlutterWindow|, which also
+// implements the window delegate. The key calls and text calls are forwarded to
+// the |FlutterWindow|, and consequently, to the |FlutterWindowsView|.
 //
 // ## Terminology
 //
-// The keyboard system follows the following terminology instead of the
-// inconsistent/incomplete one used by Win32:
+// The keyboard system uses the following terminology (which is different
+// than Win32's terminology):
 //
 //  * Message: An invocation of |WndProc|, which consists of an
 //    action, an lparam, and a wparam.
@@ -43,7 +46,7 @@ namespace flutter {
 class KeyboardManager {
  public:
   // Define how the keyboard manager accesses Win32 system calls (to allow
-  // mocking) and sends key calls and and text calls.
+  // mocking) and sends key calls and text calls.
   //
   // Typically implemented by |Window|.
   class WindowDelegate {
@@ -225,6 +228,8 @@ class KeyboardManager {
   // The queue of messages that have been redispatched to the system but have
   // not yet been received for a second time.
   std::deque<Win32Message> pending_redispatches_;
+
+  FML_DISALLOW_COPY_AND_ASSIGN(KeyboardManager);
 };
 
 }  // namespace flutter

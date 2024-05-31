@@ -2,15 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef FLUTTER_SHELL_GPU_GPU_SURFACE_METAL_H_
-#define FLUTTER_SHELL_GPU_GPU_SURFACE_METAL_H_
+#ifndef FLUTTER_SHELL_GPU_GPU_SURFACE_METAL_SKIA_H_
+#define FLUTTER_SHELL_GPU_GPU_SURFACE_METAL_SKIA_H_
 
 #include "flutter/common/graphics/msaa_sample_count.h"
 #include "flutter/flow/surface.h"
 #include "flutter/fml/macros.h"
 #include "flutter/shell/gpu/gpu_surface_metal_delegate.h"
 #include "third_party/skia/include/gpu/GrDirectContext.h"
-#include "third_party/skia/include/gpu/mtl/GrMtlTypes.h"
 
 namespace flutter {
 
@@ -72,4 +71,4 @@ class SK_API_AVAILABLE_CA_METAL_LAYER GPUSurfaceMetalSkia : public Surface {
 
 }  // namespace flutter
 
-#endif  // FLUTTER_SHELL_GPU_GPU_SURFACE_METAL_H_
+#endif  // FLUTTER_SHELL_GPU_GPU_SURFACE_METAL_SKIA_H_

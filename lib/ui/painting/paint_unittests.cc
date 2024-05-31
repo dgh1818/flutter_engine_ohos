@@ -50,11 +50,11 @@ TEST_F(ShellTest, ConvertPaintToDlPaint) {
   DestroyShell(std::move(shell), task_runners);
 
   ASSERT_EQ(dl_paint.getBlendMode(), DlBlendMode::kModulate);
-  ASSERT_EQ(static_cast<uint32_t>(dl_paint.getColor()), 0x11223344u);
+  ASSERT_EQ(static_cast<uint32_t>(dl_paint.getColor().argb()), 0x11223344u);
   ASSERT_EQ(*dl_paint.getColorFilter(),
-            DlBlendColorFilter(0x55667788, DlBlendMode::kXor));
+            DlBlendColorFilter(DlColor(0x55667788), DlBlendMode::kXor));
   ASSERT_EQ(*dl_paint.getMaskFilter(),
-            DlBlurMaskFilter(SkBlurStyle::kInner_SkBlurStyle, 0.75));
+            DlBlurMaskFilter(DlBlurStyle::kInner, 0.75));
   ASSERT_EQ(dl_paint.getDrawStyle(), DlDrawStyle::kStroke);
 }
 

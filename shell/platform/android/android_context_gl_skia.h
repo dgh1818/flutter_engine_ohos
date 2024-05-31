@@ -27,8 +27,7 @@ class AndroidEGLSurface;
 ///
 class AndroidContextGLSkia : public AndroidContext {
  public:
-  AndroidContextGLSkia(AndroidRenderingAPI rendering_api,
-                       fml::RefPtr<AndroidEnvironmentGL> environment,
+  AndroidContextGLSkia(fml::RefPtr<AndroidEnvironmentGL> environment,
                        const TaskRunners& taskRunners,
                        uint8_t msaa_samples);
 
@@ -75,6 +74,20 @@ class AndroidContextGLSkia : public AndroidContext {
   /// @return     Whether the current context was successfully clear.
   ///
   bool ClearCurrent() const;
+
+  //----------------------------------------------------------------------------
+  /// @brief      Returns the EGLContext.
+  ///
+  /// @return     EGLContext.
+  ///
+  EGLContext GetEGLContext() const;
+
+  //----------------------------------------------------------------------------
+  /// @brief      Returns the EGLDisplay.
+  ///
+  /// @return     EGLDisplay.
+  ///
+  EGLDisplay GetEGLDisplay() const;
 
   //----------------------------------------------------------------------------
   /// @brief      Create a new EGLContext using the same EGLConfig.

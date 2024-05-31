@@ -9,6 +9,7 @@ import 'package:meta/meta.dart';
 import 'package:ui/ui.dart' as ui;
 
 import 'browser_detection.dart';
+import 'display.dart';
 import 'dom.dart';
 import 'engine_canvas.dart';
 import 'html/bitmap_canvas.dart';
@@ -20,13 +21,11 @@ import 'html/path/path_utils.dart';
 import 'html/picture.dart';
 import 'html/shaders/image_shader.dart';
 import 'html/shaders/shader.dart';
-import 'platform_dispatcher.dart';
 import 'rrect_renderer.dart';
 import 'safe_browser_api.dart';
 import 'shadow.dart';
 import 'util.dart';
 import 'vector_math.dart';
-import 'window.dart';
 
 /// Renders picture to a CanvasElement by allocating and caching 0 or more
 /// canvas(s) for [BitmapCanvas].
@@ -156,9 +155,9 @@ class CanvasPool extends _SaveStackTracking {
       // * To make sure that when we scale the canvas by devicePixelRatio (see
       //   _initializeViewport below) the pixels line up.
       final double cssWidth =
-          _widthInBitmapPixels / EnginePlatformDispatcher.browserDevicePixelRatio;
+          _widthInBitmapPixels / EngineFlutterDisplay.instance.browserDevicePixelRatio;
       final double cssHeight =
-          _heightInBitmapPixels / EnginePlatformDispatcher.browserDevicePixelRatio;
+          _heightInBitmapPixels / EngineFlutterDisplay.instance.browserDevicePixelRatio;
       canvas = _allocCanvas(_widthInBitmapPixels, _heightInBitmapPixels);
       _canvas = canvas;
 
@@ -385,8 +384,7 @@ class CanvasPool extends _SaveStackTracking {
   }
 
   /// Returns effective dpi (browser DPI and pixel density due to transform).
-  double get dpi =>
-      EnginePlatformDispatcher.browserDevicePixelRatio * _density;
+  double get dpi => EngineFlutterDisplay.instance.browserDevicePixelRatio * _density;
 
   void _resetTransform() {
     final DomCanvasElement? canvas = _canvas;
@@ -541,7 +539,7 @@ class CanvasPool extends _SaveStackTracking {
   void drawColor(ui.Color color, ui.BlendMode blendMode) {
     final DomCanvasRenderingContext2D ctx = context;
     contextHandle.blendMode = blendMode;
-    contextHandle.fillStyle = colorToCssString(color);
+    contextHandle.fillStyle = color.toCssString();
     contextHandle.strokeStyle = '';
     ctx.beginPath();
     // Fill a virtually infinite rect with the color.
@@ -592,7 +590,6 @@ class CanvasPool extends _SaveStackTracking {
           ctx.arc(x, y, radius, 0, 2.0 * math.pi);
           ctx.fill();
         }
-        break;
       case ui.PointMode.lines:
         ctx.beginPath();
         for (int i = 0; i < (len - 2); i += 4) {
@@ -600,7 +597,6 @@ class CanvasPool extends _SaveStackTracking {
           ctx.lineTo(points[i + 2] + offsetX, points[i + 3] + offsetY);
           ctx.stroke();
         }
-        break;
       case ui.PointMode.polygon:
         ctx.beginPath();
         ctx.moveTo(points[0] + offsetX, points[1] + offsetY);
@@ -608,7 +604,6 @@ class CanvasPool extends _SaveStackTracking {
           ctx.lineTo(points[i] + offsetX, points[i + 1] + offsetY);
         }
         ctx.stroke();
-        break;
     }
   }
 
@@ -625,16 +620,12 @@ class CanvasPool extends _SaveStackTracking {
       switch (verb) {
         case SPath.kMoveVerb:
           ctx.moveTo(p[0], p[1]);
-          break;
         case SPath.kLineVerb:
           ctx.lineTo(p[2], p[3]);
-          break;
         case SPath.kCubicVerb:
           ctx.bezierCurveTo(p[2], p[3], p[4], p[5], p[6], p[7]);
-          break;
         case SPath.kQuadVerb:
           ctx.quadraticCurveTo(p[2], p[3], p[4], p[5]);
-          break;
         case SPath.kConicVerb:
           final double w = iter.conicWeight;
           final Conic conic = Conic(p[0], p[1], p[2], p[3], p[4], p[5], w);
@@ -647,10 +638,8 @@ class CanvasPool extends _SaveStackTracking {
             final double p2y = points[i + 1].dy;
             ctx.quadraticCurveTo(p1x, p1y, p2x, p2y);
           }
-          break;
         case SPath.kCloseVerb:
           ctx.closePath();
-          break;
         default:
           throw UnimplementedError('Unknown path verb $verb');
       }
@@ -683,18 +672,14 @@ class CanvasPool extends _SaveStackTracking {
       switch (verb) {
         case SPath.kMoveVerb:
           ctx.moveTo(p[0] + offsetX, p[1] + offsetY);
-          break;
         case SPath.kLineVerb:
           ctx.lineTo(p[2] + offsetX, p[3] + offsetY);
-          break;
         case SPath.kCubicVerb:
           ctx.bezierCurveTo(p[2] + offsetX, p[3] + offsetY,
               p[4] + offsetX, p[5] + offsetY, p[6] + offsetX, p[7] + offsetY);
-          break;
         case SPath.kQuadVerb:
           ctx.quadraticCurveTo(p[2] + offsetX, p[3] + offsetY,
               p[4] + offsetX, p[5] + offsetY);
-          break;
         case SPath.kConicVerb:
           final double w = iter.conicWeight;
           final Conic conic = Conic(p[0], p[1], p[2], p[3], p[4], p[5], w);
@@ -708,10 +693,8 @@ class CanvasPool extends _SaveStackTracking {
             ctx.quadraticCurveTo(p1x + offsetX, p1y + offsetY,
                 p2x + offsetX, p2y + offsetY);
           }
-          break;
         case SPath.kCloseVerb:
           ctx.closePath();
-          break;
         default:
           throw UnimplementedError('Unknown path verb $verb');
       }
@@ -978,10 +961,12 @@ class ContextStateHandle {
   ///
   /// [tearDownPaint] must be called after calling this method.
   void setUpPaint(SurfacePaintData paint, ui.Rect? shaderBounds) {
-    if (assertionsEnabled) {
-      assert(!_debugIsPaintSetUp);
+    assert(() {
+      final bool wasPaintSetUp = _debugIsPaintSetUp;
       _debugIsPaintSetUp = true;
-    }
+      // When setting up paint, the previous paint must be torn down.
+      return !wasPaintSetUp;
+    }());
 
     _lastUsedPaint = paint;
     lineWidth = paint.strokeWidth ?? 1.0;
@@ -1011,13 +996,10 @@ class ContextStateHandle {
           context.translate(shaderBounds!.left, shaderBounds.top);
         }
       }
-    } else if (paint.color != null) {
-      final String? colorString = colorValueToCssString(paint.color);
+    } else {
+      final String colorString = colorValueToCssString(paint.color);
       fillStyle = colorString;
       strokeStyle = colorString;
-    } else {
-      fillStyle = '#000000';
-      strokeStyle = '#000000';
     }
 
     final ui.MaskFilter? maskFilter = paint.maskFilter;
@@ -1037,7 +1019,7 @@ class ContextStateHandle {
         context.save();
         context.shadowBlur = convertSigmaToRadius(maskFilter.webOnlySigma);
         // Shadow color must be fully opaque.
-        context.shadowColor = colorToCssString(ui.Color(paint.color).withAlpha(255));
+        context.shadowColor = ui.Color(paint.color).withAlpha(255).toCssString();
 
         // On the web a shadow must always be painted together with the shape
         // that casts it. In order to paint just the shadow, we offset the shape
@@ -1056,7 +1038,7 @@ class ContextStateHandle {
         //
         // transformedShadowDelta = M*shadowDelta - M*origin.
         final Float32List tempVector = Float32List(2);
-        tempVector[0] = kOutsideTheBoundsOffset * window.devicePixelRatio;
+        tempVector[0] = kOutsideTheBoundsOffset * EngineFlutterDisplay.instance.devicePixelRatio;
         _canvasPool.currentTransform.transform2(tempVector);
         final double shadowOffsetX = tempVector[0];
         final double shadowOffsetY = tempVector[1];
@@ -1077,10 +1059,12 @@ class ContextStateHandle {
   ///
   /// Must be called after calling [setUpPaint].
   void tearDownPaint() {
-    if (assertionsEnabled) {
-      assert(_debugIsPaintSetUp);
+    assert(() {
+      final bool wasPaintSetUp = _debugIsPaintSetUp;
       _debugIsPaintSetUp = false;
-    }
+      // When tearing down paint, we expect that it was set up before.
+      return wasPaintSetUp;
+    }());
 
     final ui.MaskFilter? maskFilter = _lastUsedPaint?.maskFilter;
     if (maskFilter != null && _renderMaskFilterForWebkit) {
@@ -1146,9 +1130,6 @@ class ContextStateHandle {
 /// Provides save stack tracking functionality to implementations of
 /// [EngineCanvas].
 class _SaveStackTracking {
-  // !Warning: this vector should not be mutated.
-  static final Vector3 _unitZ = Vector3(0.0, 0.0, 1.0);
-
   final List<SaveStackEntry> _saveStack = <SaveStackEntry>[];
 
   /// The stack that maintains clipping operations used when text is painted
@@ -1207,7 +1188,7 @@ class _SaveStackTracking {
   /// Rotates the [currentTransform] matrix.
   @mustCallSuper
   void rotate(double radians) {
-    _currentTransform.rotate(_unitZ, radians);
+    _currentTransform.rotate(kUnitZ, radians);
   }
 
   /// Skews the [currentTransform] matrix.

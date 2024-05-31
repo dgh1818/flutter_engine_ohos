@@ -2,12 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef SHELL_PLATFORM_IOS_FRAMEWORK_SOURCE_FLUTTERTEXTINPUTPLUGIN_H_
-#define SHELL_PLATFORM_IOS_FRAMEWORK_SOURCE_FLUTTERTEXTINPUTPLUGIN_H_
+#ifndef FLUTTER_SHELL_PLATFORM_DARWIN_IOS_FRAMEWORK_SOURCE_FLUTTERTEXTINPUTPLUGIN_H_
+#define FLUTTER_SHELL_PLATFORM_DARWIN_IOS_FRAMEWORK_SOURCE_FLUTTERTEXTINPUTPLUGIN_H_
 
 #import <UIKit/UIKit.h>
 
-#import "flutter/fml/memory/weak_ptr.h"
 #import "flutter/shell/platform/common/text_editing_delta.h"
 #import "flutter/shell/platform/darwin/common/framework/Headers/FlutterChannels.h"
 #import "flutter/shell/platform/darwin/ios/framework/Source/FlutterIndirectScribbleDelegate.h"
@@ -16,22 +15,26 @@
 #import "flutter/shell/platform/darwin/ios/framework/Source/FlutterViewResponder.h"
 
 typedef NS_ENUM(NSInteger, FlutterScribbleFocusStatus) {
+  // NOLINTBEGIN(readability-identifier-naming)
   FlutterScribbleFocusStatusUnfocused,
   FlutterScribbleFocusStatusFocusing,
   FlutterScribbleFocusStatusFocused,
+  // NOLINTEND(readability-identifier-naming)
 };
 
 typedef NS_ENUM(NSInteger, FlutterScribbleInteractionStatus) {
+  // NOLINTBEGIN(readability-identifier-naming)
   FlutterScribbleInteractionStatusNone,
   FlutterScribbleInteractionStatusStarted,
   FlutterScribbleInteractionStatusEnding,
+  // NOLINTEND(readability-identifier-naming)
 };
 
 @interface FlutterTextInputPlugin
     : NSObject <FlutterKeySecondaryResponder, UIIndirectScribbleInteractionDelegate>
 
-@property(nonatomic, assign) UIViewController* viewController;
-@property(nonatomic, assign) id<FlutterIndirectScribbleDelegate> indirectScribbleDelegate;
+@property(nonatomic, weak) UIViewController* viewController;
+@property(nonatomic, weak) id<FlutterIndirectScribbleDelegate> indirectScribbleDelegate;
 @property(nonatomic, strong)
     NSMutableDictionary<UIScribbleElementIdentifier, NSValue*>* scribbleElements;
 
@@ -55,7 +58,7 @@ typedef NS_ENUM(NSInteger, FlutterScribbleInteractionStatus) {
  * These are used by the UIIndirectScribbleInteractionDelegate methods to handle focusing on the
  * correct element.
  */
-- (void)setupIndirectScribbleInteraction:(id<FlutterViewResponder>)viewResponder;
+- (void)setUpIndirectScribbleInteraction:(id<FlutterViewResponder>)viewResponder;
 - (void)resetViewResponder;
 
 @end
@@ -64,9 +67,11 @@ typedef NS_ENUM(NSInteger, FlutterScribbleInteractionStatus) {
 @interface FlutterTextPosition : UITextPosition
 
 @property(nonatomic, readonly) NSUInteger index;
+@property(nonatomic, readonly) UITextStorageDirection affinity;
 
 + (instancetype)positionWithIndex:(NSUInteger)index;
-- (instancetype)initWithIndex:(NSUInteger)index;
++ (instancetype)positionWithIndex:(NSUInteger)index affinity:(UITextStorageDirection)affinity;
+- (instancetype)initWithIndex:(NSUInteger)index affinity:(UITextStorageDirection)affinity;
 
 @end
 
@@ -101,6 +106,10 @@ typedef NS_ENUM(NSInteger, FlutterScribbleInteractionStatus) {
 
 + (instancetype)selectionRectWithRect:(CGRect)rect position:(NSUInteger)position;
 
++ (instancetype)selectionRectWithRect:(CGRect)rect
+                             position:(NSUInteger)position
+                     writingDirection:(NSWritingDirection)writingDirection;
+
 - (instancetype)initWithRectAndInfo:(CGRect)rect
                            position:(NSUInteger)position
                    writingDirection:(NSWritingDirection)writingDirection
@@ -109,6 +118,8 @@ typedef NS_ENUM(NSInteger, FlutterScribbleInteractionStatus) {
                          isVertical:(BOOL)isVertical;
 
 - (instancetype)init NS_UNAVAILABLE;
+
+- (BOOL)isRTL;
 @end
 
 API_AVAILABLE(ios(13.0)) @interface FlutterTextPlaceholder : UITextPlaceholder
@@ -121,11 +132,11 @@ FLUTTER_DARWIN_EXPORT
 
 // UITextInput
 @property(nonatomic, readonly) NSMutableString* text;
-@property(nonatomic, readonly) NSMutableString* markedText;
 @property(readwrite, copy) UITextRange* selectedTextRange;
 @property(nonatomic, strong) UITextRange* markedTextRange;
 @property(nonatomic, copy) NSDictionary* markedTextStyle;
-@property(nonatomic, assign) id<UITextInputDelegate> inputDelegate;
+@property(nonatomic, weak) id<UITextInputDelegate> inputDelegate;
+@property(nonatomic, strong) NSMutableArray* pendingDeltas;
 
 // UITextInputTraits
 @property(nonatomic) UITextAutocapitalizationType autocapitalizationType;
@@ -141,10 +152,10 @@ FLUTTER_DARWIN_EXPORT
 @property(nonatomic) UITextSmartDashesType smartDashesType API_AVAILABLE(ios(11.0));
 @property(nonatomic, copy) UITextContentType textContentType API_AVAILABLE(ios(10.0));
 
-@property(nonatomic, assign) UIAccessibilityElement* backingTextInputAccessibilityObject;
+@property(nonatomic, weak) UIAccessibilityElement* backingTextInputAccessibilityObject;
 
 // Scribble Support
-@property(nonatomic, assign) id<FlutterViewResponder> viewResponder;
+@property(nonatomic, weak) id<FlutterViewResponder> viewResponder;
 @property(nonatomic) FlutterScribbleFocusStatus scribbleFocusStatus;
 @property(nonatomic, strong) NSArray<FlutterTextSelectionRect*>* selectionRects;
 - (void)resetScribbleInteractionStatusIfEnding;
@@ -156,5 +167,14 @@ FLUTTER_DARWIN_EXPORT
 - (instancetype)initWithFrame:(CGRect)frame NS_UNAVAILABLE;
 - (instancetype)initWithOwner:(FlutterTextInputPlugin*)textInputPlugin NS_DESIGNATED_INITIALIZER;
 
+// TODO(louisehsu): These are being exposed to support Share in FlutterPlatformPlugin
+// Consider moving that feature into FlutterTextInputPlugin to avoid exposing extra methods
+- (CGRect)localRectFromFrameworkTransform:(CGRect)incomingRect;
+- (CGRect)caretRectForPosition:(UITextPosition*)position;
 @end
-#endif  // SHELL_PLATFORM_IOS_FRAMEWORK_SOURCE_FLUTTERTEXTINPUTPLUGIN_H_
+
+@interface UIView (FindFirstResponder)
+@property(nonatomic, readonly) id flutterFirstResponder;
+@end
+
+#endif  // FLUTTER_SHELL_PLATFORM_DARWIN_IOS_FRAMEWORK_SOURCE_FLUTTERTEXTINPUTPLUGIN_H_

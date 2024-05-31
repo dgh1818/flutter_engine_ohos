@@ -7,22 +7,11 @@ import 'dart:typed_data';
 
 import 'package:test/test.dart';
 import 'package:ui/src/engine/dom.dart';
-import 'package:ui/src/engine/embedder.dart';
-import 'package:ui/src/engine/host_node.dart';
 import 'package:ui/src/engine/semantics.dart';
-import 'package:ui/src/engine/util.dart';
 import 'package:ui/src/engine/vector_math.dart';
 import 'package:ui/ui.dart' as ui;
 
-import '../../matchers.dart';
-
-/// Gets the DOM host where the Flutter app is being rendered.
-///
-/// This function returns the correct host for the flutter app under testing,
-/// so we don't have to hardcode domDocument across the test. (The host of a
-/// normal flutter app used to be domDocument, but now that the app is wrapped
-/// in a Shadow DOM, that's not the case anymore.)
-HostNode get appHostNode => flutterViewEmbedder.glassPaneShadow!;
+import '../../common/matchers.dart';
 
 /// CSS style applied to the root of the semantics tree.
 // TODO(yjbanov): this should be handled internally by [expectSemanticsTree].
@@ -111,6 +100,7 @@ class SemanticsTester {
     double? elevation,
     double? thickness,
     ui.Rect? rect,
+    String? identifier,
     String? label,
     List<ui.StringAttribute>? labelAttributes,
     String? hint,
@@ -274,7 +264,7 @@ class SemanticsTester {
 
     // Other attributes
     ui.Rect childRect(SemanticsNodeUpdate child) {
-      return transformRect(Matrix4.fromFloat32List(child.transform), child.rect);
+      return Matrix4.fromFloat32List(child.transform).transformRect(child.rect);
     }
 
     // If a rect is not provided, generate one than covers all children.
@@ -301,13 +291,14 @@ class SemanticsTester {
       currentValueLength: currentValueLength ?? 0,
       textSelectionBase: textSelectionBase ?? 0,
       textSelectionExtent: textSelectionExtent ?? 0,
-      platformViewId: platformViewId ?? 0,
+      platformViewId: platformViewId ?? -1,
       scrollChildren: scrollChildren ?? 0,
       scrollIndex: scrollIndex ?? 0,
       scrollPosition: scrollPosition ?? 0,
       scrollExtentMax: scrollExtentMax ?? 0,
       scrollExtentMin: scrollExtentMin ?? 0,
       rect: effectiveRect,
+      identifier: identifier ?? '',
       label: label ?? '',
       labelAttributes: labelAttributes ?? const <ui.StringAttribute>[],
       hint: hint ?? '',
@@ -344,29 +335,28 @@ class SemanticsTester {
     return owner.debugSemanticsTree![id]!;
   }
 
-  /// Locates the role manager of the semantics object with the give [id].
-  RoleManager? getRoleManager(int id, Role role) {
-    return getSemanticsObject(id).debugRoleManagerFor(role);
-  }
-
   /// Locates the [TextField] role manager of the semantics object with the give [id].
   TextField getTextField(int id) {
-    return getRoleManager(id, Role.textField)! as TextField;
+    return getSemanticsObject(id).primaryRole! as TextField;
+  }
+
+  void expectSemantics(String semanticsHtml) {
+    expectSemanticsTree(owner, semanticsHtml);
   }
 }
 
 /// Verifies the HTML structure of the current semantics tree.
-void expectSemanticsTree(String semanticsHtml) {
-  const List<String> ignoredAttributes = <String>['pointer-events'];
+void expectSemanticsTree(EngineSemanticsOwner owner, String semanticsHtml) {
+  const List<String> ignoredStyleProperties = <String>['pointer-events'];
   expect(
-    canonicalizeHtml(appHostNode.querySelector('flt-semantics')!.outerHTML!, ignoredAttributes: ignoredAttributes),
+    canonicalizeHtml(owner.semanticsHost.querySelector('flt-semantics')!.outerHTML!, ignoredStyleProperties: ignoredStyleProperties),
     canonicalizeHtml(semanticsHtml),
   );
 }
 
 /// Finds the first HTML element in the semantics tree used for scrolling.
-DomElement? findScrollable() {
-  return appHostNode.querySelectorAll('flt-semantics').firstWhereOrNull(
+DomElement findScrollable(EngineSemanticsOwner owner) {
+  return owner.semanticsHost.querySelectorAll('flt-semantics').singleWhere(
     (DomElement? element) {
       return element!.style.overflow == 'hidden' ||
         element.style.overflowY == 'scroll' ||
@@ -375,7 +365,7 @@ DomElement? findScrollable() {
   );
 }
 
-/// Logs semantics actions dispatched to [ui.window].
+/// Logs semantics actions dispatched to [ui.PlatformDispatcher].
 class SemanticsActionLogger {
   SemanticsActionLogger() {
     _idLogController = StreamController<int>();
@@ -388,12 +378,12 @@ class SemanticsActionLogger {
     // fired.
     final Zone testZone = Zone.current;
 
-    ui.window.onSemanticsAction =
-        (int id, ui.SemanticsAction action, ByteData? args) {
-      _idLogController.add(id);
-      _actionLogController.add(action);
+    ui.PlatformDispatcher.instance.onSemanticsActionEvent =
+        (ui.SemanticsActionEvent event) {
+      _idLogController.add(event.nodeId);
+      _actionLogController.add(event.type);
       testZone.run(() {
-        expect(args, null);
+        expect(event.arguments, null);
       });
     };
   }
@@ -405,7 +395,7 @@ class SemanticsActionLogger {
   Stream<int> get idLog => _idLog;
   late Stream<int> _idLog;
 
-  /// The actions that were dispatched to [ui.window].
+  /// The actions that were dispatched to [ui.PlatformDispatcher].
   Stream<ui.SemanticsAction> get actionLog => _actionLog;
   late Stream<ui.SemanticsAction> _actionLog;
 }

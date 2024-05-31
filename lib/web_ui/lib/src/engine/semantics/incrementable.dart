@@ -6,7 +6,8 @@ import 'package:ui/ui.dart' as ui;
 
 import '../dom.dart';
 import '../platform_dispatcher.dart';
-import '../safe_browser_api.dart';
+import 'focusable.dart';
+import 'label_and_value.dart';
 import 'semantics.dart';
 
 /// Adds increment/decrement event handling to a semantics object.
@@ -18,14 +19,22 @@ import 'semantics.dart';
 /// The input element is disabled whenever the gesture mode switches to pointer
 /// events. This is to prevent the browser from taking over drag gestures. Drag
 /// gestures must be interpreted by the Flutter framework.
-class Incrementable extends RoleManager {
+class Incrementable extends PrimaryRoleManager {
   Incrementable(SemanticsObject semanticsObject)
-      : super(Role.incrementable, semanticsObject) {
-    semanticsObject.element.append(_element);
+      : _focusManager = AccessibilityFocusManager(semanticsObject.owner),
+        super.blank(PrimaryRole.incrementable, semanticsObject) {
+    // The following generic roles can coexist with incrementables. Generic focus
+    // management is not used by this role because the root DOM element is not
+    // the one being focused on, but the internal `<input>` element.
+    addLiveRegion();
+    addRouteName();
+    addLabelAndValue(labelRepresentation: LeafLabelRepresentation.ariaLabel);
+
+    append(_element);
     _element.type = 'range';
     _element.setAttribute('role', 'slider');
 
-    _element.addEventListener('change', allowInterop((_) {
+    _element.addEventListener('change', createDomEventListener((_) {
       if (_element.disabled!) {
         return;
       }
@@ -47,11 +56,20 @@ class Incrementable extends RoleManager {
     _gestureModeListener = (GestureMode mode) {
       update();
     };
-    semanticsObject.owner.addGestureModeListener(_gestureModeListener);
+    EngineSemantics.instance.addGestureModeListener(_gestureModeListener);
+    _focusManager.manage(semanticsObject.id, _element);
+  }
+
+  @override
+  bool focusAsRouteDefault() {
+    _element.focus();
+    return true;
   }
 
   /// The HTML element used to render semantics to the browser.
   final DomHTMLInputElement _element = createDomHTMLInputElement();
+
+  final AccessibilityFocusManager _focusManager;
 
   /// The value used by the input element.
   ///
@@ -65,7 +83,7 @@ class Incrementable extends RoleManager {
   /// Disables the input [_element] when the gesture mode switches to
   /// [GestureMode.pointerEvents], and enables it when the mode switches back to
   /// [GestureMode.browserGestures].
-  GestureModeCallback? _gestureModeListener;
+  late final GestureModeCallback _gestureModeListener;
 
   /// Whether we forwarded a semantics action to the framework and awaiting an
   /// update.
@@ -76,19 +94,20 @@ class Incrementable extends RoleManager {
 
   @override
   void update() {
-    switch (semanticsObject.owner.gestureMode) {
+    super.update();
+
+    switch (EngineSemantics.instance.gestureMode) {
       case GestureMode.browserGestures:
         _enableBrowserGestureHandling();
         _updateInputValues();
-        break;
       case GestureMode.pointerEvents:
         _disableBrowserGestureHandling();
-        break;
     }
+    _focusManager.changeFocus(semanticsObject.hasFocus);
   }
 
   void _enableBrowserGestureHandling() {
-    assert(semanticsObject.owner.gestureMode == GestureMode.browserGestures);
+    assert(EngineSemantics.instance.gestureMode == GestureMode.browserGestures);
     if (!_element.disabled!) {
       return;
     }
@@ -96,7 +115,7 @@ class Incrementable extends RoleManager {
   }
 
   void _updateInputValues() {
-    assert(semanticsObject.owner.gestureMode == GestureMode.browserGestures);
+    assert(EngineSemantics.instance.gestureMode == GestureMode.browserGestures);
 
     final bool updateNeeded = _pendingResync ||
         semanticsObject.isValueDirty ||
@@ -136,9 +155,9 @@ class Incrementable extends RoleManager {
 
   @override
   void dispose() {
-    assert(_gestureModeListener != null);
-    semanticsObject.owner.removeGestureModeListener(_gestureModeListener);
-    _gestureModeListener = null;
+    super.dispose();
+    _focusManager.stopManaging();
+    EngineSemantics.instance.removeGestureModeListener(_gestureModeListener);
     _disableBrowserGestureHandling();
     _element.remove();
   }

@@ -9,8 +9,8 @@ library test.host;
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:js_interop';
 
-import 'package:js/js.dart';
 import 'package:stack_trace/stack_trace.dart';
 import 'package:stream_channel/stream_channel.dart';
 // ignore: implementation_imports
@@ -22,7 +22,7 @@ import 'package:ui/src/engine/dom.dart';
 class _TestRunner {}
 
 extension _TestRunnerExtension on _TestRunner {
-  external void waitUntilDone();
+  external JSVoid waitUntilDone();
 }
 
 /// Returns the current content shell runner, or `null` if none exists.
@@ -37,19 +37,19 @@ external _TestRunner? get testRunner; // ignore: library_private_types_in_public
 @anonymous
 @staticInterop
 class _JSApi {
-  external factory _JSApi({void Function() resume, void Function() restartCurrent});
+  external factory _JSApi({JSFunction resume, JSFunction restartCurrent});
 }
 
 extension _JSApiExtension on _JSApi {
   /// Causes the test runner to resume running, as though the user had clicked
   /// the "play" button.
   // ignore: unused_element
-  external Function get resume;
+  external JSFunction get resume;
 
   /// Causes the test runner to restart the current test once it finishes
   /// running.
   // ignore: unused_element
-  external Function get restartCurrent;
+  external JSFunction get restartCurrent;
 }
 
 /// Sets the top-level `dartTest` object so that it's visible to JS.
@@ -159,15 +159,15 @@ void main() {
       Timer.periodic(const Duration(seconds: 1),
           (_) => serverChannel.sink.add(<String, String>{'command': 'ping'}));
 
-      _jsApi = _JSApi(resume: allowInterop(() {
+      _jsApi = _JSApi(resume: () {
         if (!domDocument.body!.classList.contains('paused')) {
           return;
         }
         domDocument.body!.classList.remove('paused');
         serverChannel.sink.add(<String, String>{'command': 'resume'});
-      }), restartCurrent: allowInterop(() {
+      }.toJS, restartCurrent: () {
         serverChannel.sink.add(<String, String>{'command': 'restart'});
-      }));
+      }.toJS);
     },
     (dynamic error, StackTrace stackTrace) {
       print('$error\n${Trace.from(stackTrace).terse}'); // ignore: avoid_print
@@ -183,7 +183,7 @@ MultiChannel<dynamic> _connectToServer() {
   final DomWebSocket webSocket = createDomWebSocket(_currentUrl.queryParameters['managerUrl']!);
 
   final StreamChannelController<dynamic> controller = StreamChannelController<dynamic>(sync: true);
-  webSocket.addEventListener('message', allowInterop((DomEvent message) {
+  webSocket.addEventListener('message', createDomEventListener((DomEvent message) {
     final String data = (message as DomMessageEvent).data as String;
     controller.local.sink.add(jsonDecode(data));
   }));
@@ -207,20 +207,14 @@ StreamChannel<dynamic> _connectToIframe(String url, int id) {
     ..height = '1000';
   domDocument.body!.appendChild(iframe);
 
-  // Use this to communicate securely with the iframe.
-  final DomMessageChannel channel = createDomMessageChannel();
   final StreamChannelController<dynamic> controller = StreamChannelController<dynamic>(sync: true);
-
-  // Use this to avoid sending a message to the iframe before it's sent a
-  // message to us. This ensures that no messages get dropped on the floor.
-  final Completer<dynamic> readyCompleter = Completer<dynamic>();
 
   final List<DomSubscription> domSubscriptions = <DomSubscription>[];
   final List<StreamSubscription<dynamic>> streamSubscriptions = <StreamSubscription<dynamic>>[];
   _domSubscriptions[id] = domSubscriptions;
   _streamSubscriptions[id] = streamSubscriptions;
   domSubscriptions.add(DomSubscription(domWindow, 'message',
-          allowInterop((DomEvent event) {
+          (DomEvent event) {
     final DomMessageEvent message = event as DomMessageEvent;
     // A message on the Window can theoretically come from any website. It's
     // very unlikely that a malicious site would care about hacking someone's
@@ -229,37 +223,42 @@ StreamChannel<dynamic> _connectToIframe(String url, int id) {
     if (message.origin != domWindow.location.origin) {
       return;
     }
-
-    if (message.data['href'] != iframe.src) {
+    if (message.source.location?.href != iframe.src) {
       return;
     }
 
     message.stopPropagation();
 
-    if (message.data['ready'] == true) {
+    if (message.data == 'port') {
+      final DomMessagePort port = message.ports.first;
+      domSubscriptions.add(
+          DomSubscription(port, 'message',(DomEvent event) {
+        controller.local.sink.add((event as DomMessageEvent).data);
+      }));
+      port.start();
+      streamSubscriptions.add(controller.local.stream.listen(port.postMessage));
+    } else if (message.data['ready'] == true) {
       // This message indicates that the iframe is actively listening for
       // events, so the message channel's second port can now be transferred.
+      final DomMessageChannel channel = createDomMessageChannel();
+      channel.port1.start();
       channel.port2.start();
-      iframe.contentWindow.postMessage('port', domWindow.location.origin,
-          <DomMessagePort>[channel.port2]);
-      readyCompleter.complete();
+      iframe.contentWindow.postMessage(
+          'port', domWindow.location.origin, <DomMessagePort>[channel.port2]);
+      domSubscriptions
+          .add(DomSubscription(channel.port1, 'message', (DomEvent message) {
+        controller.local.sink.add((message as DomMessageEvent).data['data']);
+      }));
+
+      streamSubscriptions
+          .add(controller.local.stream.listen(channel.port1.postMessage));
     } else if (message.data['exception'] == true) {
       // This message from `dart.js` indicates that an exception occurred
       // loading the test.
       controller.local.sink.add(message.data['data']);
     }
-  })));
-
-  channel.port1.start();
-  domSubscriptions.add(DomSubscription(channel.port1, 'message',
-          allowInterop((DomEvent message) {
-    controller.local.sink.add((message as DomMessageEvent).data['data']);
-  })));
-
-  streamSubscriptions.add(controller.local.stream.listen((dynamic message) async {
-    await readyCompleter.future;
-    channel.port1.postMessage(message);
   }));
+
 
   return controller.foreign;
 }

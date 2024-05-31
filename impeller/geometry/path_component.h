@@ -2,8 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_IMPELLER_GEOMETRY_PATH_COMPONENT_H_
+#define FLUTTER_IMPELLER_GEOMETRY_PATH_COMPONENT_H_
 
+#include <functional>
+#include <type_traits>
+#include <variant>
 #include <vector>
 
 #include "impeller/geometry/point.h"
@@ -12,9 +16,9 @@
 
 namespace impeller {
 
-// The default tolerance value for QuadraticCurveComponent::CreatePolyline and
-// CubicCurveComponent::CreatePolyline. It also impacts the number of quadratics
-// created when flattening a cubic curve to a polyline.
+// The default tolerance value for QuadraticCurveComponent::AppendPolylinePoints
+// and CubicCurveComponent::AppendPolylinePoints. It also impacts the number of
+// quadratics created when flattening a cubic curve to a polyline.
 //
 // Smaller numbers mean more points. This number seems suitable for particularly
 // curvy curves at scales close to 1.0. As the scale increases, this number
@@ -22,14 +26,7 @@ namespace impeller {
 // points for the given scale.
 static constexpr Scalar kDefaultCurveTolerance = .1f;
 
-struct PathComponent {
-  virtual ~PathComponent();
-
-  virtual std::optional<Vector2> GetStartDirection() const = 0;
-  virtual std::optional<Vector2> GetEndDirection() const = 0;
-};
-
-struct LinearPathComponent : public PathComponent {
+struct LinearPathComponent {
   Point p1;
   Point p2;
 
@@ -39,7 +36,7 @@ struct LinearPathComponent : public PathComponent {
 
   Point Solve(Scalar time) const;
 
-  std::vector<Point> CreatePolyline() const;
+  void AppendPolylinePoints(std::vector<Point>& points) const;
 
   std::vector<Point> Extrema() const;
 
@@ -47,14 +44,18 @@ struct LinearPathComponent : public PathComponent {
     return p1 == other.p1 && p2 == other.p2;
   }
 
-  std::optional<Vector2> GetStartDirection() const override;
+  std::optional<Vector2> GetStartDirection() const;
 
-  std::optional<Vector2> GetEndDirection() const override;
+  std::optional<Vector2> GetEndDirection() const;
 };
 
-struct QuadraticPathComponent : public PathComponent {
+// A component that represets a Quadratic Bézier curve.
+struct QuadraticPathComponent {
+  // Start point.
   Point p1;
+  // Control point.
   Point cp;
+  // End point.
   Point p2;
 
   QuadraticPathComponent() {}
@@ -76,11 +77,12 @@ struct QuadraticPathComponent : public PathComponent {
   //   making it trivially parallelizable.
   //
   // See also the implementation in kurbo: https://github.com/linebender/kurbo.
-  std::vector<Point> CreatePolyline(
-      Scalar tolerance = kDefaultCurveTolerance) const;
+  void AppendPolylinePoints(Scalar scale_factor,
+                            std::vector<Point>& points) const;
 
-  void FillPointsForPolyline(std::vector<Point>& points,
-                             Scalar tolerance = kDefaultCurveTolerance) const;
+  using PointProc = std::function<void(const Point& point)>;
+
+  void ToLinearPathComponents(Scalar scale_factor, const PointProc& proc) const;
 
   std::vector<Point> Extrema() const;
 
@@ -88,20 +90,25 @@ struct QuadraticPathComponent : public PathComponent {
     return p1 == other.p1 && cp == other.cp && p2 == other.p2;
   }
 
-  std::optional<Vector2> GetStartDirection() const override;
+  std::optional<Vector2> GetStartDirection() const;
 
-  std::optional<Vector2> GetEndDirection() const override;
+  std::optional<Vector2> GetEndDirection() const;
 };
 
-struct CubicPathComponent : public PathComponent {
+// A component that represets a Cubic Bézier curve.
+struct CubicPathComponent {
+  // Start point.
   Point p1;
+  // The first control point.
   Point cp1;
+  // The second control point.
   Point cp2;
+  // End point.
   Point p2;
 
   CubicPathComponent() {}
 
-  CubicPathComponent(const QuadraticPathComponent& q)
+  explicit CubicPathComponent(const QuadraticPathComponent& q)
       : p1(q.p1),
         cp1(q.p1 + (q.cp - q.p1) * (2.0 / 3.0)),
         cp2(q.p2 + (q.cp - q.p2) * (2.0 / 3.0)),
@@ -117,14 +124,15 @@ struct CubicPathComponent : public PathComponent {
   // This method approximates the cubic component with quadratics, and then
   // generates a polyline from those quadratics.
   //
-  // See the note on QuadraticPathComponent::CreatePolyline for references.
-  std::vector<Point> CreatePolyline(
-      Scalar tolerance = kDefaultCurveTolerance) const;
+  // See the note on QuadraticPathComponent::AppendPolylinePoints for
+  // references.
+  void AppendPolylinePoints(Scalar scale, std::vector<Point>& points) const;
 
   std::vector<Point> Extrema() const;
 
-  std::vector<QuadraticPathComponent> ToQuadraticPathComponents(
-      Scalar accuracy) const;
+  using PointProc = std::function<void(const Point& point)>;
+
+  void ToLinearPathComponents(Scalar scale, const PointProc& proc) const;
 
   CubicPathComponent Subsegment(Scalar t0, Scalar t1) const;
 
@@ -133,9 +141,9 @@ struct CubicPathComponent : public PathComponent {
            p2 == other.p2;
   }
 
-  std::optional<Vector2> GetStartDirection() const override;
+  std::optional<Vector2> GetStartDirection() const;
 
-  std::optional<Vector2> GetEndDirection() const override;
+  std::optional<Vector2> GetEndDirection() const;
 
  private:
   QuadraticPathComponent Lower() const;
@@ -147,7 +155,7 @@ struct ContourComponent {
 
   ContourComponent() {}
 
-  ContourComponent(Point p, bool is_closed = false)
+  explicit ContourComponent(Point p, bool is_closed = false)
       : destination(p), is_closed(is_closed) {}
 
   bool operator==(const ContourComponent& other) const {
@@ -155,4 +163,33 @@ struct ContourComponent {
   }
 };
 
+using PathComponentVariant = std::variant<std::monostate,
+                                          const LinearPathComponent*,
+                                          const QuadraticPathComponent*,
+                                          const CubicPathComponent*>;
+
+struct PathComponentStartDirectionVisitor {
+  std::optional<Vector2> operator()(const LinearPathComponent* component);
+  std::optional<Vector2> operator()(const QuadraticPathComponent* component);
+  std::optional<Vector2> operator()(const CubicPathComponent* component);
+  std::optional<Vector2> operator()(std::monostate monostate) {
+    return std::nullopt;
+  }
+};
+
+struct PathComponentEndDirectionVisitor {
+  std::optional<Vector2> operator()(const LinearPathComponent* component);
+  std::optional<Vector2> operator()(const QuadraticPathComponent* component);
+  std::optional<Vector2> operator()(const CubicPathComponent* component);
+  std::optional<Vector2> operator()(std::monostate monostate) {
+    return std::nullopt;
+  }
+};
+
+static_assert(!std::is_polymorphic<LinearPathComponent>::value);
+static_assert(!std::is_polymorphic<QuadraticPathComponent>::value);
+static_assert(!std::is_polymorphic<CubicPathComponent>::value);
+
 }  // namespace impeller
+
+#endif  // FLUTTER_IMPELLER_GEOMETRY_PATH_COMPONENT_H_

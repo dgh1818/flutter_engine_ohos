@@ -65,13 +65,11 @@ static bool TeardownContext(EGLDisplay display, EGLContext context) {
 }
 
 AndroidContextGLSkia::AndroidContextGLSkia(
-    AndroidRenderingAPI rendering_api,
     fml::RefPtr<AndroidEnvironmentGL> environment,
     const TaskRunners& task_runners,
     uint8_t msaa_samples)
-    : AndroidContext(AndroidRenderingAPI::kOpenGLES),
+    : AndroidContext(AndroidRenderingAPI::kSkiaOpenGLES),
       environment_(std::move(environment)),
-      config_(nullptr),
       task_runners_(task_runners) {
   if (!environment_->IsValid()) {
     FML_LOG(ERROR) << "Could not create an Android GL environment.";
@@ -203,6 +201,14 @@ bool AndroidContextGLSkia::ClearCurrent() const {
     return false;
   }
   return true;
+}
+
+EGLContext AndroidContextGLSkia::GetEGLContext() const {
+  return context_;
+}
+
+EGLDisplay AndroidContextGLSkia::GetEGLDisplay() const {
+  return environment_->Display();
 }
 
 EGLContext AndroidContextGLSkia::CreateNewContext() const {

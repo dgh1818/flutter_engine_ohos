@@ -7,7 +7,6 @@ import 'dart:typed_data';
 
 import 'package:ui/ui.dart' as ui;
 
-import '../util.dart';
 import '../vector_math.dart';
 import 'canvaskit_api.dart';
 import 'path.dart';
@@ -74,10 +73,10 @@ class SkiaShadowFlags {
 // material spec.
 const double ckShadowAmbientAlpha = 0.039;
 const double ckShadowSpotAlpha = 0.25;
-const double ckShadowLightRadius = 1.1;
-const double ckShadowLightHeight = 600.0;
 const double ckShadowLightXOffset = 0;
 const double ckShadowLightYOffset = -450;
+const double ckShadowLightHeight = 600;
+const double ckShadowLightRadius = 800;
 const double ckShadowLightXTangent = ckShadowLightXOffset / ckShadowLightHeight;
 const double ckShadowLightYTangent = ckShadowLightYOffset / ckShadowLightHeight;
 
@@ -109,7 +108,7 @@ ui.Rect computeSkShadowBounds(
   // one matrix inverse.
   final bool isComplex = !matrix.isIdentityOrTranslation();
   if (isComplex) {
-    pathBounds = transformRect(matrix, pathBounds);
+    pathBounds = matrix.transformRect(pathBounds);
   }
 
   double left = pathBounds.left;
@@ -135,7 +134,7 @@ ui.Rect computeSkShadowBounds(
     final Matrix4 inverse = Matrix4.zero();
     // The inverse only makes sense if the determinat is non-zero.
     if (inverse.copyInverse(matrix) != 0.0) {
-      return transformRect(inverse, shadowBounds);
+      return inverse.transformRect(shadowBounds);
     } else {
       return shadowBounds;
     }
@@ -162,13 +161,15 @@ void drawSkShadow(
   bool transparentOccluder,
   double devicePixelRatio,
 ) {
-  final int flags = transparentOccluder
+  int flags = transparentOccluder
       ? SkiaShadowFlags.kTransparentOccluderShadowFlags
       : SkiaShadowFlags.kDefaultShadowFlags;
+  flags |= SkiaShadowFlags.kDirectionalLight_ShadowFlag;
 
   final ui.Color inAmbient =
       color.withAlpha((color.alpha * ckShadowAmbientAlpha).round());
-  final ui.Color inSpot = color.withAlpha((color.alpha * ckShadowSpotAlpha).round());
+  final ui.Color inSpot =
+      color.withAlpha((color.alpha * ckShadowSpotAlpha).round());
 
   final SkTonalColors inTonalColors = SkTonalColors(
     ambient: makeFreshSkColor(inAmbient),
@@ -181,12 +182,12 @@ void drawSkShadow(
     path.skiaObject,
     Float32List(3)..[2] = devicePixelRatio * elevation,
     Float32List(3)
-      ..[0] = ckShadowLightXOffset
-      ..[1] = ckShadowLightYOffset
-      ..[2] = devicePixelRatio * ckShadowLightHeight,
-    devicePixelRatio * ckShadowLightRadius,
+      ..[0] = 0
+      ..[1] = -1
+      ..[2] = 1,
+    ckShadowLightRadius / ckShadowLightHeight,
     tonalColors.ambient,
     tonalColors.spot,
-    flags,
+    flags.toDouble(),
   );
 }

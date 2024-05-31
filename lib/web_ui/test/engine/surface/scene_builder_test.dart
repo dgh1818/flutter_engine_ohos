@@ -3,8 +3,10 @@
 // found in the LICENSE file.
 
 @TestOn('chrome || firefox')
+library;
 
 import 'dart:async';
+import 'dart:js_interop';
 import 'dart:js_util' as js_util;
 
 import 'package:test/bootstrap/browser.dart';
@@ -12,7 +14,9 @@ import 'package:test/test.dart';
 import 'package:ui/src/engine.dart';
 import 'package:ui/ui.dart' as ui;
 
-import '../../matchers.dart';
+import '../../common/matchers.dart';
+import '../../common/rendering.dart';
+import '../../common/test_initialization.dart';
 
 void main() {
   internalBootstrapBrowserTest(() => testMain);
@@ -20,7 +24,8 @@ void main() {
 
 void testMain() {
   setUpAll(() async {
-    await ui.webOnlyInitializePlatform();
+    await bootstrapAndRunApp(withImplicitView: true);
+    setUpRenderingForTests();
   });
 
   group('SceneBuilder', () {
@@ -35,7 +40,7 @@ void testMain() {
     test('pushTransform implements surface lifecycle', () {
       testLayerLifeCycle((ui.SceneBuilder sceneBuilder, ui.EngineLayer? oldLayer) {
         return sceneBuilder.pushTransform(
-            (Matrix4.identity()..scale(domWindow.devicePixelRatio)).toFloat64());
+            (Matrix4.identity()..scale(EngineFlutterDisplay.instance.browserDevicePixelRatio)).toFloat64());
       }, () {
         return '''<s><flt-transform></flt-transform></s>''';
       });
@@ -91,22 +96,6 @@ void testMain() {
         return '''<s><o></o></s>''';
       });
     });
-
-    test('pushPhysicalShape implements surface lifecycle', () {
-      testLayerLifeCycle((ui.SceneBuilder sceneBuilder, ui.EngineLayer? oldLayer) {
-        final ui.Path path = ui.Path()..addRect(const ui.Rect.fromLTRB(10, 20, 30, 40));
-        return sceneBuilder.pushPhysicalShape(
-          path: path,
-          elevation: 2,
-          color: const ui.Color.fromRGBO(0, 0, 0, 1),
-          shadowColor: const ui.Color.fromRGBO(0, 0, 0, 1),
-          oldLayer: oldLayer as ui.PhysicalShapeEngineLayer?,
-        );
-      }, () {
-        return '''<s><pshape><clip-i></clip-i></pshape></s>''';
-      });
-    });
-
     test('pushBackdropFilter implements surface lifecycle', () {
       testLayerLifeCycle((ui.SceneBuilder sceneBuilder, ui.EngineLayer? oldLayer) {
         return sceneBuilder.pushBackdropFilter(
@@ -490,7 +479,7 @@ void testMain() {
     // Pump an empty scene to reset it, otherwise the first frame will attempt
     // to diff left-overs from a previous test, which results in unpredictable
     // DOM mutations.
-    window.render(SurfaceSceneBuilder().build());
+    await renderScene(SurfaceSceneBuilder().build());
 
     // Renders a `string` by breaking it up into individual characters and
     // rendering each character into its own layer.
@@ -500,12 +489,12 @@ void testMain() {
 
       // Watches DOM mutations and counts deletions and additions to the child
       // list of the `<flt-scene>` element.
-      final DomMutationObserver observer = createDomMutationObserver(allowInterop((List<dynamic> mutations, _) {
-        for (final DomMutationRecord record in mutations.cast<DomMutationRecord>()) {
+      final DomMutationObserver observer = createDomMutationObserver((JSArray<JSAny?> mutations, _) {
+        for (final DomMutationRecord record in mutations.toDart.cast<DomMutationRecord>()) {
           actualDeletions.addAll(record.removedNodes!);
           actualAdditions.addAll(record.addedNodes!);
         }
-      }));
+      });
       observer.observe(
           SurfaceSceneBuilder.debugLastFrameScene!.rootElement!, childList: true);
 

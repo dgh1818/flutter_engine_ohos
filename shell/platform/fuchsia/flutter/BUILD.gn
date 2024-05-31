@@ -4,13 +4,14 @@
 
 assert(is_fuchsia)
 
-import("//build/fuchsia/sdk.gni")
 import("//flutter/common/config.gni")
+import("//flutter/shell/config.gni")
 import("//flutter/shell/gpu/gpu.gni")
 import("//flutter/testing/testing.gni")
 import("//flutter/tools/fuchsia/dart.gni")
 import("//flutter/tools/fuchsia/fuchsia_archive.gni")
 import("//flutter/tools/fuchsia/fuchsia_libs.gni")
+import("//flutter/tools/fuchsia/gn-sdk/src/gn_configs.gni")
 import("//flutter/vulkan/config.gni")
 
 # Fuchsia uses its own custom Surface implementation.
@@ -57,32 +58,24 @@ template("runner_sources") {
     sources = [
       "accessibility_bridge.cc",
       "accessibility_bridge.h",
-      "component_v1.cc",
-      "component_v1.h",
+      "canvas_spy.cc",
+      "canvas_spy.h",
       "component_v2.cc",
       "component_v2.h",
       "engine.cc",
       "engine.h",
+      "external_view_embedder.cc",
+      "external_view_embedder.h",
       "file_in_namespace_buffer.cc",
       "file_in_namespace_buffer.h",
       "flatland_connection.cc",
       "flatland_connection.h",
-      "flatland_external_view_embedder.cc",
-      "flatland_external_view_embedder.h",
-      "flatland_platform_view.cc",
-      "flatland_platform_view.h",
       "flutter_runner_product_configuration.cc",
       "flutter_runner_product_configuration.h",
       "focus_delegate.cc",
       "focus_delegate.h",
       "fuchsia_intl.cc",
       "fuchsia_intl.h",
-      "gfx_external_view_embedder.cc",
-      "gfx_external_view_embedder.h",
-      "gfx_platform_view.cc",
-      "gfx_platform_view.h",
-      "gfx_session_connection.cc",
-      "gfx_session_connection.h",
       "isolate_configurator.cc",
       "isolate_configurator.h",
       "keyboard.cc",
@@ -95,6 +88,8 @@ template("runner_sources") {
       "pointer_injector_delegate.cc",
       "pointer_injector_delegate.h",
       "program_metadata.h",
+      "rtree.cc",
+      "rtree.h",
       "runner.cc",
       "runner.h",
       "software_surface.cc",
@@ -143,41 +138,44 @@ template("runner_sources") {
       "//flutter/vulkan/procs",
     ]
 
+    # TODO(zijiehe): Considering which deps should belong to the public_deps,
+    # multiple dependencies of this target use the following deps without
+    # explicitly claiming the dependencies.
     public_deps = [
-                    "$fuchsia_sdk_root/pkg:inspect",
-                    "$fuchsia_sdk_root/pkg:scenic_cpp",
-                    "$fuchsia_sdk_root/pkg:sys_cpp",
-                    "$fuchsia_sdk_root/pkg:sys_inspect_cpp",
+                    "${fuchsia_sdk}/fidl/fuchsia.accessibility.semantics",
+                    "${fuchsia_sdk}/fidl/fuchsia.component.runner",
+                    "${fuchsia_sdk}/fidl/fuchsia.fonts",
+                    "${fuchsia_sdk}/fidl/fuchsia.images",
+                    "${fuchsia_sdk}/fidl/fuchsia.intl",
+                    "${fuchsia_sdk}/fidl/fuchsia.io",
+                    "${fuchsia_sdk}/fidl/fuchsia.media",
+                    "${fuchsia_sdk}/fidl/fuchsia.memorypressure",
+                    "${fuchsia_sdk}/fidl/fuchsia.ui.app",
+                    "${fuchsia_sdk}/fidl/fuchsia.ui.composition",
+                    "${fuchsia_sdk}/fidl/fuchsia.ui.input",
+                    "${fuchsia_sdk}/fidl/fuchsia.ui.input3",
+                    "${fuchsia_sdk}/fidl/fuchsia.ui.pointer",
+                    "${fuchsia_sdk}/fidl/fuchsia.ui.pointerinjector",
+                    "${fuchsia_sdk}/fidl/fuchsia.ui.test.input",
+                    "${fuchsia_sdk}/fidl/fuchsia.ui.views",
+                    "${fuchsia_sdk}/pkg/inspect",
+                    "${fuchsia_sdk}/pkg/inspect_component_cpp",
+                    "${fuchsia_sdk}/pkg/sys_cpp",
                     "//flutter/shell/platform/fuchsia/runtime/dart/utils",
                   ] + flutter_public_deps
 
     deps = [
-             "$fuchsia_sdk_root/fidl:fuchsia.accessibility.semantics",
-             "$fuchsia_sdk_root/fidl:fuchsia.component.runner",
-             "$fuchsia_sdk_root/fidl:fuchsia.fonts",
-             "$fuchsia_sdk_root/fidl:fuchsia.images",
-             "$fuchsia_sdk_root/fidl:fuchsia.intl",
-             "$fuchsia_sdk_root/fidl:fuchsia.io",
-             "$fuchsia_sdk_root/fidl:fuchsia.memorypressure",
-             "$fuchsia_sdk_root/fidl:fuchsia.sys",
-             "$fuchsia_sdk_root/fidl:fuchsia.ui.app",
-             "$fuchsia_sdk_root/fidl:fuchsia.ui.composition",
-             "$fuchsia_sdk_root/fidl:fuchsia.ui.pointer",
-             "$fuchsia_sdk_root/fidl:fuchsia.ui.views",
-             "$fuchsia_sdk_root/fidl:fuchsia.ui.scenic",
-             "$fuchsia_sdk_root/fidl:fuchsia.ui.pointerinjector",
-             "$fuchsia_sdk_root/pkg:async-cpp",
-             "$fuchsia_sdk_root/pkg:async-default",
-             "$fuchsia_sdk_root/pkg:async-loop",
-             "$fuchsia_sdk_root/pkg:async-loop-cpp",
-             "$fuchsia_sdk_root/pkg:fdio",
-             "$fuchsia_sdk_root/pkg:fidl_cpp",
-             "$fuchsia_sdk_root/pkg:syslog",
-             "$fuchsia_sdk_root/pkg:trace",
-             "$fuchsia_sdk_root/pkg:trace-engine",
-             "$fuchsia_sdk_root/pkg:trace-provider-so",
-             "$fuchsia_sdk_root/pkg:vfs_cpp",
-             "$fuchsia_sdk_root/pkg:zx",
+             "${fuchsia_sdk}/pkg/async-cpp",
+             "${fuchsia_sdk}/pkg/async-default",
+             "${fuchsia_sdk}/pkg/async-loop",
+             "${fuchsia_sdk}/pkg/async-loop-cpp",
+             "${fuchsia_sdk}/pkg/fdio",
+             "${fuchsia_sdk}/pkg/fidl_cpp",
+             "${fuchsia_sdk}/pkg/trace",
+             "${fuchsia_sdk}/pkg/trace-engine",
+             "${fuchsia_sdk}/pkg/trace-provider-so",
+             "${fuchsia_sdk}/pkg/vfs_cpp",
+             "${fuchsia_sdk}/pkg/zx",
              "//flutter/shell/platform/fuchsia/dart-pkg/fuchsia",
              "//flutter/shell/platform/fuchsia/dart-pkg/zircon",
            ] + flutter_deps
@@ -231,9 +229,9 @@ template("flutter_runner") {
 
     deps = [
              ":flutter_runner_sources${product_suffix}",
-             "$fuchsia_sdk_root/pkg:async-loop-cpp",
-             "$fuchsia_sdk_root/pkg:trace",
-             "$fuchsia_sdk_root/pkg:trace-provider-so",
+             "${fuchsia_sdk}/pkg/async-loop-cpp",
+             "${fuchsia_sdk}/pkg/trace",
+             "${fuchsia_sdk}/pkg/trace-provider-so",
            ] + extra_deps
 
     # The flags below are needed so that Dart's CPU profiler can walk the
@@ -260,8 +258,8 @@ flutter_runner("jit") {
   product = false
 
   extra_deps = [
-    "//third_party/dart/runtime:libdart_jit",
-    "//third_party/dart/runtime/platform:libdart_platform_jit",
+    "$dart_src/runtime:libdart_jit",
+    "$dart_src/runtime/platform:libdart_platform_jit",
   ]
 }
 
@@ -270,8 +268,8 @@ flutter_runner("jit_product") {
   product = true
 
   extra_deps = [
-    "//third_party/dart/runtime:libdart_jit",
-    "//third_party/dart/runtime/platform:libdart_platform_jit",
+    "$dart_src/runtime:libdart_jit",
+    "$dart_src/runtime/platform:libdart_platform_jit",
   ]
 }
 
@@ -280,8 +278,8 @@ flutter_runner("aot") {
   product = false
 
   extra_deps = [
-    "//third_party/dart/runtime:libdart_precompiled_runtime",
-    "//third_party/dart/runtime/platform:libdart_platform_precompiled_runtime",
+    "$dart_src/runtime:libdart_precompiled_runtime",
+    "$dart_src/runtime/platform:libdart_platform_precompiled_runtime",
   ]
 }
 
@@ -290,8 +288,8 @@ flutter_runner("aot_product") {
   product = true
 
   extra_deps = [
-    "//third_party/dart/runtime:libdart_precompiled_runtime",
-    "//third_party/dart/runtime/platform:libdart_platform_precompiled_runtime",
+    "$dart_src/runtime:libdart_precompiled_runtime",
+    "$dart_src/runtime/platform:libdart_platform_precompiled_runtime",
   ]
 }
 
@@ -322,12 +320,11 @@ template("jit_runner") {
 
     binary = "flutter_jit${product_suffix}_runner"
 
-    cmx_file = rebase_path("meta/flutter_jit${product_suffix}_runner.cmx")
     cml_file = rebase_path("meta/flutter_jit${product_suffix}_runner.cml")
 
     resources = [
       {
-        path = rebase_path("//third_party/icu/common/icudtl.dat")
+        path = rebase_path("//flutter/third_party/icu/common/icudtl.dat")
         dest = "icudtl.dat"
       },
     ]
@@ -357,18 +354,8 @@ template("jit_runner") {
       },
       {
         path = rebase_path(
-                "$snapshot_gen_dir/vm_snapshot_instructions${product_suffix}.bin")
-        dest = "vm_snapshot_instructions.bin"
-      },
-      {
-        path = rebase_path(
                 "$snapshot_gen_dir/isolate_snapshot${product_suffix}.bin")
         dest = "isolate_core_snapshot_data.bin"
-      },
-      {
-        path = rebase_path(
-                "$snapshot_gen_dir/isolate_snapshot_instructions${product_suffix}.bin")
-        dest = "isolate_core_snapshot_instructions.bin"
       },
     ]
 
@@ -402,14 +389,13 @@ template("aot_runner") {
       ]
     }
 
-    cmx_file = rebase_path("meta/flutter_aot${product_suffix}_runner.cmx")
     cml_file = rebase_path("meta/flutter_aot${product_suffix}_runner.cml")
 
     binary = "flutter_aot${product_suffix}_runner"
 
     resources = [
       {
-        path = rebase_path("//third_party/icu/common/icudtl.dat")
+        path = rebase_path("//flutter/third_party/icu/common/icudtl.dat")
         dest = "icudtl.dat"
       },
     ]
@@ -500,51 +486,49 @@ if (enable_unittests) {
 
     sources = [
       "accessibility_bridge_unittest.cc",
-      "component_v1_unittest.cc",
+      "canvas_spy_unittests.cc",
       "component_v2_unittest.cc",
       "flutter_runner_fakes.h",
       "focus_delegate_unittests.cc",
       "fuchsia_intl_unittest.cc",
       "keyboard_unittest.cc",
-      "platform_view_unittest.cc",
       "pointer_delegate_unittests.cc",
       "pointer_injector_delegate_unittest.cc",
+      "rtree_unittests.cc",
       "tests/engine_unittests.cc",
+      "tests/external_view_embedder_unittests.cc",
       "tests/fake_flatland_unittests.cc",
-      "tests/fake_session_unittests.cc",
       "tests/flatland_connection_unittests.cc",
-      "tests/flatland_external_view_embedder_unittests.cc",
-      "tests/flatland_platform_view_unittest.cc",
       "tests/flutter_runner_product_configuration_unittests.cc",
-      "tests/gfx_external_view_embedder_unittests.cc",
-      "tests/gfx_session_connection_unittests.cc",
+      "tests/platform_view_unittest.cc",
       "tests/pointer_event_utility.cc",
       "tests/pointer_event_utility.h",
       "text_delegate_unittests.cc",
       "vsync_waiter_unittest.cc",
     ]
 
-    # This is needed for //third_party/googletest for linking zircon symbols.
-    libs = [ "$fuchsia_sdk_path/arch/$target_cpu/sysroot/lib/libzircon.so" ]
+    # This is needed for //flutter/third_party/googletest for linking zircon
+    # symbols.
+    libs = [ "${fuchsia_arch_root}/sysroot/lib/libzircon.so" ]
 
     # The use of these dependencies is temporary and will be moved behind the
     # embedder API.
     flutter_deps = [
+      "$dart_src/runtime:libdart_jit",
+      "$dart_src/runtime/platform:libdart_platform_jit",
       "//flutter/assets:assets",
       "//flutter/common/graphics",
       "//flutter/flow",
       "//flutter/lib/ui",
       "//flutter/shell/common",
-      "//third_party/dart/runtime:libdart_jit",
-      "//third_party/dart/runtime/platform:libdart_platform_jit",
     ]
 
     deps = [
              "tests/fakes",
              ":flutter_runner_fixtures",
              ":flutter_runner_sources",
-             "//build/fuchsia/pkg:async-testing",
-             "//build/fuchsia/pkg:sys_cpp_testing",
+             "${fuchsia_sdk}/pkg/async-testing",
+             "${fuchsia_sdk}/pkg/sys_cpp_testing",
              "//flutter/shell/platform/common/client_wrapper:client_wrapper_library_stubs",
              "//flutter/testing",
            ] + flutter_deps
@@ -557,16 +541,17 @@ if (enable_unittests) {
 
     sources = [ "runner_tzdata_unittest.cc" ]
 
-    # This is needed for //third_party/googletest for linking zircon symbols.
-    libs = [ "$fuchsia_sdk_path/arch/$target_cpu/sysroot/lib/libzircon.so" ]
+    # This is needed for //flutter/third_party/googletest for linking zircon
+    # symbols.
+    libs = [ "${fuchsia_arch_root}/sysroot/lib/libzircon.so" ]
 
     # The use of these dependencies is temporary and will be moved behind the
     # embedder API.
     flutter_deps = [
+      "$dart_src/runtime:libdart_jit",
+      "$dart_src/runtime/platform:libdart_platform_jit",
       "//flutter/lib/ui",
       "//flutter/shell/platform/common/client_wrapper:client_wrapper_library_stubs",
-      "//third_party/dart/runtime:libdart_jit",
-      "//third_party/dart/runtime/platform:libdart_platform_jit",
     ]
 
     deps = [
@@ -583,16 +568,17 @@ if (enable_unittests) {
 
     sources = [ "runner_tzdata_missing_unittest.cc" ]
 
-    # This is needed for //third_party/googletest for linking zircon symbols.
-    libs = [ "$fuchsia_sdk_path/arch/$target_cpu/sysroot/lib/libzircon.so" ]
+    # This is needed for //flutter/third_party/googletest for linking zircon
+    # symbols.
+    libs = [ "${fuchsia_arch_root}/sysroot/lib/libzircon.so" ]
 
     # The use of these dependencies is temporary and will be moved behind the
     # embedder API.
     flutter_deps = [
+      "$dart_src/runtime:libdart_jit",
+      "$dart_src/runtime/platform:libdart_platform_jit",
       "//flutter/lib/ui",
       "//flutter/shell/platform/common/client_wrapper:client_wrapper_library_stubs",
-      "//third_party/dart/runtime:libdart_jit",
-      "//third_party/dart/runtime/platform:libdart_platform_jit",
     ]
 
     deps = [
@@ -609,7 +595,7 @@ if (enable_unittests) {
 
     resources = [
       {
-        path = rebase_path("//third_party/icu/common/icudtl.dat")
+        path = rebase_path("//flutter/third_party/icu/common/icudtl.dat")
         dest = "icudtl.dat"
       },
     ]
@@ -622,7 +608,7 @@ if (enable_unittests) {
 
     resources = [
       {
-        path = rebase_path("//third_party/icu/common/icudtl.dat")
+        path = rebase_path("//flutter/third_party/icu/common/icudtl.dat")
         dest = "icudtl.dat"
       },
       {
@@ -650,7 +636,7 @@ if (enable_unittests) {
 
     resources = [
       {
-        path = rebase_path("//third_party/icu/common/icudtl.dat")
+        path = rebase_path("//flutter/third_party/icu/common/icudtl.dat")
         dest = "icudtl.dat"
       },
     ]
@@ -666,12 +652,28 @@ if (enable_unittests) {
     deps = [ "//flutter/display_list:display_list_unittests" ]
 
     binary = "display_list_unittests"
+
+    resources = [
+      {
+        path = rebase_path(
+                "//flutter/third_party/txt/third_party/fonts/Roboto-Regular.ttf")
+        dest = "assets/Roboto-Regular.ttf"
+      },
+    ]
   }
 
   fuchsia_test_archive("display_list_render_tests") {
     deps = [ "//flutter/display_list:display_list_rendertests" ]
 
     binary = "display_list_rendertests"
+
+    resources = [
+      {
+        path = rebase_path(
+                "//flutter/third_party/txt/third_party/fonts/Roboto-Regular.ttf")
+        dest = "assets/Roboto-Regular.ttf"
+      },
+    ]
   }
 
   fuchsia_test_archive("flow_tests") {
@@ -694,6 +696,11 @@ if (enable_unittests) {
         path = rebase_path(
                 "//flutter/testing/resources/performance_overlay_gold_120fps.png")
         dest = "flutter/testing/resources/performance_overlay_gold_120fps.png"
+      },
+      {
+        path = rebase_path(
+                "//flutter/third_party/txt/third_party/fonts/Roboto-Regular.ttf")
+        dest = "assets/Roboto-Regular.ttf"
       },
     ]
   }
@@ -738,6 +745,11 @@ if (enable_unittests) {
             "$root_gen_dir/flutter/shell/common/assets/shelltest_screenshot.png"
         dest = "assets/shelltest_screenshot.png"
       },
+      {
+        path = rebase_path(
+                "//flutter/third_party/txt/third_party/fonts/Roboto-Regular.ttf")
+        dest = "assets/Roboto-Regular.ttf"
+      },
     ]
 
     libraries = vulkan_validation_libs
@@ -757,11 +769,11 @@ if (enable_unittests) {
 
     resources = [
       {
-        path = rebase_path("//third_party/icu/common/icudtl.dat")
+        path = rebase_path("//flutter/third_party/icu/common/icudtl.dat")
         dest = "icudtl.dat"
       },
       {
-        path = rebase_path("//third_party/icu/common/icudtl.dat")
+        path = rebase_path("//flutter/third_party/icu/common/icudtl.dat")
         dest = "icudtl2.dat"
       },
     ]

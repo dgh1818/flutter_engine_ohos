@@ -69,7 +69,7 @@ class EventChannel {
          // Mutable state to track the handler's listening status.
          is_listening = bool(false)](const uint8_t* message,
                                      const size_t message_size,
-                                     BinaryReply reply) mutable {
+                                     const BinaryReply& reply) mutable {
           constexpr char kOnListenMethod[] = "listen";
           constexpr char kOnCancelMethod[] = "cancel";
 
@@ -106,7 +106,7 @@ class EventChannel {
             if (error) {
               result = codec->EncodeErrorEnvelope(error->error_code,
                                                   error->error_message,
-                                                  error->error_details);
+                                                  error->error_details.get());
             } else {
               result = codec->EncodeSuccessEnvelope();
             }
@@ -119,7 +119,7 @@ class EventChannel {
               if (error) {
                 result = codec->EncodeErrorEnvelope(error->error_code,
                                                     error->error_message,
-                                                    error->error_details);
+                                                    error->error_details.get());
               } else {
                 result = codec->EncodeSuccessEnvelope();
               }

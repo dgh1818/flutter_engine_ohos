@@ -7,18 +7,19 @@
 #include <optional>
 #include <utility>
 
+#include "flutter/display_list/benchmarking/dl_complexity.h"
 #include "flutter/display_list/display_list.h"
 #include "flutter/flow/layers/layer.h"
 #include "flutter/flow/raster_cache.h"
 #include "flutter/flow/raster_cache_item.h"
 #include "flutter/flow/raster_cache_key.h"
 #include "flutter/flow/raster_cache_util.h"
-#include "flutter/flow/skia_gpu_object.h"
+#include "third_party/skia/include/gpu/GrDirectContext.h"
 
 namespace flutter {
 
 static bool IsDisplayListWorthRasterizing(
-    DisplayList* display_list,
+    const DisplayList* display_list,
     bool will_change,
     bool is_complex,
     DisplayListComplexityCalculator* complexity_calculator) {
@@ -46,7 +47,7 @@ static bool IsDisplayListWorthRasterizing(
 }
 
 DisplayListRasterCacheItem::DisplayListRasterCacheItem(
-    DisplayList* display_list,
+    const sk_sp<DisplayList>& display_list,
     const SkPoint& offset,
     bool is_complex,
     bool will_change)
@@ -59,7 +60,7 @@ DisplayListRasterCacheItem::DisplayListRasterCacheItem(
       will_change_(will_change) {}
 
 std::unique_ptr<DisplayListRasterCacheItem> DisplayListRasterCacheItem::Make(
-    DisplayList* display_list,
+    const sk_sp<DisplayList>& display_list,
     const SkPoint& offset,
     bool is_complex,
     bool will_change) {
@@ -75,7 +76,7 @@ void DisplayListRasterCacheItem::PrerollSetup(PrerollContext* context,
                                 context->gr_context->backend())
                           : DisplayListComplexityCalculator::GetForSoftware();
 
-  if (!IsDisplayListWorthRasterizing(display_list_, will_change_, is_complex_,
+  if (!IsDisplayListWorthRasterizing(display_list(), will_change_, is_complex_,
                                      complexity_calculator)) {
     // We only deal with display lists that are worthy of rasterization.
     return;
@@ -104,10 +105,6 @@ void DisplayListRasterCacheItem::PrerollFinalize(PrerollContext* context,
   }
   auto* raster_cache = context->raster_cache;
   SkRect bounds = display_list_->bounds().makeOffset(offset_.x(), offset_.y());
-  // We must to create an entry whenever if the react is intersect.
-  // if the rect is intersect we will get the entry access_count to confirm if
-  // it great than the threshold. Otherwise we only increase the entry
-  // access_count.
   bool visible = !context->state_stack.content_culled(bounds);
   RasterCache::CacheInfo cache_info =
       raster_cache->MarkSeen(key_id_, matrix, visible);
@@ -125,18 +122,19 @@ void DisplayListRasterCacheItem::PrerollFinalize(PrerollContext* context,
 }
 
 bool DisplayListRasterCacheItem::Draw(const PaintContext& context,
-                                      const SkPaint* paint) const {
+                                      const DlPaint* paint) const {
   return Draw(context, context.canvas, paint);
 }
 
 bool DisplayListRasterCacheItem::Draw(const PaintContext& context,
-                                      SkCanvas* canvas,
-                                      const SkPaint* paint) const {
+                                      DlCanvas* canvas,
+                                      const DlPaint* paint) const {
   if (!context.raster_cache || !canvas) {
     return false;
   }
   if (cache_state_ == CacheState::kCurrent) {
-    return context.raster_cache->Draw(key_id_, *canvas, paint);
+    return context.raster_cache->Draw(key_id_, *canvas, paint,
+                                      context.rendering_above_platform_view);
   }
   return false;
 }
@@ -152,8 +150,10 @@ bool DisplayListRasterCacheItem::TryToPrepareRasterCache(
   // display_list or picture_list to calculate the memory they used, we
   // shouldn't cache the current node if the memory is more significant than the
   // limit.
+  auto id = GetId();
+  FML_DCHECK(id.has_value());
   if (cache_state_ == kNone || !context.raster_cache || parent_cached ||
-      !context.raster_cache->GenerateNewCacheInThisFrame()) {
+      !context.raster_cache->GenerateNewCacheInThisFrame() || !id.has_value()) {
     return false;
   }
   SkRect bounds = display_list_->bounds().makeOffset(offset_.x(), offset_.y());
@@ -167,9 +167,10 @@ bool DisplayListRasterCacheItem::TryToPrepareRasterCache(
       // clang-format on
   };
   return context.raster_cache->UpdateCacheEntry(
-      GetId().value(), r_context,
-      [display_list = display_list_](SkCanvas* canvas) {
-        display_list->RenderTo(canvas);
-      });
+      id.value(), r_context,
+      [display_list = display_list_](DlCanvas* canvas) {
+        canvas->DrawDisplayList(display_list);
+      },
+      display_list_->rtree());
 }
 }  // namespace flutter

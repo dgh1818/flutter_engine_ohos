@@ -58,7 +58,10 @@ source_set("common_cpp_input") {
 }
 
 source_set("common_cpp_enums") {
-  public = [ "platform_provided_menu.h" ]
+  public = [
+    "app_lifecycle_state.h",
+    "platform_provided_menu.h",
+  ]
 
   public_configs = [
     "//flutter:config",
@@ -80,11 +83,13 @@ source_set("common_cpp_switches") {
 source_set("common_cpp_accessibility") {
   public = [
     "accessibility_bridge.h",
+    "alert_platform_node_delegate.h",
     "flutter_platform_node_delegate.h",
   ]
 
   sources = [
     "accessibility_bridge.cc",
+    "alert_platform_node_delegate.cc",
     "flutter_platform_node_delegate.cc",
   ]
 
@@ -125,7 +130,7 @@ source_set("common_cpp") {
 
   public_deps = [
     ":common_cpp_core",
-    "//third_party/rapidjson",
+    "//flutter/third_party/rapidjson",
   ]
 }
 
@@ -157,8 +162,8 @@ if (enable_unittests) {
     deps = [
       ":common_cpp_core",
       ":common_cpp_core_fixtures",
+      "$dart_src/runtime:libdart_jit",
       "//flutter/testing",
-      "//third_party/dart/runtime:libdart_jit",
     ]
 
     public_configs = [ "//flutter:config" ]

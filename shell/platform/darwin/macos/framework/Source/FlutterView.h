@@ -2,10 +2,17 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifndef FLUTTER_SHELL_PLATFORM_DARWIN_MACOS_FRAMEWORK_SOURCE_FLUTTERVIEW_H_
+#define FLUTTER_SHELL_PLATFORM_DARWIN_MACOS_FRAMEWORK_SOURCE_FLUTTERVIEW_H_
+
 #import <Cocoa/Cocoa.h>
+
+#import "flutter/shell/platform/darwin/macos/framework/Source/FlutterSurfaceManager.h"
+#import "flutter/shell/platform/darwin/macos/framework/Source/FlutterThreadSynchronizer.h"
+
 #include <stdint.h>
 
-#import "flutter/shell/platform/darwin/macos/framework/Source/FlutterResizableBackingStoreProvider.h"
+typedef int64_t FlutterViewId;
 
 /**
  * The view ID for APIs that don't support multi-view.
@@ -13,19 +20,25 @@
  * Some single-view APIs will eventually be replaced by their multi-view
  * variant. During the deprecation period, the single-view APIs will coexist with
  * and work with the multi-view APIs as if the other views don't exist.  For
- * backward compatibility, single-view APIs will always operate the view with
+ * backward compatibility, single-view APIs will always operate on the view with
  * this ID. Also, the first view assigned to the engine will also have this ID.
  */
-constexpr uint64_t kFlutterDefaultViewId = 0;
+constexpr FlutterViewId kFlutterImplicitViewId = 0ll;
 
 /**
- * Listener for view resizing.
+ * Delegate for FlutterView.
  */
-@protocol FlutterViewReshapeListener <NSObject>
+@protocol FlutterViewDelegate <NSObject>
 /**
  * Called when the view's backing store changes size.
  */
 - (void)viewDidReshape:(nonnull NSView*)view;
+
+/**
+ * Called to determine whether the view should accept first responder status.
+ */
+- (BOOL)viewShouldAcceptFirstResponder:(nonnull NSView*)view;
+
 @end
 
 /**
@@ -39,8 +52,9 @@ constexpr uint64_t kFlutterDefaultViewId = 0;
  */
 - (nullable instancetype)initWithMTLDevice:(nonnull id<MTLDevice>)device
                               commandQueue:(nonnull id<MTLCommandQueue>)commandQueue
-                           reshapeListener:(nonnull id<FlutterViewReshapeListener>)reshapeListener
-    NS_DESIGNATED_INITIALIZER;
+                                  delegate:(nonnull id<FlutterViewDelegate>)delegate
+                        threadSynchronizer:(nonnull FlutterThreadSynchronizer*)threadSynchronizer
+                                    viewId:(int64_t)viewId NS_DESIGNATED_INITIALIZER;
 
 - (nullable instancetype)initWithFrame:(NSRect)frameRect
                            pixelFormat:(nullable NSOpenGLPixelFormat*)format NS_UNAVAILABLE;
@@ -49,27 +63,10 @@ constexpr uint64_t kFlutterDefaultViewId = 0;
 - (nonnull instancetype)init NS_UNAVAILABLE;
 
 /**
- * Flushes the graphics context and flips the surfaces. Expected to be called on raster thread.
+ * Returns SurfaceManager for this view. SurfaceManager is responsible for
+ * providing and presenting render surfaces.
  */
-- (void)present;
-
-/**
- * Called when there is no Flutter content available to render. This must be passed to resize
- * synchronizer.
- */
-- (void)presentWithoutContent;
-
-/**
- * Ensures that a backing store with requested size exists and returns the descriptor. Expected to
- * be called on raster thread.
- */
-- (nonnull FlutterRenderBackingStore*)backingStoreForSize:(CGSize)size;
-
-/**
- * Must be called when shutting down. Unblocks raster thread and prevents any further
- * synchronization.
- */
-- (void)shutdown;
+@property(readonly, nonatomic, nonnull) FlutterSurfaceManager* surfaceManager;
 
 /**
  * By default, the `FlutterSurfaceManager` creates two layers to manage Flutter
@@ -81,3 +78,5 @@ constexpr uint64_t kFlutterDefaultViewId = 0;
 - (void)setBackgroundColor:(nonnull NSColor*)color;
 
 @end
+
+#endif  // FLUTTER_SHELL_PLATFORM_DARWIN_MACOS_FRAMEWORK_SOURCE_FLUTTERVIEW_H_

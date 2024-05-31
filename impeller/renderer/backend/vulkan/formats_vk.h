@@ -2,13 +2,18 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_IMPELLER_RENDERER_BACKEND_VULKAN_FORMATS_VK_H_
+#define FLUTTER_IMPELLER_RENDERER_BACKEND_VULKAN_FORMATS_VK_H_
 
+#include <cstdint>
+#include <ostream>
+
+#include "flutter/fml/hash_combine.h"
 #include "flutter/fml/macros.h"
+#include "impeller/base/validation.h"
+#include "impeller/core/formats.h"
+#include "impeller/core/shader_types.h"
 #include "impeller/renderer/backend/vulkan/vk.h"
-#include "impeller/renderer/descriptor_set_layout.h"
-#include "impeller/renderer/formats.h"
-#include "impeller/renderer/shader_types.h"
 #include "vulkan/vulkan_enums.hpp"
 
 namespace impeller {
@@ -71,25 +76,22 @@ constexpr vk::BlendOp ToVKBlendOp(BlendOperation op) {
   FML_UNREACHABLE();
 }
 
-constexpr vk::ColorComponentFlags ToVKColorComponentFlags(
-    std::underlying_type_t<ColorWriteMask> type) {
-  using UnderlyingType = decltype(type);
-
+constexpr vk::ColorComponentFlags ToVKColorComponentFlags(ColorWriteMask type) {
   vk::ColorComponentFlags mask;
 
-  if (type & static_cast<UnderlyingType>(ColorWriteMask::kRed)) {
+  if (type & ColorWriteMaskBits::kRed) {
     mask |= vk::ColorComponentFlagBits::eR;
   }
 
-  if (type & static_cast<UnderlyingType>(ColorWriteMask::kGreen)) {
+  if (type & ColorWriteMaskBits::kGreen) {
     mask |= vk::ColorComponentFlagBits::eG;
   }
 
-  if (type & static_cast<UnderlyingType>(ColorWriteMask::kBlue)) {
+  if (type & ColorWriteMaskBits::kBlue) {
     mask |= vk::ColorComponentFlagBits::eB;
   }
 
-  if (type & static_cast<UnderlyingType>(ColorWriteMask::kAlpha)) {
+  if (type & ColorWriteMaskBits::kAlpha) {
     mask |= vk::ColorComponentFlagBits::eA;
   }
 
@@ -124,10 +126,6 @@ constexpr std::optional<vk::ShaderStageFlagBits> ToVKShaderStageFlagBits(
       return vk::ShaderStageFlagBits::eVertex;
     case ShaderStage::kFragment:
       return vk::ShaderStageFlagBits::eFragment;
-    case ShaderStage::kTessellationControl:
-      return vk::ShaderStageFlagBits::eTessellationControl;
-    case ShaderStage::kTessellationEvaluation:
-      return vk::ShaderStageFlagBits::eTessellationEvaluation;
     case ShaderStage::kCompute:
       return vk::ShaderStageFlagBits::eCompute;
   }
@@ -137,8 +135,12 @@ constexpr std::optional<vk::ShaderStageFlagBits> ToVKShaderStageFlagBits(
 constexpr vk::Format ToVKImageFormat(PixelFormat format) {
   switch (format) {
     case PixelFormat::kUnknown:
+    case PixelFormat::kB10G10R10XR:
+    case PixelFormat::kB10G10R10A10XR:
+    case PixelFormat::kB10G10R10XRSRGB:
       return vk::Format::eUndefined;
     case PixelFormat::kA8UNormInt:
+      // TODO(csg): This is incorrect. Don't depend on swizzle support for GLES.
       return vk::Format::eR8Unorm;
     case PixelFormat::kR8G8B8A8UNormInt:
       return vk::Format::eR8G8B8A8Unorm;
@@ -148,8 +150,16 @@ constexpr vk::Format ToVKImageFormat(PixelFormat format) {
       return vk::Format::eB8G8R8A8Unorm;
     case PixelFormat::kB8G8R8A8UNormIntSRGB:
       return vk::Format::eB8G8R8A8Srgb;
+    case PixelFormat::kR32G32B32A32Float:
+      return vk::Format::eR32G32B32A32Sfloat;
+    case PixelFormat::kR16G16B16A16Float:
+      return vk::Format::eR16G16B16A16Sfloat;
     case PixelFormat::kS8UInt:
       return vk::Format::eS8Uint;
+    case PixelFormat::kD24UnormS8Uint:
+      return vk::Format::eD24UnormS8Uint;
+    case PixelFormat::kD32FloatS8UInt:
+      return vk::Format::eD32SfloatS8Uint;
     case PixelFormat::kR8UNormInt:
       return vk::Format::eR8Unorm;
     case PixelFormat::kR8G8UNormInt:
@@ -163,28 +173,28 @@ constexpr PixelFormat ToPixelFormat(vk::Format format) {
   switch (format) {
     case vk::Format::eUndefined:
       return PixelFormat::kUnknown;
-
     case vk::Format::eR8G8B8A8Unorm:
       return PixelFormat::kR8G8B8A8UNormInt;
-
     case vk::Format::eR8G8B8A8Srgb:
       return PixelFormat::kR8G8B8A8UNormIntSRGB;
-
     case vk::Format::eB8G8R8A8Unorm:
       return PixelFormat::kB8G8R8A8UNormInt;
-
     case vk::Format::eB8G8R8A8Srgb:
       return PixelFormat::kB8G8R8A8UNormIntSRGB;
-
+    case vk::Format::eR32G32B32A32Sfloat:
+      return PixelFormat::kR32G32B32A32Float;
+    case vk::Format::eR16G16B16A16Sfloat:
+      return PixelFormat::kR16G16B16A16Float;
     case vk::Format::eS8Uint:
       return PixelFormat::kS8UInt;
-
+    case vk::Format::eD24UnormS8Uint:
+      return PixelFormat::kD24UnormS8Uint;
+    case vk::Format::eD32SfloatS8Uint:
+      return PixelFormat::kD32FloatS8UInt;
     case vk::Format::eR8Unorm:
       return PixelFormat::kR8UNormInt;
-
     case vk::Format::eR8G8Unorm:
       return PixelFormat::kR8G8UNormInt;
-
     default:
       return PixelFormat::kUnknown;
   }
@@ -197,6 +207,8 @@ constexpr vk::SampleCountFlagBits ToVKSampleCount(SampleCount sample_count) {
     case SampleCount::kCount4:
       return vk::SampleCountFlagBits::e4;
   }
+
+  FML_UNREACHABLE();
 }
 
 constexpr vk::Filter ToVKSamplerMinMagFilter(MinMagFilter filter) {
@@ -211,14 +223,11 @@ constexpr vk::Filter ToVKSamplerMinMagFilter(MinMagFilter filter) {
 }
 
 constexpr vk::SamplerMipmapMode ToVKSamplerMipmapMode(MipFilter filter) {
-  vk::SamplerCreateInfo sampler_info;
   switch (filter) {
     case MipFilter::kNearest:
       return vk::SamplerMipmapMode::eNearest;
     case MipFilter::kLinear:
       return vk::SamplerMipmapMode::eLinear;
-    case MipFilter::kNone:
-      return vk::SamplerMipmapMode::eNearest;
   }
 
   FML_UNREACHABLE();
@@ -233,6 +242,8 @@ constexpr vk::SamplerAddressMode ToVKSamplerAddressMode(
       return vk::SamplerAddressMode::eMirroredRepeat;
     case SamplerAddressMode::kClampToEdge:
       return vk::SamplerAddressMode::eClampToEdge;
+    case SamplerAddressMode::kDecal:
+      return vk::SamplerAddressMode::eClampToBorder;
   }
 
   FML_UNREACHABLE();
@@ -244,10 +255,6 @@ constexpr vk::ShaderStageFlags ToVkShaderStage(ShaderStage stage) {
       return vk::ShaderStageFlagBits::eAll;
     case ShaderStage::kFragment:
       return vk::ShaderStageFlagBits::eFragment;
-    case ShaderStage::kTessellationControl:
-      return vk::ShaderStageFlagBits::eTessellationControl;
-    case ShaderStage::kTessellationEvaluation:
-      return vk::ShaderStageFlagBits::eTessellationEvaluation;
     case ShaderStage::kCompute:
       return vk::ShaderStageFlagBits::eCompute;
     case ShaderStage::kVertex:
@@ -257,21 +264,36 @@ constexpr vk::ShaderStageFlags ToVkShaderStage(ShaderStage stage) {
   FML_UNREACHABLE();
 }
 
+constexpr vk::DescriptorType ToVKDescriptorType(DescriptorType type) {
+  switch (type) {
+    case DescriptorType::kSampledImage:
+      return vk::DescriptorType::eCombinedImageSampler;
+      break;
+    case DescriptorType::kUniformBuffer:
+      return vk::DescriptorType::eUniformBuffer;
+      break;
+    case DescriptorType::kStorageBuffer:
+      return vk::DescriptorType::eStorageBuffer;
+      break;
+    case DescriptorType::kImage:
+      return vk::DescriptorType::eSampledImage;
+      break;
+    case DescriptorType::kSampler:
+      return vk::DescriptorType::eSampler;
+      break;
+    case DescriptorType::kInputAttachment:
+      return vk::DescriptorType::eInputAttachment;
+  }
+
+  FML_UNREACHABLE();
+}
+
 constexpr vk::DescriptorSetLayoutBinding ToVKDescriptorSetLayoutBinding(
     const DescriptorSetLayout& layout) {
   vk::DescriptorSetLayoutBinding binding;
   binding.binding = layout.binding;
-  binding.descriptorCount = layout.descriptor_count;
-  vk::DescriptorType desc_type = vk::DescriptorType();
-  switch (layout.descriptor_type) {
-    case DescriptorType::kSampledImage:
-      desc_type = vk::DescriptorType::eCombinedImageSampler;
-      break;
-    case DescriptorType::kUniformBuffer:
-      desc_type = vk::DescriptorType::eUniformBuffer;
-      break;
-  }
-  binding.descriptorType = desc_type;
+  binding.descriptorCount = 1u;
+  binding.descriptorType = ToVKDescriptorType(layout.descriptor_type);
   binding.stageFlags = ToVkShaderStage(layout.shader_stage);
   return binding;
 }
@@ -289,19 +311,39 @@ constexpr vk::AttachmentLoadOp ToVKAttachmentLoadOp(LoadAction load_action) {
   FML_UNREACHABLE();
 }
 
-constexpr vk::AttachmentStoreOp ToVKAttachmentStoreOp(
-    StoreAction store_action) {
+constexpr vk::AttachmentStoreOp ToVKAttachmentStoreOp(StoreAction store_action,
+                                                      bool is_resolve_texture) {
   switch (store_action) {
     case StoreAction::kStore:
+      // Both MSAA and resolve textures need to be stored. A resolve is NOT
+      // performed.
       return vk::AttachmentStoreOp::eStore;
     case StoreAction::kDontCare:
+      // Both MSAA and resolve textures can be discarded. A resolve is NOT
+      // performed.
       return vk::AttachmentStoreOp::eDontCare;
     case StoreAction::kMultisampleResolve:
+      // The resolve texture is stored but the MSAA texture can be discarded. A
+      // resolve IS performed.
+      return is_resolve_texture ? vk::AttachmentStoreOp::eStore
+                                : vk::AttachmentStoreOp::eDontCare;
     case StoreAction::kStoreAndMultisampleResolve:
-      // TODO (kaushikiska): vulkan doesn't support multisample resolve.
-      return vk::AttachmentStoreOp::eDontCare;
+      // Both MSAA and resolve textures need to be stored. A resolve IS
+      // performed.
+      return vk::AttachmentStoreOp::eStore;
   }
+  FML_UNREACHABLE();
+}
 
+constexpr bool StoreActionPerformsResolve(StoreAction store_action) {
+  switch (store_action) {
+    case StoreAction::kDontCare:
+    case StoreAction::kStore:
+      return false;
+    case StoreAction::kMultisampleResolve:
+    case StoreAction::kStoreAndMultisampleResolve:
+      return true;
+  }
   FML_UNREACHABLE();
 }
 
@@ -313,9 +355,23 @@ constexpr vk::IndexType ToVKIndexType(IndexType index_type) {
       return vk::IndexType::eUint32;
     case IndexType::kUnknown:
       return vk::IndexType::eUint32;
+    case IndexType::kNone:
+      FML_UNREACHABLE();
   }
 
   FML_UNREACHABLE();
+  return vk::IndexType::eUint16;
+}
+
+constexpr vk::PolygonMode ToVKPolygonMode(PolygonMode mode) {
+  switch (mode) {
+    case PolygonMode::kFill:
+      return vk::PolygonMode::eFill;
+    case PolygonMode::kLine:
+      return vk::PolygonMode::eLine;
+  }
+  FML_UNREACHABLE();
+  return vk::PolygonMode::eFill;
 }
 
 constexpr vk::PrimitiveTopology ToVKPrimitiveTopology(PrimitiveType primitive) {
@@ -333,6 +389,216 @@ constexpr vk::PrimitiveTopology ToVKPrimitiveTopology(PrimitiveType primitive) {
   }
 
   FML_UNREACHABLE();
+  return vk::PrimitiveTopology::eTriangleList;
+}
+
+constexpr bool PixelFormatIsDepthStencil(PixelFormat format) {
+  switch (format) {
+    case PixelFormat::kUnknown:
+    case PixelFormat::kA8UNormInt:
+    case PixelFormat::kR8UNormInt:
+    case PixelFormat::kR8G8UNormInt:
+    case PixelFormat::kR8G8B8A8UNormInt:
+    case PixelFormat::kR8G8B8A8UNormIntSRGB:
+    case PixelFormat::kB8G8R8A8UNormInt:
+    case PixelFormat::kB8G8R8A8UNormIntSRGB:
+    case PixelFormat::kR32G32B32A32Float:
+    case PixelFormat::kR16G16B16A16Float:
+    case PixelFormat::kB10G10R10XR:
+    case PixelFormat::kB10G10R10XRSRGB:
+    case PixelFormat::kB10G10R10A10XR:
+      return false;
+    case PixelFormat::kS8UInt:
+    case PixelFormat::kD24UnormS8Uint:
+    case PixelFormat::kD32FloatS8UInt:
+      return true;
+  }
+  return false;
+}
+
+static constexpr vk::AttachmentReference kUnusedAttachmentReference = {
+    VK_ATTACHMENT_UNUSED, vk::ImageLayout::eUndefined};
+
+constexpr vk::CullModeFlags ToVKCullModeFlags(CullMode mode) {
+  switch (mode) {
+    case CullMode::kNone:
+      return vk::CullModeFlagBits::eNone;
+    case CullMode::kFrontFace:
+      return vk::CullModeFlagBits::eFront;
+    case CullMode::kBackFace:
+      return vk::CullModeFlagBits::eBack;
+  }
+  FML_UNREACHABLE();
+  return vk::CullModeFlagBits::eNone;
+}
+
+constexpr vk::CompareOp ToVKCompareOp(CompareFunction op) {
+  switch (op) {
+    case CompareFunction::kNever:
+      return vk::CompareOp::eNever;
+    case CompareFunction::kAlways:
+      return vk::CompareOp::eAlways;
+    case CompareFunction::kLess:
+      return vk::CompareOp::eLess;
+    case CompareFunction::kEqual:
+      return vk::CompareOp::eEqual;
+    case CompareFunction::kLessEqual:
+      return vk::CompareOp::eLessOrEqual;
+    case CompareFunction::kGreater:
+      return vk::CompareOp::eGreater;
+    case CompareFunction::kNotEqual:
+      return vk::CompareOp::eNotEqual;
+    case CompareFunction::kGreaterEqual:
+      return vk::CompareOp::eGreaterOrEqual;
+  }
+  FML_UNREACHABLE();
+  return vk::CompareOp::eNever;
+}
+
+constexpr vk::StencilOp ToVKStencilOp(StencilOperation op) {
+  switch (op) {
+    case StencilOperation::kKeep:
+      return vk::StencilOp::eKeep;
+    case StencilOperation::kZero:
+      return vk::StencilOp::eZero;
+    case StencilOperation::kSetToReferenceValue:
+      return vk::StencilOp::eReplace;
+    case StencilOperation::kIncrementClamp:
+      return vk::StencilOp::eIncrementAndClamp;
+    case StencilOperation::kDecrementClamp:
+      return vk::StencilOp::eDecrementAndClamp;
+    case StencilOperation::kInvert:
+      return vk::StencilOp::eInvert;
+    case StencilOperation::kIncrementWrap:
+      return vk::StencilOp::eIncrementAndWrap;
+    case StencilOperation::kDecrementWrap:
+      return vk::StencilOp::eDecrementAndWrap;
+      break;
+  }
+  FML_UNREACHABLE();
+  return vk::StencilOp::eKeep;
+}
+
+constexpr vk::StencilOpState ToVKStencilOpState(
+    const StencilAttachmentDescriptor& desc) {
+  vk::StencilOpState state;
+  state.failOp = ToVKStencilOp(desc.stencil_failure);
+  state.passOp = ToVKStencilOp(desc.depth_stencil_pass);
+  state.depthFailOp = ToVKStencilOp(desc.depth_failure);
+  state.compareOp = ToVKCompareOp(desc.stencil_compare);
+  state.compareMask = desc.read_mask;
+  state.writeMask = desc.write_mask;
+  // This is irrelevant as the stencil references are always dynamic state and
+  // will be set in the render pass.
+  state.reference = 1988;
+  return state;
+}
+
+constexpr vk::ImageAspectFlags ToVKImageAspectFlags(PixelFormat format) {
+  switch (format) {
+    case PixelFormat::kUnknown:
+    case PixelFormat::kA8UNormInt:
+    case PixelFormat::kR8UNormInt:
+    case PixelFormat::kR8G8UNormInt:
+    case PixelFormat::kR8G8B8A8UNormInt:
+    case PixelFormat::kR8G8B8A8UNormIntSRGB:
+    case PixelFormat::kB8G8R8A8UNormInt:
+    case PixelFormat::kB8G8R8A8UNormIntSRGB:
+    case PixelFormat::kR32G32B32A32Float:
+    case PixelFormat::kR16G16B16A16Float:
+    case PixelFormat::kB10G10R10XR:
+    case PixelFormat::kB10G10R10XRSRGB:
+    case PixelFormat::kB10G10R10A10XR:
+      return vk::ImageAspectFlagBits::eColor;
+    case PixelFormat::kS8UInt:
+      return vk::ImageAspectFlagBits::eStencil;
+    case PixelFormat::kD24UnormS8Uint:
+    case PixelFormat::kD32FloatS8UInt:
+      return vk::ImageAspectFlagBits::eDepth |
+             vk::ImageAspectFlagBits::eStencil;
+  }
+  FML_UNREACHABLE();
+  return vk::ImageAspectFlagBits::eColor;
+}
+
+constexpr uint32_t ToArrayLayerCount(TextureType type) {
+  switch (type) {
+    case TextureType::kTexture2D:
+    case TextureType::kTexture2DMultisample:
+      return 1u;
+    case TextureType::kTextureCube:
+      return 6u;
+    case TextureType::kTextureExternalOES:
+      VALIDATION_LOG
+          << "kTextureExternalOES can not be used with the Vulkan backend.";
+  }
+  FML_UNREACHABLE();
+  return 1u;
+}
+
+constexpr vk::ImageViewType ToVKImageViewType(TextureType type) {
+  switch (type) {
+    case TextureType::kTexture2D:
+    case TextureType::kTexture2DMultisample:
+      return vk::ImageViewType::e2D;
+    case TextureType::kTextureCube:
+      return vk::ImageViewType::eCube;
+    case TextureType::kTextureExternalOES:
+      VALIDATION_LOG
+          << "kTextureExternalOES can not be used with the Vulkan backend.";
+  }
+  FML_UNREACHABLE();
+  return vk::ImageViewType::e2D;
+}
+
+constexpr vk::ImageCreateFlags ToVKImageCreateFlags(TextureType type) {
+  switch (type) {
+    case TextureType::kTexture2D:
+    case TextureType::kTexture2DMultisample:
+      return {};
+    case TextureType::kTextureCube:
+      return vk::ImageCreateFlagBits::eCubeCompatible;
+    case TextureType::kTextureExternalOES:
+      VALIDATION_LOG
+          << "kTextureExternalOES can not be used with the Vulkan backend.";
+  }
+  FML_UNREACHABLE();
+  return {};
+}
+
+vk::PipelineDepthStencilStateCreateInfo ToVKPipelineDepthStencilStateCreateInfo(
+    std::optional<DepthAttachmentDescriptor> depth,
+    std::optional<StencilAttachmentDescriptor> front,
+    std::optional<StencilAttachmentDescriptor> back);
+
+constexpr vk::ImageAspectFlags ToImageAspectFlags(PixelFormat format) {
+  switch (format) {
+    case PixelFormat::kUnknown:
+      return {};
+    case PixelFormat::kA8UNormInt:
+    case PixelFormat::kR8UNormInt:
+    case PixelFormat::kR8G8UNormInt:
+    case PixelFormat::kR8G8B8A8UNormInt:
+    case PixelFormat::kR8G8B8A8UNormIntSRGB:
+    case PixelFormat::kB8G8R8A8UNormInt:
+    case PixelFormat::kB8G8R8A8UNormIntSRGB:
+    case PixelFormat::kR32G32B32A32Float:
+    case PixelFormat::kR16G16B16A16Float:
+    case PixelFormat::kB10G10R10XR:
+    case PixelFormat::kB10G10R10XRSRGB:
+    case PixelFormat::kB10G10R10A10XR:
+      return vk::ImageAspectFlagBits::eColor;
+    case PixelFormat::kS8UInt:
+      return vk::ImageAspectFlagBits::eStencil;
+    case PixelFormat::kD24UnormS8Uint:
+    case PixelFormat::kD32FloatS8UInt:
+      return vk::ImageAspectFlagBits::eDepth |
+             vk::ImageAspectFlagBits::eStencil;
+  }
+  FML_UNREACHABLE();
+  return {};
 }
 
 }  // namespace impeller
+
+#endif  // FLUTTER_IMPELLER_RENDERER_BACKEND_VULKAN_FORMATS_VK_H_

@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#ifndef FLUTTER_SHELL_PLATFORM_ANDROID_ANDROID_CONTEXT_GL_SKIA_H_
-#define FLUTTER_SHELL_PLATFORM_ANDROID_ANDROID_CONTEXT_GL_SKIA_H_
+#ifndef FLUTTER_SHELL_PLATFORM_OHOS_OHOS_CONTEXT_GL_SKIA_H_
+#define FLUTTER_SHELL_PLATFORM_OHOS_OHOS_CONTEXT_GL_SKIA_H_
 
 #include "flutter/fml/macros.h"
 #include "flutter/fml/memory/ref_counted.h"
@@ -112,4 +112,4 @@ class OhosContextGLSkia : public OHOSContext {
 
 }  // namespace flutter
 
-#endif  // FLUTTER_SHELL_PLATFORM_ANDROID_ANDROID_CONTEXT_GL_SKIA_H_
+#endif  // FLUTTER_SHELL_PLATFORM_OHOS_OHOS_CONTEXT_GL_SKIA_H_

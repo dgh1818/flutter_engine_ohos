@@ -28,6 +28,11 @@ class TestWindowsApi : public testing::StubFlutterWindowsApi {
   void ViewControllerDestroy() override { view_controller_destroyed_ = true; }
 
   // |flutter::testing::StubFlutterWindowsApi|
+  void ViewControllerForceRedraw() override {
+    view_controller_force_redrawed_ = true;
+  }
+
+  // |flutter::testing::StubFlutterWindowsApi|
   FlutterDesktopEngineRef EngineCreate(
       const FlutterDesktopEngineProperties& engine_properties) override {
     return reinterpret_cast<FlutterDesktopEngineRef>(1);
@@ -41,10 +46,14 @@ class TestWindowsApi : public testing::StubFlutterWindowsApi {
 
   bool engine_destroyed() { return engine_destroyed_; }
   bool view_controller_destroyed() { return view_controller_destroyed_; }
+  bool view_controller_force_redrawed() {
+    return view_controller_force_redrawed_;
+  }
 
  private:
   bool engine_destroyed_ = false;
   bool view_controller_destroyed_ = false;
+  bool view_controller_force_redrawed_ = false;
 };
 
 }  // namespace
@@ -59,6 +68,15 @@ TEST(FlutterViewControllerTest, CreateDestroy) {
   // Per the C API, once a view controller has taken ownership of an engine
   // the engine destruction method should not be called.
   EXPECT_FALSE(test_api->engine_destroyed());
+}
+
+TEST(FlutterViewControllerTest, GetViewId) {
+  DartProject project(L"data");
+  testing::ScopedStubFlutterWindowsApi scoped_api_stub(
+      std::make_unique<TestWindowsApi>());
+  auto test_api = static_cast<TestWindowsApi*>(scoped_api_stub.stub());
+  FlutterViewController controller(100, 100, project);
+  EXPECT_EQ(controller.view_id(), 1);
 }
 
 TEST(FlutterViewControllerTest, GetEngine) {
@@ -77,6 +95,17 @@ TEST(FlutterViewControllerTest, GetView) {
   auto test_api = static_cast<TestWindowsApi*>(scoped_api_stub.stub());
   FlutterViewController controller(100, 100, project);
   EXPECT_NE(controller.view(), nullptr);
+}
+
+TEST(FlutterViewControllerTest, ForceRedraw) {
+  DartProject project(L"data");
+  testing::ScopedStubFlutterWindowsApi scoped_api_stub(
+      std::make_unique<TestWindowsApi>());
+  auto test_api = static_cast<TestWindowsApi*>(scoped_api_stub.stub());
+  FlutterViewController controller(100, 100, project);
+
+  controller.ForceRedraw();
+  EXPECT_TRUE(test_api->view_controller_force_redrawed());
 }
 
 }  // namespace flutter

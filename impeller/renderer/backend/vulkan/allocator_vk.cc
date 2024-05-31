@@ -7,72 +7,140 @@
 #include <memory>
 
 #include "flutter/fml/memory/ref_ptr.h"
-#include "flutter/vulkan/procs/vulkan_handle.h"
-#include "flutter/vulkan/procs/vulkan_proc_table.h"
+#include "flutter/fml/trace_event.h"
+#include "impeller/core/formats.h"
 #include "impeller/renderer/backend/vulkan/device_buffer_vk.h"
 #include "impeller/renderer/backend/vulkan/formats_vk.h"
 #include "impeller/renderer/backend/vulkan/texture_vk.h"
-#include "impeller/renderer/formats.h"
+#include "vulkan/vulkan_enums.hpp"
 
 namespace impeller {
 
-AllocatorVK::AllocatorVK(ContextVK& context,
+static constexpr vk::Flags<vk::MemoryPropertyFlagBits>
+ToVKBufferMemoryPropertyFlags(StorageMode mode) {
+  switch (mode) {
+    case StorageMode::kHostVisible:
+      return vk::MemoryPropertyFlagBits::eHostVisible;
+    case StorageMode::kDevicePrivate:
+      return vk::MemoryPropertyFlagBits::eDeviceLocal;
+    case StorageMode::kDeviceTransient:
+      return vk::MemoryPropertyFlagBits::eLazilyAllocated;
+  }
+  FML_UNREACHABLE();
+}
+
+static VmaAllocationCreateFlags ToVmaAllocationBufferCreateFlags(
+    StorageMode mode,
+    bool readback) {
+  VmaAllocationCreateFlags flags = 0;
+  switch (mode) {
+    case StorageMode::kHostVisible:
+      if (!readback) {
+        flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+      } else {
+        flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+      }
+      flags |= VMA_ALLOCATION_CREATE_MAPPED_BIT;
+      return flags;
+    case StorageMode::kDevicePrivate:
+      FML_DCHECK(!readback);
+      return flags;
+    case StorageMode::kDeviceTransient:
+      FML_DCHECK(!readback);
+      return flags;
+  }
+  FML_UNREACHABLE();
+}
+
+static PoolVMA CreateBufferPool(VmaAllocator allocator) {
+  vk::BufferCreateInfo buffer_info;
+  buffer_info.usage = vk::BufferUsageFlagBits::eVertexBuffer |
+                      vk::BufferUsageFlagBits::eIndexBuffer |
+                      vk::BufferUsageFlagBits::eUniformBuffer |
+                      vk::BufferUsageFlagBits::eStorageBuffer |
+                      vk::BufferUsageFlagBits::eTransferSrc |
+                      vk::BufferUsageFlagBits::eTransferDst;
+  buffer_info.size = 1u;  // doesn't matter
+  buffer_info.sharingMode = vk::SharingMode::eExclusive;
+  auto buffer_info_native =
+      static_cast<vk::BufferCreateInfo::NativeType>(buffer_info);
+
+  VmaAllocationCreateInfo allocation_info = {};
+  allocation_info.usage = VMA_MEMORY_USAGE_AUTO;
+  allocation_info.preferredFlags = static_cast<VkMemoryPropertyFlags>(
+      ToVKBufferMemoryPropertyFlags(StorageMode::kHostVisible));
+  allocation_info.flags = ToVmaAllocationBufferCreateFlags(
+      StorageMode::kHostVisible, /*readback=*/false);
+
+  uint32_t memTypeIndex;
+  auto result = vk::Result{vmaFindMemoryTypeIndexForBufferInfo(
+      allocator, &buffer_info_native, &allocation_info, &memTypeIndex)};
+  if (result != vk::Result::eSuccess) {
+    return {};
+  }
+
+  VmaPoolCreateInfo pool_create_info = {};
+  pool_create_info.memoryTypeIndex = memTypeIndex;
+  pool_create_info.flags = VMA_POOL_CREATE_IGNORE_BUFFER_IMAGE_GRANULARITY_BIT;
+
+  VmaPool pool = {};
+  result = vk::Result{::vmaCreatePool(allocator, &pool_create_info, &pool)};
+  if (result != vk::Result::eSuccess) {
+    return {};
+  }
+  return {allocator, pool};
+}
+
+AllocatorVK::AllocatorVK(std::weak_ptr<Context> context,
                          uint32_t vulkan_api_version,
                          const vk::PhysicalDevice& physical_device,
-                         const vk::Device& logical_device,
+                         const std::shared_ptr<DeviceHolderVK>& device_holder,
                          const vk::Instance& instance,
-                         PFN_vkGetInstanceProcAddr get_instance_proc_address,
-                         PFN_vkGetDeviceProcAddr get_device_proc_address)
-    : context_(context), device_(logical_device) {
-  vk_ = fml::MakeRefCounted<vulkan::VulkanProcTable>(get_instance_proc_address);
-
-  auto instance_handle = vulkan::VulkanHandle<VkInstance>(instance);
-  FML_CHECK(vk_->SetupInstanceProcAddresses(instance_handle));
-
-  auto device_handle = vulkan::VulkanHandle<VkDevice>(logical_device);
-  FML_CHECK(vk_->SetupDeviceProcAddresses(device_handle));
+                         const CapabilitiesVK& capabilities)
+    : context_(std::move(context)), device_holder_(device_holder) {
+  auto limits = physical_device.getProperties().limits;
+  max_texture_size_.width = max_texture_size_.height =
+      limits.maxImageDimension2D;
+  physical_device.getMemoryProperties(&memory_properties_);
 
   VmaVulkanFunctions proc_table = {};
-  proc_table.vkGetInstanceProcAddr = get_instance_proc_address;
-  proc_table.vkGetDeviceProcAddr = get_device_proc_address;
 
-#define PROVIDE_PROC(tbl, proc, provider) tbl.vk##proc = provider->proc;
-  PROVIDE_PROC(proc_table, GetPhysicalDeviceProperties, vk_);
-  PROVIDE_PROC(proc_table, GetPhysicalDeviceMemoryProperties, vk_);
-  PROVIDE_PROC(proc_table, AllocateMemory, vk_);
-  PROVIDE_PROC(proc_table, FreeMemory, vk_);
-  PROVIDE_PROC(proc_table, MapMemory, vk_);
-  PROVIDE_PROC(proc_table, UnmapMemory, vk_);
-  PROVIDE_PROC(proc_table, FlushMappedMemoryRanges, vk_);
-  PROVIDE_PROC(proc_table, InvalidateMappedMemoryRanges, vk_);
-  PROVIDE_PROC(proc_table, BindBufferMemory, vk_);
-  PROVIDE_PROC(proc_table, BindImageMemory, vk_);
-  PROVIDE_PROC(proc_table, GetBufferMemoryRequirements, vk_);
-  PROVIDE_PROC(proc_table, GetImageMemoryRequirements, vk_);
-  PROVIDE_PROC(proc_table, CreateBuffer, vk_);
-  PROVIDE_PROC(proc_table, DestroyBuffer, vk_);
-  PROVIDE_PROC(proc_table, CreateImage, vk_);
-  PROVIDE_PROC(proc_table, DestroyImage, vk_);
-  PROVIDE_PROC(proc_table, CmdCopyBuffer, vk_);
-
-#define PROVIDE_PROC_COALESCE(tbl, proc, provider) \
-  tbl.vk##proc##KHR = provider->proc ? provider->proc : provider->proc##KHR;
-  // See the following link for why we have to pick either KHR version or
-  // promoted non-KHR version:
-  // https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator/issues/203
-  PROVIDE_PROC_COALESCE(proc_table, GetBufferMemoryRequirements2, vk_);
-  PROVIDE_PROC_COALESCE(proc_table, GetImageMemoryRequirements2, vk_);
-  PROVIDE_PROC_COALESCE(proc_table, BindBufferMemory2, vk_);
-  PROVIDE_PROC_COALESCE(proc_table, BindImageMemory2, vk_);
-  PROVIDE_PROC_COALESCE(proc_table, GetPhysicalDeviceMemoryProperties2, vk_);
-#undef PROVIDE_PROC_COALESCE
-
-#undef PROVIDE_PROC
+#define BIND_VMA_PROC(x) proc_table.x = VULKAN_HPP_DEFAULT_DISPATCHER.x;
+#define BIND_VMA_PROC_KHR(x)                                \
+  proc_table.x##KHR = VULKAN_HPP_DEFAULT_DISPATCHER.x       \
+                          ? VULKAN_HPP_DEFAULT_DISPATCHER.x \
+                          : VULKAN_HPP_DEFAULT_DISPATCHER.x##KHR;
+  BIND_VMA_PROC(vkGetInstanceProcAddr);
+  BIND_VMA_PROC(vkGetDeviceProcAddr);
+  BIND_VMA_PROC(vkGetPhysicalDeviceProperties);
+  BIND_VMA_PROC(vkGetPhysicalDeviceMemoryProperties);
+  BIND_VMA_PROC(vkAllocateMemory);
+  BIND_VMA_PROC(vkFreeMemory);
+  BIND_VMA_PROC(vkMapMemory);
+  BIND_VMA_PROC(vkUnmapMemory);
+  BIND_VMA_PROC(vkFlushMappedMemoryRanges);
+  BIND_VMA_PROC(vkInvalidateMappedMemoryRanges);
+  BIND_VMA_PROC(vkBindBufferMemory);
+  BIND_VMA_PROC(vkBindImageMemory);
+  BIND_VMA_PROC(vkGetBufferMemoryRequirements);
+  BIND_VMA_PROC(vkGetImageMemoryRequirements);
+  BIND_VMA_PROC(vkCreateBuffer);
+  BIND_VMA_PROC(vkDestroyBuffer);
+  BIND_VMA_PROC(vkCreateImage);
+  BIND_VMA_PROC(vkDestroyImage);
+  BIND_VMA_PROC(vkCmdCopyBuffer);
+  BIND_VMA_PROC_KHR(vkGetBufferMemoryRequirements2);
+  BIND_VMA_PROC_KHR(vkGetImageMemoryRequirements2);
+  BIND_VMA_PROC_KHR(vkBindBufferMemory2);
+  BIND_VMA_PROC_KHR(vkBindImageMemory2);
+  BIND_VMA_PROC_KHR(vkGetPhysicalDeviceMemoryProperties2);
+#undef BIND_VMA_PROC_KHR
+#undef BIND_VMA_PROC
 
   VmaAllocatorCreateInfo allocator_info = {};
   allocator_info.vulkanApiVersion = vulkan_api_version;
   allocator_info.physicalDevice = physical_device;
-  allocator_info.device = logical_device;
+  allocator_info.device = device_holder->GetDevice();
   allocator_info.instance = instance;
   allocator_info.pVulkanFunctions = &proc_table;
 
@@ -82,15 +150,15 @@ AllocatorVK::AllocatorVK(ContextVK& context,
     VALIDATION_LOG << "Could not create memory allocator";
     return;
   }
-  allocator_ = allocator;
+  staging_buffer_pool_.reset(CreateBufferPool(allocator));
+  created_buffer_pool_ &= staging_buffer_pool_.is_valid();
+  allocator_.reset(allocator);
+  supports_memoryless_textures_ =
+      capabilities.SupportsDeviceTransientTextures();
   is_valid_ = true;
 }
 
-AllocatorVK::~AllocatorVK() {
-  if (allocator_) {
-    ::vmaDestroyAllocator(allocator_);
-  }
-}
+AllocatorVK::~AllocatorVK() = default;
 
 // |Allocator|
 bool AllocatorVK::IsValid() const {
@@ -98,128 +166,332 @@ bool AllocatorVK::IsValid() const {
 }
 
 // |Allocator|
+ISize AllocatorVK::GetMaxTextureSizeSupported() const {
+  return max_texture_size_;
+}
+
+int32_t AllocatorVK::FindMemoryTypeIndex(
+    uint32_t memory_type_bits_requirement,
+    vk::PhysicalDeviceMemoryProperties& memory_properties) {
+  int32_t type_index = -1;
+  vk::MemoryPropertyFlagBits required_properties =
+      vk::MemoryPropertyFlagBits::eDeviceLocal;
+
+  const uint32_t memory_count = memory_properties.memoryTypeCount;
+  for (uint32_t memory_index = 0; memory_index < memory_count; ++memory_index) {
+    const uint32_t memory_type_bits = (1 << memory_index);
+    const bool is_required_memory_type =
+        memory_type_bits_requirement & memory_type_bits;
+
+    const auto properties =
+        memory_properties.memoryTypes[memory_index].propertyFlags;
+    const bool has_required_properties =
+        (properties & required_properties) == required_properties;
+
+    if (is_required_memory_type && has_required_properties) {
+      return static_cast<int32_t>(memory_index);
+    }
+  }
+
+  return type_index;
+}
+
+vk::ImageUsageFlags AllocatorVK::ToVKImageUsageFlags(
+    PixelFormat format,
+    TextureUsageMask usage,
+    StorageMode mode,
+    bool supports_memoryless_textures) {
+  vk::ImageUsageFlags vk_usage;
+
+  switch (mode) {
+    case StorageMode::kHostVisible:
+    case StorageMode::kDevicePrivate:
+      break;
+    case StorageMode::kDeviceTransient:
+      if (supports_memoryless_textures) {
+        vk_usage |= vk::ImageUsageFlagBits::eTransientAttachment;
+      }
+      break;
+  }
+
+  if (usage & TextureUsage::kRenderTarget) {
+    if (PixelFormatIsDepthStencil(format)) {
+      vk_usage |= vk::ImageUsageFlagBits::eDepthStencilAttachment;
+    } else {
+      vk_usage |= vk::ImageUsageFlagBits::eColorAttachment;
+      vk_usage |= vk::ImageUsageFlagBits::eInputAttachment;
+    }
+  }
+
+  if (usage & TextureUsage::kShaderRead) {
+    vk_usage |= vk::ImageUsageFlagBits::eSampled;
+  }
+
+  if (usage & TextureUsage::kShaderWrite) {
+    vk_usage |= vk::ImageUsageFlagBits::eStorage;
+  }
+
+  if (mode != StorageMode::kDeviceTransient) {
+    // Add transfer usage flags to support blit passes only if image isn't
+    // device transient.
+    vk_usage |= vk::ImageUsageFlagBits::eTransferSrc |
+                vk::ImageUsageFlagBits::eTransferDst;
+  }
+
+  return vk_usage;
+}
+
+static constexpr VmaMemoryUsage ToVMAMemoryUsage() {
+  return VMA_MEMORY_USAGE_AUTO;
+}
+
+static constexpr vk::Flags<vk::MemoryPropertyFlagBits>
+ToVKTextureMemoryPropertyFlags(StorageMode mode,
+                               bool supports_memoryless_textures) {
+  switch (mode) {
+    case StorageMode::kHostVisible:
+      return vk::MemoryPropertyFlagBits::eHostVisible |
+             vk::MemoryPropertyFlagBits::eDeviceLocal;
+    case StorageMode::kDevicePrivate:
+      return vk::MemoryPropertyFlagBits::eDeviceLocal;
+    case StorageMode::kDeviceTransient:
+      if (supports_memoryless_textures) {
+        return vk::MemoryPropertyFlagBits::eLazilyAllocated |
+               vk::MemoryPropertyFlagBits::eDeviceLocal;
+      }
+      return vk::MemoryPropertyFlagBits::eDeviceLocal;
+  }
+  FML_UNREACHABLE();
+}
+
+static VmaAllocationCreateFlags ToVmaAllocationCreateFlags(StorageMode mode) {
+  VmaAllocationCreateFlags flags = 0;
+  switch (mode) {
+    case StorageMode::kHostVisible:
+      return flags;
+    case StorageMode::kDevicePrivate:
+      return flags;
+    case StorageMode::kDeviceTransient:
+      return flags;
+  }
+  FML_UNREACHABLE();
+}
+
+class AllocatedTextureSourceVK final : public TextureSourceVK {
+ public:
+  AllocatedTextureSourceVK(std::weak_ptr<ResourceManagerVK> resource_manager,
+                           const TextureDescriptor& desc,
+                           VmaAllocator allocator,
+                           vk::Device device,
+                           bool supports_memoryless_textures)
+      : TextureSourceVK(desc), resource_(std::move(resource_manager)) {
+    FML_DCHECK(desc.format != PixelFormat::kUnknown);
+    vk::ImageCreateInfo image_info;
+    image_info.flags = ToVKImageCreateFlags(desc.type);
+    image_info.imageType = vk::ImageType::e2D;
+    image_info.format = ToVKImageFormat(desc.format);
+    image_info.extent = VkExtent3D{
+        static_cast<uint32_t>(desc.size.width),   // width
+        static_cast<uint32_t>(desc.size.height),  // height
+        1u                                        // depth
+    };
+    image_info.samples = ToVKSampleCount(desc.sample_count);
+    image_info.mipLevels = desc.mip_count;
+    image_info.arrayLayers = ToArrayLayerCount(desc.type);
+    image_info.tiling = vk::ImageTiling::eOptimal;
+    image_info.initialLayout = vk::ImageLayout::eUndefined;
+    image_info.usage = AllocatorVK::ToVKImageUsageFlags(
+        desc.format, desc.usage, desc.storage_mode,
+        supports_memoryless_textures);
+    image_info.sharingMode = vk::SharingMode::eExclusive;
+
+    VmaAllocationCreateInfo alloc_nfo = {};
+
+    alloc_nfo.usage = ToVMAMemoryUsage();
+    alloc_nfo.preferredFlags =
+        static_cast<VkMemoryPropertyFlags>(ToVKTextureMemoryPropertyFlags(
+            desc.storage_mode, supports_memoryless_textures));
+    alloc_nfo.flags = ToVmaAllocationCreateFlags(desc.storage_mode);
+
+    auto create_info_native =
+        static_cast<vk::ImageCreateInfo::NativeType>(image_info);
+
+    VkImage vk_image = VK_NULL_HANDLE;
+    VmaAllocation allocation = {};
+    VmaAllocationInfo allocation_info = {};
+    {
+      auto result = vk::Result{::vmaCreateImage(allocator,            //
+                                                &create_info_native,  //
+                                                &alloc_nfo,           //
+                                                &vk_image,            //
+                                                &allocation,          //
+                                                &allocation_info      //
+                                                )};
+      if (result != vk::Result::eSuccess) {
+        VALIDATION_LOG << "Unable to allocate Vulkan Image: "
+                       << vk::to_string(result)
+                       << " Type: " << TextureTypeToString(desc.type)
+                       << " Mode: " << StorageModeToString(desc.storage_mode)
+                       << " Usage: " << TextureUsageMaskToString(desc.usage)
+                       << " [VK]Flags: " << vk::to_string(image_info.flags)
+                       << " [VK]Format: " << vk::to_string(image_info.format)
+                       << " [VK]Usage: " << vk::to_string(image_info.usage)
+                       << " [VK]Mem. Flags: "
+                       << vk::to_string(vk::MemoryPropertyFlags(
+                              alloc_nfo.preferredFlags));
+        return;
+      }
+    }
+
+    auto image = vk::Image{vk_image};
+
+    vk::ImageViewCreateInfo view_info = {};
+    view_info.image = image;
+    view_info.viewType = ToVKImageViewType(desc.type);
+    view_info.format = image_info.format;
+    view_info.subresourceRange.aspectMask = ToVKImageAspectFlags(desc.format);
+    view_info.subresourceRange.levelCount = image_info.mipLevels;
+    view_info.subresourceRange.layerCount = ToArrayLayerCount(desc.type);
+
+    // Vulkan does not have an image format that is equivalent to
+    // `MTLPixelFormatA8Unorm`, so we use `R8Unorm` instead. Given that the
+    // shaders expect that alpha channel to be set in the cases, we swizzle.
+    // See: https://github.com/flutter/flutter/issues/115461 for more details.
+    if (desc.format == PixelFormat::kA8UNormInt) {
+      view_info.components.a = vk::ComponentSwizzle::eR;
+      view_info.components.r = vk::ComponentSwizzle::eA;
+    }
+
+    auto [result, image_view] = device.createImageViewUnique(view_info);
+    if (result != vk::Result::eSuccess) {
+      VALIDATION_LOG << "Unable to create an image view for allocation: "
+                     << vk::to_string(result);
+      return;
+    }
+    // Create a specialized view for render target attachments.
+    view_info.subresourceRange.levelCount = 1u;
+    auto [rt_result, rt_image_view] = device.createImageViewUnique(view_info);
+    if (rt_result != vk::Result::eSuccess) {
+      VALIDATION_LOG << "Unable to create an image view for allocation: "
+                     << vk::to_string(rt_result);
+      return;
+    }
+
+    resource_.Swap(ImageResource(ImageVMA{allocator, allocation, image},
+                                 std::move(image_view),
+                                 std::move(rt_image_view)));
+    is_valid_ = true;
+  }
+
+  ~AllocatedTextureSourceVK() = default;
+
+  bool IsValid() const { return is_valid_; }
+
+  vk::Image GetImage() const override { return resource_->image.get().image; }
+
+  vk::ImageView GetImageView() const override {
+    return resource_->image_view.get();
+  }
+
+  vk::ImageView GetRenderTargetView() const override {
+    return resource_->rt_image_view.get();
+  }
+
+  bool IsSwapchainImage() const override { return false; }
+
+ private:
+  struct ImageResource {
+    UniqueImageVMA image;
+    vk::UniqueImageView image_view;
+    vk::UniqueImageView rt_image_view;
+
+    ImageResource() = default;
+
+    ImageResource(ImageVMA p_image,
+                  vk::UniqueImageView p_image_view,
+                  vk::UniqueImageView p_rt_image_view)
+        : image(p_image),
+          image_view(std::move(p_image_view)),
+          rt_image_view(std::move(p_rt_image_view)) {}
+
+    ImageResource(ImageResource&& o) = default;
+
+    ImageResource(const ImageResource&) = delete;
+
+    ImageResource& operator=(const ImageResource&) = delete;
+  };
+
+  UniqueResourceVKT<ImageResource> resource_;
+  bool is_valid_ = false;
+
+  AllocatedTextureSourceVK(const AllocatedTextureSourceVK&) = delete;
+
+  AllocatedTextureSourceVK& operator=(const AllocatedTextureSourceVK&) = delete;
+};
+
+// |Allocator|
 std::shared_ptr<Texture> AllocatorVK::OnCreateTexture(
     const TextureDescriptor& desc) {
-  auto image_create_info = vk::ImageCreateInfo{};
-  image_create_info.imageType = vk::ImageType::e2D;
-  image_create_info.format = ToVKImageFormat(desc.format);
-  image_create_info.extent.width = desc.size.width;
-  image_create_info.extent.height = desc.size.height;
-  image_create_info.samples = ToVKSampleCount(desc.sample_count);
-  image_create_info.mipLevels = desc.mip_count;
-
-  // TODO (kaushikiska): should we read these from desc?
-  image_create_info.extent.depth = 1;
-  image_create_info.arrayLayers = 1;
-
-  image_create_info.tiling = vk::ImageTiling::eOptimal;
-  image_create_info.initialLayout = vk::ImageLayout::eUndefined;
-  image_create_info.usage = vk::ImageUsageFlagBits::eSampled |
-                            vk::ImageUsageFlagBits::eColorAttachment |
-                            vk::ImageUsageFlagBits::eTransferDst;
-
-  VmaAllocationCreateInfo alloc_create_info = {};
-  alloc_create_info.usage = VMA_MEMORY_USAGE_AUTO;
-  // docs recommend using `VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT` for image
-  // allocations, but setting them to be host visible for now.
-  alloc_create_info.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT |
-                            VMA_ALLOCATION_CREATE_MAPPED_BIT;
-
-  auto create_info_native =
-      static_cast<vk::ImageCreateInfo::NativeType>(image_create_info);
-
-  VkImage img;
-  VmaAllocation allocation;
-  VmaAllocationInfo allocation_info;
-  auto result = vk::Result{vmaCreateImage(allocator_, &create_info_native,
-                                          &alloc_create_info, &img, &allocation,
-                                          &allocation_info)};
-  if (result != vk::Result::eSuccess) {
-    VALIDATION_LOG << "Unable to allocate an image";
+  if (!IsValid()) {
     return nullptr;
   }
-
-  vk::ImageViewCreateInfo view_create_info = {};
-  view_create_info.image = vk::Image{img};
-  view_create_info.viewType = vk::ImageViewType::e2D;
-  view_create_info.format = image_create_info.format;
-  view_create_info.subresourceRange.aspectMask =
-      vk::ImageAspectFlagBits::eColor;
-  view_create_info.subresourceRange.levelCount = image_create_info.mipLevels;
-  view_create_info.subresourceRange.layerCount = image_create_info.arrayLayers;
-
-  // Vulkan does not have an image format that is equivalent to
-  // `MTLPixelFormatA8Unorm`, so we use `R8Unorm` instead. Given that the
-  // shaders expect that alpha channel to be set in the cases, we swizzle.
-  // See: https://github.com/flutter/flutter/issues/115461 for more details.
-  if (desc.format == PixelFormat::kA8UNormInt) {
-    view_create_info.components.a = vk::ComponentSwizzle::eR;
-    view_create_info.components.r = vk::ComponentSwizzle::eA;
-  }
-
-  auto img_view_res = device_.createImageView(view_create_info);
-  if (img_view_res.result != vk::Result::eSuccess) {
-    VALIDATION_LOG << "Unable to create an image view: "
-                   << vk::to_string(img_view_res.result);
+  auto device_holder = device_holder_.lock();
+  if (!device_holder) {
     return nullptr;
   }
-
-  auto image_view = static_cast<vk::ImageView::NativeType>(img_view_res.value);
-  auto staging_buffer =
-      CreateHostVisibleDeviceAllocation(desc.GetByteSizeOfBaseMipLevel());
-
-  auto texture_info = std::make_unique<TextureInfoVK>(TextureInfoVK{
-      .backing_type = TextureBackingTypeVK::kAllocatedTexture,
-      .allocated_texture =
-          {
-              .staging_buffer = staging_buffer,
-              .backing_allocation =
-                  {
-                      .allocator = &allocator_,
-                      .allocation = allocation,
-                      .allocation_info = allocation_info,
-                  },
-              .image = img,
-              .image_view = image_view,
-          },
-  });
-  return std::make_shared<TextureVK>(desc, &context_, std::move(texture_info));
+  auto context = context_.lock();
+  if (!context) {
+    return nullptr;
+  }
+  auto source = std::make_shared<AllocatedTextureSourceVK>(
+      ContextVK::Cast(*context).GetResourceManager(),  //
+      desc,                                            //
+      allocator_.get(),                                //
+      device_holder->GetDevice(),                      //
+      supports_memoryless_textures_                    //
+  );
+  if (!source->IsValid()) {
+    return nullptr;
+  }
+  return std::make_shared<TextureVK>(context_, std::move(source));
 }
 
 // |Allocator|
 std::shared_ptr<DeviceBuffer> AllocatorVK::OnCreateBuffer(
     const DeviceBufferDescriptor& desc) {
-  // TODO (kaushikiska): consider optimizing  the usage flags based on
-  // StorageMode.
-  auto device_allocation = std::make_unique<DeviceBufferAllocationVK>(
-      CreateHostVisibleDeviceAllocation(desc.size));
-  return std::make_shared<DeviceBufferVK>(desc, context_,
-                                          std::move(device_allocation));
-}
+  vk::BufferCreateInfo buffer_info;
+  buffer_info.usage = vk::BufferUsageFlagBits::eVertexBuffer |
+                      vk::BufferUsageFlagBits::eIndexBuffer |
+                      vk::BufferUsageFlagBits::eUniformBuffer |
+                      vk::BufferUsageFlagBits::eStorageBuffer |
+                      vk::BufferUsageFlagBits::eTransferSrc |
+                      vk::BufferUsageFlagBits::eTransferDst;
+  buffer_info.size = desc.size;
+  buffer_info.sharingMode = vk::SharingMode::eExclusive;
+  auto buffer_info_native =
+      static_cast<vk::BufferCreateInfo::NativeType>(buffer_info);
 
-DeviceBufferAllocationVK AllocatorVK::CreateHostVisibleDeviceAllocation(
-    size_t size) {
-  auto buffer_create_info = static_cast<vk::BufferCreateInfo::NativeType>(
-      vk::BufferCreateInfo()
-          .setUsage(vk::BufferUsageFlagBits::eVertexBuffer |
-                    vk::BufferUsageFlagBits::eIndexBuffer |
-                    vk::BufferUsageFlagBits::eUniformBuffer |
-                    vk::BufferUsageFlagBits::eTransferSrc |
-                    vk::BufferUsageFlagBits::eTransferDst)
-          .setSize(size)
-          .setSharingMode(vk::SharingMode::eExclusive));
+  VmaAllocationCreateInfo allocation_info = {};
+  allocation_info.usage = ToVMAMemoryUsage();
+  allocation_info.preferredFlags = static_cast<VkMemoryPropertyFlags>(
+      ToVKBufferMemoryPropertyFlags(desc.storage_mode));
+  allocation_info.flags =
+      ToVmaAllocationBufferCreateFlags(desc.storage_mode, desc.readback);
+  if (created_buffer_pool_ && desc.storage_mode == StorageMode::kHostVisible &&
+      !desc.readback) {
+    allocation_info.pool = staging_buffer_pool_.get().pool;
+  }
 
-  VmaAllocationCreateInfo allocCreateInfo = {};
-  allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
-  allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT |
-                          VMA_ALLOCATION_CREATE_MAPPED_BIT;
-
-  VkBuffer buffer;
-  VmaAllocation buffer_allocation;
-  VmaAllocationInfo buffer_allocation_info;
-  auto result = vk::Result{
-      vmaCreateBuffer(allocator_, &buffer_create_info, &allocCreateInfo,
-                      &buffer, &buffer_allocation, &buffer_allocation_info)};
+  VkBuffer buffer = {};
+  VmaAllocation buffer_allocation = {};
+  VmaAllocationInfo buffer_allocation_info = {};
+  auto result = vk::Result{::vmaCreateBuffer(allocator_.get(),        //
+                                             &buffer_info_native,     //
+                                             &allocation_info,        //
+                                             &buffer,                 //
+                                             &buffer_allocation,      //
+                                             &buffer_allocation_info  //
+                                             )};
 
   if (result != vk::Result::eSuccess) {
     VALIDATION_LOG << "Unable to allocate a device buffer: "
@@ -227,30 +499,36 @@ DeviceBufferAllocationVK AllocatorVK::CreateHostVisibleDeviceAllocation(
     return {};
   }
 
-  VkMemoryPropertyFlags memory_props;
-  vmaGetAllocationMemoryProperties(allocator_, buffer_allocation,
-                                   &memory_props);
-  if (!(memory_props & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)) {
-    VALIDATION_LOG << "Unable to create host visible device buffer.";
-  }
-
-  return DeviceBufferAllocationVK{
-      .buffer = vk::Buffer{buffer},
-      .backing_allocation =
-          {
-              .allocator = &allocator_,
-              .allocation = buffer_allocation,
-              .allocation_info = buffer_allocation_info,
-          },
-  };
+  return std::make_shared<DeviceBufferVK>(
+      desc,                                            //
+      context_,                                        //
+      UniqueBufferVMA{BufferVMA{allocator_.get(),      //
+                                buffer_allocation,     //
+                                vk::Buffer{buffer}}},  //
+      buffer_allocation_info                           //
+  );
 }
 
-// |Allocator|
-ISize AllocatorVK::GetMaxTextureSizeSupported() const {
-  // TODO(magicianA): Get correct max texture size for Vulkan.
-  // 4096 is the required limit, see below:
-  // https://registry.khronos.org/vulkan/specs/1.2-extensions/html/vkspec.html#limits-minmax
-  return {4096, 4096};
+size_t AllocatorVK::DebugGetHeapUsage() const {
+  auto count = memory_properties_.memoryHeapCount;
+  std::vector<VmaBudget> budgets(count);
+  vmaGetHeapBudgets(allocator_.get(), budgets.data());
+  size_t total_usage = 0;
+  for (auto i = 0u; i < count; i++) {
+    const VmaBudget& budget = budgets[i];
+    total_usage += budget.usage;
+  }
+  // Convert bytes to MB.
+  total_usage *= 1e-6;
+  return total_usage;
+}
+
+void AllocatorVK::DebugTraceMemoryStatistics() const {
+#ifdef IMPELLER_DEBUG
+  FML_TRACE_COUNTER("flutter", "AllocatorVK",
+                    reinterpret_cast<int64_t>(this),  // Trace Counter ID
+                    "MemoryBudgetUsageMB", DebugGetHeapUsage());
+#endif  // IMPELLER_DEBUG
 }
 
 }  // namespace impeller

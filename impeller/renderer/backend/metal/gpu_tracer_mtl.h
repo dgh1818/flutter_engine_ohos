@@ -2,39 +2,50 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_IMPELLER_RENDERER_BACKEND_METAL_GPU_TRACER_MTL_H_
+#define FLUTTER_IMPELLER_RENDERER_BACKEND_METAL_GPU_TRACER_MTL_H_
 
 #include <Metal/Metal.h>
 
-#include "flutter/fml/macros.h"
-#include "impeller/base/backend_cast.h"
-#include "impeller/renderer/gpu_tracer.h"
+#include <memory>
+#include <optional>
+#include "impeller/base/thread.h"
+#include "impeller/base/thread_safety.h"
+#include "impeller/geometry/scalar.h"
 
 namespace impeller {
 
-class GPUTracerMTL final : public GPUTracer,
-                           public BackendCast<GPUTracerMTL, GPUTracer> {
+class ContextMTL;
+
+/// @brief Approximate the GPU frame time by computing a difference between the
+///        smallest GPUStartTime and largest GPUEndTime for all command buffers
+///        submitted in a frame workload.
+class GPUTracerMTL : public std::enable_shared_from_this<GPUTracerMTL> {
  public:
-  // |GPUTracer|
-  ~GPUTracerMTL() override;
+  GPUTracerMTL() = default;
 
-  // |GPUTracer|
-  bool StartCapturingFrame(GPUTracerConfiguration configuration) override;
+  ~GPUTracerMTL() = default;
 
-  // |GPUTracer|
-  bool StopCapturingFrame() override;
+  /// @brief Record that the current frame has ended. Any additional cmd buffers
+  ///        will be attributed to the "next" frame.
+  void MarkFrameEnd();
+
+  /// @brief Record the current cmd buffer GPU execution timestamps into an
+  ///        aggregate frame workload metric.
+  void RecordCmdBuffer(id<MTLCommandBuffer> buffer);
 
  private:
-  friend class ContextMTL;
+  struct GPUTraceState {
+    Scalar smallest_timestamp = std::numeric_limits<float>::max();
+    Scalar largest_timestamp = 0;
+    size_t pending_buffers = 0;
+  };
 
-  id<MTLDevice> device_;
-  GPUTracerMTL(id<MTLDevice> device);
-
-  NSURL* GetUniqueGPUTraceSavedURL() const;
-  NSURL* GetGPUTraceSavedDictionaryURL() const;
-  bool CreateGPUTraceSavedDictionaryIfNeeded() const;
-
-  FML_DISALLOW_COPY_AND_ASSIGN(GPUTracerMTL);
+  mutable Mutex trace_state_mutex_;
+  GPUTraceState trace_states_[16] IPLR_GUARDED_BY(trace_state_mutex_);
+  size_t current_state_ IPLR_GUARDED_BY(trace_state_mutex_) = 0u;
 };
 
 }  // namespace impeller
+
+#endif  // FLUTTER_IMPELLER_RENDERER_BACKEND_METAL_GPU_TRACER_MTL_H_

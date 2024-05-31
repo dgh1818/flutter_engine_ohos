@@ -12,12 +12,14 @@ import 'package:litetest/litetest.dart';
 import 'package:vm_service/vm_service.dart' as vms;
 import 'package:vm_service/vm_service_io.dart';
 
+import '../impeller_enabled.dart';
+
 void main() {
   test('Capture an SKP ', () async {
     final developer.ServiceProtocolInfo info = await developer.Service.getInfo();
 
     if (info.serverUri == null) {
-      fail('This test must not be run with --disable-observatory.');
+      fail('This test must not be run with --disable-vm-service.');
     }
 
     final vms.VmService vmService = await vmServiceConnectUri(
@@ -25,7 +27,7 @@ void main() {
     );
 
     final Completer<void> completer = Completer<void>();
-    window.onBeginFrame = (Duration timeStamp) {
+    PlatformDispatcher.instance.onBeginFrame = (Duration timeStamp) {
       final PictureRecorder recorder = PictureRecorder();
       final Canvas canvas = Canvas(recorder);
       canvas.drawRect(const Rect.fromLTRB(10, 10, 20, 20), Paint());
@@ -35,23 +37,26 @@ void main() {
       builder.addPicture(Offset.zero, picture);
       final Scene scene = builder.build();
 
-      window.render(scene);
+      PlatformDispatcher.instance.implicitView!.render(scene);
       scene.dispose();
-      // window.onBeginFrame = (Duration timeStamp) {
-        completer.complete();
-      // };
-      // window.scheduleFrame();
+      completer.complete();
     };
-    window.scheduleFrame();
+    PlatformDispatcher.instance.scheduleFrame();
     await completer.future;
 
-    final vms.Response response = await vmService.callServiceExtension('_flutter.screenshotSkp');
+    try {
+      final vms.Response response = await vmService.callServiceExtension('_flutter.screenshotSkp');
+      expect(impellerEnabled, false);
+      final String base64data = response.json!['skp'] as String;
+      expect(base64data, isNotNull);
+      expect(base64data, isNotEmpty);
+      final Uint8List decoded = base64Decode(base64data);
+      expect(decoded.sublist(0, 8), 'skiapict'.codeUnits);
+    } on vms.RPCError catch (e) {
+      expect(impellerEnabled, true);
+      expect(e.toString(), contains('Cannot capture SKP screenshot with Impeller enabled.'));
+    }
 
-    final String base64data = response.json!['skp'] as String;
-    expect(base64data, isNotNull);
-    expect(base64data, isNotEmpty);
-    final Uint8List decoded = base64Decode(base64data);
-    expect(decoded.sublist(0, 8), 'skiapict'.codeUnits);
 
     await vmService.dispose();
   });

@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_IMPELLER_TYPOGRAPHER_TYPEFACE_H_
+#define FLUTTER_IMPELLER_TYPOGRAPHER_TYPEFACE_H_
 
 #include "flutter/fml/macros.h"
 #include "impeller/base/comparable.h"
@@ -24,17 +25,12 @@ class Typeface : public Comparable<Typeface> {
 
   virtual bool IsValid() const = 0;
 
-  //----------------------------------------------------------------------------
-  /// @brief      Get the union of the bounding boxes of all glyphs in the
-  ///             typeface. This box is unit-scaled and conservatively large to
-  ///             cover all glyphs.
-  ///
-  /// @return     The conservative unit-scaled bounding box.
-  ///
-  virtual Rect GetBoundingBox() const = 0;
-
  private:
-  FML_DISALLOW_COPY_AND_ASSIGN(Typeface);
+  Typeface(const Typeface&) = delete;
+
+  Typeface& operator=(const Typeface&) = delete;
 };
 
 }  // namespace impeller
+
+#endif  // FLUTTER_IMPELLER_TYPOGRAPHER_TYPEFACE_H_

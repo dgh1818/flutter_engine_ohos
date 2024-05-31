@@ -23,14 +23,9 @@ def make_directories(path):
 def main():
   parser = argparse.ArgumentParser()
   parser.add_argument(
-      '--output',
-      type=str,
-      required=True,
-      help='The location to generate the Metal library to.'
+      '--output', type=str, required=True, help='The location to generate the Metal library to.'
   )
-  parser.add_argument(
-      '--depfile', type=str, required=True, help='The location of the depfile.'
-  )
+  parser.add_argument('--depfile', type=str, required=True, help='The location of the depfile.')
   parser.add_argument(
       '--source',
       type=str,
@@ -43,6 +38,9 @@ def main():
       required=True,
       choices=['mac', 'ios', 'ios-simulator'],
       help='Select the platform.'
+  )
+  parser.add_argument(
+      '--metal-version', required=True, help='The language standard version to compile for.'
   )
 
   args = parser.parse_args()
@@ -81,6 +79,8 @@ def main():
       '-Oz',
       # Allow aggressive, lossy floating-point optimizations.
       '-ffast-math',
+      # Record symbols in a separate *.metallibsym file.
+      '-frecord-sources=flat',
       '-MF',
       args.depfile,
       '-o',
@@ -91,17 +91,17 @@ def main():
   # The Metal standard must match the specification in impellerc.
   if args.platform == 'mac':
     command += [
-        '--std=macos-metal1.2',
+        '--std=macos-metal%s' % args.metal_version,
         '-mmacos-version-min=10.14',
     ]
   elif args.platform == 'ios':
     command += [
-        '--std=ios-metal1.2',
-        '-mios-version-min=10.0',
+        '--std=ios-metal%s' % args.metal_version,
+        '-mios-version-min=11.0',
     ]
   elif args.platform == 'ios-simulator':
     command += [
-        '--std=ios-metal1.2',
+        '--std=ios-metal%s' % args.metal_version,
         '-miphonesimulator-version-min=11.0',
     ]
   else:
@@ -109,10 +109,16 @@ def main():
 
   command += args.source
 
-  subprocess.check_call(command)
+  try:
+    subprocess.check_output(command, stderr=subprocess.STDOUT, text=True)
+  except subprocess.CalledProcessError as cpe:
+    print(cpe.output)
+    return cpe.returncode
+
+  return 0
 
 
 if __name__ == '__main__':
   if sys.platform != 'darwin':
     raise Exception('This script only runs on Mac')
-  main()
+  sys.exit(main())

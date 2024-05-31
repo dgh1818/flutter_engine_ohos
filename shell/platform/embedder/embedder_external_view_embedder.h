@@ -6,6 +6,7 @@
 #define FLUTTER_SHELL_PLATFORM_EMBEDDER_EMBEDDER_EXTERNAL_VIEW_EMBEDDER_H_
 
 #include <map>
+#include <memory>
 #include <unordered_map>
 
 #include "flutter/flow/embedded_views.h"
@@ -31,9 +32,11 @@ class EmbedderExternalViewEmbedder final : public ExternalViewEmbedder {
   using CreateRenderTargetCallback =
       std::function<std::unique_ptr<EmbedderRenderTarget>(
           GrDirectContext* context,
+          const std::shared_ptr<impeller::AiksContext>& aiks_context,
           const FlutterBackingStoreConfig& config)>;
   using PresentCallback =
-      std::function<bool(const std::vector<const FlutterLayer*>& layers)>;
+      std::function<bool(FlutterViewId view_id,
+                         const std::vector<const FlutterLayer*>& layers)>;
   using SurfaceTransformationCallback = std::function<SkMatrix(void)>;
 
   //----------------------------------------------------------------------------
@@ -79,32 +82,31 @@ class EmbedderExternalViewEmbedder final : public ExternalViewEmbedder {
   void CancelFrame() override;
 
   // |ExternalViewEmbedder|
-  void BeginFrame(
-      SkISize frame_size,
-      GrDirectContext* context,
-      double device_pixel_ratio,
-      fml::RefPtr<fml::RasterThreadMerger> raster_thread_merger) override;
+  void BeginFrame(GrDirectContext* context,
+                  const fml::RefPtr<fml::RasterThreadMerger>&
+                      raster_thread_merger) override;
+
+  // |ExternalViewEmbedder|
+  void PrepareFlutterView(SkISize frame_size,
+                          double device_pixel_ratio) override;
 
   // |ExternalViewEmbedder|
   void PrerollCompositeEmbeddedView(
-      int view_id,
+      int64_t view_id,
       std::unique_ptr<EmbeddedViewParams> params) override;
 
   // |ExternalViewEmbedder|
-  std::vector<SkCanvas*> GetCurrentCanvases() override;
+  DlCanvas* CompositeEmbeddedView(int64_t view_id) override;
 
   // |ExternalViewEmbedder|
-  std::vector<DisplayListBuilder*> GetCurrentBuilders() override;
+  void SubmitFlutterView(
+      int64_t flutter_view_id,
+      GrDirectContext* context,
+      const std::shared_ptr<impeller::AiksContext>& aiks_context,
+      std::unique_ptr<SurfaceFrame> frame) override;
 
   // |ExternalViewEmbedder|
-  EmbedderPaintContext CompositeEmbeddedView(int view_id) override;
-
-  // |ExternalViewEmbedder|
-  void SubmitFrame(GrDirectContext* context,
-                   std::unique_ptr<SurfaceFrame> frame) override;
-
-  // |ExternalViewEmbedder|
-  SkCanvas* GetRootCanvas() override;
+  DlCanvas* GetRootCanvas() override;
 
  private:
   const bool avoid_backing_store_cache_;

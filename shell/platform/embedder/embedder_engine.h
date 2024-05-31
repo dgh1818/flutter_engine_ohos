@@ -48,7 +48,8 @@ class EmbedderEngine {
 
   bool IsValid() const;
 
-  bool SetViewportMetrics(const flutter::ViewportMetrics& metrics);
+  bool SetViewportMetrics(int64_t view_id,
+                          const flutter::ViewportMetrics& metrics);
 
   bool DispatchPointerDataPacket(
       std::unique_ptr<flutter::PointerDataPacket> packet);
@@ -65,7 +66,7 @@ class EmbedderEngine {
 
   bool SetAccessibilityFeatures(int32_t flags);
 
-  bool DispatchSemanticsAction(int id,
+  bool DispatchSemanticsAction(int node_id,
                                flutter::SemanticsAction action,
                                fml::MallocMapping args);
 

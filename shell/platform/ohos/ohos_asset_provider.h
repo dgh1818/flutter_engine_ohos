@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#ifndef OHOS_ASSET_PROVIDER_H
-#define OHOS_ASSET_PROVIDER_H
+#ifndef FLUTTER_SHELL_PLATFORM_OHOS_OHOS_ASSET_PROVIDER_H_
+#define FLUTTER_SHELL_PLATFORM_OHOS_OHOS_ASSET_PROVIDER_H_
 
 #include "flutter/assets/asset_resolver.h"
 #include "flutter/fml/memory/ref_counted.h"
@@ -30,6 +30,8 @@ class OHOSAssetProvider final : public AssetResolver {
 
   std::unique_ptr<OHOSAssetProvider> Clone() const;
 
+  bool operator==(const AssetResolver& other) const override;
+
  private:
   void* assetHandle_;
   std::string dir_;
@@ -42,6 +44,13 @@ class OHOSAssetProvider final : public AssetResolver {
 
   std::unique_ptr<fml::Mapping> GetAsMapping(
       const std::string& asset_name) const override;
+
+  // |AssetResolver|
+  const OHOSAssetProvider* as_ohos_asset_provider() const override {
+    return this;
+  }
+
+  FML_DISALLOW_COPY_AND_ASSIGN(OHOSAssetProvider);
 };
 }  // namespace flutter
-#endif
+#endif  // FLUTTER_SHELL_PLATFORM_OHOS_OHOS_ASSET_PROVIDER_H_

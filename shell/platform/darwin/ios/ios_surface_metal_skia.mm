@@ -8,6 +8,10 @@
 #include "flutter/shell/gpu/gpu_surface_metal_skia.h"
 #include "flutter/shell/platform/darwin/ios/ios_context_metal_skia.h"
 
+@protocol FlutterMetalDrawable <MTLDrawable>
+- (void)flutterPrepareForPresent:(nonnull id<MTLCommandBuffer>)commandBuffer;
+@end
+
 namespace flutter {
 
 static IOSContextMetalSkia* CastToMetalContext(const std::shared_ptr<IOSContext>& context) {
@@ -55,7 +59,7 @@ GPUCAMetalLayerHandle IOSSurfaceMetalSkia::GetCAMetalLayer(const SkISize& frame_
 
   layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
   // Flutter needs to read from the color attachment in cases where there are effects such as
-  // backdrop filters.
+  // backdrop filters. Flutter plugins that create platform views may also read from the layer.
   layer.framebufferOnly = NO;
 
   const auto drawable_size = CGSizeMake(frame_info.width(), frame_info.height());
@@ -80,10 +84,16 @@ bool IOSSurfaceMetalSkia::PresentDrawable(GrMTLHandle drawable) const {
 
   auto command_buffer =
       fml::scoped_nsprotocol<id<MTLCommandBuffer>>([[command_queue_ commandBuffer] retain]);
+
+  id<CAMetalDrawable> metal_drawable = reinterpret_cast<id<CAMetalDrawable>>(drawable);
+  if ([metal_drawable conformsToProtocol:@protocol(FlutterMetalDrawable)]) {
+    [(id<FlutterMetalDrawable>)metal_drawable flutterPrepareForPresent:command_buffer.get()];
+  }
+
   [command_buffer.get() commit];
   [command_buffer.get() waitUntilScheduled];
 
-  [reinterpret_cast<id<CAMetalDrawable>>(drawable) present];
+  [metal_drawable present];
   return true;
 }
 

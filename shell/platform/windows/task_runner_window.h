@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef FLUTTER_SHELL_PLATFORM_WINDOWS_TASK_RUNNER_WIN32_WINDOW_H_
-#define FLUTTER_SHELL_PLATFORM_WINDOWS_TASK_RUNNER_WIN32_WINDOW_H_
+#ifndef FLUTTER_SHELL_PLATFORM_WINDOWS_TASK_RUNNER_WINDOW_H_
+#define FLUTTER_SHELL_PLATFORM_WINDOWS_TASK_RUNNER_WINDOW_H_
 
 #include <windows.h>
 
@@ -11,6 +11,8 @@
 #include <memory>
 #include <string>
 #include <vector>
+
+#include "flutter/fml/macros.h"
 
 namespace flutter {
 
@@ -58,7 +60,9 @@ class TaskRunnerWindow {
   HWND window_handle_;
   std::wstring window_class_name_;
   std::vector<Delegate*> delegates_;
+
+  FML_DISALLOW_COPY_AND_ASSIGN(TaskRunnerWindow);
 };
 }  // namespace flutter
 
-#endif
+#endif  // FLUTTER_SHELL_PLATFORM_WINDOWS_TASK_RUNNER_WINDOW_H_

@@ -10,6 +10,9 @@
 
 #include "gtest/gtest.h"
 
+// TODO(zanderso): https://github.com/flutter/flutter/issues/127701
+// NOLINTBEGIN(bugprone-unchecked-optional-access)
+
 namespace flutter {
 namespace testing {
 
@@ -48,6 +51,14 @@ TEST(SwitchesTest, SkiaTraceAllowlistFlag) {
 #endif
 }
 
+TEST(SwitchesTest, TraceToFile) {
+  fml::CommandLine command_line = fml::CommandLineFromInitializerList(
+      {"command", "--trace-to-file=trace.binpb"});
+  EXPECT_TRUE(command_line.HasOption("trace-to-file"));
+  Settings settings = SettingsFromCommandLine(command_line);
+  EXPECT_EQ(settings.trace_to_file, "trace.binpb");
+}
+
 TEST(SwitchesTest, RouteParsedFlag) {
   fml::CommandLine command_line =
       fml::CommandLineFromInitializerList({"command", "--route=/animation"});
@@ -76,5 +87,43 @@ TEST(SwitchesTest, MsaaSamples) {
   EXPECT_EQ(settings.msaa_samples, 0);
 }
 
+TEST(SwitchesTest, EnableEmbedderAPI) {
+  {
+    // enable
+    fml::CommandLine command_line = fml::CommandLineFromInitializerList(
+        {"command", "--enable-embedder-api"});
+    Settings settings = SettingsFromCommandLine(command_line);
+    EXPECT_EQ(settings.enable_embedder_api, true);
+  }
+  {
+    // default
+    fml::CommandLine command_line =
+        fml::CommandLineFromInitializerList({"command"});
+    Settings settings = SettingsFromCommandLine(command_line);
+    EXPECT_EQ(settings.enable_embedder_api, false);
+  }
+}
+
+TEST(SwitchesTest, NoEnableImpeller) {
+  {
+    // enable
+    fml::CommandLine command_line =
+        fml::CommandLineFromInitializerList({"command", "--enable-impeller"});
+    EXPECT_TRUE(command_line.HasOption("enable-impeller"));
+    Settings settings = SettingsFromCommandLine(command_line);
+    EXPECT_EQ(settings.enable_impeller, true);
+  }
+  {
+    // disable
+    fml::CommandLine command_line = fml::CommandLineFromInitializerList(
+        {"command", "--enable-impeller=false"});
+    EXPECT_TRUE(command_line.HasOption("enable-impeller"));
+    Settings settings = SettingsFromCommandLine(command_line);
+    EXPECT_EQ(settings.enable_impeller, false);
+  }
+}
+
 }  // namespace testing
 }  // namespace flutter
+
+// NOLINTEND(bugprone-unchecked-optional-access)

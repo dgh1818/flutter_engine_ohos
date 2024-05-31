@@ -4,23 +4,12 @@
 
 import 'dart:async';
 import 'dart:developer' as developer;
+import 'dart:js_interop';
 
-import 'package:ui/src/engine/assets.dart';
-import 'package:ui/src/engine/browser_detection.dart';
-import 'package:ui/src/engine/configuration.dart';
-import 'package:ui/src/engine/embedder.dart';
-import 'package:ui/src/engine/mouse_cursor.dart';
-import 'package:ui/src/engine/navigation.dart';
-import 'package:ui/src/engine/platform_dispatcher.dart';
-import 'package:ui/src/engine/platform_views/content_manager.dart';
-import 'package:ui/src/engine/profiler.dart';
-import 'package:ui/src/engine/raw_keyboard.dart';
-import 'package:ui/src/engine/renderer.dart';
-import 'package:ui/src/engine/safe_browser_api.dart';
-import 'package:ui/src/engine/window.dart';
+import 'package:ui/src/engine.dart';
 import 'package:ui/ui.dart' as ui;
-
-import 'dom.dart';
+import 'package:ui/ui_web/src/ui_web.dart' as ui_web;
+import 'package:web_test_fonts/web_test_fonts.dart';
 
 /// The mode the app is running in.
 /// Keep these in sync with the same constants on the framework-side under foundation/constants.dart.
@@ -61,17 +50,16 @@ void registerHotRestartListener(ui.VoidCallback listener) {
 /// such as removing static DOM listeners, prior to allowing the Dart runtime
 /// to re-initialize the program.
 void debugEmulateHotRestart() {
-  for (final ui.VoidCallback listener in _hotRestartListeners) {
-    listener();
+  // While hot restart listeners are executing, more listeners may be added. To
+  // avoid concurrent modification, the listeners are copies and emptied. If new
+  // listeners are added in the process, the loop will pick them up.
+  while (_hotRestartListeners.isNotEmpty) {
+    final List<ui.VoidCallback> copyOfListeners = _hotRestartListeners.toList();
+    _hotRestartListeners.clear();
+    for (final ui.VoidCallback listener in copyOfListeners) {
+      listener();
+    }
   }
-}
-
-/// Fully initializes the engine, including services and UI.
-Future<void> initializeEngine({
-  AssetManager? assetManager,
-}) async {
-  await initializeEngineServices(assetManager: assetManager);
-  await initializeEngineUi();
 }
 
 /// How far along the initialization process the engine is currently is.
@@ -126,7 +114,7 @@ void debugResetEngineInitializationState() {
 ///  * [initializeEngineUi], which is typically called after this function, and
 ///    puts UI elements on the page.
 Future<void> initializeEngineServices({
-  AssetManager? assetManager,
+  ui_web.AssetManager? assetManager,
   JsFlutterConfiguration? jsConfiguration
 }) async {
   if (_initializationState != DebugEngineInitializationState.uninitialized) {
@@ -143,10 +131,6 @@ Future<void> initializeEngineServices({
 
   // Store `jsConfiguration` so user settings are available to the engine.
   configuration.setUserConfiguration(jsConfiguration);
-
-  // Setup the hook that allows users to customize URL strategy before running
-  // the app.
-  _addUrlStrategyListener();
 
   // Called by the Web runtime just before hot restarting the app.
   //
@@ -173,8 +157,16 @@ Future<void> initializeEngineServices({
     // fires.
     if (!waitingForAnimation) {
       waitingForAnimation = true;
-      domWindow.requestAnimationFrame(allowInterop((num highResTime) {
-        frameTimingsOnVsync();
+      domWindow.requestAnimationFrame((JSNumber highResTime) {
+        FrameTimingRecorder.recordCurrentFrameVsync();
+
+        // In Flutter terminology "building a frame" consists of "beginning
+        // frame" and "drawing frame".
+        //
+        // We do not call `recordBuildFinish` from here because
+        // part of the rasterization process, particularly in the HTML
+        // renderer, takes place in the `SceneBuilder.build()`.
+        FrameTimingRecorder.recordCurrentFrameBuildStart();
 
         // Reset immediately, because `frameHandler` can schedule more frames.
         waitingForAnimation = false;
@@ -184,15 +176,9 @@ Future<void> initializeEngineServices({
         // milliseconds as a double value, with sub-millisecond information
         // hidden in the fraction. So we first multiply it by 1000 to uncover
         // microsecond precision, and only then convert to `int`.
-        final int highResTimeMicroseconds = (1000 * highResTime).toInt();
+        final int highResTimeMicroseconds =
+            (1000 * highResTime.toDartDouble).toInt();
 
-        // In Flutter terminology "building a frame" consists of "beginning
-        // frame" and "drawing frame".
-        //
-        // We do not call `frameTimingsOnBuildFinish` from here because
-        // part of the rasterization process, particularly in the HTML
-        // renderer, takes place in the `SceneBuilder.build()`.
-        frameTimingsOnBuildStart();
         if (EnginePlatformDispatcher.instance.onBeginFrame != null) {
           EnginePlatformDispatcher.instance.invokeOnBeginFrame(
               Duration(microseconds: highResTimeMicroseconds));
@@ -202,19 +188,19 @@ Future<void> initializeEngineServices({
           // TODO(yjbanov): technically Flutter flushes microtasks between
           //                onBeginFrame and onDrawFrame. We don't, which hasn't
           //                been an issue yet, but eventually we'll have to
-          //                implement it properly.
+          //                implement it properly. (Also see the to-do in
+          //                `EnginePlatformDispatcher.scheduleWarmUpFrame`).
           EnginePlatformDispatcher.instance.invokeOnDrawFrame();
         }
-      }));
+      });
     }
   };
 
-  assetManager ??= const AssetManager();
+  assetManager ??= ui_web.AssetManager(assetBase: configuration.assetBase);
   _setAssetManager(assetManager);
 
   Future<void> initializeRendererCallback () async => renderer.initialize();
   await Future.wait<void>(<Future<void>>[initializeRendererCallback(), _downloadAssetFonts()]);
-  renderer.fontCollection.registerDownloadedFonts();
   _initializationState = DebugEngineInitializationState.initializedServices;
 }
 
@@ -241,16 +227,25 @@ Future<void> initializeEngineUi() async {
   _initializationState = DebugEngineInitializationState.initializingUi;
 
   RawKeyboard.initialize(onMacOs: operatingSystem == OperatingSystem.macOs);
-  MouseCursor.initialize();
-  ensureFlutterViewEmbedderInitialized();
+  KeyboardBinding.initInstance();
+
+  if (!configuration.multiViewEnabled) {
+    final EngineFlutterWindow implicitView =
+        ensureImplicitViewInitialized(hostElement: configuration.hostElement);
+    if (renderer is HtmlRenderer) {
+      ensureResourceManagerInitialized(implicitView);
+    }
+  }
   _initializationState = DebugEngineInitializationState.initialized;
 }
 
-AssetManager get assetManager => _assetManager!;
-AssetManager? _assetManager;
+ui_web.AssetManager get engineAssetManager => _debugAssetManager ?? _assetManager!;
+ui_web.AssetManager? _assetManager;
+ui_web.AssetManager? _debugAssetManager;
 
-void _setAssetManager(AssetManager assetManager) {
-  assert(assetManager != null, 'Cannot set assetManager to null');
+set debugOnlyAssetManager(ui_web.AssetManager? manager) => _debugAssetManager = manager;
+
+void _setAssetManager(ui_web.AssetManager assetManager) {
   if (assetManager == _assetManager) {
     return;
   }
@@ -261,23 +256,18 @@ void _setAssetManager(AssetManager assetManager) {
 Future<void> _downloadAssetFonts() async {
   renderer.fontCollection.clear();
 
-  if (_assetManager != null) {
-    await renderer.fontCollection.downloadAssetFonts(_assetManager!);
+  if (ui_web.debugEmulateFlutterTesterEnvironment) {
+    // Load the embedded test font before loading fonts from the assets so that
+    // the embedded test font is the default (first) font.
+    await renderer.fontCollection.loadFontFromList(
+      EmbeddedTestFont.flutterTest.data,
+      fontFamily: EmbeddedTestFont.flutterTest.fontFamily
+    );
   }
 
-  if (ui.debugEmulateFlutterTesterEnvironment) {
-    await renderer.fontCollection.debugDownloadTestFonts();
+  if (_debugAssetManager != null || _assetManager != null) {
+    await renderer.fontCollection.loadAssetFonts(await fetchFontManifest(ui_web.assetManager));
   }
-}
-
-void _addUrlStrategyListener() {
-  jsSetUrlStrategy = allowInterop((JsUrlStrategy? jsStrategy) {
-    customUrlStrategy =
-        jsStrategy == null ? null : CustomUrlStrategy.fromJs(jsStrategy);
-  });
-  registerHotRestartListener(() {
-    jsSetUrlStrategy = null;
-  });
 }
 
 /// Whether to disable the font fallback system.
@@ -292,8 +282,3 @@ set debugDisableFontFallbacks(bool value) {
   _debugDisableFontFallbacks = value;
 }
 bool _debugDisableFontFallbacks = false;
-
-/// The shared instance of PlatformViewManager shared across the engine to handle
-/// rendering of PlatformViews into the web app.
-// TODO(dit): How to make this overridable from tests?
-final PlatformViewManager platformViewManager = PlatformViewManager();

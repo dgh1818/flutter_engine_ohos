@@ -2,15 +2,19 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_IMPELLER_RENDERER_BACKEND_GLES_RENDER_PASS_GLES_H_
+#define FLUTTER_IMPELLER_RENDERER_BACKEND_GLES_RENDER_PASS_GLES_H_
 
-#include "flutter/fml/macros.h"
+#include <memory>
+
 #include "flutter/impeller/renderer/backend/gles/reactor_gles.h"
 #include "flutter/impeller/renderer/render_pass.h"
 
 namespace impeller {
 
-class RenderPassGLES final : public RenderPass {
+class RenderPassGLES final
+    : public RenderPass,
+      public std::enable_shared_from_this<RenderPassGLES> {
  public:
   // |RenderPass|
   ~RenderPassGLES() override;
@@ -22,7 +26,7 @@ class RenderPassGLES final : public RenderPass {
   std::string label_;
   bool is_valid_ = false;
 
-  RenderPassGLES(std::weak_ptr<const Context> context,
+  RenderPassGLES(std::shared_ptr<const Context> context,
                  const RenderTarget& target,
                  ReactorGLES::Ref reactor);
 
@@ -35,7 +39,11 @@ class RenderPassGLES final : public RenderPass {
   // |RenderPass|
   bool OnEncodeCommands(const Context& context) const override;
 
-  FML_DISALLOW_COPY_AND_ASSIGN(RenderPassGLES);
+  RenderPassGLES(const RenderPassGLES&) = delete;
+
+  RenderPassGLES& operator=(const RenderPassGLES&) = delete;
 };
 
 }  // namespace impeller
+
+#endif  // FLUTTER_IMPELLER_RENDERER_BACKEND_GLES_RENDER_PASS_GLES_H_

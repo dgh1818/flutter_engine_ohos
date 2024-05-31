@@ -2,11 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_IMPELLER_RENDERER_BACKEND_METAL_SURFACE_MTL_H_
+#define FLUTTER_IMPELLER_RENDERER_BACKEND_METAL_SURFACE_MTL_H_
 
 #include <QuartzCore/CAMetalLayer.h>
+#include <memory>
 
 #include "flutter/fml/macros.h"
+#include "impeller/geometry/rect.h"
 #include "impeller/renderer/context.h"
 #include "impeller/renderer/surface.h"
 
@@ -32,23 +35,58 @@ class SurfaceMTL final : public Surface {
   ///
   /// @return     A pointer to the wrapped surface or null.
   ///
-  static std::unique_ptr<Surface> WrapCurrentMetalLayerDrawable(
+  static id<CAMetalDrawable> GetMetalDrawableAndValidate(
       const std::shared_ptr<Context>& context,
       CAMetalLayer* layer);
+
+  static std::unique_ptr<SurfaceMTL> MakeFromMetalLayerDrawable(
+      const std::shared_ptr<Context>& context,
+      id<CAMetalDrawable> drawable,
+      std::optional<IRect> clip_rect = std::nullopt);
+
+  static std::unique_ptr<SurfaceMTL> MakeFromTexture(
+      const std::shared_ptr<Context>& context,
+      id<MTLTexture> texture,
+      std::optional<IRect> clip_rect,
+      id<CAMetalDrawable> drawable = nil);
 #pragma GCC diagnostic pop
 
   // |Surface|
   ~SurfaceMTL() override;
 
- private:
-  id<MTLDrawable> drawable_ = nil;
+  id<MTLDrawable> drawable() const { return drawable_; }
 
-  SurfaceMTL(const RenderTarget& target, id<MTLDrawable> drawable);
+  // Returns a Rect defining the area of the surface in device pixels
+  IRect coverage() const;
 
   // |Surface|
   bool Present() const override;
 
-  FML_DISALLOW_COPY_AND_ASSIGN(SurfaceMTL);
+ private:
+  std::weak_ptr<Context> context_;
+  std::shared_ptr<Texture> resolve_texture_;
+  id<CAMetalDrawable> drawable_ = nil;
+  std::shared_ptr<Texture> source_texture_;
+  std::shared_ptr<Texture> destination_texture_;
+  bool requires_blit_ = false;
+  std::optional<IRect> clip_rect_;
+
+  static bool ShouldPerformPartialRepaint(std::optional<IRect> damage_rect);
+
+  SurfaceMTL(const std::weak_ptr<Context>& context,
+             const RenderTarget& target,
+             std::shared_ptr<Texture> resolve_texture,
+             id<CAMetalDrawable> drawable,
+             std::shared_ptr<Texture> source_texture,
+             std::shared_ptr<Texture> destination_texture,
+             bool requires_blit,
+             std::optional<IRect> clip_rect);
+
+  SurfaceMTL(const SurfaceMTL&) = delete;
+
+  SurfaceMTL& operator=(const SurfaceMTL&) = delete;
 };
 
 }  // namespace impeller
+
+#endif  // FLUTTER_IMPELLER_RENDERER_BACKEND_METAL_SURFACE_MTL_H_

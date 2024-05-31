@@ -12,7 +12,9 @@
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
+#include <string>
 
+#include "flutter/common/constants.h"
 #include "flutter/shell/platform/common/client_wrapper/include/flutter/plugin_registrar.h"
 #include "flutter/shell/platform/common/incoming_message_dispatcher.h"
 #include "flutter/shell/platform/common/path_utils.h"
@@ -237,6 +239,8 @@ static UniqueGLFWwindowPtr CreateShareWindowForWindow(GLFWwindow* window) {
   glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
 #if defined(__linux__)
   glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_EGL_CONTEXT_API);
+  glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
 #endif
   GLFWwindow* share_window = glfwCreateWindow(1, 1, "", NULL, window);
   glfwDefaultWindowHints();
@@ -293,6 +297,9 @@ static void SendWindowMetrics(FlutterDesktopWindowControllerState* controller,
   } else {
     event.pixel_ratio = controller->window_wrapper->pixel_ratio_override;
   }
+  // The GLFW embedder doesn't support multiple views. We assume all pointer
+  // events come from the only view, the implicit view.
+  event.view_id = flutter::kFlutterImplicitViewId;
   FlutterEngineSendWindowMetricsEvent(controller->engine->flutter_engine,
                                       &event);
 }
@@ -388,6 +395,9 @@ static void SendPointerEventWithData(GLFWwindow* window,
   event.y *= pixels_per_coordinate;
   event.scroll_delta_x *= pixels_per_coordinate;
   event.scroll_delta_y *= pixels_per_coordinate;
+  // The GLFW embedder doesn't support multiple views. We assume all pointer
+  // events come from the only view, the implicit view.
+  event.view_id = flutter::kFlutterImplicitViewId;
 
   FlutterEngineSendPointerEvent(controller->engine->flutter_engine, &event, 1);
 
@@ -673,12 +683,12 @@ UniqueAotDataPtr LoadAotData(const std::filesystem::path& aot_data_path) {
         << std::endl;
     return nullptr;
   }
+  std::string path_string = aot_data_path.string();
   if (!std::filesystem::exists(aot_data_path)) {
-    std::cerr << "Can't load AOT data from " << aot_data_path.string()
-              << "; no such file." << std::endl;
+    std::cerr << "Can't load AOT data from " << path_string << "; no such file."
+              << std::endl;
     return nullptr;
   }
-  std::string path_string = aot_data_path.u8string();
   FlutterEngineAOTDataSource source = {};
   source.type = kFlutterEngineAOTDataSourceTypeElfPath;
   source.elf_path = path_string.c_str();
@@ -755,10 +765,12 @@ static bool RunFlutterEngine(
   if (engine_state->window_controller != nullptr) {
     config.open_gl.gl_proc_resolver = EngineProcResolver;
   }
+  const std::string assets_path_string = assets_path.string();
+  const std::string icu_path_string = icu_path.string();
   FlutterProjectArgs args = {};
   args.struct_size = sizeof(FlutterProjectArgs);
-  args.assets_path = assets_path.c_str();
-  args.icu_data_path = icu_path.c_str();
+  args.assets_path = assets_path_string.c_str();
+  args.icu_data_path = icu_path_string.c_str();
   args.command_line_argc = static_cast<int>(argv.size());
   args.command_line_argv = &argv[0];
   args.platform_message_callback = EngineOnFlutterPlatformMessage;

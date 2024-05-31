@@ -13,7 +13,7 @@
 
 import 'package:ui/ui.dart' as ui;
 
-import '../dom.dart';
+import 'label_and_value.dart';
 import 'semantics.dart';
 
 /// The specific type of checkable control.
@@ -49,33 +49,38 @@ _CheckableKind _checkableKindFromSemanticsFlag(
 /// See also [ui.SemanticsFlag.hasCheckedState], [ui.SemanticsFlag.isChecked],
 /// [ui.SemanticsFlag.isInMutuallyExclusiveGroup], [ui.SemanticsFlag.isToggled],
 /// [ui.SemanticsFlag.hasToggledState]
-class Checkable extends RoleManager {
+class Checkable extends PrimaryRoleManager {
   Checkable(SemanticsObject semanticsObject)
       : _kind = _checkableKindFromSemanticsFlag(semanticsObject),
-        super(Role.checkable, semanticsObject);
+        super.withBasics(
+          PrimaryRole.checkable,
+          semanticsObject,
+          labelRepresentation: LeafLabelRepresentation.ariaLabel,
+        ) {
+    addTappable();
+  }
 
   final _CheckableKind _kind;
 
   @override
   void update() {
+    super.update();
+
     if (semanticsObject.isFlagsDirty) {
       switch (_kind) {
         case _CheckableKind.checkbox:
-          semanticsObject.setAriaRole('checkbox', true);
-          break;
+          setAriaRole('checkbox');
         case _CheckableKind.radio:
-          semanticsObject.setAriaRole('radio', true);
-          break;
+          setAriaRole('radio');
         case _CheckableKind.toggle:
-          semanticsObject.setAriaRole('switch', true);
-          break;
+          setAriaRole('switch');
       }
 
       /// Adding disabled and aria-disabled attribute to notify the assistive
       /// technologies of disabled elements.
       _updateDisabledAttribute();
 
-      semanticsObject.element.setAttribute(
+      setAttribute(
         'aria-checked',
         (semanticsObject.hasFlag(ui.SemanticsFlag.isChecked) ||
                 semanticsObject.hasFlag(ui.SemanticsFlag.isToggled))
@@ -87,33 +92,24 @@ class Checkable extends RoleManager {
 
   @override
   void dispose() {
-    switch (_kind) {
-      case _CheckableKind.checkbox:
-        semanticsObject.setAriaRole('checkbox', false);
-        break;
-      case _CheckableKind.radio:
-        semanticsObject.setAriaRole('radio', false);
-        break;
-      case _CheckableKind.toggle:
-        semanticsObject.setAriaRole('switch', false);
-        break;
-    }
+    super.dispose();
     _removeDisabledAttribute();
   }
 
   void _updateDisabledAttribute() {
     if (semanticsObject.enabledState() == EnabledState.disabled) {
-      final DomElement element = semanticsObject.element;
-      element
-        ..setAttribute('aria-disabled', 'true')
-        ..setAttribute('disabled', 'true');
+      setAttribute('aria-disabled', 'true');
+      setAttribute('disabled', 'true');
     } else {
       _removeDisabledAttribute();
     }
   }
 
   void _removeDisabledAttribute() {
-    final DomElement element = semanticsObject.element;
-    element..removeAttribute('aria-disabled')..removeAttribute('disabled');
+    removeAttribute('aria-disabled');
+    removeAttribute('disabled');
   }
+
+  @override
+  bool focusAsRouteDefault() => focusable?.focusAsRouteDefault() ?? false;
 }

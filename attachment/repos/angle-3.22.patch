@@ -1,0 +1,112 @@
+diff --git a/BUILD.gn b/BUILD.gn
+index 621a97bfb..7e9bb8964 100644
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -103,7 +103,7 @@ if (angle_build_all) {
+       ":translator_fuzzer",
+       ":xxhash_fuzzer",
+       "$angle_root/samples:angle_samples",
+-      "$angle_root/src/tests:angle_tests",
++      #"$angle_root/src/tests:angle_tests",
+     ]
+     if (angle_enable_cl) {
+       deps += [ "$angle_root/src/libOpenCL:angle_cl" ]
+@@ -559,7 +559,8 @@ angle_static_library("angle_image_util") {
+   sources = libangle_image_util_sources
+   public_configs += [ ":angle_image_util_config" ]
+   public_deps = [ ":angle_image_util_headers" ]
+-
++  
++  angle_has_astc_encoder = false
+   if (angle_has_astc_encoder) {
+     public_deps += [ "third_party/astc-encoder:astcenc" ]
+     include_dirs = [ "third_party/astc-encoder/src/Source/" ]
+diff --git a/gni/angle.gni b/gni/angle.gni
+index 31fb784ed..8f5975ec5 100644
+--- a/gni/angle.gni
++++ b/gni/angle.gni
+@@ -63,7 +63,7 @@ if (angle_has_build) {
+ 
+   declare_args() {
+     angle_use_gbm = ozone_platform_gbm
+-    angle_use_x11 = ozone_platform_x11 && !is_ggp && (is_linux || is_chromeos)
++    angle_use_x11 = ozone_platform_x11 && !is_ggp && (is_linux || is_chromeos) && !is_castos
+     angle_use_wayland =
+         ozone_platform_wayland && !is_ggp && is_linux && !is_castos
+     angle_use_vulkan_display = (is_linux || is_chromeos) && !is_ggp
+@@ -197,7 +197,9 @@ declare_args() {
+ 
+ declare_args() {
+   # ASTC emulation is only built on standalone non-android builds
+-  angle_has_astc_encoder = angle_has_build && angle_standalone && !is_android
++  #angle_has_astc_encoder = angle_has_build && angle_standalone && !is_android
++  #for ohos
++  angle_has_astc_encoder = false
+ }
+ 
+ declare_args() {
+@@ -266,13 +268,13 @@ declare_args() {
+   angle_wayland_dir = "$angle_root/third_party/wayland"
+ 
+   angle_vulkan_headers_dir =
+-      "$angle_root/third_party/vulkan-deps/vulkan-headers/src"
++      "//third_party/vulkan-deps/vulkan-headers/src"
+   angle_vulkan_loader_dir =
+-      "$angle_root/third_party/vulkan-deps/vulkan-loader/src"
++      "//third_party/vulkan-deps/vulkan-loader/src"
+   angle_vulkan_tools_dir =
+-      "$angle_root/third_party/vulkan-deps/vulkan-tools/src"
++      "//third_party/vulkan-deps/vulkan-tools/src"
+   angle_vulkan_validation_layers_dir =
+-      "$angle_root/third_party/vulkan-deps/vulkan-validation-layers/src"
++      "//third_party/vulkan-deps/vulkan-validation-layers/src"
+ 
+   angle_build_vulkan_system_info = angle_has_build && !angle_is_winuwp
+ 
+diff --git a/include/EGL/eglplatform.h b/include/EGL/eglplatform.h
+index 777e98558..23348f47a 100644
+--- a/include/EGL/eglplatform.h
++++ b/include/EGL/eglplatform.h
+@@ -111,13 +111,19 @@ typedef intptr_t EGLNativeWindowType;
+ 
+ #elif defined(USE_X11)
+ 
+-/* X11 (tentative)  */
+-#include <X11/Xlib.h>
+-#include <X11/Xutil.h>
++struct NativeWindow;
+ 
+-typedef Display *EGLNativeDisplayType;
+-typedef Pixmap   EGLNativePixmapType;
+-typedef Window   EGLNativeWindowType;
++typedef void*                   EGLNativeDisplayType;
++typedef void*                   EGLNativePixmapType;
++typedef struct NativeWindow*    EGLNativeWindowType;
++
++// /* X11 (tentative)  */
++// #include <X11/Xlib.h>
++// #include <X11/Xutil.h>
++
++// typedef Display *EGLNativeDisplayType;
++// typedef Pixmap   EGLNativePixmapType;
++// typedef Window   EGLNativeWindowType;
+ 
+ #elif defined(__unix__)
+ 
+diff --git a/src/common/angle_version.h b/src/common/angle_version.h
+index 488c65dfe..9a0b295d9 100644
+--- a/src/common/angle_version.h
++++ b/src/common/angle_version.h
+@@ -15,8 +15,12 @@
+ #define ANGLE_MINOR_VERSION 1
+ 
+ #ifndef ANGLE_REVISION
++#ifndef ANGLE_COMMIT_POSITION
++#    define ANGLE_REVISION 0
++#else
+ #    define ANGLE_REVISION ANGLE_COMMIT_POSITION
+ #endif
++#endif
+ 
+ #define ANGLE_STRINGIFY(x) #x
+ #define ANGLE_MACRO_STRINGIFY(x) ANGLE_STRINGIFY(x)

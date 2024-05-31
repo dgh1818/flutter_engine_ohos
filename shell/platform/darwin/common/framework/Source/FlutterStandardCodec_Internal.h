@@ -2,31 +2,15 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef SHELL_PLATFORM_DARWIN_COMMON_FRAMEWORK_SOURCE_FLUTTERSTANDARDCODECINTERNAL_H_
-#define SHELL_PLATFORM_DARWIN_COMMON_FRAMEWORK_SOURCE_FLUTTERSTANDARDCODECINTERNAL_H_
+#ifndef FLUTTER_SHELL_PLATFORM_DARWIN_COMMON_FRAMEWORK_SOURCE_FLUTTERSTANDARDCODEC_INTERNAL_H_
+#define FLUTTER_SHELL_PLATFORM_DARWIN_COMMON_FRAMEWORK_SOURCE_FLUTTERSTANDARDCODEC_INTERNAL_H_
 
 #import "flutter/shell/platform/darwin/common/framework/Headers/FlutterCodecs.h"
-
-typedef NS_ENUM(NSInteger, FlutterStandardField) {
-  FlutterStandardFieldNil,
-  FlutterStandardFieldTrue,
-  FlutterStandardFieldFalse,
-  FlutterStandardFieldInt32,
-  FlutterStandardFieldInt64,
-  FlutterStandardFieldIntHex,
-  FlutterStandardFieldFloat64,
-  FlutterStandardFieldString,
-  FlutterStandardFieldUInt8Data,
-  FlutterStandardFieldInt32Data,
-  FlutterStandardFieldInt64Data,
-  FlutterStandardFieldFloat64Data,
-  FlutterStandardFieldList,
-  FlutterStandardFieldMap,
-  FlutterStandardFieldFloat32Data,
-};
+#import "flutter/shell/platform/darwin/common/framework/Source/FlutterStandardCodecHelper.h"
 
 namespace flutter {
-FlutterStandardField FlutterStandardFieldForDataType(FlutterStandardDataType type) {
+FlutterStandardField FlutterStandardFieldForDataType(
+    FlutterStandardDataType type) {
   switch (type) {
     case FlutterStandardDataTypeUInt8:
       return FlutterStandardFieldUInt8Data;
@@ -40,7 +24,8 @@ FlutterStandardField FlutterStandardFieldForDataType(FlutterStandardDataType typ
       return FlutterStandardFieldFloat64Data;
   }
 }
-FlutterStandardDataType FlutterStandardDataTypeForField(FlutterStandardField field) {
+FlutterStandardDataType FlutterStandardDataTypeForField(
+    FlutterStandardField field) {
   switch (field) {
     case FlutterStandardFieldUInt8Data:
       return FlutterStandardDataTypeUInt8;
@@ -73,4 +58,4 @@ UInt8 elementSizeForFlutterStandardDataType(FlutterStandardDataType type) {
 }
 }  // namespace flutter
 
-#endif  // SHELL_PLATFORM_IOS_FRAMEWORK_SOURCE_FLUTTERSTANDARDCODECINTERNAL_H_
+#endif  // FLUTTER_SHELL_PLATFORM_DARWIN_COMMON_FRAMEWORK_SOURCE_FLUTTERSTANDARDCODEC_INTERNAL_H_

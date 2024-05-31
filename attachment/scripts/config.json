@@ -5,46 +5,34 @@
         "type": "files"
     },
     {
-        "name": "dart0",
+        "name": "dart3.4",
         "target": "./src/third_party/dart",
         "type": "patch",
-        "file_path": "../../flutter/attachment/repos/dart.patch0"
-    },
-	{
-        "name": "dart1",
-        "target": "./src/third_party/dart",
-        "type": "patch",
-        "file_path": "../../flutter/attachment/repos/dart.patch1"
-    },
-    {
-        "name": "dart2",
-        "target": "./src/third_party/dart",
-        "type": "patch",
-        "file_path": "../../flutter/attachment/repos/dart.patch2"
+        "file_path": "../../flutter/attachment/repos/dart.3.4.0.patch"
     },
     {
         "name": "skia",
-        "target": "./src/third_party/skia",
+        "target": "./src/flutter/third_party/skia",
         "type": "patch",
-        "file_path": "../../flutter/attachment/repos/skia.patch"
+        "file_path": "../../../flutter/attachment/repos/skia-3.22.patch"
     },
     {
         "name": "spirv-headers",
-        "target": "./src/third_party/vulkan-deps/spirv-headers/src",
+        "target": "./src/flutter/third_party/vulkan-deps/spirv-headers/src",
         "type": "patch",
-        "file_path": "../../../../flutter/attachment/repos/spirv-headers.patch"
+        "file_path": "../../../../../flutter/attachment/repos/spirv-headers.patch"
     },
     {
         "name": "angle",
-        "target": "./src/third_party/angle",
+        "target": "./src/flutter/third_party/angle",
         "type": "patch",
-        "file_path": "../../flutter/attachment/repos/angle.patch"
+        "file_path": "../../../flutter/attachment/repos/angle-3.22.patch"
     },
     {
         "name": "build",
         "target": "./src/build",
         "type": "patch",
-        "file_path": "../flutter/attachment/repos/build.patch"
+        "file_path": "../flutter/attachment/repos/build-3.22.patch"
     },
     {
         "name": "zlib",
@@ -54,8 +42,20 @@
     },
 	{
         "name": "boringssl",
-        "target": "./src/third_party/boringssl",
+        "target": "./src/flutter/third_party/boringssl",
         "type": "patch",
-        "file_path": "../../flutter/attachment/repos/boringssl.patch"
+        "file_path": "../../../flutter/attachment/repos/boringssl-3.22.patch"
+    },
+    {
+        "name": "swiftshader",
+        "target": "./src/flutter/third_party/swiftshader",
+        "type": "patch",
+        "file_path": "../../../flutter/attachment/repos/swiftshader-3.22.patch"
+    },
+    {
+        "name": "native",
+        "target": "./src/third_party/dart/third_party/pkg/native",
+        "type": "patch",
+        "file_path": "../../../../../flutter/attachment/repos/native.patch"
     }
 ]

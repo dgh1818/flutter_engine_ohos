@@ -8,19 +8,16 @@
 #include <memory>
 #include <unordered_map>
 
-#include "flutter/display_list/display_list.h"
-#include "flutter/display_list/display_list_complexity.h"
+#include "flutter/display_list/dl_canvas.h"
 #include "flutter/flow/raster_cache_key.h"
 #include "flutter/flow/raster_cache_util.h"
 #include "flutter/fml/macros.h"
 #include "flutter/fml/memory/weak_ptr.h"
 #include "flutter/fml/trace_event.h"
-#include "include/core/SkCanvas.h"
-#include "include/core/SkMatrix.h"
-#include "include/core/SkRect.h"
-#include "third_party/skia/include/core/SkImage.h"
-#include "third_party/skia/include/core/SkSize.h"
+#include "third_party/skia/include/core/SkMatrix.h"
+#include "third_party/skia/include/core/SkRect.h"
 
+class GrDirectContext;
 class SkColorSpace;
 
 namespace flutter {
@@ -29,26 +26,30 @@ enum class RasterCacheLayerStrategy { kLayer, kLayerChildren };
 
 class RasterCacheResult {
  public:
-  RasterCacheResult(sk_sp<SkImage> image,
+  RasterCacheResult(sk_sp<DlImage> image,
                     const SkRect& logical_rect,
-                    const char* type);
+                    const char* type,
+                    sk_sp<const DlRTree> rtree = nullptr);
 
   virtual ~RasterCacheResult() = default;
 
-  virtual void draw(SkCanvas& canvas, const SkPaint* paint) const;
+  virtual void draw(DlCanvas& canvas,
+                    const DlPaint* paint,
+                    bool preserve_rtree) const;
 
   virtual SkISize image_dimensions() const {
     return image_ ? image_->dimensions() : SkISize::Make(0, 0);
   };
 
   virtual int64_t image_bytes() const {
-    return image_ ? image_->imageInfo().computeMinByteSize() : 0;
+    return image_ ? image_->GetApproximateByteSize() : 0;
   };
 
  private:
-  sk_sp<SkImage> image_;
+  sk_sp<DlImage> image_;
   SkRect logical_rect_;
   fml::tracing::TraceFlow flow_;
+  sk_sp<const DlRTree> rtree_;
 };
 
 class Layer;
@@ -116,7 +117,7 @@ class RasterCache {
  public:
   struct Context {
     GrDirectContext* gr_context;
-    const SkColorSpace* dst_color_space;
+    const sk_sp<SkColorSpace> dst_color_space;
     const SkMatrix& matrix;
     const SkRect& logical_rect;
     const char* flow_type;
@@ -128,14 +129,15 @@ class RasterCache {
 
   std::unique_ptr<RasterCacheResult> Rasterize(
       const RasterCache::Context& context,
-      const std::function<void(SkCanvas*)>& draw_function,
-      const std::function<void(SkCanvas*, const SkRect& rect)>&
+      sk_sp<const DlRTree> rtree,
+      const std::function<void(DlCanvas*)>& draw_function,
+      const std::function<void(DlCanvas*, const SkRect& rect)>&
           draw_checkerboard) const;
 
   explicit RasterCache(
       size_t access_threshold = 3,
       size_t picture_and_display_list_cache_limit_per_frame =
-          RasterCacheUtil::kDefaultPictureAndDispLayListCacheLimitPerFrame);
+          RasterCacheUtil::kDefaultPictureAndDisplayListCacheLimitPerFrame);
 
   virtual ~RasterCache() = default;
 
@@ -144,9 +146,15 @@ class RasterCache {
   // if the item was disabled due to conditions discovered during |Preroll|
   // or if the attempt to populate the entry failed due to bounds overflow
   // conditions.
+  // If |preserve_rtree| is true, the raster cache will preserve the original
+  // RTree of cached content by blitting individual rectangles from the cached
+  // image to the canvas according to the original layer R-Tree (if present).
+  // This is to ensure that the target surface R-Tree will not be clobbered with
+  // one large blit as it can affect platform view overlays and hit testing.
   bool Draw(const RasterCacheKeyID& id,
-            SkCanvas& canvas,
-            const SkPaint* paint) const;
+            DlCanvas& canvas,
+            const DlPaint* paint,
+            bool preserve_rtree = false) const;
 
   bool HasEntry(const RasterCacheKeyID& id, const SkMatrix&) const;
 
@@ -172,16 +180,14 @@ class RasterCache {
   size_t GetLayerCachedEntriesCount() const;
 
   /**
-   * Return the number of map entries in the picture caches (SkPicture and
-   * DisplayList) regardless of whether the entries have been populated with
-   * an image.
+   * Return the number of map entries in the picture (DisplayList) cache
+   * regardless of whether the entries have been populated with an image.
    */
   size_t GetPictureCachedEntriesCount() const;
 
   /**
    * @brief Estimate how much memory is used by picture raster cache entries in
-   * bytes, including cache entries in the SkPicture cache and the DisplayList
-   * cache.
+   * bytes.
    *
    * Only SkImage's memory usage is counted as other objects are often much
    * smaller compared to SkImage. SkImageInfo::computeMinByteSize is used to
@@ -235,10 +241,10 @@ class RasterCache {
    */
   int GetAccessCount(const RasterCacheKeyID& id, const SkMatrix& matrix) const;
 
-  bool UpdateCacheEntry(
-      const RasterCacheKeyID& id,
-      const Context& raster_cache_context,
-      const std::function<void(SkCanvas*)>& render_function) const;
+  bool UpdateCacheEntry(const RasterCacheKeyID& id,
+                        const Context& raster_cache_context,
+                        const std::function<void(DlCanvas*)>& render_function,
+                        sk_sp<const DlRTree> rtree = nullptr) const;
 
  private:
   struct Entry {
@@ -258,7 +264,7 @@ class RasterCache {
   RasterCacheMetrics layer_metrics_;
   RasterCacheMetrics picture_metrics_;
   mutable RasterCacheKey::Map<Entry> cache_;
-  bool checkerboard_images_;
+  bool checkerboard_images_ = false;
 
   void TraceStatsToTimeline() const;
 

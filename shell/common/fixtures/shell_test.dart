@@ -2,12 +2,24 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'dart:convert' show utf8, json;
+import 'dart:async' show scheduleMicrotask;
+import 'dart:convert' show json, utf8;
 import 'dart:isolate';
 import 'dart:typed_data';
 import 'dart:ui';
 
+void expect(Object? a, Object? b) {
+  if (a != b) {
+    throw AssertionError('Expected $a to == $b');
+  }
+}
+
 void main() {}
+
+@pragma('vm:entry-point')
+void mainNotifyNative() {
+  notifyNative();
+}
 
 @pragma('vm:external-name', 'NativeReportTimingsCallback')
 external void nativeReportTimingsCallback(List<int> timings);
@@ -167,7 +179,7 @@ void testSkiaResourceCacheSendsResponse() {
                           }''';
   PlatformDispatcher.instance.sendPlatformMessage(
     'flutter/skia',
-    Uint8List.fromList(utf8.encode(jsonRequest)).buffer.asByteData(),
+    ByteData.sublistView(utf8.encode(jsonRequest)),
     callback,
   );
 }
@@ -221,29 +233,6 @@ void callNotifyDestroyed() {
 external void notifyMessage(String string);
 
 @pragma('vm:entry-point')
-void canConvertMappings() {
-  sendFixtureMapping(getFixtureMapping());
-}
-
-@pragma('vm:external-name', 'GetFixtureMapping')
-external List<int> getFixtureMapping();
-@pragma('vm:external-name', 'SendFixtureMapping')
-external void sendFixtureMapping(List<int> list);
-
-@pragma('vm:entry-point')
-void canDecompressImageFromAsset() {
-  decodeImageFromList(
-    Uint8List.fromList(getFixtureImage()),
-    (Image result) {
-      notifyWidthHeight(result.width, result.height);
-    },
-  );
-}
-
-@pragma('vm:external-name', 'GetFixtureImage')
-external List<int> getFixtureImage();
-
-@pragma('vm:entry-point')
 void canRegisterImageDecoders() {
   decodeImageFromList(
     // The test ImageGenerator will always behave the same regardless of input.
@@ -294,7 +283,7 @@ void canAccessResourceFromAssetDir() async {
   notifySetAssetBundlePath();
   window.sendPlatformMessage(
     'flutter/assets',
-    Uint8List.fromList(utf8.encode('kernel_blob.bin')).buffer.asByteData(),
+    ByteData.sublistView(utf8.encode('kernel_blob.bin')),
     (ByteData? byteData) {
       notifyCanAccessResource(byteData != null);
     },
@@ -326,10 +315,10 @@ void onBeginFrameWithNotifyNativeMain() {
 }
 
 @pragma('vm:entry-point')
-void frameCallback(_Image, int) {
-  // It is used as the frame callback of 'MultiFrameCodec' in the test
-  // 'ItDoesNotCrashThatSkiaUnrefQueueDrainAfterIOManagerReset'.
-  // The test is a regression test and doesn't care about images, so it is empty.
+void frameCallback(Object? image, int durationMilliseconds, String decodeError) {
+  if (image == null) {
+    throw Exception('Expeccted image in frame callback to be non-null');
+  }
 }
 
 Picture CreateRedBox(Size size) {
@@ -354,6 +343,9 @@ void scene_with_red_box() {
   PlatformDispatcher.instance.scheduleFrame();
 }
 
+@pragma('vm:external-name', 'NativeOnBeforeToImageSync')
+external void onBeforeToImageSync();
+
 
 @pragma('vm:entry-point')
 Future<void> toImageSync() async {
@@ -362,12 +354,8 @@ Future<void> toImageSync() async {
   canvas.drawPaint(Paint()..color = const Color(0xFFAAAAAA));
   final Picture picture = recorder.endRecording();
 
+  onBeforeToImageSync();
   final Image image = picture.toImageSync(20, 25);
-  void expect(Object? a, Object? b) {
-    if (a != b) {
-      throw 'Expected $a to == $b';
-    }
-  }
   expect(image.width, 20);
   expect(image.height, 25);
 
@@ -469,4 +457,197 @@ Future<void> testPluginUtilitiesCallbackHandle() async {
     port.close();
   }
   notifyNativeBool(true);
+}
+
+@pragma('vm:entry-point')
+Future<void> testThatAssetLoadingHappensOnWorkerThread() async {
+  try {
+    await ImmutableBuffer.fromAsset('DoesNotExist');
+  } catch (err) { /* Do nothing */ }
+  notifyNative();
+}
+
+@pragma('vm:external-name', 'NativeReportViewIdsCallback')
+external void nativeReportViewIdsCallback(bool hasImplicitView, List<int> viewIds);
+
+List<int> getCurrentViewIds() {
+  final List<int> result = PlatformDispatcher.instance.views
+      .map((FlutterView view) => view.viewId)
+      .toList()
+      ..sort();
+  assert(result.toSet().length == result.length,
+      'Unexpected duplicate view ID found: $result');
+  return result;
+}
+
+bool listEquals<T>(List<T> a, List<T> b) {
+  if (a.length != b.length) {
+    return false;
+  }
+  for (int i = 0; i < a.length; i += 1) {
+    if (a[i] != b[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// This entrypoint reports whether there's an implicit view and the list of view
+// IDs using nativeReportViewIdsCallback on initialization and every time the
+// list of view IDs changes.
+@pragma('vm:entry-point')
+void testReportViewIds() {
+  List<int> viewIds = getCurrentViewIds();
+  nativeReportViewIdsCallback(PlatformDispatcher.instance.implicitView != null, viewIds);
+  PlatformDispatcher.instance.onMetricsChanged = () {
+    final List<int> newViewIds = getCurrentViewIds();
+    if (!listEquals(viewIds, newViewIds)) {
+      viewIds = newViewIds;
+      nativeReportViewIdsCallback(PlatformDispatcher.instance.implicitView != null, viewIds);
+    }
+  };
+}
+
+// Returns a list of [view_id 1, view_width 1, view_id 2, view_width 2, ...]
+// for all views.
+List<int> getCurrentViewWidths() {
+  final List<int> result = <int>[];
+  for (final FlutterView view in PlatformDispatcher.instance.views) {
+    result.add(view.viewId);
+    result.add(view.physicalSize.width.round());
+  }
+  return result;
+}
+
+@pragma('vm:external-name', 'NativeReportViewWidthsCallback')
+external void nativeReportViewWidthsCallback(List<int> viewWidthPacket);
+
+// This entrypoint reports the list of views and their widths using
+// nativeReportViewWidthsCallback on initialization and every onMetricsChanged.
+@pragma('vm:entry-point')
+void testReportViewWidths() {
+  nativeReportViewWidthsCallback(getCurrentViewWidths());
+  PlatformDispatcher.instance.onMetricsChanged = () {
+    nativeReportViewWidthsCallback(getCurrentViewWidths());
+  };
+}
+
+void renderDummyToView(FlutterView view) {
+  final SceneBuilder builder = SceneBuilder();
+  final PictureRecorder recorder = PictureRecorder();
+  final Canvas canvas = Canvas(recorder);
+  canvas.drawPaint(Paint()..color = const Color(0xFFABCDEF));
+  final Picture picture = recorder.endRecording();
+  builder.addPicture(Offset.zero, picture);
+
+  final Scene scene = builder.build();
+  view.render(scene);
+
+  scene.dispose();
+  picture.dispose();
+}
+
+@pragma('vm:entry-point')
+void onDrawFrameRenderAllViews() {
+  PlatformDispatcher.instance.onDrawFrame = () {
+    for (final FlutterView view in PlatformDispatcher.instance.views) {
+      renderDummyToView(view);
+    }
+  };
+  notifyNative();
+}
+
+@pragma('vm:entry-point')
+void renderViewsInFrameAndOutOfFrame() {
+  renderDummyToView(PlatformDispatcher.instance.view(id: 1)!);
+  PlatformDispatcher.instance.onDrawFrame = () {
+    renderDummyToView(PlatformDispatcher.instance.view(id: 2)!);
+  };
+  PlatformDispatcher.instance.scheduleFrame();
+}
+
+@pragma('vm:external-name', 'CaptureRootLayer')
+external _captureRootLayer(SceneBuilder sceneBuilder);
+
+@pragma('vm:entry-point')
+void renderTwiceForOneView() {
+  final SceneBuilder builder = SceneBuilder();
+  final PictureRecorder recorder = PictureRecorder();
+  final Canvas canvas = Canvas(recorder);
+  canvas.drawPaint(Paint()..color = const Color(0xFFABCDEF));
+  final Picture picture = recorder.endRecording();
+  builder.addPicture(Offset.zero, picture);
+
+  PlatformDispatcher.instance.onBeginFrame = (_) {
+    // Tell engine the correct layer tree.
+    _captureRootLayer(builder);
+  };
+
+  PlatformDispatcher.instance.onDrawFrame = () {
+    final Scene scene = builder.build();
+    PlatformDispatcher.instance.implicitView!.render(scene);
+    scene.dispose();
+    picture.dispose();
+
+    // Render a second time. This duplicate render should be ignored.
+    renderDummyToView(PlatformDispatcher.instance.implicitView!);
+  };
+  PlatformDispatcher.instance.scheduleFrame();
+}
+
+@pragma('vm:entry-point')
+void renderSingleViewAndCallAfterOnDrawFrame() {
+  PlatformDispatcher.instance.onDrawFrame = () {
+    final SceneBuilder builder = SceneBuilder();
+    final PictureRecorder recorder = PictureRecorder();
+    final Canvas canvas = Canvas(recorder);
+    canvas.drawPaint(Paint()..color = const Color(0xFFABCDEF));
+    final Picture picture = recorder.endRecording();
+    builder.addPicture(Offset.zero, picture);
+
+    final Scene scene = builder.build();
+    PlatformDispatcher.instance.implicitView!.render(scene);
+    // Notify the engine after the render before the disposal.
+    // The view should have been submitted for rasterization at this moment.
+    notifyNative();
+
+    scene.dispose();
+    picture.dispose();
+  };
+  PlatformDispatcher.instance.scheduleFrame();
+}
+
+@pragma('vm:entry-point')
+void renderWarmUpImplicitView() {
+  bool beginFrameCalled = false;
+
+  PlatformDispatcher.instance.scheduleWarmUpFrame(
+    beginFrame: () {
+      expect(beginFrameCalled, false);
+      beginFrameCalled = true;
+    },
+    drawFrame: () {
+      expect(beginFrameCalled, true);
+      renderDummyToView(PlatformDispatcher.instance.implicitView!);
+    },
+  );
+}
+
+@pragma('vm:entry-point')
+void renderWarmUpView1and2() {
+  bool beginFrameCalled = false;
+
+  PlatformDispatcher.instance.scheduleWarmUpFrame(
+    beginFrame: () {
+      expect(beginFrameCalled, false);
+      beginFrameCalled = true;
+    },
+    drawFrame: () {
+      expect(beginFrameCalled, true);
+
+      for (final int viewId in <int>[1, 2]) {
+        renderDummyToView(PlatformDispatcher.instance.view(id: viewId)!);
+      }
+    }
+  );
 }

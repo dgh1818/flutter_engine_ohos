@@ -2,17 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//build/fuchsia/sdk.gni")
-
-config("vulkan_config") {
-  include_dirs = [ "//third_party/vulkan_memory_allocator/include" ]
-  defines = [ "VULKAN_HPP_NO_EXCEPTIONS=1" ]
-  if (is_fuchsia) {
-    include_dirs += [ "//third_party/fuchsia-vulkan/include" ]
-    defines += [ "VK_USE_PLATFORM_FUCHSIA=1" ]
-  } else {
-    include_dirs += [ "//third_party/vulkan-deps/vulkan-headers/src/include" ]
-  }
+if (is_fuchsia) {
+  import("//flutter/tools/fuchsia/gn-sdk/src/gn_configs.gni")
 }
 
 source_set("vulkan") {
@@ -56,14 +47,11 @@ source_set("vulkan") {
     "procs",
     "//flutter/flutter_vma:flutter_skia_vma",
     "//flutter/fml",
-    "//third_party/skia",
+    "//flutter/skia",
   ]
 
-  public_configs = [
-    ":vulkan_config",
-    "//flutter:config",
-  ]
+  public_configs = [ "//flutter:config" ]
 
   public_deps =
-      [ "//third_party/vulkan-deps/vulkan-headers/src:vulkan_headers" ]
+      [ "//flutter/third_party/vulkan-deps/vulkan-headers/src:vulkan_headers" ]
 }

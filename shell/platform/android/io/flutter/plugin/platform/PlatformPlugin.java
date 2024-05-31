@@ -4,13 +4,17 @@
 
 package io.flutter.plugin.platform;
 
-import android.annotation.TargetApi;
+import static io.flutter.Build.API_LEVELS;
+
 import android.app.Activity;
 import android.app.ActivityManager.TaskDescription;
 import android.content.ClipData;
 import android.content.ClipDescription;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.Intent;
+import android.content.res.AssetFileDescriptor;
+import android.net.Uri;
 import android.os.Build;
 import android.view.HapticFeedbackConstants;
 import android.view.SoundEffectConstants;
@@ -25,6 +29,7 @@ import androidx.core.view.WindowInsetsControllerCompat;
 import io.flutter.Log;
 import io.flutter.embedding.engine.systemchannels.PlatformChannel;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.List;
 
 /** Android implementation of the platform plugin. */
@@ -34,7 +39,7 @@ public class PlatformPlugin {
 
   private final Activity activity;
   private final PlatformChannel platformChannel;
-  private final PlatformPluginDelegate platformPluginDelegate;
+  @Nullable private final PlatformPluginDelegate platformPluginDelegate;
   private PlatformChannel.SystemChromeStyle currentTheme;
   private int mEnabledOverlays;
   private static final String TAG = "PlatformPlugin";
@@ -56,6 +61,15 @@ public class PlatformPlugin {
      *     androidx.activity.OnBackPressedDispatcher} will be executed.
      */
     boolean popSystemNavigator();
+
+    /**
+     * The Flutter application would or would not like to handle navigation pop events itself.
+     *
+     * <p>Relevant for registering and unregistering the app's OnBackInvokedCallback for the
+     * Predictive Back feature, for example as in {@link
+     * io.flutter.embedding.android.FlutterActivity}.
+     */
+    default void setFrameworkHandlesBack(boolean frameworkHandlesBack) {}
   }
 
   @VisibleForTesting
@@ -110,6 +124,11 @@ public class PlatformPlugin {
         }
 
         @Override
+        public void setFrameworkHandlesBack(boolean frameworkHandlesBack) {
+          PlatformPlugin.this.setFrameworkHandlesBack(frameworkHandlesBack);
+        }
+
+        @Override
         public void popSystemNavigator() {
           PlatformPlugin.this.popSystemNavigator();
         }
@@ -129,6 +148,11 @@ public class PlatformPlugin {
         public boolean clipboardHasStrings() {
           return PlatformPlugin.this.clipboardHasStrings();
         }
+
+        @Override
+        public void share(@NonNull String text) {
+          PlatformPlugin.this.share(text);
+        }
       };
 
   public PlatformPlugin(@NonNull Activity activity, @NonNull PlatformChannel platformChannel) {
@@ -138,7 +162,7 @@ public class PlatformPlugin {
   public PlatformPlugin(
       @NonNull Activity activity,
       @NonNull PlatformChannel platformChannel,
-      @NonNull PlatformPluginDelegate delegate) {
+      @Nullable PlatformPluginDelegate delegate) {
     this.activity = activity;
     this.platformChannel = platformChannel;
     this.platformChannel.setPlatformMessageHandler(mPlatformMessageHandler);
@@ -178,14 +202,12 @@ public class PlatformPlugin {
         view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
         break;
       case HEAVY_IMPACT:
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        if (Build.VERSION.SDK_INT >= API_LEVELS.API_23) {
           view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK);
         }
         break;
       case SELECTION_CLICK:
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-          view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
-        }
+        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
         break;
     }
   }
@@ -197,20 +219,10 @@ public class PlatformPlugin {
   @SuppressWarnings("deprecation")
   private void setSystemChromeApplicationSwitcherDescription(
       PlatformChannel.AppSwitcherDescription description) {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-      return;
-    }
-
-    // Linter refuses to believe we're only executing this code in API 28 unless we
-    // use distinct if
-    // blocks and
-    // hardcode the API 28 constant.
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P
-        && Build.VERSION.SDK_INT > Build.VERSION_CODES.LOLLIPOP) {
+    if (Build.VERSION.SDK_INT < API_LEVELS.API_28) {
       activity.setTaskDescription(
           new TaskDescription(description.label, /* icon= */ null, description.color));
-    }
-    if (Build.VERSION.SDK_INT >= 28) {
+    } else {
       TaskDescription taskDescription =
           new TaskDescription(description.label, 0, description.color);
       activity.setTaskDescription(taskDescription);
@@ -268,8 +280,7 @@ public class PlatformPlugin {
               | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
               | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
               | View.SYSTEM_UI_FLAG_FULLSCREEN;
-    } else if (systemUiMode == PlatformChannel.SystemUiMode.IMMERSIVE
-        && Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+    } else if (systemUiMode == PlatformChannel.SystemUiMode.IMMERSIVE) {
       // IMMERSIVE
       // Available starting at 19
       // Should not show overlays, swipe from edges to reveal overlays, needs onChange callback
@@ -284,8 +295,7 @@ public class PlatformPlugin {
               | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
               | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
               | View.SYSTEM_UI_FLAG_FULLSCREEN;
-    } else if (systemUiMode == PlatformChannel.SystemUiMode.IMMERSIVE_STICKY
-        && Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+    } else if (systemUiMode == PlatformChannel.SystemUiMode.IMMERSIVE_STICKY) {
       // STICKY IMMERSIVE
       // Available starting at 19
       // Should not show overlays, swipe from edges to reveal overlays. The app will also receive
@@ -300,7 +310,7 @@ public class PlatformPlugin {
               | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
               | View.SYSTEM_UI_FLAG_FULLSCREEN;
     } else if (systemUiMode == PlatformChannel.SystemUiMode.EDGE_TO_EDGE
-        && Build.VERSION.SDK_INT >= 29) {
+        && Build.VERSION.SDK_INT >= API_LEVELS.API_29) {
       // EDGE TO EDGE
       // Available starting at 29
       // SDK 29 and up will apply a translucent body scrim behind 2/3 button navigation bars
@@ -329,10 +339,7 @@ public class PlatformPlugin {
             | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
             | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;
 
-    // The SYSTEM_UI_FLAG_IMMERSIVE_STICKY flag was introduced in API 19, so we
-    // apply it
-    // if desired, and if the current Android version is 19 or greater.
-    if (overlaysToShow.size() == 0 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+    if (overlaysToShow.size() == 0) {
       enabledOverlays |= View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY;
     }
 
@@ -374,7 +381,6 @@ public class PlatformPlugin {
   }
 
   @SuppressWarnings("deprecation")
-  @TargetApi(21)
   private void setSystemChromeSystemUIOverlayStyle(
       PlatformChannel.SystemChromeStyle systemChromeStyle) {
     Window window = activity.getWindow();
@@ -382,7 +388,7 @@ public class PlatformPlugin {
     WindowInsetsControllerCompat windowInsetsControllerCompat =
         new WindowInsetsControllerCompat(window, view);
 
-    if (Build.VERSION.SDK_INT < 30) {
+    if (Build.VERSION.SDK_INT < API_LEVELS.API_30) {
       // Flag set to specify that this window is responsible for drawing the background for the
       // system bars. Must be set for all operations on API < 30 excluding enforcing system
       // bar contrasts. Deprecated in API 30.
@@ -403,7 +409,7 @@ public class PlatformPlugin {
     // If transparent, SDK 29 and higher may apply a translucent scrim behind the bar to ensure
     // proper contrast. This can be overridden with
     // SystemChromeStyle.systemStatusBarContrastEnforced.
-    if (Build.VERSION.SDK_INT >= 23) {
+    if (Build.VERSION.SDK_INT >= API_LEVELS.API_23) {
       if (systemChromeStyle.statusBarIconBrightness != null) {
         switch (systemChromeStyle.statusBarIconBrightness) {
           case DARK:
@@ -426,7 +432,8 @@ public class PlatformPlugin {
     // You can't override the enforced contrast for a transparent status bar until SDK 29.
     // This overrides the translucent scrim that may be placed behind the bar on SDK 29+ to ensure
     // contrast is appropriate when using full screen layout modes like Edge to Edge.
-    if (systemChromeStyle.systemStatusBarContrastEnforced != null && Build.VERSION.SDK_INT >= 29) {
+    if (systemChromeStyle.systemStatusBarContrastEnforced != null
+        && Build.VERSION.SDK_INT >= API_LEVELS.API_29) {
       window.setStatusBarContrastEnforced(systemChromeStyle.systemStatusBarContrastEnforced);
     }
 
@@ -437,7 +444,7 @@ public class PlatformPlugin {
     // If transparent, SDK 29 and higher may apply a translucent scrim behind 2/3 button navigation
     // bars to ensure proper contrast. This can be overridden with
     // SystemChromeStyle.systemNavigationBarContrastEnforced.
-    if (Build.VERSION.SDK_INT >= 26) {
+    if (Build.VERSION.SDK_INT >= API_LEVELS.API_26) {
       if (systemChromeStyle.systemNavigationBarIconBrightness != null) {
         switch (systemChromeStyle.systemNavigationBarIconBrightness) {
           case DARK:
@@ -458,7 +465,8 @@ public class PlatformPlugin {
       }
     }
     // You can't change the color of the navigation bar divider color until SDK 28.
-    if (systemChromeStyle.systemNavigationBarDividerColor != null && Build.VERSION.SDK_INT >= 28) {
+    if (systemChromeStyle.systemNavigationBarDividerColor != null
+        && Build.VERSION.SDK_INT >= API_LEVELS.API_28) {
       window.setNavigationBarDividerColor(systemChromeStyle.systemNavigationBarDividerColor);
     }
 
@@ -467,12 +475,18 @@ public class PlatformPlugin {
     // SDK 29+ to ensure contrast is appropriate when using full screen layout modes like
     // Edge to Edge.
     if (systemChromeStyle.systemNavigationBarContrastEnforced != null
-        && Build.VERSION.SDK_INT >= 29) {
+        && Build.VERSION.SDK_INT >= API_LEVELS.API_29) {
       window.setNavigationBarContrastEnforced(
           systemChromeStyle.systemNavigationBarContrastEnforced);
     }
 
     currentTheme = systemChromeStyle;
+  }
+
+  private void setFrameworkHandlesBack(boolean frameworkHandlesBack) {
+    if (platformPluginDelegate != null) {
+      platformPluginDelegate.setFrameworkHandlesBack(frameworkHandlesBack);
+    }
   }
 
   private void popSystemNavigator() {
@@ -494,14 +508,46 @@ public class PlatformPlugin {
 
     if (!clipboard.hasPrimaryClip()) return null;
 
+    CharSequence itemText = null;
     try {
       ClipData clip = clipboard.getPrimaryClip();
       if (clip == null) return null;
       if (format == null || format == PlatformChannel.ClipboardContentFormat.PLAIN_TEXT) {
         ClipData.Item item = clip.getItemAt(0);
-        if (item.getUri() != null)
-          activity.getContentResolver().openTypedAssetFileDescriptor(item.getUri(), "text/*", null);
-        return item.coerceToText(activity);
+        // First, try getting clipboard data as text; no further processing
+        // required if so.
+        itemText = item.getText();
+        if (itemText == null) {
+          // Clipboard data does not contain text, so check whether or not it
+          // contains a URI to extract text from.
+          Uri itemUri = item.getUri();
+
+          if (itemUri == null) {
+            Log.w(
+                TAG, "Clipboard item contained no textual content nor a URI to retrieve it from.");
+            return null;
+          }
+
+          // Will only try to extract text from URI if it has the content scheme.
+          String uriScheme = itemUri.getScheme();
+
+          if (!uriScheme.equals("content")) {
+            Log.w(
+                TAG,
+                "Clipboard item contains a Uri with scheme '" + uriScheme + "'that is unhandled.");
+            return null;
+          }
+
+          AssetFileDescriptor assetFileDescriptor =
+              activity.getContentResolver().openTypedAssetFileDescriptor(itemUri, "text/*", null);
+
+          // Safely return clipboard data coerced into text; will return either
+          // itemText or text retrieved from its URI.
+          itemText = item.coerceToText(activity);
+          if (assetFileDescriptor != null) assetFileDescriptor.close();
+        }
+
+        return itemText;
       }
     } catch (SecurityException e) {
       Log.w(
@@ -512,7 +558,11 @@ public class PlatformPlugin {
           e);
       return null;
     } catch (FileNotFoundException e) {
+      Log.w(TAG, "Clipboard text was unable to be received from content URI.");
       return null;
+    } catch (IOException e) {
+      Log.w(TAG, "Failed to close AssetFileDescriptor while trying to read text from URI.", e);
+      return itemText;
     }
 
     return null;
@@ -539,5 +589,14 @@ public class PlatformPlugin {
       return false;
     }
     return description.hasMimeType("text/*");
+  }
+
+  private void share(@NonNull String text) {
+    Intent intent = new Intent();
+    intent.setAction(Intent.ACTION_SEND);
+    intent.setType("text/plain");
+    intent.putExtra(Intent.EXTRA_TEXT, text);
+
+    activity.startActivity(Intent.createChooser(intent, null));
   }
 }

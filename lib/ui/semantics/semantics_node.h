@@ -88,6 +88,8 @@ enum class SemanticsFlags : int32_t {
   kIsSlider = 1 << 23,
   kIsKeyboardKey = 1 << 24,
   kIsCheckStateMixed = 1 << 25,
+  kHasExpandedState = 1 << 26,
+  kIsExpanded = 1 << 27,
 };
 
 const int kScrollableSemanticsFlags =
@@ -121,6 +123,7 @@ struct SemanticsNode {
   double scrollExtentMin = std::nan("");
   double elevation = 0.0;
   double thickness = 0.0;
+  std::string identifier;
   std::string label;
   StringAttributes labelAttributes;
   std::string hint;

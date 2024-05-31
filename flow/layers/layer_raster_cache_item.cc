@@ -6,6 +6,7 @@
 #include "flutter/flow/layers/container_layer.h"
 #include "flutter/flow/raster_cache_item.h"
 #include "flutter/flow/raster_cache_util.h"
+#include "third_party/skia/include/core/SkColorSpace.h"
 
 namespace flutter {
 
@@ -101,7 +102,7 @@ const SkRect* LayerRasterCacheItem::GetPaintBoundsFromLayer() const {
 bool Rasterize(RasterCacheItem::CacheState cache_state,
                Layer* layer,
                const PaintContext& paint_context,
-               SkCanvas* canvas) {
+               DlCanvas* canvas) {
   FML_DCHECK(cache_state != RasterCacheItem::CacheState::kNone);
   LayerStateStack state_stack;
   state_stack.set_delegate(canvas);
@@ -118,7 +119,6 @@ bool Rasterize(RasterCacheItem::CacheState cache_state,
       .ui_time                       = paint_context.ui_time,
       .texture_registry              = paint_context.texture_registry,
       .raster_cache                  = paint_context.raster_cache,
-      .frame_device_pixel_ratio      = paint_context.frame_device_pixel_ratio,
       // clang-format on
   };
 
@@ -141,7 +141,8 @@ static const auto* flow_type = "RasterCacheFlow::Layer";
 
 bool LayerRasterCacheItem::TryToPrepareRasterCache(const PaintContext& context,
                                                    bool parent_cached) const {
-  if (!context.raster_cache || parent_cached) {
+  auto maybe_id = GetId();
+  if (!maybe_id.has_value() || !context.raster_cache || parent_cached) {
     return false;
   }
   if (cache_state_ != kNone) {
@@ -155,10 +156,11 @@ bool LayerRasterCacheItem::TryToPrepareRasterCache(const PaintContext& context,
           .flow_type          = flow_type,
           // clang-format on
       };
+      auto id = maybe_id.value();
       return context.raster_cache->UpdateCacheEntry(
-          GetId().value(), r_context,
+          id, r_context,
           [ctx = context, cache_state = cache_state_,
-           layer = layer_](SkCanvas* canvas) {
+           layer = layer_](DlCanvas* canvas) {
             Rasterize(cache_state, layer, ctx, canvas);
           });
     }
@@ -167,13 +169,13 @@ bool LayerRasterCacheItem::TryToPrepareRasterCache(const PaintContext& context,
 }
 
 bool LayerRasterCacheItem::Draw(const PaintContext& context,
-                                const SkPaint* paint) const {
+                                const DlPaint* paint) const {
   return Draw(context, context.canvas, paint);
 }
 
 bool LayerRasterCacheItem::Draw(const PaintContext& context,
-                                SkCanvas* canvas,
-                                const SkPaint* paint) const {
+                                DlCanvas* canvas,
+                                const DlPaint* paint) const {
   if (!context.raster_cache || !canvas) {
     return false;
   }
@@ -181,11 +183,16 @@ bool LayerRasterCacheItem::Draw(const PaintContext& context,
     case RasterCacheItem::kNone:
       return false;
     case RasterCacheItem::kCurrent: {
-      return context.raster_cache->Draw(key_id_, *canvas, paint);
+      return context.raster_cache->Draw(key_id_, *canvas, paint,
+                                        context.rendering_above_platform_view);
     }
     case RasterCacheItem::kChildren: {
+      if (!layer_children_id_.has_value()) {
+        return false;
+      }
       return context.raster_cache->Draw(layer_children_id_.value(), *canvas,
-                                        paint);
+                                        paint,
+                                        context.rendering_above_platform_view);
     }
   }
 }

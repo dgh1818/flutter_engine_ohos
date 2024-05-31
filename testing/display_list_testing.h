@@ -2,14 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef TESTING_DISPLAY_LIST_TESTING_H_
-#define TESTING_DISPLAY_LIST_TESTING_H_
+#ifndef FLUTTER_TESTING_DISPLAY_LIST_TESTING_H_
+#define FLUTTER_TESTING_DISPLAY_LIST_TESTING_H_
 
 #include <ostream>
 
 #include "flutter/display_list/display_list.h"
-#include "flutter/display_list/display_list_dispatcher.h"
-#include "flutter/display_list/display_list_path_effect.h"
+#include "flutter/display_list/dl_op_receiver.h"
 
 namespace flutter {
 namespace testing {
@@ -18,32 +17,48 @@ bool DisplayListsEQ_Verbose(const DisplayList* a, const DisplayList* b);
 bool inline DisplayListsEQ_Verbose(const DisplayList& a, const DisplayList& b) {
   return DisplayListsEQ_Verbose(&a, &b);
 }
-bool inline DisplayListsEQ_Verbose(sk_sp<const DisplayList> a,
-                                   sk_sp<const DisplayList> b) {
+bool inline DisplayListsEQ_Verbose(const sk_sp<const DisplayList>& a,
+                                   const sk_sp<const DisplayList>& b) {
   return DisplayListsEQ_Verbose(a.get(), b.get());
 }
 bool DisplayListsNE_Verbose(const DisplayList* a, const DisplayList* b);
 bool inline DisplayListsNE_Verbose(const DisplayList& a, const DisplayList& b) {
   return DisplayListsNE_Verbose(&a, &b);
 }
-bool inline DisplayListsNE_Verbose(sk_sp<const DisplayList> a,
-                                   sk_sp<const DisplayList> b) {
+bool inline DisplayListsNE_Verbose(const sk_sp<const DisplayList>& a,
+                                   const sk_sp<const DisplayList>& b) {
   return DisplayListsNE_Verbose(a.get(), b.get());
 }
 
 extern std::ostream& operator<<(std::ostream& os,
                                 const DisplayList& display_list);
+extern std::ostream& operator<<(std::ostream& os, const DlPaint& paint);
+extern std::ostream& operator<<(std::ostream& os, const DlBlendMode& mode);
+extern std::ostream& operator<<(std::ostream& os, const DlCanvas::ClipOp& op);
+extern std::ostream& operator<<(std::ostream& os,
+                                const DlCanvas::PointMode& op);
+extern std::ostream& operator<<(std::ostream& os,
+                                const DlCanvas::SrcRectConstraint& op);
+extern std::ostream& operator<<(std::ostream& os, const DlStrokeCap& cap);
+extern std::ostream& operator<<(std::ostream& os, const DlStrokeJoin& join);
+extern std::ostream& operator<<(std::ostream& os, const DlDrawStyle& style);
+extern std::ostream& operator<<(std::ostream& os, const DlBlurStyle& style);
+extern std::ostream& operator<<(std::ostream& os, const DlFilterMode& mode);
+extern std::ostream& operator<<(std::ostream& os, const DlColor& color);
+extern std::ostream& operator<<(std::ostream& os, DlImageSampling sampling);
+extern std::ostream& operator<<(std::ostream& os, const DlVertexMode& mode);
+extern std::ostream& operator<<(std::ostream& os, const DlTileMode& mode);
+extern std::ostream& operator<<(std::ostream& os, const DlImage* image);
 
-class DisplayListStreamDispatcher final : public Dispatcher {
+class DisplayListStreamDispatcher final : public DlOpReceiver {
  public:
-  DisplayListStreamDispatcher(std::ostream& os,
-                              int cur_indent = 2,
-                              int indent = 2)
+  explicit DisplayListStreamDispatcher(std::ostream& os,
+                                       int cur_indent = 2,
+                                       int indent = 2)
       : os_(os), cur_indent_(cur_indent), indent_(indent) {}
 
   void setAntiAlias(bool aa) override;
-  void setDither(bool dither) override;
-  void setStyle(DlDrawStyle style) override;
+  void setDrawStyle(DlDrawStyle style) override;
   void setColor(DlColor color) override;
   void setStrokeWidth(SkScalar width) override;
   void setStrokeMiter(SkScalar limit) override;
@@ -53,13 +68,12 @@ class DisplayListStreamDispatcher final : public Dispatcher {
   void setColorFilter(const DlColorFilter* filter) override;
   void setInvertColors(bool invert) override;
   void setBlendMode(DlBlendMode mode) override;
-  void setBlender(sk_sp<SkBlender> blender) override;
   void setPathEffect(const DlPathEffect* effect) override;
   void setMaskFilter(const DlMaskFilter* filter) override;
   void setImageFilter(const DlImageFilter* filter) override;
 
   void save() override;
-  void saveLayer(const SkRect* bounds,
+  void saveLayer(const SkRect& bounds,
                  const SaveLayerOptions options,
                  const DlImageFilter* backdrop) override;
   void restore() override;
@@ -79,9 +93,9 @@ class DisplayListStreamDispatcher final : public Dispatcher {
   // clang-format on
   void transformReset() override;
 
-  void clipRect(const SkRect& rect, SkClipOp clip_op, bool is_aa) override;
-  void clipRRect(const SkRRect& rrect, SkClipOp clip_op, bool is_aa) override;
-  void clipPath(const SkPath& path, SkClipOp clip_op, bool is_aa) override;
+  void clipRect(const SkRect& rect, ClipOp clip_op, bool is_aa) override;
+  void clipRRect(const SkRRect& rrect, ClipOp clip_op, bool is_aa) override;
+  void clipPath(const SkPath& path, ClipOp clip_op, bool is_aa) override;
 
   void drawColor(DlColor color, DlBlendMode mode) override;
   void drawPaint() override;
@@ -96,11 +110,9 @@ class DisplayListStreamDispatcher final : public Dispatcher {
                SkScalar start_degrees,
                SkScalar sweep_degrees,
                bool use_center) override;
-  void drawPoints(SkCanvas::PointMode mode,
+  void drawPoints(PointMode mode,
                   uint32_t count,
                   const SkPoint points[]) override;
-  void drawSkVertices(const sk_sp<SkVertices> vertices,
-                      SkBlendMode mode) override;
   void drawVertices(const DlVertices* vertices, DlBlendMode mode) override;
   void drawImage(const sk_sp<DlImage> image,
                  const SkPoint point,
@@ -111,17 +123,12 @@ class DisplayListStreamDispatcher final : public Dispatcher {
                      const SkRect& dst,
                      DlImageSampling sampling,
                      bool render_with_attributes,
-                     SkCanvas::SrcRectConstraint constraint) override;
+                     SrcRectConstraint constraint) override;
   void drawImageNine(const sk_sp<DlImage> image,
                      const SkIRect& center,
                      const SkRect& dst,
                      DlFilterMode filter,
                      bool render_with_attributes) override;
-  void drawImageLattice(const sk_sp<DlImage> image,
-                        const SkCanvas::Lattice& lattice,
-                        const SkRect& dst,
-                        DlFilterMode filter,
-                        bool render_with_attributes) override;
   void drawAtlas(const sk_sp<DlImage> atlas,
                  const SkRSXform xform[],
                  const SkRect tex[],
@@ -131,13 +138,14 @@ class DisplayListStreamDispatcher final : public Dispatcher {
                  DlImageSampling sampling,
                  const SkRect* cull_rect,
                  bool render_with_attributes) override;
-  void drawPicture(const sk_sp<SkPicture> picture,
-                   const SkMatrix* matrix,
-                   bool render_with_attributes) override;
-  void drawDisplayList(const sk_sp<DisplayList> display_list) override;
+  void drawDisplayList(const sk_sp<DisplayList> display_list,
+                       SkScalar opacity) override;
   void drawTextBlob(const sk_sp<SkTextBlob> blob,
                     SkScalar x,
                     SkScalar y) override;
+  void drawTextFrame(const std::shared_ptr<impeller::TextFrame>& text_frame,
+                     SkScalar x,
+                     SkScalar y) override;
   void drawShadow(const SkPath& path,
                   const DlColor color,
                   const SkScalar elevation,
@@ -168,4 +176,4 @@ class DisplayListStreamDispatcher final : public Dispatcher {
 }  // namespace testing
 }  // namespace flutter
 
-#endif  // TESTING_DISPLAY_LIST_TESTING_H_
+#endif  // FLUTTER_TESTING_DISPLAY_LIST_TESTING_H_

@@ -6,10 +6,14 @@
 
 #include <memory>
 
+#include "flutter/fml/macros.h"
 #include "flutter/shell/platform/common/json_method_codec.h"
 #include "flutter/shell/platform/windows/flutter_windows_view.h"
+#include "flutter/shell/platform/windows/testing/engine_modifier.h"
+#include "flutter/shell/platform/windows/testing/flutter_windows_engine_builder.h"
 #include "flutter/shell/platform/windows/testing/mock_window_binding_handler.h"
 #include "flutter/shell/platform/windows/testing/test_binary_messenger.h"
+#include "flutter/shell/platform/windows/testing/windows_test.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "rapidjson/document.h"
@@ -34,10 +38,21 @@ static constexpr char kClipboardHasStringsFakeContentTypeMessage[] =
     "{\"method\":\"Clipboard.hasStrings\",\"args\":\"text/madeupcontenttype\"}";
 static constexpr char kClipboardSetDataMessage[] =
     "{\"method\":\"Clipboard.setData\",\"args\":{\"text\":\"hello\"}}";
+static constexpr char kClipboardSetDataNullTextMessage[] =
+    "{\"method\":\"Clipboard.setData\",\"args\":{\"text\":null}}";
 static constexpr char kClipboardSetDataUnknownTypeMessage[] =
     "{\"method\":\"Clipboard.setData\",\"args\":{\"madeuptype\":\"hello\"}}";
 static constexpr char kSystemSoundTypeAlertMessage[] =
     "{\"method\":\"SystemSound.play\",\"args\":\"SystemSoundType.alert\"}";
+static constexpr char kSystemExitApplicationRequiredMessage[] =
+    "{\"method\":\"System.exitApplication\",\"args\":{\"type\":\"required\","
+    "\"exitCode\":1}}";
+static constexpr char kSystemExitApplicationCancelableMessage[] =
+    "{\"method\":\"System.exitApplication\",\"args\":{\"type\":\"cancelable\","
+    "\"exitCode\":2}}";
+static constexpr char kExitResponseCancelMessage[] =
+    "[{\"response\":\"cancel\"}]";
+static constexpr char kExitResponseExitMessage[] = "[{\"response\":\"exit\"}]";
 
 static constexpr int kAccessDeniedErrorCode = 5;
 static constexpr int kErrorSuccess = 0;
@@ -49,33 +64,58 @@ class MockPlatformHandler : public PlatformHandler {
  public:
   explicit MockPlatformHandler(
       BinaryMessenger* messenger,
-      FlutterWindowsView* view,
+      FlutterWindowsEngine* engine,
       std::optional<std::function<std::unique_ptr<ScopedClipboardInterface>()>>
           scoped_clipboard_provider = std::nullopt)
-      : PlatformHandler(messenger, view, scoped_clipboard_provider) {}
+      : PlatformHandler(messenger, engine, scoped_clipboard_provider) {}
 
   virtual ~MockPlatformHandler() = default;
 
-  MOCK_METHOD2(GetPlainText,
-               void(std::unique_ptr<MethodResult<rapidjson::Document>>,
-                    std::string_view key));
-  MOCK_METHOD1(GetHasStrings,
-               void(std::unique_ptr<MethodResult<rapidjson::Document>>));
-  MOCK_METHOD2(SetPlainText,
-               void(const std::string&,
-                    std::unique_ptr<MethodResult<rapidjson::Document>>));
-  MOCK_METHOD2(SystemSoundPlay,
-               void(const std::string&,
-                    std::unique_ptr<MethodResult<rapidjson::Document>>));
+  MOCK_METHOD(void,
+              GetPlainText,
+              (std::unique_ptr<MethodResult<rapidjson::Document>>,
+               std::string_view key),
+              (override));
+  MOCK_METHOD(void,
+              GetHasStrings,
+              (std::unique_ptr<MethodResult<rapidjson::Document>>),
+              (override));
+  MOCK_METHOD(void,
+              SetPlainText,
+              (const std::string&,
+               std::unique_ptr<MethodResult<rapidjson::Document>>),
+              (override));
+  MOCK_METHOD(void,
+              SystemSoundPlay,
+              (const std::string&,
+               std::unique_ptr<MethodResult<rapidjson::Document>>),
+              (override));
+
+  MOCK_METHOD(void,
+              QuitApplication,
+              (std::optional<HWND> hwnd,
+               std::optional<WPARAM> wparam,
+               std::optional<LPARAM> lparam,
+               UINT exit_code),
+              (override));
+
+ private:
+  FML_DISALLOW_COPY_AND_ASSIGN(MockPlatformHandler);
 };
 
 // A test version of the private ScopedClipboard.
 class MockScopedClipboard : public ScopedClipboardInterface {
  public:
+  MockScopedClipboard() = default;
+  virtual ~MockScopedClipboard() = default;
+
   MOCK_METHOD(int, Open, (HWND window), (override));
   MOCK_METHOD(bool, HasString, (), (override));
   MOCK_METHOD((std::variant<std::wstring, int>), GetString, (), (override));
   MOCK_METHOD(int, SetString, (const std::wstring string), (override));
+
+ private:
+  FML_DISALLOW_COPY_AND_ASSIGN(MockScopedClipboard);
 };
 
 std::string SimulatePlatformMessage(TestBinaryMessenger* messenger,
@@ -95,12 +135,45 @@ std::string SimulatePlatformMessage(TestBinaryMessenger* messenger,
 
 }  // namespace
 
-TEST(PlatformHandler, GetClipboardData) {
-  TestBinaryMessenger messenger;
-  FlutterWindowsView view(
-      std::make_unique<NiceMock<MockWindowBindingHandler>>());
+class PlatformHandlerTest : public WindowsTest {
+ public:
+  PlatformHandlerTest() = default;
+  virtual ~PlatformHandlerTest() = default;
 
-  PlatformHandler platform_handler(&messenger, &view, []() {
+ protected:
+  FlutterWindowsEngine* engine() { return engine_.get(); }
+
+  void UseHeadlessEngine() {
+    FlutterWindowsEngineBuilder builder{GetContext()};
+
+    engine_ = builder.Build();
+  }
+
+  void UseEngineWithView() {
+    FlutterWindowsEngineBuilder builder{GetContext()};
+
+    auto window = std::make_unique<NiceMock<MockWindowBindingHandler>>();
+
+    engine_ = builder.Build();
+    view_ = std::make_unique<FlutterWindowsView>(kImplicitViewId, engine_.get(),
+                                                 std::move(window));
+
+    EngineModifier modifier{engine_.get()};
+    modifier.SetImplicitView(view_.get());
+  }
+
+ private:
+  std::unique_ptr<FlutterWindowsEngine> engine_;
+  std::unique_ptr<FlutterWindowsView> view_;
+
+  FML_DISALLOW_COPY_AND_ASSIGN(PlatformHandlerTest);
+};
+
+TEST_F(PlatformHandlerTest, GetClipboardData) {
+  UseEngineWithView();
+
+  TestBinaryMessenger messenger;
+  PlatformHandler platform_handler(&messenger, engine(), []() {
     auto clipboard = std::make_unique<MockScopedClipboard>();
 
     EXPECT_CALL(*clipboard.get(), Open)
@@ -120,11 +193,11 @@ TEST(PlatformHandler, GetClipboardData) {
   EXPECT_EQ(result, "[{\"text\":\"Hello world\"}]");
 }
 
-TEST(PlatformHandler, GetClipboardDataRejectsUnknownContentType) {
+TEST_F(PlatformHandlerTest, GetClipboardDataRejectsUnknownContentType) {
+  UseEngineWithView();
+
   TestBinaryMessenger messenger;
-  FlutterWindowsView view(
-      std::make_unique<NiceMock<MockWindowBindingHandler>>());
-  PlatformHandler platform_handler(&messenger, &view);
+  PlatformHandler platform_handler(&messenger, engine());
 
   // Requesting an unknown content type is an error.
   std::string result = SimulatePlatformMessage(
@@ -133,12 +206,25 @@ TEST(PlatformHandler, GetClipboardDataRejectsUnknownContentType) {
   EXPECT_EQ(result, "[\"Clipboard error\",\"Unknown clipboard format\",null]");
 }
 
-TEST(PlatformHandler, GetClipboardDataReportsOpenFailure) {
-  TestBinaryMessenger messenger;
-  FlutterWindowsView view(
-      std::make_unique<NiceMock<MockWindowBindingHandler>>());
+TEST_F(PlatformHandlerTest, GetClipboardDataRequiresView) {
+  UseHeadlessEngine();
 
-  PlatformHandler platform_handler(&messenger, &view, []() {
+  TestBinaryMessenger messenger;
+  PlatformHandler platform_handler(&messenger, engine());
+
+  std::string result =
+      SimulatePlatformMessage(&messenger, kClipboardGetDataMessage);
+
+  EXPECT_EQ(result,
+            "[\"Clipboard error\",\"Clipboard is not available in "
+            "Windows headless mode\",null]");
+}
+
+TEST_F(PlatformHandlerTest, GetClipboardDataReportsOpenFailure) {
+  UseEngineWithView();
+
+  TestBinaryMessenger messenger;
+  PlatformHandler platform_handler(&messenger, engine(), []() {
     auto clipboard = std::make_unique<MockScopedClipboard>();
 
     EXPECT_CALL(*clipboard.get(), Open)
@@ -154,12 +240,11 @@ TEST(PlatformHandler, GetClipboardDataReportsOpenFailure) {
   EXPECT_EQ(result, "[\"Clipboard error\",\"Unable to open clipboard\",1]");
 }
 
-TEST(PlatformHandler, GetClipboardDataReportsGetDataFailure) {
-  TestBinaryMessenger messenger;
-  FlutterWindowsView view(
-      std::make_unique<NiceMock<MockWindowBindingHandler>>());
+TEST_F(PlatformHandlerTest, GetClipboardDataReportsGetDataFailure) {
+  UseEngineWithView();
 
-  PlatformHandler platform_handler(&messenger, &view, []() {
+  TestBinaryMessenger messenger;
+  PlatformHandler platform_handler(&messenger, engine(), []() {
     auto clipboard = std::make_unique<MockScopedClipboard>();
 
     EXPECT_CALL(*clipboard.get(), Open)
@@ -179,12 +264,11 @@ TEST(PlatformHandler, GetClipboardDataReportsGetDataFailure) {
   EXPECT_EQ(result, "[\"Clipboard error\",\"Unable to get clipboard data\",1]");
 }
 
-TEST(PlatformHandler, ClipboardHasStrings) {
-  TestBinaryMessenger messenger;
-  FlutterWindowsView view(
-      std::make_unique<NiceMock<MockWindowBindingHandler>>());
+TEST_F(PlatformHandlerTest, ClipboardHasStrings) {
+  UseEngineWithView();
 
-  PlatformHandler platform_handler(&messenger, &view, []() {
+  TestBinaryMessenger messenger;
+  PlatformHandler platform_handler(&messenger, engine(), []() {
     auto clipboard = std::make_unique<MockScopedClipboard>();
 
     EXPECT_CALL(*clipboard.get(), Open)
@@ -201,12 +285,11 @@ TEST(PlatformHandler, ClipboardHasStrings) {
   EXPECT_EQ(result, "[{\"value\":true}]");
 }
 
-TEST(PlatformHandler, ClipboardHasStringsReturnsFalse) {
-  TestBinaryMessenger messenger;
-  FlutterWindowsView view(
-      std::make_unique<NiceMock<MockWindowBindingHandler>>());
+TEST_F(PlatformHandlerTest, ClipboardHasStringsReturnsFalse) {
+  UseEngineWithView();
 
-  PlatformHandler platform_handler(&messenger, &view, []() {
+  TestBinaryMessenger messenger;
+  PlatformHandler platform_handler(&messenger, engine(), []() {
     auto clipboard = std::make_unique<MockScopedClipboard>();
 
     EXPECT_CALL(*clipboard.get(), Open)
@@ -223,11 +306,11 @@ TEST(PlatformHandler, ClipboardHasStringsReturnsFalse) {
   EXPECT_EQ(result, "[{\"value\":false}]");
 }
 
-TEST(PlatformHandler, ClipboardHasStringsRejectsUnknownContentType) {
+TEST_F(PlatformHandlerTest, ClipboardHasStringsRejectsUnknownContentType) {
+  UseEngineWithView();
+
   TestBinaryMessenger messenger;
-  FlutterWindowsView view(
-      std::make_unique<NiceMock<MockWindowBindingHandler>>());
-  PlatformHandler platform_handler(&messenger, &view);
+  PlatformHandler platform_handler(&messenger, engine());
 
   std::string result = SimulatePlatformMessage(
       &messenger, kClipboardHasStringsFakeContentTypeMessage);
@@ -235,13 +318,26 @@ TEST(PlatformHandler, ClipboardHasStringsRejectsUnknownContentType) {
   EXPECT_EQ(result, "[\"Clipboard error\",\"Unknown clipboard format\",null]");
 }
 
-// Regression test for https://github.com/flutter/flutter/issues/95817.
-TEST(PlatformHandler, ClipboardHasStringsIgnoresPermissionErrors) {
-  TestBinaryMessenger messenger;
-  FlutterWindowsView view(
-      std::make_unique<NiceMock<MockWindowBindingHandler>>());
+TEST_F(PlatformHandlerTest, ClipboardHasStringsRequiresView) {
+  UseHeadlessEngine();
 
-  PlatformHandler platform_handler(&messenger, &view, []() {
+  TestBinaryMessenger messenger;
+  PlatformHandler platform_handler(&messenger, engine());
+
+  std::string result =
+      SimulatePlatformMessage(&messenger, kClipboardHasStringsMessage);
+
+  EXPECT_EQ(result,
+            "[\"Clipboard error\",\"Clipboard is not available in Windows "
+            "headless mode\",null]");
+}
+
+// Regression test for https://github.com/flutter/flutter/issues/95817.
+TEST_F(PlatformHandlerTest, ClipboardHasStringsIgnoresPermissionErrors) {
+  UseEngineWithView();
+
+  TestBinaryMessenger messenger;
+  PlatformHandler platform_handler(&messenger, engine(), []() {
     auto clipboard = std::make_unique<MockScopedClipboard>();
 
     EXPECT_CALL(*clipboard.get(), Open)
@@ -257,12 +353,11 @@ TEST(PlatformHandler, ClipboardHasStringsIgnoresPermissionErrors) {
   EXPECT_EQ(result, "[{\"value\":false}]");
 }
 
-TEST(PlatformHandler, ClipboardHasStringsReportsErrors) {
-  TestBinaryMessenger messenger;
-  FlutterWindowsView view(
-      std::make_unique<NiceMock<MockWindowBindingHandler>>());
+TEST_F(PlatformHandlerTest, ClipboardHasStringsReportsErrors) {
+  UseEngineWithView();
 
-  PlatformHandler platform_handler(&messenger, &view, []() {
+  TestBinaryMessenger messenger;
+  PlatformHandler platform_handler(&messenger, engine(), []() {
     auto clipboard = std::make_unique<MockScopedClipboard>();
 
     EXPECT_CALL(*clipboard.get(), Open)
@@ -278,12 +373,11 @@ TEST(PlatformHandler, ClipboardHasStringsReportsErrors) {
   EXPECT_EQ(result, "[\"Clipboard error\",\"Unable to open clipboard\",1]");
 }
 
-TEST(PlatformHandler, ClipboardSetData) {
-  TestBinaryMessenger messenger;
-  FlutterWindowsView view(
-      std::make_unique<NiceMock<MockWindowBindingHandler>>());
+TEST_F(PlatformHandlerTest, ClipboardSetData) {
+  UseEngineWithView();
 
-  PlatformHandler platform_handler(&messenger, &view, []() {
+  TestBinaryMessenger messenger;
+  PlatformHandler platform_handler(&messenger, engine(), []() {
     auto clipboard = std::make_unique<MockScopedClipboard>();
 
     EXPECT_CALL(*clipboard.get(), Open)
@@ -305,11 +399,24 @@ TEST(PlatformHandler, ClipboardSetData) {
   EXPECT_EQ(result, "[null]");
 }
 
-TEST(PlatformHandler, ClipboardSetDataUnknownType) {
+// Regression test for: https://github.com/flutter/flutter/issues/121976
+TEST_F(PlatformHandlerTest, ClipboardSetDataTextMustBeString) {
+  UseEngineWithView();
+
   TestBinaryMessenger messenger;
-  FlutterWindowsView view(
-      std::make_unique<NiceMock<MockWindowBindingHandler>>());
-  PlatformHandler platform_handler(&messenger, &view);
+  PlatformHandler platform_handler(&messenger, engine());
+
+  std::string result =
+      SimulatePlatformMessage(&messenger, kClipboardSetDataNullTextMessage);
+
+  EXPECT_EQ(result, "[\"Clipboard error\",\"Unknown clipboard format\",null]");
+}
+
+TEST_F(PlatformHandlerTest, ClipboardSetDataUnknownType) {
+  UseEngineWithView();
+
+  TestBinaryMessenger messenger;
+  PlatformHandler platform_handler(&messenger, engine());
 
   std::string result =
       SimulatePlatformMessage(&messenger, kClipboardSetDataUnknownTypeMessage);
@@ -317,12 +424,25 @@ TEST(PlatformHandler, ClipboardSetDataUnknownType) {
   EXPECT_EQ(result, "[\"Clipboard error\",\"Unknown clipboard format\",null]");
 }
 
-TEST(PlatformHandler, ClipboardSetDataReportsOpenFailure) {
-  TestBinaryMessenger messenger;
-  FlutterWindowsView view(
-      std::make_unique<NiceMock<MockWindowBindingHandler>>());
+TEST_F(PlatformHandlerTest, ClipboardSetDataRequiresView) {
+  UseHeadlessEngine();
 
-  PlatformHandler platform_handler(&messenger, &view, []() {
+  TestBinaryMessenger messenger;
+  PlatformHandler platform_handler(&messenger, engine());
+
+  std::string result =
+      SimulatePlatformMessage(&messenger, kClipboardSetDataMessage);
+
+  EXPECT_EQ(result,
+            "[\"Clipboard error\",\"Clipboard is not available in Windows "
+            "headless mode\",null]");
+}
+
+TEST_F(PlatformHandlerTest, ClipboardSetDataReportsOpenFailure) {
+  UseEngineWithView();
+
+  TestBinaryMessenger messenger;
+  PlatformHandler platform_handler(&messenger, engine(), []() {
     auto clipboard = std::make_unique<MockScopedClipboard>();
 
     EXPECT_CALL(*clipboard.get(), Open)
@@ -338,12 +458,11 @@ TEST(PlatformHandler, ClipboardSetDataReportsOpenFailure) {
   EXPECT_EQ(result, "[\"Clipboard error\",\"Unable to open clipboard\",1]");
 }
 
-TEST(PlatformHandler, ClipboardSetDataReportsSetDataFailure) {
-  TestBinaryMessenger messenger;
-  FlutterWindowsView view(
-      std::make_unique<NiceMock<MockWindowBindingHandler>>());
+TEST_F(PlatformHandlerTest, ClipboardSetDataReportsSetDataFailure) {
+  UseEngineWithView();
 
-  PlatformHandler platform_handler(&messenger, &view, []() {
+  TestBinaryMessenger messenger;
+  PlatformHandler platform_handler(&messenger, engine(), []() {
     auto clipboard = std::make_unique<MockScopedClipboard>();
 
     EXPECT_CALL(*clipboard.get(), Open)
@@ -362,11 +481,11 @@ TEST(PlatformHandler, ClipboardSetDataReportsSetDataFailure) {
   EXPECT_EQ(result, "[\"Clipboard error\",\"Unable to set clipboard data\",1]");
 }
 
-TEST(PlatformHandler, PlaySystemSound) {
+TEST_F(PlatformHandlerTest, PlaySystemSound) {
+  UseHeadlessEngine();
+
   TestBinaryMessenger messenger;
-  FlutterWindowsView view(
-      std::make_unique<NiceMock<MockWindowBindingHandler>>());
-  MockPlatformHandler platform_handler(&messenger, &view);
+  MockPlatformHandler platform_handler(&messenger, engine());
 
   EXPECT_CALL(platform_handler, SystemSoundPlay("SystemSoundType.alert", _))
       .WillOnce([](const std::string& sound,
@@ -378,6 +497,77 @@ TEST(PlatformHandler, PlaySystemSound) {
       SimulatePlatformMessage(&messenger, kSystemSoundTypeAlertMessage);
 
   EXPECT_EQ(result, "[null]");
+}
+
+TEST_F(PlatformHandlerTest, SystemExitApplicationRequired) {
+  UseHeadlessEngine();
+  UINT exit_code = 0;
+
+  TestBinaryMessenger messenger([](const std::string& channel,
+                                   const uint8_t* message, size_t size,
+                                   BinaryReply reply) {});
+  MockPlatformHandler platform_handler(&messenger, engine());
+
+  ON_CALL(platform_handler, QuitApplication)
+      .WillByDefault([&exit_code](std::optional<HWND> hwnd,
+                                  std::optional<WPARAM> wparam,
+                                  std::optional<LPARAM> lparam,
+                                  UINT ec) { exit_code = ec; });
+  EXPECT_CALL(platform_handler, QuitApplication).Times(1);
+
+  std::string result = SimulatePlatformMessage(
+      &messenger, kSystemExitApplicationRequiredMessage);
+  EXPECT_EQ(result, "[{\"response\":\"exit\"}]");
+  EXPECT_EQ(exit_code, 1);
+}
+
+TEST_F(PlatformHandlerTest, SystemExitApplicationCancelableCancel) {
+  UseHeadlessEngine();
+  bool called_cancel = false;
+
+  TestBinaryMessenger messenger(
+      [&called_cancel](const std::string& channel, const uint8_t* message,
+                       size_t size, BinaryReply reply) {
+        reply(reinterpret_cast<const uint8_t*>(kExitResponseCancelMessage),
+              sizeof(kExitResponseCancelMessage));
+        called_cancel = true;
+      });
+  MockPlatformHandler platform_handler(&messenger, engine());
+
+  EXPECT_CALL(platform_handler, QuitApplication).Times(0);
+
+  std::string result = SimulatePlatformMessage(
+      &messenger, kSystemExitApplicationCancelableMessage);
+  EXPECT_EQ(result, "[{\"response\":\"cancel\"}]");
+  EXPECT_TRUE(called_cancel);
+}
+
+TEST_F(PlatformHandlerTest, SystemExitApplicationCancelableExit) {
+  UseHeadlessEngine();
+  bool called_cancel = false;
+  UINT exit_code = 0;
+
+  TestBinaryMessenger messenger(
+      [&called_cancel](const std::string& channel, const uint8_t* message,
+                       size_t size, BinaryReply reply) {
+        reply(reinterpret_cast<const uint8_t*>(kExitResponseExitMessage),
+              sizeof(kExitResponseExitMessage));
+        called_cancel = true;
+      });
+  MockPlatformHandler platform_handler(&messenger, engine());
+
+  ON_CALL(platform_handler, QuitApplication)
+      .WillByDefault([&exit_code](std::optional<HWND> hwnd,
+                                  std::optional<WPARAM> wparam,
+                                  std::optional<LPARAM> lparam,
+                                  UINT ec) { exit_code = ec; });
+  EXPECT_CALL(platform_handler, QuitApplication).Times(1);
+
+  std::string result = SimulatePlatformMessage(
+      &messenger, kSystemExitApplicationCancelableMessage);
+  EXPECT_EQ(result, "[{\"response\":\"cancel\"}]");
+  EXPECT_TRUE(called_cancel);
+  EXPECT_EQ(exit_code, 2);
 }
 
 }  // namespace testing

@@ -10,14 +10,44 @@
 
 #include "flutter/fml/synchronization/count_down_latch.h"
 #include "flutter/fml/synchronization/waitable_event.h"
+#include "flutter/shell/platform/common/app_lifecycle_state.h"
+#include "flutter/shell/platform/embedder/test_utils/proc_table_replacement.h"
+#include "flutter/shell/platform/windows/egl/manager.h"
+#include "flutter/shell/platform/windows/testing/engine_modifier.h"
 #include "flutter/shell/platform/windows/testing/windows_test.h"
 #include "flutter/shell/platform/windows/testing/windows_test_config_builder.h"
 #include "flutter/shell/platform/windows/testing/windows_test_context.h"
+#include "flutter/shell/platform/windows/windows_lifecycle_manager.h"
+#include "flutter/testing/stream_capture.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "third_party/tonic/converter/dart_converter.h"
 
 namespace flutter {
 namespace testing {
+
+namespace {
+
+// An EGL manager that initializes EGL but fails to create surfaces.
+class HalfBrokenEGLManager : public egl::Manager {
+ public:
+  HalfBrokenEGLManager() : egl::Manager(/*enable_impeller = */ false) {}
+
+  std::unique_ptr<egl::WindowSurface>
+  CreateWindowSurface(HWND hwnd, size_t width, size_t height) override {
+    return nullptr;
+  }
+};
+
+class MockWindowsLifecycleManager : public WindowsLifecycleManager {
+ public:
+  MockWindowsLifecycleManager(FlutterWindowsEngine* engine)
+      : WindowsLifecycleManager(engine) {}
+
+  MOCK_METHOD(void, SetLifecycleState, (AppLifecycleState), (override));
+};
+
+}  // namespace
 
 // Verify that we can fetch a texture registrar.
 // Prevent regression: https://github.com/flutter/flutter/issues/86617
@@ -43,27 +73,20 @@ TEST_F(WindowsTest, LaunchMain) {
 // Verify there is no unexpected output from launching main.
 TEST_F(WindowsTest, LaunchMainHasNoOutput) {
   // Replace stdout & stderr stream buffers with our own.
-  std::stringstream cout_buffer;
-  std::stringstream cerr_buffer;
-  std::streambuf* old_cout_buffer = std::cout.rdbuf();
-  std::streambuf* old_cerr_buffer = std::cerr.rdbuf();
-  std::cout.rdbuf(cout_buffer.rdbuf());
-  std::cerr.rdbuf(cerr_buffer.rdbuf());
+  StreamCapture stdout_capture(&std::cout);
+  StreamCapture stderr_capture(&std::cerr);
 
   auto& context = GetContext();
   WindowsConfigBuilder builder(context);
   ViewControllerPtr controller{builder.Run()};
   ASSERT_NE(controller, nullptr);
 
-  // Restore original stdout & stderr stream buffer.
-  std::cout.rdbuf(old_cout_buffer);
-  std::cerr.rdbuf(old_cerr_buffer);
+  stdout_capture.Stop();
+  stderr_capture.Stop();
 
   // Verify stdout & stderr have no output.
-  std::string cout = cout_buffer.str();
-  std::string cerr = cerr_buffer.str();
-  EXPECT_TRUE(cout.empty());
-  EXPECT_TRUE(cerr.empty());
+  EXPECT_TRUE(stdout_capture.GetOutput().empty());
+  EXPECT_TRUE(stderr_capture.GetOutput().empty());
 }
 
 // Verify we can successfully launch a custom entry point.
@@ -93,10 +116,50 @@ TEST_F(WindowsTest, LaunchCustomEntrypointInEngineRunInvocation) {
 TEST_F(WindowsTest, LaunchHeadlessEngine) {
   auto& context = GetContext();
   WindowsConfigBuilder builder(context);
-  EnginePtr engine{builder.InitializeEngine()};
+  EnginePtr engine{builder.RunHeadless()};
+  ASSERT_NE(engine, nullptr);
+}
+
+// Verify that the engine can return to headless mode.
+TEST_F(WindowsTest, EngineCanTransitionToHeadless) {
+  auto& context = GetContext();
+  WindowsConfigBuilder builder(context);
+  EnginePtr engine{builder.RunHeadless()};
   ASSERT_NE(engine, nullptr);
 
-  ASSERT_TRUE(FlutterDesktopEngineRun(engine.get(), nullptr));
+  // Create and then destroy a view controller that does not own its engine.
+  // This causes the engine to transition back to headless mode.
+  {
+    FlutterDesktopViewControllerProperties properties = {};
+    ViewControllerPtr controller{
+        FlutterDesktopEngineCreateViewController(engine.get(), &properties)};
+
+    ASSERT_NE(controller, nullptr);
+  }
+
+  // The engine is back in headless mode now.
+  ASSERT_NE(engine, nullptr);
+}
+
+// Verify that accessibility features are initialized when a view is created.
+TEST_F(WindowsTest, LaunchRefreshesAccessibility) {
+  auto& context = GetContext();
+  WindowsConfigBuilder builder(context);
+  EnginePtr engine{builder.InitializeEngine()};
+  EngineModifier modifier{
+      reinterpret_cast<FlutterWindowsEngine*>(engine.get())};
+
+  auto called = false;
+  modifier.embedder_api().UpdateAccessibilityFeatures = MOCK_ENGINE_PROC(
+      UpdateAccessibilityFeatures, ([&called](auto engine, auto flags) {
+        called = true;
+        return kSuccess;
+      }));
+
+  ViewControllerPtr controller{
+      FlutterDesktopViewControllerCreate(0, 0, engine.release())};
+
+  ASSERT_TRUE(called);
 }
 
 // Verify that engine fails to launch when a conflicting entrypoint in
@@ -265,6 +328,18 @@ TEST_F(WindowsTest, NextFrameCallback) {
   captures.frame_drawn_latch.Wait();
 }
 
+// Implicit view has the implicit view ID.
+TEST_F(WindowsTest, GetViewId) {
+  auto& context = GetContext();
+  WindowsConfigBuilder builder(context);
+  ViewControllerPtr controller{builder.Run()};
+  ASSERT_NE(controller, nullptr);
+  FlutterDesktopViewId view_id =
+      FlutterDesktopViewControllerGetViewId(controller.get());
+
+  ASSERT_EQ(view_id, static_cast<FlutterDesktopViewId>(kImplicitViewId));
+}
+
 TEST_F(WindowsTest, GetGraphicsAdapter) {
   auto& context = GetContext();
   WindowsConfigBuilder builder(context);
@@ -277,6 +352,129 @@ TEST_F(WindowsTest, GetGraphicsAdapter) {
   ASSERT_NE(dxgi_adapter, nullptr);
   DXGI_ADAPTER_DESC desc{};
   ASSERT_TRUE(SUCCEEDED(dxgi_adapter->GetDesc(&desc)));
+}
+
+// Implicit view has the implicit view ID.
+TEST_F(WindowsTest, PluginRegistrarGetImplicitView) {
+  auto& context = GetContext();
+  WindowsConfigBuilder builder(context);
+  ViewControllerPtr controller{builder.Run()};
+  ASSERT_NE(controller, nullptr);
+
+  FlutterDesktopEngineRef engine =
+      FlutterDesktopViewControllerGetEngine(controller.get());
+  FlutterDesktopPluginRegistrarRef registrar =
+      FlutterDesktopEngineGetPluginRegistrar(engine, "foo_bar");
+  FlutterDesktopViewRef implicit_view =
+      FlutterDesktopPluginRegistrarGetView(registrar);
+
+  ASSERT_NE(implicit_view, nullptr);
+}
+
+TEST_F(WindowsTest, PluginRegistrarGetView) {
+  auto& context = GetContext();
+  WindowsConfigBuilder builder(context);
+  ViewControllerPtr controller{builder.Run()};
+  ASSERT_NE(controller, nullptr);
+
+  FlutterDesktopEngineRef engine =
+      FlutterDesktopViewControllerGetEngine(controller.get());
+  FlutterDesktopPluginRegistrarRef registrar =
+      FlutterDesktopEngineGetPluginRegistrar(engine, "foo_bar");
+
+  FlutterDesktopViewId view_id =
+      FlutterDesktopViewControllerGetViewId(controller.get());
+  FlutterDesktopViewRef view =
+      FlutterDesktopPluginRegistrarGetViewById(registrar, view_id);
+
+  FlutterDesktopViewRef view_123 = FlutterDesktopPluginRegistrarGetViewById(
+      registrar, static_cast<FlutterDesktopViewId>(123));
+
+  ASSERT_NE(view, nullptr);
+  ASSERT_EQ(view_123, nullptr);
+}
+
+TEST_F(WindowsTest, PluginRegistrarGetViewHeadless) {
+  auto& context = GetContext();
+  WindowsConfigBuilder builder(context);
+  EnginePtr engine{builder.RunHeadless()};
+  ASSERT_NE(engine, nullptr);
+
+  FlutterDesktopPluginRegistrarRef registrar =
+      FlutterDesktopEngineGetPluginRegistrar(engine.get(), "foo_bar");
+
+  FlutterDesktopViewRef implicit_view =
+      FlutterDesktopPluginRegistrarGetView(registrar);
+  FlutterDesktopViewRef view_123 = FlutterDesktopPluginRegistrarGetViewById(
+      registrar, static_cast<FlutterDesktopViewId>(123));
+
+  ASSERT_EQ(implicit_view, nullptr);
+  ASSERT_EQ(view_123, nullptr);
+}
+
+// Verify the app does not crash if EGL initializes successfully but
+// the rendering surface cannot be created.
+TEST_F(WindowsTest, SurfaceOptional) {
+  auto& context = GetContext();
+  WindowsConfigBuilder builder(context);
+  EnginePtr engine{builder.InitializeEngine()};
+  EngineModifier modifier{
+      reinterpret_cast<FlutterWindowsEngine*>(engine.get())};
+
+  auto egl_manager = std::make_unique<HalfBrokenEGLManager>();
+  ASSERT_TRUE(egl_manager->IsValid());
+  modifier.SetEGLManager(std::move(egl_manager));
+
+  ViewControllerPtr controller{
+      FlutterDesktopViewControllerCreate(0, 0, engine.release())};
+
+  ASSERT_NE(controller, nullptr);
+}
+
+// Verify the app produces the expected lifecycle events.
+TEST_F(WindowsTest, Lifecycle) {
+  auto& context = GetContext();
+  WindowsConfigBuilder builder(context);
+  EnginePtr engine{builder.InitializeEngine()};
+  auto windows_engine = reinterpret_cast<FlutterWindowsEngine*>(engine.get());
+  EngineModifier modifier{windows_engine};
+
+  auto lifecycle_manager =
+      std::make_unique<MockWindowsLifecycleManager>(windows_engine);
+  auto lifecycle_manager_ptr = lifecycle_manager.get();
+  modifier.SetLifecycleManager(std::move(lifecycle_manager));
+
+  EXPECT_CALL(*lifecycle_manager_ptr,
+              SetLifecycleState(AppLifecycleState::kResumed))
+      .WillOnce([lifecycle_manager_ptr](AppLifecycleState state) {
+        lifecycle_manager_ptr->WindowsLifecycleManager::SetLifecycleState(
+            state);
+      });
+
+  EXPECT_CALL(*lifecycle_manager_ptr,
+              SetLifecycleState(AppLifecycleState::kHidden))
+      .WillOnce([lifecycle_manager_ptr](AppLifecycleState state) {
+        lifecycle_manager_ptr->WindowsLifecycleManager::SetLifecycleState(
+            state);
+      });
+
+  // Create a controller. This launches the engine and sets the app lifecycle
+  // to the "resumed" state.
+  ViewControllerPtr controller{
+      FlutterDesktopViewControllerCreate(0, 0, engine.release())};
+
+  FlutterDesktopViewRef view =
+      FlutterDesktopViewControllerGetView(controller.get());
+  ASSERT_NE(view, nullptr);
+
+  HWND hwnd = FlutterDesktopViewGetHWND(view);
+  ASSERT_NE(hwnd, nullptr);
+
+  // Give the window a non-zero size to show it. This does not change the app
+  // lifecycle directly. However, destroying the view will now result in a
+  // "hidden" app lifecycle event.
+  ::MoveWindow(hwnd, /* X */ 0, /* Y */ 0, /* nWidth*/ 100, /* nHeight*/ 100,
+               /* bRepaint*/ false);
 }
 
 }  // namespace testing

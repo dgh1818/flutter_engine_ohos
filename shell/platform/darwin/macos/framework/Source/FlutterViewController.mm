@@ -6,10 +6,10 @@
 #import "flutter/shell/platform/darwin/macos/framework/Source/FlutterViewController_Internal.h"
 
 #include <Carbon/Carbon.h>
+#import <objc/message.h>
 
 #import "flutter/shell/platform/darwin/common/framework/Headers/FlutterChannels.h"
 #import "flutter/shell/platform/darwin/common/framework/Headers/FlutterCodecs.h"
-#import "flutter/shell/platform/darwin/macos/framework/Headers/FlutterAppDelegate.h"
 #import "flutter/shell/platform/darwin/macos/framework/Headers/FlutterEngine.h"
 #import "flutter/shell/platform/darwin/macos/framework/Source/FlutterEngine_Internal.h"
 #import "flutter/shell/platform/darwin/macos/framework/Source/FlutterKeyPrimaryResponder.h"
@@ -18,6 +18,8 @@
 #import "flutter/shell/platform/darwin/macos/framework/Source/FlutterTextInputSemanticsObject.h"
 #import "flutter/shell/platform/darwin/macos/framework/Source/FlutterView.h"
 #import "flutter/shell/platform/embedder/embedder.h"
+
+#pragma mark - Static types and data.
 
 namespace {
 using flutter::KeyboardLayoutNotifier;
@@ -80,20 +82,25 @@ struct MouseState {
    */
   bool has_pending_exit = false;
 
-  /**
-   * Pan gesture is currently sending us events.
+  /*
+   * Whether or not a kPanZoomStart has been sent since the last kAdd/kPanZoomEnd.
    */
-  bool pan_gesture_active = false;
+  bool flutter_state_is_pan_zoom_started = false;
 
   /**
-   * Scale gesture is currently sending us events.
+   * State of pan gesture.
    */
-  bool scale_gesture_active = false;
+  NSEventPhase pan_gesture_phase = NSEventPhaseNone;
 
   /**
-   * Rotate gesture is currently sending use events.
+   * State of scale gesture.
    */
-  bool rotate_gesture_active = false;
+  NSEventPhase scale_gesture_phase = NSEventPhaseNone;
+
+  /**
+   * State of rotate gesture.
+   */
+  NSEventPhase rotate_gesture_phase = NSEventPhaseNone;
 
   /**
    * Time of last scroll momentum event.
@@ -108,6 +115,10 @@ struct MouseState {
     delta_y = 0;
     scale = 0;
     rotation = 0;
+    flutter_state_is_pan_zoom_started = false;
+    pan_gesture_phase = NSEventPhaseNone;
+    scale_gesture_phase = NSEventPhaseNone;
+    rotate_gesture_phase = NSEventPhaseNone;
   }
 
   /**
@@ -121,27 +132,6 @@ struct MouseState {
     GestureReset();
   }
 };
-
-/**
- * Returns the current Unicode layout data (kTISPropertyUnicodeKeyLayoutData).
- *
- * To use the returned data, convert it to CFDataRef first, finds its bytes
- * with CFDataGetBytePtr, then reinterpret it into const UCKeyboardLayout*.
- * It's returned in NSData* to enable auto reference count.
- */
-NSData* currentKeyboardLayoutData() {
-  TISInputSourceRef source = TISCopyCurrentKeyboardInputSource();
-  CFTypeRef layout_data = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData);
-  if (layout_data == nil) {
-    CFRelease(source);
-    // TISGetInputSourceProperty returns null with Japanese keyboard layout.
-    // Using TISCopyCurrentKeyboardLayoutInputSource to fix NULL return.
-    // https://github.com/microsoft/node-native-keymap/blob/5f0699ded00179410a14c0e1b0e089fe4df8e130/src/keyboard_mac.mm#L91
-    source = TISCopyCurrentKeyboardLayoutInputSource();
-    layout_data = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData);
-  }
-  return (__bridge_transfer NSData*)CFRetain(layout_data);
-}
 
 }  // namespace
 
@@ -169,7 +159,7 @@ NSData* currentKeyboardLayoutData() {
 /**
  * Private interface declaration for FlutterViewController.
  */
-@interface FlutterViewController () <FlutterViewReshapeListener>
+@interface FlutterViewController () <FlutterViewDelegate>
 
 /**
  * The tracking area used to generate hover events, if enabled.
@@ -240,31 +230,33 @@ NSData* currentKeyboardLayoutData() {
 
 @end
 
-#pragma mark - Private dependant functions
+#pragma mark - FlutterViewWrapper implementation.
 
-namespace {
-void OnKeyboardLayoutChanged(CFNotificationCenterRef center,
-                             void* observer,
-                             CFStringRef name,
-                             const void* object,
-                             CFDictionaryRef userInfo) {
+/**
+ * NotificationCenter callback invoked on kTISNotifySelectedKeyboardInputSourceChanged events.
+ */
+static void OnKeyboardLayoutChanged(CFNotificationCenterRef center,
+                                    void* observer,
+                                    CFStringRef name,
+                                    const void* object,
+                                    CFDictionaryRef userInfo) {
   FlutterViewController* controller = (__bridge FlutterViewController*)observer;
   if (controller != nil) {
     [controller onKeyboardLayoutChanged];
   }
 }
-}  // namespace
-
-#pragma mark - FlutterViewWrapper implementation.
 
 @implementation FlutterViewWrapper {
   FlutterView* _flutterView;
+  __weak FlutterViewController* _controller;
 }
 
-- (instancetype)initWithFlutterView:(FlutterView*)view {
+- (instancetype)initWithFlutterView:(FlutterView*)view
+                         controller:(FlutterViewController*)controller {
   self = [super initWithFrame:NSZeroRect];
   if (self) {
     _flutterView = view;
+    _controller = controller;
     view.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
     [self addSubview:view];
   }
@@ -275,8 +267,50 @@ void OnKeyboardLayoutChanged(CFNotificationCenterRef center,
   [_flutterView setBackgroundColor:color];
 }
 
+- (BOOL)performKeyEquivalent:(NSEvent*)event {
+  // Do not intercept the event if flutterView is not first responder, otherwise this would
+  // interfere with TextInputPlugin, which also handles key equivalents.
+  //
+  // Also do not intercept the event if key equivalent is a product of an event being
+  // redispatched by the TextInputPlugin, in which case it needs to bubble up so that menus
+  // can handle key equivalents.
+  if (self.window.firstResponder != _flutterView || [_controller isDispatchingKeyEvent:event]) {
+    return [super performKeyEquivalent:event];
+  }
+  [_flutterView keyDown:event];
+  return YES;
+}
+
 - (NSArray*)accessibilityChildren {
   return @[ _flutterView ];
+}
+
+- (void)mouseDown:(NSEvent*)event {
+  // Work around an AppKit bug where mouseDown/mouseUp are not called on the view controller if the
+  // view is the content view of an NSPopover AND macOS's Reduced Transparency accessibility setting
+  // is enabled.
+  //
+  // This simply calls mouseDown on the next responder in the responder chain as the default
+  // implementation on NSResponder is documented to do.
+  //
+  // See: https://github.com/flutter/flutter/issues/115015
+  // See: http://www.openradar.me/FB12050037
+  // See: https://developer.apple.com/documentation/appkit/nsresponder/1524634-mousedown
+  [self.nextResponder mouseDown:event];
+}
+
+- (void)mouseUp:(NSEvent*)event {
+  // Work around an AppKit bug where mouseDown/mouseUp are not called on the view controller if the
+  // view is the content view of an NSPopover AND macOS's Reduced Transparency accessibility setting
+  // is enabled.
+  //
+  // This simply calls mouseUp on the next responder in the responder chain as the default
+  // implementation on NSResponder is documented to do.
+  //
+  // See: https://github.com/flutter/flutter/issues/115015
+  // See: http://www.openradar.me/FB12050037
+  // See: https://developer.apple.com/documentation/appkit/nsresponder/1535349-mouseup
+  [self.nextResponder mouseUp:event];
 }
 
 @end
@@ -286,21 +320,42 @@ void OnKeyboardLayoutChanged(CFNotificationCenterRef center,
 @implementation FlutterViewController {
   // The project to run in this controller's engine.
   FlutterDartProject* _project;
+
+  std::shared_ptr<flutter::AccessibilityBridgeMac> _bridge;
+
+  FlutterViewId _id;
+
+  // FlutterViewController does not actually uses the synchronizer, but only
+  // passes it to FlutterView.
+  FlutterThreadSynchronizer* _threadSynchronizer;
 }
 
-@dynamic view;
+@synthesize viewId = _viewId;
+@dynamic accessibilityBridge;
 
 /**
  * Performs initialization that's common between the different init paths.
  */
-static void CommonInit(FlutterViewController* controller) {
-  if (!controller->_engine) {
-    controller->_engine = [[FlutterEngine alloc] initWithName:@"io.flutter"
-                                                      project:controller->_project
-                                       allowHeadlessExecution:NO];
+static void CommonInit(FlutterViewController* controller, FlutterEngine* engine) {
+  if (!engine) {
+    engine = [[FlutterEngine alloc] initWithName:@"io.flutter"
+                                         project:controller->_project
+                          allowHeadlessExecution:NO];
   }
-  controller->_mouseTrackingMode = FlutterMouseTrackingModeInKeyWindow;
+  NSCAssert(controller.engine == nil,
+            @"The FlutterViewController is unexpectedly attached to "
+            @"engine %@ before initialization.",
+            controller.engine);
+  [engine addViewController:controller];
+  NSCAssert(controller.engine != nil,
+            @"The FlutterViewController unexpectedly stays unattached after initialization. "
+            @"In unit tests, this is likely because either the FlutterViewController or "
+            @"the FlutterEngine is mocked. Please subclass these classes instead.",
+            controller.engine, controller.viewId);
+  controller->_mouseTrackingMode = kFlutterMouseTrackingModeInKeyWindow;
   controller->_textInputPlugin = [[FlutterTextInputPlugin alloc] initWithViewController:controller];
+  [controller initializeKeyboard];
+  [controller notifySemanticsEnabledChanged];
   // macOS fires this message when changing IMEs.
   CFNotificationCenterRef cfCenter = CFNotificationCenterGetDistributedCenter();
   __weak FlutterViewController* weakSelf = controller;
@@ -313,7 +368,7 @@ static void CommonInit(FlutterViewController* controller) {
   self = [super initWithCoder:coder];
   NSAssert(self, @"Super init cannot be nil");
 
-  CommonInit(self);
+  CommonInit(self, nil);
   return self;
 }
 
@@ -321,7 +376,7 @@ static void CommonInit(FlutterViewController* controller) {
   self = [super initWithNibName:nibNameOrNil bundle:nibBundleOrNil];
   NSAssert(self, @"Super init cannot be nil");
 
-  CommonInit(self);
+  CommonInit(self, nil);
   return self;
 }
 
@@ -330,7 +385,7 @@ static void CommonInit(FlutterViewController* controller) {
   NSAssert(self, @"Super init cannot be nil");
 
   _project = project;
-  CommonInit(self);
+  CommonInit(self, nil);
   return self;
 }
 
@@ -338,21 +393,10 @@ static void CommonInit(FlutterViewController* controller) {
                        nibName:(nullable NSString*)nibName
                         bundle:(nullable NSBundle*)nibBundle {
   NSAssert(engine != nil, @"Engine is required");
-  NSAssert(engine.viewController == nil,
-           @"The supplied FlutterEngine is already used with FlutterViewController "
-            "instance. One instance of the FlutterEngine can only be attached to one "
-            "FlutterViewController at a time. Set FlutterEngine.viewController "
-            "to nil before attaching it to another FlutterViewController.");
 
   self = [super initWithNibName:nibName bundle:nibBundle];
   if (self) {
-    _engine = engine;
-    CommonInit(self);
-    if (engine.running) {
-      [self loadView];
-      engine.viewController = self;
-      [self initializeKeyboard];
-    }
+    CommonInit(self, engine);
   }
 
   return self;
@@ -370,13 +414,12 @@ static void CommonInit(FlutterViewController* controller) {
     NSLog(@"Unable to create FlutterView; no MTLDevice or MTLCommandQueue available.");
     return;
   }
-  flutterView = [[FlutterView alloc] initWithMTLDevice:device
-                                          commandQueue:commandQueue
-                                       reshapeListener:self];
+  flutterView = [self createFlutterViewWithMTLDevice:device commandQueue:commandQueue];
   if (_backgroundColor != nil) {
     [flutterView setBackgroundColor:_backgroundColor];
   }
-  FlutterViewWrapper* wrapperView = [[FlutterViewWrapper alloc] initWithFlutterView:flutterView];
+  FlutterViewWrapper* wrapperView = [[FlutterViewWrapper alloc] initWithFlutterView:flutterView
+                                                                         controller:self];
   self.view = wrapperView;
   _flutterView = flutterView;
 }
@@ -385,6 +428,7 @@ static void CommonInit(FlutterViewController* controller) {
   [self configureTrackingArea];
   [self.view setAllowedTouchTypes:NSTouchTypeMaskIndirect];
   [self.view setWantsRestingTouches:YES];
+  [_engine viewControllerViewDidLoad:self];
 }
 
 - (void)viewWillAppear {
@@ -403,7 +447,9 @@ static void CommonInit(FlutterViewController* controller) {
 }
 
 - (void)dealloc {
-  _engine.viewController = nil;
+  if ([self attached]) {
+    [_engine removeViewController:self];
+  }
   CFNotificationCenterRef cfCenter = CFNotificationCenterGetDistributedCenter();
   CFNotificationCenterRemoveEveryObserver(cfCenter, (__bridge void*)self);
 }
@@ -423,16 +469,92 @@ static void CommonInit(FlutterViewController* controller) {
   [_flutterView setBackgroundColor:_backgroundColor];
 }
 
+- (FlutterViewId)viewId {
+  NSAssert([self attached], @"This view controller is not attached.");
+  return _viewId;
+}
+
 - (void)onPreEngineRestart {
   [self initializeKeyboard];
+}
+
+- (void)notifySemanticsEnabledChanged {
+  BOOL mySemanticsEnabled = !!_bridge;
+  BOOL newSemanticsEnabled = _engine.semanticsEnabled;
+  if (newSemanticsEnabled == mySemanticsEnabled) {
+    return;
+  }
+  if (newSemanticsEnabled) {
+    _bridge = [self createAccessibilityBridgeWithEngine:_engine];
+  } else {
+    // Remove the accessibility children from flutter view before resetting the bridge.
+    _flutterView.accessibilityChildren = nil;
+    _bridge.reset();
+  }
+  NSAssert(newSemanticsEnabled == !!_bridge, @"Failed to update semantics for the view.");
+}
+
+- (std::weak_ptr<flutter::AccessibilityBridgeMac>)accessibilityBridge {
+  return _bridge;
+}
+
+- (void)setUpWithEngine:(FlutterEngine*)engine
+                 viewId:(FlutterViewId)viewId
+     threadSynchronizer:(FlutterThreadSynchronizer*)threadSynchronizer {
+  NSAssert(_engine == nil, @"Already attached to an engine %@.", _engine);
+  _engine = engine;
+  _viewId = viewId;
+  _threadSynchronizer = threadSynchronizer;
+  [_threadSynchronizer registerView:_viewId];
+}
+
+- (void)detachFromEngine {
+  NSAssert(_engine != nil, @"Not attached to any engine.");
+  [_threadSynchronizer deregisterView:_viewId];
+  _threadSynchronizer = nil;
+  _engine = nil;
+}
+
+- (BOOL)attached {
+  return _engine != nil;
+}
+
+- (void)updateSemantics:(const FlutterSemanticsUpdate2*)update {
+  NSAssert(_engine.semanticsEnabled, @"Semantics must be enabled.");
+  if (!_engine.semanticsEnabled) {
+    return;
+  }
+  for (size_t i = 0; i < update->node_count; i++) {
+    const FlutterSemanticsNode2* node = update->nodes[i];
+    _bridge->AddFlutterSemanticsNodeUpdate(*node);
+  }
+
+  for (size_t i = 0; i < update->custom_action_count; i++) {
+    const FlutterSemanticsCustomAction2* action = update->custom_actions[i];
+    _bridge->AddFlutterSemanticsCustomActionUpdate(*action);
+  }
+
+  _bridge->CommitUpdates();
+
+  // Accessibility tree can only be used when the view is loaded.
+  if (!self.viewLoaded) {
+    return;
+  }
+  // Attaches the accessibility root to the flutter view.
+  auto root = _bridge->GetFlutterPlatformNodeDelegateFromID(0).lock();
+  if (root) {
+    if ([self.flutterView.accessibilityChildren count] == 0) {
+      NSAccessibilityElement* native_root = root->GetNativeViewAccessible();
+      self.flutterView.accessibilityChildren = @[ native_root ];
+    }
+  } else {
+    self.flutterView.accessibilityChildren = nil;
+  }
 }
 
 #pragma mark - Private methods
 
 - (BOOL)launchEngine {
-  [self initializeKeyboard];
-
-  _engine.viewController = self;
   if (![_engine runWithEntrypoint:nil]) {
     return NO;
   }
@@ -473,17 +595,17 @@ static void CommonInit(FlutterViewController* controller) {
     // the view is actually loaded.
     return;
   }
-  if (_mouseTrackingMode != FlutterMouseTrackingModeNone && self.flutterView) {
+  if (_mouseTrackingMode != kFlutterMouseTrackingModeNone && self.flutterView) {
     NSTrackingAreaOptions options = NSTrackingMouseEnteredAndExited | NSTrackingMouseMoved |
                                     NSTrackingInVisibleRect | NSTrackingEnabledDuringMouseDrag;
     switch (_mouseTrackingMode) {
-      case FlutterMouseTrackingModeInKeyWindow:
+      case kFlutterMouseTrackingModeInKeyWindow:
         options |= NSTrackingActiveInKeyWindow;
         break;
-      case FlutterMouseTrackingModeInActiveApp:
+      case kFlutterMouseTrackingModeInActiveApp:
         options |= NSTrackingActiveInActiveApp;
         break;
-      case FlutterMouseTrackingModeAlways:
+      case kFlutterMouseTrackingModeAlways:
         options |= NSTrackingActiveAlways;
         break;
       default:
@@ -504,8 +626,7 @@ static void CommonInit(FlutterViewController* controller) {
 - (void)initializeKeyboard {
   // TODO(goderbauer): Seperate keyboard/textinput stuff into ViewController specific and Engine
   // global parts. Move the global parts to FlutterEngine.
-  __weak FlutterViewController* weakSelf = self;
-  _keyboardManager = [[FlutterKeyboardManager alloc] initWithViewDelegate:weakSelf];
+  _keyboardManager = [[FlutterKeyboardManager alloc] initWithViewDelegate:self];
 }
 
 - (void)dispatchMouseEvent:(nonnull NSEvent*)event {
@@ -548,32 +669,42 @@ static void CommonInit(FlutterViewController* controller) {
 
   // Multiple gesture recognizers could be active at once, we can't send multiple kPanZoomStart.
   // For example: rotation and magnification.
-  if (phase == kPanZoomStart) {
-    bool gestureAlreadyDown = _mouseState.pan_gesture_active || _mouseState.scale_gesture_active ||
-                              _mouseState.rotate_gesture_active;
+  if (phase == kPanZoomStart || phase == kPanZoomEnd) {
     if (event.type == NSEventTypeScrollWheel) {
-      _mouseState.pan_gesture_active = true;
-      // Ensure scroll inertia cancel event is not sent afterwards.
-      _mouseState.last_scroll_momentum_changed_time = 0;
+      _mouseState.pan_gesture_phase = event.phase;
     } else if (event.type == NSEventTypeMagnify) {
-      _mouseState.scale_gesture_active = true;
+      _mouseState.scale_gesture_phase = event.phase;
     } else if (event.type == NSEventTypeRotate) {
-      _mouseState.rotate_gesture_active = true;
-    }
-    if (gestureAlreadyDown) {
-      return;
+      _mouseState.rotate_gesture_phase = event.phase;
     }
   }
-  if (phase == kPanZoomEnd) {
+  if (phase == kPanZoomStart) {
     if (event.type == NSEventTypeScrollWheel) {
-      _mouseState.pan_gesture_active = false;
-    } else if (event.type == NSEventTypeMagnify) {
-      _mouseState.scale_gesture_active = false;
-    } else if (event.type == NSEventTypeRotate) {
-      _mouseState.rotate_gesture_active = false;
+      // Ensure scroll inertia cancel event is not sent afterwards.
+      _mouseState.last_scroll_momentum_changed_time = 0;
     }
-    if (_mouseState.pan_gesture_active || _mouseState.scale_gesture_active ||
-        _mouseState.rotate_gesture_active) {
+    if (_mouseState.flutter_state_is_pan_zoom_started) {
+      // Already started on a previous gesture type
+      return;
+    }
+    _mouseState.flutter_state_is_pan_zoom_started = true;
+  }
+  if (phase == kPanZoomEnd) {
+    if (!_mouseState.flutter_state_is_pan_zoom_started) {
+      // NSEventPhaseCancelled is sometimes received at incorrect times in the state
+      // machine, just ignore it here if it doesn't make sense
+      // (we have no active gesture to cancel).
+      NSAssert(event.phase == NSEventPhaseCancelled,
+               @"Received gesture event with unexpected phase");
+      return;
+    }
+    // NSEventPhase values are powers of two, we can use this to inspect merged phases.
+    NSEventPhase all_gestures_fields = _mouseState.pan_gesture_phase |
+                                       _mouseState.scale_gesture_phase |
+                                       _mouseState.rotate_gesture_phase;
+    NSEventPhase active_mask = NSEventPhaseBegan | NSEventPhaseChanged;
+    if ((all_gestures_fields & active_mask) != 0) {
+      // Even though this gesture type ended, a different type is still active.
       return;
     }
   }
@@ -612,6 +743,7 @@ static void CommonInit(FlutterViewController* controller) {
       .device_kind = deviceKind,
       // If a click triggered a synthesized kAdd, don't pass the buttons in that event.
       .buttons = phase == kAdd ? 0 : _mouseState.buttons,
+      .view_id = static_cast<FlutterViewId>(_viewId),
   };
 
   if (phase == kPanZoomUpdate) {
@@ -643,9 +775,26 @@ static void CommonInit(FlutterViewController* controller) {
       pixelsPerLine = 40.0;
     }
     double scaleFactor = self.flutterView.layer.contentsScale;
-    flutterEvent.scroll_delta_x = -event.scrollingDeltaX * pixelsPerLine * scaleFactor;
-    flutterEvent.scroll_delta_y = -event.scrollingDeltaY * pixelsPerLine * scaleFactor;
+    // When mouse input is received while shift is pressed (regardless of
+    // any other pressed keys), Mac automatically flips the axis. Other
+    // platforms do not do this, so we flip it back to normalize the input
+    // received by the framework. The keyboard+mouse-scroll mechanism is exposed
+    // in the ScrollBehavior of the framework so developers can customize the
+    // behavior.
+    // At time of change, Apple does not expose any other type of API or signal
+    // that the X/Y axes have been flipped.
+    double scaledDeltaX = -event.scrollingDeltaX * pixelsPerLine * scaleFactor;
+    double scaledDeltaY = -event.scrollingDeltaY * pixelsPerLine * scaleFactor;
+    if (event.modifierFlags & NSShiftKeyMask) {
+      flutterEvent.scroll_delta_x = scaledDeltaY;
+      flutterEvent.scroll_delta_y = scaledDeltaX;
+    } else {
+      flutterEvent.scroll_delta_x = scaledDeltaX;
+      flutterEvent.scroll_delta_y = scaledDeltaY;
+    }
   }
+
+  [_keyboardManager syncModifiersIfNeeded:event.modifierFlags timestamp:event.timestamp];
   [_engine sendPointerEvent:flutterEvent];
 
   // Update tracking of state as reported to Flutter.
@@ -674,6 +823,20 @@ static void CommonInit(FlutterViewController* controller) {
   }
 }
 
+- (std::shared_ptr<flutter::AccessibilityBridgeMac>)createAccessibilityBridgeWithEngine:
+    (nonnull FlutterEngine*)engine {
+  return std::make_shared<flutter::AccessibilityBridgeMac>(engine, self);
+}
+
+- (nonnull FlutterView*)createFlutterViewWithMTLDevice:(id<MTLDevice>)device
+                                          commandQueue:(id<MTLCommandQueue>)commandQueue {
+  return [[FlutterView alloc] initWithMTLDevice:device
+                                   commandQueue:commandQueue
+                                       delegate:self
+                             threadSynchronizer:_threadSynchronizer
+                                         viewId:_viewId];
+}
+
 - (void)onKeyboardLayoutChanged {
   _keyboardLayoutData = nil;
   if (_keyboardLayoutNotifier != nil) {
@@ -681,13 +844,30 @@ static void CommonInit(FlutterViewController* controller) {
   }
 }
 
-#pragma mark - FlutterViewReshapeListener
+- (NSString*)lookupKeyForAsset:(NSString*)asset {
+  return [FlutterDartProject lookupKeyForAsset:asset];
+}
+
+- (NSString*)lookupKeyForAsset:(NSString*)asset fromPackage:(NSString*)package {
+  return [FlutterDartProject lookupKeyForAsset:asset fromPackage:package];
+}
+
+#pragma mark - FlutterViewDelegate
 
 /**
  * Responds to view reshape by notifying the engine of the change in dimensions.
  */
 - (void)viewDidReshape:(NSView*)view {
-  [_engine updateWindowMetrics];
+  FML_DCHECK(view == _flutterView);
+  [_engine updateWindowMetricsForViewController:self];
+}
+
+- (BOOL)viewShouldAcceptFirstResponder:(NSView*)view {
+  FML_DCHECK(view == _flutterView);
+  // Only allow FlutterView to become first responder if TextInputPlugin is
+  // not active. Otherwise a mouse event inside FlutterView would cause the
+  // TextInputPlugin to lose first responder status.
+  return !_textInputPlugin.isFirstResponder;
 }
 
 #pragma mark - FlutterPluginRegistry
@@ -696,7 +876,32 @@ static void CommonInit(FlutterViewController* controller) {
   return [_engine registrarForPlugin:pluginName];
 }
 
+- (NSObject*)valuePublishedByPlugin:(NSString*)pluginKey {
+  return [_engine valuePublishedByPlugin:pluginKey];
+}
+
 #pragma mark - FlutterKeyboardViewDelegate
+
+/**
+ * Returns the current Unicode layout data (kTISPropertyUnicodeKeyLayoutData).
+ *
+ * To use the returned data, convert it to CFDataRef first, finds its bytes
+ * with CFDataGetBytePtr, then reinterpret it into const UCKeyboardLayout*.
+ * It's returned in NSData* to enable auto reference count.
+ */
+static NSData* CurrentKeyboardLayoutData() {
+  TISInputSourceRef source = TISCopyCurrentKeyboardInputSource();
+  CFTypeRef layout_data = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData);
+  if (layout_data == nil) {
+    CFRelease(source);
+    // TISGetInputSourceProperty returns null with Japanese keyboard layout.
+    // Using TISCopyCurrentKeyboardLayoutInputSource to fix NULL return.
+    // https://github.com/microsoft/node-native-keymap/blob/5f0699ded00179410a14c0e1b0e089fe4df8e130/src/keyboard_mac.mm#L91
+    source = TISCopyCurrentKeyboardLayoutInputSource();
+    layout_data = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData);
+  }
+  return (__bridge_transfer NSData*)CFRetain(layout_data);
+}
 
 - (void)sendKeyEvent:(const FlutterKeyEvent&)event
             callback:(nullable FlutterKeyEventCallback)callback
@@ -718,7 +923,7 @@ static void CommonInit(FlutterViewController* controller) {
 
 - (LayoutClue)lookUpLayoutForKeyCode:(uint16_t)keyCode shift:(BOOL)shift {
   if (_keyboardLayoutData == nil) {
-    _keyboardLayoutData = currentKeyboardLayoutData();
+    _keyboardLayoutData = CurrentKeyboardLayoutData();
   }
   const UCKeyboardLayout* layout = reinterpret_cast<const UCKeyboardLayout*>(
       CFDataGetBytePtr((__bridge CFDataRef)_keyboardLayoutData));
@@ -746,6 +951,10 @@ static void CommonInit(FlutterViewController* controller) {
     return LayoutClue{resultChar, isDeadKey};
   }
   return LayoutClue{0, false};
+}
+
+- (nonnull NSDictionary*)getPressedState {
+  return [_keyboardManager getPressedState];
 }
 
 #pragma mark - NSResponder
@@ -862,6 +1071,7 @@ static void CommonInit(FlutterViewController* controller) {
           .device = kPointerPanZoomDeviceId,
           .signal_kind = kFlutterPointerSignalKindScrollInertiaCancel,
           .device_kind = kFlutterPointerDeviceKindTrackpad,
+          .view_id = static_cast<FlutterViewId>(_viewId),
       };
 
       [_engine sendPointerEvent:flutterEvent];

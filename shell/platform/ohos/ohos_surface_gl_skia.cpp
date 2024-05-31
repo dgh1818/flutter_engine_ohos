@@ -183,7 +183,6 @@ GLFBOInfo OhosSurfaceGLSkia::GLContextFBO(GLFrameInfo frame_info) const {
   // The default window bound framebuffer on Ohos.
   return GLFBOInfo{
       .fbo_id = 0,
-      .partial_repaint_enabled = onscreen_surface_->SupportsPartialRepaint(),
       .existing_damage = onscreen_surface_->InitialDamage(),
   };
 }

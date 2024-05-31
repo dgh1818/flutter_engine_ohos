@@ -4,6 +4,7 @@
 
 #include "accessibility_bridge.h"
 
+#include <fuchsia/ui/views/cpp/fidl.h>
 #include <lib/async-loop/cpp/loop.h>
 #include <lib/async-loop/default.h>
 #include <lib/async/cpp/executor.h>
@@ -13,7 +14,7 @@
 #include <lib/inspect/cpp/inspector.h>
 #include <lib/inspect/cpp/reader.h>
 #include <lib/sys/cpp/testing/service_directory_provider.h>
-#include <lib/ui/scenic/cpp/view_ref_pair.h>
+#include <lib/zx/eventpair.h>
 #include <zircon/status.h>
 #include <zircon/types.h>
 
@@ -112,7 +113,16 @@ class AccessibilityBridgeTest : public testing::Test {
             [this](int32_t node_id, flutter::SemanticsAction action) {
               accessibility_delegate_.DispatchSemanticsAction(node_id, action);
             };
-    auto [view_ref_control, view_ref] = scenic::ViewRefPair::New();
+
+    fuchsia::ui::views::ViewRefControl view_ref_control;
+    fuchsia::ui::views::ViewRef view_ref;
+    auto status = zx::eventpair::create(
+        /*options*/ 0u, &view_ref_control.reference, &view_ref.reference);
+    ASSERT_EQ(status, ZX_OK);
+    view_ref_control.reference.replace(
+        ZX_DEFAULT_EVENTPAIR_RIGHTS & (~ZX_RIGHT_DUPLICATE),
+        &view_ref_control.reference);
+    view_ref.reference.replace(ZX_RIGHTS_BASIC, &view_ref.reference);
     accessibility_bridge_ =
         std::make_unique<flutter_runner::AccessibilityBridge>(
             std::move(set_semantics_enabled_callback),
@@ -468,6 +478,36 @@ TEST_F(AccessibilityBridgeTest, PopulatesToggledState) {
   EXPECT_TRUE(states.has_toggled_state());
   EXPECT_EQ(states.toggled_state(),
             fuchsia::accessibility::semantics::ToggledState::ON);
+
+  EXPECT_FALSE(semantics_manager_.DeleteOverflowed());
+  EXPECT_FALSE(semantics_manager_.UpdateOverflowed());
+}
+
+TEST_F(AccessibilityBridgeTest, PopulatesEnabledState) {
+  flutter::SemanticsNode node0;
+  node0.id = 0;
+  // HasEnabledState = true
+  // IsEnabled = true
+  node0.flags |= static_cast<int>(flutter::SemanticsFlags::kHasEnabledState);
+  node0.flags |= static_cast<int>(flutter::SemanticsFlags::kIsEnabled);
+  node0.value = "value";
+
+  accessibility_bridge_->AddSemanticsNodeUpdate({{0, node0}}, 1.f);
+  RunLoopUntilIdle();
+
+  EXPECT_EQ(0, semantics_manager_.DeleteCount());
+  EXPECT_EQ(1, semantics_manager_.UpdateCount());
+  EXPECT_EQ(1, semantics_manager_.CommitCount());
+  EXPECT_EQ(1U, semantics_manager_.LastUpdatedNodes().size());
+  const auto& fuchsia_node = semantics_manager_.LastUpdatedNodes().at(0u);
+  EXPECT_EQ(fuchsia_node.node_id(), static_cast<unsigned int>(node0.id));
+  EXPECT_TRUE(fuchsia_node.has_states());
+  const auto& states = fuchsia_node.states();
+  EXPECT_TRUE(states.has_enabled_state());
+  EXPECT_EQ(states.enabled_state(),
+            fuchsia::accessibility::semantics::EnabledState::ENABLED);
+  EXPECT_TRUE(states.has_value());
+  EXPECT_EQ(states.value(), node0.value);
 
   EXPECT_FALSE(semantics_manager_.DeleteOverflowed());
   EXPECT_FALSE(semantics_manager_.UpdateOverflowed());

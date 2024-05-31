@@ -5,7 +5,10 @@
 #include "flutter/shell/gpu/gpu_surface_software.h"
 
 #include <memory>
+
 #include "flutter/fml/logging.h"
+
+#include "third_party/skia/include/core/SkSurface.h"
 
 namespace flutter {
 
@@ -34,7 +37,7 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceSoftware::AcquireFrame(
   if (!render_to_surface_) {
     return std::make_unique<SurfaceFrame>(
         nullptr, framebuffer_info,
-        [](const SurfaceFrame& surface_frame, SkCanvas* canvas) {
+        [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
           return true;
         },
         logical_size);
@@ -68,8 +71,7 @@ FML_DLOG(INFO) << "AcquireFrame";
 FML_DLOG(INFO) << "resetMatrix end";
   SurfaceFrame::SubmitCallback on_submit =
       [self = weak_factory_.GetWeakPtr()](const SurfaceFrame& surface_frame,
-                                          SkCanvas* canvas) -> bool {
-                                            FML_DLOG(INFO) << "on_submit  start";
+                                          DlCanvas* canvas) -> bool {
     // If the surface itself went away, there is nothing more to do.
     FML_DLOG(INFO) <<"AcquireFrame ... on_submit ..." ;
     if (!self || !self->IsValid() || canvas == nullptr) {
@@ -78,7 +80,7 @@ FML_DLOG(INFO) << "resetMatrix end";
     }
     FML_DLOG(INFO) <<"AcquireFrame ... on_submit canvas->flush " ;
 
-    canvas->flush();
+    canvas->Flush();
 
     FML_DLOG(INFO) <<"AcquireFrame ... delegate_-->PresentBackingStore" ;
     return self->delegate_->PresentBackingStore(surface_frame.SkiaSurface());

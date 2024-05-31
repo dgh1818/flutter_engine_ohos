@@ -151,8 +151,15 @@ public class FlutterFragmentActivity extends FragmentActivity
   }
 
   @Override
+  @SuppressWarnings("MissingSuperCall")
   public void onUserLeaveHint() {
     eventDelegate.onUserLeaveHint();
+  }
+
+  @Override
+  public void onWindowFocusChanged(boolean hasFocus) {
+    super.onWindowFocusChanged(hasFocus);
+    eventDelegate.onWindowFocusChanged(hasFocus);
   }
 
   @Override

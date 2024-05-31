@@ -2,10 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifndef FLUTTER_SHELL_PLATFORM_DARWIN_MACOS_FRAMEWORK_SOURCE_FLUTTERTEXTINPUTSEMANTICSOBJECT_H_
+#define FLUTTER_SHELL_PLATFORM_DARWIN_MACOS_FRAMEWORK_SOURCE_FLUTTERTEXTINPUTSEMANTICSOBJECT_H_
+
 #import <Cocoa/Cocoa.h>
 
 #import "flutter/shell/platform/darwin/macos/framework/Source/FlutterPlatformNodeDelegateMac.h"
 
+#include "flutter/fml/macros.h"
 #include "flutter/third_party/accessibility/ax/platform/ax_platform_node_base.h"
 
 @class FlutterTextField;
@@ -56,6 +60,8 @@ class FlutterTextPlatformNode : public ui::AXPlatformNodeBase {
   /// @brief Detaches the FlutterTextField from the FlutterView if it is not
   ///        already detached.
   void EnsureDetachedFromView();
+
+  FML_DISALLOW_COPY_AND_ASSIGN(FlutterTextPlatformNode);
 };
 
 }  // namespace flutter
@@ -96,3 +102,5 @@ class FlutterTextPlatformNode : public ui::AXPlatformNodeBase {
 - (void)startEditing;
 
 @end
+
+#endif  // FLUTTER_SHELL_PLATFORM_DARWIN_MACOS_FRAMEWORK_SOURCE_FLUTTERTEXTINPUTSEMANTICSOBJECT_H_

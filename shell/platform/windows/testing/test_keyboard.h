@@ -10,6 +10,7 @@
 #include <functional>
 #include <string>
 
+#include "flutter/fml/macros.h"
 #include "flutter/shell/platform/embedder/embedder.h"
 #include "flutter/shell/platform/windows/testing/engine_modifier.h"
 #include "flutter/shell/platform/windows/testing/wm_builders.h"
@@ -99,6 +100,8 @@ class MockKeyResponseController {
                                    ResponseCallback callback) {
     callback(false);
   }
+
+  FML_DISALLOW_COPY_AND_ASSIGN(MockKeyResponseController);
 };
 
 void MockEmbedderApiForKeyboard(
@@ -142,13 +145,17 @@ class MockMessageQueue {
 // Expect the |_target| FlutterKeyEvent has the required properties.
 #define EXPECT_EVENT_EQUALS(_target, _type, _physical, _logical, _character, \
                             _synthesized)                                    \
-  EXPECT_PRED_FORMAT2(_EventEquals, _target,                                 \
-                      (FlutterKeyEvent{                                      \
-                          .type = _type,                                     \
-                          .physical = _physical,                             \
-                          .logical = _logical,                               \
-                          .character = _character,                           \
-                          .synthesized = _synthesized,                       \
-                      }));
+  EXPECT_PRED_FORMAT2(                                                       \
+      _EventEquals, _target,                                                 \
+      (FlutterKeyEvent{                                                      \
+          /* struct_size = */ sizeof(FlutterKeyEvent),                       \
+          /* timestamp = */ 0,                                               \
+          /* type = */ _type,                                                \
+          /* physical = */ _physical,                                        \
+          /* logical = */ _logical,                                          \
+          /* character = */ _character,                                      \
+          /* synthesized = */ _synthesized,                                  \
+          /* device_type = */ kFlutterKeyEventDeviceTypeKeyboard,            \
+      }));
 
 #endif  // FLUTTER_SHELL_PLATFORM_WINDOWS_TESTING_TEST_KEYBOARD_H_

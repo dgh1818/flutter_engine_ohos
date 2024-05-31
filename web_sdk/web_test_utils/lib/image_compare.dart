@@ -8,8 +8,6 @@ import 'package:image/image.dart';
 import 'package:path/path.dart' as p;
 import 'package:skia_gold_client/skia_gold_client.dart';
 
-import 'environment.dart';
-
 /// Compares a screenshot taken through a test with its golden.
 ///
 /// Used by Flutter Web Engine unit tests and the integration tests.
@@ -22,37 +20,46 @@ Future<String> compareImage(
   Image screenshot,
   bool doUpdateScreenshotGoldens,
   String filename,
+  Directory suiteGoldenDirectory,
   SkiaGoldClient? skiaClient, {
   required bool isCanvaskitTest,
+  required bool verbose,
 }) async {
   if (skiaClient == null) {
     return 'OK';
   }
 
-  final String screenshotPath = _getFullScreenshotPath(filename);
+  final String screenshotPath = p.join(suiteGoldenDirectory.path, filename);
   final File screenshotFile = File(screenshotPath);
   await screenshotFile.create(recursive: true);
   await screenshotFile.writeAsBytes(encodePng(screenshot), flush: true);
 
-  if (isLuciEnv) {
+  if (SkiaGoldClient.isLuciEnv()) {
     // This is temporary to get started by uploading existing screenshots to
     // Skia Gold. The next step would be to actually use Skia Gold for
     // comparison.
     final int screenshotSize = screenshot.width * screenshot.height;
 
-    late int pixelColorDelta;
+    final int pixelColorDeltaPerChannel;
+    final double differentPixelsRate;
+
     if (isCanvaskitTest) {
-      pixelColorDelta = 21;
+      differentPixelsRate = 0.1;
+      pixelColorDeltaPerChannel = 7;
     } else if (skiaClient.dimensions != null && skiaClient.dimensions!['Browser'] == 'ios-safari') {
-      pixelColorDelta = 15;
+      differentPixelsRate = 0.15;
+      pixelColorDeltaPerChannel = 16;
     } else {
-      pixelColorDelta = 3;
+      differentPixelsRate = 0.1;
+      pixelColorDeltaPerChannel = 1;
     }
+
     skiaClient.addImg(
       filename,
       screenshotFile,
       screenshotSize: screenshotSize,
-      pixelColorDelta: pixelColorDelta,
+      differentPixelsRate: differentPixelsRate,
+      pixelColorDelta: pixelColorDeltaPerChannel * 3,
     );
     return 'OK';
   }
@@ -69,20 +76,17 @@ Future<String> compareImage(
     // At the moment, we don't support local screenshot testing because we use
     // Skia Gold to handle our screenshots and diffing. In the future, we might
     // implement local screenshot testing if there's a need.
-    print('Screenshot generated: file://$screenshotPath'); // ignore: avoid_print
+    if (verbose) {
+      print('Screenshot generated: file://$screenshotPath'); // ignore: avoid_print
+    }
     return 'OK';
   }
 
   // TODO(mdebbar): Use the Gold tool to locally diff the golden.
-
   return 'OK';
 }
 
 Future<Image?> _getGolden(String filename) {
   // TODO(mdebbar): Fetch the golden from Skia Gold.
   return Future<Image?>.value();
-}
-
-String _getFullScreenshotPath(String filename) {
-  return p.join(environment.webUiSkiaGoldDirectory.path, filename);
 }

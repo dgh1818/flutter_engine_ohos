@@ -6,6 +6,8 @@
 
 #include "gtest/gtest.h"
 
+FLUTTER_ASSERT_ARC
+
 TEST(FlutterStringCodec, CanEncodeAndDecodeNil) {
   FlutterStringCodec* codec = [FlutterStringCodec sharedInstance];
   ASSERT_TRUE([codec encode:nil] == nil);
@@ -42,9 +44,24 @@ TEST(FlutterStringCodec, CanEncodeAndDecodeNonBMPString) {
   ASSERT_TRUE([value isEqualTo:decoded]);
 }
 
+TEST(FlutterJSONCodec, ThrowsOnInvalidEncode) {
+  NSString* value = [[NSString alloc] initWithBytes:"\xdf\xff"
+                                             length:2
+                                           encoding:NSUTF16StringEncoding];
+  FlutterJSONMessageCodec* codec = [FlutterJSONMessageCodec sharedInstance];
+  EXPECT_EXIT([codec encode:value], testing::KilledBySignal(SIGABRT), "failed to convert to UTF8");
+}
+
 TEST(FlutterJSONCodec, CanDecodeZeroLength) {
   FlutterJSONMessageCodec* codec = [FlutterJSONMessageCodec sharedInstance];
   ASSERT_TRUE([codec decode:[NSData data]] == nil);
+}
+
+TEST(FlutterJSONCodec, ThrowsOnInvalidDecode) {
+  NSString* value = @"{{{";
+  FlutterJSONMessageCodec* codec = [FlutterJSONMessageCodec sharedInstance];
+  EXPECT_EXIT([codec decode:[value dataUsingEncoding:value.fastestEncoding]],
+              testing::KilledBySignal(SIGABRT), "No string key for value in object around line 1");
 }
 
 TEST(FlutterJSONCodec, CanEncodeAndDecodeNil) {

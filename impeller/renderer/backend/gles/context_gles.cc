@@ -3,23 +3,28 @@
 // found in the LICENSE file.
 
 #include "impeller/renderer/backend/gles/context_gles.h"
+#include <memory>
 
 #include "impeller/base/config.h"
 #include "impeller/base/validation.h"
-#include "impeller/base/work_queue_common.h"
+#include "impeller/renderer/backend/gles/command_buffer_gles.h"
+#include "impeller/renderer/backend/gles/gpu_tracer_gles.h"
+#include "impeller/renderer/command_queue.h"
 
 namespace impeller {
 
 std::shared_ptr<ContextGLES> ContextGLES::Create(
     std::unique_ptr<ProcTableGLES> gl,
-    const std::vector<std::shared_ptr<fml::Mapping>>& shader_libraries) {
+    const std::vector<std::shared_ptr<fml::Mapping>>& shader_libraries,
+    bool enable_gpu_tracing) {
   return std::shared_ptr<ContextGLES>(
-      new ContextGLES(std::move(gl), shader_libraries));
+      new ContextGLES(std::move(gl), shader_libraries, enable_gpu_tracing));
 }
 
-ContextGLES::ContextGLES(std::unique_ptr<ProcTableGLES> gl,
-                         const std::vector<std::shared_ptr<fml::Mapping>>&
-                             shader_libraries_mappings) {
+ContextGLES::ContextGLES(
+    std::unique_ptr<ProcTableGLES> gl,
+    const std::vector<std::shared_ptr<fml::Mapping>>& shader_libraries_mappings,
+    bool enable_gpu_tracing) {
   reactor_ = std::make_shared<ReactorGLES>(std::move(gl));
   if (!reactor_->IsValid()) {
     VALIDATION_LOG << "Could not create valid reactor.";
@@ -53,25 +58,25 @@ ContextGLES::ContextGLES(std::unique_ptr<ProcTableGLES> gl,
     }
   }
 
+  device_capabilities_ = reactor_->GetProcTable().GetCapabilities();
+
   // Create the sampler library.
   {
     sampler_library_ =
-        std::shared_ptr<SamplerLibraryGLES>(new SamplerLibraryGLES());
+        std::shared_ptr<SamplerLibraryGLES>(new SamplerLibraryGLES(
+            device_capabilities_->SupportsDecalSamplerAddressMode()));
   }
-
-  // Create the work queue.
-  {
-    work_queue_ = WorkQueueCommon::Create();
-    if (!work_queue_) {
-      VALIDATION_LOG << "Could not create work queue.";
-      return;
-    }
-  }
-
+  gpu_tracer_ = std::make_shared<GPUTracerGLES>(GetReactor()->GetProcTable(),
+                                                enable_gpu_tracing);
+  command_queue_ = std::make_shared<CommandQueue>();
   is_valid_ = true;
 }
 
 ContextGLES::~ContextGLES() = default;
+
+Context::BackendType ContextGLES::GetBackendType() const {
+  return Context::BackendType::kOpenGLES;
+}
 
 const ReactorGLES::Ref& ContextGLES::GetReactor() const {
   return reactor_;
@@ -94,6 +99,13 @@ bool ContextGLES::RemoveReactorWorker(ReactorGLES::WorkerID id) {
 
 bool ContextGLES::IsValid() const {
   return is_valid_;
+}
+
+void ContextGLES::Shutdown() {}
+
+// |Context|
+std::string ContextGLES::DescribeGpuModel() const {
+  return reactor_->GetProcTable().GetDescription()->GetString();
 }
 
 // |Context|
@@ -123,28 +135,14 @@ std::shared_ptr<CommandBuffer> ContextGLES::CreateCommandBuffer() const {
 }
 
 // |Context|
-std::shared_ptr<WorkQueue> ContextGLES::GetWorkQueue() const {
-  return work_queue_;
+const std::shared_ptr<const Capabilities>& ContextGLES::GetCapabilities()
+    const {
+  return device_capabilities_;
 }
 
 // |Context|
-bool ContextGLES::HasThreadingRestrictions() const {
-  return true;
-}
-
-// |Context|
-bool ContextGLES::SupportsOffscreenMSAA() const {
-  return false;
-}
-
-// |Context|
-const BackendFeatures& ContextGLES::GetBackendFeatures() const {
-  return kLegacyBackendFeatures;
-}
-
-// |Context|
-PixelFormat ContextGLES::GetColorAttachmentPixelFormat() const {
-  return PixelFormat::kR8G8B8A8UNormInt;
+std::shared_ptr<CommandQueue> ContextGLES::GetCommandQueue() const {
+  return command_queue_;
 }
 
 }  // namespace impeller

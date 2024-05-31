@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_IMPELLER_RENDERER_COMPUTE_PIPELINE_DESCRIPTOR_H_
+#define FLUTTER_IMPELLER_RENDERER_COMPUTE_PIPELINE_DESCRIPTOR_H_
 
 #include <functional>
 #include <future>
@@ -16,8 +17,8 @@
 #include "flutter/fml/hash_combine.h"
 #include "flutter/fml/macros.h"
 #include "impeller/base/comparable.h"
-#include "impeller/renderer/formats.h"
-#include "impeller/renderer/shader_types.h"
+#include "impeller/core/formats.h"
+#include "impeller/core/shader_types.h"
 #include "impeller/tessellator/tessellator.h"
 
 namespace impeller {
@@ -48,9 +49,23 @@ class ComputePipelineDescriptor final
   // Comparable<PipelineDescriptor>
   bool IsEqual(const ComputePipelineDescriptor& other) const override;
 
+  template <size_t Size>
+  bool RegisterDescriptorSetLayouts(
+      const std::array<DescriptorSetLayout, Size>& inputs) {
+    return RegisterDescriptorSetLayouts(inputs.data(), inputs.size());
+  }
+
+  bool RegisterDescriptorSetLayouts(const DescriptorSetLayout desc_set_layout[],
+                                    size_t count);
+
+  const std::vector<DescriptorSetLayout>& GetDescriptorSetLayouts() const;
+
  private:
   std::string label_;
   std::shared_ptr<const ShaderFunction> entrypoint_;
+  std::vector<DescriptorSetLayout> descriptor_set_layouts_;
 };
 
 }  // namespace impeller
+
+#endif  // FLUTTER_IMPELLER_RENDERER_COMPUTE_PIPELINE_DESCRIPTOR_H_

@@ -2,20 +2,23 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_IMPELLER_TYPOGRAPHER_GLYPH_ATLAS_H_
+#define FLUTTER_IMPELLER_TYPOGRAPHER_GLYPH_ATLAS_H_
 
 #include <functional>
 #include <memory>
 #include <optional>
 #include <unordered_map>
 
-#include "flutter/fml/macros.h"
+#include "impeller/core/texture.h"
 #include "impeller/geometry/rect.h"
 #include "impeller/renderer/pipeline.h"
-#include "impeller/renderer/texture.h"
 #include "impeller/typographer/font_glyph_pair.h"
+#include "impeller/typographer/rectangle_packer.h"
 
 namespace impeller {
+
+class FontGlyphAtlas;
 
 //------------------------------------------------------------------------------
 /// @brief      A texture containing the bitmap representation of glyphs in
@@ -28,16 +31,11 @@ class GlyphAtlas {
   /// @brief      Describes how the glyphs are represented in the texture.
   enum class Type {
     //--------------------------------------------------------------------------
-    /// The glyphs are represented at a fixed size in an 8-bit grayscale texture
-    /// where the value of each pixel represents a signed-distance field that
-    /// stores the glyph outlines.
-    ///
-    kSignedDistanceField,
-
-    //--------------------------------------------------------------------------
     /// The glyphs are reprsented at their requested size using only an 8-bit
-    /// alpha channel.
+    /// color channel.
     ///
+    /// This might be backed by a grey or red single channel texture, depending
+    /// on the backend capabilities.
     kAlphaBitmap,
 
     //--------------------------------------------------------------------------
@@ -103,8 +101,9 @@ class GlyphAtlas {
   /// @return     The number of glyphs iterated over.
   ///
   size_t IterateGlyphs(
-      const std::function<bool(const FontGlyphPair& pair, const Rect& rect)>&
-          iterator) const;
+      const std::function<bool(const ScaledFont& scaled_font,
+                               const Glyph& glyph,
+                               const Rect& rect)>& iterator) const;
 
   //----------------------------------------------------------------------------
   /// @brief      Find the location of a specific font-glyph pair in the atlas.
@@ -112,31 +111,33 @@ class GlyphAtlas {
   /// @param[in]  pair  The font-glyph pair
   ///
   /// @return     The location of the font-glyph pair in the atlas.
-  ///             `std::nullopt` of the pair in not in the atlas.
+  ///             `std::nullopt` if the pair is not in the atlas.
   ///
-  std::optional<Rect> FindFontGlyphPosition(const FontGlyphPair& pair) const;
+  std::optional<Rect> FindFontGlyphBounds(const FontGlyphPair& pair) const;
 
   //----------------------------------------------------------------------------
-  /// @brief      whether this atlas contains all of the same font-glyph pairs
-  ///             as the vector.
+  /// @brief      Obtain an interface for querying the location of glyphs in the
+  ///             atlas for the given font and scale.  This provides a more
+  ///             efficient way to look up a run of glyphs in the same font.
   ///
-  /// @param[in]  new_glyphs  The full set of new glyphs
+  /// @param[in]  font  The font
+  /// @param[in]  scale The scale
   ///
-  /// @return     Whether this atlas contains all passed pairs.
+  /// @return     A pointer to a FontGlyphAtlas, or nullptr if the font and
+  ///             scale are not available in the atlas.  The pointer is only
+  ///             valid for the lifetime of the GlyphAtlas.
   ///
-  bool HasSamePairs(const FontGlyphPair::Vector& new_glyphs);
+  const FontGlyphAtlas* GetFontGlyphAtlas(const Font& font, Scalar scale) const;
 
  private:
   const Type type_;
   std::shared_ptr<Texture> texture_;
 
-  std::unordered_map<FontGlyphPair,
-                     Rect,
-                     FontGlyphPair::Hash,
-                     FontGlyphPair::Equal>
-      positions_;
+  std::unordered_map<ScaledFont, FontGlyphAtlas> font_atlas_map_;
 
-  FML_DISALLOW_COPY_AND_ASSIGN(GlyphAtlas);
+  GlyphAtlas(const GlyphAtlas&) = delete;
+
+  GlyphAtlas& operator=(const GlyphAtlas&) = delete;
 };
 
 //------------------------------------------------------------------------------
@@ -144,22 +145,66 @@ class GlyphAtlas {
 ///
 class GlyphAtlasContext {
  public:
-  GlyphAtlasContext();
-
-  ~GlyphAtlasContext();
+  virtual ~GlyphAtlasContext();
 
   //----------------------------------------------------------------------------
   /// @brief      Retrieve the current glyph atlas.
   std::shared_ptr<GlyphAtlas> GetGlyphAtlas() const;
 
   //----------------------------------------------------------------------------
+  /// @brief      Retrieve the size of the current glyph atlas.
+  const ISize& GetAtlasSize() const;
+
+  //----------------------------------------------------------------------------
+  /// @brief      Retrieve the previous (if any) rect packer.
+  std::shared_ptr<RectanglePacker> GetRectPacker() const;
+
+  //----------------------------------------------------------------------------
   /// @brief      Update the context with a newly constructed glyph atlas.
-  void UpdateGlyphAtlas(std::shared_ptr<GlyphAtlas> atlas);
+  void UpdateGlyphAtlas(std::shared_ptr<GlyphAtlas> atlas, ISize size);
+
+  void UpdateRectPacker(std::shared_ptr<RectanglePacker> rect_packer);
+
+ protected:
+  GlyphAtlasContext();
 
  private:
   std::shared_ptr<GlyphAtlas> atlas_;
+  ISize atlas_size_;
+  std::shared_ptr<RectanglePacker> rect_packer_;
 
-  FML_DISALLOW_COPY_AND_ASSIGN(GlyphAtlasContext);
+  GlyphAtlasContext(const GlyphAtlasContext&) = delete;
+
+  GlyphAtlasContext& operator=(const GlyphAtlasContext&) = delete;
+};
+
+//------------------------------------------------------------------------------
+/// @brief      An object that can look up glyph locations within the GlyphAtlas
+///             for a particular typeface.
+///
+class FontGlyphAtlas {
+ public:
+  FontGlyphAtlas() = default;
+
+  //----------------------------------------------------------------------------
+  /// @brief      Find the location of a glyph in the atlas.
+  ///
+  /// @param[in]  glyph The glyph
+  ///
+  /// @return     The location of the glyph in the atlas.
+  ///             `std::nullopt` if the glyph is not in the atlas.
+  ///
+  std::optional<Rect> FindGlyphBounds(const Glyph& glyph) const;
+
+ private:
+  friend class GlyphAtlas;
+  std::unordered_map<Glyph, Rect> positions_;
+
+  FontGlyphAtlas(const FontGlyphAtlas&) = delete;
+
+  FontGlyphAtlas& operator=(const FontGlyphAtlas&) = delete;
 };
 
 }  // namespace impeller
+
+#endif  // FLUTTER_IMPELLER_TYPOGRAPHER_GLYPH_ATLAS_H_

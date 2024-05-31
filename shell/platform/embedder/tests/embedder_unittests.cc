@@ -10,6 +10,7 @@
 
 #include "embedder.h"
 #include "embedder_engine.h"
+#include "flutter/common/constants.h"
 #include "flutter/flow/raster_cache.h"
 #include "flutter/fml/file.h"
 #include "flutter/fml/make_copyable.h"
@@ -117,7 +118,7 @@ TEST_F(EmbedderTest, CanInvokeCustomEntrypointMacro) {
   auto native_entry1 = CREATE_NATIVE_ENTRY(entry1);
   context.AddNativeCallback("SayHiFromCustomEntrypoint1", native_entry1);
 
-  // Can be wrapped in in the args.
+  // Can be wrapped in the args.
   auto entry2 = [&latch2](Dart_NativeArguments args) {
     FML_LOG(INFO) << "In Callback 2";
     latch2.Signal();
@@ -172,6 +173,30 @@ TEST_F(EmbedderTest, ExecutableNameNotNull) {
   builder.SetExecutableName("/path/to/binary");
   auto engine = builder.LaunchEngine();
   latch.Wait();
+}
+
+TEST_F(EmbedderTest, ImplicitViewNotNull) {
+  // TODO(loicsharma): Update this test when embedders can opt-out
+  // of the implicit view.
+  // See: https://github.com/flutter/flutter/issues/120306
+  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+
+  bool implicitViewNotNull = false;
+  fml::AutoResetWaitableEvent latch;
+  context.AddNativeCallback(
+      "NotifyBoolValue", CREATE_NATIVE_ENTRY([&](Dart_NativeArguments args) {
+        implicitViewNotNull = tonic::DartConverter<bool>::FromDart(
+            Dart_GetNativeArgument(args, 0));
+        latch.Signal();
+      }));
+
+  EmbedderConfigBuilder builder(context);
+  builder.SetSoftwareRendererConfig();
+  builder.SetDartEntrypoint("implicitViewNotNull");
+  auto engine = builder.LaunchEngine();
+  latch.Wait();
+
+  EXPECT_TRUE(implicitViewNotNull);
 }
 
 std::atomic_size_t EmbedderTestTaskRunner::sEmbedderTaskRunnerIdentifiers = {};
@@ -616,12 +641,84 @@ TEST_F(EmbedderTest, VMAndIsolateSnapshotSizesAreRedundantInAOTMode) {
   ASSERT_TRUE(engine.is_valid());
 }
 
+TEST_F(EmbedderTest, CanRenderImplicitView) {
+  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+
+  EmbedderConfigBuilder builder(context);
+  builder.SetSoftwareRendererConfig(SkISize::Make(800, 600));
+  builder.SetCompositor();
+  builder.SetDartEntrypoint("render_implicit_view");
+  builder.SetRenderTargetType(
+      EmbedderTestBackingStoreProducer::RenderTargetType::kSoftwareBuffer);
+
+  fml::AutoResetWaitableEvent latch;
+
+  context.GetCompositor().SetNextPresentCallback(
+      [&](FlutterViewId view_id, const FlutterLayer** layers,
+          size_t layers_count) {
+        ASSERT_EQ(view_id, kFlutterImplicitViewId);
+        latch.Signal();
+      });
+
+  auto engine = builder.LaunchEngine();
+
+  FlutterWindowMetricsEvent event = {};
+  event.struct_size = sizeof(event);
+  event.width = 300;
+  event.height = 200;
+  event.pixel_ratio = 1.0;
+  ASSERT_EQ(FlutterEngineSendWindowMetricsEvent(engine.get(), &event),
+            kSuccess);
+  ASSERT_TRUE(engine.is_valid());
+  latch.Wait();
+}
+
+TEST_F(EmbedderTest, CanRenderImplicitViewUsingPresentLayersCallback) {
+  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+
+  EmbedderConfigBuilder builder(context);
+  builder.SetSoftwareRendererConfig(SkISize::Make(800, 600));
+  builder.SetCompositor(/* avoid_backing_store_cache = */ false,
+                        /* use_present_layers_callback = */ true);
+  builder.SetDartEntrypoint("render_implicit_view");
+  builder.SetRenderTargetType(
+      EmbedderTestBackingStoreProducer::RenderTargetType::kSoftwareBuffer);
+
+  fml::AutoResetWaitableEvent latch;
+
+  context.GetCompositor().SetNextPresentCallback(
+      [&](FlutterViewId view_id, const FlutterLayer** layers,
+          size_t layers_count) {
+        ASSERT_EQ(view_id, kFlutterImplicitViewId);
+        latch.Signal();
+      });
+
+  auto engine = builder.LaunchEngine();
+
+  FlutterWindowMetricsEvent event = {};
+  event.struct_size = sizeof(event);
+  event.width = 300;
+  event.height = 200;
+  event.pixel_ratio = 1.0;
+  ASSERT_EQ(FlutterEngineSendWindowMetricsEvent(engine.get(), &event),
+            kSuccess);
+  ASSERT_TRUE(engine.is_valid());
+  latch.Wait();
+}
+
 //------------------------------------------------------------------------------
 /// Test the layer structure and pixels rendered when using a custom software
 /// compositor.
 ///
+// TODO(143940): Convert this test to use SkiaGold.
+#if FML_OS_MACOSX && FML_ARCH_CPU_ARM64
+TEST_F(EmbedderTest,
+       DISABLED_CompositorMustBeAbleToRenderKnownSceneWithSoftwareCompositor) {
+#else
 TEST_F(EmbedderTest,
        CompositorMustBeAbleToRenderKnownSceneWithSoftwareCompositor) {
+#endif  // FML_OS_MACOSX && FML_ARCH_CPU_ARM64
+
   auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
 
   EmbedderConfigBuilder builder(context);
@@ -637,7 +734,8 @@ TEST_F(EmbedderTest,
   auto scene_image = context.GetNextSceneImage();
 
   context.GetCompositor().SetNextPresentCallback(
-      [&](const FlutterLayer** layers, size_t layers_count) {
+      [&](FlutterViewId view_id, const FlutterLayer** layers,
+          size_t layers_count) {
         ASSERT_EQ(layers_count, 5u);
 
         // Layer Root
@@ -647,12 +745,26 @@ TEST_F(EmbedderTest,
           backing_store.did_update = true;
           backing_store.software.height = 600;
 
+          FlutterRect paint_region_rects[] = {
+              FlutterRectMakeLTRB(0, 0, 800, 600),
+          };
+          FlutterRegion paint_region = {
+              .struct_size = sizeof(FlutterRegion),
+              .rects_count = 1,
+              .rects = paint_region_rects,
+          };
+          FlutterBackingStorePresentInfo present_info = {
+              .struct_size = sizeof(FlutterBackingStorePresentInfo),
+              .paint_region = &paint_region,
+          };
+
           FlutterLayer layer = {};
           layer.struct_size = sizeof(layer);
           layer.type = kFlutterLayerContentTypeBackingStore;
           layer.backing_store = &backing_store;
           layer.size = FlutterSizeMake(800.0, 600.0);
           layer.offset = FlutterPointMake(0.0, 0.0);
+          layer.backing_store_present_info = &present_info;
 
           ASSERT_EQ(*layers[0], layer);
         }
@@ -680,12 +792,26 @@ TEST_F(EmbedderTest,
           backing_store.did_update = true;
           backing_store.software.height = 600;
 
+          FlutterRect paint_region_rects[] = {
+              FlutterRectMakeLTRB(30, 30, 80, 180),
+          };
+          FlutterRegion paint_region = {
+              .struct_size = sizeof(FlutterRegion),
+              .rects_count = 1,
+              .rects = paint_region_rects,
+          };
+          FlutterBackingStorePresentInfo present_info = {
+              .struct_size = sizeof(FlutterBackingStorePresentInfo),
+              .paint_region = &paint_region,
+          };
+
           FlutterLayer layer = {};
           layer.struct_size = sizeof(layer);
           layer.type = kFlutterLayerContentTypeBackingStore;
           layer.backing_store = &backing_store;
           layer.size = FlutterSizeMake(800.0, 600.0);
           layer.offset = FlutterPointMake(0.0, 0.0);
+          layer.backing_store_present_info = &present_info;
 
           ASSERT_EQ(*layers[2], layer);
         }
@@ -713,12 +839,26 @@ TEST_F(EmbedderTest,
           backing_store.did_update = true;
           backing_store.software.height = 600;
 
+          FlutterRect paint_region_rects[] = {
+              FlutterRectMakeLTRB(50, 50, 100, 200),
+          };
+          FlutterRegion paint_region = {
+              .struct_size = sizeof(FlutterRegion),
+              .rects_count = 1,
+              .rects = paint_region_rects,
+          };
+          FlutterBackingStorePresentInfo present_info = {
+              .struct_size = sizeof(FlutterBackingStorePresentInfo),
+              .paint_region = &paint_region,
+          };
+
           FlutterLayer layer = {};
           layer.struct_size = sizeof(layer);
           layer.type = kFlutterLayerContentTypeBackingStore;
           layer.backing_store = &backing_store;
           layer.size = FlutterSizeMake(800.0, 600.0);
           layer.offset = FlutterPointMake(0.0, 0.0);
+          layer.backing_store_present_info = &present_info;
 
           ASSERT_EQ(*layers[4], layer);
         }
@@ -794,6 +934,280 @@ TEST_F(EmbedderTest,
 }
 
 //------------------------------------------------------------------------------
+/// Test the layer structure and pixels rendered when using a custom software
+/// compositor, with a transparent overlay
+///
+TEST_F(EmbedderTest, NoLayerCreatedForTransparentOverlayOnTopOfPlatformLayer) {
+  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+
+  EmbedderConfigBuilder builder(context);
+  builder.SetSoftwareRendererConfig(SkISize::Make(800, 600));
+  builder.SetCompositor();
+  builder.SetDartEntrypoint("can_composite_platform_views_transparent_overlay");
+
+  builder.SetRenderTargetType(
+      EmbedderTestBackingStoreProducer::RenderTargetType::kSoftwareBuffer);
+
+  fml::CountDownLatch latch(4);
+
+  auto scene_image = context.GetNextSceneImage();
+
+  context.GetCompositor().SetNextPresentCallback(
+      [&](FlutterViewId view_id, const FlutterLayer** layers,
+          size_t layers_count) {
+        ASSERT_EQ(layers_count, 2u);
+
+        // Layer Root
+        {
+          FlutterBackingStore backing_store = *layers[0]->backing_store;
+          backing_store.type = kFlutterBackingStoreTypeSoftware;
+          backing_store.did_update = true;
+          backing_store.software.height = 600;
+
+          FlutterRect paint_region_rects[] = {
+              FlutterRectMakeLTRB(0, 0, 800, 600),
+          };
+          FlutterRegion paint_region = {
+              .struct_size = sizeof(FlutterRegion),
+              .rects_count = 1,
+              .rects = paint_region_rects,
+          };
+          FlutterBackingStorePresentInfo present_info = {
+              .struct_size = sizeof(FlutterBackingStorePresentInfo),
+              .paint_region = &paint_region,
+          };
+
+          FlutterLayer layer = {};
+          layer.struct_size = sizeof(layer);
+          layer.type = kFlutterLayerContentTypeBackingStore;
+          layer.backing_store = &backing_store;
+          layer.size = FlutterSizeMake(800.0, 600.0);
+          layer.offset = FlutterPointMake(0.0, 0.0);
+          layer.backing_store_present_info = &present_info;
+
+          ASSERT_EQ(*layers[0], layer);
+        }
+
+        // Layer 1
+        {
+          FlutterPlatformView platform_view = *layers[1]->platform_view;
+          platform_view.struct_size = sizeof(platform_view);
+          platform_view.identifier = 1;
+
+          FlutterLayer layer = {};
+          layer.struct_size = sizeof(layer);
+          layer.type = kFlutterLayerContentTypePlatformView;
+          layer.platform_view = &platform_view;
+          layer.size = FlutterSizeMake(50.0, 150.0);
+          layer.offset = FlutterPointMake(20.0, 20.0);
+
+          ASSERT_EQ(*layers[1], layer);
+        }
+
+        latch.CountDown();
+      });
+
+  context.GetCompositor().SetPlatformViewRendererCallback(
+      [&](const FlutterLayer& layer, GrDirectContext*
+          /* don't use because software compositor */) -> sk_sp<SkImage> {
+        auto surface = CreateRenderSurface(
+            layer, nullptr /* null because software compositor */);
+        auto canvas = surface->getCanvas();
+        FML_CHECK(canvas != nullptr);
+
+        switch (layer.platform_view->identifier) {
+          case 1: {
+            SkPaint paint;
+            // See dart test for total order.
+            paint.setColor(SK_ColorGREEN);
+            paint.setAlpha(127);
+            const auto& rect =
+                SkRect::MakeWH(layer.size.width, layer.size.height);
+            canvas->drawRect(rect, paint);
+            latch.CountDown();
+          } break;
+          default:
+            // Asked to render an unknown platform view.
+            FML_CHECK(false)
+                << "Test was asked to composite an unknown platform view.";
+        }
+
+        return surface->makeImageSnapshot();
+      });
+
+  context.AddNativeCallback(
+      "SignalNativeTest",
+      CREATE_NATIVE_ENTRY(
+          [&latch](Dart_NativeArguments args) { latch.CountDown(); }));
+
+  auto engine = builder.LaunchEngine();
+
+  // Send a window metrics events so frames may be scheduled.
+  FlutterWindowMetricsEvent event = {};
+  event.struct_size = sizeof(event);
+  event.width = 800;
+  event.height = 600;
+  event.pixel_ratio = 1.0;
+  event.physical_view_inset_top = 0.0;
+  event.physical_view_inset_right = 0.0;
+  event.physical_view_inset_bottom = 0.0;
+  event.physical_view_inset_left = 0.0;
+  ASSERT_EQ(FlutterEngineSendWindowMetricsEvent(engine.get(), &event),
+            kSuccess);
+  ASSERT_TRUE(engine.is_valid());
+
+  latch.Wait();
+
+  // TODO(https://github.com/flutter/flutter/issues/53784): enable this on all
+  // platforms.
+#if !defined(FML_OS_LINUX)
+  GTEST_SKIP() << "Skipping golden tests on non-Linux OSes";
+#endif  // FML_OS_LINUX
+  ASSERT_TRUE(ImageMatchesFixture(
+      "compositor_platform_layer_with_no_overlay.png", scene_image));
+
+  // There should no present calls on the root surface.
+  ASSERT_EQ(context.GetSurfacePresentCount(), 0u);
+}
+
+//------------------------------------------------------------------------------
+/// Test the layer structure and pixels rendered when using a custom software
+/// compositor, with a no overlay
+///
+TEST_F(EmbedderTest, NoLayerCreatedForNoOverlayOnTopOfPlatformLayer) {
+  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+
+  EmbedderConfigBuilder builder(context);
+  builder.SetSoftwareRendererConfig(SkISize::Make(800, 600));
+  builder.SetCompositor();
+  builder.SetDartEntrypoint("can_composite_platform_views_no_overlay");
+
+  builder.SetRenderTargetType(
+      EmbedderTestBackingStoreProducer::RenderTargetType::kSoftwareBuffer);
+
+  fml::CountDownLatch latch(4);
+
+  auto scene_image = context.GetNextSceneImage();
+
+  context.GetCompositor().SetNextPresentCallback(
+      [&](FlutterViewId view_id, const FlutterLayer** layers,
+          size_t layers_count) {
+        ASSERT_EQ(layers_count, 2u);
+
+        // Layer Root
+        {
+          FlutterBackingStore backing_store = *layers[0]->backing_store;
+          backing_store.type = kFlutterBackingStoreTypeSoftware;
+          backing_store.did_update = true;
+          backing_store.software.height = 600;
+
+          FlutterRect paint_region_rects[] = {
+              FlutterRectMakeLTRB(0, 0, 800, 600),
+          };
+          FlutterRegion paint_region = {
+              .struct_size = sizeof(FlutterRegion),
+              .rects_count = 1,
+              .rects = paint_region_rects,
+          };
+          FlutterBackingStorePresentInfo present_info = {
+              .struct_size = sizeof(FlutterBackingStorePresentInfo),
+              .paint_region = &paint_region,
+          };
+
+          FlutterLayer layer = {};
+          layer.struct_size = sizeof(layer);
+          layer.type = kFlutterLayerContentTypeBackingStore;
+          layer.backing_store = &backing_store;
+          layer.size = FlutterSizeMake(800.0, 600.0);
+          layer.offset = FlutterPointMake(0.0, 0.0);
+          layer.backing_store_present_info = &present_info;
+
+          ASSERT_EQ(*layers[0], layer);
+        }
+
+        // Layer 1
+        {
+          FlutterPlatformView platform_view = *layers[1]->platform_view;
+          platform_view.struct_size = sizeof(platform_view);
+          platform_view.identifier = 1;
+
+          FlutterLayer layer = {};
+          layer.struct_size = sizeof(layer);
+          layer.type = kFlutterLayerContentTypePlatformView;
+          layer.platform_view = &platform_view;
+          layer.size = FlutterSizeMake(50.0, 150.0);
+          layer.offset = FlutterPointMake(20.0, 20.0);
+
+          ASSERT_EQ(*layers[1], layer);
+        }
+
+        latch.CountDown();
+      });
+
+  context.GetCompositor().SetPlatformViewRendererCallback(
+      [&](const FlutterLayer& layer, GrDirectContext*
+          /* don't use because software compositor */) -> sk_sp<SkImage> {
+        auto surface = CreateRenderSurface(
+            layer, nullptr /* null because software compositor */);
+        auto canvas = surface->getCanvas();
+        FML_CHECK(canvas != nullptr);
+
+        switch (layer.platform_view->identifier) {
+          case 1: {
+            SkPaint paint;
+            // See dart test for total order.
+            paint.setColor(SK_ColorGREEN);
+            paint.setAlpha(127);
+            const auto& rect =
+                SkRect::MakeWH(layer.size.width, layer.size.height);
+            canvas->drawRect(rect, paint);
+            latch.CountDown();
+          } break;
+          default:
+            // Asked to render an unknown platform view.
+            FML_CHECK(false)
+                << "Test was asked to composite an unknown platform view.";
+        }
+
+        return surface->makeImageSnapshot();
+      });
+
+  context.AddNativeCallback(
+      "SignalNativeTest",
+      CREATE_NATIVE_ENTRY(
+          [&latch](Dart_NativeArguments args) { latch.CountDown(); }));
+
+  auto engine = builder.LaunchEngine();
+
+  // Send a window metrics events so frames may be scheduled.
+  FlutterWindowMetricsEvent event = {};
+  event.struct_size = sizeof(event);
+  event.width = 800;
+  event.height = 600;
+  event.pixel_ratio = 1.0;
+  event.physical_view_inset_top = 0.0;
+  event.physical_view_inset_right = 0.0;
+  event.physical_view_inset_bottom = 0.0;
+  event.physical_view_inset_left = 0.0;
+  ASSERT_EQ(FlutterEngineSendWindowMetricsEvent(engine.get(), &event),
+            kSuccess);
+  ASSERT_TRUE(engine.is_valid());
+
+  latch.Wait();
+
+  // TODO(https://github.com/flutter/flutter/issues/53784): enable this on all
+  // platforms.
+#if !defined(FML_OS_LINUX)
+  GTEST_SKIP() << "Skipping golden tests on non-Linux OSes";
+#endif  // FML_OS_LINUX
+  ASSERT_TRUE(ImageMatchesFixture(
+      "compositor_platform_layer_with_no_overlay.png", scene_image));
+
+  // There should no present calls on the root surface.
+  ASSERT_EQ(context.GetSurfacePresentCount(), 0u);
+}
+
+//------------------------------------------------------------------------------
 /// Test that an engine can be initialized but not run.
 ///
 TEST_F(EmbedderTest, CanCreateInitializedEngine) {
@@ -849,6 +1263,49 @@ TEST_F(EmbedderTest, CanDeinitializeAnEngine) {
   ASSERT_EQ(FlutterEngineSendWindowMetricsEvent(engine.get(), &event),
             kInvalidArguments);
   engine.reset();
+}
+
+TEST_F(EmbedderTest, CanRemoveView) {
+  // TODO(loicsharma): We can't test this until views can be added!
+  // https://github.com/flutter/flutter/issues/144806
+}
+
+TEST_F(EmbedderTest, CannotRemoveImplicitView) {
+  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  EmbedderConfigBuilder builder(context);
+  builder.SetSoftwareRendererConfig();
+
+  auto engine = builder.LaunchEngine();
+  ASSERT_TRUE(engine.is_valid());
+
+  FlutterRemoveViewInfo info = {};
+  info.struct_size = sizeof(FlutterRemoveViewInfo);
+  info.view_id = kFlutterImplicitViewId;
+  info.remove_view_callback = [](const FlutterRemoveViewResult* result) {
+    FAIL();
+  };
+  ASSERT_EQ(FlutterEngineRemoveView(engine.get(), &info), kInvalidArguments);
+}
+
+TEST_F(EmbedderTest, CannotRemoveUnknownView) {
+  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  EmbedderConfigBuilder builder(context);
+  builder.SetSoftwareRendererConfig();
+
+  auto engine = builder.LaunchEngine();
+  ASSERT_TRUE(engine.is_valid());
+
+  fml::AutoResetWaitableEvent latch;
+  FlutterRemoveViewInfo info = {};
+  info.struct_size = sizeof(FlutterRemoveViewInfo);
+  info.view_id = 123;
+  info.user_data = &latch;
+  info.remove_view_callback = [](const FlutterRemoveViewResult* result) {
+    ASSERT_FALSE(result->removed);
+    reinterpret_cast<fml::AutoResetWaitableEvent*>(result->user_data)->Signal();
+  };
+  ASSERT_EQ(FlutterEngineRemoveView(engine.get(), &info), kSuccess);
+  latch.Wait();
 }
 
 TEST_F(EmbedderTest, CanUpdateLocales) {
@@ -958,8 +1415,9 @@ TEST_F(EmbedderTest, VerifyB143464703WithSoftwareBackend) {
 
   fml::CountDownLatch latch(1);
   context.GetCompositor().SetNextPresentCallback(
-      [&](const FlutterLayer** layers, size_t layers_count) {
-        ASSERT_EQ(layers_count, 3u);
+      [&](FlutterViewId view_id, const FlutterLayer** layers,
+          size_t layers_count) {
+        ASSERT_EQ(layers_count, 2u);
 
         // Layer 0 (Root)
         {
@@ -967,12 +1425,26 @@ TEST_F(EmbedderTest, VerifyB143464703WithSoftwareBackend) {
           backing_store.type = kFlutterBackingStoreTypeSoftware;
           backing_store.did_update = true;
 
+          FlutterRect paint_region_rects[] = {
+              FlutterRectMakeLTRB(0, 0, 1024, 600),
+          };
+          FlutterRegion paint_region = {
+              .struct_size = sizeof(FlutterRegion),
+              .rects_count = 1,
+              .rects = paint_region_rects,
+          };
+          FlutterBackingStorePresentInfo present_info = {
+              .struct_size = sizeof(FlutterBackingStorePresentInfo),
+              .paint_region = &paint_region,
+          };
+
           FlutterLayer layer = {};
           layer.struct_size = sizeof(layer);
           layer.type = kFlutterLayerContentTypeBackingStore;
           layer.backing_store = &backing_store;
           layer.size = FlutterSizeMake(1024.0, 600.0);
           layer.offset = FlutterPointMake(0.0, 0.0);
+          layer.backing_store_present_info = &present_info;
 
           ASSERT_EQ(*layers[0], layer);
         }
@@ -991,22 +1463,6 @@ TEST_F(EmbedderTest, VerifyB143464703WithSoftwareBackend) {
           layer.offset = FlutterPointMake(135.0, 60.0);
 
           ASSERT_EQ(*layers[1], layer);
-        }
-
-        // Layer 2
-        {
-          FlutterBackingStore backing_store = *layers[2]->backing_store;
-          backing_store.type = kFlutterBackingStoreTypeSoftware;
-          backing_store.did_update = true;
-
-          FlutterLayer layer = {};
-          layer.struct_size = sizeof(layer);
-          layer.type = kFlutterLayerContentTypeBackingStore;
-          layer.backing_store = &backing_store;
-          layer.size = FlutterSizeMake(1024.0, 600.0);
-          layer.offset = FlutterPointMake(0.0, 0.0);
-
-          ASSERT_EQ(*layers[2], layer);
         }
 
         latch.CountDown();
@@ -1313,7 +1769,7 @@ TEST_F(EmbedderTest, CanSuccessfullyPopulateSpecificJITSnapshotCallbacks) {
 // TODO(#107263): Inconsistent snapshot paths in the Linux Fuchsia FEMU test.
 #if defined(OS_FUCHSIA)
   GTEST_SKIP() << "Inconsistent paths in Fuchsia.";
-#endif  // OS_FUCHSIA
+#else
 
   // This test is only relevant in JIT mode.
   if (DartVM::IsRunningPrecompiledCode()) {
@@ -1356,6 +1812,7 @@ TEST_F(EmbedderTest, CanSuccessfullyPopulateSpecificJITSnapshotCallbacks) {
   ASSERT_NE(settings.isolate_snapshot_data(), nullptr);
   ASSERT_NE(settings.isolate_snapshot_instr(), nullptr);
   ASSERT_NE(settings.dart_library_sources_kernel(), nullptr);
+#endif  // OS_FUCHSIA
 }
 
 //------------------------------------------------------------------------------
@@ -1368,7 +1825,7 @@ TEST_F(EmbedderTest, JITSnapshotCallbacksFailWithInvalidLocation) {
 // TODO(#107263): Inconsistent snapshot paths in the Linux Fuchsia FEMU test.
 #if defined(OS_FUCHSIA)
   GTEST_SKIP() << "Inconsistent paths in Fuchsia.";
-#endif  // OS_FUCHSIA
+#else
 
   // This test is only relevant in JIT mode.
   if (DartVM::IsRunningPrecompiledCode()) {
@@ -1399,6 +1856,7 @@ TEST_F(EmbedderTest, JITSnapshotCallbacksFailWithInvalidLocation) {
   ASSERT_EQ(settings.vm_snapshot_instr(), nullptr);
   ASSERT_EQ(settings.isolate_snapshot_data(), nullptr);
   ASSERT_EQ(settings.isolate_snapshot_instr(), nullptr);
+#endif  // OS_FUCHSIA
 }
 
 //------------------------------------------------------------------------------
@@ -1590,7 +2048,8 @@ static void expectSoftwareRenderingOutputMatches(
   ASSERT_TRUE(engine.is_valid());
 
   context.GetCompositor().SetNextPresentCallback(
-      [&matches, &bytes, &latch](const FlutterLayer** layers,
+      [&matches, &bytes, &latch](FlutterViewId view_id,
+                                 const FlutterLayer** layers,
                                  size_t layers_count) {
         ASSERT_EQ(layers[0]->type, kFlutterLayerContentTypeBackingStore);
         ASSERT_EQ(layers[0]->backing_store->type,
@@ -1635,49 +2094,71 @@ static void expectSoftwareRenderingOutputMatches(
                                          matcher);                        \
   }
 
-// Don't test the pixel formats that contain padding (so an X) and the kNative32
-// pixel format here, so we don't add any flakiness.
-SW_PIXFMT_TEST_F(RedRGBA565xF800, draw_solid_red, kRGB565, (uint16_t)0xF800);
-SW_PIXFMT_TEST_F(RedRGBA4444xF00F, draw_solid_red, kRGBA4444, (uint16_t)0xF00F);
+// Don't test the pixel formats that contain padding (so an X) and the
+// kFlutterSoftwarePixelFormatNative32 pixel format here, so we don't add any
+// flakiness.
+SW_PIXFMT_TEST_F(RedRGBA565xF800,
+                 draw_solid_red,
+                 kFlutterSoftwarePixelFormatRGB565,
+                 (uint16_t)0xF800);
+SW_PIXFMT_TEST_F(RedRGBA4444xF00F,
+                 draw_solid_red,
+                 kFlutterSoftwarePixelFormatRGBA4444,
+                 (uint16_t)0xF00F);
 SW_PIXFMT_TEST_F(RedRGBA8888xFFx00x00xFF,
                  draw_solid_red,
-                 kRGBA8888,
+                 kFlutterSoftwarePixelFormatRGBA8888,
                  (std::vector<uint8_t>{0xFF, 0x00, 0x00, 0xFF}));
 SW_PIXFMT_TEST_F(RedBGRA8888x00x00xFFxFF,
                  draw_solid_red,
-                 kBGRA8888,
+                 kFlutterSoftwarePixelFormatBGRA8888,
                  (std::vector<uint8_t>{0x00, 0x00, 0xFF, 0xFF}));
-SW_PIXFMT_TEST_F(RedGray8x36, draw_solid_red, kGray8, (uint8_t)0x36);
+SW_PIXFMT_TEST_F(RedGray8x36,
+                 draw_solid_red,
+                 kFlutterSoftwarePixelFormatGray8,
+                 (uint8_t)0x36);
 
-SW_PIXFMT_TEST_F(GreenRGB565x07E0, draw_solid_green, kRGB565, (uint16_t)0x07E0);
+SW_PIXFMT_TEST_F(GreenRGB565x07E0,
+                 draw_solid_green,
+                 kFlutterSoftwarePixelFormatRGB565,
+                 (uint16_t)0x07E0);
 SW_PIXFMT_TEST_F(GreenRGBA4444x0F0F,
                  draw_solid_green,
-                 kRGBA4444,
+                 kFlutterSoftwarePixelFormatRGBA4444,
                  (uint16_t)0x0F0F);
 SW_PIXFMT_TEST_F(GreenRGBA8888x00xFFx00xFF,
                  draw_solid_green,
-                 kRGBA8888,
+                 kFlutterSoftwarePixelFormatRGBA8888,
                  (std::vector<uint8_t>{0x00, 0xFF, 0x00, 0xFF}));
 SW_PIXFMT_TEST_F(GreenBGRA8888x00xFFx00xFF,
                  draw_solid_green,
-                 kBGRA8888,
+                 kFlutterSoftwarePixelFormatBGRA8888,
                  (std::vector<uint8_t>{0x00, 0xFF, 0x00, 0xFF}));
-SW_PIXFMT_TEST_F(GreenGray8xB6, draw_solid_green, kGray8, (uint8_t)0xB6);
+SW_PIXFMT_TEST_F(GreenGray8xB6,
+                 draw_solid_green,
+                 kFlutterSoftwarePixelFormatGray8,
+                 (uint8_t)0xB6);
 
-SW_PIXFMT_TEST_F(BlueRGB565x001F, draw_solid_blue, kRGB565, (uint16_t)0x001F);
+SW_PIXFMT_TEST_F(BlueRGB565x001F,
+                 draw_solid_blue,
+                 kFlutterSoftwarePixelFormatRGB565,
+                 (uint16_t)0x001F);
 SW_PIXFMT_TEST_F(BlueRGBA4444x00FF,
                  draw_solid_blue,
-                 kRGBA4444,
+                 kFlutterSoftwarePixelFormatRGBA4444,
                  (uint16_t)0x00FF);
 SW_PIXFMT_TEST_F(BlueRGBA8888x00x00xFFxFF,
                  draw_solid_blue,
-                 kRGBA8888,
+                 kFlutterSoftwarePixelFormatRGBA8888,
                  (std::vector<uint8_t>{0x00, 0x00, 0xFF, 0xFF}));
 SW_PIXFMT_TEST_F(BlueBGRA8888xFFx00x00xFF,
                  draw_solid_blue,
-                 kBGRA8888,
+                 kFlutterSoftwarePixelFormatBGRA8888,
                  (std::vector<uint8_t>{0xFF, 0x00, 0x00, 0xFF}));
-SW_PIXFMT_TEST_F(BlueGray8x12, draw_solid_blue, kGray8, (uint8_t)0x12);
+SW_PIXFMT_TEST_F(BlueGray8x12,
+                 draw_solid_blue,
+                 kFlutterSoftwarePixelFormatGray8,
+                 (uint8_t)0x12);
 
 //------------------------------------------------------------------------------
 // Key Data
@@ -1692,7 +2173,7 @@ typedef struct {
 //
 // It performs a revesed mapping from `_serializeKeyEventType`
 // in shell/platform/embedder/fixtures/main.dart.
-FlutterKeyEventType UnserializeKeyEventKind(uint64_t kind) {
+FlutterKeyEventType UnserializeKeyEventType(uint64_t kind) {
   switch (kind) {
     case 1:
       return kFlutterKeyEventTypeUp;
@@ -1706,6 +2187,28 @@ FlutterKeyEventType UnserializeKeyEventKind(uint64_t kind) {
   }
 }
 
+// Convert `source` in integer form to its enum form.
+//
+// It performs a revesed mapping from `_serializeKeyEventDeviceType`
+// in shell/platform/embedder/fixtures/main.dart.
+FlutterKeyEventDeviceType UnserializeKeyEventDeviceType(uint64_t source) {
+  switch (source) {
+    case 1:
+      return kFlutterKeyEventDeviceTypeKeyboard;
+    case 2:
+      return kFlutterKeyEventDeviceTypeDirectionalPad;
+    case 3:
+      return kFlutterKeyEventDeviceTypeGamepad;
+    case 4:
+      return kFlutterKeyEventDeviceTypeJoystick;
+    case 5:
+      return kFlutterKeyEventDeviceTypeHdmi;
+    default:
+      FML_UNREACHABLE();
+      return kFlutterKeyEventDeviceTypeKeyboard;
+  }
+}
+
 // Checks the equality of two `FlutterKeyEvent` by each of their members except
 // for `character`. The `character` must be checked separately.
 void ExpectKeyEventEq(const FlutterKeyEvent& subject,
@@ -1715,16 +2218,18 @@ void ExpectKeyEventEq(const FlutterKeyEvent& subject,
   EXPECT_EQ(subject.physical, baseline.physical);
   EXPECT_EQ(subject.logical, baseline.logical);
   EXPECT_EQ(subject.synthesized, baseline.synthesized);
+  EXPECT_EQ(subject.device_type, baseline.device_type);
 }
 
 TEST_F(EmbedderTest, KeyDataIsCorrectlySerialized) {
   auto message_latch = std::make_shared<fml::AutoResetWaitableEvent>();
   uint64_t echoed_char;
   FlutterKeyEvent echoed_event;
+  echoed_event.struct_size = sizeof(FlutterKeyEvent);
 
   auto native_echo_event = [&](Dart_NativeArguments args) {
     echoed_event.type =
-        UnserializeKeyEventKind(tonic::DartConverter<uint64_t>::FromDart(
+        UnserializeKeyEventType(tonic::DartConverter<uint64_t>::FromDart(
             Dart_GetNativeArgument(args, 0)));
     echoed_event.timestamp =
         static_cast<double>(tonic::DartConverter<uint64_t>::FromDart(
@@ -1737,25 +2242,40 @@ TEST_F(EmbedderTest, KeyDataIsCorrectlySerialized) {
         Dart_GetNativeArgument(args, 4));
     echoed_event.synthesized =
         tonic::DartConverter<bool>::FromDart(Dart_GetNativeArgument(args, 5));
+    echoed_event.device_type =
+        UnserializeKeyEventDeviceType(tonic::DartConverter<uint64_t>::FromDart(
+            Dart_GetNativeArgument(args, 6)));
 
     message_latch->Signal();
   };
 
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
-  EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
-  builder.SetDartEntrypoint("key_data_echo");
+  auto platform_task_runner = CreateNewThread("platform_thread");
+
+  UniqueEngine engine;
   fml::AutoResetWaitableEvent ready;
-  context.AddNativeCallback(
-      "SignalNativeTest",
-      CREATE_NATIVE_ENTRY(
-          [&ready](Dart_NativeArguments args) { ready.Signal(); }));
+  platform_task_runner->PostTask([&]() {
+    auto& context =
+        GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+    EmbedderConfigBuilder builder(context);
+    builder.SetSoftwareRendererConfig();
+    builder.SetDartEntrypoint("key_data_echo");
+    builder.SetPlatformMessageCallback(
+        [&](const FlutterPlatformMessage* message) {
+          FlutterEngineSendPlatformMessageResponse(
+              engine.get(), message->response_handle, nullptr, 0);
+        });
+    context.AddNativeCallback(
+        "SignalNativeTest",
+        CREATE_NATIVE_ENTRY(
+            [&ready](Dart_NativeArguments args) { ready.Signal(); }));
 
-  context.AddNativeCallback("EchoKeyEvent",
-                            CREATE_NATIVE_ENTRY(native_echo_event));
+    context.AddNativeCallback("EchoKeyEvent",
+                              CREATE_NATIVE_ENTRY(native_echo_event));
 
-  auto engine = builder.LaunchEngine();
-  ASSERT_TRUE(engine.is_valid());
+    engine = builder.LaunchEngine();
+    ASSERT_TRUE(engine.is_valid());
+  });
+
   ready.Wait();
 
   // A normal down event
@@ -1767,9 +2287,12 @@ TEST_F(EmbedderTest, KeyDataIsCorrectlySerialized) {
       .logical = 0x00000000061,
       .character = "A",
       .synthesized = false,
+      .device_type = kFlutterKeyEventDeviceTypeKeyboard,
   };
-  FlutterEngineSendKeyEvent(engine.get(), &down_event_upper_a, nullptr,
-                            nullptr);
+  platform_task_runner->PostTask([&]() {
+    FlutterEngineSendKeyEvent(engine.get(), &down_event_upper_a, nullptr,
+                              nullptr);
+  });
   message_latch->Wait();
 
   ExpectKeyEventEq(echoed_event, down_event_upper_a);
@@ -1784,9 +2307,12 @@ TEST_F(EmbedderTest, KeyDataIsCorrectlySerialized) {
       .logical = 0x00000000062,
       .character = "∆",
       .synthesized = false,
+      .device_type = kFlutterKeyEventDeviceTypeKeyboard,
   };
-  FlutterEngineSendKeyEvent(engine.get(), &repeat_event_wide_char, nullptr,
-                            nullptr);
+  platform_task_runner->PostTask([&]() {
+    FlutterEngineSendKeyEvent(engine.get(), &repeat_event_wide_char, nullptr,
+                              nullptr);
+  });
   message_latch->Wait();
 
   ExpectKeyEventEq(echoed_event, repeat_event_wide_char);
@@ -1801,12 +2327,22 @@ TEST_F(EmbedderTest, KeyDataIsCorrectlySerialized) {
       .logical = 0x00000000063,
       .character = nullptr,
       .synthesized = true,
+      .device_type = kFlutterKeyEventDeviceTypeKeyboard,
   };
-  FlutterEngineSendKeyEvent(engine.get(), &up_event, nullptr, nullptr);
+  platform_task_runner->PostTask([&]() {
+    FlutterEngineSendKeyEvent(engine.get(), &up_event, nullptr, nullptr);
+  });
   message_latch->Wait();
 
   ExpectKeyEventEq(echoed_event, up_event);
   EXPECT_EQ(echoed_char, 0llu);
+
+  fml::AutoResetWaitableEvent shutdown_latch;
+  platform_task_runner->PostTask([&]() {
+    engine.reset();
+    shutdown_latch.Signal();
+  });
+  shutdown_latch.Wait();
 }
 
 TEST_F(EmbedderTest, KeyDataAreBuffered) {
@@ -1819,7 +2355,7 @@ TEST_F(EmbedderTest, KeyDataAreBuffered) {
             static_cast<double>(tonic::DartConverter<uint64_t>::FromDart(
                 Dart_GetNativeArgument(args, 1))),
         .type =
-            UnserializeKeyEventKind(tonic::DartConverter<uint64_t>::FromDart(
+            UnserializeKeyEventType(tonic::DartConverter<uint64_t>::FromDart(
                 Dart_GetNativeArgument(args, 0))),
         .physical = tonic::DartConverter<uint64_t>::FromDart(
             Dart_GetNativeArgument(args, 2)),
@@ -1827,26 +2363,40 @@ TEST_F(EmbedderTest, KeyDataAreBuffered) {
             Dart_GetNativeArgument(args, 3)),
         .synthesized = tonic::DartConverter<bool>::FromDart(
             Dart_GetNativeArgument(args, 5)),
+        .device_type = UnserializeKeyEventDeviceType(
+            tonic::DartConverter<uint64_t>::FromDart(
+                Dart_GetNativeArgument(args, 6))),
     });
 
     message_latch->Signal();
   };
 
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
-  EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
-  builder.SetDartEntrypoint("key_data_late_echo");
+  auto platform_task_runner = CreateNewThread("platform_thread");
+
+  UniqueEngine engine;
   fml::AutoResetWaitableEvent ready;
-  context.AddNativeCallback(
-      "SignalNativeTest",
-      CREATE_NATIVE_ENTRY(
-          [&ready](Dart_NativeArguments args) { ready.Signal(); }));
+  platform_task_runner->PostTask([&]() {
+    auto& context =
+        GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+    EmbedderConfigBuilder builder(context);
+    builder.SetSoftwareRendererConfig();
+    builder.SetDartEntrypoint("key_data_late_echo");
+    builder.SetPlatformMessageCallback(
+        [&](const FlutterPlatformMessage* message) {
+          FlutterEngineSendPlatformMessageResponse(
+              engine.get(), message->response_handle, nullptr, 0);
+        });
+    context.AddNativeCallback(
+        "SignalNativeTest",
+        CREATE_NATIVE_ENTRY(
+            [&ready](Dart_NativeArguments args) { ready.Signal(); }));
 
-  context.AddNativeCallback("EchoKeyEvent",
-                            CREATE_NATIVE_ENTRY(native_echo_event));
+    context.AddNativeCallback("EchoKeyEvent",
+                              CREATE_NATIVE_ENTRY(native_echo_event));
 
-  auto engine = builder.LaunchEngine();
-  ASSERT_TRUE(engine.is_valid());
+    engine = builder.LaunchEngine();
+    ASSERT_TRUE(engine.is_valid());
+  });
   ready.Wait();
 
   FlutterKeyEvent sample_event{
@@ -1856,11 +2406,16 @@ TEST_F(EmbedderTest, KeyDataAreBuffered) {
       .logical = 0x00000000061,
       .character = "A",
       .synthesized = false,
+      .device_type = kFlutterKeyEventDeviceTypeKeyboard,
   };
 
   // Send an event.
   sample_event.timestamp = 1.0l;
-  FlutterEngineSendKeyEvent(engine.get(), &sample_event, nullptr, nullptr);
+  platform_task_runner->PostTask([&]() {
+    FlutterEngineSendKeyEvent(engine.get(), &sample_event, nullptr, nullptr);
+    message_latch->Signal();
+  });
+  message_latch->Wait();
 
   // Should not receive echos because the callback is not set yet.
   EXPECT_EQ(echoed_events.size(), 0u);
@@ -1879,11 +2434,13 @@ TEST_F(EmbedderTest, KeyDataAreBuffered) {
       .response_handle = response_handle,
   };
 
-  FlutterEngineResult result =
-      FlutterEngineSendPlatformMessage(engine.get(), &message);
-  ASSERT_EQ(result, kSuccess);
+  platform_task_runner->PostTask([&]() {
+    FlutterEngineResult result =
+        FlutterEngineSendPlatformMessage(engine.get(), &message);
+    ASSERT_EQ(result, kSuccess);
 
-  FlutterPlatformMessageReleaseResponseHandle(engine.get(), response_handle);
+    FlutterPlatformMessageReleaseResponseHandle(engine.get(), response_handle);
+  });
 
   // message_latch->Wait();
   message_latch->Wait();
@@ -1892,11 +2449,20 @@ TEST_F(EmbedderTest, KeyDataAreBuffered) {
 
   // Send a second event.
   sample_event.timestamp = 10.0l;
-  FlutterEngineSendKeyEvent(engine.get(), &sample_event, nullptr, nullptr);
+  platform_task_runner->PostTask([&]() {
+    FlutterEngineSendKeyEvent(engine.get(), &sample_event, nullptr, nullptr);
+  });
   message_latch->Wait();
 
   // The event should be echoed, too.
   EXPECT_EQ(echoed_events.size(), 2u);
+
+  fml::AutoResetWaitableEvent shutdown_latch;
+  platform_task_runner->PostTask([&]() {
+    engine.reset();
+    shutdown_latch.Signal();
+  });
+  shutdown_latch.Wait();
 }
 
 TEST_F(EmbedderTest, KeyDataResponseIsCorrectlyInvoked) {
@@ -1939,6 +2505,7 @@ TEST_F(EmbedderTest, KeyDataResponseIsCorrectlyInvoked) {
       .physical = 0x00070005,
       .logical = 0x00000000062,
       .character = nullptr,
+      .device_type = kFlutterKeyEventDeviceTypeKeyboard,
   };
 
   KeyEventUserData user_data1{
@@ -2015,6 +2582,7 @@ TEST_F(EmbedderTest, BackToBackKeyEventResponsesCorrectlyInvoked) {
       .logical = 0x00000000062,
       .character = nullptr,
       .synthesized = false,
+      .device_type = kFlutterKeyEventDeviceTypeKeyboard,
   };
 
   // Dispatch two events back to back, using the same callback on different
@@ -2187,7 +2755,7 @@ static void MockThreadConfigSetter(const fml::Thread::ThreadConfig& config) {
   struct sched_param param;
   int policy = SCHED_OTHER;
   switch (config.priority) {
-    case fml::Thread::ThreadPriority::DISPLAY:
+    case fml::Thread::ThreadPriority::kDisplay:
       param.sched_priority = 10;
       break;
     default:
@@ -2219,6 +2787,293 @@ TEST_F(EmbedderTest, EmbedderThreadHostUseCustomThreadConfig) {
   });
 }
 #endif
+
+/// Send a pointer event to Dart and wait until the Dart code signals
+/// it received the event.
+TEST_F(EmbedderTest, CanSendPointer) {
+  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  EmbedderConfigBuilder builder(context);
+  builder.SetSoftwareRendererConfig();
+  builder.SetDartEntrypoint("pointer_data_packet");
+
+  fml::AutoResetWaitableEvent ready_latch, count_latch, message_latch;
+  context.AddNativeCallback(
+      "SignalNativeTest",
+      CREATE_NATIVE_ENTRY(
+          [&ready_latch](Dart_NativeArguments args) { ready_latch.Signal(); }));
+  context.AddNativeCallback(
+      "SignalNativeCount",
+      CREATE_NATIVE_ENTRY([&count_latch](Dart_NativeArguments args) {
+        int count = tonic::DartConverter<int>::FromDart(
+            Dart_GetNativeArgument(args, 0));
+        ASSERT_EQ(count, 1);
+        count_latch.Signal();
+      }));
+  context.AddNativeCallback(
+      "SignalNativeMessage",
+      CREATE_NATIVE_ENTRY([&message_latch](Dart_NativeArguments args) {
+        auto message = tonic::DartConverter<std::string>::FromDart(
+            Dart_GetNativeArgument(args, 0));
+        ASSERT_EQ("PointerData(viewId: 0, x: 123.0, y: 456.0)", message);
+        message_latch.Signal();
+      }));
+
+  auto engine = builder.LaunchEngine();
+  ASSERT_TRUE(engine.is_valid());
+
+  ready_latch.Wait();
+
+  FlutterPointerEvent pointer_event = {};
+  pointer_event.struct_size = sizeof(FlutterPointerEvent);
+  pointer_event.phase = FlutterPointerPhase::kAdd;
+  pointer_event.x = 123;
+  pointer_event.y = 456;
+  pointer_event.timestamp = static_cast<size_t>(1234567890);
+  pointer_event.view_id = 0;
+
+  FlutterEngineResult result =
+      FlutterEngineSendPointerEvent(engine.get(), &pointer_event, 1);
+  ASSERT_EQ(result, kSuccess);
+
+  count_latch.Wait();
+  message_latch.Wait();
+}
+
+/// Send a pointer event to Dart and wait until the Dart code echos with the
+/// view ID.
+TEST_F(EmbedderTest, CanSendPointerEventWithViewId) {
+  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  EmbedderConfigBuilder builder(context);
+  builder.SetSoftwareRendererConfig();
+  builder.SetDartEntrypoint("pointer_data_packet_view_id");
+
+  fml::AutoResetWaitableEvent ready_latch, count_latch, message_latch;
+  context.AddNativeCallback(
+      "SignalNativeTest",
+      CREATE_NATIVE_ENTRY(
+          [&ready_latch](Dart_NativeArguments args) { ready_latch.Signal(); }));
+  context.AddNativeCallback(
+      "SignalNativeMessage",
+      CREATE_NATIVE_ENTRY([&message_latch](Dart_NativeArguments args) {
+        auto message = tonic::DartConverter<std::string>::FromDart(
+            Dart_GetNativeArgument(args, 0));
+        ASSERT_EQ("ViewID: 2", message);
+        message_latch.Signal();
+      }));
+
+  auto engine = builder.LaunchEngine();
+  ASSERT_TRUE(engine.is_valid());
+
+  ready_latch.Wait();
+
+  FlutterPointerEvent pointer_event = {};
+  pointer_event.struct_size = sizeof(FlutterPointerEvent);
+  pointer_event.phase = FlutterPointerPhase::kAdd;
+  pointer_event.x = 123;
+  pointer_event.y = 456;
+  pointer_event.timestamp = static_cast<size_t>(1234567890);
+  pointer_event.view_id = 2;
+
+  FlutterEngineResult result =
+      FlutterEngineSendPointerEvent(engine.get(), &pointer_event, 1);
+  ASSERT_EQ(result, kSuccess);
+
+  message_latch.Wait();
+}
+
+TEST_F(EmbedderTest, WindowMetricsEventDefaultsToImplicitView) {
+  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  EmbedderConfigBuilder builder(context);
+  builder.SetSoftwareRendererConfig();
+  builder.SetDartEntrypoint("window_metrics_event_view_id");
+
+  fml::AutoResetWaitableEvent ready_latch, message_latch;
+  context.AddNativeCallback(
+      "SignalNativeTest",
+      CREATE_NATIVE_ENTRY(
+          [&ready_latch](Dart_NativeArguments args) { ready_latch.Signal(); }));
+  context.AddNativeCallback(
+      "SignalNativeMessage",
+      CREATE_NATIVE_ENTRY([&message_latch](Dart_NativeArguments args) {
+        auto message = tonic::DartConverter<std::string>::FromDart(
+            Dart_GetNativeArgument(args, 0));
+        ASSERT_EQ("Changed: [0]", message);
+        message_latch.Signal();
+      }));
+
+  auto engine = builder.LaunchEngine();
+  ASSERT_TRUE(engine.is_valid());
+
+  ready_latch.Wait();
+
+  FlutterWindowMetricsEvent event = {};
+  // Simulate an event that comes from an old version of embedder.h that doesn't
+  // have the view_id field.
+  event.struct_size = offsetof(FlutterWindowMetricsEvent, view_id);
+  event.width = 200;
+  event.height = 300;
+  event.pixel_ratio = 1.5;
+  // Skip assigning event.view_id here to test the default behavior.
+
+  FlutterEngineResult result =
+      FlutterEngineSendWindowMetricsEvent(engine.get(), &event);
+  ASSERT_EQ(result, kSuccess);
+
+  message_latch.Wait();
+}
+
+TEST_F(EmbedderTest, IgnoresWindowMetricsEventForUnknownView) {
+  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  EmbedderConfigBuilder builder(context);
+  builder.SetSoftwareRendererConfig();
+  builder.SetDartEntrypoint("window_metrics_event_view_id");
+
+  fml::AutoResetWaitableEvent ready_latch, message_latch;
+  context.AddNativeCallback(
+      "SignalNativeTest",
+      CREATE_NATIVE_ENTRY(
+          [&ready_latch](Dart_NativeArguments args) { ready_latch.Signal(); }));
+
+  context.AddNativeCallback(
+      "SignalNativeMessage",
+      CREATE_NATIVE_ENTRY([&message_latch](Dart_NativeArguments args) {
+        auto message = tonic::DartConverter<std::string>::FromDart(
+            Dart_GetNativeArgument(args, 0));
+        // Message latch should only be signaled once as the bad
+        // view metric should be dropped by the engine.
+        ASSERT_FALSE(message_latch.IsSignaledForTest());
+        ASSERT_EQ("Changed: [0]", message);
+        message_latch.Signal();
+      }));
+
+  auto engine = builder.LaunchEngine();
+  ASSERT_TRUE(engine.is_valid());
+
+  ready_latch.Wait();
+
+  // Send a window metric for a nonexistent view, which should be dropped by the
+  // engine.
+  FlutterWindowMetricsEvent bad_event = {};
+  bad_event.struct_size = sizeof(FlutterWindowMetricsEvent);
+  bad_event.width = 200;
+  bad_event.height = 300;
+  bad_event.pixel_ratio = 1.5;
+  bad_event.view_id = 100;
+
+  FlutterEngineResult result =
+      FlutterEngineSendWindowMetricsEvent(engine.get(), &bad_event);
+  ASSERT_EQ(result, kSuccess);
+
+  // Send a window metric for a valid view. The engine notifies the Dart app.
+  FlutterWindowMetricsEvent event = {};
+  event.struct_size = sizeof(FlutterWindowMetricsEvent);
+  event.width = 200;
+  event.height = 300;
+  event.pixel_ratio = 1.5;
+  event.view_id = 0;
+
+  result = FlutterEngineSendWindowMetricsEvent(engine.get(), &event);
+  ASSERT_EQ(result, kSuccess);
+
+  message_latch.Wait();
+}
+
+TEST_F(EmbedderTest, RegisterChannelListener) {
+  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+
+  fml::AutoResetWaitableEvent latch;
+  fml::AutoResetWaitableEvent latch2;
+  bool listening = false;
+  context.AddNativeCallback(
+      "SignalNativeTest",
+      CREATE_NATIVE_ENTRY([&](Dart_NativeArguments) { latch.Signal(); }));
+  context.SetChannelUpdateCallback([&](const FlutterChannelUpdate* update) {
+    EXPECT_STREQ(update->channel, "test/listen");
+    EXPECT_TRUE(update->listening);
+    listening = true;
+    latch2.Signal();
+  });
+
+  EmbedderConfigBuilder builder(context);
+  builder.SetSoftwareRendererConfig();
+  builder.SetDartEntrypoint("channel_listener_response");
+
+  auto engine = builder.LaunchEngine();
+  ASSERT_TRUE(engine.is_valid());
+
+  latch.Wait();
+  // Drain tasks posted to platform thread task runner.
+  fml::MessageLoop::GetCurrent().RunExpiredTasksNow();
+  latch2.Wait();
+
+  ASSERT_TRUE(listening);
+}
+
+TEST_F(EmbedderTest, PlatformThreadIsolatesWithCustomPlatformTaskRunner) {
+  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  static fml::AutoResetWaitableEvent latch;
+
+  static std::thread::id ffi_call_thread_id;
+  static void (*ffi_signal_native_test)() = []() -> void {
+    ffi_call_thread_id = std::this_thread::get_id();
+    latch.Signal();
+  };
+
+  Dart_FfiNativeResolver ffi_resolver = [](const char* name,
+                                           uintptr_t args_n) -> void* {
+    if (std::string_view(name) == "FFISignalNativeTest") {
+      return reinterpret_cast<void*>(ffi_signal_native_test);
+    }
+    return nullptr;
+  };
+
+  // The test's Dart code will call this native function which overrides the
+  // FFI resolver.  After that, the Dart code will invoke the FFI function
+  // using runOnPlatformThread.
+  context.AddNativeCallback(
+      "SignalNativeTest", CREATE_NATIVE_ENTRY([&](Dart_NativeArguments args) {
+        Dart_SetFfiNativeResolver(Dart_RootLibrary(), ffi_resolver);
+      }));
+
+  auto platform_task_runner = CreateNewThread("test_platform_thread");
+
+  UniqueEngine engine;
+
+  EmbedderTestTaskRunner test_task_runner(
+      platform_task_runner, [&](FlutterTask task) {
+        if (!engine.is_valid()) {
+          return;
+        }
+        FlutterEngineRunTask(engine.get(), &task);
+      });
+
+  std::thread::id platform_thread_id;
+  platform_task_runner->PostTask([&]() {
+    platform_thread_id = std::this_thread::get_id();
+
+    EmbedderConfigBuilder builder(context);
+    const auto task_runner_description =
+        test_task_runner.GetFlutterTaskRunnerDescription();
+    builder.SetSoftwareRendererConfig();
+    builder.SetPlatformTaskRunner(&task_runner_description);
+    builder.SetDartEntrypoint("invokePlatformThreadIsolate");
+    engine = builder.LaunchEngine();
+    ASSERT_TRUE(engine.is_valid());
+  });
+
+  latch.Wait();
+
+  fml::AutoResetWaitableEvent kill_latch;
+  platform_task_runner->PostTask(fml::MakeCopyable([&]() mutable {
+    engine.reset();
+
+    platform_task_runner->PostTask([&kill_latch] { kill_latch.Signal(); });
+  }));
+  kill_latch.Wait();
+
+  // Check that the FFI call was executed on the platform thread.
+  ASSERT_EQ(platform_thread_id, ffi_call_thread_id);
+}
 
 }  // namespace testing
 }  // namespace flutter

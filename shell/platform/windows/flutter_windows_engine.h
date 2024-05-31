@@ -11,27 +11,47 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 #include "flutter/fml/closure.h"
+#include "flutter/fml/macros.h"
 #include "flutter/shell/platform/common/accessibility_bridge.h"
+#include "flutter/shell/platform/common/app_lifecycle_state.h"
 #include "flutter/shell/platform/common/client_wrapper/binary_messenger_impl.h"
 #include "flutter/shell/platform/common/client_wrapper/include/flutter/basic_message_channel.h"
 #include "flutter/shell/platform/common/incoming_message_dispatcher.h"
 #include "flutter/shell/platform/embedder/embedder.h"
-#include "flutter/shell/platform/windows/angle_surface_manager.h"
+#include "flutter/shell/platform/windows/accessibility_bridge_windows.h"
+#include "flutter/shell/platform/windows/accessibility_plugin.h"
+#include "flutter/shell/platform/windows/compositor.h"
+#include "flutter/shell/platform/windows/cursor_handler.h"
+#include "flutter/shell/platform/windows/egl/manager.h"
+#include "flutter/shell/platform/windows/egl/proc_table.h"
 #include "flutter/shell/platform/windows/flutter_desktop_messenger.h"
 #include "flutter/shell/platform/windows/flutter_project_bundle.h"
 #include "flutter/shell/platform/windows/flutter_windows_texture_registrar.h"
+#include "flutter/shell/platform/windows/keyboard_handler_base.h"
+#include "flutter/shell/platform/windows/keyboard_key_embedder_handler.h"
+#include "flutter/shell/platform/windows/platform_handler.h"
+#include "flutter/shell/platform/windows/platform_view_plugin.h"
 #include "flutter/shell/platform/windows/public/flutter_windows.h"
 #include "flutter/shell/platform/windows/settings_plugin.h"
 #include "flutter/shell/platform/windows/task_runner.h"
+#include "flutter/shell/platform/windows/text_input_plugin.h"
 #include "flutter/shell/platform/windows/window_proc_delegate_manager.h"
 #include "flutter/shell/platform/windows/window_state.h"
-#include "flutter/shell/platform/windows/windows_registry.h"
+#include "flutter/shell/platform/windows/windows_lifecycle_manager.h"
+#include "flutter/shell/platform/windows/windows_proc_table.h"
 #include "third_party/rapidjson/include/rapidjson/document.h"
 
 namespace flutter {
+
+// The implicit view's ID.
+//
+// See:
+// https://api.flutter.dev/flutter/dart-ui/PlatformDispatcher/implicitView.html
+constexpr FlutterViewId kImplicitViewId = 0;
 
 class FlutterWindowsView;
 
@@ -68,19 +88,12 @@ static void WindowsPlatformThreadPrioritySetter(
 // run in headless mode.
 class FlutterWindowsEngine {
  public:
-  // Creates a new Flutter engine with an injectible windows registry.
-  FlutterWindowsEngine(const FlutterProjectBundle& project,
-                       std::unique_ptr<WindowsRegistry> windows_registry);
-
   // Creates a new Flutter engine object configured to run |project|.
-  explicit FlutterWindowsEngine(const FlutterProjectBundle& project)
-      : FlutterWindowsEngine(project, std::make_unique<WindowsRegistry>()) {}
+  FlutterWindowsEngine(
+      const FlutterProjectBundle& project,
+      std::shared_ptr<WindowsProcTable> windows_proc_table = nullptr);
 
   virtual ~FlutterWindowsEngine();
-
-  // Prevent copying.
-  FlutterWindowsEngine(FlutterWindowsEngine const&) = delete;
-  FlutterWindowsEngine& operator=(FlutterWindowsEngine const&) = delete;
 
   // Starts running the entrypoint function specifed in the project bundle. If
   // unspecified, defaults to main().
@@ -100,19 +113,21 @@ class FlutterWindowsEngine {
   bool Run(std::string_view entrypoint);
 
   // Returns true if the engine is currently running.
-  bool running() { return engine_ != nullptr; }
+  virtual bool running() const { return engine_ != nullptr; }
 
   // Stops the engine. This invalidates the pointer returned by engine().
   //
   // Returns false if stopping the engine fails, or if it was not running.
-  bool Stop();
+  virtual bool Stop();
 
-  // Sets the view that is displaying this engine's content.
-  void SetView(FlutterWindowsView* view);
+  // Create a view that can display this engine's content.
+  std::unique_ptr<FlutterWindowsView> CreateView(
+      std::unique_ptr<WindowBindingHandler> window);
 
-  // The view displaying this engine's content, if any. This will be null for
-  // headless engines.
-  FlutterWindowsView* view() { return view_; }
+  // Get a view that displays this engine's content.
+  //
+  // Returns null if the view does not exist.
+  FlutterWindowsView* view(FlutterViewId view_id) const;
 
   // Returns the currently configured Plugin Registrar.
   FlutterDesktopPluginRegistrarRef GetRegistrar();
@@ -133,17 +148,15 @@ class FlutterWindowsEngine {
 
   TaskRunner* task_runner() { return task_runner_.get(); }
 
+  BinaryMessenger* messenger_wrapper() { return messenger_wrapper_.get(); }
+
   FlutterWindowsTextureRegistrar* texture_registrar() {
     return texture_registrar_.get();
   }
 
-  // The ANGLE surface manager object. If this is nullptr, then we are
+  // The EGL manager object. If this is nullptr, then we are
   // rendering using software instead of OpenGL.
-  AngleSurfaceManager* surface_manager() { return surface_manager_.get(); }
-
-  std::weak_ptr<AccessibilityBridge> accessibility_bridge() {
-    return accessibility_bridge_;
-  }
+  egl::Manager* egl_manager() const { return egl_manager_.get(); }
 
   WindowProcDelegateManager* window_proc_delegate_manager() {
     return window_proc_delegate_manager_.get();
@@ -159,6 +172,11 @@ class FlutterWindowsEngine {
   void SendKeyEvent(const FlutterKeyEvent& event,
                     FlutterKeyEventCallback callback,
                     void* user_data);
+
+  KeyboardHandlerBase* keyboard_key_handler() {
+    return keyboard_key_handler_.get();
+  }
+  TextInputPlugin* text_input_plugin() { return text_input_plugin_.get(); }
 
   // Sends the given message to the engine, calling |reply| with |user_data|
   // when a response is received from the engine if they are non-null.
@@ -198,7 +216,7 @@ class FlutterWindowsEngine {
   bool MarkExternalTextureFrameAvailable(int64_t texture_id);
 
   // Posts the given callback onto the raster thread.
-  bool PostRasterThreadTask(fml::closure callback);
+  virtual bool PostRasterThreadTask(fml::closure callback) const;
 
   // Invoke on the embedder's vsync callback to schedule a frame.
   void OnVsync(intptr_t baton);
@@ -214,17 +232,14 @@ class FlutterWindowsEngine {
   // Returns true if the semantics tree is enabled.
   bool semantics_enabled() const { return semantics_enabled_; }
 
-  // Update the high contrast feature state.
-  void UpdateHighContrastEnabled(bool enabled);
+  // Refresh accessibility features and send them to the engine.
+  void UpdateAccessibilityFeatures();
 
-  // Returns the flags for all currently enabled accessibility features
-  int EnabledAccessibilityFeatures() const;
+  // Refresh high contrast accessibility mode and notify the engine.
+  void UpdateHighContrastMode();
 
   // Returns true if the high contrast feature is enabled.
   bool high_contrast_enabled() const { return high_contrast_enabled_; }
-
-  // Returns the native accessibility node with the given id.
-  gfx::NativeViewAccessible GetNativeAccessibleFromId(AccessibilityNodeId id);
 
   // Register a root isolate create callback.
   //
@@ -242,17 +257,67 @@ class FlutterWindowsEngine {
   // Returns the executable name for this process or "Flutter" if unknown.
   std::string GetExecutableName() const;
 
-  // Updates accessibility, e.g. switch to high contrast mode
-  void UpdateAccessibilityFeatures(FlutterAccessibilityFeature flags);
+  // Called when the application quits in response to a quit request.
+  void OnQuit(std::optional<HWND> hwnd,
+              std::optional<WPARAM> wparam,
+              std::optional<LPARAM> lparam,
+              UINT exit_code);
+
+  // Called when a WM_CLOSE message is received.
+  void RequestApplicationQuit(HWND hwnd,
+                              WPARAM wparam,
+                              LPARAM lparam,
+                              AppExitType exit_type);
+
+  // Called when a WM_DWMCOMPOSITIONCHANGED message is received.
+  void OnDwmCompositionChanged();
+
+  // Called when a Window receives an event that may alter the application
+  // lifecycle state.
+  void OnWindowStateEvent(HWND hwnd, WindowStateEvent event);
+
+  // Handle a message from a non-Flutter window in the same application.
+  // Returns a result when the message is consumed and should not be processed
+  // further.
+  std::optional<LRESULT> ProcessExternalWindowMessage(HWND hwnd,
+                                                      UINT message,
+                                                      WPARAM wparam,
+                                                      LPARAM lparam);
+
+  WindowsLifecycleManager* lifecycle_manager() {
+    return lifecycle_manager_.get();
+  }
+
+  std::shared_ptr<WindowsProcTable> windows_proc_table() {
+    return windows_proc_table_;
+  }
 
  protected:
-  // Creates an accessibility bridge with the provided parameters.
+  // Creates the keyboard key handler.
   //
-  // By default this method calls AccessibilityBridge's constructor. Exposing
-  // this method allows unit tests to override in order to capture information.
-  virtual std::shared_ptr<AccessibilityBridge> CreateAccessibilityBridge(
-      FlutterWindowsEngine* engine,
-      FlutterWindowsView* view);
+  // Exposing this method allows unit tests to override in order to
+  // capture information.
+  virtual std::unique_ptr<KeyboardHandlerBase> CreateKeyboardKeyHandler(
+      BinaryMessenger* messenger,
+      KeyboardKeyEmbedderHandler::GetKeyStateHandler get_key_state,
+      KeyboardKeyEmbedderHandler::MapVirtualKeyToScanCode map_vk_to_scan);
+
+  // Creates the text input plugin.
+  //
+  // Exposing this method allows unit tests to override in order to
+  // capture information.
+  virtual std::unique_ptr<TextInputPlugin> CreateTextInputPlugin(
+      BinaryMessenger* messenger);
+
+  // Invoked by the engine right before the engine is restarted.
+  //
+  // This should reset necessary states to as if the engine has just been
+  // created. This is typically caused by a hot restart (Shift-R in CLI.)
+  void OnPreEngineRestart();
+
+  // Invoked by the engine when a listener is set or cleared on a platform
+  // channel.
+  virtual void OnChannelUpdate(std::string name, bool listening);
 
  private:
   // Allows swapping out embedder_api_ calls in tests.
@@ -264,8 +329,17 @@ class FlutterWindowsEngine {
   // system changes.
   void SendSystemLocales();
 
-  void HandleAccessibilityMessage(FlutterDesktopMessengerRef messenger,
-                                  const FlutterDesktopMessage* message);
+  // Sends the current lifecycle state to the framework.
+  void SetLifecycleState(flutter::AppLifecycleState state);
+
+  // Create the keyboard & text input sub-systems.
+  //
+  // This requires that a view is attached to the engine.
+  // Calling this method again resets the keyboard state.
+  void InitializeKeyboard();
+
+  // Send the currently enabled accessibility features to the engine.
+  void SendAccessibilityFeatures();
 
   // The handle to the embedder.h engine instance.
   FLUTTER_API_SYMBOL(FlutterEngine) engine_ = nullptr;
@@ -277,8 +351,8 @@ class FlutterWindowsEngine {
   // AOT data, if any.
   UniqueAotDataPtr aot_data_;
 
-  // The view displaying the content running in this engine, if any.
-  FlutterWindowsView* view_ = nullptr;
+  // The views displaying the content running in this engine, if any.
+  std::unordered_map<FlutterViewId, FlutterWindowsView*> views_;
 
   // Task runner for tasks posted from the engine.
   std::unique_ptr<TaskRunner> task_runner_;
@@ -298,13 +372,32 @@ class FlutterWindowsEngine {
   // The texture registrar.
   std::unique_ptr<FlutterWindowsTextureRegistrar> texture_registrar_;
 
-  // Resolved OpenGL functions used by external texture implementations.
-  GlProcs gl_procs_ = {};
+  // An object used for intializing ANGLE and creating / destroying render
+  // surfaces. If nullptr, ANGLE failed to initialize and software rendering
+  // should be used instead.
+  std::unique_ptr<egl::Manager> egl_manager_;
 
-  // An object used for intializing Angle and creating / destroying render
-  // surfaces. Surface creation functionality requires a valid render_target.
-  // May be nullptr if ANGLE failed to initialize.
-  std::unique_ptr<AngleSurfaceManager> surface_manager_;
+  // The compositor that creates backing stores for the engine to render into
+  // and then presents them onto views.
+  std::unique_ptr<Compositor> compositor_;
+
+  // The plugin registrar managing internal plugins.
+  std::unique_ptr<PluginRegistrar> internal_plugin_registrar_;
+
+  // Handler for accessibility events.
+  std::unique_ptr<AccessibilityPlugin> accessibility_plugin_;
+
+  // Handler for cursor events.
+  std::unique_ptr<CursorHandler> cursor_handler_;
+
+  // Handler for the flutter/platform channel.
+  std::unique_ptr<PlatformHandler> platform_handler_;
+
+  // Handlers for keyboard events from Windows.
+  std::unique_ptr<KeyboardHandlerBase> keyboard_key_handler_;
+
+  // Handlers for text events from Windows.
+  std::unique_ptr<TextInputPlugin> text_input_plugin_;
 
   // The settings plugin.
   std::unique_ptr<SettingsPlugin> settings_plugin_;
@@ -329,7 +422,7 @@ class FlutterWindowsEngine {
 
   bool high_contrast_enabled_ = false;
 
-  std::shared_ptr<AccessibilityBridge> accessibility_bridge_;
+  bool enable_impeller_ = false;
 
   // The manager for WindowProc delegate registration and callbacks.
   std::unique_ptr<WindowProcDelegateManager> window_proc_delegate_manager_;
@@ -340,8 +433,16 @@ class FlutterWindowsEngine {
   // The on frame drawn callback.
   fml::closure next_frame_callback_;
 
-  // Wrapper providing Windows registry access.
-  std::unique_ptr<WindowsRegistry> windows_registry_;
+  // Handler for top level window messages.
+  std::unique_ptr<WindowsLifecycleManager> lifecycle_manager_;
+
+  std::shared_ptr<WindowsProcTable> windows_proc_table_;
+
+  std::shared_ptr<egl::ProcTable> gl_;
+
+  std::unique_ptr<PlatformViewPlugin> platform_view_plugin_;
+
+  FML_DISALLOW_COPY_AND_ASSIGN(FlutterWindowsEngine);
 };
 
 }  // namespace flutter

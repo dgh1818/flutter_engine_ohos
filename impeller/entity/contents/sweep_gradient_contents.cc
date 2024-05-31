@@ -11,7 +11,6 @@
 #include "impeller/entity/entity.h"
 #include "impeller/geometry/gradient.h"
 #include "impeller/renderer/render_pass.h"
-#include "impeller/renderer/sampler_library.h"
 
 namespace impeller {
 
@@ -50,10 +49,22 @@ const std::vector<Scalar>& SweepGradientContents::GetStops() const {
   return stops_;
 }
 
+bool SweepGradientContents::IsOpaque() const {
+  if (GetOpacityFactor() < 1 || tile_mode_ == Entity::TileMode::kDecal) {
+    return false;
+  }
+  for (auto color : colors_) {
+    if (!color.IsOpaque()) {
+      return false;
+    }
+  }
+  return true;
+}
+
 bool SweepGradientContents::Render(const ContentContext& renderer,
                                    const Entity& entity,
                                    RenderPass& pass) const {
-  if (renderer.GetBackendFeatures().ssbo_support) {
+  if (renderer.GetDeviceCapabilities().SupportsSSBO()) {
     return RenderSSBO(renderer, entity, pass);
   }
   return RenderTexture(renderer, entity, pass);
@@ -65,55 +76,42 @@ bool SweepGradientContents::RenderSSBO(const ContentContext& renderer,
   using VS = SweepGradientSSBOFillPipeline::VertexShader;
   using FS = SweepGradientSSBOFillPipeline::FragmentShader;
 
-  FS::GradientInfo gradient_info;
-  gradient_info.center = center_;
-  gradient_info.bias = bias_;
-  gradient_info.scale = scale_;
-  gradient_info.tile_mode = static_cast<Scalar>(tile_mode_);
-  gradient_info.alpha = GetAlpha();
-
-  auto& host_buffer = pass.GetTransientsBuffer();
-  auto colors = CreateGradientColors(colors_, stops_).value_or(colors_);
-
-  gradient_info.colors_length = colors.size();
-  auto color_buffer = host_buffer.Emplace(
-      colors.data(), colors.size() * sizeof(Color), alignof(Color));
-
   VS::FrameInfo frame_info;
-  frame_info.mvp = Matrix::MakeOrthographic(pass.GetRenderTargetSize()) *
-                   entity.GetTransformation();
-  frame_info.matrix = GetInverseMatrix();
+  frame_info.matrix = GetInverseEffectTransform();
+  VS::BindFrameInfo(pass,
+                    renderer.GetTransientsBuffer().EmplaceUniform(frame_info));
 
-  Command cmd;
-  cmd.label = "SweepGradientSSBOFill";
-  cmd.stencil_reference = entity.GetStencilDepth();
-  auto geometry_result =
-      GetGeometry()->GetPositionBuffer(renderer, entity, pass);
+  PipelineBuilderCallback pipeline_callback =
+      [&renderer](ContentContextOptions options) {
+        return renderer.GetSweepGradientSSBOFillPipeline(options);
+      };
+  return ColorSourceContents::DrawGeometry<VS>(
+      renderer, entity, pass, pipeline_callback, frame_info,
+      [this, &renderer](RenderPass& pass) {
+        FS::FragInfo frag_info;
+        frag_info.center = center_;
+        frag_info.bias = bias_;
+        frag_info.scale = scale_;
+        frag_info.tile_mode = static_cast<Scalar>(tile_mode_);
+        frag_info.decal_border_color = decal_border_color_;
+        frag_info.alpha = GetOpacityFactor();
 
-  auto options = OptionsFromPassAndEntity(pass, entity);
-  if (geometry_result.prevent_overdraw) {
-    options.stencil_compare = CompareFunction::kEqual;
-    options.stencil_operation = StencilOperation::kIncrementClamp;
-  }
-  options.primitive_type = geometry_result.type;
-  cmd.pipeline = renderer.GetSweepGradientSSBOFillPipeline(options);
+        auto& host_buffer = renderer.GetTransientsBuffer();
+        auto colors = CreateGradientColors(colors_, stops_);
 
-  cmd.BindVertices(geometry_result.vertex_buffer);
-  FS::BindGradientInfo(
-      cmd, pass.GetTransientsBuffer().EmplaceUniform(gradient_info));
-  FS::BindColorData(cmd, color_buffer);
-  VS::BindFrameInfo(cmd, pass.GetTransientsBuffer().EmplaceUniform(frame_info));
+        frag_info.colors_length = colors.size();
+        auto color_buffer =
+            host_buffer.Emplace(colors.data(), colors.size() * sizeof(StopData),
+                                DefaultUniformAlignment());
 
-  if (!pass.AddCommand(std::move(cmd))) {
-    return false;
-  }
+        pass.SetCommandLabel("SweepGradientSSBOFill");
 
-  if (geometry_result.prevent_overdraw) {
-    auto restore = ClipRestoreContents();
-    restore.SetRestoreCoverage(GetCoverage(entity));
-    return restore.Render(renderer, entity, pass);
-  }
-  return true;
+        FS::BindFragInfo(
+            pass, renderer.GetTransientsBuffer().EmplaceUniform(frag_info));
+        FS::BindColorData(pass, color_buffer);
+
+        return true;
+      });
 }
 
 bool SweepGradientContents::RenderTexture(const ContentContext& renderer,
@@ -129,56 +127,52 @@ bool SweepGradientContents::RenderTexture(const ContentContext& renderer,
     return false;
   }
 
-  FS::GradientInfo gradient_info;
-  gradient_info.center = center_;
-  gradient_info.bias = bias_;
-  gradient_info.scale = scale_;
-  gradient_info.texture_sampler_y_coord_scale =
-      gradient_texture->GetYCoordScale();
-  gradient_info.tile_mode = static_cast<Scalar>(tile_mode_);
-  gradient_info.alpha = GetAlpha();
-  gradient_info.half_texel = Vector2(0.5 / gradient_texture->GetSize().width,
-                                     0.5 / gradient_texture->GetSize().height);
-
-  auto geometry_result =
-      GetGeometry()->GetPositionBuffer(renderer, entity, pass);
-
   VS::FrameInfo frame_info;
-  frame_info.mvp = geometry_result.transform;
-  frame_info.matrix = GetInverseMatrix();
+  frame_info.matrix = GetInverseEffectTransform();
 
-  Command cmd;
-  cmd.label = "SweepGradientFill";
-  cmd.stencil_reference = entity.GetStencilDepth();
+  PipelineBuilderCallback pipeline_callback =
+      [&renderer](ContentContextOptions options) {
+        return renderer.GetSweepGradientFillPipeline(options);
+      };
+  return ColorSourceContents::DrawGeometry<VS>(
+      renderer, entity, pass, pipeline_callback, frame_info,
+      [this, &renderer, &gradient_texture](RenderPass& pass) {
+        FS::FragInfo frag_info;
+        frag_info.center = center_;
+        frag_info.bias = bias_;
+        frag_info.scale = scale_;
+        frag_info.texture_sampler_y_coord_scale =
+            gradient_texture->GetYCoordScale();
+        frag_info.tile_mode = static_cast<Scalar>(tile_mode_);
+        frag_info.decal_border_color = decal_border_color_;
+        frag_info.alpha = GetOpacityFactor();
+        frag_info.half_texel =
+            Vector2(0.5 / gradient_texture->GetSize().width,
+                    0.5 / gradient_texture->GetSize().height);
 
-  auto options = OptionsFromPassAndEntity(pass, entity);
-  if (geometry_result.prevent_overdraw) {
-    options.stencil_compare = CompareFunction::kEqual;
-    options.stencil_operation = StencilOperation::kIncrementClamp;
+        SamplerDescriptor sampler_desc;
+        sampler_desc.min_filter = MinMagFilter::kLinear;
+        sampler_desc.mag_filter = MinMagFilter::kLinear;
+
+        pass.SetCommandLabel("SweepGradientFill");
+
+        FS::BindFragInfo(
+            pass, renderer.GetTransientsBuffer().EmplaceUniform(frag_info));
+        FS::BindTextureSampler(
+            pass, gradient_texture,
+            renderer.GetContext()->GetSamplerLibrary()->GetSampler(
+                sampler_desc));
+
+        return true;
+      });
+}
+
+bool SweepGradientContents::ApplyColorFilter(
+    const ColorFilterProc& color_filter_proc) {
+  for (Color& color : colors_) {
+    color = color_filter_proc(color);
   }
-  options.primitive_type = geometry_result.type;
-  cmd.pipeline = renderer.GetSweepGradientFillPipeline(options);
-
-  cmd.BindVertices(geometry_result.vertex_buffer);
-  FS::BindGradientInfo(
-      cmd, pass.GetTransientsBuffer().EmplaceUniform(gradient_info));
-  VS::BindFrameInfo(cmd, pass.GetTransientsBuffer().EmplaceUniform(frame_info));
-  SamplerDescriptor sampler_desc;
-  sampler_desc.min_filter = MinMagFilter::kLinear;
-  sampler_desc.mag_filter = MinMagFilter::kLinear;
-  FS::BindTextureSampler(
-      cmd, gradient_texture,
-      renderer.GetContext()->GetSamplerLibrary()->GetSampler(sampler_desc));
-
-  if (!pass.AddCommand(std::move(cmd))) {
-    return false;
-  }
-
-  if (geometry_result.prevent_overdraw) {
-    auto restore = ClipRestoreContents();
-    restore.SetRestoreCoverage(GetCoverage(entity));
-    return restore.Render(renderer, entity, pass);
-  }
+  decal_border_color_ = color_filter_proc(decal_border_color_);
   return true;
 }
 

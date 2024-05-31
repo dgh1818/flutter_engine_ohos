@@ -2,14 +2,15 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef SHELL_PLATFORM_ANDROID_PLATFORM_VIEW_ANDROID_H_
-#define SHELL_PLATFORM_ANDROID_PLATFORM_VIEW_ANDROID_H_
+#ifndef FLUTTER_SHELL_PLATFORM_ANDROID_PLATFORM_VIEW_ANDROID_H_
+#define FLUTTER_SHELL_PLATFORM_ANDROID_PLATFORM_VIEW_ANDROID_H_
 
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
+#include <android/hardware_buffer_jni.h>
 #include "flutter/fml/memory/weak_ptr.h"
 #include "flutter/fml/platform/android/scoped_java_ref.h"
 #include "flutter/lib/ui/window/platform_message.h"
@@ -27,7 +28,6 @@ namespace flutter {
 class AndroidSurfaceFactoryImpl : public AndroidSurfaceFactory {
  public:
   AndroidSurfaceFactoryImpl(const std::shared_ptr<AndroidContext>& context,
-                            std::shared_ptr<PlatformViewAndroidJNI> jni_facade,
                             bool enable_impeller);
 
   ~AndroidSurfaceFactoryImpl() override;
@@ -36,7 +36,6 @@ class AndroidSurfaceFactoryImpl : public AndroidSurfaceFactory {
 
  private:
   const std::shared_ptr<AndroidContext>& android_context_;
-  std::shared_ptr<PlatformViewAndroidJNI> jni_facade_;
   const bool enable_impeller_;
 };
 
@@ -92,6 +91,10 @@ class PlatformViewAndroid final : public PlatformView {
   void RegisterExternalTexture(
       int64_t texture_id,
       const fml::jni::ScopedJavaGlobalRef<jobject>& surface_texture);
+
+  void RegisterImageTexture(
+      int64_t texture_id,
+      const fml::jni::ScopedJavaGlobalRef<jobject>& image_texture_entry);
 
   // |PlatformView|
   void LoadDartDeferredLibrary(
@@ -172,8 +175,11 @@ class PlatformViewAndroid final : public PlatformView {
 
   void FireFirstFrameCallback();
 
+  double GetScaledFontSize(double unscaled_font_size,
+                           int configuration_id) const override;
+
   FML_DISALLOW_COPY_AND_ASSIGN(PlatformViewAndroid);
 };
 }  // namespace flutter
 
-#endif  // SHELL_PLATFORM_ANDROID_PLATFORM_VIEW_ANDROID_H_
+#endif  // FLUTTER_SHELL_PLATFORM_ANDROID_PLATFORM_VIEW_ANDROID_H_

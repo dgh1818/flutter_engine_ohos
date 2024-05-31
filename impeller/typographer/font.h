@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_IMPELLER_TYPOGRAPHER_FONT_H_
+#define FLUTTER_IMPELLER_TYPOGRAPHER_FONT_H_
 
 #include <memory>
 #include <optional>
@@ -11,7 +12,6 @@
 #include "impeller/base/comparable.h"
 #include "impeller/typographer/glyph.h"
 #include "impeller/typographer/typeface.h"
-#include "include/core/SkFont.h"
 
 namespace impeller {
 
@@ -30,12 +30,6 @@ class Font : public Comparable<Font> {
   ///
   struct Metrics {
     //--------------------------------------------------------------------------
-    /// The scaling factor that should be used when rendering this font to an
-    /// atlas. This should normally be set in accordance with the transformation
-    /// matrix that will be used to position glyph geometry.
-    ///
-    Scalar scale = 1.0f;
-    //--------------------------------------------------------------------------
     /// The point size of the font.
     ///
     Scalar point_size = 12.0f;
@@ -44,8 +38,8 @@ class Font : public Comparable<Font> {
     Scalar scaleX = 1.0f;
 
     constexpr bool operator==(const Metrics& o) const {
-      return scale == o.scale && point_size == o.point_size &&
-             embolden == o.embolden && skewX == o.skewX && scaleX == o.scaleX;
+      return point_size == o.point_size && embolden == o.embolden &&
+             skewX == o.skewX && scaleX == o.scaleX;
     }
   };
 
@@ -81,6 +75,8 @@ class Font : public Comparable<Font> {
 template <>
 struct std::hash<impeller::Font::Metrics> {
   constexpr std::size_t operator()(const impeller::Font::Metrics& m) const {
-    return fml::HashCombine(m.scale, m.point_size);
+    return fml::HashCombine(m.point_size, m.skewX, m.scaleX);
   }
 };
+
+#endif  // FLUTTER_IMPELLER_TYPOGRAPHER_FONT_H_

@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#ifndef FLUTTER_SHELL_PLATFORM_OHOS_ENVIRONMENT_GL_H_
-#define FLUTTER_SHELL_PLATFORM_OHOS_ENVIRONMENT_GL_H_
+#ifndef FLUTTER_SHELL_PLATFORM_OHOS_OHOS_ENVIRONMENT_GL_H_
+#define FLUTTER_SHELL_PLATFORM_OHOS_OHOS_ENVIRONMENT_GL_H_
 
 #include "flutter/fml/macros.h"
 #include "flutter/fml/memory/ref_counted.h"
@@ -47,4 +47,4 @@ class OhosEnvironmentGL : public fml::RefCountedThreadSafe<OhosEnvironmentGL> {
 
 }  // namespace flutter
 
-#endif
+#endif  // FLUTTER_SHELL_PLATFORM_OHOS_OHOS_ENVIRONMENT_GL_H_

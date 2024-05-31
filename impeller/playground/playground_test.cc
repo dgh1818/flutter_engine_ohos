@@ -4,11 +4,14 @@
 
 #include "flutter/fml/time/time_point.h"
 
+#include "impeller/base/timing.h"
+#include "impeller/base/validation.h"
 #include "impeller/playground/playground_test.h"
 
 namespace impeller {
 
-PlaygroundTest::PlaygroundTest() = default;
+PlaygroundTest::PlaygroundTest()
+    : Playground(PlaygroundSwitches{flutter::testing::GetArgsForProcess()}) {}
 
 PlaygroundTest::~PlaygroundTest() = default;
 
@@ -23,10 +26,14 @@ void PlaygroundTest::SetUp() {
     return;
   }
 
+  ImpellerValidationErrorsSetFatal(true);
+
   SetupContext(GetParam());
   SetupWindow();
+}
 
-  start_time_ = fml::TimePoint::Now().ToEpochDelta();
+PlaygroundBackend PlaygroundTest::GetBackend() const {
+  return GetParam();
 }
 
 void PlaygroundTest::TearDown() {
@@ -39,33 +46,50 @@ std::unique_ptr<fml::Mapping> PlaygroundTest::OpenAssetAsMapping(
   return flutter::testing::OpenFixtureAsMapping(asset_name);
 }
 
-std::shared_ptr<RuntimeStage> PlaygroundTest::OpenAssetAsRuntimeStage(
+RuntimeStage::Map PlaygroundTest::OpenAssetAsRuntimeStage(
     const char* asset_name) const {
-  auto fixture = flutter::testing::OpenFixtureAsMapping(asset_name);
+  const std::shared_ptr<fml::Mapping> fixture =
+      flutter::testing::OpenFixtureAsMapping(asset_name);
   if (!fixture || fixture->GetSize() == 0) {
-    return nullptr;
+    return {};
   }
-  auto stage = std::make_unique<RuntimeStage>(std::move(fixture));
-  if (!stage->IsValid()) {
-    return nullptr;
-  }
-  return stage;
-}
-
-static std::string FormatWindowTitle(const std::string& test_name) {
-  std::stringstream stream;
-  stream << "Impeller Playground for '" << test_name
-         << "' (Press ESC or 'q' to quit)";
-  return stream.str();
+  return RuntimeStage::DecodeRuntimeStages(fixture);
 }
 
 // |Playground|
 std::string PlaygroundTest::GetWindowTitle() const {
-  return FormatWindowTitle(flutter::testing::GetCurrentTestName());
+  std::stringstream stream;
+  stream << "Impeller Playground for '"
+         << flutter::testing::GetCurrentTestName() << "' ";
+  switch (GetBackend()) {
+    case PlaygroundBackend::kMetal:
+      break;
+    case PlaygroundBackend::kOpenGLES:
+      if (switches_.use_angle) {
+        stream << " (Angle) ";
+      }
+      break;
+    case PlaygroundBackend::kVulkan:
+      if (switches_.use_swiftshader) {
+        stream << " (SwiftShader) ";
+      }
+      break;
+  }
+  stream << " (Press ESC to quit)";
+  return stream.str();
 }
 
-Scalar PlaygroundTest::GetSecondsElapsed() const {
-  return (fml::TimePoint::Now().ToEpochDelta() - start_time_).ToSecondsF();
+// |Playground|
+bool PlaygroundTest::ShouldKeepRendering() const {
+  if (!switches_.timeout.has_value()) {
+    return true;
+  }
+
+  if (SecondsF{GetSecondsElapsed()} > switches_.timeout.value()) {
+    return false;
+  }
+
+  return true;
 }
 
 }  // namespace impeller

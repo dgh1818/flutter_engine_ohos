@@ -12,11 +12,10 @@
 #include <fuchsia/memorypressure/cpp/fidl.h>
 #include <fuchsia/metrics/cpp/fidl.h>
 #include <fuchsia/net/interfaces/cpp/fidl.h>
-#include <fuchsia/sys/cpp/fidl.h>
 #include <fuchsia/tracing/provider/cpp/fidl.h>
 #include <fuchsia/ui/app/cpp/fidl.h>
+#include <fuchsia/ui/display/singleton/cpp/fidl.h>
 #include <fuchsia/ui/input/cpp/fidl.h>
-#include <fuchsia/ui/scenic/cpp/fidl.h>
 #include <fuchsia/ui/test/input/cpp/fidl.h>
 #include <fuchsia/web/cpp/fidl.h>
 #include <lib/async/cpp/task.h>
@@ -49,8 +48,7 @@ namespace {
 // Types imported for the realm_builder library.
 using component_testing::ChildRef;
 using component_testing::ConfigValue;
-using component_testing::LocalComponent;
-using component_testing::LocalComponentHandles;
+using component_testing::LocalComponentImpl;
 using component_testing::ParentRef;
 using component_testing::Protocol;
 using component_testing::Realm;
@@ -109,7 +107,7 @@ int ButtonsToInt(
 // us know what position and button press state the mouse cursor has.
 class MouseInputListenerServer
     : public fuchsia::ui::test::input::MouseInputListener,
-      public LocalComponent {
+      public LocalComponentImpl {
  public:
   explicit MouseInputListenerServer(async_dispatcher_t* dispatcher)
       : dispatcher_(dispatcher) {}
@@ -121,19 +119,18 @@ class MouseInputListenerServer
     events_.push(std::move(request));
   }
 
-  // |MockComponent::Start|
+  // |MockComponent::OnStart|
   // When the component framework requests for this component to start, this
   // method will be invoked by the realm_builder library.
-  void Start(std::unique_ptr<LocalComponentHandles> mock_handles) override {
+  void OnStart() override {
     FML_LOG(INFO) << "Starting MouseInputServer";
-    ASSERT_EQ(ZX_OK, mock_handles->outgoing()->AddPublicService(
+    ASSERT_EQ(ZX_OK, outgoing()->AddPublicService(
                          fidl::InterfaceRequestHandler<
                              fuchsia::ui::test::input::MouseInputListener>(
                              [this](auto request) {
                                bindings_.AddBinding(this, std::move(request),
                                                     dispatcher_);
                              })));
-    mock_handles_.emplace_back(std::move(mock_handles));
   }
 
   size_t SizeOfEvents() const { return events_.size(); }
@@ -156,7 +153,6 @@ class MouseInputListenerServer
   // Not owned.
   async_dispatcher_t* dispatcher_ = nullptr;
   fidl::BindingSet<fuchsia::ui::test::input::MouseInputListener> bindings_;
-  std::vector<std::unique_ptr<LocalComponentHandles>> mock_handles_;
   std::queue<
       fuchsia::ui::test::input::MouseInputListenerReportMouseInputRequest>
       events_;
@@ -173,14 +169,19 @@ class MouseInputTest : public PortableUITest,
     RegisterMouse();
 
     // Get the display dimensions.
-    FML_LOG(INFO) << "Waiting for scenic display info";
-    scenic_ = realm_root()->Connect<fuchsia::ui::scenic::Scenic>();
-    scenic_->GetDisplayInfo([this](fuchsia::ui::gfx::DisplayInfo display_info) {
-      display_width_ = display_info.width_in_px;
-      display_height_ = display_info.height_in_px;
-      FML_LOG(INFO) << "Got display_width = " << display_width_
-                    << " and display_height = " << display_height_;
-    });
+    FML_LOG(INFO)
+        << "Waiting for display info from fuchsia.ui.display.singleton.Info";
+    fuchsia::ui::display::singleton::InfoPtr display_info =
+        realm_root()
+            ->component()
+            .Connect<fuchsia::ui::display::singleton::Info>();
+    display_info->GetMetrics(
+        [this](fuchsia::ui::display::singleton::Metrics metrics) {
+          display_width_ = metrics.extent_in_px().width;
+          display_height_ = metrics.extent_in_px().height;
+          FML_LOG(INFO) << "Got display_width = " << display_width_
+                        << " and display_height = " << display_height_;
+        });
     RunLoopUntil(
         [this] { return display_width_ != 0 && display_height_ != 0; });
   }
@@ -191,7 +192,7 @@ class MouseInputTest : public PortableUITest,
   }
 
   MouseInputListenerServer* mouse_input_listener() {
-    return mouse_input_listener_.get();
+    return mouse_input_listener_;
   }
 
   // Helper method for checking the test.mouse.MouseInputListener response from
@@ -254,13 +255,17 @@ class MouseInputTest : public PortableUITest,
  private:
   void ExtendRealm() override {
     FML_LOG(INFO) << "Extending realm";
-    mouse_input_listener_ =
-        std::make_unique<MouseInputListenerServer>(dispatcher());
 
     // Key part of service setup: have this test component vend the
     // |MouseInputListener| service in the constructed realm.
-    realm_builder()->AddLocalChild(kMouseInputListener,
-                                   mouse_input_listener_.get());
+    auto mouse_input_listener =
+        std::make_unique<MouseInputListenerServer>(dispatcher());
+    mouse_input_listener_ = mouse_input_listener.get();
+    realm_builder()->AddLocalChild(
+        kMouseInputListener,
+        [mouse_input_listener = std::move(mouse_input_listener)]() mutable {
+          return std::move(mouse_input_listener);
+        });
 
     realm_builder()->AddChild(kMouseInputView, kMouseInputViewUrl,
                               component_testing::ChildOptions{
@@ -281,9 +286,8 @@ class MouseInputTest : public PortableUITest,
 
   ParamType GetTestUIStackUrl() override { return GetParam(); };
 
-  std::unique_ptr<MouseInputListenerServer> mouse_input_listener_;
+  MouseInputListenerServer* mouse_input_listener_;
 
-  fuchsia::ui::scenic::ScenicPtr scenic_;
   uint32_t display_width_ = 0;
   uint32_t display_height_ = 0;
 };
@@ -299,7 +303,7 @@ INSTANTIATE_TEST_SUITE_P(
         "fuchsia-pkg://fuchsia.com/flatland-scene-manager-test-ui-stack#meta/"
         "test-ui-stack.cm"));
 
-TEST_P(MouseInputTest, FlutterMouseMove) {
+TEST_P(MouseInputTest, DISABLED_FlutterMouseMove) {
   LaunchClient();
 
   SimulateMouseEvent(/* pressed_buttons = */ {}, /* movement_x = */ 1,
@@ -321,7 +325,7 @@ TEST_P(MouseInputTest, FlutterMouseMove) {
               /*component_name=*/"mouse-input-view");
 }
 
-TEST_P(MouseInputTest, FlutterMouseDown) {
+TEST_P(MouseInputTest, DISABLED_FlutterMouseDown) {
   LaunchClient();
 
   SimulateMouseEvent(
@@ -364,7 +368,7 @@ TEST_P(MouseInputTest, FlutterMouseDown) {
       /*component_name=*/"mouse-input-view");
 }
 
-TEST_P(MouseInputTest, FlutterMouseDownUp) {
+TEST_P(MouseInputTest, DISABLED_FlutterMouseDownUp) {
   LaunchClient();
 
   SimulateMouseEvent(
@@ -422,7 +426,7 @@ TEST_P(MouseInputTest, FlutterMouseDownUp) {
               /*component_name=*/"mouse-input-view");
 }
 
-TEST_P(MouseInputTest, FlutterMouseDownMoveUp) {
+TEST_P(MouseInputTest, DISABLED_FlutterMouseDownMoveUp) {
   LaunchClient();
 
   SimulateMouseEvent(
@@ -551,7 +555,7 @@ TEST_P(MouseInputTest, DISABLED_FlutterMouseWheelIssue103098) {
   EXPECT_EQ(event_3.wheel_y_physical_pixel(), 0);
 }
 
-TEST_P(MouseInputTest, FlutterMouseWheel) {
+TEST_P(MouseInputTest, DISABLED_FlutterMouseWheel) {
   LaunchClient();
 
   double initial_x = static_cast<double>(display_width()) / 2.f + 1;

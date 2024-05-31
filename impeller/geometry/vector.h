@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_IMPELLER_GEOMETRY_VECTOR_H_
+#define FLUTTER_IMPELLER_GEOMETRY_VECTOR_H_
 
 #include <cmath>
 #include <string>
@@ -14,12 +15,14 @@
 
 namespace impeller {
 
+// NOLINTBEGIN(google-explicit-constructor)
+
 struct Vector3 {
   union {
     struct {
-      Scalar x = 0.0;
-      Scalar y = 0.0;
-      Scalar z = 0.0;
+      Scalar x = 0.0f;
+      Scalar y = 0.0f;
+      Scalar z = 0.0f;
     };
     Scalar e[3];
   };
@@ -52,12 +55,36 @@ struct Vector3 {
     return ((x * other.x) + (y * other.y) + (z * other.z));
   }
 
+  constexpr Vector3 Abs() const {
+    return {std::fabs(x), std::fabs(y), std::fabs(z)};
+  }
+
   constexpr Vector3 Cross(const Vector3& other) const {
     return {
         (y * other.z) - (z * other.y),  //
         (z * other.x) - (x * other.z),  //
         (x * other.y) - (y * other.x)   //
     };
+  }
+
+  constexpr Vector3 Min(const Vector3& p) const {
+    return {std::min(x, p.x), std::min(y, p.y), std::min(z, p.z)};
+  }
+
+  constexpr Vector3 Max(const Vector3& p) const {
+    return {std::max(x, p.x), std::max(y, p.y), std::max(z, p.z)};
+  }
+
+  constexpr Vector3 Floor() const {
+    return {std::floor(x), std::floor(y), std::floor(z)};
+  }
+
+  constexpr Vector3 Ceil() const {
+    return {std::ceil(x), std::ceil(y), std::ceil(z)};
+  }
+
+  constexpr Vector3 Round() const {
+    return {std::round(x), std::round(y), std::round(z)};
   }
 
   constexpr bool operator==(const Vector3& v) const {
@@ -122,6 +149,14 @@ struct Vector3 {
     return Vector3(x - v.x, y - v.y, z - v.z);
   }
 
+  constexpr Vector3 operator+(Scalar s) const {
+    return Vector3(x + s, y + s, z + s);
+  }
+
+  constexpr Vector3 operator-(Scalar s) const {
+    return Vector3(x - s, y - s, z - s);
+  }
+
   constexpr Vector3 operator*(const Vector3& v) const {
     return Vector3(x * v.x, y * v.y, z * v.z);
   }
@@ -176,6 +211,16 @@ constexpr Vector3 operator*(U s, const Vector3& p) {
 }
 
 template <class U, class = std::enable_if_t<std::is_arithmetic_v<U>>>
+constexpr Vector3 operator+(U s, const Vector3& p) {
+  return p + s;
+}
+
+template <class U, class = std::enable_if_t<std::is_arithmetic_v<U>>>
+constexpr Vector3 operator-(U s, const Vector3& p) {
+  return -p + s;
+}
+
+template <class U, class = std::enable_if_t<std::is_arithmetic_v<U>>>
 constexpr Vector3 operator/(U s, const Vector3& p) {
   return {
       static_cast<Scalar>(s) / p.x,
@@ -187,10 +232,10 @@ constexpr Vector3 operator/(U s, const Vector3& p) {
 struct Vector4 {
   union {
     struct {
-      Scalar x = 0.0;
-      Scalar y = 0.0;
-      Scalar z = 0.0;
-      Scalar w = 1.0;
+      Scalar x = 0.0f;
+      Scalar y = 0.0f;
+      Scalar z = 0.0f;
+      Scalar w = 1.0f;
     };
     Scalar e[4];
   };
@@ -207,8 +252,11 @@ struct Vector4 {
 
   constexpr Vector4(const Point& p) : x(p.x), y(p.y) {}
 
+  constexpr Vector4(std::array<Scalar, 4> values)
+      : x(values[0]), y(values[1]), z(values[2]), w(values[3]) {}
+
   Vector4 Normalize() const {
-    const Scalar inverse = 1.0 / sqrt(x * x + y * y + z * z + w * w);
+    const Scalar inverse = 1.0f / sqrt(x * x + y * y + z * z + w * w);
     return Vector4(x * inverse, y * inverse, z * inverse, w * inverse);
   }
 
@@ -236,6 +284,28 @@ struct Vector4 {
     return Vector4(x * v.x, y * v.y, z * v.z, w * v.w);
   }
 
+  constexpr Vector4 Min(const Vector4& p) const {
+    return {std::min(x, p.x), std::min(y, p.y), std::min(z, p.z),
+            std::min(w, p.w)};
+  }
+
+  constexpr Vector4 Max(const Vector4& p) const {
+    return {std::max(x, p.x), std::max(y, p.y), std::max(z, p.z),
+            std::max(w, p.w)};
+  }
+
+  constexpr Vector4 Floor() const {
+    return {std::floor(x), std::floor(y), std::floor(z), std::floor(w)};
+  }
+
+  constexpr Vector4 Ceil() const {
+    return {std::ceil(x), std::ceil(y), std::ceil(z), std::ceil(w)};
+  }
+
+  constexpr Vector4 Round() const {
+    return {std::round(x), std::round(y), std::round(z), std::round(w)};
+  }
+
   constexpr Vector4 Lerp(const Vector4& v, Scalar t) const {
     return *this + (v - *this) * t;
   }
@@ -260,4 +330,8 @@ inline std::ostream& operator<<(std::ostream& out, const impeller::Vector4& p) {
   return out;
 }
 
+// NOLINTEND(google-explicit-constructor)
+
 }  // namespace std
+
+#endif  // FLUTTER_IMPELLER_GEOMETRY_VECTOR_H_

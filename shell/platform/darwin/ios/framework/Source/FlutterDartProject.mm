@@ -8,6 +8,7 @@
 
 #include <syslog.h>
 
+#import <Metal/Metal.h>
 #include <sstream>
 #include <string>
 
@@ -22,6 +23,8 @@
 #import "flutter/shell/platform/darwin/common/command_line.h"
 #import "flutter/shell/platform/darwin/ios/framework/Headers/FlutterViewController.h"
 
+FLUTTER_ASSERT_NOT_ARC
+
 extern "C" {
 #if FLUTTER_RUNTIME_MODE == FLUTTER_RUNTIME_MODE_DEBUG
 // Used for debugging dart:* sources.
@@ -32,24 +35,38 @@ extern const intptr_t kPlatformStrongDillSize;
 
 static const char* kApplicationKernelSnapshotFileName = "kernel_blob.bin";
 
-flutter::Settings FLTDefaultSettingsForBundle(NSBundle* bundle) {
-  auto command_line = flutter::CommandLineFromNSProcessInfo();
+static BOOL DoesHardwareSupportWideGamut() {
+  static BOOL result = NO;
+  static dispatch_once_t once_token = 0;
+  dispatch_once(&once_token, ^{
+    id<MTLDevice> device = MTLCreateSystemDefaultDevice();
+    if (@available(iOS 13.0, *)) {
+      // MTLGPUFamilyApple2 = A9/A10
+      result = [device supportsFamily:MTLGPUFamilyApple2];
+    } else {
+      // A9/A10 on iOS 10+
+      result = [device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily3_v2];
+    }
+    [device release];
+  });
+  return result;
+}
+
+flutter::Settings FLTDefaultSettingsForBundle(NSBundle* bundle, NSProcessInfo* processInfoOrNil) {
+  auto command_line = flutter::CommandLineFromNSProcessInfo(processInfoOrNil);
 
   // Precedence:
-  // 1. Settings from the specified NSBundle.
+  // 1. Settings from the specified NSBundle (except for enable-impeller).
   // 2. Settings passed explicitly via command-line arguments.
   // 3. Settings from the NSBundle with the default bundle ID.
   // 4. Settings from the main NSBundle and default values.
 
-  NSBundle* mainBundle = [NSBundle mainBundle];
+  NSBundle* mainBundle = FLTGetApplicationBundle();
   NSBundle* engineBundle = [NSBundle bundleForClass:[FlutterViewController class]];
 
   bool hasExplicitBundle = bundle != nil;
   if (bundle == nil) {
-    bundle = [NSBundle bundleWithIdentifier:[FlutterDartProject defaultBundleIdentifier]];
-  }
-  if (bundle == nil) {
-    bundle = mainBundle;
+    bundle = FLTFrameworkBundleWithIdentifier([FlutterDartProject defaultBundleIdentifier]);
   }
 
   auto settings = flutter::SettingsFromCommandLine(command_line);
@@ -122,15 +139,10 @@ flutter::Settings FLTDefaultSettingsForBundle(NSBundle* bundle) {
 
   // Checks to see if the flutter assets directory is already present.
   if (settings.assets_path.empty()) {
-    NSString* assetsName = [FlutterDartProject flutterAssetsName:bundle];
-    NSString* assetsPath = [bundle pathForResource:assetsName ofType:@""];
+    NSString* assetsPath = FLTAssetsPathFromBundle(bundle);
 
     if (assetsPath.length == 0) {
-      assetsPath = [mainBundle pathForResource:assetsName ofType:@""];
-    }
-
-    if (assetsPath.length == 0) {
-      NSLog(@"Failed to find assets path for \"%@\"", assetsName);
+      NSLog(@"Failed to find assets path for \"%@\"", bundle);
     } else {
       settings.assets_path = assetsPath.UTF8String;
 
@@ -141,10 +153,11 @@ flutter::Settings FLTDefaultSettingsForBundle(NSBundle* bundle) {
         NSURL* applicationKernelSnapshotURL =
             [NSURL URLWithString:@(kApplicationKernelSnapshotFileName)
                    relativeToURL:[NSURL fileURLWithPath:assetsPath]];
-        if ([[NSFileManager defaultManager] fileExistsAtPath:applicationKernelSnapshotURL.path]) {
+        NSError* error;
+        if ([applicationKernelSnapshotURL checkResourceIsReachableAndReturnError:&error]) {
           settings.application_kernel_asset = applicationKernelSnapshotURL.path.UTF8String;
         } else {
-          NSLog(@"Failed to find snapshot: %@", applicationKernelSnapshotURL.path);
+          NSLog(@"Failed to find snapshot at %@: %@", applicationKernelSnapshotURL.path, error);
         }
       }
     }
@@ -156,16 +169,38 @@ flutter::Settings FLTDefaultSettingsForBundle(NSBundle* bundle) {
   settings.may_insecurely_connect_to_all_domains = true;
   settings.domain_network_policy = "";
 
-  // SkParagraph text layout library
-  NSNumber* enableSkParagraph = [mainBundle objectForInfoDictionaryKey:@"FLTEnableSkParagraph"];
-  settings.enable_skparagraph = (enableSkParagraph != nil) ? enableSkParagraph.boolValue : true;
+  // Whether to enable wide gamut colors.
+#if TARGET_OS_SIMULATOR
+  // As of Xcode 14.1, the wide gamut surface pixel formats are not supported by
+  // the simulator.
+  settings.enable_wide_gamut = false;
+  // Removes unused function warning.
+  (void)DoesHardwareSupportWideGamut;
+#else
+  NSNumber* nsEnableWideGamut = [mainBundle objectForInfoDictionaryKey:@"FLTEnableWideGamut"];
+  BOOL enableWideGamut =
+      (nsEnableWideGamut ? nsEnableWideGamut.boolValue : YES) && DoesHardwareSupportWideGamut();
+  settings.enable_wide_gamut = enableWideGamut;
+#endif
 
-  // Whether to enable Impeller.
-  NSNumber* enableImpeller = [mainBundle objectForInfoDictionaryKey:@"FLTEnableImpeller"];
-  // Change the default only if the option is present.
-  if (enableImpeller != nil) {
-    settings.enable_impeller = enableImpeller.boolValue;
+  // TODO(dnfield): We should reverse the order for all these settings so that command line options
+  // are preferred to plist settings. https://github.com/flutter/flutter/issues/124049
+  // Whether to enable Impeller. If the command line explicitly
+  // specified an option for this, ignore what's in the plist.
+  if (!command_line.HasOption("enable-impeller")) {
+    // Next, look in the app bundle.
+    NSNumber* enableImpeller = [bundle objectForInfoDictionaryKey:@"FLTEnableImpeller"];
+    if (enableImpeller == nil) {
+      // If it isn't in the app bundle, look in the main bundle.
+      enableImpeller = [mainBundle objectForInfoDictionaryKey:@"FLTEnableImpeller"];
+    }
+    // Change the default only if the option is present.
+    if (enableImpeller != nil) {
+      settings.enable_impeller = enableImpeller.boolValue;
+    }
   }
+
+  settings.warn_on_impeller_opt_out = true;
 
   NSNumber* enableTraceSystrace = [mainBundle objectForInfoDictionaryKey:@"FLTTraceSystrace"];
   // Change the default only if the option is present.
@@ -215,12 +250,25 @@ flutter::Settings FLTDefaultSettingsForBundle(NSBundle* bundle) {
   CGFloat screenHeight = [UIScreen mainScreen].bounds.size.height * scale;
   settings.resource_cache_max_bytes_threshold = screenWidth * screenHeight * 12 * 4;
 
+  // Whether to enable ios embedder api.
+  NSNumber* enable_embedder_api =
+      [mainBundle objectForInfoDictionaryKey:@"FLTEnableIOSEmbedderAPI"];
+  // Change the default only if the option is present.
+  if (enable_embedder_api) {
+    settings.enable_embedder_api = enable_embedder_api.boolValue;
+  }
+
   return settings;
 }
 
 @implementation FlutterDartProject {
   flutter::Settings _settings;
 }
+
+// This property is marked unavailable on iOS in the common header.
+// That doesn't seem to be enough to prevent this property from being synthesized.
+// Mark dynamic to avoid warnings.
+@dynamic dartEntrypointArguments;
 
 #pragma mark - Override base class designated initializers
 
@@ -307,16 +355,9 @@ flutter::Settings FLTDefaultSettingsForBundle(NSBundle* bundle) {
 
 + (NSString*)flutterAssetsName:(NSBundle*)bundle {
   if (bundle == nil) {
-    bundle = [NSBundle bundleWithIdentifier:[FlutterDartProject defaultBundleIdentifier]];
+    bundle = FLTFrameworkBundleWithIdentifier([FlutterDartProject defaultBundleIdentifier]);
   }
-  if (bundle == nil) {
-    bundle = [NSBundle mainBundle];
-  }
-  NSString* flutterAssetsName = [bundle objectForInfoDictionaryKey:@"FLTAssetsPath"];
-  if (flutterAssetsName == nil) {
-    flutterAssetsName = @"Frameworks/App.framework/flutter_assets";
-  }
-  return flutterAssetsName;
+  return FLTAssetPath(bundle);
 }
 
 + (NSString*)domainNetworkPolicy:(NSDictionary*)appTransportSecurity {
@@ -369,6 +410,14 @@ flutter::Settings FLTDefaultSettingsForBundle(NSBundle* bundle) {
 
 + (NSString*)defaultBundleIdentifier {
   return @"io.flutter.flutter.app";
+}
+
+- (BOOL)isWideGamutEnabled {
+  return _settings.enable_wide_gamut;
+}
+
+- (BOOL)isImpellerEnabled {
+  return _settings.enable_impeller;
 }
 
 @end

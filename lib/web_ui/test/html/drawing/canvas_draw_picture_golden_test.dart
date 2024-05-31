@@ -7,6 +7,7 @@ import 'package:test/test.dart';
 import 'package:ui/src/engine.dart';
 import 'package:ui/ui.dart';
 
+import '../../common/test_initialization.dart';
 import '../screenshot.dart';
 
 const Rect region = Rect.fromLTWH(0, 0, 500, 100);
@@ -18,11 +19,13 @@ void main() {
 SurfacePaint makePaint() => Paint() as SurfacePaint;
 
 Future<void> testMain() async {
+  setUpUnitTests(
+    emulateTesterEnvironment: false,
+    setUpTestViewDimensions: false,
+  );
+
   setUpAll(() async {
     debugShowClipLayers = true;
-    await webOnlyInitializePlatform();
-    await renderer.fontCollection.debugDownloadTestFonts();
-    renderer.fontCollection.registerDownloadedFonts();
   });
 
   setUp(() async {
@@ -132,8 +135,6 @@ Picture _drawGreenRectIntoPicture() {
     makePaint()..color = const Color(0xFF00FF00));
   return recorder.endRecording();
 }
-
-typedef PaintCallback = void Function(RecordingCanvas canvas);
 
 const String _base64Encoded20x20TestImage =
     'iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAIAAAAC64paAAAACXBIWXMAAC4jAAAuIwF4pT92AAAA'

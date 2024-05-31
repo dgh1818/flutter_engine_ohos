@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifndef FLUTTER_SHELL_PLATFORM_DARWIN_MACOS_FRAMEWORK_SOURCE_FLUTTERKEYBOARDVIEWDELEGATE_H_
+#define FLUTTER_SHELL_PLATFORM_DARWIN_MACOS_FRAMEWORK_SOURCE_FLUTTERKEYBOARDVIEWDELEGATE_H_
+
 #import <Cocoa/Cocoa.h>
 
 #import "flutter/shell/platform/darwin/common/framework/Headers/FlutterBinaryMessenger.h"
@@ -86,4 +89,14 @@ typedef struct {
  */
 - (flutter::LayoutClue)lookUpLayoutForKeyCode:(uint16_t)keyCode shift:(BOOL)shift;
 
+/**
+ * Returns the keyboard pressed state.
+ *
+ * Returns the keyboard pressed state. The dictionary contains one entry per
+ * pressed keys, mapping from the logical key to the physical key.
+ */
+- (nonnull NSDictionary*)getPressedState;
+
 @end
+
+#endif  // FLUTTER_SHELL_PLATFORM_DARWIN_MACOS_FRAMEWORK_SOURCE_FLUTTERKEYBOARDVIEWDELEGATE_H_

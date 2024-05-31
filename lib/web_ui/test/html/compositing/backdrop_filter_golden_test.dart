@@ -9,16 +9,18 @@ import 'package:ui/ui.dart';
 
 import 'package:web_engine_tester/golden_tester.dart';
 
+import '../../common/test_initialization.dart';
+
 void main() {
   internalBootstrapBrowserTest(() => testMain);
 }
 
 Future<void> testMain() async {
-  setUpAll(() async {
-    await webOnlyInitializePlatform();
-    await renderer.fontCollection.debugDownloadTestFonts();
-    renderer.fontCollection.registerDownloadedFonts();
-  });
+  setUpUnitTests(
+    withImplicitView: true,
+    emulateTesterEnvironment: false,
+    setUpTestViewDimensions: false,
+  );
 
   setUp(() async {
     debugShowClipLayers = true;

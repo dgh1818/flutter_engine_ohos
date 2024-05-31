@@ -9,17 +9,23 @@
                     "include_paths": [
                         "out/android_jit_release_x86/zip_archives/android-x86-jit-release/artifacts.zip",
                         "out/android_jit_release_x86/zip_archives/download.flutter.io"
-                    ]
+                    ],
+                    "realm": "production"
                 }
             ],
             "drone_dimensions": [
                 "device_type=none",
                 "os=Linux"
             ],
+            "gclient_variables": {
+                "use_rbe": true
+            },
             "gn": [
                 "--android",
                 "--android-cpu=x86",
-                "--runtime-mode=jit_release"
+                "--runtime-mode=jit_release",
+                "--rbe",
+                "--no-goma"
             ],
             "name": "android_jit_release_x86",
             "ninja": {
@@ -35,6 +41,7 @@
                 {
                     "language": "python3",
                     "name": "Host Tests for android_jit_release_x86",
+                    "script": "flutter/testing/run_tests.py",
                     "parameters": [
                         "--variant",
                         "android_jit_release_x86",
@@ -43,40 +50,9 @@
                         "--engine-capture-core-dump",
                         "--android-variant",
                         "android_jit_release_x86"
-                    ],
-                    "script": "flutter/testing/run_tests.py",
-                    "type": "local"
+                    ]
                 }
             ]
-        },
-        {
-            "archives": [
-                {
-                    "name": "android_debug_unopt",
-                    "type": "gcs",
-                    "base_path": "out/android_release/zip_archives/",
-                    "include_paths": []
-                }
-            ],
-            "drone_dimensions": [
-                "device_type=none",
-                "os=Linux"
-            ],
-            "gclient_custom_vars": {
-                "download_android_deps": false
-            },
-            "gn": [
-                "--android",
-                "--unoptimized",
-                "--runtime-mode=debug",
-                "--no-lto"
-            ],
-            "name": "android_debug_unopt",
-            "ninja": {
-                "config": "android_debug_unopt",
-                "targets": []
-            },
-            "tests": []
         },
         {
             "archives": [
@@ -90,17 +66,23 @@
                         "out/android_debug/zip_archives/download.flutter.io",
                         "out/android_debug/zip_archives/sky_engine.zip",
                         "out/android_debug/zip_archives/android-javadoc.zip"
-                    ]
+                    ],
+                    "realm": "production"
                 }
             ],
             "drone_dimensions": [
                 "device_type=none",
                 "os=Linux"
             ],
+            "gclient_variables": {
+                "use_rbe": true
+            },
             "gn": [
                 "--android",
                 "--android-cpu=arm",
-                "--no-lto"
+                "--no-lto",
+                "--rbe",
+                "--no-goma"
             ],
             "name": "android_debug",
             "ninja": {
@@ -117,6 +99,7 @@
                 {
                     "language": "python3",
                     "name": "Host Tests for android_debug",
+                    "script": "flutter/testing/run_tests.py",
                     "parameters": [
                         "--variant",
                         "android_debug",
@@ -125,9 +108,7 @@
                         "--engine-capture-core-dump",
                         "--android-variant",
                         "android_debug"
-                    ],
-                    "script": "flutter/testing/run_tests.py",
-                    "type": "local"
+                    ]
                 }
             ]
         },
@@ -141,20 +122,23 @@
                         "out/android_debug_arm64/zip_archives/android-arm64/artifacts.zip",
                         "out/android_debug_arm64/zip_archives/android-arm64/symbols.zip",
                         "out/android_debug_arm64/zip_archives/download.flutter.io"
-                    ]
+                    ],
+                    "realm": "production"
                 }
             ],
             "drone_dimensions": [
                 "device_type=none",
                 "os=Linux"
             ],
-            "gclient_custom_vars": {
-                "download_android_deps": false
+            "gclient_variables": {
+                "use_rbe": true
             },
             "gn": [
                 "--android",
                 "--android-cpu=arm64",
-                "--no-lto"
+                "--no-lto",
+                "--rbe",
+                "--no-goma"
             ],
             "name": "android_debug_arm64",
             "ninja": {
@@ -163,8 +147,7 @@
                     "flutter",
                     "flutter/shell/platform/android:abi_jars"
                 ]
-            },
-            "tests": []
+            }
         },
         {
             "archives": [
@@ -176,20 +159,23 @@
                         "out/android_debug_x86/zip_archives/android-x86/artifacts.zip",
                         "out/android_debug_x86/zip_archives/android-x86/symbols.zip",
                         "out/android_debug_x86/zip_archives/download.flutter.io"
-                    ]
+                    ],
+                    "realm": "production"
                 }
             ],
             "drone_dimensions": [
                 "device_type=none",
                 "os=Linux"
             ],
-            "gclient_custom_vars": {
-                "download_android_deps": false
+            "gclient_variables": {
+                "use_rbe": true
             },
             "gn": [
                 "--android",
                 "--android-cpu=x86",
-                "--no-lto"
+                "--no-lto",
+                "--rbe",
+                "--no-goma"
             ],
             "name": "android_debug_x86",
             "ninja": {
@@ -198,8 +184,7 @@
                     "flutter",
                     "flutter/shell/platform/android:abi_jars"
                 ]
-            },
-            "tests": []
+            }
         },
         {
             "archives": [
@@ -211,20 +196,23 @@
                         "out/android_debug_x64/zip_archives/android-x64/artifacts.zip",
                         "out/android_debug_x64/zip_archives/android-x64/symbols.zip",
                         "out/android_debug_x64/zip_archives/download.flutter.io"
-                    ]
+                    ],
+                    "realm": "production"
                 }
             ],
             "drone_dimensions": [
                 "device_type=none",
                 "os=Linux"
             ],
-            "gclient_custom_vars": {
-                "download_android_deps": false
+            "gclient_variables": {
+                "use_rbe": true
             },
             "gn": [
                 "--android",
                 "--android-cpu=x64",
-                "--no-lto"
+                "--no-lto",
+                "--rbe",
+                "--no-goma"
             ],
             "name": "android_debug_x64",
             "ninja": {
@@ -233,9 +221,19 @@
                     "flutter",
                     "flutter/shell/platform/android:abi_jars"
                 ]
-            },
-            "tests": []
+            }
         }
     ],
-    "tests": []
+    "generators": {
+        "tasks": [
+            {
+                "name": "Verify-export-symbols-release-binaries",
+                "parameters": [
+                    "src/out"
+                ],
+                "script": "flutter/testing/symbols/verify_exported.dart",
+                "language": "dart"
+            }
+        ]
+    }
 }

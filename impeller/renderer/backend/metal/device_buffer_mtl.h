@@ -2,13 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_IMPELLER_RENDERER_BACKEND_METAL_DEVICE_BUFFER_MTL_H_
+#define FLUTTER_IMPELLER_RENDERER_BACKEND_METAL_DEVICE_BUFFER_MTL_H_
 
 #include <Metal/Metal.h>
 
 #include "flutter/fml/macros.h"
 #include "impeller/base/backend_cast.h"
-#include "impeller/renderer/device_buffer.h"
+#include "impeller/core/device_buffer.h"
 
 namespace impeller {
 
@@ -52,7 +53,14 @@ class DeviceBufferMTL final
   // |DeviceBuffer|
   bool SetLabel(const std::string& label, Range range) override;
 
-  FML_DISALLOW_COPY_AND_ASSIGN(DeviceBufferMTL);
+  // |DeviceBuffer|
+  void Flush(std::optional<Range> range) const override;
+
+  DeviceBufferMTL(const DeviceBufferMTL&) = delete;
+
+  DeviceBufferMTL& operator=(const DeviceBufferMTL&) = delete;
 };
 
 }  // namespace impeller
+
+#endif  // FLUTTER_IMPELLER_RENDERER_BACKEND_METAL_DEVICE_BUFFER_MTL_H_

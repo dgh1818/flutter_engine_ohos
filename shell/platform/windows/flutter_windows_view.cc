@@ -6,10 +6,12 @@
 
 #include <chrono>
 
+#include "flutter/common/constants.h"
+#include "flutter/fml/platform/win/wstring_conversion.h"
 #include "flutter/shell/platform/common/accessibility_bridge.h"
 #include "flutter/shell/platform/windows/keyboard_key_channel_handler.h"
-#include "flutter/shell/platform/windows/keyboard_key_embedder_handler.h"
 #include "flutter/shell/platform/windows/text_input_plugin.h"
+#include "flutter/third_party/accessibility/ax/platform/ax_platform_node_win.h"
 
 namespace flutter {
 
@@ -35,85 +37,135 @@ bool SurfaceWillUpdate(size_t cur_width,
       (cur_height != target_height) || (cur_width != target_width);
   return non_zero_target_dims && not_same_size;
 }
+
+/// Update the surface's swap interval to block until the v-blank iff
+/// the system compositor is disabled.
+void UpdateVsync(const FlutterWindowsEngine& engine,
+                 egl::WindowSurface* surface,
+                 bool needs_vsync) {
+  egl::Manager* egl_manager = engine.egl_manager();
+  if (!egl_manager) {
+    return;
+  }
+
+  auto update_vsync = [egl_manager, surface, needs_vsync]() {
+    if (!surface || !surface->IsValid()) {
+      return;
+    }
+
+    if (!surface->MakeCurrent()) {
+      FML_LOG(ERROR) << "Unable to make the render surface current to update "
+                        "the swap interval";
+      return;
+    }
+
+    if (!surface->SetVSyncEnabled(needs_vsync)) {
+      FML_LOG(ERROR) << "Unable to update the render surface's swap interval";
+    }
+
+    if (!egl_manager->render_context()->ClearCurrent()) {
+      FML_LOG(ERROR) << "Unable to clear current surface after updating "
+                        "the swap interval";
+    }
+  };
+
+  // Updating the vsync makes the EGL context and render surface current.
+  // If the engine is running, the render surface should only be made current on
+  // the raster thread. If the engine is initializing, the raster thread doesn't
+  // exist yet and the render surface can be made current on the platform
+  // thread.
+  if (engine.running()) {
+    engine.PostRasterThreadTask(update_vsync);
+  } else {
+    update_vsync();
+  }
+}
+
 }  // namespace
 
 FlutterWindowsView::FlutterWindowsView(
-    std::unique_ptr<WindowBindingHandler> window_binding) {
+    FlutterViewId view_id,
+    FlutterWindowsEngine* engine,
+    std::unique_ptr<WindowBindingHandler> window_binding,
+    std::shared_ptr<WindowsProcTable> windows_proc_table)
+    : view_id_(view_id),
+      engine_(engine),
+      windows_proc_table_(std::move(windows_proc_table)) {
+  if (windows_proc_table_ == nullptr) {
+    windows_proc_table_ = std::make_shared<WindowsProcTable>();
+  }
+
   // Take the binding handler, and give it a pointer back to self.
   binding_handler_ = std::move(window_binding);
   binding_handler_->SetView(this);
-
-  render_target_ = std::make_unique<WindowsRenderTarget>(
-      binding_handler_->GetRenderTarget());
 }
 
 FlutterWindowsView::~FlutterWindowsView() {
+  // The view owns the child window.
+  // Notify the engine the view's child window will no longer be visible.
+  engine_->OnWindowStateEvent(GetWindowHandle(), WindowStateEvent::kHide);
+
+  // The engine renders into the view's surface. The engine must be
+  // shutdown before the view's resources can be destroyed.
+  engine_->Stop();
+
   DestroyRenderSurface();
 }
 
-void FlutterWindowsView::SetEngine(
-    std::unique_ptr<FlutterWindowsEngine> engine) {
-  engine_ = std::move(engine);
-
-  engine_->SetView(this);
-
-  internal_plugin_registrar_ =
-      std::make_unique<PluginRegistrar>(engine_->GetRegistrar());
-
-  // Set up the system channel handlers.
-  auto internal_plugin_messenger = internal_plugin_registrar_->messenger();
-  InitializeKeyboard();
-  platform_handler_ =
-      std::make_unique<PlatformHandler>(internal_plugin_messenger, this);
-  cursor_handler_ = std::make_unique<CursorHandler>(internal_plugin_messenger,
-                                                    binding_handler_.get());
-
-  PhysicalWindowBounds bounds = binding_handler_->GetPhysicalWindowBounds();
-
-  SendWindowMetrics(bounds.width, bounds.height,
-                    binding_handler_->GetDpiScale());
-}
-
-std::unique_ptr<KeyboardHandlerBase>
-FlutterWindowsView::CreateKeyboardKeyHandler(
-    BinaryMessenger* messenger,
-    KeyboardKeyEmbedderHandler::GetKeyStateHandler get_key_state,
-    KeyboardKeyEmbedderHandler::MapVirtualKeyToScanCode map_vk_to_scan) {
-  auto keyboard_key_handler = std::make_unique<KeyboardKeyHandler>();
-  keyboard_key_handler->AddDelegate(
-      std::make_unique<KeyboardKeyEmbedderHandler>(
-          [this](const FlutterKeyEvent& event, FlutterKeyEventCallback callback,
-                 void* user_data) {
-            return engine_->SendKeyEvent(event, callback, user_data);
-          },
-          get_key_state, map_vk_to_scan));
-  keyboard_key_handler->AddDelegate(
-      std::make_unique<KeyboardKeyChannelHandler>(messenger));
-  return keyboard_key_handler;
-}
-
-std::unique_ptr<TextInputPlugin> FlutterWindowsView::CreateTextInputPlugin(
-    BinaryMessenger* messenger) {
-  return std::make_unique<TextInputPlugin>(messenger, this);
-}
-
-uint32_t FlutterWindowsView::GetFrameBufferId(size_t width, size_t height) {
-  // Called on an engine-controlled (non-platform) thread.
+bool FlutterWindowsView::OnEmptyFrameGenerated() {
+  // Called on the raster thread.
   std::unique_lock<std::mutex> lock(resize_mutex_);
 
+  if (surface_ == nullptr || !surface_->IsValid()) {
+    return false;
+  }
+
   if (resize_status_ != ResizeState::kResizeStarted) {
-    return kWindowFrameBufferID;
+    return true;
   }
 
-  if (resize_target_width_ == width && resize_target_height_ == height) {
-    // Platform thread is blocked for the entire duration until the
-    // resize_status_ is set to kDone.
-    engine_->surface_manager()->ResizeSurface(GetRenderTarget(), width, height);
-    engine_->surface_manager()->MakeCurrent();
-    resize_status_ = ResizeState::kFrameGenerated;
+  if (!ResizeRenderSurface(resize_target_height_, resize_target_width_)) {
+    return false;
   }
 
-  return kWindowFrameBufferID;
+  // Platform thread is blocked for the entire duration until the
+  // resize_status_ is set to kDone by |OnFramePresented|.
+  resize_status_ = ResizeState::kFrameGenerated;
+  return true;
+}
+
+bool FlutterWindowsView::OnFrameGenerated(size_t width, size_t height) {
+  // Called on the raster thread.
+  std::unique_lock<std::mutex> lock(resize_mutex_);
+
+  if (surface_ == nullptr || !surface_->IsValid()) {
+    return false;
+  }
+
+  if (resize_status_ != ResizeState::kResizeStarted) {
+    return true;
+  }
+
+  if (resize_target_width_ != width || resize_target_height_ != height) {
+    return false;
+  }
+
+  if (!ResizeRenderSurface(resize_target_width_, resize_target_height_)) {
+    return false;
+  }
+
+  // Platform thread is blocked for the entire duration until the
+  // resize_status_ is set to kDone by |OnFramePresented|.
+  resize_status_ = ResizeState::kFrameGenerated;
+  return true;
+}
+
+void FlutterWindowsView::UpdateFlutterCursor(const std::string& cursor_name) {
+  binding_handler_->UpdateFlutterCursor(cursor_name);
+}
+
+void FlutterWindowsView::SetFlutterCursor(HCURSOR cursor) {
+  binding_handler_->SetFlutterCursor(cursor);
 }
 
 void FlutterWindowsView::ForceRedraw() {
@@ -123,42 +175,42 @@ void FlutterWindowsView::ForceRedraw() {
   }
 }
 
-void FlutterWindowsView::OnPreEngineRestart() {
-  InitializeKeyboard();
-}
-
-void FlutterWindowsView::OnWindowSizeChanged(size_t width, size_t height) {
+bool FlutterWindowsView::OnWindowSizeChanged(size_t width, size_t height) {
   // Called on the platform thread.
   std::unique_lock<std::mutex> lock(resize_mutex_);
 
-  if (!engine_->surface_manager()) {
+  if (!engine_->egl_manager()) {
     SendWindowMetrics(width, height, binding_handler_->GetDpiScale());
-    return;
+    return true;
   }
 
-  EGLint surface_width, surface_height;
-  engine_->surface_manager()->GetSurfaceDimensions(&surface_width,
-                                                   &surface_height);
+  if (!surface_ || !surface_->IsValid()) {
+    SendWindowMetrics(width, height, binding_handler_->GetDpiScale());
+    return true;
+  }
 
+  // We're using OpenGL rendering. Resizing the surface must happen on the
+  // raster thread.
   bool surface_will_update =
-      SurfaceWillUpdate(surface_width, surface_height, width, height);
-  if (surface_will_update) {
-    resize_status_ = ResizeState::kResizeStarted;
-    resize_target_width_ = width;
-    resize_target_height_ = height;
+      SurfaceWillUpdate(surface_->width(), surface_->height(), width, height);
+  if (!surface_will_update) {
+    SendWindowMetrics(width, height, binding_handler_->GetDpiScale());
+    return true;
   }
+
+  resize_status_ = ResizeState::kResizeStarted;
+  resize_target_width_ = width;
+  resize_target_height_ = height;
 
   SendWindowMetrics(width, height, binding_handler_->GetDpiScale());
 
-  if (surface_will_update) {
-    // Block the platform thread until:
-    //   1. GetFrameBufferId is called with the right frame size.
-    //   2. Any pending SwapBuffers calls have been invoked.
-    resize_cv_.wait_for(lock, kWindowResizeTimeout,
-                        [&resize_status = resize_status_] {
-                          return resize_status == ResizeState::kDone;
-                        });
-  }
+  // Block the platform thread until a frame is presented with the target
+  // size. See |OnFrameGenerated|, |OnEmptyFrameGenerated|, and
+  // |OnFramePresented|.
+  return resize_cv_.wait_for(lock, kWindowResizeTimeout,
+                             [&resize_status = resize_status_] {
+                               return resize_status == ResizeState::kDone;
+                             });
 }
 
 void FlutterWindowsView::OnWindowRepaint() {
@@ -168,7 +220,9 @@ void FlutterWindowsView::OnWindowRepaint() {
 void FlutterWindowsView::OnPointerMove(double x,
                                        double y,
                                        FlutterPointerDeviceKind device_kind,
-                                       int32_t device_id) {
+                                       int32_t device_id,
+                                       int modifiers_state) {
+  engine_->keyboard_key_handler()->SyncModifiersIfNeeded(modifiers_state);
   SendPointerMove(x, y, GetOrCreatePointerState(device_kind, device_id));
 }
 
@@ -274,7 +328,11 @@ void FlutterWindowsView::OnUpdateSemanticsEnabled(bool enabled) {
 }
 
 gfx::NativeViewAccessible FlutterWindowsView::GetNativeViewAccessible() {
-  return engine_->GetNativeAccessibleFromId(AccessibilityBridge::kRootNodeId);
+  if (!accessibility_bridge_) {
+    return nullptr;
+  }
+
+  return accessibility_bridge_->GetChildOfAXFragmentRoot();
 }
 
 void FlutterWindowsView::OnCursorRectUpdated(const Rect& rect) {
@@ -283,22 +341,6 @@ void FlutterWindowsView::OnCursorRectUpdated(const Rect& rect) {
 
 void FlutterWindowsView::OnResetImeComposing() {
   binding_handler_->OnResetImeComposing();
-}
-
-void FlutterWindowsView::InitializeKeyboard() {
-  auto internal_plugin_messenger = internal_plugin_registrar_->messenger();
-  // TODO(cbracken): This can be inlined into KeyboardKeyEmedderHandler once
-  // UWP code is removed. https://github.com/flutter/flutter/issues/102172.
-  KeyboardKeyEmbedderHandler::GetKeyStateHandler get_key_state = GetKeyState;
-  KeyboardKeyEmbedderHandler::MapVirtualKeyToScanCode map_vk_to_scan =
-      [](UINT virtual_key, bool extended) {
-        return MapVirtualKey(virtual_key,
-                             extended ? MAPVK_VK_TO_VSC_EX : MAPVK_VK_TO_VSC);
-      };
-  keyboard_key_handler_ = std::move(CreateKeyboardKeyHandler(
-      internal_plugin_messenger, get_key_state, map_vk_to_scan));
-  text_input_plugin_ =
-      std::move(CreateTextInputPlugin(internal_plugin_messenger));
 }
 
 // Sends new size  information to FlutterEngine.
@@ -310,6 +352,7 @@ void FlutterWindowsView::SendWindowMetrics(size_t width,
   event.width = width;
   event.height = height;
   event.pixel_ratio = dpiScale;
+  event.view_id = view_id_;
   engine_->SendWindowMetricsEvent(event);
 }
 
@@ -448,7 +491,7 @@ void FlutterWindowsView::SendPointerPanZoomEnd(int32_t device_id) {
 }
 
 void FlutterWindowsView::SendText(const std::u16string& text) {
-  text_input_plugin_->TextHook(text);
+  engine_->text_input_plugin()->TextHook(text);
 }
 
 void FlutterWindowsView::SendKey(int key,
@@ -458,32 +501,32 @@ void FlutterWindowsView::SendKey(int key,
                                  bool extended,
                                  bool was_down,
                                  KeyEventCallback callback) {
-  keyboard_key_handler_->KeyboardHook(
+  engine_->keyboard_key_handler()->KeyboardHook(
       key, scancode, action, character, extended, was_down,
       [=, callback = std::move(callback)](bool handled) {
         if (!handled) {
-          text_input_plugin_->KeyboardHook(key, scancode, action, character,
-                                           extended, was_down);
+          engine_->text_input_plugin()->KeyboardHook(
+              key, scancode, action, character, extended, was_down);
         }
         callback(handled);
       });
 }
 
 void FlutterWindowsView::SendComposeBegin() {
-  text_input_plugin_->ComposeBeginHook();
+  engine_->text_input_plugin()->ComposeBeginHook();
 }
 
 void FlutterWindowsView::SendComposeCommit() {
-  text_input_plugin_->ComposeCommitHook();
+  engine_->text_input_plugin()->ComposeCommitHook();
 }
 
 void FlutterWindowsView::SendComposeEnd() {
-  text_input_plugin_->ComposeEndHook();
+  engine_->text_input_plugin()->ComposeEndHook();
 }
 
 void FlutterWindowsView::SendComposeChange(const std::u16string& text,
                                            int cursor_pos) {
-  text_input_plugin_->ComposeChangeHook(text, cursor_pos);
+  engine_->text_input_plugin()->ComposeChangeHook(text, cursor_pos);
 }
 
 void FlutterWindowsView::SendScroll(double x,
@@ -546,6 +589,7 @@ void FlutterWindowsView::SendPointerEventWithData(
   event.device_kind = state->device_kind;
   event.device = state->pointer_id;
   event.buttons = state->buttons;
+  event.view_id = view_id_;
 
   // Set metadata that's always the same regardless of the event.
   event.struct_size = sizeof(event);
@@ -566,51 +610,40 @@ void FlutterWindowsView::SendPointerEventWithData(
   }
 }
 
-bool FlutterWindowsView::MakeCurrent() {
-  return engine_->surface_manager()->MakeCurrent();
-}
-
-bool FlutterWindowsView::MakeResourceCurrent() {
-  return engine_->surface_manager()->MakeResourceCurrent();
-}
-
-bool FlutterWindowsView::ClearContext() {
-  return engine_->surface_manager()->ClearContext();
-}
-
-bool FlutterWindowsView::SwapBuffers() {
-  // Called on an engine-controlled (non-platform) thread.
+void FlutterWindowsView::OnFramePresented() {
+  // Called on the engine's raster thread.
   std::unique_lock<std::mutex> lock(resize_mutex_);
 
   switch (resize_status_) {
-    // SwapBuffer requests during resize are ignored until the frame with the
-    // right dimensions has been generated. This is marked with
-    // kFrameGenerated resize status.
     case ResizeState::kResizeStarted:
-      return false;
+      // The caller must first call |OnFrameGenerated| or
+      // |OnEmptyFrameGenerated| before calling this method. This
+      // indicates one of the following:
+      //
+      // 1. The caller did not call these methods.
+      // 2. The caller ignored these methods' result.
+      // 3. The platform thread started a resize after the caller called these
+      //    methods. We might have presented a frame of the wrong size to the
+      //    view.
+      return;
     case ResizeState::kFrameGenerated: {
-      bool visible = binding_handler_->IsVisible();
-      bool swap_buffers_result;
-      // For visible windows swap the buffers while resize handler is waiting.
-      // For invisible windows unblock the handler first and then swap buffers.
-      // SwapBuffers waits for vsync and there's no point doing that for
-      // invisible windows.
-      if (visible) {
-        swap_buffers_result = engine_->surface_manager()->SwapBuffers();
-      }
+      // A frame was generated for a pending resize.
+      // Unblock the platform thread.
       resize_status_ = ResizeState::kDone;
       lock.unlock();
       resize_cv_.notify_all();
-      binding_handler_->OnWindowResized();
-      if (!visible) {
-        swap_buffers_result = engine_->surface_manager()->SwapBuffers();
-      }
-      return swap_buffers_result;
+
+      // Blocking the raster thread until DWM flushes alleviates glitches where
+      // previous size surface is stretched over current size view.
+      windows_proc_table_->DwmFlush();
     }
     case ResizeState::kDone:
-    default:
-      return engine_->surface_manager()->SwapBuffers();
+      return;
   }
+}
+
+bool FlutterWindowsView::ClearSoftwareBitmap() {
+  return binding_handler_->OnBitmapSurfaceCleared();
 }
 
 bool FlutterWindowsView::PresentSoftwareBitmap(const void* allocation,
@@ -620,61 +653,140 @@ bool FlutterWindowsView::PresentSoftwareBitmap(const void* allocation,
                                                   height);
 }
 
+FlutterViewId FlutterWindowsView::view_id() const {
+  return view_id_;
+}
+
 void FlutterWindowsView::CreateRenderSurface() {
-  if (engine_ && engine_->surface_manager()) {
+  FML_DCHECK(surface_ == nullptr);
+
+  if (engine_->egl_manager()) {
     PhysicalWindowBounds bounds = binding_handler_->GetPhysicalWindowBounds();
-    engine_->surface_manager()->CreateSurface(GetRenderTarget(), bounds.width,
-                                              bounds.height);
+    surface_ = engine_->egl_manager()->CreateWindowSurface(
+        GetWindowHandle(), bounds.width, bounds.height);
+
+    UpdateVsync(*engine_, surface_.get(), NeedsVsync());
+
     resize_target_width_ = bounds.width;
     resize_target_height_ = bounds.height;
   }
 }
 
+bool FlutterWindowsView::ResizeRenderSurface(size_t width, size_t height) {
+  FML_DCHECK(surface_ != nullptr);
+
+  // No-op if the surface is already the desired size.
+  if (width == surface_->width() && height == surface_->height()) {
+    return true;
+  }
+
+  auto const existing_vsync = surface_->vsync_enabled();
+
+  // TODO: Destroying the surface and re-creating it is expensive.
+  // Ideally this would use ANGLE's automatic surface sizing instead.
+  // See: https://github.com/flutter/flutter/issues/79427
+  if (!surface_->Destroy()) {
+    FML_LOG(ERROR) << "View resize failed to destroy surface";
+    return false;
+  }
+
+  std::unique_ptr<egl::WindowSurface> resized_surface =
+      engine_->egl_manager()->CreateWindowSurface(GetWindowHandle(), width,
+                                                  height);
+  if (!resized_surface) {
+    FML_LOG(ERROR) << "View resize failed to create surface";
+    return false;
+  }
+
+  if (!resized_surface->MakeCurrent() ||
+      !resized_surface->SetVSyncEnabled(existing_vsync)) {
+    // Surfaces block until the v-blank by default.
+    // Failing to update the vsync might result in unnecessary blocking.
+    // This regresses performance but not correctness.
+    FML_LOG(ERROR) << "View resize failed to set vsync";
+  }
+
+  surface_ = std::move(resized_surface);
+  return true;
+}
+
 void FlutterWindowsView::DestroyRenderSurface() {
-  if (engine_ && engine_->surface_manager()) {
-    engine_->surface_manager()->DestroySurface();
+  if (surface_) {
+    surface_->Destroy();
   }
 }
 
-void FlutterWindowsView::SendInitialAccessibilityFeatures() {
-  binding_handler_->SendInitialAccessibilityFeatures();
+egl::WindowSurface* FlutterWindowsView::surface() const {
+  return surface_.get();
 }
 
-void FlutterWindowsView::UpdateHighContrastEnabled(bool enabled) {
-  engine_->UpdateHighContrastEnabled(enabled);
+void FlutterWindowsView::OnHighContrastChanged() {
+  engine_->UpdateHighContrastMode();
 }
 
-WindowsRenderTarget* FlutterWindowsView::GetRenderTarget() const {
-  return render_target_.get();
+HWND FlutterWindowsView::GetWindowHandle() const {
+  return binding_handler_->GetWindowHandle();
 }
 
-PlatformWindow FlutterWindowsView::GetPlatformWindow() const {
-  return binding_handler_->GetPlatformWindow();
-}
-
-FlutterWindowsEngine* FlutterWindowsView::GetEngine() {
-  return engine_.get();
+FlutterWindowsEngine* FlutterWindowsView::GetEngine() const {
+  return engine_;
 }
 
 void FlutterWindowsView::AnnounceAlert(const std::wstring& text) {
-  AccessibilityRootNode* root_node =
-      binding_handler_->GetAccessibilityRootNode();
-  AccessibilityAlert* alert =
-      binding_handler_->GetAccessibilityRootNode()->GetOrCreateAlert();
-  alert->SetText(text);
-  HWND hwnd = GetPlatformWindow();
-  NotifyWinEventWrapper(EVENT_SYSTEM_ALERT, hwnd, OBJID_CLIENT,
-                        AccessibilityRootNode::kAlertChildId);
+  auto alert_delegate = binding_handler_->GetAlertDelegate();
+  if (!alert_delegate) {
+    return;
+  }
+  alert_delegate->SetText(fml::WideStringToUtf16(text));
+  ui::AXPlatformNodeWin* alert_node = binding_handler_->GetAlert();
+  NotifyWinEventWrapper(alert_node, ax::mojom::Event::kAlert);
 }
 
-void FlutterWindowsView::NotifyWinEventWrapper(DWORD event,
-                                               HWND hwnd,
-                                               LONG idObject,
-                                               LONG idChild) {
-  if (hwnd) {
-    NotifyWinEvent(EVENT_SYSTEM_ALERT, hwnd, OBJID_CLIENT,
-                   AccessibilityRootNode::kAlertChildId);
+void FlutterWindowsView::NotifyWinEventWrapper(ui::AXPlatformNodeWin* node,
+                                               ax::mojom::Event event) {
+  if (node) {
+    node->NotifyAccessibilityEvent(event);
   }
+}
+
+ui::AXFragmentRootDelegateWin* FlutterWindowsView::GetAxFragmentRootDelegate() {
+  return accessibility_bridge_.get();
+}
+
+ui::AXPlatformNodeWin* FlutterWindowsView::AlertNode() const {
+  return binding_handler_->GetAlert();
+}
+
+std::shared_ptr<AccessibilityBridgeWindows>
+FlutterWindowsView::CreateAccessibilityBridge() {
+  return std::make_shared<AccessibilityBridgeWindows>(this);
+}
+
+void FlutterWindowsView::UpdateSemanticsEnabled(bool enabled) {
+  if (semantics_enabled_ != enabled) {
+    semantics_enabled_ = enabled;
+
+    if (!semantics_enabled_ && accessibility_bridge_) {
+      accessibility_bridge_.reset();
+    } else if (semantics_enabled_ && !accessibility_bridge_) {
+      accessibility_bridge_ = CreateAccessibilityBridge();
+    }
+  }
+}
+
+void FlutterWindowsView::OnDwmCompositionChanged() {
+  UpdateVsync(*engine_, surface_.get(), NeedsVsync());
+}
+
+void FlutterWindowsView::OnWindowStateEvent(HWND hwnd, WindowStateEvent event) {
+  engine_->OnWindowStateEvent(hwnd, event);
+}
+
+bool FlutterWindowsView::NeedsVsync() const {
+  // If the Desktop Window Manager composition is enabled,
+  // the system itself synchronizes with vsync.
+  // See: https://learn.microsoft.com/windows/win32/dwm/composition-ovw
+  return !windows_proc_table_->DwmIsCompositionEnabled();
 }
 
 }  // namespace flutter

@@ -2,11 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef FLOW_TESTING_MOCK_LAYER_H_
-#define FLOW_TESTING_MOCK_LAYER_H_
+#ifndef FLUTTER_FLOW_TESTING_MOCK_LAYER_H_
+#define FLUTTER_FLOW_TESTING_MOCK_LAYER_H_
 
 #include <functional>
 #include <memory>
+#include <utility>
 #include "flutter/flow/diff_context.h"
 #include "flutter/flow/layers/cacheable_layer.h"
 #include "flutter/flow/layers/container_layer.h"
@@ -24,15 +25,15 @@ namespace testing {
 // verify the data against expected values.
 class MockLayer : public Layer {
  public:
-  explicit MockLayer(const SkPath& path, SkPaint paint = SkPaint());
+  explicit MockLayer(const SkPath& path, DlPaint paint = DlPaint());
 
-  static std::shared_ptr<MockLayer> Make(SkPath path,
-                                         SkPaint paint = SkPaint()) {
-    return std::make_shared<MockLayer>(path, paint);
+  static std::shared_ptr<MockLayer> Make(const SkPath& path,
+                                         DlPaint paint = DlPaint()) {
+    return std::make_shared<MockLayer>(path, std::move(paint));
   }
 
-  static std::shared_ptr<MockLayer> MakeOpacityCompatible(SkPath path) {
-    auto mock_layer = std::make_shared<MockLayer>(path, SkPaint());
+  static std::shared_ptr<MockLayer> MakeOpacityCompatible(const SkPath& path) {
+    auto mock_layer = std::make_shared<MockLayer>(path, DlPaint());
     mock_layer->set_fake_opacity_compatible(true);
     return mock_layer;
   }
@@ -111,7 +112,7 @@ class MockLayer : public Layer {
   SkMatrix parent_matrix_;
   SkRect parent_cull_rect_ = SkRect::MakeEmpty();
   SkPath fake_paint_path_;
-  SkPaint fake_paint_;
+  DlPaint fake_paint_;
   std::optional<SkMatrix> expected_paint_matrix_;
 
   static constexpr int kParentHasPlatformView = 1 << 0;
@@ -152,10 +153,10 @@ class MockLayerCacheableItem : public LayerRasterCacheItem {
 };
 class MockCacheableLayer : public MockLayer {
  public:
-  explicit MockCacheableLayer(SkPath path,
-                              SkPaint paint = SkPaint(),
+  explicit MockCacheableLayer(const SkPath& path,
+                              DlPaint paint = DlPaint(),
                               int render_limit = 3)
-      : MockLayer(path, paint) {
+      : MockLayer(path, std::move(paint)) {
     raster_cache_item_ =
         std::make_unique<MockLayerCacheableItem>(this, render_limit);
   }
@@ -173,4 +174,4 @@ class MockCacheableLayer : public MockLayer {
 }  // namespace testing
 }  // namespace flutter
 
-#endif  // FLOW_TESTING_MOCK_LAYER_H_
+#endif  // FLUTTER_FLOW_TESTING_MOCK_LAYER_H_

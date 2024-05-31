@@ -8,7 +8,6 @@ import argparse
 import errno
 import os
 import shutil
-import subprocess
 import sys
 
 
@@ -19,10 +18,7 @@ def main():
   )
 
   parser.add_argument(
-      '--headers',
-      nargs='+',
-      help='The headers to install at the location.',
-      required=True
+      '--headers', nargs='+', help='The headers to install at the location.', required=True
   )
   parser.add_argument('--location', type=str, required=True)
 
@@ -31,10 +27,10 @@ def main():
   # Remove old headers.
   try:
     shutil.rmtree(os.path.normpath(args.location))
-  except OSError as e:
+  except OSError as err:
     # Ignore only "not found" errors.
-    if e.errno != errno.ENOENT:
-      raise e
+    if err.errno != errno.ENOENT:
+      raise err
 
   # Create the directory to copy the files to.
   if not os.path.isdir(args.location):
@@ -42,9 +38,7 @@ def main():
 
   # Copy all files specified in the args.
   for header_file in args.headers:
-    shutil.copyfile(
-        header_file, os.path.join(args.location, os.path.basename(header_file))
-    )
+    shutil.copyfile(header_file, os.path.join(args.location, os.path.basename(header_file)))
 
 
 if __name__ == '__main__':

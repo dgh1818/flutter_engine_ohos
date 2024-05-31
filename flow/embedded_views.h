@@ -5,21 +5,32 @@
 #ifndef FLUTTER_FLOW_EMBEDDED_VIEWS_H_
 #define FLUTTER_FLOW_EMBEDDED_VIEWS_H_
 
+#include <memory>
+#include <utility>
 #include <vector>
 
-#include "flutter/display_list/display_list_builder.h"
-#include "flutter/flow/rtree.h"
+#include "flutter/display_list/dl_builder.h"
+#include "flutter/display_list/skia/dl_sk_canvas.h"
 #include "flutter/flow/surface_frame.h"
 #include "flutter/fml/memory/ref_counted.h"
 #include "flutter/fml/raster_thread_merger.h"
-#include "third_party/skia/include/core/SkCanvas.h"
+#include "third_party/skia/include/core/SkMatrix.h"
 #include "third_party/skia/include/core/SkPath.h"
-#include "third_party/skia/include/core/SkPictureRecorder.h"
-#include "third_party/skia/include/core/SkPoint.h"
 #include "third_party/skia/include/core/SkRRect.h"
 #include "third_party/skia/include/core/SkRect.h"
 #include "third_party/skia/include/core/SkSize.h"
-#include "third_party/skia/include/core/SkSurface.h"
+
+#if IMPELLER_SUPPORTS_RENDERING
+#include "flutter/impeller/aiks/aiks_context.h"  // nogncheck
+#include "flutter/impeller/renderer/context.h"   // nogncheck
+#else                                            // IMPELLER_SUPPORTS_RENDERING
+namespace impeller {
+class Context;
+class AiksContext;
+}  // namespace impeller
+#endif                                           // !IMPELLER_SUPPORTS_RENDERING
+
+class GrDirectContext;
 
 namespace flutter {
 
@@ -41,7 +52,7 @@ class ImageFilterMutation {
  public:
   ImageFilterMutation(std::shared_ptr<const DlImageFilter> filter,
                       const SkRect& filter_rect)
-      : filter_(filter), filter_rect_(filter_rect) {}
+      : filter_(std::move(filter)), filter_rect_(filter_rect) {}
 
   const DlImageFilter& GetFilter() const { return *filter_; }
   const SkRect& GetFilterRect() const { return filter_rect_; }
@@ -100,7 +111,7 @@ class Mutator {
   explicit Mutator(const SkMatrix& matrix)
       : type_(kTransform), matrix_(matrix) {}
   explicit Mutator(const int& alpha) : type_(kOpacity), alpha_(alpha) {}
-  explicit Mutator(std::shared_ptr<const DlImageFilter> filter,
+  explicit Mutator(const std::shared_ptr<const DlImageFilter>& filter,
                    const SkRect& filter_rect)
       : type_(kBackdropFilter),
         filter_mutation_(
@@ -115,7 +126,7 @@ class Mutator {
     return *filter_mutation_;
   }
   const int& GetAlpha() const { return alpha_; }
-  float GetAlphaFloat() const { return (alpha_ / 255.0); }
+  float GetAlphaFloat() const { return (alpha_ / 255.0f); }
 
   bool operator==(const Mutator& other) const {
     if (type_ != other.type_) {
@@ -185,6 +196,7 @@ class MutatorsStack {
   void PushClipPath(const SkPath& path);
   void PushTransform(const SkMatrix& matrix);
   void PushOpacity(const int& alpha);
+  // `filter_rect` is in global coordinates.
   void PushBackdropFilter(const std::shared_ptr<const DlImageFilter>& filter,
                           const SkRect& filter_rect);
 
@@ -256,12 +268,10 @@ class EmbeddedViewParams {
 
   EmbeddedViewParams(SkMatrix matrix,
                      SkSize size_points,
-                     MutatorsStack mutators_stack,
-                     bool display_list_enabled = false)
+                     MutatorsStack mutators_stack)
       : matrix_(matrix),
         size_points_(size_points),
-        mutators_stack_(mutators_stack),
-        display_list_enabled_(display_list_enabled) {
+        mutators_stack_(std::move(mutators_stack)) {
     SkPath path;
     SkRect starting_rect = SkRect::MakeSize(size_points);
     path.addRect(starting_rect);
@@ -284,14 +294,12 @@ class EmbeddedViewParams {
   const SkRect& finalBoundingRect() const { return final_bounding_rect_; }
 
   // Pushes the stored DlImageFilter object to the mutators stack.
-  void PushImageFilter(std::shared_ptr<const DlImageFilter> filter,
+  //
+  // `filter_rect` is in global coordinates.
+  void PushImageFilter(const std::shared_ptr<const DlImageFilter>& filter,
                        const SkRect& filter_rect) {
     mutators_stack_.PushBackdropFilter(filter, filter_rect);
   }
-
-  // Whether the embedder should construct DisplayList objects to hold the
-  // rendering commands for each between-view slice of the layer tree.
-  bool display_list_enabled() const { return display_list_enabled_; }
 
   bool operator==(const EmbeddedViewParams& other) const {
     return size_points_ == other.size_points_ &&
@@ -305,7 +313,6 @@ class EmbeddedViewParams {
   SkSize size_points_;
   MutatorsStack mutators_stack_;
   SkRect final_bounding_rect_;
-  bool display_list_enabled_;
 };
 
 enum class PostPrerollResult {
@@ -320,67 +327,41 @@ enum class PostPrerollResult {
   kSkipAndRetryFrame
 };
 
-// The |PlatformViewLayer| calls |CompositeEmbeddedView| in its |Paint|
-// method to replace the leaf_nodes_canvas and leaf_nodes_builder in its
-// |PaintContext| for subsequent layers in the frame to render into.
-// The builder value will only be supplied if the associated ScopedFrame
-// is being rendered to DisplayLists. The |EmbedderPaintContext| struct
-// allows the method to return both values.
-struct EmbedderPaintContext {
-  SkCanvas* canvas;
-  DisplayListBuilder* builder;
-};
-
 // The |EmbedderViewSlice| represents the details of recording all of
 // the layer tree rendering operations that appear between before, after
-// and between the embedded views. The Slice may be recorded into an
-// SkPicture or a DisplayListBuilder depending on the ScopedFrame.
+// and between the embedded views. The Slice used to abstract away
+// implementations that were based on either an SkPicture or a
+// DisplayListBuilder but more recently all of the embedder recordings
+// have standardized on the DisplayList.
 class EmbedderViewSlice {
  public:
   virtual ~EmbedderViewSlice() = default;
-  virtual SkCanvas* canvas() = 0;
-  virtual DisplayListBuilder* builder() = 0;
+  virtual DlCanvas* canvas() = 0;
   virtual void end_recording() = 0;
-  virtual std::list<SkRect> searchNonOverlappingDrawnRects(
-      const SkRect& query) const = 0;
-  virtual void render_into(SkCanvas* canvas) = 0;
-  virtual void render_into(DisplayListBuilder* builder) = 0;
-};
+  virtual const DlRegion& getRegion() const = 0;
+  DlRegion region(const SkRect& query) const {
+    return DlRegion::MakeIntersection(getRegion(), DlRegion(query.roundOut()));
+  }
 
-class SkPictureEmbedderViewSlice : public EmbedderViewSlice {
- public:
-  SkPictureEmbedderViewSlice(SkRect view_bounds);
-  ~SkPictureEmbedderViewSlice() override = default;
-
-  SkCanvas* canvas() override;
-  DisplayListBuilder* builder() override;
-  void end_recording() override;
-  std::list<SkRect> searchNonOverlappingDrawnRects(
-      const SkRect& query) const override;
-  void render_into(SkCanvas* canvas) override;
-  void render_into(DisplayListBuilder* builder) override;
-
- private:
-  std::unique_ptr<SkPictureRecorder> recorder_;
-  sk_sp<RTree> rtree_;
-  sk_sp<SkPicture> picture_;
+  virtual void render_into(DlCanvas* canvas) = 0;
 };
 
 class DisplayListEmbedderViewSlice : public EmbedderViewSlice {
  public:
-  DisplayListEmbedderViewSlice(SkRect view_bounds);
+  explicit DisplayListEmbedderViewSlice(SkRect view_bounds);
   ~DisplayListEmbedderViewSlice() override = default;
 
-  SkCanvas* canvas() override;
-  DisplayListBuilder* builder() override;
+  DlCanvas* canvas() override;
   void end_recording() override;
-  std::list<SkRect> searchNonOverlappingDrawnRects(
-      const SkRect& query) const override;
-  void render_into(SkCanvas* canvas) override;
-  void render_into(DisplayListBuilder* builder) override;
+  const DlRegion& getRegion() const override;
+
+  void render_into(DlCanvas* canvas) override;
+  void dispatch(DlOpReceiver& receiver);
+  bool is_empty();
+  bool recording_ended();
 
  private:
-  std::unique_ptr<DisplayListCanvasRecorder> recorder_;
+  std::unique_ptr<DisplayListBuilder> builder_;
   sk_sp<DisplayList> display_list_;
 };
 
@@ -388,6 +369,29 @@ class DisplayListEmbedderViewSlice : public EmbedderViewSlice {
 //
 // Used on iOS, Android (hybrid composite mode), and on embedded platforms
 // that provide a system compositor as part of the project arguments.
+//
+// There are two kinds of "view IDs" in the context of ExternalViewEmbedder, and
+// specific names are used to avoid ambiguation:
+//
+// * ExternalViewEmbedder composites a stack of layers. Each layer's content
+//   might be from Flutter widgets, or a platform view, which displays platform
+//   native components. Each platform view is labeled by a view ID, which
+//   corresponds to the ID from `PlatformViewsRegistry.getNextPlatformViewId`
+//   from the framework. In the context of `ExternalViewEmbedder`, this ID is
+//   called platform_view_id.
+// * The layers are compositied into a single rectangular surface, displayed by
+//   taking up an entire native window or part of a window. Each such surface
+//   is labeled by a view ID, which corresponds to `FlutterView.viewID` from
+//   dart:ui. In the context of `ExternalViewEmbedder`, this ID is called
+//   flutter_view_id.
+//
+// The lifecycle of drawing a frame using ExternalViewEmbedder is:
+//
+//   1. At the start of a frame, call |BeginFrame|, then |SetUsedThisFrame| to
+//      true.
+//   2. For each view to be drawn, call |PrepareFlutterView|, then
+//   |SubmitFlutterView|.
+//   3. At the end of a frame, if |GetUsedThisFrame| is true, call |EndFrame|.
 class ExternalViewEmbedder {
   // TODO(cyanglaz): Make embedder own the `EmbeddedViewParams`.
 
@@ -400,9 +404,9 @@ class ExternalViewEmbedder {
   // the view embedder wants to provide a canvas to the rasterizer, it may
   // return one here. This canvas takes priority over the canvas materialized
   // from the on-screen render target.
-  virtual SkCanvas* GetRootCanvas() = 0;
+  virtual DlCanvas* GetRootCanvas() = 0;
 
-  // Call this in-lieu of |SubmitFrame| to clear pre-roll state and
+  // Call this in-lieu of |SubmitFlutterView| to clear pre-roll state and
   // sets the stage for the next pre-roll.
   virtual void CancelFrame() = 0;
 
@@ -411,13 +415,11 @@ class ExternalViewEmbedder {
   // The `raster_thread_merger` will be null if |SupportsDynamicThreadMerging|
   // returns false.
   virtual void BeginFrame(
-      SkISize frame_size,
       GrDirectContext* context,
-      double device_pixel_ratio,
-      fml::RefPtr<fml::RasterThreadMerger> raster_thread_merger) = 0;
+      const fml::RefPtr<fml::RasterThreadMerger>& raster_thread_merger) = 0;
 
   virtual void PrerollCompositeEmbeddedView(
-      int view_id,
+      int64_t platform_view_id,
       std::unique_ptr<EmbeddedViewParams> params) = 0;
 
   // This needs to get called after |Preroll| finishes on the layer tree.
@@ -425,23 +427,30 @@ class ExternalViewEmbedder {
   // after it does any requisite tasks needed to bring itself to a valid state.
   // Returns kSuccess if the view embedder is already in a valid state.
   virtual PostPrerollResult PostPrerollAction(
-      fml::RefPtr<fml::RasterThreadMerger> raster_thread_merger) {
+      const fml::RefPtr<fml::RasterThreadMerger>& raster_thread_merger) {
     return PostPrerollResult::kSuccess;
   }
 
-  virtual std::vector<SkCanvas*> GetCurrentCanvases() = 0;
-  virtual std::vector<DisplayListBuilder*> GetCurrentBuilders() = 0;
-
   // Must be called on the UI thread.
-  virtual EmbedderPaintContext CompositeEmbeddedView(int view_id) = 0;
+  virtual DlCanvas* CompositeEmbeddedView(int64_t platform_view_id) = 0;
 
+  // Prepare for a view to be drawn.
+  virtual void PrepareFlutterView(SkISize frame_size,
+                                  double device_pixel_ratio) = 0;
+
+  // Submits the content stored since |PrepareFlutterView| to the specified
+  // Flutter view.
+  //
   // Implementers must submit the frame by calling frame.Submit().
   //
   // This method can mutate the root Skia canvas before submitting the frame.
   //
   // It can also allocate frames for overlay surfaces to compose hybrid views.
-  virtual void SubmitFrame(GrDirectContext* context,
-                           std::unique_ptr<SurfaceFrame> frame);
+  virtual void SubmitFlutterView(
+      int64_t flutter_view_id,
+      GrDirectContext* context,
+      const std::shared_ptr<impeller::AiksContext>& aiks_context,
+      std::unique_ptr<SurfaceFrame> frame);
 
   // This method provides the embedder a way to do additional tasks after
   // |SubmitFrame|. For example, merge task runners if `should_resubmit_frame`
@@ -456,7 +465,7 @@ class ExternalViewEmbedder {
   // returns false.
   virtual void EndFrame(
       bool should_resubmit_frame,
-      fml::RefPtr<fml::RasterThreadMerger> raster_thread_merger) {}
+      const fml::RefPtr<fml::RasterThreadMerger>& raster_thread_merger) {}
 
   // Whether the embedder should support dynamic thread merging.
   //
@@ -482,15 +491,17 @@ class ExternalViewEmbedder {
 
   // Pushes the platform view id of a visited platform view to a list of
   // visited platform views.
-  virtual void PushVisitedPlatformView(int64_t view_id) {}
+  virtual void PushVisitedPlatformView(int64_t platform_view_id) {}
 
   // Pushes a DlImageFilter object to each platform view within a list of
   // visited platform views.
   //
+  // `filter_rect` is in global coordinates.
+  //
   // See also: |PushVisitedPlatformView| for pushing platform view ids to the
   // visited platform views list.
   virtual void PushFilterToVisitedPlatformViews(
-      std::shared_ptr<const DlImageFilter> filter,
+      const std::shared_ptr<const DlImageFilter>& filter,
       const SkRect& filter_rect) {}
 
  private:

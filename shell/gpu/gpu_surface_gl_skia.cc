@@ -18,9 +18,13 @@
 #include "third_party/skia/include/core/SkSurface.h"
 #include "third_party/skia/include/gpu/GrBackendSurface.h"
 #include "third_party/skia/include/gpu/GrContextOptions.h"
+#include "third_party/skia/include/gpu/ganesh/SkSurfaceGanesh.h"
+#include "third_party/skia/include/gpu/ganesh/gl/GrGLBackendSurface.h"
+#include "third_party/skia/include/gpu/ganesh/gl/GrGLDirectContext.h"
+#include "third_party/skia/include/gpu/gl/GrGLTypes.h"
 
 // These are common defines present on all OpenGL headers. However, we don't
-// want to perform GL header reasolution on each platform we support. So just
+// want to perform GL header resolution on each platform we support. So just
 // define these upfront. It is unlikely we will need more. But, if we do, we can
 // add the same here.
 #define GPU_GL_RGBA8 0x8058
@@ -48,7 +52,7 @@ sk_sp<GrDirectContext> GPUSurfaceGLSkia::MakeGLContext(
   const auto options =
       MakeDefaultContextOptions(ContextType::kRender, GrBackendApi::kOpenGL);
 
-  auto context = GrDirectContext::MakeGL(delegate->GetGLInterface(), options);
+  auto context = GrDirectContexts::MakeGL(delegate->GetGLInterface(), options);
 
   if (!context) {
     FML_LOG(ERROR) << "Failed to set up Skia Gr context.";
@@ -137,17 +141,18 @@ static sk_sp<SkSurface> WrapOnscreenSurface(GrDirectContext* context,
   framebuffer_info.fFBOID = static_cast<GrGLuint>(fbo);
   framebuffer_info.fFormat = format;
 
-  GrBackendRenderTarget render_target(size.width(),     // width
-                                      size.height(),    // height
-                                      0,                // sample count
-                                      0,                // stencil bits
-                                      framebuffer_info  // framebuffer info
-  );
+  auto render_target =
+      GrBackendRenderTargets::MakeGL(size.width(),     // width
+                                     size.height(),    // height
+                                     0,                // sample count
+                                     0,                // stencil bits
+                                     framebuffer_info  // framebuffer info
+      );
 
   sk_sp<SkColorSpace> colorspace = SkColorSpace::MakeSRGB();
   SkSurfaceProps surface_props(0, kUnknown_SkPixelGeometry);
 
-  return SkSurface::MakeFromBackendRenderTarget(
+  return SkSurfaces::WrapBackendRenderTarget(
       context,                                       // Gr context
       render_target,                                 // render target
       GrSurfaceOrigin::kBottomLeft_GrSurfaceOrigin,  // origin
@@ -227,7 +232,7 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceGLSkia::AcquireFrame(
     framebuffer_info.supports_readback = true;
     return std::make_unique<SurfaceFrame>(
         nullptr, framebuffer_info,
-        [](const SurfaceFrame& surface_frame, SkCanvas* canvas) {
+        [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
           return true;
         },
         size);
@@ -245,7 +250,7 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceGLSkia::AcquireFrame(
   surface->getCanvas()->setMatrix(root_surface_transformation);
   SurfaceFrame::SubmitCallback submit_callback =
       [weak = weak_factory_.GetWeakPtr()](const SurfaceFrame& surface_frame,
-                                          SkCanvas* canvas) {
+                                          DlCanvas* canvas) {
         return weak ? weak->PresentSurface(surface_frame, canvas) : false;
       };
 
@@ -259,7 +264,7 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceGLSkia::AcquireFrame(
 }
 
 bool GPUSurfaceGLSkia::PresentSurface(const SurfaceFrame& frame,
-                                      SkCanvas* canvas) {
+                                      DlCanvas* canvas) {
   if (delegate_ == nullptr || canvas == nullptr || context_ == nullptr) {
     return false;
   }
@@ -267,8 +272,8 @@ bool GPUSurfaceGLSkia::PresentSurface(const SurfaceFrame& frame,
   delegate_->GLContextSetDamageRegion(frame.submit_info().buffer_damage);
 
   {
-    TRACE_EVENT0("flutter", "SkCanvas::Flush");
-    onscreen_surface_->getCanvas()->flush();
+    TRACE_EVENT0("flutter", "GrDirectContext::flushAndSubmit");
+    context_->flushAndSubmit();
   }
 
   GLPresentInfo present_info = {

@@ -2,10 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_IMPELLER_RENDERER_BACKEND_GLES_ALLOCATOR_GLES_H_
+#define FLUTTER_IMPELLER_RENDERER_BACKEND_GLES_ALLOCATOR_GLES_H_
 
 #include "flutter/fml/macros.h"
-#include "impeller/renderer/allocator.h"
+#include "impeller/core/allocator.h"
 #include "impeller/renderer/backend/gles/reactor_gles.h"
 
 namespace impeller {
@@ -21,7 +22,7 @@ class AllocatorGLES final : public Allocator {
   ReactorGLES::Ref reactor_;
   bool is_valid_ = false;
 
-  AllocatorGLES(ReactorGLES::Ref reactor);
+  explicit AllocatorGLES(ReactorGLES::Ref reactor);
 
   // |Allocator|
   bool IsValid() const;
@@ -37,7 +38,11 @@ class AllocatorGLES final : public Allocator {
   // |Allocator|
   ISize GetMaxTextureSizeSupported() const override;
 
-  FML_DISALLOW_COPY_AND_ASSIGN(AllocatorGLES);
+  AllocatorGLES(const AllocatorGLES&) = delete;
+
+  AllocatorGLES& operator=(const AllocatorGLES&) = delete;
 };
 
 }  // namespace impeller
+
+#endif  // FLUTTER_IMPELLER_RENDERER_BACKEND_GLES_ALLOCATOR_GLES_H_

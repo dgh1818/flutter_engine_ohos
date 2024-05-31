@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#ifndef FLUTTER_IMAGE_GENERATOR_H
-#define FLUTTER_IMAGE_GENERATOR_H
+#ifndef FLUTTER_SHELL_PLATFORM_OHOS_OHOS_IMAGE_GENERATOR_H_
+#define FLUTTER_SHELL_PLATFORM_OHOS_OHOS_IMAGE_GENERATOR_H_
 
 #include "flutter/fml/memory/ref_ptr.h"
 #include "flutter/fml/synchronization/waitable_event.h"
@@ -54,7 +54,7 @@ class OHOSImageGenerator : public ImageGenerator {
 
   // |ImageGenerator|
   const ImageGenerator::FrameInfo GetFrameInfo(
-      unsigned int frame_index) const override;
+      unsigned int frame_index) override;
 
   // |ImageGenerator|
   SkISize GetScaledDimensions(float desired_scale) override;
@@ -98,4 +98,4 @@ class OHOSImageGenerator : public ImageGenerator {
   FML_DISALLOW_COPY_ASSIGN_AND_MOVE(OHOSImageGenerator);
 };
 }  // namespace flutter
-#endif
+#endif  // FLUTTER_SHELL_PLATFORM_OHOS_OHOS_IMAGE_GENERATOR_H_

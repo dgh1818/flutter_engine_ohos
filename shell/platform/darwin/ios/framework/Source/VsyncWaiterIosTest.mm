@@ -5,14 +5,15 @@
 #import <OCMock/OCMock.h>
 #import <XCTest/XCTest.h>
 
+#include "flutter/fml/raster_thread_merger.h"
 #include "flutter/fml/thread.h"
 
 #import "flutter/shell/platform/darwin/common/framework/Headers/FlutterMacros.h"
 #import "flutter/shell/platform/darwin/ios/framework/Source/vsync_waiter_ios.h"
 
-FLUTTER_ASSERT_NOT_ARC
+FLUTTER_ASSERT_ARC
 namespace {
-fml::RefPtr<fml::TaskRunner> CreateNewThread(std::string name) {
+fml::RefPtr<fml::TaskRunner> CreateNewThread(const std::string& name) {
   auto thread = std::make_unique<fml::Thread>(name);
   auto runner = thread->GetTaskRunner();
   return runner;
@@ -33,10 +34,9 @@ fml::RefPtr<fml::TaskRunner> CreateNewThread(std::string name) {
 
 - (void)testSetAllowPauseAfterVsyncCorrect {
   auto thread_task_runner = CreateNewThread("VsyncWaiterIosTest");
-  VSyncClient* vsyncClient = [[[VSyncClient alloc]
+  VSyncClient* vsyncClient = [[VSyncClient alloc]
       initWithTaskRunner:thread_task_runner
-                callback:[](std::unique_ptr<flutter::FrameTimingsRecorder> recorder) {}]
-      autorelease];
+                callback:[](std::unique_ptr<flutter::FrameTimingsRecorder> recorder) {}];
   CADisplayLink* link = [vsyncClient getDisplayLink];
   vsyncClient.allowPauseAfterVsync = NO;
   [vsyncClient await];
@@ -47,8 +47,6 @@ fml::RefPtr<fml::TaskRunner> CreateNewThread(std::string name) {
   [vsyncClient await];
   [vsyncClient onDisplayLink:link];
   XCTAssertTrue(link.isPaused);
-
-  [vsyncClient release];
 }
 
 - (void)testSetCorrectVariableRefreshRates {
@@ -61,17 +59,16 @@ fml::RefPtr<fml::TaskRunner> CreateNewThread(std::string name) {
   double maxFrameRate = 120;
   [[[mockDisplayLinkManager stub] andReturnValue:@(maxFrameRate)] displayRefreshRate];
 
-  VSyncClient* vsyncClient = [[[VSyncClient alloc] initWithTaskRunner:thread_task_runner
-                                                             callback:callback] autorelease];
+  VSyncClient* vsyncClient = [[VSyncClient alloc] initWithTaskRunner:thread_task_runner
+                                                            callback:callback];
   CADisplayLink* link = [vsyncClient getDisplayLink];
   if (@available(iOS 15.0, *)) {
-    XCTAssertEqual(link.preferredFrameRateRange.maximum, maxFrameRate);
-    XCTAssertEqual(link.preferredFrameRateRange.preferred, maxFrameRate);
-    XCTAssertEqual(link.preferredFrameRateRange.minimum, maxFrameRate / 2);
+    XCTAssertEqualWithAccuracy(link.preferredFrameRateRange.maximum, maxFrameRate, 0.1);
+    XCTAssertEqualWithAccuracy(link.preferredFrameRateRange.preferred, maxFrameRate, 0.1);
+    XCTAssertEqualWithAccuracy(link.preferredFrameRateRange.minimum, maxFrameRate / 2, 0.1);
   } else {
-    XCTAssertEqual(link.preferredFramesPerSecond, maxFrameRate);
+    XCTAssertEqualWithAccuracy(link.preferredFramesPerSecond, maxFrameRate, 0.1);
   }
-  [vsyncClient release];
 }
 
 - (void)testDoNotSetVariableRefreshRatesIfCADisableMinimumFrameDurationOnPhoneIsNotOn {
@@ -84,17 +81,16 @@ fml::RefPtr<fml::TaskRunner> CreateNewThread(std::string name) {
   double maxFrameRate = 120;
   [[[mockDisplayLinkManager stub] andReturnValue:@(maxFrameRate)] displayRefreshRate];
 
-  VSyncClient* vsyncClient = [[[VSyncClient alloc] initWithTaskRunner:thread_task_runner
-                                                             callback:callback] autorelease];
+  VSyncClient* vsyncClient = [[VSyncClient alloc] initWithTaskRunner:thread_task_runner
+                                                            callback:callback];
   CADisplayLink* link = [vsyncClient getDisplayLink];
   if (@available(iOS 15.0, *)) {
-    XCTAssertEqual(link.preferredFrameRateRange.maximum, 0);
-    XCTAssertEqual(link.preferredFrameRateRange.preferred, 0);
-    XCTAssertEqual(link.preferredFrameRateRange.minimum, 0);
+    XCTAssertEqualWithAccuracy(link.preferredFrameRateRange.maximum, 0, 0.1);
+    XCTAssertEqualWithAccuracy(link.preferredFrameRateRange.preferred, 0, 0.1);
+    XCTAssertEqualWithAccuracy(link.preferredFrameRateRange.minimum, 0, 0.1);
   } else {
-    XCTAssertEqual(link.preferredFramesPerSecond, 0);
+    XCTAssertEqualWithAccuracy(link.preferredFramesPerSecond, 0, 0.1);
   }
-  [vsyncClient release];
 }
 
 - (void)testDoNotSetVariableRefreshRatesIfCADisableMinimumFrameDurationOnPhoneIsNotSet {
@@ -103,25 +99,23 @@ fml::RefPtr<fml::TaskRunner> CreateNewThread(std::string name) {
   id mockDisplayLinkManager = [OCMockObject mockForClass:[DisplayLinkManager class]];
   double maxFrameRate = 120;
   [[[mockDisplayLinkManager stub] andReturnValue:@(maxFrameRate)] displayRefreshRate];
-  VSyncClient* vsyncClient = [[[VSyncClient alloc] initWithTaskRunner:thread_task_runner
-                                                             callback:callback] autorelease];
+  VSyncClient* vsyncClient = [[VSyncClient alloc] initWithTaskRunner:thread_task_runner
+                                                            callback:callback];
   CADisplayLink* link = [vsyncClient getDisplayLink];
   if (@available(iOS 15.0, *)) {
-    XCTAssertEqual(link.preferredFrameRateRange.maximum, 0);
-    XCTAssertEqual(link.preferredFrameRateRange.preferred, 0);
-    XCTAssertEqual(link.preferredFrameRateRange.minimum, 0);
+    XCTAssertEqualWithAccuracy(link.preferredFrameRateRange.maximum, 0, 0.1);
+    XCTAssertEqualWithAccuracy(link.preferredFrameRateRange.preferred, 0, 0.1);
+    XCTAssertEqualWithAccuracy(link.preferredFrameRateRange.minimum, 0, 0.1);
   } else {
-    XCTAssertEqual(link.preferredFramesPerSecond, 0);
+    XCTAssertEqualWithAccuracy(link.preferredFramesPerSecond, 0, 0.1);
   }
-  [vsyncClient release];
 }
 
 - (void)testAwaitAndPauseWillWorkCorrectly {
   auto thread_task_runner = CreateNewThread("VsyncWaiterIosTest");
-  VSyncClient* vsyncClient = [[[VSyncClient alloc]
+  VSyncClient* vsyncClient = [[VSyncClient alloc]
       initWithTaskRunner:thread_task_runner
-                callback:[](std::unique_ptr<flutter::FrameTimingsRecorder> recorder) {}]
-      autorelease];
+                callback:[](std::unique_ptr<flutter::FrameTimingsRecorder> recorder) {}];
 
   CADisplayLink* link = [vsyncClient getDisplayLink];
   XCTAssertTrue(link.isPaused);
@@ -131,8 +125,6 @@ fml::RefPtr<fml::TaskRunner> CreateNewThread(std::string name) {
 
   [vsyncClient pause];
   XCTAssertTrue(link.isPaused);
-
-  [vsyncClient release];
 }
 
 @end

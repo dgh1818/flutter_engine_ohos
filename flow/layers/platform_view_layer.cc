@@ -4,6 +4,8 @@
 
 #include "flutter/flow/layers/platform_view_layer.h"
 
+#include "flutter/display_list/skia/dl_sk_canvas.h"
+
 namespace flutter {
 
 PlatformViewLayer::PlatformViewLayer(const SkPoint& offset,
@@ -16,8 +18,8 @@ void PlatformViewLayer::Preroll(PrerollContext* context) {
                                     size_.height()));
 
   if (context->view_embedder == nullptr) {
-    FML_LOG(ERROR) << "Trying to embed a platform view but the PrerollContext "
-                      "does not support embedding";
+    FML_DLOG(ERROR) << "Trying to embed a platform view but the PrerollContext "
+                       "does not support embedding";
     return;
   }
   context->has_platform_view = true;
@@ -26,8 +28,7 @@ void PlatformViewLayer::Preroll(PrerollContext* context) {
   context->state_stack.fill(&mutators);
   std::unique_ptr<EmbeddedViewParams> params =
       std::make_unique<EmbeddedViewParams>(context->state_stack.transform_3x3(),
-                                           size_, mutators,
-                                           context->display_list_enabled);
+                                           size_, mutators);
   context->view_embedder->PrerollCompositeEmbeddedView(view_id_,
                                                        std::move(params));
   context->view_embedder->PushVisitedPlatformView(view_id_);
@@ -35,19 +36,14 @@ void PlatformViewLayer::Preroll(PrerollContext* context) {
 
 void PlatformViewLayer::Paint(PaintContext& context) const {
   if (context.view_embedder == nullptr) {
-    FML_LOG(ERROR) << "Trying to embed a platform view but the PaintContext "
-                      "does not support embedding";
+    FML_DLOG(ERROR) << "Trying to embed a platform view but the PaintContext "
+                       "does not support embedding";
     return;
   }
-  EmbedderPaintContext embedder_context =
-      context.view_embedder->CompositeEmbeddedView(view_id_);
-  context.canvas = embedder_context.canvas;
-  context.builder = embedder_context.builder;
-  if (context.builder) {
-    context.state_stack.set_delegate(context.builder);
-  } else {
-    context.state_stack.set_delegate(context.canvas);
-  }
+  DlCanvas* canvas = context.view_embedder->CompositeEmbeddedView(view_id_);
+  context.canvas = canvas;
+  context.state_stack.set_delegate(canvas);
+  context.rendering_above_platform_view = true;
 }
 
 }  // namespace flutter

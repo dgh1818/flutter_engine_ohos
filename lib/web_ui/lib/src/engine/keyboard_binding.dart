@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'dart:js_interop';
+
 import 'package:meta/meta.dart';
 import 'package:ui/ui.dart' as ui;
 import 'package:web_locale_keymap/web_locale_keymap.dart' as locale_keymap;
@@ -11,7 +13,7 @@ import 'browser_detection.dart';
 import 'dom.dart';
 import 'key_map.g.dart';
 import 'platform_dispatcher.dart';
-import 'safe_browser_api.dart';
+import 'raw_keyboard.dart';
 import 'semantics.dart';
 
 typedef _VoidCallback = void Function();
@@ -35,8 +37,8 @@ final int _kLogicalMetaRight = kWebLogicalLocationMap['Meta']![_kLocationRight]!
 
 final int _kPhysicalAltLeft = kWebToPhysicalKey['AltLeft']!;
 final int _kPhysicalAltRight = kWebToPhysicalKey['AltRight']!;
-final int _kPhysicalControlLeft = kWebToPhysicalKey['ControlLeft']!;
-final int _kPhysicalControlRight = kWebToPhysicalKey['ControlRight']!;
+final int kPhysicalControlLeft = kWebToPhysicalKey['ControlLeft']!;
+final int kPhysicalControlRight = kWebToPhysicalKey['ControlRight']!;
 final int _kPhysicalShiftLeft = kWebToPhysicalKey['ShiftLeft']!;
 final int _kPhysicalShiftRight = kWebToPhysicalKey['ShiftRight']!;
 final int _kPhysicalMetaLeft = kWebToPhysicalKey['MetaLeft']!;
@@ -100,13 +102,16 @@ ValueGetter<T> _cached<T>(ValueGetter<T> body) {
 
 class KeyboardBinding {
   KeyboardBinding._() {
-    _addEventListener('keydown', allowInterop((DomEvent domEvent) {
+    _addEventListener('keydown', (DomEvent domEvent) {
       final FlutterHtmlKeyboardEvent event = FlutterHtmlKeyboardEvent(domEvent as DomKeyboardEvent);
-      return _converter.handleEvent(event);
-    }));
-    _addEventListener('keyup', allowInterop((DomEvent event) {
-      return _converter.handleEvent(FlutterHtmlKeyboardEvent(event as DomKeyboardEvent));
-    }));
+      _converter.handleEvent(event);
+      RawKeyboard.instance?.handleHtmlEvent(domEvent);
+    });
+    _addEventListener('keyup', (DomEvent domEvent) {
+      final FlutterHtmlKeyboardEvent event = FlutterHtmlKeyboardEvent(domEvent as DomKeyboardEvent);
+      _converter.handleEvent(event);
+      RawKeyboard.instance?.handleHtmlEvent(domEvent);
+    });
   }
 
   /// The singleton instance of this object.
@@ -138,18 +143,17 @@ class KeyboardBinding {
   );
   final Map<String, DomEventListener> _listeners = <String, DomEventListener>{};
 
-  void _addEventListener(String eventName, DomEventListener handler) {
-    dynamic loggedHandler(DomEvent event) {
+  void _addEventListener(String eventName, DartDomEventListener handler) {
+    JSVoid loggedHandler(DomEvent event) {
       if (_debugLogKeyEvents) {
         print(event.type);
       }
-      if (EngineSemanticsOwner.instance.receiveGlobalEvent(event)) {
-        return handler(event);
+      if (EngineSemantics.instance.receiveGlobalEvent(event)) {
+        handler(event);
       }
-      return null;
     }
 
-    final DomEventListener wrappedHandler = allowInterop(loggedHandler);
+    final DomEventListener wrappedHandler = createDomEventListener(loggedHandler);
     assert(!_listeners.containsKey(eventName));
     _listeners[eventName] = wrappedHandler;
     domWindow.addEventListener(eventName, wrappedHandler, true);
@@ -209,6 +213,7 @@ class FlutterHtmlKeyboardEvent {
 
   bool getModifierState(String key) => _event.getModifierState(key);
   void preventDefault() => _event.preventDefault();
+  void stopPropagation() => _event.stopPropagation();
   bool get defaultPrevented => _event.defaultPrevented;
 }
 
@@ -253,6 +258,7 @@ class KeyboardConverter {
   bool _disposed = false;
   void dispose() {
     _disposed = true;
+    clearPressedKeys();
   }
 
   // On macOS, CapsLock behaves differently in that, a keydown event occurs when
@@ -286,6 +292,9 @@ class KeyboardConverter {
   static const Duration _kKeydownCancelDurationMac = Duration(milliseconds: 2000);
 
   static int _getPhysicalCode(String code) {
+    if (code.isEmpty) {
+      return _kWebKeyIdPlane;
+    }
     return kWebToPhysicalKey[code] ?? (code.hashCode + _kWebKeyIdPlane);
   }
 
@@ -366,7 +375,7 @@ class KeyboardConverter {
     _keyGuards.remove(physicalKey)?.call();
     _keyGuards[physicalKey] = cancelingCallback;
   }
-  // Call this method on an up event event of a non-modifier key.
+  // Call this method on an up event of a non-modifier key.
   void _stopGuardingKey(int physicalKey) {
     _keyGuards.remove(physicalKey)?.call();
   }
@@ -463,7 +472,7 @@ class KeyboardConverter {
             timeStamp: timeStamp,
             type: ui.KeyEventType.up,
             physical: physicalKey,
-            logical: logicalKey(),
+            logical: _pressingRecords[physicalKey]!,
             character: null,
             synthesized: true,
           ));
@@ -497,15 +506,12 @@ class KeyboardConverter {
       case ui.KeyEventType.down:
         assert(lastLogicalRecord == null);
         nextLogicalRecord = logicalKey();
-        break;
       case ui.KeyEventType.up:
         assert(lastLogicalRecord != null);
         nextLogicalRecord = null;
-        break;
       case ui.KeyEventType.repeat:
         assert(lastLogicalRecord != null);
         nextLogicalRecord = lastLogicalRecord;
-        break;
     }
     if (nextLogicalRecord == null) {
       _pressingRecords.remove(physicalKey);
@@ -580,6 +586,11 @@ class KeyboardConverter {
   //  * Some key data might be synthesized to update states after the main key
   //    data. They are always scheduled asynchronously with results discarded.
   void handleEvent(FlutterHtmlKeyboardEvent event) {
+    // Autofill on Chrome sends keyboard events whose key and code are null.
+    if (event.key == null || event.code == null) {
+      return;
+    }
+
     assert(_dispatchKeyData == null);
     bool sentAnyEvents = false;
     _dispatchKeyData = (ui.KeyData data) {
@@ -612,8 +623,8 @@ class KeyboardConverter {
       eventTimestamp,
     );
     _synthesizeModifierIfNeeded(
-      _kPhysicalControlLeft,
-      _kPhysicalControlRight,
+      kPhysicalControlLeft,
+      kPhysicalControlRight,
       _kLogicalControlLeft,
       controlPressed ? ui.KeyEventType.down : ui.KeyEventType.up,
       eventTimestamp,
@@ -691,8 +702,11 @@ class KeyboardConverter {
     _pressingRecords.remove(physical);
   }
 
-  @visibleForTesting
-  bool debugKeyIsPressed(int physical) {
+  bool keyIsPressed(int physical) {
     return _pressingRecords.containsKey(physical);
+  }
+
+  void clearPressedKeys() {
+    _pressingRecords.clear();
   }
 }

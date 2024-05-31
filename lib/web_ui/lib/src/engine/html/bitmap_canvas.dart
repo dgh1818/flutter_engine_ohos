@@ -9,15 +9,14 @@ import 'package:ui/ui.dart' as ui;
 
 import '../browser_detection.dart';
 import '../canvas_pool.dart';
+import '../display.dart';
 import '../dom.dart';
 import '../engine_canvas.dart';
 import '../frame_reference.dart';
 import '../html_image_codec.dart';
-import '../platform_dispatcher.dart';
 import '../text/canvas_paragraph.dart';
 import '../util.dart';
 import '../vector_math.dart';
-import '../window.dart';
 import 'clip.dart';
 import 'color_filter.dart';
 import 'dom_canvas.dart';
@@ -38,8 +37,7 @@ class BitmapCanvas extends EngineCanvas {
   /// initialize this canvas.
   BitmapCanvas(this._bounds, RenderStrategy renderStrategy,
       {double density = 1.0})
-      : assert(_bounds != null),
-        _density = density,
+      : _density = density,
         _renderStrategy = renderStrategy,
         widthInBitmapPixels = widthToPhysical(_bounds.width),
         heightInBitmapPixels = heightToPhysical(_bounds.height),
@@ -69,7 +67,6 @@ class BitmapCanvas extends EngineCanvas {
   /// Painting outside these bounds will result in cropping.
   ui.Rect get bounds => _bounds;
   set bounds(ui.Rect newValue) {
-    assert(newValue != null);
     _bounds = newValue;
     final int newCanvasPositionX = _bounds.left.floor() - kPaddingPixels;
     final int newCanvasPositionY = _bounds.top.floor() - kPaddingPixels;
@@ -128,7 +125,7 @@ class BitmapCanvas extends EngineCanvas {
   /// Keeps track of what device pixel ratio was used when this [BitmapCanvas]
   /// was created.
   final double _devicePixelRatio =
-      EnginePlatformDispatcher.browserDevicePixelRatio;
+      EngineFlutterDisplay.instance.browserDevicePixelRatio;
 
   // Compensation for [_initializeViewport] snapping canvas position to 1 pixel.
   int? _canvasPositionX, _canvasPositionY;
@@ -203,21 +200,20 @@ class BitmapCanvas extends EngineCanvas {
 
   static int widthToPhysical(double width) {
     final double boundsWidth = width + 1;
-    return (boundsWidth * EnginePlatformDispatcher.browserDevicePixelRatio)
+    return (boundsWidth * EngineFlutterDisplay.instance.browserDevicePixelRatio)
             .ceil() +
         2 * kPaddingPixels;
   }
 
   static int heightToPhysical(double height) {
     final double boundsHeight = height + 1;
-    return (boundsHeight * EnginePlatformDispatcher.browserDevicePixelRatio)
+    return (boundsHeight * EngineFlutterDisplay.instance.browserDevicePixelRatio)
             .ceil() +
         2 * kPaddingPixels;
   }
 
   // Used by picture to assess if canvas is large enough to reuse as is.
   bool doesFitBounds(ui.Rect newBounds, double newDensity) {
-    assert(newBounds != null);
     return widthInBitmapPixels >= widthToPhysical(newBounds.width) &&
         heightInBitmapPixels >= heightToPhysical(newBounds.height) &&
         _density == newDensity;
@@ -256,8 +252,7 @@ class BitmapCanvas extends EngineCanvas {
   /// * [PersistedPicture._recycleCanvas] which also uses this method
   ///   for the same reason.
   bool isReusable() {
-    return _devicePixelRatio ==
-        EnginePlatformDispatcher.browserDevicePixelRatio;
+    return _devicePixelRatio == EngineFlutterDisplay.instance.browserDevicePixelRatio;
   }
 
   /// Returns a "data://" URI containing a representation of the image in this
@@ -538,20 +533,6 @@ class BitmapCanvas extends EngineCanvas {
     if (_useDomForRenderingFill(paint)) {
       final Matrix4 transform = _canvasPool.currentTransform;
       final SurfacePath surfacePath = path as SurfacePath;
-      final ui.Rect? pathAsLine = surfacePath.toStraightLine();
-      if (pathAsLine != null) {
-        ui.Rect rect = (pathAsLine.top == pathAsLine.bottom)
-            ? ui.Rect.fromLTWH(
-                pathAsLine.left, pathAsLine.top, pathAsLine.width, 1)
-            : ui.Rect.fromLTWH(
-                pathAsLine.left, pathAsLine.top, 1, pathAsLine.height);
-
-        rect = adjustRectForDom(rect, paint);
-        final DomHTMLElement element = buildDrawRectElement(
-            rect, paint, 'draw-rect', _canvasPool.currentTransform);
-        _drawElement(element, rect.topLeft, paint);
-        return;
-      }
 
       final ui.Rect? pathAsRect = surfacePath.toRect();
       if (pathAsRect != null) {
@@ -563,9 +544,7 @@ class BitmapCanvas extends EngineCanvas {
         drawRRect(pathAsRRect, paint);
         return;
       }
-      final ui.Rect pathBounds = surfacePath.getBounds();
-      final DomElement svgElm = pathToSvgElement(
-          surfacePath, paint, '${pathBounds.right}', '${pathBounds.bottom}');
+      final DomElement svgElm = pathToSvgElement(surfacePath, paint);
       if (!_canvasPool.isClipped) {
         final DomCSSStyleDeclaration style = svgElm.style;
         style.position = 'absolute';
@@ -591,7 +570,7 @@ class BitmapCanvas extends EngineCanvas {
   void _applyFilter(DomElement element, SurfacePaintData paint) {
     if (paint.maskFilter != null) {
       final bool isStroke = paint.style == ui.PaintingStyle.stroke;
-      final String cssColor = colorValueToCssString(paint.color)!;
+      final String cssColor = colorValueToCssString(paint.color);
       final double sigma = paint.maskFilter!.webOnlySigma;
       if (browserEngine == BrowserEngine.webkit && !isStroke) {
         // A bug in webkit leaves artifacts when this element is animated
@@ -823,26 +802,23 @@ class BitmapCanvas extends EngineCanvas {
       case ui.BlendMode.clear:
       case ui.BlendMode.dstOut:
         style.position = 'absolute';
-        break;
       case ui.BlendMode.src:
       case ui.BlendMode.srcOver:
         style
           ..position = 'absolute'
-          ..backgroundColor = colorToCssString(filterColor)!;
-        break;
+          ..backgroundColor = filterColor!.toCssString();
       case ui.BlendMode.dst:
       case ui.BlendMode.dstIn:
         style
           ..position = 'absolute'
           ..backgroundImage = "url('${image.imgElement.src}')";
-        break;
       default:
         style
           ..position = 'absolute'
           ..backgroundImage = "url('${image.imgElement.src}')"
           ..backgroundBlendMode =
               blendModeToCssMixBlendMode(colorFilterBlendMode) ?? ''
-          ..backgroundColor = colorToCssString(filterColor)!;
+          ..backgroundColor = filterColor!.toCssString();
         break;
     }
     return imgElement;
@@ -861,7 +837,7 @@ class BitmapCanvas extends EngineCanvas {
     final DomHTMLElement imgElement = _reuseOrCreateImage(image);
     imgElement.style.filter = 'url(#${svgFilter.id})';
     if (colorFilterBlendMode == ui.BlendMode.saturation) {
-      imgElement.style.backgroundColor = colorToCssString(filterColor)!;
+      imgElement.style.backgroundColor = filterColor!.toCssString();
     }
     return imgElement;
   }
@@ -922,7 +898,7 @@ class BitmapCanvas extends EngineCanvas {
     if (shadows != null) {
       ctx.save();
       for (final ui.Shadow shadow in shadows) {
-        ctx.shadowColor = colorToCssString(shadow.color);
+        ctx.shadowColor = shadow.color.toCssString();
         ctx.shadowBlur = shadow.blurRadius;
         ctx.shadowOffsetX = shadow.offset.dx;
         ctx.shadowOffsetY = shadow.offset.dy;
@@ -1031,7 +1007,7 @@ class BitmapCanvas extends EngineCanvas {
       final ui.Color color = ui.Color(paint.color);
       _canvasPool.contextHandle
         ..fillStyle = null
-        ..strokeStyle = colorToCssString(color);
+        ..strokeStyle = color.toCssString();
       glRenderer!.drawHairline(ctx, positions);
       restore();
       return;
@@ -1059,7 +1035,7 @@ class BitmapCanvas extends EngineCanvas {
     _drawPointsPaint.color = paint.color;
     _drawPointsPaint.maskFilter = paint.maskFilter;
 
-    final double dpr = ui.window.devicePixelRatio;
+    final double dpr = EngineFlutterDisplay.instance.devicePixelRatio;
     // Use hairline (device pixel when strokeWidth is not specified).
     final double strokeWidth =
         paint.strokeWidth == null ? 1.0 / dpr : paint.strokeWidth!;
@@ -1100,14 +1076,14 @@ class BitmapCanvas extends EngineCanvas {
   /// viewport.
   ui.Rect _computeScreenBounds(Matrix4 targetTransform) {
     final Matrix4 inverted = targetTransform.clone()..invert();
-    final double dpr = ui.window.devicePixelRatio;
+    final double dpr = EngineFlutterDisplay.instance.devicePixelRatio;
     final double width = ui.window.physicalSize.width * dpr;
     final double height = ui.window.physicalSize.height * dpr;
-    final Vector3 topLeft = inverted.perspectiveTransform(Vector3(0, 0, 0));
-    final Vector3 topRight = inverted.perspectiveTransform(Vector3(width, 0, 0));
+    final Vector3 topLeft = inverted.perspectiveTransform(x: 0, y: 0, z: 0);
+    final Vector3 topRight = inverted.perspectiveTransform(x: width, y: 0, z: 0);
     final Vector3 bottomRight =
-        inverted.perspectiveTransform(Vector3(width, height, 0));
-    final Vector3 bottomLeft = inverted.perspectiveTransform(Vector3(0, height, 0));
+        inverted.perspectiveTransform(x: width, y: height, z: 0);
+    final Vector3 bottomLeft = inverted.perspectiveTransform(x: 0, y: height, z: 0);
     return ui.Rect.fromLTRB(
       math.min(topLeft.x,
           math.min(topRight.x, math.min(bottomRight.x, bottomLeft.x))),
@@ -1350,7 +1326,6 @@ String? stringForStrokeCap(ui.StrokeCap? strokeCap) {
 }
 
 String stringForStrokeJoin(ui.StrokeJoin strokeJoin) {
-  assert(strokeJoin != null);
   switch (strokeJoin) {
     case ui.StrokeJoin.round:
       return 'round';
@@ -1481,7 +1456,7 @@ String maskFilterToCanvasFilter(ui.MaskFilter? maskFilter) {
   if (maskFilter != null) {
     // Multiply by device-pixel ratio because the canvas' pixel width and height
     // are larger than its CSS width and height by device-pixel ratio.
-    return 'blur(${maskFilter.webOnlySigma * window.devicePixelRatio}px)';
+    return 'blur(${maskFilter.webOnlySigma * EngineFlutterDisplay.instance.devicePixelRatio}px)';
   } else {
     return 'none';
   }

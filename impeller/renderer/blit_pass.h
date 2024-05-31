@@ -2,14 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_IMPELLER_RENDERER_BLIT_PASS_H_
+#define FLUTTER_IMPELLER_RENDERER_BLIT_PASS_H_
 
 #include <string>
-#include <variant>
 
-#include "impeller/renderer/blit_command.h"
-#include "impeller/renderer/device_buffer.h"
-#include "impeller/renderer/texture.h"
+#include "impeller/core/device_buffer.h"
+#include "impeller/core/texture.h"
 
 namespace impeller {
 
@@ -31,8 +30,6 @@ class BlitPass {
   virtual bool IsValid() const = 0;
 
   void SetLabel(std::string label);
-
-  HostBuffer& GetTransientsBuffer();
 
   //----------------------------------------------------------------------------
   /// @brief      Record a command to copy the contents of one texture to
@@ -61,8 +58,8 @@ class BlitPass {
                std::string label = "");
 
   //----------------------------------------------------------------------------
-  /// @brief      Record a command to copy the contents of the texture to
-  ///             the buffer.
+  /// @brief      Record a command to copy the contents of the buffer to
+  ///             the texture.
   ///             No work is encoded into the command buffer at this time.
   ///
   /// @param[in]  source              The texture to read for copying.
@@ -71,8 +68,8 @@ class BlitPass {
   /// @param[in]  source_region       The optional region of the source texture
   ///                                 to use for copying. If not specified, the
   ///                                 full size of the source texture is used.
-  /// @param[in]  destination_offset  The offset to start writing to in the
-  ///                                 destination buffer.
+  /// @param[in]  destination_origin  The origin to start writing to in the
+  ///                                 destination texture.
   /// @param[in]  label               The optional debug label to give the
   ///                                 command.
   ///
@@ -82,6 +79,26 @@ class BlitPass {
                std::shared_ptr<DeviceBuffer> destination,
                std::optional<IRect> source_region = std::nullopt,
                size_t destination_offset = 0,
+               std::string label = "");
+
+  //----------------------------------------------------------------------------
+  /// @brief      Record a command to copy the contents of the buffer to
+  ///             the texture.
+  ///             No work is encoded into the command buffer at this time.
+  ///
+  /// @param[in]  source              The buffer view to read for copying.
+  /// @param[in]  destination         The texture to overwrite using the source
+  ///                                 contents.
+  /// @param[in]  destination_offset  The offset to start writing to in the
+  ///                                 destination buffer.
+  /// @param[in]  label               The optional debug label to give the
+  ///                                 command.
+  ///
+  /// @return     If the command was valid for subsequent commitment.
+  ///
+  bool AddCopy(BufferView source,
+               std::shared_ptr<Texture> destination,
+               IPoint destination_origin = {},
                std::string label = "");
 
   //----------------------------------------------------------------------------
@@ -107,8 +124,6 @@ class BlitPass {
       const std::shared_ptr<Allocator>& transients_allocator) const = 0;
 
  protected:
-  std::shared_ptr<HostBuffer> transients_buffer_;
-
   explicit BlitPass();
 
   virtual void OnSetLabel(std::string label) = 0;
@@ -127,11 +142,21 @@ class BlitPass {
       size_t destination_offset,
       std::string label) = 0;
 
+  virtual bool OnCopyBufferToTextureCommand(
+      BufferView source,
+      std::shared_ptr<Texture> destination,
+      IPoint destination_origin,
+      std::string label) = 0;
+
   virtual bool OnGenerateMipmapCommand(std::shared_ptr<Texture> texture,
                                        std::string label) = 0;
 
  private:
-  FML_DISALLOW_COPY_AND_ASSIGN(BlitPass);
+  BlitPass(const BlitPass&) = delete;
+
+  BlitPass& operator=(const BlitPass&) = delete;
 };
 
 }  // namespace impeller
+
+#endif  // FLUTTER_IMPELLER_RENDERER_BLIT_PASS_H_

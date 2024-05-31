@@ -2,13 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef SHELL_PLATFORM_DARWIN_GRAPHICS_DARWIN_CONTEXT_METAL_IMPELLER_H_
-#define SHELL_PLATFORM_DARWIN_GRAPHICS_DARWIN_CONTEXT_METAL_IMPELLER_H_
+#ifndef FLUTTER_SHELL_PLATFORM_DARWIN_GRAPHICS_FLUTTERDARWINCONTEXTMETALIMPELLER_H_
+#define FLUTTER_SHELL_PLATFORM_DARWIN_GRAPHICS_FLUTTERDARWINCONTEXTMETALIMPELLER_H_
 
 #import <CoreVideo/CVMetalTextureCache.h>
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
 
+#include "flutter/fml/concurrent_message_loop.h"
 #include "flutter/fml/platform/darwin/cf_utils.h"
 #import "flutter/shell/platform/darwin/common/framework/Headers/FlutterTexture.h"
 #import "flutter/shell/platform/darwin/graphics/FlutterDarwinExternalTextureMetal.h"
@@ -24,7 +25,7 @@ NS_ASSUME_NONNULL_BEGIN
 /**
  * Initializes a FlutterDarwinContextMetalImpeller.
  */
-- (instancetype)init;
+- (instancetype)init:(const std::shared_ptr<const fml::SyncSwitch>&)is_gpu_disabled_sync_switch;
 
 /**
  * Creates an external texture with the specified ID and contents.
@@ -34,7 +35,7 @@ NS_ASSUME_NONNULL_BEGIN
                                 texture:(NSObject<FlutterTexture>*)texture;
 
 /**
- * Impeller context;
+ * Impeller context.
  */
 @property(nonatomic, readonly) std::shared_ptr<impeller::ContextMTL> context;
 
@@ -47,4 +48,4 @@ NS_ASSUME_NONNULL_BEGIN
 
 NS_ASSUME_NONNULL_END
 
-#endif  // SHELL_PLATFORM_DARWIN_GRAPHICS_DARWIN_CONTEXT_METAL_IMPELLER_H_
+#endif  // FLUTTER_SHELL_PLATFORM_DARWIN_GRAPHICS_FLUTTERDARWINCONTEXTMETALIMPELLER_H_

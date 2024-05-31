@@ -21,7 +21,9 @@ G_BEGIN_DECLS
  */
 
 typedef enum {
+  // NOLINTBEGIN(readability-identifier-naming)
   FL_ENGINE_ERROR_FAILED,
+  // NOLINTEND(readability-identifier-naming)
 } FlEngineError;
 
 GQuark fl_engine_error_quark(void) G_GNUC_CONST;
@@ -46,24 +48,24 @@ typedef gboolean (*FlEnginePlatformMessageHandler)(
     gpointer user_data);
 
 /**
- * FlEngineUpdateSemanticsNodeHandler:
+ * FlEngineUpdateSemanticsHandler:
  * @engine: an #FlEngine.
  * @node: semantic node information.
  * @user_data: (closure): data provided when registering this handler.
  *
  * Function called when semantics node updates are received.
  */
-typedef void (*FlEngineUpdateSemanticsNodeHandler)(
+typedef void (*FlEngineUpdateSemanticsHandler)(
     FlEngine* engine,
-    const FlutterSemanticsNode* node,
+    const FlutterSemanticsUpdate2* update,
     gpointer user_data);
 
 /**
  * FlEngineOnPreEngineRestartHandler:
  * @engine: an #FlEngine.
- * @user_data: semantic node information.
- *
  * @user_data: (closure): data provided when registering this handler.
+ *
+ * Function called right before the engine is restarted.
  */
 typedef void (*FlEngineOnPreEngineRestartHandler)(FlEngine* engine,
                                                   gpointer user_data);
@@ -100,7 +102,7 @@ FlutterEngineProcTable* fl_engine_get_embedder_api(FlEngine* engine);
  * Registers the function called when a platform message is received. Call
  * fl_engine_send_platform_message_response() with the response to this message.
  * Ownership of #FlutterPlatformMessageResponseHandle is
- * transferred to the caller, and the message must be responded to to avoid
+ * transferred to the caller, and the message must be responded to avoid
  * memory leaks.
  */
 void fl_engine_set_platform_message_handler(
@@ -110,18 +112,18 @@ void fl_engine_set_platform_message_handler(
     GDestroyNotify destroy_notify);
 
 /**
- * fl_engine_set_update_semantics_node_handler:
+ * fl_engine_set_update_semantics_handler:
  * @engine: an #FlEngine.
- * @handler: function to call when a semantics node update is received.
+ * @handler: function to call when a semantics update is received.
  * @user_data: (closure): user data to pass to @handler.
  * @destroy_notify: (allow-none): a function which gets called to free
  * @user_data, or %NULL.
  *
- * Registers the function called when a semantics node update is reveived.
+ * Registers the function called when a semantics update is received.
  */
-void fl_engine_set_update_semantics_node_handler(
+void fl_engine_set_update_semantics_handler(
     FlEngine* engine,
-    FlEngineUpdateSemanticsNodeHandler handler,
+    FlEngineUpdateSemanticsHandler handler,
     gpointer user_data,
     GDestroyNotify destroy_notify);
 
@@ -166,6 +168,18 @@ void fl_engine_send_window_metrics_event(FlEngine* engine,
                                          size_t width,
                                          size_t height,
                                          double pixel_ratio);
+
+/**
+ * fl_engine_send_window_state_event:
+ * @engine: an #FlEngine.
+ * @visible: whether the window is currently visible or not.
+ * @focused: whether the window is currently focused or not.
+ *
+ * Sends a window state event to the engine.
+ */
+void fl_engine_send_window_state_event(FlEngine* engine,
+                                       gboolean visible,
+                                       gboolean focused);
 
 /**
  * fl_engine_send_mouse_pointer_event:
@@ -335,6 +349,16 @@ gboolean fl_engine_unregister_external_texture(FlEngine* engine,
  * Tells the Flutter engine to update the flags on the accessibility tree.
  */
 void fl_engine_update_accessibility_features(FlEngine* engine, int32_t flags);
+
+/**
+ * fl_engine_get_switches:
+ * @project: an #FlEngine.
+ *
+ * Determines the switches that should be passed to the Flutter engine.
+ *
+ * Returns: an array of switches to pass to the Flutter engine.
+ */
+GPtrArray* fl_engine_get_switches(FlEngine* engine);
 
 G_END_DECLS
 

@@ -11,7 +11,6 @@
 
 #include "flutter/common/settings.h"
 #include "flutter/common/task_runners.h"
-#include "flutter/flow/skia_gpu_object.h"
 #include "flutter/fml/build_config.h"
 #include "flutter/fml/memory/weak_ptr.h"
 #include "flutter/fml/synchronization/waitable_event.h"
@@ -21,6 +20,7 @@
 #include "flutter/lib/ui/snapshot_delegate.h"
 #include "flutter/lib/ui/volatile_path_tracker.h"
 #include "flutter/shell/common/platform_message_handler.h"
+#include "impeller/runtime_stage/runtime_stage.h"
 #include "third_party/dart/runtime/include/dart_api.h"
 #include "third_party/skia/include/gpu/GrDirectContext.h"
 #include "third_party/tonic/dart_microtask_queue.h"
@@ -55,7 +55,8 @@ class UIDartState : public tonic::DartState {
             std::string advisory_script_entrypoint,
             std::shared_ptr<VolatilePathTracker> volatile_path_tracker,
             std::shared_ptr<fml::ConcurrentTaskRunner> concurrent_task_runner,
-            bool enable_impeller);
+            bool enable_impeller,
+            impeller::RuntimeStageBackend runtime_stage_backend);
 
     /// The task runners used by the shell hosting this runtime controller. This
     /// may be used by the isolate to scheduled asynchronous texture uploads or
@@ -100,6 +101,9 @@ class UIDartState : public tonic::DartState {
 
     /// Whether Impeller is enabled or not.
     bool enable_impeller = false;
+
+    /// The expected backend for runtime stage shaders.
+    impeller::RuntimeStageBackend runtime_stage_backend;
   };
 
   Dart_Port main_port() const { return main_port_; }
@@ -153,29 +157,22 @@ class UIDartState : public tonic::DartState {
   // @param[in]  message  The message to be logged.
   void LogMessage(const std::string& tag, const std::string& message) const;
 
-  bool enable_skparagraph() const;
-
-  template <class T>
-  static flutter::SkiaGPUObject<T> CreateGPUObject(sk_sp<T> object) {
-    if (!object) {
-      return {};
-    }
-    auto* state = UIDartState::Current();
-    FML_DCHECK(state);
-    auto queue = state->GetSkiaUnrefQueue();
-    return {std::move(object), std::move(queue)};
-  };
-
   UnhandledExceptionCallback unhandled_exception_callback() const {
     return unhandled_exception_callback_;
   }
 
-  /// Returns a enumeration that that uniquely represents this root isolate.
+  /// Returns a enumeration that uniquely represents this root isolate.
   /// Returns `0` if called from a non-root isolate.
   int64_t GetRootIsolateToken() const;
 
   /// Whether Impeller is enabled for this application.
   bool IsImpellerEnabled() const;
+
+  /// The expected type for runtime stage shaders.
+  impeller::RuntimeStageBackend GetRuntimeStageBackend() const;
+
+  virtual Dart_Isolate CreatePlatformIsolate(Dart_Handle entry_point,
+                                             char** error);
 
  protected:
   UIDartState(TaskObserverAdd add_callback,
@@ -185,7 +182,6 @@ class UIDartState : public tonic::DartState {
               LogMessageCallback log_message_callback,
               std::shared_ptr<IsolateNameServer> isolate_name_server,
               bool is_root_isolate_,
-              bool enable_skparagraph,
               const UIDartState::Context& context);
 
   ~UIDartState() override;
@@ -210,7 +206,6 @@ class UIDartState : public tonic::DartState {
   UnhandledExceptionCallback unhandled_exception_callback_;
   LogMessageCallback log_message_callback_;
   const std::shared_ptr<IsolateNameServer> isolate_name_server_;
-  const bool enable_skparagraph_;
   UIDartState::Context context_;
 
   void AddOrRemoveTaskObserver(bool add);

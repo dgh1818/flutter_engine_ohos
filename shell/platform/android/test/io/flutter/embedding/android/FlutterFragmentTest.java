@@ -103,6 +103,35 @@ public class FlutterFragmentTest {
   }
 
   @Test
+  public void itCreatesNewEngineInGroupFragmentWithRequestedSettings() {
+    FlutterFragment fragment =
+        FlutterFragment.withNewEngineInGroup("my_cached_engine_group")
+            .dartEntrypoint("custom_entrypoint")
+            .initialRoute("/custom/route")
+            .shouldAttachEngineToActivity(false)
+            .handleDeeplinking(true)
+            .renderMode(RenderMode.texture)
+            .transparencyMode(TransparencyMode.opaque)
+            .build();
+
+    TestDelegateFactory delegateFactory =
+        new TestDelegateFactory(new FlutterActivityAndFragmentDelegate(fragment));
+
+    fragment.setDelegateFactory(delegateFactory);
+
+    assertEquals("my_cached_engine_group", fragment.getCachedEngineGroupId());
+    assertEquals("custom_entrypoint", fragment.getDartEntrypointFunctionName());
+    assertEquals("/custom/route", fragment.getInitialRoute());
+    assertArrayEquals(new String[] {}, fragment.getFlutterShellArgs().toArray());
+    assertFalse(fragment.shouldAttachEngineToActivity());
+    assertTrue(fragment.shouldHandleDeeplinking());
+    assertNull(fragment.getCachedEngineId());
+    assertTrue(fragment.shouldDestroyEngineWithHost());
+    assertEquals(RenderMode.texture, fragment.getRenderMode());
+    assertEquals(TransparencyMode.opaque, fragment.getTransparencyMode());
+  }
+
+  @Test
   public void itCreatesNewEngineFragmentThatDelaysFirstDrawWhenRequested() {
     FlutterFragment fragment =
         FlutterFragment.withNewEngine().shouldDelayFirstAndroidViewDraw(true).build();
@@ -254,6 +283,12 @@ public class FlutterFragmentTest {
     assertEquals(fragment.getExclusiveAppComponent(), delegate);
   }
 
+  @SuppressWarnings("deprecation")
+  private FragmentActivity getMockFragmentActivity() {
+    // TODO(reidbaker): https://github.com/flutter/flutter/issues/133151
+    return Robolectric.setupActivity(FragmentActivity.class);
+  }
+
   @Test
   public void itDelegatesOnBackPressedAutomaticallyWhenEnabled() {
     // We need to mock FlutterJNI to avoid triggering native code.
@@ -268,7 +303,7 @@ public class FlutterFragmentTest {
         FlutterFragment.withCachedEngine("my_cached_engine")
             .shouldAutomaticallyHandleOnBackPressed(true)
             .build();
-    FragmentActivity activity = Robolectric.setupActivity(FragmentActivity.class);
+    FragmentActivity activity = getMockFragmentActivity();
     activity
         .getSupportFragmentManager()
         .beginTransaction()
@@ -288,6 +323,9 @@ public class FlutterFragmentTest {
     verify(mockDelegate, times(1)).onBackPressed();
   }
 
+  @SuppressWarnings("deprecation")
+  // Robolectric.setupActivity
+  // TODO(reidbaker): https://github.com/flutter/flutter/issues/133151
   @Test
   public void itHandlesPopSystemNavigationAutomaticallyWhenEnabled() {
     // We need to mock FlutterJNI to avoid triggering native code.
@@ -302,7 +340,7 @@ public class FlutterFragmentTest {
         FlutterFragment.withCachedEngine("my_cached_engine")
             .shouldAutomaticallyHandleOnBackPressed(true)
             .build();
-    FragmentActivity activity = Robolectric.setupActivity(FragmentActivity.class);
+    FragmentActivity activity = getMockFragmentActivity();
     activity
         .getSupportFragmentManager()
         .beginTransaction()

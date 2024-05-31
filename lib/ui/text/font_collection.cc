@@ -21,7 +21,12 @@
 #include "third_party/tonic/logging/dart_invoke.h"
 #include "third_party/tonic/typed_data/typed_list.h"
 #include "txt/asset_font_manager.h"
+#include "txt/platform.h"
 #include "txt/test_font_manager.h"
+
+#if FML_OS_MACOSX || FML_OS_IOS
+#include "txt/platform_mac.h"
+#endif
 
 namespace flutter {
 
@@ -63,6 +68,9 @@ void FontCollection::SetupDefaultFontManager(
 // Structure described in https://docs.flutter.dev/cookbook/design/fonts
 void FontCollection::RegisterFonts(
     const std::shared_ptr<AssetManager>& asset_manager) {
+#if FML_OS_MACOSX || FML_OS_IOS
+  RegisterSystemFonts(*dynamic_font_manager_);
+#endif
   std::unique_ptr<fml::Mapping> manifest_mapping =
       asset_manager->GetAsMapping("FontManifest.json");
   if (manifest_mapping == nullptr) {
@@ -121,19 +129,16 @@ void FontCollection::RegisterFonts(
 }
 
 void FontCollection::RegisterTestFonts() {
-  std::vector<sk_sp<SkTypeface>> test_typefaces;
-  std::vector<std::unique_ptr<SkStreamAsset>> font_data = GetTestFontData();
-  for (auto& font : font_data) {
-    test_typefaces.push_back(SkTypeface::MakeFromStream(std::move(font)));
-  }
-
+  std::vector<sk_sp<SkTypeface>> test_typefaces = GetTestFontData();
   std::unique_ptr<txt::TypefaceFontAssetProvider> font_provider =
       std::make_unique<txt::TypefaceFontAssetProvider>();
 
   size_t index = 0;
   std::vector<std::string> names = GetTestFontFamilyNames();
   for (sk_sp<SkTypeface> typeface : test_typefaces) {
-    font_provider->RegisterTypeface(std::move(typeface), names[index]);
+    if (typeface) {
+      font_provider->RegisterTypeface(std::move(typeface), names[index]);
+    }
     index++;
   }
 
@@ -155,8 +160,8 @@ void FontCollection::LoadFontFromList(Dart_Handle font_data_handle,
 
   std::unique_ptr<SkStreamAsset> font_stream = std::make_unique<SkMemoryStream>(
       font_data.data(), font_data.num_elements(), true);
-  sk_sp<SkTypeface> typeface =
-      SkTypeface::MakeFromStream(std::move(font_stream));
+  sk_sp<SkFontMgr> font_mgr = txt::GetDefaultFontManager();
+  sk_sp<SkTypeface> typeface = font_mgr->makeFromStream(std::move(font_stream));
   txt::TypefaceFontAssetProvider& font_provider =
       font_collection.dynamic_font_manager_->font_provider();
   if (family_name.empty()) {

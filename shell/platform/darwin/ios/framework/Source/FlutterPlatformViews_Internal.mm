@@ -4,11 +4,12 @@
 
 #import "flutter/shell/platform/darwin/ios/framework/Source/FlutterPlatformViews_Internal.h"
 
-#include "flutter/display_list/display_list_image_filter.h"
+#include "flutter/display_list/effects/dl_image_filter.h"
 #include "flutter/fml/platform/darwin/cf_utils.h"
 #import "flutter/shell/platform/darwin/ios/ios_surface.h"
 
-static int kMaxPointsInVerb = 4;
+static constexpr int kMaxPointsInVerb = 4;
+static constexpr NSUInteger kFlutterClippingMaskViewPoolCapacity = 5;
 
 namespace flutter {
 
@@ -26,7 +27,10 @@ FlutterPlatformViewLayer::~FlutterPlatformViewLayer() = default;
 
 FlutterPlatformViewsController::FlutterPlatformViewsController()
     : layer_pool_(std::make_unique<FlutterPlatformViewLayerPool>()),
-      weak_factory_(std::make_unique<fml::WeakPtrFactory<FlutterPlatformViewsController>>(this)){};
+      weak_factory_(std::make_unique<fml::WeakPtrFactory<FlutterPlatformViewsController>>(this)) {
+  mask_view_pool_.reset(
+      [[FlutterClippingMaskViewPool alloc] initWithCapacity:kFlutterClippingMaskViewPoolCapacity]);
+};
 
 FlutterPlatformViewsController::~FlutterPlatformViewsController() = default;
 
@@ -121,7 +125,7 @@ static BOOL _preparedOnce = NO;
   }
   for (NSUInteger i = 0; i < visualEffectView.subviews.count; i++) {
     UIView* view = visualEffectView.subviews[i];
-    if ([view isKindOfClass:NSClassFromString(@"_UIVisualEffectBackdropView")]) {
+    if ([NSStringFromClass([view class]) hasSuffix:@"BackdropView"]) {
       _indexOfBackdropView = i;
       for (NSObject* filter in view.layer.filters) {
         if ([[filter valueForKey:@"name"] isEqual:@"gaussianBlur"] &&
@@ -130,7 +134,7 @@ static BOOL _preparedOnce = NO;
           break;
         }
       }
-    } else if ([view isKindOfClass:NSClassFromString(@"_UIVisualEffectSubview")]) {
+    } else if ([NSStringFromClass([view class]) hasSuffix:@"VisualEffectSubview"]) {
       _indexOfVisualEffectSubview = i;
     }
   }
@@ -232,7 +236,7 @@ static BOOL _preparedOnce = NO;
 
 - (NSMutableArray*)backdropFilterSubviews {
   if (!_backdropFilterSubviews) {
-    _backdropFilterSubviews = [[[NSMutableArray alloc] init] retain];
+    _backdropFilterSubviews = [[NSMutableArray alloc] init];
   }
   return _backdropFilterSubviews;
 }
@@ -269,6 +273,11 @@ static BOOL _preparedOnce = NO;
     _reverseScreenScale = CATransform3DMakeScale(1 / screenScale, 1 / screenScale, 1);
   }
   return self;
+}
+
+- (void)reset {
+  paths_.clear();
+  [self setNeedsDisplay];
 }
 
 // In some scenarios, when we add this view as a maskView of the ChildClippingView, iOS added
@@ -444,6 +453,62 @@ static BOOL _preparedOnce = NO;
   CGPathRef transformedPath = CGPathCreateCopyByTransformingPath(path, &affine);
   CGPathRelease(path);
   return fml::CFRef<CGPathRef>(transformedPath);
+}
+
+@end
+
+@interface FlutterClippingMaskViewPool ()
+
+// The maximum number of `FlutterClippingMaskView` the pool can contain.
+// This prevents the pool to grow infinately and limits the maximum memory a pool can use.
+@property(assign, nonatomic) NSUInteger capacity;
+
+// The pool contains the views that are available to use.
+// The number of items in the pool must not excceds `capacity`.
+@property(retain, nonatomic) NSMutableSet<FlutterClippingMaskView*>* pool;
+
+@end
+
+@implementation FlutterClippingMaskViewPool : NSObject
+
+- (instancetype)initWithCapacity:(NSInteger)capacity {
+  if (self = [super init]) {
+    // Most of cases, there are only one PlatformView in the scene.
+    // Thus init with the capacity of 1.
+    _pool = [[NSMutableSet alloc] initWithCapacity:1];
+    _capacity = capacity;
+  }
+  return self;
+}
+
+- (FlutterClippingMaskView*)getMaskViewWithFrame:(CGRect)frame {
+  FML_DCHECK(self.pool.count <= self.capacity);
+  if (self.pool.count == 0) {
+    // The pool is empty, alloc a new one.
+    return
+        [[[FlutterClippingMaskView alloc] initWithFrame:frame
+                                            screenScale:[UIScreen mainScreen].scale] autorelease];
+  }
+  FlutterClippingMaskView* maskView = [[[self.pool anyObject] retain] autorelease];
+  maskView.frame = frame;
+  [maskView reset];
+  [self.pool removeObject:maskView];
+  return maskView;
+}
+
+- (void)insertViewToPoolIfNeeded:(FlutterClippingMaskView*)maskView {
+  FML_DCHECK(![self.pool containsObject:maskView]);
+  FML_DCHECK(self.pool.count <= self.capacity);
+  if (self.pool.count == self.capacity) {
+    return;
+  }
+  [self.pool addObject:maskView];
+}
+
+- (void)dealloc {
+  [_pool release];
+
+  [super dealloc];
 }
 
 @end

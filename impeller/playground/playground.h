@@ -2,16 +2,24 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_IMPELLER_PLAYGROUND_PLAYGROUND_H_
+#define FLUTTER_IMPELLER_PLAYGROUND_PLAYGROUND_H_
 
+#include <chrono>
 #include <memory>
 
 #include "flutter/fml/closure.h"
 #include "flutter/fml/macros.h"
-
+#include "flutter/fml/status.h"
+#include "flutter/fml/time/time_delta.h"
+#include "impeller/core/runtime_types.h"
+#include "impeller/core/texture.h"
 #include "impeller/geometry/point.h"
+#include "impeller/playground/image/compressed_image.h"
+#include "impeller/playground/image/decompressed_image.h"
+#include "impeller/playground/switches.h"
+#include "impeller/renderer/render_pass.h"
 #include "impeller/renderer/renderer.h"
-#include "impeller/renderer/texture.h"
 #include "impeller/runtime_stage/runtime_stage.h"
 
 namespace impeller {
@@ -24,17 +32,28 @@ enum class PlaygroundBackend {
   kVulkan,
 };
 
+constexpr inline RuntimeStageBackend PlaygroundBackendToRuntimeStageBackend(
+    PlaygroundBackend backend) {
+  switch (backend) {
+    case PlaygroundBackend::kMetal:
+      return RuntimeStageBackend::kMetal;
+    case PlaygroundBackend::kOpenGLES:
+      return RuntimeStageBackend::kOpenGLES;
+    case PlaygroundBackend::kVulkan:
+      return RuntimeStageBackend::kVulkan;
+  }
+  FML_UNREACHABLE();
+}
+
 std::string PlaygroundBackendToString(PlaygroundBackend backend);
 
 class Playground {
  public:
   using SinglePassCallback = std::function<bool(RenderPass& pass)>;
 
-  explicit Playground();
+  explicit Playground(PlaygroundSwitches switches);
 
   virtual ~Playground();
-
-  static constexpr bool is_enabled() { return is_enabled_; }
 
   static bool ShouldOpenNewPlaygrounds();
 
@@ -50,14 +69,28 @@ class Playground {
 
   Point GetContentScale() const;
 
+  /// @brief Get the amount of time elapsed from the start of the playground's
+  /// execution.
+  Scalar GetSecondsElapsed() const;
+
   std::shared_ptr<Context> GetContext() const;
+
+  std::shared_ptr<Context> MakeContext() const;
 
   bool OpenPlaygroundHere(const Renderer::RenderCallback& render_callback);
 
   bool OpenPlaygroundHere(SinglePassCallback pass_callback);
 
-  std::optional<DecompressedImage> LoadFixtureImageRGBA(
-      const char* fixture_name) const;
+  static std::shared_ptr<CompressedImage> LoadFixtureImageCompressed(
+      std::shared_ptr<fml::Mapping> mapping);
+
+  static std::optional<DecompressedImage> DecodeImageRGBA(
+      const std::shared_ptr<CompressedImage>& compressed);
+
+  static std::shared_ptr<Texture> CreateTextureForMapping(
+      const std::shared_ptr<Context>& context,
+      std::shared_ptr<fml::Mapping> mapping,
+      bool enable_mipmapping = false);
 
   std::shared_ptr<Texture> CreateTextureForFixture(
       const char* fixture_name,
@@ -73,15 +106,22 @@ class Playground {
 
   virtual std::string GetWindowTitle() const = 0;
 
- private:
-#if IMPELLER_ENABLE_PLAYGROUND
-  static const bool is_enabled_ = true;
-#else
-  static const bool is_enabled_ = false;
-#endif  // IMPELLER_ENABLE_PLAYGROUND
+  [[nodiscard]] fml::Status SetCapabilities(
+      const std::shared_ptr<Capabilities>& capabilities);
 
-  struct GLFWInitializer;
-  std::unique_ptr<GLFWInitializer> glfw_initializer_;
+  /// TODO(https://github.com/flutter/flutter/issues/139950): Remove this.
+  /// Returns true if `OpenPlaygroundHere` will actually render anything.
+  bool WillRenderSomething() const;
+
+ protected:
+  const PlaygroundSwitches switches_;
+
+  virtual bool ShouldKeepRendering() const;
+
+  void SetWindowSize(ISize size);
+
+ private:
+  fml::TimeDelta start_time_;
   std::unique_ptr<PlaygroundImpl> impl_;
   std::shared_ptr<Context> context_;
   std::unique_ptr<Renderer> renderer_;
@@ -90,9 +130,11 @@ class Playground {
 
   void SetCursorPosition(Point pos);
 
-  void SetWindowSize(ISize size);
+  Playground(const Playground&) = delete;
 
-  FML_DISALLOW_COPY_AND_ASSIGN(Playground);
+  Playground& operator=(const Playground&) = delete;
 };
 
 }  // namespace impeller
+
+#endif  // FLUTTER_IMPELLER_PLAYGROUND_PLAYGROUND_H_

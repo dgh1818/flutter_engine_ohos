@@ -14,9 +14,10 @@
 #include "flutter/assets/asset_manager.h"
 #include "flutter/fml/time/time_point.h"
 #include "flutter/lib/ui/semantics/semantics_update.h"
+#include "flutter/lib/ui/window/platform_message_response.h"
 #include "flutter/lib/ui/window/pointer_data_packet.h"
 #include "flutter/lib/ui/window/viewport_metrics.h"
-#include "flutter/lib/ui/window/window.h"
+#include "flutter/shell/common/display.h"
 #include "third_party/tonic/dart_persistent_value.h"
 #include "third_party/tonic/typed_data/dart_byte_data.h"
 
@@ -24,13 +25,14 @@ namespace flutter {
 class FontCollection;
 class PlatformMessage;
 class PlatformMessageHandler;
+class PlatformIsolateManager;
 class Scene;
 
 //--------------------------------------------------------------------------
 /// @brief An enum for defining the different kinds of accessibility features
 ///        that can be enabled by the platform.
 ///
-///         Must match the `AccessibilityFeatureFlag` enum in framework.
+///         Must match the `AccessibilityFeatures` class in framework.
 enum class AccessibilityFeatureFlag : int32_t {
   kAccessibleNavigation = 1 << 0,
   kInvertColors = 1 << 1,
@@ -65,13 +67,23 @@ class PlatformConfigurationClient {
   virtual void ScheduleFrame() = 0;
 
   //--------------------------------------------------------------------------
+  /// @brief    Called when a warm up frame has ended.
+  ///
+  ///           For more introduction, see `Animator::EndWarmUpFrame`.
+  ///
+  virtual void EndWarmUpFrame() = 0;
+
+  //--------------------------------------------------------------------------
   /// @brief      Updates the client's rendering on the GPU with the newly
   ///             provided Scene.
   ///
-  virtual void Render(Scene* scene) = 0;
+  virtual void Render(int64_t view_id,
+                      Scene* scene,
+                      double width,
+                      double height) = 0;
 
   //--------------------------------------------------------------------------
-  /// @brief      Receives a updated semantics tree from the Framework.
+  /// @brief      Receives an updated semantics tree from the Framework.
   ///
   /// @param[in] update The updated semantic tree to apply.
   ///
@@ -206,6 +218,42 @@ class PlatformConfigurationClient {
   ///
   virtual void RequestDartDeferredLibrary(intptr_t loading_unit_id) = 0;
 
+  //--------------------------------------------------------------------------
+  /// @brief      Invoked when a listener is registered on a platform channel.
+  ///
+  /// @param[in]  name             The name of the platform channel to which a
+  ///                              listener has been registered or cleared.
+  ///
+  /// @param[in]  listening        Whether the listener has been set (true) or
+  ///                              cleared (false).
+  ///
+  virtual void SendChannelUpdate(std::string name, bool listening) = 0;
+
+  //--------------------------------------------------------------------------
+  /// @brief      Synchronously invokes platform-specific APIs to apply the
+  ///             system text scaling on the given unscaled font size.
+  ///
+  ///             Platforms that support this feature (currently it's only
+  ///             implemented for Android SDK level 34+) will send a valid
+  ///             configuration_id to potential callers, before this method can
+  ///             be called.
+  ///
+  /// @param[in]  unscaled_font_size  The unscaled font size specified by the
+  ///                                 app developer. The value is in logical
+  ///                                 pixels, and is guaranteed to be finite and
+  ///                                 non-negative.
+  /// @param[in]  configuration_id    The unique id of the configuration to use
+  ///                                 for computing the scaled font size.
+  ///
+  /// @return     The scaled font size in logical pixels, or -1 if the given
+  ///             configuration_id did not match a valid configuration.
+  ///
+  virtual double GetScaledFontSize(double unscaled_font_size,
+                                   int configuration_id) const = 0;
+
+  virtual std::shared_ptr<PlatformIsolateManager>
+  GetPlatformIsolateManager() = 0;
+
  protected:
   virtual ~PlatformConfigurationClient();
 };
@@ -258,10 +306,52 @@ class PlatformConfiguration final {
   void DidCreateIsolate();
 
   //----------------------------------------------------------------------------
-  /// @brief      Update the specified locale data in the framework.
+  /// @brief      Notify the framework that a new view is available.
   ///
-  /// @deprecated The persistent isolate data must be used for this purpose
-  ///             instead.
+  ///             A view must be added before other methods can refer to it,
+  ///             including the implicit view. Adding a view that already exists
+  ///             triggers an assertion.
+  ///
+  /// @param[in]  view_id           The ID of the new view.
+  /// @param[in]  viewport_metrics  The initial viewport metrics for the view.
+  ///
+  void AddView(int64_t view_id, const ViewportMetrics& view_metrics);
+
+  //----------------------------------------------------------------------------
+  /// @brief      Notify the framework that a view is no longer available.
+  ///
+  ///             Removing a view that does not exist triggers an assertion.
+  ///
+  ///             The implicit view (kFlutterImplicitViewId) should never be
+  ///             removed. Doing so triggers an assertion.
+  ///
+  /// @param[in]  view_id  The ID of the view.
+  ///
+  /// @return     Whether the view was removed.
+  ///
+  bool RemoveView(int64_t view_id);
+
+  //----------------------------------------------------------------------------
+  /// @brief      Update the view metrics for the specified view.
+  ///
+  ///             If the view is not found, silently return false.
+  ///
+  /// @param[in]  view_id  The ID of the view.
+  /// @param[in]  metrics  The new metrics of the view.
+  ///
+  /// @return     Whether the view is found.
+  ///
+  bool UpdateViewMetrics(int64_t view_id, const ViewportMetrics& metrics);
+
+  //----------------------------------------------------------------------------
+  /// @brief      Update the specified display data in the framework.
+  ///
+  /// @param[in]  displays  The display data to send to Dart.
+  ///
+  void UpdateDisplays(const std::vector<DisplayData>& displays);
+
+  //----------------------------------------------------------------------------
+  /// @brief      Update the specified locale data in the framework.
   ///
   /// @param[in]  locale_data  The locale data. This should consist of groups of
   ///             4 strings, each group representing a single locale.
@@ -271,9 +361,6 @@ class PlatformConfiguration final {
   //----------------------------------------------------------------------------
   /// @brief      Update the user settings data in the framework.
   ///
-  /// @deprecated The persistent isolate data must be used for this purpose
-  ///             instead.
-  ///
   /// @param[in]  data  The user settings data.
   ///
   void UpdateUserSettingsData(const std::string& data);
@@ -281,12 +368,9 @@ class PlatformConfiguration final {
   //----------------------------------------------------------------------------
   /// @brief      Updates the lifecycle state data in the framework.
   ///
-  /// @deprecated The persistent isolate data must be used for this purpose
-  ///             instead.
-  ///
   /// @param[in]  data  The lifecycle state data.
   ///
-  void UpdateLifecycleState(const std::string& data);
+  void UpdateInitialLifecycleState(const std::string& data);
 
   //----------------------------------------------------------------------------
   /// @brief      Notifies the PlatformConfiguration that the embedder has
@@ -320,17 +404,26 @@ class PlatformConfiguration final {
   void DispatchPlatformMessage(std::unique_ptr<PlatformMessage> message);
 
   //----------------------------------------------------------------------------
+  /// @brief      Notifies the PlatformConfiguration that the client has sent
+  ///             it pointer events. This call originates in the platform view
+  ///             and has been forwarded through the engine to here.
+  ///
+  /// @param[in]  packet  The pointer event(s) serialized into a packet.
+  ///
+  void DispatchPointerDataPacket(const PointerDataPacket& packet);
+
+  //----------------------------------------------------------------------------
   /// @brief      Notifies the framework that the embedder encountered an
   ///             accessibility related action on the specified node. This call
   ///             originates on the platform view and has been forwarded to the
   ///             platform configuration here by the engine.
   ///
-  /// @param[in]  id      The identifier of the accessibility node.
+  /// @param[in]  node_id The identifier of the accessibility node.
   /// @param[in]  action  The accessibility related action performed on the
   ///                     node of the specified ID.
   /// @param[in]  args    Optional data that applies to the specified action.
   ///
-  void DispatchSemanticsAction(int32_t id,
+  void DispatchSemanticsAction(int32_t node_id,
                                SemanticsAction action,
                                fml::MallocMapping args);
 
@@ -390,14 +483,15 @@ class PlatformConfiguration final {
   void ReportTimings(std::vector<int64_t> timings);
 
   //----------------------------------------------------------------------------
-  /// @brief      Retrieves the Window with the given ID managed by the
-  ///             `PlatformConfiguration`.
+  /// @brief      Retrieves the viewport metrics with the given ID managed by
+  ///             the `PlatformConfiguration`.
   ///
-  /// @param[in] window_id The id of the window to find and return.
+  /// @param[in]  view_id The id of the view's viewport metrics to return.
   ///
-  /// @return     a pointer to the Window.
+  /// @return     a pointer to the ViewportMetrics. Returns nullptr if the ID is
+  ///             not found.
   ///
-  Window* get_window(int window_id) { return windows_[window_id].get(); }
+  const ViewportMetrics* GetMetrics(int view_id);
 
   //----------------------------------------------------------------------------
   /// @brief      Responds to a previous platform message to the engine from the
@@ -424,18 +518,24 @@ class PlatformConfiguration final {
  private:
   PlatformConfigurationClient* client_;
   tonic::DartPersistentValue on_error_;
+  tonic::DartPersistentValue add_view_;
+  tonic::DartPersistentValue remove_view_;
+  tonic::DartPersistentValue update_window_metrics_;
+  tonic::DartPersistentValue update_displays_;
   tonic::DartPersistentValue update_locales_;
   tonic::DartPersistentValue update_user_settings_data_;
-  tonic::DartPersistentValue update_lifecycle_state_;
+  tonic::DartPersistentValue update_initial_lifecycle_state_;
   tonic::DartPersistentValue update_semantics_enabled_;
   tonic::DartPersistentValue update_accessibility_features_;
   tonic::DartPersistentValue dispatch_platform_message_;
+  tonic::DartPersistentValue dispatch_pointer_data_packet_;
   tonic::DartPersistentValue dispatch_semantics_action_;
   tonic::DartPersistentValue begin_frame_;
   tonic::DartPersistentValue draw_frame_;
   tonic::DartPersistentValue report_timings_;
 
-  std::unordered_map<int64_t, std::unique_ptr<Window>> windows_;
+  // All current views' view metrics mapped from view IDs.
+  std::unordered_map<int64_t, ViewportMetrics> metrics_;
 
   // ID starts at 1 because an ID of 0 indicates that no response is expected.
   int next_response_id_ = 1;
@@ -473,7 +573,12 @@ class PlatformConfigurationNativeApi {
 
   static void ScheduleFrame();
 
-  static void Render(Scene* scene);
+  static void EndWarmUpFrame();
+
+  static void Render(int64_t view_id,
+                     Scene* scene,
+                     double width,
+                     double height);
 
   static void UpdateSemantics(SemanticsUpdate* update);
 
@@ -497,6 +602,8 @@ class PlatformConfigurationNativeApi {
 
   static void RespondToPlatformMessage(int response_id,
                                        const tonic::DartByteData& data);
+
+  static void SendChannelUpdate(const std::string& name, bool listening);
 
   //--------------------------------------------------------------------------
   /// @brief      Requests the Dart VM to adjusts the GC heuristics based on
@@ -525,8 +632,11 @@ class PlatformConfigurationNativeApi {
 
   static void RegisterBackgroundIsolate(int64_t root_isolate_token);
 
+  static double GetScaledFontSize(double unscaled_font_size,
+                                  int configuration_id);
+
  private:
-  static Dart_PerformanceMode current_performace_mode_;
+  static Dart_PerformanceMode current_performance_mode_;
 };
 
 }  // namespace flutter

@@ -11,22 +11,25 @@
                         "out/android_profile/zip_archives/android-arm-profile/linux-x64.zip",
                         "out/android_profile/zip_archives/android-arm-profile/symbols.zip",
                         "out/android_profile/zip_archives/download.flutter.io"
-                    ]
+                    ],
+                    "realm": "production"
                 }
             ],
             "drone_dimensions": [
                 "device_type=none",
                 "os=Linux"
             ],
-            "gclient_custom_vars": {
-                "download_android_deps": false
+            "gclient_variables": {
+                "use_rbe": true
             },
             "gn": [
                 "--runtime-mode",
                 "profile",
                 "--android",
                 "--android-cpu",
-                "arm"
+                "arm",
+                "--rbe",
+                "--no-goma"
             ],
             "name": "android_profile",
             "ninja": {
@@ -37,8 +40,7 @@
                     "flutter/shell/platform/android:embedding_jars",
                     "flutter/shell/platform/android:abi_jars"
                 ]
-            },
-            "tests": []
+            }
         },
         {
             "archives": [
@@ -51,22 +53,25 @@
                         "out/android_release/zip_archives/android-arm-release/linux-x64.zip",
                         "out/android_release/zip_archives/android-arm-release/symbols.zip",
                         "out/android_release/zip_archives/download.flutter.io"
-                    ]
+                    ],
+                    "realm": "production"
                 }
             ],
             "drone_dimensions": [
                 "device_type=none",
                 "os=Linux"
             ],
-            "gclient_custom_vars": {
-                "download_android_deps": false
+            "gclient_variables": {
+                "use_rbe": true
             },
             "gn": [
                 "--runtime-mode",
                 "release",
                 "--android",
                 "--android-cpu",
-                "arm"
+                "arm",
+                "--rbe",
+                "--no-goma"
             ],
             "name": "android_release",
             "ninja": {
@@ -77,8 +82,7 @@
                     "flutter/shell/platform/android:embedding_jars",
                     "flutter/shell/platform/android:abi_jars"
                 ]
-            },
-            "tests": []
+            }
         },
         {
             "archives": [
@@ -90,23 +94,27 @@
                         "out/android_release_arm64/zip_archives/android-arm64-release/artifacts.zip",
                         "out/android_release_arm64/zip_archives/android-arm64-release/linux-x64.zip",
                         "out/android_release_arm64/zip_archives/android-arm64-release/symbols.zip",
+                        "out/android_release_arm64/zip_archives/android-arm64-release/analyze-snapshot-linux-x64.zip",
                         "out/android_release_arm64/zip_archives/download.flutter.io"
-                    ]
+                    ],
+                    "realm": "production"
                 }
             ],
             "drone_dimensions": [
                 "device_type=none",
                 "os=Linux"
             ],
-            "gclient_custom_vars": {
-                "download_android_deps": false
+            "gclient_variables": {
+                "use_rbe": true
             },
             "gn": [
                 "--runtime-mode",
                 "release",
                 "--android",
                 "--android-cpu",
-                "arm64"
+                "arm64",
+                "--rbe",
+                "--no-goma"
             ],
             "name": "android_release_arm64",
             "ninja": {
@@ -114,10 +122,21 @@
                 "targets": [
                     "default",
                     "clang_x64/gen_snapshot",
-                    "flutter/shell/platform/android:abi_jars"
+                    "flutter/shell/platform/android:abi_jars",
+                    "flutter/shell/platform/android:analyze_snapshot"
                 ]
             },
-            "tests": []
+            "tests": [
+                {
+                    "name": "Generate treemap for android_release_arm64",
+                    "language": "bash",
+                    "script": "flutter/ci/binary_size_treemap.sh",
+                    "parameters": [
+                        "../../src/out/android_release_arm64/libflutter.so",
+                        "${FLUTTER_LOGS_DIR}"
+                    ]
+                }
+            ]
         },
         {
             "archives": [
@@ -128,34 +147,56 @@
                     "include_paths": [
                         "out/android_profile_arm64/zip_archives/android-arm64-profile/artifacts.zip",
                         "out/android_profile_arm64/zip_archives/android-arm64-profile/linux-x64.zip",
+                        "out/android_profile_arm64/zip_archives/android-arm64-profile/symbols.zip",
+                        "out/android_profile_arm64/zip_archives/android-arm64-profile/analyze-snapshot-linux-x64.zip",
                         "out/android_profile_arm64/zip_archives/download.flutter.io"
-                    ]
+                    ],
+                    "realm": "production"
                 }
             ],
             "drone_dimensions": [
                 "device_type=none",
                 "os=Linux"
             ],
-            "gclient_custom_vars": {
-                "download_android_deps": false
+            "gclient_variables": {
+                "use_rbe": true
             },
             "gn": [
                 "--android",
                 "--runtime-mode",
                 "profile",
                 "--android-cpu",
-                "arm64"
+                "arm64",
+                "--rbe",
+                "--no-goma"
             ],
             "name": "android_profile_arm64",
             "ninja": {
                 "config": "android_profile_arm64",
                 "targets": [
-                    "default",
                     "clang_x64/gen_snapshot",
-                    "flutter/shell/platform/android:abi_jars"
+                    "default",
+                    "flutter/testing/scenario_app/android",
+                    "flutter/shell/platform/android:abi_jars",
+                    "flutter/shell/platform/android:analyze_snapshot"
                 ]
             },
-            "tests": []
+            "tests": [
+                {
+                    "env": {
+                        "STORAGE_BUCKET": "gs://flutter_firebase_testlab_staging",
+                        "GCP_PROJECT": "flutter-infra-staging"
+                    },
+                    "name": "test: Android Firebase Test",
+                    "language": "python3",
+                    "script": "flutter/ci/firebase_testlab.py",
+                    "parameters": [
+                        "--variant",
+                        "android_profile_arm64"
+                    ],
+                    "test_if": "main"
+                }
+            ]
         },
         {
             "archives": [
@@ -167,23 +208,27 @@
                         "out/android_profile_x64/zip_archives/android-x64-profile/artifacts.zip",
                         "out/android_profile_x64/zip_archives/android-x64-profile/linux-x64.zip",
                         "out/android_profile_x64/zip_archives/android-x64-profile/symbols.zip",
+                        "out/android_profile_x64/zip_archives/android-x64-profile/analyze-snapshot-linux-x64.zip",
                         "out/android_profile_x64/zip_archives/download.flutter.io"
-                    ]
+                    ],
+                    "realm": "production"
                 }
             ],
             "drone_dimensions": [
                 "device_type=none",
                 "os=Linux"
             ],
-            "gclient_custom_vars": {
-                "download_android_deps": false
+            "gclient_variables": {
+                "use_rbe": true
             },
             "gn": [
                 "--runtime-mode",
                 "profile",
                 "--android",
                 "--android-cpu",
-                "x64"
+                "x64",
+                "--rbe",
+                "--no-goma"
             ],
             "name": "android_profile_x64",
             "ninja": {
@@ -191,10 +236,10 @@
                 "targets": [
                     "default",
                     "clang_x64/gen_snapshot",
-                    "flutter/shell/platform/android:abi_jars"
+                    "flutter/shell/platform/android:abi_jars",
+                    "flutter/shell/platform/android:analyze_snapshot"
                 ]
-            },
-            "tests": []
+            }
         },
         {
             "archives": [
@@ -206,23 +251,27 @@
                         "out/android_release_x64/zip_archives/android-x64-release/artifacts.zip",
                         "out/android_release_x64/zip_archives/android-x64-release/linux-x64.zip",
                         "out/android_release_x64/zip_archives/android-x64-release/symbols.zip",
+                        "out/android_release_x64/zip_archives/android-x64-release/analyze-snapshot-linux-x64.zip",
                         "out/android_release_x64/zip_archives/download.flutter.io"
-                    ]
+                    ],
+                    "realm": "production"
                 }
             ],
             "drone_dimensions": [
                 "device_type=none",
                 "os=Linux"
             ],
-            "gclient_custom_vars": {
-                "download_android_deps": false
+            "gclient_variables": {
+                "use_rbe": true
             },
             "gn": [
                 "--runtime-mode",
                 "release",
                 "--android",
                 "--android-cpu",
-                "x64"
+                "x64",
+                "--rbe",
+                "--no-goma"
             ],
             "name": "android_release_x64",
             "ninja": {
@@ -230,11 +279,22 @@
                 "targets": [
                     "default",
                     "clang_x64/gen_snapshot",
-                    "flutter/shell/platform/android:abi_jars"
+                    "flutter/shell/platform/android:abi_jars",
+                    "flutter/shell/platform/android:analyze_snapshot"
                 ]
-            },
-            "tests": []
+            }
         }
     ],
-    "tests": []
+    "generators": {
+        "tasks": [
+            {
+                "name": "Verify-export-symbols-release-binaries",
+                "parameters": [
+                    "src/out"
+                ],
+                "script": "flutter/testing/symbols/verify_exported.dart",
+                "language": "dart"
+            }
+        ]
+    }
 }

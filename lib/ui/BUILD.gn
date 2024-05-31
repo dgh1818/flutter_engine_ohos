@@ -2,12 +2,31 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import("//build/fuchsia/sdk.gni")
 import("//flutter/common/config.gni")
 import("//flutter/impeller/tools/impeller.gni")
+import("//flutter/shell/config.gni")
 import("//flutter/testing/testing.gni")
 
+if (is_fuchsia) {
+  import("//flutter/tools/fuchsia/gn-sdk/src/gn_configs.gni")
+}
+
 source_set("ui") {
+  cflags = [
+    # Dart gives us doubles. Skia and Impeller work in floats.
+    # If Dart gives us a double > FLT_MAX or < -FLT_MAX, implicit conversion
+    # will convert it to either inf/-inf or FLT_MAX/-FLT_MAX (undefined
+    # behavior). This can result in surprising and difficult to debug behavior
+    # for Flutter application developers, so it should be explicitly handled
+    # via SafeNarrow.
+    "-Wimplicit-float-conversion",
+  ]
+
+  if (is_win) {
+    # This causes build failures in third_party dependencies on Windows.
+    cflags += [ "-Wno-implicit-int-float-conversion" ]
+  }
+
   sources = [
     "compositing/scene.cc",
     "compositing/scene.h",
@@ -18,6 +37,7 @@ source_set("ui") {
     "dart_ui.cc",
     "dart_ui.h",
     "dart_wrapper.h",
+    "floating_point.h",
     "io_manager.cc",
     "io_manager.h",
     "isolate_name_server/isolate_name_server.cc",
@@ -59,6 +79,8 @@ source_set("ui") {
     "painting/image_filter.h",
     "painting/image_generator.cc",
     "painting/image_generator.h",
+    "painting/image_generator_apng.cc",
+    "painting/image_generator_apng.h",
     "painting/image_generator_registry.cc",
     "painting/image_generator_registry.h",
     "painting/image_shader.cc",
@@ -104,12 +126,10 @@ source_set("ui") {
     "text/asset_manager_font_provider.h",
     "text/font_collection.cc",
     "text/font_collection.h",
-    "text/line_metrics.h",
     "text/paragraph.cc",
     "text/paragraph.h",
     "text/paragraph_builder.cc",
     "text/paragraph_builder.h",
-    "text/text_box.h",
     "ui_dart_state.cc",
     "ui_dart_state.h",
     "volatile_path_tracker.cc",
@@ -120,6 +140,8 @@ source_set("ui") {
     "window/key_data_packet.h",
     "window/platform_configuration.cc",
     "window/platform_configuration.h",
+    "window/platform_isolate.cc",
+    "window/platform_isolate.h",
     "window/platform_message.cc",
     "window/platform_message.h",
     "window/platform_message_response.cc",
@@ -136,19 +158,20 @@ source_set("ui") {
     "window/pointer_data_packet_converter.h",
     "window/viewport_metrics.cc",
     "window/viewport_metrics.h",
-    "window/window.cc",
-    "window/window.h",
   ]
 
   public_configs = [ "//flutter:config" ]
 
   public_deps = [
     "//flutter/flow",
+    "//flutter/shell/common:display",
     "//flutter/shell/common:platform_message_handler",
+    "//flutter/skia/modules/skparagraph",
     "//flutter/third_party/txt",
   ]
 
   deps = [
+    "$dart_src/runtime/bin:dart_io_api",
     "//flutter/assets",
     "//flutter/common",
     "//flutter/common/graphics",
@@ -157,10 +180,10 @@ source_set("ui") {
     "//flutter/impeller/runtime_stage",
     "//flutter/runtime:dart_plugin_registrant",
     "//flutter/runtime:test_font",
+    "//flutter/skia",
+    "//flutter/third_party/rapidjson",
     "//flutter/third_party/tonic",
-    "//third_party/dart/runtime/bin:dart_io_api",
-    "//third_party/rapidjson",
-    "//third_party/skia",
+    "//third_party/zlib:zlib",
   ]
 
   if (impeller_supports_rendering) {
@@ -173,21 +196,29 @@ source_set("ui") {
       "painting/image_encoding_impeller.h",
     ]
 
-    deps += [ "//flutter/impeller" ]
+    deps += [
+      "//flutter/impeller",
+      "//flutter/impeller/display_list:skia_conversions",
+    ]
   }
 
   if (!defined(defines)) {
     defines = []
   }
-  if (flutter_enable_skshaper) {
-    defines += [ "FLUTTER_ENABLE_SKSHAPER" ]
-  }
-  if (flutter_always_use_skshaper) {
-    defines += [ "FLUTTER_ALWAYS_USE_SKSHAPER" ]
-  }
   if (is_win) {
     # Required for M_PI and others.
     defines += [ "_USE_MATH_DEFINES" ]
+  }
+  if (impeller_enable_3d) {
+    defines += [ "IMPELLER_ENABLE_3D" ]
+    sources += [
+      "painting/scene/scene_node.cc",
+      "painting/scene/scene_node.h",
+      "painting/scene/scene_shader.cc",
+      "painting/scene/scene_shader.h",
+    ]
+
+    deps += [ "//flutter/impeller/scene" ]
   }
 }
 
@@ -198,11 +229,15 @@ if (enable_unittests) {
     fixtures = [
       "fixtures/DashInNooglerHat.jpg",
       "fixtures/DashInNooglerHat%20WithSpace.jpg",
+      "fixtures/DisplayP3Logo.jpg",
+      "fixtures/DisplayP3Logo.png",
       "fixtures/Horizontal.jpg",
       "fixtures/Horizontal.png",
+      "fixtures/heart_end.png",
       "fixtures/hello_loop_2.gif",
       "fixtures/hello_loop_2.webp",
       "fixtures/FontManifest.json",
+      "fixtures/WideGamutIndexed.png",
       "//flutter/third_party/txt/third_party/fonts/Roboto-Medium.ttf",
     ]
   }
@@ -232,6 +267,8 @@ if (enable_unittests) {
     sources = [
       "compositing/scene_builder_unittests.cc",
       "hooks_unittests.cc",
+      "painting/image_decoder_no_gl_unittests.cc",
+      "painting/image_decoder_no_gl_unittests.h",
       "painting/image_dispose_unittests.cc",
       "painting/image_encoding_unittests.cc",
       "painting/image_generator_registry_unittests.cc",
@@ -249,18 +286,19 @@ if (enable_unittests) {
     deps = [
       ":ui",
       ":ui_unittests_fixtures",
+      "$dart_src/runtime/bin:elf_loader",
       "//flutter/common",
+      "//flutter/impeller",
       "//flutter/lib/snapshot",
       "//flutter/shell/common:shell_test_fixture_sources",
       "//flutter/testing",
       "//flutter/testing:dart",
       "//flutter/testing:fixture_test",
       "//flutter/third_party/tonic",
-      "//third_party/dart/runtime/bin:elf_loader",
     ]
 
     # TODO(https://github.com/flutter/flutter/issues/63837): This test is hard-coded to use a TestGLSurface so it cannot run on fuchsia.
-    if (!is_fuchsia) {
+    if (shell_enable_gl) {
       sources += [ "painting/image_decoder_unittests.cc" ]
 
       deps += [ "//flutter/testing:opengl" ]

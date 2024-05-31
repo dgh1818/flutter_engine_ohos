@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef FLOW_TESTING_MOCK_RASTER_CACHE_H_
-#define FLOW_TESTING_MOCK_RASTER_CACHE_H_
+#ifndef FLUTTER_FLOW_TESTING_MOCK_RASTER_CACHE_H_
+#define FLUTTER_FLOW_TESTING_MOCK_RASTER_CACHE_H_
 
 #include <vector>
 #include "flutter/flow/layers/layer.h"
@@ -11,18 +11,16 @@
 #include "flutter/flow/raster_cache_item.h"
 #include "flutter/flow/testing/mock_layer.h"
 #include "flutter/testing/mock_canvas.h"
-#include "include/core/SkCanvas.h"
 #include "third_party/skia/include/core/SkColorSpace.h"
-#include "third_party/skia/include/core/SkColorType.h"
-#include "third_party/skia/include/core/SkImage.h"
-#include "third_party/skia/include/core/SkPicture.h"
+#include "third_party/skia/include/core/SkRefCnt.h"
+#include "third_party/skia/include/core/SkSize.h"
 
 namespace flutter {
 namespace testing {
 
 /**
  * @brief A RasterCacheResult implementation that represents a cached Layer or
- * SkPicture without the overhead of storage.
+ * DisplayList without the overhead of storage.
  *
  * This implementation is used by MockRasterCache only for testing proper usage
  * of the RasterCache in layer unit tests.
@@ -31,7 +29,9 @@ class MockRasterCacheResult : public RasterCacheResult {
  public:
   explicit MockRasterCacheResult(SkRect device_rect);
 
-  void draw(SkCanvas& canvas, const SkPaint* paint = nullptr) const override{};
+  void draw(DlCanvas& canvas,
+            const DlPaint* paint = nullptr,
+            bool preserve_rtree = false) const override {};
 
   SkISize image_dimensions() const override {
     return SkSize::Make(device_rect_.width(), device_rect_.height()).toCeil();
@@ -50,7 +50,7 @@ static std::vector<RasterCacheItem*> raster_cache_items_;
 
 /**
  * @brief A RasterCache implementation that simulates the act of rendering a
- * Layer or SkPicture without the overhead of rasterization or pixel storage.
+ * Layer or DisplayList without the overhead of rasterization or pixel storage.
  * This implementation is used only for testing proper usage of the RasterCache
  * in layer unit tests.
  */
@@ -59,7 +59,7 @@ class MockRasterCache : public RasterCache {
   explicit MockRasterCache(
       size_t access_threshold = 3,
       size_t picture_and_display_list_cache_limit_per_frame =
-          RasterCacheUtil::kDefaultPictureAndDispLayListCacheLimitPerFrame)
+          RasterCacheUtil::kDefaultPictureAndDisplayListCacheLimitPerFrame)
       : RasterCache(access_threshold,
                     picture_and_display_list_cache_limit_per_frame) {
     preroll_state_stack_.set_preroll_delegate(SkMatrix::I());
@@ -73,7 +73,7 @@ class MockRasterCache : public RasterCache {
   LayerStateStack preroll_state_stack_;
   LayerStateStack paint_state_stack_;
   MockCanvas mock_canvas_;
-  SkColorSpace* color_space_ = mock_canvas_.imageInfo().colorSpace();
+  sk_sp<SkColorSpace> color_space_ = SkColorSpace::MakeSRGB();
   MutatorsStack mutators_stack_;
   FixedRefreshRateStopwatch raster_time_;
   FixedRefreshRateStopwatch ui_time_;
@@ -89,7 +89,6 @@ class MockRasterCache : public RasterCache {
       .raster_time                   = raster_time_,
       .ui_time                       = ui_time_,
       .texture_registry              = texture_registry_,
-      .frame_device_pixel_ratio      = 1.0f,
       .has_platform_view             = false,
       .has_texture_layer             = false,
       .raster_cached_entries         = &raster_cache_items_
@@ -107,7 +106,6 @@ class MockRasterCache : public RasterCache {
       .ui_time                       = ui_time_,
       .texture_registry              = texture_registry_,
       .raster_cache                  = nullptr,
-      .frame_device_pixel_ratio      = 1.0f,
       // clang-format on
   };
 };
@@ -151,4 +149,4 @@ bool RasterCacheItemTryToRasterCache(
 }  // namespace testing
 }  // namespace flutter
 
-#endif  // FLOW_TESTING_MOCK_RASTER_CACHE_H_
+#endif  // FLUTTER_FLOW_TESTING_MOCK_RASTER_CACHE_H_

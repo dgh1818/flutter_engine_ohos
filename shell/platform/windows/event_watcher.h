@@ -2,12 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef FLUTTER_SHELL_PLATFORM_WINDOWS_EVENT_WATCHER_WIN32_H_
-#define FLUTTER_SHELL_PLATFORM_WINDOWS_EVENT_WATCHER_WIN32_H_
+#ifndef FLUTTER_SHELL_PLATFORM_WINDOWS_EVENT_WATCHER_H_
+#define FLUTTER_SHELL_PLATFORM_WINDOWS_EVENT_WATCHER_H_
 
 #include <Windows.h>
 
 #include <functional>
+
+#include "flutter/fml/macros.h"
 
 namespace flutter {
 
@@ -28,10 +30,9 @@ class EventWatcher {
   HANDLE handle_;
   HANDLE handle_for_wait_;
 
-  EventWatcher(const EventWatcher&) = delete;
-  EventWatcher& operator=(const EventWatcher&) = delete;
+  FML_DISALLOW_COPY_AND_ASSIGN(EventWatcher);
 };
 
 }  // namespace flutter
 
-#endif  // FLUTTER_SHELL_PLATFORM_WINDOWS_EVENT_WATCHER_WIN32_H_
+#endif  // FLUTTER_SHELL_PLATFORM_WINDOWS_EVENT_WATCHER_H_

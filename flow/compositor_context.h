@@ -11,9 +11,9 @@
 #include "flutter/common/graphics/texture.h"
 #include "flutter/flow/diff_context.h"
 #include "flutter/flow/embedded_views.h"
-#include "flutter/flow/instrumentation.h"
 #include "flutter/flow/layer_snapshot_store.h"
 #include "flutter/flow/raster_cache.h"
+#include "flutter/flow/stopwatch.h"
 #include "flutter/fml/macros.h"
 #include "flutter/fml/raster_thread_merger.h"
 #include "third_party/skia/include/core/SkCanvas.h"
@@ -23,37 +23,28 @@ namespace flutter {
 
 class LayerTree;
 
+// The result status of CompositorContext::ScopedFrame::Raster.
 enum class RasterStatus {
   // Frame has been successfully rasterized.
   kSuccess,
-  // Frame is submitted twice. This is only used on Android when
-  // switching the background surface to FlutterImageView.
+  // Frame has been submited, but must be submitted again. This is only used
+  // on Android when switching the background surface to FlutterImageView.
   //
   // On Android, the first frame doesn't make the image available
   // to the ImageReader right away. The second frame does.
   //
   // TODO(egarciad): https://github.com/flutter/flutter/issues/65652
   kResubmit,
-  // Frame is dropped and a new frame with the same layer tree is
+  // Frame has be dropped and a new frame with the same layer tree must be
   // attempted.
   //
   // This is currently used to wait for the thread merger to merge
   // the raster and platform threads.
   //
-  // Since the thread merger may be disabled,
+  // Since the thread merger may be disabled, the system will proceed
+  // with separate threads for rasterization and platform tasks,
+  // potentially leading to different performance characteristics.
   kSkipAndRetry,
-  // Frame has been successfully rasterized, but "there are additional items in
-  // the pipeline waiting to be consumed. This is currently
-  // only used when thread configuration change occurs.
-  kEnqueuePipeline,
-  // Failed to rasterize the frame.
-  kFailed,
-  // Layer tree was discarded due to LayerTreeDiscardCallback or inability to
-  // access the GPU.
-  kDiscarded,
-  // Drawing was yielded to allow the correct thread to draw as a result of the
-  // RasterThreadMerger.
-  kYielded,
 };
 
 class FrameDamage {
@@ -82,7 +73,8 @@ class FrameDamage {
   // but the paint region of layer_tree will be calculated so that it can be
   // used for diffing of subsequent frames.
   std::optional<SkRect> ComputeClipRect(flutter::LayerTree& layer_tree,
-                                        bool has_raster_cache);
+                                        bool has_raster_cache,
+                                        bool impeller_enabled);
 
   // See Damage::frame_damage.
   std::optional<SkIRect> GetFrameDamage() const {
@@ -91,8 +83,16 @@ class FrameDamage {
 
   // See Damage::buffer_damage.
   std::optional<SkIRect> GetBufferDamage() {
-    return damage_ ? std::make_optional(damage_->buffer_damage) : std::nullopt;
+    return (damage_ && !ignore_damage_)
+               ? std::make_optional(damage_->buffer_damage)
+               : std::nullopt;
   }
+
+  // Remove reported buffer_damage to inform clients that a partial repaint
+  // should not be performed on this frame.
+  // frame_damage is required to correctly track accumulated damage for
+  // subsequent frames.
+  void Reset() { ignore_damage_ = true; }
 
  private:
   SkIRect additional_damage_ = SkIRect::MakeEmpty();
@@ -100,6 +100,7 @@ class FrameDamage {
   const LayerTree* prev_layer_tree_ = nullptr;
   int vertical_clip_alignment_ = 1;
   int horizontal_clip_alignment_ = 1;
+  bool ignore_damage_ = false;
 };
 
 class CompositorContext {
@@ -108,22 +109,17 @@ class CompositorContext {
    public:
     ScopedFrame(CompositorContext& context,
                 GrDirectContext* gr_context,
-                SkCanvas* canvas,
+                DlCanvas* canvas,
                 ExternalViewEmbedder* view_embedder,
                 const SkMatrix& root_surface_transformation,
                 bool instrumentation_enabled,
                 bool surface_supports_readback,
                 fml::RefPtr<fml::RasterThreadMerger> raster_thread_merger,
-                DisplayListBuilder* display_list_builder,
                 impeller::AiksContext* aiks_context);
 
     virtual ~ScopedFrame();
 
-    SkCanvas* canvas() { return canvas_; }
-
-    DisplayListBuilder* display_list_builder() const {
-      return display_list_builder_;
-    }
+    DlCanvas* canvas() { return canvas_; }
 
     ExternalViewEmbedder* view_embedder() { return view_embedder_; }
 
@@ -144,10 +140,18 @@ class CompositorContext {
                                 FrameDamage* frame_damage);
 
    private:
+    void PaintLayerTreeSkia(flutter::LayerTree& layer_tree,
+                            std::optional<SkRect> clip_rect,
+                            bool needs_save_layer,
+                            bool ignore_raster_cache);
+
+    void PaintLayerTreeImpeller(flutter::LayerTree& layer_tree,
+                                std::optional<SkRect> clip_rect,
+                                bool ignore_raster_cache);
+
     CompositorContext& context_;
     GrDirectContext* gr_context_;
-    SkCanvas* canvas_;
-    DisplayListBuilder* display_list_builder_;
+    DlCanvas* canvas_;
     impeller::AiksContext* aiks_context_;
     ExternalViewEmbedder* view_embedder_;
     const SkMatrix& root_surface_transformation_;
@@ -166,13 +170,12 @@ class CompositorContext {
 
   virtual std::unique_ptr<ScopedFrame> AcquireFrame(
       GrDirectContext* gr_context,
-      SkCanvas* canvas,
+      DlCanvas* canvas,
       ExternalViewEmbedder* view_embedder,
       const SkMatrix& root_surface_transformation,
       bool instrumentation_enabled,
       bool surface_supports_readback,
       fml::RefPtr<fml::RasterThreadMerger> raster_thread_merger,
-      DisplayListBuilder* display_list_builder,
       impeller::AiksContext* aiks_context);
 
   void OnGrContextCreated();
@@ -204,6 +207,12 @@ class CompositorContext {
   void BeginFrame(ScopedFrame& frame, bool enable_instrumentation);
 
   void EndFrame(ScopedFrame& frame, bool enable_instrumentation);
+
+  /// @brief  Whether Impeller shouild attempt a partial repaint.
+  ///         The Impeller backend requires an additional blit pass, which may
+  ///         not be worthwhile if the damage region is large.
+  static bool ShouldPerformPartialRepaint(std::optional<SkRect> damage_rect,
+                                          SkISize layer_tree_size);
 
   FML_DISALLOW_COPY_AND_ASSIGN(CompositorContext);
 };

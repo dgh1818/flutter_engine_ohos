@@ -52,6 +52,12 @@ void FlutterDesktopViewControllerDestroy(
   }
 }
 
+FlutterDesktopViewId FlutterDesktopViewControllerGetViewId(
+    FlutterDesktopViewControllerRef controller) {
+  // The stub ignores this, so just return an arbitrary non-zero value.
+  return static_cast<FlutterDesktopViewId>(1);
+}
+
 FlutterDesktopEngineRef FlutterDesktopViewControllerGetEngine(
     FlutterDesktopViewControllerRef controller) {
   // The stub ignores this, so just return an arbitrary non-zero value.
@@ -65,7 +71,11 @@ FlutterDesktopViewRef FlutterDesktopViewControllerGetView(
 }
 
 void FlutterDesktopViewControllerForceRedraw(
-    FlutterDesktopViewControllerRef controller) {}
+    FlutterDesktopViewControllerRef controller) {
+  if (s_stub_implementation) {
+    s_stub_implementation->ViewControllerForceRedraw();
+  }
+}
 
 bool FlutterDesktopViewControllerHandleTopLevelWindowProc(
     FlutterDesktopViewControllerRef controller,
@@ -158,10 +168,45 @@ IDXGIAdapter* FlutterDesktopViewGetGraphicsAdapter(FlutterDesktopViewRef view) {
   return nullptr;
 }
 
+bool FlutterDesktopEngineProcessExternalWindowMessage(
+    FlutterDesktopEngineRef engine,
+    HWND hwnd,
+    UINT message,
+    WPARAM wparam,
+    LPARAM lparam,
+    LRESULT* result) {
+  if (s_stub_implementation) {
+    return s_stub_implementation->EngineProcessExternalWindowMessage(
+        engine, hwnd, message, wparam, lparam, result);
+  }
+  return false;
+}
+
+void FlutterDesktopEngineRegisterPlatformViewType(
+    FlutterDesktopEngineRef engine,
+    const char* view_type_name,
+    FlutterPlatformViewTypeEntry view_type) {
+  if (s_stub_implementation) {
+    s_stub_implementation->EngineRegisterPlatformViewType(view_type_name,
+                                                          view_type);
+  }
+}
+
 FlutterDesktopViewRef FlutterDesktopPluginRegistrarGetView(
     FlutterDesktopPluginRegistrarRef controller) {
-  // The stub ignores this, so just return an arbitrary non-zero value.
-  return reinterpret_cast<FlutterDesktopViewRef>(1);
+  if (s_stub_implementation) {
+    return s_stub_implementation->PluginRegistrarGetView();
+  }
+  return nullptr;
+}
+
+FlutterDesktopViewRef FlutterDesktopPluginRegistrarGetViewById(
+    FlutterDesktopPluginRegistrarRef controller,
+    FlutterDesktopViewId view_id) {
+  if (s_stub_implementation) {
+    return s_stub_implementation->PluginRegistrarGetViewById(view_id);
+  }
+  return nullptr;
 }
 
 void FlutterDesktopPluginRegistrarRegisterTopLevelWindowProcDelegate(

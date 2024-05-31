@@ -3,29 +3,39 @@
 // found in the LICENSE file.
 
 #include "impeller/compiler/compiler_test.h"
+#include "flutter/fml/paths.h"
+#include "flutter/fml/process.h"
 
 #include <algorithm>
+#include <filesystem>
 
 namespace impeller {
 namespace compiler {
 namespace testing {
 
-static fml::UniqueFD CreateIntermediatesDirectory() {
+static std::string GetIntermediatesPath() {
   auto test_name = flutter::testing::GetCurrentTestName();
   std::replace(test_name.begin(), test_name.end(), '/', '_');
   std::replace(test_name.begin(), test_name.end(), '.', '_');
-  return fml::OpenDirectory(flutter::testing::OpenFixturesDirectory(),
-                            test_name.c_str(),
-                            true,  // create if necessary
-                            fml::FilePermission::kReadWrite);
+  std::stringstream dir_name;
+  dir_name << test_name << "_" << std::to_string(fml::GetCurrentProcId());
+  return fml::paths::JoinPaths(
+      {flutter::testing::GetFixturesPath(), dir_name.str()});
 }
 
-CompilerTest::CompilerTest()
-    : intermediates_directory_(CreateIntermediatesDirectory()) {
+CompilerTest::CompilerTest() : intermediates_path_(GetIntermediatesPath()) {
+  intermediates_directory_ =
+      fml::OpenDirectory(intermediates_path_.c_str(),
+                         true,  // create if necessary
+                         fml::FilePermission::kReadWrite);
   FML_CHECK(intermediates_directory_.is_valid());
 }
 
-CompilerTest::~CompilerTest() = default;
+CompilerTest::~CompilerTest() {
+  intermediates_directory_.reset();
+
+  std::filesystem::remove_all(std::filesystem::path(intermediates_path_));
+}
 
 static std::string ReflectionHeaderName(const char* fixture_name) {
   std::stringstream stream;
@@ -65,11 +75,20 @@ std::unique_ptr<fml::FileMapping> CompilerTest::GetReflectionJson(
   return fml::FileMapping::CreateReadOnly(fd);
 }
 
+std::unique_ptr<fml::FileMapping> CompilerTest::GetShaderFile(
+    const char* fixture_name,
+    TargetPlatform platform) const {
+  auto filename = SLFileName(fixture_name, platform);
+  auto fd = fml::OpenFileReadOnly(intermediates_directory_, filename.c_str());
+  return fml::FileMapping::CreateReadOnly(fd);
+}
+
 bool CompilerTest::CanCompileAndReflect(const char* fixture_name,
                                         SourceType source_type,
                                         SourceLanguage source_language,
                                         const char* entry_point_name) const {
-  auto fixture = flutter::testing::OpenFixtureAsMapping(fixture_name);
+  std::shared_ptr<fml::Mapping> fixture =
+      flutter::testing::OpenFixtureAsMapping(fixture_name);
   if (!fixture || !fixture->GetMapping()) {
     VALIDATION_LOG << "Could not find shader in fixtures: " << fixture_name;
     return false;
@@ -88,7 +107,7 @@ bool CompilerTest::CanCompileAndReflect(const char* fixture_name,
   reflector_options.header_file_name = ReflectionHeaderName(fixture_name);
   reflector_options.shader_name = "shader_name";
 
-  Compiler compiler(*fixture.get(), source_options, reflector_options);
+  Compiler compiler(fixture, source_options, reflector_options);
   if (!compiler.IsValid()) {
     VALIDATION_LOG << "Compilation failed: " << compiler.GetErrorMessages();
     return false;
@@ -107,19 +126,17 @@ bool CompilerTest::CanCompileAndReflect(const char* fixture_name,
     return false;
   }
 
-  if (TargetPlatformNeedsSL(GetParam())) {
-    auto sl_source = compiler.GetSLShaderSource();
-    if (!sl_source) {
-      VALIDATION_LOG << "No SL source was generated.";
-      return false;
-    }
+  auto sl_source = compiler.GetSLShaderSource();
+  if (!sl_source) {
+    VALIDATION_LOG << "No SL source was generated.";
+    return false;
+  }
 
-    if (!fml::WriteAtomically(intermediates_directory_,
-                              SLFileName(fixture_name, GetParam()).c_str(),
-                              *sl_source)) {
-      VALIDATION_LOG << "Could not write SL intermediates.";
-      return false;
-    }
+  if (!fml::WriteAtomically(intermediates_directory_,
+                            SLFileName(fixture_name, GetParam()).c_str(),
+                            *sl_source)) {
+    VALIDATION_LOG << "Could not write SL intermediates.";
+    return false;
   }
 
   if (TargetPlatformNeedsReflection(GetParam())) {

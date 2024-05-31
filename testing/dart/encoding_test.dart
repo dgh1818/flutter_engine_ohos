@@ -10,6 +10,8 @@ import 'dart:ui';
 import 'package:litetest/litetest.dart';
 import 'package:path/path.dart' as path;
 
+import 'impeller_enabled.dart';
+
 const int _kWidth = 10;
 const int _kRadius = 2;
 
@@ -17,6 +19,47 @@ const Color _kBlack = Color.fromRGBO(0, 0, 0, 1.0);
 const Color _kGreen = Color.fromRGBO(0, 255, 0, 1.0);
 
 void main() {
+  test('decodeImageFromPixels float32', () async {
+    if (impellerEnabled) {
+      print('Disabled on Impeller - https://github.com/flutter/flutter/issues/135702');
+      return;
+    }
+    const int width = 2;
+    const int height = 2;
+    final Float32List pixels = Float32List(width * height * 4);
+    final List<List<double>> pixels2d = <List<double>>[
+      <double>[1, 0, 0, 1],
+      <double>[0, 1, 0, 1],
+      <double>[0, 0, 1, 1],
+      <double>[1, 1, 1, 0],
+    ];
+    int offset = 0;
+    for (final List<double> color in pixels2d) {
+      pixels[offset + 0] = color[0];
+      pixels[offset + 1] = color[1];
+      pixels[offset + 2] = color[2];
+      pixels[offset + 3] = color[3];
+      offset += 4;
+    }
+
+    final Completer<Image> completer = Completer<Image>();
+    decodeImageFromPixels(
+        Uint8List.view(pixels.buffer), width, height, PixelFormat.rgbaFloat32,
+        (Image result) {
+      completer.complete(result);
+    });
+
+    final Image image = await completer.future;
+    final ByteData data =
+        (await image.toByteData(format: ImageByteFormat.rawStraightRgba))!;
+    final Uint32List readPixels = Uint32List.view(data.buffer);
+    expect(width * height, readPixels.length);
+    expect(readPixels[0], 0xff0000ff);
+    expect(readPixels[1], 0xff00ff00);
+    expect(readPixels[2], 0xffff0000);
+    expect(readPixels[3], 0x00ffffff);
+  });
+
   test('Image.toByteData RGBA format works with simple image', () async {
     final Image image = await Square4x4Image.image;
     final ByteData data = (await image.toByteData())!;
@@ -54,6 +97,10 @@ void main() {
   });
 
   test('Image.toByteData Unmodified format works with grayscale images', () async {
+    if (impellerEnabled) {
+      print('Disabled on Impeller - https://github.com/flutter/flutter/issues/135706');
+      return;
+    }
     final Image image = await GrayscaleImage.load();
     final ByteData data = (await image.toByteData(format: ImageByteFormat.rawUnmodified))!;
     final Uint8List bytes = data.buffer.asUint8List();
@@ -62,10 +109,29 @@ void main() {
   });
 
   test('Image.toByteData PNG format works with simple image', () async {
+    if (impellerEnabled) {
+      print('Disabled on Impeller - https://github.com/flutter/flutter/issues/135706');
+      return;
+    }
     final Image image = await Square4x4Image.image;
     final ByteData data = (await image.toByteData(format: ImageByteFormat.png))!;
     final List<int> expected = await readFile('square.png');
     expect(Uint8List.view(data.buffer), expected);
+  });
+
+  test('Image.toByteData ExtendedRGBA128', () async {
+    final Image image = await Square4x4Image.image;
+    final ByteData data = (await image.toByteData(format: ImageByteFormat.rawExtendedRgba128))!;
+    expect(image.width, _kWidth);
+    expect(image.height, _kWidth);
+    expect(data.lengthInBytes, _kWidth * _kWidth * 4 * 4);
+    // Top-left pixel should be black.
+    final Float32List floats = Float32List.view(data.buffer);
+    expect(floats[0], 0.0);
+    expect(floats[1], 0.0);
+    expect(floats[2], 0.0);
+    expect(floats[3], 1.0);
+    expect(image.colorSpace, ColorSpace.sRGB);
   });
 }
 

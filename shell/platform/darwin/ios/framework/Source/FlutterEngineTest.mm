@@ -9,12 +9,48 @@
 #import <objc/runtime.h>
 
 #import "flutter/common/settings.h"
+#include "flutter/fml/synchronization/sync_switch.h"
 #import "flutter/shell/platform/darwin/common/framework/Headers/FlutterMacros.h"
-#import "flutter/shell/platform/darwin/ios/framework/Source/FlutterBinaryMessengerRelay.h"
+#import "flutter/shell/platform/darwin/common/framework/Source/FlutterBinaryMessengerRelay.h"
 #import "flutter/shell/platform/darwin/ios/framework/Source/FlutterDartProject_Internal.h"
+#import "flutter/shell/platform/darwin/ios/framework/Source/FlutterEngine_Internal.h"
 #import "flutter/shell/platform/darwin/ios/framework/Source/FlutterEngine_Test.h"
+#import "flutter/shell/platform/darwin/ios/framework/Source/FlutterTextInputPlugin.h"
+#import "flutter/shell/platform/darwin/ios/platform_view_ios.h"
 
 FLUTTER_ASSERT_ARC
+
+@interface FlutterEngineSpy : FlutterEngine
+@property(nonatomic) BOOL ensureSemanticsEnabledCalled;
+@end
+
+@implementation FlutterEngineSpy
+
+- (void)ensureSemanticsEnabled {
+  _ensureSemanticsEnabledCalled = YES;
+}
+
+@end
+
+@interface FlutterEngine () <FlutterTextInputDelegate>
+
+@end
+
+/// FlutterBinaryMessengerRelay used for testing that setting FlutterEngine.binaryMessenger to
+/// the current instance doesn't trigger a use-after-free bug.
+///
+/// See: testSetBinaryMessengerToSameBinaryMessenger
+@interface FakeBinaryMessengerRelay : FlutterBinaryMessengerRelay
+@property(nonatomic, assign) BOOL failOnDealloc;
+@end
+
+@implementation FakeBinaryMessengerRelay
+- (void)dealloc {
+  if (_failOnDealloc) {
+    XCTFail("FakeBinaryMessageRelay should not be deallocated");
+  }
+}
+@end
 
 @interface FlutterEngineTest : XCTestCase
 @end
@@ -28,7 +64,7 @@ FLUTTER_ASSERT_ARC
 }
 
 - (void)testCreate {
-  id project = OCMClassMock([FlutterDartProject class]);
+  FlutterDartProject* project = [[FlutterDartProject alloc] init];
   FlutterEngine* engine = [[FlutterEngine alloc] initWithName:@"foobar" project:project];
   XCTAssertNotNil(engine);
 }
@@ -91,7 +127,7 @@ FLUTTER_ASSERT_ARC
 
 - (void)testDeallocated {
   __weak FlutterEngine* weakEngine = nil;
-  {
+  @autoreleasepool {
     FlutterEngine* engine = [[FlutterEngine alloc] initWithName:@"foobar"];
     weakEngine = engine;
     [engine run];
@@ -101,7 +137,7 @@ FLUTTER_ASSERT_ARC
 }
 
 - (void)testSendMessageBeforeRun {
-  id project = OCMClassMock([FlutterDartProject class]);
+  FlutterDartProject* project = [[FlutterDartProject alloc] init];
   FlutterEngine* engine = [[FlutterEngine alloc] initWithName:@"foobar" project:project];
   XCTAssertNotNil(engine);
   XCTAssertThrows([engine.binaryMessenger
@@ -111,7 +147,7 @@ FLUTTER_ASSERT_ARC
 }
 
 - (void)testSetMessageHandlerBeforeRun {
-  id project = OCMClassMock([FlutterDartProject class]);
+  FlutterDartProject* project = [[FlutterDartProject alloc] init];
   FlutterEngine* engine = [[FlutterEngine alloc] initWithName:@"foobar" project:project];
   XCTAssertNotNil(engine);
   XCTAssertThrows([engine.binaryMessenger
@@ -122,7 +158,7 @@ FLUTTER_ASSERT_ARC
 }
 
 - (void)testNilSetMessageHandlerBeforeRun {
-  id project = OCMClassMock([FlutterDartProject class]);
+  FlutterDartProject* project = [[FlutterDartProject alloc] init];
   FlutterEngine* engine = [[FlutterEngine alloc] initWithName:@"foobar" project:project];
   XCTAssertNotNil(engine);
   XCTAssertNoThrow([engine.binaryMessenger setMessageHandlerOnChannel:@"foo"
@@ -133,13 +169,27 @@ FLUTTER_ASSERT_ARC
   id plugin = OCMProtocolMock(@protocol(FlutterPlugin));
   OCMStub([plugin detachFromEngineForRegistrar:[OCMArg any]]);
   {
-    id project = OCMClassMock([FlutterDartProject class]);
+    FlutterDartProject* project = [[FlutterDartProject alloc] init];
     FlutterEngine* engine = [[FlutterEngine alloc] initWithName:@"engine" project:project];
     NSObject<FlutterPluginRegistrar>* registrar = [engine registrarForPlugin:@"plugin"];
     [registrar publish:plugin];
     engine = nil;
   }
   OCMVerify([plugin detachFromEngineForRegistrar:[OCMArg any]]);
+}
+
+- (void)testSetBinaryMessengerToSameBinaryMessenger {
+  FakeBinaryMessengerRelay* fakeBinaryMessenger = [[FakeBinaryMessengerRelay alloc] init];
+
+  FlutterEngine* engine = [[FlutterEngine alloc] init];
+  [engine setBinaryMessenger:fakeBinaryMessenger];
+
+  // Verify that the setter doesn't free the old messenger before setting the new messenger.
+  fakeBinaryMessenger.failOnDealloc = YES;
+  [engine setBinaryMessenger:fakeBinaryMessenger];
+
+  // Don't fail when ARC releases the binary messenger.
+  fakeBinaryMessenger.failOnDealloc = NO;
 }
 
 - (void)testRunningInitialRouteSendsNavigationMessage {
@@ -210,7 +260,7 @@ FLUTTER_ASSERT_ARC
                        [timeoutFirstFrame fulfill];
                      }
                    }];
-  [self waitForExpectationsWithTimeout:1 handler:nil];
+  [self waitForExpectationsWithTimeout:5 handler:nil];
 }
 
 - (void)testSpawn {
@@ -289,6 +339,135 @@ FLUTTER_ASSERT_ARC
   [self waitForExpectationsWithTimeout:1 handler:nil];
 
   method_setImplementation(method, originalSetThreadPriority);
+}
+
+- (void)testCanEnableDisableEmbedderAPIThroughInfoPlist {
+  {
+    // Not enable embedder API by default
+    auto settings = FLTDefaultSettingsForBundle();
+    settings.enable_software_rendering = true;
+    FlutterDartProject* project = [[FlutterDartProject alloc] initWithSettings:settings];
+    FlutterEngine* engine = [[FlutterEngine alloc] initWithName:@"foobar" project:project];
+    XCTAssertFalse(engine.enableEmbedderAPI);
+  }
+  {
+    // Enable embedder api
+    id mockMainBundle = OCMPartialMock([NSBundle mainBundle]);
+    OCMStub([mockMainBundle objectForInfoDictionaryKey:@"FLTEnableIOSEmbedderAPI"])
+        .andReturn(@"YES");
+    auto settings = FLTDefaultSettingsForBundle();
+    settings.enable_software_rendering = true;
+    FlutterDartProject* project = [[FlutterDartProject alloc] initWithSettings:settings];
+    FlutterEngine* engine = [[FlutterEngine alloc] initWithName:@"foobar" project:project];
+    XCTAssertTrue(engine.enableEmbedderAPI);
+  }
+}
+
+- (void)testFlutterTextInputViewDidResignFirstResponderWillCallTextInputClientConnectionClosed {
+  id mockBinaryMessenger = OCMClassMock([FlutterBinaryMessengerRelay class]);
+  FlutterEngine* engine = [[FlutterEngine alloc] init];
+  [engine setBinaryMessenger:mockBinaryMessenger];
+  [engine runWithEntrypoint:FlutterDefaultDartEntrypoint initialRoute:@"test"];
+  [engine flutterTextInputView:nil didResignFirstResponderWithTextInputClient:1];
+  FlutterMethodCall* methodCall =
+      [FlutterMethodCall methodCallWithMethodName:@"TextInputClient.onConnectionClosed"
+                                        arguments:@[ @(1) ]];
+  NSData* encodedMethodCall = [[FlutterJSONMethodCodec sharedInstance] encodeMethodCall:methodCall];
+  OCMVerify([mockBinaryMessenger sendOnChannel:@"flutter/textinput" message:encodedMethodCall]);
+}
+
+- (void)testFlutterEngineUpdatesDisplays {
+  FlutterEngine* engine = [[FlutterEngine alloc] init];
+  id mockEngine = OCMPartialMock(engine);
+
+  [engine run];
+  OCMVerify(times(1), [mockEngine updateDisplays]);
+  engine.viewController = nil;
+  OCMVerify(times(2), [mockEngine updateDisplays]);
+}
+
+- (void)testLifeCycleNotificationDidEnterBackground {
+  FlutterDartProject* project = [[FlutterDartProject alloc] init];
+  FlutterEngine* engine = [[FlutterEngine alloc] initWithName:@"foobar" project:project];
+  [engine run];
+  NSNotification* sceneNotification =
+      [NSNotification notificationWithName:UISceneDidEnterBackgroundNotification
+                                    object:nil
+                                  userInfo:nil];
+  NSNotification* applicationNotification =
+      [NSNotification notificationWithName:UIApplicationDidEnterBackgroundNotification
+                                    object:nil
+                                  userInfo:nil];
+  id mockEngine = OCMPartialMock(engine);
+  [[NSNotificationCenter defaultCenter] postNotification:sceneNotification];
+  [[NSNotificationCenter defaultCenter] postNotification:applicationNotification];
+#if APPLICATION_EXTENSION_API_ONLY
+  OCMVerify(times(1), [mockEngine sceneDidEnterBackground:[OCMArg any]]);
+#else
+  OCMVerify(times(1), [mockEngine applicationDidEnterBackground:[OCMArg any]]);
+#endif
+  XCTAssertTrue(engine.isGpuDisabled);
+  bool switch_value = false;
+  [engine shell].GetIsGpuDisabledSyncSwitch()->Execute(
+      fml::SyncSwitch::Handlers().SetIfTrue([&] { switch_value = true; }).SetIfFalse([&] {
+        switch_value = false;
+      }));
+  XCTAssertTrue(switch_value);
+}
+
+- (void)testLifeCycleNotificationWillEnterForeground {
+  FlutterDartProject* project = [[FlutterDartProject alloc] init];
+  FlutterEngine* engine = [[FlutterEngine alloc] initWithName:@"foobar" project:project];
+  [engine run];
+  NSNotification* sceneNotification =
+      [NSNotification notificationWithName:UISceneWillEnterForegroundNotification
+                                    object:nil
+                                  userInfo:nil];
+  NSNotification* applicationNotification =
+      [NSNotification notificationWithName:UIApplicationWillEnterForegroundNotification
+                                    object:nil
+                                  userInfo:nil];
+  id mockEngine = OCMPartialMock(engine);
+  [[NSNotificationCenter defaultCenter] postNotification:sceneNotification];
+  [[NSNotificationCenter defaultCenter] postNotification:applicationNotification];
+#if APPLICATION_EXTENSION_API_ONLY
+  OCMVerify(times(1), [mockEngine sceneWillEnterForeground:[OCMArg any]]);
+#else
+  OCMVerify(times(1), [mockEngine applicationWillEnterForeground:[OCMArg any]]);
+#endif
+  XCTAssertFalse(engine.isGpuDisabled);
+  bool switch_value = true;
+  [engine shell].GetIsGpuDisabledSyncSwitch()->Execute(
+      fml::SyncSwitch::Handlers().SetIfTrue([&] { switch_value = true; }).SetIfFalse([&] {
+        switch_value = false;
+      }));
+  XCTAssertFalse(switch_value);
+}
+
+- (void)testSpawnsShareGpuContext {
+  FlutterEngine* engine = [[FlutterEngine alloc] initWithName:@"foobar"];
+  [engine run];
+  FlutterEngine* spawn = [engine spawnWithEntrypoint:nil
+                                          libraryURI:nil
+                                        initialRoute:nil
+                                      entrypointArgs:nil];
+  XCTAssertNotNil(spawn);
+  XCTAssertTrue([engine iosPlatformView] != nullptr);
+  XCTAssertTrue([spawn iosPlatformView] != nullptr);
+  std::shared_ptr<flutter::IOSContext> engine_context = [engine iosPlatformView]->GetIosContext();
+  std::shared_ptr<flutter::IOSContext> spawn_context = [spawn iosPlatformView]->GetIosContext();
+  XCTAssertEqual(engine_context, spawn_context);
+  // If this assert fails it means we may be using the software.  For software rendering, this is
+  // expected to be nullptr.
+  XCTAssertTrue(engine_context->GetMainContext() != nullptr);
+  XCTAssertEqual(engine_context->GetMainContext(), spawn_context->GetMainContext());
+}
+
+- (void)testEnableSemanticsWhenFlutterViewAccessibilityDidCall {
+  FlutterEngineSpy* engine = [[FlutterEngineSpy alloc] initWithName:@"foobar"];
+  engine.ensureSemanticsEnabledCalled = NO;
+  [engine flutterViewAccessibilityDidCall];
+  XCTAssertTrue(engine.ensureSemanticsEnabledCalled);
 }
 
 @end

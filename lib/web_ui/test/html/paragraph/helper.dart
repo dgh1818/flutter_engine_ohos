@@ -37,7 +37,7 @@ const Color yellow = Color(0xFFFFEB3B);
 const Color lightPurple = Color(0xFFE1BEE7);
 
 final EngineParagraphStyle ahemStyle = EngineParagraphStyle(
-  fontFamily: 'ahem',
+  fontFamily: 'Ahem',
   fontSize: 10,
 );
 
@@ -85,7 +85,7 @@ Future<void> takeScreenshot(
     await matchGoldenFile('$fileName.png', region: region);
   } finally {
     // The page is reused across tests, so remove the element after taking the
-    // Scuba screenshot.
+    // screenshot.
     sceneElement.remove();
   }
 }

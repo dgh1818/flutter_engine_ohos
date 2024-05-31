@@ -3,6 +3,14 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+# ---------------------------------- NOTE ----------------------------------
+#
+# Please keep the logic in this file consistent with the logic in the
+# `yapf.bat` script in the same directory to ensure that it continues to
+# work across all platforms!
+#
+# --------------------------------------------------------------------------
+
 # Generates objc docs for Flutter iOS libraries.
 
 set -e
@@ -27,6 +35,6 @@ function follow_links() (
 
 SCRIPT_DIR=$(follow_links "$(dirname -- "${BASH_SOURCE[0]}")")
 SRC_DIR="$(cd "$SCRIPT_DIR/../.."; pwd -P)"
-YAPF_DIR="$(cd "$SRC_DIR/third_party/yapf"; pwd -P)"
+YAPF_DIR="$(cd "$SRC_DIR/flutter/third_party/yapf"; pwd -P)"
 
 PYTHONPATH="$YAPF_DIR" python3 "$YAPF_DIR/yapf" "$@"

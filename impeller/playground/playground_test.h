@@ -2,15 +2,21 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_IMPELLER_PLAYGROUND_PLAYGROUND_TEST_H_
+#define FLUTTER_IMPELLER_PLAYGROUND_PLAYGROUND_TEST_H_
 
 #include <memory>
 
 #include "flutter/fml/macros.h"
-#include "flutter/fml/time/time_delta.h"
+#include "flutter/testing/test_args.h"
 #include "flutter/testing/testing.h"
 #include "impeller/geometry/scalar.h"
 #include "impeller/playground/playground.h"
+#include "impeller/playground/switches.h"
+
+#if FML_OS_MACOSX
+#include "flutter/fml/platform/darwin/scoped_nsautorelease_pool.h"
+#endif
 
 namespace impeller {
 
@@ -25,34 +31,69 @@ class PlaygroundTest : public Playground,
 
   void TearDown() override;
 
+  PlaygroundBackend GetBackend() const;
+
   // |Playground|
   std::unique_ptr<fml::Mapping> OpenAssetAsMapping(
       std::string asset_name) const override;
 
-  std::shared_ptr<RuntimeStage> OpenAssetAsRuntimeStage(
-      const char* asset_name) const;
+  RuntimeStage::Map OpenAssetAsRuntimeStage(const char* asset_name) const;
 
   // |Playground|
   std::string GetWindowTitle() const override;
 
-  /// @brief Get the amount of time elapsed from the start of the playground
-  ///        test's execution.
-  Scalar GetSecondsElapsed() const;
-
  private:
-  fml::TimeDelta start_time_;
+  // |Playground|
+  bool ShouldKeepRendering() const;
 
-  FML_DISALLOW_COPY_AND_ASSIGN(PlaygroundTest);
+#if FML_OS_MACOSX
+  fml::ScopedNSAutoreleasePool autorelease_pool_;
+#endif
+
+  PlaygroundTest(const PlaygroundTest&) = delete;
+
+  PlaygroundTest& operator=(const PlaygroundTest&) = delete;
 };
 
-#define INSTANTIATE_PLAYGROUND_SUITE(playground)                            \
-  INSTANTIATE_TEST_SUITE_P(                                                 \
-      Play, playground,                                                     \
-      ::testing::Values(PlaygroundBackend::kMetal,                          \
-                        PlaygroundBackend::kOpenGLES,                       \
-                        PlaygroundBackend::kVulkan),                        \
-      [](const ::testing::TestParamInfo<PlaygroundTest::ParamType>& info) { \
-        return PlaygroundBackendToString(info.param);                       \
+#define INSTANTIATE_PLAYGROUND_SUITE(playground)                             \
+  [[maybe_unused]] const char* kYouInstantiated##playground##MultipleTimes = \
+      "";                                                                    \
+  INSTANTIATE_TEST_SUITE_P(                                                  \
+      Play, playground,                                                      \
+      ::testing::Values(PlaygroundBackend::kMetal,                           \
+                        PlaygroundBackend::kOpenGLES,                        \
+                        PlaygroundBackend::kVulkan),                         \
+      [](const ::testing::TestParamInfo<PlaygroundTest::ParamType>& info) {  \
+        return PlaygroundBackendToString(info.param);                        \
+      });
+
+#define INSTANTIATE_METAL_PLAYGROUND_SUITE(playground)                       \
+  [[maybe_unused]] const char* kYouInstantiated##playground##MultipleTimes = \
+      "";                                                                    \
+  INSTANTIATE_TEST_SUITE_P(                                                  \
+      Play, playground, ::testing::Values(PlaygroundBackend::kMetal),        \
+      [](const ::testing::TestParamInfo<PlaygroundTest::ParamType>& info) {  \
+        return PlaygroundBackendToString(info.param);                        \
+      });
+
+#define INSTANTIATE_VULKAN_PLAYGROUND_SUITE(playground)                      \
+  [[maybe_unused]] const char* kYouInstantiated##playground##MultipleTimes = \
+      "";                                                                    \
+  INSTANTIATE_TEST_SUITE_P(                                                  \
+      Play, playground, ::testing::Values(PlaygroundBackend::kVulkan),       \
+      [](const ::testing::TestParamInfo<PlaygroundTest::ParamType>& info) {  \
+        return PlaygroundBackendToString(info.param);                        \
+      });
+
+#define INSTANTIATE_OPENGLES_PLAYGROUND_SUITE(playground)                    \
+  [[maybe_unused]] const char* kYouInstantiated##playground##MultipleTimes = \
+      "";                                                                    \
+  INSTANTIATE_TEST_SUITE_P(                                                  \
+      Play, playground, ::testing::Values(PlaygroundBackend::kOpenGLES),     \
+      [](const ::testing::TestParamInfo<PlaygroundTest::ParamType>& info) {  \
+        return PlaygroundBackendToString(info.param);                        \
       });
 
 }  // namespace impeller
+
+#endif  // FLUTTER_IMPELLER_PLAYGROUND_PLAYGROUND_TEST_H_

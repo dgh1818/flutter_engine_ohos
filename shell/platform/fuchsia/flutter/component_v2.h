@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef FLUTTER_SHELL_PLATFORM_FUCHSIA_COMPONENT_V2_H_
-#define FLUTTER_SHELL_PLATFORM_FUCHSIA_COMPONENT_V2_H_
+#ifndef FLUTTER_SHELL_PLATFORM_FUCHSIA_FLUTTER_COMPONENT_V2_H_
+#define FLUTTER_SHELL_PLATFORM_FUCHSIA_FLUTTER_COMPONENT_V2_H_
 
 #include <array>
 #include <memory>
@@ -11,7 +11,6 @@
 
 #include <fuchsia/component/runner/cpp/fidl.h>
 #include <fuchsia/io/cpp/fidl.h>
-#include <fuchsia/sys/cpp/fidl.h>
 #include <fuchsia/ui/app/cpp/fidl.h>
 #include <lib/async-loop/cpp/loop.h>
 #include <lib/async/default.h>
@@ -111,18 +110,11 @@ class ComponentV2 final
   void Stop() override;
 
   // |fuchsia::ui::app::ViewProvider|
-  void CreateView(
-      zx::eventpair token,
-      fidl::InterfaceRequest<fuchsia::sys::ServiceProvider> incoming_services,
-      fuchsia::sys::ServiceProviderHandle outgoing_services) override;
-
-  // |fuchsia::ui::app::ViewProvider|
-  void CreateViewWithViewRef(zx::eventpair view_token,
-                             fuchsia::ui::views::ViewRefControl control_ref,
-                             fuchsia::ui::views::ViewRef view_ref) override;
-
-  // |fuchsia::ui::app::ViewProvider|
   void CreateView2(fuchsia::ui::app::CreateView2Args view_args) override;
+  void CreateViewWithViewRef(
+      ::zx::eventpair token,
+      ::fuchsia::ui::views::ViewRefControl view_ref_control,
+      ::fuchsia::ui::views::ViewRef view_ref) override {}
 
   // |flutter::Engine::Delegate|
   void OnEngineTerminate(const Engine* holder) override;
@@ -155,4 +147,4 @@ class ComponentV2 final
 
 }  // namespace flutter_runner
 
-#endif  // FLUTTER_SHELL_PLATFORM_FUCHSIA_COMPONENT_V2_H_
+#endif  // FLUTTER_SHELL_PLATFORM_FUCHSIA_FLUTTER_COMPONENT_V2_H_

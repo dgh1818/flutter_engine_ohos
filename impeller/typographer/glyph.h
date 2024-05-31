@@ -2,11 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_IMPELLER_TYPOGRAPHER_GLYPH_H_
+#define FLUTTER_IMPELLER_TYPOGRAPHER_GLYPH_H_
 
 #include <cstdint>
 #include <functional>
 
+#include "flutter/fml/hash_combine.h"
 #include "flutter/fml/macros.h"
 #include "impeller/geometry/rect.h"
 
@@ -16,7 +18,7 @@ namespace impeller {
 /// @brief      The glyph index in the typeface.
 ///
 struct Glyph {
-  enum class Type {
+  enum class Type : uint8_t {
     kPath,
     kBitmap,
   };
@@ -38,12 +40,26 @@ struct Glyph {
       : index(p_index), type(p_type), bounds(p_bounds) {}
 };
 
+// Many Glyph instances are instantiated, so care should be taken when
+// increasing the size.
+static_assert(sizeof(Glyph) == 20);
+
 }  // namespace impeller
 
 template <>
 struct std::hash<impeller::Glyph> {
   constexpr std::size_t operator()(const impeller::Glyph& g) const {
-    return g.index;
+    static_assert(sizeof(g.index) == 2);
+    static_assert(sizeof(g.type) == 1);
+    return (static_cast<size_t>(g.type) << 16) | g.index;
+  }
+};
+
+template <>
+struct std::equal_to<impeller::Glyph> {
+  constexpr bool operator()(const impeller::Glyph& lhs,
+                            const impeller::Glyph& rhs) const {
+    return lhs.index == rhs.index && lhs.type == rhs.type;
   }
 };
 
@@ -54,3 +70,5 @@ struct std::less<impeller::Glyph> {
     return lhs.index < rhs.index;
   }
 };
+
+#endif  // FLUTTER_IMPELLER_TYPOGRAPHER_GLYPH_H_

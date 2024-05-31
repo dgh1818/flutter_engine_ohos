@@ -2,10 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <utility>
-
 #import "flutter/shell/platform/darwin/ios/framework/Source/accessibility_bridge.h"
 
+#include <utility>
+
+#include "flutter/fml/logging.h"
 #import "flutter/shell/platform/darwin/ios/framework/Source/FlutterEngine_Internal.h"
 #import "flutter/shell/platform/darwin/ios/framework/Source/FlutterViewController_Internal.h"
 #import "flutter/shell/platform/darwin/ios/framework/Source/accessibility_text_entry.h"
@@ -48,7 +49,6 @@ AccessibilityBridge::AccessibilityBridge(
       platform_views_controller_(std::move(platform_views_controller)),
       last_focused_semantics_object_id_(kSemanticObjectIdInvalid),
       objects_([[NSMutableDictionary alloc] init]),
-      previous_route_id_(0),
       previous_routes_({}),
       ios_delegate_(ios_delegate ? std::move(ios_delegate)
                                  : std::make_unique<DefaultIosDelegate>()),
@@ -74,6 +74,7 @@ UIView<UITextInput>* AccessibilityBridge::textInputView() {
 
 void AccessibilityBridge::AccessibilityObjectDidBecomeFocused(int32_t id) {
   last_focused_semantics_object_id_ = id;
+  [accessibility_channel_.get() sendMessage:@{@"type" : @"didGainFocus", @"nodeId" : @(id)}];
 }
 
 void AccessibilityBridge::AccessibilityObjectDidLoseFocus(int32_t id) {
@@ -106,7 +107,14 @@ void AccessibilityBridge::UpdateSemantics(
       SemanticsObject* child = GetOrCreateObject(node.childrenInTraversalOrder[i], nodes);
       [newChildren addObject:child];
     }
+    NSMutableArray* newChildrenInHitTestOrder =
+        [[[NSMutableArray alloc] initWithCapacity:newChildCount] autorelease];
+    for (NSUInteger i = 0; i < newChildCount; ++i) {
+      SemanticsObject* child = GetOrCreateObject(node.childrenInHitTestOrder[i], nodes);
+      [newChildrenInHitTestOrder addObject:child];
+    }
     object.children = newChildren;
+    object.childrenInHitTestOrder = newChildrenInHitTestOrder;
     if (!node.customAccessibilityActions.empty()) {
       NSMutableArray<FlutterCustomAccessibilityAction*>* accessibilityCustomActions =
           [[[NSMutableArray alloc] init] autorelease];
@@ -153,7 +161,8 @@ void AccessibilityBridge::UpdateSemantics(
 
   if (root) {
     if (!view_controller_.view.accessibilityElements) {
-      view_controller_.view.accessibilityElements = @[ [root accessibilityContainer] ];
+      view_controller_.view.accessibilityElements =
+          @[ [root accessibilityContainer] ?: [NSNull null] ];
     }
     NSMutableArray<SemanticsObject*>* newRoutes = [[[NSMutableArray alloc] init] autorelease];
     [root collectRoutes:newRoutes];
@@ -243,7 +252,7 @@ static void ReplaceSemanticsObject(SemanticsObject* oldObject,
                                    SemanticsObject* newObject,
                                    NSMutableDictionary<NSNumber*, SemanticsObject*>* objects) {
   // `newObject` should represent the same id as `oldObject`.
-  assert(oldObject.node.id == newObject.uid);
+  FML_DCHECK(oldObject.node.id == newObject.uid);
   NSNumber* nodeId = @(oldObject.node.id);
   NSUInteger positionInChildlist = [oldObject.parent.children indexOfObject:oldObject];
   [[oldObject retain] autorelease];
@@ -259,8 +268,9 @@ static SemanticsObject* CreateObject(const flutter::SemanticsNode& node,
       !node.HasFlag(flutter::SemanticsFlags::kIsReadOnly)) {
     // Text fields are backed by objects that implement UITextInput.
     return [[[TextInputSemanticsObject alloc] initWithBridge:weak_ptr uid:node.id] autorelease];
-  } else if (node.HasFlag(flutter::SemanticsFlags::kHasToggledState) ||
-             node.HasFlag(flutter::SemanticsFlags::kHasCheckedState)) {
+  } else if (!node.HasFlag(flutter::SemanticsFlags::kIsInMutuallyExclusiveGroup) &&
+             (node.HasFlag(flutter::SemanticsFlags::kHasToggledState) ||
+              node.HasFlag(flutter::SemanticsFlags::kHasCheckedState))) {
     return [[[FlutterSwitchSemanticsObject alloc] initWithBridge:weak_ptr uid:node.id] autorelease];
   } else if (node.HasFlag(flutter::SemanticsFlags::kHasImplicitScrolling)) {
     return [[[FlutterScrollableSemanticsObject alloc] initWithBridge:weak_ptr
@@ -269,7 +279,7 @@ static SemanticsObject* CreateObject(const flutter::SemanticsNode& node,
     return [[[FlutterPlatformViewSemanticsContainer alloc]
         initWithBridge:weak_ptr
                    uid:node.id
-          platformView:weak_ptr->GetPlatformViewsController()->GetPlatformViewByID(
+          platformView:weak_ptr->GetPlatformViewsController()->GetFlutterTouchInterceptingViewByID(
                            node.platformViewId)] autorelease];
   } else {
     return [[[FlutterSemanticsObject alloc] initWithBridge:weak_ptr uid:node.id] autorelease];
@@ -352,6 +362,10 @@ void AccessibilityBridge::HandleEvent(NSDictionary<NSString*, id>* annotatedEven
   if ([type isEqualToString:@"announce"]) {
     NSString* message = annotatedEvent[@"data"][@"message"];
     ios_delegate_->PostAccessibilityNotification(UIAccessibilityAnnouncementNotification, message);
+  }
+  if ([type isEqualToString:@"focus"]) {
+    SemanticsObject* node = objects_.get()[annotatedEvent[@"nodeId"]];
+    ios_delegate_->PostAccessibilityNotification(UIAccessibilityLayoutChangedNotification, node);
   }
 }
 

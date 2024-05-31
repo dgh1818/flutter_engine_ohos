@@ -17,6 +17,11 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import tempfile
+
+# Path to the engine root checkout. This is used to calculate absolute
+# paths if relative ones are passed to the script.
+BUILD_ROOT_DIR = os.path.abspath(os.path.join(os.path.realpath(__file__), '..', '..', '..', '..'))
 
 
 def IsLinux():
@@ -96,9 +101,7 @@ def ProcessCIPDPackage(upload, cipd_yaml, engine_version, out_dir, target_arch):
   else:
     command = [
         'cipd', 'pkg-build', '-pkg-def', cipd_yaml, '-out',
-        os.path.join(
-            _packaging_dir, 'fuchsia-debug-symbols-%s.cipd' % target_arch
-        )
+        os.path.join(_packaging_dir, 'fuchsia-debug-symbols-%s.cipd' % target_arch)
     ]
 
   # Retry up to three times.  We've seen CIPD fail on verification in some
@@ -145,6 +148,16 @@ def HardlinkContents(dirA, dirB):
   return internal_symbol_dirs
 
 
+def CalculateAbsoluteDirs(dirs):
+  results = []
+  for directory in dirs:
+    if os.path.isabs(directory):
+      results.append(directory)
+    else:
+      results.append(os.path.join(BUILD_ROOT_DIR, directory))
+  return results
+
+
 def main():
   parser = argparse.ArgumentParser()
 
@@ -156,25 +169,22 @@ def main():
   )
   parser.add_argument(
       '--out-dir',
-      required=True,
       action='store',
       dest='out_dir',
-      help='Output directory where the executables will be placed.'
+      default=tempfile.mkdtemp(),
+      help=(
+          'Output directory where the executables will be placed defaults to an '
+          'empty temp directory'
+      )
   )
-  parser.add_argument(
-      '--target-arch', type=str, choices=['x64', 'arm64'], required=True
-  )
-  parser.add_argument(
-      '--engine-version',
-      required=True,
-      help='Specifies the flutter engine SHA.'
-  )
+  parser.add_argument('--target-arch', type=str, choices=['x64', 'arm64'], required=True)
+  parser.add_argument('--engine-version', required=True, help='Specifies the flutter engine SHA.')
 
   parser.add_argument('--upload', default=False, action='store_true')
 
   args = parser.parse_args()
 
-  symbol_dirs = args.symbol_dirs
+  symbol_dirs = CalculateAbsoluteDirs(args.symbol_dirs)
   for symbol_dir in symbol_dirs:
     assert os.path.exists(symbol_dir) and os.path.isdir(symbol_dir)
 
@@ -194,7 +204,17 @@ def main():
 
   arch = args.target_arch
   cipd_def = WriteCIPDDefinition(arch, out_dir, internal_symbol_dirs)
-  ProcessCIPDPackage(args.upload, cipd_def, args.engine_version, out_dir, arch)
+
+  # Set revision to HEAD if empty and remove upload. This is to support
+  # presubmit workflows. An empty engine_version means this script is running
+  # on presubmit.
+  should_upload = args.upload
+  engine_version = args.engine_version
+  if not engine_version:
+    engine_version = 'HEAD'
+    should_upload = False
+
+  ProcessCIPDPackage(should_upload, cipd_def, engine_version, out_dir, arch)
   return 0
 
 

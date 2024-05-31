@@ -5,22 +5,28 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'package:meta/meta.dart';
 import 'package:ui/ui.dart' as ui;
+import 'package:ui/ui_web/src/ui_web.dart' as ui_web;
 
 import '../../engine.dart'  show registerHotRestartListener;
 import '../alarm_clock.dart';
 import '../browser_detection.dart';
 import '../configuration.dart';
 import '../dom.dart';
-import '../embedder.dart';
 import '../platform_dispatcher.dart';
 import '../util.dart';
 import '../vector_math.dart';
+import '../window.dart';
 import 'checkable.dart';
+import 'dialog.dart';
+import 'focusable.dart';
 import 'image.dart';
 import 'incrementable.dart';
 import 'label_and_value.dart';
+import 'link.dart';
 import 'live_region.dart';
+import 'platform_view.dart';
 import 'scrollable.dart';
 import 'semantics_helper.dart';
 import 'tappable.dart';
@@ -206,6 +212,7 @@ class SemanticsNodeUpdate {
     required this.scrollExtentMax,
     required this.scrollExtentMin,
     required this.rect,
+    required this.identifier,
     required this.label,
     required this.labelAttributes,
     required this.hint,
@@ -269,6 +276,9 @@ class SemanticsNodeUpdate {
   final ui.Rect rect;
 
   /// See [ui.SemanticsUpdateBuilder.updateNode].
+  final String identifier;
+
+  /// See [ui.SemanticsUpdateBuilder.updateNode].
   final String label;
 
   /// See [ui.SemanticsUpdateBuilder.updateNode].
@@ -323,22 +333,19 @@ class SemanticsNodeUpdate {
   final double thickness;
 }
 
-/// Identifies one of the roles a [SemanticsObject] plays.
-enum Role {
+/// Identifies [PrimaryRoleManager] implementations.
+///
+/// Each value corresponds to the most specific role a semantics node plays in
+/// the semantics tree.
+enum PrimaryRole {
   /// Supports incrementing and/or decrementing its value.
   incrementable,
 
   /// Able to scroll its contents vertically or horizontally.
   scrollable,
 
-  /// Contains a label or a value.
-  ///
-  /// The two are combined into the same role because they interact with each
-  /// other.
-  labelAndValue,
-
   /// Accepts tap or click gestures.
-  tappable,
+  button,
 
   /// Contains editable text.
   textField,
@@ -349,6 +356,57 @@ enum Role {
   /// Visual only element.
   image,
 
+  /// Adds the "dialog" ARIA role to the node.
+  ///
+  /// This corresponds to a semantics node that has `scopesRoute` bit set. While
+  /// in Flutter a named route is not necessarily a dialog, this is the closest
+  /// analog on the web.
+  ///
+  /// There are 3 possible situations:
+  ///
+  /// * The node also has the `namesRoute` bit set. This means that the node's
+  ///   `label` describes the dialog, which can be expressed by adding the
+  ///   `aria-label` attribute.
+  /// * A descendant node has the `namesRoute` bit set. This means that the
+  ///   child's content describes the dialog. The child may simply be labelled,
+  ///   or it may be a subtree of nodes that describe the dialog together. The
+  ///   nearest HTML equivalent is `aria-describedby`. The child acquires the
+  ///   [routeName] role, which manages the relevant ARIA attributes.
+  /// * There is no `namesRoute` bit anywhere in the sub-tree rooted at the
+  ///   current node. In this case it's likely not a dialog at all, and the node
+  ///   should not get a label or the "dialog" role. It's just a group of
+  ///   children. For example, a modal barrier has `scopesRoute` set but marking
+  ///   it as a dialog would be wrong.
+  dialog,
+
+  /// The node's primary role is to host a platform view.
+  platformView,
+
+  /// A role used when a more specific role cannot be assigend to
+  /// a [SemanticsObject].
+  ///
+  /// Provides a label or a value.
+  generic,
+
+  /// Contains a link.
+  link,
+}
+
+/// Identifies one of the secondary [RoleManager]s of a [PrimaryRoleManager].
+enum Role {
+  /// Supplies generic accessibility focus features to semantics nodes that have
+  /// [ui.SemanticsFlag.isFocusable] set.
+  focusable,
+
+  /// Supplies generic tapping/clicking functionality.
+  tappable,
+
+  /// Provides an `aria-label` from `label`, `value`, and/or `tooltip` values.
+  ///
+  /// The two are combined into the same role because they interact with each
+  /// other.
+  labelAndValue,
+
   /// Contains a region whose changes will be announced to the screen reader
   /// without having to be in focus.
   ///
@@ -356,72 +414,71 @@ enum Role {
   /// with this role, they will be able to get the assistive technology's
   /// attention right away.
   liveRegion,
+
+  /// Provides a description for an ancestor dialog.
+  ///
+  /// This role is assigned to nodes that have `namesRoute` set but not
+  /// `scopesRoute`. When both flags are set the node only gets the dialog
+  /// role (see [dialog]).
+  ///
+  /// If the ancestor dialog is missing, this role does nothing useful.
+  routeName,
 }
 
-/// A function that creates a [RoleManager] for a [SemanticsObject].
-typedef RoleManagerFactory = RoleManager Function(SemanticsObject object);
-
-final Map<Role, RoleManagerFactory> _roleFactories = <Role, RoleManagerFactory>{
-  Role.incrementable: (SemanticsObject object) => Incrementable(object),
-  Role.scrollable: (SemanticsObject object) => Scrollable(object),
-  Role.labelAndValue: (SemanticsObject object) => LabelAndValue(object),
-  Role.tappable: (SemanticsObject object) => Tappable(object),
-  Role.textField: (SemanticsObject object) => TextField(object),
-  Role.checkable: (SemanticsObject object) => Checkable(object),
-  Role.image: (SemanticsObject object) => ImageRoleManager(object),
-  Role.liveRegion: (SemanticsObject object) => LiveRegion(object),
-};
-
-/// Provides the functionality associated with the role of the given
-/// [semanticsObject].
-///
-/// The role is determined by [ui.SemanticsFlag]s and [ui.SemanticsAction]s set
-/// on the object.
-abstract class RoleManager {
-  /// Initializes a role for [semanticsObject].
+/// Responsible for setting the `role` ARIA attribute and for attaching zero or
+/// more secondary [RoleManager]s to a [SemanticsObject].
+abstract class PrimaryRoleManager {
+  /// Initializes a role for a [semanticsObject] that includes basic
+  /// functionality for focus, labels, live regions, and route names.
   ///
-  /// A single role object manages exactly one [SemanticsObject].
-  RoleManager(this.role, this.semanticsObject)
-      : assert(semanticsObject != null);
+  /// If `labelRepresentation` is true, configures the [LabelAndValue] role with
+  /// [LabelAndValue.labelRepresentation] set to true.
+  PrimaryRoleManager.withBasics(this.role, this.semanticsObject, { required LeafLabelRepresentation labelRepresentation }) {
+    element = _initElement(createElement(), semanticsObject);
+    addFocusManagement();
+    addLiveRegion();
+    addRouteName();
+    addLabelAndValue(labelRepresentation: labelRepresentation);
+  }
 
-  /// Role identifier.
-  final Role role;
+  /// Initializes a blank role for a [semanticsObject].
+  ///
+  /// Use this constructor for highly specialized cases where
+  /// [RoleManager.withBasics] does not work, for example when the default focus
+  /// management intereferes with the widget's functionality.
+  PrimaryRoleManager.blank(this.role, this.semanticsObject) {
+    element = _initElement(createElement(), semanticsObject);
+  }
+
+  late final DomElement element;
+
+  /// The primary role identifier.
+  final PrimaryRole role;
 
   /// The semantics object managed by this role.
   final SemanticsObject semanticsObject;
 
-  /// Called immediately after the [semanticsObject] updates some of its fields.
-  ///
-  /// A concrete implementation of this method would typically use some of the
-  /// "is*Dirty" getters to find out exactly what's changed and apply the
-  /// minimum DOM updates.
-  void update();
+  /// Secondary role managers, if any.
+  List<RoleManager>? get secondaryRoleManagers => _secondaryRoleManagers;
+  List<RoleManager>? _secondaryRoleManagers;
 
-  /// Called when [semanticsObject] is removed, or when it changes its role such
-  /// that this role is no longer relevant.
+  /// Identifiers of secondary roles used by this primary role manager.
   ///
-  /// This method is expected to remove role-specific functionality from the
-  /// DOM. In particular, this method is the appropriate place to call
-  /// [EngineSemanticsOwner.removeGestureModeListener] if this role reponds to
-  /// gesture mode changes.
-  void dispose();
-}
+  /// This is only meant to be used in tests.
+  @visibleForTesting
+  List<Role> get debugSecondaryRoles => _secondaryRoleManagers?.map((RoleManager manager) => manager.role).toList() ?? const <Role>[];
 
-/// Instantiation of a framework-side semantics node in the DOM.
-///
-/// Instances of this class are retained from frame to frame. Each instance is
-/// permanently attached to an [id] and a DOM [element] used to convey semantics
-/// information to the browser.
-class SemanticsObject {
-  /// Creates a semantics tree node with the given [id] and [owner].
-  SemanticsObject(this.id, this.owner) {
+  @protected
+  DomElement createElement() => domDocument.createElement('flt-semantics');
+
+  static DomElement _initElement(DomElement element, SemanticsObject semanticsObject) {
     // DOM nodes created for semantics objects are positioned absolutely using
     // transforms.
     element.style.position = 'absolute';
-    element.setAttribute('id', 'flt-semantic-node-$id');
+    element.setAttribute('id', 'flt-semantic-node-${semanticsObject.id}');
 
     // The root node has some properties that other nodes do not.
-    if (id == 0 && !configuration.debugShowSemanticsNodes) {
+    if (semanticsObject.id == 0 && !configuration.debugShowSemanticsNodes) {
       // Make all semantics transparent. Use `filter` instead of `opacity`
       // attribute because `filter` is stronger. `opacity` does not apply to
       // some elements, particularly on iOS, such as the slider thumb and track.
@@ -441,7 +498,272 @@ class SemanticsObject {
     if (configuration.debugShowSemanticsNodes) {
       element.style.outline = '1px solid green';
     }
+    return element;
   }
+
+  /// Sets the `role` ARIA attribute.
+  void setAriaRole(String ariaRoleName) {
+    setAttribute('role', ariaRoleName);
+  }
+
+  /// Sets the `role` ARIA attribute.
+  void setAttribute(String name, Object value) {
+    element.setAttribute(name, value);
+  }
+
+  void append(DomElement child) {
+    element.append(child);
+  }
+
+  void removeAttribute(String name) => element.removeAttribute(name);
+
+  void addEventListener(String type, DomEventListener? listener, [bool? useCapture]) => element.addEventListener(type, listener, useCapture);
+
+  void removeEventListener(String type, DomEventListener? listener, [bool? useCapture]) => element.removeEventListener(type, listener, useCapture);
+
+  /// Convenience getter for the [Focusable] role manager, if any.
+  Focusable? get focusable => _focusable;
+  Focusable? _focusable;
+
+  /// Adds generic focus management features.
+  void addFocusManagement() {
+    addSecondaryRole(_focusable = Focusable(semanticsObject, this));
+  }
+
+  /// Adds generic live region features.
+  void addLiveRegion() {
+    addSecondaryRole(LiveRegion(semanticsObject, this));
+  }
+
+  /// Adds generic route name features.
+  void addRouteName() {
+    addSecondaryRole(RouteName(semanticsObject, this));
+  }
+
+  /// Adds generic label features.
+  void addLabelAndValue({ required LeafLabelRepresentation labelRepresentation }) {
+    addSecondaryRole(LabelAndValue(semanticsObject, this, labelRepresentation: labelRepresentation));
+  }
+
+  /// Adds generic functionality for handling taps and clicks.
+  void addTappable() {
+    addSecondaryRole(Tappable(semanticsObject, this));
+  }
+
+  /// Adds a secondary role to this primary role manager.
+  ///
+  /// This method should be called by concrete implementations of
+  /// [PrimaryRoleManager] during initialization.
+  @protected
+  void addSecondaryRole(RoleManager secondaryRoleManager) {
+    assert(
+      _secondaryRoleManagers?.any((RoleManager manager) => manager.role == secondaryRoleManager.role) != true,
+      'Cannot add secondary role ${secondaryRoleManager.role}. This object already has this secondary role.',
+    );
+    _secondaryRoleManagers ??= <RoleManager>[];
+    _secondaryRoleManagers!.add(secondaryRoleManager);
+  }
+
+  /// Called immediately after the fields of the [semanticsObject] are updated
+  /// by a [SemanticsUpdate].
+  ///
+  /// A concrete implementation of this method would typically use some of the
+  /// "is*Dirty" getters to find out exactly what's changed and apply the
+  /// minimum DOM updates.
+  ///
+  /// The base implementation requests every secondary role manager to update
+  /// the object.
+  @mustCallSuper
+  void update() {
+    final List<RoleManager>? secondaryRoles = _secondaryRoleManagers;
+    if (secondaryRoles == null) {
+      return;
+    }
+    for (final RoleManager secondaryRole in secondaryRoles) {
+      secondaryRole.update();
+    }
+  }
+
+  /// Whether this role manager was disposed of.
+  bool get isDisposed => _isDisposed;
+  bool _isDisposed = false;
+
+  /// Called when [semanticsObject] is removed, or when it changes its role such
+  /// that this role is no longer relevant.
+  ///
+  /// This method is expected to remove role-specific functionality from the
+  /// DOM. In particular, this method is the appropriate place to call
+  /// [EngineSemanticsOwner.removeGestureModeListener] if this role reponds to
+  /// gesture mode changes.
+  @mustCallSuper
+  void dispose() {
+    removeAttribute('role');
+    _isDisposed = true;
+  }
+
+  /// Transfers the accessibility focus to the [element] managed by this role
+  /// manager as a result of this node taking focus by default.
+  ///
+  /// For example, when a dialog pops up it is expected that one of its child
+  /// nodes takes accessibility focus.
+  ///
+  /// Transferring accessibility focus is different from transferring input
+  /// focus. Not all elements that can take accessibility focus can also take
+  /// input focus. For example, a plain text node cannot take input focus, but
+  /// it can take accessibility focus.
+  ///
+  /// Returns `true` if the role manager took the focus. Returns `false` if
+  /// this role manager did not take the focus. The return value can be used to
+  /// decide whether to stop searching for a node that should take focus.
+  bool focusAsRouteDefault();
+}
+
+/// A role used when a more specific role couldn't be assigned to the node.
+final class GenericRole extends PrimaryRoleManager {
+  GenericRole(SemanticsObject semanticsObject) : super.withBasics(
+    PrimaryRole.generic,
+    semanticsObject,
+    labelRepresentation: LeafLabelRepresentation.domText,
+  ) {
+    // Typically a tappable widget would have a more specific role, such as
+    // "link", "button", "checkbox", etc. However, there are situations when a
+    // tappable is not a leaf node, but contains other nodes, which can also be
+    // tappable. For example, the dismiss barrier of a pop-up menu is a tappable
+    // ancestor of the menu itself, while the menu may contain tappable
+    // children.
+    if (semanticsObject.isTappable) {
+      addTappable();
+    }
+  }
+
+  @override
+  void update() {
+    super.update();
+
+    if (!semanticsObject.hasLabel) {
+      // The node didn't get a more specific role, and it has no label. It is
+      // likely that this node is simply there for positioning its children and
+      // has no other role for the screen reader to be aware of. In this case,
+      // the element does not need a `role` attribute at all.
+      return;
+    }
+
+    // Assign one of three roles to the element: heading, group, text.
+    //
+    // - "group" is used when the node has children, irrespective of whether the
+    //   node is marked as a header or not. This is because marking a group
+    //   as a "heading" will prevent the AT from reaching its children.
+    // - "heading" is used when the framework explicitly marks the node as a
+    //   heading and the node does not have children.
+    // - "text" is used by default.
+    //
+    // As of October 24, 2022, "text" only has effect on Safari. Other browsers
+    // ignore it. Setting role="text" prevents Safari from treating the element
+    // as a "group" or "empty group". Other browsers still announce it as
+    // "group" or "empty group". However, other options considered produced even
+    // worse results, such as:
+    //
+    // - Ignore the size of the element and size the focus ring to the text
+    //   content, which is wrong. The HTML text size is irrelevant because
+    //   Flutter renders into canvas, so the focus ring looks wrong.
+    // - Read out the same label multiple times.
+    if (semanticsObject.hasChildren) {
+      setAriaRole('group');
+    } else if (semanticsObject.hasFlag(ui.SemanticsFlag.isHeader)) {
+      setAriaRole('heading');
+    } else {
+      setAriaRole('text');
+    }
+  }
+
+  @override
+  bool focusAsRouteDefault() {
+    // Case 1: current node has input focus. Let the input focus system decide
+    // default focusability.
+    if (semanticsObject.isFocusable) {
+      final Focusable? focusable = this.focusable;
+      if (focusable != null) {
+        return focusable.focusAsRouteDefault();
+      }
+    }
+
+    // Case 2: current node is not focusable, but just a container of other
+    // nodes or lacks a label. Do not focus on it and let the search continue.
+    if (semanticsObject.hasChildren || !semanticsObject.hasLabel) {
+      return false;
+    }
+
+    // Case 3: current node is visual/informational. Move just the
+    // accessibility focus.
+
+    // Plain text nodes should not be focusable via keyboard or mouse. They are
+    // only focusable for the purposes of focusing the screen reader. To achieve
+    // this the -1 value is used.
+    //
+    // See also:
+    //
+    // https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/tabindex
+    element.tabIndex = -1;
+    element.focus();
+    return true;
+  }
+}
+
+/// Provides a piece of functionality to a [SemanticsObject].
+///
+/// A secondary role must not set the `role` ARIA attribute. That responsibility
+/// falls on the [PrimaryRoleManager]. One [SemanticsObject] may have more than
+/// one [RoleManager] but an element may only have one ARIA role, so setting the
+/// `role` attribute from a [RoleManager] would cause conflicts.
+///
+/// The [PrimaryRoleManager] decides the list of [RoleManager]s a given semantics
+/// node should use.
+abstract class RoleManager {
+  /// Initializes a secondary role for [semanticsObject].
+  ///
+  /// A single role object manages exactly one [SemanticsObject].
+  RoleManager(this.role, this.semanticsObject, this.owner);
+
+  /// Role identifier.
+  final Role role;
+
+  /// The semantics object managed by this role.
+  final SemanticsObject semanticsObject;
+
+  final PrimaryRoleManager owner;
+
+  /// Called immediately after the [semanticsObject] updates some of its fields.
+  ///
+  /// A concrete implementation of this method would typically use some of the
+  /// "is*Dirty" getters to find out exactly what's changed and apply the
+  /// minimum DOM updates.
+  void update();
+
+  /// Whether this role manager was disposed of.
+  bool get isDisposed => _isDisposed;
+  bool _isDisposed = false;
+
+  /// Called when [semanticsObject] is removed, or when it changes its role such
+  /// that this role is no longer relevant.
+  ///
+  /// This method is expected to remove role-specific functionality from the
+  /// DOM. In particular, this method is the appropriate place to call
+  /// [EngineSemanticsOwner.removeGestureModeListener] if this role reponds to
+  /// gesture mode changes.
+  @mustCallSuper
+  void dispose() {
+    _isDisposed = true;
+  }
+}
+
+/// Instantiation of a framework-side semantics node in the DOM.
+///
+/// Instances of this class are retained from frame to frame. Each instance is
+/// permanently attached to an [id] and a DOM [element] used to convey semantics
+/// information to the browser.
+class SemanticsObject {
+  /// Creates a semantics tree node with the given [id] and [owner].
+  SemanticsObject(this.id, this.owner);
 
   /// See [ui.SemanticsUpdateBuilder.updateNode].
   int get flags => _flags;
@@ -755,6 +1077,9 @@ class SemanticsObject {
 
   static const int _platformViewIdIndex = 1 << 23;
 
+  /// Whether the [platformViewId] field has been updated but has not been
+  /// applied to the DOM yet.
+  bool get isPlatformViewIdDirty => _isDirty(_platformViewIdIndex);
   void _markPlatformViewIdDirty() {
     _dirtyFields |= _platformViewIdIndex;
   }
@@ -764,9 +1089,6 @@ class SemanticsObject {
 
   /// Controls the semantics tree that this node participates in.
   final EngineSemanticsOwner owner;
-
-  /// The DOM element used to convey semantics information to the browser.
-  final DomElement element = domDocument.createElement('flt-semantics');
 
   /// Bitfield showing which fields have been updated but have not yet been
   /// applied to the DOM.
@@ -779,6 +1101,9 @@ class SemanticsObject {
 
   /// Whether the field corresponding to the [fieldIndex] has been updated.
   bool _isDirty(int fieldIndex) => (_dirtyFields & fieldIndex) != 0;
+
+  /// The dom element of this semantics object.
+  DomElement get element => primaryRole!.element;
 
   /// Returns the HTML element that contains the HTML elements of direct
   /// children of this object.
@@ -808,6 +1133,15 @@ class SemanticsObject {
   DomElement? _childContainerElement;
 
   /// The parent of this semantics object.
+  ///
+  /// This value is not final until the tree is finalized. It is not safe to
+  /// rely on this value in the middle of a semantics tree update. It is safe to
+  /// use this value in post-update callback (see [SemanticsUpdatePhase] and
+  /// [EngineSemanticsOwner.addOneTimePostUpdateCallback]).
+  SemanticsObject? get parent {
+    assert(owner.phase == SemanticsUpdatePhase.postUpdate);
+    return _parent;
+  }
   SemanticsObject? _parent;
 
   /// Whether this node currently has a given [SemanticsFlag].
@@ -816,17 +1150,36 @@ class SemanticsObject {
   /// Whether [actions] contains the given action.
   bool hasAction(ui.SemanticsAction action) => (_actions! & action.index) != 0;
 
+  /// Whether this object represents a widget that can receive input focus.
+  bool get isFocusable => hasFlag(ui.SemanticsFlag.isFocusable);
+
+  /// Whether this object currently has input focus.
+  ///
+  /// This value only makes sense if [isFocusable] is true.
+  bool get hasFocus => hasFlag(ui.SemanticsFlag.isFocused);
+
+  /// Whether this object can be in one of "enabled" or "disabled" state.
+  ///
+  /// If this is true, [isEnabled] communicates the state.
+  bool get hasEnabledState => hasFlag(ui.SemanticsFlag.hasEnabledState);
+
+  /// Whether this object is enabled.
+  ///
+  /// This field is only meaningful if [hasEnabledState] is true.
+  bool get isEnabled => hasFlag(ui.SemanticsFlag.isEnabled);
+
   /// Whether this object represents a vertically scrollable area.
   bool get isVerticalScrollContainer =>
       hasAction(ui.SemanticsAction.scrollDown) ||
       hasAction(ui.SemanticsAction.scrollUp);
 
-  bool get hasFocus => hasFlag(ui.SemanticsFlag.isFocused);
-
-  /// Whether this object represents a hotizontally scrollable area.
+  /// Whether this object represents a horizontally scrollable area.
   bool get isHorizontalScrollContainer =>
       hasAction(ui.SemanticsAction.scrollLeft) ||
       hasAction(ui.SemanticsAction.scrollRight);
+
+  /// Whether this object represents a scrollable area in any direction.
+  bool get isScrollContainer => isVerticalScrollContainer || isHorizontalScrollContainer;
 
   /// Whether this object has a non-empty list of children.
   bool get hasChildren =>
@@ -834,6 +1187,9 @@ class SemanticsObject {
 
   /// Whether this object represents an editable text field.
   bool get isTextField => hasFlag(ui.SemanticsFlag.isTextField);
+
+    /// Whether this object represents an editable text field.
+  bool get isLink => hasFlag(ui.SemanticsFlag.isLink);
 
   /// Whether this object needs screen readers attention right away.
   bool get isLiveRegion =>
@@ -843,8 +1199,18 @@ class SemanticsObject {
   /// Whether this object represents an image with no tappable functionality.
   bool get isVisualOnly =>
       hasFlag(ui.SemanticsFlag.isImage) &&
-      !hasAction(ui.SemanticsAction.tap) &&
-      !hasFlag(ui.SemanticsFlag.isButton);
+      !isTappable &&
+      !isButton;
+
+  /// Whether this node defines a scope for a route.
+  ///
+  /// See also [Role.dialog].
+  bool get scopesRoute => hasFlag(ui.SemanticsFlag.scopesRoute);
+
+  /// Whether this node describes a route.
+  ///
+  /// See also [Role.dialog].
+  bool get namesRoute => hasFlag(ui.SemanticsFlag.namesRoute);
 
   /// Whether this object carry enabled/disabled state (and if so whether it is
   /// enabled).
@@ -869,7 +1235,6 @@ class SemanticsObject {
   void updateSelf(SemanticsNodeUpdate update) {
     // Update all field values and their corresponding dirty flags before
     // applying the updates to the DOM.
-    assert(update.flags != null);
     if (_flags != update.flags) {
       _flags = update.flags;
       _markFlagsDirty();
@@ -1203,81 +1568,97 @@ class SemanticsObject {
     _currentChildrenInRenderOrder = childrenInRenderOrder;
   }
 
-  /// Populates the HTML "role" attribute based on a [condition].
+  /// The primary role of this node.
   ///
-  /// If [condition] is true, sets the value to [ariaRoleName].
-  ///
-  /// If [condition] is false, removes the HTML "role" attribute from [element]
-  /// if the current role is set to [ariaRoleName]. Otherwise, leaves the value
-  /// unchanged. This is done to gracefully handle multiple competing roles.
-  /// For example, if the role changes from "button" to "img" and tappable role
-  /// manager attempts to clean up after the image role manager applied the new
-  /// role, semantics avoids erasing the new role.
-  void setAriaRole(String ariaRoleName, bool condition) {
-    if (condition) {
-      element.setAttribute('role', ariaRoleName);
-    } else if (element.getAttribute('role') == ariaRoleName) {
-      element.removeAttribute('role');
+  /// The primary role is assigned by [updateSelf] based on the combination of
+  /// semantics flags and actions.
+  PrimaryRoleManager? primaryRole;
+
+  PrimaryRole _getPrimaryRoleIdentifier() {
+    // The most specific role should take precedence.
+    if (isPlatformView) {
+      return PrimaryRole.platformView;
+    } else if (isTextField) {
+      return PrimaryRole.textField;
+    } else if (isIncrementable) {
+      return PrimaryRole.incrementable;
+    } else if (isVisualOnly) {
+      return PrimaryRole.image;
+    } else if (isCheckable) {
+      return PrimaryRole.checkable;
+    } else if (isButton) {
+      return PrimaryRole.button;
+    } else if (isScrollContainer) {
+      return PrimaryRole.scrollable;
+    } else if (scopesRoute) {
+      return PrimaryRole.dialog;
+    } else if (isLink) {
+      return PrimaryRole.link;
+    } else {
+      return PrimaryRole.generic;
     }
   }
 
-  /// Removes the `role` HTML attribue, if any.
-  void clearAriaRole() {
-    element.removeAttribute('role');
+  PrimaryRoleManager _createPrimaryRole(PrimaryRole role) {
+    return switch (role) {
+      PrimaryRole.textField => TextField(this),
+      PrimaryRole.scrollable => Scrollable(this),
+      PrimaryRole.incrementable => Incrementable(this),
+      PrimaryRole.button => Button(this),
+      PrimaryRole.checkable => Checkable(this),
+      PrimaryRole.dialog => Dialog(this),
+      PrimaryRole.image => ImageRoleManager(this),
+      PrimaryRole.platformView => PlatformViewRoleManager(this),
+      PrimaryRole.link => Link(this),
+      PrimaryRole.generic => GenericRole(this),
+    };
   }
 
-  /// Role managers.
-  ///
-  /// The [_roleManagers] map needs to have a stable order for easier debugging
-  /// and testing. Dart's map literal guarantees the order as described in the
-  /// spec:
-  ///
-  /// > A map literal is ordered: iterating over the keys and/or values of the maps always happens in the order the keys appeared in the source code.
-  final Map<Role, RoleManager?> _roleManagers = <Role, RoleManager?>{};
-
-  /// Returns the role manager for the given [role].
-  ///
-  /// If a role manager does not exist for the given role, returns null.
-  RoleManager? debugRoleManagerFor(Role role) => _roleManagers[role];
-
-  /// Detects the roles that this semantics object corresponds to and manages
-  /// the lifecycles of [SemanticsObjectRole] objects.
+  /// Detects the roles that this semantics object corresponds to and asks the
+  /// respective role managers to update the DOM.
   void _updateRoles() {
-    _updateRole(Role.labelAndValue, (hasLabel || hasValue || hasTooltip) && !isTextField && !isVisualOnly);
-    _updateRole(Role.textField, isTextField);
+    PrimaryRoleManager? currentPrimaryRole = primaryRole;
+    final PrimaryRole roleId = _getPrimaryRoleIdentifier();
+    final DomElement? previousElement = primaryRole?.element;
 
-    final bool shouldUseTappableRole =
-      (hasAction(ui.SemanticsAction.tap) || hasFlag(ui.SemanticsFlag.isButton)) &&
-      // Text fields manage their own focus/tap interactions. Tappable role
-      // manager is not needed. It only confuses AT.
-      !isTextField;
-
-    _updateRole(Role.tappable, shouldUseTappableRole);
-    _updateRole(Role.incrementable, isIncrementable);
-    _updateRole(Role.scrollable,
-        isVerticalScrollContainer || isHorizontalScrollContainer);
-    _updateRole(
-        Role.checkable,
-        hasFlag(ui.SemanticsFlag.hasCheckedState) ||
-            hasFlag(ui.SemanticsFlag.hasToggledState));
-    _updateRole(Role.image, isVisualOnly);
-    _updateRole(Role.liveRegion, isLiveRegion);
-  }
-
-  void _updateRole(Role role, bool enabled) {
-    RoleManager? manager = _roleManagers[role];
-    if (enabled) {
-      if (manager == null) {
-        manager = _roleFactories[role]!(this);
-        _roleManagers[role] = manager;
+    if (currentPrimaryRole != null) {
+      if (currentPrimaryRole.role == roleId) {
+        // Already has a primary role assigned and the role is the same as before,
+        // so simply perform an update.
+        currentPrimaryRole.update();
+        return;
+      } else {
+        // Role changed. This should be avoided as much as possible, but the
+        // web engine will attempt a best with the switch by cleaning old ARIA
+        // role data and start anew.
+        currentPrimaryRole.dispose();
+        currentPrimaryRole = null;
+        primaryRole = null;
       }
-      manager.update();
-    } else if (manager != null) {
-      manager.dispose();
-      _roleManagers.remove(role);
     }
-    // Nothing to do in the "else case". There's no existing role manager to
-    // disable.
+
+    // This handles two cases:
+    //  * The node was just created and needs a primary role manager.
+    //  * (Uncommon) the node changed its primary role, its previous primary
+    //    role manager was disposed of, and now it needs a new one.
+    if (currentPrimaryRole == null) {
+      currentPrimaryRole = _createPrimaryRole(roleId);
+      primaryRole = currentPrimaryRole;
+      currentPrimaryRole.update();
+    }
+
+    // Reparent element.
+    if (previousElement != element) {
+      final DomElement? container = _childContainerElement;
+      if (container != null) {
+        element.append(container);
+      }
+      final DomElement? parent = previousElement?.parent;
+      if (parent != null) {
+        parent.insertBefore(element, previousElement);
+        previousElement!.remove();
+      }
+    }
   }
 
   /// Whether the object represents an UI element with "increase" or "decrease"
@@ -1287,6 +1668,17 @@ class SemanticsObject {
   bool get isIncrementable =>
       hasAction(ui.SemanticsAction.increase) ||
       hasAction(ui.SemanticsAction.decrease);
+
+  /// Whether the object represents a button.
+  bool get isButton => hasFlag(ui.SemanticsFlag.isButton);
+
+  /// Represents a tappable or clickable widget, such as button, icon button,
+  /// "hamburger" menu, etc.
+  bool get isTappable => hasAction(ui.SemanticsAction.tap);
+
+  bool get isCheckable =>
+      hasFlag(ui.SemanticsFlag.hasCheckedState) ||
+      hasFlag(ui.SemanticsFlag.hasToggledState);
 
   /// Role-specific adjustment of the vertical position of the child container.
   ///
@@ -1395,17 +1787,87 @@ class SemanticsObject {
     }
   }
 
+  /// Recursively visits the tree rooted at `this` node in depth-first fashion
+  /// in the order nodes were rendered into the DOM.
+  ///
+  /// Useful for debugging only.
+  ///
+  /// Calls the [callback] for `this` node, then for all of its descendants.
+  ///
+  /// Unlike [visitDepthFirstInTraversalOrder] this method can traverse
+  /// partially updated, incomplete, or inconsistent tree.
+  void _debugVisitRenderedSemanticNodesDepthFirst(void Function(SemanticsObject) callback) {
+    callback(this);
+    _currentChildrenInRenderOrder?.forEach((SemanticsObject child) {
+      child._debugVisitRenderedSemanticNodesDepthFirst(callback);
+    });
+  }
+
+  /// Recursively visits the tree rooted at `this` node in depth-first fashion
+  /// in traversal order.
+  ///
+  /// Calls the [callback] for `this` node, then for all of its descendants. If
+  /// the callback returns true, continues visiting descendants. Otherwise,
+  /// stops immediately after visiting the node that caused the callback to
+  /// return false.
+  void visitDepthFirstInTraversalOrder(bool Function(SemanticsObject) callback) {
+    _visitDepthFirstInTraversalOrder(callback);
+  }
+
+  bool _visitDepthFirstInTraversalOrder(bool Function(SemanticsObject) callback) {
+    final bool shouldContinueVisiting = callback(this);
+
+    if (!shouldContinueVisiting) {
+      return false;
+    }
+
+    final Int32List? childrenInTraversalOrder = _childrenInTraversalOrder;
+
+    if (childrenInTraversalOrder == null) {
+      return true;
+    }
+
+    for (final int childId in childrenInTraversalOrder) {
+      final SemanticsObject? child = owner._semanticsTree[childId];
+
+      assert(
+        child != null,
+        'visitDepthFirstInTraversalOrder must only be called after the node '
+        'tree has been established. However, child #$childId does not have its '
+        'SemanticsNode created at the time this method was called.',
+      );
+
+      if (!child!._visitDepthFirstInTraversalOrder(callback)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
   @override
   String toString() {
-    if (assertionsEnabled) {
+    String result = super.toString();
+    assert(() {
       final String children = _childrenInTraversalOrder != null &&
               _childrenInTraversalOrder!.isNotEmpty
           ? '[${_childrenInTraversalOrder!.join(', ')}]'
           : '<empty>';
-      return '$runtimeType(#$id, children: $children)';
-    } else {
-      return super.toString();
-    }
+      result = '$runtimeType(#$id, children: $children)';
+      return true;
+    }());
+    return result;
+  }
+
+  bool _isDisposed = false;
+
+  void dispose() {
+    assert(!_isDisposed);
+    _isDisposed = true;
+    element.remove();
+    _parent = null;
+    primaryRole?.dispose();
+    primaryRole = null;
   }
 }
 
@@ -1438,20 +1900,43 @@ enum GestureMode {
   browserGestures,
 }
 
-/// The top-level service that manages everything semantics-related.
-class EngineSemanticsOwner {
-  EngineSemanticsOwner._() {
-    registerHotRestartListener(() {
-      _rootSemanticsElement?.remove();
-    });
-  }
+/// The current phase of the semantic update.
+enum SemanticsUpdatePhase {
+  /// No update is in progress.
+  ///
+  /// When the semantics owner receives an update, it enters the [updating]
+  /// phase from the idle phase.
+  idle,
+
+  /// Updating individual [SemanticsObject] nodes by calling
+  /// [RoleManager.update] and fixing parent-child relationships.
+  ///
+  /// After this phase is done, the owner enters the [postUpdate] phase.
+  updating,
+
+  /// Post-update callbacks are being called.
+  ///
+  /// At this point all nodes have been updated, the parent child hierarchy has
+  /// been established, the DOM tree is in sync with the semantics tree, and
+  /// [RoleManager.dispose] has been called on removed nodes.
+  ///
+  /// After this phase is done, the owner switches back to [idle].
+  postUpdate,
+}
+
+/// The semantics system of the Web Engine.
+///
+/// Maintains global properties and behaviors of semantics in the engine, such
+/// as whether semantics is currently enabled or disabled.
+class EngineSemantics {
+  EngineSemantics._();
 
   /// The singleton instance that manages semantics.
-  static EngineSemanticsOwner get instance {
-    return _instance ??= EngineSemanticsOwner._();
+  static EngineSemantics get instance {
+    return _instance ??= EngineSemantics._();
   }
 
-  static EngineSemanticsOwner? _instance;
+  static EngineSemantics? _instance;
 
   /// Disables semantics and uninitializes the singleton [instance].
   ///
@@ -1465,106 +1950,6 @@ class EngineSemanticsOwner {
     _instance!.semanticsEnabled = false;
     _instance = null;
   }
-
-  final Map<int, SemanticsObject> _semanticsTree = <int, SemanticsObject>{};
-
-  /// Map [SemanticsObject.id] to parent [SemanticsObject] it was attached to
-  /// this frame.
-  Map<int?, SemanticsObject> _attachments = <int?, SemanticsObject>{};
-
-  /// Declares that the [child] must be attached to the [parent].
-  ///
-  /// Attachments take precedence over detachments (see [_detachObject]). This
-  /// allows the same node to be detached from one parent in the tree and
-  /// reattached to another parent.
-  void _attachObject({required SemanticsObject parent, required SemanticsObject child}) {
-    assert(child != null);
-    assert(parent != null);
-    child._parent = parent;
-    _attachments[child.id] = parent;
-  }
-
-  /// List of objects that were detached this frame.
-  ///
-  /// The objects in this list will be detached permanently unless they are
-  /// reattached via the [_attachObject] method.
-  List<SemanticsObject?> _detachments = <SemanticsObject?>[];
-
-  /// Declares that the [SemanticsObject] with the given [id] was detached from
-  /// its current parent object.
-  ///
-  /// The object will be detached permanently unless it is reattached via the
-  /// [_attachObject] method.
-  void _detachObject(int? id) {
-    assert(_semanticsTree.containsKey(id));
-    final SemanticsObject? object = _semanticsTree[id];
-    _detachments.add(object);
-  }
-
-  /// Callbacks called after all objects in the tree have their properties
-  /// populated and their sizes and locations computed.
-  ///
-  /// This list is reset to empty after all callbacks are called.
-  List<ui.VoidCallback> _oneTimePostUpdateCallbacks = <ui.VoidCallback>[];
-
-  /// Schedules a one-time callback to be called after all objects in the tree
-  /// have their properties populated and their sizes and locations computed.
-  void addOneTimePostUpdateCallback(ui.VoidCallback callback) {
-    _oneTimePostUpdateCallbacks.add(callback);
-  }
-
-  /// Reconciles [_attachments] and [_detachments], and after that calls all
-  /// the one-time callbacks scheduled via the [addOneTimePostUpdateCallback]
-  /// method.
-  void _finalizeTree() {
-    for (final SemanticsObject? object in _detachments) {
-      final SemanticsObject? parent = _attachments[object!.id];
-      if (parent == null) {
-        // Was not reparented and is removed permanently from the tree.
-        _semanticsTree.remove(object.id);
-        object._parent = null;
-        object.element.remove();
-      } else {
-        assert(object._parent == parent);
-        assert(object.element.parentNode == parent._childContainerElement);
-      }
-    }
-    _detachments = <SemanticsObject?>[];
-    _attachments = <int?, SemanticsObject>{};
-
-    if (_oneTimePostUpdateCallbacks.isNotEmpty) {
-      for (final ui.VoidCallback callback in _oneTimePostUpdateCallbacks) {
-        callback();
-      }
-      _oneTimePostUpdateCallbacks = <ui.VoidCallback>[];
-    }
-  }
-
-  /// Returns the entire semantics tree for testing.
-  ///
-  /// Works only in debug mode.
-  Map<int, SemanticsObject>? get debugSemanticsTree {
-    Map<int, SemanticsObject>? result;
-    assert(() {
-      result = _semanticsTree;
-      return true;
-    }());
-    return result;
-  }
-
-  /// The top-level DOM element of the semantics DOM element tree.
-  DomElement? _rootSemanticsElement;
-  TimestampFunction _now = () => DateTime.now();
-
-  void debugOverrideTimestampFunction(TimestampFunction value) {
-    _now = value;
-  }
-
-  void debugResetTimestampFunction() {
-    _now = () => DateTime.now();
-  }
-
-  final SemanticsHelper semanticsHelper = SemanticsHelper();
 
   /// Whether the user has requested that [updateSemantics] be called when the
   /// semantic contents of window changes.
@@ -1583,7 +1968,7 @@ class EngineSemanticsOwner {
     final EngineAccessibilityFeatures original =
         EnginePlatformDispatcher.instance.configuration.accessibilityFeatures
         as EngineAccessibilityFeatures;
-    final ui.PlatformConfiguration newConfiguration =
+    final PlatformConfiguration newConfiguration =
         EnginePlatformDispatcher.instance.configuration.copyWith(
             accessibilityFeatures:
                 original.copyWith(accessibleNavigation: value));
@@ -1599,30 +1984,59 @@ class EngineSemanticsOwner {
         _gestureMode = GestureMode.pointerEvents;
         _notifyGestureModeListeners();
       }
-      final List<int?> keys = _semanticsTree.keys.toList();
-      final int len = keys.length;
-      for (int i = 0; i < len; i++) {
-        _detachObject(keys[i]);
+      for (final EngineFlutterView view in EnginePlatformDispatcher.instance.views) {
+        view.semantics.reset();
       }
-      _finalizeTree();
-      _rootSemanticsElement?.remove();
-      _rootSemanticsElement = null;
       _gestureModeClock?.datetime = null;
     }
     EnginePlatformDispatcher.instance.updateSemanticsEnabled(_semanticsEnabled);
   }
 
+  /// Prepares the semantics system for a semantic tree update.
+  ///
+  /// This method must be called prior to updating the semantics inside any
+  /// individual view.
+  ///
+  /// Automatically enables semantics in a production setting. In Flutter test
+  /// environment keeps engine semantics turned off due to tests frequently
+  /// sending inconsistent semantics updates.
+  ///
+  /// The caller is expected to check if [semanticsEnabled] is true prior to
+  /// actually updating the semantic DOM.
+  void didReceiveSemanticsUpdate() {
+    if (!_semanticsEnabled) {
+      if (ui_web.debugEmulateFlutterTesterEnvironment) {
+        // Running Flutter widget tests in a fake environment. Don't enable
+        // engine semantics. Test semantics trees violate invariants in ways
+        // production implementation isn't built to handle. For example, tests
+        // routinely reset semantics node IDs, which is messing up the update
+        // process.
+        return;
+      } else {
+        // Running a real app. Auto-enable engine semantics.
+        semanticsHelper.dispose(); // placeholder no longer needed
+        semanticsEnabled = true;
+      }
+    }
+  }
+
+  TimestampFunction _now = () => DateTime.now();
+
+  void debugOverrideTimestampFunction(TimestampFunction value) {
+    _now = value;
+  }
+
+  void debugResetTimestampFunction() {
+    _now = () => DateTime.now();
+  }
+
+  final SemanticsHelper semanticsHelper = SemanticsHelper();
+
   /// Controls how pointer events and browser-detected gestures are treated by
   /// the Web Engine.
   ///
   /// The default mode is [AccessibilityMode.unknown].
-  AccessibilityMode get mode => _mode;
-  set mode(AccessibilityMode value) {
-    assert(value != null);
-    _mode = value;
-  }
-
-  AccessibilityMode _mode = AccessibilityMode.unknown;
+  AccessibilityMode mode = AccessibilityMode.unknown;
 
   /// Currently used [GestureMode].
   ///
@@ -1664,8 +2078,9 @@ class EngineSemanticsOwner {
   }
 
   /// Receives DOM events from the pointer event system to correlate with the
-  /// semantics events; returns true if the event should be forwarded to the
-  /// framework.
+  /// semantics events.
+  ///
+  /// Returns true if the event should be forwarded to the framework.
   ///
   /// The browser sends us both raw pointer events and gestures from
   /// [SemanticsObject.element]s. There could be three possibilities:
@@ -1727,14 +2142,14 @@ class EngineSemanticsOwner {
   /// Callbacks are called synchronously. HTML DOM updates made in a callback
   /// take effect in the current animation frame and/or the current message loop
   /// event.
-  final List<GestureModeCallback?> _gestureModeListeners = <GestureModeCallback?>[];
+  final List<GestureModeCallback> _gestureModeListeners = <GestureModeCallback>[];
 
   /// Calls the [callback] every time the current [GestureMode] changes.
   ///
   /// The callback is called synchronously. HTML DOM updates made in the
   /// callback take effect in the current animation frame and/or the current
   /// message loop event.
-  void addGestureModeListener(GestureModeCallback? callback) {
+  void addGestureModeListener(GestureModeCallback callback) {
     _gestureModeListeners.add(callback);
   }
 
@@ -1742,14 +2157,14 @@ class EngineSemanticsOwner {
   ///
   /// The passed [callback] must be the exact same object as the one passed to
   /// [addGestureModeListener].
-  void removeGestureModeListener(GestureModeCallback? callback) {
+  void removeGestureModeListener(GestureModeCallback callback) {
     assert(_gestureModeListeners.contains(callback));
     _gestureModeListeners.remove(callback);
   }
 
   void _notifyGestureModeListeners() {
     for (int i = 0; i < _gestureModeListeners.length; i++) {
-      _gestureModeListeners[i]!(_gestureMode);
+      _gestureModeListeners[i](_gestureMode);
     }
   }
 
@@ -1764,7 +2179,7 @@ class EngineSemanticsOwner {
   /// not accompanied by pointer events. In the presence of pointer events,
   /// delegate to Flutter's gesture detection system to produce gestures.
   bool shouldAcceptBrowserGesture(String eventType) {
-    if (_mode == AccessibilityMode.known) {
+    if (mode == AccessibilityMode.known) {
       // Do not ignore accessibility gestures in known mode, unless semantics
       // is explicitly disabled.
       return semanticsEnabled;
@@ -1781,6 +2196,142 @@ class EngineSemanticsOwner {
 
     return false;
   }
+}
+
+/// The top-level service that manages everything semantics-related.
+class EngineSemanticsOwner {
+  EngineSemanticsOwner(this.semanticsHost) {
+    registerHotRestartListener(() {
+      _rootSemanticsElement?.remove();
+    });
+  }
+
+  /// The permanent element in the view's DOM structure that hosts the semantics
+  /// tree.
+  ///
+  /// The only child of this element is the [rootSemanticsElement]. Unlike the
+  /// root element, this element is never replaced. It is always part of the
+  /// DOM structure of the respective [FlutterView].
+  // TODO(yjbanov): rename to hostElement
+  final DomElement semanticsHost;
+
+  /// The DOM element corresponding to the root semantics node in the semantics
+  /// tree.
+  ///
+  /// This element is the direct child of the [semanticsHost] and it is
+  /// replaceable.
+  // TODO(yjbanov): rename to rootElement
+  DomElement? get rootSemanticsElement => _rootSemanticsElement;
+  DomElement? _rootSemanticsElement;
+
+  /// The current update phase of this semantics owner.
+  SemanticsUpdatePhase get phase => _phase;
+  SemanticsUpdatePhase _phase = SemanticsUpdatePhase.idle;
+
+  final Map<int, SemanticsObject> _semanticsTree = <int, SemanticsObject>{};
+
+  /// Map [SemanticsObject.id] to parent [SemanticsObject] it was attached to
+  /// this frame.
+  Map<int, SemanticsObject> _attachments = <int, SemanticsObject>{};
+
+  /// Declares that the [child] must be attached to the [parent].
+  ///
+  /// Attachments take precedence over detachments (see [_detachObject]). This
+  /// allows the same node to be detached from one parent in the tree and
+  /// reattached to another parent.
+  void _attachObject({required SemanticsObject parent, required SemanticsObject child}) {
+    child._parent = parent;
+    _attachments[child.id] = parent;
+  }
+
+  /// List of objects that were detached this frame.
+  ///
+  /// The objects in this list will be detached permanently unless they are
+  /// reattached via the [_attachObject] method.
+  List<SemanticsObject> _detachments = <SemanticsObject>[];
+
+  /// Declares that the [SemanticsObject] with the given [id] was detached from
+  /// its current parent object.
+  ///
+  /// The object will be detached permanently unless it is reattached via the
+  /// [_attachObject] method.
+  void _detachObject(int id) {
+    final SemanticsObject? object = _semanticsTree[id];
+    assert(object != null);
+    if (object != null) {
+      _detachments.add(object);
+    }
+  }
+
+  /// Callbacks called after all objects in the tree have their properties
+  /// populated and their sizes and locations computed.
+  ///
+  /// This list is reset to empty after all callbacks are called.
+  List<ui.VoidCallback> _oneTimePostUpdateCallbacks = <ui.VoidCallback>[];
+
+  /// Schedules a one-time callback to be called after all objects in the tree
+  /// have their properties populated and their sizes and locations computed.
+  void addOneTimePostUpdateCallback(ui.VoidCallback callback) {
+    _oneTimePostUpdateCallbacks.add(callback);
+  }
+
+  /// Reconciles [_attachments] and [_detachments], and after that calls all
+  /// the one-time callbacks scheduled via the [addOneTimePostUpdateCallback]
+  /// method.
+  void _finalizeTree() {
+    // Collect all nodes that need to be permanently removed, i.e. nodes that
+    // were detached from their parent, but not reattached to another parent.
+    final Set<SemanticsObject> removals = <SemanticsObject>{};
+    for (final SemanticsObject detachmentRoot in _detachments) {
+      // A detached node may or may not have some of its descendants reattached
+      // elsewhere. Walk the descendant tree and find all descendants that were
+      // reattached to a parent. Those descendants need to be removed.
+      detachmentRoot.visitDepthFirstInTraversalOrder((SemanticsObject node) {
+        final SemanticsObject? parent = _attachments[node.id];
+        if (parent == null) {
+          // Was not reparented and is removed permanently from the tree.
+          removals.add(node);
+        } else {
+          assert(node._parent == parent);
+          assert(node.element.parentNode == parent._childContainerElement);
+        }
+        return true;
+      });
+    }
+
+    for (final SemanticsObject removal in removals) {
+      _semanticsTree.remove(removal.id);
+      removal.dispose();
+    }
+
+    _detachments = <SemanticsObject>[];
+    _attachments = <int, SemanticsObject>{};
+
+    _phase = SemanticsUpdatePhase.postUpdate;
+    try {
+      if (_oneTimePostUpdateCallbacks.isNotEmpty) {
+        for (final ui.VoidCallback callback in _oneTimePostUpdateCallbacks) {
+          callback();
+        }
+        _oneTimePostUpdateCallbacks = <ui.VoidCallback>[];
+      }
+    } finally {
+      _phase = SemanticsUpdatePhase.idle;
+    }
+    _hasNodeRequestingFocus = false;
+  }
+
+  /// Returns the entire semantics tree for testing.
+  ///
+  /// Works only in debug mode.
+  Map<int, SemanticsObject>? get debugSemanticsTree {
+    Map<int, SemanticsObject>? result;
+    assert(() {
+      result = _semanticsTree;
+      return true;
+    }());
+    return result;
+  }
 
   /// Looks up a [SemanticsObject] in the semantics tree by ID, or creates a new
   /// instance if it does not exist.
@@ -1793,52 +2344,92 @@ class EngineSemanticsOwner {
     return object;
   }
 
-  /// Updates the semantics tree from data in the [uiUpdate].
-  void updateSemantics(ui.SemanticsUpdate uiUpdate) {
-    if (!_semanticsEnabled) {
-      if (ui.debugEmulateFlutterTesterEnvironment) {
-        // Running Flutter widget tests in a fake environment. Don't enable
-        // engine semantics. Test semantics trees violate invariants in ways
-        // production implementation isn't built to handle. For example, tests
-        // routinely reset semantics node IDs, which is messing up the update
-        // process.
-        return;
-      } else {
-        // Running a real app. Auto-enable engine semantics.
-        semanticsHelper.dispose(); // placeholder no longer needed
-        semanticsEnabled = true;
-      }
+  // Checks the consistency of the semantics node tree against the {ID: node}
+  // map. The two must be in total agreement. Every node in the map must be
+  // somewhere in the tree.
+  (bool, String) _computeNodeMapConsistencyMessage() {
+    final Map<int, List<int>> liveIds = <int, List<int>>{};
+
+    final SemanticsObject? root = _semanticsTree[0];
+    if (root != null) {
+      root._debugVisitRenderedSemanticNodesDepthFirst((SemanticsObject child) {
+        liveIds[child.id] = child._childrenInTraversalOrder?.toList() ?? const <int>[];
+      });
     }
 
+    final bool isConsistent = _semanticsTree.keys.every(liveIds.keys.contains);
+    final String heading = 'The semantics node map is ${isConsistent ? 'consistent' : 'inconsistent'}';
+    final StringBuffer message = StringBuffer('$heading:\n');
+    message.writeln('  Nodes in tree:');
+    for (final MapEntry<int, List<int>> entry in liveIds.entries) {
+      message.writeln('    ${entry.key}: ${entry.value}');
+    }
+    message.writeln('  Nodes in map: [${_semanticsTree.keys.join(', ')}]');
+
+    return (isConsistent, message.toString());
+  }
+
+  /// Updates the semantics tree from data in the [uiUpdate].
+  void updateSemantics(ui.SemanticsUpdate uiUpdate) {
+    EngineSemantics.instance.didReceiveSemanticsUpdate();
+
+    if (!EngineSemantics.instance.semanticsEnabled) {
+      return;
+    }
+
+    (bool, String)? preUpdateNodeMapConsistency;
+    assert(() {
+      preUpdateNodeMapConsistency = _computeNodeMapConsistencyMessage();
+      return true;
+    }());
+
+    _phase = SemanticsUpdatePhase.updating;
     final SemanticsUpdate update = uiUpdate as SemanticsUpdate;
 
     // First, update each object's information about itself. This information is
     // later used to fix the parent-child and sibling relationships between
     // objects.
-    for (final SemanticsNodeUpdate nodeUpdate in update._nodeUpdates!) {
+    final List<SemanticsNodeUpdate> nodeUpdates = update._nodeUpdates!;
+    for (final SemanticsNodeUpdate nodeUpdate in nodeUpdates) {
       final SemanticsObject object = getOrCreateObject(nodeUpdate.id);
       object.updateSelf(nodeUpdate);
     }
 
     // Second, fix the tree structure. This is moved out into its own loop,
     // because each object's own information must be updated first.
-    for (final SemanticsNodeUpdate nodeUpdate in update._nodeUpdates!) {
+    for (final SemanticsNodeUpdate nodeUpdate in nodeUpdates) {
       final SemanticsObject object = _semanticsTree[nodeUpdate.id]!;
       object.updateChildren();
       object._dirtyFields = 0;
     }
 
+    final SemanticsObject root = _semanticsTree[0]!;
     if (_rootSemanticsElement == null) {
-      final SemanticsObject root = _semanticsTree[0]!;
       _rootSemanticsElement = root.element;
-      flutterViewEmbedder.semanticsHostElement!.append(root.element);
+      semanticsHost.append(root.element);
     }
 
     _finalizeTree();
 
-    assert(_semanticsTree.containsKey(0)); // must contain root node
     assert(() {
-      // Validate tree
+      // Validate that the node map only contains live elements, i.e. descendants
+      // of the root node. If a node is not reachable from the root, it should
+      // have been removed from the map.
+      final (bool isConsistent, String description) = _computeNodeMapConsistencyMessage();
+      if (!isConsistent) {
+        // Use StateError because AssertionError escapes line breaks, but this
+        // error message is very detailed and it needs line breaks for
+        // legibility.
+        throw StateError('''
+Semantics node map was inconsistent after update:
+
+BEFORE: ${preUpdateNodeMapConsistency?.$2}
+
+AFTER: $description
+''');
+      }
+
+      // Validate that each node in the final tree is self-consistent.
       _semanticsTree.forEach((int? id, SemanticsObject object) {
         assert(id == object.id);
 
@@ -1871,13 +2462,60 @@ class EngineSemanticsOwner {
       });
 
       // Validate that all updates were applied
-      for (final SemanticsNodeUpdate update in update._nodeUpdates!) {
+      for (final SemanticsNodeUpdate update in nodeUpdates) {
         // Node was added to the tree.
         assert(_semanticsTree.containsKey(update.id));
       }
 
+      // Verify that `update._nodeUpdates` has not changed.
+      assert(identical(update._nodeUpdates, nodeUpdates));
+
       return true;
     }());
+  }
+
+  /// Removes the semantics tree for this view from the page and collects all
+  /// resources.
+  ///
+  /// The object remains usable after this operation, but because the previous
+  /// semantics tree is completely removed, partial udpates will not succeed as
+  /// they rely on the prior state of the tree. There is no distinction between
+  /// a full update and partial update, so the failure may be cryptic.
+  void reset() {
+    final List<int> keys = _semanticsTree.keys.toList();
+    final int len = keys.length;
+    for (int i = 0; i < len; i++) {
+      _detachObject(keys[i]);
+    }
+    _finalizeTree();
+    _rootSemanticsElement?.remove();
+    _rootSemanticsElement = null;
+    _semanticsTree.clear();
+    _attachments.clear();
+    _detachments.clear();
+    _phase = SemanticsUpdatePhase.idle;
+    _oneTimePostUpdateCallbacks.clear();
+  }
+
+  /// True, if any semantics node requested focus explicitly during the latest
+  /// semantics update.
+  ///
+  /// The default value is `false`, and it is reset back to `false` after the
+  /// semantics update at the end of [updateSemantics].
+  ///
+  /// Since focus can only be taken by no more than one element, the engine
+  /// should not request focus for multiple elements. This flag helps resolve
+  /// that.
+  bool get hasNodeRequestingFocus => _hasNodeRequestingFocus;
+  bool _hasNodeRequestingFocus = false;
+
+  /// Declares that a semantics node will explicitly request focus.
+  ///
+  /// This prevents others, [Dialog] in particular, from requesting autofocus,
+  /// as focus can only be taken by one element. Explicit focus has higher
+  /// precedence than autofocus.
+  void willRequestFocus() {
+    _hasNodeRequestingFocus = true;
   }
 }
 

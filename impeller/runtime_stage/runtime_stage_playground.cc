@@ -8,8 +8,8 @@
 
 #include "flutter/fml/make_copyable.h"
 #include "flutter/testing/testing.h"
+#include "impeller/core/shader_types.h"
 #include "impeller/renderer/shader_library.h"
-#include "impeller/renderer/shader_types.h"
 
 namespace impeller {
 
@@ -20,7 +20,8 @@ RuntimeStagePlayground::~RuntimeStagePlayground() = default;
 bool RuntimeStagePlayground::RegisterStage(const RuntimeStage& stage) {
   std::promise<bool> registration;
   auto future = registration.get_future();
-  auto library = GetContext()->GetShaderLibrary();
+  const std::shared_ptr<ShaderLibrary>& library =
+      GetContext()->GetShaderLibrary();
   GetContext()->GetShaderLibrary()->RegisterFunction(
       stage.GetEntrypoint(), ToShaderStage(stage.GetShaderStage()),
       stage.GetCodeMapping(),

@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "flutter/lib/ui/floating_point.h"
 #include "flutter/lib/ui/ui_dart_state.h"
 #include "third_party/skia/include/core/SkScalar.h"
 #include "third_party/tonic/converter/dart_converter.h"
@@ -49,6 +50,7 @@ void SemanticsUpdateBuilder::updateNode(
     double bottom,
     double elevation,
     double thickness,
+    std::string identifier,
     std::string label,
     const std::vector<NativeStringAttribute*>& labelAttributes,
     std::string value,
@@ -65,8 +67,6 @@ void SemanticsUpdateBuilder::updateNode(
     const tonic::Int32List& childrenInTraversalOrder,
     const tonic::Int32List& childrenInHitTestOrder,
     const tonic::Int32List& localContextActions) {
-  FML_CHECK(transform.data() && SkScalarsAreFinite(*transform.data(), 9))
-      << "Semantics update transform was not set or not finite.";
   FML_CHECK(scrollChildren == 0 ||
             (scrollChildren > 0 && childrenInHitTestOrder.data()))
       << "Semantics update contained scrollChildren but did not have "
@@ -85,9 +85,11 @@ void SemanticsUpdateBuilder::updateNode(
   node.scrollPosition = scrollPosition;
   node.scrollExtentMax = scrollExtentMax;
   node.scrollExtentMin = scrollExtentMin;
-  node.rect = SkRect::MakeLTRB(left, top, right, bottom);
+  node.rect = SkRect::MakeLTRB(SafeNarrow(left), SafeNarrow(top),
+                               SafeNarrow(right), SafeNarrow(bottom));
   node.elevation = elevation;
   node.thickness = thickness;
+  node.identifier = std::move(identifier);
   node.label = std::move(label);
   pushStringAttributes(node.labelAttributes, labelAttributes);
   node.value = std::move(value);
@@ -102,7 +104,7 @@ void SemanticsUpdateBuilder::updateNode(
   node.textDirection = textDirection;
   SkScalar scalarTransform[16];
   for (int i = 0; i < 16; ++i) {
-    scalarTransform[i] = transform.data()[i];
+    scalarTransform[i] = SafeNarrow(transform.data()[i]);
   }
   node.transform = SkM44::ColMajor(scalarTransform);
   node.childrenInTraversalOrder =

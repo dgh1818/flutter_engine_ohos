@@ -8,7 +8,6 @@
 #include <memory>
 
 #include <fuchsia/component/runner/cpp/fidl.h>
-#include <fuchsia/sys/cpp/fidl.h>
 #include <fuchsia/test/cpp/fidl.h>
 #include <lib/async-loop/cpp/loop.h>
 #include <lib/async/cpp/executor.h>
@@ -67,7 +66,7 @@ class DartTestComponentController
   }
 
  private:
-  /// Helper for actually running the Dart main. Returns Returns a promise.
+  /// Helper for actually running the Dart main. Returns a promise.
   fpromise::promise<> RunDartMain();
 
   /// Creates and binds the namespace for this component. Returns true if

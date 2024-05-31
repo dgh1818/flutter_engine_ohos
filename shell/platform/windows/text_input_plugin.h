@@ -9,6 +9,7 @@
 #include <map>
 #include <memory>
 
+#include "flutter/fml/macros.h"
 #include "flutter/shell/platform/common/client_wrapper/include/flutter/binary_messenger.h"
 #include "flutter/shell/platform/common/client_wrapper/include/flutter/method_channel.h"
 #include "flutter/shell/platform/common/geometry.h"
@@ -16,20 +17,22 @@
 #include "flutter/shell/platform/common/text_editing_delta.h"
 #include "flutter/shell/platform/common/text_input_model.h"
 #include "flutter/shell/platform/windows/keyboard_handler_base.h"
-#include "flutter/shell/platform/windows/text_input_plugin_delegate.h"
 
 namespace flutter {
+
+class FlutterWindowsEngine;
 
 // Implements a text input plugin.
 //
 // Specifically handles window events within windows.
 class TextInputPlugin {
  public:
-  explicit TextInputPlugin(flutter::BinaryMessenger* messenger,
-                           TextInputPluginDelegate* delegate);
+  TextInputPlugin(flutter::BinaryMessenger* messenger,
+                  FlutterWindowsEngine* engine);
 
   virtual ~TextInputPlugin();
 
+  // Called when the Flutter engine receives a raw keyboard message.
   virtual void KeyboardHook(int key,
                             int scancode,
                             int action,
@@ -37,14 +40,33 @@ class TextInputPlugin {
                             bool extended,
                             bool was_down);
 
+  // Called when the Flutter engine receives a keyboard character.
   virtual void TextHook(const std::u16string& text);
 
+  // Called on an IME compose begin event.
+  //
+  // Triggered when the user begins editing composing text using a multi-step
+  // input method such as in CJK text input.
   virtual void ComposeBeginHook();
 
+  // Called on an IME compose commit event.
+  //
+  // Triggered when the user triggers a commit of the current composing text
+  // while using a multi-step input method such as in CJK text input. Composing
+  // continues with the next keypress.
   virtual void ComposeCommitHook();
 
+  // Called on an IME compose end event.
+  //
+  // Triggered when the composing ends, for example when the user presses
+  // ESC or when the user triggers a commit of the composing text while using a
+  // multi-step input method such as in CJK text input.
   virtual void ComposeEndHook();
 
+  // Called on an IME composing region change event.
+  //
+  // Triggered when the user edits the composing text while using a multi-step
+  // input method such as in CJK text input.
   virtual void ComposeChangeHook(const std::u16string& text, int cursor_pos);
 
  private:
@@ -70,8 +92,8 @@ class TextInputPlugin {
   // The MethodChannel used for communication with the Flutter engine.
   std::unique_ptr<flutter::MethodChannel<rapidjson::Document>> channel_;
 
-  // The associated |TextInputPluginDelegate|.
-  TextInputPluginDelegate* delegate_;
+  // The associated |FlutterWindowsEngine|.
+  FlutterWindowsEngine* engine_;
 
   // The active client id.
   int client_id_;
@@ -83,7 +105,7 @@ class TextInputPlugin {
   // as TextEditingDeltas or as one TextEditingValue.
   // For more information on the delta model, see:
   // https://master-api.flutter.dev/flutter/services/TextInputConfiguration/enableDeltaModel.html
-  bool enable_delta_model;
+  bool enable_delta_model = false;
 
   // Keyboard type of the client. See available options:
   // https://api.flutter.dev/flutter/services/TextInputType-class.html
@@ -106,6 +128,8 @@ class TextInputPlugin {
       0.0, 0.0, 0.0, 0.0,  //
       0.0, 0.0, 0.0, 0.0,  //
       0.0, 0.0, 0.0, 0.0};
+
+  FML_DISALLOW_COPY_AND_ASSIGN(TextInputPlugin);
 };
 
 }  // namespace flutter

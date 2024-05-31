@@ -2,9 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "flutter/display_list/benchmarking/dl_complexity.h"
 #include "flutter/display_list/display_list.h"
-#include "flutter/display_list/display_list_builder.h"
-#include "flutter/display_list/display_list_test_utils.h"
+#include "flutter/display_list/dl_builder.h"
+#include "flutter/display_list/testing/dl_test_snippets.h"
 #include "flutter/flow/layers/container_layer.h"
 #include "flutter/flow/layers/display_list_layer.h"
 #include "flutter/flow/layers/image_filter_layer.h"
@@ -12,16 +13,15 @@
 #include "flutter/flow/layers/transform_layer.h"
 #include "flutter/flow/raster_cache.h"
 #include "flutter/flow/raster_cache_item.h"
+#include "flutter/flow/testing/layer_test.h"
 #include "flutter/flow/testing/mock_raster_cache.h"
-#include "flutter/flow/testing/skia_gpu_object_layer_test.h"
 #include "flutter/testing/assertions_skia.h"
 #include "gtest/gtest.h"
-#include "include/core/SkMatrix.h"
-#include "include/core/SkPoint.h"
-#include "third_party/skia/include/core/SkCanvas.h"
-#include "third_party/skia/include/core/SkPaint.h"
-#include "third_party/skia/include/core/SkPicture.h"
-#include "third_party/skia/include/core/SkPictureRecorder.h"
+#include "third_party/skia/include/core/SkMatrix.h"
+#include "third_party/skia/include/core/SkPoint.h"
+
+// TODO(zanderso): https://github.com/flutter/flutter/issues/127701
+// NOLINTBEGIN(bugprone-unchecked-optional-access)
 
 namespace flutter {
 namespace testing {
@@ -39,8 +39,8 @@ TEST(RasterCache, MetricsOmitUnpopulatedEntries) {
 
   auto display_list = GetSampleDisplayList();
 
-  SkCanvas dummy_canvas(1000, 1000);
-  SkPaint paint;
+  MockCanvas dummy_canvas(1000, 1000);
+  DlPaint paint;
 
   LayerStateStack preroll_state_stack;
   preroll_state_stack.set_preroll_delegate(kGiantRect, matrix);
@@ -57,8 +57,8 @@ TEST(RasterCache, MetricsOmitUnpopulatedEntries) {
   auto& paint_context = paint_context_holder.paint_context;
 
   cache.BeginFrame();
-  DisplayListRasterCacheItem display_list_item(display_list.get(), SkPoint(),
-                                               true, false);
+  DisplayListRasterCacheItem display_list_item(display_list, SkPoint(), true,
+                                               false);
 
   // 1st access.
   ASSERT_FALSE(RasterCacheItemPrerollAndTryToRasterCache(
@@ -87,8 +87,8 @@ TEST(RasterCache, MetricsOmitUnpopulatedEntries) {
 
   cache.EndFrame();
   ASSERT_EQ(cache.picture_metrics().total_count(), 1u);
-  // 150w * 100h * 4bpp
-  ASSERT_EQ(cache.picture_metrics().total_bytes(), 25600u);
+  // 80w * 80h * 4bpp + image object overhead
+  ASSERT_EQ(cache.picture_metrics().total_bytes(), 25624u);
 }
 
 TEST(RasterCache, ThresholdIsRespectedForDisplayList) {
@@ -99,8 +99,8 @@ TEST(RasterCache, ThresholdIsRespectedForDisplayList) {
 
   auto display_list = GetSampleDisplayList();
 
-  SkCanvas dummy_canvas(1000, 1000);
-  SkPaint paint;
+  MockCanvas dummy_canvas(1000, 1000);
+  DlPaint paint;
 
   LayerStateStack preroll_state_stack;
   preroll_state_stack.set_preroll_delegate(kGiantRect, matrix);
@@ -118,8 +118,8 @@ TEST(RasterCache, ThresholdIsRespectedForDisplayList) {
 
   cache.BeginFrame();
 
-  DisplayListRasterCacheItem display_list_item(display_list.get(), SkPoint(),
-                                               true, false);
+  DisplayListRasterCacheItem display_list_item(display_list, SkPoint(), true,
+                                               false);
 
   // 1st access.
   ASSERT_FALSE(RasterCacheItemPrerollAndTryToRasterCache(
@@ -158,9 +158,9 @@ TEST(RasterCache, SetCheckboardCacheImages) {
   PaintContextHolder paint_context_holder = GetSamplePaintContextHolder(
       preroll_state_stack, &cache, &raster_time, &ui_time);
   auto& paint_context = paint_context_holder.paint_context;
-  auto dummy_draw_function = [](SkCanvas* canvas) {};
+  auto dummy_draw_function = [](DlCanvas* canvas) {};
   bool did_draw_checkerboard = false;
-  auto draw_checkerboard = [&](SkCanvas* canvas, const SkRect&) {
+  auto draw_checkerboard = [&](DlCanvas* canvas, const SkRect&) {
     did_draw_checkerboard = true;
   };
   RasterCache::Context r_context = {
@@ -174,45 +174,12 @@ TEST(RasterCache, SetCheckboardCacheImages) {
   };
 
   cache.SetCheckboardCacheImages(false);
-  cache.Rasterize(r_context, dummy_draw_function, draw_checkerboard);
+  cache.Rasterize(r_context, nullptr, dummy_draw_function, draw_checkerboard);
   ASSERT_FALSE(did_draw_checkerboard);
 
   cache.SetCheckboardCacheImages(true);
-  cache.Rasterize(r_context, dummy_draw_function, draw_checkerboard);
+  cache.Rasterize(r_context, nullptr, dummy_draw_function, draw_checkerboard);
   ASSERT_TRUE(did_draw_checkerboard);
-}
-
-TEST(RasterCache, AccessThresholdOfZeroDisablesCachingForSkPicture) {
-  size_t threshold = 0;
-  flutter::RasterCache cache(threshold);
-
-  SkMatrix matrix = SkMatrix::I();
-
-  auto display_list = GetSampleDisplayList();
-
-  SkCanvas dummy_canvas(1000, 1000);
-  SkPaint paint;
-
-  LayerStateStack preroll_state_stack;
-  preroll_state_stack.set_preroll_delegate(kGiantRect, matrix);
-  LayerStateStack paint_state_stack;
-  preroll_state_stack.set_delegate(&dummy_canvas);
-
-  FixedRefreshRateStopwatch raster_time;
-  FixedRefreshRateStopwatch ui_time;
-  PrerollContextHolder preroll_context_holder = GetSamplePrerollContextHolder(
-      preroll_state_stack, &cache, &raster_time, &ui_time);
-  PaintContextHolder paint_context_holder = GetSamplePaintContextHolder(
-      paint_state_stack, &cache, &raster_time, &ui_time);
-  auto& preroll_context = preroll_context_holder.preroll_context;
-  auto& paint_context = paint_context_holder.paint_context;
-
-  cache.BeginFrame();
-  DisplayListRasterCacheItem display_list_item(display_list.get(), SkPoint(),
-                                               true, false);
-  ASSERT_FALSE(RasterCacheItemPrerollAndTryToRasterCache(
-      display_list_item, preroll_context, paint_context, matrix));
-  ASSERT_FALSE(display_list_item.Draw(paint_context, &dummy_canvas, &paint));
 }
 
 TEST(RasterCache, AccessThresholdOfZeroDisablesCachingForDisplayList) {
@@ -223,8 +190,8 @@ TEST(RasterCache, AccessThresholdOfZeroDisablesCachingForDisplayList) {
 
   auto display_list = GetSampleDisplayList();
 
-  SkCanvas dummy_canvas(1000, 1000);
-  SkPaint paint;
+  MockCanvas dummy_canvas(1000, 1000);
+  DlPaint paint;
 
   LayerStateStack preroll_state_stack;
   preroll_state_stack.set_preroll_delegate(kGiantRect, matrix);
@@ -242,48 +209,8 @@ TEST(RasterCache, AccessThresholdOfZeroDisablesCachingForDisplayList) {
 
   cache.BeginFrame();
 
-  DisplayListRasterCacheItem display_list_item(display_list.get(), SkPoint(),
-                                               true, false);
-  ASSERT_FALSE(RasterCacheItemPrerollAndTryToRasterCache(
-      display_list_item, preroll_context, paint_context, matrix));
-  ASSERT_FALSE(display_list_item.Draw(paint_context, &dummy_canvas, &paint));
-}
-
-TEST(RasterCache, PictureCacheLimitPerFrameIsRespectedWhenZeroForSkPicture) {
-  size_t picture_cache_limit_per_frame = 0;
-  flutter::RasterCache cache(3, picture_cache_limit_per_frame);
-
-  SkMatrix matrix = SkMatrix::I();
-
-  auto display_list = GetSampleDisplayList();
-
-  SkCanvas dummy_canvas(1000, 1000);
-  SkPaint paint;
-
-  LayerStateStack preroll_state_stack;
-  preroll_state_stack.set_preroll_delegate(kGiantRect, matrix);
-  LayerStateStack paint_state_stack;
-  preroll_state_stack.set_delegate(&dummy_canvas);
-
-  FixedRefreshRateStopwatch raster_time;
-  FixedRefreshRateStopwatch ui_time;
-  PrerollContextHolder preroll_context_holder = GetSamplePrerollContextHolder(
-      preroll_state_stack, &cache, &raster_time, &ui_time);
-  PaintContextHolder paint_context_holder = GetSamplePaintContextHolder(
-      paint_state_stack, &cache, &raster_time, &ui_time);
-  auto& preroll_context = preroll_context_holder.preroll_context;
-  auto& paint_context = paint_context_holder.paint_context;
-
-  cache.BeginFrame();
-
-  DisplayListRasterCacheItem display_list_item(display_list.get(), SkPoint(),
-                                               true, false);
-  ASSERT_FALSE(RasterCacheItemPrerollAndTryToRasterCache(
-      display_list_item, preroll_context, paint_context, matrix));
-  ASSERT_FALSE(display_list_item.Draw(paint_context, &dummy_canvas, &paint));
-  ASSERT_FALSE(RasterCacheItemPrerollAndTryToRasterCache(
-      display_list_item, preroll_context, paint_context, matrix));
-  ASSERT_FALSE(display_list_item.Draw(paint_context, &dummy_canvas, &paint));
+  DisplayListRasterCacheItem display_list_item(display_list, SkPoint(), true,
+                                               false);
   ASSERT_FALSE(RasterCacheItemPrerollAndTryToRasterCache(
       display_list_item, preroll_context, paint_context, matrix));
   ASSERT_FALSE(display_list_item.Draw(paint_context, &dummy_canvas, &paint));
@@ -297,8 +224,8 @@ TEST(RasterCache, PictureCacheLimitPerFrameIsRespectedWhenZeroForDisplayList) {
 
   auto display_list = GetSampleDisplayList();
 
-  SkCanvas dummy_canvas(1000, 1000);
-  SkPaint paint;
+  MockCanvas dummy_canvas(1000, 1000);
+  DlPaint paint;
 
   LayerStateStack preroll_state_stack;
   preroll_state_stack.set_preroll_delegate(kGiantRect, matrix);
@@ -316,8 +243,8 @@ TEST(RasterCache, PictureCacheLimitPerFrameIsRespectedWhenZeroForDisplayList) {
 
   cache.BeginFrame();
 
-  DisplayListRasterCacheItem display_list_item(display_list.get(), SkPoint(),
-                                               true, false);
+  DisplayListRasterCacheItem display_list_item(display_list, SkPoint(), true,
+                                               false);
   // 1st access.
   ASSERT_FALSE(RasterCacheItemPrerollAndTryToRasterCache(
       display_list_item, preroll_context, paint_context, matrix));
@@ -332,7 +259,7 @@ TEST(RasterCache, PictureCacheLimitPerFrameIsRespectedWhenZeroForDisplayList) {
   ASSERT_FALSE(display_list_item.Draw(paint_context, &dummy_canvas, &paint));
 }
 
-TEST(RasterCache, EvitUnusedCacheEntries) {
+TEST(RasterCache, EvictUnusedCacheEntries) {
   size_t threshold = 1;
   flutter::RasterCache cache(threshold);
 
@@ -341,8 +268,8 @@ TEST(RasterCache, EvitUnusedCacheEntries) {
   auto display_list_1 = GetSampleDisplayList();
   auto display_list_2 = GetSampleDisplayList();
 
-  SkCanvas dummy_canvas(1000, 1000);
-  SkPaint paint;
+  MockCanvas dummy_canvas(1000, 1000);
+  DlPaint paint;
 
   LayerStateStack preroll_state_stack;
   preroll_state_stack.set_preroll_delegate(kGiantRect, matrix);
@@ -358,10 +285,10 @@ TEST(RasterCache, EvitUnusedCacheEntries) {
   auto& preroll_context = preroll_context_holder.preroll_context;
   auto& paint_context = paint_context_holder.paint_context;
 
-  DisplayListRasterCacheItem display_list_item_1(display_list_1.get(),
-                                                 SkPoint(), true, false);
-  DisplayListRasterCacheItem display_list_item_2(display_list_2.get(),
-                                                 SkPoint(), true, false);
+  DisplayListRasterCacheItem display_list_item_1(display_list_1, SkPoint(),
+                                                 true, false);
+  DisplayListRasterCacheItem display_list_item_2(display_list_2, SkPoint(),
+                                                 true, false);
 
   cache.BeginFrame();
   RasterCacheItemPreroll(display_list_item_1, preroll_context, matrix);
@@ -390,28 +317,28 @@ TEST(RasterCache, EvitUnusedCacheEntries) {
       RasterCacheItemTryToRasterCache(display_list_item_1, paint_context));
   ASSERT_TRUE(
       RasterCacheItemTryToRasterCache(display_list_item_2, paint_context));
-  ASSERT_EQ(cache.EstimatePictureCacheByteSize(), 51200u);
+  ASSERT_EQ(cache.EstimatePictureCacheByteSize(), 51248u);
   ASSERT_TRUE(display_list_item_1.Draw(paint_context, &dummy_canvas, &paint));
   ASSERT_TRUE(display_list_item_2.Draw(paint_context, &dummy_canvas, &paint));
   cache.EndFrame();
 
-  ASSERT_EQ(cache.EstimatePictureCacheByteSize(), 51200u);
+  ASSERT_EQ(cache.EstimatePictureCacheByteSize(), 51248u);
   ASSERT_EQ(cache.picture_metrics().total_count(), 2u);
-  ASSERT_EQ(cache.picture_metrics().total_bytes(), 51200u);
+  ASSERT_EQ(cache.picture_metrics().total_bytes(), 51248u);
 
   cache.BeginFrame();
   RasterCacheItemPreroll(display_list_item_1, preroll_context, matrix);
   cache.EvictUnusedCacheEntries();
-  ASSERT_EQ(cache.EstimatePictureCacheByteSize(), 25600u);
+  ASSERT_EQ(cache.EstimatePictureCacheByteSize(), 25624u);
   ASSERT_TRUE(
       RasterCacheItemTryToRasterCache(display_list_item_1, paint_context));
-  ASSERT_EQ(cache.EstimatePictureCacheByteSize(), 25600u);
+  ASSERT_EQ(cache.EstimatePictureCacheByteSize(), 25624u);
   ASSERT_TRUE(display_list_item_1.Draw(paint_context, &dummy_canvas, &paint));
   cache.EndFrame();
 
-  ASSERT_EQ(cache.EstimatePictureCacheByteSize(), 25600u);
+  ASSERT_EQ(cache.EstimatePictureCacheByteSize(), 25624u);
   ASSERT_EQ(cache.picture_metrics().total_count(), 1u);
-  ASSERT_EQ(cache.picture_metrics().total_bytes(), 25600u);
+  ASSERT_EQ(cache.picture_metrics().total_bytes(), 25624u);
 
   cache.BeginFrame();
   cache.EvictUnusedCacheEntries();
@@ -448,15 +375,14 @@ TEST(RasterCache, DeviceRectRoundOutForDisplayList) {
 
   SkRect logical_rect = SkRect::MakeLTRB(28, 0, 354.56731, 310.288);
   DisplayListBuilder builder(logical_rect);
-  builder.setColor(SK_ColorRED);
-  builder.drawRect(logical_rect);
+  builder.DrawRect(logical_rect, DlPaint(DlColor::kRed()));
   sk_sp<DisplayList> display_list = builder.Build();
 
   SkMatrix ctm = SkMatrix::MakeAll(1.3312, 0, 233, 0, 1.3312, 206, 0, 0, 1);
-  SkPaint paint;
+  DlPaint paint;
 
-  SkCanvas canvas(1000, 1000, nullptr);
-  canvas.setMatrix(ctm);
+  MockCanvas canvas(1000, 1000);
+  canvas.SetTransform(ctm);
 
   LayerStateStack preroll_state_stack;
   preroll_state_stack.set_preroll_delegate(kGiantRect, ctm);
@@ -473,8 +399,8 @@ TEST(RasterCache, DeviceRectRoundOutForDisplayList) {
   auto& paint_context = paint_context_holder.paint_context;
 
   cache.BeginFrame();
-  DisplayListRasterCacheItem display_list_item(display_list.get(), SkPoint(),
-                                               true, false);
+  DisplayListRasterCacheItem display_list_item(display_list, SkPoint(), true,
+                                               false);
 
   ASSERT_FALSE(RasterCacheItemPrerollAndTryToRasterCache(
       display_list_item, preroll_context, paint_context, ctm));
@@ -487,7 +413,7 @@ TEST(RasterCache, DeviceRectRoundOutForDisplayList) {
       display_list_item, preroll_context, paint_context, ctm));
   ASSERT_TRUE(display_list_item.Draw(paint_context, &canvas, &paint));
 
-  canvas.translate(248, 0);
+  canvas.Translate(248, 0);
   ASSERT_TRUE(cache.Draw(display_list_item.GetId().value(), canvas, &paint));
   ASSERT_TRUE(display_list_item.Draw(paint_context, &canvas, &paint));
 }
@@ -502,8 +428,8 @@ TEST(RasterCache, NestedOpCountMetricUsedForDisplayList) {
   ASSERT_EQ(display_list->op_count(), 1u);
   ASSERT_EQ(display_list->op_count(true), 36u);
 
-  SkCanvas dummy_canvas(1000, 1000);
-  SkPaint paint;
+  MockCanvas dummy_canvas(1000, 1000);
+  DlPaint paint;
 
   LayerStateStack preroll_state_stack;
   preroll_state_stack.set_preroll_delegate(kGiantRect, matrix);
@@ -521,8 +447,8 @@ TEST(RasterCache, NestedOpCountMetricUsedForDisplayList) {
 
   cache.BeginFrame();
 
-  DisplayListRasterCacheItem display_list_item(display_list.get(), SkPoint(),
-                                               false, false);
+  DisplayListRasterCacheItem display_list_item(display_list, SkPoint(), false,
+                                               false);
 
   ASSERT_FALSE(RasterCacheItemPrerollAndTryToRasterCache(
       display_list_item, preroll_context, paint_context, matrix));
@@ -553,8 +479,8 @@ TEST(RasterCache, NaiveComplexityScoringDisplayList) {
   ASSERT_EQ(display_list->op_count(), 5u);
   ASSERT_FALSE(calculator->ShouldBeCached(complexity_score));
 
-  SkCanvas dummy_canvas(1000, 1000);
-  SkPaint paint;
+  MockCanvas dummy_canvas(1000, 1000);
+  DlPaint paint;
 
   LayerStateStack preroll_state_stack;
   preroll_state_stack.set_preroll_delegate(kGiantRect, matrix);
@@ -572,8 +498,8 @@ TEST(RasterCache, NaiveComplexityScoringDisplayList) {
 
   cache.BeginFrame();
 
-  DisplayListRasterCacheItem display_list_item(display_list.get(), SkPoint(),
-                                               false, false);
+  DisplayListRasterCacheItem display_list_item(display_list, SkPoint(), false,
+                                               false);
 
   ASSERT_FALSE(RasterCacheItemPrerollAndTryToRasterCache(
       display_list_item, preroll_context, paint_context, matrix));
@@ -595,7 +521,7 @@ TEST(RasterCache, NaiveComplexityScoringDisplayList) {
   ASSERT_TRUE(calculator->ShouldBeCached(complexity_score));
 
   DisplayListRasterCacheItem display_list_item_2 =
-      DisplayListRasterCacheItem(display_list.get(), SkPoint(), false, false);
+      DisplayListRasterCacheItem(display_list, SkPoint(), false, false);
   cache.BeginFrame();
 
   ASSERT_FALSE(RasterCacheItemPrerollAndTryToRasterCache(
@@ -623,8 +549,8 @@ TEST(RasterCache, DisplayListWithSingularMatrixIsNotCached) {
 
   auto display_list = GetSampleDisplayList();
 
-  SkCanvas dummy_canvas(1000, 1000);
-  SkPaint paint;
+  MockCanvas dummy_canvas(1000, 1000);
+  DlPaint paint;
 
   LayerStateStack preroll_state_stack;
   preroll_state_stack.set_preroll_delegate(kGiantRect, SkMatrix::I());
@@ -640,8 +566,8 @@ TEST(RasterCache, DisplayListWithSingularMatrixIsNotCached) {
   auto& preroll_context = preroll_context_holder.preroll_context;
   auto& paint_context = paint_context_holder.paint_context;
 
-  DisplayListRasterCacheItem display_list_item(display_list.get(), SkPoint(),
-                                               true, false);
+  DisplayListRasterCacheItem display_list_item(display_list, SkPoint(), true,
+                                               false);
 
   for (int i = 0; i < 10; i++) {
     cache.BeginFrame();
@@ -653,7 +579,7 @@ TEST(RasterCache, DisplayListWithSingularMatrixIsNotCached) {
     }
 
     for (int j = 0; j < matrix_count; j++) {
-      dummy_canvas.setMatrix(matrices[j]);
+      dummy_canvas.SetTransform(matrices[j]);
       ASSERT_FALSE(
           display_list_item.Draw(paint_context, &dummy_canvas, &paint));
     }
@@ -680,7 +606,7 @@ TEST(RasterCache, PrepareLayerTransform) {
 
   size_t threshold = 2;
   MockRasterCache cache(threshold);
-  SkCanvas dummy_canvas(1000, 1000);
+  MockCanvas dummy_canvas(1000, 1000);
 
   LayerStateStack preroll_state_stack;
   preroll_state_stack.set_preroll_delegate(kGiantRect, matrix);
@@ -858,7 +784,7 @@ TEST(RasterCache, RasterCacheKeyIDHashCode) {
   ASSERT_EQ(fourth_hash, fourth.GetHash());
 }
 
-using RasterCacheTest = SkiaGPUObjectLayerTest;
+using RasterCacheTest = LayerTest;
 
 TEST_F(RasterCacheTest, RasterCacheKeyIDLayerChildrenIds) {
   auto layer = std::make_shared<ContainerLayer>();
@@ -869,8 +795,7 @@ TEST_F(RasterCacheTest, RasterCacheKeyIDLayerChildrenIds) {
 
   auto display_list = GetSampleDisplayList();
   auto display_list_layer = std::make_shared<DisplayListLayer>(
-      SkPoint::Make(0.0f, 0.0f),
-      SkiaGPUObject<DisplayList>(display_list, unref_queue()), false, false);
+      SkPoint::Make(0.0f, 0.0f), display_list, false, false);
   layer->Add(display_list_layer);
 
   auto ids = RasterCacheKeyID::LayerChildrenIds(layer.get()).value();
@@ -884,5 +809,283 @@ TEST_F(RasterCacheTest, RasterCacheKeyIDLayerChildrenIds) {
   ASSERT_EQ(ids, expected_ids);
 }
 
+TEST(RasterCacheUtilsTest, SkMatrixIntegralTransCTM) {
+#define EXPECT_EQ_WITH_TRANSLATE(test, expected, expected_tx, expected_ty) \
+  do {                                                                     \
+    EXPECT_EQ(test[SkMatrix::kMScaleX], expected[SkMatrix::kMScaleX]);     \
+    EXPECT_EQ(test[SkMatrix::kMSkewX], expected[SkMatrix::kMSkewX]);       \
+    EXPECT_EQ(test[SkMatrix::kMScaleY], expected[SkMatrix::kMScaleY]);     \
+    EXPECT_EQ(test[SkMatrix::kMSkewY], expected[SkMatrix::kMSkewY]);       \
+    EXPECT_EQ(test[SkMatrix::kMSkewX], expected[SkMatrix::kMSkewX]);       \
+    EXPECT_EQ(test[SkMatrix::kMPersp0], expected[SkMatrix::kMPersp0]);     \
+    EXPECT_EQ(test[SkMatrix::kMPersp1], expected[SkMatrix::kMPersp1]);     \
+    EXPECT_EQ(test[SkMatrix::kMPersp2], expected[SkMatrix::kMPersp2]);     \
+    EXPECT_EQ(test[SkMatrix::kMTransX], expected_tx);                      \
+    EXPECT_EQ(test[SkMatrix::kMTransY], expected_ty);                      \
+  } while (0)
+
+#define EXPECT_NON_INTEGER_TRANSLATION(matrix)                        \
+  EXPECT_TRUE(SkScalarFraction(matrix[SkMatrix::kMTransX]) != 0.0f || \
+              SkScalarFraction(matrix[SkMatrix::kMTransY]) != 0.0f)
+
+  {
+    // Identity
+    SkMatrix matrix = SkMatrix::I();
+    SkMatrix get = RasterCacheUtil::GetIntegralTransCTM(matrix);
+    SkMatrix compute;
+    EXPECT_FALSE(RasterCacheUtil::ComputeIntegralTransCTM(matrix, &compute));
+    EXPECT_EQ(get, matrix);
+  }
+  {
+    // Integer translate
+    SkMatrix matrix = SkMatrix::Translate(10.0f, 12.0f);
+    SkMatrix get = RasterCacheUtil::GetIntegralTransCTM(matrix);
+    SkMatrix compute;
+    EXPECT_FALSE(RasterCacheUtil::ComputeIntegralTransCTM(matrix, &compute));
+    EXPECT_EQ(get, matrix);
+  }
+  {
+    // Fractional x translate
+    SkMatrix matrix = SkMatrix::Translate(10.2f, 12.0f);
+    EXPECT_NON_INTEGER_TRANSLATION(matrix);
+    SkMatrix get = RasterCacheUtil::GetIntegralTransCTM(matrix);
+    SkMatrix compute;
+    EXPECT_TRUE(RasterCacheUtil::ComputeIntegralTransCTM(matrix, &compute));
+    EXPECT_EQ_WITH_TRANSLATE(get, matrix, 10.0f, 12.0f);
+    EXPECT_EQ(get, compute);
+  }
+  {
+    // Fractional y translate
+    SkMatrix matrix = SkMatrix::Translate(10.0f, 12.3f);
+    EXPECT_NON_INTEGER_TRANSLATION(matrix);
+    SkMatrix get = RasterCacheUtil::GetIntegralTransCTM(matrix);
+    SkMatrix compute;
+    EXPECT_TRUE(RasterCacheUtil::ComputeIntegralTransCTM(matrix, &compute));
+    EXPECT_EQ_WITH_TRANSLATE(get, matrix, 10.0f, 12.0f);
+    EXPECT_EQ(get, compute);
+  }
+  {
+    // Fractional x & y translate
+    SkMatrix matrix = SkMatrix::Translate(10.7f, 12.3f);
+    EXPECT_NON_INTEGER_TRANSLATION(matrix);
+    SkMatrix get = RasterCacheUtil::GetIntegralTransCTM(matrix);
+    SkMatrix compute;
+    EXPECT_TRUE(RasterCacheUtil::ComputeIntegralTransCTM(matrix, &compute));
+    EXPECT_EQ_WITH_TRANSLATE(get, matrix, 11.0f, 12.0f);
+    EXPECT_EQ(get, compute);
+  }
+  {
+    // Scale
+    SkMatrix matrix = SkMatrix::Scale(2.0f, 3.0f);
+    SkMatrix get = RasterCacheUtil::GetIntegralTransCTM(matrix);
+    SkMatrix compute;
+    EXPECT_FALSE(RasterCacheUtil::ComputeIntegralTransCTM(matrix, &compute));
+    EXPECT_EQ(get, matrix);
+  }
+  {
+    // Scale, Integer translate
+    SkMatrix matrix = SkMatrix::Scale(2.0f, 3.0f);
+    matrix.preTranslate(10.0f, 12.0f);
+    SkMatrix get = RasterCacheUtil::GetIntegralTransCTM(matrix);
+    SkMatrix compute;
+    EXPECT_FALSE(RasterCacheUtil::ComputeIntegralTransCTM(matrix, &compute));
+    EXPECT_EQ(get, matrix);
+  }
+  {
+    // Scale, Fractional translate
+    SkMatrix matrix = SkMatrix::Scale(2.0f, 3.0f);
+    matrix.preTranslate(10.7f, 12.1f);
+    EXPECT_NON_INTEGER_TRANSLATION(matrix);
+    SkMatrix get = RasterCacheUtil::GetIntegralTransCTM(matrix);
+    SkMatrix compute;
+    EXPECT_TRUE(RasterCacheUtil::ComputeIntegralTransCTM(matrix, &compute));
+    EXPECT_EQ_WITH_TRANSLATE(get, matrix, 21.0f, 36.0f);
+    EXPECT_EQ(get, compute);
+  }
+  {
+    // Skew
+    SkMatrix matrix = SkMatrix::Skew(0.5f, 0.1f);
+    SkMatrix get = RasterCacheUtil::GetIntegralTransCTM(matrix);
+    SkMatrix compute;
+    EXPECT_FALSE(RasterCacheUtil::ComputeIntegralTransCTM(matrix, &compute));
+    EXPECT_EQ(get, matrix);
+  }
+  {
+    // Skew, Fractional translate - should be NOP
+    SkMatrix matrix = SkMatrix::Skew(0.5f, 0.1f);
+    matrix.preTranslate(10.7f, 12.1f);
+    EXPECT_NON_INTEGER_TRANSLATION(matrix);
+    SkMatrix get = RasterCacheUtil::GetIntegralTransCTM(matrix);
+    SkMatrix compute;
+    EXPECT_FALSE(RasterCacheUtil::ComputeIntegralTransCTM(matrix, &compute));
+    EXPECT_EQ(get, matrix);
+  }
+  {
+    // Rotate
+    SkMatrix matrix = SkMatrix::RotateDeg(45);
+    SkMatrix get = RasterCacheUtil::GetIntegralTransCTM(matrix);
+    SkMatrix compute;
+    EXPECT_FALSE(RasterCacheUtil::ComputeIntegralTransCTM(matrix, &compute));
+    EXPECT_EQ(get, matrix);
+  }
+  {
+    // Rotate, Fractional Translate - should be NOP
+    SkMatrix matrix = SkMatrix::RotateDeg(45);
+    matrix.preTranslate(10.7f, 12.1f);
+    EXPECT_NON_INTEGER_TRANSLATION(matrix);
+    SkMatrix get = RasterCacheUtil::GetIntegralTransCTM(matrix);
+    SkMatrix compute;
+    EXPECT_FALSE(RasterCacheUtil::ComputeIntegralTransCTM(matrix, &compute));
+    EXPECT_EQ(get, matrix);
+  }
+  {
+    // Perspective x
+    SkMatrix matrix = SkMatrix::I();
+    matrix.setPerspX(0.1);
+    SkMatrix get = RasterCacheUtil::GetIntegralTransCTM(matrix);
+    SkMatrix compute;
+    EXPECT_FALSE(RasterCacheUtil::ComputeIntegralTransCTM(matrix, &compute));
+    EXPECT_EQ(get, matrix);
+  }
+  {
+    // Perspective x, Fractional Translate - should be NOP
+    SkMatrix matrix = SkMatrix::I();
+    matrix.setPerspX(0.1);
+    matrix.preTranslate(10.7f, 12.1f);
+    EXPECT_NON_INTEGER_TRANSLATION(matrix);
+    SkMatrix get = RasterCacheUtil::GetIntegralTransCTM(matrix);
+    SkMatrix compute;
+    EXPECT_FALSE(RasterCacheUtil::ComputeIntegralTransCTM(matrix, &compute));
+    EXPECT_EQ(get, matrix);
+  }
+  {
+    // Perspective y
+    SkMatrix matrix = SkMatrix::I();
+    matrix.setPerspY(0.1);
+    SkMatrix get = RasterCacheUtil::GetIntegralTransCTM(matrix);
+    SkMatrix compute;
+    EXPECT_FALSE(RasterCacheUtil::ComputeIntegralTransCTM(matrix, &compute));
+    EXPECT_EQ(get, matrix);
+  }
+  {
+    // Perspective y, Fractional Translate - should be NOP
+    SkMatrix matrix = SkMatrix::I();
+    matrix.setPerspY(0.1);
+    matrix.preTranslate(10.7f, 12.1f);
+    EXPECT_NON_INTEGER_TRANSLATION(matrix);
+    SkMatrix get = RasterCacheUtil::GetIntegralTransCTM(matrix);
+    SkMatrix compute;
+    EXPECT_FALSE(RasterCacheUtil::ComputeIntegralTransCTM(matrix, &compute));
+    EXPECT_EQ(get, matrix);
+  }
+  {
+    // Perspective weight
+    // clang-format off
+    SkMatrix matrix = SkMatrix::MakeAll(
+        1.0f, 0.0f, 0.0f,
+        0.0f, 1.0f, 0.0f,
+        0.0f, 0.0f, 0.9f);
+    // clang-format on
+    SkMatrix get = RasterCacheUtil::GetIntegralTransCTM(matrix);
+    SkMatrix compute;
+    EXPECT_FALSE(RasterCacheUtil::ComputeIntegralTransCTM(matrix, &compute));
+    EXPECT_EQ(get, matrix);
+  }
+  {
+    // Perspective weight, Fractional Translate - should be NOP
+    // clang-format off
+    SkMatrix matrix = SkMatrix::MakeAll(
+        1.0f, 0.0f, 0.0f,
+        0.0f, 1.0f, 0.0f,
+        0.0f, 0.0f, 0.9f);
+    // clang-format on
+    matrix.preTranslate(10.7f, 12.1f);
+    EXPECT_NON_INTEGER_TRANSLATION(matrix);
+    SkMatrix get = RasterCacheUtil::GetIntegralTransCTM(matrix);
+    SkMatrix compute;
+    EXPECT_FALSE(RasterCacheUtil::ComputeIntegralTransCTM(matrix, &compute));
+    EXPECT_EQ(get, matrix);
+  }
+#undef EXPECT_NON_INTEGER_TRANSLATION
+#undef EXPECT_EQ_WITH_TRANSLATE
+}
+
+TEST(RasterCacheUtilsTest, SkM44IntegralTransCTM) {
+#define EXPECT_EQ_WITH_TRANSLATE(test, expected, tx, ty, label) \
+  do {                                                          \
+    EXPECT_EQ(test.rc(0, 0), expected.rc(0, 0)) << label;       \
+    EXPECT_EQ(test.rc(0, 1), expected.rc(0, 1)) << label;       \
+    EXPECT_EQ(test.rc(0, 2), expected.rc(0, 2)) << label;       \
+    EXPECT_EQ(test.rc(0, 3), tx) << label;                      \
+    EXPECT_EQ(test.rc(1, 0), expected.rc(1, 0)) << label;       \
+    EXPECT_EQ(test.rc(1, 1), expected.rc(1, 1)) << label;       \
+    EXPECT_EQ(test.rc(1, 2), expected.rc(1, 2)) << label;       \
+    EXPECT_EQ(test.rc(1, 3), ty) << label;                      \
+    EXPECT_EQ(test.rc(2, 0), expected.rc(2, 0)) << label;       \
+    EXPECT_EQ(test.rc(2, 1), expected.rc(2, 1)) << label;       \
+    EXPECT_EQ(test.rc(2, 2), expected.rc(2, 2)) << label;       \
+    EXPECT_EQ(test.rc(2, 3), expected.rc(2, 3)) << label;       \
+    EXPECT_EQ(test.rc(3, 0), expected.rc(3, 0)) << label;       \
+    EXPECT_EQ(test.rc(3, 1), expected.rc(3, 1)) << label;       \
+    EXPECT_EQ(test.rc(3, 2), expected.rc(3, 2)) << label;       \
+    EXPECT_EQ(test.rc(3, 3), expected.rc(3, 3)) << label;       \
+  } while (0)
+
+#define EXPECT_NON_INTEGER_TRANSLATION(matrix)             \
+  EXPECT_TRUE(SkScalarFraction(matrix.rc(0, 3)) != 0.0f || \
+              SkScalarFraction(matrix.rc(1, 3)) != 0.0f)
+
+  for (int r = 0; r < 4; r++) {
+    for (int c = 0; c < 4; c++) {
+      bool snaps;
+      switch (r) {
+        case 0:  // X equation
+          if (c == 3) {
+            continue;  // TranslateX, the value we are testing, skip
+          }
+          snaps = (c == 0);  // X Scale value yes, Skew by Y or Z no
+          break;
+        case 1:  // Y equation
+          if (c == 3) {
+            continue;  // TranslateY, the value we are testing, skip
+          }
+          snaps = (c == 1);  // Y Scale value yes, Skew by X or Z no
+          break;
+        case 2:  // Z equation, ignored, will snap
+          snaps = true;
+          break;
+        case 3:  // W equation, modifications prevent snapping
+          snaps = false;
+          break;
+        default:
+          snaps = false;
+          FML_UNREACHABLE();
+      }
+      auto label = std::to_string(r) + ", " + std::to_string(c);
+      SkM44 matrix = SkM44::Translate(10.7f, 12.1f);
+      EXPECT_NON_INTEGER_TRANSLATION(matrix) << label;
+      matrix.setRC(r, c, 0.5f);
+      if (snaps) {
+        SkM44 compute;
+        SkM44 get = RasterCacheUtil::GetIntegralTransCTM(matrix);
+        EXPECT_TRUE(RasterCacheUtil::ComputeIntegralTransCTM(matrix, &compute))
+            << label;
+        EXPECT_EQ_WITH_TRANSLATE(get, matrix, 11.0f, 12.0f, label);
+        EXPECT_EQ(get, compute) << label;
+      } else {
+        SkM44 compute;
+        SkM44 get = RasterCacheUtil::GetIntegralTransCTM(matrix);
+        EXPECT_FALSE(RasterCacheUtil::ComputeIntegralTransCTM(matrix, &compute))
+            << label;
+        EXPECT_EQ(get, matrix) << label;
+      }
+    }
+  }
+#undef EXPECT_NON_INTEGER_TRANSLATION
+#undef EXPECT_EQ_WITH_TRANSLATE
+}
+
 }  // namespace testing
 }  // namespace flutter
+
+// NOLINTEND(bugprone-unchecked-optional-access)

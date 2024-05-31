@@ -6,13 +6,21 @@ import("//flutter/impeller/tools/impeller.gni")
 import("//flutter/testing/testing.gni")
 
 impeller_component("playground") {
+  testonly = true
+
   sources = [
     "playground.cc",
     "playground.h",
     "playground_impl.cc",
     "playground_impl.h",
+    "switches.cc",
+    "switches.h",
     "widgets.cc",
     "widgets.h",
+
+    # Swiftshader is Vulkan backend specific but the utilities are not.
+    "backend/vulkan/swiftshader_utilities.cc",
+    "backend/vulkan/swiftshader_utilities.h",
   ]
 
   deps = [ "../renderer/backend" ]
@@ -39,18 +47,24 @@ impeller_component("playground") {
   }
 
   public_deps = [
-    "../entity:entity_shaders",
-    "../entity:modern_entity_shaders",
     "../fixtures:shader_fixtures",
     "../renderer",
     "../scene/shaders",
+    "image:image_skia_backend",
     "imgui:imgui_impeller_backend",
     "//flutter/fml",
-    "//third_party/glfw",
-    "//third_party/imgui:imgui_glfw",
+    "//flutter/testing:testing_lib",
+    "//flutter/third_party/glfw",
+    "//flutter/third_party/imgui:imgui_glfw",
   ]
 
-  public_configs = [ ":playground_config" ]
+  if (impeller_supports_rendering) {
+    public_deps += [
+      "../entity:entity_shaders",
+      "../entity:framebuffer_blend_entity_shaders",
+      "../entity:modern_entity_shaders",
+    ]
+  }
 
   if (is_mac) {
     frameworks = [
@@ -72,12 +86,6 @@ impeller_component("playground_test") {
 
   public_deps = [
     ":playground",
-    "//flutter/testing",
+    "//flutter/testing:testing_lib",
   ]
-}
-
-config("playground_config") {
-  if (impeller_enable_playground) {
-    defines = [ "IMPELLER_ENABLE_PLAYGROUND" ]
-  }
 }

@@ -15,6 +15,8 @@
 #include "third_party/skia/include/core/SkPoint.h"
 #include "third_party/skia/include/core/SkSize.h"
 
+// NOLINTBEGIN(google-objc-function-naming)
+
 //------------------------------------------------------------------------------
 // Equality
 //------------------------------------------------------------------------------
@@ -116,6 +118,23 @@ inline bool operator==(const FlutterSoftwareBackingStore2& a,
          a.pixel_format == b.pixel_format;
 }
 
+inline bool operator==(const FlutterRegion& a, const FlutterRegion& b) {
+  if (a.struct_size != b.struct_size || a.rects_count != b.rects_count) {
+    return false;
+  }
+  for (size_t i = 0; i < a.rects_count; i++) {
+    if (!(a.rects[i] == b.rects[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+inline bool operator==(const FlutterBackingStorePresentInfo& a,
+                       const FlutterBackingStorePresentInfo& b) {
+  return a.struct_size == b.struct_size && *a.paint_region == *b.paint_region;
+}
+
 inline bool operator==(const FlutterBackingStore& a,
                        const FlutterBackingStore& b) {
   if (!(a.struct_size == b.struct_size && a.user_data == b.user_data &&
@@ -183,7 +202,8 @@ inline bool operator==(const FlutterLayer& a, const FlutterLayer& b) {
 
   switch (a.type) {
     case kFlutterLayerContentTypeBackingStore:
-      return *a.backing_store == *b.backing_store;
+      return *a.backing_store == *b.backing_store &&
+             *a.backing_store_present_info == *b.backing_store_present_info;
     case kFlutterLayerContentTypePlatformView:
       return *a.platform_view == *b.platform_view;
   }
@@ -355,20 +375,20 @@ inline std::string FlutterOpenGLTargetTypeToString(
 inline std::string FlutterSoftwarePixelFormatToString(
     FlutterSoftwarePixelFormat pixfmt) {
   switch (pixfmt) {
-    case kGray8:
-      return "kGray8";
-    case kRGB565:
-      return "kRGB565";
-    case kRGBA4444:
-      return "kRGBA4444";
-    case kRGBA8888:
-      return "kRGBA8888";
-    case kRGBX8888:
-      return "kRGBX8888";
-    case kBGRA8888:
-      return "kBGRA8888";
-    case kNative32:
-      return "kNative32";
+    case kFlutterSoftwarePixelFormatGray8:
+      return "kFlutterSoftwarePixelFormatGray8";
+    case kFlutterSoftwarePixelFormatRGB565:
+      return "kFlutterSoftwarePixelFormatRGB565";
+    case kFlutterSoftwarePixelFormatRGBA4444:
+      return "kFlutterSoftwarePixelFormatRGBA4444";
+    case kFlutterSoftwarePixelFormatRGBA8888:
+      return "kFlutterSoftwarePixelFormatRGBA8888";
+    case kFlutterSoftwarePixelFormatRGBX8888:
+      return "kFlutterSoftwarePixelFormatRGBX8888";
+    case kFlutterSoftwarePixelFormatBGRA8888:
+      return "kFlutterSoftwarePixelFormatBGRA8888";
+    case kFlutterSoftwarePixelFormatNative32:
+      return "kFlutterSoftwarePixelFormatNative32";
     default:
       FML_LOG(ERROR) << "Invalid software rendering pixel format";
   }
@@ -557,5 +577,7 @@ inline FlutterRoundedRect FlutterRoundedRectMake(const SkRRect& rect) {
       FlutterSizeMake(rect.radii(SkRRect::Corner::kLowerLeft_Corner));
   return r;
 }
+
+// NOLINTEND(google-objc-function-naming)
 
 #endif  // FLUTTER_SHELL_PLATFORM_EMBEDDER_TESTS_EMBEDDER_ASSERTIONS_H_

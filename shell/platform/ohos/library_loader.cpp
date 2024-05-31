@@ -32,6 +32,10 @@ static napi_value Init(napi_env env, napi_value exports) {
       DECLARE_NAPI_FUNCTION(
           "nativeUpdateRefreshRate",
           flutter::PlatformViewOHOSNapi::nativeUpdateRefreshRate),
+      DECLARE_NAPI_FUNCTION("nativeUpdateSize",
+                            flutter::PlatformViewOHOSNapi::nativeUpdateSize),
+      DECLARE_NAPI_FUNCTION("nativeUpdateDensity",
+                            flutter::PlatformViewOHOSNapi::nativeUpdateDensity),
       DECLARE_NAPI_FUNCTION(
           "nativeRunBundleAndSnapshotFromLibrary",
           flutter::PlatformViewOHOSNapi::nativeRunBundleAndSnapshotFromLibrary),

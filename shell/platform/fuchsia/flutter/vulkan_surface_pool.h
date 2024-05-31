@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_SHELL_PLATFORM_FUCHSIA_FLUTTER_VULKAN_SURFACE_POOL_H_
+#define FLUTTER_SHELL_PLATFORM_FUCHSIA_FLUTTER_VULKAN_SURFACE_POOL_H_
 
 #include <fuchsia/ui/composition/cpp/fidl.h>
 
@@ -23,8 +24,7 @@ class VulkanSurfacePool final {
   static constexpr int kMaxSurfaceAge = 3;
 
   VulkanSurfacePool(vulkan::VulkanProvider& vulkan_provider,
-                    sk_sp<GrDirectContext> context,
-                    scenic::Session* scenic_session);
+                    sk_sp<GrDirectContext> context);
 
   ~VulkanSurfacePool();
 
@@ -42,13 +42,11 @@ class VulkanSurfacePool final {
  private:
   vulkan::VulkanProvider& vulkan_provider_;
   sk_sp<GrDirectContext> context_;
-  scenic::Session* scenic_session_;
   fuchsia::sysmem::AllocatorSyncPtr sysmem_allocator_;
   fuchsia::ui::composition::AllocatorPtr flatland_allocator_;
   std::vector<std::unique_ptr<VulkanSurface>> available_surfaces_;
   std::unordered_map<uintptr_t, std::unique_ptr<VulkanSurface>>
       pending_surfaces_;
-  uint32_t buffer_id_ = 1;
 
   size_t trace_surfaces_created_ = 0;
   size_t trace_surfaces_reused_ = 0;
@@ -65,3 +63,5 @@ class VulkanSurfacePool final {
 };
 
 }  // namespace flutter_runner
+
+#endif  // FLUTTER_SHELL_PLATFORM_FUCHSIA_FLUTTER_VULKAN_SURFACE_POOL_H_

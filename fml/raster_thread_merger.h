@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef FML_SHELL_COMMON_TASK_RUNNER_MERGER_H_
-#define FML_SHELL_COMMON_TASK_RUNNER_MERGER_H_
+#ifndef FLUTTER_FML_RASTER_THREAD_MERGER_H_
+#define FLUTTER_FML_RASTER_THREAD_MERGER_H_
 
 #include <condition_variable>
 #include <mutex>
@@ -53,10 +53,10 @@ class RasterThreadMerger
       TaskQueueId platform_id,
       TaskQueueId raster_id);
 
-  // Un-merges the threads now if current caller is the last merge caller,
-  // and it resets the lease term to 0, otherwise it will remove the caller
-  // record and return. The multiple caller records were recorded after
-  // |MergeWithLease| or |ExtendLeaseTo| method.
+  // Un-merges the threads now if current caller is the last merged caller,
+  // and it resets the lease term to 0, otherwise it will remove
+  // the caller record and return. The multiple caller records were recorded
+  // after |MergeWithLease| or |ExtendLeaseTo| method.
   //
   // Must be executed on the raster task runner.
   //
@@ -143,4 +143,4 @@ class RasterThreadMerger
 
 }  // namespace fml
 
-#endif  // FML_SHELL_COMMON_TASK_RUNNER_MERGER_H_
+#endif  // FLUTTER_FML_RASTER_THREAD_MERGER_H_

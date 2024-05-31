@@ -2,13 +2,16 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#ifndef FLUTTER_IMPELLER_RENDERER_BACKEND_GLES_FORMATS_GLES_H_
+#define FLUTTER_IMPELLER_RENDERER_BACKEND_GLES_FORMATS_GLES_H_
+
 #include <optional>
 
 #include "flutter/fml/logging.h"
 #include "flutter/fml/macros.h"
+#include "impeller/core/formats.h"
+#include "impeller/core/shader_types.h"
 #include "impeller/renderer/backend/gles/gles.h"
-#include "impeller/renderer/formats.h"
-#include "impeller/renderer/shader_types.h"
 
 namespace impeller {
 
@@ -31,6 +34,7 @@ constexpr GLenum ToMode(PrimitiveType primitive_type) {
 constexpr GLenum ToIndexType(IndexType type) {
   switch (type) {
     case IndexType::kUnknown:
+    case IndexType::kNone:
       FML_UNREACHABLE();
     case IndexType::k16bit:
       return GL_UNSIGNED_SHORT;
@@ -171,6 +175,8 @@ constexpr GLenum ToTextureType(TextureType type) {
       return GL_TEXTURE_2D_MULTISAMPLE;
     case TextureType::kTextureCube:
       return GL_TEXTURE_CUBE_MAP;
+    case TextureType::kTextureExternalOES:
+      return GL_TEXTURE_EXTERNAL_OES;
   }
   FML_UNREACHABLE();
 }
@@ -180,11 +186,17 @@ constexpr std::optional<GLenum> ToTextureTarget(TextureType type) {
     case TextureType::kTexture2D:
       return GL_TEXTURE_2D;
     case TextureType::kTexture2DMultisample:
-      return std::nullopt;
+      return GL_TEXTURE_2D;
     case TextureType::kTextureCube:
       return GL_TEXTURE_CUBE_MAP;
+    case TextureType::kTextureExternalOES:
+      return GL_TEXTURE_EXTERNAL_OES;
   }
   FML_UNREACHABLE();
 }
 
+std::string DebugToFramebufferError(int status);
+
 }  // namespace impeller
+
+#endif  // FLUTTER_IMPELLER_RENDERER_BACKEND_GLES_FORMATS_GLES_H_

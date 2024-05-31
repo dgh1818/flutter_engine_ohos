@@ -2,26 +2,33 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef FLUTTER_FLUTTERENGINE_H_
-#define FLUTTER_FLUTTERENGINE_H_
+#ifndef FLUTTER_SHELL_PLATFORM_DARWIN_MACOS_FRAMEWORK_HEADERS_FLUTTERENGINE_H_
+#define FLUTTER_SHELL_PLATFORM_DARWIN_MACOS_FRAMEWORK_HEADERS_FLUTTERENGINE_H_
 
 #import <Foundation/Foundation.h>
 
+#include <stdint.h>
+
+#import "FlutterAppLifecycleDelegate.h"
 #import "FlutterBinaryMessenger.h"
 #import "FlutterDartProject.h"
 #import "FlutterMacros.h"
 #import "FlutterPluginRegistrarMacOS.h"
 #import "FlutterTexture.h"
 
-// TODO: Merge this file with the iOS FlutterEngine.h.
+// TODO(stuartmorgan): Merge this file with the iOS FlutterEngine.h.
 
 @class FlutterViewController;
 
 /**
  * Coordinates a single instance of execution of a Flutter engine.
+ *
+ * A FlutterEngine can only be attached with one controller from the native
+ * code.
  */
 FLUTTER_DARWIN_EXPORT
-@interface FlutterEngine : NSObject <FlutterTextureRegistry, FlutterPluginRegistry>
+@interface FlutterEngine
+    : NSObject <FlutterTextureRegistry, FlutterPluginRegistry, FlutterAppLifecycleDelegate>
 
 /**
  * Initializes an engine with the given project.
@@ -63,10 +70,18 @@ FLUTTER_DARWIN_EXPORT
 - (BOOL)runWithEntrypoint:(nullable NSString*)entrypoint;
 
 /**
- * The default `FlutterViewController` associated with this engine, if any.
+ * The `FlutterViewController` of this engine, if any.
  *
- * The default view always has ID kFlutterDefaultViewId, and is the view
- * operated by the APIs that do not have a view ID specified.
+ * This view is used by legacy APIs that assume a single view.
+ *
+ * Setting this field from nil to a non-nil view controller also updates
+ * the view controller's engine and ID.
+ *
+ * Setting this field from non-nil to nil will terminate the engine if
+ * allowHeadlessExecution is NO.
+ *
+ * Setting this field from non-nil to a different non-nil FlutterViewController
+ * is prohibited and will throw an assertion error.
  */
 @property(nonatomic, nullable, weak) FlutterViewController* viewController;
 
@@ -84,4 +99,4 @@ FLUTTER_DARWIN_EXPORT
 
 @end
 
-#endif  // FLUTTER_FLUTTERENGINE_H_
+#endif  // FLUTTER_SHELL_PLATFORM_DARWIN_MACOS_FRAMEWORK_HEADERS_FLUTTERENGINE_H_

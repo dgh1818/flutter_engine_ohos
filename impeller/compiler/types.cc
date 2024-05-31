@@ -4,6 +4,7 @@
 
 #include "impeller/compiler/types.h"
 
+#include <cctype>
 #include <filesystem>
 #include <sstream>
 
@@ -35,19 +36,39 @@ SourceType SourceTypeFromFileName(const std::string& file_name) {
     return SourceType::kFragmentShader;
   }
 
-  if (StringEndWith(file_name, ".tesc")) {
-    return SourceType::kTessellationControlShader;
-  }
-
-  if (StringEndWith(file_name, ".tese")) {
-    return SourceType::kTessellationEvaluationShader;
-  }
-
   if (StringEndWith(file_name, ".comp")) {
     return SourceType::kComputeShader;
   }
 
   return SourceType::kUnknown;
+}
+
+SourceType SourceTypeFromString(std::string name) {
+  name = ToLowerCase(name);
+
+  if (name == "vertex") {
+    return SourceType::kVertexShader;
+  }
+
+  if (name == "fragment") {
+    return SourceType::kFragmentShader;
+  }
+
+  if (name == "compute") {
+    return SourceType::kComputeShader;
+  }
+
+  return SourceType::kUnknown;
+}
+
+SourceLanguage ToSourceLanguage(const std::string& source_language) {
+  if (source_language == "glsl") {
+    return SourceLanguage::kGLSL;
+  }
+  if (source_language == "hlsl") {
+    return SourceLanguage::kHLSL;
+  }
+  return SourceLanguage::kUnknown;
 }
 
 std::string TargetPlatformToString(TargetPlatform platform) {
@@ -68,6 +89,8 @@ std::string TargetPlatformToString(TargetPlatform platform) {
       return "RuntimeStageMetal";
     case TargetPlatform::kRuntimeStageGLES:
       return "RuntimeStageGLES";
+    case TargetPlatform::kRuntimeStageVulkan:
+      return "RuntimeStageVulkan";
     case TargetPlatform::kSkSL:
       return "SkSL";
   }
@@ -96,7 +119,7 @@ std::string EntryPointFunctionNameFromSourceName(
 
   std::stringstream stream;
   std::filesystem::path file_path(file_name);
-  stream << Utf8FromPath(file_path.stem()) << "_";
+  stream << ConvertToEntrypointName(Utf8FromPath(file_path.stem())) << "_";
   switch (type) {
     case SourceType::kUnknown:
       stream << "unknown";
@@ -107,35 +130,12 @@ std::string EntryPointFunctionNameFromSourceName(
     case SourceType::kFragmentShader:
       stream << "fragment";
       break;
-    case SourceType::kTessellationControlShader:
-      stream << "tess_control";
-      break;
-    case SourceType::kTessellationEvaluationShader:
-      stream << "tess_eval";
-      break;
     case SourceType::kComputeShader:
       stream << "compute";
       break;
   }
   stream << "_main";
   return stream.str();
-}
-
-bool TargetPlatformNeedsSL(TargetPlatform platform) {
-  switch (platform) {
-    case TargetPlatform::kMetalIOS:
-    case TargetPlatform::kMetalDesktop:
-    case TargetPlatform::kOpenGLES:
-    case TargetPlatform::kOpenGLDesktop:
-    case TargetPlatform::kRuntimeStageMetal:
-    case TargetPlatform::kRuntimeStageGLES:
-    case TargetPlatform::kSkSL:
-    case TargetPlatform::kVulkan:
-      return true;
-    case TargetPlatform::kUnknown:
-      return false;
-  }
-  FML_UNREACHABLE();
 }
 
 bool TargetPlatformNeedsReflection(TargetPlatform platform) {
@@ -146,6 +146,7 @@ bool TargetPlatformNeedsReflection(TargetPlatform platform) {
     case TargetPlatform::kOpenGLDesktop:
     case TargetPlatform::kRuntimeStageMetal:
     case TargetPlatform::kRuntimeStageGLES:
+    case TargetPlatform::kRuntimeStageVulkan:
     case TargetPlatform::kVulkan:
       return true;
     case TargetPlatform::kUnknown:
@@ -173,7 +174,7 @@ std::string ShaderCErrorToString(shaderc_compilation_status status) {
     case Status::shaderc_compilation_status_validation_error:
       return "Validation error";
     case Status::shaderc_compilation_status_transformation_error:
-      return "Transformation error";
+      return "Transform error";
     case Status::shaderc_compilation_status_configuration_error:
       return "Configuration error";
   }
@@ -186,10 +187,6 @@ shaderc_shader_kind ToShaderCShaderKind(SourceType type) {
       return shaderc_shader_kind::shaderc_vertex_shader;
     case SourceType::kFragmentShader:
       return shaderc_shader_kind::shaderc_fragment_shader;
-    case SourceType::kTessellationControlShader:
-      return shaderc_shader_kind::shaderc_tess_control_shader;
-    case SourceType::kTessellationEvaluationShader:
-      return shaderc_shader_kind::shaderc_tess_evaluation_shader;
     case SourceType::kComputeShader:
       return shaderc_shader_kind::shaderc_compute_shader;
     case SourceType::kUnknown:
@@ -204,10 +201,6 @@ spv::ExecutionModel ToExecutionModel(SourceType type) {
       return spv::ExecutionModel::ExecutionModelVertex;
     case SourceType::kFragmentShader:
       return spv::ExecutionModel::ExecutionModelFragment;
-    case SourceType::kTessellationControlShader:
-      return spv::ExecutionModel::ExecutionModelTessellationControl;
-    case SourceType::kTessellationEvaluationShader:
-      return spv::ExecutionModel::ExecutionModelTessellationEvaluation;
     case SourceType::kComputeShader:
       return spv::ExecutionModel::ExecutionModelGLCompute;
     case SourceType::kUnknown:
@@ -228,6 +221,7 @@ spirv_cross::CompilerMSL::Options::Platform TargetPlatformToMSLPlatform(
     case TargetPlatform::kOpenGLES:
     case TargetPlatform::kOpenGLDesktop:
     case TargetPlatform::kRuntimeStageGLES:
+    case TargetPlatform::kRuntimeStageVulkan:
     case TargetPlatform::kVulkan:
     case TargetPlatform::kUnknown:
       return spirv_cross::CompilerMSL::Options::Platform::macOS;
@@ -243,10 +237,6 @@ std::string SourceTypeToString(SourceType type) {
       return "vert";
     case SourceType::kFragmentShader:
       return "frag";
-    case SourceType::kTessellationControlShader:
-      return "tesc";
-    case SourceType::kTessellationEvaluationShader:
-      return "tese";
     case SourceType::kComputeShader:
       return "comp";
   }
@@ -267,6 +257,7 @@ std::string TargetPlatformSLExtension(TargetPlatform platform) {
     case TargetPlatform::kRuntimeStageGLES:
       return "glsl";
     case TargetPlatform::kVulkan:
+    case TargetPlatform::kRuntimeStageVulkan:
       return "vk.spirv";
   }
   FML_UNREACHABLE();
@@ -280,6 +271,7 @@ bool TargetPlatformIsOpenGL(TargetPlatform platform) {
       return true;
     case TargetPlatform::kMetalDesktop:
     case TargetPlatform::kRuntimeStageMetal:
+    case TargetPlatform::kRuntimeStageVulkan:
     case TargetPlatform::kMetalIOS:
     case TargetPlatform::kUnknown:
     case TargetPlatform::kSkSL:
@@ -300,7 +292,26 @@ bool TargetPlatformIsMetal(TargetPlatform platform) {
     case TargetPlatform::kOpenGLES:
     case TargetPlatform::kOpenGLDesktop:
     case TargetPlatform::kRuntimeStageGLES:
+    case TargetPlatform::kRuntimeStageVulkan:
     case TargetPlatform::kVulkan:
+      return false;
+  }
+  FML_UNREACHABLE();
+}
+
+bool TargetPlatformIsVulkan(TargetPlatform platform) {
+  switch (platform) {
+    case TargetPlatform::kRuntimeStageVulkan:
+    case TargetPlatform::kVulkan:
+      return true;
+    case TargetPlatform::kMetalDesktop:
+    case TargetPlatform::kMetalIOS:
+    case TargetPlatform::kRuntimeStageMetal:
+    case TargetPlatform::kUnknown:
+    case TargetPlatform::kSkSL:
+    case TargetPlatform::kOpenGLES:
+    case TargetPlatform::kOpenGLDesktop:
+    case TargetPlatform::kRuntimeStageGLES:
       return false;
   }
   FML_UNREACHABLE();
@@ -311,6 +322,7 @@ bool TargetPlatformBundlesSkSL(TargetPlatform platform) {
     case TargetPlatform::kSkSL:
     case TargetPlatform::kRuntimeStageMetal:
     case TargetPlatform::kRuntimeStageGLES:
+    case TargetPlatform::kRuntimeStageVulkan:
       return true;
     case TargetPlatform::kMetalDesktop:
     case TargetPlatform::kMetalIOS:

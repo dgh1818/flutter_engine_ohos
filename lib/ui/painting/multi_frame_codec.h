@@ -2,14 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef FLUTTER_LIB_UI_PAINTING_MUTLI_FRAME_CODEC_H_
-#define FLUTTER_LIB_UI_PAINTING_MUTLI_FRAME_CODEC_H_
+#ifndef FLUTTER_LIB_UI_PAINTING_MULTI_FRAME_CODEC_H_
+#define FLUTTER_LIB_UI_PAINTING_MULTI_FRAME_CODEC_H_
 
 #include "flutter/fml/macros.h"
 #include "flutter/lib/ui/painting/codec.h"
 #include "flutter/lib/ui/painting/image_generator.h"
 
-using tonic::DartPersistentValue;
+#include <utility>
 
 namespace flutter {
 
@@ -49,27 +49,30 @@ class MultiFrameCodec : public Codec {
     // The non-const members and functions below here are only read or written
     // to on the IO thread. They are not safe to access or write on the UI
     // thread.
-    int nextFrameIndex_;
+    int nextFrameIndex_ = 0;
     // The last decoded frame that's required to decode any subsequent frames.
-    std::unique_ptr<SkBitmap> lastRequiredFrame_;
-
+    std::optional<SkBitmap> lastRequiredFrame_;
     // The index of the last decoded required frame.
     int lastRequiredFrameIndex_ = -1;
 
-    sk_sp<DlImage> GetNextFrameImage(
+    // The rectangle that should be cleared if the previous frame's disposal
+    // method was kRestoreBGColor.
+    std::optional<SkIRect> restoreBGColorRect_;
+
+    std::pair<sk_sp<DlImage>, std::string> GetNextFrameImage(
         fml::WeakPtr<GrDirectContext> resourceContext,
         const std::shared_ptr<const fml::SyncSwitch>& gpu_disable_sync_switch,
-        std::shared_ptr<impeller::Context> impeller_context_,
+        const std::shared_ptr<impeller::Context>& impeller_context,
         fml::RefPtr<flutter::SkiaUnrefQueue> unref_queue);
 
     void GetNextFrameAndInvokeCallback(
-        std::unique_ptr<DartPersistentValue> callback,
+        std::unique_ptr<tonic::DartPersistentValue> callback,
         const fml::RefPtr<fml::TaskRunner>& ui_task_runner,
         fml::WeakPtr<GrDirectContext> resourceContext,
         fml::RefPtr<flutter::SkiaUnrefQueue> unref_queue,
         const std::shared_ptr<const fml::SyncSwitch>& gpu_disable_sync_switch,
         size_t trace_id,
-        std::shared_ptr<impeller::Context> impeller_context_);
+        const std::shared_ptr<impeller::Context>& impeller_context);
   };
 
   // Shared across the UI and IO task runners.
@@ -81,4 +84,4 @@ class MultiFrameCodec : public Codec {
 
 }  // namespace flutter
 
-#endif  // FLUTTER_LIB_UI_PAINTING_MUTLI_FRAME_CODEC_H_
+#endif  // FLUTTER_LIB_UI_PAINTING_MULTI_FRAME_CODEC_H_

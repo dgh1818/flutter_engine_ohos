@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_SHELL_GPU_GPU_SURFACE_VULKAN_IMPELLER_H_
+#define FLUTTER_SHELL_GPU_GPU_SURFACE_VULKAN_IMPELLER_H_
 
 #include "flutter/common/graphics/gl_context_switch.h"
 #include "flutter/flow/surface.h"
@@ -29,8 +30,6 @@ class GPUSurfaceVulkanImpeller final : public Surface {
   std::shared_ptr<impeller::Renderer> impeller_renderer_;
   std::shared_ptr<impeller::AiksContext> aiks_context_;
   bool is_valid_ = false;
-  uint64_t frame_num_ = 0;
-  fml::WeakPtrFactory<GPUSurfaceVulkanImpeller> weak_factory_;
 
   // |Surface|
   std::unique_ptr<SurfaceFrame> AcquireFrame(const SkISize& size) override;
@@ -48,9 +47,11 @@ class GPUSurfaceVulkanImpeller final : public Surface {
   bool EnableRasterCache() const override;
 
   // |Surface|
-  impeller::AiksContext* GetAiksContext() const override;
+  std::shared_ptr<impeller::AiksContext> GetAiksContext() const override;
 
   FML_DISALLOW_COPY_AND_ASSIGN(GPUSurfaceVulkanImpeller);
 };
 
 }  // namespace flutter
+
+#endif  // FLUTTER_SHELL_GPU_GPU_SURFACE_VULKAN_IMPELLER_H_

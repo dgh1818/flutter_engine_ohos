@@ -1,0 +1,129 @@
+diff --git a/pkgs/ffigen/example/libclang-example/custom_import.dart b/pkgs/ffigen/example/libclang-example/custom_import.dart
+index dd6196c1..90d60626 100644
+--- a/pkgs/ffigen/example/libclang-example/custom_import.dart
++++ b/pkgs/ffigen/example/libclang-example/custom_import.dart
+@@ -13,6 +13,8 @@ import 'dart:ffi';
+   Abi.androidArm64: Uint64(),
+   Abi.androidIA32: Uint32(),
+   Abi.androidX64: Uint64(),
++  Abi.ohosArm: Uint32(),
++  Abi.ohosArm64: Uint64(),
+   Abi.fuchsiaArm64: Uint64(),
+   Abi.fuchsiaX64: Uint64(),
+   Abi.iosArm: Uint32(),
+@@ -41,6 +43,8 @@ final class UintPtr extends AbiSpecificInteger {
+   Abi.androidArm64: Uint64(),
+   Abi.androidIA32: Uint32(),
+   Abi.androidX64: Uint64(),
++  Abi.ohosArm: Uint32(),
++  Abi.ohosArm64: Uint64(),
+   Abi.fuchsiaArm64: Uint64(),
+   Abi.fuchsiaX64: Uint64(),
+   Abi.iosArm: Uint32(),
+diff --git a/pkgs/native_assets_cli/lib/src/model/architecture.dart b/pkgs/native_assets_cli/lib/src/model/architecture.dart
+index 384eb548..9874d166 100644
+--- a/pkgs/native_assets_cli/lib/src/model/architecture.dart
++++ b/pkgs/native_assets_cli/lib/src/model/architecture.dart
+@@ -34,6 +34,8 @@ final class ArchitectureImpl implements Architecture {
+     Abi.androidIA32: ArchitectureImpl.ia32,
+     Abi.androidX64: ArchitectureImpl.x64,
+     Abi.androidRiscv64: ArchitectureImpl.riscv64,
++    Abi.ohosArm: ArchitectureImpl.arm,
++    Abi.ohosArm64: ArchitectureImpl.arm64,
+     Abi.fuchsiaArm64: ArchitectureImpl.arm64,
+     Abi.fuchsiaX64: ArchitectureImpl.x64,
+     Abi.iosArm: ArchitectureImpl.arm,
+diff --git a/pkgs/native_assets_cli/lib/src/model/os.dart b/pkgs/native_assets_cli/lib/src/model/os.dart
+index 73fd3ea0..e069fe70 100644
+--- a/pkgs/native_assets_cli/lib/src/model/os.dart
++++ b/pkgs/native_assets_cli/lib/src/model/os.dart
+@@ -13,6 +13,7 @@ final class OSImpl implements OS {
+   factory OSImpl.fromAbi(Abi abi) => _abiToOS[abi]!;
+ 
+   static const OSImpl android = OSImpl._('android');
++  static const OSImpl ohos = OSImpl._('ohos');
+   static const OSImpl fuchsia = OSImpl._('fuchsia');
+   static const OSImpl iOS = OSImpl._('ios');
+   static const OSImpl linux = OSImpl._('linux');
+@@ -21,6 +22,7 @@ final class OSImpl implements OS {
+ 
+   static const List<OSImpl> values = [
+     android,
++    ohos,
+     fuchsia,
+     iOS,
+     linux,
+@@ -34,6 +36,8 @@ final class OSImpl implements OS {
+     Abi.androidIA32: OSImpl.android,
+     Abi.androidX64: OSImpl.android,
+     Abi.androidRiscv64: OSImpl.android,
++    Abi.ohosArm: OSImpl.ohos,
++    Abi.ohosArm64: OSImpl.ohos,
+     Abi.fuchsiaArm64: OSImpl.fuchsia,
+     Abi.fuchsiaX64: OSImpl.fuchsia,
+     Abi.iosArm: OSImpl.iOS,
+@@ -60,6 +64,10 @@ final class OSImpl implements OS {
+       ArchitectureImpl.x64,
+       ArchitectureImpl.riscv64,
+     },
++    OSImpl.ohos: {
++      ArchitectureImpl.arm,
++      ArchitectureImpl.arm64,
++    },
+     OSImpl.fuchsia: {
+       ArchitectureImpl.arm64,
+       ArchitectureImpl.x64,
+@@ -130,6 +138,7 @@ final class OSImpl implements OS {
+   /// The default name prefix for dynamic libraries per [OSImpl].
+   static const _dylibPrefix = {
+     OSImpl.android: 'lib',
++    OSImpl.ohos: 'lib',
+     OSImpl.fuchsia: 'lib',
+     OSImpl.iOS: 'lib',
+     OSImpl.linux: 'lib',
+@@ -140,6 +149,7 @@ final class OSImpl implements OS {
+   /// The default extension for dynamic libraries per [OSImpl].
+   static const _dylibExtension = {
+     OSImpl.android: 'so',
++    OSImpl.ohos: 'so',
+     OSImpl.fuchsia: 'so',
+     OSImpl.iOS: 'dylib',
+     OSImpl.linux: 'so',
+@@ -153,6 +163,7 @@ final class OSImpl implements OS {
+   /// The default extension for static libraries per [OSImpl].
+   static const _staticlibExtension = {
+     OSImpl.android: 'a',
++    OSImpl.ohos: 'a',
+     OSImpl.fuchsia: 'a',
+     OSImpl.iOS: 'a',
+     OSImpl.linux: 'a',
+@@ -163,6 +174,7 @@ final class OSImpl implements OS {
+   /// The default extension for executables per [OSImpl].
+   static const _executableExtension = {
+     OSImpl.android: '',
++    OSImpl.ohos: '',
+     OSImpl.fuchsia: '',
+     OSImpl.iOS: '',
+     OSImpl.linux: '',
+diff --git a/pkgs/native_assets_cli/lib/src/model/target.dart b/pkgs/native_assets_cli/lib/src/model/target.dart
+index 18cdc977..4f9f3ea4 100644
+--- a/pkgs/native_assets_cli/lib/src/model/target.dart
++++ b/pkgs/native_assets_cli/lib/src/model/target.dart
+@@ -53,6 +53,8 @@ final class Target implements Comparable<Target> {
+   static const androidIA32 = Target._(Abi.androidIA32);
+   static const androidX64 = Target._(Abi.androidX64);
+   static const androidRiscv64 = Target._(Abi.androidRiscv64);
++  static const ohosArm = Target._(Abi.ohosArm);
++  static const ohosArm64 = Target._(Abi.ohosArm64);
+   static const fuchsiaArm64 = Target._(Abi.fuchsiaArm64);
+   static const fuchsiaX64 = Target._(Abi.fuchsiaX64);
+   static const iOSArm = Target._(Abi.iosArm);
+@@ -76,6 +78,8 @@ final class Target implements Comparable<Target> {
+     androidIA32,
+     androidX64,
+     androidRiscv64,
++    ohosArm,
++    ohosArm64,
+     fuchsiaArm64,
+     fuchsiaX64,
+     iOSArm,

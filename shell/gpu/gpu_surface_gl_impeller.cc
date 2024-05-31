@@ -5,15 +5,17 @@
 #include "flutter/shell/gpu/gpu_surface_gl_impeller.h"
 
 #include "flutter/fml/make_copyable.h"
-#include "flutter/impeller/display_list/display_list_dispatcher.h"
-#include "flutter/impeller/renderer/backend/gles/surface_gles.h"
-#include "flutter/impeller/renderer/renderer.h"
+#include "impeller/display_list/dl_dispatcher.h"
+#include "impeller/renderer/backend/gles/surface_gles.h"
+#include "impeller/renderer/renderer.h"
+#include "impeller/typographer/backends/skia/typographer_context_skia.h"
 
 namespace flutter {
 
 GPUSurfaceGLImpeller::GPUSurfaceGLImpeller(
     GPUSurfaceGLDelegate* delegate,
-    std::shared_ptr<impeller::Context> context)
+    std::shared_ptr<impeller::Context> context,
+    bool render_to_surface)
     : weak_factory_(this) {
   if (delegate == nullptr) {
     return;
@@ -28,7 +30,8 @@ GPUSurfaceGLImpeller::GPUSurfaceGLImpeller(
     return;
   }
 
-  auto aiks_context = std::make_shared<impeller::AiksContext>(context);
+  auto aiks_context = std::make_shared<impeller::AiksContext>(
+      context, impeller::TypographerContextSkia::Make());
 
   if (!aiks_context->IsValid()) {
     return;
@@ -36,6 +39,7 @@ GPUSurfaceGLImpeller::GPUSurfaceGLImpeller(
 
   delegate_ = delegate;
   impeller_context_ = std::move(context);
+  render_to_surface_ = render_to_surface;
   impeller_renderer_ = std::move(renderer);
   aiks_context_ = std::move(aiks_context);
   is_valid_ = true;
@@ -61,7 +65,7 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceGLImpeller::AcquireFrame(
                         delegate = delegate_]() -> bool {
     if (weak) {
       GLPresentInfo present_info = {
-          .fbo_id = 0,
+          .fbo_id = 0u,
           .frame_damage = std::nullopt,
           // TODO (https://github.com/flutter/flutter/issues/105597): wire-up
           // presentation time to impeller backend.
@@ -80,10 +84,22 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceGLImpeller::AcquireFrame(
     return nullptr;
   }
 
+  if (!render_to_surface_) {
+    return std::make_unique<SurfaceFrame>(
+        nullptr, SurfaceFrame::FramebufferInfo{.supports_readback = true},
+        [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
+          return true;
+        },
+        size);
+  }
+
+  GLFrameInfo frame_info = {static_cast<uint32_t>(size.width()),
+                            static_cast<uint32_t>(size.height())};
+  const GLFBOInfo fbo_info = delegate_->GLContextFBO(frame_info);
   auto surface = impeller::SurfaceGLES::WrapFBO(
       impeller_context_,                            // context
       swap_callback,                                // swap_callback
-      0u,                                           // fbo
+      fbo_info.fbo_id,                              // fbo
       impeller::PixelFormat::kR8G8B8A8UNormInt,     // color_format
       impeller::ISize{size.width(), size.height()}  // fbo_size
   );
@@ -92,7 +108,7 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceGLImpeller::AcquireFrame(
       fml::MakeCopyable([renderer = impeller_renderer_,  //
                          aiks_context = aiks_context_,   //
                          surface = std::move(surface)    //
-  ](SurfaceFrame& surface_frame, SkCanvas* canvas) mutable -> bool {
+  ](SurfaceFrame& surface_frame, DlCanvas* canvas) mutable -> bool {
         if (!aiks_context) {
           return false;
         }
@@ -103,8 +119,13 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceGLImpeller::AcquireFrame(
           return false;
         }
 
-        impeller::DisplayListDispatcher impeller_dispatcher;
-        display_list->Dispatch(impeller_dispatcher);
+        auto cull_rect =
+            surface->GetTargetRenderPassDescriptor().GetRenderTargetSize();
+        impeller::Rect dl_cull_rect = impeller::Rect::MakeSize(cull_rect);
+        impeller::DlDispatcher impeller_dispatcher(dl_cull_rect);
+        display_list->Dispatch(
+            impeller_dispatcher,
+            SkIRect::MakeWH(cull_rect.width, cull_rect.height));
         auto picture = impeller_dispatcher.EndRecordingAsPicture();
 
         return renderer->Render(
@@ -112,17 +133,18 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceGLImpeller::AcquireFrame(
             fml::MakeCopyable(
                 [aiks_context, picture = std::move(picture)](
                     impeller::RenderTarget& render_target) -> bool {
-                  return aiks_context->Render(picture, render_target);
+                  return aiks_context->Render(picture, render_target,
+                                              /*reset_host_buffer=*/true);
                 }));
       });
 
   return std::make_unique<SurfaceFrame>(
-      nullptr,                          // surface
-      SurfaceFrame::FramebufferInfo{},  // framebuffer info
-      submit_callback,                  // submit callback
-      size,                             // frame size
-      std::move(context_switch),        // context result
-      true                              // display list fallback
+      nullptr,                                // surface
+      delegate_->GLContextFramebufferInfo(),  // framebuffer info
+      submit_callback,                        // submit callback
+      size,                                   // frame size
+      std::move(context_switch),              // context result
+      true                                    // display list fallback
   );
 }
 
@@ -160,8 +182,9 @@ bool GPUSurfaceGLImpeller::EnableRasterCache() const {
 }
 
 // |Surface|
-impeller::AiksContext* GPUSurfaceGLImpeller::GetAiksContext() const {
-  return aiks_context_.get();
+std::shared_ptr<impeller::AiksContext> GPUSurfaceGLImpeller::GetAiksContext()
+    const {
+  return aiks_context_;
 }
 
 }  // namespace flutter

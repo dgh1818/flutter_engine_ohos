@@ -2,8 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_IMPELLER_GEOMETRY_GRADIENT_H_
+#define FLUTTER_IMPELLER_GEOMETRY_GRADIENT_H_
 
+#include <cstdint>
 #include <memory>
 #include <vector>
 
@@ -30,19 +32,6 @@ struct GradientData {
 GradientData CreateGradientBuffer(const std::vector<Color>& colors,
                                   const std::vector<Scalar>& stops);
 
-/**
- * @brief Populate a vector with the interpolated colors for the linear gradient
- * described  by colors and stops.
- *
- * If the returned result is std::nullopt, the original color buffer can be used
- * instead.
- *
- * @param colors
- * @param stops
- * @return GradientData
- */
-std::optional<std::vector<Color>> CreateGradientColors(
-    const std::vector<Color>& colors,
-    const std::vector<Scalar>& stops);
-
 }  // namespace impeller
+
+#endif  // FLUTTER_IMPELLER_GEOMETRY_GRADIENT_H_

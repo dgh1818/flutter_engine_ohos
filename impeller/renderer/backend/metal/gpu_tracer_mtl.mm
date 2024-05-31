@@ -2,101 +2,55 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <Metal/Metal.h>
+#include "fml/trace_event.h"
+#include "impeller/renderer/backend/metal/context_mtl.h"
+#include "impeller/renderer/backend/metal/formats_mtl.h"
+
+#include <memory>
+
 #include "impeller/renderer/backend/metal/gpu_tracer_mtl.h"
-#include <fml/logging.h>
 
 namespace impeller {
 
-GPUTracerMTL::GPUTracerMTL(id<MTLDevice> device) : device_(device) {}
-
-GPUTracerMTL::~GPUTracerMTL() = default;
-
-bool GPUTracerMTL::StartCapturingFrame(GPUTracerConfiguration configuration) {
-  if (!device_) {
-    return false;
+void GPUTracerMTL::MarkFrameEnd() {
+  if (@available(ios 10.3, tvos 10.2, macos 10.15, macCatalyst 13.0, *)) {
+    Lock lock(trace_state_mutex_);
+    current_state_ = (current_state_ + 1) % 16;
   }
+}
 
-  MTLCaptureManager* captureManager = [MTLCaptureManager sharedCaptureManager];
-  if (captureManager.isCapturing) {
-    return false;
-  }
+void GPUTracerMTL::RecordCmdBuffer(id<MTLCommandBuffer> buffer) {
+  if (@available(ios 10.3, tvos 10.2, macos 10.15, macCatalyst 13.0, *)) {
+    Lock lock(trace_state_mutex_);
+    auto current_state = current_state_;
+    trace_states_[current_state].pending_buffers += 1;
 
-  if (@available(iOS 13.0, macOS 10.15, *)) {
-    MTLCaptureDescriptor* desc = [[MTLCaptureDescriptor alloc] init];
-    desc.captureObject = device_;
-
-    MTLCaptureDestination targetDestination =
-        configuration.mtl_frame_capture_save_trace_as_document
-            ? MTLCaptureDestinationGPUTraceDocument
-            : MTLCaptureDestinationDeveloperTools;
-    if (![captureManager supportsDestination:targetDestination]) {
-      return false;
-    }
-    desc.destination = targetDestination;
-
-    if (configuration.mtl_frame_capture_save_trace_as_document) {
-      if (!CreateGPUTraceSavedDictionaryIfNeeded()) {
-        return false;
+    auto weak_self = weak_from_this();
+    [buffer addCompletedHandler:^(id<MTLCommandBuffer> buffer) {
+      auto self = weak_self.lock();
+      if (!self) {
+        return;
       }
-      NSURL* outputURL = GetUniqueGPUTraceSavedURL();
-      desc.outputURL = outputURL;
-    }
-    return [captureManager startCaptureWithDescriptor:desc error:nil];
+      Lock lock(self->trace_state_mutex_);
+      auto& state = self->trace_states_[current_state];
+      state.pending_buffers--;
+      state.smallest_timestamp = std::min(
+          state.smallest_timestamp, static_cast<Scalar>(buffer.GPUStartTime));
+      state.largest_timestamp = std::max(
+          state.largest_timestamp, static_cast<Scalar>(buffer.GPUEndTime));
+
+      if (state.pending_buffers == 0) {
+        auto gpu_ms =
+            (state.largest_timestamp - state.smallest_timestamp) * 1000;
+        state.smallest_timestamp = std::numeric_limits<float>::max();
+        state.largest_timestamp = 0;
+        FML_TRACE_COUNTER("flutter", "GPUTracer",
+                          reinterpret_cast<int64_t>(this),  // Trace Counter ID
+                          "FrameTimeMS", gpu_ms);
+      }
+    }];
   }
-
-  [captureManager startCaptureWithDevice:device_];
-  return captureManager.isCapturing;
-}
-
-bool GPUTracerMTL::StopCapturingFrame() {
-  if (!device_) {
-    return false;
-  }
-
-  MTLCaptureManager* captureManager = [MTLCaptureManager sharedCaptureManager];
-  if (!captureManager.isCapturing) {
-    return false;
-  }
-
-  [captureManager stopCapture];
-  return !captureManager.isCapturing;
-}
-
-NSURL* GPUTracerMTL::GetUniqueGPUTraceSavedURL() const {
-  NSURL* savedDictionaryURL = GetGPUTraceSavedDictionaryURL();
-  NSString* uniqueID = [NSUUID UUID].UUIDString;
-  return [[savedDictionaryURL URLByAppendingPathComponent:uniqueID]
-      URLByAppendingPathExtension:@"gputrace"];
-}
-
-bool GPUTracerMTL::CreateGPUTraceSavedDictionaryIfNeeded() const {
-  NSFileManager* fileManager = [NSFileManager defaultManager];
-  NSURL* gpuTraceSavedDictionaryURL = GetGPUTraceSavedDictionaryURL();
-  if ([fileManager fileExistsAtPath:gpuTraceSavedDictionaryURL.path]) {
-    return true;
-  }
-
-  NSError* error = nil;
-  [fileManager createDirectoryAtURL:gpuTraceSavedDictionaryURL
-        withIntermediateDirectories:NO
-                         attributes:nil
-                              error:&error];
-  if (error != nil) {
-    FML_LOG(ERROR) << "Metal frame capture "
-                      "CreateGPUTraceSavedDictionaryIfNeeded failed.";
-    return false;
-  }
-  return true;
-}
-
-NSURL* GPUTracerMTL::GetGPUTraceSavedDictionaryURL() const {
-  NSArray* paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,
-                                                       NSUserDomainMask, YES);
-  NSString* docPath = [paths objectAtIndex:0];
-  NSURL* docURL = [NSURL fileURLWithPath:docPath];
-  NSURL* gpuTraceDictionaryURL =
-      [docURL URLByAppendingPathComponent:@"MetalCaptureGPUTrace"];
-  return gpuTraceDictionaryURL;
 }
 
 }  // namespace impeller

@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#ifndef OHOS_SURFACE_SOFTWARE_H
-#define OHOS_SURFACE_SOFTWARE_H
+#ifndef FLUTTER_SHELL_PLATFORM_OHOS_OHOS_SURFACE_SOFTWARE_H_
+#define FLUTTER_SHELL_PLATFORM_OHOS_OHOS_SURFACE_SOFTWARE_H_
 
 #include "flutter/fml/macros.h"
 #include "flutter/shell/gpu/gpu_surface_software.h"
@@ -66,4 +66,4 @@ class OHOSSurfaceSoftware final : public OHOSSurface,
   FML_DISALLOW_COPY_AND_ASSIGN(OHOSSurfaceSoftware);
 };
 }  // namespace flutter
-#endif
+#endif  // FLUTTER_SHELL_PLATFORM_OHOS_OHOS_SURFACE_SOFTWARE_H_

@@ -12,13 +12,15 @@ import 'package:litetest/litetest.dart';
 import 'package:vm_service/vm_service.dart' as vms;
 import 'package:vm_service/vm_service_io.dart';
 
+import '../impeller_enabled.dart';
+
 void main() {
   test('Setting invalid directory returns an error', () async {
     vms.VmService? vmService;
     try {
       final developer.ServiceProtocolInfo info = await developer.Service.getInfo();
       if (info.serverUri == null) {
-        fail('This test must not be run with --disable-observatory.');
+        fail('This test must not be run with --disable-vm-service.');
       }
 
       vmService = await vmServiceConnectUri(
@@ -47,7 +49,7 @@ void main() {
     try {
       final developer.ServiceProtocolInfo info = await developer.Service.getInfo();
       if (info.serverUri == null) {
-        fail('This test must not be run with --disable-observatory.');
+        fail('This test must not be run with --disable-vm-service.');
       }
 
       vmService = await vmServiceConnectUri(
@@ -59,7 +61,7 @@ void main() {
         'ext.ui.window.impellerEnabled',
         isolateId: isolateId,
       );
-      expect(response.json!['enabled'], false);
+      expect(response.json!['enabled'], impellerEnabled);
     } finally {
       await vmService?.dispose();
     }
@@ -71,15 +73,18 @@ void main() {
       final developer.ServiceProtocolInfo info =
           await developer.Service.getInfo();
       if (info.serverUri == null) {
-        fail('This test must not be run with --disable-observatory.');
+        fail('This test must not be run with --disable-vm-service.');
       }
 
-      final Completer<PlatformResponse> completer = Completer<PlatformResponse>();
-      ui.window.onPlatformMessage = (String name, ByteData? data, ui.PlatformMessageResponseCallback? callback) {
-        final ByteBuffer buffer = data!.buffer;
-        final Uint8List list = buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
-        completer.complete(PlatformResponse(name: name, contents: utf8.decode(list)));
-      };
+      final Completer<String> completer = Completer<String>();
+      ui.channelBuffers.setListener(
+        'flutter/system',
+        (ByteData? data, ui.PlatformMessageResponseCallback callback) {
+          final ByteBuffer buffer = data!.buffer;
+          final Uint8List list = buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+          completer.complete(utf8.decode(list));
+        },
+      );
 
       vmService = await vmServiceConnectUri(
         'ws://localhost:${info.serverUri!.port}${info.serverUri!.path}ws',
@@ -94,13 +99,11 @@ void main() {
       expect(fontChangeResponse.type, 'Success');
       expect(
         await completer.future,
-        const PlatformResponse(
-          name: 'flutter/system',
-          contents: '{"type":"fontsChange"}',
-        ),
+        '{"type":"fontsChange"}',
       );
     } finally {
       await vmService?.dispose();
+      ui.channelBuffers.clearListener('flutter/system');
     }
   });
 }
@@ -120,23 +123,4 @@ Future<String?> getIsolateId(vms.VmService vmService) async {
     return isolate.id;
   }
   return null;
-}
-
-class PlatformResponse {
-  const PlatformResponse({
-    required this.name,
-    required this.contents,
-  });
-
-  final String name;
-  final String contents;
-
-  @override
-  bool operator ==(Object other) =>
-      other is PlatformResponse &&
-      other.name == name &&
-      other.contents == contents;
-
-  @override
-  int get hashCode => Object.hash(name, contents);
 }

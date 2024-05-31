@@ -5,39 +5,86 @@
 #include "impeller/entity/entity_playground.h"
 
 #include "impeller/entity/contents/content_context.h"
+#include "impeller/typographer/backends/skia/typographer_context_skia.h"
+#include "third_party/imgui/imgui.h"
 
 namespace impeller {
 
-EntityPlayground::EntityPlayground() = default;
+EntityPlayground::EntityPlayground()
+    : typographer_context_(TypographerContextSkia::Make()) {}
 
 EntityPlayground::~EntityPlayground() = default;
 
-bool EntityPlayground::OpenPlaygroundHere(Entity entity) {
-  if (!Playground::is_enabled()) {
+void EntityPlayground::SetTypographerContext(
+    std::shared_ptr<TypographerContext> typographer_context) {
+  typographer_context_ = std::move(typographer_context);
+}
+
+bool EntityPlayground::OpenPlaygroundHere(EntityPass& entity_pass) {
+  if (!switches_.enable_playground) {
     return true;
   }
 
-  ContentContext content_context(GetContext());
+  ContentContext content_context(GetContext(), typographer_context_);
   if (!content_context.IsValid()) {
     return false;
   }
+
+  // Resolve any lingering tracked clips by assigning an arbitrarily high
+  // number. The number to assign just needs to be at least as high as larger
+  // any previously assigned clip depth in the scene. Normally, Aiks handles
+  // this correctly when wrapping up the base pass as an `impeller::Picture`.
+  entity_pass.PopAllClips(99999);
+
+  auto callback = [&](RenderTarget& render_target) -> bool {
+    return entity_pass.Render(content_context, render_target);
+  };
+  return Playground::OpenPlaygroundHere(callback);
+}
+
+std::shared_ptr<ContentContext> EntityPlayground::GetContentContext() const {
+  return std::make_shared<ContentContext>(GetContext(), typographer_context_);
+}
+
+bool EntityPlayground::OpenPlaygroundHere(Entity entity) {
+  if (!switches_.enable_playground) {
+    return true;
+  }
+
+  auto content_context = GetContentContext();
+  if (!content_context->IsValid()) {
+    return false;
+  }
   SinglePassCallback callback = [&](RenderPass& pass) -> bool {
-    return entity.Render(content_context, pass);
+    content_context->GetRenderTargetCache()->Start();
+    bool result = entity.Render(*content_context, pass);
+    content_context->GetRenderTargetCache()->End();
+    content_context->GetTransientsBuffer().Reset();
+    return result;
   };
   return Playground::OpenPlaygroundHere(callback);
 }
 
 bool EntityPlayground::OpenPlaygroundHere(EntityPlaygroundCallback callback) {
-  if (!Playground::is_enabled()) {
+  if (!switches_.enable_playground) {
     return true;
   }
 
-  ContentContext content_context(GetContext());
+  ContentContext content_context(GetContext(), typographer_context_);
   if (!content_context.IsValid()) {
     return false;
   }
   SinglePassCallback pass_callback = [&](RenderPass& pass) -> bool {
-    return callback(content_context, pass);
+    static bool wireframe = false;
+    if (ImGui::IsKeyPressed(ImGuiKey_Z)) {
+      wireframe = !wireframe;
+      content_context.SetWireframe(wireframe);
+    }
+    content_context.GetRenderTargetCache()->Start();
+    bool result = callback(content_context, pass);
+    content_context.GetRenderTargetCache()->End();
+    content_context.GetTransientsBuffer().Reset();
+    return result;
   };
   return Playground::OpenPlaygroundHere(pass_callback);
 }

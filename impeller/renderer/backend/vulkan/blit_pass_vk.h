@@ -2,12 +2,18 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_IMPELLER_RENDERER_BACKEND_VULKAN_BLIT_PASS_VK_H_
+#define FLUTTER_IMPELLER_RENDERER_BACKEND_VULKAN_BLIT_PASS_VK_H_
 
 #include "flutter/fml/macros.h"
+#include "flutter/impeller/base/config.h"
+#include "impeller/renderer/backend/vulkan/blit_command_vk.h"
 #include "impeller/renderer/blit_pass.h"
 
 namespace impeller {
+
+class CommandEncoderVK;
+class CommandBufferVK;
 
 class BlitPassVK final : public BlitPass {
  public:
@@ -17,7 +23,11 @@ class BlitPassVK final : public BlitPass {
  private:
   friend class CommandBufferVK;
 
-  BlitPassVK();
+  std::weak_ptr<CommandBufferVK> command_buffer_;
+  std::vector<std::unique_ptr<BlitEncodeVK>> commands_;
+  std::string label_;
+
+  explicit BlitPassVK(std::weak_ptr<CommandBufferVK> command_buffer);
 
   // |BlitPass|
   bool IsValid() const override;
@@ -44,10 +54,19 @@ class BlitPassVK final : public BlitPass {
                                     std::string label) override;
 
   // |BlitPass|
+  bool OnCopyBufferToTextureCommand(BufferView source,
+                                    std::shared_ptr<Texture> destination,
+                                    IPoint destination_origin,
+                                    std::string label) override;
+  // |BlitPass|
   bool OnGenerateMipmapCommand(std::shared_ptr<Texture> texture,
                                std::string label) override;
 
-  FML_DISALLOW_COPY_AND_ASSIGN(BlitPassVK);
+  BlitPassVK(const BlitPassVK&) = delete;
+
+  BlitPassVK& operator=(const BlitPassVK&) = delete;
 };
 
 }  // namespace impeller
+
+#endif  // FLUTTER_IMPELLER_RENDERER_BACKEND_VULKAN_BLIT_PASS_VK_H_

@@ -2,20 +2,18 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef FLUTTER_SHELL_PLATFORM_FUCHSIA_RUNNER_H_
-#define FLUTTER_SHELL_PLATFORM_FUCHSIA_RUNNER_H_
+#ifndef FLUTTER_SHELL_PLATFORM_FUCHSIA_FLUTTER_RUNNER_H_
+#define FLUTTER_SHELL_PLATFORM_FUCHSIA_FLUTTER_RUNNER_H_
 
 #include <memory>
 #include <unordered_map>
 
 #include <fuchsia/component/runner/cpp/fidl.h>
-#include <fuchsia/sys/cpp/fidl.h>
 #include <lib/async-loop/cpp/loop.h>
 #include <lib/sys/cpp/component_context.h>
 #include <lib/trace-engine/instrumentation.h>
 #include <lib/trace/observer.h>
 
-#include "component_v1.h"
 #include "component_v2.h"
 #include "flutter/fml/macros.h"
 #include "fml/memory/ref_ptr.h"
@@ -25,14 +23,13 @@
 
 namespace flutter_runner {
 
-/// Publishes the CF v1 and CF v2 runner services.
+/// Publishes the CF v2 runner service.
 ///
 /// Each component will be run on a separate thread dedicated to that component.
 ///
 /// TODO(fxb/50694): Add unit tests for CF v2.
 class Runner final
-    : public fuchsia::sys::Runner /* CF v1 */,
-      public fuchsia::component::runner::ComponentRunner /* CF v2 */ {
+    : public fuchsia::component::runner::ComponentRunner /* CF v2 */ {
  public:
   // Does not take ownership of context.
   Runner(fml::RefPtr<fml::TaskRunner> task_runner,
@@ -41,25 +38,6 @@ class Runner final
   ~Runner();
 
  private:
-  // CF v1 lifecycle methods.
-  // TODO(fxb/50694) Deprecate these once all Flutter components have been
-  // ported to CF v2.
-
-  // |fuchsia::sys::Runner|
-  void StartComponent(fuchsia::sys::Package package,
-                      fuchsia::sys::StartupInfo startup_info,
-                      fidl::InterfaceRequest<fuchsia::sys::ComponentController>
-                          controller) override;
-
-  /// Registers a new CF v1 component with this runner, binding the component
-  /// to this runner.
-  void RegisterComponentV1(
-      fidl::InterfaceRequest<fuchsia::sys::Runner> request);
-
-  /// Callback that should be fired when a registered CF v2 component is
-  /// terminated.
-  void OnComponentV1Terminate(const ComponentV1* component);
-
   // CF v2 lifecycle methods.
 
   // |fuchsia::component::runner::ComponentRunner|
@@ -97,11 +75,6 @@ class Runner final
 
   sys::ComponentContext* context_;
 
-  // CF v1 component state.
-  fidl::BindingSet<fuchsia::sys::Runner> active_components_v1_bindings_;
-  std::unordered_map<const ComponentV1*, ActiveComponentV1>
-      active_components_v1_;
-
   // CF v2 component state.
 
   /// The components that are currently bound to this runner.
@@ -125,4 +98,4 @@ class Runner final
 
 }  // namespace flutter_runner
 
-#endif  // FLUTTER_SHELL_PLATFORM_FUCHSIA_RUNNER_H_
+#endif  // FLUTTER_SHELL_PLATFORM_FUCHSIA_FLUTTER_RUNNER_H_

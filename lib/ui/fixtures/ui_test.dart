@@ -6,7 +6,7 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui';
 import 'dart:isolate';
-import 'dart:ffi';
+import 'dart:ffi' hide Size;
 
 void main() {}
 
@@ -145,6 +145,7 @@ external void _validateVertices(Vertices vertices);
 @pragma('vm:entry-point')
 void sendSemanticsUpdate() {
   final SemanticsUpdateBuilder builder = SemanticsUpdateBuilder();
+  final String identifier = "identifier";
   final String label = "label";
   final List<StringAttribute> labelAttributes = <StringAttribute> [
     SpellOutStringAttribute(range: TextRange(start: 1, end: 2)),
@@ -171,6 +172,8 @@ void sendSemanticsUpdate() {
       locale: Locale('en', 'MX'), range: TextRange(start: 0, end: 1),
     ),
   ];
+
+  String tooltip = "tooltip";
 
   final Float64List transform = Float64List(16);
   final Int32List childrenInTraversalOrder = Int32List(0);
@@ -212,6 +215,7 @@ void sendSemanticsUpdate() {
     rect: Rect.fromLTRB(0, 0, 10, 10),
     elevation: 0,
     thickness: 0,
+    identifier: identifier,
     label: label,
     labelAttributes: labelAttributes,
     value: value,
@@ -222,6 +226,7 @@ void sendSemanticsUpdate() {
     decreasedValueAttributes: decreasedValueAttributes,
     hint: hint,
     hintAttributes: hintAttributes,
+    tooltip: tooltip,
     textDirection: TextDirection.ltr,
     transform: transform,
     childrenInTraversalOrder: childrenInTraversalOrder,
@@ -248,9 +253,12 @@ void createPath() {
 external void _validatePath(Path path);
 
 @pragma('vm:entry-point')
-void frameCallback(_Image, int) {
-  print('called back');
+void frameCallback(Object? image, int durationMilliseconds, String decodeError) {
+  validateFrameCallback(image, durationMilliseconds, decodeError);
 }
+
+@pragma('vm:external-name', 'ValidateFrameCallback')
+external void validateFrameCallback(Object? image, int durationMilliseconds, String decodeError);
 
 @pragma('vm:entry-point')
 void platformMessagePortResponseTest() async {
@@ -270,9 +278,16 @@ void platformMessagePortResponseTest() async {
 @pragma('vm:entry-point')
 void platformMessageResponseTest() {
   _callPlatformMessageResponseDart((ByteData? result) {
-    if (result is UnmodifiableByteDataView &&
-        result.lengthInBytes == 100) {
-      _finishCallResponse(true);
+    if (result is ByteData && result.lengthInBytes == 100) {
+      int value = result.getInt8(0);
+      bool didThrowOnModify = false;
+      try {
+        result.setInt8(0, value);
+      } catch (e) {
+        didThrowOnModify = true;
+      }
+      // This should be a read only buffer.
+      _finishCallResponse(didThrowOnModify);
     } else {
       _finishCallResponse(false);
     }
@@ -307,7 +322,7 @@ Future<void> encodeImageProducesExternalUint8List() async {
   canvas.drawCircle(c, 25.0, paint);
   final Picture picture = pictureRecorder.endRecording();
   final Image image = await picture.toImage(100, 100);
-  _encodeImage(image, ImageByteFormat.png.index, (Uint8List result) {
+  _encodeImage(image, ImageByteFormat.png.index, (Uint8List result, String? error) {
     // The buffer should be non-null and writable.
     result[0] = 0;
     // The buffer should be external typed data.
@@ -316,9 +331,65 @@ Future<void> encodeImageProducesExternalUint8List() async {
 }
 
 @pragma('vm:external-name', 'EncodeImage')
-external void _encodeImage(Image i, int format, void Function(Uint8List result));
+external void _encodeImage(Image i, int format, void Function(Uint8List result, String? error));
 @pragma('vm:external-name', 'ValidateExternal')
 external void _validateExternal(Uint8List result);
+@pragma('vm:external-name', 'ValidateError')
+external void _validateError(String? error);
+@pragma('vm:external-name', 'TurnOffGPU')
+external void _turnOffGPU(bool value);
+@pragma('vm:external-name', 'FlushGpuAwaitingTasks')
+external void _flushGpuAwaitingTasks();
+@pragma('vm:external-name', 'ValidateNotNull')
+external void _validateNotNull(Object? object);
+
+@pragma('vm:entry-point')
+Future<void> toByteDataWithoutGPU() async {
+  final PictureRecorder pictureRecorder = PictureRecorder();
+  final Canvas canvas = Canvas(pictureRecorder);
+  final Paint paint = Paint()
+    ..color = Color.fromRGBO(255, 255, 255, 1.0)
+    ..style = PaintingStyle.fill;
+  final Offset c = Offset(50.0, 50.0);
+  canvas.drawCircle(c, 25.0, paint);
+  final Picture picture = pictureRecorder.endRecording();
+  final Image image = await picture.toImage(100, 100);
+  _turnOffGPU(true);
+  Timer flusher = Timer.periodic(Duration(milliseconds: 1), (timer) {
+    _flushGpuAwaitingTasks();
+  });
+  try {
+    ByteData? byteData = await image.toByteData();
+    _validateError(null);
+  } catch (error) {
+    _validateError(error.toString());
+  } finally {
+    flusher.cancel();
+  }
+}
+
+@pragma('vm:entry-point')
+Future<void> toByteDataRetries() async {
+  final PictureRecorder pictureRecorder = PictureRecorder();
+  final Canvas canvas = Canvas(pictureRecorder);
+  final Paint paint = Paint()
+    ..color = Color.fromRGBO(255, 255, 255, 1.0)
+    ..style = PaintingStyle.fill;
+  final Offset c = Offset(50.0, 50.0);
+  canvas.drawCircle(c, 25.0, paint);
+  final Picture picture = pictureRecorder.endRecording();
+  final Image image = await picture.toImage(100, 100);
+  _turnOffGPU(true);
+  Future<void>.delayed(Duration(milliseconds: 10), () {
+    _turnOffGPU(false);
+  });
+  try {
+    ByteData? byteData = await image.toByteData();
+    _validateNotNull(byteData);
+  } catch (error) {
+    _validateNotNull(null);
+  }
+}
 
 @pragma('vm:entry-point')
 Future<void> pumpImage() async {
@@ -441,7 +512,7 @@ void hooksTests() async {
     window.onMetricsChanged!();
     _callHook(
       '_updateWindowMetrics',
-      20,
+      21,
       0, // window Id
       0.1234, // device pixel ratio
       0.0,    // width
@@ -462,6 +533,7 @@ void hooksTests() async {
       <double>[],  // display features bounds
       <int>[],     // display features types
       <int>[],     // display features states
+      0, // Display ID
     );
 
     expectIdentical(originalZone, callbackZone);
@@ -534,10 +606,15 @@ void hooksTests() async {
     expectEquals(x.countryCode, y.countryCode);
   });
 
-  await test('Window padding/insets/viewPadding/systemGestureInsets', () {
+  await test('PlatformDispatcher.view getter returns view with provided ID', () {
+    const int viewId = 0;
+    expectEquals(PlatformDispatcher.instance.view(id: viewId)?.viewId, viewId);
+  });
+
+  await test('View padding/insets/viewPadding/systemGestureInsets', () {
     _callHook(
       '_updateWindowMetrics',
-      20,
+      21,
       0, // window Id
       1.0, // devicePixelRatio
       800.0, // width
@@ -558,6 +635,7 @@ void hooksTests() async {
       <double>[],  // display features bounds
       <int>[],     // display features types
       <int>[],     // display features states
+      0, // Display ID
     );
 
     expectEquals(window.viewInsets.bottom, 0.0);
@@ -567,7 +645,7 @@ void hooksTests() async {
 
     _callHook(
       '_updateWindowMetrics',
-      20,
+      21,
       0, // window Id
       1.0, // devicePixelRatio
       800.0, // width
@@ -588,6 +666,7 @@ void hooksTests() async {
       <double>[],  // display features bounds
       <int>[],     // display features types
       <int>[],     // display features states
+      0, // Display ID
     );
 
     expectEquals(window.viewInsets.bottom, 400.0);
@@ -596,10 +675,10 @@ void hooksTests() async {
     expectEquals(window.systemGestureInsets.bottom, 44.0);
   });
 
-   await test('Window physical touch slop', () {
+  await test('Window physical touch slop', () {
     _callHook(
       '_updateWindowMetrics',
-      20,
+      21,
       0, // window Id
       1.0, // devicePixelRatio
       800.0, // width
@@ -620,14 +699,15 @@ void hooksTests() async {
       <double>[],  // display features bounds
       <int>[],     // display features types
       <int>[],     // display features states
+      0, // Display ID
     );
 
-    expectEquals(window.viewConfiguration.gestureSettings,
+    expectEquals(window.gestureSettings,
       GestureSettings(physicalTouchSlop: 11.0));
 
     _callHook(
       '_updateWindowMetrics',
-      20,
+      21,
       0, // window Id
       1.0, // devicePixelRatio
       800.0, // width
@@ -648,14 +728,15 @@ void hooksTests() async {
       <double>[],  // display features bounds
       <int>[],     // display features types
       <int>[],     // display features states
+      0, // Display ID
     );
 
-    expectEquals(window.viewConfiguration.gestureSettings,
+    expectEquals(window.gestureSettings,
       GestureSettings(physicalTouchSlop: null));
 
     _callHook(
       '_updateWindowMetrics',
-      20,
+      21,
       0, // window Id
       1.0, // devicePixelRatio
       800.0, // width
@@ -676,9 +757,10 @@ void hooksTests() async {
       <double>[],  // display features bounds
       <int>[],     // display features types
       <int>[],     // display features states
+      0, // Display ID
     );
 
-    expectEquals(window.viewConfiguration.gestureSettings,
+    expectEquals(window.gestureSettings,
       GestureSettings(physicalTouchSlop: 22.0));
   });
 
@@ -786,25 +868,23 @@ void hooksTests() async {
     expectEquals(enabled, newValue);
   });
 
-  await test('onSemanticsAction preserves callback zone', () {
+  await test('onSemanticsActionEvent preserves callback zone', () {
     late Zone innerZone;
     late Zone runZone;
-    late int id;
-    late int action;
+    late SemanticsActionEvent action;
 
     runZoned(() {
       innerZone = Zone.current;
-      window.onSemanticsAction = (int i, SemanticsAction a, ByteData? _) {
+      PlatformDispatcher.instance.onSemanticsActionEvent = (SemanticsActionEvent actionEvent) {
         runZone = Zone.current;
-        action = a.index;
-        id = i;
+        action = actionEvent;
       };
     });
 
     _callHook('_dispatchSemanticsAction', 3, 1234, 4, null);
     expectIdentical(runZone, innerZone);
-    expectEquals(id, 1234);
-    expectEquals(action, 4);
+    expectEquals(action.nodeId, 1234);
+    expectEquals(action.type.index, 4);
   });
 
   await test('onPlatformMessage preserves callback zone', () {
@@ -876,6 +956,28 @@ void hooksTests() async {
     expectNotEquals(runZone, null);
     expectIdentical(runZone, innerZone);
     expectEquals(frameNumber, 2);
+  });
+
+  await test('_updateDisplays preserves callback zone', () {
+    late Zone innerZone;
+    late Zone runZone;
+    late Display display;
+
+    runZoned(() {
+      innerZone = Zone.current;
+      window.onMetricsChanged = () {
+        runZone = Zone.current;
+        display = PlatformDispatcher.instance.displays.first;
+      };
+    });
+
+    _callHook('_updateDisplays', 5, <int>[0], <double>[800], <double>[600], <double>[1.5], <double>[65]);
+    expectNotEquals(runZone, null);
+    expectIdentical(runZone, innerZone);
+    expectEquals(display.id, 0);
+    expectEquals(display.size, const Size(800, 600));
+    expectEquals(display.devicePixelRatio, 1.5);
+    expectEquals(display.refreshRate, 65);
   });
 
   await test('_futureize handles callbacker sync error', () async {
@@ -1040,4 +1142,5 @@ external void _callHook(
   Object? arg18,
   Object? arg19,
   Object? arg20,
+  Object? arg21,
 ]);

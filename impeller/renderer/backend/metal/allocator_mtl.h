@@ -2,12 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_IMPELLER_RENDERER_BACKEND_METAL_ALLOCATOR_MTL_H_
+#define FLUTTER_IMPELLER_RENDERER_BACKEND_METAL_ALLOCATOR_MTL_H_
 
 #include <Metal/Metal.h>
 
 #include "flutter/fml/macros.h"
-#include "impeller/renderer/allocator.h"
+#include "impeller/core/allocator.h"
 
 namespace impeller {
 
@@ -47,7 +48,11 @@ class AllocatorMTL final : public Allocator {
   // |Allocator|
   ISize GetMaxTextureSizeSupported() const override;
 
-  FML_DISALLOW_COPY_AND_ASSIGN(AllocatorMTL);
+  AllocatorMTL(const AllocatorMTL&) = delete;
+
+  AllocatorMTL& operator=(const AllocatorMTL&) = delete;
 };
 
 }  // namespace impeller
+
+#endif  // FLUTTER_IMPELLER_RENDERER_BACKEND_METAL_ALLOCATOR_MTL_H_

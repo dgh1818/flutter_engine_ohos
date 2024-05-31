@@ -7,9 +7,9 @@ import 'package:ui/ui.dart' as ui;
 import '../browser_detection.dart';
 import '../color_filter.dart';
 import '../dom.dart';
-import '../embedder.dart';
 import '../util.dart';
 import '../vector_math.dart';
+import 'resource_manager.dart';
 import 'shaders/shader.dart';
 import 'surface.dart';
 import 'surface_stats.dart';
@@ -66,7 +66,7 @@ class PersistedBackdropFilter extends PersistedContainerSurface
     // Do not detach the child container from the root. It is permanently
     // attached. The elements are reused together and are detached from the DOM
     // together.
-    flutterViewEmbedder.removeResource(_svgFilter);
+    ResourceManager.instance.removeResource(_svgFilter);
     _svgFilter = null;
     _childContainer = null;
     _filterElement = null;
@@ -80,7 +80,7 @@ class PersistedBackdropFilter extends PersistedContainerSurface
     } else {
       backendFilter = filter as EngineImageFilter;
     }
-    flutterViewEmbedder.removeResource(_svgFilter);
+    ResourceManager.instance.removeResource(_svgFilter);
     _svgFilter = null;
     if (_previousTransform != transform) {
       _invertedTransform = Matrix4.inverted(transform!);
@@ -95,7 +95,7 @@ class PersistedBackdropFilter extends PersistedContainerSurface
     // Therefore we need to use parent clip element bounds for
     // backdrop boundary.
     final double dpr = ui.window.devicePixelRatio;
-    final ui.Rect rect = transformRect(_invertedTransform, ui.Rect.fromLTRB(0, 0,
+    final ui.Rect rect = _invertedTransform.transformRect(ui.Rect.fromLTRB(0, 0,
         ui.window.physicalSize.width * dpr,
         ui.window.physicalSize.height * dpr));
     double left = rect.left;

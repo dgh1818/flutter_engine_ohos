@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef FLUTTER_SHELL_PLATFORM_CPP_INCOMING_MESSAGE_DISPATCHER_H_
-#define FLUTTER_SHELL_PLATFORM_CPP_INCOMING_MESSAGE_DISPATCHER_H_
+#ifndef FLUTTER_SHELL_PLATFORM_COMMON_INCOMING_MESSAGE_DISPATCHER_H_
+#define FLUTTER_SHELL_PLATFORM_COMMON_INCOMING_MESSAGE_DISPATCHER_H_
 
 #include <functional>
 #include <map>
@@ -30,7 +30,7 @@ class IncomingMessageDispatcher {
   IncomingMessageDispatcher& operator=(IncomingMessageDispatcher const&) =
       delete;
 
-  // Routes |message| to to the registered handler for its channel, if any.
+  // Routes |message| to the registered handler for its channel, if any.
   //
   // If input blocking has been enabled on that channel, wraps the call to the
   // handler with calls to the given callbacks to block and then unblock input.
@@ -75,4 +75,4 @@ class IncomingMessageDispatcher {
 
 }  // namespace flutter
 
-#endif  // FLUTTER_SHELL_PLATFORM_CPP_INCOMING_MESSAGE_DISPATCHER_H_
+#endif  // FLUTTER_SHELL_PLATFORM_COMMON_INCOMING_MESSAGE_DISPATCHER_H_

@@ -15,8 +15,7 @@ namespace flutter {
 OpacityLayer::OpacityLayer(SkAlpha alpha, const SkPoint& offset)
     : CacheableContainerLayer(std::numeric_limits<int>::max(), true),
       alpha_(alpha),
-      offset_(offset),
-      children_can_accept_opacity_(false) {}
+      offset_(offset) {}
 
 void OpacityLayer::Diff(DiffContext* context, const Layer* old_layer) {
   DiffContext::AutoSubtreeRestore subtree(context);
@@ -29,16 +28,13 @@ void OpacityLayer::Diff(DiffContext* context, const Layer* old_layer) {
   }
   context->PushTransform(SkMatrix::Translate(offset_.fX, offset_.fY));
   if (context->has_raster_cache()) {
-    context->SetTransform(
-        RasterCacheUtil::GetIntegralTransCTM(context->GetTransform()));
+    context->WillPaintWithIntegralTransform();
   }
   DiffChildren(context, prev);
   context->SetLayerPaintRegion(this, context->CurrentSubtreeRegion());
 }
 
 void OpacityLayer::Preroll(PrerollContext* context) {
-  FML_DCHECK(!layers().empty());  // We can't be a leaf.
-
   auto mutator = context->state_stack.save();
   mutator.translate(offset_);
   mutator.applyOpacity(SkRect(), DlColor::toOpacity(alpha_));
@@ -80,7 +76,7 @@ void OpacityLayer::Paint(PaintContext& context) const {
   mutator.applyOpacity(child_paint_bounds(), opacity());
 
   if (!children_can_accept_opacity()) {
-    SkPaint paint;
+    DlPaint paint;
     if (layer_raster_cache_item_->Draw(context,
                                        context.state_stack.fill(paint))) {
       return;

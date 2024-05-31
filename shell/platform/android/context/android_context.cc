@@ -13,6 +13,9 @@ AndroidContext::~AndroidContext() {
   if (main_context_) {
     main_context_->releaseResourcesAndAbandonContext();
   }
+  if (impeller_context_) {
+    impeller_context_->Shutdown();
+  }
 };
 
 AndroidRenderingAPI AndroidContext::RenderingApi() const {
@@ -30,6 +33,15 @@ void AndroidContext::SetMainSkiaContext(
 
 sk_sp<GrDirectContext> AndroidContext::GetMainSkiaContext() const {
   return main_context_;
+}
+
+std::shared_ptr<impeller::Context> AndroidContext::GetImpellerContext() const {
+  return impeller_context_;
+}
+
+void AndroidContext::SetImpellerContext(
+    const std::shared_ptr<impeller::Context>& context) {
+  impeller_context_ = context;
 }
 
 }  // namespace flutter

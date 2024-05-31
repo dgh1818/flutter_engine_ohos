@@ -6,12 +6,13 @@
 
 #include <cstring>
 
+#include "flutter/common/constants.h"
 #include "flutter/lib/ui/compositing/scene.h"
 #include "flutter/lib/ui/ui_dart_state.h"
+#include "flutter/lib/ui/window/platform_message.h"
 #include "flutter/lib/ui/window/platform_message_response_dart.h"
 #include "flutter/lib/ui/window/platform_message_response_dart_port.h"
 #include "flutter/lib/ui/window/viewport_metrics.h"
-#include "flutter/lib/ui/window/window.h"
 #include "third_party/tonic/converter/dart_converter.h"
 #include "third_party/tonic/dart_args.h"
 #include "third_party/tonic/dart_library_natives.h"
@@ -41,14 +42,24 @@ void PlatformConfiguration::DidCreateIsolate() {
 
   on_error_.Set(tonic::DartState::Current(),
                 Dart_GetField(library, tonic::ToDart("_onError")));
+  add_view_.Set(tonic::DartState::Current(),
+                Dart_GetField(library, tonic::ToDart("_addView")));
+  remove_view_.Set(tonic::DartState::Current(),
+                   Dart_GetField(library, tonic::ToDart("_removeView")));
+  update_window_metrics_.Set(
+      tonic::DartState::Current(),
+      Dart_GetField(library, tonic::ToDart("_updateWindowMetrics")));
+  update_displays_.Set(
+      tonic::DartState::Current(),
+      Dart_GetField(library, tonic::ToDart("_updateDisplays")));
   update_locales_.Set(tonic::DartState::Current(),
                       Dart_GetField(library, tonic::ToDart("_updateLocales")));
   update_user_settings_data_.Set(
       tonic::DartState::Current(),
       Dart_GetField(library, tonic::ToDart("_updateUserSettingsData")));
-  update_lifecycle_state_.Set(
+  update_initial_lifecycle_state_.Set(
       tonic::DartState::Current(),
-      Dart_GetField(library, tonic::ToDart("_updateLifecycleState")));
+      Dart_GetField(library, tonic::ToDart("_updateInitialLifecycleState")));
   update_semantics_enabled_.Set(
       tonic::DartState::Current(),
       Dart_GetField(library, tonic::ToDart("_updateSemanticsEnabled")));
@@ -58,6 +69,9 @@ void PlatformConfiguration::DidCreateIsolate() {
   dispatch_platform_message_.Set(
       tonic::DartState::Current(),
       Dart_GetField(library, tonic::ToDart("_dispatchPlatformMessage")));
+  dispatch_pointer_data_packet_.Set(
+      tonic::DartState::Current(),
+      Dart_GetField(library, tonic::ToDart("_dispatchPointerDataPacket")));
   dispatch_semantics_action_.Set(
       tonic::DartState::Current(),
       Dart_GetField(library, tonic::ToDart("_dispatchSemanticsAction")));
@@ -67,8 +81,143 @@ void PlatformConfiguration::DidCreateIsolate() {
                   Dart_GetField(library, tonic::ToDart("_drawFrame")));
   report_timings_.Set(tonic::DartState::Current(),
                       Dart_GetField(library, tonic::ToDart("_reportTimings")));
-  windows_.insert(std::make_pair(
-      0, std::make_unique<Window>(0, ViewportMetrics{1.0, 0.0, 0.0, -1})));
+}
+
+void PlatformConfiguration::AddView(int64_t view_id,
+                                    const ViewportMetrics& view_metrics) {
+  auto [view_iterator, insertion_happened] =
+      metrics_.emplace(view_id, view_metrics);
+  FML_DCHECK(insertion_happened);
+
+  std::shared_ptr<tonic::DartState> dart_state = add_view_.dart_state().lock();
+  if (!dart_state) {
+    return;
+  }
+  tonic::DartState::Scope scope(dart_state);
+  tonic::CheckAndHandleError(tonic::DartInvoke(
+      add_view_.Get(),
+      {
+          tonic::ToDart(view_id),
+          tonic::ToDart(view_metrics.device_pixel_ratio),
+          tonic::ToDart(view_metrics.physical_width),
+          tonic::ToDart(view_metrics.physical_height),
+          tonic::ToDart(view_metrics.physical_padding_top),
+          tonic::ToDart(view_metrics.physical_padding_right),
+          tonic::ToDart(view_metrics.physical_padding_bottom),
+          tonic::ToDart(view_metrics.physical_padding_left),
+          tonic::ToDart(view_metrics.physical_view_inset_top),
+          tonic::ToDart(view_metrics.physical_view_inset_right),
+          tonic::ToDart(view_metrics.physical_view_inset_bottom),
+          tonic::ToDart(view_metrics.physical_view_inset_left),
+          tonic::ToDart(view_metrics.physical_system_gesture_inset_top),
+          tonic::ToDart(view_metrics.physical_system_gesture_inset_right),
+          tonic::ToDart(view_metrics.physical_system_gesture_inset_bottom),
+          tonic::ToDart(view_metrics.physical_system_gesture_inset_left),
+          tonic::ToDart(view_metrics.physical_touch_slop),
+          tonic::ToDart(view_metrics.physical_display_features_bounds),
+          tonic::ToDart(view_metrics.physical_display_features_type),
+          tonic::ToDart(view_metrics.physical_display_features_state),
+          tonic::ToDart(view_metrics.display_id),
+      }));
+}
+
+bool PlatformConfiguration::RemoveView(int64_t view_id) {
+  if (view_id == kFlutterImplicitViewId) {
+    FML_LOG(FATAL) << "The implicit view #" << view_id << " cannot be removed.";
+    return false;
+  }
+  size_t erased_elements = metrics_.erase(view_id);
+  if (erased_elements == 0) {
+    FML_LOG(ERROR) << "View #" << view_id << " doesn't exist.";
+    return false;
+  }
+
+  std::shared_ptr<tonic::DartState> dart_state =
+      remove_view_.dart_state().lock();
+  if (!dart_state) {
+    return false;
+  }
+  tonic::DartState::Scope scope(dart_state);
+  tonic::CheckAndHandleError(
+      tonic::DartInvoke(remove_view_.Get(), {
+                                                tonic::ToDart(view_id),
+                                            }));
+  return true;
+}
+
+bool PlatformConfiguration::UpdateViewMetrics(
+    int64_t view_id,
+    const ViewportMetrics& view_metrics) {
+  auto found_iter = metrics_.find(view_id);
+  if (found_iter == metrics_.end()) {
+    return false;
+  }
+
+  found_iter->second = view_metrics;
+
+  std::shared_ptr<tonic::DartState> dart_state =
+      update_window_metrics_.dart_state().lock();
+  if (!dart_state) {
+    return false;
+  }
+  tonic::DartState::Scope scope(dart_state);
+  tonic::CheckAndHandleError(tonic::DartInvoke(
+      update_window_metrics_.Get(),
+      {
+          tonic::ToDart(view_id),
+          tonic::ToDart(view_metrics.device_pixel_ratio),
+          tonic::ToDart(view_metrics.physical_width),
+          tonic::ToDart(view_metrics.physical_height),
+          tonic::ToDart(view_metrics.physical_padding_top),
+          tonic::ToDart(view_metrics.physical_padding_right),
+          tonic::ToDart(view_metrics.physical_padding_bottom),
+          tonic::ToDart(view_metrics.physical_padding_left),
+          tonic::ToDart(view_metrics.physical_view_inset_top),
+          tonic::ToDart(view_metrics.physical_view_inset_right),
+          tonic::ToDart(view_metrics.physical_view_inset_bottom),
+          tonic::ToDart(view_metrics.physical_view_inset_left),
+          tonic::ToDart(view_metrics.physical_system_gesture_inset_top),
+          tonic::ToDart(view_metrics.physical_system_gesture_inset_right),
+          tonic::ToDart(view_metrics.physical_system_gesture_inset_bottom),
+          tonic::ToDart(view_metrics.physical_system_gesture_inset_left),
+          tonic::ToDart(view_metrics.physical_touch_slop),
+          tonic::ToDart(view_metrics.physical_display_features_bounds),
+          tonic::ToDart(view_metrics.physical_display_features_type),
+          tonic::ToDart(view_metrics.physical_display_features_state),
+          tonic::ToDart(view_metrics.display_id),
+      }));
+  return true;
+}
+
+void PlatformConfiguration::UpdateDisplays(
+    const std::vector<DisplayData>& displays) {
+  std::vector<DisplayId> ids;
+  std::vector<double> widths;
+  std::vector<double> heights;
+  std::vector<double> device_pixel_ratios;
+  std::vector<double> refresh_rates;
+  for (const auto& display : displays) {
+    ids.push_back(display.id);
+    widths.push_back(display.width);
+    heights.push_back(display.height);
+    device_pixel_ratios.push_back(display.pixel_ratio);
+    refresh_rates.push_back(display.refresh_rate);
+  }
+  std::shared_ptr<tonic::DartState> dart_state =
+      update_displays_.dart_state().lock();
+  if (!dart_state) {
+    return;
+  }
+  tonic::DartState::Scope scope(dart_state);
+  tonic::CheckAndHandleError(tonic::DartInvoke(
+      update_displays_.Get(),
+      {
+          tonic::ToDart<std::vector<DisplayId>>(ids),
+          tonic::ToDart<std::vector<double>>(widths),
+          tonic::ToDart<std::vector<double>>(heights),
+          tonic::ToDart<std::vector<double>>(device_pixel_ratios),
+          tonic::ToDart<std::vector<double>>(refresh_rates),
+      }));
 }
 
 void PlatformConfiguration::UpdateLocales(
@@ -101,17 +250,18 @@ void PlatformConfiguration::UpdateUserSettingsData(const std::string& data) {
                                                }));
 }
 
-void PlatformConfiguration::UpdateLifecycleState(const std::string& data) {
+void PlatformConfiguration::UpdateInitialLifecycleState(
+    const std::string& data) {
   std::shared_ptr<tonic::DartState> dart_state =
-      update_lifecycle_state_.dart_state().lock();
+      update_initial_lifecycle_state_.dart_state().lock();
   if (!dart_state) {
     return;
   }
   tonic::DartState::Scope scope(dart_state);
-  tonic::CheckAndHandleError(tonic::DartInvoke(update_lifecycle_state_.Get(),
-                                               {
-                                                   tonic::StdStringToDart(data),
-                                               }));
+  tonic::CheckAndHandleError(tonic::DartInvoke(
+      update_initial_lifecycle_state_.Get(), {
+                                                 tonic::StdStringToDart(data),
+                                             }));
 }
 
 void PlatformConfiguration::UpdateSemanticsEnabled(bool enabled) {
@@ -144,9 +294,7 @@ void PlatformConfiguration::DispatchPlatformMessage(
   std::shared_ptr<tonic::DartState> dart_state =
       dispatch_platform_message_.dart_state().lock();
 
-    FML_DLOG(INFO)
-        << "DispatchPlatformMessage channel: "
-        << message->channel();
+  FML_DLOG(INFO) << "DispatchPlatformMessage channel: " << message->channel();
   if (!dart_state) {
     FML_DLOG(WARNING)
         << "Dropping platform message for lack of DartState on channel: "
@@ -175,14 +323,32 @@ void PlatformConfiguration::DispatchPlatformMessage(
                          tonic::ToDart(response_id)}));
 }
 
-void PlatformConfiguration::DispatchSemanticsAction(int32_t id,
+void PlatformConfiguration::DispatchPointerDataPacket(
+    const PointerDataPacket& packet) {
+  std::shared_ptr<tonic::DartState> dart_state =
+      dispatch_pointer_data_packet_.dart_state().lock();
+  if (!dart_state) {
+    return;
+  }
+  tonic::DartState::Scope scope(dart_state);
+
+  const std::vector<uint8_t>& buffer = packet.data();
+  Dart_Handle data_handle =
+      tonic::DartByteData::Create(buffer.data(), buffer.size());
+  if (Dart_IsError(data_handle)) {
+    return;
+  }
+
+  tonic::CheckAndHandleError(
+      tonic::DartInvoke(dispatch_pointer_data_packet_.Get(), {data_handle}));
+}
+
+void PlatformConfiguration::DispatchSemanticsAction(int32_t node_id,
                                                     SemanticsAction action,
                                                     fml::MallocMapping args) {
   std::shared_ptr<tonic::DartState> dart_state =
       dispatch_semantics_action_.dart_state().lock();
-    FML_DLOG(INFO)
-        << "DispatchSemanticsAction : "
-        << id ;
+  FML_DLOG(INFO) << "DispatchSemanticsAction : " << node_id;
   if (!dart_state) {
     return;
   }
@@ -197,7 +363,7 @@ void PlatformConfiguration::DispatchSemanticsAction(int32_t id,
 
   tonic::CheckAndHandleError(tonic::DartInvoke(
       dispatch_semantics_action_.Get(),
-      {tonic::ToDart(id), tonic::ToDart(static_cast<int32_t>(action)),
+      {tonic::ToDart(node_id), tonic::ToDart(static_cast<int32_t>(action)),
        args_handle}));
 }
 
@@ -250,6 +416,15 @@ void PlatformConfiguration::ReportTimings(std::vector<int64_t> timings) {
                                                }));
 }
 
+const ViewportMetrics* PlatformConfiguration::GetMetrics(int view_id) {
+  auto found = metrics_.find(view_id);
+  if (found != metrics_.end()) {
+    return &found->second;
+  } else {
+    return nullptr;
+  }
+}
+
 void PlatformConfiguration::CompletePlatformMessageEmptyResponse(
     int response_id) {
   if (!response_id) {
@@ -279,9 +454,13 @@ void PlatformConfiguration::CompletePlatformMessageResponse(
   response->Complete(std::make_unique<fml::DataMapping>(std::move(data)));
 }
 
-void PlatformConfigurationNativeApi::Render(Scene* scene) {
+void PlatformConfigurationNativeApi::Render(int64_t view_id,
+                                            Scene* scene,
+                                            double width,
+                                            double height) {
   UIDartState::ThrowIfUIOperationsProhibited();
-  UIDartState::Current()->platform_configuration()->client()->Render(scene);
+  UIDartState::Current()->platform_configuration()->client()->Render(
+      view_id, scene, width, height);
 }
 
 void PlatformConfigurationNativeApi::SetNeedsReportTimings(bool value) {
@@ -357,7 +536,8 @@ Dart_Handle PlatformConfigurationNativeApi::SendPortPlatformMessage(
 void PlatformConfigurationNativeApi::RespondToPlatformMessage(
     int response_id,
     const tonic::DartByteData& data) {
-  FML_DLOG(INFO)<<"PlatformConfigurationNativeApi::RespondToPlatformMessage:" << response_id;
+  FML_DLOG(INFO) << "PlatformConfigurationNativeApi::RespondToPlatformMessage:"
+                 << response_id;
   if (Dart_IsNull(data.dart_handle())) {
     UIDartState::Current()
         ->platform_configuration()
@@ -379,17 +559,17 @@ void PlatformConfigurationNativeApi::SetIsolateDebugName(
   UIDartState::Current()->SetDebugName(name);
 }
 
-Dart_PerformanceMode PlatformConfigurationNativeApi::current_performace_mode_ =
+Dart_PerformanceMode PlatformConfigurationNativeApi::current_performance_mode_ =
     Dart_PerformanceMode_Default;
 
 Dart_PerformanceMode PlatformConfigurationNativeApi::GetDartPerformanceMode() {
-  return current_performace_mode_;
+  return current_performance_mode_;
 }
 
 int PlatformConfigurationNativeApi::RequestDartPerformanceMode(int mode) {
   UIDartState::ThrowIfUIOperationsProhibited();
-  current_performace_mode_ = static_cast<Dart_PerformanceMode>(mode);
-  return Dart_SetPerformanceMode(current_performace_mode_);
+  current_performance_mode_ = static_cast<Dart_PerformanceMode>(mode);
+  return Dart_SetPerformanceMode(current_performance_mode_);
 }
 
 Dart_Handle PlatformConfigurationNativeApi::GetPersistentIsolateData() {
@@ -411,6 +591,11 @@ Dart_Handle PlatformConfigurationNativeApi::GetPersistentIsolateData() {
 void PlatformConfigurationNativeApi::ScheduleFrame() {
   UIDartState::ThrowIfUIOperationsProhibited();
   UIDartState::Current()->platform_configuration()->client()->ScheduleFrame();
+}
+
+void PlatformConfigurationNativeApi::EndWarmUpFrame() {
+  UIDartState::ThrowIfUIOperationsProhibited();
+  UIDartState::Current()->platform_configuration()->client()->EndWarmUpFrame();
 }
 
 void PlatformConfigurationNativeApi::UpdateSemantics(SemanticsUpdate* update) {
@@ -462,4 +647,19 @@ void PlatformConfigurationNativeApi::RegisterBackgroundIsolate(
   dart_state->SetPlatformMessageHandler(weak_platform_message_handler);
 }
 
+void PlatformConfigurationNativeApi::SendChannelUpdate(const std::string& name,
+                                                       bool listening) {
+  UIDartState::Current()->platform_configuration()->client()->SendChannelUpdate(
+      name, listening);
+}
+
+double PlatformConfigurationNativeApi::GetScaledFontSize(
+    double unscaled_font_size,
+    int configuration_id) {
+  UIDartState::ThrowIfUIOperationsProhibited();
+  return UIDartState::Current()
+      ->platform_configuration()
+      ->client()
+      ->GetScaledFontSize(unscaled_font_size, configuration_id);
+}
 }  // namespace flutter

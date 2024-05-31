@@ -7,8 +7,8 @@
 #include "flutter/common/settings.h"
 #include "flutter/fml/command_line.h"
 
-#ifndef SHELL_COMMON_SWITCHES_H_
-#define SHELL_COMMON_SWITCHES_H_
+#ifndef FLUTTER_SHELL_COMMON_SWITCHES_H_
+#define FLUTTER_SHELL_COMMON_SWITCHES_H_
 
 namespace flutter {
 
@@ -70,30 +70,58 @@ DEF_SWITCH(DartFlags,
            "dart-flags",
            "Flags passed directly to the Dart VM without being interpreted "
            "by the Flutter shell.")
-DEF_SWITCH(DeviceObservatoryHost,
-           "observatory-host",
-           "The hostname/IP address on which the Dart Observatory should "
+DEF_SWITCH(DeviceVMServiceHost,
+           "vm-service-host",
+           "The hostname/IP address on which the Dart VM Service should "
            "be served. If not set, defaults to 127.0.0.1 or ::1 depending on "
            "whether --ipv6 is specified.")
+// TODO(bkonyi): remove once flutter_tools no longer uses this option.
+// See https://github.com/dart-lang/sdk/issues/50233
+DEF_SWITCH(
+    DeviceObservatoryHost,
+    "observatory-host",
+    "(deprecated) The hostname/IP address on which the Dart VM Service should "
+    "be served. If not set, defaults to 127.0.0.1 or ::1 depending on "
+    "whether --ipv6 is specified.")
+DEF_SWITCH(DeviceVMServicePort,
+           "vm-service-port",
+           "A custom Dart VM Service port. The default is to pick a randomly "
+           "available open port.")
+// TODO(bkonyi): remove once flutter_tools no longer uses this option.
+// See https://github.com/dart-lang/sdk/issues/50233
 DEF_SWITCH(DeviceObservatoryPort,
            "observatory-port",
-           "A custom Dart Observatory port. The default is to pick a randomly "
+           "(deprecated) A custom Dart VM Service port. The default is to pick "
+           "a randomly "
            "available open port.")
+DEF_SWITCH(
+    DisableVMService,
+    "disable-vm-service",
+    "Disable the Dart VM Service. The Dart VM Service is never available "
+    "in release mode.")
+// TODO(bkonyi): remove once flutter_tools no longer uses this option.
+// See https://github.com/dart-lang/sdk/issues/50233
 DEF_SWITCH(DisableObservatory,
            "disable-observatory",
-           "Disable the Dart Observatory. The observatory is never available "
+           "(deprecated) Disable the Dart VM Service. The Dart VM Service is "
+           "never available "
            "in release mode.")
+DEF_SWITCH(DisableVMServicePublication,
+           "disable-vm-service-publication",
+           "Disable mDNS Dart VM Service publication.")
+// TODO(bkonyi): remove once flutter_tools no longer uses this option.
+// See https://github.com/dart-lang/sdk/issues/50233
 DEF_SWITCH(DisableObservatoryPublication,
            "disable-observatory-publication",
-           "Disable mDNS Dart Observatory publication.")
+           "(deprecated) Disable mDNS Dart VM Service publication.")
 DEF_SWITCH(IPv6,
            "ipv6",
-           "Bind to the IPv6 localhost address for the Dart Observatory. "
-           "Ignored if --observatory-host is set.")
+           "Bind to the IPv6 localhost address for the Dart VM Service. "
+           "Ignored if --vm-service-host is set.")
 DEF_SWITCH(EnableDartProfiling,
            "enable-dart-profiling",
            "Enable Dart profiling. Profiling information can be viewed from "
-           "the observatory.")
+           "Dart / Flutter DevTools.")
 DEF_SWITCH(EndlessTraceBuffer,
            "endless-trace-buffer",
            "Enable an endless trace buffer. The default is a ring buffer. "
@@ -169,6 +197,11 @@ DEF_SWITCH(
     "Trace to the system tracer (instead of the timeline) on platforms where "
     "such a tracer is available. Currently only supported on Android and "
     "Fuchsia.")
+DEF_SWITCH(TraceToFile,
+           "trace-to-file",
+           "Write the timeline trace to a file at the specified path. The file "
+           "will be in Perfetto's proto format; it will be possible to load "
+           "the file into Perfetto's trace viewer.")
 DEF_SWITCH(UseTestFonts,
            "use-test-fonts",
            "Running tests that layout and measure text will not yield "
@@ -229,13 +262,27 @@ DEF_SWITCH(OldGenHeapSize,
 DEF_SWITCH(ResourceCacheMaxBytesThreshold,
            "resource-cache-max-bytes-threshold",
            "The max bytes threshold of resource cache, or 0 for unlimited.")
-DEF_SWITCH(EnableSkParagraph,
-           "enable-skparagraph",
-           "Selects the SkParagraph implementation of the text layout engine.")
 DEF_SWITCH(EnableImpeller,
            "enable-impeller",
            "Enable the Impeller renderer on supported platforms. Ignored if "
            "Impeller is not supported on the platform.")
+DEF_SWITCH(ImpellerBackend,
+           "impeller-backend",
+           "Requests a particular Impeller backend on platforms that support "
+           "multiple backends. (ex `opengles` or `vulkan`)")
+DEF_SWITCH(EnableVulkanValidation,
+           "enable-vulkan-validation",
+           "Enable loading Vulkan validation layers. The layers must be "
+           "available to the application and loadable. On non-Vulkan backends, "
+           "this flag does nothing.")
+DEF_SWITCH(EnableOpenGLGPUTracing,
+           "enable-opengl-gpu-tracing",
+           "Enable tracing of GPU execution time when using the Impeller "
+           "OpenGLES backend.")
+DEF_SWITCH(EnableVulkanGPUTracing,
+           "enable-vulkan-gpu-tracing",
+           "Enable tracing of GPU execution time when using the Impeller "
+           "Vulkan backend.")
 DEF_SWITCH(LeakVM,
            "leak-vm",
            "When the last shell shuts down, the shared VM is leaked by default "
@@ -248,6 +295,9 @@ DEF_SWITCH(
     "Setting this value to 0 or 1 disables MSAA. If it is not 0 or 1, it must "
     "be one of 2, 4, 8, or 16. However, if the GPU does not support the "
     "requested sampling value, MSAA will be disabled.")
+DEF_SWITCH(EnableEmbedderAPI,
+           "enable-embedder-api",
+           "Enable the embedder api. Defaults to false. iOS only.")
 DEF_SWITCHES_END
 
 void PrintUsage(const std::string& executable_name);
@@ -258,4 +308,4 @@ Settings SettingsFromCommandLine(const fml::CommandLine& command_line);
 
 }  // namespace flutter
 
-#endif  // SHELL_COMMON_SWITCHES_H_
+#endif  // FLUTTER_SHELL_COMMON_SWITCHES_H_

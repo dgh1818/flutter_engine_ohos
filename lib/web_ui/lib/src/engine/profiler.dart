@@ -3,12 +3,18 @@
 // found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:js_interop';
 
-import 'package:ui/ui.dart' as ui;
+import 'package:ui/ui_web/src/ui_web.dart' as ui_web;
 
-import 'dom.dart';
-import 'platform_dispatcher.dart';
-import 'safe_browser_api.dart';
+import 'util.dart';
+
+// TODO(mdebbar): Deprecate this and remove it.
+// https://github.com/flutter/flutter/issues/127395
+@JS('window._flutter_internal_on_benchmark')
+external JSExportedDartFunction? get jsBenchmarkValueCallback;
+
+ui_web.BenchmarkValueCallback? engineBenchmarkValueCallback;
 
 /// A function that computes a value of type [R].
 ///
@@ -101,129 +107,21 @@ class Profiler {
   void benchmark(String name, double value) {
     _checkBenchmarkMode();
 
-    // First get the value as `Object?` then use `as` cast to check the type.
-    // This is because the type cast in `getJsProperty<Object?>` is optimized
-    // out at certain optimization levels in dart2js, leading to obscure errors
-    // later on.
-    final Object? onBenchmark = getJsProperty<Object?>(
-      domWindow,
-      '_flutter_internal_on_benchmark',
-    );
-    onBenchmark as OnBenchmark?;
-    onBenchmark?.call(name, value);
+    final ui_web.BenchmarkValueCallback? callback =
+        jsBenchmarkValueCallback?.toDart as ui_web.BenchmarkValueCallback?;
+    if (callback != null) {
+      printWarning(
+        'The JavaScript benchmarking API (i.e. `window._flutter_internal_on_benchmark`) '
+        'is deprecated and will be removed in a future release. Please use '
+        '`benchmarkValueCallback` from `dart:ui_web` instead.',
+      );
+      callback(name, value);
+    }
+
+    if (engineBenchmarkValueCallback != null) {
+      engineBenchmarkValueCallback!(name, value);
+    }
   }
-}
-
-/// Whether we are collecting [ui.FrameTiming]s.
-bool get _frameTimingsEnabled {
-  return EnginePlatformDispatcher.instance.onReportTimings != null;
-}
-
-/// Collects frame timings from frames.
-///
-/// This list is periodically reported to the framework (see
-/// [_kFrameTimingsSubmitInterval]).
-List<ui.FrameTiming> _frameTimings = <ui.FrameTiming>[];
-
-/// The amount of time in microseconds we wait between submitting
-/// frame timings.
-const int _kFrameTimingsSubmitInterval = 100000; // 100 milliseconds
-
-/// The last time (in microseconds) we submitted frame timings.
-int _frameTimingsLastSubmitTime = _nowMicros();
-
-// These variables store individual [ui.FrameTiming] properties.
-int _vsyncStartMicros = -1;
-int _buildStartMicros = -1;
-int _buildFinishMicros = -1;
-int _rasterStartMicros = -1;
-int _rasterFinishMicros = -1;
-
-/// Records the vsync timestamp for this frame.
-void frameTimingsOnVsync() {
-  if (!_frameTimingsEnabled) {
-    return;
-  }
-  _vsyncStartMicros = _nowMicros();
-}
-
-/// Records the time when the framework started building the frame.
-void frameTimingsOnBuildStart() {
-  if (!_frameTimingsEnabled) {
-    return;
-  }
-  _buildStartMicros = _nowMicros();
-}
-
-/// Records the time when the framework finished building the frame.
-void frameTimingsOnBuildFinish() {
-  if (!_frameTimingsEnabled) {
-    return;
-  }
-  _buildFinishMicros = _nowMicros();
-}
-
-/// Records the time when the framework started rasterizing the frame.
-///
-/// On the web, this value is almost always the same as [_buildFinishMicros]
-/// because it's single-threaded so there's no delay between building
-/// and rasterization.
-///
-/// This also means different things between HTML and CanvasKit renderers.
-///
-/// In HTML "rasterization" only captures DOM updates, but not the work that
-/// the browser performs after the DOM updates are committed. The browser
-/// does not report that information.
-///
-/// CanvasKit captures everything because we control the rasterization
-/// process, so we know exactly when rasterization starts and ends.
-void frameTimingsOnRasterStart() {
-  if (!_frameTimingsEnabled) {
-    return;
-  }
-  _rasterStartMicros = _nowMicros();
-}
-
-/// Records the time when the framework started rasterizing the frame.
-///
-/// See [_frameTimingsOnRasterStart] for more details on what rasterization
-/// timings mean on the web.
-void frameTimingsOnRasterFinish() {
-  if (!_frameTimingsEnabled) {
-    return;
-  }
-  final int now = _nowMicros();
-  _rasterFinishMicros = now;
-  _frameTimings.add(ui.FrameTiming(
-    vsyncStart: _vsyncStartMicros,
-    buildStart: _buildStartMicros,
-    buildFinish: _buildFinishMicros,
-    rasterStart: _rasterStartMicros,
-    rasterFinish: _rasterFinishMicros,
-    rasterFinishWallTime: _rasterFinishMicros,
-  ));
-  _vsyncStartMicros = -1;
-  _buildStartMicros = -1;
-  _buildFinishMicros = -1;
-  _rasterStartMicros = -1;
-  _rasterFinishMicros = -1;
-  if (now - _frameTimingsLastSubmitTime > _kFrameTimingsSubmitInterval) {
-    _frameTimingsLastSubmitTime = now;
-    EnginePlatformDispatcher.instance.invokeOnReportTimings(_frameTimings);
-    _frameTimings = <ui.FrameTiming>[];
-  }
-}
-
-/// Current timestamp in microseconds taken from the high-precision
-/// monotonically increasing timer.
-///
-/// See also:
-///
-/// * https://developer.mozilla.org/en-US/docs/Web/API/Performance/now,
-///   particularly notes about Firefox rounding to 1ms for security reasons,
-///   which can be bypassed in tests by setting certain browser options.
-int _nowMicros() {
-  return (domWindow.performance.now() * 1000).toInt();
 }
 
 /// Counts various events that take place while the app is running.

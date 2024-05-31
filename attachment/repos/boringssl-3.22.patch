@@ -1,0 +1,21 @@
+diff --git a/BUILD.gn b/BUILD.gn
+index 1ee6799..684f028 100644
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -50,6 +50,7 @@ config("no_asm_config") {
+ 
+ # This has no sources on some platforms so must be a source_set.
+ source_set("boringssl_asm") {
++
+   visibility = [ ":*" ]  # Only targets in this file can depend on this.
+ 
+   defines = []
+@@ -57,7 +58,7 @@ source_set("boringssl_asm") {
+   include_dirs = [ "src/include" ]
+   asmflags = []
+ 
+-  if ((current_cpu == "arm" || current_cpu == "arm64") && is_android &&
++  if ((current_cpu == "arm" || current_cpu == "arm64") && (is_android || is_ohos) &&
+       is_clang) {
+     if (!bssl_use_clang_integrated_as) {
+       # Disable the integrated assembler and use the one shipped with the NDK.

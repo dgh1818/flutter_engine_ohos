@@ -4,12 +4,14 @@
 
 #include "impeller/typographer/glyph_atlas.h"
 
+#include <numeric>
 #include <utility>
 
 namespace impeller {
 
 GlyphAtlasContext::GlyphAtlasContext()
-    : atlas_(std::make_shared<GlyphAtlas>(GlyphAtlas::Type::kAlphaBitmap)) {}
+    : atlas_(std::make_shared<GlyphAtlas>(GlyphAtlas::Type::kAlphaBitmap)),
+      atlas_size_(ISize(0, 0)) {}
 
 GlyphAtlasContext::~GlyphAtlasContext() {}
 
@@ -17,8 +19,23 @@ std::shared_ptr<GlyphAtlas> GlyphAtlasContext::GetGlyphAtlas() const {
   return atlas_;
 }
 
-void GlyphAtlasContext::UpdateGlyphAtlas(std::shared_ptr<GlyphAtlas> atlas) {
+const ISize& GlyphAtlasContext::GetAtlasSize() const {
+  return atlas_size_;
+}
+
+std::shared_ptr<RectanglePacker> GlyphAtlasContext::GetRectPacker() const {
+  return rect_packer_;
+}
+
+void GlyphAtlasContext::UpdateGlyphAtlas(std::shared_ptr<GlyphAtlas> atlas,
+                                         ISize size) {
   atlas_ = std::move(atlas);
+  atlas_size_ = size;
+}
+
+void GlyphAtlasContext::UpdateRectPacker(
+    std::shared_ptr<RectanglePacker> rect_packer) {
+  rect_packer_ = std::move(rect_packer);
 }
 
 GlyphAtlas::GlyphAtlas(Type type) : type_(type) {}
@@ -43,46 +60,60 @@ void GlyphAtlas::SetTexture(std::shared_ptr<Texture> texture) {
 
 void GlyphAtlas::AddTypefaceGlyphPosition(const FontGlyphPair& pair,
                                           Rect rect) {
-  positions_[pair] = rect;
+  font_atlas_map_[pair.scaled_font].positions_[pair.glyph] = rect;
 }
 
-std::optional<Rect> GlyphAtlas::FindFontGlyphPosition(
+std::optional<Rect> GlyphAtlas::FindFontGlyphBounds(
     const FontGlyphPair& pair) const {
-  auto found = positions_.find(pair);
-  if (found == positions_.end()) {
+  const auto& found = font_atlas_map_.find(pair.scaled_font);
+  if (found == font_atlas_map_.end()) {
     return std::nullopt;
   }
-  return found->second;
+  return found->second.FindGlyphBounds(pair.glyph);
+}
+
+const FontGlyphAtlas* GlyphAtlas::GetFontGlyphAtlas(const Font& font,
+                                                    Scalar scale) const {
+  const auto& found = font_atlas_map_.find({font, scale});
+  if (found == font_atlas_map_.end()) {
+    return nullptr;
+  }
+  return &found->second;
 }
 
 size_t GlyphAtlas::GetGlyphCount() const {
-  return positions_.size();
+  return std::accumulate(font_atlas_map_.begin(), font_atlas_map_.end(), 0,
+                         [](const int a, const auto& b) {
+                           return a + b.second.positions_.size();
+                         });
 }
 
 size_t GlyphAtlas::IterateGlyphs(
-    const std::function<bool(const FontGlyphPair& pair, const Rect& rect)>&
-        iterator) const {
+    const std::function<bool(const ScaledFont& scaled_font,
+                             const Glyph& glyph,
+                             const Rect& rect)>& iterator) const {
   if (!iterator) {
     return 0u;
   }
 
   size_t count = 0u;
-  for (const auto& position : positions_) {
-    count++;
-    if (!iterator(position.first, position.second)) {
-      return count;
+  for (const auto& font_value : font_atlas_map_) {
+    for (const auto& glyph_value : font_value.second.positions_) {
+      count++;
+      if (!iterator(font_value.first, glyph_value.first, glyph_value.second)) {
+        return count;
+      }
     }
   }
   return count;
 }
 
-bool GlyphAtlas::HasSamePairs(const FontGlyphPair::Vector& new_glyphs) {
-  for (const auto& pair : new_glyphs) {
-    if (positions_.find(pair) == positions_.end()) {
-      return false;
-    }
+std::optional<Rect> FontGlyphAtlas::FindGlyphBounds(const Glyph& glyph) const {
+  const auto& found = positions_.find(glyph);
+  if (found == positions_.end()) {
+    return std::nullopt;
   }
-  return true;
+  return found->second;
 }
 
 }  // namespace impeller

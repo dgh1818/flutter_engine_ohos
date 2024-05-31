@@ -4,14 +4,18 @@
 
 package io.flutter.embedding.android;
 
+import android.view.InputDevice;
 import android.view.KeyEvent;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import io.flutter.Log;
 import io.flutter.embedding.android.KeyboardMap.PressingGoal;
 import io.flutter.embedding.android.KeyboardMap.TogglingGoal;
 import io.flutter.plugin.common.BinaryMessenger;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Map;
 
 /**
  * A {@link KeyboardManager.Responder} of {@link KeyboardManager} that handles events by sending
@@ -339,12 +343,33 @@ public class KeyEmbedderResponder implements KeyboardManager.Responder {
     }
 
     final KeyData output = new KeyData();
+
+    switch (event.getSource()) {
+      default:
+      case InputDevice.SOURCE_KEYBOARD:
+        output.deviceType = KeyData.DeviceType.kKeyboard;
+        break;
+      case InputDevice.SOURCE_DPAD:
+        output.deviceType = KeyData.DeviceType.kDirectionalPad;
+        break;
+      case InputDevice.SOURCE_GAMEPAD:
+        output.deviceType = KeyData.DeviceType.kGamepad;
+        break;
+      case InputDevice.SOURCE_JOYSTICK:
+        output.deviceType = KeyData.DeviceType.kJoystick;
+        break;
+      case InputDevice.SOURCE_HDMI:
+        output.deviceType = KeyData.DeviceType.kHdmi;
+        break;
+    }
+
     output.timestamp = event.getEventTime();
     output.type = type;
     output.logicalKey = logicalKey;
     output.physicalKey = physicalKey;
     output.character = character;
     output.synthesized = false;
+    output.deviceType = KeyData.DeviceType.kKeyboard;
 
     sendKeyEvent(output, onKeyEventHandledCallback);
     for (final Runnable postSyncEvent : postSynchronizeEvents) {
@@ -361,6 +386,7 @@ public class KeyEmbedderResponder implements KeyboardManager.Responder {
     output.physicalKey = physicalKey;
     output.character = null;
     output.synthesized = true;
+    output.deviceType = KeyData.DeviceType.kKeyboard;
     if (physicalKey != 0 && logicalKey != 0) {
       updatePressingState(physicalKey, isDown ? logicalKey : null);
     }
@@ -373,9 +399,13 @@ public class KeyEmbedderResponder implements KeyboardManager.Responder {
             ? null
             : message -> {
               Boolean handled = false;
-              message.rewind();
-              if (message.capacity() != 0) {
-                handled = message.get() != 0;
+              if (message != null) {
+                message.rewind();
+                if (message.capacity() != 0) {
+                  handled = message.get() != 0;
+                }
+              } else {
+                Log.w(TAG, "A null reply was received when sending a key event to the framework.");
               }
               onKeyEventHandledCallback.onKeyEventHandled(handled);
             };
@@ -404,5 +434,15 @@ public class KeyEmbedderResponder implements KeyboardManager.Responder {
       synthesizeEvent(true, 0L, 0L, 0L);
       onKeyEventHandledCallback.onKeyEventHandled(true);
     }
+  }
+
+  /**
+   * Returns an unmodifiable view of the pressed state.
+   *
+   * @return A map whose keys are physical keyboard key IDs and values are the corresponding logical
+   *     keyboard key IDs.
+   */
+  public Map<Long, Long> getPressedState() {
+    return Collections.unmodifiableMap(pressingRecords);
   }
 }

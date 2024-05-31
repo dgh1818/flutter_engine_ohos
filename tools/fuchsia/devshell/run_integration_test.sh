@@ -34,7 +34,7 @@ then
 fi
 
 # This script currently requires running `fx serve`.
-if [[ -z "$(pgrep -f 'pm serve')" ]]
+if [[ -z "$(pgrep -f 'package-tool')" ]]
 then
   engine-error "This script currently requires running 'fx serve' first."
   exit 1
@@ -55,8 +55,6 @@ case $test_name in
     test_packages=("flutter-embedder-test-0.far" "parent-view.far" "child-view.far")
     ;;
   text-input)
-    # TODO(https://fxbug.dev/107917): Finish implementing and remove this warning.
-    engine-warning "This test currently hangs because the Dart view hasn't been implemented yet. https://fxbug.dev/107917"
     test_packages=("text-input-test-0.far" "text-input-view.far")
     ;;
   touch-input)
@@ -207,7 +205,7 @@ fi
 for test_package_path in "${test_package_paths[@]}"
 do
   engine-info "... Publishing $test_package_path to package repository ($fx_build_dir/amber-files)..."
-  "$jiri_bin"/fx pm publish -a -repo "$fx_build_dir/amber-files/" -f "$test_package_path"
+  "$jiri_bin"/ffx repository publish "$fx_build_dir/amber-files/" --package-archive "$test_package_path"
 done
 
 test_package_name_for_url="$(echo "${test_packages[0]}" | sed "s/\-0.far//")"

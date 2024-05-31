@@ -13,6 +13,7 @@
 #include <utility>
 
 #include "flutter/fml/logging.h"
+#include "impeller/core/formats.h"
 #include "impeller/entity/contents/content_context.h"
 #include "impeller/entity/contents/filters/border_mask_blur_filter_contents.h"
 #include "impeller/entity/contents/filters/gaussian_blur_filter_contents.h"
@@ -25,59 +26,35 @@
 #include "impeller/entity/entity.h"
 #include "impeller/geometry/path_builder.h"
 #include "impeller/renderer/command_buffer.h"
-#include "impeller/renderer/formats.h"
 #include "impeller/renderer/render_pass.h"
 
 namespace impeller {
 
-std::shared_ptr<FilterContents> FilterContents::MakeDirectionalGaussianBlur(
-    FilterInput::Ref input,
-    Sigma sigma,
-    Vector2 direction,
-    BlurStyle blur_style,
-    Entity::TileMode tile_mode,
-    FilterInput::Ref source_override,
-    Sigma secondary_sigma,
-    const Matrix& effect_transform) {
-  auto blur = std::make_shared<DirectionalGaussianBlurFilterContents>();
-  blur->SetInputs({std::move(input)});
-  blur->SetSigma(sigma);
-  blur->SetDirection(direction);
-  blur->SetBlurStyle(blur_style);
-  blur->SetTileMode(tile_mode);
-  blur->SetSourceOverride(std::move(source_override));
-  blur->SetSecondarySigma(secondary_sigma);
-  blur->SetEffectTransform(effect_transform);
-  return blur;
-}
+const int32_t FilterContents::kBlurFilterRequiredMipCount =
+    GaussianBlurFilterContents::kBlurFilterRequiredMipCount;
 
 std::shared_ptr<FilterContents> FilterContents::MakeGaussianBlur(
     const FilterInput::Ref& input,
     Sigma sigma_x,
     Sigma sigma_y,
-    BlurStyle blur_style,
     Entity::TileMode tile_mode,
-    const Matrix& effect_transform) {
-  auto x_blur = MakeDirectionalGaussianBlur(input, sigma_x, Point(1, 0),
-                                            BlurStyle::kNormal, tile_mode,
-                                            nullptr, {}, effect_transform);
-  auto y_blur = MakeDirectionalGaussianBlur(FilterInput::Make(x_blur), sigma_y,
-                                            Point(0, 1), blur_style, tile_mode,
-                                            input, sigma_x, effect_transform);
-  return y_blur;
+    FilterContents::BlurStyle mask_blur_style,
+    const std::shared_ptr<Geometry>& mask_geometry) {
+  auto blur = std::make_shared<GaussianBlurFilterContents>(
+      sigma_x.sigma, sigma_y.sigma, tile_mode, mask_blur_style, mask_geometry);
+  blur->SetInputs({input});
+  return blur;
 }
 
 std::shared_ptr<FilterContents> FilterContents::MakeBorderMaskBlur(
     FilterInput::Ref input,
     Sigma sigma_x,
     Sigma sigma_y,
-    BlurStyle blur_style,
-    const Matrix& effect_transform) {
+    BlurStyle blur_style) {
   auto filter = std::make_shared<BorderMaskBlurFilterContents>();
   filter->SetInputs({std::move(input)});
   filter->SetSigma(sigma_x, sigma_y);
   filter->SetBlurStyle(blur_style);
-  filter->SetEffectTransform(effect_transform);
   return filter;
 }
 
@@ -85,14 +62,12 @@ std::shared_ptr<FilterContents> FilterContents::MakeDirectionalMorphology(
     FilterInput::Ref input,
     Radius radius,
     Vector2 direction,
-    MorphType morph_type,
-    const Matrix& effect_transform) {
+    MorphType morph_type) {
   auto filter = std::make_shared<DirectionalMorphologyFilterContents>();
   filter->SetInputs({std::move(input)});
   filter->SetRadius(radius);
   filter->SetDirection(direction);
   filter->SetMorphType(morph_type);
-  filter->SetEffectTransform(effect_transform);
   return filter;
 }
 
@@ -100,13 +75,11 @@ std::shared_ptr<FilterContents> FilterContents::MakeMorphology(
     FilterInput::Ref input,
     Radius radius_x,
     Radius radius_y,
-    MorphType morph_type,
-    const Matrix& effect_transform) {
-  auto x_morphology = MakeDirectionalMorphology(
-      std::move(input), radius_x, Point(1, 0), morph_type, effect_transform);
-  auto y_morphology =
-      MakeDirectionalMorphology(FilterInput::Make(x_morphology), radius_y,
-                                Point(0, 1), morph_type, effect_transform);
+    MorphType morph_type) {
+  auto x_morphology = MakeDirectionalMorphology(std::move(input), radius_x,
+                                                Point(1, 0), morph_type);
+  auto y_morphology = MakeDirectionalMorphology(
+      FilterInput::Make(x_morphology), radius_y, Point(0, 1), morph_type);
   return y_morphology;
 }
 
@@ -149,12 +122,12 @@ void FilterContents::SetInputs(FilterInput::Vector inputs) {
   inputs_ = std::move(inputs);
 }
 
-void FilterContents::SetCoverageCrop(std::optional<Rect> coverage_crop) {
-  coverage_crop_ = coverage_crop;
-}
+void FilterContents::SetEffectTransform(const Matrix& effect_transform) {
+  effect_transform_ = effect_transform;
 
-void FilterContents::SetEffectTransform(Matrix effect_transform) {
-  effect_transform_ = effect_transform.Basis();
+  for (auto& input : inputs_) {
+    input->SetEffectTransform(effect_transform);
+  }
 }
 
 bool FilterContents::Render(const ContentContext& renderer,
@@ -167,44 +140,38 @@ bool FilterContents::Render(const ContentContext& renderer,
 
   // Run the filter.
 
-  auto maybe_snapshot = RenderToSnapshot(renderer, entity);
-  if (!maybe_snapshot.has_value()) {
-    return false;
+  auto maybe_entity = GetEntity(renderer, entity, GetCoverageHint());
+  if (!maybe_entity.has_value()) {
+    return true;
   }
-  auto& snapshot = maybe_snapshot.value();
-
-  // Draw the result texture, respecting the transform and clip stack.
-
-  auto texture_rect = Rect::MakeSize(snapshot.texture->GetSize());
-  auto contents = TextureContents::MakeRect(texture_rect);
-  contents->SetTexture(snapshot.texture);
-  contents->SetSamplerDescriptor(snapshot.sampler_descriptor);
-  contents->SetSourceRect(texture_rect);
-  contents->SetOpacity(snapshot.opacity);
-
-  Entity e;
-  e.SetBlendMode(entity.GetBlendMode());
-  e.SetStencilDepth(entity.GetStencilDepth());
-  e.SetTransformation(snapshot.transform);
-  return contents->Render(renderer, e, pass);
+  maybe_entity->SetNewClipDepth(entity.GetNewClipDepth());
+  return maybe_entity->Render(renderer, pass);
 }
 
 std::optional<Rect> FilterContents::GetLocalCoverage(
     const Entity& local_entity) const {
   auto coverage = GetFilterCoverage(inputs_, local_entity, effect_transform_);
-  if (coverage_crop_.has_value() && coverage.has_value()) {
-    coverage = coverage->Intersection(coverage_crop_.value());
+  auto coverage_hint = GetCoverageHint();
+  if (coverage_hint.has_value() && coverage.has_value()) {
+    coverage = coverage->Intersection(coverage_hint.value());
   }
 
   return coverage;
 }
 
 std::optional<Rect> FilterContents::GetCoverage(const Entity& entity) const {
-  Entity entity_with_local_transform = entity;
-  entity_with_local_transform.SetTransformation(
-      GetTransform(entity.GetTransformation()));
+  Entity entity_with_local_transform = entity.Clone();
+  entity_with_local_transform.SetTransform(GetTransform(entity.GetTransform()));
 
   return GetLocalCoverage(entity_with_local_transform);
+}
+
+void FilterContents::PopulateGlyphAtlas(
+    const std::shared_ptr<LazyGlyphAtlas>& lazy_glyph_atlas,
+    Scalar scale) {
+  for (auto& input : inputs_) {
+    input->PopulateGlyphAtlas(lazy_glyph_atlas, scale);
+  }
 }
 
 std::optional<Rect> FilterContents::GetFilterCoverage(
@@ -234,12 +201,34 @@ std::optional<Rect> FilterContents::GetFilterCoverage(
   return result;
 }
 
-std::optional<Snapshot> FilterContents::RenderToSnapshot(
+std::optional<Rect> FilterContents::GetSourceCoverage(
+    const Matrix& effect_transform,
+    const Rect& output_limit) const {
+  auto filter_input_coverage =
+      GetFilterSourceCoverage(effect_transform_, output_limit);
+
+  if (!filter_input_coverage.has_value()) {
+    return std::nullopt;
+  }
+
+  std::optional<Rect> inputs_coverage;
+  for (const auto& input : inputs_) {
+    auto input_coverage = input->GetSourceCoverage(
+        effect_transform, filter_input_coverage.value());
+    if (!input_coverage.has_value()) {
+      return std::nullopt;
+    }
+    inputs_coverage = Rect::Union(inputs_coverage, input_coverage.value());
+  }
+  return inputs_coverage;
+}
+
+std::optional<Entity> FilterContents::GetEntity(
     const ContentContext& renderer,
-    const Entity& entity) const {
-  Entity entity_with_local_transform = entity;
-  entity_with_local_transform.SetTransformation(
-      GetTransform(entity.GetTransformation()));
+    const Entity& entity,
+    const std::optional<Rect>& coverage_hint) const {
+  Entity entity_with_local_transform = entity.Clone();
+  entity_with_local_transform.SetTransform(GetTransform(entity.GetTransform()));
 
   auto coverage = GetLocalCoverage(entity_with_local_transform);
   if (!coverage.has_value() || coverage->IsEmpty()) {
@@ -247,7 +236,37 @@ std::optional<Snapshot> FilterContents::RenderToSnapshot(
   }
 
   return RenderFilter(inputs_, renderer, entity_with_local_transform,
-                      effect_transform_, coverage.value());
+                      effect_transform_, coverage.value(), coverage_hint);
+}
+
+std::optional<Snapshot> FilterContents::RenderToSnapshot(
+    const ContentContext& renderer,
+    const Entity& entity,
+    std::optional<Rect> coverage_limit,
+    const std::optional<SamplerDescriptor>& sampler_descriptor,
+    bool msaa_enabled,
+    int32_t mip_count,
+    const std::string& label) const {
+  // Resolve the render instruction (entity) from the filter and render it to a
+  // snapshot.
+  if (std::optional<Entity> result =
+          GetEntity(renderer, entity, coverage_limit);
+      result.has_value()) {
+    return result->GetContents()->RenderToSnapshot(
+        renderer,        // renderer
+        result.value(),  // entity
+        coverage_limit,  // coverage_limit
+        std::nullopt,    // sampler_descriptor
+        true,            // msaa_enabled
+        /*mip_count=*/mip_count,
+        label);  // label
+  }
+
+  return std::nullopt;
+}
+
+const FilterContents* FilterContents::AsFilter() const {
+  return this;
 }
 
 Matrix FilterContents::GetLocalTransform(const Matrix& parent_transform) const {
@@ -256,6 +275,39 @@ Matrix FilterContents::GetLocalTransform(const Matrix& parent_transform) const {
 
 Matrix FilterContents::GetTransform(const Matrix& parent_transform) const {
   return parent_transform * GetLocalTransform(parent_transform);
+}
+bool FilterContents::IsTranslationOnly() const {
+  for (auto& input : inputs_) {
+    if (!input->IsTranslationOnly()) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool FilterContents::IsLeaf() const {
+  for (auto& input : inputs_) {
+    if (!input->IsLeaf()) {
+      return false;
+    }
+  }
+  return true;
+}
+
+void FilterContents::SetLeafInputs(const FilterInput::Vector& inputs) {
+  if (IsLeaf()) {
+    inputs_ = inputs;
+    return;
+  }
+  for (auto& input : inputs_) {
+    input->SetLeafInputs(inputs);
+  }
+}
+
+void FilterContents::SetRenderingMode(Entity::RenderingMode rendering_mode) {
+  for (auto& input : inputs_) {
+    input->SetRenderingMode(rendering_mode);
+  }
 }
 
 }  // namespace impeller

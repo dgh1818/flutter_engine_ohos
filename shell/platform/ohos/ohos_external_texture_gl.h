@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#ifndef OHOS_EXTERNAL_TEXTURE_GL_H
-#define OHOS_EXTERNAL_TEXTURE_GL_H
+#ifndef FLUTTER_SHELL_PLATFORM_OHOS_OHOS_EXTERNAL_TEXTURE_GL_H_
+#define FLUTTER_SHELL_PLATFORM_OHOS_OHOS_EXTERNAL_TEXTURE_GL_H_
 
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
@@ -23,8 +23,8 @@
 #include <multimedia/image_framework/image_mdk.h>
 #include <multimedia/image_framework/image_pixel_map_mdk.h>
 #include <native_buffer/native_buffer.h>
-#include <native_window/external_window.h>
 #include <native_image/native_image.h>
+#include <native_window/external_window.h>
 
 #include "flutter/common/graphics/texture.h"
 #include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
@@ -36,16 +36,18 @@ namespace flutter {
 
 class OHOSExternalTextureGL : public flutter::Texture {
  public:
-  explicit OHOSExternalTextureGL(int64_t id, const std::shared_ptr<OHOSSurface>& ohos_surface);
+  explicit OHOSExternalTextureGL(
+      int64_t id,
+      const std::shared_ptr<OHOSSurface>& ohos_surface);
 
   ~OHOSExternalTextureGL() override;
 
-  OH_NativeImage *nativeImage_;
+  OH_NativeImage* nativeImage_;
 
   void Paint(PaintContext& context,
              const SkRect& bounds,
              bool freeze,
-             const SkSamplingOptions& sampling) override;
+             DlImageSampling sampling) override;
 
   void OnGrContextCreated() override;
 
@@ -68,9 +70,11 @@ class OHOSExternalTextureGL : public flutter::Texture {
 
   void UpdateTransform();
 
-  EGLDisplay GetPlatformEglDisplay(EGLenum platform, void *native_display, const EGLint *attrib_list);
+  EGLDisplay GetPlatformEglDisplay(EGLenum platform,
+                                   void* native_display,
+                                   const EGLint* attrib_list);
 
-  bool CheckEglExtension(const char *extensions, const char *extension);
+  bool CheckEglExtension(const char* extensions, const char* extension);
 
   void HandlePixelMapBuffer();
 
@@ -86,11 +90,11 @@ class OHOSExternalTextureGL : public flutter::Texture {
 
   std::shared_ptr<OHOSSurface> ohos_surface_;
 
-  SkMatrix transform;
+  SkMatrix transform_;
 
-  OHNativeWindow *nativeWindow_;
+  OHNativeWindow* nativeWindow_;
 
-  OHNativeWindowBuffer *buffer_;
+  OHNativeWindowBuffer* buffer_;
 
   NativePixelMap* pixelMap_;
 
@@ -106,4 +110,4 @@ class OHOSExternalTextureGL : public flutter::Texture {
   FML_DISALLOW_COPY_AND_ASSIGN(OHOSExternalTextureGL);
 };
 }  // namespace flutter
-#endif
+#endif  // FLUTTER_SHELL_PLATFORM_OHOS_OHOS_EXTERNAL_TEXTURE_GL_H_

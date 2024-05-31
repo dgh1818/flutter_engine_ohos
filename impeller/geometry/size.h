@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_IMPELLER_GEOMETRY_SIZE_H_
+#define FLUTTER_IMPELLER_GEOMETRY_SIZE_H_
 
 #include <algorithm>
 #include <cmath>
@@ -68,6 +69,8 @@ struct TSize {
     return {width - s.width, height - s.height};
   }
 
+  constexpr TSize operator-() const { return {-width, -height}; }
+
   constexpr TSize Min(const TSize& o) const {
     return {
         std::min(width, o.width),
@@ -82,15 +85,26 @@ struct TSize {
     };
   }
 
+  constexpr Type MaxDimension() const { return std::max(width, height); }
+
+  constexpr TSize Abs() const { return {std::fabs(width), std::fabs(height)}; }
+
+  constexpr TSize Floor() const {
+    return {std::floor(width), std::floor(height)};
+  }
+
+  constexpr TSize Ceil() const { return {std::ceil(width), std::ceil(height)}; }
+
+  constexpr TSize Round() const {
+    return {std::round(width), std::round(height)};
+  }
+
   constexpr Type Area() const { return width * height; }
 
-  constexpr bool IsPositive() const { return width > 0 && height > 0; }
+  /// Returns true if either of the width or height are 0, negative, or NaN.
+  constexpr bool IsEmpty() const { return !(width > 0 && height > 0); }
 
-  constexpr bool IsNegative() const { return width < 0 || height < 0; }
-
-  constexpr bool IsZero() const { return width == 0 || height == 0; }
-
-  constexpr bool IsEmpty() const { return IsNegative() || IsZero(); }
+  constexpr bool IsSquare() const { return width == height; }
 
   template <class U>
   static constexpr TSize Ceil(const TSize<U>& other) {
@@ -100,13 +114,25 @@ struct TSize {
 
   constexpr size_t MipCount() const {
     constexpr size_t minimum_mip = 1u;
-    if (!IsPositive()) {
+    if (IsEmpty()) {
       return minimum_mip;
     }
     size_t result = std::max(ceil(log2(width)), ceil(log2(height)));
     return std::max(result, minimum_mip);
   }
 };
+
+// RHS algebraic operations with arithmetic types.
+
+template <class T, class U, class = std::enable_if_t<std::is_arithmetic_v<U>>>
+constexpr TSize<T> operator*(U s, const TSize<T>& p) {
+  return p * s;
+}
+
+template <class T, class U, class = std::enable_if_t<std::is_arithmetic_v<U>>>
+constexpr TSize<T> operator/(U s, const TSize<T>& p) {
+  return {static_cast<T>(s) / p.width, static_cast<T>(s) / p.height};
+}
 
 using Size = TSize<Scalar>;
 using ISize = TSize<int64_t>;
@@ -125,3 +151,5 @@ inline std::ostream& operator<<(std::ostream& out,
 }
 
 }  // namespace std
+
+#endif  // FLUTTER_IMPELLER_GEOMETRY_SIZE_H_

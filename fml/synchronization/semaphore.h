@@ -67,7 +67,7 @@ class Semaphore {
   ///             Which makes doing the validity check before this call doubly
   ///             important.
   ///
-  /// @return     If the count could be decrement.
+  /// @return     If the count could be decremented.
   ///
   [[nodiscard]] bool TryWait();
 
@@ -78,7 +78,7 @@ class Semaphore {
   void Signal();
 
  private:
-  std::unique_ptr<PlatformSemaphore> _impl;
+  std::unique_ptr<PlatformSemaphore> impl_;
 
   FML_DISALLOW_COPY_AND_ASSIGN(Semaphore);
 };

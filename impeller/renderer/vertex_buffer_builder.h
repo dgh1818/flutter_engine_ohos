@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_IMPELLER_RENDERER_VERTEX_BUFFER_BUILDER_H_
+#define FLUTTER_IMPELLER_RENDERER_VERTEX_BUFFER_BUILDER_H_
 
 #include <initializer_list>
 #include <map>
@@ -10,12 +11,12 @@
 
 #include "flutter/fml/macros.h"
 #include "impeller/base/strings.h"
+#include "impeller/core/allocator.h"
+#include "impeller/core/device_buffer.h"
+#include "impeller/core/formats.h"
+#include "impeller/core/host_buffer.h"
+#include "impeller/core/vertex_buffer.h"
 #include "impeller/geometry/vector.h"
-#include "impeller/renderer/allocator.h"
-#include "impeller/renderer/device_buffer.h"
-#include "impeller/renderer/formats.h"
-#include "impeller/renderer/host_buffer.h"
-#include "impeller/renderer/vertex_buffer.h"
 
 namespace impeller {
 
@@ -30,16 +31,19 @@ class VertexBufferBuilder {
   ~VertexBufferBuilder() = default;
 
   constexpr impeller::IndexType GetIndexType() const {
+    if (indices_.size() == 0) {
+      return impeller::IndexType::kNone;
+    }
     if constexpr (sizeof(IndexType) == 2) {
       return impeller::IndexType::k16bit;
-    } else if (sizeof(IndexType) == 4) {
-      return impeller::IndexType::k32bit;
-    } else {
-      return impeller::IndexType::kUnknown;
     }
+    if (sizeof(IndexType) == 4) {
+      return impeller::IndexType::k32bit;
+    }
+    return impeller::IndexType::kUnknown;
   }
 
-  void SetLabel(std::string label) { label_ = std::move(label); }
+  void SetLabel(const std::string& label) { label_ = label; }
 
   void Reserve(size_t count) { return vertices_.reserve(count); }
 
@@ -51,6 +55,11 @@ class VertexBufferBuilder {
 
   size_t GetIndexCount() const {
     return indices_.size() > 0 ? indices_.size() : vertices_.size();
+  }
+
+  const VertexType& Last() const {
+    FML_DCHECK(!vertices_.empty());
+    return vertices_.back();
   }
 
   VertexBufferBuilder& AppendVertex(VertexType_ vertex) {
@@ -76,7 +85,7 @@ class VertexBufferBuilder {
     VertexBuffer buffer;
     buffer.vertex_buffer = CreateVertexBufferView(host_buffer);
     buffer.index_buffer = CreateIndexBufferView(host_buffer);
-    buffer.index_count = GetIndexCount();
+    buffer.vertex_count = GetIndexCount();
     buffer.index_type = GetIndexType();
     return buffer;
   };
@@ -86,10 +95,16 @@ class VertexBufferBuilder {
     // This can be merged into a single allocation.
     buffer.vertex_buffer = CreateVertexBufferView(device_allocator);
     buffer.index_buffer = CreateIndexBufferView(device_allocator);
-    buffer.index_count = GetIndexCount();
+    buffer.vertex_count = GetIndexCount();
     buffer.index_type = GetIndexType();
     return buffer;
   };
+
+  void IterateVertices(const std::function<void(VertexType&)>& iterator) {
+    for (auto& vertex : vertices_) {
+      iterator(vertex);
+    }
+  }
 
  private:
   std::vector<VertexType> vertices_;
@@ -112,25 +127,16 @@ class VertexBufferBuilder {
     if (!label_.empty()) {
       buffer->SetLabel(SPrintF("%s Vertices", label_.c_str()));
     }
-    return buffer->AsBufferView();
+    return DeviceBuffer::AsBufferView(buffer);
   }
 
-  std::vector<IndexType> CreateIndexBuffer() const {
-    if (indices_.size() > 0) {
-      return indices_;
-    }
-
-    // So dumb! We don't actually need an index buffer right now. But we will
-    // once de-duplication is done. So assume this is always done.
-    std::vector<IndexType> index_buffer;
-    for (size_t i = 0; i < vertices_.size(); i++) {
-      index_buffer.push_back(i);
-    }
-    return index_buffer;
-  }
+  std::vector<IndexType> CreateIndexBuffer() const { return indices_; }
 
   BufferView CreateIndexBufferView(HostBuffer& buffer) const {
     const auto index_buffer = CreateIndexBuffer();
+    if (index_buffer.size() == 0) {
+      return {};
+    }
     return buffer.Emplace(index_buffer.data(),
                           index_buffer.size() * sizeof(IndexType),
                           alignof(IndexType));
@@ -138,6 +144,9 @@ class VertexBufferBuilder {
 
   BufferView CreateIndexBufferView(Allocator& allocator) const {
     const auto index_buffer = CreateIndexBuffer();
+    if (index_buffer.size() == 0) {
+      return {};
+    }
     auto buffer = allocator.CreateBufferWithCopy(
         reinterpret_cast<const uint8_t*>(index_buffer.data()),
         index_buffer.size() * sizeof(IndexType));
@@ -147,8 +156,10 @@ class VertexBufferBuilder {
     if (!label_.empty()) {
       buffer->SetLabel(SPrintF("%s Indices", label_.c_str()));
     }
-    return buffer->AsBufferView();
+    return DeviceBuffer::AsBufferView(buffer);
   }
 };
 
 }  // namespace impeller
+
+#endif  // FLUTTER_IMPELLER_RENDERER_VERTEX_BUFFER_BUILDER_H_

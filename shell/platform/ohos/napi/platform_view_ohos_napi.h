@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#ifndef PLATFORM_VIEW_OHOS_NAPI_H
-#define PLATFORM_VIEW_OHOS_NAPI_H
+#ifndef FLUTTER_SHELL_PLATFORM_OHOS_NAPI_PLATFORM_VIEW_OHOS_NAPI_H_
+#define FLUTTER_SHELL_PLATFORM_OHOS_NAPI_PLATFORM_VIEW_OHOS_NAPI_H_
 #include <memory>
 #include "flutter/assets/directory_asset_bundle.h"
 #include "flutter/common/settings.h"
@@ -75,6 +75,11 @@ class PlatformViewOHOSNapi {
   static napi_value nativeUpdateRefreshRate(
       napi_env env,
       napi_callback_info info);  // 设置刷新率
+  static napi_value nativeUpdateSize(napi_env env,
+                                     napi_callback_info info);  // 设置屏幕尺寸
+  static napi_value nativeUpdateDensity(
+      napi_env env,
+      napi_callback_info info);  // 设置屏幕像素密度（也就是缩放系数）
   static napi_value nativeRunBundleAndSnapshotFromLibrary(
       napi_env env,
       napi_callback_info info);  // 加载dart工程构建产物
@@ -143,35 +148,29 @@ class PlatformViewOHOSNapi {
       napi_env env,
       napi_callback_info info);  // 应用下发系统语言设置
 
-  static napi_value nativeInitNativeImage(
-      napi_env env,
-      napi_callback_info info);
+  static napi_value nativeInitNativeImage(napi_env env,
+                                          napi_callback_info info);
 
-  static napi_value nativeUnregisterTexture(
-      napi_env env,
-      napi_callback_info info);
+  static napi_value nativeUnregisterTexture(napi_env env,
+                                            napi_callback_info info);
 
-  static napi_value nativeMarkTextureFrameAvailable(
-      napi_env env,
-      napi_callback_info info);
+  static napi_value nativeMarkTextureFrameAvailable(napi_env env,
+                                                    napi_callback_info info);
 
-  static napi_value nativeRegisterPixelMap(
-      napi_env env,
-      napi_callback_info info);
+  static napi_value nativeRegisterPixelMap(napi_env env,
+                                           napi_callback_info info);
 
-  static napi_value nativeRegisterTexture(
-      napi_env env,
-      napi_callback_info info);
+  static napi_value nativeRegisterTexture(napi_env env,
+                                          napi_callback_info info);
 
   // Surface相关，XComponent调用
   static void SurfaceCreated(int64_t shell_holder, void* window);
 
   static void SurfaceWindowChanged(int64_t shell_holder, void* window);
 
-  static void SurfaceChanged(
-      int64_t shell_holder,
-      int32_t width,
-      int32_t height);
+  static void SurfaceChanged(int64_t shell_holder,
+                             int32_t width,
+                             int32_t height);
 
   static void SurfaceDestroyed(int64_t shell_holder);
   static int64_t GetShellHolder();
@@ -182,6 +181,11 @@ class PlatformViewOHOSNapi {
       napi_env env,
       napi_callback_info info);
 
+  static int64_t display_width;
+  static int64_t display_height;
+  static int64_t display_refresh_rate;
+  static double display_density_pixels;
+
  private:
   static napi_env env_;
   napi_ref ref_napi_obj_;
@@ -190,4 +194,4 @@ class PlatformViewOHOSNapi {
 };
 
 }  // namespace flutter
-#endif
+#endif  // FLUTTER_SHELL_PLATFORM_OHOS_NAPI_PLATFORM_VIEW_OHOS_NAPI_H_

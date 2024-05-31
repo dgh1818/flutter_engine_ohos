@@ -141,6 +141,7 @@ enum PointerSignalKind {
 class PointerData {
   /// Creates an object that represents the state of a pointer.
   const PointerData({
+    this.viewId = 0,
     this.embedderId = 0,
     this.timeStamp = Duration.zero,
     this.change = PointerChange.cancel,
@@ -178,11 +179,16 @@ class PointerData {
     this.rotation = 0.0,
   });
 
-  /// Unique identifier that ties the [PointerEvent] to embedder event created it.
+  /// The ID of the [FlutterView] this [PointerEvent] originated from.
+  final int viewId;
+
+  /// Unique identifier that ties the [PointerEvent] to the embedder
+  /// event that created it.
+  /// it.
   ///
-  /// No two pointer events can have the same [embedderId]. This is different from
-  /// [pointerIdentifier] - used for hit-testing, whereas [embedderId] is used to
-  /// identify the platform event.
+  /// No two pointer events can have the same [embedderId]. This is different
+  /// from [pointerIdentifier] - used for hit-testing, whereas [embedderId] is
+  /// used to identify the platform event.
   final int embedderId;
 
   /// Time of event dispatch, relative to an arbitrary timeline.
@@ -375,7 +381,7 @@ class PointerData {
   final double rotation;
 
   @override
-  String toString() => 'PointerData(x: $physicalX, y: $physicalY)';
+  String toString() => 'PointerData(viewId: $viewId, x: $physicalX, y: $physicalY)';
 
   /// Returns a complete textual description of the information in this object.
   String toStringFull() {
@@ -413,7 +419,8 @@ class PointerData {
              'panDeltaX: $panDeltaX, '
              'panDeltaY: $panDeltaY, '
              'scale: $scale, '
-             'rotation: $rotation'
+             'rotation: $rotation, '
+             'viewId: $viewId'
            ')';
   }
 }
@@ -421,7 +428,7 @@ class PointerData {
 /// A sequence of reports about the state of pointers.
 class PointerDataPacket {
   /// Creates a packet of pointer data reports.
-  const PointerDataPacket({ this.data = const <PointerData>[] }) : assert(data != null);
+  const PointerDataPacket({ this.data = const <PointerData>[] });
 
   /// Data about the individual pointers in this packet.
   ///

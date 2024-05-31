@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef FLUTTER_SHELL_PLATFORM_FUCHSIA_FLUTTER_TESTS_FAKES_SCENIC_FAKE_FLATLAND_GRAPH_H_
-#define FLUTTER_SHELL_PLATFORM_FUCHSIA_FLUTTER_TESTS_FAKES_SCENIC_FAKE_FLATLAND_GRAPH_H_
+#ifndef FLUTTER_SHELL_PLATFORM_FUCHSIA_FLUTTER_TESTS_FAKES_SCENIC_FAKE_FLATLAND_TYPES_H_
+#define FLUTTER_SHELL_PLATFORM_FUCHSIA_FLUTTER_TESTS_FAKES_SCENIC_FAKE_FLATLAND_TYPES_H_
 
 #include <fuchsia/math/cpp/fidl.h>
 #include <fuchsia/ui/composition/cpp/fidl.h>
@@ -16,6 +16,7 @@
 #include <zircon/types.h>
 
 #include <algorithm>
+#include <cfloat>
 #include <cstdint>
 #include <optional>
 #include <unordered_map>
@@ -23,6 +24,9 @@
 #include <vector>
 
 #include "flutter/fml/macros.h"
+
+namespace fuchsia {
+namespace math {
 
 inline bool operator==(const fuchsia::math::SizeU& a,
                        const fuchsia::math::SizeU& b) {
@@ -54,6 +58,20 @@ inline bool operator==(const fuchsia::math::RectF& a,
                        const fuchsia::math::RectF& b) {
   return a.x == b.x && a.y == b.y && a.width == b.width && a.height == b.height;
 }
+
+inline bool operator==(const std::optional<fuchsia::math::Rect>& a,
+                       const std::optional<fuchsia::math::Rect>& b) {
+  if (a.has_value() != b.has_value()) {
+    return false;
+  }
+  if (!a.has_value()) {
+  }
+  return a.value() == b.value();
+}
+
+}  // namespace math
+
+namespace ui::composition {
 
 inline bool operator==(const fuchsia::ui::composition::ContentId& a,
                        const fuchsia::ui::composition::ContentId& b) {
@@ -124,20 +142,15 @@ inline bool operator==(
   return true;
 }
 
-inline bool operator==(const std::optional<fuchsia::math::Rect>& a,
-                       const std::optional<fuchsia::math::Rect>& b) {
-  if (a.has_value() != b.has_value()) {
-    return false;
-  }
-  if (!a.has_value()) {
-  }
-  return a.value() == b.value();
-}
+}  // namespace ui::composition
+}  // namespace fuchsia
 
 namespace flutter_runner::testing {
 
 constexpr static fuchsia::ui::composition::TransformId kInvalidTransformId{0};
 constexpr static fuchsia::ui::composition::ContentId kInvalidContentId{0};
+constexpr static fuchsia::ui::composition::HitRegion kInfiniteHitRegion = {
+    .region = {-FLT_MAX, -FLT_MAX, FLT_MAX, FLT_MAX}};
 
 // Convenience structure which allows clients to easily create a valid
 // `ViewCreationToken` / `ViewportCreationToken` pair for use with Flatland
@@ -317,4 +330,4 @@ inline std::pair<zx_koid_t, zx_koid_t> GetKoids(
 
 };  // namespace flutter_runner::testing
 
-#endif  // FLUTTER_SHELL_PLATFORM_FUCHSIA_FLUTTER_TESTS_FAKES_SCENIC_FAKE_FLATLAND_GRAPH_H_
+#endif  // FLUTTER_SHELL_PLATFORM_FUCHSIA_FLUTTER_TESTS_FAKES_SCENIC_FAKE_FLATLAND_TYPES_H_

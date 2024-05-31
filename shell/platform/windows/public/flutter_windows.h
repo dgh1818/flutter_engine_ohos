@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef FLUTTER_SHELL_PLATFORM_WINDOWS_PUBLIC_FLUTTER_H_
-#define FLUTTER_SHELL_PLATFORM_WINDOWS_PUBLIC_FLUTTER_H_
+#ifndef FLUTTER_SHELL_PLATFORM_WINDOWS_PUBLIC_FLUTTER_WINDOWS_H_
+#define FLUTTER_SHELL_PLATFORM_WINDOWS_PUBLIC_FLUTTER_WINDOWS_H_
 
 #include <dxgi.h>
 #include <stddef.h>
@@ -20,9 +20,9 @@ extern "C" {
 
 typedef void (*VoidCallback)(void* /* user data */);
 
-// Opaque reference to a Flutter window controller.
-typedef struct FlutterDesktopViewControllerState*
-    FlutterDesktopViewControllerRef;
+// Opaque reference to a Flutter view controller.
+struct FlutterDesktopViewController;
+typedef struct FlutterDesktopViewController* FlutterDesktopViewControllerRef;
 
 // Opaque reference to a Flutter window.
 struct FlutterDesktopView;
@@ -31,6 +31,9 @@ typedef struct FlutterDesktopView* FlutterDesktopViewRef;
 // Opaque reference to a Flutter engine instance.
 struct FlutterDesktopEngine;
 typedef struct FlutterDesktopEngine* FlutterDesktopEngineRef;
+
+// The unique identifier for a view.
+typedef int64_t FlutterDesktopViewId;
 
 // Properties for configuring a Flutter engine instance.
 typedef struct {
@@ -97,17 +100,21 @@ FlutterDesktopViewControllerCreate(int width,
 FLUTTER_EXPORT void FlutterDesktopViewControllerDestroy(
     FlutterDesktopViewControllerRef controller);
 
+// Returns the view controller's view ID.
+FLUTTER_EXPORT FlutterDesktopViewId FlutterDesktopViewControllerGetViewId(
+    FlutterDesktopViewControllerRef view_controller);
+
 // Returns the handle for the engine running in FlutterDesktopViewControllerRef.
 //
 // Its lifetime is the same as the |controller|'s.
 FLUTTER_EXPORT FlutterDesktopEngineRef FlutterDesktopViewControllerGetEngine(
     FlutterDesktopViewControllerRef controller);
+
 // Returns the view managed by the given controller.
+FLUTTER_EXPORT FlutterDesktopViewRef FlutterDesktopViewControllerGetView(
+    FlutterDesktopViewControllerRef controller);
 
-FLUTTER_EXPORT FlutterDesktopViewRef
-FlutterDesktopViewControllerGetView(FlutterDesktopViewControllerRef controller);
-
-// Requests new frame from engine and repaints the view
+// Requests new frame from the engine and repaints the view.
 FLUTTER_EXPORT void FlutterDesktopViewControllerForceRedraw(
     FlutterDesktopViewControllerRef controller);
 
@@ -167,8 +174,8 @@ FLUTTER_EXPORT bool FlutterDesktopEngineRun(FlutterDesktopEngineRef engine,
 // This should be called on every run of the application-level runloop, and
 // a wait for native events in the runloop should never be longer than the
 // last return value from this function.
-FLUTTER_EXPORT uint64_t
-FlutterDesktopEngineProcessMessages(FlutterDesktopEngineRef engine);
+FLUTTER_EXPORT uint64_t FlutterDesktopEngineProcessMessages(
+    FlutterDesktopEngineRef engine);
 
 FLUTTER_EXPORT void FlutterDesktopEngineReloadSystemFonts(
     FlutterDesktopEngineRef engine);
@@ -187,8 +194,8 @@ FlutterDesktopEngineGetPluginRegistrar(FlutterDesktopEngineRef engine,
 //
 // Callers should use |FlutterDesktopMessengerAddRef| if the returned pointer
 // will potentially outlive 'engine', such as when passing it to another thread.
-FLUTTER_EXPORT FlutterDesktopMessengerRef
-FlutterDesktopEngineGetMessenger(FlutterDesktopEngineRef engine);
+FLUTTER_EXPORT FlutterDesktopMessengerRef FlutterDesktopEngineGetMessenger(
+    FlutterDesktopEngineRef engine);
 
 // Returns the texture registrar associated with the engine.
 FLUTTER_EXPORT FlutterDesktopTextureRegistrarRef
@@ -205,12 +212,24 @@ FLUTTER_EXPORT void FlutterDesktopEngineSetNextFrameCallback(
 
 // ========== View ==========
 
-// Return backing HWND for manipulation in host application.
+// Returns the backing HWND for manipulation in host application.
 FLUTTER_EXPORT HWND FlutterDesktopViewGetHWND(FlutterDesktopViewRef view);
 
 // Returns the DXGI adapter used for rendering or nullptr in case of error.
 FLUTTER_EXPORT IDXGIAdapter* FlutterDesktopViewGetGraphicsAdapter(
     FlutterDesktopViewRef view);
+
+// Called to pass an external window message to the engine for lifecycle
+// state updates. Non-Flutter windows must call this method in their WndProc
+// in order to be included in the logic for application lifecycle state
+// updates. Returns a result if the message should be consumed.
+FLUTTER_EXPORT bool FlutterDesktopEngineProcessExternalWindowMessage(
+    FlutterDesktopEngineRef engine,
+    HWND hwnd,
+    UINT message,
+    WPARAM wparam,
+    LPARAM lparam,
+    LRESULT* result);
 
 // ========== Plugin Registrar (extensions) ==========
 // These are Windows-specific extensions to flutter_plugin_registrar.h
@@ -230,9 +249,21 @@ typedef bool (*FlutterDesktopWindowProcCallback)(HWND /* hwnd */,
                                                  void* /* user data */,
                                                  LRESULT* result);
 
-// Returns the view associated with this registrar's engine instance.
+// Returns the implicit view associated with this registrar's engine instance,
+// or null if there is no implicit view.
+//
+// See:
+// https://api.flutter.dev/flutter/dart-ui/PlatformDispatcher/implicitView.html
+//
+// DEPRECATED: Use |FlutterDesktopPluginRegistrarGetViewById| instead.
 FLUTTER_EXPORT FlutterDesktopViewRef FlutterDesktopPluginRegistrarGetView(
     FlutterDesktopPluginRegistrarRef registrar);
+
+// Returns the view associated with the registrar's engine instance, or null if
+// the view does not exist.
+FLUTTER_EXPORT FlutterDesktopViewRef FlutterDesktopPluginRegistrarGetViewById(
+    FlutterDesktopPluginRegistrarRef registrar,
+    FlutterDesktopViewId view_id);
 
 FLUTTER_EXPORT void
 FlutterDesktopPluginRegistrarRegisterTopLevelWindowProcDelegate(

@@ -57,7 +57,7 @@ typedef _Nullable _NSResponderPtr (^NextResponderProvider)();
 /**
  * The text input plugin set by initialization.
  */
-@property(nonatomic) id<FlutterKeyboardViewDelegate> viewDelegate;
+@property(nonatomic, weak) id<FlutterKeyboardViewDelegate> viewDelegate;
 
 /**
  * The primary responders added by addPrimaryResponder.
@@ -119,15 +119,28 @@ typedef _Nullable _NSResponderPtr (^NextResponderProvider)();
     _processingEvent = FALSE;
     _viewDelegate = viewDelegate;
 
+    FlutterMethodChannel* keyboardChannel =
+        [FlutterMethodChannel methodChannelWithName:@"flutter/keyboard"
+                                    binaryMessenger:[_viewDelegate getBinaryMessenger]
+                                              codec:[FlutterStandardMethodCodec sharedInstance]];
+
+    [keyboardChannel setMethodCallHandler:^(FlutterMethodCall* call, FlutterResult result) {
+      [self handleKeyboardMethodCall:call result:result];
+    }];
+
     _primaryResponders = [[NSMutableArray alloc] init];
+
+    __weak __typeof__(self) weakSelf = self;
     [self addPrimaryResponder:[[FlutterEmbedderKeyResponder alloc]
                                   initWithSendEvent:^(const FlutterKeyEvent& event,
                                                       FlutterKeyEventCallback callback,
                                                       void* userData) {
-                                    [_viewDelegate sendKeyEvent:event
-                                                       callback:callback
-                                                       userData:userData];
+                                    __strong __typeof__(weakSelf) strongSelf = weakSelf;
+                                    [strongSelf.viewDelegate sendKeyEvent:event
+                                                                 callback:callback
+                                                                 userData:userData];
                                   }]];
+
     [self
         addPrimaryResponder:[[FlutterChannelKeyResponder alloc]
                                 initWithChannel:[FlutterBasicMessageChannel
@@ -136,6 +149,7 @@ typedef _Nullable _NSResponderPtr (^NextResponderProvider)();
                                                                                getBinaryMessenger]
                                                                      codec:[FlutterJSONMessageCodec
                                                                                sharedInstance]]]];
+
     _pendingEvents = [[NSMutableArray alloc] init];
     _layoutMap = [NSMutableDictionary<NSNumber*, NSNumber*> dictionary];
     [self buildLayout];
@@ -143,12 +157,19 @@ typedef _Nullable _NSResponderPtr (^NextResponderProvider)();
       responder.layoutMap = _layoutMap;
     }
 
-    __weak __typeof__(self) weakSelf = self;
     [_viewDelegate subscribeToKeyboardLayoutChange:^() {
       [weakSelf buildLayout];
     }];
   }
   return self;
+}
+
+- (void)handleKeyboardMethodCall:(FlutterMethodCall*)call result:(FlutterResult)result {
+  if ([[call method] isEqualToString:@"getKeyboardState"]) {
+    result([self getPressedState]);
+  } else {
+    result(FlutterMethodNotImplemented);
+  }
 }
 
 - (void)addPrimaryResponder:(nonnull id<FlutterKeyPrimaryResponder>)responder {
@@ -260,7 +281,7 @@ typedef _Nullable _NSResponderPtr (^NextResponderProvider)();
 
   std::map<uint32_t, LayoutGoal> mandatoryGoalsByChar;
   std::map<uint32_t, LayoutGoal> usLayoutGoalsByKeyCode;
-  for (const LayoutGoal& goal : flutter::layoutGoals) {
+  for (const LayoutGoal& goal : flutter::kLayoutGoals) {
     if (goal.mandatory) {
       mandatoryGoalsByChar[goal.keyChar] = goal;
     } else {
@@ -318,6 +339,26 @@ typedef _Nullable _NSResponderPtr (^NextResponderProvider)();
     const LayoutGoal& goal = mandatoryGoalIter.second;
     _layoutMap[@(goal.keyCode)] = @(goal.keyChar);
   }
+}
+
+- (void)syncModifiersIfNeeded:(NSEventModifierFlags)modifierFlags
+                    timestamp:(NSTimeInterval)timestamp {
+  for (id<FlutterKeyPrimaryResponder> responder in _primaryResponders) {
+    [responder syncModifiersIfNeeded:modifierFlags timestamp:timestamp];
+  }
+}
+
+/**
+ * Returns the keyboard pressed state.
+ *
+ * Returns the keyboard pressed state. The dictionary contains one entry per
+ * pressed keys, mapping from the logical key to the physical key.
+ */
+- (nonnull NSDictionary*)getPressedState {
+  // The embedder responder is the first element in _primaryResponders.
+  FlutterEmbedderKeyResponder* embedderResponder =
+      (FlutterEmbedderKeyResponder*)_primaryResponders[0];
+  return [embedderResponder getPressedState];
 }
 
 @end

@@ -2,13 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_IMPELLER_RENDERER_BACKEND_METAL_SAMPLER_MTL_H_
+#define FLUTTER_IMPELLER_RENDERER_BACKEND_METAL_SAMPLER_MTL_H_
 
 #include <Metal/Metal.h>
 
 #include "flutter/fml/macros.h"
 #include "impeller/base/backend_cast.h"
-#include "impeller/renderer/sampler.h"
+#include "impeller/core/sampler.h"
 
 namespace impeller {
 
@@ -31,10 +32,11 @@ class SamplerMTL final : public Sampler,
 
   SamplerMTL(SamplerDescriptor desc, id<MTLSamplerState> state);
 
-  // |Sampler|
-  bool IsValid() const override;
+  SamplerMTL(const SamplerMTL&) = delete;
 
-  FML_DISALLOW_COPY_AND_ASSIGN(SamplerMTL);
+  SamplerMTL& operator=(const SamplerMTL&) = delete;
 };
 
 }  // namespace impeller
+
+#endif  // FLUTTER_IMPELLER_RENDERER_BACKEND_METAL_SAMPLER_MTL_H_

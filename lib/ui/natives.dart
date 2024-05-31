@@ -6,7 +6,7 @@ part of dart.ui;
 // ignore_for_file: avoid_classes_with_only_static_members
 
 /// Helper functions for Dart Plugin Registrants.
-class DartPluginRegistrant {
+abstract final class DartPluginRegistrant {
   static bool _wasInitialized = false;
 
   /// Makes sure the that the Dart Plugin Registrant has been called for this
@@ -18,7 +18,7 @@ class DartPluginRegistrant {
       _ensureInitialized();
     }
   }
-  @FfiNative<Void Function()>('DartPluginRegistrant_EnsureInitialized')
+  @Native<Void Function()>(symbol: 'DartPluginRegistrant_EnsureInitialized')
   external static void _ensureInitialized();
 }
 
@@ -32,10 +32,10 @@ void _printDebug(String arg) {
 }
 
 class _Logger {
-  @FfiNative<Void Function(Handle)>('DartRuntimeHooks::Logger_PrintString')
+  @Native<Void Function(Handle)>(symbol: 'DartRuntimeHooks::Logger_PrintString')
   external static void _printString(String? s);
 
-  @FfiNative<Void Function(Handle)>('DartRuntimeHooks::Logger_PrintDebugString')
+  @Native<Void Function(Handle)>(symbol: 'DartRuntimeHooks::Logger_PrintDebugString')
   external static void _printDebugString(String? s);
 }
 
@@ -83,61 +83,15 @@ Future<developer.ServiceExtensionResponse> _getImpellerEnabled(
   }));
 }
 
-@pragma('vm:entry-point')
-void _setupHooks() {
-  assert(() {
-    // In debug mode, register the schedule frame extension.
-    developer.registerExtension('ext.ui.window.scheduleFrame', _scheduleFrame);
-
-    // In debug mode, allow shaders to be reinitialized.
-    developer.registerExtension(
-      'ext.ui.window.reinitializeShader',
-      _reinitializeShader,
-    );
-    return true;
-  }());
-
-  // In debug and profile mode, allow tools to display the current rendering backend.
-  if (!_kReleaseMode) {
-    developer.registerExtension(
-      'ext.ui.window.impellerEnabled',
-      _getImpellerEnabled,
-    );
-  }
-}
-
 const bool _kReleaseMode = bool.fromEnvironment('dart.vm.product');
 
-/// Returns runtime Dart compilation trace as a UTF-8 encoded memory buffer.
-///
-/// The buffer contains a list of symbols compiled by the Dart JIT at runtime up
-/// to the point when this function was called. This list can be saved to a text
-/// file and passed to tools such as `flutter build` or Dart `gen_snapshot` in
-/// order to pre-compile this code offline.
-///
-/// The list has one symbol per line of the following format:
-/// `<namespace>,<class>,<symbol>\n`.
-///
-/// Here are some examples:
-///
-/// ```csv
-/// dart:core,Duration,get:inMilliseconds
-/// package:flutter/src/widgets/binding.dart,::,runApp
-/// file:///.../my_app.dart,::,main
-/// ```
-///
-/// This function is only effective in debug and dynamic modes, and will throw in AOT mode.
-List<int> saveCompilationTrace() {
-  throw UnimplementedError();
-}
-
-@FfiNative<Void Function(Handle)>('DartRuntimeHooks::ScheduleMicrotask')
+@Native<Void Function(Handle)>(symbol: 'DartRuntimeHooks::ScheduleMicrotask')
 external void _scheduleMicrotask(void Function() callback);
 
-@FfiNative<Handle Function(Handle)>('DartRuntimeHooks::GetCallbackHandle')
+@Native<Handle Function(Handle)>(symbol: 'DartRuntimeHooks::GetCallbackHandle')
 external int? _getCallbackHandle(Function closure);
 
-@FfiNative<Handle Function(Int64)>('DartRuntimeHooks::GetCallbackFromHandle')
+@Native<Handle Function(Int64)>(symbol: 'DartRuntimeHooks::GetCallbackFromHandle')
 external Function? _getCallbackFromHandle(int handle);
 
 typedef _PrintClosure = void Function(String line);
@@ -158,3 +112,12 @@ _ScheduleImmediateClosure _getScheduleMicrotaskClosure() => _scheduleMicrotask;
 // rendering.
 @pragma('vm:entry-point')
 bool _impellerEnabled = false;
+
+// Used internally to indicate whether the embedder enables the implicit view,
+// and the implicit view's ID if so.
+//
+// The exact value of this variable is an implementation detail that may change
+// at any time. Apps should always use PlatformDispatcher.implicitView to
+// determine the current implicit view, if any.
+@pragma('vm:entry-point')
+int? _implicitViewId;

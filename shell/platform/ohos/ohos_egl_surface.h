@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#ifndef FLUTTER_SHELL_PLATFORM_OHOS_EGL_SURFACE_H_
-#define FLUTTER_SHELL_PLATFORM_OHOS_EGL_SURFACE_H_
+#ifndef FLUTTER_SHELL_PLATFORM_OHOS_OHOS_EGL_SURFACE_H_
+#define FLUTTER_SHELL_PLATFORM_OHOS_OHOS_EGL_SURFACE_H_
 
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
@@ -124,4 +124,4 @@ class OhosEGLSurface {
 
 }  // namespace flutter
 
-#endif
+#endif  // FLUTTER_SHELL_PLATFORM_OHOS_OHOS_EGL_SURFACE_H_

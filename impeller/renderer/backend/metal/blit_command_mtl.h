@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_IMPELLER_RENDERER_BACKEND_METAL_BLIT_COMMAND_MTL_H_
+#define FLUTTER_IMPELLER_RENDERER_BACKEND_METAL_BLIT_COMMAND_MTL_H_
 
 #include <Metal/Metal.h>
 
@@ -50,4 +51,16 @@ struct BlitGenerateMipmapCommandMTL : public BlitGenerateMipmapCommand,
   [[nodiscard]] bool Encode(id<MTLBlitCommandEncoder> encoder) const override;
 };
 
+struct BlitCopyBufferToTextureCommandMTL
+    : public BlitCopyBufferToTextureCommand,
+      public BlitEncodeMTL {
+  ~BlitCopyBufferToTextureCommandMTL() override;
+
+  std::string GetLabel() const override;
+
+  [[nodiscard]] bool Encode(id<MTLBlitCommandEncoder> encoder) const override;
+};
+
 }  // namespace impeller
+
+#endif  // FLUTTER_IMPELLER_RENDERER_BACKEND_METAL_BLIT_COMMAND_MTL_H_

@@ -10,29 +10,26 @@ application_snapshot("kernel_compiler") {
 
   deps = [ "../flutter/kernel:kernel_platform_files($host_toolchain)" ]
 
-  package_config =
-      rebase_path("//third_party/dart/.dart_tool/package_config.json")
+  package_config = rebase_path("$dart_src/.dart_tool/package_config.json")
 
   training_args = [
     "--train",
     rebase_path(main_dart),
   ]
 
-  kernel_compiler_files =
-      exec_script("//third_party/dart/tools/list_dart_files.py",
-                  [
-                    "absolute",
-                    rebase_path("."),
-                  ],
-                  "list lines")
+  kernel_compiler_files = exec_script("$dart_src/tools/list_dart_files.py",
+                                      [
+                                        "absolute",
+                                        rebase_path("."),
+                                      ],
+                                      "list lines")
 
-  kernel_compiler_files +=
-      exec_script("//third_party/dart/tools/list_dart_files.py",
-                  [
-                    "absolute",
-                    rebase_path("//third_party/dart/pkg"),
-                  ],
-                  "list lines")
+  kernel_compiler_files += exec_script("$dart_src/tools/list_dart_files.py",
+                                       [
+                                         "absolute",
+                                         rebase_path("$dart_src/pkg"),
+                                       ],
+                                       "list lines")
 
   inputs = kernel_compiler_files
 }
@@ -40,18 +37,16 @@ application_snapshot("kernel_compiler") {
 application_snapshot("_list_libraries_kernel") {
   visibility = [ ":*" ]
   snapshot_kind = "kernel"
-  main_dart = "//third_party/dart/pkg/vm/bin/list_libraries.dart"
-  package_config =
-      rebase_path("//third_party/dart/.dart_tool/package_config.json")
+  main_dart = "$dart_src/pkg/vm/bin/list_libraries.dart"
+  package_config = rebase_path("$dart_src/.dart_tool/package_config.json")
   training_args = []
   output = "$target_gen_dir/list_libraries.dart.dill"
 }
 
 application_snapshot("list_libraries") {
   deps = [ ":_list_libraries_kernel" ]
-  main_dart = "//third_party/dart/pkg/vm/bin/list_libraries.dart"
-  package_config =
-      rebase_path("//third_party/dart/.dart_tool/package_config.json")
+  main_dart = "$dart_src/pkg/vm/bin/list_libraries.dart"
+  package_config = rebase_path("$dart_src/.dart_tool/package_config.json")
   training_args = [
     # train against the dill file which is generated for this snapshot.
     rebase_path("$target_gen_dir/list_libraries.dart.dill"),
@@ -59,10 +54,10 @@ application_snapshot("list_libraries") {
 }
 
 dart_library("async_helper") {
-  package_root = "//third_party/dart/pkg/async_helper"
+  package_root = "$dart_src/pkg/async_helper"
   package_name = "async_helper"
 
-  language_version = "2.12"
+  pubspec = "$package_root/pubspec.yaml"
 
   deps = []
 
@@ -73,10 +68,10 @@ dart_library("async_helper") {
 }
 
 dart_library("meta") {
-  package_root = "//third_party/dart/pkg/meta"
+  package_root = "$dart_src/pkg/meta"
   package_name = "meta"
 
-  language_version = "2.12"
+  pubspec = "$package_root/pubspec.yaml"
 
   deps = []
 
@@ -88,16 +83,18 @@ dart_library("meta") {
 }
 
 dart_library("expect") {
-  package_root = "//third_party/dart/pkg/expect"
+  package_root = "$dart_src/pkg/expect"
   package_name = "expect"
 
-  language_version = "2.12"
+  pubspec = "$package_root/pubspec.yaml"
 
   deps = [ ":meta" ]
 
   sources = [
+    "config.dart",
     "expect.dart",
     "minitest.dart",
+    "variations.dart",
   ]
 }
 
@@ -105,7 +102,7 @@ dart_library("litetest") {
   package_root = "//flutter/testing/litetest"
   package_name = "litetest"
 
-  language_version = "2.12"
+  pubspec = "$package_root/pubspec.yaml"
 
   source_dir = "lib"
 
@@ -124,10 +121,10 @@ dart_library("litetest") {
 }
 
 dart_library("args") {
-  package_root = "//third_party/dart/third_party/pkg/args"
+  package_root = "$dart_src/third_party/pkg/args"
   package_name = "args"
 
-  language_version = "2.18"
+  pubspec = "$package_root/pubspec.yaml"
 
   deps = []
 
@@ -148,10 +145,10 @@ dart_library("args") {
 }
 
 dart_library("collection") {
-  package_root = "//third_party/dart/third_party/pkg/collection"
+  package_root = "$dart_src/third_party/pkg/collection"
   package_name = "collection"
 
-  language_version = "2.12"
+  pubspec = "$package_root/pubspec.yaml"
 
   deps = []
 
@@ -188,10 +185,10 @@ dart_library("collection") {
 }
 
 dart_library("logging") {
-  package_root = "//third_party/dart/third_party/pkg/logging"
+  package_root = "$dart_src/third_party/pkg/logging"
   package_name = "logging"
 
-  language_version = "2.12"
+  pubspec = "$package_root/pubspec.yaml"
 
   deps = []
 
@@ -204,10 +201,10 @@ dart_library("logging") {
 }
 
 dart_library("path") {
-  package_root = "//third_party/dart/third_party/pkg/path"
+  package_root = "$dart_src/third_party/pkg/path"
   package_name = "path"
 
-  language_version = "2.12"
+  pubspec = "$package_root/pubspec.yaml"
 
   deps = []
 
@@ -229,10 +226,10 @@ dart_library("path") {
 }
 
 dart_library("stack_trace") {
-  package_root = "//third_party/dart/third_party/pkg/stack_trace"
+  package_root = "$dart_src/third_party/pkg/stack_trace"
   package_name = "stack_trace"
 
-  language_version = "2.12"
+  pubspec = "$package_root/pubspec.yaml"
 
   deps = [ ":path" ]
 
@@ -251,14 +248,15 @@ dart_library("stack_trace") {
 }
 
 dart_library("matcher") {
-  package_root = "//third_party/dart/third_party/pkg/matcher"
+  package_root = "$dart_src/third_party/pkg/matcher"
   package_name = "matcher"
 
-  language_version = "2.12"
+  pubspec = "$package_root/pubspec.yaml"
 
   deps = [ ":stack_trace" ]
 
   sources = [
+    "expect.dart",
     "matcher.dart",
     "mirror_matchers.dart",
     "src/core_matchers.dart",
@@ -266,6 +264,18 @@ dart_library("matcher") {
     "src/description.dart",
     "src/equals_matcher.dart",
     "src/error_matchers.dart",
+    "src/expect/async_matcher.dart",
+    "src/expect/expect.dart",
+    "src/expect/expect_async.dart",
+    "src/expect/future_matchers.dart",
+    "src/expect/never_called.dart",
+    "src/expect/prints_matcher.dart",
+    "src/expect/stream_matcher.dart",
+    "src/expect/stream_matchers.dart",
+    "src/expect/throws_matcher.dart",
+    "src/expect/throws_matchers.dart",
+    "src/expect/util/placeholder.dart",
+    "src/expect/util/pretty_print.dart",
     "src/feature_matcher.dart",
     "src/having_matcher.dart",
     "src/interfaces.dart",
@@ -285,8 +295,7 @@ dart_library("quiver") {
   package_root = "//third_party/pkg/quiver"
   package_name = "quiver"
 
-  # The current version of this library is not null safe
-  language_version = "2.0"
+  pubspec = "$package_root/pubspec.yaml"
 
   deps = [
     ":matcher",
@@ -299,16 +308,13 @@ dart_library("quiver") {
     "check.dart",
     "collection.dart",
     "core.dart",
-    "io.dart",
     "iterables.dart",
-    "mirrors.dart",
     "pattern.dart",
     "src/async/collect.dart",
     "src/async/concat.dart",
     "src/async/countdown_timer.dart",
     "src/async/enumerate.dart",
     "src/async/future_stream.dart",
-    "src/async/iteration.dart",
     "src/async/metronome.dart",
     "src/async/stream_buffer.dart",
     "src/async/stream_router.dart",
@@ -324,8 +330,10 @@ dart_library("quiver") {
     "src/collection/lru_map.dart",
     "src/collection/multimap.dart",
     "src/collection/treeset.dart",
+    "src/collection/utils.dart",
     "src/core/hash.dart",
     "src/core/optional.dart",
+    "src/core/utils.dart",
     "src/iterables/concat.dart",
     "src/iterables/count.dart",
     "src/iterables/cycle.dart",
@@ -343,10 +351,8 @@ dart_library("quiver") {
     "strings.dart",
     "testing/async.dart",
     "testing/equality.dart",
-    "testing/runtime.dart",
     "testing/src/async/fake_async.dart",
     "testing/src/equality/equality.dart",
-    "testing/src/runtime/checked_mode.dart",
     "testing/src/time/time.dart",
     "testing/time.dart",
     "time.dart",
@@ -354,10 +360,10 @@ dart_library("quiver") {
 }
 
 dart_library("vector_math") {
-  package_root = "//third_party/pkg/vector_math"
+  package_root = "//flutter/third_party/pkg/vector_math"
   package_name = "vector_math"
 
-  language_version = "2.12"
+  pubspec = "$package_root/pubspec.yaml"
 
   deps = []
 

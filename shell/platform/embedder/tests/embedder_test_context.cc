@@ -111,7 +111,7 @@ VoidCallback EmbedderTestContext::GetIsolateCreateCallbackHook() {
 }
 
 void EmbedderTestContext::FireIsolateCreateCallbacks() {
-  for (auto closure : isolate_create_callbacks_) {
+  for (const auto& closure : isolate_create_callbacks_) {
     closure();
   }
 }
@@ -119,6 +119,11 @@ void EmbedderTestContext::FireIsolateCreateCallbacks() {
 void EmbedderTestContext::AddNativeCallback(const char* name,
                                             Dart_NativeFunction function) {
   native_resolver_->AddNativeCallback({name}, function);
+}
+
+void EmbedderTestContext::SetSemanticsUpdateCallback2(
+    SemanticsUpdateCallback2 update_semantics_callback) {
+  update_semantics_callback2_ = std::move(update_semantics_callback);
 }
 
 void EmbedderTestContext::SetSemanticsUpdateCallback(
@@ -142,6 +147,11 @@ void EmbedderTestContext::SetPlatformMessageCallback(
   platform_message_callback_ = callback;
 }
 
+void EmbedderTestContext::SetChannelUpdateCallback(
+    const ChannelUpdateCallback& callback) {
+  channel_update_callback_ = callback;
+}
+
 void EmbedderTestContext::PlatformMessageCallback(
     const FlutterPlatformMessage* message) {
   if (platform_message_callback_) {
@@ -152,6 +162,20 @@ void EmbedderTestContext::PlatformMessageCallback(
 void EmbedderTestContext::SetLogMessageCallback(
     const LogMessageCallback& callback) {
   log_message_callback_ = callback;
+}
+
+FlutterUpdateSemanticsCallback2
+EmbedderTestContext::GetUpdateSemanticsCallback2Hook() {
+  if (update_semantics_callback2_ == nullptr) {
+    return nullptr;
+  }
+
+  return [](const FlutterSemanticsUpdate2* update, void* user_data) {
+    auto context = reinterpret_cast<EmbedderTestContext*>(user_data);
+    if (context->update_semantics_callback2_) {
+      context->update_semantics_callback2_(update);
+    }
+  };
 }
 
 FlutterUpdateSemanticsCallback
@@ -210,6 +234,20 @@ EmbedderTestContext::GetComputePlatformResolvedLocaleCallbackHook() {
   return [](const FlutterLocale** supported_locales,
             size_t length) -> const FlutterLocale* {
     return supported_locales[0];
+  };
+}
+
+FlutterChannelUpdateCallback
+EmbedderTestContext::GetChannelUpdateCallbackHook() {
+  if (channel_update_callback_ == nullptr) {
+    return nullptr;
+  }
+
+  return [](const FlutterChannelUpdate* update, void* user_data) {
+    auto context = reinterpret_cast<EmbedderTestContext*>(user_data);
+    if (context->channel_update_callback_) {
+      context->channel_update_callback_(update);
+    }
   };
 }
 

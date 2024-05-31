@@ -2,12 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_SHELL_PLATFORM_FUCHSIA_FLUTTER_SOFTWARE_SURFACE_PRODUCER_H_
+#define FLUTTER_SHELL_PLATFORM_FUCHSIA_FLUTTER_SOFTWARE_SURFACE_PRODUCER_H_
 
 #include <fuchsia/sysmem/cpp/fidl.h>
 #include <fuchsia/ui/composition/cpp/fidl.h>
-#include <lib/ui/scenic/cpp/resources.h>
-#include <lib/ui/scenic/cpp/session.h>
 
 #include <unordered_map>
 
@@ -24,7 +23,7 @@ class SoftwareSurfaceProducer final : public SurfaceProducer {
   // If a surface doesn't get used for 3 or more generations, we discard it.
   static constexpr int kMaxSurfaceAge = 3;
 
-  explicit SoftwareSurfaceProducer(scenic::Session* scenic_session);
+  explicit SoftwareSurfaceProducer();
   ~SoftwareSurfaceProducer() override;
 
   bool IsValid() const { return valid_; }
@@ -55,7 +54,6 @@ class SoftwareSurfaceProducer final : public SurfaceProducer {
 
   void TraceStats();
 
-  scenic::Session* scenic_session_;  // Legacy gfx API endpoint.
   fuchsia::sysmem::AllocatorSyncPtr sysmem_allocator_;
   fuchsia::ui::composition::AllocatorPtr flatland_allocator_;
 
@@ -75,3 +73,5 @@ class SoftwareSurfaceProducer final : public SurfaceProducer {
 };
 
 }  // namespace flutter_runner
+
+#endif  // FLUTTER_SHELL_PLATFORM_FUCHSIA_FLUTTER_SOFTWARE_SURFACE_PRODUCER_H_

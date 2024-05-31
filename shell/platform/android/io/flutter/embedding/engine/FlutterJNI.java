@@ -4,6 +4,8 @@
 
 package io.flutter.embedding.engine;
 
+import static io.flutter.Build.API_LEVELS;
+
 import android.content.Context;
 import android.content.res.AssetManager;
 import android.graphics.Bitmap;
@@ -12,7 +14,9 @@ import android.graphics.ImageDecoder;
 import android.graphics.SurfaceTexture;
 import android.os.Build;
 import android.os.Looper;
+import android.util.DisplayMetrics;
 import android.util.Size;
+import android.util.TypedValue;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import androidx.annotation.Keep;
@@ -27,12 +31,14 @@ import io.flutter.embedding.engine.deferredcomponents.DeferredComponentManager;
 import io.flutter.embedding.engine.mutatorsstack.FlutterMutatorsStack;
 import io.flutter.embedding.engine.renderer.FlutterUiDisplayListener;
 import io.flutter.embedding.engine.renderer.SurfaceTextureWrapper;
+import io.flutter.embedding.engine.systemchannels.SettingsChannel;
 import io.flutter.plugin.common.StandardMessageCodec;
 import io.flutter.plugin.localization.LocalizationPlugin;
 import io.flutter.plugin.platform.PlatformViewsController;
 import io.flutter.util.Preconditions;
 import io.flutter.view.AccessibilityBridge;
 import io.flutter.view.FlutterCallbackInformation;
+import io.flutter.view.TextureRegistry;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.nio.ByteBuffer;
@@ -147,9 +153,10 @@ public class FlutterJNI {
   private static native void nativePrefetchDefaultFontManager();
 
   /**
-   * Prefetch the default font manager provided by SkFontMgr::RefDefault() which is a process-wide
-   * singleton owned by Skia. Note that, the first call to SkFontMgr::RefDefault() will take
-   * noticeable time, but later calls will return a reference to the preexisting font manager.
+   * Prefetch the default font manager provided by txt::GetDefaultFontManager() which is a
+   * process-wide singleton owned by Skia. Note that, the first call to txt::GetDefaultFontManager()
+   * will take noticeable time, but later calls will return a reference to the preexisting font
+   * manager.
    *
    * <p>This method should only be called once across all FlutterJNI instances.
    */
@@ -214,8 +221,12 @@ public class FlutterJNI {
    */
   private static float refreshRateFPS = 60.0f;
 
+  private static float displayWidth = -1.0f;
+  private static float displayHeight = -1.0f;
+  private static float displayDensity = -1.0f;
+
   // This is set from native code via JNI.
-  @Nullable private static String observatoryUri;
+  @Nullable private static String vmServiceUri;
 
   private native boolean nativeGetIsSoftwareRenderingEnabled();
 
@@ -230,14 +241,28 @@ public class FlutterJNI {
   }
 
   /**
-   * Observatory URI for the VM instance.
+   * VM Service URI for the VM instance.
    *
    * <p>Its value is set by the native engine once {@link #init(Context, String[], String, String,
    * String, long)} is run.
    */
   @Nullable
+  public static String getVMServiceUri() {
+    return vmServiceUri;
+  }
+
+  /**
+   * VM Service URI for the VM instance.
+   *
+   * <p>Its value is set by the native engine once {@link #init(Context, String[], String, String,
+   * String, long)} is run.
+   *
+   * @deprecated replaced by {@link #getVMServiceUri()}.
+   */
+  @Deprecated
+  @Nullable
   public static String getObservatoryUri() {
-    return observatoryUri;
+    return vmServiceUri;
   }
 
   /**
@@ -259,6 +284,18 @@ public class FlutterJNI {
     FlutterJNI.refreshRateFPS = refreshRateFPS;
     updateRefreshRate();
   }
+
+  public void updateDisplayMetrics(int displayId, float width, float height, float density) {
+    FlutterJNI.displayWidth = width;
+    FlutterJNI.displayHeight = height;
+    FlutterJNI.displayDensity = density;
+    if (!FlutterJNI.loadLibraryCalled) {
+      return;
+    }
+    nativeUpdateDisplayMetrics(nativeShellHolderId);
+  }
+
+  private native void nativeUpdateDisplayMetrics(long nativeShellHolderId);
 
   public void updateRefreshRate() {
     if (!FlutterJNI.loadLibraryCalled) {
@@ -518,7 +555,7 @@ public class FlutterJNI {
   @VisibleForTesting
   @Nullable
   public static Bitmap decodeImage(@NonNull ByteBuffer buffer, long imageGeneratorAddress) {
-    if (Build.VERSION.SDK_INT >= 28) {
+    if (Build.VERSION.SDK_INT >= API_LEVELS.API_28) {
       ImageDecoder.Source source = ImageDecoder.createSource(buffer);
       try {
         return ImageDecoder.decodeBitmap(
@@ -706,6 +743,7 @@ public class FlutterJNI {
       int[] displayFeaturesBounds,
       int[] displayFeaturesType,
       int[] displayFeaturesState);
+
   // ----- End Render Surface Support -----
 
   // ------ Start Touch Interaction Support ---
@@ -787,13 +825,13 @@ public class FlutterJNI {
   }
 
   /** Sends a semantics action to Flutter's engine, without any additional arguments. */
-  public void dispatchSemanticsAction(int id, @NonNull AccessibilityBridge.Action action) {
-    dispatchSemanticsAction(id, action, null);
+  public void dispatchSemanticsAction(int nodeId, @NonNull AccessibilityBridge.Action action) {
+    dispatchSemanticsAction(nodeId, action, null);
   }
 
   /** Sends a semantics action to Flutter's engine, with additional arguments. */
   public void dispatchSemanticsAction(
-      int id, @NonNull AccessibilityBridge.Action action, @Nullable Object args) {
+      int nodeId, @NonNull AccessibilityBridge.Action action, @Nullable Object args) {
     ensureAttachedToNative();
 
     ByteBuffer encodedArgs = null;
@@ -802,7 +840,7 @@ public class FlutterJNI {
       encodedArgs = StandardMessageCodec.INSTANCE.encodeMessage(args);
       position = encodedArgs.position();
     }
-    dispatchSemanticsAction(id, action.value, encodedArgs, position);
+    dispatchSemanticsAction(nodeId, action.value, encodedArgs, position);
   }
 
   /**
@@ -815,14 +853,18 @@ public class FlutterJNI {
    */
   @UiThread
   public void dispatchSemanticsAction(
-      int id, int action, @Nullable ByteBuffer args, int argsPosition) {
+      int nodeId, int action, @Nullable ByteBuffer args, int argsPosition) {
     ensureRunningOnMainThread();
     ensureAttachedToNative();
-    nativeDispatchSemanticsAction(nativeShellHolderId, id, action, args, argsPosition);
+    nativeDispatchSemanticsAction(nativeShellHolderId, nodeId, action, args, argsPosition);
   }
 
   private native void nativeDispatchSemanticsAction(
-      long nativeShellHolderId, int id, int action, @Nullable ByteBuffer args, int argsPosition);
+      long nativeShellHolderId,
+      int nodeId,
+      int action,
+      @Nullable ByteBuffer args,
+      int argsPosition);
 
   /**
    * Instructs Flutter to enable/disable its semantics tree, which is used by Flutter to support
@@ -868,6 +910,27 @@ public class FlutterJNI {
       @NonNull WeakReference<SurfaceTextureWrapper> textureWrapper);
 
   /**
+   * Registers a ImageTexture with the given id.
+   *
+   * <p>REQUIRED: Callers should eventually unregisterTexture with the same id.
+   */
+  @UiThread
+  public void registerImageTexture(
+      long textureId, @NonNull TextureRegistry.ImageConsumer imageTexture) {
+    ensureRunningOnMainThread();
+    ensureAttachedToNative();
+    nativeRegisterImageTexture(
+        nativeShellHolderId,
+        textureId,
+        new WeakReference<TextureRegistry.ImageConsumer>(imageTexture));
+  }
+
+  private native void nativeRegisterImageTexture(
+      long nativeShellHolderId,
+      long textureId,
+      @NonNull WeakReference<TextureRegistry.ImageConsumer> imageTexture);
+
+  /**
    * Call this method to inform Flutter that a texture previously registered with {@link
    * #registerTexture(long, SurfaceTextureWrapper)} has a new frame available.
    *
@@ -882,6 +945,16 @@ public class FlutterJNI {
   }
 
   private native void nativeMarkTextureFrameAvailable(long nativeShellHolderId, long textureId);
+
+  /** Schedule the engine to draw a frame but does not invalidate the layout tree. */
+  @UiThread
+  public void scheduleFrame() {
+    ensureRunningOnMainThread();
+    ensureAttachedToNative();
+    nativeScheduleFrame(nativeShellHolderId);
+  }
+
+  private native void nativeScheduleFrame(long nativeShellHolderId);
 
   /**
    * Unregisters a texture that was registered with {@link #registerTexture(long,
@@ -1213,22 +1286,17 @@ public class FlutterJNI {
       String countryCode = strings[i + 1];
       String scriptCode = strings[i + 2];
       // Convert to Locales via LocaleBuilder if available (API 21+) to include scriptCode.
-      if (Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
-        Locale.Builder localeBuilder = new Locale.Builder();
-        if (!languageCode.isEmpty()) {
-          localeBuilder.setLanguage(languageCode);
-        }
-        if (!countryCode.isEmpty()) {
-          localeBuilder.setRegion(countryCode);
-        }
-        if (!scriptCode.isEmpty()) {
-          localeBuilder.setScript(scriptCode);
-        }
-        supportedLocales.add(localeBuilder.build());
-      } else {
-        // Pre-API 21, we fall back on scriptCode-less locales.
-        supportedLocales.add(new Locale(languageCode, countryCode));
+      Locale.Builder localeBuilder = new Locale.Builder();
+      if (!languageCode.isEmpty()) {
+        localeBuilder.setLanguage(languageCode);
       }
+      if (!countryCode.isEmpty()) {
+        localeBuilder.setRegion(countryCode);
+      }
+      if (!scriptCode.isEmpty()) {
+        localeBuilder.setScript(scriptCode);
+      }
+      supportedLocales.add(localeBuilder.build());
     }
 
     Locale result = localizationPlugin.resolveNativeLocale(supportedLocales);
@@ -1239,15 +1307,25 @@ public class FlutterJNI {
     String[] output = new String[localeDataLength];
     output[0] = result.getLanguage();
     output[1] = result.getCountry();
-    if (Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
-      output[2] = result.getScript();
-    } else {
-      output[2] = "";
-    }
+    output[2] = result.getScript();
     return output;
   }
 
   // ----- End Localization Support ----
+  @Nullable
+  public float getScaledFontSize(float fontSize, int configurationId) {
+    final DisplayMetrics metrics = SettingsChannel.getPastDisplayMetrics(configurationId);
+    if (metrics == null) {
+      Log.e(
+          TAG,
+          "getScaledFontSize called with configurationId "
+              + String.valueOf(configurationId)
+              + ", which can't be found.");
+      return -1f;
+    }
+    return TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, fontSize, metrics)
+        / metrics.density;
+  }
 
   // ----- Start Deferred Components Support ----
 

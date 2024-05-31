@@ -7,8 +7,11 @@
 #include "flutter/vulkan/procs/vulkan_proc_table.h"
 
 #include "third_party/skia/include/core/SkColorSpace.h"
+#include "third_party/skia/include/core/SkSurface.h"
 #include "third_party/skia/include/gpu/GrBackendSurface.h"
 #include "third_party/skia/include/gpu/GrDirectContext.h"
+#include "third_party/skia/include/gpu/ganesh/SkSurfaceGanesh.h"
+#include "third_party/skia/include/gpu/ganesh/vk/GrVkBackendSurface.h"
 #include "third_party/skia/include/gpu/vk/GrVkTypes.h"
 
 #include "vulkan_backbuffer.h"
@@ -240,11 +243,11 @@ sk_sp<SkSurface> VulkanSwapchain::CreateSkiaSurface(
   image_info.fLevelCount = 1;
 
   // TODO(chinmaygarde): Setup the stencil buffer and the sampleCnt.
-  GrBackendRenderTarget backend_render_target(size.fWidth, size.fHeight, 0,
-                                              image_info);
+  auto backend_render_target =
+      GrBackendRenderTargets::MakeVk(size.fWidth, size.fHeight, image_info);
   SkSurfaceProps props(0, kUnknown_SkPixelGeometry);
 
-  return SkSurface::MakeFromBackendRenderTarget(
+  return SkSurfaces::WrapBackendRenderTarget(
       gr_context,                // context
       backend_render_target,     // backend render target
       kTopLeft_GrSurfaceOrigin,  // origin
@@ -475,13 +478,14 @@ VulkanSwapchain::AcquireResult VulkanSwapchain::AcquireSurface() {
     return error;
   }
 
-  GrBackendRenderTarget backendRT = surface->getBackendRenderTarget(
-      SkSurface::kFlushRead_BackendHandleAccess);
+  GrBackendRenderTarget backendRT = SkSurfaces::GetBackendRenderTarget(
+      surface.get(), SkSurfaces::BackendHandleAccess::kFlushRead);
   if (!backendRT.isValid()) {
     FML_DLOG(INFO) << "Could not get backend render target.";
     return error;
   }
-  backendRT.setVkImageLayout(destination_image_layout);
+  GrBackendRenderTargets::SetVkImageLayout(&backendRT,
+                                           destination_image_layout);
 
   current_image_index_ = next_image_index;
 
@@ -502,7 +506,7 @@ bool VulkanSwapchain::Submit() {
   // Step 0:
   // Make sure Skia has flushed all work for the surface to the gpu.
   // ---------------------------------------------------------------------------
-  surface->flushAndSubmit();
+  skgpu::ganesh::FlushAndSubmit(surface);
 
   // ---------------------------------------------------------------------------
   // Step 1:

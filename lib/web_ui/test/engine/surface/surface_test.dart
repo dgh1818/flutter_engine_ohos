@@ -7,6 +7,8 @@ import 'package:test/test.dart';
 import 'package:ui/src/engine.dart';
 import 'package:ui/ui.dart';
 
+import '../../common/test_initialization.dart';
+
 void main() {
   internalBootstrapBrowserTest(() => testMain);
 }
@@ -14,7 +16,7 @@ void main() {
 void testMain() {
   group('Surface', () {
     setUpAll(() async {
-      await webOnlyInitializePlatform();
+      await bootstrapAndRunApp(withImplicitView: true);
     });
 
     setUp(() {
@@ -160,7 +162,7 @@ void testMain() {
       final SurfaceSceneBuilder builder1 = SurfaceSceneBuilder();
       final PersistedTransform a1 =
           builder1.pushTransform(
-              (Matrix4.identity()..scale(domWindow.devicePixelRatio)).toFloat64()) as PersistedTransform;
+              (Matrix4.identity()..scale(EngineFlutterDisplay.instance.browserDevicePixelRatio)).toFloat64()) as PersistedTransform;
       final PersistedOpacity b1 = builder1.pushOpacity(100) as PersistedOpacity;
       final PersistedTransform c1 =
           builder1.pushTransform(Matrix4.identity().toFloat64()) as PersistedTransform;
@@ -181,7 +183,7 @@ void testMain() {
       final SurfaceSceneBuilder builder2 = SurfaceSceneBuilder();
       final PersistedTransform a2 =
           builder2.pushTransform(
-              (Matrix4.identity()..scale(domWindow.devicePixelRatio)).toFloat64(),
+              (Matrix4.identity()..scale(EngineFlutterDisplay.instance.browserDevicePixelRatio)).toFloat64(),
               oldLayer: a1) as PersistedTransform;
       final PersistedTransform c2 =
           builder2.pushTransform(Matrix4.identity().toFloat64(), oldLayer: c1) as PersistedTransform;
@@ -362,22 +364,6 @@ void testMain() {
       expect(
           opacityLayer2.rootElement, element); // adopts old surface's element
     });
-
-    // Regression test for https://github.com/flutter/flutter/issues/60461
-    //
-    // During retained match many to many, build can be called on existing
-    // PersistedPhysicalShape multiple times when not matched.
-    test('Can call apply multiple times on existing PersistedPhysicalShape'
-        'when using arbitrary path',
-            () {
-      final SceneBuilder builder1 = SceneBuilder();
-      final Path path = Path();
-      path.addPolygon(const <Offset>[Offset(50, 0), Offset(100, 80), Offset(20, 40)], true);
-      final PersistedPhysicalShape shape = builder1.pushPhysicalShape(path: path,
-        color: const Color(0xFF00FF00), elevation: 1) as PersistedPhysicalShape;
-      builder1.build();
-      expect(() => shape.apply(), returnsNormally);
-    });
   });
 
   final Map<String, TestEngineLayerFactory> layerFactories = <String, TestEngineLayerFactory>{
@@ -406,11 +392,6 @@ void testMain() {
         );
         return builder.pushShaderMask(shader, shaderBounds, BlendMode.srcOver);
       },
-    'PhysicalShapeEngineLayer': (SurfaceSceneBuilder builder) => builder.pushPhysicalShape(
-      path: Path()..addRect(const Rect.fromLTRB(0, 0, 10, 10)),
-      elevation: 3,
-      color: const Color(0xAABBCCDD),
-    ),
   };
 
   // Regression test for https://github.com/flutter/flutter/issues/104305

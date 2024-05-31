@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_IMPELLER_ENTITY_CONTENTS_FILTERS_YUV_TO_RGB_FILTER_CONTENTS_H_
+#define FLUTTER_IMPELLER_ENTITY_CONTENTS_FILTERS_YUV_TO_RGB_FILTER_CONTENTS_H_
 
 #include "impeller/entity/contents/filters/filter_contents.h"
 
@@ -18,16 +19,26 @@ class YUVToRGBFilterContents final : public FilterContents {
 
  private:
   // |FilterContents|
-  std::optional<Snapshot> RenderFilter(
+  std::optional<Entity> RenderFilter(
       const FilterInput::Vector& input_textures,
       const ContentContext& renderer,
       const Entity& entity,
       const Matrix& effect_transform,
-      const Rect& coverage) const override;
+      const Rect& coverage,
+      const std::optional<Rect>& coverage_hint) const override;
+
+  // |FilterContents|
+  std::optional<Rect> GetFilterSourceCoverage(
+      const Matrix& effect_transform,
+      const Rect& output_limit) const override;
 
   YUVColorSpace yuv_color_space_ = YUVColorSpace::kBT601LimitedRange;
 
-  FML_DISALLOW_COPY_AND_ASSIGN(YUVToRGBFilterContents);
+  YUVToRGBFilterContents(const YUVToRGBFilterContents&) = delete;
+
+  YUVToRGBFilterContents& operator=(const YUVToRGBFilterContents&) = delete;
 };
 
 }  // namespace impeller
+
+#endif  // FLUTTER_IMPELLER_ENTITY_CONTENTS_FILTERS_YUV_TO_RGB_FILTER_CONTENTS_H_

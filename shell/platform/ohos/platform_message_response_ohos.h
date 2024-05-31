@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#ifndef PLATFORM_MESSAGE_REPONSE_OHOS_H
-#define PLATFORM_MESSAGE_REPONSE_OHOS_H
+#ifndef FLUTTER_SHELL_PLATFORM_OHOS_PLATFORM_MESSAGE_RESPONSE_OHOS_H_
+#define FLUTTER_SHELL_PLATFORM_OHOS_PLATFORM_MESSAGE_RESPONSE_OHOS_H_
 
 #include "flutter/fml/macros.h"
 #include "flutter/fml/task_runner.h"
@@ -50,4 +50,4 @@ class PlatformMessageResponseOHOS : public flutter::PlatformMessageResponse {
 };
 
 }  // namespace flutter
-#endif
+#endif  // FLUTTER_SHELL_PLATFORM_OHOS_PLATFORM_MESSAGE_RESPONSE_OHOS_H_

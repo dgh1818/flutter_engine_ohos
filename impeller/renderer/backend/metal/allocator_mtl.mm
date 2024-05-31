@@ -10,11 +10,10 @@
 #include "impeller/renderer/backend/metal/device_buffer_mtl.h"
 #include "impeller/renderer/backend/metal/formats_mtl.h"
 #include "impeller/renderer/backend/metal/texture_mtl.h"
-#include "impeller/renderer/buffer.h"
 
 namespace impeller {
 
-static bool DeviceSupportsMemorylessTargets(id<MTLDevice> device) {
+static bool DeviceSupportsDeviceTransientTargets(id<MTLDevice> device) {
   // Refer to the "Memoryless render targets" feature in the table below:
   // https://developer.apple.com/metal/Metal-Feature-Set-Tables.pdf
   if (@available(ios 13.0, tvos 13.0, macos 10.15, *)) {
@@ -78,13 +77,24 @@ static ISize DeviceMaxTextureSizeSupported(id<MTLDevice> device) {
   }
 }
 
+static bool SupportsLossyTextureCompression(id<MTLDevice> device) {
+#ifdef FML_OS_IOS_SIMULATOR
+  return false;
+#else
+  if (@available(macOS 10.15, iOS 13, tvOS 13, *)) {
+    return [device supportsFamily:MTLGPUFamilyApple8];
+  }
+  return false;
+#endif
+}
+
 AllocatorMTL::AllocatorMTL(id<MTLDevice> device, std::string label)
     : device_(device), allocator_label_(std::move(label)) {
   if (!device_) {
     return;
   }
 
-  supports_memoryless_targets_ = DeviceSupportsMemorylessTargets(device_);
+  supports_memoryless_targets_ = DeviceSupportsDeviceTransientTargets(device_);
   supports_uma_ = DeviceHasUnifiedMemoryArchitecture(device_);
   max_texture_supported_ = DeviceMaxTextureSizeSupported(device_);
 
@@ -194,11 +204,19 @@ std::shared_ptr<Texture> AllocatorMTL::OnCreateTexture(
 
   mtl_texture_desc.storageMode = ToMTLStorageMode(
       desc.storage_mode, supports_memoryless_targets_, supports_uma_);
+
+  if (@available(macOS 12.5, ios 15.0, *)) {
+    if (desc.compression_type == CompressionType::kLossy &&
+        SupportsLossyTextureCompression(device_)) {
+      mtl_texture_desc.compressionType = MTLTextureCompressionTypeLossy;
+    }
+  }
+
   auto texture = [device_ newTextureWithDescriptor:mtl_texture_desc];
   if (!texture) {
     return nullptr;
   }
-  return std::make_shared<TextureMTL>(desc, texture);
+  return TextureMTL::Create(desc, texture);
 }
 
 uint16_t AllocatorMTL::MinimumBytesPerRow(PixelFormat format) const {

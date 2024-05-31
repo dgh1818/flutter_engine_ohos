@@ -69,6 +69,30 @@ TEST(SwitchesTest, EntryPointCanBeSetForHLSL) {
   ASSERT_EQ(switches.entry_point, "CustomEntryPoint");
 }
 
+TEST(SwitchesTEst, ConvertToEntrypointName) {
+  ASSERT_EQ(ConvertToEntrypointName("mandelbrot_unrolled"),
+            "mandelbrot_unrolled");
+  ASSERT_EQ(ConvertToEntrypointName("mandelbrot-unrolled"),
+            "mandelbrotunrolled");
+  ASSERT_EQ(ConvertToEntrypointName("7_"), "i_7_");
+  ASSERT_EQ(ConvertToEntrypointName("415"), "i_415");
+  ASSERT_EQ(ConvertToEntrypointName("#$%"), "i_");
+  ASSERT_EQ(ConvertToEntrypointName(""), "");
+}
+
+TEST(SwitchesTest, ShaderBundleModeValid) {
+  // Shader bundles process multiple shaders, and so the single-file input/spirv
+  // flags are not required.
+  std::vector<const char*> options = {
+      "--shader-bundle={}", "--sl=test.shaderbundle", "--runtime-stage-metal"};
+
+  auto cl = fml::CommandLineFromIteratorsWithArgv0("impellerc", options.begin(),
+                                                   options.end());
+  Switches switches(cl);
+  ASSERT_TRUE(switches.AreValid(std::cout));
+  ASSERT_EQ(switches.shader_bundle, "{}");
+}
+
 }  // namespace testing
 }  // namespace compiler
 }  // namespace impeller

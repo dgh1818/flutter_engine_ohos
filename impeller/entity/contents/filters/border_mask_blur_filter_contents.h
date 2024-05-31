@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_IMPELLER_ENTITY_CONTENTS_FILTERS_BORDER_MASK_BLUR_FILTER_CONTENTS_H_
+#define FLUTTER_IMPELLER_ENTITY_CONTENTS_FILTERS_BORDER_MASK_BLUR_FILTER_CONTENTS_H_
 
 #include <memory>
 #include <optional>
@@ -27,14 +28,20 @@ class BorderMaskBlurFilterContents final : public FilterContents {
       const Entity& entity,
       const Matrix& effect_transform) const override;
 
+  // |FilterContents|
+  std::optional<Rect> GetFilterSourceCoverage(
+      const Matrix& effect_transform,
+      const Rect& output_limit) const override;
+
  private:
   // |FilterContents|
-  std::optional<Snapshot> RenderFilter(
+  std::optional<Entity> RenderFilter(
       const FilterInput::Vector& input_textures,
       const ContentContext& renderer,
       const Entity& entity,
       const Matrix& effect_transform,
-      const Rect& coverage) const override;
+      const Rect& coverage,
+      const std::optional<Rect>& coverage_hint) const override;
 
   Sigma sigma_x_;
   Sigma sigma_y_;
@@ -43,7 +50,12 @@ class BorderMaskBlurFilterContents final : public FilterContents {
   bool inner_blur_factor_ = true;
   bool outer_blur_factor_ = true;
 
-  FML_DISALLOW_COPY_AND_ASSIGN(BorderMaskBlurFilterContents);
+  BorderMaskBlurFilterContents(const BorderMaskBlurFilterContents&) = delete;
+
+  BorderMaskBlurFilterContents& operator=(const BorderMaskBlurFilterContents&) =
+      delete;
 };
 
 }  // namespace impeller
+
+#endif  // FLUTTER_IMPELLER_ENTITY_CONTENTS_FILTERS_BORDER_MASK_BLUR_FILTER_CONTENTS_H_

@@ -2,10 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_IMPELLER_GEOMETRY_POINT_H_
+#define FLUTTER_IMPELLER_GEOMETRY_POINT_H_
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <ostream>
 #include <string>
 #include <type_traits>
@@ -15,6 +17,11 @@
 #include "impeller/geometry/type_traits.h"
 
 namespace impeller {
+
+#define ONLY_ON_FLOAT_M(Modifiers, Return) \
+  template <typename U = T>                \
+  Modifiers std::enable_if_t<std::is_floating_point_v<U>, Return>
+#define ONLY_ON_FLOAT(Return) DL_ONLY_ON_FLOAT_M(, Return)
 
 template <class T>
 struct TPoint {
@@ -37,6 +44,12 @@ struct TPoint {
   constexpr TPoint(Type x, Type y) : x(x), y(y) {}
 
   static constexpr TPoint<Type> MakeXY(Type x, Type y) { return {x, y}; }
+
+  template <class U>
+  static constexpr TPoint Round(const TPoint<U>& other) {
+    return TPoint{static_cast<Type>(std::round(other.x)),
+                  static_cast<Type>(std::round(other.y))};
+  }
 
   constexpr bool operator==(const TPoint& p) const {
     return p.x == x && p.y == y;
@@ -178,6 +191,12 @@ struct TPoint {
     return {std::max<Type>(x, p.x), std::max<Type>(y, p.y)};
   }
 
+  constexpr TPoint Floor() const { return {std::floor(x), std::floor(y)}; }
+
+  constexpr TPoint Ceil() const { return {std::ceil(x), std::ceil(y)}; }
+
+  constexpr TPoint Round() const { return {std::round(x), std::round(y)}; }
+
   constexpr Type GetDistance(const TPoint& p) const {
     return sqrt(GetDistanceSquared(p));
   }
@@ -213,6 +232,9 @@ struct TPoint {
   }
 
   constexpr bool IsZero() const { return x == 0 && y == 0; }
+
+  ONLY_ON_FLOAT_M(constexpr, bool)
+  IsFinite() const { return std::isfinite(x) && std::isfinite(y); }
 };
 
 // Specializations for mixed (float & integer) algebraic operations.
@@ -296,6 +318,10 @@ using IPoint = TPoint<int64_t>;
 using IPoint32 = TPoint<int32_t>;
 using UintPoint32 = TPoint<uint32_t>;
 using Vector2 = Point;
+using Quad = std::array<Point, 4>;
+
+#undef ONLY_ON_FLOAT
+#undef ONLY_ON_FLOAT_M
 
 }  // namespace impeller
 
@@ -309,3 +335,5 @@ inline std::ostream& operator<<(std::ostream& out,
 }
 
 }  // namespace std
+
+#endif  // FLUTTER_IMPELLER_GEOMETRY_POINT_H_

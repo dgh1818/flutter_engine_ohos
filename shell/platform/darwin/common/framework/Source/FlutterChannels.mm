@@ -4,15 +4,46 @@
 
 #import "flutter/shell/platform/darwin/common/framework/Headers/FlutterChannels.h"
 
+FLUTTER_ASSERT_ARC
+
 #pragma mark - Basic message channel
 
 static NSString* const kFlutterChannelBuffersChannel = @"dev.flutter/channel-buffers";
+static NSString* const kResizeMethod = @"resize";
+static NSString* const kOverflowMethod = @"overflow";
 
 static void ResizeChannelBuffer(NSObject<FlutterBinaryMessenger>* binaryMessenger,
                                 NSString* channel,
                                 NSInteger newSize) {
-  NSString* messageString = [NSString stringWithFormat:@"resize\r%@\r%@", channel, @(newSize)];
-  NSData* message = [messageString dataUsingEncoding:NSUTF8StringEncoding];
+  NSCAssert(newSize >= 0, @"Channel buffer size must be non-negative");
+  // Cast newSize to int because the deserialization logic handles only 32 bits values,
+  // see
+  // https://github.com/flutter/engine/blob/93e8901490e78c7ba7e319cce4470d9c6478c6dc/lib/ui/channel_buffers.dart#L495.
+  NSArray* args = @[ channel, @(static_cast<int>(newSize)) ];
+  FlutterMethodCall* resizeMethodCall = [FlutterMethodCall methodCallWithMethodName:kResizeMethod
+                                                                          arguments:args];
+  NSObject<FlutterMethodCodec>* codec = [FlutterStandardMethodCodec sharedInstance];
+  NSData* message = [codec encodeMethodCall:resizeMethodCall];
+  [binaryMessenger sendOnChannel:kFlutterChannelBuffersChannel message:message];
+}
+
+/**
+ * Defines whether a channel should show warning messages when discarding messages
+ * due to overflow.
+ *
+ * @param binaryMessenger The binary messenger.
+ * @param channel The channel name.
+ * @param warns When false, the channel is expected to overflow and warning messages
+ *              will not be shown.
+ */
+static void SetWarnsOnOverflow(NSObject<FlutterBinaryMessenger>* binaryMessenger,
+                               NSString* channel,
+                               BOOL warns) {
+  FlutterMethodCall* overflowMethodCall =
+      [FlutterMethodCall methodCallWithMethodName:kOverflowMethod
+                                        arguments:@[ channel, @(!warns) ]];
+  NSObject<FlutterMethodCodec>* codec = [FlutterStandardMethodCodec sharedInstance];
+  NSData* message = [codec encodeMethodCall:overflowMethodCall];
   [binaryMessenger sendOnChannel:kFlutterChannelBuffersChannel message:message];
 }
 
@@ -51,9 +82,9 @@ static FlutterBinaryMessengerConnection SetMessageHandler(
 + (instancetype)messageChannelWithName:(NSString*)name
                        binaryMessenger:(NSObject<FlutterBinaryMessenger>*)messenger
                                  codec:(NSObject<FlutterMessageCodec>*)codec {
-  return [[[FlutterBasicMessageChannel alloc] initWithName:name
-                                           binaryMessenger:messenger
-                                                     codec:codec] autorelease];
+  return [[FlutterBasicMessageChannel alloc] initWithName:name
+                                          binaryMessenger:messenger
+                                                    codec:codec];
 }
 
 - (instancetype)initWithName:(NSString*)name
@@ -69,19 +100,11 @@ static FlutterBinaryMessengerConnection SetMessageHandler(
                    taskQueue:(NSObject<FlutterTaskQueue>*)taskQueue {
   self = [super init];
   NSAssert(self, @"Super init cannot be nil");
-  _name = [name retain];
-  _messenger = [messenger retain];
-  _codec = [codec retain];
-  _taskQueue = [taskQueue retain];
+  _name = [name copy];
+  _messenger = messenger;
+  _codec = codec;
+  _taskQueue = taskQueue;
   return self;
-}
-
-- (void)dealloc {
-  [_name release];
-  [_messenger release];
-  [_codec release];
-  [_taskQueue release];
-  [super dealloc];
 }
 
 - (void)sendMessage:(id)message {
@@ -107,7 +130,10 @@ static FlutterBinaryMessengerConnection SetMessageHandler(
     }
     return;
   }
+
   // Grab reference to avoid retain on self.
+  // `self` might be released before the block, so the block needs to retain the codec to
+  // make sure it is not released with `self`
   NSObject<FlutterMessageCodec>* codec = _codec;
   FlutterBinaryMessageHandler messageHandler = ^(NSData* message, FlutterBinaryReply callback) {
     handler([codec decode:message], ^(id reply) {
@@ -117,8 +143,24 @@ static FlutterBinaryMessengerConnection SetMessageHandler(
   _connection = SetMessageHandler(_messenger, _name, messageHandler, _taskQueue);
 }
 
++ (void)resizeChannelWithName:(NSString*)name
+              binaryMessenger:(NSObject<FlutterBinaryMessenger>*)messenger
+                         size:(NSInteger)newSize {
+  ResizeChannelBuffer(messenger, name, newSize);
+}
+
 - (void)resizeChannelBuffer:(NSInteger)newSize {
   ResizeChannelBuffer(_messenger, _name, newSize);
+}
+
++ (void)setWarnsOnOverflow:(BOOL)warns
+        forChannelWithName:(NSString*)name
+           binaryMessenger:(NSObject<FlutterBinaryMessenger>*)messenger {
+  SetWarnsOnOverflow(messenger, name, warns);
+}
+
+- (void)setWarnsOnOverflow:(BOOL)warns {
+  SetWarnsOnOverflow(_messenger, _name, warns);
 }
 
 @end
@@ -128,24 +170,17 @@ static FlutterBinaryMessengerConnection SetMessageHandler(
 ////////////////////////////////////////////////////////////////////////////////
 @implementation FlutterError
 + (instancetype)errorWithCode:(NSString*)code message:(NSString*)message details:(id)details {
-  return [[[FlutterError alloc] initWithCode:code message:message details:details] autorelease];
+  return [[FlutterError alloc] initWithCode:code message:message details:details];
 }
 
 - (instancetype)initWithCode:(NSString*)code message:(NSString*)message details:(id)details {
   NSAssert(code, @"Code cannot be nil");
   self = [super init];
   NSAssert(self, @"Super init cannot be nil");
-  _code = [code retain];
-  _message = [message retain];
-  _details = [details retain];
+  _code = [code copy];
+  _message = [message copy];
+  _details = details;
   return self;
-}
-
-- (void)dealloc {
-  [_code release];
-  [_message release];
-  [_details release];
-  [super dealloc];
 }
 
 - (BOOL)isEqual:(id)object {
@@ -169,22 +204,16 @@ static FlutterBinaryMessengerConnection SetMessageHandler(
 ////////////////////////////////////////////////////////////////////////////////
 @implementation FlutterMethodCall
 + (instancetype)methodCallWithMethodName:(NSString*)method arguments:(id)arguments {
-  return [[[FlutterMethodCall alloc] initWithMethodName:method arguments:arguments] autorelease];
+  return [[FlutterMethodCall alloc] initWithMethodName:method arguments:arguments];
 }
 
 - (instancetype)initWithMethodName:(NSString*)method arguments:(id)arguments {
   NSAssert(method, @"Method name cannot be nil");
   self = [super init];
   NSAssert(self, @"Super init cannot be nil");
-  _method = [method retain];
-  _arguments = [arguments retain];
+  _method = [method copy];
+  _arguments = arguments;
   return self;
-}
-
-- (void)dealloc {
-  [_method release];
-  [_arguments release];
-  [super dealloc];
 }
 
 - (BOOL)isEqual:(id)object {
@@ -224,8 +253,7 @@ NSObject const* FlutterMethodNotImplemented = [[NSObject alloc] init];
 + (instancetype)methodChannelWithName:(NSString*)name
                       binaryMessenger:(NSObject<FlutterBinaryMessenger>*)messenger
                                 codec:(NSObject<FlutterMethodCodec>*)codec {
-  return [[[FlutterMethodChannel alloc] initWithName:name binaryMessenger:messenger
-                                               codec:codec] autorelease];
+  return [[FlutterMethodChannel alloc] initWithName:name binaryMessenger:messenger codec:codec];
 }
 
 - (instancetype)initWithName:(NSString*)name
@@ -240,19 +268,11 @@ NSObject const* FlutterMethodNotImplemented = [[NSObject alloc] init];
                    taskQueue:(NSObject<FlutterTaskQueue>*)taskQueue {
   self = [super init];
   NSAssert(self, @"Super init cannot be nil");
-  _name = [name retain];
-  _messenger = [messenger retain];
-  _codec = [codec retain];
-  _taskQueue = [taskQueue retain];
+  _name = [name copy];
+  _messenger = messenger;
+  _codec = codec;
+  _taskQueue = taskQueue;
   return self;
-}
-
-- (void)dealloc {
-  [_name release];
-  [_messenger release];
-  [_codec release];
-  [_taskQueue release];
-  [super dealloc];
 }
 
 - (void)invokeMethod:(NSString*)method arguments:(id)arguments {
@@ -285,6 +305,8 @@ NSObject const* FlutterMethodNotImplemented = [[NSObject alloc] init];
     return;
   }
   // Make sure the block captures the codec, not self.
+  // `self` might be released before the block, so the block needs to retain the codec to
+  // make sure it is not released with `self`
   NSObject<FlutterMethodCodec>* codec = _codec;
   FlutterBinaryMessageHandler messageHandler = ^(NSData* message, FlutterBinaryReply callback) {
     FlutterMethodCall* call = [codec decodeMethodCall:message];
@@ -328,8 +350,7 @@ NSObject const* FlutterEndOfEventStream = [[NSObject alloc] init];
 + (instancetype)eventChannelWithName:(NSString*)name
                      binaryMessenger:(NSObject<FlutterBinaryMessenger>*)messenger
                                codec:(NSObject<FlutterMethodCodec>*)codec {
-  return [[[FlutterEventChannel alloc] initWithName:name binaryMessenger:messenger
-                                              codec:codec] autorelease];
+  return [[FlutterEventChannel alloc] initWithName:name binaryMessenger:messenger codec:codec];
 }
 
 - (instancetype)initWithName:(NSString*)name
@@ -344,19 +365,11 @@ NSObject const* FlutterEndOfEventStream = [[NSObject alloc] init];
                    taskQueue:(NSObject<FlutterTaskQueue>* _Nullable)taskQueue {
   self = [super init];
   NSAssert(self, @"Super init cannot be nil");
-  _name = [name retain];
-  _messenger = [messenger retain];
-  _codec = [codec retain];
-  _taskQueue = [taskQueue retain];
+  _name = [name copy];
+  _messenger = messenger;
+  _codec = codec;
+  _taskQueue = taskQueue;
   return self;
-}
-
-- (void)dealloc {
-  [_name release];
-  [_codec release];
-  [_messenger release];
-  [_taskQueue release];
-  [super dealloc];
 }
 
 static FlutterBinaryMessengerConnection SetStreamHandlerMessageHandlerOnChannel(

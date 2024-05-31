@@ -22,6 +22,7 @@ public class SurfaceTextureWrapper {
   private boolean released;
   private boolean attached;
   private Runnable onFrameConsumed;
+  private boolean newFrameAvailable = false;
 
   public SurfaceTextureWrapper(@NonNull SurfaceTexture surfaceTexture) {
     this(surfaceTexture, null);
@@ -47,10 +48,23 @@ public class SurfaceTextureWrapper {
     return surfaceTexture;
   }
 
+  public void markDirty() {
+    synchronized (this) {
+      newFrameAvailable = true;
+    }
+  }
+
+  public boolean shouldUpdate() {
+    synchronized (this) {
+      return newFrameAvailable;
+    }
+  }
+
   // Called by native.
   @SuppressWarnings("unused")
   public void updateTexImage() {
     synchronized (this) {
+      newFrameAvailable = false;
       if (!released) {
         surfaceTexture.updateTexImage();
         if (onFrameConsumed != null) {
@@ -81,8 +95,8 @@ public class SurfaceTextureWrapper {
       // This causes the texture to be in an uninitialized state.
       // This should *not* be an issue once platform views are always rendered as TextureLayers
       // since thread merging will be always disabled on Android.
-      // For more see: AndroidExternalTextureGL::OnGrContextCreated in
-      // android_external_texture_gl.cc, and
+      // For more see: SurfaceTextureExternalTextureGL::OnGrContextCreated in
+      // surface_texture_external_texture_gl.cc, and
       // https://github.com/flutter/flutter/issues/98155
       if (attached) {
         surfaceTexture.detachFromGLContext();

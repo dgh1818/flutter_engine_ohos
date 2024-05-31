@@ -4,11 +4,12 @@
 
 #include "impeller/entity/contents/filters/yuv_to_rgb_filter_contents.h"
 
+#include "impeller/core/formats.h"
+#include "impeller/entity/contents/anonymous_contents.h"
 #include "impeller/entity/contents/content_context.h"
 #include "impeller/geometry/matrix.h"
-#include "impeller/renderer/formats.h"
 #include "impeller/renderer/render_pass.h"
-#include "impeller/renderer/sampler_library.h"
+#include "impeller/renderer/vertex_buffer_builder.h"
 
 namespace impeller {
 
@@ -36,12 +37,13 @@ void YUVToRGBFilterContents::SetYUVColorSpace(YUVColorSpace yuv_color_space) {
   yuv_color_space_ = yuv_color_space;
 }
 
-std::optional<Snapshot> YUVToRGBFilterContents::RenderFilter(
+std::optional<Entity> YUVToRGBFilterContents::RenderFilter(
     const FilterInput::Vector& inputs,
     const ContentContext& renderer,
     const Entity& entity,
     const Matrix& effect_transform,
-    const Rect& coverage) const {
+    const Rect& coverage,
+    const std::optional<Rect>& coverage_hint) const {
   if (inputs.size() < 2) {
     return std::nullopt;
   }
@@ -49,8 +51,10 @@ std::optional<Snapshot> YUVToRGBFilterContents::RenderFilter(
   using VS = YUVToRGBFilterPipeline::VertexShader;
   using FS = YUVToRGBFilterPipeline::FragmentShader;
 
-  auto y_input_snapshot = inputs[0]->GetSnapshot(renderer, entity);
-  auto uv_input_snapshot = inputs[1]->GetSnapshot(renderer, entity);
+  auto y_input_snapshot =
+      inputs[0]->GetSnapshot("YUVToRGB(Y)", renderer, entity);
+  auto uv_input_snapshot =
+      inputs[1]->GetSnapshot("YUVToRGB(UV)", renderer, entity);
   if (!y_input_snapshot.has_value() || !uv_input_snapshot.has_value()) {
     return std::nullopt;
   }
@@ -62,37 +66,44 @@ std::optional<Snapshot> YUVToRGBFilterContents::RenderFilter(
     return std::nullopt;
   }
 
-  ContentContext::SubpassCallback callback = [&](const ContentContext& renderer,
-                                                 RenderPass& pass) {
-    Command cmd;
-    cmd.label = "YUV to RGB Filter";
+  //----------------------------------------------------------------------------
+  /// Create AnonymousContents for rendering.
+  ///
+  RenderProc render_proc = [y_input_snapshot, uv_input_snapshot,
+                            yuv_color_space = yuv_color_space_](
+                               const ContentContext& renderer,
+                               const Entity& entity, RenderPass& pass) -> bool {
+    pass.SetCommandLabel("YUV to RGB Filter");
+    pass.SetStencilReference(entity.GetClipDepth());
 
-    auto options = OptionsFromPass(pass);
-    options.blend_mode = BlendMode::kSource;
-    cmd.pipeline = renderer.GetYUVToRGBFilterPipeline(options);
+    auto options = OptionsFromPassAndEntity(pass, entity);
+    options.primitive_type = PrimitiveType::kTriangleStrip;
+    pass.SetPipeline(renderer.GetYUVToRGBFilterPipeline(options));
+
+    auto size = y_input_snapshot->texture->GetSize();
 
     VertexBufferBuilder<VS::PerVertexData> vtx_builder;
     vtx_builder.AddVertices({
         {Point(0, 0)},
         {Point(1, 0)},
-        {Point(1, 1)},
-        {Point(0, 0)},
-        {Point(1, 1)},
         {Point(0, 1)},
+        {Point(1, 1)},
     });
 
-    auto& host_buffer = pass.GetTransientsBuffer();
-    auto vtx_buffer = vtx_builder.CreateVertexBuffer(host_buffer);
-    cmd.BindVertices(vtx_buffer);
+    auto& host_buffer = renderer.GetTransientsBuffer();
+    pass.SetVertexBuffer(vtx_builder.CreateVertexBuffer(host_buffer));
 
     VS::FrameInfo frame_info;
-    frame_info.mvp = Matrix::MakeOrthographic(ISize(1, 1));
+    frame_info.mvp = Entity::GetShaderTransform(
+        entity.GetShaderClipDepth(), pass,
+        entity.GetTransform() * y_input_snapshot->transform *
+            Matrix::MakeScale(Vector2(size)));
+    frame_info.texture_sampler_y_coord_scale =
+        y_input_snapshot->texture->GetYCoordScale();
 
     FS::FragInfo frag_info;
-    frag_info.texture_sampler_y_coord_scale =
-        y_input_snapshot->texture->GetYCoordScale();
-    frag_info.yuv_color_space = static_cast<Scalar>(yuv_color_space_);
-    switch (yuv_color_space_) {
+    frag_info.yuv_color_space = static_cast<Scalar>(yuv_color_space);
+    switch (yuv_color_space) {
       case YUVColorSpace::kBT601LimitedRange:
         frag_info.matrix = kMatrixBT601LimitedRange;
         break;
@@ -101,24 +112,35 @@ std::optional<Snapshot> YUVToRGBFilterContents::RenderFilter(
         break;
     }
 
-    auto sampler = renderer.GetContext()->GetSamplerLibrary()->GetSampler({});
-    FS::BindYTexture(cmd, y_input_snapshot->texture, sampler);
-    FS::BindUvTexture(cmd, uv_input_snapshot->texture, sampler);
+    const std::unique_ptr<const Sampler>& sampler =
+        renderer.GetContext()->GetSamplerLibrary()->GetSampler({});
+    FS::BindYTexture(pass, y_input_snapshot->texture, sampler);
+    FS::BindUvTexture(pass, uv_input_snapshot->texture, sampler);
 
-    FS::BindFragInfo(cmd, host_buffer.EmplaceUniform(frag_info));
-    VS::BindFrameInfo(cmd, host_buffer.EmplaceUniform(frame_info));
+    FS::BindFragInfo(pass, host_buffer.EmplaceUniform(frag_info));
+    VS::BindFrameInfo(pass, host_buffer.EmplaceUniform(frame_info));
 
-    return pass.AddCommand(std::move(cmd));
+    return pass.Draw().ok();
   };
 
-  auto out_texture =
-      renderer.MakeSubpass(y_input_snapshot->texture->GetSize(), callback);
-  if (!out_texture) {
-    return std::nullopt;
-  }
-  out_texture->SetLabel("YUVToRGB Texture");
+  CoverageProc coverage_proc =
+      [coverage](const Entity& entity) -> std::optional<Rect> {
+    return coverage.TransformBounds(entity.GetTransform());
+  };
 
-  return Snapshot{.texture = out_texture};
+  auto contents = AnonymousContents::Make(render_proc, coverage_proc);
+
+  Entity sub_entity;
+  sub_entity.SetContents(std::move(contents));
+  sub_entity.SetClipDepth(entity.GetClipDepth());
+  sub_entity.SetBlendMode(entity.GetBlendMode());
+  return sub_entity;
+}
+
+std::optional<Rect> YUVToRGBFilterContents::GetFilterSourceCoverage(
+    const Matrix& effect_transform,
+    const Rect& output_limit) const {
+  return output_limit;
 }
 
 }  // namespace impeller

@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_IMPELLER_TYPOGRAPHER_BACKENDS_SKIA_TYPEFACE_SKIA_H_
+#define FLUTTER_IMPELLER_TYPOGRAPHER_BACKENDS_SKIA_TYPEFACE_SKIA_H_
 
 #include "flutter/fml/macros.h"
 #include "impeller/base/backend_cast.h"
@@ -15,7 +16,7 @@ namespace impeller {
 class TypefaceSkia final : public Typeface,
                            public BackendCast<TypefaceSkia, Typeface> {
  public:
-  TypefaceSkia(sk_sp<SkTypeface> typeface);
+  explicit TypefaceSkia(sk_sp<SkTypeface> typeface);
 
   ~TypefaceSkia() override;
 
@@ -28,15 +29,16 @@ class TypefaceSkia final : public Typeface,
   // |Comparable<Typeface>|
   bool IsEqual(const Typeface& other) const override;
 
-  // |Typeface|
-  Rect GetBoundingBox() const override;
-
   const sk_sp<SkTypeface>& GetSkiaTypeface() const;
 
  private:
   sk_sp<SkTypeface> typeface_;
 
-  FML_DISALLOW_COPY_AND_ASSIGN(TypefaceSkia);
+  TypefaceSkia(const TypefaceSkia&) = delete;
+
+  TypefaceSkia& operator=(const TypefaceSkia&) = delete;
 };
 
 }  // namespace impeller
+
+#endif  // FLUTTER_IMPELLER_TYPOGRAPHER_BACKENDS_SKIA_TYPEFACE_SKIA_H_

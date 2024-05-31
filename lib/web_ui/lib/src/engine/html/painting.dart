@@ -96,14 +96,7 @@ class SurfacePaint implements ui.Paint {
   }
 
   @override
-  bool get invertColors {
-    return false;
-  }
-
-  @override
-  set invertColors(bool value) {}
-
-  static const int _defaultPaintColor = 0xFF000000;
+  bool invertColors = false;
 
   @override
   ui.Shader? get shader => _paintData.shader;
@@ -155,25 +148,11 @@ class SurfacePaint implements ui.Paint {
 
   // TODO(ferhat): see https://github.com/flutter/flutter/issues/33605
   @override
-  double get strokeMiterLimit {
-    throw UnsupportedError('SurfacePaint.strokeMiterLimit');
-  }
+  double strokeMiterLimit = 0;
 
+  // TODO(ferhat): Implement ImageFilter, flutter/flutter#35156.
   @override
-  set strokeMiterLimit(double value) {
-    assert(value != null);
-  }
-
-  @override
-  ui.ImageFilter? get imageFilter {
-    // TODO(ferhat): Implement ImageFilter, flutter/flutter#35156.
-    return null;
-  }
-
-  @override
-  set imageFilter(ui.ImageFilter? value) {
-    // TODO(ferhat): Implement ImageFilter, flutter/flutter#35156
-  }
+  ui.ImageFilter? imageFilter;
 
   // True if Paint instance has used in RecordingCanvas.
   bool _frozen = false;
@@ -186,33 +165,83 @@ class SurfacePaint implements ui.Paint {
     return _paintData;
   }
 
+  // Must be kept in sync with the default in paint.cc.
+  static const double _kStrokeMiterLimitDefault = 4.0;
+
+  // Must be kept in sync with the default in paint.cc.
+  static const int _kColorDefault = 0xFF000000;
+
+  // Must be kept in sync with the default in paint.cc.
+  static final int _kBlendModeDefault = ui.BlendMode.srcOver.index;
+
   @override
   String toString() {
-    final StringBuffer result = StringBuffer();
-    String semicolon = '';
-    result.write('Paint(');
-    if (style == ui.PaintingStyle.stroke) {
-      result.write('$style');
-      if (strokeWidth != 0.0) {
-        result.write(' $strokeWidth');
-      } else {
-        result.write(' hairline');
+    String resultString = 'Paint()';
+
+    assert(() {
+      final StringBuffer result = StringBuffer();
+      String semicolon = '';
+      result.write('Paint(');
+      if (style == ui.PaintingStyle.stroke) {
+        result.write('$style');
+        if (strokeWidth != 0.0) {
+          result.write(' ${strokeWidth.toStringAsFixed(1)}');
+        } else {
+          result.write(' hairline');
+        }
+        if (strokeCap != ui.StrokeCap.butt) {
+          result.write(' $strokeCap');
+        }
+        if (strokeJoin == ui.StrokeJoin.miter) {
+          if (strokeMiterLimit != _kStrokeMiterLimitDefault) {
+            result.write(' $strokeJoin up to ${strokeMiterLimit.toStringAsFixed(1)}');
+          }
+        } else {
+          result.write(' $strokeJoin');
+        }
+        semicolon = '; ';
       }
-      if (strokeCap != ui.StrokeCap.butt) {
-        result.write(' $strokeCap');
+      if (!isAntiAlias) {
+        result.write('${semicolon}antialias off');
+        semicolon = '; ';
       }
-      semicolon = '; ';
-    }
-    if (isAntiAlias != true) {
-      result.write('${semicolon}antialias off');
-      semicolon = '; ';
-    }
-    if (color.value != _defaultPaintColor) {
-      result.write('$semicolon$color');
-      semicolon = '; ';
-    }
-    result.write(')');
-    return result.toString();
+      if (color != const ui.Color(_kColorDefault)) {
+        result.write('$semicolon$color');
+        semicolon = '; ';
+      }
+      if (blendMode.index != _kBlendModeDefault) {
+        result.write('$semicolon$blendMode');
+        semicolon = '; ';
+      }
+      if (colorFilter != null) {
+        result.write('${semicolon}colorFilter: $colorFilter');
+        semicolon = '; ';
+      }
+      if (maskFilter != null) {
+        result.write('${semicolon}maskFilter: $maskFilter');
+        semicolon = '; ';
+      }
+      if (filterQuality != ui.FilterQuality.none) {
+        result.write('${semicolon}filterQuality: $filterQuality');
+        semicolon = '; ';
+      }
+      if (shader != null) {
+        result.write('${semicolon}shader: $shader');
+        semicolon = '; ';
+      }
+      if (imageFilter != null) {
+        result.write('${semicolon}imageFilter: $imageFilter');
+        semicolon = '; ';
+      }
+      if (invertColors) {
+        result.write('${semicolon}invert: $invertColors');
+      }
+      result.write(')');
+      resultString = result.toString();
+      return true;
+    }());
+
+    return resultString;
   }
 }
 
@@ -249,9 +278,8 @@ class SurfacePaintData {
 
   @override
   String toString() {
-    if (!assertionsEnabled) {
-      return super.toString();
-    } else {
+    String result = super.toString();
+    assert(() {
       final StringBuffer buffer = StringBuffer('SurfacePaintData(');
       if (blendMode != null) {
         buffer.write('blendMode = $blendMode; ');
@@ -268,9 +296,7 @@ class SurfacePaintData {
       if (strokeJoin != null) {
         buffer.write('strokeJoin = $strokeJoin; ');
       }
-      if (color != null) {
-        buffer.write('color = ${colorToCssString(ui.Color(color))}; ');
-      }
+      buffer.write('color = ${ui.Color(color).toCssString()}; ');
       if (shader != null) {
         buffer.write('shader = $shader; ');
       }
@@ -284,8 +310,12 @@ class SurfacePaintData {
         buffer.write('colorFilter = $colorFilter; ');
       }
       buffer.write('isAntiAlias = $isAntiAlias)');
-      return buffer.toString();
-    }
+      result = buffer.toString();
+
+      return true;
+    }());
+
+    return result;
   }
 }
 

@@ -9,13 +9,15 @@
 #include "third_party/skia/include/core/SkCanvas.h"
 #include "third_party/skia/include/core/SkImage.h"
 #include "third_party/skia/include/core/SkSurface.h"
+#include "third_party/skia/include/gpu/GrDirectContext.h"
+#include "third_party/skia/include/gpu/ganesh/SkSurfaceGanesh.h"
 
 namespace flutter {
 
 template <typename SyncSwitch>
 sk_sp<SkImage> ConvertToRasterUsingResourceContext(
-    sk_sp<SkImage> image,
-    fml::WeakPtr<GrDirectContext> resource_context,
+    const sk_sp<SkImage>& image,
+    const fml::WeakPtr<GrDirectContext>& resource_context,
     const std::shared_ptr<const SyncSwitch>& is_gpu_disabled_sync_switch) {
   sk_sp<SkSurface> surface;
   SkImageInfo surface_info = SkImageInfo::MakeN32Premul(image->dimensions());
@@ -23,14 +25,14 @@ sk_sp<SkImage> ConvertToRasterUsingResourceContext(
   is_gpu_disabled_sync_switch->Execute(
       typename SyncSwitch::Handlers()
           .SetIfTrue([&surface, &surface_info] {
-            surface = SkSurface::MakeRaster(surface_info);
+            surface = SkSurfaces::Raster(surface_info);
           })
           .SetIfFalse([&surface, &surface_info, resource_context] {
             if (resource_context) {
-              surface = SkSurface::MakeRenderTarget(
-                  resource_context.get(), SkBudgeted::kNo, surface_info);
+              surface = SkSurfaces::RenderTarget(
+                  resource_context.get(), skgpu::Budgeted::kNo, surface_info);
             } else {
-              surface = SkSurface::MakeRaster(surface_info);
+              surface = SkSurfaces::Raster(surface_info);
             }
           }));
 
@@ -40,7 +42,9 @@ sk_sp<SkImage> ConvertToRasterUsingResourceContext(
   }
 
   surface->getCanvas()->drawImage(image, 0, 0);
-  surface->getCanvas()->flush();
+  if (resource_context) {
+    resource_context->flushAndSubmit();
+  }
 
   auto snapshot = surface->makeImageSnapshot();
 

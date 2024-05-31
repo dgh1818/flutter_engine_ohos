@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <assert.h>
 #include <memory>
 #include <string>
 
@@ -16,7 +15,7 @@ namespace {
 
 // The maximum number of pending events to keep before
 // emitting a warning on the console about unhandled events.
-static constexpr int kMaxPendingEvents = 1000;
+constexpr int kMaxPendingEvents = 1000;
 
 // Returns true if this key is an AltRight key down event.
 //
@@ -41,7 +40,7 @@ static constexpr int kMaxPendingEvents = 1000;
 // would be rare, and a misrecognition would only cause a minor consequence
 // where the CtrlLeft is released early; the later, real, CtrlLeft up event will
 // be ignored.
-static bool IsKeyDownAltRight(int action, int virtual_key, bool extended) {
+bool IsKeyDownAltRight(int action, int virtual_key, bool extended) {
   return virtual_key == VK_RMENU && extended &&
          (action == WM_KEYDOWN || action == WM_SYSKEYDOWN);
 }
@@ -49,7 +48,7 @@ static bool IsKeyDownAltRight(int action, int virtual_key, bool extended) {
 // Returns true if this key is a key up event of AltRight.
 //
 // This is used to assist a corner case described in |IsKeyDownAltRight|.
-static bool IsKeyUpAltRight(int action, int virtual_key, bool extended) {
+bool IsKeyUpAltRight(int action, int virtual_key, bool extended) {
   return virtual_key == VK_RMENU && extended &&
          (action == WM_KEYUP || action == WM_SYSKEYUP);
 }
@@ -57,24 +56,22 @@ static bool IsKeyUpAltRight(int action, int virtual_key, bool extended) {
 // Returns true if this key is a key down event of CtrlLeft.
 //
 // This is used to assist a corner case described in |IsKeyDownAltRight|.
-static bool IsKeyDownCtrlLeft(int action, int virtual_key) {
+bool IsKeyDownCtrlLeft(int action, int virtual_key) {
   return virtual_key == VK_LCONTROL &&
          (action == WM_KEYDOWN || action == WM_SYSKEYDOWN);
 }
 
 // Returns if a character sent by Win32 is a dead key.
-static bool IsDeadKey(uint32_t ch) {
+bool IsDeadKey(uint32_t ch) {
   return (ch & kDeadKeyCharMask) != 0;
 }
 
-static char32_t CodePointFromSurrogatePair(wchar_t high, wchar_t low) {
+char32_t CodePointFromSurrogatePair(wchar_t high, wchar_t low) {
   return 0x10000 + ((static_cast<char32_t>(high) & 0x000003FF) << 10) +
          (low & 0x3FF);
 }
 
-static uint16_t ResolveKeyCode(uint16_t original,
-                               bool extended,
-                               uint8_t scancode) {
+uint16_t ResolveKeyCode(uint16_t original, bool extended, uint8_t scancode) {
   switch (original) {
     case VK_SHIFT:
     case VK_LSHIFT:
@@ -90,13 +87,13 @@ static uint16_t ResolveKeyCode(uint16_t original,
   }
 }
 
-static bool IsPrintable(uint32_t c) {
+bool IsPrintable(uint32_t c) {
   constexpr char32_t kMinPrintable = ' ';
   constexpr char32_t kDelete = 0x7F;
   return c >= kMinPrintable && c != kDelete;
 }
 
-static bool IsSysAction(UINT action) {
+bool IsSysAction(UINT action) {
   return action == WM_SYSKEYDOWN || action == WM_SYSKEYUP ||
          action == WM_SYSCHAR || action == WM_SYSDEADCHAR;
 }
@@ -323,7 +320,8 @@ bool KeyboardManager::HandleMessage(UINT const action,
       return !IsSysAction(action);
     }
     default:
-      assert(false);
+      FML_LOG(FATAL) << "No event handler for keyboard event with action "
+                     << action;
   }
   return false;
 }
@@ -336,7 +334,7 @@ void KeyboardManager::ProcessNextEvent() {
   auto pending_event = std::move(pending_events_.front());
   pending_events_.pop_front();
   PerformProcessEvent(std::move(pending_event), [this] {
-    assert(processing_event_);
+    FML_DCHECK(processing_event_);
     processing_event_ = false;
     ProcessNextEvent();
   });
@@ -392,7 +390,7 @@ void KeyboardManager::DispatchText(const PendingEvent& event) {
   // keys defined by `IsPrintable` are certain characters at lower ASCII range.
   // These ASCII control characters are sent as WM_CHAR events for all control
   // key shortcuts.
-  assert(!event.session.empty());
+  FML_DCHECK(!event.session.empty());
   bool is_printable = IsPrintable(event.session.back().wparam);
   bool valid = event.character != 0 && is_printable;
   if (valid) {

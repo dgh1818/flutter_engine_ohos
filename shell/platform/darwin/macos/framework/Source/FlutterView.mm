@@ -4,15 +4,16 @@
 
 #import "flutter/shell/platform/darwin/macos/framework/Source/FlutterView.h"
 
-#import "flutter/shell/platform/darwin/macos/framework/Source/FlutterResizeSynchronizer.h"
 #import "flutter/shell/platform/darwin/macos/framework/Source/FlutterSurfaceManager.h"
+#import "flutter/shell/platform/darwin/macos/framework/Source/FlutterThreadSynchronizer.h"
 
 #import <QuartzCore/QuartzCore.h>
 
-@interface FlutterView () {
-  __weak id<FlutterViewReshapeListener> _reshapeListener;
-  FlutterResizeSynchronizer* _resizeSynchronizer;
-  FlutterResizableBackingStoreProvider* _resizableBackingStoreProvider;
+@interface FlutterView () <FlutterSurfaceManagerDelegate> {
+  int64_t _viewId;
+  __weak id<FlutterViewDelegate> _viewDelegate;
+  FlutterThreadSynchronizer* _threadSynchronizer;
+  FlutterSurfaceManager* _surfaceManager;
 }
 
 @end
@@ -21,44 +22,40 @@
 
 - (instancetype)initWithMTLDevice:(id<MTLDevice>)device
                      commandQueue:(id<MTLCommandQueue>)commandQueue
-                  reshapeListener:(id<FlutterViewReshapeListener>)reshapeListener {
+                         delegate:(id<FlutterViewDelegate>)delegate
+               threadSynchronizer:(FlutterThreadSynchronizer*)threadSynchronizer
+                           viewId:(int64_t)viewId {
   self = [super initWithFrame:NSZeroRect];
   if (self) {
     [self setWantsLayer:YES];
     [self setBackgroundColor:[NSColor blackColor]];
     [self setLayerContentsRedrawPolicy:NSViewLayerContentsRedrawDuringViewResize];
-    _reshapeListener = reshapeListener;
-    _resizableBackingStoreProvider =
-        [[FlutterResizableBackingStoreProvider alloc] initWithDevice:device
-                                                        commandQueue:commandQueue
-                                                               layer:self.layer];
-    _resizeSynchronizer =
-        [[FlutterResizeSynchronizer alloc] initWithDelegate:_resizableBackingStoreProvider];
+    _viewId = viewId;
+    _viewDelegate = delegate;
+    _threadSynchronizer = threadSynchronizer;
+    _surfaceManager = [[FlutterSurfaceManager alloc] initWithDevice:device
+                                                       commandQueue:commandQueue
+                                                              layer:self.layer
+                                                           delegate:self];
   }
   return self;
 }
 
-- (FlutterRenderBackingStore*)backingStoreForSize:(CGSize)size {
-  if ([_resizeSynchronizer shouldEnsureSurfaceForSize:size]) {
-    [_resizableBackingStoreProvider onBackingStoreResized:size];
-  }
-  return [_resizableBackingStoreProvider backingStore];
+- (void)onPresent:(CGSize)frameSize withBlock:(dispatch_block_t)block {
+  [_threadSynchronizer performCommitForView:_viewId size:frameSize notify:block];
 }
 
-- (void)present {
-  [_resizeSynchronizer requestCommit];
-}
-
-- (void)presentWithoutContent {
-  [_resizeSynchronizer noFlutterContent];
+- (FlutterSurfaceManager*)surfaceManager {
+  return _surfaceManager;
 }
 
 - (void)reshaped {
   CGSize scaledSize = [self convertSizeToBacking:self.bounds.size];
-  [_resizeSynchronizer beginResize:scaledSize
-                            notify:^{
-                              [_reshapeListener viewDidReshape:self];
-                            }];
+  [_threadSynchronizer beginResizeForView:_viewId
+                                     size:scaledSize
+                                   notify:^{
+                                     [_viewDelegate viewDidReshape:self];
+                                   }];
 }
 
 - (void)setBackgroundColor:(NSColor*)color {
@@ -92,7 +89,9 @@
 }
 
 - (BOOL)acceptsFirstResponder {
-  return YES;
+  // This is to ensure that FlutterView does not take first responder status from TextInputPlugin
+  // on mouse clicks.
+  return [_viewDelegate viewShouldAcceptFirstResponder:self];
 }
 
 - (void)cursorUpdate:(NSEvent*)event {
@@ -107,12 +106,15 @@
 - (void)viewDidChangeBackingProperties {
   [super viewDidChangeBackingProperties];
   // Force redraw
-  [_reshapeListener viewDidReshape:self];
+  [_viewDelegate viewDidReshape:self];
 }
 
-- (void)shutdown {
-  [_resizeSynchronizer shutdown];
+- (BOOL)layer:(CALayer*)layer
+    shouldInheritContentsScale:(CGFloat)newScale
+                    fromWindow:(NSWindow*)window {
+  return YES;
 }
+
 #pragma mark - NSAccessibility overrides
 
 - (BOOL)isAccessibilityElement {

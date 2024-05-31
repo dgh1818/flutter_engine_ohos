@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_IMPELLER_AIKS_PAINT_PASS_DELEGATE_H_
+#define FLUTTER_IMPELLER_AIKS_PAINT_PASS_DELEGATE_H_
 
 #include <optional>
 
@@ -14,30 +15,72 @@ namespace impeller {
 
 class PaintPassDelegate final : public EntityPassDelegate {
  public:
-  PaintPassDelegate(Paint paint, std::optional<Rect> coverage);
+  explicit PaintPassDelegate(Paint paint);
 
   // |EntityPassDelgate|
   ~PaintPassDelegate() override;
-
-  // |EntityPassDelegate|
-  std::optional<Rect> GetCoverageRect() override;
 
   // |EntityPassDelgate|
   bool CanElide() override;
 
   // |EntityPassDelgate|
-  bool CanCollapseIntoParentPass() override;
+  bool CanCollapseIntoParentPass(EntityPass* entity_pass) override;
 
   // |EntityPassDelgate|
   std::shared_ptr<Contents> CreateContentsForSubpassTarget(
       std::shared_ptr<Texture> target,
       const Matrix& effect_transform) override;
 
+  // |EntityPassDelgate|
+  std::shared_ptr<FilterContents> WithImageFilter(
+      const FilterInput::Variant& input,
+      const Matrix& effect_transform) const override;
+
  private:
   const Paint paint_;
-  const std::optional<Rect> coverage_;
 
-  FML_DISALLOW_COPY_AND_ASSIGN(PaintPassDelegate);
+  PaintPassDelegate(const PaintPassDelegate&) = delete;
+
+  PaintPassDelegate& operator=(const PaintPassDelegate&) = delete;
+};
+
+/// A delegate that attempts to forward opacity from a save layer to
+/// child contents.
+///
+/// Currently this has a hardcoded limit of 3 entities in a pass, and
+/// cannot forward to child subpass delegates.
+class OpacityPeepholePassDelegate final : public EntityPassDelegate {
+ public:
+  explicit OpacityPeepholePassDelegate(Paint paint);
+
+  // |EntityPassDelgate|
+  ~OpacityPeepholePassDelegate() override;
+
+  // |EntityPassDelgate|
+  bool CanElide() override;
+
+  // |EntityPassDelgate|
+  bool CanCollapseIntoParentPass(EntityPass* entity_pass) override;
+
+  // |EntityPassDelgate|
+  std::shared_ptr<Contents> CreateContentsForSubpassTarget(
+      std::shared_ptr<Texture> target,
+      const Matrix& effect_transform) override;
+
+  // |EntityPassDelgate|
+  std::shared_ptr<FilterContents> WithImageFilter(
+      const FilterInput::Variant& input,
+      const Matrix& effect_transform) const override;
+
+ private:
+  const Paint paint_;
+
+  OpacityPeepholePassDelegate(const OpacityPeepholePassDelegate&) = delete;
+
+  OpacityPeepholePassDelegate& operator=(const OpacityPeepholePassDelegate&) =
+      delete;
 };
 
 }  // namespace impeller
+
+#endif  // FLUTTER_IMPELLER_AIKS_PAINT_PASS_DELEGATE_H_

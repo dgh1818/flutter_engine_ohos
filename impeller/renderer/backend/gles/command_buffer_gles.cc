@@ -39,13 +39,22 @@ bool CommandBufferGLES::OnSubmitCommands(CompletionCallback callback) {
 }
 
 // |CommandBuffer|
+void CommandBufferGLES::OnWaitUntilScheduled() {
+  reactor_->GetProcTable().Flush();
+}
+
+// |CommandBuffer|
 std::shared_ptr<RenderPass> CommandBufferGLES::OnCreateRenderPass(
     RenderTarget target) {
   if (!IsValid()) {
     return nullptr;
   }
+  auto context = context_.lock();
+  if (!context) {
+    return nullptr;
+  }
   auto pass = std::shared_ptr<RenderPassGLES>(
-      new RenderPassGLES(context_, target, reactor_));
+      new RenderPassGLES(context, target, reactor_));
   if (!pass->IsValid()) {
     return nullptr;
   }
@@ -53,7 +62,7 @@ std::shared_ptr<RenderPass> CommandBufferGLES::OnCreateRenderPass(
 }
 
 // |CommandBuffer|
-std::shared_ptr<BlitPass> CommandBufferGLES::OnCreateBlitPass() const {
+std::shared_ptr<BlitPass> CommandBufferGLES::OnCreateBlitPass() {
   if (!IsValid()) {
     return nullptr;
   }
@@ -65,7 +74,7 @@ std::shared_ptr<BlitPass> CommandBufferGLES::OnCreateBlitPass() const {
 }
 
 // |CommandBuffer|
-std::shared_ptr<ComputePass> CommandBufferGLES::OnCreateComputePass() const {
+std::shared_ptr<ComputePass> CommandBufferGLES::OnCreateComputePass() {
   // Compute passes aren't supported until GLES 3.2, at which point Vulkan is
   // available anyway.
   return nullptr;

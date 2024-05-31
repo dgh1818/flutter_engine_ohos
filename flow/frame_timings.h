@@ -10,12 +10,15 @@
 #include "flutter/common/settings.h"
 #include "flutter/flow/raster_cache.h"
 #include "flutter/fml/macros.h"
+#include "flutter/fml/status.h"
 #include "flutter/fml/time/time_delta.h"
 #include "flutter/fml/time/time_point.h"
 
-#define TRACE_EVENT_WITH_FRAME_NUMBER(recorder, category_group, name) \
-  TRACE_EVENT1(category_group, name, "frame_number",                  \
-               recorder->GetFrameNumberTraceArg())
+#define TRACE_EVENT_WITH_FRAME_NUMBER(recorder, category_group, name,       \
+                                      flow_id_count, flow_ids)              \
+  TRACE_EVENT1_WITH_FLOW_IDS(category_group, name, flow_id_count, flow_ids, \
+                             "frame_number",                                \
+                             recorder->GetFrameNumberTraceArg())
 
 namespace flutter {
 
@@ -28,6 +31,7 @@ class FrameTimingsRecorder {
  public:
   /// Various states that the recorder can be in. When created the recorder is
   /// in an unitialized state and transtions in sequential order of the states.
+  // After adding an item to this enum, modify StateToString accordingly.
   enum class State : uint32_t {
     kUninitialized,
     kVsync,
@@ -113,7 +117,26 @@ class FrameTimingsRecorder {
   /// Returns the recorded time from when `RecordRasterEnd` is called.
   FrameTiming GetRecordedTime() const;
 
+  /// Asserts in unopt builds that the recorder is current at the specified
+  /// state.
+  ///
+  /// Instead of adding a `GetState` method and asserting on the result, this
+  /// method prevents other logic from relying on the state.
+  ///
+  /// In release builds, this call is a no-op.
+  void AssertInState(State state) const;
+
  private:
+  FML_FRIEND_TEST(FrameTimingsRecorderTest, ThrowWhenRecordBuildBeforeVsync);
+  FML_FRIEND_TEST(FrameTimingsRecorderTest,
+                  ThrowWhenRecordRasterBeforeBuildEnd);
+
+  [[nodiscard]] fml::Status RecordVsyncImpl(fml::TimePoint vsync_start,
+                                            fml::TimePoint vsync_target);
+  [[nodiscard]] fml::Status RecordBuildStartImpl(fml::TimePoint build_start);
+  [[nodiscard]] fml::Status RecordBuildEndImpl(fml::TimePoint build_end);
+  [[nodiscard]] fml::Status RecordRasterStartImpl(fml::TimePoint raster_start);
+
   static std::atomic<uint64_t> frame_number_gen_;
 
   mutable std::mutex state_mutex_;

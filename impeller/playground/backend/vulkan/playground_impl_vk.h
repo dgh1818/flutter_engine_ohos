@@ -2,31 +2,37 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#pragma once
+#ifndef FLUTTER_IMPELLER_PLAYGROUND_BACKEND_VULKAN_PLAYGROUND_IMPL_VK_H_
+#define FLUTTER_IMPELLER_PLAYGROUND_BACKEND_VULKAN_PLAYGROUND_IMPL_VK_H_
 
-#include "flutter/fml/concurrent_message_loop.h"
-#include "flutter/fml/macros.h"
 #include "impeller/playground/playground_impl.h"
-#include "impeller/renderer/backend/vulkan/swapchain_vk.h"
 #include "impeller/renderer/backend/vulkan/vk.h"
 
 namespace impeller {
 
 class PlaygroundImplVK final : public PlaygroundImpl {
  public:
-  PlaygroundImplVK();
+  static bool IsVulkanDriverPresent();
+
+  explicit PlaygroundImplVK(PlaygroundSwitches switches);
 
   ~PlaygroundImplVK();
 
- private:
-  std::shared_ptr<fml::ConcurrentMessageLoop> concurrent_loop_;
-  std::shared_ptr<Context> context_;
-  size_t current_frame_ = 0;
+  fml::Status SetCapabilities(
+      const std::shared_ptr<Capabilities>& capabilities) override;
 
-  // windows
+ private:
+  std::shared_ptr<Context> context_;
+
+  // Windows management.
   static void DestroyWindowHandle(WindowHandle handle);
   using UniqueHandle = std::unique_ptr<void, decltype(&DestroyWindowHandle)>;
   UniqueHandle handle_;
+  ISize size_ = {1, 1};
+
+  // A global Vulkan instance which ensures that the Vulkan library will remain
+  // loaded throughout the lifetime of the process.
+  static vk::UniqueInstance global_instance_;
 
   // |PlaygroundImpl|
   std::shared_ptr<Context> GetContext() const override;
@@ -38,9 +44,13 @@ class PlaygroundImplVK final : public PlaygroundImpl {
   std::unique_ptr<Surface> AcquireSurfaceFrame(
       std::shared_ptr<Context> context) override;
 
-  void SetupSwapchain();
+  PlaygroundImplVK(const PlaygroundImplVK&) = delete;
 
-  FML_DISALLOW_COPY_AND_ASSIGN(PlaygroundImplVK);
+  PlaygroundImplVK& operator=(const PlaygroundImplVK&) = delete;
+
+  static void InitGlobalVulkanInstance();
 };
 
 }  // namespace impeller
+
+#endif  // FLUTTER_IMPELLER_PLAYGROUND_BACKEND_VULKAN_PLAYGROUND_IMPL_VK_H_

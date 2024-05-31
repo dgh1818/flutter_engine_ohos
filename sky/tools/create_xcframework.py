@@ -5,7 +5,6 @@
 # found in the LICENSE file.
 
 import argparse
-import errno
 import os
 import shutil
 import subprocess
@@ -23,12 +22,8 @@ def main():
       help='The framework paths used to create the XCFramework.',
       required=True
   )
-  parser.add_argument(
-      '--name', help='Name of the XCFramework', type=str, required=True
-  )
-  parser.add_argument(
-      '--location', help='Output directory', type=str, required=True
-  )
+  parser.add_argument('--name', help='Name of the XCFramework', type=str, required=True)
+  parser.add_argument('--location', help='Output directory', type=str, required=True)
 
   args = parser.parse_args()
 
@@ -46,7 +41,8 @@ def create_xcframework(location, name, frameworks):
     # Remove old xcframework.
     shutil.rmtree(output_xcframework)
 
-  # xcrun xcodebuild -create-xcframework -framework foo/baz.framework -framework bar/baz.framework -output output/
+  # xcrun xcodebuild -create-xcframework -framework foo/baz.framework \
+  #                  -framework bar/baz.framework -output output/
   command = ['xcrun', 'xcodebuild', '-quiet', '-create-xcframework']
 
   for framework in frameworks:

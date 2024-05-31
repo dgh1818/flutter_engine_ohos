@@ -26,8 +26,22 @@ static std::string GetGLString(const ProcTableGLES& gl, GLenum name) {
   return reinterpret_cast<const char*>(str);
 }
 
+static std::string GetGLStringi(const ProcTableGLES& gl,
+                                GLenum name,
+                                int index) {
+  auto str = gl.GetStringi(name, index);
+  if (str == nullptr) {
+    return "";
+  }
+  return reinterpret_cast<const char*>(str);
+}
+
 static bool DetermineIfES(const std::string& version) {
   return HasPrefix(version, "OpenGL ES");
+}
+
+static bool DetermineIfANGLE(const std::string& version) {
+  return version.find("ANGLE") != std::string::npos;
 }
 
 static std::optional<Version> DetermineVersion(std::string version) {
@@ -70,14 +84,8 @@ DescriptionGLES::DescriptionGLES(const ProcTableGLES& gl)
       renderer_(GetGLString(gl, GL_RENDERER)),
       gl_version_string_(GetGLString(gl, GL_VERSION)),
       sl_version_string_(GetGLString(gl, GL_SHADING_LANGUAGE_VERSION)) {
-  const auto extensions = GetGLString(gl, GL_EXTENSIONS);
-  std::stringstream extensions_stream(extensions);
-  std::string extension;
-  while (std::getline(extensions_stream, extension, ' ')) {
-    extensions_.insert(extension);
-  }
-
   is_es_ = DetermineIfES(gl_version_string_);
+  is_angle_ = DetermineIfANGLE(gl_version_string_);
 
   auto gl_version = DetermineVersion(gl_version_string_);
   if (!gl_version.has_value()) {
@@ -85,6 +93,22 @@ DescriptionGLES::DescriptionGLES(const ProcTableGLES& gl)
     return;
   }
   gl_version_ = gl_version.value();
+
+  // GL_NUM_EXTENSIONS is only available in OpenGL 3+ and OpenGL ES 3+
+  if (gl_version_.IsAtLeast(Version(3, 0, 0))) {
+    int extension_count = 0;
+    gl.GetIntegerv(GL_NUM_EXTENSIONS, &extension_count);
+    for (auto i = 0; i < extension_count; i++) {
+      extensions_.insert(GetGLStringi(gl, GL_EXTENSIONS, i));
+    }
+  } else {
+    const auto extensions = GetGLString(gl, GL_EXTENSIONS);
+    std::stringstream extensions_stream(extensions);
+    std::string extension;
+    while (std::getline(extensions_stream, extension, ' ')) {
+      extensions_.insert(extension);
+    }
+  }
 
   auto sl_version = DetermineVersion(sl_version_string_);
   if (!sl_version.has_value()) {
@@ -137,8 +161,16 @@ std::string DescriptionGLES::GetString() const {
   return stream.str();
 }
 
+Version DescriptionGLES::GetGlVersion() const {
+  return gl_version_;
+}
+
 bool DescriptionGLES::IsES() const {
   return is_es_;
+}
+
+bool DescriptionGLES::IsANGLE() const {
+  return is_angle_;
 }
 
 bool DescriptionGLES::HasExtension(const std::string& ext) const {

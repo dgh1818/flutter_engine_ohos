@@ -12,18 +12,32 @@ The web UI is available on https://flutter-engine-gold.skia.org/.
 1. In `.ci.yaml`, ensure that the task has a dependency on `goldctl`:
 
 ```yaml
-  dependencies: [{"dependency": "goldctl"}]
+dependencies: [{ "dependency": "goldctl" }]
 ```
 
-2. Add dependency in `pubspec.yaml`:
+2. In the builder `.json` file, ensure the drone has a dependency on `goldctl`:
+
+```yaml
+            "dependencies": [
+                {
+                    "dependency": "goldctl",
+                    "version": "git_revision:<sha>"
+                }
+            ],
+```
+
+3. Add dependency in `pubspec.yaml`:
 
 ```yaml
 dependencies:
+  # needed for skia_gold_client to avoid a cache miss.
+  engine_repo_tools:
+    path: <relative-path>/tools/pkg/engine_repo_tools
   skia_gold_client:
     path: <relative-path>/testing/skia_gold_client
 ```
 
-3. Use the client:
+4. Use the client:
 
 ```dart
 import 'package:skia_gold_client/skia_gold_client.dart';
@@ -36,7 +50,7 @@ Future<void> main() {
     );
 
     try {
-        if (isSkiaGoldClientAvailable) {
+        if (SkiaGoldClient.isAvailable()) {
             await client.auth();
 
             await client.addImg(

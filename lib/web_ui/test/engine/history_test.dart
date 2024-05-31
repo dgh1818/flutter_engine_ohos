@@ -2,21 +2,20 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-@TestOn('!safari')
-// TODO(mdebbar): https://github.com/flutter/flutter/issues/51169
-
 import 'dart:async';
 
 import 'package:quiver/testing/async.dart';
 import 'package:test/bootstrap/browser.dart';
 import 'package:test/test.dart';
-import 'package:ui/src/engine.dart' show DomEventListener, window;
-import 'package:ui/src/engine/browser_detection.dart';
-import 'package:ui/src/engine/navigation.dart';
-import 'package:ui/src/engine/services.dart';
-import 'package:ui/src/engine/test_embedding.dart';
+import 'package:ui/src/engine.dart';
+import 'package:ui/ui_web/src/ui_web.dart';
 
-import '../spy.dart';
+import '../common/matchers.dart';
+import '../common/spy.dart';
+import '../common/test_initialization.dart';
+
+EngineFlutterWindow get implicitView =>
+    EnginePlatformDispatcher.instance.implicitView!;
 
 Map<String, dynamic> _wrapOriginState(dynamic state) {
   return <String, dynamic>{'origin': true, 'state': state};
@@ -29,7 +28,6 @@ Map<String, dynamic> _tagStateWithSerialCount(dynamic state, int serialCount) {
   };
 }
 
-const Map<String, bool> originState = <String, bool>{'origin': true};
 const Map<String, bool> flutterState = <String, bool>{'flutter': true};
 
 const MethodCodec codec = JSONMethodCodec();
@@ -39,6 +37,10 @@ void main() {
 }
 
 void testMain() {
+  setUpAll(() async {
+    await bootstrapAndRunApp(withImplicitView: true);
+  });
+
   test('createHistoryForExistingState', () {
     TestUrlStrategy strategy;
     BrowserHistory history;
@@ -50,7 +52,7 @@ void testMain() {
 
     // Random history state.
     strategy = TestUrlStrategy.fromEntry(
-      const TestHistoryEntry(<dynamic, dynamic>{'foo': 123}, null, '/'),
+      const TestHistoryEntry(<dynamic, dynamic>{'foo': 123.0}, null, '/'),
     );
     history = createHistoryForExistingState(strategy);
     expect(history, isA<MultiEntriesBrowserHistory>());
@@ -58,8 +60,8 @@ void testMain() {
 
     // Multi-entry history state.
     final Map<dynamic, dynamic> state = <dynamic, dynamic>{
-      'serialCount': 1,
-      'state': <dynamic, dynamic>{'foo': 123},
+      'serialCount': 1.0,
+      'state': <dynamic, dynamic>{'foo': 123.0},
     };
     strategy = TestUrlStrategy.fromEntry(TestHistoryEntry(state, null, '/'));
     history = createHistoryForExistingState(strategy);
@@ -92,14 +94,14 @@ void testMain() {
 
     tearDown(() async {
       spy.tearDown();
-      await window.resetHistory();
+      await implicitView.resetHistory();
     });
 
     test('basic setup works', () async {
       final TestUrlStrategy strategy = TestUrlStrategy.fromEntry(
         const TestHistoryEntry('initial state', null, '/initial'),
       );
-      await window.debugInitializeHistory(strategy, useSingle: true);
+      await implicitView.debugInitializeHistory(strategy, useSingle: true);
 
       // There should be two entries: origin and flutter.
       expect(strategy.history, hasLength(2));
@@ -128,7 +130,7 @@ void testMain() {
       );
       expect(strategy.listeners, isEmpty);
 
-      await window.debugInitializeHistory(strategy, useSingle: true);
+      await implicitView.debugInitializeHistory(strategy, useSingle: true);
 
 
       // There should be one `popstate` listener and two history entries.
@@ -140,7 +142,7 @@ void testMain() {
       expect(strategy.history[1].url, '/initial');
 
       FakeAsync().run((FakeAsync fakeAsync) {
-        window.browserHistory.dispose();
+        implicitView.browserHistory.dispose();
         // The `TestUrlStrategy` implementation uses microtasks to schedule the
         // removal of event listeners.
         fakeAsync.flushMicrotasks();
@@ -157,7 +159,7 @@ void testMain() {
 
       // An extra call to dispose should be safe.
       FakeAsync().run((FakeAsync fakeAsync) {
-        expect(() => window.browserHistory.dispose(), returnsNormally);
+        expect(() => implicitView.browserHistory.dispose(), returnsNormally);
         fakeAsync.flushMicrotasks();
       });
 
@@ -170,22 +172,22 @@ void testMain() {
       expect(strategy.history[1].url, '/initial');
 
       // Can still teardown after being disposed.
-      await window.browserHistory.tearDown();
+      await implicitView.browserHistory.tearDown();
       expect(strategy.history, hasLength(2));
       expect(strategy.currentEntry.state, unwrappedOriginState);
       expect(strategy.currentEntry.url, '/initial');
     });
 
     test('disposes gracefully when url strategy is null', () async {
-      await window.debugInitializeHistory(null, useSingle: true);
-      expect(() => window.browserHistory.dispose(), returnsNormally);
+      await implicitView.debugInitializeHistory(null, useSingle: true);
+      expect(() => implicitView.browserHistory.dispose(), returnsNormally);
     });
 
     test('browser back button pops routes correctly', () async {
       final TestUrlStrategy strategy = TestUrlStrategy.fromEntry(
         const TestHistoryEntry(null, null, '/home'),
       );
-      await window.debugInitializeHistory(strategy, useSingle: true);
+      await implicitView.debugInitializeHistory(strategy, useSingle: true);
 
       // Initially, we should be on the flutter entry.
       expect(strategy.history, hasLength(2));
@@ -220,7 +222,7 @@ void testMain() {
       final TestUrlStrategy strategy = TestUrlStrategy.fromEntry(
         const TestHistoryEntry(null, null, '/home'),
       );
-      await window.debugInitializeHistory(strategy, useSingle: true);
+      await implicitView.debugInitializeHistory(strategy, useSingle: true);
 
       await routeUpdated('/page1');
       await routeUpdated('/page2');
@@ -280,13 +282,13 @@ void testMain() {
       // 3. The active entry doesn't belong to our history anymore because we
       // navigated past it.
       expect(originalStrategy.currentEntryIndex, -1);
-    }, skip: browserEngine == BrowserEngine.webkit);
+    });
 
     test('handle user-provided url', () async {
       final TestUrlStrategy strategy = TestUrlStrategy.fromEntry(
         const TestHistoryEntry(null, null, '/home'),
       );
-      await window.debugInitializeHistory(strategy, useSingle: true);
+      await implicitView.debugInitializeHistory(strategy, useSingle: true);
 
       await strategy.simulateUserTypingUrl('/page3');
       // This delay is necessary to wait for [BrowserHistory] because it
@@ -327,7 +329,7 @@ void testMain() {
       final TestUrlStrategy strategy = TestUrlStrategy.fromEntry(
         const TestHistoryEntry(null, null, '/home'),
       );
-      await window.debugInitializeHistory(strategy, useSingle: true);
+      await implicitView.debugInitializeHistory(strategy, useSingle: true);
 
       await strategy.simulateUserTypingUrl('/unknown');
       // This delay is necessary to wait for [BrowserHistory] because it
@@ -357,14 +359,14 @@ void testMain() {
 
     tearDown(() async {
       spy.tearDown();
-      await window.resetHistory();
+      await implicitView.resetHistory();
     });
 
     test('basic setup works', () async {
       final TestUrlStrategy strategy = TestUrlStrategy.fromEntry(
         const TestHistoryEntry('initial state', null, '/initial'),
       );
-      await window.debugInitializeHistory(strategy, useSingle: false);
+      await implicitView.debugInitializeHistory(strategy, useSingle: false);
 
       // There should be only one entry.
       expect(strategy.history, hasLength(1));
@@ -384,7 +386,7 @@ void testMain() {
       );
       expect(strategy.listeners, isEmpty);
 
-      await window.debugInitializeHistory(strategy, useSingle: false);
+      await implicitView.debugInitializeHistory(strategy, useSingle: false);
 
 
       // There should be one `popstate` listener and one history entry.
@@ -394,7 +396,7 @@ void testMain() {
       expect(strategy.history.single.url, '/initial');
 
       FakeAsync().run((FakeAsync fakeAsync) {
-        window.browserHistory.dispose();
+        implicitView.browserHistory.dispose();
         // The `TestUrlStrategy` implementation uses microtasks to schedule the
         // removal of event listeners.
         fakeAsync.flushMicrotasks();
@@ -409,7 +411,7 @@ void testMain() {
 
       // An extra call to dispose should be safe.
       FakeAsync().run((FakeAsync fakeAsync) {
-        expect(() => window.browserHistory.dispose(), returnsNormally);
+        expect(() => implicitView.browserHistory.dispose(), returnsNormally);
         fakeAsync.flushMicrotasks();
       });
 
@@ -420,22 +422,22 @@ void testMain() {
       expect(strategy.history.single.url, '/initial');
 
       // Can still teardown after being disposed.
-      await window.browserHistory.tearDown();
+      await implicitView.browserHistory.tearDown();
       expect(strategy.history, hasLength(1));
       expect(strategy.history.single.state, untaggedState);
       expect(strategy.history.single.url, '/initial');
     });
 
     test('disposes gracefully when url strategy is null', () async {
-      await window.debugInitializeHistory(null, useSingle: false);
-      expect(() => window.browserHistory.dispose(), returnsNormally);
+      await implicitView.debugInitializeHistory(null, useSingle: false);
+      expect(() => implicitView.browserHistory.dispose(), returnsNormally);
     });
 
     test('browser back button push route information correctly', () async {
       final TestUrlStrategy strategy = TestUrlStrategy.fromEntry(
         const TestHistoryEntry('initial state', null, '/home'),
       );
-      await window.debugInitializeHistory(strategy, useSingle: false);
+      await implicitView.debugInitializeHistory(strategy, useSingle: false);
 
       // Initially, we should be on the flutter entry.
       expect(strategy.history, hasLength(1));
@@ -474,7 +476,7 @@ void testMain() {
       final TestUrlStrategy strategy = TestUrlStrategy.fromEntry(
         const TestHistoryEntry('initial state', null, '/home'),
       );
-      await window.debugInitializeHistory(strategy, useSingle: false);
+      await implicitView.debugInitializeHistory(strategy, useSingle: false);
 
       await routeInformationUpdated('/page1', 'page1 state');
       await routeInformationUpdated('/page2', 'page2 state');
@@ -517,13 +519,13 @@ void testMain() {
       expect(strategy.currentEntryIndex, 0);
       expect(strategy.currentEntry.state, _tagStateWithSerialCount('initial state', 0));
       expect(strategy.currentEntry.url, '/home');
-    }, skip: browserEngine == BrowserEngine.webkit);
+    });
 
     test('handle user-provided url', () async {
       final TestUrlStrategy strategy = TestUrlStrategy.fromEntry(
         const TestHistoryEntry('initial state', null, '/home'),
       );
-      await window.debugInitializeHistory(strategy, useSingle: false);
+      await implicitView.debugInitializeHistory(strategy, useSingle: false);
 
       await strategy.simulateUserTypingUrl('/page3');
       // This delay is necessary to wait for [BrowserHistory] because it
@@ -566,7 +568,7 @@ void testMain() {
       final TestUrlStrategy strategy = TestUrlStrategy.fromEntry(
         const TestHistoryEntry('initial state', null, '/home'),
       );
-      await window.debugInitializeHistory(strategy, useSingle: false);
+      await implicitView.debugInitializeHistory(strategy, useSingle: false);
 
       await routeInformationUpdated('/page1', 'page1 state');
       await routeInformationUpdated('/page2', 'page2 state');
@@ -646,12 +648,105 @@ void testMain() {
       location.hash = '#';
       expect(strategy.getPath(), '/');
     });
+
+    test('prepareExternalUrl', () {
+      const String internalUrl = '/menu?foo=bar';
+      final HashUrlStrategy strategy = HashUrlStrategy(location);
+
+      location.pathname = '/';
+      expect(strategy.prepareExternalUrl(internalUrl), '/#/menu?foo=bar');
+
+      location.pathname = '/main';
+      expect(strategy.prepareExternalUrl(internalUrl), '/main#/menu?foo=bar');
+
+      location.search = '?foo=bar';
+      expect(
+        strategy.prepareExternalUrl(internalUrl),
+        '/main?foo=bar#/menu?foo=bar',
+      );
+    });
+
+    test('removes /#/ from the home page', () {
+      const String internalUrl = '/';
+      final HashUrlStrategy strategy = HashUrlStrategy(location);
+
+      location.pathname = '/';
+      expect(strategy.prepareExternalUrl(internalUrl), '/');
+
+      location.pathname = '/main';
+      expect(strategy.prepareExternalUrl(internalUrl), '/main');
+
+      location.search = '?foo=bar';
+      expect(
+        strategy.prepareExternalUrl(internalUrl),
+        '/main?foo=bar',
+      );
+    });
+
+    test('addPopStateListener fn unwraps DomPopStateEvent state', () {
+      final HashUrlStrategy strategy = HashUrlStrategy(location);
+      const String expected = 'expected value';
+      final List<Object?> states = <Object?>[];
+
+      // Put the popStates received from the `location` in a list
+      strategy.addPopStateListener(states.add);
+
+      // Simulate a popstate with a null state:
+      location.debugTriggerPopState(null);
+
+      expect(states, hasLength(1));
+      expect(states[0], isNull);
+
+      // Simulate a popstate event with `expected` as its 'state'.
+      location.debugTriggerPopState(expected);
+
+      expect(states, hasLength(2));
+      final Object? state = states[1];
+      expect(state, isNotNull);
+      // flutter/flutter#125228
+      expect(state, isNot(isA<DomEvent>()));
+      expect(state, expected);
+    });
+  });
+
+  group('$BrowserPlatformLocation', () {
+    test('getOrCreateDomEventListener caches funcions', () {
+      const BrowserPlatformLocation location = BrowserPlatformLocation();
+      void myListener(Object event) {}
+
+      expect(
+        identical(
+          location.getOrCreateDomEventListener(myListener),
+          location.getOrCreateDomEventListener(myListener),
+        ),
+        isTrue,
+      );
+    });
+
+    test('throws if removing an invalid listener', () {
+      const BrowserPlatformLocation location = BrowserPlatformLocation();
+      void myAddedListener(Object event) {}
+      void myNonAddedListener(Object event) {}
+
+      location.addPopStateListener(myAddedListener);
+      expect(() => location.removePopStateListener(myAddedListener), returnsNormally);
+      // Removing the same listener twice should throw.
+      expect(() => location.removePopStateListener(myAddedListener), throwsAssertionError);
+
+      // A listener that was never added.
+      expect(() => location.removePopStateListener(myNonAddedListener), throwsAssertionError);
+    });
+
+    test('returns a non-empty baseUri', () {
+      const BrowserPlatformLocation location = BrowserPlatformLocation();
+      expect(location.getBaseHref(), isNotNull);
+    });
   });
 }
 
 Future<void> routeUpdated(String routeName) {
   final Completer<void> completer = Completer<void>();
-  window.sendPlatformMessage(
+  EnginePlatformDispatcher.instance.sendPlatformMessage(
     'flutter/navigation',
     codec.encodeMethodCall(MethodCall(
       'routeUpdated',
@@ -664,7 +759,7 @@ Future<void> routeUpdated(String routeName) {
 
 Future<void> routeInformationUpdated(String location, dynamic state) {
   final Completer<void> completer = Completer<void>();
-  window.sendPlatformMessage(
+  EnginePlatformDispatcher.instance.sendPlatformMessage(
     'flutter/navigation',
     codec.encodeMethodCall(MethodCall(
       'routeInformationUpdated',
@@ -677,7 +772,7 @@ Future<void> routeInformationUpdated(String location, dynamic state) {
 
 Future<void> systemNavigatorPop() {
   final Completer<void> completer = Completer<void>();
-  window.sendPlatformMessage(
+  EnginePlatformDispatcher.instance.sendPlatformMessage(
     'flutter/platform',
     codec.encodeMethodCall(const MethodCall('SystemNavigator.pop')),
     (_) => completer.complete(),
@@ -686,26 +781,42 @@ Future<void> systemNavigatorPop() {
 }
 
 /// A mock implementation of [PlatformLocation] that doesn't access the browser.
-class TestPlatformLocation extends PlatformLocation {
+class TestPlatformLocation implements PlatformLocation {
   @override
   String? hash;
 
   @override
   dynamic state;
 
-  @override
-  String get pathname => throw UnimplementedError();
+  List<EventListener> popStateListeners = <EventListener>[];
 
   @override
-  String get search => throw UnimplementedError();
+  String pathname = '';
 
   @override
-  void addPopStateListener(DomEventListener fn) {
-    throw UnimplementedError();
+  String search = '';
+
+  /// Calls all the registered `popStateListeners` with a 'popstate'
+  /// event with value `state`
+  void debugTriggerPopState(Object? state) {
+    final DomEvent event = createDomPopStateEvent(
+      'popstate',
+      <Object, Object>{
+        if (state != null) 'state': state,
+      },
+    );
+    for (final EventListener listener in popStateListeners) {
+      listener(event);
+    }
   }
 
   @override
-  void removePopStateListener(DomEventListener fn) {
+  void addPopStateListener(EventListener fn) {
+    popStateListeners.add(fn);
+  }
+
+  @override
+  void removePopStateListener(EventListener fn) {
     throw UnimplementedError();
   }
 
