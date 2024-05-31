@@ -36,6 +36,8 @@ export struct FlutterPage {
 
   private flutterView?: FlutterView | null
   private nodeController: EmbeddingNodeController | undefined = undefined
+  private lastArea?: Area;
+
   aboutToAppear() {
     this.flutterView = FlutterManager.getInstance().getFlutterView(this.viewId);
     this.nodeController = this.flutterView!!.getEmbeddingNodeController();
@@ -53,15 +55,15 @@ export struct FlutterPage {
   build() {
     Stack() {
       NodeContainer(this.nodeController)
-         .width(this.storageLinkWidth)
-         .height(this.storageLinkHeight)
+        .width(this.storageLinkWidth)
+        .height(this.storageLinkHeight)
 
       Text('')
         .id('emptyFocusText' + this.viewId)
-        .size({width: 0, height: 0})
+        .size({ width: 0, height: 0 })
         .opacity(0)
         .focusable(true)
-      
+
       XComponent({ id: this.viewId, type: this.xComponentType, libraryname: 'flutter' })
         .focusable(true)
         .focusOnTouch(true)
@@ -80,8 +82,13 @@ export struct FlutterPage {
       }
     }
     .onAreaChange((oldValue: Area, newValue: Area) => {
-      Log.d(TAG, "onAreaChange ");
-      this.flutterView?.onAreaChange(newValue)
+      if (!this.lastArea || oldValue.width != newValue.width
+        || oldValue.height != newValue.height) {
+        Log.d(TAG, "onAreaChange, old=" + JSON.stringify(oldValue));
+        Log.d(TAG, "onAreaChange, new=" + JSON.stringify(newValue));
+        this.lastArea = newValue;
+        this.flutterView?.onAreaChange(newValue)
+      }
     })
     .onKeyEvent((event: KeyEvent) => {
       Log.d(TAG, "onKeyEvent " + event.type);
