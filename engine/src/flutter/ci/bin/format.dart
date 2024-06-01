@@ -1070,7 +1070,6 @@ Future<String> _getDiffBaseRevision(ProcessManager processManager, Directory rep
   if (upstreamUrl.isEmpty) {
     upstream = 'origin';
   }
-  upstream = 'geek';
   await _runGit(<String>['fetch', upstream, 'oh-3.22.0'], processRunner);
   String result = '';
   try {

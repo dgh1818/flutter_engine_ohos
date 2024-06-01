@@ -110,16 +110,18 @@ void VsyncWaiter::FireCallback(fml::TimePoint frame_start_time,
   }
 
   if (callback) {
-    auto flow_identifier = fml::tracing::TraceNonce();
+    const uint64_t flow_identifier = fml::tracing::TraceNonce();
     if (pause_secondary_tasks) {
-      PauseDartMicroTasks();
+      PauseDartEventLoopTasks();
     }
 
     // The base trace ensures that flows have a root to begin from if one does
     // not exist. The trace viewer will ignore traces that have no base event
     // trace. While all our message loops insert a base trace trace
     // (MessageLoop::RunExpiredTasks), embedders may not.
-    TRACE_EVENT0("flutter", "VsyncFireCallback");
+    TRACE_EVENT0_WITH_FLOW_IDS("flutter", "VsyncFireCallback",
+                               /*flow_id_count=*/1,
+                               /*flow_ids=*/&flow_identifier);
 
     TRACE_FLOW_BEGIN("flutter", kVsyncFlowName, flow_identifier);
 
@@ -129,8 +131,10 @@ void VsyncWaiter::FireCallback(fml::TimePoint frame_start_time,
     task_runners_.GetUITaskRunner()->PostTask(
         [ui_task_queue_id, callback, flow_identifier, frame_start_time,
          frame_target_time, pause_secondary_tasks]() {
-          FML_TRACE_EVENT("flutter", kVsyncTraceName, "StartTime",
-                          frame_start_time, "TargetTime", frame_target_time);
+          FML_TRACE_EVENT_WITH_FLOW_IDS(
+              "flutter", kVsyncTraceName, /*flow_id_count=*/1,
+              /*flow_ids=*/&flow_identifier, "StartTime", frame_start_time,
+              "TargetTime", frame_target_time);
           std::unique_ptr<FrameTimingsRecorder> frame_timings_recorder =
               std::make_unique<FrameTimingsRecorder>();
           frame_timings_recorder->RecordVsync(frame_start_time,
@@ -138,7 +142,7 @@ void VsyncWaiter::FireCallback(fml::TimePoint frame_start_time,
           callback(std::move(frame_timings_recorder));
           TRACE_FLOW_END("flutter", kVsyncFlowName, flow_identifier);
           if (pause_secondary_tasks) {
-            ResumeDartMicroTasks(ui_task_queue_id);
+            ResumeDartEventLoopTasks(ui_task_queue_id);
           }
         });
   }
