@@ -217,7 +217,7 @@ def harBuild(buildInfo):
         + "--output ./src/out/%s/flutter.har " % buildOut
         + "--native_lib ./src/out/%s/libflutter.so " % buildOut
         + "--ohos_abi %s " % "arm64-v8a"
-        + "--ohos_api_int %s " % 11
+        + "--ohos_api_int %s " % 12
     )
     
 

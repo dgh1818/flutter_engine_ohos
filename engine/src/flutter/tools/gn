@@ -1040,7 +1040,7 @@ def parse_args(args):
 
   parser.add_argument('--linux-cpu', type=str, choices=['x64', 'x86', 'arm64', 'arm'])
   parser.add_argument('--ohos-cpu', type=str, choices=['x64', 'x86', 'arm64', 'arm'])
-  parser.add_argument('--ohos-api-int', type=int, choices=[10, 11], default=11)
+  parser.add_argument('--ohos-api-int', type=int, choices=[10, 11, 12], default=12)
 
   parser.add_argument('--fuchsia-cpu', type=str, choices=['x64', 'arm64'], default='x64')
   parser.add_argument('--windows-cpu', type=str, choices=['x64', 'arm64', 'x86'], default='x64')

@@ -287,7 +287,7 @@ declare_args() {
   if (flutter_runtime_mode != "debug") {
     ohos_zip_archive_dir += "-$flutter_runtime_mode"
   }
-  ohos_api_int = 11
+  ohos_api_int = 12
 }
 
 action("ohos_har") {
