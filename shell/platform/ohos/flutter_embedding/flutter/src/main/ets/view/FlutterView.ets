@@ -230,7 +230,6 @@ export class FlutterView {
     let systemAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
     let navigationAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR);
     let gestureAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM_GESTURE);
-    let keyboardAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_KEYBOARD);
 
     if (newArea != null) {
       this.viewportMetrics.physicalWidth = vp2px(newArea.width as number);
@@ -248,11 +247,6 @@ export class FlutterView {
 
     this.viewportMetrics.physicalViewPaddingLeft = systemAvoidArea!.leftRect.width
     this.viewportMetrics.physicalViewPaddingRight = systemAvoidArea!.rightRect.width
-
-    this.viewportMetrics.physicalViewInsetTop = keyboardAvoidArea!.topRect.height
-    this.viewportMetrics.physicalViewInsetLeft = keyboardAvoidArea!.leftRect.width
-    this.viewportMetrics.physicalViewInsetBottom = keyboardAvoidArea!.bottomRect.height
-    this.viewportMetrics.physicalViewInsetRight = keyboardAvoidArea!.rightRect.width
 
     this.viewportMetrics.systemGestureInsetTop = gestureAvoidArea!.topRect.height
     this.viewportMetrics.systemGestureInsetLeft = gestureAvoidArea!.leftRect.width
