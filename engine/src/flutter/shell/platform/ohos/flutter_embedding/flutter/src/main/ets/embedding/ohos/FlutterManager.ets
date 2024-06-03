@@ -80,6 +80,10 @@ export default class FlutterManager {
     }
   }
 
+  /**
+   * It's suggested to keep 'oh_flutter_' as the prefix for xcomponent_id.
+   * Otherwise it might affect the performance.
+   */
   createFlutterView(context: Context): FlutterView {
     let flutterView = new FlutterView(`oh_flutter_${this.flutterViewIndex++}`, context);
     this.putFlutterView(flutterView.getId(), flutterView);
