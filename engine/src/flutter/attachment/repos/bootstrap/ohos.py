@@ -206,7 +206,10 @@ def engineConfig(buildInfo, args):
 
 # 执行engine编译操作
 def engineCompile(buildInfo):
-    runCommand("ninja -C %s" % os.path.join("src", "out", getOutput(buildInfo)))
+    command = "ninja -C %s default " % os.path.join("src", "out", getOutput(buildInfo))
+    if IS_WINDOWS and buildInfo.buildType != "debug":
+        command += "flutter/build/archives:archive_win_gen_snapshot "
+    runCommand(command)
 
 
 # 编译har文件
