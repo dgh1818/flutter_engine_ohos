@@ -26,7 +26,7 @@ const TAG = "FlutterPage";
 @Component
 export struct FlutterPage {
   @Prop viewId: string = ""
-  @Prop xComponentType: XComponentType = XComponentType.TEXTURE
+  @Prop xComponentType: XComponentType = XComponentType.SURFACE
 
   @Builder doNothingBuilder() {}
   @BuilderParam splashScreenView: () => void = this.doNothingBuilder;
