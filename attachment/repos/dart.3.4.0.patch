@@ -8449,3 +8449,15 @@ index b511f76d3e9..18c8c7e8bda 100644
  
    # When verify_sdk_hash is true, this string is used as the verification hash
    # instead of calculating one from the contents of the tree using the
+diff --git a/pkg/vm/lib/target_os.dart b/pkg/vm/lib/target_os.dart
+index 741c090aba4..d214e3d6991 100644
+--- a/pkg/vm/lib/target_os.dart
++++ b/pkg/vm/lib/target_os.dart
+@@ -7,6 +7,7 @@ enum TargetOS {
+   fuchsia('fuchsia', '/'),
+   iOS('ios', '/'),
+   linux('linux', '/'),
++  ohos('ohos', '/'),
+   macOS('macos', '/'),
+   windows('windows', '\\');
+
