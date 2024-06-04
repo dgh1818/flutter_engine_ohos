@@ -43,7 +43,7 @@ SECRET_KEY = os.getenv("SecretAccessKey")
 SERVER = "https://obs.cn-south-1.myhuaweicloud.com"
 
 # OBS桶 
-FLUTTER_OHOS = 'flutter-ohos-test'
+FLUTTER_OHOS = 'flutter-ohos'
 
 def log(msg):
     print(f'================{msg}============')
