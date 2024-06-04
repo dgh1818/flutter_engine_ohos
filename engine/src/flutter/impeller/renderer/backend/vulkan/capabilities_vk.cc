@@ -112,6 +112,11 @@ CapabilitiesVK::GetEnabledInstanceExtensions() const {
     has_wsi = true;
   }
 
+  if (HasExtension("VK_OHOS_surface")) {
+    required.push_back("VK_OHOS_surface");
+    has_wsi = true;
+  }
+
   if (HasExtension("VK_KHR_xcb_surface")) {
     required.push_back("VK_KHR_xcb_surface");
     has_wsi = true;
@@ -176,6 +181,27 @@ static const char* GetExtensionName(RequiredAndroidDeviceExtensionVK ext) {
     case RequiredAndroidDeviceExtensionVK::kKHRDedicatedAllocation:
       return VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME;
     case RequiredAndroidDeviceExtensionVK::kLast:
+      return "Unknown";
+  }
+  FML_UNREACHABLE();
+}
+
+static const char* GetExtensionName(RequiredOHOSDeviceExtensionVK ext) {
+  switch (ext) {
+    case RequiredOHOSDeviceExtensionVK::
+        kOHOSNativeBuffer:
+      return "VK_OHOS_native_buffer";
+    case RequiredOHOSDeviceExtensionVK::kKHRSamplerYcbcrConversion:
+      return VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME;
+    case RequiredOHOSDeviceExtensionVK::kOHOSExternalMemory:
+      return "VK_OHOS_external_memory";
+    case RequiredOHOSDeviceExtensionVK::kEXTQueueFamilyForeign:
+      return VK_EXT_QUEUE_FAMILY_FOREIGN_EXTENSION_NAME;
+    case RequiredOHOSDeviceExtensionVK::kKHRDedicatedAllocation:
+      return VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME;
+    case RequiredOHOSDeviceExtensionVK::kKHRExternalSemaphoreFd:
+      return VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME;
+    case RequiredOHOSDeviceExtensionVK::kLast:
       return "Unknown";
   }
   FML_UNREACHABLE();
@@ -255,6 +281,19 @@ CapabilitiesVK::GetEnabledDeviceExtensions(
     return true;
   };
 
+  auto for_each_ohos_extension = [&](RequiredOHOSDeviceExtensionVK ext) {
+#ifdef FML_OS_OHOS
+    auto name = GetExtensionName(ext);
+    if (exts->find(name) == exts->end()) {
+      VALIDATION_LOG << "Device does not support required OHOS extension: "
+                     << name;
+      return false;
+    }
+    enabled.push_back(name);
+#endif  //  FML_OS_ANDROID
+    return true;
+  };
+
   auto for_each_optional_extension = [&](OptionalDeviceExtensionVK ext) {
     auto name = GetExtensionName(ext);
     if (exts->find(name) != exts->end()) {
@@ -268,6 +307,8 @@ CapabilitiesVK::GetEnabledDeviceExtensions(
           for_each_common_extension) &&
       IterateExtensions<RequiredAndroidDeviceExtensionVK>(
           for_each_android_extension) &&
+      IterateExtensions<RequiredOHOSDeviceExtensionVK>(
+          for_each_ohos_extension) &&
       IterateExtensions<OptionalDeviceExtensionVK>(for_each_optional_extension);
 
   if (!iterate_extensions) {
@@ -461,6 +502,7 @@ bool CapabilitiesVK::SetPhysicalDevice(const vk::PhysicalDevice& device) {
   {
     required_common_device_extensions_.clear();
     required_android_device_extensions_.clear();
+    required_ohos_device_extensions_.clear();
     optional_device_extensions_.clear();
     auto exts = GetSupportedDeviceExtensions(device);
     if (!exts.has_value()) {
@@ -477,6 +519,13 @@ bool CapabilitiesVK::SetPhysicalDevice(const vk::PhysicalDevice& device) {
       auto ext_name = GetExtensionName(ext);
       if (exts->find(ext_name) != exts->end()) {
         required_android_device_extensions_.insert(ext);
+      }
+      return true;
+    });
+    IterateExtensions<RequiredOHOSDeviceExtensionVK>([&](auto ext) -> bool {
+      auto ext_name = GetExtensionName(ext);
+      if (exts->find(ext_name) != exts->end()) {
+        required_ohos_device_extensions_.insert(ext);
       }
       return true;
     });
@@ -580,6 +629,11 @@ bool CapabilitiesVK::HasExtension(RequiredCommonDeviceExtensionVK ext) const {
 bool CapabilitiesVK::HasExtension(RequiredAndroidDeviceExtensionVK ext) const {
   return required_android_device_extensions_.find(ext) !=
          required_android_device_extensions_.end();
+}
+
+bool CapabilitiesVK::HasExtension(RequiredOHOSDeviceExtensionVK ext) const {
+  return required_ohos_device_extensions_.find(ext) !=
+         required_ohos_device_extensions_.end();
 }
 
 bool CapabilitiesVK::HasExtension(OptionalDeviceExtensionVK ext) const {
