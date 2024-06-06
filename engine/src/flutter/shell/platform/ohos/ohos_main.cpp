@@ -15,6 +15,7 @@
 
 #include "flutter/shell/platform/ohos/ohos_main.h"
 
+#include "common/settings.h"
 #include "flutter/fml/command_line.h"
 #include "flutter/fml/file.h"
 #include "flutter/fml/logging.h"
@@ -139,6 +140,27 @@ void OhosMain::Init(napi_env env, napi_callback_info info) {
                                      const std::string& message) {
     LOGI("%{public}s %{public}s", tag.c_str(), message.c_str());
   };
+
+  if (settings.enable_software_rendering) {
+    FML_CHECK(!settings.enable_impeller)
+        << "Impeller does not support software rendering. Either disable "
+           "software rendering or disable impeller.";
+    settings.ohos_rendering_api = OHOSRenderingAPI::kSoftware;
+  }
+  if (settings.enable_impeller) {
+    settings.ohos_rendering_api = OHOSRenderingAPI::kImpellerVulkan;
+  } else {
+    settings.ohos_rendering_api = OHOSRenderingAPI::kOpenGLES;
+  }
+  switch (settings.ohos_rendering_api) {
+    case OHOSRenderingAPI::kSoftware:
+    case OHOSRenderingAPI::kOpenGLES:
+      settings.enable_impeller = false;
+      break;
+    case OHOSRenderingAPI::kImpellerVulkan:
+      settings.enable_impeller = true;
+      break;
+  }
 
   g_flutter_main.reset(new OhosMain(settings));
   // TODO : g_flutter_main->SetupObservatoryUriCallback(env);

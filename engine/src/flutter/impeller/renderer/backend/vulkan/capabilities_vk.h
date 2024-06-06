@@ -81,7 +81,6 @@ enum class RequiredAndroidDeviceExtensionVK : uint32_t {
   kLast,
 };
 
-
 //------------------------------------------------------------------------------
 /// @brief      A device extension available on all OHOS platforms. Without
 ///             the presence of these extensions on OHOS, context creation
@@ -256,8 +255,7 @@ class CapabilitiesVK final : public Capabilities,
   std::set<RequiredCommonDeviceExtensionVK> required_common_device_extensions_;
   std::set<RequiredAndroidDeviceExtensionVK>
       required_android_device_extensions_;
-  std::set<RequiredOHOSDeviceExtensionVK>
-      required_ohos_device_extensions_;
+  std::set<RequiredOHOSDeviceExtensionVK> required_ohos_device_extensions_;
   std::set<OptionalDeviceExtensionVK> optional_device_extensions_;
   mutable PixelFormat default_color_format_ = PixelFormat::kUnknown;
   PixelFormat default_stencil_format_ = PixelFormat::kUnknown;

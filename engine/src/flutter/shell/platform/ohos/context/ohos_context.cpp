@@ -43,4 +43,13 @@ sk_sp<GrDirectContext> OHOSContext::GetMainSkiaContext() const {
   return main_context_;
 }
 
+std::shared_ptr<impeller::Context> OHOSContext::GetImpellerContext() const {
+  return impeller_context_;
+}
+
+void OHOSContext::SetImpellerContext(
+    const std::shared_ptr<impeller::Context>& context) {
+  impeller_context_ = context;
+}
+
 }  // namespace flutter
