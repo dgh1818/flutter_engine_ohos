@@ -129,7 +129,7 @@ group("flutter") {
 
   if (build_engine_artifacts) {
     public_deps += [
-      "//flutter/shell/testing($host_toolchain)",
+      # "//flutter/shell/testing($host_toolchain)",
       "//flutter/tools/const_finder",
       "//flutter/tools/font_subset",
     ]
