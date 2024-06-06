@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-#ifndef OHOS_NATIVE_WINDOW_H
-#define OHOS_NATIVE_WINDOW_H
+#ifndef FLUTTER_SHELL_PLATFORM_OHOS_SURFACE_OHOS_NATIVE_WINDOW_H_
+#define FLUTTER_SHELL_PLATFORM_OHOS_SURFACE_OHOS_NATIVE_WINDOW_H_
 
 #include "flutter/fml/macros.h"
 #include "flutter/fml/memory/ref_counted.h"
@@ -43,19 +43,12 @@ class OHOSNativeWindow : public fml::RefCountedThreadSafe<OHOSNativeWindow> {
   /// (used for testing).
   bool IsFakeWindow() const { return is_fake_window_; }
 
-  void SetWindowHeight(double height);
-
-  void SetWindowWidth(double width);
-
-  bool GetWindowWithAndHeight(double* height, double* width);
-
  private:
   Handle window_;
-  double height_;
-  double width_;
   const bool is_fake_window_;
 
   explicit OHOSNativeWindow(Handle window);
+  explicit OHOSNativeWindow(Handle window, bool is_fake_window);
 
   ~OHOSNativeWindow();
 
@@ -65,4 +58,4 @@ class OHOSNativeWindow : public fml::RefCountedThreadSafe<OHOSNativeWindow> {
 };
 }  // namespace flutter
 
-#endif
+#endif  // FLUTTER_SHELL_PLATFORM_OHOS_SURFACE_OHOS_NATIVE_WINDOW_H_

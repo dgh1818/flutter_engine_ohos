@@ -429,6 +429,11 @@ optional("gpu") {
       if (defined(ndk_api) && ndk_api >= 26) {
         libs += [ "android" ]
       }
+    } else if (is_ohos) {
+      sources += [
+        "$_skia_root/src/gpu/ganesh/gl/egl/GrGLMakeEGLInterface.cpp",
+        "$_skia_root/src/gpu/ganesh/gl/egl/GrGLMakeNativeInterface_egl.cpp",
+      ]
     } else if (skia_use_webgl) {
       sources += [
         "$_skia_root/src/gpu/ganesh/gl/webgl/GrGLMakeNativeInterface_webgl.cpp",
@@ -726,7 +731,7 @@ skia_component("skia") {
     sources += [ "$_skia_root/src/ports/SkDebug_ohos.cpp" ]
     libs += [
       "EGL",
-      "GLESv2",
+      "GLESv3",
       "hilog_ndk.z",
     ]
     defines += [ "SK_BUILD_FOR_OHOS" ]

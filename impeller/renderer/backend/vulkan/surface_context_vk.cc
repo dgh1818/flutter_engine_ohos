@@ -9,6 +9,7 @@
 #include "impeller/renderer/backend/vulkan/context_vk.h"
 #include "impeller/renderer/backend/vulkan/swapchain/khr/khr_swapchain_vk.h"
 #include "impeller/renderer/surface.h"
+#include "vulkan/vulkan_core.h"
 
 namespace impeller {
 
@@ -118,6 +119,33 @@ vk::UniqueSurfaceKHR SurfaceContextVK::CreateAndroidSurface(
 }
 
 #endif  // FML_OS_ANDROID
+
+#ifdef FML_OS_OHOS
+vk::UniqueSurfaceKHR SurfaceContextVK::CreateOHOSSurface(
+    OHNativeWindow* window) const {
+  if (!parent_->GetInstance()) {
+    VALIDATION_LOG << "createSurface get null instance";
+    return vk::UniqueSurfaceKHR{VK_NULL_HANDLE};
+  }
+  static PFN_vkCreateSurfaceOHOS vkCreateSurfaceOHOS =
+      (PFN_vkCreateSurfaceOHOS)parent_->GetInstance().getProcAddr(
+          "vkCreateSurfaceOHOS");
+  if (!vkCreateSurfaceOHOS) {
+    VALIDATION_LOG << "missing vkCreateSurfaceOHOS extension";
+    return vk::UniqueSurfaceKHR{VK_NULL_HANDLE};
+  }
+  const VkSurfaceCreateInfoOHOS surfaceCreateInfo{
+      (VkStructureType)VK_STRUCTURE_TYPE_SURFACE_CREATE_INFO_OHOS, nullptr, 0,
+      window};
+  VkSurfaceKHR surface = VK_NULL_HANDLE;
+  if (vkCreateSurfaceOHOS(parent_->GetInstance(), &surfaceCreateInfo, nullptr,
+                          &surface) != VK_SUCCESS) {
+    VALIDATION_LOG << "vkCreateSurfaceOHOS get failed";
+    return vk::UniqueSurfaceKHR{VK_NULL_HANDLE};
+  }
+  return vk::UniqueSurfaceKHR(surface);
+}
+#endif  // FML_OS_OHOS
 
 const vk::Device& SurfaceContextVK::GetDevice() const {
   return parent_->GetDevice();

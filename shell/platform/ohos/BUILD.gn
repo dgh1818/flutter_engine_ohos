@@ -36,7 +36,7 @@ group("ohos") {
 shell_gpu_configuration("ohos_gpu_configuration") {
   enable_software = true
   enable_gl = true
-  enable_vulkan = false
+  enable_vulkan = true
   enable_metal = false
 }
 
@@ -78,9 +78,11 @@ source_set("flutter_ohos_sources") {
              "./surface/ohos_surface.h",
              "ohos_touch_processor.h",
              "ohos_context_gl_skia.h",
+             "ohos_context_vulkan_impeller.h",
              "ohos_egl_surface.h",
              "ohos_environment_gl.h",
              "ohos_surface_gl_skia.h",
+             "ohos_surface_vulkan_impeller.h",
              "types.h",
            ]
 
@@ -95,6 +97,7 @@ source_set("flutter_ohos_sources") {
     "library_loader.cpp",
     "ohos_asset_provider.cpp",
     "ohos_context_gl_impeller.cpp",
+    "ohos_context_vulkan_impeller.cpp",
 
     # "//flutter/impeller/toolkit/egl/display.cc",
     "ohos_context_gl_skia.cpp",
@@ -109,6 +112,7 @@ source_set("flutter_ohos_sources") {
     "ohos_surface_gl_impeller.cpp",
     "ohos_surface_gl_skia.cpp",
     "ohos_surface_software.cpp",
+    "ohos_surface_vulkan_impeller.cpp",
     "ohos_touch_processor.cpp",
     "ohos_xcomponent_adapter.cpp",
     "platform_message_handler_ohos.cpp",
@@ -145,7 +149,6 @@ source_set("flutter_ohos_sources") {
     "//flutter/runtime",
     "//flutter/runtime:libdart",
     "//flutter/shell/common",
-    "//flutter/shell/gpu:gpu_surface_gl",
 
     #"//flutter/vulkan",
     "//flutter/skia",

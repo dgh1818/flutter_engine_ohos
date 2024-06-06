@@ -16,6 +16,7 @@
 #include "flutter/shell/platform/ohos/ohos_surface_gl_skia.h"
 
 #include <GLES2/gl2.h>
+#include <cstddef>
 
 #include "flutter/fml/logging.h"
 #include "flutter/fml/memory/ref_ptr.h"
@@ -73,7 +74,9 @@ std::unique_ptr<Surface> OhosSurfaceGLSkia::CreateGPUSurface(
         GLContextPtr()->GetMainSkiaContext();
     if (!main_skia_context) {
       main_skia_context = GPUSurfaceGLSkia::MakeGLContext(this);
-      FML_LOG(ERROR) << "Could not make main_skia_context";
+      if (main_skia_context == nullptr) {
+        FML_LOG(ERROR) << "Could not make main_skia_context ";
+      }
       GLContextPtr()->SetMainSkiaContext(main_skia_context);
     }
     return std::make_unique<GPUSurfaceGLSkia>(main_skia_context, this, true);
@@ -125,6 +128,7 @@ bool OhosSurfaceGLSkia::SetNativeWindow(fml::RefPtr<OHOSNativeWindow> window) {
   // creating a new onscreen surface.
   onscreen_surface_ = nullptr;
   // Create the onscreen surface.
+  FML_LOG(INFO) << "SetNativeWindow create onscreensurface";
   onscreen_surface_ = GLContextPtr()->CreateOnscreenSurface(window);
   if (!onscreen_surface_->IsValid()) {
     return false;
@@ -237,6 +241,8 @@ std::unique_ptr<Surface> OhosSurfaceGLSkia::CreateSnapshotSurface() {
       GLContextPtr()->GetMainSkiaContext();
   if (!main_skia_context) {
     main_skia_context = GPUSurfaceGLSkia::MakeGLContext(this);
+    FML_DLOG(INFO) << "CreateSnapshotSurface create and make skia context "
+                   << main_skia_context;
     GLContextPtr()->SetMainSkiaContext(main_skia_context);
   }
 

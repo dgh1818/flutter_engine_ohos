@@ -467,6 +467,10 @@ napi_value PlatformViewOHOSNapi::nativeAttach(napi_env env,
     FML_DLOG(ERROR) << "nativeAttach napi_get_uv_event_loop  fail";
   }
 
+  if (napi_facade == nullptr) {
+    FML_DLOG(ERROR) << "napi_facade get nullptr";
+  }
+
   auto shell_holder = std::make_unique<OHOSShellHolder>(
       OhosMain::Get().GetSettings(), napi_facade, platform_loop);
   if (shell_holder->IsValid()) {

@@ -119,11 +119,11 @@ OHOSShellHolder::OHOSShellHolder(
         weak_platform_view = platform_view_OHOS->GetWeakPtr();
         LOGI("on_create_platform_view LOGI2");
         FML_LOG(INFO) << "on_create_platform_view end1";
-        std::vector<std::unique_ptr<Display>> displays;
-        displays.push_back(std::make_unique<OHOSDisplay>(napi_facade));
-        FML_DLOG(INFO) << "on_create_platform_view LOGI3";
-        FML_LOG(INFO) << "on_create_platform_view end3";
-        shell.OnDisplayUpdates(std::move(displays));
+        // std::vector<std::unique_ptr<Display>> displays;
+        // displays.push_back(std::make_unique<OHOSDisplay>(napi_facade));
+        // FML_DLOG(INFO) << "on_create_platform_view LOGI3";
+        // FML_LOG(INFO) << "on_create_platform_view end3---here";
+        // shell.OnDisplayUpdates(std::move(displays));
         LOGI("on_create_platform_view LOGI4");
         FML_LOG(INFO) << "on_create_platform_view end3";
         return platform_view_OHOS;
@@ -179,7 +179,7 @@ OHOSShellHolder::OHOSShellHolder(
         },
         -1);
 
-    FML_DLOG(INFO) << "Registered Android SDK image decoder (API level 28+)";
+    FML_DLOG(INFO) << "Registered ohos image decoder";
   }
 
   platform_view_ = weak_platform_view;
@@ -299,6 +299,11 @@ void OHOSShellHolder::Launch(
   if (!config) {
     return;
   }
+  std::vector<std::unique_ptr<Display>> displays;
+  displays.push_back(std::make_unique<OHOSDisplay>(napi_facade_));
+  FML_DLOG(INFO) << "on_create_platform_view LOGI3";
+  FML_LOG(INFO) << "on_create_platform_view end3---here";
+  shell_->OnDisplayUpdates(std::move(displays));
   FML_LOG(INFO) << "start RunEngine";
   shell_->RunEngine(std::move(config.value()));
   FML_LOG(INFO) << "end Launch";
