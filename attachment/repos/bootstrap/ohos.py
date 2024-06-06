@@ -348,30 +348,44 @@ def checkEnvironment():
         exit(1)
 
 
+def buildLocalEngine(buildType, extraParam):
+  OPT = "--unoptimized --no-lto " if buildType == "debug" else ""
+  runCommand(
+      "%s " % os.path.join("src", "flutter", "tools", "gn") + "--runtime-mode %s " % buildType +
+      OPT + "--no-goma " + "--no-prebuilt-dart-sdk " + "--disable-desktop-embeddings " +
+      "--no-build-embedder-examples " + "--verbose " + extraParam.replace("\\", ""),
+      checkCode=False,
+      timeout=600,
+  )
+  outputName = "host_%s%s" % (buildType, "_unopt" if buildType != "profile" else "")
+  runCommand("ninja -C %s" % os.path.join("src", "out", outputName))
+
+
 def buildByNameAndType(args):
-    buildNames = args.name if args.branch or args.name else ["config", "compile"]
-    buildTypes = args.type
-    for buildType in SUPPORT_BUILD_TYPES:
-        if not buildType in buildTypes:
-            continue
-        buildInfo = BuildInfo(buildType=buildType)
-        for buildName in SUPPORT_BUILD_NAMES:
-            if not buildName in buildNames:
-                continue
-            if "clean" == buildName:
-                engineClean(buildInfo)
-            elif "config" == buildName:
-                engineConfig(buildInfo, args)
-            elif "har" == buildName:
-                harBuild(buildInfo, args)
-            elif "compile" == buildName:
-                engineCompile(buildInfo)
-            elif "zip" == buildName:
-                zipFiles(buildInfo, False, args)
-            elif "zip2" == buildName:
-                zipFiles(buildInfo, True, args)
-            else:
-                logging.warning("Other name=%s" % buildName)
+  buildNames = args.name if args.branch or args.name else ["config", "compile"]
+  buildTypes = args.type
+  for buildType in SUPPORT_BUILD_TYPES:
+    if not buildType in buildTypes:
+      continue
+    buildInfo = BuildInfo(buildType=buildType)
+    for buildName in SUPPORT_BUILD_NAMES:
+      if not buildName in buildNames:
+        continue
+      if "clean" == buildName:
+        engineClean(buildInfo)
+      elif "config" == buildName:
+        engineConfig(buildInfo, args.gn_extra_param)
+      elif "har" == buildName:
+        harBuild(buildInfo)
+      elif "compile" == buildName:
+        engineCompile(buildInfo)
+      elif "zip" == buildName:
+        zipFiles(buildInfo)
+      elif "zip2" == buildName:
+        zipFiles(buildInfo, True)
+      else:
+        logging.warning("Other name=%s" % buildName)
+    buildLocalEngine(buildType, args.gn_extra_param)
 
 
 def ohos_main():

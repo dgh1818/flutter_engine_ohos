@@ -40,8 +40,7 @@ namespace flutter {
 
 class OhosSurfaceFactoryImpl : public OhosSurfaceFactory {
  public:
-  OhosSurfaceFactoryImpl(const std::shared_ptr<OHOSContext>& context,
-                         bool enable_impeller);
+  OhosSurfaceFactoryImpl(const std::shared_ptr<OHOSContext>& context);
 
   ~OhosSurfaceFactoryImpl() override;
 
@@ -49,7 +48,6 @@ class OhosSurfaceFactoryImpl : public OhosSurfaceFactory {
 
  private:
   const std::shared_ptr<OHOSContext>& ohos_context_;
-  const bool enable_impeller_;
 };
 
 class PlatformViewOHOS final : public PlatformView {

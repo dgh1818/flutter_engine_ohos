@@ -26,29 +26,31 @@
 #include "ohos_context_gl_impeller.h"
 #include "ohos_external_texture_gl.h"
 #include "ohos_surface_gl_impeller.h"
+#include "shell/platform/ohos/context/ohos_context.h"
+#include "shell/platform/ohos/ohos_surface_vulkan_impeller.h"
 
 #include <GLES2/gl2ext.h>
 
 namespace flutter {
 
 OhosSurfaceFactoryImpl::OhosSurfaceFactoryImpl(
-    const std::shared_ptr<OHOSContext>& context,
-    bool enable_impeller)
-    : ohos_context_(context), enable_impeller_(enable_impeller) {}
+    const std::shared_ptr<OHOSContext>& context)
+    : ohos_context_(context) {}
 
 OhosSurfaceFactoryImpl::~OhosSurfaceFactoryImpl() = default;
 
 std::unique_ptr<OHOSSurface> OhosSurfaceFactoryImpl::CreateSurface() {
   switch (ohos_context_->RenderingApi()) {
     case OHOSRenderingAPI::kSoftware:
+      FML_LOG(INFO) << "OhosSurfaceFactoryImpl::CreateSurface use software";
       return std::make_unique<OHOSSurfaceSoftware>(ohos_context_);
     case OHOSRenderingAPI::kOpenGLES:
-      if (enable_impeller_) {
-        return std::make_unique<OHOSSurfaceGLImpeller>(ohos_context_, false);
-      } else {
-        FML_LOG(INFO) << "OhosSurfaceFactoryImpl::OhosSurfaceGLSkia ";
-        return std::make_unique<OhosSurfaceGLSkia>(ohos_context_);
-      }
+      FML_LOG(INFO) << "OhosSurfaceFactoryImpl::CreateSurface use skia-gl";
+      return std::make_unique<OhosSurfaceGLSkia>(ohos_context_);
+    case flutter::OHOSRenderingAPI::kImpellerVulkan:
+      FML_LOG(INFO)
+          << "OhosSurfaceFactoryImpl::CreateSurface use impeller-vulkan";
+      return std::make_unique<OHOSSurfaceVulkanImpeller>(ohos_context_);
     default:
       FML_DCHECK(false);
       return nullptr;
@@ -56,20 +58,26 @@ std::unique_ptr<OHOSSurface> OhosSurfaceFactoryImpl::CreateSurface() {
 }
 
 std::unique_ptr<OHOSContext> CreateOHOSContext(
-    bool use_software_rendering,
     const flutter::TaskRunners& task_runners,
     uint8_t msaa_samples,
-    bool enable_impeller) {
-  if (use_software_rendering) {
-    return std::make_unique<OHOSContext>(OHOSRenderingAPI::kSoftware);
+    OHOSRenderingAPI rendering_api,
+    bool enable_vulkan_validation,
+    bool enable_opengl_gpu_tracing,
+    bool enable_vulkan_gpu_tracing) {
+  switch (rendering_api) {
+    case OHOSRenderingAPI::kSoftware:
+      return std::make_unique<OHOSContext>(OHOSRenderingAPI::kSoftware);
+    case OHOSRenderingAPI::kOpenGLES:
+      return std::make_unique<OhosContextGLSkia>(
+          OHOSRenderingAPI::kOpenGLES, fml::MakeRefCounted<OhosEnvironmentGL>(),
+          task_runners, msaa_samples);
+    case OHOSRenderingAPI::kImpellerVulkan:
+      return std::make_unique<OHOSContextVulkanImpeller>(
+          enable_vulkan_validation, enable_vulkan_gpu_tracing);
+    default:
+      FML_DCHECK(false);
+      return nullptr;
   }
-  if (enable_impeller) {
-    return std::make_unique<OHOSContextGLImpeller>();
-  }
-
-  return std::make_unique<OhosContextGLSkia>(
-      OHOSRenderingAPI::kOpenGLES, fml::MakeRefCounted<OhosEnvironmentGL>(),
-      task_runners, msaa_samples);
 }
 
 PlatformViewOHOS::PlatformViewOHOS(
@@ -83,10 +91,13 @@ PlatformViewOHOS::PlatformViewOHOS(
           task_runners,
           napi_facade,
           CreateOHOSContext(
-              use_software_rendering,
               task_runners,
               msaa_samples,
-              delegate.OnPlatformViewGetSettings().enable_impeller)) {}
+              delegate.OnPlatformViewGetSettings().ohos_rendering_api,
+              delegate.OnPlatformViewGetSettings().enable_vulkan_validation,
+              delegate.OnPlatformViewGetSettings().enable_opengl_gpu_tracing,
+              delegate.OnPlatformViewGetSettings().enable_vulkan_gpu_tracing)) {
+}
 
 PlatformViewOHOS::PlatformViewOHOS(
     PlatformView::Delegate& delegate,
@@ -103,8 +114,7 @@ PlatformViewOHOS::PlatformViewOHOS(
     FML_CHECK(ohos_context_->IsValid())
         << "Could not create surface from invalid Android context.";
     LOGI("ohos_surface_ end 1");
-    surface_factory_ = std::make_shared<OhosSurfaceFactoryImpl>(
-        ohos_context_, delegate.OnPlatformViewGetSettings().enable_impeller);
+    surface_factory_ = std::make_shared<OhosSurfaceFactoryImpl>(ohos_context_);
     LOGI("ohos_surface_ end 2");
     ohos_surface_ = surface_factory_->CreateSurface();
     LOGI("ohos_surface_ end 3");

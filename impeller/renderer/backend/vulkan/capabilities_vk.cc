@@ -188,8 +188,7 @@ static const char* GetExtensionName(RequiredAndroidDeviceExtensionVK ext) {
 
 static const char* GetExtensionName(RequiredOHOSDeviceExtensionVK ext) {
   switch (ext) {
-    case RequiredOHOSDeviceExtensionVK::
-        kOHOSNativeBuffer:
+    case RequiredOHOSDeviceExtensionVK::kOHOSNativeBuffer:
       return "VK_OHOS_native_buffer";
     case RequiredOHOSDeviceExtensionVK::kKHRSamplerYcbcrConversion:
       return VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME;
