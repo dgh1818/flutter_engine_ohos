@@ -23,6 +23,9 @@ OHOSNativeWindow::OHOSNativeWindow(Handle window)
   FML_LOG(INFO) << " native_window:" << (int64_t)window_;
 }
 
+OHOSNativeWindow::OHOSNativeWindow(Handle window, bool is_fake_window)
+    : window_(window), is_fake_window_(is_fake_window) {}
+
 OHOSNativeWindow::~OHOSNativeWindow() {
   if (window_ != nullptr) {
     window_ = nullptr;
@@ -35,29 +38,17 @@ bool OHOSNativeWindow::IsValid() const {
 
 SkISize OHOSNativeWindow::GetSize() const {
   if (window_ != nullptr) {
-    return SkISize::Make(width_, height_);
+    int32_t width, height;
+    int ret = OH_NativeWindow_NativeWindowHandleOpt(
+        window_, GET_BUFFER_GEOMETRY, &width, &height);
+    if (ret != 0) {
+      FML_LOG(ERROR) << "OH_NativeWindow_NativeWindowHandleOpt GetSize err:"
+                     << ret;
+      return SkISize::Make(0, 0);
+    }
+    return SkISize::Make(width, height);
   }
-
   return SkISize::Make(0, 0);
-}
-
-void OHOSNativeWindow::SetWindowHeight(double height) {
-  height_ = height;
-}
-
-void OHOSNativeWindow::SetWindowWidth(double width) {
-  width_ = width;
-}
-
-bool OHOSNativeWindow::GetWindowWithAndHeight(double* height, double* width) {
-  if (window_ == nullptr) {
-    return false;
-  }
-
-  *height = height_;
-  *width = width_;
-
-  return true;
 }
 
 OHOSNativeWindow::Handle OHOSNativeWindow::Gethandle() const {

@@ -30,6 +30,13 @@ enum class AndroidRenderingAPI {
   kSkiaOpenGLES
 };
 
+// The combination of targeted graphics API and Impeller support.
+enum class OHOSRenderingAPI {
+  kSoftware,
+  kOpenGLES,
+  kImpellerVulkan,
+};
+
 class FrameTiming {
  public:
   enum Phase {
@@ -235,6 +242,9 @@ struct Settings {
   // The selected Android rendering API.
   AndroidRenderingAPI android_rendering_api =
       AndroidRenderingAPI::kSkiaOpenGLES;
+
+  // The selected Android rendering API.
+  OHOSRenderingAPI ohos_rendering_api = OHOSRenderingAPI::kOpenGLES;
 
   // Requests a specific rendering backend.
   std::optional<std::string> requested_rendering_backend;

@@ -98,7 +98,7 @@ OhosContextGLSkia::OhosContextGLSkia(OHOSRenderingAPI rendering_api,
     LogLastEGLError();
     return;
   }
-
+  FML_LOG(INFO) << "create gl context";
   // Create a context for the configuration.
   std::tie(success, context_) =
       CreateContext(environment_->Display(), config_, EGL_NO_CONTEXT);
@@ -166,6 +166,8 @@ std::unique_ptr<OhosEGLSurface> OhosContextGLSkia::CreateOnscreenSurface(
     EGLSurface surface = eglCreateWindowSurface(
         display, config_,
         reinterpret_cast<EGLNativeWindowType>(window->handle()), attribs);
+    FML_LOG(INFO) << "create EGLSurface " << eglGetError() << "  " << surface
+                  << "  " << context_;
     return std::make_unique<OhosEGLSurface>(surface, display, context_);
   }
 }

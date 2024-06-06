@@ -326,6 +326,19 @@ def checkEnvironment():
     exit(1)
 
 
+def buildLocalEngine(buildType, extraParam):
+  OPT = "--unoptimized --no-lto " if buildType == "debug" else ""
+  runCommand(
+      "%s " % os.path.join("src", "flutter", "tools", "gn") + "--runtime-mode %s " % buildType +
+      OPT + "--no-goma " + "--no-prebuilt-dart-sdk " + "--disable-desktop-embeddings " +
+      "--no-build-embedder-examples " + "--verbose " + extraParam.replace("\\", ""),
+      checkCode=False,
+      timeout=600,
+  )
+  outputName = "host_%s%s" % (buildType, "_unopt" if buildType != "profile" else "")
+  runCommand("ninja -C %s" % os.path.join("src", "out", outputName))
+
+
 def buildByNameAndType(args):
   buildNames = args.name if args.branch or args.name else ["config", "compile"]
   buildTypes = args.type
@@ -350,6 +363,7 @@ def buildByNameAndType(args):
         zipFiles(buildInfo, True)
       else:
         logging.warning("Other name=%s" % buildName)
+    buildLocalEngine(buildType, args.gn_extra_param)
 
 
 def ohos_main():
