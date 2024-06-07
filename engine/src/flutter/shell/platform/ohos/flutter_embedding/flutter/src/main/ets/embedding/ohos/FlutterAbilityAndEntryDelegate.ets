@@ -328,6 +328,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
 
   onWindowStageCreate() {
     this.ensureAlive();
+    this.initWindow();
     this.doInitialFlutterViewRun();
     if (this.shouldDispatchAppLifecycleState()) {
       this.flutterEngine?.getLifecycleChannel()?.appIsResumed();

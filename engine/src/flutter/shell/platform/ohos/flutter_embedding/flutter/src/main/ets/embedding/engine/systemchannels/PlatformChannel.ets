@@ -189,7 +189,7 @@ export interface PlatformMessageHandler {
 
   vibrateHapticFeedback(feedbackType: HapticFeedbackType): void;
 
-  setPreferredOrientations(ohosOrientation: number): void;
+  setPreferredOrientations(ohosOrientation: number, result: MethodResult): void;
 
   setApplicationSwitcherDescription(description: AppSwitcherDescription): void;
 
@@ -314,15 +314,8 @@ class PlatformMethodCallback implements MethodCallHandler {
           break;
         case "SystemChrome.setPreferredOrientations":
           Log.d(PlatformMethodCallback.TAG, "setPreferredOrientations: " + JSON.stringify(args));
-          try {
-            let ohosOrientation = this.platform.decodeOrientations(args as string[]);
-            this.platform.platformMessageHandler.setPreferredOrientations(ohosOrientation);
-            result.success(null);
-          } catch (err) {
-            Log.e(PlatformMethodCallback.TAG, "setPreferredOrientations err:" + JSON.stringify(err));
-            result.error("error", JSON.stringify(err), null);
-          }
-
+          let ohosOrientation = this.platform.decodeOrientations(args as string[]);
+          this.platform.platformMessageHandler.setPreferredOrientations(ohosOrientation, result);
           break;
         case "SystemChrome.setApplicationSwitcherDescription":
           Log.d(PlatformMethodCallback.TAG, "setApplicationSwitcherDescription: " + JSON.stringify(args));
