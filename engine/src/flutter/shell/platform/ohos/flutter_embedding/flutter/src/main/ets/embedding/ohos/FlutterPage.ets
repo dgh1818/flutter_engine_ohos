@@ -12,10 +12,10 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-import Any from '../../plugin/common/Any';
+
 import Log from '../../util/Log';
-import { DVModel, DVModelChildren, DynamicView } from '../../view/DynamicView/dynamicView';
 import { FlutterView } from '../../view/FlutterView';
+import { EmbeddingNodeController } from './EmbeddingNodeController';
 import FlutterManager from './FlutterManager';
 
 const TAG = "FlutterPage";
@@ -25,19 +25,22 @@ const TAG = "FlutterPage";
  */
 @Component
 export struct FlutterPage {
-  @State rootDvModel: DVModelChildren | undefined = undefined
   @Prop viewId: string = ""
-  @Prop xComponentType: XComponentType = XComponentType.TEXTURE
+  @Prop xComponentType: XComponentType = XComponentType.SURFACE
 
   @Builder doNothingBuilder() {}
   @BuilderParam splashScreenView: () => void = this.doNothingBuilder;
   @State showSplashScreen: boolean = true;
+  @StorageLink('nodeWidth') storageLinkWidth: number = 0;
+  @StorageLink('nodeHeight') storageLinkHeight: number = 0;
 
   private flutterView?: FlutterView | null
+  private nodeController: EmbeddingNodeController | undefined = undefined
+  private lastArea?: Area;
 
   aboutToAppear() {
     this.flutterView = FlutterManager.getInstance().getFlutterView(this.viewId);
-    this.rootDvModel = this.flutterView!!.getDVModel().children
+    this.nodeController = this.flutterView!!.getEmbeddingNodeController();
     this.flutterView?.addFirstFrameListener(this)
   }
 
@@ -51,6 +54,16 @@ export struct FlutterPage {
 
   build() {
     Stack() {
+      NodeContainer(this.nodeController)
+        .width(this.storageLinkWidth)
+        .height(this.storageLinkHeight)
+
+      Text('')
+        .id('emptyFocusText' + this.viewId)
+        .size({ width: 0, height: 0 })
+        .opacity(0)
+        .focusable(true)
+
       XComponent({ id: this.viewId, type: this.xComponentType, libraryname: 'flutter' })
         .focusable(true)
         .focusOnTouch(true)
@@ -64,23 +77,18 @@ export struct FlutterPage {
         })
         .backgroundColor(Color.Transparent)
 
-      ForEach(this.rootDvModel!!, (child: Any) => {
-        DynamicView({
-          model: child as DVModel,
-          params: child.params,
-          events: child.events,
-          children: child.children,
-          customBuilder: child.builder
-        })
-      })
-
       if (this.showSplashScreen) {
         this.splashScreenView();
       }
     }
     .onAreaChange((oldValue: Area, newValue: Area) => {
-      Log.d(TAG, "onAreaChange ");
-      this.flutterView?.onAreaChange(newValue)
+      if (!this.lastArea || oldValue.width != newValue.width
+        || oldValue.height != newValue.height) {
+        Log.d(TAG, "onAreaChange, old=" + JSON.stringify(oldValue));
+        Log.d(TAG, "onAreaChange, new=" + JSON.stringify(newValue));
+        this.lastArea = newValue;
+        this.flutterView?.onAreaChange(newValue)
+      }
     })
     .onKeyEvent((event: KeyEvent) => {
       Log.d(TAG, "onKeyEvent " + event.type);

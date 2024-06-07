@@ -283,22 +283,26 @@ export default class FlutterNapi {
   }
 
   decodeImage(buffer: ArrayBuffer, imageGeneratorAddress: number): void {
-    Log.d(TAG, "called decodeImage=" + buffer.byteLength)
-    const imageSourceApi = image.createImageSource(buffer);
-    let tempPixelMap: image.PixelMap | null = null;
-    imageSourceApi.createPixelMap({
-      desiredPixelFormat: image.PixelMapFormat.RGBA_8888
-    }).then(pixelMap => {
-      Log.d(TAG, "called createPixelMap end " + pixelMap.getPixelBytesNumber())
-      tempPixelMap = pixelMap
-      return pixelMap.getImageInfo()
-    }).then(imageInfo => {
-      Log.d(TAG, `nativeImageHeaderCallback width=${imageInfo.size.width}  height=${imageInfo.size.height} imageGeneratorAddress=${imageGeneratorAddress}`)
-      flutter.nativeImageDecodeCallback(imageInfo.size.width, imageInfo.size.height, imageGeneratorAddress, tempPixelMap)
-    }).catch((error: Any) => {
-      Log.d(TAG, "decodeImage error=" + JSON.stringify(error))
+    if (buffer) {
+      Log.d(TAG, "called decodeImage=" + buffer.byteLength)
+      const imageSourceApi = image.createImageSource(buffer);
+      let tempPixelMap: image.PixelMap | null = null;
+      imageSourceApi.createPixelMap({
+        desiredPixelFormat: image.PixelMapFormat.RGBA_8888
+      }).then(pixelMap => {
+        Log.d(TAG, "called createPixelMap end " + pixelMap.getPixelBytesNumber())
+        tempPixelMap = pixelMap
+        return pixelMap.getImageInfo()
+      }).then(imageInfo => {
+        Log.d(TAG, `nativeImageHeaderCallback width=${imageInfo.size.width}  height=${imageInfo.size.height} imageGeneratorAddress=${imageGeneratorAddress}`)
+        flutter.nativeImageDecodeCallback(imageInfo.size.width, imageInfo.size.height, imageGeneratorAddress, tempPixelMap)
+      }).catch((error: Any) => {
+        Log.d(TAG, "decodeImage error=" + JSON.stringify(error))
+        flutter.nativeImageDecodeCallback(0, 0, imageGeneratorAddress, null);
+      })
+    } else {
       flutter.nativeImageDecodeCallback(0, 0, imageGeneratorAddress, null);
-    })
+    }
   }
 
   setSemanticsEnabled(enabled: boolean, responseId: number): void {
@@ -374,7 +378,7 @@ export default class FlutterNapi {
    * xcomponet绑定flutterEngine
    * @param xcomponentId
    */
-  xComponentAttachFlutterEngine(xcomponentId: number) {
+  xComponentAttachFlutterEngine(xcomponentId: string) {
     flutter.nativeXComponentAttachFlutterEngine(xcomponentId, this.nativeShellHolderId!);
   }
 
@@ -382,7 +386,7 @@ export default class FlutterNapi {
    * xcomponet解除绑定flutterEngine
    * @param xcomponentId
    */
-  xComponentDetachFlutterEngine(xcomponentId: number) {
+  xComponentDetachFlutterEngine(xcomponentId: string) {
     flutter.nativeXComponentDetachFlutterEngine(xcomponentId, this.nativeShellHolderId!);
   }
 
