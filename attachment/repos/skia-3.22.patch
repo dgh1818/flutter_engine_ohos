@@ -1,5 +1,5 @@
 diff --git a/BUILD.gn b/BUILD.gn
-index c513271c34..743f4bf36f 100644
+index c513271c34..73c378fbf6 100644
 --- a/BUILD.gn
 +++ b/BUILD.gn
 @@ -25,7 +25,8 @@ import("gn/ios.gni")
@@ -38,7 +38,7 @@ index c513271c34..743f4bf36f 100644
    }
    if (skia_enable_precompile) {
      defines += [ "SK_ENABLE_PRECOMPILE" ]
-@@ -316,6 +329,44 @@ optional("fontmgr_android") {
+@@ -316,6 +329,46 @@ optional("fontmgr_android") {
    sources_for_tests = [ "tests/FontMgrAndroidParserTest.cpp" ]
  }
  
@@ -65,6 +65,8 @@ index c513271c34..743f4bf36f 100644
 +  ]
 +  include_dirs = [
 +    "//third_party/skia/include/private",
++    "//third_party/skia/include/private/base",
++    "//third_party/skia/include/ports",
 +    "//third_party/skia/include/core",
 +    "//third_party/skia/src/core",
 +    "//third_party/skia/src/ports",
@@ -83,7 +85,7 @@ index c513271c34..743f4bf36f 100644
  optional("fontmgr_custom") {
    enabled =
        skia_enable_fontmgr_custom_directory ||
-@@ -593,7 +644,7 @@ if (skia_compile_modules) {
+@@ -593,7 +646,7 @@ if (skia_compile_modules) {
        sources += [ "tools/SkGetExecutablePath_win.cpp" ]
      } else if (is_mac || is_ios) {
        sources += [ "tools/SkGetExecutablePath_mac.cpp" ]
@@ -92,7 +94,7 @@ index c513271c34..743f4bf36f 100644
        sources += [ "tools/SkGetExecutablePath_linux.cpp" ]
      }
      if (is_win) {
-@@ -721,7 +772,7 @@ if (skia_compile_sksl_tests) {
+@@ -721,7 +774,7 @@ if (skia_compile_sksl_tests) {
        sources += [ "tools/SkGetExecutablePath_win.cpp" ]
      } else if (is_mac || is_ios) {
        sources += [ "tools/SkGetExecutablePath_mac.cpp" ]
@@ -101,7 +103,7 @@ index c513271c34..743f4bf36f 100644
        sources += [ "tools/SkGetExecutablePath_linux.cpp" ]
      }
      if (is_win) {
-@@ -994,7 +1045,7 @@ optional("gpu") {
+@@ -994,7 +1047,7 @@ optional("gpu") {
        }
      } else if (skia_use_webgl) {
        sources += [ "src/gpu/ganesh/gl/webgl/GrGLMakeNativeInterface_webgl.cpp" ]
@@ -110,15 +112,15 @@ index c513271c34..743f4bf36f 100644
        sources += [
          "src/gpu/ganesh/gl/glx/GrGLMakeGLXInterface.cpp",
          "src/gpu/ganesh/gl/glx/GrGLMakeNativeInterface_glx.cpp",
-@@ -1009,8 +1060,16 @@ optional("gpu") {
+@@ -1009,8 +1062,16 @@ optional("gpu") {
        if (target_cpu != "arm64") {
          libs += [ "OpenGL32.lib" ]
        }
 -    } else {
 -      sources += [ "src/gpu/ganesh/gl/GrGLMakeNativeInterface_none.cpp" ]
 +    } else if( is_ohos){
-+       libs += [ "EGL" ,"GLESv3"]
-+         sources += [
++      libs += [ "EGL" ,"GLESv3"]
++      sources += [
 +        "src/gpu/ganesh/gl/egl/GrGLMakeEGLInterface.cpp",
 +        "src/gpu/ganesh/gl/egl/GrGLMakeNativeInterface_egl.cpp",
 +      ]
@@ -129,7 +131,7 @@ index c513271c34..743f4bf36f 100644
      }
      public += skia_gpu_gl_public
      sources += skia_gpu_gl_private
-@@ -1454,6 +1513,7 @@ skia_component("skia") {
+@@ -1454,6 +1515,7 @@ skia_component("skia") {
      ":fontmgr_fuchsia",
      ":fontmgr_mac_ct",
      ":fontmgr_win",
@@ -137,7 +139,7 @@ index c513271c34..743f4bf36f 100644
      ":fontmgr_win_gdi",
      ":gpu",
      ":graphite",
-@@ -1545,6 +1605,7 @@ skia_component("skia") {
+@@ -1545,6 +1607,7 @@ skia_component("skia") {
      libs += [
        "Ole32.lib",
        "OleAut32.lib",
@@ -145,7 +147,7 @@ index c513271c34..743f4bf36f 100644
      ]
  
      if (!skia_enable_winuwp) {
-@@ -1575,6 +1636,15 @@ skia_component("skia") {
+@@ -1575,6 +1638,15 @@ skia_component("skia") {
      ]
    }
  
@@ -153,7 +155,7 @@ index c513271c34..743f4bf36f 100644
 +    sources += [ "src/ports/SkDebug_ohos.cpp" ]
 +    libs += [
 +      "EGL",
-+      "GLESv2",
++      "GLESv3",
 +      "hilog_ndk.z" 
 +    ]
 +  }
@@ -161,7 +163,7 @@ index c513271c34..743f4bf36f 100644
    if (is_linux || is_wasm) {
      sources += [ "src/ports/SkDebug_stdio.cpp" ]
      if (skia_use_egl) {
-@@ -1992,7 +2062,7 @@ if (skia_enable_tools) {
+@@ -1992,7 +2064,7 @@ if (skia_enable_tools) {
        if (is_android || skia_use_egl) {
          sources += [ "tools/gpu/gl/egl/CreatePlatformGLTestContext_egl.cpp" ]
          libs += [ "EGL" ]
@@ -170,7 +172,7 @@ index c513271c34..743f4bf36f 100644
          sources += [ "tools/gpu/gl/glx/CreatePlatformGLTestContext_glx.cpp" ]
          libs += [
            "GLU",
-@@ -2357,7 +2427,7 @@ if (skia_enable_tools) {
+@@ -2357,7 +2429,7 @@ if (skia_enable_tools) {
      ]
    }
  
@@ -179,7 +181,7 @@ index c513271c34..743f4bf36f 100644
      if (skia_enable_skottie) {
        test_app("skottie_tool") {
          deps = [ "modules/skottie:tool" ]
-@@ -2802,7 +2872,7 @@ if (skia_enable_tools) {
+@@ -2802,7 +2874,7 @@ if (skia_enable_tools) {
          "tools/sk_app/android/surface_glue_android.h",
        ]
        libs += [ "android" ]
@@ -188,7 +190,7 @@ index c513271c34..743f4bf36f 100644
        sources += [
          "tools/SkGetExecutablePath_linux.cpp",
          "tools/sk_app/unix/Window_unix.cpp",
-@@ -2844,6 +2914,103 @@ if (skia_enable_tools) {
+@@ -2844,6 +2916,103 @@ if (skia_enable_tools) {
        frameworks += [ "QuartzCore.framework" ]
      }
  
@@ -292,7 +294,7 @@ index c513271c34..743f4bf36f 100644
      deps = [
        ":tool_utils",
        "tools/window",
-@@ -2856,7 +3023,7 @@ if (skia_enable_tools) {
+@@ -2856,7 +3025,7 @@ if (skia_enable_tools) {
      }
    }
  
@@ -301,7 +303,7 @@ index c513271c34..743f4bf36f 100644
      test_app("fiddle_examples") {
        sources = [
          "tools/fiddle/all_examples.cpp",
-@@ -3010,7 +3177,7 @@ if (skia_enable_tools) {
+@@ -3010,7 +3179,7 @@ if (skia_enable_tools) {
      }
    }
  
@@ -453,6 +455,24 @@ index fc5c2ad4de..f82fdc36bd 100644
      ldflags = [
        "-rdynamic",
        "-Wl,-rpath,\$ORIGIN",
+diff --git a/include/ports/SkFontMgr_ohos_api.h b/include/ports/SkFontMgr_ohos_api.h
+new file mode 100644
+index 0000000000..4199b4ad96
+--- /dev/null
++++ b/include/ports/SkFontMgr_ohos_api.h
+@@ -0,0 +1,12 @@
++#ifndef SkFontMgr_ohos_api_DEFINED
++#define SkFontMgr_ohos_api_DEFINED
++
++#include "include/core/SkRefCnt.h"
++
++class SkFontMgr;
++class SkFontScanner;
++
++SK_API sk_sp<SkFontMgr> SkFontMgr_New_OHOS(const char* path);
++SK_API sk_sp<SkFontMgr> SkFontMgr_New_OHOS();
++
++#endif // SkFontMgr_ohos_api_DEFINED
 diff --git a/src/gpu/ganesh/gl/egl/gl2.h b/src/gpu/ganesh/gl/egl/gl2.h
 new file mode 100644
 index 0000000000..176023660e
@@ -1183,10 +1203,10 @@ index 0000000000..eb318dc3a3
 +#endif /* __gl2platform_h_ */
 diff --git a/src/ports/SkDebug_ohos.cpp b/src/ports/SkDebug_ohos.cpp
 new file mode 100644
-index 0000000000..e5dcdadbdb
+index 0000000000..41093f6518
 --- /dev/null
 +++ b/src/ports/SkDebug_ohos.cpp
-@@ -0,0 +1,41 @@
+@@ -0,0 +1,50 @@
 +/*
 + * Copyright 2006 The Android Open Source Project
 + *
@@ -1201,10 +1221,10 @@ index 0000000000..e5dcdadbdb
 +
 +#include <stdio.h>
 +
-+#ifdef HILOG_LOG_TAG
-+  #undef HILOG_LOG_TAG
++#ifdef LOG_TAG
++  #undef LOG_TAG
 +#endif
-+#define HILOG_LOG_TAG "skia"
++#define LOG_TAG "skia"
 +#include <hilog/log.h>
 +
 +// Print debug output to stdout as well.  This is useful for command line
@@ -1222,12 +1242,21 @@ index 0000000000..e5dcdadbdb
 +        fflush(stdout);
 +    }
 +
-+    OH_LOG_DEBUG(LOG_APP, format, args1);
++
++    char buffer[1024];
++    int len = 0;
++    len = vsnprintf(buffer, sizeof(buffer) - 1, format, args1);
++    if (len <= 0) {
++      return;
++    }
++    buffer[len] = '\0';
++    OH_LOG_Print(LOG_APP, LOG_DEBUG, LOG_DOMAIN, LOG_TAG,
++                " %{public}s",buffer);
 +
 +    va_end(args1);
 +}
 +
-+#endif  // defined(SK_BUILD_FOR_ANDROID)
++#endif  // defined(SK_BUILD_FOR_OHOS)
 diff --git a/src/ports/SkDebug_stdio.cpp b/src/ports/SkDebug_stdio.cpp
 index 6a58936900..004102aead 100644
 --- a/src/ports/SkDebug_stdio.cpp
@@ -1243,10 +1272,10 @@ index 6a58936900..004102aead 100644
  #include <stdio.h>
 diff --git a/src/ports/skia_ohos/FontConfig_ohos.cpp b/src/ports/skia_ohos/FontConfig_ohos.cpp
 new file mode 100644
-index 0000000000..10c967ee02
+index 0000000000..6ee08c088a
 --- /dev/null
 +++ b/src/ports/skia_ohos/FontConfig_ohos.cpp
-@@ -0,0 +1,1308 @@
+@@ -0,0 +1,1323 @@
 +// Copyright (c) 2023 Huawei Device Co., Ltd. All rights reserved
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
@@ -1262,6 +1291,7 @@ index 0000000000..10c967ee02
 +
 +#include "SkFontStyle.h"
 +#include "SkString.h"
++#include "include/private/base/SkDebug.h"
 +
 +using namespace ErrorCode;
 +#if defined(SK_BUILD_FONT_MGR_FOR_PREVIEW_WIN) or defined(SK_BUILD_FONT_MGR_FOR_PREVIEW_MAC) or defined(SK_BUILD_FONT_MGR_FOR_PREVIEW_LINUX)
@@ -1276,7 +1306,7 @@ index 0000000000..10c967ee02
 + * \param fname the full name of system font configuration document.
 + *     \n The default value is '/system/etc/fontconfig.json', if fname is given null
 + */
-+FontConfig_OHOS::FontConfig_OHOS(const SkTypeface_FreeType::Scanner& fontScanner,
++FontConfig_OHOS::FontConfig_OHOS(const SkFontScanner& fontScanner,
 +    const char* fname)
 +{
 +    int err = checkProductFile(fname);
@@ -1374,7 +1404,7 @@ index 0000000000..10c967ee02
 + * \return The pointer of a typeface
 + * \n       Return null, if 'styleIndex' or 'index' is out of range
 + */
-+SkTypeface_OHOS* FontConfig_OHOS::getTypeface(int styleIndex, int index,
++sk_sp<SkTypeface_OHOS> FontConfig_OHOS::getTypeface(int styleIndex, int index,
 +    bool isFallback) const
 +{
 +    if (styleIndex < 0 || index < 0 ||
@@ -1385,12 +1415,12 @@ index 0000000000..10c967ee02
 +    if (isFallback) {
 +        const TypefaceSet& tpSet = *(fallbackSet[styleIndex]->typefaceSet.get());
 +        if ((unsigned int)index < tpSet.size()) {
-+            return tpSet[index].get();
++            return tpSet[index];
 +        }
 +    } else {
 +        const TypefaceSet& tpSet = *(genericFamilySet[styleIndex]->typefaceSet.get());
 +        if ((unsigned int)index < tpSet.size()) {
-+            return tpSet[index].get();
++            return tpSet[index];
 +        }
 +    }
 +    return nullptr;
@@ -1404,7 +1434,7 @@ index 0000000000..10c967ee02
 + * \return An object of typeface whose font style is the closest matching to 'style'
 + * \n      Return null, if 'styleIndex' is out of range
 + */
-+SkTypeface_OHOS* FontConfig_OHOS::getTypeface(int styleIndex, const SkFontStyle& style,
++sk_sp<SkTypeface_OHOS> FontConfig_OHOS::getTypeface(int styleIndex, const SkFontStyle& style,
 +    bool isFallback) const
 +{
 +    if (styleIndex < 0 ||
@@ -1419,7 +1449,7 @@ index 0000000000..10c967ee02
 +        pSet = genericFamilySet[styleIndex]->typefaceSet.get();
 +    }
 +    sk_sp<SkTypeface_OHOS> tp = matchFontStyle(*pSet, style);
-+    return tp.get();
++    return tp;
 +}
 +
 +/*! To get the index of a font style set
@@ -2095,7 +2125,7 @@ index 0000000000..10c967ee02
 +
 +    int count = axisDefs.size();
 +    SkFixed axisValues[count];
-+    SkTypeface_FreeType::Scanner::computeAxisValues(axisDefs, position,
++    SkFontScanner_FreeType::computeAxisValues(axisDefs, position,
 +        axisValues, font.familyName);
 +    font.axisSet.axis.clear();
 +    font.axisSet.range.clear();
@@ -2198,23 +2228,33 @@ index 0000000000..10c967ee02
 + * \return ERROR_FONT_NOT_EXIST font file is not exist
 + * \return ERROR_FONT_INVALID_STREAM the stream is not recognized
 + */
-+int FontConfig_OHOS::loadFont(const SkTypeface_FreeType::Scanner& scanner, const char* fname)
++int FontConfig_OHOS::loadFont(const SkFontScanner& scanner, const char* fname)
 +{
 +    std::unique_ptr<SkStreamAsset> stream = SkStream::MakeFromFile(fname);
 +    int count = 1;
-+    SkTypeface_FreeType::Scanner::AxisDefinitions axisDefs;
++    SkFontScanner::AxisDefinitions axisDefs;
 +    FontInfo font(fname, 0);
++    int ttcIndex = 0;
++    if (ttcIndexMap.find(font.familyName) != nullptr) {
++        ttcIndex = ttcIndexMap.find(font.familyName)->ttcIndex;
++    }
 +    if (stream == nullptr ||
-+        scanner.recognizedFont(stream.get(), &count) == false ||
-+        scanner.scanFont(stream.get(), 0, &font.familyName, &font.style,
-+            &font.isFixedWidth, &axisDefs) == false) {
++        scanner.scanFile(stream.get(), &count) == false ||
++        scanner.scanInstance(
++            stream.get(),
++            ttcIndex,
++            0, 
++            &font.familyName, 
++            &font.style,
++            &font.isFixedWidth, 
++            &axisDefs) == false) {
 +        int err = NO_ERROR;
 +        if (stream == nullptr) {
 +            err = ERROR_FONT_NOT_EXIST;
 +        } else {
 +            err = ERROR_FONT_INVALID_STREAM;
 +        }
-+        LOGE("%s : %s\n", errToString(err), fname);
++        LOGE("load font %s : %s\n", errToString(err), fname);
 +        char* fnameCopy = strdup(fname);
 +        errSet.emplace_back(err, basename(fnameCopy));
 +        free(fnameCopy);
@@ -2252,7 +2292,7 @@ index 0000000000..10c967ee02
 + * \return NO_ERROR success
 + * \return ERROR_DIR_NOT_FOUND a font directory is not exist
 + */
-+int FontConfig_OHOS::scanFonts(const SkTypeface_FreeType::Scanner& fontScanner)
++int FontConfig_OHOS::scanFonts(const SkFontScanner& fontScanner)
 +{
 +    int err = NO_ERROR;
 +    if (fontDirSet.size() == 0) {
@@ -2291,7 +2331,7 @@ index 0000000000..10c967ee02
 +            len += (fontDirSet[i].size() + 2); // 2 more characters for '/' and '\0'
 +            char fullname[len];
 +            memset(fullname,  0, len);
-+            strncpy(fullname, fontDirSet[i].c_str(), len);
++            strncpy(fullname, fontDirSet[i].c_str(), fontDirSet[i].size());
 +#if defined(SK_BUILD_FONT_MGR_FOR_PREVIEW_WIN)
 +            if (fontDirSet[i][fontDirSet[i].size() - 1] != '\\') {
 +                strcat(fullname, "\\");
@@ -2316,11 +2356,12 @@ index 0000000000..10c967ee02
 + */
 +void FontConfig_OHOS::resetGenericValue()
 +{
-+    aliasMap.foreach([this](SkString& key, std::vector<AliasInfo>* pAliasSet) {
-+        std::vector<AliasInfo>& aliasSet = *pAliasSet;
++    aliasMap.foreach([this](const std::pair<const SkString, std::vector<AliasInfo>>& pair) {
++        const std::vector<AliasInfo>& aliasSet = pair.second;
 +        int index = aliasSet[0].pos;
 +        if (genericFamilySet[index]->typefaceSet->size() == 0) {
-+            this->logErrInfo(ERROR_FAMILY_NOT_FOUND, key.c_str());
++            SkDEBUGF("resetGenericValue ERROR_FAMILY_NOT_FOUND1 %s", pair.first.c_str());
++            this->logErrInfo(ERROR_FAMILY_NOT_FOUND, pair.first.c_str());
 +        } else {
 +            sortTypefaceSet(genericFamilySet[index]->typefaceSet);
 +            for (unsigned int i = 1; i < aliasSet.size(); i++) {
@@ -2332,6 +2373,7 @@ index 0000000000..10c967ee02
 +                    genericFamilySet[index + i]->familyName,
 +                    aliasSet[i].weight);
 +                if (genericFamilySet[index + i]->typefaceSet->size() == 0) {
++                    SkDEBUGF("resetGenericValue ERROR_FAMILY_NOT_FOUND2 %s", genericFamilySet[index + i]->familyName.c_str());
 +                    this->logErrInfo(ERROR_FAMILY_NOT_FOUND,
 +                        genericFamilySet[index + i]->familyName.c_str());
 +                }
@@ -2378,6 +2420,8 @@ index 0000000000..10c967ee02
 +{
 +    for (unsigned int i = 0; i < fallbackSet.size(); i++) {
 +        if (fallbackSet[i]->typefaceSet->size() == 0) {
++                SkDEBUGF("resetFallbackValue ERROR_FAMILY_NOT_FOUND %s", fallbackSet[i]->familyName.c_str());
++
 +            logErrInfo(ERROR_FAMILY_NOT_FOUND, fallbackSet[i]->familyName.c_str());
 +        }
 +        sortTypefaceSet(fallbackSet[i]->typefaceSet);
@@ -2557,10 +2601,10 @@ index 0000000000..10c967ee02
 +}
 diff --git a/src/ports/skia_ohos/FontConfig_ohos.h b/src/ports/skia_ohos/FontConfig_ohos.h
 new file mode 100644
-index 0000000000..d23dc47c44
+index 0000000000..14bea572bf
 --- /dev/null
 +++ b/src/ports/skia_ohos/FontConfig_ohos.h
-@@ -0,0 +1,234 @@
+@@ -0,0 +1,235 @@
 +// Copyright (c) 2023 Huawei Device Co., Ltd. All rights reserved
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
@@ -2577,6 +2621,7 @@ index 0000000000..d23dc47c44
 +#include "SkStream.h"
 +#include "SkString.h"
 +#include "SkTypes.h"
++#include "SkTHash.h"
 +
 +#include "FontInfo_ohos.h"
 +#include "SkTypeface_ohos.h"
@@ -2606,10 +2651,10 @@ index 0000000000..d23dc47c44
 +using TypefaceSet = std::vector<sk_sp<SkTypeface_OHOS>>;
 +using GenericFamilySet = std::vector<std::unique_ptr<GenericFamily>>;
 +using FallbackSet = std::vector<std::unique_ptr<FallbackInfo>>;
-+using FallbackForMap = SkTHashMap<SkString, FallbackSetPos>;
-+using NamesMap = SkTHashMap<SkString, int>;
++using FallbackForMap = skia_private::THashMap<SkString, FallbackSetPos>;
++using NamesMap = skia_private::THashMap<SkString, int>;
 +using Coordinate = SkFontArguments::VariationPosition::Coordinate;
-+using AxisDefinitions = SkTypeface_FreeType::Scanner::AxisDefinitions;
++using AxisDefinitions = SkFontScanner::AxisDefinitions;
 +
 +/*!
 + * Error code definition
@@ -2663,7 +2708,7 @@ index 0000000000..d23dc47c44
 + */
 +class FontConfig_OHOS {
 +public:
-+    explicit FontConfig_OHOS(const SkTypeface_FreeType::Scanner& fontScanner,
++    explicit FontConfig_OHOS(const SkFontScanner& fontScanner,
 +        const char* fname = nullptr);
 +    virtual ~FontConfig_OHOS() = default;
 +    const FallbackForMap& getFallbackForMap() const;
@@ -2674,8 +2719,8 @@ index 0000000000..d23dc47c44
 +    int getTypefaceCount(int styleIndex, bool isFallback = false) const;
 +    int getStyleIndex(const char* familyName, bool& isFallback) const;
 +
-+    SkTypeface_OHOS* getTypeface(int styleIndex, int index, bool isFallback = false) const;
-+    SkTypeface_OHOS* getTypeface(int styleIndex, const SkFontStyle& style,
++    sk_sp<SkTypeface_OHOS> getTypeface(int styleIndex, int index, bool isFallback = false) const;
++    sk_sp<SkTypeface_OHOS> getTypeface(int styleIndex, const SkFontStyle& style,
 +        bool isFallback = false) const;
 +
 +#if ENABLE_DEBUG
@@ -2694,10 +2739,10 @@ index 0000000000..d23dc47c44
 +    struct AdjustInfo;
 +    struct VariationInfo;
 +    struct TtcIndexInfo;
-+    using AliasMap = SkTHashMap<SkString, std::vector<AliasInfo>>;
-+    using AjdustMap = SkTHashMap<SkString, std::vector<AdjustInfo>>;
-+    using VariationMap = SkTHashMap<SkString, std::vector<VariationInfo>>;
-+    using TtcIndexMap = SkTHashMap<SkString, TtcIndexInfo>;
++    using AliasMap = skia_private::THashMap<SkString, std::vector<AliasInfo>>;
++    using AjdustMap = skia_private::THashMap<SkString, std::vector<AdjustInfo>>;
++    using VariationMap = skia_private::THashMap<SkString, std::vector<VariationInfo>>;
++    using TtcIndexMap = skia_private::THashMap<SkString, TtcIndexInfo>;
 +
 +    /*!
 +     * \brief To manage the adjust information
@@ -2775,8 +2820,8 @@ index 0000000000..d23dc47c44
 +    bool insertVariableFont(const AxisDefinitions& axisDefinitions, FontInfo& font);
 +    TypefaceSet* getTypefaceSet(const SkString& familyName, SkString& specifiedName) const;
 +
-+    int loadFont(const SkTypeface_FreeType::Scanner& scanner, const char* fname);
-+    int scanFonts(const SkTypeface_FreeType::Scanner& fontScanner);
++    int loadFont(const SkFontScanner& scanner, const char* fname);
++    int scanFonts(const SkFontScanner& fontScanner);
 +    void resetGenericValue();
 +    void buildSubTypefaceSet(const std::shared_ptr<TypefaceSet>& typefaceSet,
 +        std::shared_ptr<TypefaceSet>& subSet, const SkString& familyName, int weight);
@@ -2797,10 +2842,10 @@ index 0000000000..d23dc47c44
 +#endif /* FONTCONFIG_OHOS_H */
 diff --git a/src/ports/skia_ohos/FontInfo_ohos.h b/src/ports/skia_ohos/FontInfo_ohos.h
 new file mode 100644
-index 0000000000..0b851ae3fa
+index 0000000000..0292a58e92
 --- /dev/null
 +++ b/src/ports/skia_ohos/FontInfo_ohos.h
-@@ -0,0 +1,145 @@
+@@ -0,0 +1,148 @@
 +// Copyright (c) 2023 Huawei Device Co., Ltd. All rights reserved
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
@@ -2808,7 +2853,10 @@ index 0000000000..0b851ae3fa
 +#ifndef FONTINFO_OHOS_H
 +#define FONTINFO_OHOS_H
 +
++#include <vector>
++
 +#include "SkFixed.h"
++#include "SkFontScanner.h"
 +#include "SkFontDescriptor.h"
 +#include "SkFontHost_FreeType_common.h"
 +
@@ -2920,7 +2968,7 @@ index 0000000000..0b851ae3fa
 +     * \param range an array of AxisDefinition
 +     */
 +    void setAxisSet(int count, const SkFixed* axis,
-+        const SkTypeface_FreeType::Scanner::AxisDefinition* range)
++        const SkFontScanner::AxisDefinition* range)
 +    {
 +        axisSet.axis.clear();
 +        axisSet.range.clear();
@@ -2940,7 +2988,7 @@ index 0000000000..0b851ae3fa
 +     */
 +    struct AxisSet {
 +        std::vector<SkFixed> axis;  // the axis values
-+        std::vector<SkTypeface_FreeType::Scanner::AxisDefinition> range; // the axis ranges
++        std::vector<SkFontScanner::AxisDefinition> range; // the axis ranges
 +    } axisSet; // the axis values for a variable font
 +    std::unique_ptr<SkStreamAsset> stream; // the data stream of font file
 +};
@@ -2948,10 +2996,10 @@ index 0000000000..0b851ae3fa
 +#endif /* FONTINFO_OHOS_H */
 diff --git a/src/ports/skia_ohos/SkFontMgr_ohos.cpp b/src/ports/skia_ohos/SkFontMgr_ohos.cpp
 new file mode 100644
-index 0000000000..029d105ebc
+index 0000000000..4863430366
 --- /dev/null
 +++ b/src/ports/skia_ohos/SkFontMgr_ohos.cpp
-@@ -0,0 +1,437 @@
+@@ -0,0 +1,432 @@
 +// Copyright (c) 2023 Huawei Device Co., Ltd. All rights reserved
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
@@ -2959,6 +3007,8 @@ index 0000000000..029d105ebc
 +#include "SkFontMgr_ohos.h"
 +
 +#include "SkTypeface_ohos.h"
++#include "SkRefCnt.h"
++#include "include/private/base/SkDebug.h"
 +
 +using namespace ErrorCode;
 +
@@ -2998,7 +3048,7 @@ index 0000000000..029d105ebc
 + * \n      Return null, if index is out of range
 + * \note   The caller must call unref() on the returned object if it's not null
 + */
-+SkFontStyleSet* SkFontMgr_OHOS::onCreateStyleSet(int index) const
++sk_sp<SkFontStyleSet> SkFontMgr_OHOS::onCreateStyleSet(int index) const
 +{
 +    if (fontConfig == nullptr) {
 +        return nullptr;
@@ -3006,7 +3056,7 @@ index 0000000000..029d105ebc
 +    if (index < 0 || index >= this->countFamilies()) {
 +        return nullptr;
 +    }
-+    return new SkFontStyleSet_OHOS(fontConfig, index);
++    return sk_ref_sp(new SkFontStyleSet_OHOS(fontConfig, index));
 +}
 +
 +/*! To get a matched object of SkFontStyleSet
@@ -3016,22 +3066,27 @@ index 0000000000..029d105ebc
 + * \n      Return null, if family name is not found
 + * \note   The caller must call unref() on the returned object if it's not null
 + */
-+SkFontStyleSet* SkFontMgr_OHOS::onMatchFamily(const char familyName[]) const
++sk_sp<SkFontStyleSet> SkFontMgr_OHOS::onMatchFamily(const char familyName[]) const
 +{
 +    if (fontConfig == nullptr) {
++        SkDEBUGF("onMatchFamily get null fontConfig");
 +        return nullptr;
 +    }
++    SkDEBUGF("onMatchFamily get familyName %s", familyName);
 +    // return default system font when familyName is null
 +    if (familyName == nullptr) {
-+        return new SkFontStyleSet_OHOS(fontConfig, 0);
++        SkDEBUGF("onMatchFamily get null familyName");
++        return sk_ref_sp(new SkFontStyleSet_OHOS(fontConfig, 0));
 +    }
 +
 +    bool isFallback = false;
 +    int index = fontConfig->getStyleIndex(familyName, isFallback);
 +    if (index == -1) {
++        SkDEBUGF("onMatchFamily get -1 index");
 +        return nullptr;
 +    }
-+    return new SkFontStyleSet_OHOS(fontConfig, index, isFallback);
++    SkDEBUGF("onMatchFamily get index %d", index);
++    return sk_ref_sp(new SkFontStyleSet_OHOS(fontConfig, index, isFallback));
 +}
 +
 +/*! To get a matched typeface
@@ -3042,7 +3097,7 @@ index 0000000000..029d105ebc
 + * \n      Return null, if family name is not found
 + * \note   The caller must call unref() on the returned object if it's not null
 + */
-+SkTypeface* SkFontMgr_OHOS::onMatchFamilyStyle(const char familyName[], const SkFontStyle& style) const
++sk_sp<SkTypeface> SkFontMgr_OHOS::onMatchFamilyStyle(const char familyName[], const SkFontStyle& style) const
 +{
 +    if (fontConfig == nullptr) {
 +        return nullptr;
@@ -3052,7 +3107,7 @@ index 0000000000..029d105ebc
 +    if (familyName) {
 +        styleIndex = fontConfig->getStyleIndex(familyName, isFallback);
 +    }
-+    return SkSafeRef(fontConfig->getTypeface(styleIndex, style, isFallback));
++    return fontConfig->getTypeface(styleIndex, style, isFallback);
 +}
 +
 +/*! To get a matched typeface
@@ -3067,7 +3122,7 @@ index 0000000000..029d105ebc
 + * \return Return null, if the typeface is not found for the given character
 + * \note The caller must call unref() on the returned object if it's not null
 + */
-+SkTypeface* SkFontMgr_OHOS::onMatchFamilyStyleCharacter(const char familyName[], const SkFontStyle& style,
++sk_sp<SkTypeface> SkFontMgr_OHOS::onMatchFamilyStyleCharacter(const char familyName[], const SkFontStyle& style,
 +    const char* bcp47[], int bcp47Count, SkUnichar character) const
 +{
 +    if (fontConfig == nullptr) {
@@ -3095,7 +3150,7 @@ index 0000000000..029d105ebc
 +    }
 +    while (true) {
 +        if (bcp47Count > 0) {
-+            SkTypeface* retTp = findTypeface(*item, style, bcp47, bcp47Count, character);
++            sk_sp<SkTypeface> retTp = findTypeface(*item, style, bcp47, bcp47Count, character);
 +            if (retTp) {
 +                return retTp;
 +            }
@@ -3110,7 +3165,7 @@ index 0000000000..029d105ebc
 +                const TypefaceSet& tpSet = *(fallbackSet[i]->typefaceSet.get());
 +                if (tpSet.size() > 0 && tpSet[0]->unicharToGlyph(character) != 0) {
 +                    sk_sp<SkTypeface> typeface = FontConfig_OHOS::matchFontStyle(tpSet, style);
-+                    return SkSafeRef(typeface.get());
++                    return typeface;
 +                }
 +            }
 +            if (key == defaultFamily) {
@@ -3133,7 +3188,7 @@ index 0000000000..029d105ebc
 + * \return An object of typeface which is for the given character
 + * \return Return null, if the typeface is not found for the given character
 + */
-+SkTypeface* SkFontMgr_OHOS::findTypeface(const FallbackSetPos& fallbackItem, const SkFontStyle& style,
++sk_sp<SkTypeface> SkFontMgr_OHOS::findTypeface(const FallbackSetPos& fallbackItem, const SkFontStyle& style,
 +    const char* bcp47[], int bcp47Count, SkUnichar character) const
 +{
 +    if (bcp47Count == 0) {
@@ -3166,7 +3221,7 @@ index 0000000000..029d105ebc
 +        const TypefaceSet& tpSet = *(fallbackSet[tps[i]]->typefaceSet.get());
 +        if (tpSet.size() > 0 && tpSet[0]->unicharToGlyph(character) != 0) {
 +            sk_sp<SkTypeface> typeface = FontConfig_OHOS::matchFontStyle(tpSet, style);
-+            return SkSafeRef(typeface.get());
++            return typeface;
 +        }
 +    }
 +    for (int i = totalCount - 1; i >= bcp47Count; i--) {
@@ -3176,7 +3231,7 @@ index 0000000000..029d105ebc
 +        const TypefaceSet& tpSet = *(fallbackSet[tps[i]]->typefaceSet.get());
 +        if (tpSet.size() > 0 && tpSet[0]->unicharToGlyph(character) != 0) {
 +            sk_sp<SkTypeface> typeface = FontConfig_OHOS::matchFontStyle(tpSet, style);
-+            return SkSafeRef(typeface.get());
++            return typeface;
 +        }
 +    }
 +    return nullptr;
@@ -3222,22 +3277,6 @@ index 0000000000..029d105ebc
 +    return -1;
 +}
 +
-+/*! To get a matched typeface
-+ * \param typeface the given typeface with which the returned object should be in the same style set
-+ * \param style the font style to be matching
-+ * \return The object of typeface which is closest matching to the given 'style'
-+ * \n      Return null, if the family name of the given typeface is not found in the system
-+ * \note The caller must call unref() on the returned object if it's not null
-+ */
-+SkTypeface* SkFontMgr_OHOS::onMatchFaceStyle(const SkTypeface* typeface, const SkFontStyle& style) const
-+{
-+    if (typeface == nullptr) {
-+        return nullptr;
-+    }
-+    SkString familyName;
-+    typeface->getFamilyName(&familyName);
-+    return this->onMatchFamilyStyle(familyName.c_str(), style);
-+}
 +
 +/*! To create a typeface from the specified data and TTC index
 + * \param data the data to be parsed
@@ -3325,7 +3364,7 @@ index 0000000000..029d105ebc
 + */
 +sk_sp<SkTypeface> SkFontMgr_OHOS::onLegacyMakeTypeface(const char familyName[], SkFontStyle style) const
 +{
-+    SkTypeface* typeface = this->onMatchFamilyStyle(familyName, style);
++    sk_sp<SkTypeface> typeface = this->onMatchFamilyStyle(familyName, style);
 +    // if familyName is not found, then try the default family
 +    if (typeface == nullptr && familyName != nullptr) {
 +        typeface = this->onMatchFamilyStyle(nullptr, style);
@@ -3334,7 +3373,7 @@ index 0000000000..029d105ebc
 +    if (typeface) {
 +        return sk_sp<SkTypeface>(typeface);
 +    }
-+    LOGE("%s\n", FontConfig_OHOS::errToString(ERROR_NO_AVAILABLE_FAMILY));
++    LOGE("onLegacyMakeTypeface %s\n", FontConfig_OHOS::errToString(ERROR_NO_AVAILABLE_FAMILY));
 +    return nullptr;
 +}
 +
@@ -3356,14 +3395,14 @@ index 0000000000..029d105ebc
 +        fontInfo.fname.set(path);
 +    }
 +    if (axisCount == 0) {
-+        if (!fontScanner.scanFont(stream.get(), ttcIndex, &fontInfo.familyName, &fontInfo.style,
++        if (!fontScanner.scanInstance(stream.get(), ttcIndex, 0, &fontInfo.familyName, &fontInfo.style,
 +            &fontInfo.isFixedWidth, nullptr)) {
 +            LOGE("%s\n", FontConfig_OHOS::errToString(ERROR_FONT_INVALID_STREAM));
 +            return nullptr;
 +        }
 +    } else {
 +        AxisDefinitions axisDef;
-+        if (!fontScanner.scanFont(stream.get(), ttcIndex, &fontInfo.familyName, &fontInfo.style,
++        if (!fontScanner.scanInstance(stream.get(), ttcIndex, 0, &fontInfo.familyName, &fontInfo.style,
 +            &fontInfo.isFixedWidth, &axisDef)) {
 +            LOGE("%s\n", FontConfig_OHOS::errToString(ERROR_FONT_INVALID_STREAM));
 +            return nullptr;
@@ -3389,12 +3428,16 @@ index 0000000000..029d105ebc
 +{
 +    return sk_make_sp<SkFontMgr_OHOS>(fname);
 +}
++
++sk_sp<SkFontMgr> SkFontMgr_New_OHOS() {;
++   return SkFontMgr_New_OHOS("/system/etc/fontconfig.json");
++}
 diff --git a/src/ports/skia_ohos/SkFontMgr_ohos.h b/src/ports/skia_ohos/SkFontMgr_ohos.h
 new file mode 100644
-index 0000000000..b9b42ea204
+index 0000000000..0d50fae9e9
 --- /dev/null
 +++ b/src/ports/skia_ohos/SkFontMgr_ohos.h
-@@ -0,0 +1,69 @@
+@@ -0,0 +1,65 @@
 +/*
 + * Copyright 2015 Google Inc.
 + *
@@ -3413,6 +3456,8 @@ index 0000000000..b9b42ea204
 +#include "FontConfig_ohos.h"
 +#include "SkFontStyleSet_ohos.h"
 +
++#include "SkFontMgr_ohos_api.h"
++
 +/*!
 + * \brief To implement the SkFontMgr for ohos platform
 + */
@@ -3421,47 +3466,41 @@ index 0000000000..b9b42ea204
 +    explicit SkFontMgr_OHOS(const char* path = nullptr);
 +    virtual ~SkFontMgr_OHOS() override = default;
 +protected:
-+    virtual int onCountFamilies() const override;
-+    virtual void onGetFamilyName(int index, SkString* familyName) const override;
-+    virtual SkFontStyleSet* onCreateStyleSet(int index)const override;
++    int onCountFamilies() const override;
++    void onGetFamilyName(int index, SkString* familyName) const override;
++    sk_sp<SkFontStyleSet> onCreateStyleSet(int index)const override;
 +
-+    virtual SkFontStyleSet* onMatchFamily(const char familyName[]) const override;
++    sk_sp<SkFontStyleSet> onMatchFamily(const char familyName[]) const override;
 +
-+    virtual SkTypeface* onMatchFamilyStyle(const char familyName[],
++    sk_sp<SkTypeface> onMatchFamilyStyle(const char familyName[],
 +                                           const SkFontStyle& style) const override;
-+    virtual SkTypeface* onMatchFamilyStyleCharacter(const char familyName[], const SkFontStyle& style,
++    sk_sp<SkTypeface> onMatchFamilyStyleCharacter(const char familyName[], const SkFontStyle& style,
 +                                                    const char* bcp47[], int bcp47Count,
 +                                                    SkUnichar character) const override;
 +
-+    virtual SkTypeface* onMatchFaceStyle(const SkTypeface* typeface,
-+                                         const SkFontStyle& style) const override;
 +
-+    virtual sk_sp<SkTypeface> onMakeFromData(sk_sp<SkData> data, int ttcIndex) const override;
-+    virtual sk_sp<SkTypeface> onMakeFromStreamIndex(std::unique_ptr<SkStreamAsset> stream,
++    sk_sp<SkTypeface> onMakeFromData(sk_sp<SkData> data, int ttcIndex) const override;
++    sk_sp<SkTypeface> onMakeFromStreamIndex(std::unique_ptr<SkStreamAsset> stream,
 +                                                    int ttcIndex) const override;
-+    virtual sk_sp<SkTypeface> onMakeFromStreamArgs(std::unique_ptr<SkStreamAsset> stream,
++    sk_sp<SkTypeface> onMakeFromStreamArgs(std::unique_ptr<SkStreamAsset> stream,
 +                                                   const SkFontArguments& args) const override;
-+    virtual sk_sp<SkTypeface> onMakeFromFile(const char path[], int ttcIndex) const override;
++    sk_sp<SkTypeface> onMakeFromFile(const char path[], int ttcIndex) const override;
 +
-+    virtual sk_sp<SkTypeface> onLegacyMakeTypeface(const char familyName[], SkFontStyle style) const override;
++    sk_sp<SkTypeface> onLegacyMakeTypeface(const char familyName[], SkFontStyle style) const override;
 +
 +private:
 +    std::shared_ptr<FontConfig_OHOS> fontConfig = nullptr; // the pointer of FontConfig_OHOS
-+    SkTypeface_FreeType::Scanner fontScanner; // the scanner to parse a font file
++    SkFontScanner_FreeType fontScanner; // the scanner to parse a font file
 +    int familyCount = 0; // the count of font style sets in generic family list
 +
 +    int compareLangs(const SkString& langs, const char* bcp47[], int bcp47Count, const int tps[]) const;
 +    sk_sp<SkTypeface> makeTypeface(std::unique_ptr<SkStreamAsset> stream,
 +                                    const SkFontArguments& args, const char path[]) const;
-+    SkTypeface* findTypeface(const FallbackSetPos& fallbackItem, const SkFontStyle& style,
++    sk_sp<SkTypeface> findTypeface(const FallbackSetPos& fallbackItem, const SkFontStyle& style,
 +                             const char* bcp47[], int bcp47Count,
 +                             SkUnichar character) const;
 +};
 +
-+SK_API sk_sp<SkFontMgr> SkFontMgr_New_OHOS(const char* path);
-+SK_API sk_sp<SkFontMgr> SkFontMgr_New_OHOS() {
-+   return SkFontMgr_New_OHOS("/system/etc/fontconfig.json");
-+}
 +
 +#endif /* SKFONTMGR_OHOS_H */
 diff --git a/src/ports/skia_ohos/SkFontMgr_ohos_factory.cpp b/src/ports/skia_ohos/SkFontMgr_ohos_factory.cpp
@@ -3486,7 +3525,7 @@ index 0000000000..b975ceddd4
 +}
 diff --git a/src/ports/skia_ohos/SkFontStyleSet_ohos.cpp b/src/ports/skia_ohos/SkFontStyleSet_ohos.cpp
 new file mode 100644
-index 0000000000..094e3ee532
+index 0000000000..d3027858bf
 --- /dev/null
 +++ b/src/ports/skia_ohos/SkFontStyleSet_ohos.cpp
 @@ -0,0 +1,102 @@
@@ -3530,7 +3569,7 @@ index 0000000000..094e3ee532
 +        return;
 +    }
 +
-+    SkTypeface* typeface = fontConfig_->getTypeface(styleIndex, index, isFallback);
++    sk_sp<SkTypeface_OHOS> typeface = fontConfig_->getTypeface(styleIndex, index, isFallback);
 +    if (typeface == nullptr) {
 +        return;
 +    }
@@ -3569,13 +3608,13 @@ index 0000000000..094e3ee532
 + * \n      Return null, if the 'index' is out of range
 + * \note The caller must call unref() on the returned object if it's not null
 + */
-+SkTypeface* SkFontStyleSet_OHOS::createTypeface(int index)
++sk_sp<SkTypeface> SkFontStyleSet_OHOS::createTypeface(int index)
 +{
 +    if (index < 0 || index >= this->count()) {
 +        return nullptr;
 +    }
 +    if (fontConfig_) {
-+        return SkSafeRef(fontConfig_->getTypeface(styleIndex, index, isFallback));
++        return fontConfig_->getTypeface(styleIndex, index, isFallback);
 +    }
 +    return nullptr;
 +}
@@ -3585,16 +3624,16 @@ index 0000000000..094e3ee532
 + * \return the object of a typeface which is the closest matching to 'pattern'
 + * \note The caller must call unref() on the returned object
 + */
-+SkTypeface* SkFontStyleSet_OHOS::matchStyle(const SkFontStyle& pattern)
++sk_sp<SkTypeface> SkFontStyleSet_OHOS::matchStyle(const SkFontStyle& pattern)
 +{
 +    if (fontConfig_) {
-+        return SkSafeRef(fontConfig_->getTypeface(styleIndex, pattern, isFallback));
++        return fontConfig_->getTypeface(styleIndex, pattern, isFallback);
 +    }
 +    return nullptr;
 +}
 diff --git a/src/ports/skia_ohos/SkFontStyleSet_ohos.h b/src/ports/skia_ohos/SkFontStyleSet_ohos.h
 new file mode 100644
-index 0000000000..b9fb40cf1e
+index 0000000000..032f0f3240
 --- /dev/null
 +++ b/src/ports/skia_ohos/SkFontStyleSet_ohos.h
 @@ -0,0 +1,32 @@
@@ -3620,8 +3659,8 @@ index 0000000000..b9fb40cf1e
 +    virtual ~SkFontStyleSet_OHOS() override = default;
 +    virtual int count() override;
 +    virtual void getStyle(int index, SkFontStyle* style, SkString* styleName) override;
-+    virtual SkTypeface* createTypeface(int index) override;
-+    virtual SkTypeface* matchStyle(const SkFontStyle& pattern) override;
++    virtual sk_sp<SkTypeface> createTypeface(int index) override;
++    virtual sk_sp<SkTypeface> matchStyle(const SkFontStyle& pattern) override;
 +private:
 +    std::shared_ptr<FontConfig_OHOS> fontConfig_ = nullptr; // the object of FontConfig_OHOS
 +    int styleIndex = 0; // the index of the font style set
@@ -3632,16 +3671,17 @@ index 0000000000..b9fb40cf1e
 +#endif /* SKFONTSTYLESET_OHOS_H */
 diff --git a/src/ports/skia_ohos/SkTypeface_ohos.cpp b/src/ports/skia_ohos/SkTypeface_ohos.cpp
 new file mode 100644
-index 0000000000..3141944c32
+index 0000000000..cea92889a8
 --- /dev/null
 +++ b/src/ports/skia_ohos/SkTypeface_ohos.cpp
-@@ -0,0 +1,139 @@
+@@ -0,0 +1,140 @@
 +// Copyright (c) 2023 Huawei Device Co., Ltd. All rights reserved
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
 +
 +#include "SkTypeface_ohos.h"
 +
++#include "SkDebug.h"
 +#include "SkFontDescriptor.h"
 +#include "SkFontHost_FreeType_common.h"
 +#include "SkTArray.h"
@@ -3752,13 +3792,13 @@ index 0000000000..3141944c32
 +    unsigned int count = args.getVariationDesignPosition().coordinateCount;
 +    if (count > 0 && count == fontInfo->axisSet.range.size()) {
 +        SkFontArguments::VariationPosition position = args.getVariationDesignPosition();
-+        SkTypeface_FreeType::Scanner::AxisDefinitions axisDefs;
++        SkFontScanner::AxisDefinitions axisDefs;
 +        for (unsigned int i = 0; i < count; i++) {
 +            axisDefs.push_back(fontInfo->axisSet.range[i]);
 +        }
 +        SkFixed axisValues[count];
 +        memset(axisValues, 0, sizeof(axisValues));
-+        SkTypeface_FreeType::Scanner::computeAxisValues(axisDefs, position,
++        SkFontScanner_FreeType::computeAxisValues(axisDefs, position,
 +            axisValues, fontInfo->familyName);
 +        info.axisSet.axis.clear();
 +        for (unsigned int i = 0; i < count; i++) {
@@ -3777,7 +3817,7 @@ index 0000000000..3141944c32
 +}
 diff --git a/src/ports/skia_ohos/SkTypeface_ohos.h b/src/ports/skia_ohos/SkTypeface_ohos.h
 new file mode 100644
-index 0000000000..f80e920de0
+index 0000000000..66ee32960d
 --- /dev/null
 +++ b/src/ports/skia_ohos/SkTypeface_ohos.h
 @@ -0,0 +1,34 @@
@@ -3788,7 +3828,7 @@ index 0000000000..f80e920de0
 +#ifndef SKTYPEFACE_OHOS_H
 +#define SKTYPEFACE_OHOS_H
 +
-+#include "SkFontHost_FreeType_common.h"
++#include "SkTypeface_FreeType.h"
 +#include "SkFontStyle.h"
 +#include "SkStream.h"
 +
@@ -3804,11 +3844,11 @@ index 0000000000..f80e920de0
 +    virtual ~SkTypeface_OHOS() override = default;
 +    const FontInfo* getFontInfo() const;
 +protected:
-+    virtual std::unique_ptr<SkStreamAsset> onOpenStream(int* ttcIndex) const override;
-+    virtual std::unique_ptr<SkFontData> onMakeFontData() const override;
-+    virtual void onGetFontDescriptor(SkFontDescriptor* descriptor, bool* isLocal) const override;
-+    virtual void onGetFamilyName(SkString* familyName) const override;
-+    virtual sk_sp<SkTypeface> onMakeClone(const SkFontArguments& args) const override;
++    std::unique_ptr<SkStreamAsset> onOpenStream(int* ttcIndex) const override;
++    std::unique_ptr<SkFontData> onMakeFontData() const override;
++    void onGetFontDescriptor(SkFontDescriptor* descriptor, bool* isLocal) const override;
++    void onGetFamilyName(SkString* familyName) const override;
++    sk_sp<SkTypeface> onMakeClone(const SkFontArguments& args) const override;
 +private:
 +    SkString specifiedName; // specified family name which is defined in the configuration file
 +    std::unique_ptr<FontInfo> fontInfo; // the font information of this typeface

@@ -226,6 +226,40 @@ optional("fontmgr_android") {
   ]
 }
 
+optional("fontmgr_ohos") {
+  enabled = skia_enable_fontmgr_ohos
+  deps = [
+    ":typeface_freetype",
+    "//flutter/third_party/expat",
+    "//third_party/jsoncpp:jsoncpp",
+  ]
+  public = [
+    "$_skia_root/src/ports/skia_ohos/FontConfig_ohos.h",
+    "$_skia_root/src/ports/skia_ohos/FontInfo_ohos.h",
+    "$_skia_root/src/ports/skia_ohos/SkFontMgr_ohos.h",
+    "$_skia_root/src/ports/skia_ohos/SkFontStyleSet_ohos.h",
+    "$_skia_root/src/ports/skia_ohos/SkTypeface_ohos.h",
+  ]
+  sources = [
+    "$_skia_root/src/ports/skia_ohos/FontConfig_ohos.cpp",
+    "$_skia_root/src/ports/skia_ohos/SkFontMgr_ohos.cpp",
+    "$_skia_root/src/ports/skia_ohos/SkFontStyleSet_ohos.cpp",
+    "$_skia_root/src/ports/skia_ohos/SkTypeface_ohos.cpp",
+    "//flutter/third_party/vulkan-deps/spirv-headers/src/tools/buildHeaders/jsoncpp/dist/jsoncpp.cpp",
+  ]
+  include_dirs = [
+    "$_skia_root/include/private",
+    "$_skia_root/include/private/base",
+    "$_skia_root/include/ports",
+    "$_skia_root/include/core",
+    "$_skia_root/src/core",
+    "$_skia_root/src/ports",
+    "$_skia_root/src/ports/skia_ohos",
+    "$_skia_root/src/core/SkFontDescriptor.h",
+    "//flutter/third_party/vulkan-deps/spirv-headers/src/tools/buildHeaders/jsoncpp/dist/",
+  ]
+}
+
 optional("fontmgr_custom") {
   enabled =
       skia_enable_fontmgr_custom_directory ||
@@ -625,6 +659,7 @@ skia_component("skia") {
     ":fontmgr_fontconfig",
     ":fontmgr_fuchsia",
     ":fontmgr_mac_ct",
+    ":fontmgr_ohos",
     ":fontmgr_win",
     ":gpu",
     ":jpeg_encode",
@@ -734,7 +769,10 @@ skia_component("skia") {
       "GLESv3",
       "hilog_ndk.z",
     ]
-    defines += [ "SK_BUILD_FOR_OHOS" ]
+    defines += [
+      "TARGET_OS_OHOS",
+      "SK_BUILD_FOR_OHOS",
+    ]
   }
 
   if (is_linux || is_wasm) {
