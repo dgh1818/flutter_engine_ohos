@@ -244,30 +244,12 @@ void XComponentBase::AttachFlutterEngine(std::string shellholderId) {
       "XComponentManger::AttachFlutterEngine xcomponentId:%{public}s, "
       "shellholderId:%{public}s",
       id_.c_str(), shellholderId.c_str());
-  isEngineAttached_ = true;
-
-  if (shellholderId_ == shellholderId && isSurfaceCreated_) {
-    LOGI(
-        "XComponentManger::AttachFlutterEngine XComponentId:%{public}s "
-        "shellHolderId:%{public}s Surface has been created.",
-        id_.c_str(), shellholderId.c_str());
-    PlatformViewOHOSNapi::SurfaceWindowChanged(std::stoll(shellholderId_),
-                                               window_);
-    return;
-  }
-
-  if (!shellholderId_.empty() && shellholderId_ != shellholderId) {
-    if (window_ != nullptr) {
-      PlatformViewOHOSNapi::SurfaceDestroyed(std::stoll(shellholderId_));
-    }
-  }
-
   shellholderId_ = shellholderId;
   isEngineAttached_ = true;
   if (window_ != nullptr) {
     PlatformViewOHOSNapi::SurfaceCreated(std::stoll(shellholderId_), window_);
   } else {
-    LOGE("AttachFlutterEngine XComponentBase is not attached");
+    LOGE("OnSurfaceCreated XComponentBase is not attached");
   }
 }
 
