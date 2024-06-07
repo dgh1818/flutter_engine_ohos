@@ -815,7 +815,7 @@ index 0000000..fc46359
 +def buildHar(buildDir, apiInt, buildType):
 +    updateConfig(buildDir, apiInt)
 +    runCommand(
-+        "cd %s && hvigorw clean --mode module " % (buildDir)
++        "cd %s && .%shvigorw clean --mode module " % (buildDir, os.sep)
 +        + "-p module=flutter@default -p product=default -p buildMode=%s " % buildType
 +        + "assembleHar --no-daemon"
 +    )
@@ -834,7 +834,7 @@ index 0000000..fc46359
 +    parser.add_argument("--native_lib", action="append", help="Native code library.")
 +    parser.add_argument("--ohos_abi", help="Native code ABI.")
 +    parser.add_argument(
-+        "--ohos_api_int", type=int, choices=[10, 11, 12], help="Ohos api int."
++        "--ohos_api_int", type=int, choices=[10, 11], help="Ohos api int."
 +    )
 +    options = parser.parse_args()
 +    # copy source code

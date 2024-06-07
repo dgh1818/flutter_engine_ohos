@@ -55,11 +55,10 @@
 4. 下载sdk： 从[鸿蒙套件列表](https://developer.harmonyos.com/deveco-developer-suite/enabling/kit?currentPage=1&pageSize=100)下载配套开发工具，暂不支持非该渠道下载的套件
 
 ```sh
-# HarmonyOS SDK，解压开发套件包中 sdk/xxSDK.zip 之后的目录
-export HOS_SDK_HOME=/home/<user>/ohos/sdk
-
-# 解压开发套件包中 commandline/commandline-tools-xxxx.zip 之后 bin 子目录
-export PATH=$PATH:/home/<user>/ohos/command-line-tools/bin
+# 解压文件 commandline/commandline-tools-xxxx.zip
+export HOS_SDK_HOME=/home/<user>/ohos/command-line-tools/sdk
+export PATH=/home/<user>/ohos/command-line-tools/bin:$PATH
+export PATH=/home/<user>/ohos/command-line-tools/tool/node/bin:$PATH
 ```
 
 5. 开始构建：在engine目录，执行`./ohos`，即可开始构建支持ohos设备的flutter engine。
@@ -99,15 +98,19 @@ export PATH=$PATH:/home/<user>/ohos/command-line-tools/bin
     nodejs.dir=<nodejs的sdk目录>
     ```
 
-2. 你需要复制文件 `libflutter.so` 到 `shell/platform/ohos/flutter_embedding/libs/arm64-v8a/`
+2. 你需要复制文件到 `shell/platform/ohos/flutter_embedding/flutter/libs/arm64-v8a/`
+   1. debug/release，复制 `libflutter.so`
+   2. profile，复制 `libflutter.so` 和 `libvmservice_snapshot.so`
 
 3. 在shell/platform/ohos/flutter_embedding目录下，执行 
 
     ```
     # buildMode可选值为: debug release profile
-    ./hvigorw --mode module -p module=flutter@default -p product=default -p buildMode=debug assembleHar --no-daemon
+    hvigorw --mode module -p module=flutter@default -p product=default -p buildMode=debug assembleHar --no-daemon
     ```
 
-4. har文件输出路径为：shell/platform/ohos/flutter_embedding/flutter/build/default/outputs/default/flutter.har
+4. har文件输出路径为：`shell/platform/ohos/flutter_embedding/flutter/build/default/outputs/default/flutter.har`
+
+5. 获得 har 文件后，按 `flutter.har.BUILD_TYPE.API` 格式重命名文件，如 `flutter.har.debug.11`；替换 `flutter_flutter/packages/flutter_tools/templates/app_shared/ohos.tmpl/har/har_product.tmpl/` 目录下对应文件，重新运行项目工程即可生效。
 
 ps:如果你使用的是DevEco Studio的Beta版本，编译工程时遇到“must have required property 'compatibleSdkVersion', location: build-profile.json5:17:11"错误，请参考《DevEco Studio环境配置指导.docx》中的‘6 创建工程和运行Hello World’【配置插件】章节修改 shell/platform/ohos/flutter_embedding/hvigor/hvigor-config.json5文件。

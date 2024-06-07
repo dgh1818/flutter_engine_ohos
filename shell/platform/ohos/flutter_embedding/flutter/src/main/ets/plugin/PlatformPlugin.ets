@@ -42,8 +42,13 @@ export default class PlatformPlugin {
     this.callback.context = context;
     this.callback.applicationContext = context?.getApplicationContext();
     this.callback.platform = this;
+    this.callback.platformPluginDelegate = platformPluginDelegate ?? null;
+    this.callback.platformChannel?.setPlatformMessageHandler(this.callback);
+  }
 
+  initWindow() {
     try {
+      let context = this.callback.context!!
       window.getLastWindow(context, (err, data) => {
         if (err.code) {
           Log.e(PlatformPlugin.TAG, "Failed to obtain the top window. Cause: " + JSON.stringify(err));
@@ -57,8 +62,6 @@ export default class PlatformPlugin {
     } catch (err) {
       Log.e(PlatformPlugin.TAG, "Failed to obtain the top window. Cause: " + JSON.stringify(err));
     }
-    this.callback.platformPluginDelegate = platformPluginDelegate ?? null;
-    this.callback.platformChannel?.setPlatformMessageHandler(this.callback);
   }
 
 

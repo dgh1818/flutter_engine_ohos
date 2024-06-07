@@ -234,6 +234,7 @@ shared_library("flutter_shell_native") {
   ldflags += [ "-lm" ]
   ldflags += [ "-lpthread" ]
   ldflags += [ "-lpixelmap_ndk.z" ]
+  ldflags += ["-lqos"]
 
   public_configs = [ "//flutter:config" ]
 }
@@ -290,11 +291,11 @@ declare_args() {
   if (flutter_runtime_mode != "debug") {
     ohos_zip_archive_dir += "-$flutter_runtime_mode"
   }
-  ohos_api_int = 12
+  ohos_api_int = 11
 }
 
 action("ohos_har") {
-  script = "//build/ohos/ohos_create_flutter_har.py"
+  script = "//flutter/attachment/scripts/ohos_create_flutter_har.py"
 
   if (stripped_symbols) {
     engine_library = "libflutter.so"
