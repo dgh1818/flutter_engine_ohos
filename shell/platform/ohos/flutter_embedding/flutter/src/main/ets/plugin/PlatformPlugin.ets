@@ -12,6 +12,7 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
+import { BusinessError } from '@kit.BasicServicesKit';
 import PlatformChannel, {
   AppSwitcherDescription,
   Brightness,
@@ -29,6 +30,7 @@ import Log from '../util/Log';
 import vibrator from '@ohos.vibrator';
 import window from '@ohos.window';
 import common from '@ohos.app.ability.common';
+import { MethodResult } from './common/MethodChannel';
 
 /**
  * ohos实现platform plugin
@@ -141,9 +143,22 @@ export class PlatformPluginCallback implements PlatformMessageHandler {
     }
   }
 
-  setPreferredOrientations(ohosOrientation: number) {
-    Log.d(PlatformPluginCallback.TAG, "ohosOrientation: " + ohosOrientation);
-    this.mainWindow?.setPreferredOrientation(ohosOrientation);
+  setPreferredOrientations(ohosOrientation: number, result: MethodResult) {
+    try {
+      Log.d(PlatformPluginCallback.TAG, "ohosOrientation: " + ohosOrientation);
+      this.mainWindow!.setPreferredOrientation(ohosOrientation, (err: BusinessError) => {
+        const errCode: number = err.code;
+        if (errCode) {
+          Log.e(PlatformPluginCallback.TAG, "Failed to set window orientation:" + JSON.stringify(err));
+          result.error("error", JSON.stringify(err), null);
+          return;
+        }
+        result.success(null);
+      });
+    } catch (exception) {
+      Log.e(PlatformPluginCallback.TAG, "Failed to set window orientation:" + JSON.stringify(exception));
+      result.error("error", JSON.stringify(exception), null);
+    }
   }
 
   setApplicationSwitcherDescription(description: AppSwitcherDescription) {
