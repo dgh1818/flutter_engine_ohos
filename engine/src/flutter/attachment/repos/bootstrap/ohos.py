@@ -374,7 +374,7 @@ def buildByNameAndType(args):
       if "clean" == buildName:
         engineClean(buildInfo)
       elif "config" == buildName:
-        engineConfig(buildInfo, args.gn_extra_param)
+        engineConfig(buildInfo, args)
       elif "har" == buildName:
         harBuild(buildInfo)
       elif "compile" == buildName:

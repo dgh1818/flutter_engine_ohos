@@ -1071,22 +1071,6 @@ def parse_args(args):
       dest='build_engine_artifacts',
       action='store_false',
       help='Do not build the host-side development artifacts.'
-      '--ohos-cpu', type=str, choices=['x64', 'x86', 'arm64', 'arm']
-  )
-  parser.add_argument(
-      '--ohos-api-int', type=int, choices=[11, 12], default=11
-  )
-  parser.add_argument(
-      '--fuchsia-cpu', type=str, choices=['x64', 'arm64'], default='x64'
-  )
-  parser.add_argument(
-      '--windows-cpu', type=str, choices=['x64', 'arm64', 'x86'], default='x64'
-  )
-  parser.add_argument(
-      '--simulator-cpu', type=str, choices=['x64', 'arm64'], default='x64'
-  )
-  parser.add_argument(
-      '--arm-float-abi', type=str, choices=['hard', 'soft', 'softfp']
   )
 
   parser.add_argument('--rbe', default=None, action='store_true')

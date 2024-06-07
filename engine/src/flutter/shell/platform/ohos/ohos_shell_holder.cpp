@@ -33,17 +33,17 @@ static void OHOSPlatformThreadConfigSetter(
   fml::Thread::SetCurrentThreadName(config);
   // set thread priority
   switch (config.priority) {
-    case fml::Thread::ThreadPriority::BACKGROUND: {
+    case fml::Thread::ThreadPriority::kBackground: {
         int ret = OH_QoS_SetThreadQoS(QoS_Level::QOS_BACKGROUND);
         FML_DLOG(INFO) << "qos set background result:" << ret << ",tid:" << gettid();
         break;
     }
-    case fml::Thread::ThreadPriority::DISPLAY: {
+    case fml::Thread::ThreadPriority::kDisplay: {
         int ret = OH_QoS_SetThreadQoS(QoS_Level::QOS_USER_INTERACTIVE);
         FML_DLOG(INFO) << "qos set display result:" << ret << ",tid:" << gettid();
         break;
     }
-    case fml::Thread::ThreadPriority::RASTER: {
+    case fml::Thread::ThreadPriority::kRaster: {
         int ret = OH_QoS_SetThreadQoS(QoS_Level::QOS_USER_INTERACTIVE);
         FML_DLOG(INFO) << "qos set raster result:" << ret << ",tid:" << gettid();
         break;
