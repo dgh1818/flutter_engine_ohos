@@ -249,7 +249,7 @@ void XComponentBase::AttachFlutterEngine(std::string shellholderId) {
   if (window_ != nullptr) {
     PlatformViewOHOSNapi::SurfaceCreated(std::stoll(shellholderId_), window_);
   } else {
-    LOGE("OnSurfaceCreated XComponentBase is not attached");
+    LOGE("AttachFlutterEngine XComponentBase is not attached");
   }
 }
 
