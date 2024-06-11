@@ -23,6 +23,8 @@ import MouseCursorPlugin from '../plugin/mouse/MouseCursorPlugin';
 import Any from '../plugin/common/Any';
 import Settings from '../embedding/ohos/Settings';
 import ArrayList from '@ohos.util.ArrayList';
+import { EmbeddingNodeController } from '../embedding/ohos/EmbeddingNodeController';
+import PlatformView, { Params } from '../plugin/platform/PlatformView';
 
 const TAG = "FlutterView";
 
@@ -45,10 +47,17 @@ class ViewportMetrics {
   physicalTouchSlop = -1;
 }
 
+export class PlatformViewParas {
+  width: number = 0;
+  height: number = 0;
+  direction: Direction = Direction.Auto;
+}
 export class FlutterView {
   private flutterEngine: FlutterEngine | null = null
   private id: string = ""
   private dVModel: DVModel = new DVModel("Stack", new DVModelParameters(), new DVModelEvents(), new DVModelChildren(), null);
+  private wrapBuilder: WrappedBuilder<[Params]> | undefined = undefined;
+  private platformView: PlatformView | undefined = undefined;
   private isSurfaceAvailableForRendering: boolean = false
   private viewportMetrics = new ViewportMetrics();
   private displayInfo?: display.Display;
@@ -59,6 +68,9 @@ export class FlutterView {
   private settings?: Settings;
   private mFirstFrameListeners: ArrayList<FirstFrameListener>;
   private isFlutterUiDisplayed: boolean = false;
+  private surfaceId: string = "0";
+  private nodeController: EmbeddingNodeController = new EmbeddingNodeController();
+  private platformViewSize: PlatformViewParas = new PlatformViewParas();
 
   constructor(viewId: string, context: Context) {
     this.id = viewId
@@ -91,6 +103,38 @@ export class FlutterView {
     return this.id
   }
 
+  setSurfaceId(surfaceId: string): void {
+    this.surfaceId = surfaceId;
+  }
+
+  getSurfaceId(): string {
+    return this.surfaceId;
+  }
+
+  getEmbeddingNodeController(): EmbeddingNodeController {
+    return this.nodeController;
+  }
+
+  setWrappedBuilder(wrappedBuilder: WrappedBuilder<[Params]>) {
+    this.wrapBuilder = wrappedBuilder;
+  }
+
+  getWrappedBuilder(): WrappedBuilder<[Params]> | undefined {
+    return this.wrapBuilder;
+  }
+
+  setPlatformView(platformView: PlatformView) {
+    this.platformView = platformView;
+  }
+
+  getPlatformView(): PlatformView | undefined {
+    return this.platformView;
+  }
+
+  getPlatformViewSize(): PlatformViewParas {
+    return this.platformViewSize;
+  }
+
   getDVModel() {
     return this.dVModel
   }
@@ -121,7 +165,7 @@ export class FlutterView {
     this.flutterEngine = flutterEngine;
     this.keyboardManager = new KeyboardManager(flutterEngine);
     if (this.isSurfaceAvailableForRendering) {
-      this.flutterEngine.getFlutterNapi().xComponentAttachFlutterEngine(Number(this.id))
+      this.flutterEngine.getFlutterNapi().xComponentAttachFlutterEngine(this.id)
     }
     this.flutterEngine?.getFlutterNapi()?.updateRefreshRate(this.displayInfo!.refreshRate)
     this.flutterEngine?.getFlutterNapi()?.updateSize(this.displayInfo!.width, this.displayInfo!.height)
@@ -145,7 +189,7 @@ export class FlutterView {
       return;
     }
     if (this.isSurfaceAvailableForRendering) {
-      this.flutterEngine!!.getFlutterNapi().xComponentDetachFlutterEngine(Number(this.id))
+      this.flutterEngine!!.getFlutterNapi().xComponentDetachFlutterEngine(this.id)
     }
     this.flutterEngine?.getPlatformViewsController()?.detachFromView();
     this.flutterEngine = null;
@@ -171,14 +215,14 @@ export class FlutterView {
   onSurfaceCreated() {
     this.isSurfaceAvailableForRendering = true;
     if (this.isAttachedToFlutterEngine()) {
-      this.flutterEngine!!.getFlutterNapi().xComponentAttachFlutterEngine(Number(this.id))
+      this.flutterEngine!!.getFlutterNapi().xComponentAttachFlutterEngine(this.id)
     }
   }
 
   onSurfaceDestroyed() {
     this.isSurfaceAvailableForRendering = false;
     if (this.isAttachedToFlutterEngine()) {
-      this.flutterEngine!!.getFlutterNapi().xComponentDetachFlutterEngine(Number(this.id))
+      this.flutterEngine!!.getFlutterNapi().xComponentDetachFlutterEngine(this.id)
     }
   }
 
@@ -186,7 +230,6 @@ export class FlutterView {
     let systemAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
     let navigationAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR);
     let gestureAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM_GESTURE);
-    let keyboardAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_KEYBOARD);
 
     if (newArea != null) {
       this.viewportMetrics.physicalWidth = vp2px(newArea.width as number);
@@ -204,11 +247,6 @@ export class FlutterView {
 
     this.viewportMetrics.physicalViewPaddingLeft = systemAvoidArea!.leftRect.width
     this.viewportMetrics.physicalViewPaddingRight = systemAvoidArea!.rightRect.width
-
-    this.viewportMetrics.physicalViewInsetTop = keyboardAvoidArea!.topRect.height
-    this.viewportMetrics.physicalViewInsetLeft = keyboardAvoidArea!.leftRect.width
-    this.viewportMetrics.physicalViewInsetBottom = keyboardAvoidArea!.bottomRect.height
-    this.viewportMetrics.physicalViewInsetRight = keyboardAvoidArea!.rightRect.width
 
     this.viewportMetrics.systemGestureInsetTop = gestureAvoidArea!.topRect.height
     this.viewportMetrics.systemGestureInsetLeft = gestureAvoidArea!.leftRect.width

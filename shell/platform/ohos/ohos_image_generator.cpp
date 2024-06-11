@@ -117,6 +117,12 @@ std::shared_ptr<ImageGenerator> OHOSImageGenerator::MakeFromData(
     sk_sp<SkData> data,
     const fml::RefPtr<fml::TaskRunner>& task_runner,
     std::shared_ptr<PlatformViewOHOSNapi> napi_facade) {
+  // Return directly if the image data is empty.
+  // https://gitee.com/openharmony-sig/flutter_engine/issues/I9NX5N
+  if (!data->data() || !data->size()) {
+    return nullptr;
+  }
+
   // contructer is private,
   std::shared_ptr<OHOSImageGenerator> generator(
       new OHOSImageGenerator(std::move(data), napi_facade));

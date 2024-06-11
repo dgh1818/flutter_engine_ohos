@@ -102,7 +102,7 @@ export default class FlutterEngine implements EngineLifecycleListener{
       platformViewsController = new PlatformViewsController();
     }
     this.platformViewsController = platformViewsController;
-    this.platformViewsController.attach(context, null, this.dartExecutor);
+    this.platformViewsController.attach(context, this.renderer, this.dartExecutor);
   }
 
   async init(context: common.Context, dartVmArgs: Array<string> | null, waitForRestorationData: boolean) {

@@ -98,9 +98,9 @@ export const nativeImageDecodeCallback: (width: number, height: number, imageGen
 
 export const nativeGetSystemLanguages: (nativeShellHolderId: number, languages: Array<string>) => void;
 
-export const nativeXComponentAttachFlutterEngine: (xcomponentId: number, nativeShellHolderId: number) => void;
+export const nativeXComponentAttachFlutterEngine: (xcomponentId: string, nativeShellHolderId: number) => void;
 
-export const nativeXComponentDetachFlutterEngine: (xcomponentId: number, nativeShellHolderId: number) => void;
+export const nativeXComponentDetachFlutterEngine: (xcomponentId: string, nativeShellHolderId: number) => void;
 
 /**
  * Detaches flutterNapi和engine之间的关联
