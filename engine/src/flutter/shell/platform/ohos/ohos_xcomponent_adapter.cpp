@@ -235,7 +235,6 @@ void XComponentBase::BindXComponentCallback() {
 XComponentBase::XComponentBase(std::string id) {
   id_ = id;
   isEngineAttached_ = false;
-  isSurfaceCreated_ = false;
 }
 
 XComponentBase::~XComponentBase() {}
@@ -245,28 +244,10 @@ void XComponentBase::AttachFlutterEngine(std::string shellholderId) {
       "XComponentManger::AttachFlutterEngine xcomponentId:%{public}s, "
       "shellholderId:%{public}s",
       id_.c_str(), shellholderId.c_str());
-  isEngineAttached_ = true;
-
-  if (shellholderId_ == shellholderId && isSurfaceCreated_) {
-    LOGI(
-        "XComponentManger::AttachFlutterEngine XComponentId:%{public}s "
-        "shellHolderId:%{public}s Surface has been created.",
-        id_.c_str(), shellholderId.c_str());
-    PlatformViewOHOSNapi::SurfaceWindowChanged(std::stoll(shellholderId_),
-                                               window_);
-    return;
-  }
-
-  if (!shellholderId_.empty() && shellholderId_ != shellholderId) {
-    if (window_ != nullptr) {
-      PlatformViewOHOSNapi::SurfaceDestroyed(std::stoll(shellholderId_));
-    }
-  }
-
   shellholderId_ = shellholderId;
+  isEngineAttached_ = true;
   if (window_ != nullptr) {
     PlatformViewOHOSNapi::SurfaceCreated(std::stoll(shellholderId_), window_);
-    isSurfaceCreated_ = true;
   } else {
     LOGE("AttachFlutterEngine XComponentBase is not attached");
   }
@@ -277,6 +258,12 @@ void XComponentBase::DetachFlutterEngine() {
       "XComponentManger::DetachFlutterEngine xcomponentId:%{public}s, "
       "shellholderId:%{public}s",
       id_.c_str(), shellholderId_.c_str());
+  if (window_ != nullptr) {
+    PlatformViewOHOSNapi::SurfaceDestroyed(std::stoll(shellholderId_));
+  } else {
+    LOGE("DetachFlutterEngine XComponentBase is not attached");
+  }
+  shellholderId_ = "";
   isEngineAttached_ = false;
 }
 

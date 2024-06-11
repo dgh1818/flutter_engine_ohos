@@ -24,6 +24,7 @@
 
 #include <sys/resource.h>
 #include <sys/time.h>
+#include <qos/qos.h>
 
 namespace flutter {
 
@@ -33,34 +34,23 @@ static void OHOSPlatformThreadConfigSetter(
   // set thread priority
   switch (config.priority) {
     case fml::Thread::ThreadPriority::kBackground: {
-      if (::setpriority(PRIO_PROCESS, 0, 10) != 0) {
-        FML_DLOG(ERROR) << "Failed to set IO task runner priority";
-      }
-      break;
+        int ret = OH_QoS_SetThreadQoS(QoS_Level::QOS_BACKGROUND);
+        FML_DLOG(INFO) << "qos set background result:" << ret << ",tid:" << gettid();
+        break;
     }
     case fml::Thread::ThreadPriority::kDisplay: {
-      if (::setpriority(PRIO_PROCESS, 0, -1) != 0) {
-        FML_DLOG(ERROR) << "Failed to set UI task runner priority";
-      }
-      break;
+        int ret = OH_QoS_SetThreadQoS(QoS_Level::QOS_USER_INTERACTIVE);
+        FML_DLOG(INFO) << "qos set display result:" << ret << ",tid:" << gettid();
+        break;
     }
     case fml::Thread::ThreadPriority::kRaster: {
-      // Android describes -8 as "most important display threads, for
-      // compositing the screen and retrieving input events". Conservatively
-      // set the raster thread to slightly lower priority than it.
-      if (::setpriority(PRIO_PROCESS, 0, -5) != 0) {
-        // Defensive fallback. Depending on the OEM, it may not be possible
-        // to set priority to -5.
-        if (::setpriority(PRIO_PROCESS, 0, -2) != 0) {
-          FML_DLOG(ERROR) << "Failed to set raster task runner priority";
-        }
-      }
-      break;
+        int ret = OH_QoS_SetThreadQoS(QoS_Level::QOS_USER_INTERACTIVE);
+        FML_DLOG(INFO) << "qos set raster result:" << ret << ",tid:" << gettid();
+        break;
     }
     default:
-      if (::setpriority(PRIO_PROCESS, 0, 0) != 0) {
-        FML_DLOG(ERROR) << "Failed to set priority";
-      }
+        int ret = OH_QoS_SetThreadQoS(QoS_Level::QOS_DEFAULT);
+        FML_DLOG(INFO) << "qos set default result:" << ret << ",tid:" << gettid();
   }
 }
 

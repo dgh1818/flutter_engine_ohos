@@ -514,10 +514,12 @@ def to_gn_args(args):
   gn_args['skia_use_fontconfig'] = args.enable_fontconfig
   gn_args['skia_use_icu'] = True
   gn_args['is_official_build'] = True  # Disable Skia test utilities.
+  gn_args['android_full_debug'
+         ] = args.target_os == 'android' and args.unoptimized
 
-  gn_args['android_full_debug'] = args.target_os == 'android' and args.unoptimized
-  if args.target_os == 'ohos':
-    gn_args['ohos_api_int'] = args.ohos_api_int
+  if args.target_os == 'ohos' and get_host_os() != 'win':
+      gn_args['ohos_api_int'] = args.ohos_api_int
+
   if args.clang is None:
     gn_args['is_clang'] = True
   else:
