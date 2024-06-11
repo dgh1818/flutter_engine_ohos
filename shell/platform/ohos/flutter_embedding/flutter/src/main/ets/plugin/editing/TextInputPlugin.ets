@@ -235,6 +235,8 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
       this.inputMethodController.on('sendKeyboardStatus', (state) => {
         if (state == inputMethod.KeyboardStatus.HIDE) {
           this.plugin.textInputChannel.onConnectionClosed(this.inputTarget.id);
+          this.inputMethodController.detach();
+          this.cancelListenKeyBoardEvent();
         }
       })
     } catch (err) {
@@ -261,7 +263,9 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     this.inputMethodController.off('deleteLeft');
     this.inputMethodController.off('deleteRight');
     this.inputMethodController.off('sendFunctionKey');
+    this.inputMethodController.off('sendKeyboardStatus');
     this.inputMethodController.off('selectByRange');
+    this.imcFlag = false;
   }
 
   public clearTextInputClient(): void {
