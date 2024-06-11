@@ -47,7 +47,6 @@ class XComponentBase {
   std::string shellholderId_;
   bool isEngineAttached_;
   bool isWindowAttached_;
-  bool isSurfaceCreated_;
   OH_NativeXComponent* nativeXComponent_;
   void* window_;
   uint64_t width_;

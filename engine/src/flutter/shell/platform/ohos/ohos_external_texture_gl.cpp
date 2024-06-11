@@ -107,7 +107,8 @@ void OHOSExternalTextureGL::Paint(PaintContext& context,
   if (state_ == AttachmentState::uninitialized) {
     Attach();
   }
-  if (!freeze && new_frame_ready_) {
+  if (!freeze && new_frame_ready_ && pixelMap_ != nullptr) {
+    ProducePixelMapToNativeImage();
     Update();
     new_frame_ready_ = false;
   }
@@ -128,8 +129,8 @@ void OHOSExternalTextureGL::Paint(PaintContext& context,
     // The incoming texture is vertically flipped, so we flip it
     // back. OpenGL's coordinate system has Positive Y equivalent to up, while
     // Skia's coordinate system has Negative Y equvalent to up.
-    context.canvas->Translate(bounds.x(), bounds.y());
-    context.canvas->Scale(bounds.width(), bounds.height());
+    context.canvas->Translate(bounds.x(), bounds.y() + bounds.height());
+    context.canvas->Scale(bounds.width(), -bounds.height());
 
     if (!transform_.isIdentity()) {
       DlImageColorSource source(dl_image_, DlTileMode::kClamp,
@@ -154,7 +155,8 @@ void OHOSExternalTextureGL::OnGrContextCreated() {
 
 void OHOSExternalTextureGL::OnGrContextDestroyed() {
   FML_DLOG(INFO) << " OHOSExternalTextureGL::OnGrContextDestroyed";
-  if (state_ == AttachmentState::attached) {
+  if (state_ == AttachmentState::attached && pixelMap_ == nullptr) {
+    OH_NativeImage_UnsetOnFrameAvailableListener(nativeImage_);
     Detach();
     glDeleteTextures(1, &texture_name_);
     OH_NativeImage_Destroy(&nativeImage_);
@@ -165,6 +167,7 @@ void OHOSExternalTextureGL::OnGrContextDestroyed() {
 void OHOSExternalTextureGL::MarkNewFrameAvailable() {
   FML_DLOG(INFO) << " OHOSExternalTextureGL::MarkNewFrameAvailable";
   new_frame_ready_ = true;
+  Update();
 }
 
 void OHOSExternalTextureGL::OnTextureUnregistered() {
@@ -173,7 +176,6 @@ void OHOSExternalTextureGL::OnTextureUnregistered() {
 }
 
 void OHOSExternalTextureGL::Update() {
-  ProducePixelMapToNativeImage();
   int32_t ret = OH_NativeImage_UpdateSurfaceImage(nativeImage_);
   if (ret != 0) {
     FML_DLOG(FATAL)
@@ -188,13 +190,12 @@ void OHOSExternalTextureGL::Detach() {
   OH_NativeWindow_DestroyNativeWindow(nativeWindow_);
 }
 
-void OHOSExternalTextureGL::UpdateTransform() {
-  float m[16] = {0.0f};
-  int32_t ret = OH_NativeImage_GetTransformMatrix(nativeImage_, m);
+void OHOSExternalTextureGL::UpdateTransform()
+{
+  float m[16] = { 0.0f };
+  int32_t ret = OH_NativeImage_GetTransformMatrixV2(nativeImage_, m);
   if (ret != 0) {
-    FML_DLOG(FATAL)
-        << "OHOSExternalTextureGL OH_NativeImage_GetTransformMatrix err code:"
-        << ret;
+    FML_DLOG(FATAL)<<"OHOSExternalTextureGL OH_NativeImage_GetTransformMatrixV2 err code:"<< ret;
   }
   // transform_ ohos 4x4 matrix to skia 3x3 matrix
   SkScalar matrix3[] = {
@@ -266,10 +267,6 @@ void OHOSExternalTextureGL::HandlePixelMapBuffer() {
 }
 
 void OHOSExternalTextureGL::ProducePixelMapToNativeImage() {
-  if (pixelMap_ == nullptr) {
-    FML_DLOG(ERROR) << "OHOSExternalTextureGL pixelMap in null";
-    return;
-  }
   if (state_ == AttachmentState::detached) {
     FML_DLOG(ERROR) << "OHOSExternalTextureGL AttachmentState err";
     return;

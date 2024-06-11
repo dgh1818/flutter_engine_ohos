@@ -13,214 +13,100 @@
 * limitations under the License.
 */
 
-import FlutterInjector from './src/main/ets/FlutterInjector';
-import FlutterPluginRegistry from './src/main/ets/app/FlutterPluginRegistry';
-import FlutterComponent from './src/main/ets/component/FlutterComponent';
-import FlutterEngine from './src/main/ets/embedding/engine/FlutterEngine';
-import FlutterEngineCache from './src/main/ets/embedding/engine/FlutterEngineCache';
-import FlutterEngineConnectionRegistry from './src/main/ets/embedding/engine/FlutterEngineConnectionRegistry';
-import FlutterEngineGroup from './src/main/ets/embedding/engine/FlutterEngineGroup';
-import FlutterEngineGroupCache from './src/main/ets/embedding/engine/FlutterEngineGroupCache';
-import FlutterNapi from './src/main/ets/embedding/engine/FlutterNapi';
-import { FlutterOverlaySurface } from './src/main/ets/embedding/engine/FlutterOverlaySurface';
-import FlutterShellArgs from './src/main/ets/embedding/engine/FlutterShellArgs';
-import DartExecutor from './src/main/ets/embedding/engine/dart/DartExecutor';
-import { DartMessenger } from './src/main/ets/embedding/engine/dart/DartMessenger';
-import { PlatformMessageHandler } from './src/main/ets/embedding/engine/dart/PlatformMessageHandler';
-import ApplicationInfoLoader from './src/main/ets/embedding/engine/loader/ApplicationInfoLoader';
-import FlutterApplicationInfo from './src/main/ets/embedding/engine/loader/FlutterApplicationInfo';
-import FlutterLoader from './src/main/ets/embedding/engine/loader/FlutterLoader';
-import { FlutterMutatorView } from './src/main/ets/embedding/engine/mutatorsstack/FlutterMutatorView';
-import { FlutterMutatorsStack } from './src/main/ets/embedding/engine/mutatorsstack/FlutterMutatorsStack';
-import { FlutterPlugin, FlutterPluginBinding, FlutterAssets } from './src/main/ets/embedding/engine/plugins/FlutterPlugin';
-import PluginRegistry from './src/main/ets/embedding/engine/plugins/PluginRegistry';
-import AbilityAware from './src/main/ets/embedding/engine/plugins/ability/AbilityAware';
-import AbilityControlSurface from './src/main/ets/embedding/engine/plugins/ability/AbilityControlSurface';
-import {
-  AbilityPluginBinding,
-  NewWantListener,
-  WindowFocusChangedListener,
-  OnSaveStateListener,
-} from './src/main/ets/embedding/engine/plugins/ability/AbilityPluginBinding';
-import { FlutterRenderer, SurfaceTextureRegistryEntry } from './src/main/ets/embedding/engine/renderer/FlutterRenderer';
-import { FlutterUiDisplayListener } from './src/main/ets/embedding/engine/renderer/FlutterUiDisplayListener';
-import { SurfaceTextureWrapper } from './src/main/ets/embedding/engine/renderer/SurfaceTextureWrapper'; 
-import AccessibilityChannel from './src/main/ets/embedding/engine/systemchannels/AccessibilityChannel';
-import KeyEventChannel from './src/main/ets/embedding/engine/systemchannels/KeyEventChannel';
-import LifecycleChannel from './src/main/ets/embedding/engine/systemchannels/LifecycleChannel';
-import LocalizationChannel from './src/main/ets/embedding/engine/systemchannels/LocalizationChannel';
-import MouseCursorChannel from './src/main/ets/embedding/engine/systemchannels/MouseCursorChannel';
-import NavigationChannel from './src/main/ets/embedding/engine/systemchannels/NavigationChannel';
-import PlatformChannel from './src/main/ets/embedding/engine/systemchannels/PlatformChannel';
-import PlatformViewsChannel from './src/main/ets/embedding/engine/systemchannels/PlatformViewsChannel';
-import RestorationChannel from './src/main/ets/embedding/engine/systemchannels/RestorationChannel';
-import SettingsChannel from './src/main/ets/embedding/engine/systemchannels/SettingsChannel';
-import SystemChannel from './src/main/ets/embedding/engine/systemchannels/SystemChannel';
-import TestChannel from './src/main/ets/embedding/engine/systemchannels/TestChannel';
-import TextInputChannel from './src/main/ets/embedding/engine/systemchannels/TextInputChannel';
-import ExclusiveAppComponent from './src/main/ets/embedding/ohos/ExclusiveAppComponent';
-import { FlutterAbility } from './src/main/ets/embedding/ohos/FlutterAbility';
-import { FlutterAbilityAndEntryDelegate, Host } from './src/main/ets/embedding/ohos/FlutterAbilityAndEntryDelegate';
-import FlutterAbilityLaunchConfigs from './src/main/ets/embedding/ohos/FlutterAbilityLaunchConfigs';
-import FlutterEngineConfigurator from './src/main/ets/embedding/ohos/FlutterEngineConfigurator';
-import FlutterEngineProvider from './src/main/ets/embedding/ohos/FlutterEngineProvider';
-import FlutterEntry from './src/main/ets/embedding/ohos/FlutterEntry';
-import FlutterManager from './src/main/ets/embedding/ohos/FlutterManager';
-import { FlutterPage } from './src/main/ets/embedding/ohos/FlutterPage';
-import KeyboardManager from './src/main/ets/embedding/ohos/KeyboardManager';
-import OhosTouchProcessor from './src/main/ets/embedding/ohos/OhosTouchProcessor';
-import Settings from './src/main/ets/embedding/ohos/Settings';
-import { TouchEventTracker } from './src/main/ets/embedding/ohos/TouchEventTracker';
-import WindowInfoRepositoryCallbackAdapterWrapper
-  from './src/main/ets/embedding/ohos/WindowInfoRepositoryCallbackAdapterWrapper';
-import PlatformPlugin from './src/main/ets/plugin/PlatformPlugin';
-import BasicMessageChannel from './src/main/ets/plugin/common/BasicMessageChannel';
-import BinaryCodec from './src/main/ets/plugin/common/BinaryCodec';
-import { BinaryMessenger } from './src/main/ets/plugin/common/BinaryMessenger';
-import EventChannel from './src/main/ets/plugin/common/EventChannel';
-import FlutterException from './src/main/ets/plugin/common/FlutterException';
-import JSONMessageCodec from './src/main/ets/plugin/common/JSONMessageCodec';
-import JSONMethodCodec from './src/main/ets/plugin/common/JSONMethodCodec';
-import MessageCodec from './src/main/ets/plugin/common/MessageCodec';
-import MethodCall from './src/main/ets/plugin/common/MethodCall';
-import MethodChannel, { MethodCallHandler, MethodResult } from './src/main/ets/plugin/common/MethodChannel';
-import MethodCodec from './src/main/ets/plugin/common/MethodCodec';
-import StandardMessageCodec from './src/main/ets/plugin/common/StandardMessageCodec';
-import StandardMethodCodec from './src/main/ets/plugin/common/StandardMethodCodec';
-import StringCodec from './src/main/ets/plugin/common/StringCodec';
-import { ListenableEditingState } from './src/main/ets/plugin/editing/ListenableEditingState';
-import { TextEditingDelta } from './src/main/ets/plugin/editing/TextEditingDelta';
-import TextInputPlugin from './src/main/ets/plugin/editing/TextInputPlugin';
-import LocalizationPlugin from './src/main/ets/plugin/localization/LocalizationPlugin';
-import MouseCursorPlugin from './src/main/ets/plugin/mouse/MouseCursorPlugin';
-import { AccessibilityEventsDelegate } from './src/main/ets/plugin/platform/AccessibilityEventsDelegate';
-import { PlatformOverlayView } from './src/main/ets/plugin/platform/PlatformOverlayView';
-import PlatformView from './src/main/ets/plugin/platform/PlatformView';
-import PlatformViewFactory from './src/main/ets/plugin/platform/PlatformViewFactory';
-import PlatformViewRegistry from './src/main/ets/plugin/platform/PlatformViewRegistry';
-import PlatformViewRegistryImpl from './src/main/ets/plugin/platform/PlatformViewRegistryImpl';
-import { PlatformViewWrapper } from './src/main/ets/plugin/platform/PlatformViewWrapper';
-import { PlatformViewsAccessibilityDelegate } from './src/main/ets/plugin/platform/PlatformViewsAccessibilityDelegate';
-import PlatformViewsController from './src/main/ets/plugin/platform/PlatformViewsController';
-import AccessibilityBridge from './src/main/ets/view/AccessibilityBridge';
-import { FlutterCallbackInformation } from './src/main/ets/view/FlutterCallbackInformation';
-import FlutterRunArguments from './src/main/ets/view/FlutterRunArguments';
-import { FirstFrameListener, FlutterView } from './src/main/ets/view/FlutterView';
-import { TextureRegistry } from './src/main/ets/view/TextureRegistry';
-import { ByteBuffer } from './src/main/ets/util/ByteBuffer';
-import Log from './src/main/ets/util/Log';
-import MessageChannelUtils from './src/main/ets/util/MessageChannelUtils';
-import PathUtils from './src/main/ets/util/PathUtils';
-import StringUtils from './src/main/ets/util/StringUtils';
-import ToolUtils from './src/main/ets/util/ToolUtils';
-import { TraceSection } from './src/main/ets/util/TraceSection';
-import Any from './src/main/ets/plugin/common/Any';
-
-export {
-  FlutterInjector,
-  FlutterPluginRegistry,
-  FlutterComponent,
-  FlutterEngine,
-  FlutterEngineCache,
-  FlutterEngineConnectionRegistry,
-  FlutterEngineGroup,
-  FlutterEngineGroupCache,
-  FlutterNapi,
-  FlutterOverlaySurface,
-  FlutterShellArgs,
-  DartExecutor,
-  DartMessenger,
-  PlatformMessageHandler,
-  ApplicationInfoLoader,
-  FlutterApplicationInfo,
-  FlutterLoader,
-  FlutterMutatorView,
-  FlutterMutatorsStack,
-  FlutterPlugin,
-  FlutterPluginBinding,
-  FlutterAssets,
-  PluginRegistry,
-  AbilityAware,
-  AbilityControlSurface,
-  AbilityPluginBinding,
-  NewWantListener,
-  WindowFocusChangedListener,
-  OnSaveStateListener,
-  FlutterRenderer,
-  SurfaceTextureRegistryEntry,
-  FlutterUiDisplayListener,
-  SurfaceTextureWrapper,
-  AccessibilityChannel,
-  KeyEventChannel,
-  LifecycleChannel,
-  LocalizationChannel,
-  MouseCursorChannel,
-  NavigationChannel,
-  PlatformChannel,
-  PlatformViewsChannel,
-  RestorationChannel,
-  SettingsChannel,
-  SystemChannel,
-  TestChannel,
-  TextInputChannel,
-  ExclusiveAppComponent,
-  FlutterAbility,
-  FlutterAbilityAndEntryDelegate,
-  Host,
-  FlutterAbilityLaunchConfigs,
-  FlutterEngineConfigurator,
-  FlutterEngineProvider,
-  FlutterEntry,
-  FlutterManager,
-  FlutterPage,
-  KeyboardManager,
-  OhosTouchProcessor,
-  Settings,
-  TouchEventTracker,
-  WindowInfoRepositoryCallbackAdapterWrapper,
-  PlatformPlugin,
-  BasicMessageChannel,
-  BinaryCodec,
-  BinaryMessenger,
-  EventChannel,
-  FlutterException,
-  JSONMessageCodec,
-  JSONMethodCodec,
-  MessageCodec,
-  MethodCall,
-  MethodCallHandler,
-  MethodChannel,
-  MethodResult,
-  MethodCodec,
-  StandardMessageCodec,
-  StandardMethodCodec,
-  StringCodec,
-  ListenableEditingState,
-  TextEditingDelta,
-  TextInputPlugin,
-  LocalizationPlugin,
-  MouseCursorPlugin,
-  AccessibilityEventsDelegate,
-  PlatformOverlayView,
-  PlatformView,
-  PlatformViewFactory,
-  PlatformViewRegistry,
-  PlatformViewRegistryImpl,
-  PlatformViewWrapper,
-  PlatformViewsAccessibilityDelegate,
-  PlatformViewsController,
-  AccessibilityBridge,
-  FlutterCallbackInformation,
-  FlutterRunArguments,
-  FlutterView,
-  TextureRegistry,
-  ByteBuffer,
-  Log,
-  MessageChannelUtils,
-  PathUtils,
-  StringUtils,
-  ToolUtils,
-  TraceSection,
-  Any,
-  FirstFrameListener,
-}
+export { default as FlutterInjector } from './src/main/ets/FlutterInjector';
+export { default as FlutterPluginRegistry } from './src/main/ets/app/FlutterPluginRegistry';
+export { default as FlutterComponent } from './src/main/ets/component/FlutterComponent';
+export { default as FlutterEngine } from './src/main/ets/embedding/engine/FlutterEngine';
+export { default as FlutterEngineCache } from './src/main/ets/embedding/engine/FlutterEngineCache';
+export { default as FlutterEngineConnectionRegistry } from './src/main/ets/embedding/engine/FlutterEngineConnectionRegistry';
+export { default as FlutterEngineGroup } from './src/main/ets/embedding/engine/FlutterEngineGroup';
+export { default as FlutterEngineGroupCache } from './src/main/ets/embedding/engine/FlutterEngineGroupCache';
+export { default as FlutterNapi } from './src/main/ets/embedding/engine/FlutterNapi';
+export * from './src/main/ets/embedding/engine/FlutterOverlaySurface';
+export { default as FlutterShellArgs } from './src/main/ets/embedding/engine/FlutterShellArgs';
+export { default as DartExecutor } from './src/main/ets/embedding/engine/dart/DartExecutor';
+export * from './src/main/ets/embedding/engine/dart/DartMessenger';
+export * from './src/main/ets/embedding/engine/dart/PlatformMessageHandler';
+export { default as ApplicationInfoLoader } from './src/main/ets/embedding/engine/loader/ApplicationInfoLoader';
+export { default as FlutterApplicationInfo } from './src/main/ets/embedding/engine/loader/FlutterApplicationInfo';
+export { default as FlutterLoader } from './src/main/ets/embedding/engine/loader/FlutterLoader';
+export * from './src/main/ets/embedding/engine/mutatorsstack/FlutterMutatorView';
+export * from './src/main/ets/embedding/engine/mutatorsstack/FlutterMutatorsStack';
+export * from './src/main/ets/embedding/engine/plugins/FlutterPlugin';
+export { default as PluginRegistry } from './src/main/ets/embedding/engine/plugins/PluginRegistry';
+export { default as AbilityAware } from './src/main/ets/embedding/engine/plugins/ability/AbilityAware';
+export { default as AbilityControlSurface } from './src/main/ets/embedding/engine/plugins/ability/AbilityControlSurface';
+export * from './src/main/ets/embedding/engine/plugins/ability/AbilityPluginBinding';
+export * from './src/main/ets/embedding/engine/renderer/FlutterRenderer';
+export * from './src/main/ets/embedding/engine/renderer/FlutterUiDisplayListener';
+export * from './src/main/ets/embedding/engine/renderer/SurfaceTextureWrapper'; 
+export { default as AccessibilityChannel } from './src/main/ets/embedding/engine/systemchannels/AccessibilityChannel';
+export { default as KeyEventChannel } from './src/main/ets/embedding/engine/systemchannels/KeyEventChannel';
+export { default as LifecycleChannel } from './src/main/ets/embedding/engine/systemchannels/LifecycleChannel';
+export { default as LocalizationChannel } from './src/main/ets/embedding/engine/systemchannels/LocalizationChannel';
+export { default as MouseCursorChannel } from './src/main/ets/embedding/engine/systemchannels/MouseCursorChannel';
+export { default as NavigationChannel } from './src/main/ets/embedding/engine/systemchannels/NavigationChannel';
+export { default as PlatformChannel } from './src/main/ets/embedding/engine/systemchannels/PlatformChannel';
+export { default as PlatformViewsChannel } from './src/main/ets/embedding/engine/systemchannels/PlatformViewsChannel';
+export { default as RestorationChannel } from './src/main/ets/embedding/engine/systemchannels/RestorationChannel';
+export { default as SettingsChannel } from './src/main/ets/embedding/engine/systemchannels/SettingsChannel';
+export { default as SystemChannel } from './src/main/ets/embedding/engine/systemchannels/SystemChannel';
+export { default as TestChannel } from './src/main/ets/embedding/engine/systemchannels/TestChannel';
+export { default as TextInputChannel } from './src/main/ets/embedding/engine/systemchannels/TextInputChannel';
+export { default as ExclusiveAppComponent } from './src/main/ets/embedding/ohos/ExclusiveAppComponent';
+export * from './src/main/ets/embedding/ohos/FlutterAbility';
+export * from './src/main/ets/embedding/ohos/FlutterAbilityAndEntryDelegate';
+export { default as FlutterAbilityLaunchConfigs } from './src/main/ets/embedding/ohos/FlutterAbilityLaunchConfigs';
+export { default as FlutterEngineConfigurator } from './src/main/ets/embedding/ohos/FlutterEngineConfigurator';
+export { default as FlutterEngineProvider } from './src/main/ets/embedding/ohos/FlutterEngineProvider';
+export { default as FlutterEntry } from './src/main/ets/embedding/ohos/FlutterEntry';
+export { default as FlutterManager } from './src/main/ets/embedding/ohos/FlutterManager';
+export * from './src/main/ets/embedding/ohos/FlutterPage';
+export { default as KeyboardManager } from './src/main/ets/embedding/ohos/KeyboardManager';
+export { default as OhosTouchProcessor } from './src/main/ets/embedding/ohos/OhosTouchProcessor';
+export { default as Settings } from './src/main/ets/embedding/ohos/Settings';
+export * from './src/main/ets/embedding/ohos/TouchEventTracker';
+export { default as WindowInfoRepositoryCallbackAdapterWrapper } from './src/main/ets/embedding/ohos/WindowInfoRepositoryCallbackAdapterWrapper';
+export { default as PlatformPlugin } from './src/main/ets/plugin/PlatformPlugin';
+export { default as BasicMessageChannel } from './src/main/ets/plugin/common/BasicMessageChannel';
+export { default as BinaryCodec } from './src/main/ets/plugin/common/BinaryCodec';
+export * from './src/main/ets/plugin/common/BinaryMessenger';
+export { default as EventChannel } from './src/main/ets/plugin/common/EventChannel';
+export { default as FlutterException } from './src/main/ets/plugin/common/FlutterException';
+export { default as JSONMessageCodec } from './src/main/ets/plugin/common/JSONMessageCodec';
+export { default as JSONMethodCodec } from './src/main/ets/plugin/common/JSONMethodCodec';
+export { default as MessageCodec } from './src/main/ets/plugin/common/MessageCodec';
+export { default as MethodCall } from './src/main/ets/plugin/common/MethodCall';
+export * from './src/main/ets/plugin/common/MethodChannel';
+export { default as MethodChannel } from './src/main/ets/plugin/common/MethodChannel';
+export { default as MethodCodec } from './src/main/ets/plugin/common/MethodCodec';
+export { default as StandardMessageCodec } from './src/main/ets/plugin/common/StandardMessageCodec';
+export { default as StandardMethodCodec } from './src/main/ets/plugin/common/StandardMethodCodec';
+export { default as StringCodec } from './src/main/ets/plugin/common/StringCodec';
+export * from './src/main/ets/plugin/editing/ListenableEditingState';
+export * from './src/main/ets/plugin/editing/TextEditingDelta';
+export { default as TextInputPlugin } from './src/main/ets/plugin/editing/TextInputPlugin';
+export { default as LocalizationPlugin } from './src/main/ets/plugin/localization/LocalizationPlugin';
+export { default as MouseCursorPlugin } from './src/main/ets/plugin/mouse/MouseCursorPlugin';
+export * from './src/main/ets/plugin/platform/AccessibilityEventsDelegate';
+export * from './src/main/ets/plugin/platform/PlatformOverlayView';
+export { default as PlatformView } from './src/main/ets/plugin/platform/PlatformView';
+export { default as PlatformViewFactory } from './src/main/ets/plugin/platform/PlatformViewFactory';
+export { default as PlatformViewRegistry } from './src/main/ets/plugin/platform/PlatformViewRegistry';
+export { default as PlatformViewRegistryImpl } from './src/main/ets/plugin/platform/PlatformViewRegistryImpl';
+export * from './src/main/ets/plugin/platform/PlatformViewWrapper';
+export * from './src/main/ets/plugin/platform/PlatformViewsAccessibilityDelegate';
+export { default as PlatformViewsController } from './src/main/ets/plugin/platform/PlatformViewsController';
+export { default as AccessibilityBridge } from './src/main/ets/view/AccessibilityBridge';
+export * from './src/main/ets/view/FlutterCallbackInformation';
+export { default as FlutterRunArguments } from './src/main/ets/view/FlutterRunArguments';
+export * from './src/main/ets/view/FlutterView';
+export * from './src/main/ets/view/TextureRegistry';
+export * from './src/main/ets/util/ByteBuffer';
+export { default as Log } from './src/main/ets/util/Log';
+export { default as MessageChannelUtils } from './src/main/ets/util/MessageChannelUtils';
+export { default as PathUtils } from './src/main/ets/util/PathUtils';
+export { default as StringUtils } from './src/main/ets/util/StringUtils';
+export { default as ToolUtils } from './src/main/ets/util/ToolUtils';
+export * from './src/main/ets/util/TraceSection';
+export { default as Any } from './src/main/ets/plugin/common/Any';
