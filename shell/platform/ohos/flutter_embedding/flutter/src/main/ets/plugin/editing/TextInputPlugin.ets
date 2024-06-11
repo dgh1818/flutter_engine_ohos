@@ -76,7 +76,6 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   mEditable: ListenableEditingState;
   private mRestartInputPending: boolean = false;
   private plugin: EditingStateWatcher | Any;
-  private keyboardStatus: inputMethod.KeyboardStatus = KeyboardStatus.NONE;
   private imcFlag: boolean = false;
 
   constructor(plugin: TextInputPlugin | Any) {
@@ -92,16 +91,11 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   }
 
   show(): void {
-    if (this.keyboardStatus == KeyboardStatus.SHOW) {
-      return;
-    }
     this.showTextInput();
-    this.keyboardStatus = KeyboardStatus.SHOW;
   }
 
   hide(): void {
     this.hideTextInput();
-    this.keyboardStatus = KeyboardStatus.HIDE;
   }
 
   requestAutofill(): void {
@@ -239,8 +233,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
 
     try {
       this.inputMethodController.on('sendKeyboardStatus', (state) => {
-        if (state == KeyboardStatus.HIDE) {
-          this.keyboardStatus = KeyboardStatus.HIDE;
+        if (state == inputMethod.KeyboardStatus.HIDE) {
           this.plugin.textInputChannel.onConnectionClosed(this.inputTarget.id);
         }
       })
@@ -290,13 +283,6 @@ enum Type {
   VIRTUAL_DISPLAY_PLATFORM_VIEW,
   PHYSICAL_DISPLAY_PLATFORM_VIEW,
 }
-
-enum KeyboardStatus {
-  NONE = 0,
-  HIDE = 1,
-  SHOW = 2,
-}
-
 
 export class InputTarget {
   type: Type;

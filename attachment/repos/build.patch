@@ -102,16 +102,16 @@ index b8d0f47..a3d1ed9 100644
 @@ -313,7 +334,7 @@ if (!is_clang && using_sanitizer) {
    is_clang = true
  }
- 
+
 -use_flutter_cxx = is_clang && (is_linux || is_android || is_mac || is_ios)
 +use_flutter_cxx = is_clang && (is_linux || is_android || is_mac || is_ios || is_ohos )
- 
+
  if (is_msan && !is_linux) {
    assert(false, "Memory sanitizer is only available on Linux.")
 @@ -365,7 +386,9 @@ if (is_posix) {
    ]
  }
- 
+
 -if (is_linux) {
 +if (is_ohos || (is_linux && host_os == "mac")) {
 +  _native_compiler_configs += [ "//build/config/ohos:sdk" ]
@@ -160,7 +160,7 @@ index b8d0f47..a3d1ed9 100644
    if (is_clang) {
      host_toolchain = "//build/toolchain/linux:clang_$host_cpu"
 diff --git a/build/config/compiler/BUILD.gn b/build/config/compiler/BUILD.gn
-index ba20010..67371f5 100644
+index ba20010..17e0487 100644
 --- a/build/config/compiler/BUILD.gn
 +++ b/build/config/compiler/BUILD.gn
 @@ -191,10 +191,16 @@ config("compiler") {
@@ -185,7 +185,7 @@ index ba20010..67371f5 100644
      } else if (current_cpu == "x86") {
        cflags += [ "-m32" ]
 @@ -315,7 +321,7 @@ config("compiler") {
- 
+
    # Linux/Android common flags setup.
    # ---------------------------------
 -  if (is_linux || is_android) {
@@ -194,7 +194,7 @@ index ba20010..67371f5 100644
        "-fPIC",
        "-pipe",  # Use pipes for communicating between sub-processes. Faster.
 @@ -334,7 +340,16 @@ config("compiler") {
- 
+
    # Linux-specific compiler flags setup.
    # ------------------------------------
 -  if (is_linux) {
@@ -210,7 +210,7 @@ index ba20010..67371f5 100644
 +  } else if (is_linux) {
      cflags += [ "-pthread" ]
      ldflags += [ "-pthread" ]
- 
+
 @@ -521,9 +536,13 @@ config("runtime_library") {
        ldflags += [ "-nostdlib++" ]
      }
@@ -224,8 +224,45 @@ index ba20010..67371f5 100644
 +      include_dirs += [ "//third_party/libcxx/include" ]
 +    }
    }
- 
+
    # Android standard library setup.
+@@ -860,17 +879,35 @@ config("optimize") {
+     cflags = [ "-Oz" ] + common_optimize_on_cflags  # Favor size over speed.
+   } else if (is_wasm) {
+     cflags = [ "-Oz" ]
++  } else if (is_ohos) {
++      cflags = [ "-O3" ] + common_optimize_on_cflags
+   } else {
+     cflags = [ "-O2" ] + common_optimize_on_cflags
+   }
+
+   lto_flags = []
+-  if (enable_lto && (is_ios || is_android || is_fuchsia || is_wasm)) {
++  if (enable_lto && (is_ios || is_android || is_fuchsia || is_wasm || is_ohos)) {
+     lto_flags += [ "-flto" ]
+   }
+
++  if (is_ohos) {
++    cflags += [
++      "-mcpu=tsv110",
++      "-fwhole-program-vtables",
++    ]
++  }
++
+   ldflags = common_optimize_on_ldflags + lto_flags
+   cflags += lto_flags
++
++  if (is_ohos) {
++    ldflags += [
++      "-Wl,--lto-O2",
++      "-Wl,--plugin-opt=-mcpu=tsv110",
++      "-Wl,-mllvm",
++      "-Wl,-wholeprogramdevirt-check=fallback",
++    ]
++  }
+ }
+
+ # Turn off optimizations.
 diff --git a/build/config/ohos/BUILD.gn b/build/config/ohos/BUILD.gn
 new file mode 100644
 index 0000000..b2675d2
@@ -715,145 +752,6 @@ index 7987e51..cd7b060 100644
      if (current_cpu == "x64") {
        sysroot = rebase_path("//build/linux/debian_sid_amd64-sysroot")
      } else {
-diff --git a/build/ohos/ohos_create_flutter_har.py b/build/ohos/ohos_create_flutter_har.py
-new file mode 100644
-index 0000000..fc46359
---- /dev/null
-+++ b/build/ohos/ohos_create_flutter_har.py
-@@ -0,0 +1,133 @@
-+#!/usr/bin/env python3
-+#
-+# Copyright (c) 2023 Hunan OpenValley Digital Industry Development Co., Ltd.
-+# Licensed under the Apache License, Version 2.0 (the "License");
-+# you may not use this file except in compliance with the License.
-+# You may obtain a copy of the License at
-+#
-+#     http://www.apache.org/licenses/LICENSE-2.0
-+#
-+# Unless required by applicable law or agreed to in writing, software
-+# distributed under the License is distributed on an "AS IS" BASIS,
-+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-+# See the License for the specific language governing permissions and
-+# limitations under the License.
-+
-+"""Create a HAR incorporating all the components required to build a Flutter application"""
-+
-+import argparse
-+import logging
-+import os
-+import re
-+import shutil
-+import subprocess
-+import sys
-+
-+
-+HAR_CONFIG_TEMPLATE = """
-+{
-+  "app": {
-+    "signingConfigs": [],
-+    "products": [
-+      {
-+        "name": "default",
-+        "signingConfig": "default",
-+        "compileSdkVersion": "%s",
-+        "compatibleSdkVersion": "%s",
-+        "runtimeOS": "HarmonyOS",
-+      }
-+    ],
-+    "buildModeSet": [
-+      {
-+        "name": "debug",
-+      },
-+      {
-+        "name": "release"
-+      },
-+      {
-+        "name": "profile"
-+      },
-+    ]
-+  },
-+  "modules": [
-+    {
-+      "name": "flutter",
-+      "srcPath": "./flutter"
-+    }
-+  ]
-+}
-+"""
-+
-+
-+# 更新har的配置文件，指定编译使用的api版本
-+def updateConfig(buildDir, apiInt):
-+    apiStr = "4.1.0(11)" if apiInt == 11 else "4.0.0(10)"
-+    jsonFile = os.path.join(buildDir, "build-profile.json5")
-+    with open(jsonFile, "w", encoding="utf-8") as file:
-+        file.write(HAR_CONFIG_TEMPLATE % (apiStr, apiStr))
-+
-+
-+# 执行命令
-+def runCommand(command, checkCode=True, timeout=None):
-+    logging.info("runCommand start, command = %s" % (command))
-+    code = subprocess.Popen(command, shell=True).wait(timeout)
-+    if code != 0:
-+        logging.error("runCommand error, code = %s, command = %s" % (code, command))
-+        if checkCode:
-+            exit(code)
-+    else:
-+        logging.info("runCommand finish, code = %s, command = %s" % (code, command))
-+
-+
-+# 编译har文件，通过hvigorw的命令行参数指定编译类型(debug/release/profile)
-+def buildHar(buildDir, apiInt, buildType):
-+    updateConfig(buildDir, apiInt)
-+    runCommand(
-+        "cd %s && .%shvigorw clean --mode module " % (buildDir, os.sep)
-+        + "-p module=flutter@default -p product=default -p buildMode=%s " % buildType
-+        + "assembleHar --no-daemon"
-+    )
-+
-+
-+def main():
-+    parser = argparse.ArgumentParser()
-+    parser.add_argument("--embedding_src", help="Path of embedding source code.")
-+    parser.add_argument("--build_dir", help="Path to build.")
-+    parser.add_argument(
-+        "--build_type",
-+        choices=["debug", "release", "profile"],
-+        help="Type to build har.",
-+    )
-+    parser.add_argument("--output", help="Path to output har.")
-+    parser.add_argument("--native_lib", action="append", help="Native code library.")
-+    parser.add_argument("--ohos_abi", help="Native code ABI.")
-+    parser.add_argument(
-+        "--ohos_api_int", type=int, choices=[10, 11], help="Ohos api int."
-+    )
-+    options = parser.parse_args()
-+    # copy source code
-+    if os.path.exists(options.build_dir):
-+        shutil.rmtree(options.build_dir)
-+    shutil.copytree(options.embedding_src, options.build_dir)
-+
-+    # copy so files
-+    for file in options.native_lib:
-+        dir_name, full_file_name = os.path.split(file)
-+        targetDir = os.path.join(options.build_dir, "flutter/libs", options.ohos_abi)
-+        if not os.path.exists(targetDir):
-+            os.makedirs(targetDir)
-+        shutil.copyfile(
-+            file,
-+            os.path.join(targetDir, full_file_name),
-+        )
-+    buildHar(options.build_dir, options.ohos_api_int, options.build_type)
-+    shutil.copyfile(
-+        os.path.join(
-+            options.build_dir, "flutter/build/default/outputs/default/flutter.har"
-+        ),
-+        options.output,
-+    )
-+
-+
-+if __name__ == "__main__":
-+    sys.exit(main())
 diff --git a/build/ohos/sysroot_ld_path.sh b/build/ohos/sysroot_ld_path.sh
 new file mode 100755
 index 0000000..4b8bf73
@@ -966,7 +864,7 @@ index cad6cbc..c17950b 100644
 +++ b/build/secondary/third_party/glfw/BUILD.gn
 @@ -47,6 +47,34 @@ source_set("glfw") {
      ]
- 
+
      defines = [ "_GLFW_WIN32" ]
 +  } else if (is_ohos) {
 +    sources += [
@@ -1016,6 +914,6 @@ index 65b1623..a89742a 100644
 +  readelf = "${toolchain_bin}/llvm-readelf"
 +  nm = "${toolchain_bin}/llvm-nm"
 +  strip = "${toolchain_bin}/llvm-strip"
- 
+
    target_triple_flags = "--target=${custom_target_triple}"
    sysroot_flags = "--sysroot ${custom_sysroot}"
