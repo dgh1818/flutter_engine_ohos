@@ -156,10 +156,8 @@ void OHOSExternalTextureGL::OnGrContextCreated() {
 void OHOSExternalTextureGL::OnGrContextDestroyed() {
   FML_DLOG(INFO) << " OHOSExternalTextureGL::OnGrContextDestroyed";
   if (state_ == AttachmentState::attached && pixelMap_ == nullptr) {
-    OH_NativeImage_UnsetOnFrameAvailableListener(nativeImage_);
     Detach();
     glDeleteTextures(1, &texture_name_);
-    OH_NativeImage_Destroy(&nativeImage_);
   }
   state_ = AttachmentState::detached;
 }
@@ -172,7 +170,8 @@ void OHOSExternalTextureGL::MarkNewFrameAvailable() {
 
 void OHOSExternalTextureGL::OnTextureUnregistered() {
   FML_DLOG(INFO) << " OHOSExternalTextureGL::OnTextureUnregistered";
-  // do nothing
+  OH_NativeImage_UnsetOnFrameAvailableListener(nativeImage_);
+  OH_NativeImage_Destroy(&nativeImage_);
 }
 
 void OHOSExternalTextureGL::Update() {
