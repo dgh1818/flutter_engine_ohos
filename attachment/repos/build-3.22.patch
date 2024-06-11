@@ -815,7 +815,7 @@ index 0000000..fc46359
 +def buildHar(buildDir, apiInt, buildType):
 +    updateConfig(buildDir, apiInt)
 +    runCommand(
-+        "cd %s && .%shvigorw clean --mode module " % (buildDir, os.sep)
++        "cd %s && hvigorw clean --mode module " % (buildDir)
 +        + "-p module=flutter@default -p product=default -p buildMode=%s " % buildType
 +        + "assembleHar --no-daemon"
 +    )

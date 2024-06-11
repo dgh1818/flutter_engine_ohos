@@ -14,6 +14,7 @@
 */
 
 #include "txt/platform.h"
+#include "third_party/skia/include/ports/SkFontMgr_ohos_api.h"
 
 namespace txt {
 
@@ -22,8 +23,8 @@ std::vector<std::string> GetDefaultFontFamilies() {
 }
 
 sk_sp<SkFontMgr> GetDefaultFontManager(uint32_t font_initialization_data) {
-  // @todo build SK Font
-  return SkFontMgr::RefEmpty();
+  static sk_sp<SkFontMgr> mgr = SkFontMgr_New_OHOS();
+  return mgr;
 }
 
 }  // namespace txt

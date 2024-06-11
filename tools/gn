@@ -514,11 +514,10 @@ def to_gn_args(args):
   gn_args['skia_use_fontconfig'] = args.enable_fontconfig
   gn_args['skia_use_icu'] = True
   gn_args['is_official_build'] = True  # Disable Skia test utilities.
-  gn_args['android_full_debug'
-         ] = args.target_os == 'android' and args.unoptimized
+  gn_args['android_full_debug'] = args.target_os == 'android' and args.unoptimized
 
   if args.target_os == 'ohos' and get_host_os() != 'win':
-      gn_args['ohos_api_int'] = args.ohos_api_int
+    gn_args['ohos_api_int'] = args.ohos_api_int
 
   if args.clang is None:
     gn_args['is_clang'] = True
@@ -1042,7 +1041,7 @@ def parse_args(args):
 
   parser.add_argument('--linux-cpu', type=str, choices=['x64', 'x86', 'arm64', 'arm'])
   parser.add_argument('--ohos-cpu', type=str, choices=['x64', 'x86', 'arm64', 'arm'])
-  parser.add_argument('--ohos-api-int', type=int, choices=[10, 11, 12], default=12)
+  parser.add_argument('--ohos-api-int', type=int, choices=[10, 11, 12], default=11)
 
   parser.add_argument('--fuchsia-cpu', type=str, choices=['x64', 'arm64'], default='x64')
   parser.add_argument('--windows-cpu', type=str, choices=['x64', 'arm64', 'x86'], default='x64')
