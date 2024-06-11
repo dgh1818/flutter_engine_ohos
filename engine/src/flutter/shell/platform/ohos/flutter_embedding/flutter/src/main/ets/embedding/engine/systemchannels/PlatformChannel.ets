@@ -205,9 +205,9 @@ export interface PlatformMessageHandler {
 
   popSystemNavigator(): void;
 
-  getClipboardData(format: ClipboardContentFormat): string;
+  getClipboardData(result: MethodResult): void;
 
-  setClipboardData(text: string): void;
+  setClipboardData(text: string, result: MethodResult): void;
 
   clipboardHasStrings(): boolean;
 }
@@ -372,19 +372,11 @@ class PlatformMethodCallback implements MethodCallHandler {
           result.success(null);
           break;
         case "Clipboard.getData":
-          let pasteBoard = pasteboard.getSystemPasteboard();
-          pasteBoard.getData().then((pasteData) => {
-            let text = pasteData.getPrimaryText();
-            let response: Any = new Map().set("text", text);
-            result.success(response);
-          }).catch((err: Any) => {
-            Log.e(PlatformMethodCallback.TAG, "Failed to get PasteData. Cause: " + JSON.stringify(err));
-          });
+          this.platform.platformMessageHandler.getClipboardData(result);
           break;
         case "Clipboard.setData":
           let clipboardContent: string = args.get('text');
-          this.platform.platformMessageHandler.setClipboardData(clipboardContent);
-          result.success(null);
+          this.platform.platformMessageHandler.setClipboardData(clipboardContent, result);
           break;
         case "Clipboard.hasStrings":
           let hasStrings: boolean = false;

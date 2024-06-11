@@ -12,6 +12,7 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
+import abilityAccessCtrl from '@ohos.abilityAccessCtrl';
 import { BusinessError } from '@kit.BasicServicesKit';
 import PlatformChannel, {
   AppSwitcherDescription,
@@ -31,6 +32,7 @@ import vibrator from '@ohos.vibrator';
 import window from '@ohos.window';
 import common from '@ohos.app.ability.common';
 import { MethodResult } from './common/MethodChannel';
+import Any from './common/Any';
 
 /**
  * ohos实现platform plugin
@@ -203,15 +205,70 @@ export class PlatformPluginCallback implements PlatformMessageHandler {
     }
   }
 
-  getClipboardData(format: ClipboardContentFormat): string {
-    // todo
-    return "";
+  getClipboardData(result: MethodResult): void {
+    let atManager = abilityAccessCtrl.createAtManager();
+    atManager.requestPermissionsFromUser(this.uiAbilityContext, ['ohos.permission.READ_PASTEBOARD']).then((data) => {
+      // https://developer.huawei.com/consumer/cn/doc/harmonyos-references-V5/js-apis-permissionrequestresult-V5
+      // 相应请求权限的结果：
+      // -1：未授权，表示权限已设置，无需弹窗，需要用户在"设置"中修改
+      //  0：已授权
+      //  2：未授权，表示请求无效，可能原因有：
+      //   -未在设置文件中声明目标权限。
+      //   -权限名非法。
+      //   -部分权限存在特殊申请条件，在申请对应权限时未满足其指定的条件
+      enum AuthResultStatus {
+        NOT_CONFIGURED = -1,
+        GRANTED = 0,
+        INVALID_REQ = 2
+      }
+      let message: string = 'Failed to request permissions from user.';
+      let authResult: number = data.authResults[0];
+      switch (authResult) {
+        case AuthResultStatus.GRANTED: {
+          let systemPasteboard: pasteboard.SystemPasteboard = pasteboard.getSystemPasteboard();
+          systemPasteboard.getData().then((pasteData: pasteboard.PasteData) => {
+            let text: string = pasteData.getPrimaryText();
+            let response: Any = new Map().set("text", text);
+            result.success(response);
+          }).catch((err: BusinessError) => {
+            Log.e(PlatformPluginCallback.TAG, "Failed to get PasteData. Cause: " + JSON.stringify(err));
+            result.error("error", JSON.stringify(err), null);
+          });
+          break;
+        }
+        case AuthResultStatus.NOT_CONFIGURED: {
+          message += 'Cause: Not configured in Settings';
+          Log.e(PlatformPluginCallback.TAG, message);
+          result.error("error", message, null);
+          break;
+        }
+        case AuthResultStatus.INVALID_REQ: {
+          message += 'Cause: Invalid request';
+          Log.e(PlatformPluginCallback.TAG, message);
+          result.error("error", message, null);
+          break;
+        }
+        default: {
+          message += `Unknown error: authResult=${authResult}`;
+          result.error("error", message, null);
+          break;
+        }
+      }
+    }).catch((err: BusinessError) => {
+      Log.e(PlatformPluginCallback.TAG, "Failed to request permissions from user. Cause: " + JSON.stringify(err));
+      result.error("error", JSON.stringify(err), null);
+    })
   }
 
-  setClipboardData(text: string) {
+  setClipboardData(text: string, result: MethodResult) {
     let pasteData = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, text);
-    let clipboard = pasteboard.getSystemPasteboard();
-    clipboard.setData(pasteData);
+    let systemPasteboard: pasteboard.SystemPasteboard = pasteboard.getSystemPasteboard();
+    systemPasteboard.setData(pasteData).then((data: void) => {
+      result.success(null);
+    }).catch((err: BusinessError) => {
+      Log.d(PlatformPluginCallback.TAG, "Failed to set PasteData. Cause: " + JSON.stringify(err));
+      result.error("error", JSON.stringify(err), null);
+    });
   }
 
   clipboardHasStrings(): boolean {
