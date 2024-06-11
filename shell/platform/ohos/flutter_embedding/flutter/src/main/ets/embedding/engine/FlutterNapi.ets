@@ -406,7 +406,7 @@ export default class FlutterNapi {
   }
 
   registerTexture(textureId: number): number {
-    Log.d(TAG, "called unregisterTexture ");
+    Log.d(TAG, "called registerTexture ");
     return flutter.nativeRegisterTexture(this.nativeShellHolderId!, textureId);
   }
 }
