@@ -177,6 +177,7 @@ executable("flutter_ohos_unittests") {
 
   sources = [
     #"testing/mock_texture_registrar.cc",
+    "ohos_asset_provider_unittests.cpp",
   ]
 
   public_configs = [ "//flutter:config" ]
@@ -196,7 +197,33 @@ executable("flutter_ohos_unittests") {
     "//flutter/shell/platform/embedder:embedder_headers",
     "//flutter/shell/platform/embedder:embedder_test_utils",
     "//flutter/testing",
+    "//flutter/third_party/googletest:gmock",
+    "//flutter/third_party/googletest:gtest",
   ]
+
+  ldflags = [
+    "--rtlib=compiler-rt",
+    "-fuse-ld=lld",
+    "-static-libstdc++",
+  ]
+
+  ldflags += [ "-lnative_window" ]
+  ldflags += [ "-lnative_vsync" ]
+  ldflags += [ "-lace_napi.z" ]
+  ldflags += [ "-lace_ndk.z" ]
+  ldflags += [ "-lhilog_ndk.z" ]
+  ldflags += [ "-luv" ]
+  ldflags += [ "-lrawfile.z" ]
+  ldflags += [ "-lEGL" ]
+  ldflags += [ "-lGLESv3" ]
+
+  ldflags += [ "-limage_ndk.z" ]
+  ldflags += [ "-lnative_image" ]
+
+  ldflags += [ "-lm" ]
+  ldflags += [ "-lpthread" ]
+  ldflags += [ "-lpixelmap_ndk.z" ]
+
 }
 
 shared_library("flutter_shell_native") {

@@ -105,6 +105,11 @@ OHOSAssetProvider::OHOSAssetProvider(void* assetHandle, const std::string& dir)
   LOGD("assets dir:%{public}s", dir.c_str());
 }
 
+OHOSAssetProvider::OHOSAssetProvider(
+    std::shared_ptr<OHOSAssetProviderInternal> handle)
+    : assetHandle_(handle.get()) {
+}
+
 bool OHOSAssetProvider::IsValid() const {
   return (assetHandle_ != nullptr);
 }
