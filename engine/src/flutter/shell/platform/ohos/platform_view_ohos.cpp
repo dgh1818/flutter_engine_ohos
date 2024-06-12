@@ -346,10 +346,13 @@ sk_sp<GrDirectContext> PlatformViewOHOS::CreateResourceContext() const {
 
 // |PlatformView|
 void PlatformViewOHOS::ReleaseResourceContext() const {
-  LOGI("ReleaseResourceContext");
-  if (ohos_surface_) {
-    ohos_surface_->ResourceContextClearCurrent();
-  }
+  LOGI("PlatformViewOHOS::ReleaseResourceContext");
+  // IO thread will invoke glGetError() when exit.
+  // It will bring lots of "Call To OpenGL ES API With No Current Context"
+  // without gl context. So we don't clear current. 
+  // if (ohos_surface_) {
+  //   ohos_surface_->ResourceContextClearCurrent();
+  // }
 }
 
 // |PlatformView|
