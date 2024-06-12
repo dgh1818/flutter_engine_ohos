@@ -107,10 +107,18 @@ void OHOSExternalTextureGL::Paint(PaintContext& context,
   if (state_ == AttachmentState::uninitialized) {
     Attach();
   }
-  if (!freeze && new_frame_ready_ && pixelMap_ != nullptr) {
-    ProducePixelMapToNativeImage();
-    Update();
-    new_frame_ready_ = false;
+
+  if (!freeze) {
+    if (!first_update_) {
+      setBackground(bounds.width(), bounds.height());
+      Update();
+      first_update_ = true;
+    } else if (new_frame_ready_ && pixelMap_ != nullptr) {
+      ProducePixelMapToNativeImage();
+      Update();
+      new_frame_ready_ = false;
+    }
+
   }
   FML_CHECK(state_ == AttachmentState::attached);
 
@@ -165,6 +173,7 @@ void OHOSExternalTextureGL::OnGrContextDestroyed() {
 void OHOSExternalTextureGL::MarkNewFrameAvailable() {
   FML_DLOG(INFO) << " OHOSExternalTextureGL::MarkNewFrameAvailable";
   new_frame_ready_ = true;
+  first_update_ = true;
   Update();
 }
 
@@ -213,6 +222,57 @@ void OHOSExternalTextureGL::UpdateTransform()
 
 void OHOSExternalTextureGL::DispatchImage(ImageNative* image) {
   lastImage_ = image;
+}
+
+void OHOSExternalTextureGL::setBackground(int32_t width, int32_t height)
+{
+  if (nativeWindow_ == nullptr) {
+    nativeWindow_ = OH_NativeImage_AcquireNativeWindow(nativeImage_);
+    if (nativeWindow_ == nullptr) {
+      FML_DLOG(ERROR) << "OHOSExternalTextureGL  in setBackground Error with OH_NativeImage_AcquireNativeWindow";
+      return;
+    }
+  }
+
+  int code = SET_BUFFER_GEOMETRY;
+  int32_t ret = OH_NativeWindow_NativeWindowHandleOpt(nativeWindow_, code, width, height);
+  if (ret != 0) {
+    FML_DLOG(ERROR) << "OHOSExternalTextureGL in setBackground OH_NativeWindow_NativeWindowHandleOpt err:" << ret;
+  }
+
+  ret = OH_NativeWindow_NativeWindowRequestBuffer(nativeWindow_, &buffer_, &fenceFd);
+  if (ret != 0) {
+    FML_DLOG(ERROR) << "OHOSExternalTextureGL in setBackground OH_NativeWindow_NativeWindowRequestBuffer err:" << ret;
+  }
+
+  BufferHandle *handle = OH_NativeWindow_GetBufferHandleFromNative(buffer_);
+  void *mappedAddr = mmap(handle->virAddr, handle->size, PROT_READ | PROT_WRITE, MAP_SHARED, handle->fd, 0);
+  if (mappedAddr == MAP_FAILED) {
+    FML_DLOG(FATAL)<<"OHOSExternalTextureGL in setBackground mmap failed";
+    return;
+  }
+
+  uint32_t* destAddr = static_cast<uint32_t *>(mappedAddr);
+  uint32_t value = 0xFFFFFFFF;
+
+  for(int32_t x = 0; x < handle->width; x++) {
+    for (int32_t y = 0; y < handle->height; y++) {
+      *destAddr++ = value;
+    }
+  }
+
+    // munmap after use
+  ret = munmap(mappedAddr, handle->size);
+  if (ret == -1) {
+    FML_DLOG(FATAL)<<"OHOSExternalTextureGL in setBackground munmap failed";
+    return;
+  }
+
+  Region region{nullptr, 0};
+  ret = OH_NativeWindow_NativeWindowFlushBuffer(nativeWindow_, buffer_, fenceFd, region);
+  if (ret != 0) {
+    FML_DLOG(FATAL)<<"OHOSExternalTextureGL in setBackground OH_NativeWindow_NativeWindowFlushBuffer err:"<< ret;
+  }
 }
 
 void OHOSExternalTextureGL::HandlePixelMapBuffer() {
