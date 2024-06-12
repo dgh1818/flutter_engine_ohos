@@ -24,6 +24,10 @@ OHOSContext::~OHOSContext() {
   if (main_context_) {
     main_context_->releaseResourcesAndAbandonContext();
   }
+  if (impeller_context_) {
+    impeller_context_->Shutdown();
+    FML_LOG(IMPORTANT) << "impeller context shutdown (Vulkan).";
+  }
 }
 
 OHOSRenderingAPI OHOSContext::RenderingApi() const {
