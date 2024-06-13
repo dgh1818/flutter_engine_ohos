@@ -30,6 +30,7 @@ class OhosMain {
   static OhosMain& Get();
   const flutter::Settings& GetSettings() const;
   static napi_value NativeInit(napi_env env, napi_callback_info info);
+  static bool IsEmulator();
 
  private:
   const flutter::Settings settings_;

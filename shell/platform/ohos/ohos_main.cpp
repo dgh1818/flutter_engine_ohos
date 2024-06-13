@@ -75,6 +75,7 @@ OhosMain::OhosMain(const flutter::Settings& settings)
 OhosMain::~OhosMain() = default;
 
 static std::unique_ptr<OhosMain> g_flutter_main;
+static std::string productModel_;
 
 OhosMain& OhosMain::Get() {
   FML_CHECK(g_flutter_main) << "ensureInitializationComplete must have already "
@@ -94,19 +95,25 @@ const flutter::Settings& OhosMain::GetSettings() const {
  * @return void
  */
 void OhosMain::Init(napi_env env, napi_callback_info info) {
-  size_t argc = 6;
-  napi_value param[6];
+  size_t argc = 7;
+  napi_value param[7];
   std::string kernelPath, appStoragePath, engineCachesPath;
   int64_t initTimeMillis;
+  std::string productModel;
   napi_get_cb_info(env, info, &argc, param, nullptr, nullptr);
   napi_get_value_int64(env, param[5], &initTimeMillis);
   fml::napi::GetString(env, param[2], kernelPath);
   fml::napi::GetString(env, param[3], appStoragePath);
   fml::napi::GetString(env, param[4], engineCachesPath);
+  fml::napi::GetString(env, param[6], productModel);
+  productModel_ = productModel;
+
   FML_DLOG(INFO) << "INIT kernelPath:" << kernelPath;
   FML_DLOG(INFO) << "appStoragePath:" << appStoragePath;
   FML_DLOG(INFO) << "engineCachesPath:" << engineCachesPath;
   FML_DLOG(INFO) << "initTimeMillis:" << initTimeMillis;
+  FML_DLOG(INFO) << "productModel:" << productModel;
+
   std::vector<std::string> args;
   args.push_back("flutter");
   fml::napi::GetArrayString(env, param[1], args);
@@ -170,6 +177,11 @@ napi_value OhosMain::NativeInit(napi_env env, napi_callback_info info) {
   OhosMain::Init(env, info);
   OHOSImageGenerator::ImageNativeInit(env, info);
   return nullptr;
+}
+
+bool OhosMain::IsEmulator()
+{
+  return productModel_ == "emulator";
 }
 
 }  // namespace flutter
