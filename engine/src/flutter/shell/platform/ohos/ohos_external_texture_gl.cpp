@@ -112,7 +112,9 @@ void OHOSExternalTextureGL::Paint(PaintContext& context,
 
   if (!freeze) {
     if (!first_update_) {
-      setBackground(bounds.width(), bounds.height());
+      if (!isEmulator_) {
+        setBackground(bounds.width(), bounds.height());
+      }
       Update();
       first_update_ = true;
     } else if (new_frame_ready_ && pixelMap_ != nullptr) {
