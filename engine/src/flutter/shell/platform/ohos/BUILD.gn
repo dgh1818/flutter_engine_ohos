@@ -83,6 +83,9 @@ source_set("flutter_ohos_sources") {
              "ohos_environment_gl.h",
              "ohos_surface_gl_skia.h",
              "ohos_surface_vulkan_impeller.h",
+             "ohos_external_texture.h",
+             "ohos_external_texture_gl.h",
+             "image_lru.h",
              "types.h",
            ]
 
@@ -100,10 +103,12 @@ source_set("flutter_ohos_sources") {
     "ohos_context_vulkan_impeller.cpp",
 
     # "//flutter/impeller/toolkit/egl/display.cc",
+    "image_lru.cpp",
     "ohos_context_gl_skia.cpp",
     "ohos_display.cpp",
     "ohos_egl_surface.cpp",
     "ohos_environment_gl.cpp",
+    "ohos_external_texture.cpp",
     "ohos_external_texture_gl.cpp",
     "ohos_image_generator.cpp",
     "ohos_logger.c",
@@ -223,8 +228,7 @@ executable("flutter_ohos_unittests") {
   ldflags += [ "-lm" ]
   ldflags += [ "-lpthread" ]
   ldflags += [ "-lpixelmap_ndk.z" ]
-  ldflags += ["-lqos"]
-
+  ldflags += [ "-lqos" ]
 }
 
 shared_library("flutter_shell_native") {
@@ -234,6 +238,7 @@ shared_library("flutter_shell_native") {
   ldflags = [
     "--rtlib=compiler-rt",
     "-fuse-ld=lld",
+
     #"-static-libstdc++",
 
     #  "-Wl", "--build-id=sha1",
@@ -262,7 +267,7 @@ shared_library("flutter_shell_native") {
   ldflags += [ "-lm" ]
   ldflags += [ "-lpthread" ]
   ldflags += [ "-lpixelmap_ndk.z" ]
-  ldflags += ["-lqos"]
+  ldflags += [ "-lqos" ]
 
   public_configs = [ "//flutter:config" ]
 }
