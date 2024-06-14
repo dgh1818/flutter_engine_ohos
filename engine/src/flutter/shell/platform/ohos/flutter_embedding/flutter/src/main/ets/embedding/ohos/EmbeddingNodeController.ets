@@ -28,26 +28,6 @@ declare class nodeControllerParams {
   height : number
 }
 
-@Component
-struct ButtonComponent {
-  @Prop params: Params
-  @State bkColor: Color = Color.Red
-
-  build() {
-    Column() {
-      Button("test button")
-        .border({ width: 2, color: Color.Red})
-        .backgroundColor(this.bkColor)
-    }
-  }
-}
-
-@Builder
-function ButtonBuilder(params: Params) {
-  ButtonComponent({ params: params })
-    .backgroundColor(Color.Green)
-}
-
 const TAG = 'EmbeddingNodeController'
 export class EmbeddingNodeController extends NodeController {
   private rootNode: BuilderNode<[Params]> | undefined | null = null;
@@ -73,9 +53,7 @@ export class EmbeddingNodeController extends NodeController {
 
   makeNode(uiContext: UIContext): FrameNode | null{
     this.rootNode = new BuilderNode(uiContext, { surfaceId: this.surfaceId, type: this.renderType});
-    if (this.wrappedBuilder == null) {
-      this.rootNode.build(wrapBuilder(ButtonBuilder), {});
-    } else {
+    if (this.wrappedBuilder) {
       this.rootNode.build(this.wrappedBuilder, {direction: this.direction, platformView: this.platformView});
     }
     return this.rootNode.getFrameNode();
