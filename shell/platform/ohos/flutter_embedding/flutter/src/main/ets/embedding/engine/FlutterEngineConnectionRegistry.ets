@@ -149,7 +149,11 @@ export default class FlutterEngineConnectionRegistry implements PluginRegistry, 
 
   detachFromAbility(): void {
     if (this.isAttachedToAbility()) {
-      this.abilityAwarePlugins.forEach(abilityAware => abilityAware.onDetachedFromAbility())
+      try {
+        this.abilityAwarePlugins.forEach(abilityAware => abilityAware.onDetachedFromAbility())
+      } catch (e) {
+        Log.e(TAG, "abilityAwarePlugins DetachedFromAbility failed, msg:" + e);
+      }
       this.detachFromAbilityInternal();
     } else {
       Log.e(TAG, "Attempted to detach plugins from an Ability when no Ability was attached.");
