@@ -108,7 +108,14 @@ void OHOSExternalTextureGL::Paint(PaintContext& context,
   }
   if (state_ == AttachmentState::uninitialized) {
     Attach();
-    if (!freeze && new_frame_ready_ && pixelMap_ != nullptr) {
+  }
+
+  if (!freeze) {
+    if (!first_update_) {
+      setBackground(bounds.width(), bounds.height());
+      Update();
+      first_update_ = true;
+    } else if (new_frame_ready_ && pixelMap_ != nullptr) {
       ProducePixelMapToNativeImage();
       Update();
 	  }
@@ -179,12 +186,12 @@ void OHOSExternalTextureGL::OnGrContextDestroyed() {
 void OHOSExternalTextureGL::MarkNewFrameAvailable() {
   FML_DLOG(INFO) << " OHOSExternalTextureGL::MarkNewFrameAvailable";
   new_frame_ready_ = true;
+  first_update_ = true;
   Update();
 }
 
 void OHOSExternalTextureGL::OnTextureUnregistered() {
   FML_DLOG(INFO) << " OHOSExternalTextureGL::OnTextureUnregistered";
-  first_update_ = false;
   OH_NativeImage_UnsetOnFrameAvailableListener(nativeImage_);
   OH_NativeImage_Destroy(&nativeImage_);
 }
