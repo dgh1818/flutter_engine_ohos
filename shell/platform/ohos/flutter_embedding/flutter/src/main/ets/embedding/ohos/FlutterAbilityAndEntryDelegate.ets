@@ -35,7 +35,6 @@ import FlutterEngineGroup, { Options } from '../engine/FlutterEngineGroup';
 import FlutterNapi from '../engine/FlutterNapi';
 import { FlutterView } from '../../view/FlutterView';
 import FlutterManager from './FlutterManager';
-import router from '@ohos.router';
 import Any from '../../plugin/common/Any';
 
 const TAG = "FlutterAbilityDelegate";
@@ -95,11 +94,6 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
       this.flutterView.attachToFlutterEngine(this.flutterEngine!!);
     }
     this.host?.configureFlutterEngine(this.flutterEngine!!);
-  }
-
-  popSystemNavigator(): boolean {
-    router.back();
-    return true;
   }
 
   /**
@@ -353,6 +347,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
   onForeground() {
     this.ensureAlive();
     if (this.shouldDispatchAppLifecycleState()) {
+      this.flutterEngine?.getLifecycleChannel()?.aWindowIsFocused();
       this.flutterEngine?.getLifecycleChannel()?.appIsResumed();
     }
   }
