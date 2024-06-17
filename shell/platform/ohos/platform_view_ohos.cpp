@@ -408,6 +408,7 @@ uint64_t PlatformViewOHOS::RegisterExternalTexture(int64_t texture_id) {
     }
     ret = OH_NativeImage_GetSurfaceId(ohos_external_gl->nativeImage_,
                                       &surface_id);
+    ohos_external_gl->first_update_ = false;
     if (ret != 0) {
       FML_DLOG(ERROR) << "Error with OH_NativeImage_GetSurfaceId";
       return surface_id;
