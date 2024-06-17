@@ -117,6 +117,18 @@ typedef enum HiSysEventEventType HiSysEventEventType;
 // int HiSysEvent_Write(const char* func, int64_t line, const char* domain, const char* name,
 //     HiSysEventEventType type, const HiSysEventParam params[], size_t size);
 
+// 需要在手机的/system/etc/hiview/hisysevent.def中新增自定义的hisysevent事件，
+// 以shell/common/rasterizer.cc中的对RASTERIZER_DRAW事件进行打点举例，需要新增：
+// "FLUTTER": {
+//     "RASTERIZER_DRAW": {
+//         "__BASE": {
+//             "type": "BEHAVIOR",
+//             "level": "MINOR",
+//             "desc": "frame rasterize time",
+//             "preserve": true
+//         }
+//     }
+// }
 class HiSysEvent {
 private:
     void* handle;
