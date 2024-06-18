@@ -44,6 +44,7 @@
 #endif
 
 #include "flutter/fml/logging.h"
+#include "flutter/fml/platform/ohos/hisysevent_c.h"
 
 namespace flutter {
 
@@ -237,8 +238,7 @@ void Rasterizer::DrawLastLayerTrees(
 }
 
 DrawStatus Rasterizer::Draw(const std::shared_ptr<FramePipeline>& pipeline) {
-  int ret = hisysevent_.Write(__FUNCTION__, __LINE__, "FLUTTER", "RASTERIZER_DRAW", HISYSEVENT_BEHAVIOR, {}, 0);
-  FML_DLOG(INFO) << "hisysevent_.Write return " << ret;
+  HiSysEventWrite("rasterize frame time");
   TRACE_EVENT0("flutter", "GPURasterizer::Draw");
   if (raster_thread_merger_ &&
       !raster_thread_merger_->IsOnRasterizingThread()) {
