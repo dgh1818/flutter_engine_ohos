@@ -20,7 +20,7 @@
 #include "third_party/tonic/logging/dart_invoke.h"
 #include "third_party/tonic/typed_data/dart_byte_data.h"
 
-#include "fml/platform/ohos/hisysevent_c.h"
+#include "flutter/fml/platform/ohos/hisysevent_c.h"
 
 namespace flutter {
 namespace {
