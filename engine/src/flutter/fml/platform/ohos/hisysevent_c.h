@@ -117,18 +117,6 @@ typedef enum HiSysEventEventType HiSysEventEventType;
 // int HiSysEvent_Write(const char* func, int64_t line, const char* domain, const char* name,
 //     HiSysEventEventType type, const HiSysEventParam params[], size_t size);
 
-// 需要在手机的/system/etc/hiview/hisysevent.def中新增自定义的hisysevent事件，
-// 以shell/common/rasterizer.cc中的对RASTERIZER_DRAW事件进行打点举例，需要新增：
-// "FLUTTER": {
-//     "RASTERIZER_DRAW": {
-//         "__BASE": {
-//             "type": "BEHAVIOR",
-//             "level": "MINOR",
-//             "desc": "frame rasterize time",
-//             "preserve": true
-//         }
-//     }
-// }
 class HiSysEvent {
 private:
     void* handle;
@@ -162,6 +150,55 @@ public:
         if (handle != NULL) {
             dlclose(handle);
         }
+    }
+};
+
+#if !FLUTTER_RELEASE && defined(FML_OS_OHOS)
+static HiSysEvent hisysevent;
+#endif
+
+class HiSysEventWrite {
+private:
+#if !FLUTTER_RELEASE && defined(FML_OS_OHOS)
+    const char* domain_ = "DISTHWFWK";
+    const char* begin_event_ = "DHFWK_EXIT_BEGIN";
+    const char* end_event_ = "DHFWK_EXIT_END";
+    const HiSysEventEventType type_ = HISYSEVENT_BEHAVIOR;
+    HiSysEventParam params_[1];
+    const size_t size_ = 1;
+#endif
+
+public:
+    explicit HiSysEventWrite(const char* fmt, ...) {
+#if !FLUTTER_RELEASE && defined(FML_OS_OHOS)
+        char name[1000] = "OHFlutterHiSysEvent";
+        char* name_ = name;
+        if (fmt != nullptr) {
+            va_list args;
+            va_start(args, fmt);
+            int32_t ret = vsprintf(name, fmt, args);
+            va_end(args);
+            if (ret != -1) {
+                name_ = name;
+            }
+        }
+        HiSysEventParam param  = {
+            .name = "MSG",
+            .t = HISYSEVENT_STRING,
+            .v = { .s = name_ },
+            .arraySize = 0,
+        };
+        params_[0] = param;
+        int ret = hisysevent.Write(__FUNCTION__, __LINE__, domain_, begin_event_, type_, params_, size_);
+        FML_DLOG(INFO) << "hisysevent_.Write begine event return " << ret;
+#endif
+    }
+
+    ~HiSysEventWrite() {
+#if !FLUTTER_RELEASE && defined(FML_OS_OHOS)
+        int ret = hisysevent.Write(__FUNCTION__, __LINE__, domain_, end_event_, type_, params_, size_);
+        FML_DLOG(INFO) << "hisysevent_.Write end event return " << ret;
+#endif
     }
 };
 
