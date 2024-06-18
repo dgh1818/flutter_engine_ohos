@@ -394,10 +394,6 @@ export default class FlutterNapi {
     flutter.nativeDestroy(this.nativeShellHolderId!!);
   }
 
-  initNativeImage(textureId: number, aImage: image.Image) {
-    Log.d(TAG, "called initNativeImage ");
-    flutter.nativeInitNativeImage(this.nativeShellHolderId!, textureId, aImage);
-  }
 
   unregisterTexture(textureId: number): void {
     Log.d(TAG, "called unregisterTexture ");

@@ -86,7 +86,6 @@ class PlatformViewOHOS final : public PlatformView {
                                int action,
                                void* actionData,
                                int actionDataLenth);
-  void RegisterExternalTextureByImage(int64_t texture_id, ImageNative* image);
 
   uint64_t RegisterExternalTexture(int64_t texture_id);
 
