@@ -67,8 +67,6 @@ class PlatformViewOHOS final : public PlatformView {
 
   void NotifyCreate(fml::RefPtr<OHOSNativeWindow> native_window);
 
-  void NotifySurfaceWindowChanged(fml::RefPtr<OHOSNativeWindow> native_window);
-
   void NotifyChanged(const SkISize& size);
 
   // |PlatformView|
