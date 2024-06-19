@@ -67,8 +67,6 @@ class PlatformViewOHOS final : public PlatformView {
 
   void NotifyCreate(fml::RefPtr<OHOSNativeWindow> native_window);
 
-  void NotifySurfaceWindowChanged(fml::RefPtr<OHOSNativeWindow> native_window);
-
   void NotifyChanged(const SkISize& size);
 
   // |PlatformView|
@@ -86,7 +84,6 @@ class PlatformViewOHOS final : public PlatformView {
                                int action,
                                void* actionData,
                                int actionDataLenth);
-  void RegisterExternalTextureByImage(int64_t texture_id, ImageNative* image);
 
   uint64_t RegisterExternalTexture(int64_t texture_id);
 

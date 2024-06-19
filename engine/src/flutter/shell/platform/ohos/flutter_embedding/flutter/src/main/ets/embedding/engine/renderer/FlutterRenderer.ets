@@ -29,10 +29,6 @@ export class FlutterRenderer implements TextureRegistry {
   constructor(flutterNapi: FlutterNapi) {
     this.flutterNapi = flutterNapi;
   }
-  createSurfaceTexture(): SurfaceTextureEntry {
-    let receiver: image.ImageReceiver = this.getImageReceiver();
-    return this.registerSurfaceTexture(receiver);
-  }
 
   getTextureId(): number {
     this.nextTextureId = this.nextTextureId + 1;
@@ -48,13 +44,6 @@ export class FlutterRenderer implements TextureRegistry {
     return surfaceTextureRegistryEntry;
   }
 
-  registerSurfaceTexture(receiver: image.ImageReceiver): SurfaceTextureEntry {
-    this.nextTextureId = this.nextTextureId + 1;
-    let surfaceTextureRegistryEntry = new SurfaceTextureRegistryEntry(this.nextTextureId);
-    surfaceTextureRegistryEntry.setImageReceiver(receiver);
-    this.registerImage(surfaceTextureRegistryEntry.getTextureId(), surfaceTextureRegistryEntry.textureWrapper());
-    return surfaceTextureRegistryEntry;
-  }
 
   registerPixelMap(pixelMap: PixelMap): number {
     this.nextTextureId = this.nextTextureId + 1;
@@ -77,25 +66,6 @@ export class FlutterRenderer implements TextureRegistry {
       console.info('[camera test] ImageReceiver is not ok');
     }
     return receiver;
-  }
-  private registerImage(textureId: number, surfaceTextureWrapper: SurfaceTextureWrapper): void {
-    let receiver = surfaceTextureWrapper.getImageReceiver();
-    receiver.on('imageArrival', () => {
-      receiver.readNextImage((err: BusinessError, nextImage: image.Image) => {
-        if (err || nextImage === undefined) {
-          return;
-        }
-        this.flutterNapi.initNativeImage(textureId, nextImage);
-        console.log("[camera test] format: " + nextImage.format);
-        nextImage.release((err : BusinessError) =>{
-          if (err != undefined) {
-            console.log('Failed to release the image source instance.');
-          } else {
-            console.log('Succeeded in releasing the image source instance.');
-          }
-        });
-      })
-    })
   }
 }
 
