@@ -148,23 +148,6 @@ void PlatformViewOHOS::NotifyCreate(
   PlatformView::NotifyCreated();
 }
 
-void PlatformViewOHOS::NotifySurfaceWindowChanged(
-    fml::RefPtr<OHOSNativeWindow> native_window) {
-  LOGI("PlatformViewOHOS NotifySurfaceWindowChanged enter");
-  if (ohos_surface_) {
-    fml::AutoResetWaitableEvent latch;
-    fml::TaskRunner::RunNowOrPostTask(
-        task_runners_.GetRasterTaskRunner(),
-        [&latch, surface = ohos_surface_.get(),
-         native_window = std::move(native_window)]() {
-          surface->TeardownOnScreenContext();
-          surface->SetNativeWindow(native_window);
-          latch.Signal();
-        });
-    latch.Wait();
-  }
-}
-
 void PlatformViewOHOS::NotifyChanged(const SkISize& size) {
   LOGI("PlatformViewOHOS NotifyChanged enter");
   if (ohos_surface_) {
@@ -398,22 +381,6 @@ void PlatformViewOHOS::InstallFirstFrameCallback() {
 void PlatformViewOHOS::FireFirstFrameCallback() {
   FML_DLOG(INFO) << "FlutterViewOnFirstFrame";
   napi_facade_->FlutterViewOnFirstFrame();
-}
-
-void PlatformViewOHOS::RegisterExternalTextureByImage(int64_t texture_id,
-                                                      ImageNative* image) {
-  if (ohos_context_->RenderingApi() == OHOSRenderingAPI::kOpenGLES) {
-    auto iter = external_texture_gl_.find(texture_id);
-    if (iter != external_texture_gl_.end()) {
-      iter->second->DispatchImage(image);
-    } else {
-      std::shared_ptr<OHOSExternalTextureGL> ohos_external_gl =
-          std::make_shared<OHOSExternalTextureGL>(texture_id, ohos_surface_);
-      external_texture_gl_[texture_id] = ohos_external_gl;
-      RegisterTexture(ohos_external_gl);
-      ohos_external_gl->DispatchImage(image);
-    }
-  }
 }
 
 uint64_t PlatformViewOHOS::RegisterExternalTexture(int64_t texture_id) {
