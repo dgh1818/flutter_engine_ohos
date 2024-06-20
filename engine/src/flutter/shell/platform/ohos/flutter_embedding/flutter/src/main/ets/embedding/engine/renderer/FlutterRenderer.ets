@@ -18,7 +18,6 @@ import { BusinessError } from '@ohos.base';
 import { SurfaceTextureEntry, TextureRegistry } from '../../../view/TextureRegistry';
 import { FlutterAbility } from '../../ohos/FlutterAbility';
 import FlutterNapi from '../FlutterNapi';
-import { SurfaceTextureWrapper } from './SurfaceTextureWrapper';
 import Log from '../../../util/Log';
 
 const TAG = "FlutterRenderer"
@@ -57,34 +56,15 @@ export class FlutterRenderer implements TextureRegistry {
   onTrimMemory(level: number) {
     throw new Error('Method not implemented.');
   }
-
-  private getImageReceiver(): image.ImageReceiver {
-    let receiver: image.ImageReceiver = image.createImageReceiver(640, 480, 4, 8);
-    if (receiver !== undefined) {
-      console.info('[camera test] ImageReceiver is ok');
-    } else {
-      console.info('[camera test] ImageReceiver is not ok');
-    }
-    return receiver;
-  }
 }
 
 export class SurfaceTextureRegistryEntry implements SurfaceTextureEntry {
   private textureId: number = 0;
   private surfaceId: number = 0;
-  private surfaceTextureWrapper: SurfaceTextureWrapper | null = null;
   private released: boolean = false;
 
   constructor(id: number) {
     this.textureId = id;
-  }
-
-  getImageReceiver(): image.ImageReceiver {
-    return this.surfaceTextureWrapper!.getImageReceiver();
-  }
-
-  setImageReceiver(receiver: image.ImageReceiver): void {
-    this.surfaceTextureWrapper = new SurfaceTextureWrapper(receiver);
   }
 
   getTextureId(): number {
@@ -99,9 +79,6 @@ export class SurfaceTextureRegistryEntry implements SurfaceTextureEntry {
     this.surfaceId = surfaceId;
   }
 
-  textureWrapper(): SurfaceTextureWrapper {
-    return this.surfaceTextureWrapper!;
-  }
   release() {
     throw new Error('Method not implemented.');
   }
