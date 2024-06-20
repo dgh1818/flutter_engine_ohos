@@ -178,16 +178,16 @@ bool PlatformViewOHOS::isDestroyed_ = false;
 
 bool PlatformViewOHOS::GetDestroyed() {
   bool ret;
-  pthread_mutex_lock(&mutex);
+  pthread_mutex_lock(mutex_);
   ret = isDestroyed_;
-  pthread_mutex_unlock(&mutex);
+  pthread_mutex_unlock(mutex_);
   return ret;
 }
 
 void PlatformViewOHOS::SetDestroyed(bool isDestroyed) {
-  pthread_mutex_lock(&mutex);
+  pthread_mutex_lock(mutex_);
   isDestroyed_ = isDestroyed;
-  pthread_mutex_unlock(&mutex);
+  pthread_mutex_unlock(mutex_);
 }
 
 // |PlatformView|
