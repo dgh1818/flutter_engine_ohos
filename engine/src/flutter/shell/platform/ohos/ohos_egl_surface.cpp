@@ -89,14 +89,13 @@ class OhosEGLSurfaceDamage {
               eglGetProcAddress("eglSwapBuffersWithDamageKHR"));
     }
 
-    partial_redraw_supported_ =
-        set_damage_region_ != nullptr && swap_buffers_with_damage_ != nullptr;
+    partial_redraw_supported_ = false;
   }
 
   void SetDamageRegion(EGLDisplay display,
                        EGLSurface surface,
                        const std::optional<SkIRect>& region) {
-    if (set_damage_region_ && region) {
+    if (partial_redraw_supported_ && set_damage_region_ && region) {
       auto rects = RectToInts(display, surface, *region);
       set_damage_region_(display, surface, rects.data(), 1);
     }
@@ -133,7 +132,7 @@ class OhosEGLSurfaceDamage {
   bool SwapBuffersWithDamage(EGLDisplay display,
                              EGLSurface surface,
                              const std::optional<SkIRect>& damage) {
-    if (swap_buffers_with_damage_ && damage) {
+    if (partial_redraw_supported_ && swap_buffers_with_damage_ && damage) {
       damage_history_.push_back(*damage);
       if (damage_history_.size() > kMaxHistorySize) {
         damage_history_.pop_front();
