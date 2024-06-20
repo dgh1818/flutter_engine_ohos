@@ -124,7 +124,14 @@ class PlatformViewOHOS final : public PlatformView {
   std::shared_ptr<OhosSurfaceFactoryImpl> surface_factory_;
   std::map<int64_t, std::shared_ptr<OHOSExternalTextureGL>>
       external_texture_gl_;
+  std::map<int64_t, void*> contextDatas_;
 
+  static bool isDestroyed_;
+  static pthread_mutex_t mutex_;
+
+  static bool GetDestroyed();
+
+  static void SetDestroyed(bool isDestroyed_);
   // |PlatformView|
   void UpdateSemantics(
       flutter::SemanticsNodeUpdates update,
