@@ -178,16 +178,16 @@ bool PlatformViewOHOS::isDestroyed_ = false;
 
 bool PlatformViewOHOS::GetDestroyed() {
   bool ret;
-  pthread_mutex_lock(mutex_);
+  pthread_mutex_lock(&mutex_);
   ret = isDestroyed_;
-  pthread_mutex_unlock(mutex_);
+  pthread_mutex_unlock(&mutex_);
   return ret;
 }
 
 void PlatformViewOHOS::SetDestroyed(bool isDestroyed) {
-  pthread_mutex_lock(mutex_);
+  pthread_mutex_lock(&mutex_);
   isDestroyed_ = isDestroyed;
-  pthread_mutex_unlock(mutex_);
+  pthread_mutex_unlock(&mutex_);
 }
 
 // |PlatformView|
@@ -491,7 +491,7 @@ void PlatformViewOHOS::UnRegisterExternalTexture(int64_t texture_id) {
   external_texture_gl_.erase(texture_id);
   UnregisterTexture(texture_id);
   std::map<int64_t, void*>::iterator it = contextDatas_.find(texture_id);
-  if (it != contextDatas_.end();) {
+  if (it != contextDatas_.end()) {
     if (it->second != nullptr) {
       OhosImageFrameData* data = reinterpret_cast<OhosImageFrameData *>(it->second);
       delete data;
