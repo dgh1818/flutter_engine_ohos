@@ -498,7 +498,7 @@ void PlatformViewOHOS::UnRegisterExternalTexture(int64_t texture_id) {
       [data_ = data]() {
         delete data_;
       },
-      fml::TimeDelta::FromSeconds(1));
+      fml::TimeDelta::FromSeconds(2));
       data = nullptr;
       it->second = nullptr;
     }
