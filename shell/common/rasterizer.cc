@@ -238,7 +238,7 @@ void Rasterizer::DrawLastLayerTrees(
 }
 
 DrawStatus Rasterizer::Draw(const std::shared_ptr<FramePipeline>& pipeline) {
-  fml::HiSysEventTrace hisyseventtrace("flutter rasterize frame time");
+  HiSysEventWriteDuration("flutter rasterize frame time");
   TRACE_EVENT0("flutter", "GPURasterizer::Draw");
   if (raster_thread_merger_ &&
       !raster_thread_merger_->IsOnRasterizingThread()) {

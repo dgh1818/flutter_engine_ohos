@@ -20,7 +20,6 @@
 #include <stdint.h>
 #include <dlfcn.h>
 #include <time.h>
-#include <mutex>
 
 #include "flutter/fml/logging.h"
 
@@ -117,7 +116,11 @@ typedef enum HiSysEventEventType HiSysEventEventType;
 // int HiSysEvent_Write(const char* func, int64_t line, const char* domain, const char* name,
 //     HiSysEventEventType type, const HiSysEventParam params[], size_t size);
 
-#if !FLUTTER_RELEASE && defined(FML_OS_OHOS)
+typedef int (*HiSysEvent_Write_Def)(const char* func, int64_t line, const char* domain, const char* name,
+    HiSysEventEventType type, const HiSysEventParam params[], size_t size);
+
+int HiSysEventWrite(const char* name, uint64_t time);
+
 class HiSysEventTrace {
 private:
     const char* name_;
@@ -133,115 +136,6 @@ public:
         }
         clock_gettime(CLOCK_MONOTONIC, &begin_time_);
     }
-    int HiSysEventWrite(const char* name, uint64_t time) {
-        static void* handle = NULL;
-        static int (*HiSysEvent_Write)(const char* func, int64_t line, const char* domain, const char* name,
-                    HiSysEventEventType type, const HiSysEventParam params[], size_t size) = NULL;
-        
-        static const char* domain_ = "PERFORMANCE";
-        static const char* event_ = "INTERACTION_HITCH_TIME_RATIO";
-        static const HiSysEventEventType type_ = HISYSEVENT_BEHAVIOR;
-        static HiSysEventParam params_[12] = {
-            {
-                .name = "SCENE_ID",
-                .t = HISYSEVENT_STRING,
-                .v = { .s = "" },
-                .arraySize = 0,
-            },
-            {
-                .name = "PROCESS_NAME",
-                .t = HISYSEVENT_STRING,
-                .v = { .s = "" },
-                .arraySize = 0,
-            },
-            {
-                .name = "MODULE_NAME",
-                .t = HISYSEVENT_STRING,
-                .v = { .s = "" },
-                .arraySize = 0,
-            },
-            {
-                .name = "ABILITY_NAME",
-                .t = HISYSEVENT_STRING,
-                .v = { .s = "" },
-                .arraySize = 0,
-            },
-            {
-                .name = "PAGE_URL",
-                .t = HISYSEVENT_STRING,
-                .v = { .s = "" },
-                .arraySize = 0,
-            },
-            {
-                .name = "UI_START_TIME",
-                .t = HISYSEVENT_UINT64,
-                .v = { .ui64 = 0 },
-                .arraySize = 0,
-            },
-            {
-                .name = "RS_START_TIME",
-                .t = HISYSEVENT_UINT64,
-                .v = { .ui64 = 0 },
-                .arraySize = 0,
-            },
-            {
-                .name = "DURATION",
-                .t = HISYSEVENT_UINT64,
-                .v = { .ui64 = 0 },
-                .arraySize = 0,
-            },
-            {
-                .name = "HITCH_TIME",
-                .t = HISYSEVENT_UINT64,
-                .v = { .ui64 = 0 },
-                .arraySize = 0,
-            },
-            {
-                .name = "HITCH_TIME_RATIO",
-                .t = HISYSEVENT_FLOAT,
-                .v = { .f = 0 },
-                .arraySize = 0,
-            },
-            {
-                .name = "IS_FOLD_DISP",
-                .t = HISYSEVENT_BOOL,
-                .v = { .b = false },
-                .arraySize = 0,
-            },
-            {
-                .name = "BUNDLE_NAME_EX",
-                .t = HISYSEVENT_STRING,
-                .v = { .s = "" },
-                .arraySize = 0,
-            },
-        };
-        static const size_t size_ = 12;
-        
-        if (handle == NULL && HiSysEvent_Write == NULL) {
-            std::mutex mtx;
-            mtx.lock();
-            if (handle == NULL && HiSysEvent_Write == NULL) {
-                handle = dlopen("/system/lib64/chipset-pub-sdk/libhisysevent.z.so", RTLD_LAZY);
-                if (handle != NULL) {
-                    HiSysEvent_Write = reinterpret_cast<int (*)(const char*, int64_t, const char*, const char*,
-                        HiSysEventEventType, const HiSysEventParam[], size_t)>(dlsym(handle, "HiSysEvent_Write"));
-                    if (HiSysEvent_Write == NULL) {
-                        FML_DLOG(ERROR) << "dlsym HiSysEvent_Write return NULL\n";
-                        dlclose(handle);
-                        handle = NULL;
-                    }
-                } else {
-                    FML_DLOG(ERROR) << "dlopen libhisysevent.z.so return NULL\n";
-                }
-            }
-            mtx.unlock();
-        }
-
-        params_[3].v.s = name;
-        params_[7].v.ui64 = time;
-        int ret = HiSysEvent_Write(__FUNCTION__, __LINE__, domain_, event_, type_, params_, size_);
-        return ret;
-    }
     ~HiSysEventTrace() {
         clock_gettime(CLOCK_MONOTONIC, &end_time_);
         int ret = HiSysEventWrite(name_, (end_time_.tv_sec - begin_time_.tv_sec) * 1e6 +
@@ -249,13 +143,19 @@ public:
         FML_DLOG(INFO) << "HiSysEventWrite return " << ret;
     }
 };
-#else
-class HiSysEventTrace {
-public:
-    explicit HiSysEventTrace(const char* name) {}
-    ~HiSysEventTrace() {}
-};
-#endif
 
 }  // namespace fml
+
+#if !FLUTTER_RELEASE && defined(FML_OS_OHOS)
+#define HiSysEventWriteSingle(name)  \
+    ::fml::HiSysEventWrite(name, 0);
+#define HiSysEventWriteDuration(name)   \
+    ::fml::HiSysEventTrace __FML__TOKEN_CAT__2(hisysevent, __LINE__)(name);
+
+#else
+#define HiSysEventWriteSingle(name)
+#define HiSysEventWriteDuration(name)
+
+#endif
+
 #endif // HISYSEVENT_INTERFACES_NATIVE_INNERKITS_HISYSEVENT_INCLUDE_HISYSEVENT_C_H
