@@ -23,6 +23,18 @@
 
 #include "flutter/fml/logging.h"
 
+#if !FLUTTER_RELEASE && defined(FML_OS_OHOS)
+#define HiSysEventWriteSingle(name)  \
+    ::fml::HiSysEventWrite(name, 0);
+#define HiSysEventWriteDuration(name)   \
+    ::fml::HiSysEventTrace __FML__TOKEN_CAT__2(hisysevent, __LINE__)(name);
+
+#else
+#define HiSysEventWriteSingle(name)
+#define HiSysEventWriteDuration(name)
+
+#endif
+
 namespace fml {
 
 #define MAX_LENGTH_OF_PARAM_NAME 49
@@ -145,17 +157,5 @@ public:
 };
 
 }  // namespace fml
-
-#if !FLUTTER_RELEASE && defined(FML_OS_OHOS)
-#define HiSysEventWriteSingle(name)  \
-    ::fml::HiSysEventWrite(name, 0);
-#define HiSysEventWriteDuration(name)   \
-    ::fml::HiSysEventTrace __FML__TOKEN_CAT__2(hisysevent, __LINE__)(name);
-
-#else
-#define HiSysEventWriteSingle(name)
-#define HiSysEventWriteDuration(name)
-
-#endif
 
 #endif // HISYSEVENT_INTERFACES_NATIVE_INNERKITS_HISYSEVENT_INCLUDE_HISYSEVENT_C_H
