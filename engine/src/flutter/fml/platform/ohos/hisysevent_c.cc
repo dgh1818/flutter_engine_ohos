@@ -99,9 +99,9 @@ int HiSysEventWrite(const char* name, uint64_t time) {
         }
     }
 
-    params_[3].v.s = name;
-    params_[7].v.ui64 = time;
     if (HiSysEvent_Write != NULL) {
+        params_[3].v.s = name;
+        params_[7].v.ui64 = time;
         int ret = HiSysEvent_Write(__FUNCTION__, __LINE__, domain_, event_, type_, params_, size_);
         return ret;
     } else {
