@@ -7,6 +7,8 @@
 
 namespace flutter {
 
+#define MAX_DELAYED_FRAMES 3
+
 OHOSExternalTexture::OHOSExternalTexture(int64_t id,
                                          OH_OnFrameAvailableListener listener)
     : Texture(id), transform_(SkMatrix::I()) {
@@ -68,8 +70,11 @@ void OHOSExternalTexture::Paint(PaintContext& context,
 // Implementing flutter::Texture.
 void OHOSExternalTexture::MarkNewFrameAvailable() {
   // NOOP.
-  FML_LOG(INFO) << " OHOSExternalTextureGL::MarkNewFrameAvailable";
-  new_frame_ready_ = true;
+  FML_LOG(INFO) << " OHOSExternalTextureGL::MarkNewFrameAvailable "
+                << producer_nativewindow_width_ << " "
+                << producer_nativewindow_height_;
+  // new_frame_ready_ = true;
+  now_new_frame_seq_num_++;
 }
 
 // Implementing flutter::Texture.
@@ -146,24 +151,39 @@ OH_NativeBuffer* OHOSExternalTexture::GetConsumerNativeBuffer(int* fence_fd) {
       return nullptr;
     }
 
-    // get last consumer nativeBuffer
+    now_paint_frame_seq_num_++;
     int last_fence_fd = *fence_fd;
-    OH_NativeBuffer* native_buffer = OH_NativeImage_AcquireConsumerNativeBuffer(
-        native_image_source_, fence_fd);
-    while (native_buffer != nullptr) {
-      int ret = OH_NativeImage_ReleaseConsumerNativeBuffer(
-          native_image_source_, last_native_buffer, last_fence_fd);
-      if (ret != 0) {
-        FML_LOG(ERROR) << "OHOSExternalTexture ReleaseConsumerNativeBuffer(Get "
-                          "Last) get err:"
-                       << ret;
+    while (now_paint_frame_seq_num_ + MAX_DELAYED_FRAMES <
+           now_new_frame_seq_num_) {
+      OHNativeWindowBuffer* nw_buffer =
+          OH_NativeImage_AcquireConsumerNativeWindowBuffer(native_image_source_,
+                                                           fence_fd);
+      if (nw_buffer != nullptr) {
+        FML_LOG(ERROR) << "external_texture skip one frame: " << nw_buffer
+                       << " fence_fd " << last_fence_fd;
+        int ret = OH_NativeImage_ReleaseConsumerNativeWindowBuffer(
+            native_image_source_, last_nw_buffer, last_fence_fd);
+        if (ret != 0) {
+          FML_LOG(ERROR)
+              << "OHOSExternalTexture ReleaseConsumerNativeBuffer(Get "
+                 "Last) get err:"
+              << ret;
+        }
+        last_nw_buffer = nw_buffer;
+        last_fence_fd = *fence_fd;
+        now_paint_frame_seq_num_++;
+      } else {
+        now_paint_frame_seq_num_ = (int64_t)now_new_frame_seq_num_;
+        break;
       }
-      last_native_buffer = native_buffer;
-      last_fence_fd = *fence_fd;
-      native_buffer = OH_NativeImage_AcquireConsumerNativeBuffer(
-          native_image_source_, fence_fd);
     }
 
+    if (now_paint_frame_seq_num_ < now_new_frame_seq_num_ &&
+        frame_listener_.onFrameAvailable != nullptr) {
+      // Reschedule new frame (notify new texture in the next frame)
+      now_new_frame_seq_num_--;
+      frame_listener_.onFrameAvailable(frame_listener_.context);
+    }
     *fence_fd = last_fence_fd;
     return last_native_buffer;
   } else {
@@ -238,7 +258,7 @@ bool OHOSExternalTexture::CreateProducerNativeBuffer(int width, int height) {
   return true;
 }
 
-bool OHOSExternalTexture::CopyDataToNativeBuffer(const char* src,
+bool OHOSExternalTexture::CopyDataToNativeBuffer(const unsigned char* src,
                                                  int width,
                                                  int height,
                                                  int stride) {
