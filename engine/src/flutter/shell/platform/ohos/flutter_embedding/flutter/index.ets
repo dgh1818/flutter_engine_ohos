@@ -39,7 +39,6 @@ export { default as AbilityControlSurface } from './src/main/ets/embedding/engin
 export * from './src/main/ets/embedding/engine/plugins/ability/AbilityPluginBinding';
 export * from './src/main/ets/embedding/engine/renderer/FlutterRenderer';
 export * from './src/main/ets/embedding/engine/renderer/FlutterUiDisplayListener';
-export * from './src/main/ets/embedding/engine/renderer/SurfaceTextureWrapper'; 
 export { default as AccessibilityChannel } from './src/main/ets/embedding/engine/systemchannels/AccessibilityChannel';
 export { default as KeyEventChannel } from './src/main/ets/embedding/engine/systemchannels/KeyEventChannel';
 export { default as LifecycleChannel } from './src/main/ets/embedding/engine/systemchannels/LifecycleChannel';
