@@ -15,8 +15,6 @@
 
 #include "flutter/shell/platform/ohos/ohos_egl_surface.h"
 
-#include <EGL/eglext.h>
-
 #include <array>
 #include <list>
 
@@ -82,10 +80,12 @@ class OhosEGLSurfaceDamage {
           eglGetProcAddress("eglSetDamageRegionKHR"));
     }
     if (HasExtension(extensions, "EGL_EXT_swap_buffers_with_damage")) {
-        swap_buffers_with_damage_ = reinterpret_cast<PFNEGLSWAPBUFFERSWITHDAMAGEEXTPROC>(
+      swap_buffers_with_damage_ =
+          reinterpret_cast<PFNEGLSWAPBUFFERSWITHDAMAGEEXTPROC>(
               eglGetProcAddress("eglSwapBuffersWithDamageEXT"));
     } else if (HasExtension(extensions, "EGL_KHR_swap_buffers_with_damage")) {
-        swap_buffers_with_damage_ = reinterpret_cast<PFNEGLSWAPBUFFERSWITHDAMAGEEXTPROC>(
+      swap_buffers_with_damage_ =
+          reinterpret_cast<PFNEGLSWAPBUFFERSWITHDAMAGEEXTPROC>(
               eglGetProcAddress("eglSwapBuffersWithDamageKHR"));
     }
 
