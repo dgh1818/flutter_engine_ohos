@@ -374,7 +374,7 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     let nodeWidthLink: SubscribedAbstractProperty<number> = AppStorage.link('nodeWidth');
     let nodeHeightLink: SubscribedAbstractProperty<number> = AppStorage.link('nodeHeight');
     let platformViewInfo: PlatformViewInfo = this.nodeControllers.peek();
-    if (platformViewInfo != undefined) {
+    if (platformViewInfo != undefined && platformViewInfo.nodeController != undefined) {
       nodeControllerLink.set(platformViewInfo.nodeController);
       nodeWidthLink.set(platformViewInfo.width);
       nodeHeightLink.set(platformViewInfo.height);
