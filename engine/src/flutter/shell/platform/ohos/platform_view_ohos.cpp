@@ -494,7 +494,11 @@ void PlatformViewOHOS::UnRegisterExternalTexture(int64_t texture_id) {
   if (it != contextDatas_.end()) {
     if (it->second != nullptr) {
       OhosImageFrameData* data = reinterpret_cast<OhosImageFrameData *>(it->second);
-      delete data;
+      task_runners_.GetPlatformTaskRunner()->PostDelayedTask(
+      [data_ = data]() {
+        delete data_;
+      },
+      fml::TimeDelta::FromSeconds(1);
       data = nullptr;
       it->second = nullptr;
     }
