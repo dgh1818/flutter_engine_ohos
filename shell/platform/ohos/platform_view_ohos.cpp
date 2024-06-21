@@ -29,8 +29,6 @@
 #include "shell/platform/ohos/context/ohos_context.h"
 #include "shell/platform/ohos/ohos_surface_vulkan_impeller.h"
 
-#include <GLES2/gl2ext.h>
-
 namespace flutter {
 
 // This global map's key is (PlatformViewOHOS-ptr + texture_id) because there

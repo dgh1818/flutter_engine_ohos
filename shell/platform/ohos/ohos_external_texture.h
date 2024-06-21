@@ -21,6 +21,7 @@
 #include <native_buffer/native_buffer.h>
 #include <native_image/native_image.h>
 #include <native_window/external_window.h>
+#include <atomic>
 
 #include "flutter/common/graphics/texture.h"
 #include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
@@ -82,11 +83,17 @@ class OHOSExternalTexture : public flutter::Texture {
 
   uint64_t producer_surface_id_;
 
-  int producer_nativewindow_width_;
-  int producer_nativewindow_height_;
-  OHNativeWindow* producer_nativewindow_;
-  OH_NativeBuffer* producer_nativebuffer_;
-  OHNativeWindowBuffer* producer_nativewindowbuffer_;
+  int producer_nativewindow_width_ = 0;
+  int producer_nativewindow_height_ = 0;
+  OHNativeWindow* producer_nativewindow_ = nullptr;
+  OHNativeWindowBuffer* producer_nativewindow_buffer_ = nullptr;
+
+  OHNativeWindowBuffer* last_native_window_buffer_ = nullptr;
+  int last_fence_fd_ = -1;
+
+  std::atomic<int64_t> now_paint_frame_seq_num_ = 0;
+
+  std::atomic<int64_t> now_new_frame_seq_num_ = 0;
 
   OH_NativeImage* native_image_source_;
 
