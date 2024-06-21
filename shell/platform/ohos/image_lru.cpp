@@ -40,16 +40,12 @@ void ImageLRU::UpdateKey(const sk_sp<flutter::DlImage>& image,
 NativeBufferKey ImageLRU::AddImage(const sk_sp<flutter::DlImage>& image,
                                    NativeBufferKey key) {
   NativeBufferKey lru_key = images_[kMaxQueueSize - 1].key;
-  bool updated_image = false;
-  for (size_t i = 0u; i < kMaxQueueSize; i++) {
-    if (images_[i].key == lru_key) {
-      updated_image = true;
-      images_[i] = Data{.key = key, .value = image};
-      break;
-    }
+  for (size_t i = kMaxQueueSize - 1; i > 0; i--) {
+    images_[i] = images_[i - 1];
   }
-  if (!updated_image) {
-    images_[0] = Data{.key = key, .value = image};
+  images_[0] = Data{.key = key, .value = image};
+  if (lru_key != 0) {
+    FML_LOG(ERROR) << "lru release one " << lru_key;
   }
   UpdateKey(image, key);
   return lru_key;

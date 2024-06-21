@@ -45,6 +45,7 @@ void OHOSExternalTexture::Paint(PaintContext& context,
   if (state_ == AttachmentState::kDetached) {
     return;
   }
+
   sk_sp<flutter::DlImage> draw_dl_image;
   if (!freeze && new_frame_ready_) {
     draw_dl_image = GetNextDrawImage();
