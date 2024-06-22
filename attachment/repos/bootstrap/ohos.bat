@@ -14,4 +14,4 @@
 @echo off
 setlocal EnableDelayedExpansion
 
-python3 ohos.py %*
+python3 .\src\flutter\attachment\scripts\ohos.py %*
