@@ -20,6 +20,8 @@
 #include "third_party/tonic/logging/dart_invoke.h"
 #include "third_party/tonic/typed_data/dart_byte_data.h"
 
+#include "flutter/fml/platform/ohos/hisysevent_c.h"
+
 namespace flutter {
 namespace {
 
@@ -378,6 +380,7 @@ void PlatformConfiguration::BeginFrame(fml::TimePoint frameTime,
 
   int64_t microseconds = (frameTime - fml::TimePoint()).ToMicroseconds();
 
+  HISYSEVENT_WRITE_DURATION("flutter build frame time");
   tonic::CheckAndHandleError(
       tonic::DartInvoke(begin_frame_.Get(), {
                                                 Dart_NewInteger(microseconds),
