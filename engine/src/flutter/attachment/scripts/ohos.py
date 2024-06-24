@@ -26,7 +26,7 @@ import sys
 import zipfile
 from datetime import datetime
 
-SUPPORT_BUILD_NAMES = ("clean", "config", "har", "compile", "zip", "zip2")
+SUPPORT_BUILD_NAMES = ("clean", "config", "har", "compile", "zip", "zip2", "upload")
 SUPPORT_BUILD_TYPES = ("debug", "profile", "release")
 DIR_ROOT = os.path.abspath(os.path.join(sys.argv[0], os.pardir))
 OS_NAME = platform.system().lower()
@@ -362,6 +362,10 @@ def buildLocalEngine(buildType, extraParam):
   runCommand("ninja -C %s" % os.path.join("src", "out", outputName))
 
 
+def uploadFiles():
+    runCommand("python3 src/flutter/attachment/scripts/auto_compile.py")
+
+
 def buildByNameAndType(args):
   buildNames = args.name if args.branch or args.name else ["config", "compile"]
   buildTypes = args.type
@@ -387,6 +391,9 @@ def buildByNameAndType(args):
       else:
         logging.warning("Other name=%s" % buildName)
     buildLocalEngine(buildType, args.gn_extra_param)
+
+    if "upload" in buildNames:
+        uploadFiles()
 
 
 def ohos_main():
