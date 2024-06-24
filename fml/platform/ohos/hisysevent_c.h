@@ -24,14 +24,14 @@
 #include "flutter/fml/logging.h"
 
 #if !FLUTTER_RELEASE && defined(FML_OS_OHOS)
-#define HiSysEventWriteSingle(name)  \
+#define HISYSEVENT_WRITE_SINGLE(name)  \
     ::fml::HiSysEventWrite(name, 0);
-#define HiSysEventWriteDuration(name)   \
+#define HISYSEVENT_WRITE_DURATION(name)   \
     ::fml::HiSysEventTrace __FML__TOKEN_CAT__2(hisysevent, __LINE__)(name);
 
 #else
-#define HiSysEventWriteSingle(name)
-#define HiSysEventWriteDuration(name)
+#define HISYSEVENT_WRITE_SINGLE(name)
+#define HISYSEVENT_WRITE_DURATION(name)
 
 #endif
 
