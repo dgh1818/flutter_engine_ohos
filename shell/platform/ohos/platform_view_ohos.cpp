@@ -141,6 +141,7 @@ PlatformViewOHOS::~PlatformViewOHOS() {
 void PlatformViewOHOS::NotifyCreate(
     fml::RefPtr<OHOSNativeWindow> native_window) {
   LOGI("NotifyCreate start");
+  SetDestroyed(false);
   if (ohos_surface_) {
     InstallFirstFrameCallback();
     LOGI("NotifyCreate start1");
