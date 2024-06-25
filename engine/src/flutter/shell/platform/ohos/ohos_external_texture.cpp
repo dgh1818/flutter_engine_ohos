@@ -71,7 +71,7 @@ void OHOSExternalTexture::Paint(PaintContext& context,
 // Implementing flutter::Texture.
 void OHOSExternalTexture::MarkNewFrameAvailable() {
   // NOOP.
-  FML_LOG(INFO) << " OHOSExternalTextureGL::MarkNewFrameAvailable "
+  FML_LOG(INFO) << " OHOSExternalTexture::MarkNewFrameAvailable-- "
                 << producer_nativewindow_width_ << " "
                 << producer_nativewindow_height_;
   // new_frame_ready_ = true;

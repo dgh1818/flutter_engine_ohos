@@ -16,6 +16,7 @@
 #include "flutter/shell/platform/ohos/platform_view_ohos.h"
 #include "flutter/fml/logging.h"
 #include "flutter/fml/make_copyable.h"
+#include "flutter/impeller/renderer/backend/vulkan/context_vk.h"
 #include "flutter/lib/ui/window/viewport_metrics.h"
 #include "flutter/shell/common/shell_io_manager.h"
 #include "flutter/shell/platform/ohos/ohos_context_gl_skia.h"
@@ -25,6 +26,7 @@
 #include "napi_common.h"
 #include "ohos_context_gl_impeller.h"
 #include "ohos_external_texture_gl.h"
+#include "ohos_external_texture_vulkan.h"
 #include "ohos_surface_gl_impeller.h"
 #include "shell/platform/ohos/context/ohos_context.h"
 #include "shell/platform/ohos/ohos_surface_vulkan_impeller.h"
@@ -401,39 +403,28 @@ void PlatformViewOHOS::FireFirstFrameCallback() {
 
 uint64_t PlatformViewOHOS::RegisterExternalTexture(int64_t texture_id) {
   uint64_t surface_id = 0;
-  int ret = -1;
   uint64_t context_frame_data = (uint64_t)this + (uint64_t)texture_id;
   OH_OnFrameAvailableListener listener;
   listener.context = (void*)context_frame_data;
   listener.onFrameAvailable = &PlatformViewOHOS::OnNativeImageFrameAvailable;
-  std::shared_ptr<OHOSExternalTextureGL> extrenal_texture = nullptr;
+  std::shared_ptr<OHOSExternalTexture> extrenal_texture = nullptr;
   FML_LOG(INFO) << " RegisterExternalTexture api type "
                 << int(ohos_context_->RenderingApi()) << " texture_id "
                 << texture_id;
   if (ohos_context_->RenderingApi() == OHOSRenderingAPI::kOpenGLES) {
     extrenal_texture =
-        std::make_shared<OHOSExternalTextureGL>(texture_id, ohos_surface_);
-    extrenal_texture->nativeImage_ =
-        OH_NativeImage_Create(texture_id, GL_TEXTURE_EXTERNAL_OES);
-    if (extrenal_texture->nativeImage_ == nullptr) {
-      FML_DLOG(ERROR) << "Error with OH_NativeImage_Create";
-      extrenal_texture = nullptr;
-      return surface_id;
-    }
-    ret = OH_NativeImage_SetOnFrameAvailableListener(
-        extrenal_texture->nativeImage_, listener);
-    if (ret != 0) {
-      FML_DLOG(ERROR)
-          << "Error with OH_NativeImage_SetOnFrameAvailableListener";
-      return surface_id;
-    }
-    extrenal_texture->first_update_ = false;
+        std::make_shared<OHOSExternalTextureGL>(texture_id, listener);
+  } else if (ohos_context_->RenderingApi() ==
+             OHOSRenderingAPI::kImpellerVulkan) {
+    extrenal_texture = std::make_shared<OHOSExternalTextureVulkan>(
+        std::static_pointer_cast<impeller::ContextVK>(
+            ohos_context_->GetImpellerContext()),
+        texture_id, listener);
   }
   if (extrenal_texture == nullptr) {
     return 0;
   } else {
-    ret = OH_NativeImage_GetSurfaceId(extrenal_texture->nativeImage_,
-                                      &surface_id);
+    surface_id = extrenal_texture->GetProducerSurfaceId();
     if (surface_id != 0) {
       std::lock_guard<std::mutex> lock(map_mutex_);
       texture_platformview_map_[context_frame_data] = this;
