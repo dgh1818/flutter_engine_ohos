@@ -195,15 +195,6 @@ void PlatformViewOHOS::SetDestroyed(bool isDestroyed) {
 void PlatformViewOHOS::NotifyDestroyed()
 {
   SetDestroyed(true);
-  for (std::map<int64_t, void*>::iterator it = contextDatas_.begin(); it != contextDatas_.end(); ++it) {
-    if (it->second != nullptr) {
-      OhosImageFrameData* data = reinterpret_cast<OhosImageFrameData *>(it->second);
-      delete data;
-      data = nullptr;
-      it->second = nullptr;
-    }
-  }
-  contextDatas_.clear();
   LOGI("PlatformViewOHOS NotifyDestroyed enter");
   PlatformView::NotifyDestroyed();
   if (ohos_surface_) {
