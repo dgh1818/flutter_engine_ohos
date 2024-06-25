@@ -85,6 +85,7 @@ source_set("flutter_ohos_sources") {
              "ohos_surface_vulkan_impeller.h",
              "ohos_external_texture.h",
              "ohos_external_texture_gl.h",
+             "ohos_external_texture_vulkan.h",
              "image_lru.h",
              "types.h",
            ]
@@ -110,6 +111,7 @@ source_set("flutter_ohos_sources") {
     "ohos_environment_gl.cpp",
     "ohos_external_texture.cpp",
     "ohos_external_texture_gl.cpp",
+    "ohos_external_texture_vulkan.cpp",
     "ohos_image_generator.cpp",
     "ohos_logger.c",
     "ohos_main.cpp",
