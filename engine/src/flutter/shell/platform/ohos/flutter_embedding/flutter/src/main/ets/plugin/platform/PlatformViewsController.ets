@@ -151,7 +151,7 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     let oldNodeWidth: number = AppStorage.get('nodeWidth')!
     let oldNodeHeight: number = AppStorage.get('nodeHeight')!
     if (oldNodeWidth == physicalWidth) {
-      onComplete.run(new PlatformViewBufferSize(physicalWidth, physicalHeight));
+      onComplete.run(new PlatformViewBufferSize(oldNodeWidth, oldNodeHeight));
       return;
     }
     nodeWidthLink.set(physicalWidth);
