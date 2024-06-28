@@ -13,16 +13,20 @@
 * limitations under the License.
 */
 
-import { EmbeddingNodeController } from './EmbeddingNodeController'
+import PlatformView from '../../plugin/platform/PlatformView';
 
 export class PlatformViewInfo {
-  public nodeController: EmbeddingNodeController;
+  public platformView: PlatformView;
+  public surfaceId: string;
   public width: number;
   public height: number;
+  public direction: Direction;
 
-  constructor(nodeController: EmbeddingNodeController, width: number, height: number) {
-    this.nodeController = nodeController;
+  constructor(platformView: PlatformView, surfaceId: string, width: number, height: number, direction: Direction) {
+    this.platformView = platformView;
+    this.surfaceId = surfaceId;
     this.width = width;
     this.height = height;
+    this.direction = direction;
   }
 }

@@ -156,8 +156,7 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     }
     nodeWidthLink.set(physicalWidth);
     nodeHeightLink.set(physicalHeight);
-    let nodeController: EmbeddingNodeController = this.viewIdWithNodeController.get(viewId)!;
-    nodeController.rebuild();
+    this.flutterView!.getEmbeddingNodeController().rebuild();
 
     onComplete.run(new PlatformViewBufferSize(physicalWidth, physicalHeight));
   }
@@ -187,9 +186,7 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     if (this.flutterView == null) {
       Log.e(TAG, "flutterView is null")
     }
-
-    let nodeController: EmbeddingNodeController = this.viewIdWithNodeController.get(touch.viewId)!;
-    nodeController.postEvent(customTouchEvent1);
+    this.flutterView!.getEmbeddingNodeController().postEvent(customTouchEvent1);
   }
 
   setDirection(viewId: number, direction: Direction): void {
@@ -291,12 +288,10 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     let physicalHeight: number = this.toPhysicalPixels(request.logicalHeight);
     nodeWidthLink.set(physicalWidth);
     nodeHeightLink.set(physicalHeight);
-    let nodeControllerLink: SubscribedAbstractProperty<EmbeddingNodeController> = AppStorage.link('nodeController');
-    let nodeController = new EmbeddingNodeController();
-    nodeController.setRenderOption(platformView, surfaceId, NodeRenderType.RENDER_TYPE_TEXTURE, request.direction);
-    nodeControllerLink.set(nodeController);
-    this.viewIdWithNodeController.set(request.viewId, nodeController);
-    let platformViewInfo: PlatformViewInfo = new PlatformViewInfo(nodeController, physicalWidth, physicalHeight);
+
+    this.flutterView!.getEmbeddingNodeController().setRenderOption(platformView, surfaceId, NodeRenderType.RENDER_TYPE_TEXTURE, request.direction);
+    this.flutterView!.getEmbeddingNodeController().rebuild();
+    let platformViewInfo: PlatformViewInfo = new PlatformViewInfo(platformView, surfaceId, physicalWidth, physicalHeight, request.direction);
     this.nodeControllers.push(platformViewInfo);
     Log.i(TAG, "Create platform view success");
 
@@ -370,14 +365,14 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
 
   public setBackNodeControllers(): void {
     this.nodeControllers.pop();
-    let nodeControllerLink: SubscribedAbstractProperty<EmbeddingNodeController> = AppStorage.link('nodeController');
     let nodeWidthLink: SubscribedAbstractProperty<number> = AppStorage.link('nodeWidth');
     let nodeHeightLink: SubscribedAbstractProperty<number> = AppStorage.link('nodeHeight');
     let platformViewInfo: PlatformViewInfo = this.nodeControllers.peek();
-    if (platformViewInfo != undefined && platformViewInfo.nodeController != undefined) {
-      nodeControllerLink.set(platformViewInfo.nodeController);
+    if (platformViewInfo != undefined && platformViewInfo.platformView != undefined) {
       nodeWidthLink.set(platformViewInfo.width);
       nodeHeightLink.set(platformViewInfo.height);
+      this.flutterView!.getEmbeddingNodeController().setRenderOption(platformViewInfo.platformView, platformViewInfo.surfaceId, NodeRenderType.RENDER_TYPE_TEXTURE, platformViewInfo.direction);
+      this.flutterView!.getEmbeddingNodeController().rebuild();
     }
   }
 
