@@ -71,6 +71,9 @@ export class FlutterView {
   private surfaceId: string = "0";
   private nodeController: EmbeddingNodeController = new EmbeddingNodeController();
   private platformViewSize: PlatformViewParas = new PlatformViewParas();
+  private checkFullScreen: boolean = true;
+  private checkKeyboard: boolean = true;
+  private checkGesture: boolean = true;
 
   constructor(viewId: string, context: Context) {
     this.id = viewId
@@ -229,8 +232,6 @@ export class FlutterView {
   onAreaChange(newArea: Area | null) {
     let systemAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
     let navigationAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR);
-    let gestureAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM_GESTURE);
-    let keyboardAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_KEYBOARD);
 
     if (newArea != null) {
       this.viewportMetrics.physicalWidth = vp2px(newArea.width as number);
@@ -238,7 +239,7 @@ export class FlutterView {
     }
 
     // 根据是否全屏显示，设置标题栏高度
-    if (this.mainWindow.getWindowProperties().isLayoutFullScreen) { // 全屏显示
+    if (this.checkFullScreen && this.mainWindow.getWindowProperties().isLayoutFullScreen) { // 全屏显示
       this.viewportMetrics.physicalViewPaddingTop = systemAvoidArea!.topRect.height
       this.viewportMetrics.physicalViewPaddingBottom = navigationAvoidArea!.bottomRect.height
     } else { // 非全屏显示
@@ -249,16 +250,39 @@ export class FlutterView {
     this.viewportMetrics.physicalViewPaddingLeft = systemAvoidArea!.leftRect.width
     this.viewportMetrics.physicalViewPaddingRight = systemAvoidArea!.rightRect.width
 
-    this.viewportMetrics.physicalViewInsetTop = keyboardAvoidArea!.topRect.height
-    this.viewportMetrics.physicalViewInsetLeft = keyboardAvoidArea!.leftRect.width
-    this.viewportMetrics.physicalViewInsetBottom = keyboardAvoidArea!.bottomRect.height
-    this.viewportMetrics.physicalViewInsetRight = keyboardAvoidArea!.rightRect.width
-
-    this.viewportMetrics.systemGestureInsetTop = gestureAvoidArea!.topRect.height
-    this.viewportMetrics.systemGestureInsetLeft = gestureAvoidArea!.leftRect.width
-    this.viewportMetrics.systemGestureInsetBottom = gestureAvoidArea!.bottomRect.height
-    this.viewportMetrics.systemGestureInsetRight = gestureAvoidArea!.rightRect.width
+    this.onKeyboardAreaChange()
+    this.onGestureAreaChange()
     this.updateViewportMetrics()
+  }
+
+  private onKeyboardAreaChange() {
+    if (this.checkKeyboard) {
+      let keyboardAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_KEYBOARD);
+      this.viewportMetrics.physicalViewInsetTop = keyboardAvoidArea!.topRect.height
+      this.viewportMetrics.physicalViewInsetLeft = keyboardAvoidArea!.leftRect.width
+      this.viewportMetrics.physicalViewInsetBottom = keyboardAvoidArea!.bottomRect.height
+      this.viewportMetrics.physicalViewInsetRight = keyboardAvoidArea!.rightRect.width
+    } else {
+      this.viewportMetrics.physicalViewInsetTop = 0
+      this.viewportMetrics.physicalViewInsetLeft = 0
+      this.viewportMetrics.physicalViewInsetBottom = 0
+      this.viewportMetrics.physicalViewInsetRight = 0
+    }
+  }
+
+  private onGestureAreaChange() {
+    if (this.checkGesture) {
+      let gestureAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM_GESTURE);
+      this.viewportMetrics.systemGestureInsetTop = gestureAvoidArea!.topRect.height
+      this.viewportMetrics.systemGestureInsetLeft = gestureAvoidArea!.leftRect.width
+      this.viewportMetrics.systemGestureInsetBottom = gestureAvoidArea!.bottomRect.height
+      this.viewportMetrics.systemGestureInsetRight = gestureAvoidArea!.rightRect.width
+    } else {
+      this.viewportMetrics.systemGestureInsetTop = 0
+      this.viewportMetrics.systemGestureInsetLeft = 0
+      this.viewportMetrics.systemGestureInsetBottom = 0
+      this.viewportMetrics.systemGestureInsetRight = 0
+    }
   }
 
   public isAttachedToFlutterEngine(): boolean {
@@ -310,6 +334,18 @@ export class FlutterView {
     listeners.forEach((listener) => {
       listener.onFirstFrame();
     })
+  }
+
+  setCheckFullScreen(check: boolean) {
+    this.checkFullScreen = check;
+  }
+
+  setCheckKeyboard(check: boolean) {
+    this.checkKeyboard = check
+  }
+
+  setCheckGesture(check: boolean) {
+    this.checkGesture = check
   }
 }
 

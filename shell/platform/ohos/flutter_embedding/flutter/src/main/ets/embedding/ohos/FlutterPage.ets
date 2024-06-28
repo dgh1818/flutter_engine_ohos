@@ -31,6 +31,11 @@ export struct FlutterPage {
   @Builder doNothingBuilder() {}
   @BuilderParam splashScreenView: () => void = this.doNothingBuilder;
   @State showSplashScreen: boolean = true;
+
+  @State checkFullScreen: boolean = true;
+  @State checkKeyboard: boolean = true;
+  @State checkGesture: boolean = true;
+
   @StorageLink('nodeWidth') storageLinkWidth: number = 0;
   @StorageLink('nodeHeight') storageLinkHeight: number = 0;
 
@@ -42,6 +47,9 @@ export struct FlutterPage {
     this.flutterView = FlutterManager.getInstance().getFlutterView(this.viewId);
     this.nodeController = this.flutterView!!.getEmbeddingNodeController();
     this.flutterView?.addFirstFrameListener(this)
+    this.flutterView?.setCheckFullScreen(this.checkFullScreen)
+    this.flutterView?.setCheckKeyboard(this.checkKeyboard)
+    this.flutterView?.setCheckGesture(this.checkGesture)
   }
 
   aboutToDisappear() {
