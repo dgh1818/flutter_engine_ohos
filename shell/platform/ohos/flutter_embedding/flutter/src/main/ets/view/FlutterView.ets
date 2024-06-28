@@ -87,6 +87,11 @@ export class FlutterView {
     this.mainWindow?.on('windowSizeChange', this.windowSizeChangeCallback);
     this.mainWindow?.on('avoidAreaChange', this.avoidAreaChangeCallback);
     this.mainWindow?.on('keyboardHeightChange', this.keyboardHeightChangeCallback);
+    this.mainWindow?.on('windowStatusChange', (data: window.WindowStatusType) => {
+      Log.i(TAG, "windowStatusChangeCallback " + JSON.stringify(data));
+      FlutterManager.getInstance().getFullScreenListener().onScreenStateChanged(data);
+      this.onAreaChange(null);
+    });
   }
 
   private  windowSizeChangeCallback= (data: window.Size) => {
@@ -147,6 +152,7 @@ export class FlutterView {
       this.mainWindow?.off('windowSizeChange', this.windowSizeChangeCallback);
       this.mainWindow?.off('avoidAreaChange', this.avoidAreaChangeCallback);
       this.mainWindow?.off('keyboardHeightChange', this.keyboardHeightChangeCallback);
+      this.mainWindow?.off('windowStatusChange');
     } catch (e) {
     }
   }
@@ -239,7 +245,7 @@ export class FlutterView {
     }
 
     // 根据是否全屏显示，设置标题栏高度
-    if (this.checkFullScreen && this.mainWindow.getWindowProperties().isLayoutFullScreen) { // 全屏显示
+    if (this.checkFullScreen && FlutterManager.getInstance().getFullScreenListener().useFullScreen()) { // 全屏显示
       this.viewportMetrics.physicalViewPaddingTop = systemAvoidArea!.topRect.height
       this.viewportMetrics.physicalViewPaddingBottom = navigationAvoidArea!.bottomRect.height
     } else { // 非全屏显示
