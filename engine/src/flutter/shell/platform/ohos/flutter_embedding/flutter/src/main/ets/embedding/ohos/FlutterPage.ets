@@ -33,13 +33,14 @@ export struct FlutterPage {
   @State showSplashScreen: boolean = true;
   @StorageLink('nodeWidth') storageLinkWidth: number = 0;
   @StorageLink('nodeHeight') storageLinkHeight: number = 0;
-  @StorageLink('nodeController') nodeController: EmbeddingNodeController = new EmbeddingNodeController;
 
   private flutterView?: FlutterView | null
+  private nodeController: EmbeddingNodeController | undefined = undefined
   private lastArea?: Area;
 
   aboutToAppear() {
     this.flutterView = FlutterManager.getInstance().getFlutterView(this.viewId);
+    this.nodeController = this.flutterView!!.getEmbeddingNodeController();
     this.flutterView?.addFirstFrameListener(this)
   }
 
