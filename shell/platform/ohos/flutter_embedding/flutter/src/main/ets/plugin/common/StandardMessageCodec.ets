@@ -112,9 +112,9 @@ export default class StandardMessageCodec implements MessageCodec<Any> {
                 if (-0x7fffffff - 1 <= value && value <= 0x7fffffff) { //int32
                     stream.writeInt8(StandardMessageCodec.INT32);
                     stream.writeInt32(value, true);
-                } else if(Number.MIN_SAFE_INTEGER <= value && value <= Number.MAX_SAFE_INTEGER) { //int64 number整型取值范围
+                } else if (Number.MIN_SAFE_INTEGER <= value && value <= Number.MAX_SAFE_INTEGER) { //int64 number整型取值范围
                     stream.writeInt8(StandardMessageCodec.INT64);
-                    stream.writeBigInt64(BigInt(value), true);
+                    stream.writeInt64(value, true);
                 } else { //被判为整型的double型
                     stream.writeInt8(StandardMessageCodec.FLOAT64);
                     this.writeAlignment(stream, 8);
@@ -125,9 +125,19 @@ export default class StandardMessageCodec implements MessageCodec<Any> {
                 this.writeAlignment(stream, 8);
                 stream.writeFloat64(value, true);
             }
-        }else if (typeof value === "bigint") {
-            stream.writeInt8(StandardMessageCodec.INT64);
-            stream.writeBigInt64(value, true);
+        } else if (typeof value === "bigint") {
+            // https://api.flutter.dev/flutter/services/StandardMessageCodec/writeValue.html
+            //
+            // The format is first the type byte (0x05), then the actual number
+            // as an ASCII string giving the hexadecimal representation of the
+            // integer, with the string's length as encoded by writeSize
+            // followed by the string bytes.
+            stream.writeInt8(StandardMessageCodec.BIGINT);
+            // Convert bigint to a hexadecimal string
+            const hexString = value.toString(16);
+            // Map each character in the hexadecimal string to its ASCII code
+            const asciiString = hexString.split('').map(char => char.charCodeAt(0));
+            this.writeBytes(stream, Uint8Array.from(asciiString));
         } else if (typeof value === "string") {
             stream.writeInt8(StandardMessageCodec.STRING);
             let stringBuff = StringUtils.stringToArrayBuffer(value);
@@ -266,7 +276,11 @@ export default class StandardMessageCodec implements MessageCodec<Any> {
                 result = buffer.readInt64(true);
                 break;
             case StandardMessageCodec.BIGINT:
-                result = buffer.readBigInt64(true)
+                let bytes: Uint8Array = this.readBytes(buffer);
+                // Convert the byte array to a UTF-8 encoded string
+                const hexString: string = String.fromCharCode(...bytes);
+                // Parse the string as a hexadecimal BigInt
+                result = BigInt(`0x${hexString}`);
                 break;
             case StandardMessageCodec.FLOAT64:
                 this.readAlignment(buffer, 8);
