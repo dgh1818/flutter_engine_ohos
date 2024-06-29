@@ -137,6 +137,10 @@ impeller_component("vulkan") {
       "ohos/ohb_texture_source_vk.cc",
       "ohos/ohb_texture_source_vk.h",
     ]
+    libs = [
+      "native_window",
+      "native_buffer",
+    ]
   }
 
   public_deps = [

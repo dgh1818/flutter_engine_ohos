@@ -15,10 +15,6 @@
 #include "impeller/renderer/backend/vulkan/shared_object_vk.h"
 #include "impeller/renderer/backend/vulkan/vk.h"
 
-// #ifdef FML_OS_OHOS
-// #include <vulkan/vulkan_ohos.h>
-// #endif
-
 namespace impeller {
 
 //------------------------------------------------------------------------------
@@ -31,10 +27,10 @@ using YUVConversionDescriptorVK =
                        ,
                        vk::ExternalFormatANDROID
 #endif  // FML_OS_ANDROID
-        // #if FML_OS_OHOS
-        //                        ,
-        //                        VkExternalFormatOHOS
-        // #endif // FML_OS_OHOS
+#if FML_OS_OHOS
+                       ,
+                       vk::ExternalFormatOHOS
+#endif  // FML_OS_OHOS
                        >;
 
 class YUVConversionLibraryVK;

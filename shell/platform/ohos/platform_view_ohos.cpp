@@ -475,18 +475,23 @@ void PlatformViewOHOS::UnRegisterExternalTexture(int64_t texture_id) {
 void PlatformViewOHOS::RegisterExternalTextureByPixelMap(
     int64_t texture_id,
     NativePixelMap* pixelMap) {
+  OH_OnFrameAvailableListener listener;
+  listener.context = nullptr;
+  listener.onFrameAvailable = &PlatformViewOHOS::OnNativeImageFrameAvailable;
   std::shared_ptr<OHOSExternalTextureGL> extrenal_texture = nullptr;
   if (ohos_context_->RenderingApi() == OHOSRenderingAPI::kOpenGLES) {
-    auto iter = all_external_texture_.find(texture_id);
-    if (iter != all_external_texture_.end()) {
-      extrenal_texture = iter->second;
-    } else {
-      extrenal_texture =
-          std::make_shared<OHOSExternalTextureGL>(texture_id, ohos_surface_);
-    }
+    extrenal_texture =
+        std::make_shared<OHOSExternalTextureGL>(texture_id, listener);
+  } else if (ohos_context_->RenderingApi() ==
+             OHOSRenderingAPI::kImpellerVulkan) {
+    extrenal_texture = std::make_shared<OHOSExternalTextureVulkan>(
+        std::static_pointer_cast<impeller::ContextVK>(
+            ohos_context_->GetImpellerContext()),
+        texture_id, listener);
   }
-  if (extrenal_texture != nullptr) {
-    extrenal_texture->DispatchPixelMap(pixelMap);
+
+  if (extrenal_texture != nullptr &&
+      extrenal_texture->SetPixelMapAsProducer(pixelMap) != 0) {
     all_external_texture_[texture_id] = extrenal_texture;
     RegisterTexture(extrenal_texture);
     MarkTextureFrameAvailable(texture_id);
