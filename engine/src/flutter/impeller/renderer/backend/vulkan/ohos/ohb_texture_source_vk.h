@@ -24,7 +24,7 @@ class ContextVK;
 class OHBTextureSourceVK final : public TextureSourceVK {
  public:
   OHBTextureSourceVK(const std::shared_ptr<ContextVK>& context,
-                     OHNativeWindowBuffer* hardware_buffer);
+                     OHNativeWindowBuffer* native_window_buffer);
 
   // |TextureSourceVK|
   ~OHBTextureSourceVK() override;
@@ -57,7 +57,6 @@ class OHBTextureSourceVK final : public TextureSourceVK {
   OHBTextureSourceVK(const OHBTextureSourceVK&) = delete;
 
   OHBTextureSourceVK& operator=(const OHBTextureSourceVK&) = delete;
-  fml::RefPtr<fml::NativeLibrary> vulkan_dylib_;
 };
 
 }  // namespace impeller

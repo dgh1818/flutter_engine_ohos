@@ -3,6 +3,8 @@
 // found in the LICENSE file.
 
 #include "impeller/renderer/backend/vulkan/ohos/ohb_texture_source_vk.h"
+#include "impeller/core/formats.h"
+#include "impeller/renderer/backend/vulkan/allocator_vk.h"
 #include "impeller/renderer/backend/vulkan/context_vk.h"
 #include "impeller/renderer/backend/vulkan/yuv_conversion_library_vk.h"
 
@@ -10,14 +12,12 @@
 
 #include <vulkan/vulkan_core.h>
 #include <vulkan/vulkan_ohos.h>
-
-#define VK_STRUCTURE_TYPE_EXTERNAL_FORMAT_OHOS 1000452005
-#define VK_EXTERNAL_MEMORY_HANDLE_TYPE_OHOS_NATIVE_BUFFER_BIT_OHOS 0x00002000
-#define VK_STRUCTURE_TYPE_IMPORT_NATIVE_BUFFER_INFO_OHOS 1000452003
-#define VK_STRUCTURE_TYPE_NATIVE_BUFFER_FORMAT_PROPERTIES_OHOS 1000452002
-#define VK_STRUCTURE_TYPE_NATIVE_BUFFER_PROPERTIES_OHOS 1000452001
+#include <cstdint>
 
 namespace impeller {
+
+using ONBProperties = vk::StructureChain<vk::NativeBufferPropertiesOHOS,
+                                         vk::NativeBufferFormatPropertiesOHOS>;
 
 static PixelFormat ToPixelFormat(int32_t format) {
   if (format < 0 || format > NATIVEBUFFER_PIXEL_FMT_RGBA_1010102) {
@@ -31,16 +31,29 @@ static PixelFormat ToPixelFormat(int32_t format) {
     case OH_NativeBuffer_Format::NATIVEBUFFER_PIXEL_FMT_BGRA_8888:
       return PixelFormat::kB8G8R8A8UNormInt;
     default:
+      // Not understood by the rest of Impeller. Use a placeholder but create
+      // the native image and image views using the right external format.
       break;
   }
   return PixelFormat::kR8G8B8A8UNormInt;
 }
 
-TextureDescriptor CreateTextureDescriptorFromBufferHandle(
-    const BufferHandle& handle) {
+static TextureDescriptor CreateTextureDescriptorFromNativeWindowBuffer(
+    OHNativeWindowBuffer* native_window_buffer) {
+  OH_NativeBuffer_Config nativebuffer_config;
+  OH_NativeBuffer* native_buffer;
   TextureDescriptor descriptor;
-  descriptor.format = ToPixelFormat(handle.format);
-  descriptor.size = ISize{handle.width, handle.height};
+  descriptor.size = {0, 0};
+  int ret = OH_NativeBuffer_FromNativeWindowBuffer(native_window_buffer,
+                                                   &native_buffer);
+  if (ret != 0) {
+    FML_LOG(ERROR) << "OHOSExternalTextureGL get OH_NativeBuffer error:" << ret;
+    return descriptor;
+  }
+  OH_NativeBuffer_GetConfig(native_buffer, &nativebuffer_config);
+  descriptor.format = ToPixelFormat(nativebuffer_config.format);
+  descriptor.size =
+      ISize{nativebuffer_config.width, nativebuffer_config.height};
   descriptor.storage_mode = StorageMode::kDevicePrivate;
   descriptor.type = TextureType::kTexture2D;
   descriptor.mip_count = 1;
@@ -51,44 +64,44 @@ TextureDescriptor CreateTextureDescriptorFromBufferHandle(
 
 static vk::UniqueImage CreateVkImage(
     const vk::Device& device,
-    const BufferHandle& buffer_handle,
-    const VkNativeBufferFormatPropertiesOHOS& ohb_format) {
-  vk::ImageCreateInfo image_info = {};
+    OH_NativeBuffer* native_buffer,
+    const vk::NativeBufferFormatPropertiesOHOS& onb_format) {
+  VkExternalFormatOHOS externalFormat{
+      VK_STRUCTURE_TYPE_EXTERNAL_FORMAT_OHOS,
+      nullptr,
+      0,
+  };
+  if (onb_format.format == vk::Format::eUndefined) {
+    externalFormat.externalFormat = onb_format.externalFormat;
+  }
 
+  VkExternalMemoryImageCreateInfo ext_mem_info{
+      VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO, &externalFormat,
+      VK_EXTERNAL_MEMORY_HANDLE_TYPE_OHOS_NATIVE_BUFFER_BIT_OHOS};
+
+  OH_NativeBuffer_Config nativebuffer_config;
+  OH_NativeBuffer_GetConfig(native_buffer, &nativebuffer_config);
+
+  vk::ImageUsageFlags usage_flags = vk::ImageUsageFlagBits::eSampled;
+  if (nativebuffer_config.usage & NATIVEBUFFER_USAGE_HW_RENDER) {
+    usage_flags |= vk::ImageUsageFlagBits::eColorAttachment;
+  }
+
+  vk::ImageCreateInfo image_info;
+  image_info.pNext = &ext_mem_info;
+  image_info.flags = vk::ImageCreateFlags(0);
   image_info.imageType = vk::ImageType::e2D;
-  image_info.extent.width = buffer_handle.width;
-  image_info.extent.height = buffer_handle.height;
+  image_info.extent.width = nativebuffer_config.width;
+  image_info.extent.height = nativebuffer_config.height;
   image_info.extent.depth = 1;
   image_info.mipLevels = 1;
   image_info.arrayLayers = 1;
-  image_info.format = (vk::Format)ohb_format.format;
+  image_info.format = onb_format.format;
   image_info.tiling = vk::ImageTiling::eOptimal;
   image_info.initialLayout = vk::ImageLayout::eUndefined;
-  vk::ImageUsageFlags usage_flags = vk::ImageUsageFlagBits::eSampled;
-  if (image_info.format != vk::Format::eUndefined) {
-    usage_flags = usage_flags | vk::ImageUsageFlagBits::eTransferSrc |
-                  vk::ImageUsageFlagBits::eTransferDst;
-  }
   image_info.usage = usage_flags;
   image_info.samples = vk::SampleCountFlagBits::e1;
   image_info.sharingMode = vk::SharingMode::eExclusive;
-  image_info.flags = {};
-  image_info.queueFamilyIndexCount = 0;
-  image_info.pQueueFamilyIndices = 0;
-
-  VkExternalFormatOHOS externalFormat;
-  externalFormat.sType =
-      (VkStructureType)VK_STRUCTURE_TYPE_EXTERNAL_FORMAT_OHOS;
-  externalFormat.pNext = nullptr;
-  externalFormat.externalFormat = 0;
-
-  if (image_info.format == vk::Format::eUndefined) {
-    externalFormat.externalFormat = ohb_format.externalFormat;
-  }
-
-  const VkExternalMemoryImageCreateInfo ext_mem_info{
-      VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO, &externalFormat,
-      VK_EXTERNAL_MEMORY_HANDLE_TYPE_OHOS_NATIVE_BUFFER_BIT_OHOS};
 
   auto image_result = device.createImageUnique(image_info);
   if (image_result.result != vk::Result::eSuccess) {
@@ -100,151 +113,84 @@ static vk::UniqueImage CreateVkImage(
 static vk::UniqueDeviceMemory AllocateDeviceMemorty(
     const std::shared_ptr<ContextVK>& context,
     const vk::Image& image,
-    OHNativeWindowBuffer* hardware_buffer,
-    const VkNativeBufferPropertiesOHOS& ohb_props,
-    const fml::RefPtr<fml::NativeLibrary>& vulkan_dylib) {
+    OH_NativeBuffer* native_buffer,
+    const vk::NativeBufferPropertiesOHOS& ohb_props) {
   vk::Device device = context->GetDevice();
   vk::PhysicalDevice physical_device = context->GetPhysicalDevice();
-
-  VkPhysicalDeviceMemoryProperties2 physical_device_mem_props;
-  physical_device_mem_props.sType =
-      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2;
-  physical_device_mem_props.pNext = nullptr;
-  auto vk_call =
-      vulkan_dylib->ResolveFunction<PFN_vkGetPhysicalDeviceMemoryProperties2>(
-          "vkGetPhysicalDeviceMemoryProperties2");
-  if (!vk_call.has_value()) {
+  vk::PhysicalDeviceMemoryProperties memory_properties;
+  physical_device.getMemoryProperties(&memory_properties);
+  int memory_type_index = AllocatorVK::FindMemoryTypeIndex(
+      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, memory_properties);
+  if (memory_type_index < 0) {
+    VALIDATION_LOG << "Could not find memory type of external image.";
     return {};
   }
-  vk_call.value()(physical_device, &physical_device_mem_props);
 
-  uint32_t mem_type_cnt =
-      physical_device_mem_props.memoryProperties.memoryTypeCount;
+  FML_LOG(INFO) << "find memory index " << memory_type_index;
 
-  bool found = false;
-  uint32_t found_index = 0;
-  const auto& mem_props = physical_device_mem_props.memoryProperties;
-
-  for (uint32_t i = 0; i < mem_type_cnt; ++i) {
-    if (ohb_props.memoryTypeBits & (1 << i)) {
-      uint32_t supported_flags = mem_props.memoryTypes[i].propertyFlags &
-                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-      if (supported_flags == VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) {
-        found = true;
-        found_index = i;
-        break;
-      }
-    }
-  }
-
-  if (!found) {
-    // TODO, ERROR
-    return {};
-  }
   VkImportNativeBufferInfoOHOS nb_info;
-  nb_info.sType =
-      (VkStructureType)VK_STRUCTURE_TYPE_IMPORT_NATIVE_BUFFER_INFO_OHOS;
+  nb_info.sType = VK_STRUCTURE_TYPE_IMPORT_NATIVE_BUFFER_INFO_OHOS;
+  nb_info.buffer = native_buffer;
   nb_info.pNext = nullptr;
-  nb_info.buffer = nullptr;
-  int res =
-      OH_NativeBuffer_FromNativeWindowBuffer(hardware_buffer, &nb_info.buffer);
-  if (res != 0 || nb_info.buffer == nullptr) {
-    // TODO, ERROR
-    return {};
-  }
 
   VkMemoryDedicatedAllocateInfo ded_alloc_info;
   ded_alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO;
-  ded_alloc_info.pNext = &nb_info;
   ded_alloc_info.image = image;
   ded_alloc_info.buffer = VK_NULL_HANDLE;
+  ded_alloc_info.pNext = &nb_info;
 
   VkMemoryAllocateInfo alloc_info;
   alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-  alloc_info.pNext = &ded_alloc_info;
   alloc_info.allocationSize = ohb_props.allocationSize;
-  alloc_info.memoryTypeIndex = found_index;
+  alloc_info.memoryTypeIndex = memory_type_index;
+  alloc_info.pNext = &ded_alloc_info;
 
   auto device_memory = device.allocateMemoryUnique(alloc_info);
 
   if (device_memory.result != vk::Result::eSuccess) {
-    // TOOD, ERROR
+    FML_LOG(ERROR) << "allocateMemoryUnique failed";
     return {};
   }
   return std::move(device_memory.value);
 }
 
-bool BindImageMemory(const vk::Device& device,
-                     const vk::Image& image,
-                     const vk::DeviceMemory& memory,
-                     const fml::RefPtr<fml::NativeLibrary>& vulkan_dylib) {
-  VkBindImageMemoryInfo bind_image_info;
-  bind_image_info.sType = VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO;
-  bind_image_info.pNext = nullptr;
-  bind_image_info.image = image;
-  bind_image_info.memory = memory;
-  bind_image_info.memoryOffset = 0;
-  auto vk_call = vulkan_dylib->ResolveFunction<PFN_vkBindImageMemory2>(
-      "vkBindImageMemory2");
-  if (!vk_call.has_value()) {
-    return {};
-  }
-  auto res = vk_call.value()(device, 1, &bind_image_info);
-  if (res != VK_SUCCESS) {
-    // TODO, ERROR
-    return false;
-  }
-  return true;
-}
-
 static std::shared_ptr<YUVConversionVK> CreateYUVConversion(
     const ContextVK& context,
-    const VkNativeBufferFormatPropertiesOHOS& ohb_format) {
-  YUVConversionDescriptorVK desc;
-  auto& ycbcr_info = desc.get();
-  // TODO,
-  // 确认是否需要externalFormat字段，在YUVConversionDescriptorVK里面，安卓会有一个专属字段
-  // src/flutter/impeller/renderer/backend/vulkan/yuv_conversion_vk.h/cc
-  // 通过修改其externalFormat，适配OHOS的ohb_format.externalFormat
-  // 或者直接把VkExternalFormatOHOS，放到ycbcr_info的pNext？
-  ycbcr_info.pNext = nullptr;
-  ycbcr_info.format = (vk::Format)ohb_format.format;
-  ycbcr_info.ycbcrModel =
-      (vk::SamplerYcbcrModelConversion)ohb_format.suggestedYcbcrModel;
-  ycbcr_info.ycbcrRange = (vk::SamplerYcbcrRange)ohb_format.suggestedYcbcrRange;
-  ycbcr_info.components =
-      (vk::ComponentMapping)ohb_format.samplerYcbcrConversionComponents;
-  ycbcr_info.xChromaOffset =
-      (vk::ChromaLocation)ohb_format.suggestedXChromaOffset;
-  ycbcr_info.yChromaOffset =
-      (vk::ChromaLocation)ohb_format.suggestedYChromaOffset;
-  ycbcr_info.chromaFilter =
-      vk::Filter::eNearest;  // TODO，check the value VK_FILTER_LINERA？
+    const vk::NativeBufferFormatPropertiesOHOS& onb_format) {
+  YUVConversionDescriptorVK conversion_chain;
+  auto& ycbcr_info = conversion_chain.get();
+  ycbcr_info.format = onb_format.format;
+  ycbcr_info.ycbcrModel = onb_format.suggestedYcbcrModel;
+  ycbcr_info.ycbcrRange = onb_format.suggestedYcbcrRange;
+  ycbcr_info.components = onb_format.samplerYcbcrConversionComponents;
+  ycbcr_info.xChromaOffset = onb_format.suggestedXChromaOffset;
+  ycbcr_info.yChromaOffset = onb_format.suggestedYChromaOffset;
+  ycbcr_info.chromaFilter = vk::Filter::eNearest;
   ycbcr_info.forceExplicitReconstruction = false;
 
-  // if (ycbcr_info.format == vk::Format::eUndefined) {
-  //   auto& external_format = desc.get<VkExternalFormatOHOS>();
-  //   external_format.externalFormat = ohb_format.externalFormat;
-  // } else {
-  //   desc.unlink<VkExternalFormatOHOS>();
-  // }
+  if (ycbcr_info.format == vk::Format::eUndefined) {
+    auto& external_format = conversion_chain.get<vk::ExternalFormatOHOS>();
+    external_format.externalFormat = onb_format.externalFormat;
+    FML_LOG(INFO) << "set yuv external_format " << (onb_format.externalFormat);
+  } else {
+    conversion_chain.unlink<vk::ExternalFormatOHOS>();
+    FML_LOG(INFO) << "not set yuv external_format";
+  }
 
-  return context.GetYUVConversionLibrary()->GetConversion(desc);
+  return context.GetYUVConversionLibrary()->GetConversion(conversion_chain);
 }
 
 static vk::UniqueImageView CreateVkImageView(
     const vk::Device& device,
     const vk::Image& image,
     const vk::SamplerYcbcrConversion& yuv_conversion,
-    const VkNativeBufferFormatPropertiesOHOS& ohb_format,
-    const BufferHandle& buffer_handle) {
+    const vk::NativeBufferFormatPropertiesOHOS& onb_format) {
   vk::StructureChain<vk::ImageViewCreateInfo, vk::SamplerYcbcrConversionInfo>
       view_chain;
   auto& view_info = view_chain.get();
-  view_info.pNext = nullptr;
   view_info.image = image;
   view_info.viewType = vk::ImageViewType::e2D;
-  view_info.format = (vk::Format)ohb_format.format;
+  view_info.format = onb_format.format;
   view_info.components.r = vk::ComponentSwizzle::eIdentity;
   view_info.components.g = vk::ComponentSwizzle::eIdentity;
   view_info.components.b = vk::ComponentSwizzle::eIdentity;
@@ -260,6 +206,7 @@ static vk::UniqueImageView CreateVkImageView(
         yuv_conversion;
   } else {
     view_chain.unlink<vk::SamplerYcbcrConversionInfo>();
+    FML_LOG(ERROR) << "unlink yuv sampler ";
   }
   auto view_result = device.createImageViewUnique(view_info);
   if (view_result.result != vk::Result::eSuccess) {
@@ -270,73 +217,66 @@ static vk::UniqueImageView CreateVkImageView(
 
 OHBTextureSourceVK::OHBTextureSourceVK(
     const std::shared_ptr<ContextVK>& context,
-    OHNativeWindowBuffer* hardware_buffer)
-    : TextureSourceVK(CreateTextureDescriptorFromBufferHandle(
-          *OH_NativeWindow_GetBufferHandleFromNative(hardware_buffer))),
-      vulkan_dylib_(fml::NativeLibrary::Create("libvulkan.so")) {
+    OHNativeWindowBuffer* native_window_buffer)
+    : TextureSourceVK(
+          CreateTextureDescriptorFromNativeWindowBuffer(native_window_buffer)) {
   is_valid_ = false;
-  if (!hardware_buffer) {
+  if (!native_window_buffer) {
     return;
   }
-  const auto& buffer_handle =
-      *OH_NativeWindow_GetBufferHandleFromNative(hardware_buffer);
 
   vk::Device device = context->GetDevice();
-  vk::PhysicalDevice physical_device = context->GetPhysicalDevice();
+  OH_NativeBuffer* native_buffer = nullptr;
 
-  VkNativeBufferPropertiesOHOS ohb_props;
-  VkNativeBufferFormatPropertiesOHOS ohb_format;
-  ohb_format.sType =
-      (VkStructureType)VK_STRUCTURE_TYPE_NATIVE_BUFFER_FORMAT_PROPERTIES_OHOS;
-  ohb_format.pNext = nullptr;
-  ohb_props.sType =
-      (VkStructureType)VK_STRUCTURE_TYPE_NATIVE_BUFFER_PROPERTIES_OHOS;
-  ohb_props.pNext = &ohb_format;
-  auto vk_call =
-      vulkan_dylib_->ResolveFunction<PFN_vkGetNativeBufferPropertiesOHOS>(
-          "vkGetNativeBufferPropertiesOHOS");
-  if (!vk_call.has_value()) {
-    return;
-  }
-  OH_NativeBuffer* native_buffer;
-  int res =
-      OH_NativeBuffer_FromNativeWindowBuffer(hardware_buffer, &native_buffer);
-  if (res != 0 || native_buffer == nullptr) {
-    // TODO, ERROR
+  int ret = OH_NativeBuffer_FromNativeWindowBuffer(native_window_buffer,
+                                                   &native_buffer);
+  if (ret != 0 || native_buffer == nullptr) {
+    FML_LOG(ERROR) << "OHOSExternalTextureGL get OH_NativeBuffer error:" << ret;
     return;
   }
 
-  auto vk_res = vk_call.value()(device, native_buffer, &ohb_props);
-  if (vk_res != VK_SUCCESS) {
+  ONBProperties onb_props;
+  auto get_ret =
+      device.getNativeBufferPropertiesOHOS(native_buffer, &onb_props.get());
+  if (get_ret != vk::Result::eSuccess) {
+    FML_LOG(ERROR) << "getNativeBufferPropertiesOHOS faile " << int(get_ret);
     return;
   }
 
-  auto image = CreateVkImage(device, buffer_handle, ohb_format);
+  const auto& onb_format =
+      onb_props.get<vk::NativeBufferFormatPropertiesOHOS>();
+
+  FML_LOG(INFO) << "onb_format  " << int(onb_format.format) << " external "
+                << int(onb_format.externalFormat) << " allocSize "
+                << onb_props.get().allocationSize;
+  auto image = CreateVkImage(device, native_buffer, onb_format);
   if (!image) {
+    FML_LOG(ERROR) << "create vkimage faile";
     return;
   }
 
-  auto device_memory = AllocateDeviceMemorty(
-      context, image_.get(), hardware_buffer, ohb_props, vulkan_dylib_);
+  auto device_memory = AllocateDeviceMemorty(context, image_.get(),
+                                             native_buffer, onb_props.get());
   if (!device_memory) {
+    FML_LOG(ERROR) << "allocateDeviceMemorty failed";
     return;
   }
 
-  if (!BindImageMemory(device, image.get(), device_memory.get(),
-                       vulkan_dylib_)) {
+  auto bind_ret = device.bindImageMemory(image.get(), device_memory.get(), 0);
+  if (bind_ret != vk::Result::eSuccess) {
+    FML_LOG(ERROR) << "bindImageMemory failed " << int(bind_ret);
     return;
   }
 
-  auto yuv_conversion = CreateYUVConversion(*context, ohb_format);
+  auto yuv_conversion = CreateYUVConversion(*context, onb_format);
 
-  auto image_view =
-      CreateVkImageView(device, image.get(), yuv_conversion->GetConversion(),
-                        ohb_format, buffer_handle);
+  auto image_view = CreateVkImageView(
+      device, image.get(), yuv_conversion->GetConversion(), onb_format);
   if (!image_view) {
+    FML_LOG(ERROR) << "CreateVkImageView failed";
     return;
   }
-
-  needs_yuv_conversion_ = ohb_format.format == VK_FORMAT_UNDEFINED;
+  needs_yuv_conversion_ = onb_format.format == vk::Format::eUndefined;
   device_memory_ = std::move(device_memory);
   image_ = std::move(image);
   yuv_conversion_ = std::move(yuv_conversion);
@@ -369,6 +309,6 @@ bool OHBTextureSourceVK::IsSwapchainImage() const {
 }
 
 std::shared_ptr<YUVConversionVK> OHBTextureSourceVK::GetYUVConversion() const {
-  return yuv_conversion_;
+  return needs_yuv_conversion_ ? yuv_conversion_ : nullptr;
 }
 }  // namespace impeller

@@ -43,6 +43,7 @@ void OHOSExternalTexture::Paint(PaintContext& context,
                                 bool freeze,
                                 DlImageSampling sampling) {
   if (state_ == AttachmentState::kDetached) {
+    FML_LOG(INFO) << "paint state is kDetached";
     return;
   }
 
@@ -63,6 +64,13 @@ void OHOSExternalTexture::Paint(PaintContext& context,
         context.paint,                                 // paint
         flutter::DlCanvas::SrcRectConstraint::kStrict  // enforce edges
     );
+    if (producer_nativewindow_buffer_ == nullptr) {
+      SetGPUFence(&last_fence_fd_);
+    }
+    FML_LOG(INFO) << "Draw one dl image " << draw_dl_image->bounds().width()
+                  << " " << draw_dl_image->bounds().height() << " "
+                  << draw_dl_image->bounds().left() << " "
+                  << draw_dl_image->bounds().top();
   } else {
     FML_LOG(INFO) << "No DlImage available for ImageExternalTexture to paint.";
   }
