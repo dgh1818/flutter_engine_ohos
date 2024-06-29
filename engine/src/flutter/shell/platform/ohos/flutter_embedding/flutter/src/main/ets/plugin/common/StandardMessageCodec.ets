@@ -19,7 +19,7 @@ import MessageCodec from './MessageCodec';
 import TreeMap from '@ohos.util.TreeMap';
 import HashMap from '@ohos.util.HashMap';
 import LightWeightMap from '@ohos.util.LightWeightMap';
-import PlainArray from '@ohos.util.PlainArray';  
+import PlainArray from '@ohos.util.PlainArray';
 import List from '@ohos.util.List';
 import LinkedList from '@ohos.util.LinkedList';
 import Any from './Any';
@@ -274,6 +274,9 @@ export default class StandardMessageCodec implements MessageCodec<Any> {
                 break;
             case StandardMessageCodec.INT64:
                 result = buffer.readInt64(true);
+                if (Number.MIN_SAFE_INTEGER <= result && result <= Number.MAX_SAFE_INTEGER) {
+                    result = Number(result);
+                }
                 break;
             case StandardMessageCodec.BIGINT:
                 let bytes: Uint8Array = this.readBytes(buffer);
