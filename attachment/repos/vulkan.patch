@@ -1,0 +1,1231 @@
+diff --git a/BUILD.gn b/BUILD.gn
+index df1ba65..da302ab 100644
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -24,6 +24,9 @@ config("vulkan_headers_config") {
+   if (is_android) {
+     defines += [ "VK_USE_PLATFORM_ANDROID_KHR" ]
+   }
++  if (is_ohos) {
++    defines += [ "VK_USE_PLATFORM_OHOS_KHR" ]
++  }
+   if (is_fuchsia) {
+     defines += [ "VK_USE_PLATFORM_FUCHSIA" ]
+   }
+diff --git a/include/vulkan/vulkan.h b/include/vulkan/vulkan.h
+index ef94006..5825970 100644
+--- a/include/vulkan/vulkan.h
++++ b/include/vulkan/vulkan.h
+@@ -14,6 +14,10 @@
+ #include "vulkan_android.h"
+ #endif
+ 
++#ifdef VK_USE_PLATFORM_OHOS_KHR
++#include "vulkan_ohos.h"
++#endif
++
+ #ifdef VK_USE_PLATFORM_FUCHSIA
+ #include <zircon/types.h>
+ #include "vulkan_fuchsia.h"
+diff --git a/include/vulkan/vulkan.hpp b/include/vulkan/vulkan.hpp
+index c893919..fdc9ba4 100644
+--- a/include/vulkan/vulkan.hpp
++++ b/include/vulkan/vulkan.hpp
+@@ -3651,6 +3651,25 @@ namespace VULKAN_HPP_NAMESPACE
+     }
+ #  endif /*VK_USE_PLATFORM_ANDROID_KHR*/
+ 
++#  if defined( VK_USE_PLATFORM_OHOS_KHR )
++    //=== VK_OHOS_external_memory ===
++
++    VkResult vkGetNativeBufferPropertiesOHOS( VkDevice                                   device,
++                                                          const struct OH_NativeBuffer*     buffer,
++                                                          VkNativeBufferPropertiesOHOS* pProperties ) const VULKAN_HPP_NOEXCEPT
++    {
++      return ::vkGetNativeBufferPropertiesOHOS( device, buffer, pProperties );
++    }
++
++    VkResult vkGetMemoryNativeBufferOHOS( VkDevice                                            device,
++                                                      const VkMemoryGetNativeBufferInfoOHOS * pInfo,
++                                                      struct OH_NativeBuffer**                pBuffer ) const VULKAN_HPP_NOEXCEPT
++    {
++      return ::vkGetMemoryNativeBufferOHOS( device, pInfo, pBuffer );
++    }
++#  endif /*VK_USE_PLATFORM_OHOS_KHR*/
++
++
+ #  if defined( VK_ENABLE_BETA_EXTENSIONS )
+     //=== VK_AMDX_shader_enqueue ===
+ 
+@@ -11380,6 +11399,28 @@ namespace VULKAN_HPP_NAMESPACE
+   };
+ #  endif /*VK_USE_PLATFORM_ANDROID_KHR*/
+ 
++
++#  if defined( VK_USE_PLATFORM_OHOS_KHR )
++  template <>
++  struct StructExtends<ExternalFormatOHOS, SamplerYcbcrConversionCreateInfo>
++  {
++    enum
++    {
++      value = true
++    };
++  };
++
++  template <>
++  struct StructExtends<NativeBufferFormatPropertiesOHOS, NativeBufferPropertiesOHOS>
++  {
++    enum
++    {
++      value = true
++    };
++  };
++#  endif /*VK_USE_PLATFORM_OHOS_KHR*/
++
++
+ #  if defined( VK_ENABLE_BETA_EXTENSIONS )
+   //=== VK_AMDX_shader_enqueue ===
+   template <>
+@@ -17223,6 +17264,15 @@ namespace VULKAN_HPP_NAMESPACE
+     PFN_dummy vkGetMemoryAndroidHardwareBufferANDROID_placeholder           = 0;
+ #endif /*VK_USE_PLATFORM_ANDROID_KHR*/
+ 
++#if defined( VK_USE_PLATFORM_OHOS_KHR )
++    //=== VK_OHOS_external_memory ===
++    PFN_vkGetNativeBufferPropertiesOHOS vkGetNativeBufferPropertiesOHOS     = 0;
++    PFN_vkGetMemoryNativeBufferOHOS vkGetMemoryNativeBufferOHOS     = 0;
++#else
++    PFN_dummy vkGetNativeBufferPropertiesOHOS_placeholder       = 0;
++    PFN_dummy vkGetMemoryNativeBufferOHOS_placeholder       = 0;
++#endif /*VK_USE_PLATFORM_ANDROID_KHR*/
++
+ #if defined( VK_ENABLE_BETA_EXTENSIONS )
+     //=== VK_AMDX_shader_enqueue ===
+     PFN_vkCreateExecutionGraphPipelinesAMDX        vkCreateExecutionGraphPipelinesAMDX        = 0;
+@@ -18482,6 +18532,14 @@ namespace VULKAN_HPP_NAMESPACE
+         PFN_vkGetMemoryAndroidHardwareBufferANDROID( vkGetInstanceProcAddr( instance, "vkGetMemoryAndroidHardwareBufferANDROID" ) );
+ #endif /*VK_USE_PLATFORM_ANDROID_KHR*/
+ 
++#if defined( VK_USE_PLATFORM_OHOS_KHR )
++      //=== VK_OHOS_external_memory ===
++      vkGetNativeBufferPropertiesOHOS =
++        PFN_vkGetNativeBufferPropertiesOHOS( vkGetInstanceProcAddr( instance, "vkGetNativeBufferPropertiesOHOS" ) );
++      vkGetMemoryNativeBufferOHOS =
++        PFN_vkGetMemoryNativeBufferOHOS( vkGetInstanceProcAddr( instance, "vkGetMemoryNativeBufferOHOS" ) );
++#endif /*VK_USE_PLATFORM_OHOS_KHR*/
++
+ #if defined( VK_ENABLE_BETA_EXTENSIONS )
+       //=== VK_AMDX_shader_enqueue ===
+       vkCreateExecutionGraphPipelinesAMDX = PFN_vkCreateExecutionGraphPipelinesAMDX( vkGetInstanceProcAddr( instance, "vkCreateExecutionGraphPipelinesAMDX" ) );
+@@ -19607,6 +19665,14 @@ namespace VULKAN_HPP_NAMESPACE
+         PFN_vkGetMemoryAndroidHardwareBufferANDROID( vkGetDeviceProcAddr( device, "vkGetMemoryAndroidHardwareBufferANDROID" ) );
+ #endif /*VK_USE_PLATFORM_ANDROID_KHR*/
+ 
++#if defined( VK_USE_PLATFORM_OHOS_KHR )
++      //=== VK_OHOS_external_memory ===
++      vkGetNativeBufferPropertiesOHOS =
++        PFN_vkGetNativeBufferPropertiesOHOS( vkGetDeviceProcAddr( device, "vkGetNativeBufferPropertiesOHOS" ) );
++      vkGetMemoryNativeBufferOHOS =
++        PFN_vkGetMemoryNativeBufferOHOS( vkGetDeviceProcAddr( device, "vkGetMemoryNativeBufferOHOS" ) );
++#endif /*VK_USE_PLATFORM_OHOS_KHR*/
++
+ #if defined( VK_ENABLE_BETA_EXTENSIONS )
+       //=== VK_AMDX_shader_enqueue ===
+       vkCreateExecutionGraphPipelinesAMDX = PFN_vkCreateExecutionGraphPipelinesAMDX( vkGetDeviceProcAddr( device, "vkCreateExecutionGraphPipelinesAMDX" ) );
+diff --git a/include/vulkan/vulkan_core.h b/include/vulkan/vulkan_core.h
+index a4666ed..c615598 100644
+--- a/include/vulkan/vulkan_core.h
++++ b/include/vulkan/vulkan_core.h
+@@ -589,6 +589,16 @@ typedef enum VkStructureType {
+     VK_STRUCTURE_TYPE_MEMORY_GET_ANDROID_HARDWARE_BUFFER_INFO_ANDROID = 1000129004,
+     VK_STRUCTURE_TYPE_EXTERNAL_FORMAT_ANDROID = 1000129005,
+     VK_STRUCTURE_TYPE_ANDROID_HARDWARE_BUFFER_FORMAT_PROPERTIES_2_ANDROID = 1000129006,
++    VK_STRUCTURE_TYPE_SURFACE_CREATE_INFO_OHOS = 1000451000,
++    VK_STRUCTURE_TYPE_NATIVE_BUFFER_OHOS = 1000453001,
++    VK_STRUCTURE_TYPE_SWAPCHAIN_IMAGE_CREATE_INFO_OHOS = 1000453002,
++    VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENTATION_PROPERTIES_OHOS = 1000453003,
++    VK_STRUCTURE_TYPE_NATIVE_BUFFER_USAGE_OHOS = 1000452000,
++    VK_STRUCTURE_TYPE_NATIVE_BUFFER_PROPERTIES_OHOS = 1000452001,
++    VK_STRUCTURE_TYPE_NATIVE_BUFFER_FORMAT_PROPERTIES_OHOS = 1000452002,
++    VK_STRUCTURE_TYPE_IMPORT_NATIVE_BUFFER_INFO_OHOS = 1000452003,
++    VK_STRUCTURE_TYPE_MEMORY_GET_NATIVE_BUFFER_INFO_OHOS = 1000452004,
++    VK_STRUCTURE_TYPE_EXTERNAL_FORMAT_OHOS = 1000452005,
+ #ifdef VK_ENABLE_BETA_EXTENSIONS
+     VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ENQUEUE_FEATURES_AMDX = 1000134000,
+ #endif
+@@ -4989,6 +4999,7 @@ typedef enum VkExternalMemoryHandleTypeFlagBits {
+     VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_MAPPED_FOREIGN_MEMORY_BIT_EXT = 0x00000100,
+     VK_EXTERNAL_MEMORY_HANDLE_TYPE_ZIRCON_VMO_BIT_FUCHSIA = 0x00000800,
+     VK_EXTERNAL_MEMORY_HANDLE_TYPE_RDMA_ADDRESS_BIT_NV = 0x00001000,
++    VK_EXTERNAL_MEMORY_HANDLE_TYPE_OHOS_NATIVE_BUFFER_BIT_OHOS = 0x00002000,
+     VK_EXTERNAL_MEMORY_HANDLE_TYPE_SCREEN_BUFFER_BIT_QNX = 0x00004000,
+     VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT,
+     VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT_KHR = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT,
+diff --git a/include/vulkan/vulkan_enums.hpp b/include/vulkan/vulkan_enums.hpp
+index 547553a..84d40e4 100644
+--- a/include/vulkan/vulkan_enums.hpp
++++ b/include/vulkan/vulkan_enums.hpp
+@@ -534,6 +534,9 @@ namespace VULKAN_HPP_NAMESPACE
+ #if defined( VK_USE_PLATFORM_WIN32_KHR )
+     eWin32SurfaceCreateInfoKHR = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
+ #endif /*VK_USE_PLATFORM_WIN32_KHR*/
++#if defined( VK_USE_PLATFORM_OHOS_KHR)
++    // eOHOSSurfaceCreateInfoKHR
++#endif /*VK_USE_PLATFORM_OHOS_KHR*/
+     eDebugReportCallbackCreateInfoEXT                = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT,
+     eDebugReportCreateInfoEXT                        = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT,
+     ePipelineRasterizationStateRasterizationOrderAMD = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_RASTERIZATION_ORDER_AMD,
+@@ -780,6 +783,12 @@ namespace VULKAN_HPP_NAMESPACE
+     eExternalFormatANDROID                         = VK_STRUCTURE_TYPE_EXTERNAL_FORMAT_ANDROID,
+     eAndroidHardwareBufferFormatProperties2ANDROID = VK_STRUCTURE_TYPE_ANDROID_HARDWARE_BUFFER_FORMAT_PROPERTIES_2_ANDROID,
+ #endif /*VK_USE_PLATFORM_ANDROID_KHR*/
++#if defined( VK_USE_PLATFORM_OHOS_KHR)
++    eExternalFormatOHOS                         = VK_STRUCTURE_TYPE_EXTERNAL_FORMAT_OHOS,
++    eNativeBufferPropertiesOHOS                 = VK_STRUCTURE_TYPE_NATIVE_BUFFER_PROPERTIES_OHOS,
++    eMemoryGetNativeBufferInfoOHOS              = VK_STRUCTURE_TYPE_MEMORY_GET_NATIVE_BUFFER_INFO_OHOS,
++    eNativeBufferFormatPropertiesOHOS           = VK_STRUCTURE_TYPE_NATIVE_BUFFER_FORMAT_PROPERTIES_OHOS,
++#endif /*VK_USE_PLATFORM_OHOS_KHR*/
+     ePhysicalDeviceSamplerFilterMinmaxPropertiesEXT = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_FILTER_MINMAX_PROPERTIES_EXT,
+     eSamplerReductionModeCreateInfoEXT              = VK_STRUCTURE_TYPE_SAMPLER_REDUCTION_MODE_CREATE_INFO_EXT,
+ #if defined( VK_ENABLE_BETA_EXTENSIONS )
+diff --git a/include/vulkan/vulkan_funcs.hpp b/include/vulkan/vulkan_funcs.hpp
+index 3c8d9ae..99f4c68 100644
+--- a/include/vulkan/vulkan_funcs.hpp
++++ b/include/vulkan/vulkan_funcs.hpp
+@@ -15136,6 +15136,82 @@ namespace VULKAN_HPP_NAMESPACE
+ #  endif /* VULKAN_HPP_DISABLE_ENHANCED_MODE */
+ #endif   /*VK_USE_PLATFORM_ANDROID_KHR*/
+ 
++#if defined( VK_USE_PLATFORM_OHOS_KHR )
++  //=== VK_OHOS_external_memory ===
++
++  template <typename Dispatch>
++  VULKAN_HPP_NODISCARD VULKAN_HPP_INLINE Result
++    Device::getNativeBufferPropertiesOHOS( const struct OH_NativeBuffer *                                 buffer,
++                                                       VULKAN_HPP_NAMESPACE::NativeBufferPropertiesOHOS * pProperties,
++                                                       Dispatch const &                                               d ) const VULKAN_HPP_NOEXCEPT
++  {
++    VULKAN_HPP_ASSERT( d.getVkHeaderVersion() == VK_HEADER_VERSION );
++    return static_cast<Result>(
++      d.vkGetNativeBufferPropertiesOHOS( m_device, buffer, reinterpret_cast<VkNativeBufferPropertiesOHOS *>( pProperties ) ) );
++  }
++
++#  ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
++  template <typename Dispatch>
++  VULKAN_HPP_NODISCARD VULKAN_HPP_INLINE typename ResultValueType<VULKAN_HPP_NAMESPACE::NativeBufferPropertiesOHOS>::type
++                       Device::getNativeBufferPropertiesOHOS( const struct OH_NativeBuffer & buffer, Dispatch const & d ) const
++  {
++    VULKAN_HPP_ASSERT( d.getVkHeaderVersion() == VK_HEADER_VERSION );
++#    if ( VULKAN_HPP_DISPATCH_LOADER_DYNAMIC == 1 )
++    VULKAN_HPP_ASSERT( d.vkGetNativeBufferPropertiesOHOS &&
++                       "Function <getNativeBufferPropertiesOHOS> requires <VK_OHOS_external_memory>" );
++#    endif
++
++    VULKAN_HPP_NAMESPACE::NativeBufferPropertiesOHOS properties;
++    VULKAN_HPP_NAMESPACE::Result                                 result = static_cast<VULKAN_HPP_NAMESPACE::Result>(
++      d.vkGetNativeBufferPropertiesOHOS( m_device, &buffer, reinterpret_cast<VkNativeBufferPropertiesOHOS *>( &properties ) ) );
++    resultCheck( result, VULKAN_HPP_NAMESPACE_STRING "::Device::getNativeBufferPropertiesOHOS" );
++
++    return createResultValueType( result, properties );
++  }
++
++  template <typename X, typename Y, typename... Z, typename Dispatch>
++  VULKAN_HPP_NODISCARD VULKAN_HPP_INLINE typename ResultValueType<VULKAN_HPP_NAMESPACE::StructureChain<X, Y, Z...>>::type
++                       Device::getNativeBufferPropertiesOHOS( const struct OH_NativeBuffer & buffer, Dispatch const & d ) const
++  {
++    VULKAN_HPP_ASSERT( d.getVkHeaderVersion() == VK_HEADER_VERSION );
++#    if ( VULKAN_HPP_DISPATCH_LOADER_DYNAMIC == 1 )
++    VULKAN_HPP_ASSERT( d.vkGetNativeBufferPropertiesOHOS &&
++                       "Function <vkGetNativeBufferPropertiesOHOS> requires <VK_OHOS_external_memory>" );
++#    endif
++
++    StructureChain<X, Y, Z...>                                     structureChain;
++    VULKAN_HPP_NAMESPACE::NativeBufferPropertiesOHOS & properties =
++      structureChain.template get<VULKAN_HPP_NAMESPACE::NativeBufferPropertiesOHOS>();
++    VULKAN_HPP_NAMESPACE::Result result = static_cast<VULKAN_HPP_NAMESPACE::Result>(
++      d.vkGetNativeBufferPropertiesOHOS( m_device, &buffer, reinterpret_cast<VkNativeBufferPropertiesOHOS *>( &properties ) ) );
++    resultCheck( result, VULKAN_HPP_NAMESPACE_STRING "::Device::getNativeBufferPropertiesOHOS" );
++
++    return createResultValueType( result, structureChain );
++  }
++#  endif /* VULKAN_HPP_DISABLE_ENHANCED_MODE */
++
++#  ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
++  template <typename Dispatch>
++  VULKAN_HPP_NODISCARD VULKAN_HPP_INLINE typename ResultValueType<struct OH_NativeBuffer *>::type
++    Device::getMemoryNativeBufferOHOS( const VULKAN_HPP_NAMESPACE::MemoryGetNativeBufferInfoOHOS & info, Dispatch const & d ) const
++  {
++    VULKAN_HPP_ASSERT( d.getVkHeaderVersion() == VK_HEADER_VERSION );
++#    if ( VULKAN_HPP_DISPATCH_LOADER_DYNAMIC == 1 )
++    VULKAN_HPP_ASSERT( d.vkGetMemoryNativeBufferOHOS &&
++                       "Function <vkGetMemoryNativeBufferOHOS> requires <VK_OHOS_external_memory>" );
++#    endif
++
++    struct OH_NativeBuffer *     buffer;
++    VULKAN_HPP_NAMESPACE::Result result = static_cast<VULKAN_HPP_NAMESPACE::Result>(
++      d.vkGetMemoryNativeBufferOHOS( m_device, reinterpret_cast<const VkMemoryGetNativeBufferInfoOHOS *>( &info ), &buffer ) );
++    resultCheck( result, VULKAN_HPP_NAMESPACE_STRING "::Device::getMemoryNativeBufferOHOS" );
++
++    return createResultValueType( result, buffer );
++  }
++#  endif /* VULKAN_HPP_DISABLE_ENHANCED_MODE */
++#endif   /*VK_USE_PLATFORM_OHOS_KHR*/
++
++
+ #if defined( VK_ENABLE_BETA_EXTENSIONS )
+   //=== VK_AMDX_shader_enqueue ===
+ 
+diff --git a/include/vulkan/vulkan_handles.hpp b/include/vulkan/vulkan_handles.hpp
+index e6b1481..1fc21e1 100644
+--- a/include/vulkan/vulkan_handles.hpp
++++ b/include/vulkan/vulkan_handles.hpp
+@@ -829,6 +829,13 @@ namespace VULKAN_HPP_NAMESPACE
+   struct AndroidHardwareBufferFormatProperties2ANDROID;
+ #endif /*VK_USE_PLATFORM_ANDROID_KHR*/
+ 
++#if defined( VK_USE_PLATFORM_OHOS_KHR )
++  struct ExternalFormatOHOS;
++  struct NativeBufferPropertiesOHOS;
++  struct MemoryGetNativeBufferInfoOHOS;
++  struct NativeBufferFormatPropertiesOHOS;
++#endif /*VK_USE_PLATFORM_OHOS_KHR*/
++
+ #if defined( VK_ENABLE_BETA_EXTENSIONS )
+   //=== VK_AMDX_shader_enqueue ===
+   struct PhysicalDeviceShaderEnqueueFeaturesAMDX;
+@@ -11554,6 +11561,36 @@ namespace VULKAN_HPP_NAMESPACE
+ #  endif /* VULKAN_HPP_DISABLE_ENHANCED_MODE */
+ #endif   /*VK_USE_PLATFORM_ANDROID_KHR*/
+ 
++
++#if defined( VK_USE_PLATFORM_OHOS_KHR )
++    //=== VK_OHOS_external_memory ===
++
++    template <typename Dispatch = VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>
++    VULKAN_HPP_NODISCARD Result
++      getNativeBufferPropertiesOHOS( const struct OH_NativeBuffer *                                 buffer,
++                                                 VULKAN_HPP_NAMESPACE::NativeBufferPropertiesOHOS * pProperties,
++                                                 Dispatch const & d VULKAN_HPP_DEFAULT_DISPATCHER_ASSIGNMENT ) const VULKAN_HPP_NOEXCEPT;
++#  ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
++    template <typename Dispatch = VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>
++    VULKAN_HPP_NODISCARD typename ResultValueType<VULKAN_HPP_NAMESPACE::NativeBufferPropertiesOHOS>::type
++      getNativeBufferPropertiesOHOS( const struct OH_NativeBuffer & buffer, Dispatch const & d VULKAN_HPP_DEFAULT_DISPATCHER_ASSIGNMENT ) const;
++    template <typename X, typename Y, typename... Z, typename Dispatch = VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>
++    VULKAN_HPP_NODISCARD typename ResultValueType<VULKAN_HPP_NAMESPACE::StructureChain<X, Y, Z...>>::type
++      getNativeBufferPropertiesOHOS( const struct OH_NativeBuffer & buffer, Dispatch const & d VULKAN_HPP_DEFAULT_DISPATCHER_ASSIGNMENT ) const;
++#  endif /* VULKAN_HPP_DISABLE_ENHANCED_MODE */
++
++    template <typename Dispatch = VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>
++    VULKAN_HPP_NODISCARD Result getMemoryNativeBufferOHOS( const VULKAN_HPP_NAMESPACE::MemoryGetNativeBufferInfoOHOS * pInfo,
++                                                                       struct OH_NativeBuffer **                                               pBuffer,
++                                                                       Dispatch const & d VULKAN_HPP_DEFAULT_DISPATCHER_ASSIGNMENT ) const VULKAN_HPP_NOEXCEPT;
++#  ifndef VULKAN_HPP_DISABLE_ENHANCED_MODE
++    template <typename Dispatch = VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>
++    VULKAN_HPP_NODISCARD typename ResultValueType<struct OH_NativeBuffer *>::type
++      getMemoryNativeBufferOHOS( const VULKAN_HPP_NAMESPACE::MemoryGetNativeBufferInfoOHOS & info,
++                                             Dispatch const & d VULKAN_HPP_DEFAULT_DISPATCHER_ASSIGNMENT ) const;
++#  endif /* VULKAN_HPP_DISABLE_ENHANCED_MODE */
++#endif   /*VK_USE_PLATFORM_OHOS_KHR*/
++
+ #if defined( VK_ENABLE_BETA_EXTENSIONS )
+     //=== VK_AMDX_shader_enqueue ===
+ 
+diff --git a/include/vulkan/vulkan_hash.hpp b/include/vulkan/vulkan_hash.hpp
+index bebd7cb..199d073 100644
+--- a/include/vulkan/vulkan_hash.hpp
++++ b/include/vulkan/vulkan_hash.hpp
+@@ -997,6 +997,30 @@ namespace std
+   };
+ #  endif /*VK_USE_PLATFORM_ANDROID_KHR*/
+ 
++
++#  if defined( VK_USE_PLATFORM_OHOS_KHR )
++  template <>
++  struct hash<VULKAN_HPP_NAMESPACE::NativeBufferFormatPropertiesOHOS>
++  {
++    std::size_t operator()( VULKAN_HPP_NAMESPACE::NativeBufferFormatPropertiesOHOS const & nativeBufferFormatPropertiesOHOS ) const
++      VULKAN_HPP_NOEXCEPT
++    {
++      std::size_t seed = 0;
++VULKAN_HPP_HASH_COMBINE( seed, nativeBufferFormatPropertiesOHOS.sType );
++      VULKAN_HPP_HASH_COMBINE( seed, nativeBufferFormatPropertiesOHOS.pNext );
++      VULKAN_HPP_HASH_COMBINE( seed, nativeBufferFormatPropertiesOHOS.format );
++      VULKAN_HPP_HASH_COMBINE( seed, nativeBufferFormatPropertiesOHOS.externalFormat );
++      VULKAN_HPP_HASH_COMBINE( seed, nativeBufferFormatPropertiesOHOS.formatFeatures );
++      VULKAN_HPP_HASH_COMBINE( seed, nativeBufferFormatPropertiesOHOS.samplerYcbcrConversionComponents );
++      VULKAN_HPP_HASH_COMBINE( seed, nativeBufferFormatPropertiesOHOS.suggestedYcbcrModel );
++      VULKAN_HPP_HASH_COMBINE( seed, nativeBufferFormatPropertiesOHOS.suggestedYcbcrRange );
++      VULKAN_HPP_HASH_COMBINE( seed, nativeBufferFormatPropertiesOHOS.suggestedXChromaOffset );
++      VULKAN_HPP_HASH_COMBINE( seed, nativeBufferFormatPropertiesOHOS.suggestedYChromaOffset );
++      return seed;
++    }
++  };
++#  endif /*VK_USE_PLATFORM_OHOS_KHR*/
++
+ #  if defined( VK_USE_PLATFORM_ANDROID_KHR )
+   template <>
+   struct hash<VULKAN_HPP_NAMESPACE::AndroidHardwareBufferFormatResolvePropertiesANDROID>
+@@ -4825,6 +4849,22 @@ namespace std
+   };
+ #  endif /*VK_USE_PLATFORM_ANDROID_KHR*/
+ 
++#  if defined( VK_USE_PLATFORM_OHOS_KHR )
++  template <>
++  struct hash<VULKAN_HPP_NAMESPACE::ExternalFormatOHOS>
++  {
++    std::size_t operator()( VULKAN_HPP_NAMESPACE::ExternalFormatOHOS const & externalFormatOHOS ) const VULKAN_HPP_NOEXCEPT
++    {
++      std::size_t seed = 0;
++      VULKAN_HPP_HASH_COMBINE( seed, externalFormatOHOS.sType );
++      VULKAN_HPP_HASH_COMBINE( seed, externalFormatOHOS.pNext );
++      VULKAN_HPP_HASH_COMBINE( seed, externalFormatOHOS.externalFormat );
++      return seed;
++    }
++  };
++#  endif /*VK_USE_PLATFORM_OHOS_KHR*/
++
++
+ #  if defined( VK_USE_PLATFORM_SCREEN_QNX )
+   template <>
+   struct hash<VULKAN_HPP_NAMESPACE::ExternalFormatQNX>
+@@ -6714,6 +6754,22 @@ namespace std
+   };
+ #  endif /*VK_USE_PLATFORM_ANDROID_KHR*/
+ 
++#  if defined( VK_USE_PLATFORM_OHOS_KHR )
++  template <>
++  struct hash<VULKAN_HPP_NAMESPACE::MemoryGetNativeBufferInfoOHOS>
++  {
++    std::size_t
++      operator()( VULKAN_HPP_NAMESPACE::MemoryGetNativeBufferInfoOHOS const & memoryGetNativeBufferInfoOHOS ) const VULKAN_HPP_NOEXCEPT
++    {
++      std::size_t seed = 0;
++      VULKAN_HPP_HASH_COMBINE( seed, memoryGetNativeBufferInfoOHOS.sType );
++      VULKAN_HPP_HASH_COMBINE( seed, memoryGetNativeBufferInfoOHOS.pNext );
++      VULKAN_HPP_HASH_COMBINE( seed, memoryGetNativeBufferInfoOHOS.memory );
++      return seed;
++    }
++  };
++#  endif /*VK_USE_PLATFORM_OHOS_KHR*/
++
+   template <>
+   struct hash<VULKAN_HPP_NAMESPACE::MemoryGetFdInfoKHR>
+   {
+diff --git a/include/vulkan/vulkan_ohos.h b/include/vulkan/vulkan_ohos.h
+new file mode 100644
+index 0000000..e0bf8c6
+--- /dev/null
++++ b/include/vulkan/vulkan_ohos.h
+@@ -0,0 +1,199 @@
++#ifndef VULKAN_OHOS_H_
++#define VULKAN_OHOS_H_ 1
++
++/*
++** Copyright 2015-2022 The Khronos Group Inc.
++**
++** SPDX-License-Identifier: Apache-2.0
++*/
++
++/*
++** This header is generated from the Khronos Vulkan XML API Registry.
++**
++*/
++
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++
++
++#define VK_OHOS_surface 1
++typedef struct NativeWindow OHNativeWindow;
++#define VK_OHOS_SURFACE_SPEC_VERSION      1
++#define VK_OHOS_SURFACE_EXTENSION_NAME    "VK_OHOS_surface"
++typedef VkFlags VkSurfaceCreateFlagsOHOS;
++typedef struct VkSurfaceCreateInfoOHOS {
++    VkStructureType             sType;
++    const void*                 pNext;
++    VkSurfaceCreateFlagsOHOS    flags;
++    OHNativeWindow*             window;
++} VkSurfaceCreateInfoOHOS;
++
++typedef VkResult (VKAPI_PTR *PFN_vkCreateSurfaceOHOS)(VkInstance instance, const VkSurfaceCreateInfoOHOS* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSurfaceKHR* pSurface);
++
++#ifndef VK_NO_PROTOTYPES
++VKAPI_ATTR VkResult VKAPI_CALL vkCreateSurfaceOHOS(
++    VkInstance                                  instance,
++    const VkSurfaceCreateInfoOHOS*              pCreateInfo,
++    const VkAllocationCallbacks*                pAllocator,
++    VkSurfaceKHR*                               pSurface);
++#endif
++
++
++#define VK_OHOS_native_buffer 1
++struct OHBufferHandle;
++#define VK_OHOS_NATIVE_BUFFER_SPEC_VERSION 1
++#define VK_OHOS_NATIVE_BUFFER_EXTENSION_NAME "VK_OHOS_native_buffer"
++
++typedef enum VkSwapchainImageUsageFlagBitsOHOS {
++    VK_SWAPCHAIN_IMAGE_USAGE_SHARED_BIT_OHOS = 0x00000001,
++    VK_SWAPCHAIN_IMAGE_USAGE_FLAG_BITS_MAX_ENUM_OHOS = 0x7FFFFFFF
++} VkSwapchainImageUsageFlagBitsOHOS;
++typedef VkFlags VkSwapchainImageUsageFlagsOHOS;
++typedef struct VkNativeBufferOHOS {
++    VkStructureType    sType;
++    const void*        pNext;
++    struct OHBufferHandle*      handle;
++} VkNativeBufferOHOS;
++
++typedef struct VkSwapchainImageCreateInfoOHOS {
++    VkStructureType                   sType;
++    const void*                       pNext;
++    VkSwapchainImageUsageFlagsOHOS    usage;
++} VkSwapchainImageCreateInfoOHOS;
++
++typedef struct VkPhysicalDevicePresentationPropertiesOHOS {
++    VkStructureType    sType;
++    const void*        pNext;
++    VkBool32           sharedImage;
++} VkPhysicalDevicePresentationPropertiesOHOS;
++
++/**
++ * @brief this type is deprecated, please use PFN_vkAcquireImageOHOS instead
++ * @deprecated
++ */
++typedef VkResult (VKAPI_PTR *PFN_vkSetNativeFenceFdOpenHarmony)(VkDevice device, int32_t nativeFenceFd, VkSemaphore semaphore, VkFence fence);
++
++/**
++ * @brief this type is deprecated, please use PFN_vkQueueSignalReleaseImageOHOS instead
++ * @deprecated
++ */
++typedef VkResult (VKAPI_PTR *PFN_vkGetNativeFenceFdOpenHarmony)(VkQueue queue, uint32_t waitSemaphoreCount, const VkSemaphore* pWaitSemaphores, VkImage image, int32_t* pNativeFenceFd);
++typedef VkResult (VKAPI_PTR *PFN_vkGetSwapchainGrallocUsageOHOS)(VkDevice device, VkFormat format, VkImageUsageFlags imageUsage, uint64_t* grallocUsage);
++typedef VkResult (VKAPI_PTR *PFN_vkAcquireImageOHOS)(VkDevice device, VkImage image, int32_t nativeFenceFd, VkSemaphore semaphore, VkFence fence);
++typedef VkResult (VKAPI_PTR *PFN_vkQueueSignalReleaseImageOHOS)(VkQueue queue, uint32_t waitSemaphoreCount, const VkSemaphore* pWaitSemaphores, VkImage image, int32_t* pNativeFenceFd);
++
++#ifndef VK_NO_PROTOTYPES
++/**
++ * @brief this interface is deprecated, please use vkAcquireImageOHOS instead
++ * @deprecated
++ */
++VKAPI_ATTR VkResult VKAPI_CALL vkSetNativeFenceFdOpenHarmony(
++    VkDevice                                    device,
++    int32_t                                     nativeFenceFd,
++    VkSemaphore                                 semaphore,
++    VkFence                                     fence);
++
++/**
++ * @brief this interface is deprecated, please use vkQueueSignalReleaseImageOHOS instead
++ * @deprecated
++ */
++VKAPI_ATTR VkResult VKAPI_CALL vkGetNativeFenceFdOpenHarmony(
++    VkQueue                                     queue,
++    uint32_t                                    waitSemaphoreCount,
++    const VkSemaphore*                          pWaitSemaphores,
++    VkImage                                     image,
++    int32_t*                                    pNativeFenceFd);
++
++VKAPI_ATTR VkResult VKAPI_CALL vkGetSwapchainGrallocUsageOHOS(
++    VkDevice                                    device,
++    VkFormat                                    format,
++    VkImageUsageFlags                           imageUsage,
++    uint64_t*                                   grallocUsage);
++
++VKAPI_ATTR VkResult VKAPI_CALL vkAcquireImageOHOS(
++    VkDevice                                    device,
++    VkImage                                     image,
++    int32_t                                     nativeFenceFd,
++    VkSemaphore                                 semaphore,
++    VkFence                                     fence);
++
++VKAPI_ATTR VkResult VKAPI_CALL vkQueueSignalReleaseImageOHOS(
++    VkQueue                                     queue,
++    uint32_t                                    waitSemaphoreCount,
++    const VkSemaphore*                          pWaitSemaphores,
++    VkImage                                     image,
++    int32_t*                                    pNativeFenceFd);
++#endif
++
++
++#define VK_OHOS_external_memory 1
++struct OH_NativeBuffer;
++#define VK_OHOS_EXTERNAL_MEMORY_SPEC_VERSION 1
++#define VK_OHOS_EXTERNAL_MEMORY_EXTENSION_NAME "VK_OHOS_external_memory"
++typedef struct VkNativeBufferUsageOHOS {
++    VkStructureType    sType;
++    void*              pNext;
++    uint64_t           OHOSNativeBufferUsage;
++} VkNativeBufferUsageOHOS;
++
++typedef struct VkNativeBufferPropertiesOHOS {
++    VkStructureType    sType;
++    void*              pNext;
++    VkDeviceSize       allocationSize;
++    uint32_t           memoryTypeBits;
++} VkNativeBufferPropertiesOHOS;
++
++typedef struct VkNativeBufferFormatPropertiesOHOS {
++    VkStructureType                  sType;
++    void*                            pNext;
++    VkFormat                         format;
++    uint64_t                         externalFormat;
++    VkFormatFeatureFlags             formatFeatures;
++    VkComponentMapping               samplerYcbcrConversionComponents;
++    VkSamplerYcbcrModelConversion    suggestedYcbcrModel;
++    VkSamplerYcbcrRange              suggestedYcbcrRange;
++    VkChromaLocation                 suggestedXChromaOffset;
++    VkChromaLocation                 suggestedYChromaOffset;
++} VkNativeBufferFormatPropertiesOHOS;
++
++typedef struct VkImportNativeBufferInfoOHOS {
++    VkStructureType            sType;
++    const void*                pNext;
++    struct OH_NativeBuffer*    buffer;
++} VkImportNativeBufferInfoOHOS;
++
++typedef struct VkMemoryGetNativeBufferInfoOHOS {
++    VkStructureType    sType;
++    const void*        pNext;
++    VkDeviceMemory     memory;
++} VkMemoryGetNativeBufferInfoOHOS;
++
++typedef struct VkExternalFormatOHOS {
++    VkStructureType    sType;
++    void*              pNext;
++    uint64_t           externalFormat;
++} VkExternalFormatOHOS;
++
++typedef VkResult (VKAPI_PTR *PFN_vkGetNativeBufferPropertiesOHOS)(VkDevice device, const struct OH_NativeBuffer* buffer, VkNativeBufferPropertiesOHOS* pProperties);
++typedef VkResult (VKAPI_PTR *PFN_vkGetMemoryNativeBufferOHOS)(VkDevice device, const VkMemoryGetNativeBufferInfoOHOS* pInfo, struct OH_NativeBuffer** pBuffer);
++
++#ifndef VK_NO_PROTOTYPES
++VKAPI_ATTR VkResult VKAPI_CALL vkGetNativeBufferPropertiesOHOS(
++    VkDevice                                    device,
++    const struct OH_NativeBuffer*               buffer,
++    VkNativeBufferPropertiesOHOS*               pProperties);
++
++VKAPI_ATTR VkResult VKAPI_CALL vkGetMemoryNativeBufferOHOS(
++    VkDevice                                    device,
++    const VkMemoryGetNativeBufferInfoOHOS*      pInfo,
++    struct OH_NativeBuffer**                    pBuffer);
++#endif
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif
+diff --git a/include/vulkan/vulkan_raii.hpp b/include/vulkan/vulkan_raii.hpp
+index e97bfb3..64291a3 100644
+--- a/include/vulkan/vulkan_raii.hpp
++++ b/include/vulkan/vulkan_raii.hpp
+@@ -1078,6 +1078,14 @@ namespace VULKAN_HPP_NAMESPACE
+           PFN_vkGetMemoryAndroidHardwareBufferANDROID( vkGetDeviceProcAddr( device, "vkGetMemoryAndroidHardwareBufferANDROID" ) );
+ #  endif /*VK_USE_PLATFORM_ANDROID_KHR*/
+ 
++#if defined( VK_USE_PLATFORM_OHOS_KHR )
++      //=== VK_OHOS_external_memory ===
++      vkGetNativeBufferPropertiesOHOS =
++        PFN_vkGetNativeBufferPropertiesOHOS( vkGetDeviceProcAddr( device, "vkGetNativeBufferPropertiesOHOS" ) );
++      vkGetMemoryNativeBufferOHOS =
++        PFN_vkGetMemoryNativeBufferOHOS( vkGetDeviceProcAddr( device, "vkGetMemoryNativeBufferOHOS" ) );
++#endif /*VK_USE_PLATFORM_OHOS_KHR*/
++
+ #  if defined( VK_ENABLE_BETA_EXTENSIONS )
+         //=== VK_AMDX_shader_enqueue ===
+         vkCreateExecutionGraphPipelinesAMDX = PFN_vkCreateExecutionGraphPipelinesAMDX( vkGetDeviceProcAddr( device, "vkCreateExecutionGraphPipelinesAMDX" ) );
+@@ -2104,6 +2112,15 @@ namespace VULKAN_HPP_NAMESPACE
+       PFN_dummy vkGetMemoryAndroidHardwareBufferANDROID_placeholder           = 0;
+ #  endif /*VK_USE_PLATFORM_ANDROID_KHR*/
+ 
++#if defined( VK_USE_PLATFORM_OHOS_KHR )
++    //=== VK_OHOS_external_memory ===
++    PFN_vkGetNativeBufferPropertiesOHOS vkGetNativeBufferPropertiesOHOS     = 0;
++    PFN_vkGetMemoryNativeBufferOHOS vkGetMemoryNativeBufferOHOS     = 0;
++#else
++    PFN_dummy vkGetNativeBufferPropertiesOHOS_placeholder       = 0;
++    PFN_dummy vkGetMemoryNativeBufferOHOS_placeholder       = 0;
++#endif /*VK_USE_PLATFORM_ANDROID_KHR*/
++
+ #  if defined( VK_ENABLE_BETA_EXTENSIONS )
+       //=== VK_AMDX_shader_enqueue ===
+       PFN_vkCreateExecutionGraphPipelinesAMDX        vkCreateExecutionGraphPipelinesAMDX        = 0;
+@@ -4057,6 +4074,20 @@ namespace VULKAN_HPP_NAMESPACE
+         getMemoryAndroidHardwareBufferANDROID( const VULKAN_HPP_NAMESPACE::MemoryGetAndroidHardwareBufferInfoANDROID & info ) const;
+ #  endif /*VK_USE_PLATFORM_ANDROID_KHR*/
+ 
++#  if defined( VK_USE_PLATFORM_OHOS_KHR )
++      //=== VK_OHOS_external_memory ===
++
++      VULKAN_HPP_NODISCARD VULKAN_HPP_NAMESPACE::NativeBufferPropertiesOHOS
++                           getNativeBufferPropertiesOHOS( const struct OH_NativeBuffer & buffer ) const;
++
++      template <typename X, typename Y, typename... Z>
++      VULKAN_HPP_NODISCARD VULKAN_HPP_NAMESPACE::StructureChain<X, Y, Z...>
++                           getNativeBufferPropertiesOHOS( const struct OH_NativeBuffer & buffer ) const;
++
++      VULKAN_HPP_NODISCARD struct OH_NativeBuffer *
++        getMemoryNativeBufferOHOS( const VULKAN_HPP_NAMESPACE::MemoryGetNativeBufferInfoOHOS & info ) const;
++#  endif /*VK_USE_PLATFORM_OHOS_KHR*/
++
+ #  if defined( VK_ENABLE_BETA_EXTENSIONS )
+       //=== VK_AMDX_shader_enqueue ===
+ 
+@@ -17773,6 +17804,53 @@ namespace VULKAN_HPP_NAMESPACE
+     }
+ #  endif /*VK_USE_PLATFORM_ANDROID_KHR*/
+ 
++#  if defined( VK_USE_PLATFORM_OHOS_KHR )
++    VULKAN_HPP_NODISCARD VULKAN_HPP_INLINE VULKAN_HPP_NAMESPACE::NativeBufferPropertiesOHOS
++                                           Device::getNativeBufferPropertiesOHOS( const struct OH_NativeBuffer* buffer ) const
++    {
++      VULKAN_HPP_ASSERT( getDispatcher()->VkNativeBufferPropertiesOHOS &&
++                         "Function <VkNativeBufferPropertiesOHOS> requires <VK_OHOS_external_memory>" );
++
++      VULKAN_HPP_NAMESPACE::NativeBufferPropertiesOHOS properties;
++      VULKAN_HPP_NAMESPACE::Result result = static_cast<VULKAN_HPP_NAMESPACE::Result>( getDispatcher()->VkNativeBufferPropertiesOHOS(
++        static_cast<VkDevice>( m_device ), &buffer, reinterpret_cast<VkNativeBufferPropertiesOHOS *>( &properties ) ) );
++      resultCheck( result, VULKAN_HPP_NAMESPACE_STRING "::Device::getAndroidHardwareBufferPropertiesANDROID" );
++
++      return properties;
++    }
++
++    template <typename X, typename Y, typename... Z>
++    VULKAN_HPP_NODISCARD VULKAN_HPP_INLINE VULKAN_HPP_NAMESPACE::StructureChain<X, Y, Z...>
++                                           Device::getNativeBufferPropertiesOHOS( const struct OH_NativeBuffer* buffer ) const
++    {
++      VULKAN_HPP_ASSERT( getDispatcher()->vkGetNativeBufferPropertiesOHOS &&
++                         "Function <vkGetNativeBufferPropertiesOHOS> requires <VK_OHOS_external_memory>" );
++
++      StructureChain<X, Y, Z...>                                     structureChain;
++      VULKAN_HPP_NAMESPACE::NativeBufferPropertiesOHOS & properties =
++        structureChain.template get<VULKAN_HPP_NAMESPACE::NativeBufferPropertiesOHOS>();
++      VULKAN_HPP_NAMESPACE::Result result = static_cast<VULKAN_HPP_NAMESPACE::Result>( getDispatcher()->VkNativeBufferPropertiesOHOS(
++        static_cast<VkDevice>( m_device ), &buffer, reinterpret_cast<VkNativeBufferPropertiesOHOS *>( &properties ) ) );
++      resultCheck( result, VULKAN_HPP_NAMESPACE_STRING "::Device::getAndroidHardwareBufferPropertiesANDROID" );
++
++      return structureChain;
++    }
++
++    VULKAN_HPP_NODISCARD VULKAN_HPP_INLINE struct OH_NativeBuffer *
++      Device::getMemoryNativeBufferOHOS( const VULKAN_HPP_NAMESPACE::MemoryGetNativeBufferInfoOHOS & info ) const
++    {
++      VULKAN_HPP_ASSERT( getDispatcher()->vkGetMemoryNativeBufferOHOS &&
++                         "Function <vkGetMemoryNativeBufferOHOS> requires <VK_OHOS_external_memory>" );
++
++      struct OH_NativeBuffer *     buffer;
++      VULKAN_HPP_NAMESPACE::Result result = static_cast<VULKAN_HPP_NAMESPACE::Result>( getDispatcher()->vkGetMemoryNativeBufferOHOS(
++        static_cast<VkDevice>( m_device ), reinterpret_cast<const VkMemoryGetNativeBufferInfoOHOS *>( &info ), &buffer ) );
++      resultCheck( result, VULKAN_HPP_NAMESPACE_STRING "::Device::getMemoryNativeBufferOHOS" );
++
++      return buffer;
++    }
++#  endif /*VK_USE_PLATFORM_OHOS_KHR*/
++
+ #  if defined( VK_ENABLE_BETA_EXTENSIONS )
+     //=== VK_AMDX_shader_enqueue ===
+ 
+diff --git a/include/vulkan/vulkan_static_assertions.hpp b/include/vulkan/vulkan_static_assertions.hpp
+index 30f287a..285b872 100644
+--- a/include/vulkan/vulkan_static_assertions.hpp
++++ b/include/vulkan/vulkan_static_assertions.hpp
+@@ -3226,6 +3226,34 @@ VULKAN_HPP_STATIC_ASSERT( std::is_nothrow_move_constructible<VULKAN_HPP_NAMESPAC
+                           "AndroidHardwareBufferFormatProperties2ANDROID is not nothrow_move_constructible!" );
+ #endif /*VK_USE_PLATFORM_ANDROID_KHR*/
+ 
++#if defined( VK_USE_PLATFORM_OHOS_KHR )
++
++VULKAN_HPP_STATIC_ASSERT( sizeof( VULKAN_HPP_NAMESPACE::ExternalFormatOHOS ) == sizeof( VkExternalFormatOHOS ),
++                          "struct and wrapper have different size!" );
++VULKAN_HPP_STATIC_ASSERT( std::is_standard_layout<VULKAN_HPP_NAMESPACE::ExternalFormatOHOS>::value, "struct wrapper is not a standard layout!" );
++VULKAN_HPP_STATIC_ASSERT( std::is_nothrow_move_constructible<VULKAN_HPP_NAMESPACE::ExternalFormatOHOS>::value,
++                          "ExternalFormatOHOS is not nothrow_move_constructible!" );
++VULKAN_HPP_STATIC_ASSERT( sizeof( VULKAN_HPP_NAMESPACE::NativeBufferPropertiesOHOS ) == sizeof( VkNativeBufferPropertiesOHOS ),
++                          "struct and wrapper have different size!" );
++VULKAN_HPP_STATIC_ASSERT( std::is_standard_layout<VULKAN_HPP_NAMESPACE::NativeBufferPropertiesOHOS>::value,
++                          "struct wrapper is not a standard layout!" );
++VULKAN_HPP_STATIC_ASSERT( std::is_nothrow_move_constructible<VULKAN_HPP_NAMESPACE::NativeBufferPropertiesOHOS>::value,
++                          "NativeBufferPropertiesOHOS is not nothrow_move_constructible!" );
++VULKAN_HPP_STATIC_ASSERT( sizeof( VULKAN_HPP_NAMESPACE::MemoryGetNativeBufferInfoOHOS ) == sizeof( VkMemoryGetNativeBufferInfoOHOS ),
++                          "struct and wrapper have different size!" );
++VULKAN_HPP_STATIC_ASSERT( std::is_standard_layout<VULKAN_HPP_NAMESPACE::MemoryGetNativeBufferInfoOHOS>::value,
++                          "struct wrapper is not a standard layout!" );
++VULKAN_HPP_STATIC_ASSERT( std::is_nothrow_move_constructible<VULKAN_HPP_NAMESPACE::MemoryGetNativeBufferInfoOHOS>::value,
++                          "MemoryGetNativeBufferInfoOHOS is not nothrow_move_constructible!" );
++VULKAN_HPP_STATIC_ASSERT( sizeof( VULKAN_HPP_NAMESPACE::NativeBufferFormatPropertiesOHOS ) ==
++                            sizeof( VkNativeBufferFormatPropertiesOHOS ),
++                          "struct and wrapper have different size!" );
++VULKAN_HPP_STATIC_ASSERT( std::is_standard_layout<VULKAN_HPP_NAMESPACE::NativeBufferFormatPropertiesOHOS>::value,
++                          "struct wrapper is not a standard layout!" );
++VULKAN_HPP_STATIC_ASSERT( std::is_nothrow_move_constructible<VULKAN_HPP_NAMESPACE::NativeBufferFormatPropertiesOHOS>::value,
++                          "NativeBufferFormatPropertiesOHOS is not nothrow_move_constructible!" );
++#endif /*VK_USE_PLATFORM_OHOS_KHR*/
++
+ #if defined( VK_ENABLE_BETA_EXTENSIONS )
+ //=== VK_AMDX_shader_enqueue ===
+ 
+diff --git a/include/vulkan/vulkan_structs.hpp b/include/vulkan/vulkan_structs.hpp
+index c18fbe9..4666d6f 100644
+--- a/include/vulkan/vulkan_structs.hpp
++++ b/include/vulkan/vulkan_structs.hpp
+@@ -5072,6 +5072,134 @@ namespace VULKAN_HPP_NAMESPACE
+   };
+ #endif /*VK_USE_PLATFORM_ANDROID_KHR*/
+ 
++#if defined( VK_USE_PLATFORM_OHOS_KHR )
++  struct NativeBufferFormatPropertiesOHOS
++  {
++    using NativeType = VkNativeBufferFormatPropertiesOHOS;
++
++    static const bool                                  allowDuplicate = false;
++    static VULKAN_HPP_CONST_OR_CONSTEXPR StructureType structureType  = StructureType::eNativeBufferFormatPropertiesOHOS;
++
++#  if !defined( VULKAN_HPP_NO_STRUCT_CONSTRUCTORS )
++    VULKAN_HPP_CONSTEXPR NativeBufferFormatPropertiesOHOS(
++      VULKAN_HPP_NAMESPACE::Format                      format_                           = VULKAN_HPP_NAMESPACE::Format::eUndefined,
++      uint64_t                                          externalFormat_                   = {},
++      VULKAN_HPP_NAMESPACE::FormatFeatureFlags          formatFeatures_                   = {},
++      VULKAN_HPP_NAMESPACE::ComponentMapping            samplerYcbcrConversionComponents_ = {},
++      VULKAN_HPP_NAMESPACE::SamplerYcbcrModelConversion suggestedYcbcrModel_              = VULKAN_HPP_NAMESPACE::SamplerYcbcrModelConversion::eRgbIdentity,
++      VULKAN_HPP_NAMESPACE::SamplerYcbcrRange           suggestedYcbcrRange_              = VULKAN_HPP_NAMESPACE::SamplerYcbcrRange::eItuFull,
++      VULKAN_HPP_NAMESPACE::ChromaLocation              suggestedXChromaOffset_           = VULKAN_HPP_NAMESPACE::ChromaLocation::eCositedEven,
++      VULKAN_HPP_NAMESPACE::ChromaLocation              suggestedYChromaOffset_           = VULKAN_HPP_NAMESPACE::ChromaLocation::eCositedEven,
++      void *                                            pNext_                            = nullptr ) VULKAN_HPP_NOEXCEPT
++      : pNext( pNext_ )
++      , format( format_ )
++      , externalFormat( externalFormat_ )
++      , formatFeatures( formatFeatures_ )
++      , samplerYcbcrConversionComponents( samplerYcbcrConversionComponents_ )
++      , suggestedYcbcrModel( suggestedYcbcrModel_ )
++      , suggestedYcbcrRange( suggestedYcbcrRange_ )
++      , suggestedXChromaOffset( suggestedXChromaOffset_ )
++      , suggestedYChromaOffset( suggestedYChromaOffset_ )
++    {
++    }
++
++    VULKAN_HPP_CONSTEXPR NativeBufferFormatPropertiesOHOS( NativeBufferFormatPropertiesOHOS const & rhs ) VULKAN_HPP_NOEXCEPT = default;
++
++    NativeBufferFormatPropertiesOHOS( VkNativeBufferFormatPropertiesOHOS const & rhs ) VULKAN_HPP_NOEXCEPT
++      : NativeBufferFormatPropertiesOHOS( *reinterpret_cast<NativeBufferFormatPropertiesOHOS const *>( &rhs ) )
++    {
++    }
++
++    NativeBufferFormatPropertiesOHOS & operator=( NativeBufferFormatPropertiesOHOS const & rhs ) VULKAN_HPP_NOEXCEPT = default;
++#  endif /*VULKAN_HPP_NO_STRUCT_CONSTRUCTORS*/
++
++    NativeBufferFormatPropertiesOHOS & operator=( VkNativeBufferFormatPropertiesOHOS const & rhs ) VULKAN_HPP_NOEXCEPT
++    {
++      *this = *reinterpret_cast<VULKAN_HPP_NAMESPACE::NativeBufferFormatPropertiesOHOS const *>( &rhs );
++      return *this;
++    }
++
++    operator VkNativeBufferFormatPropertiesOHOS const &() const VULKAN_HPP_NOEXCEPT
++    {
++      return *reinterpret_cast<const VkNativeBufferFormatPropertiesOHOS *>( this );
++    }
++
++    operator VkNativeBufferFormatPropertiesOHOS &() VULKAN_HPP_NOEXCEPT
++    {
++      return *reinterpret_cast<VkNativeBufferFormatPropertiesOHOS *>( this );
++    }
++
++#  if defined( VULKAN_HPP_USE_REFLECT )
++#    if 14 <= VULKAN_HPP_CPP_VERSION
++    auto
++#    else
++    std::tuple<VULKAN_HPP_NAMESPACE::StructureType const &,
++               void * const &,
++               VULKAN_HPP_NAMESPACE::Format const &,
++               uint64_t const &,
++               VULKAN_HPP_NAMESPACE::FormatFeatureFlags const &,
++               VULKAN_HPP_NAMESPACE::ComponentMapping const &,
++               VULKAN_HPP_NAMESPACE::SamplerYcbcrModelConversion const &,
++               VULKAN_HPP_NAMESPACE::SamplerYcbcrRange const &,
++               VULKAN_HPP_NAMESPACE::ChromaLocation const &,
++               VULKAN_HPP_NAMESPACE::ChromaLocation const &>
++#    endif
++      reflect() const VULKAN_HPP_NOEXCEPT
++    {
++      return std::tie( sType,
++                       pNext,
++                       format,
++                       externalFormat,
++                       formatFeatures,
++                       samplerYcbcrConversionComponents,
++                       suggestedYcbcrModel,
++                       suggestedYcbcrRange,
++                       suggestedXChromaOffset,
++                       suggestedYChromaOffset );
++    }
++#  endif
++
++#  if defined( VULKAN_HPP_HAS_SPACESHIP_OPERATOR )
++    auto operator<=>( NativeBufferFormatPropertiesOHOS const & ) const = default;
++#  else
++    bool operator==( NativeBufferFormatPropertiesOHOS const & rhs ) const VULKAN_HPP_NOEXCEPT
++    {
++#    if defined( VULKAN_HPP_USE_REFLECT )
++      return this->reflect() == rhs.reflect();
++#    else
++      return ( sType == rhs.sType ) && ( pNext == rhs.pNext ) && ( format == rhs.format ) && ( externalFormat == rhs.externalFormat ) &&
++             ( formatFeatures == rhs.formatFeatures ) && ( samplerYcbcrConversionComponents == rhs.samplerYcbcrConversionComponents ) &&
++             ( suggestedYcbcrModel == rhs.suggestedYcbcrModel ) && ( suggestedYcbcrRange == rhs.suggestedYcbcrRange ) &&
++             ( suggestedXChromaOffset == rhs.suggestedXChromaOffset ) && ( suggestedYChromaOffset == rhs.suggestedYChromaOffset );
++#    endif
++    }
++
++    bool operator!=( NativeBufferFormatPropertiesOHOS const & rhs ) const VULKAN_HPP_NOEXCEPT
++    {
++      return !operator==( rhs );
++    }
++#  endif
++
++  public:
++    VULKAN_HPP_NAMESPACE::StructureType               sType                            = StructureType::eNativeBufferFormatPropertiesOHOS;
++    void *                                            pNext                            = {};
++    VULKAN_HPP_NAMESPACE::Format                      format                           = VULKAN_HPP_NAMESPACE::Format::eUndefined;
++    uint64_t                                          externalFormat                   = {};
++    VULKAN_HPP_NAMESPACE::FormatFeatureFlags          formatFeatures                   = {};
++    VULKAN_HPP_NAMESPACE::ComponentMapping            samplerYcbcrConversionComponents = {};
++    VULKAN_HPP_NAMESPACE::SamplerYcbcrModelConversion suggestedYcbcrModel              = VULKAN_HPP_NAMESPACE::SamplerYcbcrModelConversion::eRgbIdentity;
++    VULKAN_HPP_NAMESPACE::SamplerYcbcrRange           suggestedYcbcrRange              = VULKAN_HPP_NAMESPACE::SamplerYcbcrRange::eItuFull;
++    VULKAN_HPP_NAMESPACE::ChromaLocation              suggestedXChromaOffset           = VULKAN_HPP_NAMESPACE::ChromaLocation::eCositedEven;
++    VULKAN_HPP_NAMESPACE::ChromaLocation              suggestedYChromaOffset           = VULKAN_HPP_NAMESPACE::ChromaLocation::eCositedEven;
++  };
++
++  template <>
++  struct CppType<StructureType, StructureType::eNativeBufferFormatPropertiesOHOS>
++  {
++    using Type = NativeBufferFormatPropertiesOHOS;
++  };
++#endif /*VK_USE_PLATFORM_OHOS_KHR*/
++
+ #if defined( VK_USE_PLATFORM_ANDROID_KHR )
+   struct AndroidHardwareBufferFormatResolvePropertiesANDROID
+   {
+@@ -5248,6 +5376,94 @@ namespace VULKAN_HPP_NAMESPACE
+   };
+ #endif /*VK_USE_PLATFORM_ANDROID_KHR*/
+ 
++#if defined( VK_USE_PLATFORM_OHOS_KHR )
++  struct NativeBufferPropertiesOHOS
++  {
++    using NativeType = VkNativeBufferPropertiesOHOS;
++
++    static const bool                                  allowDuplicate = false;
++    static VULKAN_HPP_CONST_OR_CONSTEXPR StructureType structureType  = StructureType::eNativeBufferPropertiesOHOS;
++
++#  if !defined( VULKAN_HPP_NO_STRUCT_CONSTRUCTORS )
++    VULKAN_HPP_CONSTEXPR NativeBufferPropertiesOHOS( VULKAN_HPP_NAMESPACE::DeviceSize allocationSize_ = {},
++                                                                 uint32_t                         memoryTypeBits_ = {},
++                                                                 void *                           pNext_          = nullptr ) VULKAN_HPP_NOEXCEPT
++      : pNext( pNext_ )
++      , allocationSize( allocationSize_ )
++      , memoryTypeBits( memoryTypeBits_ )
++    {
++    }
++
++    VULKAN_HPP_CONSTEXPR NativeBufferPropertiesOHOS( NativeBufferPropertiesOHOS const & rhs ) VULKAN_HPP_NOEXCEPT = default;
++
++    NativeBufferPropertiesOHOS( VkNativeBufferPropertiesOHOS const & rhs ) VULKAN_HPP_NOEXCEPT
++      : NativeBufferPropertiesOHOS( *reinterpret_cast<NativeBufferPropertiesOHOS const *>( &rhs ) )
++    {
++    }
++
++    NativeBufferPropertiesOHOS & operator=( NativeBufferPropertiesOHOS const & rhs ) VULKAN_HPP_NOEXCEPT = default;
++#  endif /*VULKAN_HPP_NO_STRUCT_CONSTRUCTORS*/
++
++    NativeBufferPropertiesOHOS & operator=( VkNativeBufferPropertiesOHOS const & rhs ) VULKAN_HPP_NOEXCEPT
++    {
++      *this = *reinterpret_cast<VULKAN_HPP_NAMESPACE::NativeBufferPropertiesOHOS const *>( &rhs );
++      return *this;
++    }
++
++    operator VkNativeBufferPropertiesOHOS const &() const VULKAN_HPP_NOEXCEPT
++    {
++      return *reinterpret_cast<const VkNativeBufferPropertiesOHOS *>( this );
++    }
++
++    operator VkNativeBufferPropertiesOHOS &() VULKAN_HPP_NOEXCEPT
++    {
++      return *reinterpret_cast<VkNativeBufferPropertiesOHOS *>( this );
++    }
++
++#  if defined( VULKAN_HPP_USE_REFLECT )
++#    if 14 <= VULKAN_HPP_CPP_VERSION
++    auto
++#    else
++    std::tuple<VULKAN_HPP_NAMESPACE::StructureType const &, void * const &, VULKAN_HPP_NAMESPACE::DeviceSize const &, uint32_t const &>
++#    endif
++      reflect() const VULKAN_HPP_NOEXCEPT
++    {
++      return std::tie( sType, pNext, allocationSize, memoryTypeBits );
++    }
++#  endif
++
++#  if defined( VULKAN_HPP_HAS_SPACESHIP_OPERATOR )
++    auto operator<=>( NativeBufferPropertiesOHOS const & ) const = default;
++#  else
++    bool operator==( NativeBufferPropertiesOHOS const & rhs ) const VULKAN_HPP_NOEXCEPT
++    {
++#    if defined( VULKAN_HPP_USE_REFLECT )
++      return this->reflect() == rhs.reflect();
++#    else
++      return ( sType == rhs.sType ) && ( pNext == rhs.pNext ) && ( allocationSize == rhs.allocationSize ) && ( memoryTypeBits == rhs.memoryTypeBits );
++#    endif
++    }
++
++    bool operator!=( NativeBufferPropertiesOHOS const & rhs ) const VULKAN_HPP_NOEXCEPT
++    {
++      return !operator==( rhs );
++    }
++#  endif
++
++  public:
++    VULKAN_HPP_NAMESPACE::StructureType sType          = StructureType::eNativeBufferPropertiesOHOS;
++    void *                              pNext          = {};
++    VULKAN_HPP_NAMESPACE::DeviceSize    allocationSize = {};
++    uint32_t                            memoryTypeBits = {};
++  };
++
++  template <>
++  struct CppType<StructureType, StructureType::eNativeBufferPropertiesOHOS>
++  {
++    using Type = NativeBufferPropertiesOHOS;
++  };
++#endif /*VK_USE_PLATFORM_OHOS_KHR*/
++
+ #if defined( VK_USE_PLATFORM_ANDROID_KHR )
+   struct AndroidHardwareBufferUsageANDROID
+   {
+@@ -35992,6 +36208,107 @@ namespace VULKAN_HPP_NAMESPACE
+   };
+ #endif /*VK_USE_PLATFORM_ANDROID_KHR*/
+ 
++
++#if defined( VK_USE_PLATFORM_OHOS_KHR )
++
++  struct ExternalFormatOHOS
++  {
++    using NativeType = ExternalFormatOHOS;
++
++    static const bool                                  allowDuplicate = false;
++    static VULKAN_HPP_CONST_OR_CONSTEXPR StructureType structureType  = StructureType::eExternalFormatOHOS;
++
++#  if !defined( VULKAN_HPP_NO_STRUCT_CONSTRUCTORS )
++    VULKAN_HPP_CONSTEXPR ExternalFormatOHOS( uint64_t externalFormat_ = {}, void * pNext_ = nullptr ) VULKAN_HPP_NOEXCEPT
++      : pNext( pNext_ )
++      , externalFormat( externalFormat_ )
++    {
++    }
++
++    VULKAN_HPP_CONSTEXPR ExternalFormatOHOS( ExternalFormatOHOS const & rhs ) VULKAN_HPP_NOEXCEPT = default;
++
++    ExternalFormatOHOS( VkExternalFormatOHOS const & rhs ) VULKAN_HPP_NOEXCEPT
++      : ExternalFormatOHOS( *reinterpret_cast<ExternalFormatOHOS const *>( &rhs ) )
++    {
++    }
++
++    ExternalFormatOHOS & operator=( ExternalFormatOHOS const & rhs ) VULKAN_HPP_NOEXCEPT = default;
++#  endif /*VULKAN_HPP_NO_STRUCT_CONSTRUCTORS*/
++
++    ExternalFormatOHOS & operator=( VkExternalFormatOHOS const & rhs ) VULKAN_HPP_NOEXCEPT
++    {
++      *this = *reinterpret_cast<VULKAN_HPP_NAMESPACE::ExternalFormatOHOS const *>( &rhs );
++      return *this;
++    }
++
++#  if !defined( VULKAN_HPP_NO_STRUCT_SETTERS )
++    VULKAN_HPP_CONSTEXPR_14 ExternalFormatOHOS & setPNext( void * pNext_ ) VULKAN_HPP_NOEXCEPT
++    {
++      pNext = pNext_;
++      return *this;
++    }
++
++    VULKAN_HPP_CONSTEXPR_14 ExternalFormatOHOS & setExternalFormat( uint64_t externalFormat_ ) VULKAN_HPP_NOEXCEPT
++    {
++      externalFormat = externalFormat_;
++      return *this;
++    }
++#  endif /*VULKAN_HPP_NO_STRUCT_SETTERS*/
++
++    operator VkExternalFormatOHOS const &() const VULKAN_HPP_NOEXCEPT
++    {
++      return *reinterpret_cast<const VkExternalFormatOHOS *>( this );
++    }
++
++    operator VkExternalFormatOHOS &() VULKAN_HPP_NOEXCEPT
++    {
++      return *reinterpret_cast<VkExternalFormatOHOS *>( this );
++    }
++
++#  if defined( VULKAN_HPP_USE_REFLECT )
++#    if 14 <= VULKAN_HPP_CPP_VERSION
++    auto
++#    else
++    std::tuple<VULKAN_HPP_NAMESPACE::StructureType const &, void * const &, uint64_t const &>
++#    endif
++      reflect() const VULKAN_HPP_NOEXCEPT
++    {
++      return std::tie( sType, pNext, externalFormat );
++    }
++#  endif
++
++#  if defined( VULKAN_HPP_HAS_SPACESHIP_OPERATOR )
++    auto operator<=>( ExternalFormatOHOS const & ) const = default;
++#  else
++    bool operator==( ExternalFormatOHOS const & rhs ) const VULKAN_HPP_NOEXCEPT
++    {
++#    if defined( VULKAN_HPP_USE_REFLECT )
++      return this->reflect() == rhs.reflect();
++#    else
++      return ( sType == rhs.sType ) && ( pNext == rhs.pNext ) && ( externalFormat == rhs.externalFormat );
++#    endif
++    }
++
++    bool operator!=( ExternalFormatOHOS const & rhs ) const VULKAN_HPP_NOEXCEPT
++    {
++      return !operator==( rhs );
++    }
++#  endif
++
++  public:
++    VULKAN_HPP_NAMESPACE::StructureType sType          = StructureType::eExternalFormatOHOS;
++    void *                              pNext          = {};
++    uint64_t                            externalFormat = {};
++  };
++
++  template <>
++  struct CppType<StructureType, StructureType::eExternalFormatOHOS>
++  {
++    using Type = ExternalFormatOHOS;
++  };
++#endif /*VK_USE_PLATFORM_OHOS_KHR*/
++
++
+ #if defined( VK_USE_PLATFORM_SCREEN_QNX )
+   struct ExternalFormatQNX
+   {
+@@ -50926,6 +51243,105 @@ namespace VULKAN_HPP_NAMESPACE
+   };
+ #endif /*VK_USE_PLATFORM_ANDROID_KHR*/
+ 
++#if defined( VK_USE_PLATFORM_OHOS_KHR )
++  struct MemoryGetNativeBufferInfoOHOS
++  {
++    using NativeType = VkMemoryGetNativeBufferInfoOHOS;
++
++    static const bool                                  allowDuplicate = false;
++    static VULKAN_HPP_CONST_OR_CONSTEXPR StructureType structureType  = StructureType::eMemoryGetNativeBufferInfoOHOS;
++
++#  if !defined( VULKAN_HPP_NO_STRUCT_CONSTRUCTORS )
++    VULKAN_HPP_CONSTEXPR MemoryGetNativeBufferInfoOHOS( VULKAN_HPP_NAMESPACE::DeviceMemory memory_ = {},
++                                                                    const void *                       pNext_  = nullptr ) VULKAN_HPP_NOEXCEPT
++      : pNext( pNext_ )
++      , memory( memory_ )
++    {
++    }
++
++    VULKAN_HPP_CONSTEXPR MemoryGetNativeBufferInfoOHOS( MemoryGetNativeBufferInfoOHOS const & rhs ) VULKAN_HPP_NOEXCEPT = default;
++
++    MemoryGetNativeBufferInfoOHOS( VkMemoryGetNativeBufferInfoOHOS const & rhs ) VULKAN_HPP_NOEXCEPT
++      : MemoryGetNativeBufferInfoOHOS( *reinterpret_cast<MemoryGetNativeBufferInfoOHOS const *>( &rhs ) )
++    {
++    }
++
++    MemoryGetNativeBufferInfoOHOS & operator=( MemoryGetNativeBufferInfoOHOS const & rhs ) VULKAN_HPP_NOEXCEPT = default;
++#  endif /*VULKAN_HPP_NO_STRUCT_CONSTRUCTORS*/
++
++    MemoryGetNativeBufferInfoOHOS & operator=( VkMemoryGetNativeBufferInfoOHOS const & rhs ) VULKAN_HPP_NOEXCEPT
++    {
++      *this = *reinterpret_cast<VULKAN_HPP_NAMESPACE::MemoryGetNativeBufferInfoOHOS const *>( &rhs );
++      return *this;
++    }
++
++#  if !defined( VULKAN_HPP_NO_STRUCT_SETTERS )
++    VULKAN_HPP_CONSTEXPR_14 MemoryGetNativeBufferInfoOHOS & setPNext( const void * pNext_ ) VULKAN_HPP_NOEXCEPT
++    {
++      pNext = pNext_;
++      return *this;
++    }
++
++    VULKAN_HPP_CONSTEXPR_14 MemoryGetNativeBufferInfoOHOS & setMemory( VULKAN_HPP_NAMESPACE::DeviceMemory memory_ ) VULKAN_HPP_NOEXCEPT
++    {
++      memory = memory_;
++      return *this;
++    }
++#  endif /*VULKAN_HPP_NO_STRUCT_SETTERS*/
++
++    operator VkMemoryGetNativeBufferInfoOHOS const &() const VULKAN_HPP_NOEXCEPT
++    {
++      return *reinterpret_cast<const VkMemoryGetNativeBufferInfoOHOS *>( this );
++    }
++
++    operator VkMemoryGetNativeBufferInfoOHOS &() VULKAN_HPP_NOEXCEPT
++    {
++      return *reinterpret_cast<VkMemoryGetNativeBufferInfoOHOS *>( this );
++    }
++
++#  if defined( VULKAN_HPP_USE_REFLECT )
++#    if 14 <= VULKAN_HPP_CPP_VERSION
++    auto
++#    else
++    std::tuple<VULKAN_HPP_NAMESPACE::StructureType const &, const void * const &, VULKAN_HPP_NAMESPACE::DeviceMemory const &>
++#    endif
++      reflect() const VULKAN_HPP_NOEXCEPT
++    {
++      return std::tie( sType, pNext, memory );
++    }
++#  endif
++
++#  if defined( VULKAN_HPP_HAS_SPACESHIP_OPERATOR )
++    auto operator<=>( MemoryGetNativeBufferInfoOHOS const & ) const = default;
++#  else
++    bool operator==( MemoryGetNativeBufferInfoOHOS const & rhs ) const VULKAN_HPP_NOEXCEPT
++    {
++#    if defined( VULKAN_HPP_USE_REFLECT )
++      return this->reflect() == rhs.reflect();
++#    else
++      return ( sType == rhs.sType ) && ( pNext == rhs.pNext ) && ( memory == rhs.memory );
++#    endif
++    }
++
++    bool operator!=( MemoryGetNativeBufferInfoOHOS const & rhs ) const VULKAN_HPP_NOEXCEPT
++    {
++      return !operator==( rhs );
++    }
++#  endif
++
++  public:
++    VULKAN_HPP_NAMESPACE::StructureType sType  = StructureType::eMemoryGetNativeBufferInfoOHOS;
++    const void *                        pNext  = {};
++    VULKAN_HPP_NAMESPACE::DeviceMemory  memory = {};
++  };
++
++  template <>
++  struct CppType<StructureType, StructureType::eMemoryGetNativeBufferInfoOHOS>
++  {
++    using Type = MemoryGetNativeBufferInfoOHOS;
++  };
++#endif /*VK_USE_PLATFORM_OHOS_KHR*/
++
+   struct MemoryGetFdInfoKHR
+   {
+     using NativeType = VkMemoryGetFdInfoKHR;
+diff --git a/include/vulkan/vulkan_to_string.hpp b/include/vulkan/vulkan_to_string.hpp
+index b7c08c7..20f9efd 100644
+--- a/include/vulkan/vulkan_to_string.hpp
++++ b/include/vulkan/vulkan_to_string.hpp
+@@ -4008,6 +4008,11 @@ namespace VULKAN_HPP_NAMESPACE
+       case StructureType::eExternalFormatANDROID: return "ExternalFormatANDROID";
+       case StructureType::eAndroidHardwareBufferFormatProperties2ANDROID: return "AndroidHardwareBufferFormatProperties2ANDROID";
+ #endif /*VK_USE_PLATFORM_ANDROID_KHR*/
++#if defined( VK_USE_PLATFORM_OHOS_KHR )
++      case StructureType::eExternalFormatOHOS: return "ExternalFormatOHOS";
++      case StructureType::eNativeBufferPropertiesOHOS: return "NativeBufferPropertiesOHOS";
++      case StructureType::eNativeBufferFormatPropertiesOHOS: return "NativeBufferFormatPropertiesOHOS";
++#endif /*VK_USE_PLATFORM_OHOS_KHR*/
+ #if defined( VK_ENABLE_BETA_EXTENSIONS )
+       case StructureType::ePhysicalDeviceShaderEnqueueFeaturesAMDX: return "PhysicalDeviceShaderEnqueueFeaturesAMDX";
+       case StructureType::ePhysicalDeviceShaderEnqueuePropertiesAMDX: return "PhysicalDeviceShaderEnqueuePropertiesAMDX";
