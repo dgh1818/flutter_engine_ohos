@@ -319,6 +319,10 @@ bool OHOSExternalTexture::CopyDataToNativeBuffer(const unsigned char* src,
 
 void OHOSExternalTexture::GetNewTransformBound(SkM44& transform,
                                                SkRect& bounds) {
+  if (producer_nativewindow_buffer_ != nullptr) {
+    transform = transform.setIdentity();
+    return;
+  }
   // Ohos's NativeBuffer transform matrix operates on the data center point,
   // while the texture's (0,0) coordinate is not the center. Therefore, we first
   // translate (0,0) to the center point, apply the NativeBuffer transform,
