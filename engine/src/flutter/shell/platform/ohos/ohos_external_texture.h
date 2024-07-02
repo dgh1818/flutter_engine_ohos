@@ -73,7 +73,7 @@ class OHOSExternalTexture : public flutter::Texture {
                               int height,
                               int stride);
 
-  //   void UpdateTransform();
+  void GetNewTransformBound(SkM44& transform, SkRect& bounds);
 
   enum class AttachmentState { kUninitialized, kAttached, kDetached };
 

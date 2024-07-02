@@ -4,6 +4,8 @@
 #include <GLES2/gl2ext.h>
 #include <native_buffer/native_buffer.h>
 #include <native_window/external_window.h>
+#include "include/core/SkM44.h"
+#include "include/core/SkMatrix.h"
 
 namespace flutter {
 
@@ -55,11 +57,15 @@ void OHOSExternalTexture::Paint(PaintContext& context,
     draw_dl_image = old_dl_image_;
   }
   if (draw_dl_image) {
-    // @todo use transform_
+    DlAutoCanvasRestore auto_restore(context.canvas, true);
+    SkRect new_bounds = bounds;
+    SkM44 new_transform;
+    GetNewTransformBound(new_transform, new_bounds);
+    context.canvas->Transform(new_transform);
     context.canvas->DrawImageRect(
         draw_dl_image,                                 // image
         SkRect::Make(draw_dl_image->bounds()),         // source rect
-        bounds,                                        // destination rect
+        new_bounds,                                    // destination rect
         sampling,                                      // sampling
         context.paint,                                 // paint
         flutter::DlCanvas::SrcRectConstraint::kStrict  // enforce edges
@@ -67,11 +73,15 @@ void OHOSExternalTexture::Paint(PaintContext& context,
     if (producer_nativewindow_buffer_ == nullptr) {
       SetGPUFence(&last_fence_fd_);
     }
-    FML_LOG(INFO) << "Draw one dl image " << draw_dl_image->bounds().width()
-                  << " " << draw_dl_image->bounds().height() << " "
-                  << draw_dl_image->bounds().left() << " "
-                  << draw_dl_image->bounds().top();
+    FML_LOG(INFO) << "Draw one dl image (" << draw_dl_image->bounds().width()
+                  << "," << draw_dl_image->bounds().height() << ")->("
+                  << bounds.width() << "," << bounds.height() << ")";
   } else {
+    // ready for fix black background issue when external texture is not ready.
+    // note: it may be incorrect because the background color should be set in
+    // dart DlAutoCanvasRestore auto_restore(context.canvas, true); DlPaint
+    // paint; paint.setColor(DlColor::kWhite());
+    // context.canvas->DrawRect(bounds, paint);
     FML_LOG(INFO) << "No DlImage available for ImageExternalTexture to paint.";
   }
 }
@@ -305,6 +315,36 @@ bool OHOSExternalTexture::CopyDataToNativeBuffer(const unsigned char* src,
   }
 
   return true;
+}
+
+void OHOSExternalTexture::GetNewTransformBound(SkM44& transform,
+                                               SkRect& bounds) {
+  // Ohos's NativeBuffer transform matrix operates on the data center point,
+  // while the texture's (0,0) coordinate is not the center. Therefore, we first
+  // translate (0,0) to the center point, apply the NativeBuffer transform,
+  // and then translate it back. This sequence of steps ensures
+  // the correct rotation. However, the canvas transform operates on the
+  // vertices(not the texture), so we invert the transform to achieve the
+  // opposite effect. In the end, rotating the vertices gives us the rotated
+  // texture, but the vertices cannot change positions, so we use the original
+  // transform to get the new bounds.
+  float matrix[16];
+  OH_NativeImage_GetTransformMatrix(native_image_source_, matrix);
+  SkM44 transform_center =
+      SkM44::Translate(bounds.centerX(), bounds.centerY(), 0);
+  SkM44 transform_back =
+      SkM44::Translate(-bounds.centerX(), -bounds.centerY(), 0);
+  SkM44 transform_origin = SkM44::RowMajor(matrix);
+  SkM44 transform_end = transform_center * transform_origin * transform_back;
+
+  SkM44 transform_inverted;
+  if (!transform_end.invert(&transform_inverted)) {
+    FML_LOG(ERROR) << "Invalid (not invertable) transformation matrix";
+  }
+
+  transform = transform_inverted;
+  transform_end.asM33().mapRect(&bounds);
+  return;
 }
 
 }  // namespace flutter
