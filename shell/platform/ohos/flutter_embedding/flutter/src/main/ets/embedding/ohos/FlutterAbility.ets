@@ -82,6 +82,10 @@ export class FlutterAbility extends UIAbility implements Host {
       this.delegate?.onCreate();
     }
 
+    if (this.stillAttachedForEvent("onWindowStageCreate")) {
+      this?.delegate?.onWindowStageCreate();
+    }
+
     console.log('MyAbility onCreate');
 
     this.context.eventHub.on(EVENT_BACK_PRESS, () => {
@@ -96,6 +100,12 @@ export class FlutterAbility extends UIAbility implements Host {
       }
     }
     this.errorManagerId = errorManager.on('error', observer);
+
+    let flutterApplicationInfo = ApplicationInfoLoader.load(this.context);
+
+    if (flutterApplicationInfo.isDebugMode) {
+      this.delegate?.initWindow();
+    }
   }
 
   onDestroy() {
@@ -125,7 +135,7 @@ export class FlutterAbility extends UIAbility implements Host {
    */
   onWindowStageCreate(windowStage: window.WindowStage) {
     FlutterManager.getInstance().pushWindowStage(this, windowStage);
-    this.delegate?.onWindowStageCreate();
+    this.delegate?.initWindow();
     this.mainWindow = windowStage.getMainWindowSync();
     try {
       windowStage.on('windowStageEvent', (data) => {
