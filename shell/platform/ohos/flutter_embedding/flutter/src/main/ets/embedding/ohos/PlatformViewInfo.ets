@@ -20,13 +20,17 @@ export class PlatformViewInfo {
   public surfaceId: string;
   public width: number;
   public height: number;
+  public top: number;
+  public left: number;
   public direction: Direction;
 
-  constructor(platformView: PlatformView, surfaceId: string, width: number, height: number, direction: Direction) {
+  constructor(platformView: PlatformView, surfaceId: string, width: number, height: number, top: number, left: number, direction: Direction) {
     this.platformView = platformView;
     this.surfaceId = surfaceId;
     this.width = width;
     this.height = height;
+    this.top = top;
+    this.left = left;
     this.direction = direction;
   }
 }

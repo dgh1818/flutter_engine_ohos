@@ -49,9 +49,8 @@ import { NodeRenderType } from '@kit.ArkUI';
 import { PlatformViewInfo } from '../../embedding/ohos/PlatformViewInfo';
 import { EmbeddingNodeController } from '../../embedding/ohos/EmbeddingNodeController';
 
-
 const TAG = "PlatformViewsController"
-let timeStamp: number = 52086377781000
+
 export default class PlatformViewsController implements PlatformViewsAccessibilityDelegate, PlatformViewsHandler {
   private registry: PlatformViewRegistryImpl;
   private context: Context | null = null;
@@ -166,27 +165,8 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
   }
 
   onTouch(touch: PlatformViewTouch): void {
-    console.log("nodeController onTouch:")
-    let pointX = 0;
-    let pointY = 0;
-    let rawPointerCoords1: Array<ESObject> = touch.rawPointerCoords as Array<ESObject> ;
-    rawPointerCoords1.forEach((item: ESObject) => {
-      let rawPoints: ArrayList<ESObject> = item as ArrayList<ESObject>;
-      let length = rawPoints.length
-      pointX = rawPoints[length - 2];
-      pointY = rawPoints[length - 1];
-    })
-
-
-    timeStamp = timeStamp + 10000;
-    let touches1: CustomTouchObject = new CustomTouchObject(touch.action, 0, pointX, pointY, pointX, pointY, pointX, pointY, pointX, pointY);
-    let changedTouches1: CustomTouchObject = new CustomTouchObject(touch.action, 0, pointX, pointY, pointX, pointY, pointX, pointY, pointX, pointY);
-    let customTouchEvent1: CustomTouchEvent = new CustomTouchEvent(touch.action, [touches1], [changedTouches1], timeStamp, 2, 1, 0, 0, 1)
-
-    if (this.flutterView == null) {
-      Log.e(TAG, "flutterView is null")
-    }
-    this.flutterView!.getEmbeddingNodeController().postEvent(customTouchEvent1);
+    console.log("nodeController onTouch:do nothing")
+    // do nothing
   }
 
   setDirection(viewId: number, direction: Direction): void {
@@ -288,10 +268,10 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     let physicalHeight: number = this.toPhysicalPixels(request.logicalHeight);
     nodeWidthLink.set(physicalWidth);
     nodeHeightLink.set(physicalHeight);
-
+    this.flutterView!.getPlatformViewSize().SetValue(request.logicalWidth, request.logicalHeight, request.logicalTop, request.logicalLeft);
     this.flutterView!.getEmbeddingNodeController().setRenderOption(platformView, surfaceId, NodeRenderType.RENDER_TYPE_TEXTURE, request.direction);
     this.flutterView!.getEmbeddingNodeController().rebuild();
-    let platformViewInfo: PlatformViewInfo = new PlatformViewInfo(platformView, surfaceId, physicalWidth, physicalHeight, request.direction);
+    let platformViewInfo: PlatformViewInfo = new PlatformViewInfo(platformView, surfaceId, physicalWidth, physicalHeight, request.logicalTop, request.logicalLeft, request.direction);
     this.nodeControllers.push(platformViewInfo);
     Log.i(TAG, "Create platform view success");
 
@@ -371,6 +351,7 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     if (platformViewInfo != undefined && platformViewInfo.platformView != undefined) {
       nodeWidthLink.set(platformViewInfo.width);
       nodeHeightLink.set(platformViewInfo.height);
+      this.flutterView!.getPlatformViewSize().SetValue(platformViewInfo.width, platformViewInfo.height, platformViewInfo.top, platformViewInfo.left);
       this.flutterView!.getEmbeddingNodeController().setRenderOption(platformViewInfo.platformView, platformViewInfo.surfaceId, NodeRenderType.RENDER_TYPE_TEXTURE, platformViewInfo.direction);
       this.flutterView!.getEmbeddingNodeController().rebuild();
     }

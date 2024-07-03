@@ -72,6 +72,8 @@ class PlatformViewOHOSNapi {
                    void* inputData,
                    size_t dataSize);
 
+  void FlutterViewOnTouchEvent(std::shared_ptr<std::string[]> touchPacketString, int size);
+
   static napi_value nativeUpdateRefreshRate(
       napi_env env,
       napi_callback_info info);  // 设置刷新率
