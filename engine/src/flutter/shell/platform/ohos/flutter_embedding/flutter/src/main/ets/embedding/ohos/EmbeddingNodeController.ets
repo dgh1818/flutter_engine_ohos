@@ -81,8 +81,13 @@ export class EmbeddingNodeController extends NodeController {
     }
   }
 
-  postEvent(event: TouchEvent | undefined) : boolean {
-    if (event != undefined) {
+  postEvent(event: TouchEvent | undefined, isPx: boolean = false): boolean {
+    if (event == undefined) {
+      return false;
+    }
+
+    // change vp to px
+    if (!isPx) {
       let changedTouchLen = event.changedTouches.length;
       for (let i = 0; i< changedTouchLen; i++) {
         event.changedTouches[i].displayX = vp2px(event.changedTouches[i].displayX);
@@ -94,9 +99,8 @@ export class EmbeddingNodeController extends NodeController {
         event.changedTouches[i].x = vp2px(event.changedTouches[i].x);
         event.changedTouches[i].y = vp2px(event.changedTouches[i].y);
       }
-      return this.rootNode?.postTouchEvent(event) as boolean
-    } else {
-      return false;
     }
+
+    return this.rootNode?.postTouchEvent(event) as boolean
   }
 }

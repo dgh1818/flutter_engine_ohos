@@ -516,8 +516,13 @@ void PlatformViewOHOS::RegisterExternalTextureByPixelMap(
   }
 }
 
-OhosImageFrameData::OhosImageFrameData(PlatformViewOHOS* context,
-                                       int64_t texture_id)
+void PlatformViewOHOS::OnTouchEvent(const std::shared_ptr<std::string[]> touchPacketString, int size) {
+  return napi_facade_->FlutterViewOnTouchEvent(touchPacketString, size);
+}
+
+OhosImageFrameData::OhosImageFrameData(
+    PlatformViewOHOS* context,
+    int64_t texture_id)
     : context_(context), texture_id_(texture_id) {}
 
 OhosImageFrameData::~OhosImageFrameData() = default;
