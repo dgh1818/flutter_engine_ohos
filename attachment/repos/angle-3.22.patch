@@ -50,16 +50,16 @@ index 31fb784ed..8f5975ec5 100644
  
    angle_vulkan_headers_dir =
 -      "$angle_root/third_party/vulkan-deps/vulkan-headers/src"
-+      "//third_party/vulkan-deps/vulkan-headers/src"
++      "//flutter/third_party/vulkan-deps/vulkan-headers/src"
    angle_vulkan_loader_dir =
 -      "$angle_root/third_party/vulkan-deps/vulkan-loader/src"
-+      "//third_party/vulkan-deps/vulkan-loader/src"
++      "//flutter/third_party/vulkan-deps/vulkan-loader/src"
    angle_vulkan_tools_dir =
 -      "$angle_root/third_party/vulkan-deps/vulkan-tools/src"
-+      "//third_party/vulkan-deps/vulkan-tools/src"
++      "//flutter/third_party/vulkan-deps/vulkan-tools/src"
    angle_vulkan_validation_layers_dir =
 -      "$angle_root/third_party/vulkan-deps/vulkan-validation-layers/src"
-+      "//third_party/vulkan-deps/vulkan-validation-layers/src"
++      "//flutter/third_party/vulkan-deps/vulkan-validation-layers/src"
  
    angle_build_vulkan_system_info = angle_has_build && !angle_is_winuwp
  
