@@ -1,4 +1,6 @@
-﻿#include "flutter/fml/platform/ohos/hisysevent_c.h"
+﻿#if !defined(_WIN32) && !defined(_WIN64)
+#include "flutter/fml/platform/ohos/hisysevent_c.h"
+#include "flutter/fml/platform/ohos/hisysevent_c.h"
 
 namespace fml {
 
@@ -111,3 +113,4 @@ int HiSysEventWrite(const char* name, uint64_t time) {
 }
 
 }  // namespace fml
+#endif
