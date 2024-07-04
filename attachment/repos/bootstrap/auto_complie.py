@@ -52,7 +52,7 @@ def runGitCommand(command):
     result = subprocess.run(command, capture_output=True, text=True, shell=True)
     if result.returncode != 0:
         raise Exception(f"Git command failed: {result.stderr}")
-    return result.stdout
+    return result.stdout.strip()
 
 def runPyCommand(command):
 
@@ -94,7 +94,7 @@ def uploadCallback(transferredAmount, totalAmount, totalSeconds):
     # 获取上传进度百分比
     progress = int(transferredAmount * 100.0 / totalAmount)
     print("\r", end="")
-    print("速度：{} KB/S 进度: {}%: ".format(speed, progress), "▓" * (progress // 2), end="")
+    print("Speed: {} KB/S progress: {}%: ".format(speed, progress), "▓" * (progress // 2), end="")
     sys.stdout.flush()
     if progress == 100:
         print("")
@@ -133,23 +133,6 @@ def checkRemoteBranchUpdates(repoPath, remoteName='origin', branch='dev'):
         log("Local repository is up to date.")
         return False
 
-# 更新代码
-def updateCode():
-    # 调用ohos.py更新代码
-    log('update source code')
-    runPyCommand(['python3', os.path.join(os.getcwd(), 'ohos.py'), '-b', 'dev'])
-
-# 执行编译
-def compileCode():
-    # 调用ohhos.py编译flutter engine
-    log('compile flutter engine debug')
-    runPyCommand(['python3', os.path.join(os.getcwd(), 'ohos.py'), '-t', 'debug'])
-
-    log('compile flutter engine profile')
-    runPyCommand(['python3', os.path.join(os.getcwd(), 'ohos.py'), '-t', 'profile'])
-
-    log('compile flutter engine release')
-    runPyCommand(['python3', os.path.join(os.getcwd(), 'ohos.py'), '-t', 'release'])
 
 # 获取编译产物
 def getCompileFiles(buildType):
@@ -205,15 +188,8 @@ def uploadServer(version, buildType, filePath):
 
 
 def main():
-
-    # if checkRemoteBranchUpdates(FLUTTER_ENGINE_PATH) :
     if checkRemoteTagsUpdates() :
-        updateCode()
-        compileCode()
-        log("编译完成")
-
-        engineRevision = os.path.join(FLUTTER_ENGINE_PATH, 'build', 'git_revision.py')
-        localVersion = subprocess.getoutput(f'python {engineRevision} --repository {FLUTTER_ENGINE_PATH}')
+        localVersion = runGitCommand(f'git -C {FLUTTER_ENGINE_PATH} rev-parse HEAD')
         log(localVersion)
 
         # 获取编译产物
@@ -223,7 +199,7 @@ def main():
                 if not filePath or not os.path.exists(filePath):
                     continue
                 print(filePath)
-                # uploadServer(localVersion, buildType, filePath)
+                uploadServer(localVersion, buildType, filePath)
 
         log('上传完成')
 

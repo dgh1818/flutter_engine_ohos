@@ -44,6 +44,10 @@ class OHOSExternalTextureGL : public flutter::Texture {
 
   OH_NativeImage* nativeImage_;
 
+  OH_NativeImage* backGroundNativeImage_;
+
+  bool first_update_ = false;
+
   void Paint(PaintContext& context,
              const SkRect& bounds,
              bool freeze,
@@ -58,6 +62,8 @@ class OHOSExternalTextureGL : public flutter::Texture {
   void OnTextureUnregistered() override;
 
   void DispatchImage(ImageNative* image);
+
+  void setBackground(int32_t width, int32_t height);
 
   void DispatchPixelMap(NativePixelMap* pixelMap);
 
@@ -88,21 +94,31 @@ class OHOSExternalTextureGL : public flutter::Texture {
 
   GLuint texture_name_ = 0;
 
+  GLuint backGroundTextureName_ = 0;
+
   std::shared_ptr<OHOSSurface> ohos_surface_;
 
   SkMatrix transform_;
 
   OHNativeWindow* nativeWindow_;
 
+  OHNativeWindow* backGroundNativeWindow_;
+
   OHNativeWindowBuffer* buffer_;
+
+  OHNativeWindowBuffer* backGroundBuffer_;
 
   NativePixelMap* pixelMap_;
 
   ImageNative* lastImage_;
 
+  bool isEmulator_;
+
   OhosPixelMapInfos pixelMapInfo;
 
   int fenceFd = -1;
+
+  int backGroundFenceFd = -1;
 
   EGLContext eglContext_;
   EGLDisplay eglDisplay_;

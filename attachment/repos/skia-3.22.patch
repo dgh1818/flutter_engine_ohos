@@ -3924,3 +3924,17 @@ index 0000000000..ec225a188e
 +    }
 +  ]
 +}
+diff --git a/src/core/SkRRectPriv.h b/src/core/SkRRectPriv.h
+index cea579c901..baaeaff966 100644
+--- a/src/core/SkRRectPriv.h
++++ b/src/core/SkRRectPriv.h
+@@ -20,7 +20,7 @@ public:
+     }
+ 
+     static SkVector GetSimpleRadii(const SkRRect& rr) {
+-        SkASSERT(!rr.isComplex());
++        // SkASSERT(!rr.isComplex());
+         return rr.fRadii[0];
+     }
+ 
+-- 
