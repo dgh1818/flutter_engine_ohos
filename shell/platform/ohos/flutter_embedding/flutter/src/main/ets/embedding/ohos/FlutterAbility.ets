@@ -175,7 +175,7 @@ export class FlutterAbility extends UIAbility implements Host {
 
         Log.i(TAG, 'Succeeded in loading the content. Data: %{public}s', JSON.stringify(data) ?? '');
       });
-      this.mainWindow?.setWindowLayoutFullScreen(true);
+      FlutterManager.getInstance().setUseFullScreen(true);
     } catch (exception) {
       Log.e(TAG, 'Failed to enable the listener for window stage event changes. Cause:' + JSON.stringify(exception));
     }

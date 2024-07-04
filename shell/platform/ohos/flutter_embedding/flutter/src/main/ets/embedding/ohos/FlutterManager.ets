@@ -57,7 +57,10 @@ export default class FlutterManager {
     return this.windowStageList.get(uiAbility)!!
   }
 
-  getUIAbility(context: Context): UIAbility {
+  getUIAbility(context?: Context): UIAbility {
+    if (!context && this.uiAbilityList.length > 0) {
+      return this.uiAbilityList[0];
+    }
     return this.uiAbilityList.find((item: UIAbility) => item.context == context)!!
   }
 
