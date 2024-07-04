@@ -60,6 +60,11 @@ export class PlatformViewParas {
     this.top = top;
     this.left = left;
   }
+
+  SetOffset(top: number, left: number): void {
+    this.top = top;
+    this.left = left;
+  }
 }
 
 export class FlutterView {
