@@ -25,8 +25,11 @@ namespace flutter {
 
 OHOSImageGenerator::OHOSImageGenerator(
     sk_sp<SkData> buffer,
+    const fml::RefPtr<fml::TaskRunner>& task_runner,
     std::shared_ptr<PlatformViewOHOSNapi> napi_facade)
-    : data_(std::move(buffer)), image_info_(SkImageInfo::MakeUnknown(-1, -1)) {
+    : data_(std::move(buffer)),
+      task_runner_(std::move(task_runner)),
+      image_info_(SkImageInfo::MakeUnknown(-1, -1)) {
   napi_facade_ = napi_facade;
 }
 
@@ -106,6 +109,10 @@ bool OHOSImageGenerator::GetPixels(const SkImageInfo& info,
   return true;
 }
 
+fml::RefPtr<fml::TaskRunner> OHOSImageGenerator::GetTaskRunner() const {
+  return task_runner_;
+}
+
 void OHOSImageGenerator::DecodeImage() {
   DoDecodeImage();
 
@@ -115,7 +122,7 @@ void OHOSImageGenerator::DecodeImage() {
 
 std::shared_ptr<ImageGenerator> OHOSImageGenerator::MakeFromData(
     sk_sp<SkData> data,
-    const fml::RefPtr<fml::TaskRunner>& task_runner,
+    const TaskRunners& task_runners,
     std::shared_ptr<PlatformViewOHOSNapi> napi_facade) {
   // Return directly if the image data is empty.
   // https://gitee.com/openharmony-sig/flutter_engine/issues/I9NX5N
@@ -124,11 +131,11 @@ std::shared_ptr<ImageGenerator> OHOSImageGenerator::MakeFromData(
   }
 
   // contructer is private,
-  std::shared_ptr<OHOSImageGenerator> generator(
-      new OHOSImageGenerator(std::move(data), napi_facade));
+  std::shared_ptr<OHOSImageGenerator> generator(new OHOSImageGenerator(
+              std::move(data), task_runners.GetPlatformTaskRunner(), napi_facade));
 
   fml::TaskRunner::RunNowOrPostTask(
-      task_runner, [generator]() { generator->DecodeImage(); });
+      task_runners.GetIOTaskRunner(), [generator]() { generator->DecodeImage(); });
 
   if (generator->IsValidImageData()) {
     return generator;
@@ -148,6 +155,24 @@ bool OHOSImageGenerator::IsValidImageData() {
   // height of -1 and will update the dimensions if the image is able to be
   // decoded.
   return GetInfo().height() != -1;
+}
+
+struct ReleaseCtx {
+  napi_env env;
+  napi_ref ref = nullptr;
+  char* buf;
+  fml::RefPtr<fml::TaskRunner> task_runner;
+};
+
+void on_release(const void* ptr, void* context) {
+  auto release_ctx = static_cast<ReleaseCtx*>(context);
+  fml::TaskRunner::RunNowOrPostTask(release_ctx->task_runner, [release_ctx]() { 
+    napi_value res = nullptr;
+    napi_get_reference_value(release_ctx->env, release_ctx->ref, &res);
+    OHOS::Media::OH_UnAccessPixels(release_ctx->env, res);
+    napi_delete_reference(release_ctx->env, release_ctx->ref);
+    delete release_ctx;  // 删除 ReleaseCtx 对象以避免内存泄漏
+  });
 }
 
 napi_value OHOSImageGenerator::NativeImageDecodeCallback(
@@ -206,25 +231,11 @@ napi_value OHOSImageGenerator::NativeImageDecodeCallback(
   }
   // pixel_lock, g_env_ =g_env , resultout
 
-  struct ReleaseCtx {
-    napi_env env_;
-    napi_ref ref = nullptr;
-    char* buf;
-  };
-
   ReleaseCtx* ctx = new ReleaseCtx();
-  ctx->env_ = env;
-  ctx->buf = (char*)pixel_lock;
+  ctx->env = env;
+  ctx->buf = static_cast<char*>(pixel_lock);
   napi_create_reference(env, args[3], 1, &(ctx->ref));
-
-  SkData::ReleaseProc on_release = [](const void* ptr, void* context) -> void {
-    ReleaseCtx* ctx = reinterpret_cast<ReleaseCtx*>(context);
-    napi_value res = nullptr;
-    napi_get_reference_value(ctx->env_, ctx->ref, &res);
-    OHOS::Media::OH_UnAccessPixels(ctx->env_, res);
-    napi_delete_reference(ctx->env_, ctx->ref);
-    return;
-  };
+  ctx->task_runner = generator->GetTaskRunner();
 
   // get software_decode_data by call back, bitmap buffer will unlock in
   // callback
