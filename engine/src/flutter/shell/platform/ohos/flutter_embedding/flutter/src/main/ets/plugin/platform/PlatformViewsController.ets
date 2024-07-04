@@ -162,6 +162,7 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
 
   offset(viewId: number, top: number, left: number): void {
     Log.i(TAG, `Offset is id${viewId}, t:${top}, l:${left}`);
+    this.flutterView!.getPlatformViewSize().SetOffset(top, left);
   }
 
   onTouch(touch: PlatformViewTouch): void {

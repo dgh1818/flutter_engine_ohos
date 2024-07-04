@@ -516,7 +516,8 @@ void PlatformViewOHOS::RegisterExternalTextureByPixelMap(
   }
 }
 
-void PlatformViewOHOS::OnTouchEvent(const std::shared_ptr<std::string[]> touchPacketString, int size) {
+void PlatformViewOHOS::OnTouchEvent(const std::shared_ptr<std::string[]> touchPacketString, int size)
+{
   return napi_facade_->FlutterViewOnTouchEvent(touchPacketString, size);
 }
 

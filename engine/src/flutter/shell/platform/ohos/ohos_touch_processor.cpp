@@ -113,7 +113,7 @@ void OhosTouchProcessor::HandleTouchEvent(
         return;
     }
     const int numTouchPoints = 1;
-    auto packet = std::make_unique<flutter::PointerDataPacket>(numTouchPoints);
+    std::unique_ptr<flutter::PointerDataPacket> packet = std::make_unique<flutter::PointerDataPacket>(numTouchPoints);
     PointerData pointerData;
     pointerData.Clear();
     pointerData.embedder_id = touchEvent->id;
