@@ -1,12 +1,10 @@
 ﻿#if !defined(_WIN32) && !defined(_WIN64)
 #include "flutter/fml/platform/ohos/hisysevent_c.h"
-#include "flutter/fml/platform/ohos/hisysevent_c.h"
 
 namespace fml {
 
 static void* handle = NULL;
 static HiSysEvent_Write_Def HiSysEvent_Write  = NULL;
-
 static const char* domain_ = "PERFORMANCE";
 static const char* event_ = "INTERACTION_HITCH_TIME_RATIO";
 static const HiSysEventEventType type_ = HISYSEVENT_BEHAVIOR;
@@ -84,8 +82,8 @@ static HiSysEventParam params_[12] = {
         .arraySize = 0,
     },
 };
-static const size_t size_ = 12;
 
+static const size_t size_ = 12;
 int HiSysEventWrite(const char* name, uint64_t time) {
     if (handle == NULL && HiSysEvent_Write == NULL) {
         handle = dlopen("/system/lib64/chipset-pub-sdk/libhisysevent.z.so", RTLD_LAZY);
@@ -111,6 +109,5 @@ int HiSysEventWrite(const char* name, uint64_t time) {
         return -1;
     }
 }
-
 }  // namespace fml
-#endif
+#endif // #if !defined(_WIN32) && !defined(_WIN64)
