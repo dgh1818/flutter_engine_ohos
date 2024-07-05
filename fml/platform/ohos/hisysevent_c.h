@@ -15,7 +15,7 @@
 #ifndef HISYSEVENT_INTERFACES_NATIVE_INNERKITS_HISYSEVENT_INCLUDE_HISYSEVENT_C_H
 #define HISYSEVENT_INTERFACES_NATIVE_INNERKITS_HISYSEVENT_INCLUDE_HISYSEVENT_C_H
 
-#if defined(FML_OS_OHOS) && !defined(_WIN32) && !defined(_WIN64)
+#if !defined(_WIN32) && !defined(_WIN64)
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -23,11 +23,15 @@
 #include <time.h>
 #include "flutter/fml/logging.h"
 
-#if !FLUTTER_RELEASE
+#if !FLUTTER_RELEASE && defined(FML_OS_OHOS)
 #define HISYSEVENT_WRITE_SINGLE(name)  \
     ::fml::HiSysEventWrite(name, 0);
 #define HISYSEVENT_WRITE_DURATION(name)   \
     ::fml::HiSysEventTrace __FML__TOKEN_CAT__2(hisysevent, __LINE__)(name);
+#else
+#define HISYSEVENT_WRITE_SINGLE(name)
+#define HISYSEVENT_WRITE_DURATION(name)
+#endif // !FLUTTER_RELEASE && defined(FML_OS_OHOS)
 
 namespace fml {
 
@@ -151,10 +155,9 @@ public:
 };
 
 }  // namespace fml
-#endif // defined(FML_OS_OHOS) && !defined(_WIN32) && !defined(_WIN64)
+
 #else
 #define HISYSEVENT_WRITE_SINGLE(name)
 #define HISYSEVENT_WRITE_DURATION(name)
-#endif
-
+#endif // #if !defined(_WIN32) && !defined(_WIN64)
 #endif // HISYSEVENT_INTERFACES_NATIVE_INNERKITS_HISYSEVENT_INCLUDE_HISYSEVENT_C_H
