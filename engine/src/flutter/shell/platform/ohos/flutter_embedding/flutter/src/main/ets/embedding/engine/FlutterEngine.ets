@@ -237,7 +237,7 @@ export default class FlutterEngine implements EngineLifecycleListener{
   }
 
   onPreEngineRestart(): void {
-
+    this.engineLifecycleListeners.forEach(listener => listener.onPreEngineRestart())
   }
 
   onEngineWillDestroy(): void {
