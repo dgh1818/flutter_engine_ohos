@@ -154,7 +154,7 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
 
   offset(viewId: number, top: number, left: number): void {
     Log.i(TAG, `Offset is id${viewId}, t:${top}, l:${left}`);
-    this.flutterView!.getPlatformViewSize().SetOffset(top, left);
+    this.flutterView!.getPlatformViewSize().setOffset(top, left);
   }
 
   onTouch(touch: PlatformViewTouch): void {
@@ -261,7 +261,7 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     let physicalHeight: number = this.toPhysicalPixels(request.logicalHeight);
     nodeWidthLink.set(physicalWidth);
     nodeHeightLink.set(physicalHeight);
-    this.flutterView!.getPlatformViewSize().SetValue(request.logicalWidth, request.logicalHeight, request.logicalTop, request.logicalLeft);
+    this.flutterView!.getPlatformViewSize().setValue(request.logicalWidth, request.logicalHeight, request.logicalTop, request.logicalLeft);
     this.flutterView!.getEmbeddingNodeController().setRenderOption(platformView, surfaceId, NodeRenderType.RENDER_TYPE_TEXTURE, request.direction);
     this.flutterView!.getEmbeddingNodeController().rebuild();
     let platformViewInfo: PlatformViewInfo = new PlatformViewInfo(platformView, surfaceId, physicalWidth, physicalHeight, request.logicalTop, request.logicalLeft, request.direction);
@@ -344,7 +344,7 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     if (platformViewInfo != undefined && platformViewInfo.platformView != undefined) {
       nodeWidthLink.set(platformViewInfo.width);
       nodeHeightLink.set(platformViewInfo.height);
-      this.flutterView!.getPlatformViewSize().SetValue(platformViewInfo.width, platformViewInfo.height, platformViewInfo.top, platformViewInfo.left);
+      this.flutterView!.getPlatformViewSize().setValue(platformViewInfo.width, platformViewInfo.height, platformViewInfo.top, platformViewInfo.left);
       this.flutterView!.getEmbeddingNodeController().setRenderOption(platformViewInfo.platformView, platformViewInfo.surfaceId, NodeRenderType.RENDER_TYPE_TEXTURE, platformViewInfo.direction);
       this.flutterView!.getEmbeddingNodeController().rebuild();
     }

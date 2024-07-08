@@ -54,14 +54,14 @@ export class PlatformViewParas {
   left: number = 0.0;
   direction: Direction = Direction.Auto;
 
-  SetValue(width: number, height: number, top: number, left: number): void {
+  setValue(width: number, height: number, top: number, left: number): void {
     this.width = width;
     this.height = height;
     this.top = top;
     this.left = left;
   }
 
-  SetOffset(top: number, left: number): void {
+  setOffset(top: number, left: number): void {
     this.top = top;
     this.left = left;
   }
