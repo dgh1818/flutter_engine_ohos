@@ -28,7 +28,7 @@ import i18n from '@ohos.i18n';
 import Any from '../../plugin/common/Any';
 import FlutterManager from '../ohos/FlutterManager';
 import deviceInfo from '@ohos.deviceInfo';
-import TouchEventProcessor from '../ohos/TouchEventProcessor.ets';
+import TouchEventProcessor from '../ohos/TouchEventProcessor';
 
 const TAG = "FlutterNapi";
 
