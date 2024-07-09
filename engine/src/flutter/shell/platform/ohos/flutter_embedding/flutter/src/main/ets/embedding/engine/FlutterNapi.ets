@@ -161,13 +161,6 @@ export default class FlutterNapi {
   dispatchPlatformMessage(channel: String, message: ArrayBuffer, position: number, responseId: number): void {
     this.ensureRunningOnMainThread();
     if (this.isAttached()) {
-
-      const uintArrayBuff = new Uint8Array(message)
-      let text = ''
-      for (let i = 0; i < uintArrayBuff.byteLength; i++) {
-        text += uintArrayBuff[i] + ','
-      }
-      Log.w(TAG, "message=" + message.byteLength + ",text=" + text);
       flutter.nativeDispatchPlatformMessage(this.nativeShellHolderId!, channel, message, position, responseId);
     } else {
       Log.w(
