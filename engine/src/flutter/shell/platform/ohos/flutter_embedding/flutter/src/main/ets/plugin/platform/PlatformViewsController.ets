@@ -22,7 +22,7 @@ import PlatformViewsChannel, {
 } from '../../../ets/embedding/engine/systemchannels/PlatformViewsChannel';
 import PlatformView, { Params } from './PlatformView';
 import { DVModelParameters, } from '../../view/DynamicView/dynamicView';
-import { createDVModelFromJson } from '../../view/DynamicView/dynamicViewJson'
+import { createDVModelFromJson } from '../../view/DynamicView/dynamicViewJson';
 import display from '@ohos.display';
 import { FlutterView } from '../../view/FlutterView';
 import { TextureRegistry } from '../../view/TextureRegistry';
@@ -152,7 +152,7 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     if (viewWrapper != null) {
       if (this.flutterView) {
         let index = this.flutterView.getDVModel().children.indexOf(viewWrapper.getDvModel()!);
-         this.flutterView.getDVModel().children.splice(index, 1);
+        this.flutterView.getDVModel().children.splice(index, 1);
       }
       this.viewWrappers.delete(viewId);
     }
@@ -169,7 +169,7 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     let viewId: number = request.viewId;
     Log.i(TAG, `Resize viewId ${viewId}, pw:${physicalWidth}, ph:${physicalHeight},lw:${request.newLogicalWidth}, lh:${request.newLogicalHeight}`);
 
-    let viewWrapper=this.viewWrappers.get(request.viewId)
+    let viewWrapper = this.viewWrappers.get(request.viewId)
     let params: DVModelParameters | undefined = viewWrapper?.getDvModel()!.params
 
     this.setParams(params!, "width", physicalWidth);
@@ -195,9 +195,10 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
   }
 
   setDirection(viewId: number, direction: Direction): void {
-    let nodeController=this.viewIdWithNodeController.get(viewId)
-    if(nodeController!=undefined){
-      nodeController?.setRenderOption(this.flutterView!.getPlatformView()!, this.flutterView!.getSurfaceId(), NodeRenderType.RENDER_TYPE_TEXTURE, direction)
+    let nodeController = this.viewIdWithNodeController.get(viewId)
+    if (nodeController != undefined) {
+      nodeController?.setRenderOption(this.flutterView!.getPlatformView()!, this.flutterView!.getSurfaceId(),
+        NodeRenderType.RENDER_TYPE_TEXTURE, direction)
       nodeController?.rebuild()
     }
   }
@@ -293,33 +294,27 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     let physicalWidth: number = this.toPhysicalPixels(request.logicalWidth);
     let physicalHeight: number = this.toPhysicalPixels(request.logicalHeight);
 
-
     let nodeController = new EmbeddingNodeController();
     nodeController.setRenderOption(platformView, surfaceId, NodeRenderType.RENDER_TYPE_TEXTURE, request.direction);
-
     this.viewIdWithNodeController.set(request.viewId, nodeController);
-
     this.nodeControllers.push(nodeController);
-
     let dvModel = createDVModelFromJson(new DVModelJson("NodeContainer",
       [],
       {
-        "width":physicalWidth,
-        "height":physicalHeight,
-        "nodeController":nodeController,
-        "left":request.logicalLeft,
-        "top":request.logicalTop
+        "width": physicalWidth,
+        "height": physicalHeight,
+        "nodeController": nodeController,
+        "left": request.logicalLeft,
+        "top": request.logicalTop
       },
       {},
       undefined));
-
     let viewWrapper: PlatformViewWrapper = new PlatformViewWrapper();
     viewWrapper.addDvModel(dvModel);
     this.viewWrappers.set(request.viewId, viewWrapper);
     this.flutterView?.getDVModel().children.push(viewWrapper.getDvModel())
 
     Log.i(TAG, "Create platform view success");
-
     return textureId;
   }
 

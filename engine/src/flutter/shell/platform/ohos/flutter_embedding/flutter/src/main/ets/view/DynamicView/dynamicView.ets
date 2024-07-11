@@ -244,7 +244,8 @@ export struct DynamicView {
       .common_attrs()
   }
 
-  @Builder buildCustom() {
+  @Builder
+  buildCustom() {
     if (this.customBuilder) {
       this.customBuilder(new BuilderParams(this.params));
     }
@@ -263,9 +264,9 @@ export struct DynamicView {
       this.buildImage()
     } else if (this.model.compType == "Button") {
       this.buildButton()
-    }else if (this.model.compType == "NodeContainer") {
+    } else if (this.model.compType == "NodeContainer") {
       this.buildNodeContainer()
-    }else {
+    } else {
       this.buildCustom()
     }
   }

@@ -30,9 +30,7 @@ export class PlatformViewWrapper {
   private bufferWidth: number = 0;
   private bufferHeight: number = 0;
   private touchProcessor: OhosTouchProcessor | null = null;
-
-
-  private model : DVModel|undefined;
+  private model: DVModel | undefined;
 
   public setTouchProcessor(newTouchProcessor: OhosTouchProcessor): void {
     this.touchProcessor = newTouchProcessor;
@@ -80,8 +78,7 @@ export class PlatformViewWrapper {
   }
 
   public addDvModel(model: DVModel): void {
-    //this.model?.children.push(model);
-    this.model=model
+    this.model = model
   }
 }
 
