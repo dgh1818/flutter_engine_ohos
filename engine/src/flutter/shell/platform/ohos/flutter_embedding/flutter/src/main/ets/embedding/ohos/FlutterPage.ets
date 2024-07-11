@@ -17,6 +17,7 @@ import Log from '../../util/Log';
 import { FlutterView } from '../../view/FlutterView';
 import { EmbeddingNodeController } from './EmbeddingNodeController';
 import FlutterManager from './FlutterManager';
+import { DVModel, DVModelChildren, DynamicView } from '../../view/DynamicView/dynamicView';
 
 const TAG = "FlutterPage";
 
@@ -39,17 +40,22 @@ export struct FlutterPage {
   @StorageLink('nodeWidth') storageLinkWidth: number = 0;
   @StorageLink('nodeHeight') storageLinkHeight: number = 0;
 
+  @State rootDvModel: DVModelChildren | undefined = undefined
+
+
   private flutterView?: FlutterView | null
-  private nodeController: EmbeddingNodeController | undefined = undefined
   private lastArea?: Area;
 
   aboutToAppear() {
     this.flutterView = FlutterManager.getInstance().getFlutterView(this.viewId);
-    this.nodeController = this.flutterView!!.getEmbeddingNodeController();
     this.flutterView?.addFirstFrameListener(this)
+
     this.flutterView?.setCheckFullScreen(this.checkFullScreen)
     this.flutterView?.setCheckKeyboard(this.checkKeyboard)
     this.flutterView?.setCheckGesture(this.checkGesture)
+
+    this.rootDvModel = this.flutterView!!.getDVModel().children
+
   }
 
   aboutToDisappear() {
@@ -62,9 +68,16 @@ export struct FlutterPage {
 
   build() {
     Stack() {
-      NodeContainer(this.nodeController)
-        .width(this.storageLinkWidth)
-        .height(this.storageLinkHeight)
+      ForEach(this.rootDvModel!!, (child: ESObject) => {
+        DynamicView({
+          model: child as DVModel,
+          params: child.params,
+          events: child.events,
+          children: child.children,
+          customBuilder: child.builder
+        })
+      }, (child: ESObject) => `${child.id_}`)
+
 
       Text('')
         .id('emptyFocusText' + this.viewId)

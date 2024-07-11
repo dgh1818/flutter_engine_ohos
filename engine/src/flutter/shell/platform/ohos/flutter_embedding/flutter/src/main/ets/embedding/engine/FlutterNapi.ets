@@ -29,6 +29,7 @@ import Any from '../../plugin/common/Any';
 import FlutterManager from '../ohos/FlutterManager';
 import deviceInfo from '@ohos.deviceInfo';
 import TouchEventProcessor from '../ohos/TouchEventProcessor';
+import { EmbeddingNodeController } from '../ohos/EmbeddingNodeController';
 
 const TAG = "FlutterNapi";
 
@@ -409,12 +410,16 @@ export default class FlutterNapi {
   onTouchEvent(strings: Array<string>): void {
     Log.d(TAG, "called onTouchEvent ");
     FlutterManager.getInstance().getFlutterViewList().forEach((value) => {
-      let top: number = value.getPlatformViewSize().top;
-      let left: number = value.getPlatformViewSize().left;
-
-      value.getEmbeddingNodeController().postEvent(
-        TouchEventProcessor.getInstance().constureCustomTouchEvent(strings, top, left)
-      );
+      let length=value.getDVModel().children.length
+      if(length>0){
+        let dvModel=value.getDVModel().children[length-1]
+        let params=dvModel.getLayoutParams()
+        let params2 = params as Record<string, Any>;
+        let nodeController=params2['nodeController'] as EmbeddingNodeController;
+        let left=params2['left'] as number??0;
+        let top=params2['top'] as number??0;
+        nodeController.postEvent(TouchEventProcessor.getInstance().constureCustomTouchEvent(strings, top, left))
+      }
     });
   }
 

@@ -53,6 +53,7 @@ export class EmbeddingNodeController extends NodeController {
 
   makeNode(uiContext: UIContext): FrameNode | null{
     this.rootNode = new BuilderNode(uiContext, { surfaceId: this.surfaceId, type: this.renderType});
+
     if (this.wrappedBuilder) {
       this.rootNode.build(this.wrappedBuilder, {direction: this.direction, platformView: this.platformView});
     }

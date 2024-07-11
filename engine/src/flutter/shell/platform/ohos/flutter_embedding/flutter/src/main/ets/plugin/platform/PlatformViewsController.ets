@@ -21,7 +21,8 @@ import PlatformViewsChannel, {
   PlatformViewsHandler, PlatformViewTouch, PlatformViewBufferSize
 } from '../../../ets/embedding/engine/systemchannels/PlatformViewsChannel';
 import PlatformView, { Params } from './PlatformView';
-import { DVModel, DVModelContainer, DVModelParameters, DynamicView } from '../../view/DynamicView/dynamicView';
+import { DVModelParameters, } from '../../view/DynamicView/dynamicView';
+import { createDVModelFromJson } from '../../view/DynamicView/dynamicViewJson'
 import display from '@ohos.display';
 import { FlutterView } from '../../view/FlutterView';
 import { TextureRegistry } from '../../view/TextureRegistry';
@@ -49,6 +50,22 @@ import { NodeRenderType } from '@kit.ArkUI';
 import { PlatformViewInfo } from '../../embedding/ohos/PlatformViewInfo';
 import { EmbeddingNodeController } from '../../embedding/ohos/EmbeddingNodeController';
 
+class DVModelJson {
+  compType: string
+  children: Array<ESObject>
+  attributes: ESObject
+  events: ESObject
+  build: ESObject
+
+  constructor(compType: string, children: Array<ESObject>, attributes: ESObject, events: ESObject, build?: ESObject) {
+    this.compType = compType
+    this.children = children
+    this.attributes = attributes
+    this.events = events;
+    this.build = build;
+  }
+}
+
 const TAG = "PlatformViewsController"
 
 export default class PlatformViewsController implements PlatformViewsAccessibilityDelegate, PlatformViewsHandler {
@@ -70,7 +87,7 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
   private currentFrameUsedOverlayLayerIds: HashSet<number>;
   private currentFrameUsedPlatformViewIds: HashSet<number>;
   private platformViewParent: Map<number, FlutterMutatorView>;
-  private nodeControllers: Stack<PlatformViewInfo>;
+  private nodeControllers: Stack<EmbeddingNodeController>;
 
   constructor() {
     this.registry = new PlatformViewRegistryImpl();
@@ -83,7 +100,7 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     this.viewIdWithTextureId = new Map();
     this.viewIdWithNodeController = new Map();
     this.platformViewParent = new Map();
-    this.nodeControllers = new Stack<PlatformViewInfo>();
+    this.nodeControllers = new Stack<EmbeddingNodeController>();
   }
 
 
@@ -131,7 +148,14 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
       Log.e(TAG, "Disposing platform view threw an exception", err);
     }
 
-
+    let viewWrapper: PlatformViewWrapper | null = this.viewWrappers.get(viewId) || null;
+    if (viewWrapper != null) {
+      if (this.flutterView) {
+        let index = this.flutterView.getDVModel().children.indexOf(viewWrapper.getDvModel()!);
+         this.flutterView.getDVModel().children.splice(index, 1);
+      }
+      this.viewWrappers.delete(viewId);
+    }
   }
 
   setParams: (params: DVModelParameters, key: string, element: Any ) => void = (params: DVModelParameters, key: string, element: Any): void => {
@@ -144,17 +168,25 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     let physicalHeight: number = this.toPhysicalPixels(request.newLogicalHeight);
     let viewId: number = request.viewId;
     Log.i(TAG, `Resize viewId ${viewId}, pw:${physicalWidth}, ph:${physicalHeight},lw:${request.newLogicalWidth}, lh:${request.newLogicalHeight}`);
- 
-    let nodeWidthLink: SubscribedAbstractProperty<number> = AppStorage.link('nodeWidth');
-    let nodeHeightLink: SubscribedAbstractProperty<number> = AppStorage.link('nodeHeight');
-    nodeWidthLink.set(physicalWidth);
-    nodeHeightLink.set(physicalHeight);
+
+    let viewWrapper=this.viewWrappers.get(request.viewId)
+    let params: DVModelParameters | undefined = viewWrapper?.getDvModel()!.params
+
+    this.setParams(params!, "width", physicalWidth);
+    this.setParams(params!, "height", physicalHeight);
+
     onComplete.run(new PlatformViewBufferSize(physicalWidth, physicalHeight));
   }
 
   offset(viewId: number, top: number, left: number): void {
     Log.i(TAG, `Offset is id${viewId}, t:${top}, l:${left}`);
-    this.flutterView!.getPlatformViewSize().setOffset(top, left);
+
+    let viewWrapper=this.viewWrappers.get(viewId)
+    if(viewWrapper!=undefined){
+      let params: DVModelParameters | undefined = viewWrapper?.getDvModel()!.params
+      this.setParams(params!, "left", left);
+      this.setParams(params!, "top", top);
+    }
   }
 
   onTouch(touch: PlatformViewTouch): void {
@@ -163,8 +195,11 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
   }
 
   setDirection(viewId: number, direction: Direction): void {
-    this.flutterView!.getEmbeddingNodeController().setRenderOption(this.flutterView!.getPlatformView()!, this.flutterView!.getSurfaceId(), NodeRenderType.RENDER_TYPE_TEXTURE, direction);
-    this.flutterView!.getEmbeddingNodeController().rebuild();
+    let nodeController=this.viewIdWithNodeController.get(viewId)
+    if(nodeController!=undefined){
+      nodeController?.setRenderOption(this.flutterView!.getPlatformView()!, this.flutterView!.getSurfaceId(), NodeRenderType.RENDER_TYPE_TEXTURE, direction)
+      nodeController?.rebuild()
+    }
   }
 
   validateDirection(direction:number):boolean {
@@ -255,17 +290,34 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     let wrappedBuilder: WrappedBuilder<[Params]> = platformView.getView();
     this.flutterView?.setWrappedBuilder(wrappedBuilder);
     this.flutterView?.setPlatformView(platformView);
-    let nodeWidthLink: SubscribedAbstractProperty<number> = AppStorage.link('nodeWidth');
-    let nodeHeightLink: SubscribedAbstractProperty<number> = AppStorage.link('nodeHeight');
     let physicalWidth: number = this.toPhysicalPixels(request.logicalWidth);
     let physicalHeight: number = this.toPhysicalPixels(request.logicalHeight);
-    nodeWidthLink.set(physicalWidth);
-    nodeHeightLink.set(physicalHeight);
-    this.flutterView!.getPlatformViewSize().setValue(request.logicalWidth, request.logicalHeight, request.logicalTop, request.logicalLeft);
-    this.flutterView!.getEmbeddingNodeController().setRenderOption(platformView, surfaceId, NodeRenderType.RENDER_TYPE_TEXTURE, request.direction);
-    this.flutterView!.getEmbeddingNodeController().rebuild();
-    let platformViewInfo: PlatformViewInfo = new PlatformViewInfo(platformView, surfaceId, physicalWidth, physicalHeight, request.logicalTop, request.logicalLeft, request.direction);
-    this.nodeControllers.push(platformViewInfo);
+
+
+    let nodeController = new EmbeddingNodeController();
+    nodeController.setRenderOption(platformView, surfaceId, NodeRenderType.RENDER_TYPE_TEXTURE, request.direction);
+
+    this.viewIdWithNodeController.set(request.viewId, nodeController);
+
+    this.nodeControllers.push(nodeController);
+
+    let dvModel = createDVModelFromJson(new DVModelJson("NodeContainer",
+      [],
+      {
+        "width":physicalWidth,
+        "height":physicalHeight,
+        "nodeController":nodeController,
+        "left":request.logicalLeft,
+        "top":request.logicalTop
+      },
+      {},
+      undefined));
+
+    let viewWrapper: PlatformViewWrapper = new PlatformViewWrapper();
+    viewWrapper.addDvModel(dvModel);
+    this.viewWrappers.set(request.viewId, viewWrapper);
+    this.flutterView?.getDVModel().children.push(viewWrapper.getDvModel())
+
     Log.i(TAG, "Create platform view success");
 
     return textureId;
@@ -336,19 +388,7 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     return this.registry;
   }
 
-  public setBackNodeControllers(): void {
-    this.nodeControllers.pop();
-    let nodeWidthLink: SubscribedAbstractProperty<number> = AppStorage.link('nodeWidth');
-    let nodeHeightLink: SubscribedAbstractProperty<number> = AppStorage.link('nodeHeight');
-    let platformViewInfo: PlatformViewInfo = this.nodeControllers.peek();
-    if (platformViewInfo != undefined && platformViewInfo.platformView != undefined) {
-      nodeWidthLink.set(platformViewInfo.width);
-      nodeHeightLink.set(platformViewInfo.height);
-      this.flutterView!.getPlatformViewSize().setValue(platformViewInfo.width, platformViewInfo.height, platformViewInfo.top, platformViewInfo.left);
-      this.flutterView!.getEmbeddingNodeController().setRenderOption(platformViewInfo.platformView, platformViewInfo.surfaceId, NodeRenderType.RENDER_TYPE_TEXTURE, platformViewInfo.direction);
-      this.flutterView!.getEmbeddingNodeController().rebuild();
-    }
-  }
+  public setBackNodeControllers(): void {}
 
   public onDetachedFromNapi(): void {
     this.diposeAllViews();
