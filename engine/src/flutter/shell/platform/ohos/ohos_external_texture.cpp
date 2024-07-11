@@ -320,18 +320,16 @@ bool OHOSExternalTexture::CopyDataToNativeBuffer(const unsigned char* src,
 void OHOSExternalTexture::GetNewTransformBound(SkM44& transform,
                                                SkRect& bounds) {
   if (producer_nativewindow_buffer_ != nullptr) {
-    transform = transform.setIdentity();
+    transform.setIdentity();
     return;
   }
   // Ohos's NativeBuffer transform matrix operates on the data center point,
   // while the texture's (0,0) coordinate is not the center. Therefore, we first
   // translate (0,0) to the center point, apply the NativeBuffer transform,
   // and then translate it back. This sequence of steps ensures
-  // the correct rotation. However, the canvas transform operates on the
-  // vertices(not the texture), so we invert the transform to achieve the
-  // opposite effect. In the end, rotating the vertices gives us the rotated
-  // texture, but the vertices cannot change positions, so we use the original
-  // transform to get the new bounds.
+  // the correct rotation. In the end, rotating the vertices gives us the
+  // rotated texture, but the vertices cannot change positions, so we use the
+  // inverted transform to get the new bounds.
   float matrix[16];
   OH_NativeImage_GetTransformMatrix(native_image_source_, matrix);
   SkM44 transform_center =
@@ -339,15 +337,24 @@ void OHOSExternalTexture::GetNewTransformBound(SkM44& transform,
   SkM44 transform_back =
       SkM44::Translate(-bounds.centerX(), -bounds.centerY(), 0);
   SkM44 transform_origin = SkM44::RowMajor(matrix);
+  if (matrix[0] == 0 && matrix[5] == 0) {
+    // This indicates a 90 or 270 degree rotation where (x, y) is transformed to
+    // (+-y, +-x). Because the canvas layout has an inverted y-axis, we apply an
+    // additional 180-degree rotation (90 degree rotate means 270 degree rotate
+    // with inverted y-axis).
+    transform_origin = transform_origin *
+                       SkM44(-1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
+  }
   SkM44 transform_end = transform_center * transform_origin * transform_back;
 
   SkM44 transform_inverted;
   if (!transform_end.invert(&transform_inverted)) {
     FML_LOG(ERROR) << "Invalid (not invertable) transformation matrix";
+    transform_end.setIdentity();
   }
 
-  transform = transform_inverted;
-  transform_end.asM33().mapRect(&bounds);
+  transform = transform_end;
+  transform_inverted.asM33().mapRect(&bounds);
   return;
 }
 
