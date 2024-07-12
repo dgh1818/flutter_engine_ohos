@@ -28,10 +28,32 @@ index ef94006..5825970 100644
  #include <zircon/types.h>
  #include "vulkan_fuchsia.h"
 diff --git a/include/vulkan/vulkan.hpp b/include/vulkan/vulkan.hpp
-index c893919..fdc9ba4 100644
+index c893919..671fe84 100644
 --- a/include/vulkan/vulkan.hpp
 +++ b/include/vulkan/vulkan.hpp
-@@ -3651,6 +3651,25 @@ namespace VULKAN_HPP_NAMESPACE
+@@ -14,6 +14,7 @@
+ #include <string>    // std::string
+ #include <vulkan/vulkan.h>
+ #include <vulkan/vulkan_hpp_macros.hpp>
++#include "vulkan/vulkan_core.h"
+ 
+ #if 17 <= VULKAN_HPP_CPP_VERSION
+ #  include <string_view>
+@@ -2526,6 +2527,13 @@ namespace VULKAN_HPP_NAMESPACE
+       return ::vkQueuePresentKHR( queue, pPresentInfo );
+     }
+ 
++#if defined( VK_USE_PLATFORM_OHOS_KHR )
++    VkResult vkQueueSignalReleaseImageOHOS( VkQueue queue, uint32_t waitSemaphoreCount, const VkSemaphore* pWaitSemaphores, VkImage image, int32_t* pNativeFenceFd ) const VULKAN_HPP_NOEXCEPT
++    {
++      return ::vkQueueSignalReleaseImageOHOS( queue, waitSemaphoreCount,  pWaitSemaphores, image, pNativeFenceFd);
++    }
++#endif   /*VK_USE_PLATFORM_OHOS_KHR*/
++
+     VkResult vkGetDeviceGroupPresentCapabilitiesKHR( VkDevice                              device,
+                                                      VkDeviceGroupPresentCapabilitiesKHR * pDeviceGroupPresentCapabilities ) const VULKAN_HPP_NOEXCEPT
+     {
+@@ -3651,6 +3659,25 @@ namespace VULKAN_HPP_NAMESPACE
      }
  #  endif /*VK_USE_PLATFORM_ANDROID_KHR*/
  
@@ -57,7 +79,7 @@ index c893919..fdc9ba4 100644
  #  if defined( VK_ENABLE_BETA_EXTENSIONS )
      //=== VK_AMDX_shader_enqueue ===
  
-@@ -11380,6 +11399,28 @@ namespace VULKAN_HPP_NAMESPACE
+@@ -11380,6 +11407,28 @@ namespace VULKAN_HPP_NAMESPACE
    };
  #  endif /*VK_USE_PLATFORM_ANDROID_KHR*/
  
@@ -86,7 +108,18 @@ index c893919..fdc9ba4 100644
  #  if defined( VK_ENABLE_BETA_EXTENSIONS )
    //=== VK_AMDX_shader_enqueue ===
    template <>
-@@ -17223,6 +17264,15 @@ namespace VULKAN_HPP_NAMESPACE
+@@ -16907,6 +16956,10 @@ namespace VULKAN_HPP_NAMESPACE
+     PFN_vkGetPhysicalDevicePresentRectanglesKHR vkGetPhysicalDevicePresentRectanglesKHR = 0;
+     PFN_vkAcquireNextImage2KHR                  vkAcquireNextImage2KHR                  = 0;
+ 
++#if defined( VK_USE_PLATFORM_OHOS_KHR )
++    PFN_vkQueueSignalReleaseImageOHOS           vkQueueSignalReleaseImageOHOS           = 0;
++#endif   /*VK_USE_PLATFORM_OHOS_KHR*/
++
+     //=== VK_KHR_display ===
+     PFN_vkGetPhysicalDeviceDisplayPropertiesKHR      vkGetPhysicalDeviceDisplayPropertiesKHR      = 0;
+     PFN_vkGetPhysicalDeviceDisplayPlanePropertiesKHR vkGetPhysicalDeviceDisplayPlanePropertiesKHR = 0;
+@@ -17223,6 +17276,15 @@ namespace VULKAN_HPP_NAMESPACE
      PFN_dummy vkGetMemoryAndroidHardwareBufferANDROID_placeholder           = 0;
  #endif /*VK_USE_PLATFORM_ANDROID_KHR*/
  
@@ -102,7 +135,18 @@ index c893919..fdc9ba4 100644
  #if defined( VK_ENABLE_BETA_EXTENSIONS )
      //=== VK_AMDX_shader_enqueue ===
      PFN_vkCreateExecutionGraphPipelinesAMDX        vkCreateExecutionGraphPipelinesAMDX        = 0;
-@@ -18482,6 +18532,14 @@ namespace VULKAN_HPP_NAMESPACE
+@@ -18120,6 +18182,10 @@ namespace VULKAN_HPP_NAMESPACE
+         PFN_vkGetPhysicalDevicePresentRectanglesKHR( vkGetInstanceProcAddr( instance, "vkGetPhysicalDevicePresentRectanglesKHR" ) );
+       vkAcquireNextImage2KHR = PFN_vkAcquireNextImage2KHR( vkGetInstanceProcAddr( instance, "vkAcquireNextImage2KHR" ) );
+ 
++#if defined( VK_USE_PLATFORM_OHOS_KHR )
++      vkQueueSignalReleaseImageOHOS = PFN_vkQueueSignalReleaseImageOHOS( vkGetInstanceProcAddr( instance, "vkQueueSignalReleaseImageOHOS" ));
++#endif   /*VK_USE_PLATFORM_OHOS_KHR*/
++
+       //=== VK_KHR_display ===
+       vkGetPhysicalDeviceDisplayPropertiesKHR =
+         PFN_vkGetPhysicalDeviceDisplayPropertiesKHR( vkGetInstanceProcAddr( instance, "vkGetPhysicalDeviceDisplayPropertiesKHR" ) );
+@@ -18482,6 +18548,14 @@ namespace VULKAN_HPP_NAMESPACE
          PFN_vkGetMemoryAndroidHardwareBufferANDROID( vkGetInstanceProcAddr( instance, "vkGetMemoryAndroidHardwareBufferANDROID" ) );
  #endif /*VK_USE_PLATFORM_ANDROID_KHR*/
  
@@ -117,7 +161,18 @@ index c893919..fdc9ba4 100644
  #if defined( VK_ENABLE_BETA_EXTENSIONS )
        //=== VK_AMDX_shader_enqueue ===
        vkCreateExecutionGraphPipelinesAMDX = PFN_vkCreateExecutionGraphPipelinesAMDX( vkGetInstanceProcAddr( instance, "vkCreateExecutionGraphPipelinesAMDX" ) );
-@@ -19607,6 +19665,14 @@ namespace VULKAN_HPP_NAMESPACE
+@@ -19411,6 +19485,10 @@ namespace VULKAN_HPP_NAMESPACE
+         PFN_vkGetDeviceGroupSurfacePresentModesKHR( vkGetDeviceProcAddr( device, "vkGetDeviceGroupSurfacePresentModesKHR" ) );
+       vkAcquireNextImage2KHR = PFN_vkAcquireNextImage2KHR( vkGetDeviceProcAddr( device, "vkAcquireNextImage2KHR" ) );
+ 
++#if defined( VK_USE_PLATFORM_OHOS_KHR )
++      vkQueueSignalReleaseImageOHOS = PFN_vkQueueSignalReleaseImageOHOS( vkGetDeviceProcAddr( device, "vkQueueSignalReleaseImageOHOS" ));
++#endif   /*VK_USE_PLATFORM_OHOS_KHR*/
++
+       //=== VK_KHR_display_swapchain ===
+       vkCreateSharedSwapchainsKHR = PFN_vkCreateSharedSwapchainsKHR( vkGetDeviceProcAddr( device, "vkCreateSharedSwapchainsKHR" ) );
+ 
+@@ -19607,6 +19685,14 @@ namespace VULKAN_HPP_NAMESPACE
          PFN_vkGetMemoryAndroidHardwareBufferANDROID( vkGetDeviceProcAddr( device, "vkGetMemoryAndroidHardwareBufferANDROID" ) );
  #endif /*VK_USE_PLATFORM_ANDROID_KHR*/
  
@@ -189,10 +244,53 @@ index 547553a..84d40e4 100644
      eSamplerReductionModeCreateInfoEXT              = VK_STRUCTURE_TYPE_SAMPLER_REDUCTION_MODE_CREATE_INFO_EXT,
  #if defined( VK_ENABLE_BETA_EXTENSIONS )
 diff --git a/include/vulkan/vulkan_funcs.hpp b/include/vulkan/vulkan_funcs.hpp
-index 3c8d9ae..99f4c68 100644
+index 3c8d9ae..16de233 100644
 --- a/include/vulkan/vulkan_funcs.hpp
 +++ b/include/vulkan/vulkan_funcs.hpp
-@@ -15136,6 +15136,82 @@ namespace VULKAN_HPP_NAMESPACE
+@@ -8,6 +8,7 @@
+ #ifndef VULKAN_FUNCS_HPP
+ #define VULKAN_FUNCS_HPP
+ 
++#include "vulkan/vulkan_handles.hpp"
+ namespace VULKAN_HPP_NAMESPACE
+ {
+ 
+@@ -8811,6 +8812,34 @@ namespace VULKAN_HPP_NAMESPACE
+   }
+ #endif /* VULKAN_HPP_DISABLE_ENHANCED_MODE */
+ 
++#if defined( VK_USE_PLATFORM_OHOS_KHR )
++template <typename Dispatch>
++  VULKAN_HPP_NODISCARD VULKAN_HPP_INLINE VULKAN_HPP_NAMESPACE::Result Queue::queueSignalReleaseImageOHOS(int32_t waitSemaphoreCount, 
++            VULKAN_HPP_NAMESPACE::Semaphore *pWaitSemaphores, VULKAN_HPP_NAMESPACE::Image pImage, int32_t* pNativeFenceFd, Dispatch const &d ) const
++  {
++    VULKAN_HPP_ASSERT( d.getVkHeaderVersion() == VK_HEADER_VERSION );
++#  if ( VULKAN_HPP_DISPATCH_LOADER_DYNAMIC == 1 )
++    VULKAN_HPP_ASSERT( d.vkQueueSignalReleaseImageOHOS && "Function <vkQueueSignalReleaseImageOHOS> requires <VK_KHR_external_semaphore_fd>" );
++#  endif
++
++    VkSemaphore *semaphores;
++    semaphores = new VkSemaphore[waitSemaphoreCount];
++    for (int i = 0; i < waitSemaphoreCount; i++) {
++      semaphores[i] = static_cast<VkSemaphore>(pWaitSemaphores[i]);
++    }
++
++
++    VULKAN_HPP_NAMESPACE::Result result =
++      static_cast<VULKAN_HPP_NAMESPACE::Result>( d.vkQueueSignalReleaseImageOHOS( m_queue, waitSemaphoreCount, 
++        semaphores, 
++        static_cast<VkImage>( pImage ), 
++        pNativeFenceFd));
++    free(semaphores);
++
++    return static_cast<VULKAN_HPP_NAMESPACE::Result>( result );
++  }
++#endif   /*VK_USE_PLATFORM_OHOS_KHR*/
++
+   template <typename Dispatch>
+   VULKAN_HPP_NODISCARD VULKAN_HPP_INLINE Result Device::getGroupPresentCapabilitiesKHR(
+     VULKAN_HPP_NAMESPACE::DeviceGroupPresentCapabilitiesKHR * pDeviceGroupPresentCapabilities, Dispatch const & d ) const VULKAN_HPP_NOEXCEPT
+@@ -15136,6 +15165,82 @@ namespace VULKAN_HPP_NAMESPACE
  #  endif /* VULKAN_HPP_DISABLE_ENHANCED_MODE */
  #endif   /*VK_USE_PLATFORM_ANDROID_KHR*/
  
@@ -276,7 +374,7 @@ index 3c8d9ae..99f4c68 100644
    //=== VK_AMDX_shader_enqueue ===
  
 diff --git a/include/vulkan/vulkan_handles.hpp b/include/vulkan/vulkan_handles.hpp
-index e6b1481..1fc21e1 100644
+index e6b1481..c5e5e31 100644
 --- a/include/vulkan/vulkan_handles.hpp
 +++ b/include/vulkan/vulkan_handles.hpp
 @@ -829,6 +829,13 @@ namespace VULKAN_HPP_NAMESPACE
@@ -293,7 +391,24 @@ index e6b1481..1fc21e1 100644
  #if defined( VK_ENABLE_BETA_EXTENSIONS )
    //=== VK_AMDX_shader_enqueue ===
    struct PhysicalDeviceShaderEnqueueFeaturesAMDX;
-@@ -11554,6 +11561,36 @@ namespace VULKAN_HPP_NAMESPACE
+@@ -8701,6 +8708,16 @@ namespace VULKAN_HPP_NAMESPACE
+                                                                   Dispatch const & d                           VULKAN_HPP_DEFAULT_DISPATCHER_ASSIGNMENT ) const;
+ #endif /* VULKAN_HPP_DISABLE_ENHANCED_MODE */
+ 
++#if defined( VK_USE_PLATFORM_OHOS_KHR )
++template <typename Dispatch = VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>
++  VULKAN_HPP_NODISCARD VULKAN_HPP_NAMESPACE::Result queueSignalReleaseImageOHOS(int32_t waitSemaphoreCount, 
++                                                                                VULKAN_HPP_NAMESPACE::Semaphore *pWaitSemaphores, 
++                                                                                VULKAN_HPP_NAMESPACE::Image pImage, 
++                                                                                int32_t* pNativeFenceFd, 
++                                                                                Dispatch const & d                           VULKAN_HPP_DEFAULT_DISPATCHER_ASSIGNMENT) const;
++
++#endif   /*VK_USE_PLATFORM_OHOS_KHR*/
++
+     //=== VK_EXT_debug_utils ===
+ 
+     template <typename Dispatch = VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>
+@@ -11554,6 +11571,36 @@ namespace VULKAN_HPP_NAMESPACE
  #  endif /* VULKAN_HPP_DISABLE_ENHANCED_MODE */
  #endif   /*VK_USE_PLATFORM_ANDROID_KHR*/
  
@@ -617,10 +732,21 @@ index 0000000..e0bf8c6
 +
 +#endif
 diff --git a/include/vulkan/vulkan_raii.hpp b/include/vulkan/vulkan_raii.hpp
-index e97bfb3..64291a3 100644
+index e97bfb3..e918f14 100644
 --- a/include/vulkan/vulkan_raii.hpp
 +++ b/include/vulkan/vulkan_raii.hpp
-@@ -1078,6 +1078,14 @@ namespace VULKAN_HPP_NAMESPACE
+@@ -879,6 +879,10 @@ namespace VULKAN_HPP_NAMESPACE
+           PFN_vkGetDeviceGroupSurfacePresentModesKHR( vkGetDeviceProcAddr( device, "vkGetDeviceGroupSurfacePresentModesKHR" ) );
+         vkAcquireNextImage2KHR = PFN_vkAcquireNextImage2KHR( vkGetDeviceProcAddr( device, "vkAcquireNextImage2KHR" ) );
+ 
++#if defined( VK_USE_PLATFORM_OHOS_KHR )
++        vkQueueSignalReleaseImageOHOS  = PFN_vkQueueSignalReleaseImageOHOS( vkGetDeviceProcAddr( device, "vkQueueSignalReleaseImageOHOS" ) );
++#endif   /*VK_USE_PLATFORM_OHOS_KHR*/
++
+         //=== VK_KHR_display_swapchain ===
+         vkCreateSharedSwapchainsKHR = PFN_vkCreateSharedSwapchainsKHR( vkGetDeviceProcAddr( device, "vkCreateSharedSwapchainsKHR" ) );
+ 
+@@ -1078,6 +1082,14 @@ namespace VULKAN_HPP_NAMESPACE
            PFN_vkGetMemoryAndroidHardwareBufferANDROID( vkGetDeviceProcAddr( device, "vkGetMemoryAndroidHardwareBufferANDROID" ) );
  #  endif /*VK_USE_PLATFORM_ANDROID_KHR*/
  
@@ -635,7 +761,18 @@ index e97bfb3..64291a3 100644
  #  if defined( VK_ENABLE_BETA_EXTENSIONS )
          //=== VK_AMDX_shader_enqueue ===
          vkCreateExecutionGraphPipelinesAMDX = PFN_vkCreateExecutionGraphPipelinesAMDX( vkGetDeviceProcAddr( device, "vkCreateExecutionGraphPipelinesAMDX" ) );
-@@ -2104,6 +2112,15 @@ namespace VULKAN_HPP_NAMESPACE
+@@ -1929,6 +1941,10 @@ namespace VULKAN_HPP_NAMESPACE
+       PFN_vkGetDeviceGroupSurfacePresentModesKHR vkGetDeviceGroupSurfacePresentModesKHR = 0;
+       PFN_vkAcquireNextImage2KHR                 vkAcquireNextImage2KHR                 = 0;
+ 
++#if defined( VK_USE_PLATFORM_OHOS_KHR )
++      PFN_vkQueueSignalReleaseImageOHOS          vkQueueSignalReleaseImageOHOS          = 0;
++#endif   /*VK_USE_PLATFORM_OHOS_KHR*/
++
+       //=== VK_KHR_display_swapchain ===
+       PFN_vkCreateSharedSwapchainsKHR vkCreateSharedSwapchainsKHR = 0;
+ 
+@@ -2104,6 +2120,15 @@ namespace VULKAN_HPP_NAMESPACE
        PFN_dummy vkGetMemoryAndroidHardwareBufferANDROID_placeholder           = 0;
  #  endif /*VK_USE_PLATFORM_ANDROID_KHR*/
  
@@ -651,7 +788,7 @@ index e97bfb3..64291a3 100644
  #  if defined( VK_ENABLE_BETA_EXTENSIONS )
        //=== VK_AMDX_shader_enqueue ===
        PFN_vkCreateExecutionGraphPipelinesAMDX        vkCreateExecutionGraphPipelinesAMDX        = 0;
-@@ -4057,6 +4074,20 @@ namespace VULKAN_HPP_NAMESPACE
+@@ -4057,6 +4082,20 @@ namespace VULKAN_HPP_NAMESPACE
          getMemoryAndroidHardwareBufferANDROID( const VULKAN_HPP_NAMESPACE::MemoryGetAndroidHardwareBufferInfoANDROID & info ) const;
  #  endif /*VK_USE_PLATFORM_ANDROID_KHR*/
  
@@ -672,7 +809,50 @@ index e97bfb3..64291a3 100644
  #  if defined( VK_ENABLE_BETA_EXTENSIONS )
        //=== VK_AMDX_shader_enqueue ===
  
-@@ -17773,6 +17804,53 @@ namespace VULKAN_HPP_NAMESPACE
+@@ -10252,6 +10291,11 @@ namespace VULKAN_HPP_NAMESPACE
+ 
+       VULKAN_HPP_NODISCARD VULKAN_HPP_NAMESPACE::Result presentKHR( const VULKAN_HPP_NAMESPACE::PresentInfoKHR & presentInfo ) const;
+ 
++#if defined( VK_USE_PLATFORM_OHOS_KHR )
++      VULKAN_HPP_NODISCARD VULKAN_HPP_INLINE VULKAN_HPP_NAMESPACE::Result queueSignalReleaseImageOHOS(int32_t waitSemaphoreCount, 
++            VULKAN_HPP_NAMESPACE::Semaphore *pWaitSemaphores, VULKAN_HPP_NAMESPACE::Image pImage, int32_t* pNativeFenceFd) const;
++#endif   /*VK_USE_PLATFORM_OHOS_KHR*/
++
+       //=== VK_EXT_debug_utils ===
+ 
+       void beginDebugUtilsLabelEXT( const VULKAN_HPP_NAMESPACE::DebugUtilsLabelEXT & labelInfo ) const VULKAN_HPP_NOEXCEPT;
+@@ -15142,6 +15186,30 @@ namespace VULKAN_HPP_NAMESPACE
+       return static_cast<VULKAN_HPP_NAMESPACE::Result>( result );
+     }
+ 
++#if defined( VK_USE_PLATFORM_OHOS_KHR )
++    VULKAN_HPP_NODISCARD VULKAN_HPP_INLINE VULKAN_HPP_NAMESPACE::Result Queue::queueSignalReleaseImageOHOS(int32_t waitSemaphoreCount, 
++            VULKAN_HPP_NAMESPACE::Semaphore *pWaitSemaphores, VULKAN_HPP_NAMESPACE::Image pImage, int32_t* pNativeFenceFd) const
++    {
++      VULKAN_HPP_ASSERT( getDispatcher()->vkQueueSignalReleaseImageOHOS && "Function <vkQueueSignalReleaseImageOHOS> requires <VK_KHR_external_semaphore_fd>" );
++      
++      VkSemaphore *semaphores;
++      semaphores = new VkSemaphore[waitSemaphoreCount];
++      for (int i = 0; i < waitSemaphoreCount; i++) {
++        semaphores[i] = static_cast<VkSemaphore>(pWaitSemaphores[i]);
++      }
++
++      VULKAN_HPP_NAMESPACE::Result result = static_cast<VULKAN_HPP_NAMESPACE::Result>(
++        getDispatcher()->vkQueueSignalReleaseImageOHOS( static_cast<VkQueue>( m_queue ), waitSemaphoreCount, 
++          semaphores, 
++          static_cast<VkImage>( pImage ), 
++          pNativeFenceFd));
++      
++      free(semaphores);
++
++      return static_cast<VULKAN_HPP_NAMESPACE::Result>( result );
++    }
++#endif   /*VK_USE_PLATFORM_OHOS_KHR*/
++
+     VULKAN_HPP_NODISCARD VULKAN_HPP_INLINE VULKAN_HPP_NAMESPACE::DeviceGroupPresentCapabilitiesKHR Device::getGroupPresentCapabilitiesKHR() const
+     {
+       VULKAN_HPP_ASSERT( getDispatcher()->vkGetDeviceGroupPresentCapabilitiesKHR &&
+@@ -17773,6 +17841,53 @@ namespace VULKAN_HPP_NAMESPACE
      }
  #  endif /*VK_USE_PLATFORM_ANDROID_KHR*/
  
