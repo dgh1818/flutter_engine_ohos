@@ -71,6 +71,9 @@ void OHOSExternalTexture::Paint(PaintContext& context,
         flutter::DlCanvas::SrcRectConstraint::kStrict  // enforce edges
     );
     if (producer_nativewindow_buffer_ == nullptr) {
+      if (last_fence_fd_ > 0) {
+        close(last_fence_fd_);
+      }
       SetGPUFence(&last_fence_fd_);
     }
     FML_LOG(INFO) << "Draw one dl image (" << draw_dl_image->bounds().width()
