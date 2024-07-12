@@ -59,9 +59,15 @@ class OHOSExternalTexture : public flutter::Texture {
 
   void ReleaseConsumerNativeBuffer(OH_NativeBuffer* buffer, int fence_fd);
 
-  virtual sk_sp<flutter::DlImage> GetNextDrawImage();
+  virtual void SetGPUFence(int* fence_fd) = 0;
+  virtual void WaitGPUFence(int fence_fd) { close(fence_fd); }
+  virtual void GPUResourceDestroy() = 0;
 
-  virtual void GPUResourceDestroy();
+  virtual sk_sp<flutter::DlImage> CreateDlImage(
+      PaintContext& context,
+      const SkRect& bounds,
+      NativeBufferKey key,
+      OHNativeWindowBuffer* nw_buffer) = 0;
 
   ImageLRU image_lru_ = ImageLRU();
 

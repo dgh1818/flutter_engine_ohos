@@ -17,6 +17,7 @@
 #define FLUTTER_SHELL_PLATFORM_OHOS_OHOS_EXTERNAL_TEXTURE_VULKAN_H_
 
 #include "flutter/impeller/renderer/backend/vulkan/context_vk.h"
+#include "impeller/renderer/backend/vulkan/texture_vk.h"
 #include "ohos_external_texture.h"
 
 namespace flutter {
@@ -31,6 +32,14 @@ class OHOSExternalTextureVulkan : public OHOSExternalTexture {
   ~OHOSExternalTextureVulkan() override;
 
  protected:
+  struct VkResource {
+    impeller::vk::UniqueSemaphore wait_semaphore;
+    std::shared_ptr<impeller::TextureVK> texture;
+    impeller::vk::UniqueSemaphore draw_semaphore;
+  };
+  std::unordered_map<NativeBufferKey, VkResource> vk_resources_;
+  NativeBufferKey now_key_;
+
   void SetGPUFence(int* fence_fd) override;
   void WaitGPUFence(int fence_fd) override;
   void GPUResourceDestroy() override;
@@ -43,6 +52,7 @@ class OHOSExternalTextureVulkan : public OHOSExternalTexture {
 
  private:
   const std::shared_ptr<impeller::ContextVK> impeller_context_;
+  impeller::vk::UniqueSemaphore CreateVkSemaphore(int fence_fd);
 
   FML_DISALLOW_COPY_AND_ASSIGN(OHOSExternalTextureVulkan);
 };
