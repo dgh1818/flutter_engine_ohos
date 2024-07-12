@@ -12,7 +12,6 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-
 import MessageChannelUtils from '../../util/MessageChannelUtils';
 import { BinaryMessageHandler } from './BinaryMessenger';
 import Log from '../../util/Log';
@@ -20,6 +19,9 @@ import { BinaryReply } from './BinaryMessenger';
 import { TaskQueue } from './BinaryMessenger';
 import MessageCodec from './MessageCodec';
 import { BinaryMessenger } from './BinaryMessenger';
+import SendableBinaryMessageHandler from './SendableBinaryMessageHandler'
+import SendableMessageCodec from './SendableMessageCodec';
+import SendableMessageHandler from './SendableMessageHandler';
 import StringUtils from '../../util/StringUtils';
 
 /**
@@ -41,10 +43,10 @@ export default class BasicMessageChannel<T> {
   public static CHANNEL_BUFFERS_CHANNEL = "dev.flutter/channel-buffers";
   private messenger: BinaryMessenger;
   private name: string;
-  private codec: MessageCodec<T>;
+  private codec: MessageCodec<T> | SendableMessageCodec<T>;
   private taskQueue?: TaskQueue;
 
-  constructor(messenger: BinaryMessenger, name: string, codec: MessageCodec<T>, taskQueue?: TaskQueue) {
+  constructor(messenger: BinaryMessenger, name: string, codec: MessageCodec<T> | SendableMessageCodec<T>, taskQueue?: TaskQueue) {
     this.messenger = messenger
     this.name = name
     this.codec = codec
@@ -74,12 +76,14 @@ export default class BasicMessageChannel<T> {
    *
    * @param handler a {@link MessageHandler}, or null to deregister.
    */
-  setMessageHandler(handler: MessageHandler<T> | null): void {
+  setMessageHandler(handler: MessageHandler<T> | null): void
+  setMessageHandler(handler: SendableMessageHandler<T>): void
+  setMessageHandler(handler: MessageHandler<T> | SendableMessageHandler<T> | null): void {
     // We call the 2 parameter variant specifically to avoid breaking changes in
     // mock verify calls.
     // See https://github.com/flutter/flutter/issues/92582.
     if (this.taskQueue != null) {
-      this.messenger.setMessageHandler(this.name, new IncomingMessageHandler(handler, this.codec), this.taskQueue);
+      this.messenger.setMessageHandler(this.name, new IncomingSendableMessageHandler(handler, this.codec), this.taskQueue);
     } else {
       this.messenger.setMessageHandler(this.name, new IncomingMessageHandler(handler, this.codec));
     }
@@ -165,6 +169,32 @@ class IncomingMessageHandler<T> implements BinaryMessageHandler {
         });
     } catch (e) {
       Log.e(BasicMessageChannel.TAG, "Failed to handle message", e);
+      callback.reply(StringUtils.stringToArrayBuffer(""));
+    }
+  }
+}
+
+@Sendable
+class IncomingSendableMessageHandler<T> implements SendableBinaryMessageHandler {
+  private handler: SendableMessageHandler<T> | null
+  private codec: SendableMessageCodec<T>
+
+  constructor(handler: SendableMessageHandler<T> | null, codec: SendableMessageCodec<T>) {
+    this.handler = handler;
+    this.codec = codec
+  }
+
+  onMessage(message: ArrayBuffer, callback: BinaryReply) {
+    try {
+      this.handler?.onMessage(
+        this.codec.decodeMessage(message),
+        {
+          reply: (reply: T): void => {
+            callback.reply(this.codec.encodeMessage(reply));
+          }
+        });
+    } catch (e) {
+      Log.e('WARNNING', "Failed to handle message: ", e);
       callback.reply(StringUtils.stringToArrayBuffer(""));
     }
   }

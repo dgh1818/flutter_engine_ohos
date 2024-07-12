@@ -79,6 +79,11 @@ export { default as MethodCall } from './src/main/ets/plugin/common/MethodCall';
 export * from './src/main/ets/plugin/common/MethodChannel';
 export { default as MethodChannel } from './src/main/ets/plugin/common/MethodChannel';
 export { default as MethodCodec } from './src/main/ets/plugin/common/MethodCodec';
+export { default as SendableBinaryCodec} from './src/main/ets/plugin/common/SendableBinaryCodec'
+export { default as SendableJSONMessageCodec} from './src/main/ets/plugin/common/SendableJSONMessageCodec'
+export { default as SendableMessageHandler} from './src/main/ets/plugin/common/SendableMessageHandler'
+export { default as SendableStandardMessageCodec } from './src/main/ets/plugin/common/SendableStandardMessageCodec';
+export { default as SendableStringCodec} from './src/main/ets/plugin/common/SendableStringCodec'
 export { default as StandardMessageCodec } from './src/main/ets/plugin/common/StandardMessageCodec';
 export { default as StandardMethodCodec } from './src/main/ets/plugin/common/StandardMethodCodec';
 export { default as StringCodec } from './src/main/ets/plugin/common/StringCodec';
