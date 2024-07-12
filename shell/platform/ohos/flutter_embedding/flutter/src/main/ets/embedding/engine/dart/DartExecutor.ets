@@ -176,11 +176,6 @@ export default class DartExecutor implements  BinaryMessenger {
     this.getBinaryMessenger().setMessageHandler(channel, handler, taskQueue);
   }
 
-  enableBufferingIncomingMessages(): void {
-    this.getBinaryMessenger().enableBufferingIncomingMessages();
-  }
-
-
   /**
    * Returns the number of pending channel callback replies.
    *
@@ -235,10 +230,6 @@ export default class DartExecutor implements  BinaryMessenger {
     if (this.flutterNapi.isAttached()) {
       this.flutterNapi.notifyLowMemoryWarning();
     }
-  }
-
-  disableBufferingIncomingMessages(): void {
-    this.getBinaryMessenger().enableBufferingIncomingMessages();
   }
 }
 
@@ -349,15 +340,7 @@ export class DefaultBinaryMessenger implements BinaryMessenger {
    * @param handler a {@link BinaryMessageHandler} to be invoked on incoming messages, or null.
    */
   setMessageHandler(channel: String, handler: BinaryMessageHandler, taskQueue?: TaskQueue): void {
-    this.messenger.setMessageHandler(channel, handler);
-  }
-
-  enableBufferingIncomingMessages(): void {
-    this.messenger.enableBufferingIncomingMessages();
-  }
-
-  disableBufferingIncomingMessages(): void {
-    this.messenger.disableBufferingIncomingMessages();
+    this.messenger.setMessageHandler(channel, handler, taskQueue);
   }
 }
 
