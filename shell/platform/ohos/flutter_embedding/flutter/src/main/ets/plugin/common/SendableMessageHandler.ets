@@ -12,19 +12,10 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
+import { lang } from '@kit.ArkTS';
+import { Reply} from './BasicMessageChannel';
 
-/**
- * A message encoding/decoding mechanism.
- */
-export default interface MessageCodec<T> {
-  /**
-   * Encodes the specified message into binary.
-   */
-  encodeMessage(message: T) : ArrayBuffer;
-
-  /**
-   * Decodes the specified message from binary.
-   *
-   */
-  decodeMessage(message: ArrayBuffer | null): T;
+type ISendable = lang.ISendable;
+export default interface SendableMessageHandler<T> extends ISendable {
+  onMessage(message: T, reply: Reply<T>): void;
 }

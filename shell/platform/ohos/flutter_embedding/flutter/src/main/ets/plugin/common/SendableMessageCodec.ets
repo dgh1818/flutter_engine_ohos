@@ -12,11 +12,10 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
+import { lang } from '@kit.ArkTS';
 
-/**
- * A message encoding/decoding mechanism.
- */
-export default interface MessageCodec<T> {
+type ISendable = lang.ISendable;
+export default interface SendableMessageCodec<T> extends ISendable {
   /**
    * Encodes the specified message into binary.
    */

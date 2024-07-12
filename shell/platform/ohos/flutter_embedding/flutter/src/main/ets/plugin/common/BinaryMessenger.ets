@@ -25,16 +25,16 @@ export interface TaskQueue {}
 
 /** Options that control how a TaskQueue should operate and be created. */
 export class TaskQueueOptions {
-    private isSerial = true;
+  private isSerial = true;
 
-    getIsSerial() {
-        return this.isSerial;
-    }
+  getIsSerial() {
+    return this.isSerial;
+  }
 
-    setIsSerial(isSerial: boolean): TaskQueueOptions {
-        this.isSerial = isSerial;
-        return this;
-    }
+  setIsSerial(isSerial: boolean): TaskQueueOptions {
+    this.isSerial = isSerial;
+    return this;
+  }
 }
 
 /**
@@ -49,7 +49,7 @@ export interface BinaryReply {
      *     outgoing replies must place the reply bytes between position zero and current position.
      *     Reply receivers can read from the buffer directly.
      */
-    reply(reply: ArrayBuffer | null): void;
+    reply: (reply: ArrayBuffer | null) => void;
 }
 
 /** Handler for incoming binary messages from Flutter. */
@@ -69,6 +69,7 @@ export interface BinaryMessageHandler {
      */
     onMessage(message: ArrayBuffer, reply: BinaryReply): void;
 }
+
 
 /**
  * Facility for communicating with Flutter using asynchronous message passing with binary messages.

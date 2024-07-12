@@ -14,7 +14,7 @@
 */
 import StringUtils from '../../util/StringUtils';
 
-import MessageCodec from './MessageCodec';
+import SendableMessageCodec from './SendableMessageCodec';
 import StringCodec from './StringCodec';
 import TreeMap from '@ohos.util.TreeMap';
 import HashMap from '@ohos.util.HashMap';
@@ -34,8 +34,9 @@ import Any from './Any';
  * <p>On the Dart side, JSON messages are handled by the JSON facilities of the <a
  * href="https://api.dartlang.org/stable/dart-convert/JSON-constant.html">dart:convert</a> package.
  */
-export default class JSONMessageCodec implements MessageCodec<Object> {
-  static INSTANCE = new JSONMessageCodec();
+@Sendable
+export default class SendableJSONMessageCodec implements SendableMessageCodec<Object> {
+  static INSTANCE: SendableJSONMessageCodec = new SendableJSONMessageCodec();
 
   encodeMessage(message: Any): ArrayBuffer {
     if (message == null) {
