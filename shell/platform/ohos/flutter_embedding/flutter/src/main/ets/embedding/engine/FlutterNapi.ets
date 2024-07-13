@@ -410,15 +410,15 @@ export default class FlutterNapi {
   onTouchEvent(strings: Array<string>): void {
     Log.d(TAG, "called onTouchEvent ");
     FlutterManager.getInstance().getFlutterViewList().forEach((value) => {
-      let length = value.getDVModel().children.length
-      if (length > 0) {
-        let dvModel = value.getDVModel().children[length-1]
-        let params = dvModel.getLayoutParams()
+      let length = value.getDVModel().children.length;
+      for (let index = 0; index < length; index++) {
+        let dvModel = value.getDVModel().children[index];
+        let params = dvModel.getLayoutParams();
         let params2 = params as Record<string, Any>;
         let nodeController = params2['nodeController'] as EmbeddingNodeController;
         let left = params2['left'] as number ?? 0;
         let top = params2['top'] as number ?? 0;
-        nodeController.postEvent(TouchEventProcessor.getInstance().constureCustomTouchEvent(strings, top, left))
+        nodeController.postEvent(TouchEventProcessor.getInstance().constureCustomTouchEvent(strings, top, left));
       }
     });
   }
