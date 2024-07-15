@@ -164,12 +164,13 @@ bool OHOSExternalTexture::SetPixelMapAsProducer(NativePixelMap* pixelMap) {
   return end_ret;
 }
 
-OH_NativeBuffer* OHOSExternalTexture::GetConsumerNativeBuffer(int* fence_fd) {
-  if (producer_nativebuffer_ == nullptr) {
-    OH_NativeBuffer* last_native_buffer =
-        OH_NativeImage_AcquireConsumerNativeBuffer(native_image_source_,
-                                                   fence_fd);
-    if (last_native_buffer == nullptr) {
+OHNativeWindowBuffer* OHOSExternalTexture::GetConsumerNativeBuffer(
+    int* fence_fd) {
+  if (producer_nativewindow_buffer_ == nullptr) {
+    OHNativeWindowBuffer* last_nw_buffer = nullptr;
+    int ret = OH_NativeImage_AcquireNativeWindowBuffer(
+        native_image_source_, &last_nw_buffer, fence_fd);
+    if (last_nw_buffer == nullptr || ret != 0) {
       return nullptr;
     }
 
@@ -177,13 +178,13 @@ OH_NativeBuffer* OHOSExternalTexture::GetConsumerNativeBuffer(int* fence_fd) {
     int last_fence_fd = *fence_fd;
     while (now_paint_frame_seq_num_ + MAX_DELAYED_FRAMES <
            now_new_frame_seq_num_) {
-      OHNativeWindowBuffer* nw_buffer =
-          OH_NativeImage_AcquireConsumerNativeWindowBuffer(native_image_source_,
-                                                           fence_fd);
-      if (nw_buffer != nullptr) {
+      OHNativeWindowBuffer* nw_buffer = nullptr;
+      int ret = OH_NativeImage_AcquireNativeWindowBuffer(native_image_source_,
+                                                         &nw_buffer, fence_fd);
+      if (nw_buffer != nullptr || ret != 0) {
         FML_LOG(ERROR) << "external_texture skip one frame: " << nw_buffer
                        << " fence_fd " << last_fence_fd;
-        int ret = OH_NativeImage_ReleaseConsumerNativeWindowBuffer(
+        int ret = OH_NativeImage_ReleaseNativeWindowBuffer(
             native_image_source_, last_nw_buffer, last_fence_fd);
         if (ret != 0) {
           FML_LOG(ERROR)
@@ -214,11 +215,12 @@ OH_NativeBuffer* OHOSExternalTexture::GetConsumerNativeBuffer(int* fence_fd) {
   }
 }
 
-void OHOSExternalTexture::ReleaseConsumerNativeBuffer(OH_NativeBuffer* buffer,
-                                                      int fence_fd) {
-  if (producer_nativebuffer_ == nullptr) {
-    int ret = OH_NativeImage_ReleaseConsumerNativeBuffer(native_image_source_,
-                                                         buffer, fence_fd);
+void OHOSExternalTexture::ReleaseConsumerNativeBuffer(
+    OHNativeWindowBuffer* buffer,
+    int fence_fd) {
+  if (producer_nativewindow_buffer_ == nullptr) {
+    int ret = OH_NativeImage_ReleaseNativeWindowBuffer(native_image_source_,
+                                                       buffer, fence_fd);
     if (ret != 0) {
       FML_LOG(ERROR)
           << "OHOSExternalTexture ReleaseConsumerNativeBuffer get err:" << ret;
@@ -326,38 +328,44 @@ void OHOSExternalTexture::GetNewTransformBound(SkM44& transform,
     transform.setIdentity();
     return;
   }
-  // Ohos's NativeBuffer transform matrix operates on the data center point,
-  // while the texture's (0,0) coordinate is not the center. Therefore, we first
-  // translate (0,0) to the center point, apply the NativeBuffer transform,
-  // and then translate it back. This sequence of steps ensures
-  // the correct rotation. In the end, rotating the vertices gives us the
-  // rotated texture, but the vertices cannot change positions, so we use the
-  // inverted transform to get the new bounds.
-  float matrix[16];
-  OH_NativeImage_GetTransformMatrix(native_image_source_, matrix);
-  SkM44 transform_center =
-      SkM44::Translate(bounds.centerX(), bounds.centerY(), 0);
-  SkM44 transform_back =
-      SkM44::Translate(-bounds.centerX(), -bounds.centerY(), 0);
-  SkM44 transform_origin = SkM44::RowMajor(matrix);
-  if (matrix[0] == 0 && matrix[5] == 0) {
-    // This indicates a 90 or 270 degree rotation where (x, y) is transformed to
-    // (+-y, +-x). Because the canvas layout has an inverted y-axis, we apply an
-    // additional 180-degree rotation (90 degree rotate means 270 degree rotate
-    // with inverted y-axis).
-    transform_origin = transform_origin *
-                       SkM44(-1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
-  }
-  SkM44 transform_end = transform_center * transform_origin * transform_back;
 
-  SkM44 transform_inverted;
-  if (!transform_end.invert(&transform_inverted)) {
-    FML_LOG(ERROR) << "Invalid (not invertable) transformation matrix";
-    transform_end.setIdentity();
+  // TransformMatrixV2 performs a vertical flip by default.
+  // This occurs because it uses the left-bottom corner as (0,0)
+  // and the transformation follows the original texture order.
+  // However, both the texture's (0,0) and the canvas' (0,0) are located at the
+  // left-top corner. Therefore, we need to flip it back to correct the
+  // orientation.
+  float matrix[16];
+  OH_NativeImage_GetTransformMatrixV2(native_image_source_, matrix);
+
+  SkM44 transform_origin = SkM44::ColMajor(matrix);
+  // Note that SkM44's constructor parameters are in row-major order.
+  // Note that SkM44's operate * is multiplied in row-major order so we use
+  // postConcat. This operate is to do a flip-V and translate it to origin
+  // place.
+  SkM44 transform_end = transform_origin.postConcat(
+      SkM44(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1));
+
+  // The transformation matrix is used to transform texture coordinates.
+  // The range of texture coordinates is (0,1), so translation transformations
+  // are either 0 or 1. Now, we are transforming vertex coordinates, so the
+  // translation range must be adjusted to the width and height of the vertex
+  // range.
+  transform_end.setRC(0, 3, transform_end.rc(0, 3) * bounds.width());
+  transform_end.setRC(1, 3, transform_end.rc(1, 3) * bounds.height());
+  // for (int i = 0; i < 4; i++) {
+  //   FML_LOG(INFO) << transform_end.rc(0, i) << " " << transform_end.rc(1, i)
+  //                 << " " << transform_end.rc(2, i) << " "
+  //                 << transform_end.rc(3, i);
+  // }
+
+  // If a 90-degree rotation is applied, the width and height of the vertex
+  // range need to be swapped.
+  if (matrix[0] == 0 && matrix[5] == 0) {
+    bounds.setWH(bounds.height(), bounds.width());
   }
 
   transform = transform_end;
-  transform_inverted.asM33().mapRect(&bounds);
   return;
 }
 
