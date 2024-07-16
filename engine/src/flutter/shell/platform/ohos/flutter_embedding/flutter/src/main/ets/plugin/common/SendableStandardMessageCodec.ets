@@ -70,7 +70,6 @@ import LinkedList from '@ohos.util.LinkedList';
  */
 @Sendable
 export default class SendableStandardMessageCodec implements SendableMessageCodec<Any> {
-    private static TAG: string = "SendableStandardMessageCodec#";
     static INSTANCE: SendableStandardMessageCodec = new SendableStandardMessageCodec();
 
     encodeMessage(message: Any): ArrayBuffer {

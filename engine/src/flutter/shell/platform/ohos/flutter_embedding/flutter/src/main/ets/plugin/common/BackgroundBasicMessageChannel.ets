@@ -13,12 +13,14 @@
 * limitations under the License.
 */
 import MessageChannelUtils from '../../util/MessageChannelUtils';
-import { BinaryMessageHandler } from './BinaryMessenger';
 import Log from '../../util/Log';
 import { BinaryReply } from './BinaryMessenger';
 import { TaskQueue } from './BinaryMessenger';
 import MessageCodec from './MessageCodec';
 import { BinaryMessenger } from './BinaryMessenger';
+import SendableBinaryMessageHandler from './SendableBinaryMessageHandler'
+import SendableMessageCodec from './SendableMessageCodec';
+import SendableMessageHandler from './SendableMessageHandler';
 import StringUtils from '../../util/StringUtils';
 
 /**
@@ -35,17 +37,19 @@ import StringUtils from '../../util/StringUtils';
  * <p>The logical identity of the channel is given by its name. Identically named channels will
  * interfere with each other's communication.
  */
-export default class BasicMessageChannel<T> {
-  public static TAG = "BasicMessageChannel#";
+export default class BackgroundBasicMessageChannel<T> {
+  public static TAG = "BackgroundBasicMessageChannel#";
   public static CHANNEL_BUFFERS_CHANNEL = "dev.flutter/channel-buffers";
   private messenger: BinaryMessenger;
   private name: string;
-  private codec: MessageCodec<T>;
+  private codec: SendableMessageCodec<T>;
+  private taskQueue?: TaskQueue;
 
-  constructor(messenger: BinaryMessenger, name: string, codec: MessageCodec<T>) {
+  constructor(messenger: BinaryMessenger, name: string, codec: SendableMessageCodec<T>, taskQueue?: TaskQueue) {
     this.messenger = messenger
     this.name = name
     this.codec = codec
+    this.taskQueue = taskQueue
   }
 
   /**
@@ -71,11 +75,15 @@ export default class BasicMessageChannel<T> {
    *
    * @param handler a {@link MessageHandler}, or null to deregister.
    */
-  setMessageHandler(handler: MessageHandler<T> | null): void {
+  setMessageHandler(handler: SendableMessageHandler<T> | null): void {
     // We call the 2 parameter variant specifically to avoid breaking changes in
     // mock verify calls.
     // See https://github.com/flutter/flutter/issues/92582.
-    this.messenger.setMessageHandler(this.name, new IncomingMessageHandler(handler, this.codec));
+    if (this.taskQueue != null) {
+      this.messenger.setMessageHandler(this.name, new IncomingSendableMessageHandler(handler, this.codec), this.taskQueue);
+    } else {
+      this.messenger.setMessageHandler(this.name, new IncomingSendableMessageHandler(handler, this.codec));
+    }
   }
 
   /**
@@ -89,42 +97,11 @@ export default class BasicMessageChannel<T> {
 }
 
 
-export interface Reply<T> {
-  /**
-   * Handles the specified message reply.
-   *
-   * @param reply the reply, possibly null.
-   */
-  reply: (reply: T) => void;
-}
-
-export interface MessageHandler<T> {
-
-  /**
-   * Handles the specified message received from Flutter.
-   *
-   * <p>Handler implementations must reply to all incoming messages, by submitting a single reply
-   * message to the given {@link Reply}. Failure to do so will result in lingering Flutter reply
-   * handlers. The reply may be submitted asynchronously and invoked on any thread.
-   *
-   * <p>Any uncaught exception thrown by this method, or the preceding message decoding, will be
-   * caught by the channel implementation and logged, and a null reply message will be sent back
-   * to Flutter.
-   *
-   * <p>Any uncaught exception thrown during encoding a reply message submitted to the {@link
-   * Reply} is treated similarly: the exception is logged, and a null reply is sent to Flutter.
-   *
-   * @param message the message, possibly null.
-   * @param reply a {@link Reply} for sending a single message reply back to Flutter.
-   */
-  onMessage(message: T, reply: Reply<T>): void;
-}
-
 class IncomingReplyHandler <T> implements BinaryReply {
   private callback: (reply: T)=>void;
-  private codec: MessageCodec<T>
+  private codec: SendableMessageCodec<T>
 
-  constructor(callback:(reply: T)=>void, codec: MessageCodec<T>) {
+  constructor(callback:(reply: T)=>void, codec: SendableMessageCodec<T>) {
     this.callback = callback
     this.codec = codec
   }
@@ -133,16 +110,17 @@ class IncomingReplyHandler <T> implements BinaryReply {
     try {
       this.callback(this.codec.decodeMessage(reply));
     } catch (e) {
-      Log.e(BasicMessageChannel.TAG, "Failed to handle message reply", e);
+      Log.e(BackgroundBasicMessageChannel.TAG, "Failed to handle message reply", e);
     }
   }
 }
 
-class IncomingMessageHandler<T> implements BinaryMessageHandler {
-  private handler: MessageHandler<T> | null
-  private codec: MessageCodec<T>
+@Sendable
+class IncomingSendableMessageHandler<T> implements SendableBinaryMessageHandler {
+  private handler: SendableMessageHandler<T> | null
+  private codec: SendableMessageCodec<T>
 
-  constructor(handler: MessageHandler<T> | null, codec: MessageCodec<T>) {
+  constructor(handler: SendableMessageHandler<T> | null, codec: SendableMessageCodec<T>) {
     this.handler = handler;
     this.codec = codec
   }
@@ -157,7 +135,7 @@ class IncomingMessageHandler<T> implements BinaryMessageHandler {
           }
         });
     } catch (e) {
-      Log.e(BasicMessageChannel.TAG, "Failed to handle message", e);
+      Log.e('WARNNING', "Failed to handle message: ", e);
       callback.reply(StringUtils.stringToArrayBuffer(""));
     }
   }
