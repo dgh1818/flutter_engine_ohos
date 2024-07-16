@@ -55,16 +55,10 @@ export default class LocalizationPlugin {
   }
 
   sendLocaleToFlutter(): void {
-    let currentLanguage = i18n.System.getSystemLanguage();
-    let systemLanguages = i18n.System.getSystemLanguages();
-    let index = systemLanguages.indexOf(currentLanguage);
-    
-    if (index != 0 && index != -1) {
-      let languages = systemLanguages[0];
-      systemLanguages[0] = systemLanguages[index];
-      systemLanguages[index] = languages;
-    }
-    this.localizationChannel.sendLocales(systemLanguages);
+    let systemLocale: string = i18n.System.getSystemLocale();
+    let data: Array<string> = [];
+    data.push(systemLocale);
+    this.localizationChannel.sendLocales(data);
   }
 }
 class enterGetStringResource{
