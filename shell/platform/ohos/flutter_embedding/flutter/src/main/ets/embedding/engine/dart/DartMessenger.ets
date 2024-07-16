@@ -19,6 +19,7 @@ import { BinaryMessageHandler, BinaryMessenger, BinaryReply, TaskQueue, TaskQueu
 import FlutterNapi from '../FlutterNapi';
 import { PlatformMessageHandler } from './PlatformMessageHandler';
 import { TraceSection } from '../../../util/TraceSection';
+import SendableBinaryMessageHandler from '../../../plugin/common/SendableBinaryMessageHandler'
 
 /**
  * Message conduit for 2-way communication between Android and Dart.
@@ -56,7 +57,7 @@ export class DartMessenger implements BinaryMessenger, PlatformMessageHandler {
     return token;
   }
 
-  setMessageHandler(channel: String, handler: BinaryMessageHandler | null, taskQueue?: TaskQueue): void {
+  setMessageHandler(channel: String, handler: BinaryMessageHandler | SendableBinaryMessageHandler | null, taskQueue?: TaskQueue): void {
     if (handler == null) {
       Log.d(TAG, "Removing handler for channel '" + channel + "'");
       this.messageHandlers.delete(channel);
@@ -160,9 +161,9 @@ export class DartMessenger implements BinaryMessenger, PlatformMessageHandler {
  * Dart.
  */
 class HandlerInfo {
-  handler: BinaryMessageHandler;
+  handler: BinaryMessageHandler | SendableBinaryMessageHandler;
   taskQueue: DartMessengerTaskQueue | null;
-  constructor(handler: BinaryMessageHandler, taskQueue?:DartMessengerTaskQueue | null) {
+  constructor(handler: BinaryMessageHandler | SendableBinaryMessageHandler, taskQueue?:DartMessengerTaskQueue | null) {
     this.handler = handler;
     this.taskQueue = taskQueue ?? null;
   }

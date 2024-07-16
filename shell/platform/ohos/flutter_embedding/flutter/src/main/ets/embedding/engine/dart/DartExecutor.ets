@@ -23,6 +23,7 @@ import { TraceSection } from '../../../util/TraceSection';
 import { FlutterCallbackInformation } from '../../../view/FlutterCallbackInformation';
 import FlutterNapi from '../FlutterNapi';
 import { DartMessenger } from './DartMessenger';
+import SendableBinaryMessageHandler from '../../../plugin/common/SendableBinaryMessageHandler'
 
 
 const TAG = "DartExecutor";
@@ -172,7 +173,7 @@ export default class DartExecutor implements  BinaryMessenger {
     this.getBinaryMessenger().send(channel, message, callback);
   }
 
-  setMessageHandler(channel: String, handler: BinaryMessageHandler | null, taskQueue?: TaskQueue): void {
+  setMessageHandler(channel: String, handler: BinaryMessageHandler | SendableBinaryMessageHandler | null, taskQueue?: TaskQueue): void {
     this.getBinaryMessenger().setMessageHandler(channel, handler, taskQueue);
   }
 
@@ -339,7 +340,7 @@ export class DefaultBinaryMessenger implements BinaryMessenger {
    * @param channel the name of the channel.
    * @param handler a {@link BinaryMessageHandler} to be invoked on incoming messages, or null.
    */
-  setMessageHandler(channel: String, handler: BinaryMessageHandler, taskQueue?: TaskQueue): void {
+  setMessageHandler(channel: String, handler: BinaryMessageHandler | SendableBinaryMessageHandler | null, taskQueue?: TaskQueue): void {
     this.messenger.setMessageHandler(channel, handler, taskQueue);
   }
 }

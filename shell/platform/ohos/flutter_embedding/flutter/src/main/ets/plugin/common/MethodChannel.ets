@@ -21,6 +21,7 @@ import Any from './Any';
 import MethodCall from './MethodCall';
 import MethodCodec from './MethodCodec';
 import StandardMethodCodec from './StandardMethodCodec';
+
 /**
  * A named channel for communicating with the Flutter application using asynchronous method calls.
  *
@@ -40,13 +41,11 @@ export default class MethodChannel {
   private messenger: BinaryMessenger;
   private name: string;
   private codec: MethodCodec;
-  private taskQueue?: TaskQueue;
 
-  constructor(messenger: BinaryMessenger, name: string, codec: MethodCodec = StandardMethodCodec.INSTANCE, taskQueue?: TaskQueue) {
+  constructor(messenger: BinaryMessenger, name: string, codec: MethodCodec = StandardMethodCodec.INSTANCE) {
     this.messenger = messenger
     this.name = name
     this.codec = codec
-    this.taskQueue = taskQueue
   }
 
   /**
@@ -80,13 +79,7 @@ export default class MethodChannel {
     // We call the 2 parameter variant specifically to avoid breaking changes in
     // mock verify calls.
     // See https://github.com/flutter/flutter/issues/92582.
-    if (this.taskQueue != null) {
-      this.messenger.setMessageHandler(
-        this.name, new IncomingMethodCallHandler(handler, this.codec), this.taskQueue);
-    } else {
-      this.messenger.setMessageHandler(
-        this.name, new IncomingMethodCallHandler(handler, this.codec));
-    }
+    this.messenger.setMessageHandler(this.name, new IncomingMethodCallHandler(handler, this.codec));
   }
 
   /**

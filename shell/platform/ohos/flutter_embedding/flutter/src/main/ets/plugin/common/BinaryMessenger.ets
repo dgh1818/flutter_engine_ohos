@@ -21,6 +21,9 @@
  * channels' constructors to control the threading policy for handling platform channels'
  * messages.
  */
+
+import SendableBinaryMessageHandler from './SendableBinaryMessageHandler'
+
 export interface TaskQueue {}
 
 /** Options that control how a TaskQueue should operate and be created. */
@@ -127,11 +130,5 @@ export interface BinaryMessenger {
      * @param taskQueue a {@link BinaryMessenger.TaskQueue} that specifies what thread will execute
      *     the handler. Specifying null means execute on the platform thread.
      */
-    //setMessageHandler(channel: String, handler: BinaryMessageHandler)
-    setMessageHandler(channel: String, handler: BinaryMessageHandler | null, taskQueue?: TaskQueue): void;
-    // {
-    //     if (taskQueue != null) {
-    //         throw new Error("setMessageHandler called with nonnull taskQueue is not supported.")
-    //     }
-    // }
+    setMessageHandler(channel: String, handler: BinaryMessageHandler | SendableBinaryMessageHandler | null, taskQueue?: TaskQueue): void;
 }
