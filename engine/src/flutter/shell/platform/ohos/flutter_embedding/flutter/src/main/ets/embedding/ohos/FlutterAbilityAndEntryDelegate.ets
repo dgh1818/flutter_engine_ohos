@@ -347,8 +347,8 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
   onForeground() {
     this.ensureAlive();
     if (this.shouldDispatchAppLifecycleState()) {
-      this.flutterEngine?.getLifecycleChannel()?.aWindowIsFocused();
       this.flutterEngine?.getLifecycleChannel()?.appIsResumed();
+      this.flutterEngine?.getLifecycleChannel()?.aWindowIsFocused();
     }
   }
 
