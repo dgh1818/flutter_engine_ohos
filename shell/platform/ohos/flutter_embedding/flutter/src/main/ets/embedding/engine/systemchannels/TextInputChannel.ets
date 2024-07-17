@@ -272,7 +272,11 @@ export class Configuration {
       fields = json.fields.map((field: Any): Any => Configuration.fromJson(field));
     }
 
-    const inputAction: number = Configuration.inputActionFromTextInputAction(inputActionName);
+    let inputAction: number = Configuration.inputActionFromTextInputAction(inputActionName);
+
+    if ( inputActionName == "TextInputAction.newline" ) {
+      inputAction = 8
+    }
 
     // Build list of content commit mime types from the data in the JSON list.
     const contentList: Array<Any> = [];
