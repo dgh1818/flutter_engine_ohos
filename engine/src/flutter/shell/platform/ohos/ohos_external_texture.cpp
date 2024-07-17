@@ -93,8 +93,7 @@ void OHOSExternalTexture::Paint(PaintContext& context,
 void OHOSExternalTexture::MarkNewFrameAvailable() {
   // NOOP.
   FML_LOG(INFO) << " OHOSExternalTexture::MarkNewFrameAvailable-- "
-                << producer_nativewindow_width_ << " "
-                << producer_nativewindow_height_;
+                << now_new_frame_seq_num_ << " " << now_paint_frame_seq_num_;
   // new_frame_ready_ = true;
   now_new_frame_seq_num_++;
 }
@@ -167,33 +166,50 @@ bool OHOSExternalTexture::SetPixelMapAsProducer(NativePixelMap* pixelMap) {
 OHNativeWindowBuffer* OHOSExternalTexture::GetConsumerNativeBuffer(
     int* fence_fd) {
   if (producer_nativewindow_buffer_ == nullptr) {
-    OHNativeWindowBuffer* last_nw_buffer = nullptr;
+    OHNativeWindowBuffer* now_nw_buffer = nullptr;
     int ret = OH_NativeImage_AcquireNativeWindowBuffer(
-        native_image_source_, &last_nw_buffer, fence_fd);
-    if (last_nw_buffer == nullptr || ret != 0) {
+        native_image_source_, &now_nw_buffer, fence_fd);
+    if (now_nw_buffer == nullptr || ret != 0) {
       return nullptr;
     }
+    if (*fence_fd <= 0) {
+      FML_DLOG(INFO)
+          << "get not null native_window_buffer but invaild fence_fd: "
+          << *fence_fd;
+    }
 
+    if (last_native_window_buffer_ != nullptr) {
+      ret = OH_NativeImage_ReleaseNativeWindowBuffer(
+          native_image_source_, last_native_window_buffer_, last_fence_fd_);
+      if (ret != 0) {
+        FML_LOG(ERROR) << "OHOSExternalTexture ReleaseConsumerNativeBuffer(Get "
+                          "Last) get err:"
+                       << ret;
+      }
+    }
+    last_native_window_buffer_ = now_nw_buffer;
+    last_fence_fd_ = *fence_fd;
     now_paint_frame_seq_num_++;
-    int last_fence_fd = *fence_fd;
     while (now_paint_frame_seq_num_ + MAX_DELAYED_FRAMES <
            now_new_frame_seq_num_) {
       OHNativeWindowBuffer* nw_buffer = nullptr;
       int ret = OH_NativeImage_AcquireNativeWindowBuffer(native_image_source_,
                                                          &nw_buffer, fence_fd);
       if (nw_buffer != nullptr || ret != 0) {
-        FML_LOG(ERROR) << "external_texture skip one frame: " << nw_buffer
-                       << " fence_fd " << last_fence_fd;
+        FML_LOG(ERROR) << "external_texture skip one frame: "
+                       << last_native_window_buffer_ << " fence_fd "
+                       << last_fence_fd_;
         int ret = OH_NativeImage_ReleaseNativeWindowBuffer(
-            native_image_source_, last_nw_buffer, last_fence_fd);
+            native_image_source_, last_native_window_buffer_, last_fence_fd_);
         if (ret != 0) {
           FML_LOG(ERROR)
               << "OHOSExternalTexture ReleaseConsumerNativeBuffer(Get "
                  "Last) get err:"
               << ret;
         }
-        last_nw_buffer = nw_buffer;
-        last_fence_fd = *fence_fd;
+        last_native_window_buffer_ = nw_buffer;
+        last_fence_fd_ = *fence_fd;
+        now_nw_buffer = nw_buffer;
         now_paint_frame_seq_num_++;
       } else {
         now_paint_frame_seq_num_ = (int64_t)now_new_frame_seq_num_;
@@ -207,8 +223,10 @@ OHNativeWindowBuffer* OHOSExternalTexture::GetConsumerNativeBuffer(
       now_new_frame_seq_num_--;
       frame_listener_.onFrameAvailable(frame_listener_.context);
     }
-    *fence_fd = last_fence_fd;
-    return last_native_buffer;
+    // Note that *fence_fd has same fd and will be close in WaitGPUFence, so we
+    // let last_fence_fd_ be -1.
+    last_fence_fd_ = -1;
+    return now_nw_buffer;
   } else {
     *fence_fd = -1;
     return producer_nativebuffer_;
@@ -228,6 +246,40 @@ void OHOSExternalTexture::ReleaseConsumerNativeBuffer(
   } else {
     return;
   }
+}
+
+sk_sp<flutter::DlImage> OHOSExternalTexture::GetNextDrawImage(
+    PaintContext& context,
+    const SkRect& bounds) {
+  int fence_fd = -1;
+  OHNativeWindowBuffer* native_widnow_buffer =
+      GetConsumerNativeBuffer(&fence_fd);
+  if (native_widnow_buffer == nullptr) {
+    return nullptr;
+  }
+
+  OH_NativeBuffer* native_buffer;
+  int ret = OH_NativeBuffer_FromNativeWindowBuffer(native_widnow_buffer,
+                                                   &native_buffer);
+  if (ret != 0) {
+    FML_LOG(ERROR) << "OHOSExternalTextureGL get OH_NativeBuffer error:" << ret;
+  }
+  // ensure buffer_id > 0 (may get seqNum = 0)
+  uint32_t buffer_id = OH_NativeBuffer_GetSeqNum(native_buffer) + 1;
+
+  auto ret_image = image_lru_.FindImage(buffer_id);
+  if (ret_image == nullptr) {
+    ret_image = CreateDlImage(context, bounds, buffer_id, native_widnow_buffer);
+  }
+  if (ret_image == nullptr) {
+    // set last_fence_fd_ so it can be close later.
+    last_fence_fd_ = fence_fd;
+  } else {
+    // let gpu wait for the nativebuffer end use
+    // fence_fd will be close in WaitGPUFence.
+    WaitGPUFence(fence_fd);
+  }
+  return ret_image;
 }
 
 bool OHOSExternalTexture::CreateProducerNativeBuffer(int width, int height) {
