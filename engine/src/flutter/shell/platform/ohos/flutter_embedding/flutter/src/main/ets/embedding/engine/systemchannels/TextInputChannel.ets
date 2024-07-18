@@ -195,6 +195,7 @@ export class Configuration {
   actionLabel: String = "";
   contentCommitMimeTypes: String[] = [];
   fields: Configuration[] = [];
+  /// 规避换行标识无法显示问题，api修改后再删除
   const newlineKeyType: number = 8;
 
   constructor(obscureText: boolean,
@@ -236,7 +237,6 @@ export class Configuration {
   }
 
   private static inputActionFromTextInputAction(inputActionName: string): number {
-
     switch (inputActionName) {
       case "TextInputAction.previous":
         return inputMethod.EnterKeyType.PREVIOUS
