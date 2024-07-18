@@ -195,6 +195,7 @@ export class Configuration {
   actionLabel: String = "";
   contentCommitMimeTypes: String[] = [];
   fields: Configuration[] = [];
+  const newlineKeyType: number = 8;
 
   constructor(obscureText: boolean,
               autocorrect: boolean,
@@ -235,6 +236,7 @@ export class Configuration {
   }
 
   private static inputActionFromTextInputAction(inputActionName: string): number {
+
     switch (inputActionName) {
       case "TextInputAction.previous":
         return inputMethod.EnterKeyType.PREVIOUS
@@ -251,13 +253,12 @@ export class Configuration {
       case "TextInputAction.next":
         return inputMethod.EnterKeyType.NEXT
       case "TextInputAction.newline":
-        return 8
+        return newlineKeyType
       case "TextInputAction.done":
         return inputMethod.EnterKeyType.DONE
       default:
       // Present default key if bad input type is given.
         return inputMethod.EnterKeyType.UNSPECIFIED
-
     }
   }
 
