@@ -13,11 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import os
 import platform
 import subprocess
 import sys
 import traceback
+import zipfile
 from obs import ObsClient, PutObjectHeader
 
 # 使用华为obs
@@ -34,6 +36,8 @@ OHOS_ENGINE_TYPE_OUT = {'ohos-arm64' : 'ohos_debug_unopt_arm64',
                         'ohos-x64-profile' : 'ohos_profile_x64',
                         'ohos-x64-release' : 'ohos_release_x64',
                         }
+
+UPLOAD_TEMPLATE = "upload_template.json"
 
 # OBS 环境变量配置key信息
 ACCESS_KEY = os.getenv("AccessKeyID")
@@ -149,6 +153,25 @@ def getCompileFiles(buildType):
 
     return files
 
+def uploadExtraFiles(localVersion):
+    log("uploadExtraFiles ")
+    if not os.path.exists(UPLOAD_TEMPLATE):
+        log(f"File not exist: {UPLOAD_TEMPLATE}")
+        return
+    with open(UPLOAD_TEMPLATE, 'r') as jsonFile:
+        jsonData = json.load(jsonFile)
+        tag = jsonData["tag"]
+        if not tag:
+            tag = localVersion;
+        log(f"tag = {tag}")
+        uploadFiles = jsonData["files"]
+        for key in uploadFiles:
+            value = uploadFiles[key]
+            if os.path.exists(value):
+                uploadServer(tag, key, value)
+            else:
+                log(f"Not exist file: {value}")
+
 # 上传服务器
 def uploadServer(version, buildType, filePath):
     try:
@@ -165,6 +188,7 @@ def uploadServer(version, buildType, filePath):
         # https://storage.flutter-io.cn/flutter_infra_release/flutter/cececddab019a56da828c41d55cb54484278e880/ohos-arm64-profile/linux-x64.zip
         fileName = os.path.basename(filePath)
         objectKey = f'flutter_infra_release/flutter/{version}/{buildType}/{fileName}'
+        log(f'objectKey: {objectKey}')
 
         # 待上传文件/文件夹的完整路径，如aa/bb.txt，或aa/
         file_path = filePath
@@ -198,9 +222,9 @@ def main():
             for filePath in zipfiles:
                 if not filePath or not os.path.exists(filePath):
                     continue
-                print(filePath)
                 uploadServer(localVersion, buildType, filePath)
 
+        uploadExtraFiles(localVersion)
         log('上传完成')
 
     else :

@@ -30,9 +30,7 @@ export class PlatformViewWrapper {
   private bufferWidth: number = 0;
   private bufferHeight: number = 0;
   private touchProcessor: OhosTouchProcessor | null = null;
-
-
-  private model : DVModel = createDVModelFromJson( new DVModelParam("Column", []));
+  private model: DVModel | undefined;
 
   public setTouchProcessor(newTouchProcessor: OhosTouchProcessor): void {
     this.touchProcessor = newTouchProcessor;
@@ -42,7 +40,7 @@ export class PlatformViewWrapper {
   }
 
   public getDvModel(): DVModel {
-    return this.model;
+    return this.model!;
   }
 
   setParams: (params: DVModelParameters, key: string, element: Any ) => void = (params: DVModelParameters, key: string, element: Any): void => {
@@ -80,7 +78,7 @@ export class PlatformViewWrapper {
   }
 
   public addDvModel(model: DVModel): void {
-    this.model?.children.push(model);
+    this.model = model
   }
 }
 

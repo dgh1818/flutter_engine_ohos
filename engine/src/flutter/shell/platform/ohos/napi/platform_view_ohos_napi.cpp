@@ -441,6 +441,26 @@ void PlatformViewOHOSNapi::DecodeImage(int64_t imageGeneratorAddress,
       }));
 }
 
+void PlatformViewOHOSNapi::FlutterViewOnTouchEvent(std::shared_ptr<std::string[]> touchPacketString, int size) {
+  if (touchPacketString == nullptr) {
+    FML_LOG(ERROR) << "Input parameter error";
+    return;
+  }
+  napi_value arrayString;
+  napi_create_array(env_, &arrayString);
+
+  for (int i = 0; i < size; ++i) {
+    napi_value stringItem;
+    napi_create_string_utf8(env_, touchPacketString[i].c_str(), -1, &stringItem);
+    napi_set_element(env_, arrayString, i, stringItem);
+  }
+
+  napi_status status = fml::napi::InvokeJsMethod(env_, ref_napi_obj_, "onTouchEvent", 1, &arrayString);
+  if (status != napi_ok) {
+    FML_LOG(ERROR) << "InvokeJsMethod onTouchEvent fail";
+  }
+}
+
 /**
  *   attach flutterNapi实例给到 native
  * engine，这个支持rkts到flutter平台的无关引擎之间的通信 attach只需要执行一次

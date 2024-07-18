@@ -13,7 +13,7 @@
 * limitations under the License.
 */
 
-import BuildProfile from "../../../../../../BuildProfile.ets";
+import BuildProfile from "../../../../../../BuildProfile";
 
 const DEFAULT_AOT_SHARED_LIBRARY_NAME = "libapp.so";
 const DEFAULT_VM_SNAPSHOT_DATA = "vm_snapshot_data";

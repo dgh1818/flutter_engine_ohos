@@ -335,7 +335,6 @@ void XComponentBase::OnSurfaceDestroyed(OH_NativeXComponent* component,
 
 void XComponentBase::OnDispatchTouchEvent(OH_NativeXComponent* component,
                                           void* window) {
-  LOGD("XComponentManger::DispatchTouchEvent");
   int32_t ret =
       OH_NativeXComponent_GetTouchEvent(component, window, &touchEvent_);
   if (ret == OH_NATIVEXCOMPONENT_RESULT_SUCCESS) {

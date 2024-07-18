@@ -32,6 +32,7 @@ export default class FlutterManager {
   private flutterViewIndex = 1;
   private uiAbilityList = new Array<UIAbility>();
   private windowStageList = new Map<UIAbility, window.WindowStage>();
+  private mFullScreenListener: FullScreenListener = new DefaultFullScreenListener();
 
   pushUIAbility(uiAbility: UIAbility) {
     this.uiAbilityList.push(uiAbility);
@@ -56,7 +57,10 @@ export default class FlutterManager {
     return this.windowStageList.get(uiAbility)!!
   }
 
-  getUIAbility(context: Context): UIAbility {
+  getUIAbility(context?: Context): UIAbility {
+    if (!context && this.uiAbilityList.length > 0) {
+      return this.uiAbilityList[0];
+    }
     return this.uiAbilityList.find((item: UIAbility) => item.context == context)!!
   }
 
@@ -92,6 +96,63 @@ export default class FlutterManager {
 
   clear(): void {
     this.flutterViewList.clear();
+  }
+
+  setFullScreenListener(listener: FullScreenListener) {
+    this.mFullScreenListener = listener
+  }
+
+  getFullScreenListener(): FullScreenListener {
+    return this.mFullScreenListener;
+  }
+
+  setUseFullScreen(use: boolean) {
+    this.mFullScreenListener.setUseFullScreen(use)
+  }
+
+  useFullScreen(): boolean {
+    return this.mFullScreenListener.useFullScreen();
+  }
+}
+
+export interface FullScreenListener {
+  useFullScreen(): boolean;
+  setUseFullScreen(useFullScreen: boolean): void;
+  onScreenStateChanged(data: window.WindowStatusType): void;
+}
+
+export class DefaultFullScreenListener implements FullScreenListener {
+  private fullScreen: boolean = true;
+  private skipCheck: boolean = false;
+
+  useFullScreen(): boolean {
+    return this.fullScreen;
+  }
+
+  setUseFullScreen(useFullScreen: boolean): void {
+    this.fullScreen = useFullScreen;
+    this.skipCheck = true;
+
+    let window = FlutterManager.getInstance()
+      .getWindowStage(FlutterManager.getInstance().getUIAbility(getContext(this)));
+    window.getMainWindowSync().setWindowLayoutFullScreen(useFullScreen);
+  }
+
+  onScreenStateChanged(data: window.WindowStatusType): void {
+    if (this.skipCheck) {
+      return;
+    }
+    switch (data) {
+      case window.WindowStatusType.FULL_SCREEN:
+      case window.WindowStatusType.SPLIT_SCREEN:
+      case window.WindowStatusType.FLOATING:
+      case window.WindowStatusType.MAXIMIZE:
+        this.fullScreen = true;
+        break;
+      default:
+        this.fullScreen = false;
+        break;
+    }
   }
 
 }

@@ -29,7 +29,7 @@ enum {
   ERROR_TYPE = -100,
   ERROR_NULL,
 };
-const int32_t STRING_MAX_LENGTH = 512;
+
 int32_t GetString(napi_env env, napi_value arg, std::string& strValue);
 int32_t GetArrayString(napi_env env,
                        napi_value arg,

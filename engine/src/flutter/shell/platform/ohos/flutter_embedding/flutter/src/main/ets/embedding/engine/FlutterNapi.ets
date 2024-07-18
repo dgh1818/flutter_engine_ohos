@@ -28,6 +28,8 @@ import i18n from '@ohos.i18n';
 import Any from '../../plugin/common/Any';
 import FlutterManager from '../ohos/FlutterManager';
 import deviceInfo from '@ohos.deviceInfo';
+import TouchEventProcessor from '../ohos/TouchEventProcessor';
+import { EmbeddingNodeController } from '../ohos/EmbeddingNodeController';
 
 const TAG = "FlutterNapi";
 
@@ -160,13 +162,6 @@ export default class FlutterNapi {
   dispatchPlatformMessage(channel: String, message: ArrayBuffer, position: number, responseId: number): void {
     this.ensureRunningOnMainThread();
     if (this.isAttached()) {
-
-      const uintArrayBuff = new Uint8Array(message)
-      let text = ''
-      for (let i = 0; i < uintArrayBuff.byteLength; i++) {
-        text += uintArrayBuff[i] + ','
-      }
-      Log.w(TAG, "message=" + message.byteLength + ",text=" + text);
       flutter.nativeDispatchPlatformMessage(this.nativeShellHolderId!, channel, message, position, responseId);
     } else {
       Log.w(
@@ -410,6 +405,24 @@ export default class FlutterNapi {
     Log.d(TAG, "called registerTexture ");
     return flutter.nativeRegisterTexture(this.nativeShellHolderId!, textureId);
   }
+
+  /** Dispatch Touch Event */
+  onTouchEvent(strings: Array<string>): void {
+    Log.d(TAG, "called onTouchEvent ");
+    FlutterManager.getInstance().getFlutterViewList().forEach((value) => {
+      let length = value.getDVModel().children.length;
+      for (let index = 0; index < length; index++) {
+        let dvModel = value.getDVModel().children[index];
+        let params = dvModel.getLayoutParams();
+        let params2 = params as Record<string, Any>;
+        let nodeController = params2['nodeController'] as EmbeddingNodeController;
+        let left = params2['left'] as number ?? 0;
+        let top = params2['top'] as number ?? 0;
+        nodeController.postEvent(TouchEventProcessor.getInstance().constureCustomTouchEvent(strings, top, left));
+      }
+    });
+  }
+
 }
 
 export interface AccessibilityDelegate {
