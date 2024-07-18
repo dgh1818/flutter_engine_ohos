@@ -411,7 +411,7 @@ export default class FlutterNapi {
     Log.d(TAG, "called onTouchEvent ");
     FlutterManager.getInstance().getFlutterViewList().forEach((value) => {
       let length = value.getDVModel().children.length;
-      for (let index = 0; index < length; index++) {
+      for (let index = length - 1; index >= 0; index--) {
         let dvModel = value.getDVModel().children[index];
         let params = dvModel.getLayoutParams();
         let params2 = params as Record<string, Any>;
