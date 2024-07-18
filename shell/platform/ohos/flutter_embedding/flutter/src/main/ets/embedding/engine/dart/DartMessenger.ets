@@ -36,20 +36,8 @@ export class DartMessenger implements BinaryMessenger, PlatformMessageHandler {
   /**
    * Maps a channel name to an object that contains the task queue and the handler associated with
    * the channel.
-   *
-   * <p>Reads and writes to this map must lock {@code handlersLock}.
    */
   messageHandlers: Map<String, HandlerInfo> = new Map();
-
-  /**
-   * Maps a channel name to an object that holds information about the incoming Dart message.
-   *
-   * <p>Reads and writes to this map must lock {@code handlersLock}.
-   */
-  bufferedMessages: Map<String, BufferedMessageInfo[]> = new Map();
-
-  handlersLock: Object = new Object();
-  enableBufferingIncomingMessagesFlag: boolean = false;
 
   pendingReplies: Map<number, BinaryReply> = new Map();
   nextReplyId: number = 1;
@@ -66,7 +54,6 @@ export class DartMessenger implements BinaryMessenger, PlatformMessageHandler {
     this.createdTaskQueues.set(token, taskQueue);
     return token;
   }
-
 
   setMessageHandler(channel: String, handler: BinaryMessageHandler | null, taskQueue?: TaskQueue): void {
     if (handler == null) {
@@ -86,17 +73,6 @@ export class DartMessenger implements BinaryMessenger, PlatformMessageHandler {
     Log.d(TAG, "Setting handler for channel '" + channel + "'");
 
     this.messageHandlers.set(channel, new HandlerInfo(handler, dartMessengerTaskQueue));
-    this.bufferedMessages.delete(channel);
-  }
-
-
-  enableBufferingIncomingMessages(): void {
-    this.enableBufferingIncomingMessagesFlag = true;
-  }
-
-  disableBufferingIncomingMessages(): void {
-    this.enableBufferingIncomingMessagesFlag = false;
-    this.bufferedMessages = new Map();
   }
 
   send(channel: String, message: ArrayBuffer, callback?: BinaryReply): void {
@@ -151,27 +127,13 @@ export class DartMessenger implements BinaryMessenger, PlatformMessageHandler {
   }
 
   handleMessageFromDart(channel: String, message: ArrayBuffer, replyId: number, messageData: number): void {
-      // Called from any thread.
-      Log.d(TAG, "Received message from Dart over channel '" + channel + "'");
-
-      let handlerInfo: HandlerInfo | null  = this.messageHandlers.get(channel) ?? null;
-      let messageDeferred: boolean;
-
-      messageDeferred = (this.enableBufferingIncomingMessagesFlag && handlerInfo == null);
-      if (messageDeferred) {
-        if (!this.bufferedMessages.has(channel)) {
-          this.bufferedMessages.set(channel, []);
-        }
-      let buffer: BufferedMessageInfo[] = this.bufferedMessages.get(channel) ?? [];
-      buffer.push(new BufferedMessageInfo(message, replyId, messageData));
-    }
-    if (!messageDeferred) {
-      //ArkTS 没有线程池,任务队列使用异步实现
-      if(handlerInfo?.taskQueue != null) {
-          this.asyncInvokeHandler(handlerInfo, message, replyId);
-        } else {
-          this.invokeHandler(handlerInfo, message, replyId);  
-      }
+    Log.d(TAG, "Received message from Dart over channel '" + channel + "'");
+    let handlerInfo: HandlerInfo | null  = this.messageHandlers.get(channel) ?? null;
+    //ArkTS 没有线程池,任务队列使用异步实现
+    if(handlerInfo?.taskQueue != null) {
+        this.asyncInvokeHandler(handlerInfo, message, replyId);
+      } else {
+        this.invokeHandler(handlerInfo, message, replyId);
     }
   }
 
@@ -205,11 +167,6 @@ export class DartMessenger implements BinaryMessenger, PlatformMessageHandler {
   }
 }
 
-
-
-
-
-
 /**
  * Holds information about a platform handler, such as the task queue that processes messages from
  * Dart.
@@ -222,28 +179,6 @@ class HandlerInfo {
     this.taskQueue = taskQueue ?? null;
   }
 }
-
-/**
- * Holds information that allows to dispatch a Dart message to a platform handler when it becomes
- * available.
- */
-class BufferedMessageInfo {
-  message: ArrayBuffer;
-  replyId: number;
-  messageData: number;
-
-  constructor(message: ArrayBuffer,
-  replyId: number,
-  messageData: number) {
-    this.message = message;
-    this.replyId = replyId;
-    this.messageData = messageData;
-  }
-}
-
-
-
-
 
 class Reply implements BinaryReply {
   flutterNapi: FlutterNapi;

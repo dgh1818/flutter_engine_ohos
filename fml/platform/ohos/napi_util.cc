@@ -156,10 +156,19 @@ int32_t GetString(napi_env env, napi_value arg, std::string& strValue) {
     return ERROR_TYPE;
   }
 
-  std::vector<char> buff(STRING_MAX_LENGTH);
-  size_t copy_lenth;
-  status = napi_get_value_string_utf8(env, arg, static_cast<char*>(buff.data()),
-                                      STRING_MAX_LENGTH, &copy_lenth);
+  // 获取字符串长度
+  size_t str_len;
+  status = napi_get_value_string_utf8(env, arg, nullptr, 0, &str_len);
+  if (status != napi_ok) {
+    FML_DLOG(ERROR) << "Error get str_len:" << status;
+    FML_DLOG(ERROR) << "result str_len:" << str_len;
+    return status;
+  }
+
+  // 读取字符串
+  size_t copy_lenth = str_len + 1;
+  std::vector<char> buff(copy_lenth);
+  status = napi_get_value_string_utf8(env, arg, static_cast<char*>(buff.data()), copy_lenth, &copy_lenth);
   if (status != napi_ok) {
     FML_DLOG(ERROR) << "Error get string:" << status;
     FML_DLOG(ERROR) << "result size:" << copy_lenth;

@@ -26,7 +26,7 @@ import sys
 import zipfile
 from datetime import datetime
 
-SUPPORT_BUILD_NAMES = ("clean", "config", "har", "compile", "zip", "zip2")
+SUPPORT_BUILD_NAMES = ("clean", "config", "har", "compile", "zip", "zip2", "upload")
 SUPPORT_BUILD_TYPES = ("debug", "profile", "release")
 DIR_ROOT = os.path.abspath(os.path.join(sys.argv[0], os.pardir))
 OS_NAME = platform.system().lower()
@@ -209,13 +209,16 @@ def harBuild(buildInfo, args):
   command += "--build_dir ./src/out/%s/obj/ohos/flutter_embedding " % buildOut
   command += "--build_type %s " % buildType
   command += "--output ./src/out/%s/flutter.har " % buildOut
-  command += "--native_lib ./src/out/%s/libflutter.so " % buildOut
+  if args.har_unstripped:
+      command += "--native_lib ./src/out/%s/so.unstripped/libflutter.so " % buildOut
+  else:
+      command += "--native_lib ./src/out/%s/libflutter.so " % buildOut
   if buildType == "profile":
-    command += (
-        "--native_lib ./src/out/%s/gen/flutter/shell/vmservice/ohos/libs/%s/libvmservice_snapshot.so "
-        % (buildOut, buildInfo.abi)
-    )
-  command += "--ohos_abi %s " % "arm64-v8a"
+      command += (
+          "--native_lib ./src/out/%s/gen/flutter/shell/vmservice/ohos/libs/%s/libvmservice_snapshot.so "
+          % (buildOut, buildInfo.abi)
+      )
+  command += "--ohos_abi %s " % buildInfo.abi
   command += "--ohos_api_int %s " % args.ohos_api_int
   runCommand(command)
 
@@ -314,7 +317,9 @@ def addParseParam(parser):
   parser.add_argument(
       "--ohos_api_int", type=int, choices=[11, 12], default=12, help="Ohos api int."
   )
-
+  parser.add_argument(
+      "--har-unstripped", action="store_true", help="Use so.unstripped or not."
+  )
 
 def updateCode(args):
   if args.branch:
@@ -362,6 +367,10 @@ def buildLocalEngine(buildType, extraParam):
   runCommand("ninja -C %s" % os.path.join("src", "out", outputName))
 
 
+def uploadFiles():
+    runCommand("python3 src/flutter/attachment/scripts/auto_compile.py")
+
+
 def buildByNameAndType(args):
   buildNames = args.name if args.branch or args.name else ["config", "compile"]
   buildTypes = args.type
@@ -387,6 +396,9 @@ def buildByNameAndType(args):
       else:
         logging.warning("Other name=%s" % buildName)
     buildLocalEngine(buildType, args.gn_extra_param)
+
+    if "upload" in buildNames:
+        uploadFiles()
 
 
 def ohos_main():

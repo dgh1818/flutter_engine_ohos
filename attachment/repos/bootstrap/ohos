@@ -15,4 +15,4 @@
 #编译依赖
 #sudo apt install g++-multilib git python3 curl
 
-python3 ohos.py $@
+python3 ./src/flutter/attachment/scripts/ohos.py $@

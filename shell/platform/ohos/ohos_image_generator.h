@@ -16,6 +16,7 @@
 #ifndef FLUTTER_SHELL_PLATFORM_OHOS_OHOS_IMAGE_GENERATOR_H_
 #define FLUTTER_SHELL_PLATFORM_OHOS_OHOS_IMAGE_GENERATOR_H_
 
+#include "flutter/common/task_runners.h"
 #include "flutter/fml/memory/ref_ptr.h"
 #include "flutter/fml/synchronization/waitable_event.h"
 #include "flutter/fml/task_runner.h"
@@ -31,6 +32,7 @@ class OHOSImageGenerator : public ImageGenerator {
  private:
   explicit OHOSImageGenerator(
       sk_sp<SkData> buffer,
+      const fml::RefPtr<fml::TaskRunner>& task_runner,
       std::shared_ptr<PlatformViewOHOSNapi> napi_facade);
 
   static napi_env g_env;
@@ -70,13 +72,15 @@ class OHOSImageGenerator : public ImageGenerator {
 
   static std::shared_ptr<ImageGenerator> MakeFromData(
       sk_sp<SkData> data,
-      const fml::RefPtr<fml::TaskRunner>& task_runner,
+      const TaskRunners& task_runners,
       std::shared_ptr<PlatformViewOHOSNapi> napi_facade);
+
+  fml::RefPtr<fml::TaskRunner> GetTaskRunner() const;
 
  private:
   sk_sp<SkData> data_;
   sk_sp<SkData> software_decoded_data_;
-
+  const fml::RefPtr<fml::TaskRunner> task_runner_;
   SkImageInfo image_info_;
 
   std::shared_ptr<PlatformViewOHOSNapi> napi_facade_;
