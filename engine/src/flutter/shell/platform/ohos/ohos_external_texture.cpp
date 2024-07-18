@@ -100,7 +100,7 @@ void OHOSExternalTexture::MarkNewFrameAvailable() {
 
 // Implementing flutter::Texture.
 void OHOSExternalTexture::OnTextureUnregistered() {
-  FML_LOG(INFO) << " OHOSExternalTextureGL::OnTextureUnregistered";
+  FML_LOG(INFO) << " OHOSExternalTexture::OnTextureUnregistered";
 }
 
 // Implementing flutter::ContextListener.
@@ -384,11 +384,16 @@ void OHOSExternalTexture::GetNewTransformBound(SkM44& transform,
   // TransformMatrixV2 performs a vertical flip by default.
   // This occurs because it uses the left-bottom corner as (0,0)
   // and the transformation follows the original texture order.
-  // However, both the texture's (0,0) and the canvas' (0,0) are located at the
+  // However, the canvas' (0,0) are located at the
   // left-top corner. Therefore, we need to flip it back to correct the
   // orientation.
   float matrix[16];
   OH_NativeImage_GetTransformMatrixV2(native_image_source_, matrix);
+  // for (int i = 0; i < 4; i++) {
+  //   FML_LOG(INFO) << matrix[i*4+0] << " " << matrix[i*4+1]
+  //                 << " " << matrix[i*4+2] << " "
+  //                 << matrix[i*4+3];
+  // }
 
   SkM44 transform_origin = SkM44::ColMajor(matrix);
   // Note that SkM44's constructor parameters are in row-major order.
@@ -397,6 +402,19 @@ void OHOSExternalTexture::GetNewTransformBound(SkM44& transform,
   // place.
   SkM44 transform_end = transform_origin.postConcat(
       SkM44(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1));
+
+  // this code is prepare for future update
+  // SkM44 transform_end = transform_origin.preConcat(
+  //     SkM44(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1));
+  // if (transform_end.rc(0 ,0) == 0 && transform_end.rc(1 ,1) == 0) {
+  //   // it has flip 90/270 and has no flip-v/flip-h -> rotate 180 degree
+  //   int dx = transform_end.rc(0 ,3);
+  //   int dy = transform_end.rc(1 ,3);
+  //   if ((dx^dy) == 1) {
+  //     transform_end = transform_end.preConcat(
+  //     SkM44(-1, 0, 0, 1, 0, -1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1));
+  //   }
+  // }
 
   // The transformation matrix is used to transform texture coordinates.
   // The range of texture coordinates is (0,1), so translation transformations
