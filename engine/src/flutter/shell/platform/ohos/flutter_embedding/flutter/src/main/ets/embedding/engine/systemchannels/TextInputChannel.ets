@@ -251,7 +251,7 @@ export class Configuration {
       case "TextInputAction.next":
         return inputMethod.EnterKeyType.NEXT
       case "TextInputAction.newline":
-        return inputMethod.EnterKeyType.NONE
+        return 8
       case "TextInputAction.done":
         return inputMethod.EnterKeyType.DONE
       default:
@@ -272,11 +272,7 @@ export class Configuration {
       fields = json.fields.map((field: Any): Any => Configuration.fromJson(field));
     }
 
-    let inputAction: number = Configuration.inputActionFromTextInputAction(inputActionName);
-
-    if ( inputActionName == "TextInputAction.newline" ) {
-      inputAction = 8
-    }
+    const inputAction: number = Configuration.inputActionFromTextInputAction(inputActionName);
 
     // Build list of content commit mime types from the data in the JSON list.
     const contentList: Array<Any> = [];
