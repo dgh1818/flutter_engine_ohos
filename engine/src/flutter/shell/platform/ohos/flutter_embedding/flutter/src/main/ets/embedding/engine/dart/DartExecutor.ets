@@ -12,7 +12,6 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-
 import resourceManager from '@ohos.resourceManager';
 import FlutterInjector from '../../../FlutterInjector';
 import { BinaryMessageHandler, BinaryReply, TaskQueue, TaskQueueOptions } from '../../../plugin/common/BinaryMessenger';
@@ -164,7 +163,7 @@ export default class DartExecutor implements  BinaryMessenger {
     return this.binaryMessenger;
   }
 
-  makeBackgroundTaskQueue(options: TaskQueueOptions): TaskQueue {
+  makeBackgroundTaskQueue(options?: TaskQueueOptions): TaskQueue {
     return this.getBinaryMessenger().makeBackgroundTaskQueue(options);
   }
 
@@ -173,8 +172,8 @@ export default class DartExecutor implements  BinaryMessenger {
     this.getBinaryMessenger().send(channel, message, callback);
   }
 
-  setMessageHandler(channel: String, handler: BinaryMessageHandler | SendableBinaryMessageHandler | null, taskQueue?: TaskQueue): void {
-    this.getBinaryMessenger().setMessageHandler(channel, handler, taskQueue);
+  setMessageHandler(channel: String, handler: BinaryMessageHandler | SendableBinaryMessageHandler | null, taskQueue?: TaskQueue, ...args: Object[]): void {
+    this.getBinaryMessenger().setMessageHandler(channel, handler, taskQueue, ...args);
   }
 
   /**
@@ -314,7 +313,7 @@ export class DefaultBinaryMessenger implements BinaryMessenger {
     this.messenger = messenger;
   }
 
-  makeBackgroundTaskQueue(options: TaskQueueOptions): TaskQueue {
+  makeBackgroundTaskQueue(options?: TaskQueueOptions): TaskQueue {
     return this.messenger.makeBackgroundTaskQueue(options);
   }
 
@@ -340,8 +339,8 @@ export class DefaultBinaryMessenger implements BinaryMessenger {
    * @param channel the name of the channel.
    * @param handler a {@link BinaryMessageHandler} to be invoked on incoming messages, or null.
    */
-  setMessageHandler(channel: String, handler: BinaryMessageHandler | SendableBinaryMessageHandler | null, taskQueue?: TaskQueue): void {
-    this.messenger.setMessageHandler(channel, handler, taskQueue);
+  setMessageHandler(channel: String, handler: BinaryMessageHandler | SendableBinaryMessageHandler | null, taskQueue?: TaskQueue, ...args: Object[]): void {
+    this.messenger.setMessageHandler(channel, handler, taskQueue, ...args);
   }
 }
 

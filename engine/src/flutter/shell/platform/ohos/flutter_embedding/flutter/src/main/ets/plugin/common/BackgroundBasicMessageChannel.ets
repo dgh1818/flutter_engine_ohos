@@ -43,13 +43,13 @@ export default class BackgroundBasicMessageChannel<T> {
   private messenger: BinaryMessenger;
   private name: string;
   private codec: SendableMessageCodec<T>;
-  private taskQueue?: TaskQueue;
+  private taskQueue: TaskQueue;
 
   constructor(messenger: BinaryMessenger, name: string, codec: SendableMessageCodec<T>, taskQueue?: TaskQueue) {
     this.messenger = messenger
     this.name = name
     this.codec = codec
-    this.taskQueue = taskQueue
+    this.taskQueue = taskQueue ?? messenger.makeBackgroundTaskQueue()
   }
 
   /**
@@ -76,14 +76,7 @@ export default class BackgroundBasicMessageChannel<T> {
    * @param handler a {@link MessageHandler}, or null to deregister.
    */
   setMessageHandler(handler: SendableMessageHandler<T> | null): void {
-    // We call the 2 parameter variant specifically to avoid breaking changes in
-    // mock verify calls.
-    // See https://github.com/flutter/flutter/issues/92582.
-    if (this.taskQueue != null) {
       this.messenger.setMessageHandler(this.name, new IncomingSendableMessageHandler(handler, this.codec), this.taskQueue);
-    } else {
-      this.messenger.setMessageHandler(this.name, new IncomingSendableMessageHandler(handler, this.codec));
-    }
   }
 
   /**
