@@ -41,5 +41,5 @@ export default interface SendableMethodCallHandler extends ISendable {
    * @param call A {@link MethodCall}.
    * @param result A {@link Result} used for submitting the result of the call.
    */
-  onMethodCall(call: MethodCall, result: MethodResult): void;
+  onMethodCall(call: MethodCall, result: MethodResult, ...args: Object[]): void;
 }

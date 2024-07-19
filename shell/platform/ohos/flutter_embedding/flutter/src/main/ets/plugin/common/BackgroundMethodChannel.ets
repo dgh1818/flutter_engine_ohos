@@ -12,7 +12,6 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-
 import Log from '../../util/Log';
 import MessageChannelUtils from '../../util/MessageChannelUtils';
 import StringUtils from '../../util/StringUtils';
@@ -45,13 +44,15 @@ export default class BackgroundMethodChannel {
   private messenger: BinaryMessenger;
   private name: string;
   private codec: SendableMethodCodec;
-  private taskQueue?: TaskQueue;
+  private taskQueue: TaskQueue;
+  private args: Object[];
 
-  constructor(messenger: BinaryMessenger, name: string, codec: SendableMethodCodec = SendableStandardMethodCodec.INSTANCE, taskQueue?: TaskQueue) {
+  constructor(messenger: BinaryMessenger, name: string, codec: SendableMethodCodec = SendableStandardMethodCodec.INSTANCE, taskQueue?: TaskQueue, ...args: Object[]) {
     this.messenger = messenger
     this.name = name
     this.codec = codec
-    this.taskQueue = taskQueue
+    this.taskQueue = taskQueue ?? messenger.makeBackgroundTaskQueue()
+    this.args = args
   }
 
   /**
@@ -82,14 +83,8 @@ export default class BackgroundMethodChannel {
    * @param handler a {@link MethodCallHandler}, or null to deregister.
    */
   setMethodCallHandler(handler: SendableMethodCallHandler): void {
-    // We call the 2 parameter variant specifically to avoid breaking changes in
-    // mock verify calls.
-    // See https://github.com/flutter/flutter/issues/92582.
-    if (this.taskQueue != null) {
-      this.messenger.setMessageHandler(this.name, new IncomingSendableMethodCallHandler(handler, this.codec), this.taskQueue);
-    } else {
-      this.messenger.setMessageHandler(this.name, new IncomingSendableMethodCallHandler(handler, this.codec));
-    }
+    this.messenger.setMessageHandler(this.name, new IncomingSendableMethodCallHandler(handler, this.codec),
+                                    this.taskQueue, ...this.args);
   }
 
   /**
@@ -135,10 +130,10 @@ export class IncomingSendableMethodCallHandler implements SendableBinaryMessageH
 
   constructor(handler: SendableMethodCallHandler, codec: SendableMethodCodec) {
     this.handler = handler;
-    this.codec = codec
+    this.codec = codec;
   }
 
-  onMessage(message: ArrayBuffer, reply: BinaryReply): void {
+  onMessage(message: ArrayBuffer, reply: BinaryReply, ...args: Object[]): void {
     try {
       this.handler.onMethodCall(
         this.codec.decodeMethodCall(message),
@@ -152,7 +147,7 @@ export class IncomingSendableMethodCallHandler implements SendableBinaryMessageH
           notImplemented: (): void => {
             reply.reply(StringUtils.stringToArrayBuffer(""));
           }
-        });
+        }, ...args);
     } catch (e) {
       reply.reply(this.codec.encodeErrorEnvelopeWithStacktrace("error", e.getMessage(), null, e));
     }
