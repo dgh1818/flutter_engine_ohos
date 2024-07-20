@@ -100,6 +100,8 @@ export default class StandardMessageCodec implements MessageCodec<Any> {
     private static LIST = 12;
     private static MAP = 13;
     private static FLOAT32_ARRAY = 14;
+    private INT64_MAX = 9223372036854775807;
+    private INT64_MIN = -9223372036854775808;
 
 
     writeValue(stream: ByteBuffer, value: Any): Any {
@@ -132,12 +134,17 @@ export default class StandardMessageCodec implements MessageCodec<Any> {
             // as an ASCII string giving the hexadecimal representation of the
             // integer, with the string's length as encoded by writeSize
             // followed by the string bytes.
-            stream.writeInt8(StandardMessageCodec.BIGINT);
-            // Convert bigint to a hexadecimal string
-            const hexString = value.toString(16);
-            // Map each character in the hexadecimal string to its ASCII code
-            const asciiString = hexString.split('').map(char => char.charCodeAt(0));
-            this.writeBytes(stream, Uint8Array.from(asciiString));
+            if (value >= this.INT64_MIN && value <= this.INT64_MAX) {
+                stream.writeInt8(StandardMessageCodec.INT64);
+                stream.writeBigInt64(value, true);
+            } else {
+                // Convert bigint to a hexadecimal string
+                stream.writeInt8(StandardMessageCodec.BIGINT);
+                const hexString = value.toString(16);
+                // Map each character in the hexadecimal string to its ASCII code
+                const asciiString = hexString.split('').map(char => char.charCodeAt(0));
+                this.writeBytes(stream, Uint8Array.from(asciiString));
+            }
         } else if (typeof value === "string") {
             stream.writeInt8(StandardMessageCodec.STRING);
             let stringBuff = StringUtils.stringToArrayBuffer(value);
