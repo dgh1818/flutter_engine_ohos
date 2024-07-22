@@ -243,15 +243,11 @@ export default class TouchEventProcessor {
     return customTouchEvent;
   }
 
-  // private onTouchEvent(strings: Array<string>): void {
-  //   Log.d(TAG, "called onTouchEvent ");
-  //   FlutterManager.getInstance().getFlutterViewList().forEach((value) => {
-  //     let top: number = value.getPlatformViewSize().top;
-  //     let left: number = value.getPlatformViewSize().left;
-  //     let densityPixels:number = display.getDefaultDisplaySync().densityPixels;
-
-  //     let touchPacket: TouchPacket = this.decodeTouchPacket(strings, densityPixels, top, left);
-  //     value.getEmbeddingNodeController().postEvent(this.constureCustomTouchEvent(touchPacket));
-  //   });
-  // }
+  public checkHitPlatformView(left: number, top: number, width: number, height: number, x: number, y: number): boolean {
+    if (x >= left && x <= (left + width) && y >= top && y <= (top + height)) {
+      return true;
+    } else {
+      return false;
+    }
+  }
 }
