@@ -19,8 +19,8 @@
 
 import { CustomTouchEvent, CustomTouchObject } from '../../plugin/platform/CustomTouchEvent';
 import display from '@ohos.display';
-
-
+import { Any, FlutterManager } from '@ohos/flutter_ohos';
+import { EmbeddingNodeController } from '@ohos/flutter_ohos/src/main/ets/embedding/ohos/EmbeddingNodeController'
 
 const OH_NATIVEXCOMPONENT_UNKNOWN = 4;
 const OH_NATIVEXCOMPONENT_TOOL_TYPE_UNKNOWN = 0;
@@ -241,6 +241,29 @@ export default class TouchEventProcessor {
     let touchPacket: TouchPacket = this.decodeTouchPacket(strings, densityPixels, top, left);
     let customTouchEvent: CustomTouchEvent = this.constureCustomTouchEventImpl(touchPacket);
     return customTouchEvent;
+  }
+
+  public postTouchEvent(strings: Array<string>) {
+    FlutterManager.getInstance().getFlutterViewList().forEach((value) => {
+      let length = value.getDVModel().children.length;
+      for (let index = length - 1; index >= 0; index--) {
+        let dvModel = value.getDVModel().children[index];
+        let params = dvModel.getLayoutParams();
+        let params2 = params as Record<string, Any>;
+        let nodeController = params2['nodeController'] as EmbeddingNodeController;
+        let left = params2['left'] as number ?? 0;
+        let top = params2['top'] as number ?? 0;
+        let width = params2['width'] as number ?? 0;
+        let height = params2['height'] as number ?? 0;
+        let customTouchEvent = TouchEventProcessor.instance.constureCustomTouchEvent(strings, top, left);
+        let x = customTouchEvent.changedTouches[0].screenX;
+        let y = customTouchEvent.changedTouches[0].screenY;
+        if (TouchEventProcessor.instance.checkHitPlatformView(left, top, width, height, x, y)) {
+          nodeController.postEvent(customTouchEvent);
+          break;
+        }
+      }
+    });
   }
 
   public checkHitPlatformView(left: number, top: number, width: number, height: number, x: number, y: number): boolean {
