@@ -418,7 +418,15 @@ export default class FlutterNapi {
         let nodeController = params2['nodeController'] as EmbeddingNodeController;
         let left = params2['left'] as number ?? 0;
         let top = params2['top'] as number ?? 0;
-        nodeController.postEvent(TouchEventProcessor.getInstance().constureCustomTouchEvent(strings, top, left));
+        let width = params2['width'] as number ?? 0;
+        let height = params2['height'] as number ?? 0;
+        let customTouchEvent = TouchEventProcessor.getInstance().constureCustomTouchEvent(strings, top, left);
+        let x = customTouchEvent.changedTouches[0].screenX;
+        let Y = customTouchEvent.changedTouches[0].screenY;
+        if (TouchEventProcessor.getInstance().checkHitPlatformView(left, top, width, height, x, y)) {
+          nodeController.postEvent(customTouchEvent);
+          break;
+        }
       }
     });
   }
