@@ -422,7 +422,7 @@ export default class FlutterNapi {
         let height = params2['height'] as number ?? 0;
         let customTouchEvent = TouchEventProcessor.getInstance().constureCustomTouchEvent(strings, top, left);
         let x = customTouchEvent.changedTouches[0].screenX;
-        let Y = customTouchEvent.changedTouches[0].screenY;
+        let y = customTouchEvent.changedTouches[0].screenY;
         if (TouchEventProcessor.getInstance().checkHitPlatformView(left, top, width, height, x, y)) {
           nodeController.postEvent(customTouchEvent);
           break;
