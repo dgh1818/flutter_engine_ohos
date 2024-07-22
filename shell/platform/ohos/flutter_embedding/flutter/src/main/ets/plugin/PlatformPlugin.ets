@@ -33,6 +33,7 @@ import window from '@ohos.window';
 import common from '@ohos.app.ability.common';
 import { MethodResult } from './common/MethodChannel';
 import Any from './common/Any';
+import router from '@ohos.router';
 
 /**
  * ohos实现platform plugin
@@ -198,6 +199,7 @@ export class PlatformPluginCallback implements PlatformMessageHandler {
 
   popSystemNavigator() {
     if (this.platformPluginDelegate != null && this.platformPluginDelegate?.popSystemNavigator()) {
+      router.back();
       return;
     }
     if (this.uiAbilityContext != null) {
