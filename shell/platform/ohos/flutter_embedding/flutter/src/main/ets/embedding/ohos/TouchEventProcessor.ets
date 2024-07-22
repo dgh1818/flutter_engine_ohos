@@ -19,8 +19,9 @@
 
 import { CustomTouchEvent, CustomTouchObject } from '../../plugin/platform/CustomTouchEvent';
 import display from '@ohos.display';
-import { Any, FlutterManager } from '@ohos/flutter_ohos';
-import { EmbeddingNodeController } from '@ohos/flutter_ohos/src/main/ets/embedding/ohos/EmbeddingNodeController'
+import { FlutterManager } from './FlutterManager';
+import { EmbeddingNodeController } from './EmbeddingNodeController';
+import Any from '../../plugin/common/Any';
 
 const OH_NATIVEXCOMPONENT_UNKNOWN = 4;
 const OH_NATIVEXCOMPONENT_TOOL_TYPE_UNKNOWN = 0;
