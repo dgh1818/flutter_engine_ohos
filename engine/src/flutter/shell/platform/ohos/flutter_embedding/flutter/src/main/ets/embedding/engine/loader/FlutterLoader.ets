@@ -169,6 +169,7 @@ export default class FlutterLoader {
       shellArgs.push("--" + VM_SNAPSHOT_DATA_KEY + "=" + this.flutterApplicationInfo!.vmSnapshotData);
       shellArgs.push(
         "--" + ISOLATE_SNAPSHOT_DATA_KEY + "=" + this.flutterApplicationInfo!.isolateSnapshotData);
+      shellArgs.push('--enable-checked-mode')
     } else {
       shellArgs.push(
         "--" + AOT_SHARED_LIBRARY_NAME + "=" + this.flutterApplicationInfo!.aotSharedLibraryName);
@@ -213,7 +214,7 @@ export default class FlutterLoader {
 
     // //最终初始化操作
     const costTime = Date.now() - this.initStartTimestampMillis;
-    this.flutterNapi!.init(
+    this.flutterNapi.init(
       this.context!,
       shellArgs,
       kernelPath,

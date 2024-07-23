@@ -42,7 +42,7 @@ enum ContextType {
  * 提供arkTs的flutterNAPI接口
  */
 export default class FlutterNapi {
-  hasInit: boolean = false;
+  private static hasInit: boolean = false;
   //是否已实现
   hasImplemented: boolean = false;
 
@@ -76,15 +76,28 @@ export default class FlutterNapi {
        appStoragePath: string,
        engineCachesPath: string,
        initTimeMillis: number) {
-    if (this.hasInit) {
-      throw Error("the engine has init");
+    if (FlutterNapi.hasInit) {
+      Log.e(TAG, "the engine has init");
+      return;
     }
-    this.hasInit = true;
-    Log.w(TAG, "init: bundlePath=" + bundlePath + "  appStoragePath=" + appStoragePath + "  engineCachesPath=" + engineCachesPath + "  args=" + JSON.stringify(args));
-    flutter.nativeInit(context, args, bundlePath, appStoragePath, engineCachesPath, initTimeMillis, deviceInfo.productModel);
+    Log.w(TAG, JSON.stringify({
+      "name": "init, initTimeMillis=" + initTimeMillis,
+      "bundlePath": bundlePath,
+      "appStoragePath": appStoragePath,
+      "engineCachesPath": engineCachesPath,
+      "args": args,
+    }));
+    let code: number | null = flutter.nativeInit(context, args, bundlePath, appStoragePath,
+      engineCachesPath, initTimeMillis, deviceInfo.productModel);
+    FlutterNapi.hasInit = code == 0;
+    Log.i(TAG, "init code=" + code + ", FlutterNapi.hasInit" + FlutterNapi.hasInit);
   }
 
   attachToNative(): void {
+    if (!FlutterNapi.hasInit) {
+      Log.e(TAG, "attachToNative fail, FlutterNapi.hasInit=" + FlutterNapi.hasInit);
+      return;
+    }
     this.nativeShellHolderId = flutter.nativeAttach(this);
     Log.w(TAG, "nativeShellHolderId=" + this.nativeShellHolderId);
   }
@@ -95,6 +108,10 @@ export default class FlutterNapi {
     pathToEntrypointFunction: string,
     assetManager: resourceManager.ResourceManager,
     entrypointArgs: Array<string>) {
+    if (!FlutterNapi.hasInit) {
+      Log.e(TAG, "runBundleAndSnapshotFromLibrary fail, FlutterNapi.hasInit=" + FlutterNapi.hasInit);
+      return;
+    }
     Log.w(TAG, "init: bundlePath=" + bundlePath + "  entrypointFunctionName=" + entrypointFunctionName + "  pathToEntrypointFunction=" + pathToEntrypointFunction + "  entrypointArgs=" + JSON.stringify(entrypointArgs))
     flutter.nativeRunBundleAndSnapshotFromLibrary(this.nativeShellHolderId!, bundlePath, entrypointFunctionName, pathToEntrypointFunction, assetManager, entrypointArgs);
   };

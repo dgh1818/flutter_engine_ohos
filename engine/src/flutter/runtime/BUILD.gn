@@ -89,7 +89,7 @@ source_set("runtime") {
     "skia_concurrent_executor.h",
   ]
 
-  if (is_ios && flutter_runtime_mode == "debug") {
+  if ((is_ios || is_ohos) && flutter_runtime_mode == "debug") {
     # These contain references to private APIs and this TU must only be compiled in debug runtime modes.
     sources += [ "ptrace_check.cc" ]
   }
