@@ -38,7 +38,7 @@ class OhosMain {
 
   explicit OhosMain(const flutter::Settings& settings);
 
-  static void Init(napi_env env, napi_callback_info info);
+  static napi_value Init(napi_env env, napi_callback_info info);
 
   void SetupObservatoryUriCallback(napi_env env, napi_callback_info info);
   FML_DISALLOW_COPY_AND_ASSIGN(OhosMain);

@@ -305,6 +305,18 @@ index 9ac7fc5d7a9..21fec27b961 100644
    Abi.linuxArm: _wordSize32Align64,
    Abi.linuxRiscv32: _wordSize32Align64,
    Abi.windowsIA32: _wordSize32Align64,
+diff --git a/pkg/vm/lib/target_os.dart b/pkg/vm/lib/target_os.dart
+index 741c090aba4..d214e3d6991 100644
+--- a/pkg/vm/lib/target_os.dart
++++ b/pkg/vm/lib/target_os.dart
+@@ -7,6 +7,7 @@ enum TargetOS {
+   fuchsia('fuchsia', '/'),
+   iOS('ios', '/'),
+   linux('linux', '/'),
++  ohos('ohos', '/'),
+   macOS('macos', '/'),
+   windows('windows', '\\');
+ 
 diff --git a/pkg/vm/testcases/transformations/ffi/abi_specific_int.dart b/pkg/vm/testcases/transformations/ffi/abi_specific_int.dart
 index 6d4e7b0871e..436f3d03301 100644
 --- a/pkg/vm/testcases/transformations/ffi/abi_specific_int.dart
@@ -1897,10 +1909,10 @@ index 430b908d86b..b3c1f15b9b9 100644
  }
 diff --git a/runtime/bin/file_ohos.cc b/runtime/bin/file_ohos.cc
 new file mode 100644
-index 00000000000..225b1d62c67
+index 00000000000..8ac60ad5e64
 --- /dev/null
 +++ b/runtime/bin/file_ohos.cc
-@@ -0,0 +1,786 @@
+@@ -0,0 +1,787 @@
 +// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 +// for details. All rights reserved. Use of this source code is governed by a
 +// BSD-style license that can be found in the LICENSE file.
@@ -1995,6 +2007,7 @@ index 00000000000..225b1d62c67
 +      // Try to allocate near the VM's binary.
 +      hint = reinterpret_cast<void*>(&Dart_Initialize);
 +      prot = PROT_READ | PROT_EXEC;
++      flags |= (MAP_JIT_OHOS | MAP_ANONYMOUS);
 +      break;
 +    case kReadWrite:
 +      prot = PROT_READ | PROT_WRITE;
@@ -5543,7 +5556,7 @@ index 00000000000..487e4f30199
 +
 +#endif  // defined(DART_HOST_OS_OHOS)
 diff --git a/runtime/bin/virtual_memory_posix.cc b/runtime/bin/virtual_memory_posix.cc
-index b7f0eaf872c..fe6659cf32a 100644
+index b7f0eaf872c..5a86a3cd5d1 100644
 --- a/runtime/bin/virtual_memory_posix.cc
 +++ b/runtime/bin/virtual_memory_posix.cc
 @@ -4,7 +4,7 @@
@@ -5555,6 +5568,19 @@ index b7f0eaf872c..fe6659cf32a 100644
  
  #include "bin/virtual_memory.h"
  
+@@ -50,6 +50,12 @@ VirtualMemory* VirtualMemory::Allocate(intptr_t size,
+   }
+ #endif  // defined(DART_HOST_OS_MACOS)
+ 
++#if defined(DART_HOST_OS_OHOS)
++  if (is_executable) {
++    map_flags |= MAP_JIT_OHOS;
++  }
++#endif // defined(DART_HOST_OS_OHOS)
++
+   // Some 64-bit microarchitectures store only the low 32-bits of targets as
+   // part of indirect branch prediction, predicting that the target's upper bits
+   // will be same as the call instruction's address. This leads to misprediction
 diff --git a/runtime/bin/vmservice_impl.cc b/runtime/bin/vmservice_impl.cc
 index 7b7559b8af6..f58bb029064 100644
 --- a/runtime/bin/vmservice_impl.cc
@@ -5601,21 +5627,22 @@ index 2c6df520f71..cd9840afcae 100644
  #else
      handle = kWindowsDynamicLibraryProcessPtr;
 diff --git a/runtime/platform/globals.h b/runtime/platform/globals.h
-index 29bbb969d1d..fb8c89e0aa7 100644
+index 29bbb969d1d..5c1d340af81 100644
 --- a/runtime/platform/globals.h
 +++ b/runtime/platform/globals.h
-@@ -109,6 +109,10 @@
+@@ -109,6 +109,11 @@
  // Check for Android first, to determine its difference from Linux.
  #define DART_HOST_OS_ANDROID 1
  
 +#elif defined(DART_TARGET_OS_OHOS) && defined(DART_RUNTIME_OS_OHOS)
 +
 +#define DART_HOST_OS_OHOS 1
++#define MAP_JIT_OHOS 0x1000
 +
  #elif defined(__linux__) || defined(__FreeBSD__)
  
  // Generic Linux.
-@@ -384,7 +388,8 @@ struct simd128_value_t {
+@@ -384,7 +389,8 @@ struct simd128_value_t {
  
  #if !defined(DART_TARGET_OS_ANDROID) && !defined(DART_TARGET_OS_FUCHSIA) &&    \
      !defined(DART_TARGET_OS_MACOS_IOS) && !defined(DART_TARGET_OS_LINUX) &&    \
@@ -5625,7 +5652,7 @@ index 29bbb969d1d..fb8c89e0aa7 100644
  // No target OS specified; pick the one matching the host OS.
  #if defined(DART_HOST_OS_ANDROID)
  #define DART_TARGET_OS_ANDROID 1
-@@ -395,6 +400,8 @@ struct simd128_value_t {
+@@ -395,6 +401,8 @@ struct simd128_value_t {
  #define DART_TARGET_OS_MACOS_IOS 1
  #elif defined(DART_HOST_OS_LINUX)
  #define DART_TARGET_OS_LINUX 1
@@ -5634,7 +5661,7 @@ index 29bbb969d1d..fb8c89e0aa7 100644
  #elif defined(DART_HOST_OS_MACOS)
  #define DART_TARGET_OS_MACOS 1
  #elif defined(DART_HOST_OS_WINDOWS)
-@@ -741,6 +748,8 @@ DART_FORCE_INLINE D bit_copy(const S& source) {
+@@ -741,6 +749,8 @@ DART_FORCE_INLINE D bit_copy(const S& source) {
  #define kHostOperatingSystemName "macos"
  #elif defined(DART_HOST_OS_WINDOWS)
  #define kHostOperatingSystemName "windows"
@@ -5643,7 +5670,7 @@ index 29bbb969d1d..fb8c89e0aa7 100644
  #else
  #error Host operating system detection failed.
  #endif
-@@ -785,6 +794,8 @@ DART_FORCE_INLINE D bit_copy(const S& source) {
+@@ -785,6 +795,8 @@ DART_FORCE_INLINE D bit_copy(const S& source) {
  #define kTargetOperatingSystemName "android"
  #elif defined(DART_TARGET_OS_FUCHSIA)
  #define kTargetOperatingSystemName "fuchsia"
@@ -8117,7 +8144,7 @@ index 00000000000..27f2e225e34
 +
 +#endif  // defined(DART_HOST_OS_OHOS) && !defined(PRODUCT)
 diff --git a/runtime/vm/virtual_memory_posix.cc b/runtime/vm/virtual_memory_posix.cc
-index 07d4dd537dc..cf510df8146 100644
+index 07d4dd537dc..a30f64bda56 100644
 --- a/runtime/vm/virtual_memory_posix.cc
 +++ b/runtime/vm/virtual_memory_posix.cc
 @@ -4,7 +4,7 @@
@@ -8138,7 +8165,20 @@ index 07d4dd537dc..cf510df8146 100644
    FILE* fp = fopen("/proc/sys/vm/max_map_count", "r");
    if (fp != nullptr) {
      size_t max_map_count = 0;
-@@ -453,4 +453,4 @@ void VirtualMemory::DontNeed(void* address, intptr_t size) {
+@@ -276,6 +276,12 @@ VirtualMemory* VirtualMemory::AllocateAligned(intptr_t size,
+   }
+ #endif  // defined(DART_HOST_OS_MACOS)
+ 
++#if defined(DART_HOST_OS_OHOS)
++  if (is_executable) {
++    map_flags |= MAP_JIT_OHOS;
++  }
++#endif // defined(DART_HOST_OS_OHOS)
++
+   void* hint = nullptr;
+   // Some 64-bit microarchitectures store only the low 32-bits of targets as
+   // part of indirect branch prediction, predicting that the target's upper bits
+@@ -453,4 +459,4 @@ void VirtualMemory::DontNeed(void* address, intptr_t size) {
  }  // namespace dart
  
  #endif  // defined(DART_HOST_OS_ANDROID) || defined(DART_HOST_OS_LINUX) ||     \
@@ -8449,15 +8489,4 @@ index b511f76d3e9..18c8c7e8bda 100644
  
    # When verify_sdk_hash is true, this string is used as the verification hash
    # instead of calculating one from the contents of the tree using the
-diff --git a/pkg/vm/lib/target_os.dart b/pkg/vm/lib/target_os.dart
-index 741c090aba4..d214e3d6991 100644
---- a/pkg/vm/lib/target_os.dart
-+++ b/pkg/vm/lib/target_os.dart
-@@ -7,6 +7,7 @@ enum TargetOS {
-   fuchsia('fuchsia', '/'),
-   iOS('ios', '/'),
-   linux('linux', '/'),
-+  ohos('ohos', '/'),
-   macOS('macos', '/'),
-   windows('windows', '\\');
 
