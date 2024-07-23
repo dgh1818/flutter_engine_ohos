@@ -33,6 +33,11 @@ export const nativeUpdateRefreshRate: (
   ate: number
 ) => void;
 
+/*
+ * 初始化SkFontMgr::RefDefault()
+ */
+export const nativePrefetchDefaultFontManager: () => void;
+
 export const nativeUpdateSize: (
   width: number,
   height: number

@@ -53,7 +53,6 @@ export default class FlutterNapi {
   localizationPlugin: LocalizationPlugin | null = null;
 
   isDisplayingFlutterUi: boolean = false;
-
   /**
    * 更新刷新率
    * @param rate
@@ -91,6 +90,10 @@ export default class FlutterNapi {
       engineCachesPath, initTimeMillis, deviceInfo.productModel);
     FlutterNapi.hasInit = code == 0;
     Log.i(TAG, "init code=" + code + ", FlutterNapi.hasInit" + FlutterNapi.hasInit);
+  }
+
+  static prefetchDefaultFontManager(): void {
+    flutter.nativePrefetchDefaultFontManager();
   }
 
   attachToNative(): void {
