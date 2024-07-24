@@ -47,7 +47,11 @@ export default class BackgroundMethodChannel {
   private taskQueue: TaskQueue;
   private args: Object[];
 
-  constructor(messenger: BinaryMessenger, name: string, codec: SendableMethodCodec = SendableStandardMethodCodec.INSTANCE, taskQueue?: TaskQueue, ...args: Object[]) {
+  constructor(messenger: BinaryMessenger,
+              name: string,
+              codec: SendableMethodCodec = SendableStandardMethodCodec.INSTANCE,
+              taskQueue?: TaskQueue,
+              ...args: Object[]) {
     this.messenger = messenger
     this.name = name
     this.codec = codec
@@ -65,7 +69,9 @@ export default class BackgroundMethodChannel {
    * @param callback a {@link Result} callback for the invocation result, or null.
    */
   invokeMethod(method: string, args: Any, callback?: MethodResult): void {
-    this.messenger.send(this.name, this.codec.encodeMethodCall(new MethodCall(method, args)), callback == null ? null : new IncomingSendableResultHandler(callback, this.codec));
+    this.messenger.send(this.name,
+                        this.codec.encodeMethodCall(new MethodCall(method, args)),
+                        callback == null ? null : new IncomingSendableResultHandler(callback, this.codec));
   }
 
   /**
@@ -82,9 +88,10 @@ export default class BackgroundMethodChannel {
    *
    * @param handler a {@link MethodCallHandler}, or null to deregister.
    */
-  setMethodCallHandler(handler: SendableMethodCallHandler): void {
-    this.messenger.setMessageHandler(this.name, new IncomingSendableMethodCallHandler(handler, this.codec),
-                                    this.taskQueue, ...this.args);
+  setMethodCallHandler(handler: SendableMethodCallHandler | null): void {
+    this.messenger.setMessageHandler(this.name,
+                                     handler == null ? null : new IncomingSendableMethodCallHandler(handler, this.codec),
+                                     this.taskQueue, ...this.args);
   }
 
   /**

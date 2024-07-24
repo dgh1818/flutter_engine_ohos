@@ -16,7 +16,7 @@
 import Log from '../../util/Log';
 import MessageChannelUtils from '../../util/MessageChannelUtils';
 import StringUtils from '../../util/StringUtils';
-import { BinaryMessageHandler, BinaryMessenger, BinaryReply, TaskQueue } from './BinaryMessenger';
+import { BinaryMessageHandler, BinaryMessenger, BinaryReply } from './BinaryMessenger';
 import Any from './Any';
 import MethodCall from './MethodCall';
 import MethodCodec from './MethodCodec';
@@ -75,11 +75,8 @@ export default class MethodChannel {
    *
    * @param handler a {@link MethodCallHandler}, or null to deregister.
    */
-  setMethodCallHandler(handler: MethodCallHandler): void {
-    // We call the 2 parameter variant specifically to avoid breaking changes in
-    // mock verify calls.
-    // See https://github.com/flutter/flutter/issues/92582.
-    this.messenger.setMessageHandler(this.name, new IncomingMethodCallHandler(handler, this.codec));
+  setMethodCallHandler(handler: MethodCallHandler | null): void {
+    this.messenger.setMessageHandler(this.name, handler == null ? null : new IncomingMethodCallHandler(handler, this.codec));
   }
 
   /**
