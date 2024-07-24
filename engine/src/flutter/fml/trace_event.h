@@ -53,6 +53,54 @@
 
 #endif  //  defined(OS_FUCHSIA)
 
+#if defined(FML_OS_OHOS)
+
+#include <hitrace/trace.h>
+#include <cstdarg>
+#include <cstdio>
+
+class OHFlutterTrace {
+ public:
+  explicit OHFlutterTrace(const char* fmt, ...) {
+    char title[1000] = "OHFlutterTrace";
+    const char* title_ = title;
+    if (fmt != nullptr) {
+      va_list args;
+      va_start(args, fmt);
+      int32_t ret = vsnprintf(title, 1000, fmt, args);
+      va_end(args);
+      if (ret != -1) {
+        title_ = title;
+      } else {
+        title_ = "OHFlutterTraceFmt Format Error";
+      }
+    }
+    OH_HiTrace_StartTrace(title_);
+  }
+  ~OHFlutterTrace() { OH_HiTrace_FinishTrace(); }
+};
+
+#define TRACE_NAME(x, y) x##y
+#define TRACE_DURATION_LINE(line, fmt, args...) \
+  OHFlutterTrace TRACE_NAME(__OH_trace_, line)(fmt, args)
+#define TRACE_DURATION(fmt, args...) TRACE_DURATION_LINE(__LINE__, fmt, args)
+
+#define TRACE_FMT0 "%s::%s"
+#define TRACE_FMT1 "%s::%s %s:%s"
+#define TRACE_FMT2 "%s::%s %s:%s %s:%s"
+#define OH_TRACE_DURATION0(a, b) TRACE_DURATION(TRACE_FMT0, a, b)
+#define OH_TRACE_DURATION1(a, b, c, d) TRACE_DURATION(TRACE_FMT1, a, b, c, d)
+#define OH_TRACE_DURATION2(a, b, c, d, e, f) \
+  TRACE_DURATION(TRACE_FMT2, a, b, c, d, e, f)
+
+#else
+
+#define OH_TRACE_DURATION0(a, b)
+#define OH_TRACE_DURATION1(a, b, c, d)
+#define OH_TRACE_DURATION2(a, b, c, d, e, f)
+
+#endif  // defined(FML_OS_OHOS)
+
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -63,7 +111,8 @@
 #include "flutter/fml/time/time_point.h"
 #include "third_party/dart/runtime/include/dart_tools_api.h"
 
-#if (FLUTTER_RELEASE && !defined(OS_FUCHSIA) && !defined(FML_OS_ANDROID))
+#if (FLUTTER_RELEASE && !defined(OS_FUCHSIA) && !defined(FML_OS_ANDROID) && \
+     !defined(FML_OS_OHOS))
 #define FLUTTER_TIMELINE_ENABLED 0
 #else
 #define FLUTTER_TIMELINE_ENABLED 1
@@ -169,23 +218,26 @@
 
 #define TRACE_EVENT_ASYNC_END1(category_group, name, id, arg1_name, arg1_val) \
   ::fml::tracing::TraceEventAsyncEnd1(                                        \
-      category_group, name, id, /*flow_id_count=*/0, /*flow_ids=*/nullptr,    \
-      arg1_name, arg1_val);
+      category_group, name, id, arg1_name, arg1_val);
 
 #define TRACE_EVENT_INSTANT0(category_group, name) \
   ::fml::tracing::TraceEventInstant0(              \
-      category_group, name, /*flow_id_count=*/0, /*flow_ids=*/nullptr);
+      category_group, name, /*flow_id_count=*/0, /*flow_ids=*/nullptr); \
+  OH_TRACE_DURATION0((category_group), (name))
 
 #define TRACE_EVENT_INSTANT1(category_group, name, arg1_name, arg1_val) \
   ::fml::tracing::TraceEventInstant1(                                   \
       category_group, name, /*flow_id_count=*/0, /*flow_ids=*/nullptr,  \
-      arg1_name, arg1_val);
+      arg1_name, arg1_val);                                             \
+  OH_TRACE_DURATION1((category_group), (name), (arg1_name), (arg1_val))
 
 #define TRACE_EVENT_INSTANT2(category_group, name, arg1_name, arg1_val, \
                              arg2_name, arg2_val)                       \
   ::fml::tracing::TraceEventInstant2(                                   \
       category_group, name, /*flow_id_count=*/0, /*flow_ids=*/nullptr,  \
-      arg1_name, arg1_val, arg2_name, arg2_val);
+      arg1_name, arg1_val, arg2_name, arg2_val);                        \
+  OH_TRACE_DURATION2((category_group), (name), (arg1_name), (arg1_val), \
+                     (arg2_name), (arg2_val))
 
 #define TRACE_FLOW_BEGIN(category, name, id) \
   ::fml::tracing::TraceEventFlowBegin0(category, name, id);
@@ -252,6 +304,18 @@ void TraceTimelineEvent(TraceArg category_group,
                         Dart_Timeline_Event_Type type,
                         const std::vector<const char*>& names,
                         const std::vector<std::string>& values);
+
+#if defined(FML_OS_OHOS)
+void OHOSTraceTimelineEvent(TraceArg category_group,
+                            TraceArg name,
+                            TraceIDArg id,
+                            Dart_Timeline_Event_Type type,
+                            intptr_t argument_count,
+                            const char** argument_names,
+                            const char** argument_values);
+
+void OHOSTraceEventEnd(void);
+#endif  // FML_OS_OHOS
 
 inline std::string TraceToString(const char* string) {
   return std::string{string};

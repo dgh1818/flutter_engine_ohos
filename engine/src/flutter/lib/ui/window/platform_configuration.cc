@@ -7,6 +7,7 @@
 #include <cstring>
 
 #include "flutter/common/constants.h"
+#include "flutter/fml/trace_event.h"
 #include "flutter/lib/ui/compositing/scene.h"
 #include "flutter/lib/ui/ui_dart_state.h"
 #include "flutter/lib/ui/window/platform_message.h"
@@ -371,6 +372,7 @@ void PlatformConfiguration::DispatchSemanticsAction(int32_t node_id,
 
 void PlatformConfiguration::BeginFrame(fml::TimePoint frameTime,
                                        uint64_t frame_number) {
+  TRACE_EVENT0("flutter", "PlatformConfiguration::BeginFrame");
   std::shared_ptr<tonic::DartState> dart_state =
       begin_frame_.dart_state().lock();
   if (!dart_state) {
@@ -380,7 +382,7 @@ void PlatformConfiguration::BeginFrame(fml::TimePoint frameTime,
 
   int64_t microseconds = (frameTime - fml::TimePoint()).ToMicroseconds();
 
-  // HISYSEVENT_WRITE_DURATION("flutter build frame time");
+  TRACE_EVENT0("flutter", "PlatformConfiguration::begin_frame_");
   tonic::CheckAndHandleError(
       tonic::DartInvoke(begin_frame_.Get(), {
                                                 Dart_NewInteger(microseconds),
@@ -389,6 +391,7 @@ void PlatformConfiguration::BeginFrame(fml::TimePoint frameTime,
 
   UIDartState::Current()->FlushMicrotasksNow();
 
+  TRACE_EVENT0("flutter", "PlatformConfiguration::draw_frame_");
   tonic::CheckAndHandleError(tonic::DartInvokeVoid(draw_frame_.Get()));
 }
 
