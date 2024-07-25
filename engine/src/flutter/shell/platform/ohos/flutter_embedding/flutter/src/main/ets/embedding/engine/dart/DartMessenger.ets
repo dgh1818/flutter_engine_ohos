@@ -15,7 +15,7 @@
 import { Queue, taskpool } from '@kit.ArkTS';
 
 import Log from '../../../util/Log';
-import { BinaryMessageHandler, BinaryMessenger, BinaryReply, TaskQueue, TaskQueueOptions } from '../../../plugin/common/BinaryMessenger';
+import { BinaryMessageHandler, BinaryMessenger, BinaryReply, TaskPriority, TaskQueue, TaskQueueOptions } from '../../../plugin/common/BinaryMessenger';
 import FlutterNapi from '../FlutterNapi';
 import { PlatformMessageHandler } from './PlatformMessageHandler';
 import { TraceSection } from '../../../util/TraceSection';
@@ -210,8 +210,14 @@ interface TaskQueueFactory {
 }
 
 class ConcurrentTaskQueue implements DartMessengerTaskQueue {
+  private priority: TaskPriority;
+
+  constructor(priority: TaskPriority) {
+    this.priority = priority as number;
+  }
+
   dispatch(task: taskpool.Task, callback: Reply): void {
-    taskpool.execute(task).then((result: Object) => {
+    taskpool.execute(task, this.priority as number).then((result: Object) => {
       callback.reply(result as ArrayBuffer);
     }).catch((err: string) => {
       callback.reply(null);
@@ -222,13 +228,18 @@ class ConcurrentTaskQueue implements DartMessengerTaskQueue {
 
 type Runnable = () => Promise<void>;
 class SerialTaskQueue implements DartMessengerTaskQueue {
+  private priority: TaskPriority;
   private queue: Queue<Runnable> = new Queue();
   private isRunning: boolean = false;
+
+  constructor(priority: TaskPriority) {
+    this.priority = priority;
+  }
 
   dispatch(task: taskpool.Task, callback: Reply): void {
     const runnable: Runnable = async () => {
       try {
-        const result = await taskpool.execute(task);
+        const result = await taskpool.execute(task, this.priority as number);
         callback.reply(result as ArrayBuffer);
       } catch (err) {
         callback.reply(null);
@@ -260,9 +271,9 @@ class SerialTaskQueue implements DartMessengerTaskQueue {
 class DefaultTaskQueueFactory implements TaskQueueFactory {
   makeBackgroundTaskQueue(options: TaskQueueOptions): DartMessengerTaskQueue {
     if (options.getIsSerial()) {
-      return new SerialTaskQueue();
+      return new SerialTaskQueue(options.getPriority());
     }
-    return new ConcurrentTaskQueue();
+    return new ConcurrentTaskQueue(options.getPriority());
   }
 }
 
