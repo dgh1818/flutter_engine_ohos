@@ -89,6 +89,7 @@ export class FlutterView {
   private checkFullScreen: boolean = true;
   private checkKeyboard: boolean = true;
   private checkGesture: boolean = true;
+  private checkAiBar: boolean = true;
 
   constructor(viewId: string, context: Context) {
     this.id = viewId
@@ -272,10 +273,23 @@ export class FlutterView {
     this.viewportMetrics.physicalViewPaddingRight = systemAvoidArea!.rightRect.width
 
     this.onKeyboardAreaChange()
+    this.onAiBarAreaChange()
     this.onGestureAreaChange()
     this.updateViewportMetrics()
   }
 
+  // At the bottom of the single-frame phone is an AI assistant wake-up bar
+  // The area can lead to confusing gestures in repetitive areas without handled properly
+  private onAiBarAreaChange() {
+    let navigationAvoidArea = 
+      this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR);
+    if(this.checkAiBar && navigationAvoidArea != null) {
+      this.viewportMetrics.physicalViewInsetBottom = navigationAvoidArea.bottomRect.height
+    } else {
+      this.viewportMetrics.physicalViewInsetBottom = 0
+    }
+  }
+  
   private onKeyboardAreaChange() {
     if (this.checkKeyboard) {
       let keyboardAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_KEYBOARD);
@@ -367,6 +381,10 @@ export class FlutterView {
 
   setCheckGesture(check: boolean) {
     this.checkGesture = check
+  }
+
+  setCheckAiBar(check: boolean) {
+    this.checkAiBar = check
   }
 }
 
