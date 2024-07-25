@@ -42,10 +42,11 @@ export enum TaskPriority {
 
 /** Options that control how a TaskQueue should operate and be created. */
 export class TaskQueueOptions {
-  private isSerial = true;
+  private isSerial: boolean = true;
+  private isSingleThread: boolean = false;
   private priority: TaskPriority = TaskPriority.MEDIUM;
 
-  getIsSerial() {
+  getIsSerial():boolean {
     return this.isSerial;
   }
 
@@ -54,12 +55,21 @@ export class TaskQueueOptions {
     return this;
   }
 
-  getPriority() {
+  getPriority(): TaskPriority {
     return this.priority;
   }
 
   setPriority(priority: TaskPriority): TaskQueueOptions {
     this.priority = priority;
+    return this;
+  }
+
+  isSingleThreadMode(): boolean {
+    return this.isSingleThread;
+  }
+
+  setSingleThreadMode(isSingleThread: boolean): TaskQueueOptions {
+    this.isSingleThread = isSingleThread;
     return this;
   }
 }

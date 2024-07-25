@@ -16,6 +16,11 @@
 {
   "apiType": "stageMode",
   "buildOption": {
+    "sourceOption": {
+      "workers": [
+        "./src/main/ets/embedding/engine/workers/PlatformChannelWorker.ets"
+      ]
+    }
   },
   "buildOptionSet": [
     {
