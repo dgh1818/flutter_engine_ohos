@@ -36,6 +36,7 @@ export struct FlutterPage {
   @State checkFullScreen: boolean = true;
   @State checkKeyboard: boolean = true;
   @State checkGesture: boolean = true;
+  @State checkAiBar: boolean = true;
 
   @StorageLink('nodeWidth') storageLinkWidth: number = 0;
   @StorageLink('nodeHeight') storageLinkHeight: number = 0;
@@ -53,6 +54,7 @@ export struct FlutterPage {
     this.flutterView?.setCheckFullScreen(this.checkFullScreen)
     this.flutterView?.setCheckKeyboard(this.checkKeyboard)
     this.flutterView?.setCheckGesture(this.checkGesture)
+    this.flutterView?.setCheckAiBar(this.checkGesture)
 
     this.rootDvModel = this.flutterView!!.getDVModel().children
 
