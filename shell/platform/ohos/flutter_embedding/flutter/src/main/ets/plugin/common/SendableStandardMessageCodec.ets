@@ -13,22 +13,23 @@
 * limitations under the License.
 */
 
+import Any from './Any';
+
 import { ByteBuffer } from '../../util/ByteBuffer';
+import SendableMessageCodec from './SendableMessageCodec';
 import StringUtils from '../../util/StringUtils';
-import MessageCodec from './MessageCodec';
 import TreeMap from '@ohos.util.TreeMap';
 import HashMap from '@ohos.util.HashMap';
 import LightWeightMap from '@ohos.util.LightWeightMap';
 import PlainArray from '@ohos.util.PlainArray';
 import List from '@ohos.util.List';
 import LinkedList from '@ohos.util.LinkedList';
-import Any from './Any';
 
 /**
  * MessageCodec using the Flutter standard binary encoding.
  *
  * <p>This codec is guaranteed to be compatible with the corresponding <a
- * href="https://api.flutter.dev/flutter/services/StandardMessageCodec-class.html">StandardMessageCodec</a>
+ * href="https://api.flutter.dev/flutter/services/SendableStandardMessageCodec-class.html">SendableStandardMessageCodec</a>
  * on the Dart side. These parts of the Flutter SDK are evolved synchronously.
  *
  * <p>Supported messages are acyclic values of these forms:
@@ -67,9 +68,9 @@ import Any from './Any';
  *
  * <p>To extend the codec, overwrite the writeValue and readValueOfType methods.
  */
-export default class StandardMessageCodec implements MessageCodec<Any> {
-    private static TAG = "StandardMessageCodec#";
-    static INSTANCE = new StandardMessageCodec();
+@Sendable
+export default class SendableStandardMessageCodec implements SendableMessageCodec<Any> {
+    static INSTANCE: SendableStandardMessageCodec = new SendableStandardMessageCodec();
 
     encodeMessage(message: Any): ArrayBuffer {
         const stream = ByteBuffer.from(new ArrayBuffer(1024))
@@ -85,101 +86,94 @@ export default class StandardMessageCodec implements MessageCodec<Any> {
         return this.readValue(buffer)
     }
 
-    private static NULL = 0;
-    private static TRUE = 1;
-    private static FALSE = 2;
-    private static INT32 = 3;
-    private static INT64 = 4;
-    private static BIGINT = 5;
-    private static FLOAT64 = 6;
-    private static STRING = 7;
-    private static UINT8_ARRAY = 8;
-    private static INT32_ARRAY = 9;
-    private static INT64_ARRAY = 10;
-    private static FLOAT64_ARRAY = 11;
-    private static LIST = 12;
-    private static MAP = 13;
-    private static FLOAT32_ARRAY = 14;
-    private INT64_MAX = 9223372036854775807;
-    private INT64_MIN = -9223372036854775808;
+    private static NULL: number = 0;
+    private static TRUE: number = 1;
+    private static FALSE: number = 2;
+    private static INT32: number = 3;
+    private static INT64: number = 4;
+    private static BIGINT: number = 5;
+    private static FLOAT64: number = 6;
+    private static STRING: number = 7;
+    private static UINT8_ARRAY: number = 8;
+    private static INT32_ARRAY: number = 9;
+    private static INT64_ARRAY: number = 10;
+    private static FLOAT64_ARRAY: number = 11;
+    private static LIST: number = 12;
+    private static MAP: number = 13;
+    private static FLOAT32_ARRAY: number = 14;
 
 
     writeValue(stream: ByteBuffer, value: Any): Any {
         if (value == null || value == undefined) {
-            stream.writeInt8(StandardMessageCodec.NULL);
+            stream.writeInt8(SendableStandardMessageCodec.NULL);
         } else if (typeof value === "boolean") {
-            stream.writeInt8(value ? StandardMessageCodec.TRUE : StandardMessageCodec.FALSE)
+            stream.writeInt8(value ? SendableStandardMessageCodec.TRUE : SendableStandardMessageCodec.FALSE)
         } else if (typeof value === "number") {
             if (Number.isInteger(value)) { //整型
                 if (-0x7fffffff - 1 <= value && value <= 0x7fffffff) { //int32
-                    stream.writeInt8(StandardMessageCodec.INT32);
+                    stream.writeInt8(SendableStandardMessageCodec.INT32);
                     stream.writeInt32(value, true);
                 } else if (Number.MIN_SAFE_INTEGER <= value && value <= Number.MAX_SAFE_INTEGER) { //int64 number整型取值范围
-                    stream.writeInt8(StandardMessageCodec.INT64);
+                    stream.writeInt8(SendableStandardMessageCodec.INT64);
                     stream.writeInt64(value, true);
                 } else { //被判为整型的double型
-                    stream.writeInt8(StandardMessageCodec.FLOAT64);
+                    stream.writeInt8(SendableStandardMessageCodec.FLOAT64);
                     this.writeAlignment(stream, 8);
                     stream.writeFloat64(value, true);
                 }
             } else { //浮点型
-                stream.writeInt8(StandardMessageCodec.FLOAT64);
+                stream.writeInt8(SendableStandardMessageCodec.FLOAT64);
                 this.writeAlignment(stream, 8);
                 stream.writeFloat64(value, true);
             }
         } else if (typeof value === "bigint") {
-            // https://api.flutter.dev/flutter/services/StandardMessageCodec/writeValue.html
+            // https://api.flutter.dev/flutter/services/SendableStandardMessageCodec/writeValue.html
             //
             // The format is first the type byte (0x05), then the actual number
             // as an ASCII string giving the hexadecimal representation of the
             // integer, with the string's length as encoded by writeSize
             // followed by the string bytes.
-            if (value >= this.INT64_MIN && value <= this.INT64_MAX) {
-                stream.writeInt8(StandardMessageCodec.INT64);
-                stream.writeBigInt64(value, true);
-            } else {
-                // Convert bigint to a hexadecimal string
-                stream.writeInt8(StandardMessageCodec.BIGINT);
-                const hexString = value.toString(16);
-                // Map each character in the hexadecimal string to its ASCII code
-                const asciiString = hexString.split('').map(char => char.charCodeAt(0));
-                this.writeBytes(stream, Uint8Array.from(asciiString));
-            }
+            stream.writeInt8(SendableStandardMessageCodec.BIGINT);
+            // Convert bigint to a hexadecimal string
+            const hexString = value.toString(16);
+            // Map each character in the hexadecimal string to its ASCII code
+            const asciiString = hexString.split('').map(char => char.charCodeAt(0));
+            this.writeBytes(stream, Uint8Array.from(asciiString));
         } else if (typeof value === "string") {
-            stream.writeInt8(StandardMessageCodec.STRING);
+            stream.writeInt8(SendableStandardMessageCodec.STRING);
             let stringBuff = StringUtils.stringToArrayBuffer(value);
             this.writeBytes(stream, new Uint8Array(stringBuff));
         } else if (value instanceof Uint8Array) {
-            stream.writeInt8(StandardMessageCodec.UINT8_ARRAY);
+            stream.writeInt8(SendableStandardMessageCodec.UINT8_ARRAY);
             this.writeBytes(stream, value)
         } else if (value instanceof Int32Array) {
-            stream.writeInt8(StandardMessageCodec.INT32_ARRAY);
+            stream.writeInt8(SendableStandardMessageCodec.INT32_ARRAY);
             this.writeSize(stream, value.length);
             this.writeAlignment(stream, 4);
             value.forEach(item => stream.writeInt32(item, true));
         } else if(value instanceof BigInt64Array) {
-            stream.writeInt8(StandardMessageCodec.INT64_ARRAY);
+            stream.writeInt8(SendableStandardMessageCodec.INT64_ARRAY);
             this.writeSize(stream, value.length);
             this.writeAlignment(stream, 8);
             value.forEach(item => stream.writeBigInt64(item, true));
         } else if (value instanceof Float32Array) {
-            stream.writeInt8(StandardMessageCodec.FLOAT32_ARRAY);
+            stream.writeInt8(SendableStandardMessageCodec.FLOAT32_ARRAY);
             this.writeSize(stream, value.length);
             this.writeAlignment(stream, 4);
             value.forEach(item => stream.writeFloat32(item, true));
         } else if (value instanceof Float64Array) {
-            stream.writeInt8(StandardMessageCodec.FLOAT64_ARRAY);
+            stream.writeInt8(SendableStandardMessageCodec.FLOAT64_ARRAY);
             this.writeSize(stream, value.length);
             this.writeAlignment(stream, 8);
             value.forEach(item => stream.writeFloat64(item, true));
         } else if (value instanceof Array || value instanceof Int8Array || value instanceof Int16Array
             || value instanceof Uint16Array || value instanceof Uint32Array || value instanceof List
             || value instanceof LinkedList) {
-            stream.writeInt8(StandardMessageCodec.LIST)
+            stream.writeInt8(SendableStandardMessageCodec.LIST)
             this.writeSize(stream, value.length);
             value.forEach((item: Any): void => this.writeValue(stream, item));
         } else if (value instanceof Map) {
-            stream.writeInt8(StandardMessageCodec.MAP);
+            stream.writeInt8(SendableStandardMessageCodec.MAP);
             this.writeSize(stream, value.size);
             value.forEach((value: Any, key: Any) => {
                 this.writeValue(stream, key);
@@ -187,7 +181,7 @@ export default class StandardMessageCodec implements MessageCodec<Any> {
             });
         } else if(value instanceof HashMap || value instanceof TreeMap || value instanceof LightWeightMap
             || value instanceof PlainArray) {
-            stream.writeInt8(StandardMessageCodec.MAP);
+            stream.writeInt8(SendableStandardMessageCodec.MAP);
             this.writeSize(stream, value.length);
             value.forEach((value: Any, key: Any) => {
                 this.writeValue(stream, key);
@@ -201,7 +195,7 @@ export default class StandardMessageCodec implements MessageCodec<Any> {
             this.writeValue(stream, map);
         } else {
             throw new Error("Unsupported value: " + value);
-            stream.writeInt8(StandardMessageCodec.NULL);
+            stream.writeInt8(SendableStandardMessageCodec.NULL);
         }
         return stream;
     }
@@ -267,45 +261,45 @@ export default class StandardMessageCodec implements MessageCodec<Any> {
     readValueOfType(type: number, buffer: ByteBuffer): Any {
         let result: Any;
         switch (type) {
-            case StandardMessageCodec.NULL:
+            case SendableStandardMessageCodec.NULL:
                 result = null;
                 break;
-            case StandardMessageCodec.TRUE:
+            case SendableStandardMessageCodec.TRUE:
                 result = true;
                 break;
-            case StandardMessageCodec.FALSE:
+            case SendableStandardMessageCodec.FALSE:
                 result = false;
                 break;
-            case StandardMessageCodec.INT32:
+            case SendableStandardMessageCodec.INT32:
                 result = buffer.readInt32(true);
                 break;
-            case StandardMessageCodec.INT64:
+            case SendableStandardMessageCodec.INT64:
                 result = buffer.readInt64(true);
                 if (Number.MIN_SAFE_INTEGER <= result && result <= Number.MAX_SAFE_INTEGER) {
                     result = Number(result);
                 }
                 break;
-            case StandardMessageCodec.BIGINT:
+            case SendableStandardMessageCodec.BIGINT:
                 let bytes: Uint8Array = this.readBytes(buffer);
                 // Convert the byte array to a UTF-8 encoded string
                 const hexString: string = String.fromCharCode(...bytes);
                 // Parse the string as a hexadecimal BigInt
                 result = BigInt(`0x${hexString}`);
                 break;
-            case StandardMessageCodec.FLOAT64:
+            case SendableStandardMessageCodec.FLOAT64:
                 this.readAlignment(buffer, 8);
                 result = buffer.readFloat64(true)
                 break;
-            case StandardMessageCodec.STRING: {
+            case SendableStandardMessageCodec.STRING: {
                 let bytes: Uint8Array = this.readBytes(buffer);
                 result = StringUtils.uint8ArrayToString(bytes);
                 break;
             }
-            case StandardMessageCodec.UINT8_ARRAY: {
+            case SendableStandardMessageCodec.UINT8_ARRAY: {
                 result = this.readBytes(buffer);
                 break;
             }
-            case StandardMessageCodec.INT32_ARRAY: {
+            case SendableStandardMessageCodec.INT32_ARRAY: {
                 let length = this.readSize(buffer);
                 let array = new Int32Array(length)
                 this.readAlignment(buffer, 4);
@@ -315,7 +309,7 @@ export default class StandardMessageCodec implements MessageCodec<Any> {
                 result = array;
                 break;
             }
-            case StandardMessageCodec.INT64_ARRAY: {
+            case SendableStandardMessageCodec.INT64_ARRAY: {
                 let length = this.readSize(buffer);
                 let array = new BigInt64Array(length)
                 this.readAlignment(buffer, 8);
@@ -325,7 +319,7 @@ export default class StandardMessageCodec implements MessageCodec<Any> {
                 result = array;
                 break;
             }
-            case StandardMessageCodec.FLOAT64_ARRAY: {
+            case SendableStandardMessageCodec.FLOAT64_ARRAY: {
                 let length = this.readSize(buffer);
                 let array = new Float64Array(length)
                 this.readAlignment(buffer, 8);
@@ -335,7 +329,7 @@ export default class StandardMessageCodec implements MessageCodec<Any> {
                 result = array;
                 break;
             }
-            case StandardMessageCodec.LIST: {
+            case SendableStandardMessageCodec.LIST: {
                 let length = this.readSize(buffer);
                 let array: Array<Any> = new Array(length)
                 for (let i = 0; i < length; i++) {
@@ -344,7 +338,7 @@ export default class StandardMessageCodec implements MessageCodec<Any> {
                 result = array;
                 break;
             }
-            case StandardMessageCodec.MAP: {
+            case SendableStandardMessageCodec.MAP: {
                 let size = this.readSize(buffer);
                 let map: Map<Any, Any> = new Map()
                 for (let i = 0; i < size; i++) {
@@ -353,7 +347,7 @@ export default class StandardMessageCodec implements MessageCodec<Any> {
                 result = map;
                 break;
             }
-            case StandardMessageCodec.FLOAT32_ARRAY: {
+            case SendableStandardMessageCodec.FLOAT32_ARRAY: {
                 let length = this.readSize(buffer);
                 let array = new Float32Array(length);
                 this.readAlignment(buffer, 4);

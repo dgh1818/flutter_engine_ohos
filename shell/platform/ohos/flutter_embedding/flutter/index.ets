@@ -67,7 +67,7 @@ export { default as Settings } from './src/main/ets/embedding/ohos/Settings';
 export * from './src/main/ets/embedding/ohos/TouchEventTracker';
 export { default as WindowInfoRepositoryCallbackAdapterWrapper } from './src/main/ets/embedding/ohos/WindowInfoRepositoryCallbackAdapterWrapper';
 export { default as PlatformPlugin } from './src/main/ets/plugin/PlatformPlugin';
-export { default as BasicMessageChannel } from './src/main/ets/plugin/common/BasicMessageChannel';
+export { default as BasicMessageChannel, Reply } from './src/main/ets/plugin/common/BasicMessageChannel';
 export { default as BinaryCodec } from './src/main/ets/plugin/common/BinaryCodec';
 export * from './src/main/ets/plugin/common/BinaryMessenger';
 export { default as EventChannel } from './src/main/ets/plugin/common/EventChannel';
@@ -79,6 +79,17 @@ export { default as MethodCall } from './src/main/ets/plugin/common/MethodCall';
 export * from './src/main/ets/plugin/common/MethodChannel';
 export { default as MethodChannel } from './src/main/ets/plugin/common/MethodChannel';
 export { default as MethodCodec } from './src/main/ets/plugin/common/MethodCodec';
+export { default as BackgroundBasicMessageChannel } from './src/main/ets/plugin/common/BackgroundBasicMessageChannel';
+export { default as BackgroundMethodChannel} from './src/main/ets/plugin/common/BackgroundMethodChannel'
+export { default as SendableBinaryCodec} from './src/main/ets/plugin/common/SendableBinaryCodec'
+export { default as SendableJSONMessageCodec} from './src/main/ets/plugin/common/SendableJSONMessageCodec'
+export { default as SendableJSONMethodCodec} from './src/main/ets/plugin/common/SendableJSONMethodCodec'
+export { default as SendableMessageHandler} from './src/main/ets/plugin/common/SendableMessageHandler'
+export { default as SendableMethodCallHandler} from './src/main/ets/plugin/common/SendableMethodCallHandler'
+export { default as SendableMethodCodec} from './src/main/ets/plugin/common/SendableMethodCodec'
+export { default as SendableStandardMessageCodec } from './src/main/ets/plugin/common/SendableStandardMessageCodec';
+export { default as SendableStandardMethodCodec } from './src/main/ets/plugin/common/SendableStandardMethodCodec';
+export { default as SendableStringCodec} from './src/main/ets/plugin/common/SendableStringCodec'
 export { default as StandardMessageCodec } from './src/main/ets/plugin/common/StandardMessageCodec';
 export { default as StandardMethodCodec } from './src/main/ets/plugin/common/StandardMethodCodec';
 export { default as StringCodec } from './src/main/ets/plugin/common/StringCodec';

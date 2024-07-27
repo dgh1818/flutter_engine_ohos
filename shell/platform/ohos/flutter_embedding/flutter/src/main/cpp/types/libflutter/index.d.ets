@@ -33,6 +33,11 @@ export const nativeUpdateRefreshRate: (
   ate: number
 ) => void;
 
+/*
+ * 初始化SkFontMgr::RefDefault()
+ */
+export const nativePrefetchDefaultFontManager: () => void;
+
 export const nativeUpdateSize: (
   width: number,
   height: number
@@ -53,7 +58,7 @@ export const nativeInit: (
   engineCachesPath: string,
   initTimeMillis: number,
   productModel: string
-) => void;
+) => number | null;
 
 export const nativeAttach: (napi: FlutterNapi) => number;
 

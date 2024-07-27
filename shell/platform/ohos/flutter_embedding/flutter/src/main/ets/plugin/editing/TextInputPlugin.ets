@@ -24,6 +24,9 @@ import Log from '../../util/Log';
 import { EditingStateWatcher, ListenableEditingState } from './ListenableEditingState';
 import Any from '../common/Any';
 
+/// 临时规避缺少newline对应枚举问题
+const NEWLINE_KEY_TYPE: number = 8;
+
 export default class TextInputPlugin implements EditingStateWatcher {
   private static TAG = "TextInputPlugin";
   private textInputChannel: TextInputChannel;
@@ -234,7 +237,8 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
 
     try {
       this.inputMethodController.on('sendFunctionKey', (functionKey) => {
-        if(functionKey.enterKeyType == inputMethod.EnterKeyType.NONE) {
+        /// 临时规避缺少newline对应枚举类型问题
+        if(functionKey.enterKeyType == NEWLINE_KEY_TYPE) {
           this.mEditable.handleNewlineEvent();
         }
         this.mEditable.handleFunctionKey(functionKey);

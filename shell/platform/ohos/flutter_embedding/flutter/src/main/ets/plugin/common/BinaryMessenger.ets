@@ -21,20 +21,47 @@
  * channels' constructors to control the threading policy for handling platform channels'
  * messages.
  */
+
+import SendableBinaryMessageHandler from './SendableBinaryMessageHandler'
+
 export interface TaskQueue {}
+
+/**
+ * The priority of task execution
+ *
+ * This priority is guaranteed to be compatible with
+ * https://developer.huawei.com/consumer/cn/doc/harmonyos-references-V5/js-apis-taskpool-V5#priority.
+ *
+ */
+export enum TaskPriority {
+  HIGH = 0,
+  MEDIUM = 1,
+  LOW = 2,
+  IDLE = 3
+}
 
 /** Options that control how a TaskQueue should operate and be created. */
 export class TaskQueueOptions {
-    private isSerial = true;
+  private isSerial = true;
+  private priority: TaskPriority = TaskPriority.MEDIUM;
 
-    getIsSerial() {
-        return this.isSerial;
-    }
+  getIsSerial() {
+    return this.isSerial;
+  }
 
-    setIsSerial(isSerial: boolean): TaskQueueOptions {
-        this.isSerial = isSerial;
-        return this;
-    }
+  setIsSerial(isSerial: boolean): TaskQueueOptions {
+    this.isSerial = isSerial;
+    return this;
+  }
+
+  getPriority() {
+    return this.priority;
+  }
+
+  setPriority(priority: TaskPriority): TaskQueueOptions {
+    this.priority = priority;
+    return this;
+  }
 }
 
 /**
@@ -42,32 +69,32 @@ export class TaskQueueOptions {
  * used in the dual capacity to handle a reply received from Flutter after sending a message.
  */
 export interface BinaryReply {
-    /**
-     * Handles the specified reply.
-     *
-     * @param reply the reply payload, a direct-allocated {@link ByteBuffer} or null. Senders of
-     *     outgoing replies must place the reply bytes between position zero and current position.
-     *     Reply receivers can read from the buffer directly.
-     */
-    reply(reply: ArrayBuffer | null): void;
+  /**
+   * Handles the specified reply.
+   *
+   * @param reply the reply payload, a direct-allocated {@link ByteBuffer} or null. Senders of
+   *     outgoing replies must place the reply bytes between position zero and current position.
+   *     Reply receivers can read from the buffer directly.
+   */
+  reply: (reply: ArrayBuffer | null) => void;
 }
 
 /** Handler for incoming binary messages from Flutter. */
 export interface BinaryMessageHandler {
-    /**
-     * Handles the specified message.
-     *
-     * <p>Handler implementations must reply to all incoming messages, by submitting a single reply
-     * message to the given {@link BinaryReply}. Failure to do so will result in lingering Flutter
-     * reply handlers. The reply may be submitted asynchronously.
-     *
-     * <p>Any uncaught exception thrown by this method will be caught by the messenger
-     * implementation and logged, and a null reply message will be sent back to Flutter.
-     *
-     * @param message the message {@link ByteBuffer} payload, possibly null.
-     * @param reply A {@link BinaryReply} used for submitting a reply back to Flutter.
-     */
-    onMessage(message: ArrayBuffer, reply: BinaryReply): void;
+  /**
+   * Handles the specified message.
+   *
+   * <p>Handler implementations must reply to all incoming messages, by submitting a single reply
+   * message to the given {@link BinaryReply}. Failure to do so will result in lingering Flutter
+   * reply handlers. The reply may be submitted asynchronously.
+   *
+   * <p>Any uncaught exception thrown by this method will be caught by the messenger
+   * implementation and logged, and a null reply message will be sent back to Flutter.
+   *
+   * @param message the message {@link ByteBuffer} payload, possibly null.
+   * @param reply A {@link BinaryReply} used for submitting a reply back to Flutter.
+   */
+  onMessage(message: ArrayBuffer, reply: BinaryReply): void;
 }
 
 /**
@@ -86,51 +113,46 @@ export interface BinaryMessageHandler {
  * @see MethodChannel , which supports communication using asynchronous method invocation.
  * @see EventChannel , which supports communication using event streams.
  */
+
 export interface BinaryMessenger {
-    makeBackgroundTaskQueue(options?: TaskQueueOptions): TaskQueue;
+  makeBackgroundTaskQueue(options?: TaskQueueOptions): TaskQueue;
 
-    /**
-     * Sends a binary message to the Flutter application.
-     *
-     * @param channel the name {@link String} of the logical channel used for the message.
-     * @param message the message payload, a direct-allocated {@link ByteBuffer} with the message
-     *     bytes between position zero and current position, or null.
-     */
-    send(channel: String, message: ArrayBuffer | null): void;
+  /**
+   * Sends a binary message to the Flutter application.
+   *
+   * @param channel the name {@link String} of the logical channel used for the message.
+   * @param message the message payload, a direct-allocated {@link ByteBuffer} with the message
+   *     bytes between position zero and current position, or null.
+   */
+  send(channel: String, message: ArrayBuffer | null): void;
 
-    /**
-     * Sends a binary message to the Flutter application, optionally expecting a reply.
-     *
-     * <p>Any uncaught exception thrown by the reply callback will be caught and logged.
-     *
-     * @param channel the name {@link String} of the logical channel used for the message.
-     * @param message the message payload, a direct-allocated {@link ByteBuffer} with the message
-     *     bytes between position zero and current position, or null.
-     * @param callback a {@link BinaryReply} callback invoked when the Flutter application responds to
-     *     the message, possibly null.
-     */
-    send(channel: String, message: ArrayBuffer, callback?: BinaryReply | null): void;
+  /**
+   * Sends a binary message to the Flutter application, optionally expecting a reply.
+   *
+   * <p>Any uncaught exception thrown by the reply callback will be caught and logged.
+   *
+   * @param channel the name {@link String} of the logical channel used for the message.
+   * @param message the message payload, a direct-allocated {@link ByteBuffer} with the message
+   *     bytes between position zero and current position, or null.
+   * @param callback a {@link BinaryReply} callback invoked when the Flutter application responds to
+   *     the message, possibly null.
+   */
+  send(channel: String, message: ArrayBuffer, callback?: BinaryReply | null): void;
 
-    /**
-     * Registers a handler to be invoked when the Flutter application sends a message to its host
-     * platform.
-     *
-     * <p>Registration overwrites any previous registration for the same channel name. Use a null
-     * handler to deregister.
-     *
-     * <p>If no handler has been registered for a particular channel, any incoming message on that
-     * channel will be handled silently by sending a null reply.
-     *
-     * @param channel the name {@link String} of the channel.
-     * @param handler a {@link BinaryMessageHandler} to be invoked on incoming messages, or null.
-     * @param taskQueue a {@link BinaryMessenger.TaskQueue} that specifies what thread will execute
-     *     the handler. Specifying null means execute on the platform thread.
-     */
-    //setMessageHandler(channel: String, handler: BinaryMessageHandler)
-    setMessageHandler(channel: String, handler: BinaryMessageHandler | null, taskQueue?: TaskQueue): void;
-    // {
-    //     if (taskQueue != null) {
-    //         throw new Error("setMessageHandler called with nonnull taskQueue is not supported.")
-    //     }
-    // }
+  /**
+   * Registers a handler to be invoked when the Flutter application sends a message to its host
+   * platform.
+   *
+   * <p>Registration overwrites any previous registration for the same channel name. Use a null
+   * handler to deregister.
+   *
+   * <p>If no handler has been registered for a particular channel, any incoming message on that
+   * channel will be handled silently by sending a null reply.
+   *
+   * @param channel the name {@link String} of the channel.
+   * @param handler a {@link BinaryMessageHandler} to be invoked on incoming messages, or null.
+   * @param taskQueue a {@link BinaryMessenger.TaskQueue} that specifies what thread will execute
+   *     the handler. Specifying null means execute on the platform thread.
+   */
+  setMessageHandler(channel: String, handler: BinaryMessageHandler | SendableBinaryMessageHandler | null, taskQueue?: TaskQueue, ...args: Object[]): void;
 }
