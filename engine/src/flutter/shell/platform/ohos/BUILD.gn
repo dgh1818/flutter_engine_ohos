@@ -234,7 +234,7 @@ shared_library("flutter_shell_native") {
   ldflags = [
     "--rtlib=compiler-rt",
     "-fuse-ld=lld",
-    "-static-libstdc++",
+    #"-static-libstdc++",
 
     #  "-Wl", "--build-id=sha1",
     #  "-Wl,","--warn-shared-textrel",

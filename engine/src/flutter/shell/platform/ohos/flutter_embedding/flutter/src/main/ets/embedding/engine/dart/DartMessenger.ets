@@ -12,12 +12,14 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
+import { Queue, taskpool } from '@kit.ArkTS';
 
-import Log from '../../../util/Log'
-import { BinaryMessageHandler, BinaryMessenger, BinaryReply, TaskQueue, TaskQueueOptions } from '../../../plugin/common/BinaryMessenger';
+import Log from '../../../util/Log';
+import { BinaryMessageHandler, BinaryMessenger, BinaryReply, TaskPriority, TaskQueue, TaskQueueOptions } from '../../../plugin/common/BinaryMessenger';
 import FlutterNapi from '../FlutterNapi';
 import { PlatformMessageHandler } from './PlatformMessageHandler';
 import { TraceSection } from '../../../util/TraceSection';
+import SendableBinaryMessageHandler from '../../../plugin/common/SendableBinaryMessageHandler'
 
 /**
  * Message conduit for 2-way communication between Android and Dart.
@@ -48,21 +50,23 @@ export class DartMessenger implements BinaryMessenger, PlatformMessageHandler {
     this.flutterNapi = flutterNapi;
     this.taskQueueFactory = new DefaultTaskQueueFactory();
   }
-  makeBackgroundTaskQueue(options: TaskQueueOptions): TaskQueue {
-    let taskQueue: DartMessengerTaskQueue = this.taskQueueFactory.makeBackgroundTaskQueue(options);
+  makeBackgroundTaskQueue(options?: TaskQueueOptions): TaskQueue {
+    let taskQueue: DartMessengerTaskQueue =
+        this.taskQueueFactory.makeBackgroundTaskQueue(options ?? new TaskQueueOptions());
     let token: TaskQueueToken = new TaskQueueToken();
     this.createdTaskQueues.set(token, taskQueue);
     return token;
   }
 
-  setMessageHandler(channel: String, handler: BinaryMessageHandler | null, taskQueue?: TaskQueue): void {
+  setMessageHandler(channel: String, handler: BinaryMessageHandler | SendableBinaryMessageHandler | null,
+                    taskQueue?: TaskQueue, ...args: Object[]): void {
     if (handler == null) {
       Log.d(TAG, "Removing handler for channel '" + channel + "'");
       this.messageHandlers.delete(channel);
       return;
     }
     let dartMessengerTaskQueue: DartMessengerTaskQueue | null = null;
-    if( taskQueue != null) {
+    if(taskQueue !== null && taskQueue !== undefined) {
       dartMessengerTaskQueue = this.createdTaskQueues.get(taskQueue) ?? null;
       if(dartMessengerTaskQueue == null) {
         throw new Error(
@@ -72,7 +76,7 @@ export class DartMessenger implements BinaryMessenger, PlatformMessageHandler {
     }
     Log.d(TAG, "Setting handler for channel '" + channel + "'");
 
-    this.messageHandlers.set(channel, new HandlerInfo(handler, dartMessengerTaskQueue));
+    this.messageHandlers.set(channel, new HandlerInfo(handler, dartMessengerTaskQueue, ...args));
   }
 
   send(channel: String, message: ArrayBuffer, callback?: BinaryReply): void {
@@ -94,28 +98,18 @@ export class DartMessenger implements BinaryMessenger, PlatformMessageHandler {
     }
   }
 
-  async asyncInvokeHandler(handlerInfo: HandlerInfo | null, message: ArrayBuffer, replyId: number): Promise<void> {
-    // Called from any thread.
-    if (handlerInfo != null) {
-      try {
-        Log.d(TAG, "Deferring to registered handler to process message.");
-        handlerInfo.handler.onMessage(message, new Reply(this.flutterNapi, replyId));
-      } catch (ex) {
-        Log.e(TAG, "Uncaught exception in binary message listener", ex);
-        this.flutterNapi.invokePlatformMessageEmptyResponseCallback(replyId);
-      }
-    } else {
-      Log.d(TAG, "No registered handler for message. Responding to Dart with empty reply message.");
-      this.flutterNapi.invokePlatformMessageEmptyResponseCallback(replyId);
-    }
+  dispatchMessageToQueue(handlerInfo: HandlerInfo, message: ArrayBuffer, replyId: number): void {
+    let task: taskpool.Task = new taskpool.Task(handleMessageInBackground,
+                                               handlerInfo.handler, message,
+                                               ...handlerInfo.args);
+    handlerInfo.taskQueue?.dispatch(task, new Reply(this.flutterNapi, replyId));
   }
 
-  invokeHandler(handlerInfo: HandlerInfo | null, message: ArrayBuffer, replyId: number): void {
-    // Called from any thread.
-    if (handlerInfo != null) {
+  invokeHandler(handler: BinaryMessageHandler | null, message: ArrayBuffer, replyId: number): void {
+    if (handler != null) {
       try {
         Log.d(TAG, "Deferring to registered handler to process message.");
-        handlerInfo.handler.onMessage(message, new Reply(this.flutterNapi, replyId));
+        handler.onMessage(message, new Reply(this.flutterNapi, replyId));
       } catch (ex) {
         Log.e(TAG, "Uncaught exception in binary message listener", ex);
         this.flutterNapi.invokePlatformMessageEmptyResponseCallback(replyId);
@@ -129,11 +123,10 @@ export class DartMessenger implements BinaryMessenger, PlatformMessageHandler {
   handleMessageFromDart(channel: String, message: ArrayBuffer, replyId: number, messageData: number): void {
     Log.d(TAG, "Received message from Dart over channel '" + channel + "'");
     let handlerInfo: HandlerInfo | null  = this.messageHandlers.get(channel) ?? null;
-    //ArkTS 没有线程池,任务队列使用异步实现
-    if(handlerInfo?.taskQueue != null) {
-        this.asyncInvokeHandler(handlerInfo, message, replyId);
-      } else {
-        this.invokeHandler(handlerInfo, message, replyId);
+    if (handlerInfo?.taskQueue != null) {
+      this.dispatchMessageToQueue(handlerInfo, message, replyId);
+    } else {
+      this.invokeHandler(handlerInfo?.handler as BinaryMessageHandler, message, replyId);
     }
   }
 
@@ -172,11 +165,16 @@ export class DartMessenger implements BinaryMessenger, PlatformMessageHandler {
  * Dart.
  */
 class HandlerInfo {
-  handler: BinaryMessageHandler;
+  handler: BinaryMessageHandler | SendableBinaryMessageHandler;
   taskQueue: DartMessengerTaskQueue | null;
-  constructor(handler: BinaryMessageHandler, taskQueue?:DartMessengerTaskQueue | null) {
+  args: Object[];
+
+  constructor(handler: BinaryMessageHandler | SendableBinaryMessageHandler,
+              taskQueue: DartMessengerTaskQueue | null,
+              ...args: Object[]) {
     this.handler = handler;
-    this.taskQueue = taskQueue ?? null;
+    this.taskQueue = taskQueue;
+    this.args = args;
   }
 }
 
@@ -194,6 +192,7 @@ class Reply implements BinaryReply {
     if (this.done) {
       throw new Error("Reply already submitted");
     }
+
     if (reply == null) {
       this.flutterNapi.invokePlatformMessageEmptyResponseCallback(this.replyId);
     } else {
@@ -203,21 +202,98 @@ class Reply implements BinaryReply {
 }
 
 interface DartMessengerTaskQueue {
-  dispatch(): void;
+  dispatch(task: taskpool.Task, callback: Reply): void;
 }
 
 interface TaskQueueFactory {
-    makeBackgroundTaskQueue(options: TaskQueueOptions): DartMessengerTaskQueue;
+  makeBackgroundTaskQueue(options: TaskQueueOptions): DartMessengerTaskQueue;
 }
 
 class ConcurrentTaskQueue implements DartMessengerTaskQueue {
-    dispatch(): void {}
+  private priority: TaskPriority;
+
+  constructor(priority: TaskPriority) {
+    this.priority = priority as number;
+  }
+
+  dispatch(task: taskpool.Task, callback: Reply): void {
+    taskpool.execute(task, this.priority as number).then((result: Object) => {
+      callback.reply(result as ArrayBuffer);
+    }).catch((err: string) => {
+      callback.reply(null);
+      Log.e(TAG, "Oops! Failed to execute task: ", err);
+    });
+  }
+}
+
+type Runnable = () => Promise<void>;
+class SerialTaskQueue implements DartMessengerTaskQueue {
+  private priority: TaskPriority;
+  private queue: Queue<Runnable> = new Queue();
+  private isRunning: boolean = false;
+
+  constructor(priority: TaskPriority) {
+    this.priority = priority;
+  }
+
+  dispatch(task: taskpool.Task, callback: Reply): void {
+    const runnable: Runnable = async () => {
+      try {
+        const result = await taskpool.execute(task, this.priority as number);
+        callback.reply(result as ArrayBuffer);
+      } catch (err) {
+        callback.reply(null);
+        Log.e(TAG, "Oops! Failed to execute task: ", err);
+      }
+    };
+
+    this.queue.add(runnable);
+
+    if (!this.isRunning) {
+      this.runNext();
+    }
+  }
+
+  private async runNext(): Promise<void> {
+    if (this.queue.length > 0) {
+      this.isRunning = true;
+      const task = this.queue.pop();
+      try {
+        await task();
+      } finally {
+        this.isRunning = false;
+        this.runNext(); // 执行下一个任务
+      }
+    }
+  }
 }
 
 class DefaultTaskQueueFactory implements TaskQueueFactory {
-    makeBackgroundTaskQueue(options: TaskQueueOptions): DartMessengerTaskQueue {
-        return new ConcurrentTaskQueue();
+  makeBackgroundTaskQueue(options: TaskQueueOptions): DartMessengerTaskQueue {
+    if (options.getIsSerial()) {
+      return new SerialTaskQueue(options.getPriority());
     }
+    return new ConcurrentTaskQueue(options.getPriority());
+  }
 }
 
 class TaskQueueToken implements TaskQueue {}
+
+@Concurrent
+async function handleMessageInBackground(handler: SendableBinaryMessageHandler,
+                                         message: ArrayBuffer,
+                                         ...args: Object[]): Promise<ArrayBuffer | null> {
+  const result = await new Promise<ArrayBuffer | null>((resolve, reject) => {
+    try {
+      handler.onMessage(message, {
+        reply: (reply: ArrayBuffer | null): void => {
+          resolve(reply);
+        }
+      }, ...args);
+    } catch (e) {
+      reject(null);
+      Log.e('WARNING', "Oops! Failed to handle message in the background: ", e);
+    }
+  });
+  return result;
+}

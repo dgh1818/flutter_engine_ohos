@@ -25,6 +25,8 @@ import { TextEditingDelta, TextEditingDeltaJson } from '../../../plugin/editing/
 import Any from '../../../plugin/common/Any';
 
 const TAG = "TextInputChannel";
+/// 规避换行标识无法显示问题，api修改后再删除
+const NEWLINE_KEY_TYPE: number = 8;
 
 export default class TextInputChannel {
   private static CHANNEL_NAME = "flutter/textinput";
@@ -251,13 +253,12 @@ export class Configuration {
       case "TextInputAction.next":
         return inputMethod.EnterKeyType.NEXT
       case "TextInputAction.newline":
-        return inputMethod.EnterKeyType.NONE
+        return NEWLINE_KEY_TYPE
       case "TextInputAction.done":
         return inputMethod.EnterKeyType.DONE
       default:
       // Present default key if bad input type is given.
         return inputMethod.EnterKeyType.UNSPECIFIED
-
     }
   }
 

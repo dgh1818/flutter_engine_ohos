@@ -28,6 +28,7 @@
 #include "flutter/fml/size.h"
 #include "flutter/lib/ui/plugins/callback_cache.h"
 #include "flutter/runtime/dart_vm.h"
+#include "flutter/runtime/ptrace_check.h"
 #include "flutter/shell/common/shell.h"
 #include "flutter/shell/common/switches.h"
 #include "third_party/dart/runtime/include/dart_tools_api.h"
@@ -92,9 +93,9 @@ const flutter::Settings& OhosMain::GetSettings() const {
  * @note
  * @param  context: common.Context, args: Array<string>, bundlePath: string,
  * appStoragePath: string, engineCachesPath: string, initTimeMillis: number
- * @return void
+ * @return napi_value
  */
-void OhosMain::Init(napi_env env, napi_callback_info info) {
+napi_value OhosMain::Init(napi_env env, napi_callback_info info) {
   size_t argc = 7;
   napi_value param[7];
   std::string kernelPath, appStoragePath, engineCachesPath;
@@ -169,14 +170,27 @@ void OhosMain::Init(napi_env env, napi_callback_info info) {
       break;
   }
 
+  if (!EnableTracingIfNecessary(settings)) {
+    LOGE(
+      "Cannot create a FlutterEngine instance in debug mode without Flutter tooling.\n\n"
+      "To Launch in debug mode, run 'flutter run' from Flutter tools, run from an IDE with a"
+      "Flutter IDE plugin.\nAlternatively profile and release mode apps canbe launched from "
+      "the home screen.");
+    return nullptr;
+  }
+
   g_flutter_main.reset(new OhosMain(settings));
   // TODO : g_flutter_main->SetupObservatoryUriCallback(env);
+  LOGI("OhosMain::Init finished.");
+  napi_value result;
+  napi_create_int64(env, 0, &result);
+  return result;
 }
 
 napi_value OhosMain::NativeInit(napi_env env, napi_callback_info info) {
-  OhosMain::Init(env, info);
+  napi_value result = OhosMain::Init(env, info);
   OHOSImageGenerator::ImageNativeInit(env, info);
-  return nullptr;
+  return result;
 }
 
 bool OhosMain::IsEmulator()

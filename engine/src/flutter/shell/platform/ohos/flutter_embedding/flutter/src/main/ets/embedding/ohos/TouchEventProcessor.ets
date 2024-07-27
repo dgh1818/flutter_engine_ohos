@@ -19,7 +19,8 @@
 
 import { CustomTouchEvent, CustomTouchObject } from '../../plugin/platform/CustomTouchEvent';
 import display from '@ohos.display';
-
+import FlutterManager from './FlutterManager';
+import { EmbeddingNodeController } from './EmbeddingNodeController';
 
 
 const OH_NATIVEXCOMPONENT_UNKNOWN = 4;
@@ -243,15 +244,34 @@ export default class TouchEventProcessor {
     return customTouchEvent;
   }
 
-  // private onTouchEvent(strings: Array<string>): void {
-  //   Log.d(TAG, "called onTouchEvent ");
-  //   FlutterManager.getInstance().getFlutterViewList().forEach((value) => {
-  //     let top: number = value.getPlatformViewSize().top;
-  //     let left: number = value.getPlatformViewSize().left;
-  //     let densityPixels:number = display.getDefaultDisplaySync().densityPixels;
+  public postTouchEvent(strings: Array<string>) {
+    FlutterManager.getInstance().getFlutterViewList().forEach((value) => {
+      let length = value.getDVModel().children.length;
+      for (let index = length - 1; index >= 0; index--) {
+        let dvModel = value.getDVModel().children[index];
+        let params = dvModel.getLayoutParams();
+        let params2 = params as Record<string, ESObject>;
+        let nodeController = params2['nodeController'] as EmbeddingNodeController;
+        let left = params2['left'] as number ?? 0;
+        let top = params2['top'] as number ?? 0;
+        let width = params2['width'] as number ?? 0;
+        let height = params2['height'] as number ?? 0;
+        let customTouchEvent = TouchEventProcessor.instance.constureCustomTouchEvent(strings, top, left);
+        let x = customTouchEvent.changedTouches[0].screenX;
+        let y = customTouchEvent.changedTouches[0].screenY;
+        if (TouchEventProcessor.instance.checkHitPlatformView(left, top, width, height, x, y)) {
+          nodeController.postEvent(customTouchEvent);
+          break;
+        }
+      }
+    });
+  }
 
-  //     let touchPacket: TouchPacket = this.decodeTouchPacket(strings, densityPixels, top, left);
-  //     value.getEmbeddingNodeController().postEvent(this.constureCustomTouchEvent(touchPacket));
-  //   });
-  // }
+  public checkHitPlatformView(left: number, top: number, width: number, height: number, x: number, y: number): boolean {
+    if (x >= left && x <= (left + width) && y >= top && y <= (top + height)) {
+      return true;
+    } else {
+      return false;
+    }
+  }
 }
