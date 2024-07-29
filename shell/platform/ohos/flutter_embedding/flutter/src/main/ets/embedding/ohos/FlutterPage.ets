@@ -81,7 +81,7 @@ export struct FlutterPage {
           children: child.children,
           customBuilder: child.builder
         })
-      }, (child: Any) => `${child.id_}`)
+      }, (child: ESObject) => `${child.id_}`)
 
 
       Text('')

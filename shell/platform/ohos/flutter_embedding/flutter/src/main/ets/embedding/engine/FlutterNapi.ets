@@ -534,7 +534,6 @@ export default class FlutterNapi {
 
   /** Dispatch Touch Event */
   onTouchEvent(strings: Array<string>): void {
-    Log.d(TAG, "called onTouchEvent ");
     TouchEventProcessor.getInstance().postTouchEvent(strings);
   }
 }

@@ -192,8 +192,31 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
   }
 
   onTouch(touch: PlatformViewTouch): void {
-    console.log("nodeController onTouch:do nothing")
-    // do nothing
+    let viewWrapper: undefined | PlatformViewWrapper = this.viewWrappers.get(touch.viewId)
+    if (viewWrapper != undefined) {
+      let dvModel = viewWrapper.getDvModel()
+      let params = dvModel.getLayoutParams() as Record<string, Any>;
+      //接收到点击类型为down的时候
+      if (touch.action == 0) {
+        //将当前点击状态设置为true
+        params['down'] = true
+        //首次收到触控点击类型为 OH_NATIVEXCOMPONENT_DOWN ，则将存到列表中的事件分发出去
+        let touchEventArray: Array<CustomTouchEvent> | undefined = params['touchEvent'] as Array<CustomTouchEvent>
+        if (touchEventArray != undefined) {
+          let nodeController = params['nodeController'] as EmbeddingNodeController;
+          for (let it of touchEventArray) {
+            nodeController.postEvent(it)
+          }
+          //首次执行完之后，将列表数据置空
+          params['touchEvent'] = undefined
+        }
+      //当前接收的事件类型为up的时候
+      } else if (touch.action == 1) {
+        //手指抬起之后，将当前点击状态设置为false。测试了一下，多个手指突然抬起，最后返回的状态也是1
+        //所以，这边就以状态抬起，代表当前用户不点击platformview了
+        params['down'] = false
+      }
+    }
   }
 
   setDirection(viewId: number, direction: Direction): void {
