@@ -14,12 +14,22 @@
 */
 import FlutterEngine from '../engine/FlutterEngine';
 import KeyEventChannel, { FlutterKeyEvent } from '../engine/systemchannels/KeyEventChannel';
+import KeyboardChannel from '../engine/systemchannels/KeyboardChannel';
+import KeyEmbedderResponder from './KeyEmbedderResponder';
+import { BinaryMessenger } from '../../plugin/common/BinaryMessenger';
+
+import HashSet from '@ohos.util.HashSet';
 
 export default class KeyboardManager {
-  private keyEventChannel: KeyEventChannel | null = null
+  private keyEventChannel: KeyEventChannel | null = null;
+  private keyboardChannel: KeyboardChannel | null = null;
+  protected keyEmbedderResponder : KeyEmbedderResponder;
 
   constructor(engine: FlutterEngine) {
-    this.keyEventChannel = new KeyEventChannel(engine.dartExecutor)
+    this.keyEventChannel = new KeyEventChannel(engine.dartExecutor);
+    this.keyboardChannel = new KeyboardChannel(engine.dartExecutor);
+    this.keyboardChannel.setKeyboardMethodHandler(this);
+    this.keyEmbedderResponder = new KeyEmbedderResponder(engine.dartExecutor);
   }
 
   handleKeyEvent(event: KeyEvent) {
@@ -28,5 +38,15 @@ export default class KeyboardManager {
 
       }
     })
+
+    this.keyEmbedderResponder.handleKeyEvent(event);
   }
+
+  public getKeyboardState(): Map<number, number> {
+    return this.keyEmbedderResponder.getPressedKeys();
+  }
+}
+
+export interface Responder {
+  handleKeyEvent(keyEvent: KeyEvent): void;
 }
