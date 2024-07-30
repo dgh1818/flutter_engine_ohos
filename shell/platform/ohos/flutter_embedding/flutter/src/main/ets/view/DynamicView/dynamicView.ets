@@ -242,6 +242,10 @@ export struct DynamicView {
   @Builder buildNodeContainer() {
     NodeContainer(this.getParams(this.params, "nodeController"))
       .common_attrs()
+      .position({
+        x: (this.params as Record<string, ESObject>)['left'] as number,
+        y: (this.params as Record<string, ESObject>)['top'] as number
+      })
   }
 
   @Builder
