@@ -1829,4 +1829,87 @@ napi_value PlatformViewOHOSNapi::nativeXComponentDetachFlutterEngine(
   return nullptr;
 }
 
+/**
+ * @brief flutterEngine get mouseWheel event from ets
+ * @note
+ * @param  nativeShellHolderId: number
+ * @param  xcomponentId: number
+ * @param  eventType: string
+ * @param  fingerId: number
+ * @param  globalX: number
+ * @param  globalY: number
+ * @param  offsetY: number
+ * @param  timestamp: number
+ * @return napi_value
+ */
+napi_value PlatformViewOHOSNapi::nativeXComponentDispatchMouseWheel(napi_env env, napi_callback_info info)
+{
+    napi_status ret;
+    size_t argc = 8;
+    napi_value args[8] = {nullptr};
+    int64_t shellHolder;
+    std::string xcomponentId;
+    std::string eventType;
+    int64_t fingerId;
+    double globalX;
+    double globalY;
+    double offsetY;
+    int64_t timestamp;
+    ret = napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+    if (ret != napi_ok) {
+        FML_DLOG(ERROR) << "nativeXComponentDispatchMouseWheel napi_get_cb_info error:"
+                        << ret;
+        return nullptr;
+    }
+    ret = napi_get_value_int64(env, args[0], &shellHolder);
+    if (ret != napi_ok) {
+        LOGE("nativeXComponentDispatchMouseWheel shellHolder napi_get_value_int64 error");
+        return nullptr;
+    }
+    if (fml::napi::GetString(env, args[1], xcomponentId) != 0) {
+        FML_DLOG(ERROR) << "nativeXComponentDispatchMouseWheel xcomponentId GetString error";
+        return nullptr;
+    }
+    if (fml::napi::GetString(env, args[2], eventType) != 0) {
+        FML_DLOG(ERROR) << "nativeXComponentDispatchMouseWheel eventType GetString error";
+        return nullptr;
+    }
+    ret = napi_get_value_int64(env, args[3], &fingerId);
+    if (ret != napi_ok) {
+        LOGE("nativeXComponentDispatchMouseWheel fingerId napi_get_value_int64 error");
+        return nullptr;
+    }
+    ret = napi_get_value_double(env, args[4], &globalX);
+    if (ret != napi_ok) {
+        LOGE("nativeXComponentDispatchMouseWheel globalX napi_get_value_double error");
+        return nullptr;
+    }
+    ret = napi_get_value_double(env, args[5], &globalY);
+    if (ret != napi_ok) {
+        LOGE("nativeXComponentDispatchMouseWheel globalY napi_get_value_double error");
+        return nullptr;
+    }
+    ret = napi_get_value_double(env, args[6], &offsetY);
+    if (ret != napi_ok) {
+        LOGE("nativeXComponentDispatchMouseWheel offsetY napi_get_value_double error");
+        return nullptr;
+    }
+    ret = napi_get_value_int64(env, args[7], &timestamp);
+    if (ret != napi_ok) {
+        LOGE("nativeXComponentDispatchMouseWheel timestamp napi_get_value_int64 error");
+        return nullptr;
+    }
+    flutter::mouseWheelEvent event {
+        eventType,
+        shellHolder,
+        fingerId,
+        globalX,
+        globalY,
+        offsetY,
+        timestamp
+    };
+    XComponentAdapter::GetInstance()->OnMouseWheel(xcomponentId, event);
+    return nullptr;
+}
+
 }  // namespace flutter

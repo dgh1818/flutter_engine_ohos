@@ -39,6 +39,40 @@ PointerData::Change OhosTouchProcessor::getPointerChangeForAction(
   return PointerData::Change::kCancel;
 }
 
+PointerData::Change OhosTouchProcessor::getPointerChangeForMouseAction(
+    OH_NativeXComponent_MouseEventAction mouseAction)
+{
+    switch (mouseAction) {
+        case OH_NATIVEXCOMPONENT_MOUSE_PRESS:
+            return PointerData::Change::kDown;
+        case OH_NATIVEXCOMPONENT_MOUSE_RELEASE:
+            return PointerData::Change::kUp;
+        case OH_NATIVEXCOMPONENT_MOUSE_MOVE:
+            return PointerData::Change::kMove;
+        default:
+            return PointerData::Change::kCancel;
+    }
+}
+
+PointerButtonMouse OhosTouchProcessor::getPointerButtonFromMouse(
+    OH_NativeXComponent_MouseEventButton mouseButton)
+{
+    switch (mouseButton) {
+        case OH_NATIVEXCOMPONENT_LEFT_BUTTON:
+            return kPointerButtonMousePrimary;
+        case OH_NATIVEXCOMPONENT_RIGHT_BUTTON:
+            return kPointerButtonMouseSecondary;
+        case OH_NATIVEXCOMPONENT_MIDDLE_BUTTON:
+            return kPointerButtonMouseMiddle;
+        case OH_NATIVEXCOMPONENT_BACK_BUTTON:
+            return kPointerButtonMouseBack;
+        case OH_NATIVEXCOMPONENT_FORWARD_BUTTON:
+            return kPointerButtonMouseForward;
+        default:
+            return kPointerButtonMousePrimary;
+    }
+}
+
 PointerData::DeviceKind OhosTouchProcessor::getPointerDeviceTypeForToolType(
     int toolType) {
   switch (toolType) {
@@ -176,4 +210,54 @@ void OhosTouchProcessor::HandleTouchEvent(
     return;
 }
 
+void OhosTouchProcessor::HandleMouseEvent(
+    int64_t shell_holderID,
+    OH_NativeXComponent* component,
+    OH_NativeXComponent_MouseEvent mouseEvent,
+    double offsetY)
+{
+    const int numTouchPoints = 1;
+    std::unique_ptr<flutter::PointerDataPacket> packet = std::make_unique<flutter::PointerDataPacket>(numTouchPoints);
+    PointerData pointerData;
+    pointerData.Clear();
+    pointerData.embedder_id = mouseEvent.button;
+    pointerData.time_stamp = mouseEvent.timestamp / MSEC_PER_SECOND;
+    pointerData.change = getPointerChangeForMouseAction(mouseEvent.action);
+    pointerData.physical_y = mouseEvent.y;
+    pointerData.physical_x = mouseEvent.x;
+    // Delta will be generated in pointer_data_packet_converter.cc.
+    pointerData.physical_delta_x = 0.0;
+    pointerData.physical_delta_y = 0.0;
+    pointerData.device = mouseEvent.button;
+    // Pointer identifier will be generated in pointer_data_packet_converter.cc.
+    pointerData.pointer_identifier = 0;
+    // XComponent not support Scroll
+    // now it's support
+    pointerData.signal_kind = offsetY != 0 ? PointerData::SignalKind::kScroll : PointerData::SignalKind::kNone;
+    pointerData.scroll_delta_x = 0.0;
+    pointerData.scroll_delta_y = offsetY;
+    pointerData.pressure = 0.0;
+    pointerData.pressure_max = 1.0;
+    pointerData.pressure_min = 0.0;
+    pointerData.kind = PointerData::DeviceKind::kMouse;
+    pointerData.buttons = getPointerButtonFromMouse(mouseEvent.button);
+    // hover support
+    if (mouseEvent.button == OH_NATIVEXCOMPONENT_NONE_BUTTON && pointerData.change == PointerData::Change::kMove) {
+        pointerData.change = PointerData::Change::kHover;
+        pointerData.buttons = 0;
+    }
+    pointerData.pan_x = 0.0;
+    pointerData.pan_y = 0.0;
+    // Delta will be generated in pointer_data_packet_converter.cc.
+    pointerData.pan_delta_x = 0.0;
+    pointerData.pan_delta_y = 0.0;
+    // The contact area between the fingerpad and the screen
+    pointerData.size = 0.0;
+    pointerData.scale = 1.0;
+    pointerData.rotation = 0.0;
+    packet->SetPointerData(0, pointerData);
+    auto ohos_shell_holder = reinterpret_cast<OHOSShellHolder*>(shell_holderID);
+    ohos_shell_holder->GetPlatformView()->DispatchPointerDataPacket(std::move(packet));
+    return;
+}
 }  // namespace flutter

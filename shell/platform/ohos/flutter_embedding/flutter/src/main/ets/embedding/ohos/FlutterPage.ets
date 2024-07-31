@@ -45,6 +45,7 @@ export struct FlutterPage {
   @State rootDvModel: DVModelChildren | undefined = undefined
   private flutterView?: FlutterView | null
   private lastArea?: Area;
+  private panOption: PanGestureOptions = new PanGestureOptions({ direction: PanDirection.Up | PanDirection.Down });
 
   aboutToAppear() {
     this.flutterView = FlutterManager.getInstance().getFlutterView(this.viewId);
@@ -120,5 +121,17 @@ export struct FlutterPage {
       this.flutterView?.onKeyEvent(event)
     })
     .defaultFocus(true)
+    .gesture(
+      PanGesture(this.panOption)
+        .onActionStart((event: GestureEvent) => {
+          this.flutterView?.onMouseWheel("actionStart", event);
+        })
+        .onActionUpdate((event: GestureEvent) => {
+          this.flutterView?.onMouseWheel("actionUpdate", event);
+        })
+        .onActionEnd((event: GestureEvent) => {
+          this.flutterView?.onMouseWheel("actionEnd", event);
+        })
+    )
   }
 }

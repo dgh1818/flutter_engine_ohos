@@ -455,6 +455,10 @@ export class FlutterView {
     this.keyboardManager?.handleKeyEvent(event)
   }
 
+  onMouseWheel(eventType: string, event: PanGestureEvent) {
+    this.flutterEngine?.getFlutterNapi()?.xComponentDisPatchMouseWheel(this.id, eventType, event);
+  }
+
   addFirstFrameListener(listener: FirstFrameListener) {
     this.mFirstFrameListeners.add(listener);
   }

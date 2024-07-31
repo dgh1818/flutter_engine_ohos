@@ -503,6 +503,33 @@ export default class FlutterNapi {
     flutter.nativeXComponentDetachFlutterEngine(xcomponentId, this.nativeShellHolderId!);
   }
 
+  /**
+   * xcomponent send mouseWheel event to flutterEngine
+   * @param xcomponentId
+   * @param eventType
+   * @param event
+   */
+  xComponentDisPatchMouseWheel(xcomponentId: string, eventType: string, event: PanGestureEvent) {
+    // only mouse
+    if (event.source !== SourceType.Mouse) {
+      return;
+    }
+    const vaildFinger = event.fingerList?.find(item => item.globalX && item.globalY);
+    if (!vaildFinger) {
+      return;
+    }
+    flutter.nativeXComponentDispatchMouseWheel(
+      this.nativeShellHolderId!!,
+      xcomponentId,
+      eventType,
+      vaildFinger?.id,
+      vaildFinger?.localX,
+      vaildFinger?.localY,
+      event.offsetY,
+      event.timestamp
+    );
+  }
+
   detachFromNativeAndReleaseResources() {
     flutter.nativeDestroy(this.nativeShellHolderId!!);
     this.nativeShellHolderId = null;
