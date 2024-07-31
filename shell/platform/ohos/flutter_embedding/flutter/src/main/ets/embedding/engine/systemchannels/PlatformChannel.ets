@@ -378,23 +378,13 @@ class PlatformMethodCallback implements MethodCallHandler {
           this.platform.platformMessageHandler.setClipboardData(clipboardContent, result);
           break;
         case "Clipboard.hasStrings":
-          let hasStrings: boolean = false;
           let response: Any = new Map().set("value", false);
           let systemPasteboard = pasteboard.getSystemPasteboard();
           systemPasteboard.hasData().then((hasData) => {
-            if (!hasData) {
-              response.set("value", hasData);
-              result.success(response);
-            }
-          }).catch((err: Any) => {
-            Log.e(PlatformMethodCallback.TAG, "systemPasteboard.hasData err: " + JSON.stringify(err));
-          })
-          systemPasteboard.getData().then((pasteData) => {
-            hasStrings = pasteData.hasType(pasteboard.MIMETYPE_TEXT_PLAIN);
-            response.set("value", hasStrings);
+            response.set("value", hasData);
             result.success(response);
           }).catch((err: Any) => {
-            Log.e(PlatformMethodCallback.TAG, "getData err: " + JSON.stringify(err));
+            Log.e(PlatformMethodCallback.TAG, "systemPasteboard.hasData err: " + JSON.stringify(err));
           })
           break;
         default:
