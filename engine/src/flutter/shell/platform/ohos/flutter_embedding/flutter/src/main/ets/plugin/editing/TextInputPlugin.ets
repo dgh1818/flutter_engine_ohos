@@ -139,7 +139,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     if (this.imcFlag != true) {
       this.listenKeyBoardEvent();
     }
-    this.inputMethodController.showTextInput().then(() => {
+    this.inputMethodController.showSoftKeyboard().then(() => {
       Log.d(TextInputMethodHandlerImpl.TAG, "Succeeded in showing softKeyboard");
     }).catch((err: Any) => {
       Log.e(TextInputMethodHandlerImpl.TAG, "Failed to show softKeyboard:" + JSON.stringify(err));
