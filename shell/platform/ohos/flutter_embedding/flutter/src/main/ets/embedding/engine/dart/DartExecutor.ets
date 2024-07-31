@@ -48,7 +48,7 @@ export default class DartExecutor implements  BinaryMessenger {
     this.dartMessenger = new DartMessenger(flutterNapi);
     this.dartMessenger.setMessageHandler("flutter/isolate", this.isolateChannelMessageHandler);
     this.binaryMessenger = new DefaultBinaryMessenger(this.dartMessenger);
-    // The JNI might already be attached if coming from a spawned engine. If so, correctly report
+    // The NAPI might already be attached if coming from a spawned engine. If so, correctly report
     // that this DartExecutor is already running.
     if (flutterNapi.isAttached()) {
       this.isApplicationRunning = true;
@@ -58,9 +58,9 @@ export default class DartExecutor implements  BinaryMessenger {
 
   /**
    * Invoked when the {@link io.flutter.embedding.engine.FlutterEngine} that owns this {@link
-   * DartExecutor} attaches to JNI.
+   * DartExecutor} attaches to NAPI.
    *
-   * <p>When attached to JNI, this {@link DartExecutor} begins handling 2-way communication to/from
+   * <p>When attached to NAPI, this {@link DartExecutor} begins handling 2-way communication to/from
    * the Dart execution context. This communication is facilitate via 2 APIs:
    *
    * <ul>
@@ -75,9 +75,9 @@ export default class DartExecutor implements  BinaryMessenger {
 
   /**
    * Invoked when the {@link io.flutter.embedding.engine.FlutterEngine} that owns this {@link
-   * DartExecutor} detaches from JNI.
+   * DartExecutor} detaches from NAPI.
    *
-   * <p>When detached from JNI, this {@link DartExecutor} stops handling 2-way communication to/from
+   * <p>When detached from NAPI, this {@link DartExecutor} stops handling 2-way communication to/from
    * the Dart execution context.
    */
   onDetachedFromNAPI(): void {
@@ -278,7 +278,7 @@ interface IsolateServiceIdListener {
  * that callback and other assets required for Dart execution.
  */
 export class DartCallback {
-  /** Standard Android AssetManager, provided from some {@code Context} or {@code Resources}. */
+  /** Standard HarmonyOS AssetManager, provided from some {@code Context} or {@code Resources}. */
   public resourceManager: resourceManager.ResourceManager;
 
   /** The path within the AssetManager where the app will look for assets. */
@@ -318,7 +318,7 @@ export class DefaultBinaryMessenger implements BinaryMessenger {
   }
 
   /**
-   * Sends the given {@code messages} from Android to Dart over the given {@code channel} and then
+   * Sends the given {@code messages} from HarmonyOS to Dart over the given {@code channel} and then
    * has the provided {@code callback} invoked when the Dart side responds.
    *
    * @param channel the name of the logical channel used for the message.
