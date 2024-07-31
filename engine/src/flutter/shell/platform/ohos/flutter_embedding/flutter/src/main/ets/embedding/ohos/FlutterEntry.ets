@@ -26,6 +26,7 @@ import { FlutterView } from '../../view/FlutterView';
 import FlutterManager from './FlutterManager';
 import window from '@ohos.window';
 import FlutterEngineConfigurator from './FlutterEngineConfigurator';
+import { FlutterPlugin } from '../engine/plugins/FlutterPlugin';
 
 const TAG = "FlutterEntry";
 
@@ -247,5 +248,13 @@ export default class FlutterEntry implements Host {
 
   popSystemNavigator(): boolean {
     return true;
+  }
+
+  addPlugin(plugin: FlutterPlugin): void {
+    this.delegate?.addPlugin(plugin)
+  }
+
+  removePlugin(plugin: FlutterPlugin): void {
+    this.delegate?.removePlugin(plugin)
   }
 }
