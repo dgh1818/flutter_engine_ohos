@@ -30,6 +30,7 @@ import FlutterManager from '../ohos/FlutterManager';
 import deviceInfo from '@ohos.deviceInfo';
 import TouchEventProcessor from '../ohos/TouchEventProcessor';
 import { EmbeddingNodeController } from '../ohos/EmbeddingNodeController';
+import BuildProfile from '../../../../../BuildProfile';
 
 const TAG = "FlutterNapi";
 
@@ -90,6 +91,7 @@ export default class FlutterNapi {
       Log.e(TAG, "the engine has init");
       return;
     }
+    Log.i(TAG, "HAR_VERSION=" + BuildProfile.HAR_VERSION);
     Log.w(TAG, JSON.stringify({
       "name": "init, initTimeMillis=" + initTimeMillis,
       "bundlePath": bundlePath,
