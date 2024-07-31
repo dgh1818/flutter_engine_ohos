@@ -29,7 +29,7 @@ export default class PlatformViewsChannel {
   private parsingHandler = new ParsingCallback();
 
   /**
-   * Constructs a {@code PlatformViewsChannel} that connects Android to the Dart code running in
+   * Constructs a {@code PlatformViewsChannel} that connects HarmonyOS to the Dart code running in
    * {@code dartExecutor}.
    *
    * <p>The given {@code dartExecutor} is permitted to be idle or executing code.
@@ -268,10 +268,10 @@ export interface  PlatformViewsHandler {
   createForPlatformViewLayer(request: PlatformViewCreationRequest): void;
 
   /**
-   * The Flutter application would like to display a new Android {@code View}, i.e., platform
+   * The Flutter application would like to display a new HarmonyOS {@code View}, i.e., platform
    * view.
    *
-   * <p>The Android View is added to the view hierarchy. This view is rendered in the Flutter
+   * <p>The HarmonyOS View is added to the view hierarchy. This view is rendered in the Flutter
    * framework by a TextureLayer.
    *
    * @param request The metadata sent from the framework.
@@ -279,11 +279,11 @@ export interface  PlatformViewsHandler {
    */
   createForTextureLayer(request: PlatformViewCreationRequest): number;
 
-  /** The Flutter application would like to dispose of an existing Android {@code View}. */
+  /** The Flutter application would like to dispose of an existing HarmonyOS {@code View}. */
   dispose(viewId: number): void;
 
   /**
-   * The Flutter application would like to resize an existing Android {@code View}.
+   * The Flutter application would like to resize an existing HarmonyOS {@code View}.
    *
    * @param request The request to resize the platform view.
    * @param onComplete Once the resize is completed, this is the handler to notify the size of the
@@ -292,7 +292,7 @@ export interface  PlatformViewsHandler {
   resize(request: PlatformViewResizeRequest, onComplete: PlatformViewBufferResized): void;
 
   /**
-   * The Flutter application would like to change the offset of an existing Android {@code View}.
+   * The Flutter application would like to change the offset of an existing HarmonyOS {@code View}.
    */
   offset(viewId: number, top: number, left: number): void;
 
@@ -304,7 +304,7 @@ export interface  PlatformViewsHandler {
   onTouch(touch: PlatformViewTouch): void;
 
   /**
-   * The Flutter application would like to change the layout direction of an existing Android
+   * The Flutter application would like to change the layout direction of an existing HarmonyOS
    * {@code View}, i.e., platform view.
    */
   setDirection(viewId: number, direction: Direction): void;

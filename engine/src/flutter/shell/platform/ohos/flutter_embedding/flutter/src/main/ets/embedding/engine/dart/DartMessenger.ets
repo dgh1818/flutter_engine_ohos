@@ -22,11 +22,11 @@ import { TraceSection } from '../../../util/TraceSection';
 import SendableBinaryMessageHandler from '../../../plugin/common/SendableBinaryMessageHandler'
 
 /**
- * Message conduit for 2-way communication between Android and Dart.
+ * Message conduit for 2-way communication between HarmonyOS and Dart.
  *
- * <p>See {@link BinaryMessenger}, which sends messages from Android to Dart
+ * <p>See {@link BinaryMessenger}, which sends messages from HarmonyOS to Dart
  *
- * <p>See {@link PlatformMessageHandler}, which handles messages to Android from Dart
+ * <p>See {@link PlatformMessageHandler}, which handles messages to HarmonyOS from Dart
  */
 
 const TAG = "DartMessenger";

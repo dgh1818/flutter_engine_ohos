@@ -32,8 +32,8 @@ import DartExecutor from '../dart/DartExecutor';
  * data via {@code waitForRestorationData} until the engine-side has provided the data. This is
  * useful when the engine is pre-warmed at a point in the application's life cycle where the
  * restoration data is not available yet. For example, if the engine is pre-warmed as part of the
- * Application before an Activity is created, this flag should be set to true because Android will
- * only provide the restoration data to the Activity during the onCreate callback.
+ * Application before an Ability is created, this flag should be set to true because HarmonyOS will
+ * only provide the restoration data to the Ability during the onCreate callback.
  *
  * <p>The current restoration data provided by the framework can be read via {@code
  * getRestorationData()}.
