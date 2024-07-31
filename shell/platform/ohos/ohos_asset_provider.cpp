@@ -23,8 +23,8 @@ namespace flutter {
 class FileDescriptionMapping : public fml::Mapping {
  public:
   explicit FileDescriptionMapping(RawFile* fileHandle)
-      : fileHandle_(fileHandle), filebuf(nullptr), _read_from_file(false) {
-    LOGD("FileDescriptionMapping :%{public}p", fileHandle_);
+      : file_handle_(fileHandle) {
+    LOGD("FileDescriptionMapping :%{public}p", file_handle_);
     int ret = 0;
     if (0 > (ret = ReadFile())) {
       LOGD("FileDescriptionMapping :%{public}d", ret);
@@ -33,42 +33,42 @@ class FileDescriptionMapping : public fml::Mapping {
   void* GetBuffer() {
     // TODO 考虑线程安全
 
-    if (filebuf != nullptr)
-      return filebuf;
+    if (file_buf_ != nullptr)
+      return file_buf_;
 
     size_t bufLenth = GetSize();
 
-    if (fileHandle_ != nullptr && bufLenth > 0) {
+    if (file_handle_ != nullptr && bufLenth > 0) {
       LOGD("FileDescriptionMapping buflenth = %{public}ld", bufLenth);
-      filebuf = malloc(bufLenth + 1);
-      memset(filebuf, 0, bufLenth + 1);
+      file_buf_ = malloc(bufLenth + 1);
+      memset(file_buf_, 0, bufLenth + 1);
     }
-    return filebuf;
+    return file_buf_;
   }
 
   ~FileDescriptionMapping() override {
-    if (fileHandle_ != nullptr) {
-      OH_ResourceManager_CloseRawFile(fileHandle_);
+    if (file_handle_ != nullptr) {
+      OH_ResourceManager_CloseRawFile(file_handle_);
     }
-    if (filebuf != nullptr) {
-      free(filebuf);
-      filebuf = nullptr;
+    if (file_buf_ != nullptr) {
+      free(file_buf_);
+      file_buf_ = nullptr;
     }
   }
 
   size_t GetSize() const override {
-    if (fileHandle_ == nullptr)
+    if (file_handle_ == nullptr)
       return 0;
 
-    size_t ret = OH_ResourceManager_GetRawFileSize(fileHandle_);
+    size_t ret = OH_ResourceManager_GetRawFileSize(file_handle_);
     LOGD("GetSize():%{public}zu", ret);
     return ret;
   }
 
   int ReadFile() {
-    if (fileHandle_ == nullptr) {
+    if (file_handle_ == nullptr) {
       LOGE("GetMapping  failed. fileHandle_:%{public}p,filebuf:%{public}p",
-           fileHandle_, filebuf);
+           file_handle_, file_buf_);
       return -1;
     }
 
@@ -77,15 +77,15 @@ class FileDescriptionMapping : public fml::Mapping {
     int ret = 0;
 
     if (buf != nullptr) {
-      ret = OH_ResourceManager_ReadRawFile(fileHandle_, buf, len);
-      _read_from_file = true;
+      ret = OH_ResourceManager_ReadRawFile(file_handle_, buf, len);
+      read_from_file_ = true;
     }
     LOGD("GetMapping ... total:%{public}zu, ret:%{public}d,buf:%{public}p", len,
          ret, buf);
     return ret;
   }
   const uint8_t* GetMapping() const override {
-    return reinterpret_cast<const uint8_t*>(filebuf);
+    return reinterpret_cast<const uint8_t*>(file_buf_);
   }
 
   bool IsDontNeedSafe() const override {
@@ -94,24 +94,24 @@ class FileDescriptionMapping : public fml::Mapping {
   }
 
  private:
-  RawFile* fileHandle_;
-  void* filebuf;
-  bool _read_from_file;
+  RawFile* file_handle_;
+  void* file_buf_ = nullptr;
+  bool read_from_file_ = false;
   FML_DISALLOW_COPY_AND_ASSIGN(FileDescriptionMapping);
 };
 
 OHOSAssetProvider::OHOSAssetProvider(void* assetHandle, const std::string& dir)
-    : assetHandle_(assetHandle), dir_(dir) {
+    : asset_handle_(assetHandle), dir_(dir) {
   LOGD("assets dir:%{public}s", dir.c_str());
 }
 
 OHOSAssetProvider::OHOSAssetProvider(
     std::shared_ptr<OHOSAssetProviderInternal> handle)
-    : assetHandle_(handle.get()) {
+    : asset_handle_(handle.get()) {
 }
 
 bool OHOSAssetProvider::IsValid() const {
-  return (assetHandle_ != nullptr);
+  return (asset_handle_ != nullptr);
 }
 
 bool OHOSAssetProvider::IsValidAfterAssetManagerChange() const {
@@ -125,34 +125,34 @@ AssetResolver::AssetResolverType OHOSAssetProvider::GetType() const {
 std::unique_ptr<fml::Mapping> OHOSAssetProvider::GetAsMapping(
     const std::string& asset_name) const {
   NativeResourceManager* nativeResMgr =
-      reinterpret_cast<NativeResourceManager*>(assetHandle_);
-  if (assetHandle_ == nullptr || nativeResMgr == nullptr) {
+      reinterpret_cast<NativeResourceManager*>(asset_handle_);
+  if (asset_handle_ == nullptr || nativeResMgr == nullptr) {
     LOGE("nativeResMgr is null:%{public}p or  nativeResMgr is null:%{public}p ",
-         assetHandle_, nativeResMgr);
+         asset_handle_, nativeResMgr);
   }
   std::string relativePath = dir_ + "/" + asset_name;
 
-  LOGE("GetAsMapping=%{public}s->%{public}s", asset_name.c_str(),
+  LOGD("GetAsMapping=%{public}s->%{public}s", asset_name.c_str(),
        relativePath.c_str());
 
   RawFile* fileHandle =
       OH_ResourceManager_OpenRawFile(nativeResMgr, relativePath.c_str());
-  LOGE("GetAsMapping=%{public}s->%{public}p", relativePath.c_str(), fileHandle);
+  LOGD("GetAsMapping=%{public}s->%{public}p", relativePath.c_str(), fileHandle);
 
   if (fileHandle == nullptr) {
     fileHandle =
         OH_ResourceManager_OpenRawFile(nativeResMgr, asset_name.c_str());
-    LOGE("GetAsMapping2 ..fallback:%{public}s->%{public}p", asset_name.c_str(),
+    LOGD("GetAsMapping2 ..fallback:%{public}s->%{public}p", asset_name.c_str(),
          fileHandle);
   }
-  LOGE("GetAsMappingend:%{public}p", fileHandle);
+  LOGD("GetAsMappingend:%{public}p", fileHandle);
   return fileHandle == nullptr
              ? nullptr
              : (std::make_unique<FileDescriptionMapping>(fileHandle));
 }
 
 std::unique_ptr<OHOSAssetProvider> OHOSAssetProvider::Clone() const {
-  return std::make_unique<OHOSAssetProvider>(assetHandle_);
+  return std::make_unique<OHOSAssetProvider>(asset_handle_);
 }
 
 bool OHOSAssetProvider::operator==(const AssetResolver& other) const {
@@ -160,7 +160,7 @@ bool OHOSAssetProvider::operator==(const AssetResolver& other) const {
   if (!other_provider) {
     return false;
   }
-  return assetHandle_ == other_provider->assetHandle_;
+  return asset_handle_ == other_provider->asset_handle_;
 }
 
 }  // namespace flutter

@@ -29,10 +29,10 @@ class MockOHOSAssetProviderImpl : public OHOSAssetProviderInternal {
 };
 
 TEST(OHOSAssetProvider, CloneAndEquals) {
-  auto mockHandle1 = std::make_shared<MockOHOSAssetProviderImpl>();
-  auto mockHandle2 = std::make_shared<MockOHOSAssetProviderImpl>();
-  auto first_provider = std::make_unique<OHOSAssetProvider>(mockHandle1);
-  auto second_provider = std::make_unique<OHOSAssetProvider>(mockHandle2);
+  auto first_impl = std::make_shared<MockOHOSAssetProviderImpl>();
+  auto second_impl = std::make_shared<MockOHOSAssetProviderImpl>();
+  auto first_provider = std::make_unique<OHOSAssetProvider>(first_impl);
+  auto second_provider = std::make_unique<OHOSAssetProvider>(second_impl);
   auto third_provider = first_provider->Clone();
 
   ASSERT_NE(first_provider->GetHandle(), second_provider->GetHandle());

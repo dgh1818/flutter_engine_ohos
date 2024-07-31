@@ -41,7 +41,7 @@ std::vector<std::string> StringArrayToVector(napi_env env,
   napi_status status;
   uint32_t arrayLength = 0;
   status = napi_get_array_length(env, arrayValue, &arrayLength);
-  LOGE("StringArrayToVector get array length  %{pubilc}d", arrayLength);
+  LOGD("StringArrayToVector get array length  %{pubilc}d", arrayLength);
   if (status != napi_ok) {
     LOGE("StringArrayToVector napi_get_array_length error ");
   }

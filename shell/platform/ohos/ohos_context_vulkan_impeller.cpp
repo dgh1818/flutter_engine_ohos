@@ -62,10 +62,10 @@ static std::shared_ptr<impeller::Context> CreateImpellerContext(
   if (!quiet) {
     if (context && impeller::CapabilitiesVK::Cast(*context->GetCapabilities())
                        .AreValidationsEnabled()) {
-      FML_LOG(IMPORTANT) << "Using the Impeller rendering backend (Vulkan with "
+      FML_LOG(INFO) << "Using the Impeller rendering backend (Vulkan with "
                             "Validation Layers).";
     } else {
-      FML_LOG(IMPORTANT) << "Using the Impeller rendering backend (Vulkan).";
+      FML_LOG(INFO) << "Using the Impeller rendering backend (Vulkan).";
     }
   }
 
