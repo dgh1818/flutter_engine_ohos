@@ -25,9 +25,9 @@
 namespace fml {
 namespace napi {
 enum {
-  SUCCESS = 0,
-  ERROR_TYPE = -100,
-  ERROR_NULL,
+  kSuccess = 0,
+  kErrorType = -100,
+  kErrorNull,
 };
 
 int32_t GetString(napi_env env, napi_value arg, std::string& strValue);

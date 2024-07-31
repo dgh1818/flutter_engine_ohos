@@ -26,15 +26,15 @@ extern "C" {
 
 typedef enum {
   /** Debug level to be used by {@link OH_LOG_DEBUG} */
-  OHOS_LOG_DEBUG = 3,
+  kOhosLogDebug = 3,
   /** Informational level to be used by {@link OH_LOG_INFO} */
-  OHOS_LOG_INFO = 4,
+  kOhosLogInfo = 4,
   /** Warning level to be used by {@link OH_LOG_WARN} */
-  OHOS_LOG_WARN = 5,
+  kOhosLogWarn = 5,
   /** Error level to be used by {@link OH_LOG_ERROR} */
-  OHOS_LOG_ERROR = 6,
+  kOhosLogError = 6,
   /** Fatal level to be used by {@link OH_LOG_FATAL} */
-  OHOS_LOG_FATAL = 7,
+  kOhosLogFatal = 7,
 } OhosLogLevel;
 
 extern int ohos_log(OhosLogLevel level, const char* fmt, ...);

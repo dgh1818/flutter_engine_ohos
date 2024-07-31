@@ -86,42 +86,42 @@ class OHOSExternalTextureGL : public flutter::Texture {
 
   void ProducePixelMapToNativeImage();
 
-  enum class AttachmentState { uninitialized, attached, detached };
+  enum class AttachmentState { kUninitialized, kAttached, kDetached };
 
-  AttachmentState state_ = AttachmentState::uninitialized;
+  AttachmentState state_ = AttachmentState::kUninitialized;
 
   bool new_frame_ready_ = false;
 
   GLuint texture_name_ = 0;
 
-  GLuint backGroundTextureName_ = 0;
+  GLuint back_ground_texture_name_ = 0;
 
   std::shared_ptr<OHOSSurface> ohos_surface_;
 
   SkMatrix transform_;
 
-  OHNativeWindow* nativeWindow_;
+  OHNativeWindow* native_window_;
 
-  OHNativeWindow* backGroundNativeWindow_;
+  OHNativeWindow* back_ground_native_window_;
 
   OHNativeWindowBuffer* buffer_;
 
-  OHNativeWindowBuffer* backGroundBuffer_;
+  OHNativeWindowBuffer* back_ground_buffer_;
 
-  NativePixelMap* pixelMap_;
+  NativePixelMap* pixel_map_;
 
-  ImageNative* lastImage_;
+  ImageNative* last_image_;
 
-  bool isEmulator_;
+  bool is_emulator_;
 
-  OhosPixelMapInfos pixelMapInfo;
+  OhosPixelMapInfos pixel_map_info_;
 
-  int fenceFd = -1;
+  int fence_fd_ = -1;
 
-  int backGroundFenceFd = -1;
+  int back_ground_fence_fd_ = -1;
 
-  EGLContext eglContext_;
-  EGLDisplay eglDisplay_;
+  EGLContext egl_context_;
+  EGLDisplay egl_display_;
 
   FML_DISALLOW_COPY_AND_ASSIGN(OHOSExternalTextureGL);
 };

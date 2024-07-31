@@ -18,22 +18,6 @@ import HiLog from '@ohos.hilog';
 const DOMAIN: number = 0x00FF;
 const TAG = "Flutter";
 const SYMBOL = " --> ";
-// const FILTER_KEYS = [
-//   new RegExp('hide', "gi")
-// ]
-
-// export function filterKey(target: any, propKey: string, descriptor: PropertyDescriptor) {
-//   const original = descriptor.value;
-//   descriptor.value = function (...args: string[]) {
-//     let filterResult = args.map((str) => {
-//       let tempStr = str
-//       FILTER_KEYS.forEach((filterKey) => tempStr = tempStr.replace(filterKey, "**"))
-//       return tempStr
-//     });
-//     const result = original.call(this, ...filterResult);
-//     return result;
-//   };
-// }
 
 /**
  * Basic log class
@@ -95,7 +79,7 @@ export default class Log {
         if (item instanceof Error) {
           args[index] = item.message + item.stack;
         }
-        format+="%{public}s";
+        format += "%{public}s";
       })
       HiLog.error(DOMAIN, TAG, tag + SYMBOL + format, args);
     }

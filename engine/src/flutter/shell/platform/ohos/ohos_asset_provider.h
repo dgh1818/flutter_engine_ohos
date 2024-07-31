@@ -35,18 +35,18 @@ class OHOSAssetProvider final : public AssetResolver {
   explicit OHOSAssetProvider(void* assetHandle,
                              const std::string& dir = "flutter_assets");
 
-  explicit OHOSAssetProvider(std::shared_ptr<OHOSAssetProviderInternal> assetHandle_);
+  explicit OHOSAssetProvider(std::shared_ptr<OHOSAssetProviderInternal> assetHandle);
 
   ~OHOSAssetProvider() = default;
 
   std::unique_ptr<OHOSAssetProvider> Clone() const;
 
-  void* GetHandle() const { return assetHandle_; }
+  void* GetHandle() const { return asset_handle_; }
 
   bool operator==(const AssetResolver& other) const override;
 
  private:
-  void* assetHandle_;
+  void* asset_handle_;
   std::string dir_;
 
   bool IsValid() const override;

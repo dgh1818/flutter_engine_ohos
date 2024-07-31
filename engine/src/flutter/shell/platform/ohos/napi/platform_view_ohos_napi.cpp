@@ -535,7 +535,7 @@ napi_value PlatformViewOHOSNapi::nativeRunBundleAndSnapshotFromLibrary(
        shell_holder);
 
   std::string bundlePath;
-  if (fml::napi::SUCCESS != fml::napi::GetString(env, args[1], bundlePath)) {
+  if (fml::napi::kSuccess != fml::napi::GetString(env, args[1], bundlePath)) {
     LOGE(" napi_get_value_string_utf8 error");
     return nullptr;
   }
@@ -543,7 +543,7 @@ napi_value PlatformViewOHOSNapi::nativeRunBundleAndSnapshotFromLibrary(
        bundlePath.c_str());
 
   std::string entrypointFunctionName;
-  if (fml::napi::SUCCESS !=
+  if (fml::napi::kSuccess !=
       fml::napi::GetString(env, args[2], entrypointFunctionName)) {
     LOGE(" napi_get_value_string_utf8 error");
     return nullptr;
@@ -551,7 +551,7 @@ napi_value PlatformViewOHOSNapi::nativeRunBundleAndSnapshotFromLibrary(
   LOGD("entrypointFunctionName: %{public}s", entrypointFunctionName.c_str());
 
   std::string pathToEntrypointFunction;
-  if (fml::napi::SUCCESS !=
+  if (fml::napi::kSuccess !=
       fml::napi::GetString(env, args[3], pathToEntrypointFunction)) {
     LOGE(" napi_get_value_string_utf8 error");
     return nullptr;
@@ -563,7 +563,7 @@ napi_value PlatformViewOHOSNapi::nativeRunBundleAndSnapshotFromLibrary(
       OH_ResourceManager_InitNativeResourceManager(env, args[4]);
 
   std::vector<std::string> entrypointArgs;
-  if (fml::napi::SUCCESS !=
+  if (fml::napi::kSuccess !=
       fml::napi::GetArrayString(env, args[5], entrypointArgs)) {
     LOGE("nativeRunBundleAndSnapshotFromLibrary GetArrayString error");
     return nullptr;
@@ -625,28 +625,28 @@ napi_value PlatformViewOHOSNapi::nativeSpawn(napi_env env,
   LOGD("nativeSpawn::shell_holder : %{public}ld", shell_holder);
 
   std::string entrypoint;
-  if (fml::napi::SUCCESS != fml::napi::GetString(env, args[1], entrypoint)) {
+  if (fml::napi::kSuccess != fml::napi::GetString(env, args[1], entrypoint)) {
     LOGE(" napi_get_value_string_utf8 error");
     return nullptr;
   }
   LOGD("entrypoint: %{public}s", entrypoint.c_str());
 
   std::string libraryUrl;
-  if (fml::napi::SUCCESS != fml::napi::GetString(env, args[2], libraryUrl)) {
+  if (fml::napi::kSuccess != fml::napi::GetString(env, args[2], libraryUrl)) {
     LOGE(" napi_get_value_string_utf8 error");
     return nullptr;
   }
   LOGD(" libraryUrl: %{public}s", libraryUrl.c_str());
 
   std::string initial_route;
-  if (fml::napi::SUCCESS != fml::napi::GetString(env, args[3], initial_route)) {
+  if (fml::napi::kSuccess != fml::napi::GetString(env, args[3], initial_route)) {
     LOGE(" napi_get_value_string_utf8 error");
     return nullptr;
   }
   LOGD(" initialRoute: %{public}s", initial_route.c_str());
 
   std::vector<std::string> entrypoint_args;
-  if (fml::napi::SUCCESS !=
+  if (fml::napi::kSuccess !=
       fml::napi::GetArrayString(env, args[4], entrypoint_args)) {
     LOGE("nativeRunBundleAndSnapshotFromLibrary GetArrayString error");
     return nullptr;
@@ -715,7 +715,7 @@ napi_value PlatformViewOHOSNapi::nativeLoadDartDeferredLibrary(
        loadingUnitId);
 
   std::vector<std::string> search_paths;
-  if (fml::napi::SUCCESS !=
+  if (fml::napi::kSuccess !=
       fml::napi::GetArrayString(env, args[2], search_paths)) {
     LOGE("nativeLoadDartDeferredLibrary GetArrayString error");
     return nullptr;
@@ -1254,7 +1254,7 @@ napi_value PlatformViewOHOSNapi::nativeDeferredComponentInstallFailure(
       "%{public}ld",
       loadingUnitId);
   std::string error;
-  if (fml::napi::SUCCESS != fml::napi::GetString(env, args[1], error)) {
+  if (fml::napi::kSuccess != fml::napi::GetString(env, args[1], error)) {
     LOGE(
         "nativeDeferredComponentInstallFailure napi_get_value_string_utf8 "
         "error");
@@ -1521,7 +1521,7 @@ napi_value PlatformViewOHOSNapi::nativeGetSystemLanguages(
     FML_DLOG(ERROR) << "nativeGetSystemLanguages napi_get_value_int64 error";
     return nullptr;
   }
-  if (fml::napi::SUCCESS !=
+  if (fml::napi::kSuccess !=
       fml::napi::GetArrayString(env, args[1], local_languages)) {
     FML_DLOG(ERROR) << "nativeGetSystemLanguages GetArrayString error";
     return nullptr;
