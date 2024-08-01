@@ -481,7 +481,7 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
 
     let nodeController = new EmbeddingNodeController();
 
-    nodeController.setRenderOption(platformView, surfaceId.toString(), NodeRenderType.RENDER_TYPE_TEXTURE, undefined);
+    nodeController.setRenderOption(platformView, surfaceId.toString(), NodeRenderType.RENDER_TYPE_TEXTURE, Direction.Auto);
 
     this.nodeControllers.push(nodeController);
 
