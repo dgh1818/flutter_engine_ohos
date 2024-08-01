@@ -17,7 +17,6 @@ import FlutterEngineGroup from './FlutterEngineGroup';
 
 export default class FlutterEngineGroupCache {
   static readonly instance = new FlutterEngineGroupCache();
-
   private cachedEngineGroups = new Map<String, FlutterEngineGroup>();
 
   contains(engineGroupId: string): boolean {
