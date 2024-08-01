@@ -112,7 +112,7 @@ PlatformViewOHOS::PlatformViewOHOS(
           task_runners_.GetPlatformTaskRunner())) {
   if (ohos_context_) {
     FML_CHECK(ohos_context_->IsValid())
-        << "Could not create surface from invalid Android context.";
+        << "Could not create surface from invalid HarmonyOS context.";
     LOGI("ohos_surface_ end 1");
     surface_factory_ = std::make_shared<OhosSurfaceFactoryImpl>(ohos_context_);
     LOGI("ohos_surface_ end 2");

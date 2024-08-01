@@ -39,7 +39,7 @@ class OHOSNativeWindow : public fml::RefCountedThreadSafe<OHOSNativeWindow> {
 
   Handle handle() const;
 
-  /// Returns true when this AndroidNativeWindow is not backed by a real window
+  /// Returns true when this HarmonyOSNativeWindow is not backed by a real window
   /// (used for testing).
   bool IsFakeWindow() const { return is_fake_window_; }
 

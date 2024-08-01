@@ -51,7 +51,7 @@ class OHOSShellHolder {
 
   void NotifyLowMemoryWarning();
 
-  void Launch(std::unique_ptr<OHOSAssetProvider> apk_asset_provider,
+  void Launch(std::unique_ptr<OHOSAssetProvider> hap_asset_provider,
               const std::string& entrypoint,
               const std::string& libraryUrl,
               const std::vector<std::string>& entrypoint_args);
@@ -90,7 +90,7 @@ class OHOSShellHolder {
                   const std::shared_ptr<PlatformViewOHOSNapi>& napi_facade,
                   const std::shared_ptr<ThreadHost>& thread_host,
                   std::unique_ptr<Shell> shell,
-                  std::unique_ptr<OHOSAssetProvider> apk_asset_provider,
+                  std::unique_ptr<OHOSAssetProvider> hap_asset_provider,
                   const fml::WeakPtr<PlatformViewOHOS>& platform_view);
 
   static void ThreadDestructCallback(void* value);

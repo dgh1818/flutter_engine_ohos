@@ -178,7 +178,7 @@ export default class FlutterNapi {
     }
   }
 
-  /** Sends a reply {@code message} from Android to Flutter over the given {@code channel}. */
+  /** Sends a reply {@code message} from HarmonyOS to Flutter over the given {@code channel}. */
   dispatchPlatformMessage(channel: String, message: ArrayBuffer, position: number, responseId: number): void {
     this.ensureRunningOnMainThread();
     if (this.isAttached()) {
