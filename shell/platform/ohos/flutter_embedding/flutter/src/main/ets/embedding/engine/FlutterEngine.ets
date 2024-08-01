@@ -91,7 +91,7 @@ export default class FlutterEngine implements EngineLifecycleListener{
     this.dartExecutor = new DartExecutor(this.flutterNapi, this.assetManager);
     this.dartExecutor.onAttachedToNAPI();
 
-    if(flutterLoader == null){
+    if(flutterLoader == null) {
       flutterLoader = injector.getFlutterLoader();
     }
     this.flutterLoader = flutterLoader;
@@ -120,7 +120,6 @@ export default class FlutterEngine implements EngineLifecycleListener{
     this.mouseCursorChannel = new MouseCursorChannel(this.dartExecutor);
     this.restorationChannel = new RestorationChannel(this.dartExecutor, waitForRestorationData);
     this.settingsChannel = new SettingsChannel(this.dartExecutor);
-
     this.localeChannel = new LocalizationChannel(this.dartExecutor);
     this.accessibilityChannel = new AccessibilityChannel(this.dartExecutor, this.flutterNapi);
     this.flutterNapi.addEngineLifecycleListener(this);
@@ -132,17 +131,14 @@ export default class FlutterEngine implements EngineLifecycleListener{
     if (!this.flutterNapi.isAttached()) {
       this.attachToNapi();
     }
-
     this.pluginRegistry = new FlutterEngineConnectionRegistry(context.getApplicationContext(), this, this.flutterLoader);
     this.localizationPlugin.sendLocaleToFlutter();
-
     Log.d(TAG, "Call init finished.")
   }
 
   private attachToNapi(): void {
     Log.d(TAG, "Attaching to NAPI.");
     this.flutterNapi.attachToNative();
-
     if (!this.isAttachedToNapi()) {
       throw new Error("FlutterEngine failed to attach to its native Object reference.");
     }
@@ -286,6 +282,5 @@ export default class FlutterEngine implements EngineLifecycleListener{
 
 export interface EngineLifecycleListener {
   onPreEngineRestart(): void;
-
   onEngineWillDestroy(): void;
 }
