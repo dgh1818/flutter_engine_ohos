@@ -316,7 +316,7 @@ export interface  PlatformViewsHandler {
    * Whether the render surface of {@code FlutterView} should be converted to a {@code
    * FlutterImageView} when a {@code PlatformView} is added.
    *
-   * <p>This is done to syncronize the rendering of the PlatformView and the FlutterView. Defaults
+   * <p>This is done to synchronize the rendering of the PlatformView and the FlutterView. Defaults
    * to true.
    */
   synchronizeToNativeViewHierarchy(yes: boolean): void;
