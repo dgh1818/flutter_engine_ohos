@@ -52,12 +52,12 @@ import { EmbeddingNodeController } from '../../embedding/ohos/EmbeddingNodeContr
 
 class DVModelJson {
   compType: string
-  children: Array<ESObject>
-  attributes: ESObject
-  events: ESObject
-  build: ESObject
+  children: Array<Any>
+  attributes: Any
+  events: Any
+  build: Any
 
-  constructor(compType: string, children: Array<ESObject>, attributes: ESObject, events: ESObject, build?: ESObject) {
+  constructor(compType: string, children: Array<Any>, attributes: Any, events: Any, build?: Any) {
     this.compType = compType
     this.children = children
     this.attributes = attributes

@@ -20,7 +20,6 @@ import { MethodResult } from './MethodChannel';
 /** A handler of incoming method calls. */
 type ISendable = lang.ISendable;
 export default interface SendableMethodCallHandler extends ISendable {
-  // isSendableMethodCallHandler: () => boolean;
   /**
    * Handles the specified method call received from Flutter.
    *

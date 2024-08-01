@@ -21,6 +21,7 @@ import { CustomTouchEvent, CustomTouchObject } from '../../plugin/platform/Custo
 import display from '@ohos.display';
 import FlutterManager from './FlutterManager';
 import { EmbeddingNodeController } from './EmbeddingNodeController';
+import Any from '../../plugin/common/Any';
 
 
 const OH_NATIVEXCOMPONENT_UNKNOWN = 4;
@@ -250,7 +251,7 @@ export default class TouchEventProcessor {
       for (let index = length - 1; index >= 0; index--) {
         let dvModel = value.getDVModel().children[index];
         let params = dvModel.getLayoutParams();
-        let params2 = params as Record<string, ESObject>;
+        let params2 = params as Record<string, Any>;
         let nodeController = params2['nodeController'] as EmbeddingNodeController;
         let left = params2['left'] as number ?? 0;
         let top = params2['top'] as number ?? 0;
