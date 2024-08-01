@@ -80,12 +80,12 @@ export default class FlutterLoader {
   /**
    * Starts initialization of the native system.
    *
-   * <p>This loads the Flutter engine's native library to enable subsequent JNI calls. This also
-   * starts locating and unpacking Dart resources packaged in the app's APK.
+   * <p>This loads the Flutter engine's native library to enable subsequent NAPI calls. This also
+   * starts locating and unpacking Dart resources packaged in the app's HAP.
    *
    * <p>Calling this method multiple times has no effect.
    *
-   * @param applicationContext The Android application context.
+   * @param applicationContext The HarmonyOS application context.
    * @param settings Configuration settings.
    */
   async startInitialization(context: common.Context) {

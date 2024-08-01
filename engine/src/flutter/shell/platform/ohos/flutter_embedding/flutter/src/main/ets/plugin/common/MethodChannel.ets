@@ -102,7 +102,7 @@ export interface MethodCallHandler {
    * <p>Any uncaught exception thrown by this method will be caught by the channel implementation
    * and logged, and an error result will be sent back to Flutter.
    *
-   * <p>The handler is called on the platform thread (Android main thread) by default, or
+   * <p>The handler is called on the platform thread (HarmonyOS main thread) by default, or
    * otherwise on the thread specified by the {@link BinaryMessenger.TaskQueue} provided to the
    * associated {@link MethodChannel} when it was created. See also <a
    * href="https://github.com/flutter/flutter/wiki/The-Engine-architecture#threading">Threading in

@@ -182,13 +182,13 @@ OHOSShellHolder::OHOSShellHolder(
     const std::shared_ptr<PlatformViewOHOSNapi>& napi_facade,
     const std::shared_ptr<ThreadHost>& thread_host,
     std::unique_ptr<Shell> shell,
-    std::unique_ptr<OHOSAssetProvider> apk_asset_provider,
+    std::unique_ptr<OHOSAssetProvider> hap_asset_provider,
     const fml::WeakPtr<PlatformViewOHOS>& platform_view)
     : settings_(settings),
       platform_view_(platform_view),
       thread_host_(thread_host),
       shell_(std::move(shell)),
-      assetProvider_(std::move(apk_asset_provider)),
+      assetProvider_(std::move(hap_asset_provider)),
       napi_facade_(napi_facade) {
   FML_DCHECK(napi_facade);
   FML_DCHECK(shell_);
@@ -235,7 +235,7 @@ std::unique_ptr<OHOSShellHolder> OHOSShellHolder::Spawn(
         platform_view_ohos = std::make_unique<PlatformViewOHOS>(
             shell,                   // delegate
             shell.GetTaskRunners(),  // task runners
-            napi_facade,             // JNI interop
+            napi_facade,             // NAPI interop
             ohos_context             // Ohos context
         );
         weak_platform_view = platform_view_ohos->GetWeakPtr();
@@ -273,7 +273,7 @@ void OHOSShellHolder::NotifyLowMemoryWarning() {
 }
 
 void OHOSShellHolder::Launch(
-    std::unique_ptr<OHOSAssetProvider> apk_asset_provider,
+    std::unique_ptr<OHOSAssetProvider> hap_asset_provider,
     const std::string& entrypoint,
     const std::string& libraryUrl,
     const std::vector<std::string>& entrypoint_args) {
@@ -284,7 +284,7 @@ void OHOSShellHolder::Launch(
     return;
   }
 
-  assetProvider_ = std::move(apk_asset_provider);
+  assetProvider_ = std::move(hap_asset_provider);
   auto config = BuildRunConfiguration(entrypoint, libraryUrl, entrypoint_args);
   if (!config) {
     return;

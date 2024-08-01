@@ -40,7 +40,7 @@ class OHOSContext {
 
   //----------------------------------------------------------------------------
   /// @brief      Accessor for the Impeller context associated with
-  ///             AndroidSurfaces and the raster thread.
+  ///             HarmonyOSSurfaces and the raster thread.
   ///
   std::shared_ptr<impeller::Context> GetImpellerContext() const;
 
