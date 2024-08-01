@@ -66,7 +66,7 @@ export default class JSONMethodCodec implements MethodCodec {
     return JSONMessageCodec.INSTANCE.encodeMessage([result]);
   }
 
-  encodeErrorEnvelope(errorCode: Any, errorMessage: string, errorDetails: Any) {
+  encodeErrorEnvelope(errorCode: Any, errorMessage: string, errorDetails: Any): ArrayBuffer {
     return JSONMessageCodec.INSTANCE.encodeMessage([errorCode, errorMessage, errorDetails]);
   }
 
