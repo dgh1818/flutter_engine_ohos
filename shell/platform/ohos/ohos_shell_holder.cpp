@@ -188,7 +188,7 @@ OHOSShellHolder::OHOSShellHolder(
       platform_view_(platform_view),
       thread_host_(thread_host),
       shell_(std::move(shell)),
-      assetProvider_(std::move(hap_asset_provider)),
+      asset_provider_(std::move(hap_asset_provider)),
       napi_facade_(napi_facade) {
   FML_DCHECK(napi_facade);
   FML_DCHECK(shell_);
@@ -259,7 +259,7 @@ std::unique_ptr<OHOSShellHolder> OHOSShellHolder::Spawn(
 
   return std::unique_ptr<OHOSShellHolder>(new OHOSShellHolder(
       GetSettings(), napi_facade, thread_host_, std::move(shell),
-      assetProvider_->Clone(), weak_platform_view));
+      asset_provider_->Clone(), weak_platform_view));
 }
 
 fml::WeakPtr<PlatformViewOHOS> OHOSShellHolder::GetPlatformView() {
@@ -284,7 +284,7 @@ void OHOSShellHolder::Launch(
     return;
   }
 
-  assetProvider_ = std::move(hap_asset_provider);
+  asset_provider_ = std::move(hap_asset_provider);
   auto config = BuildRunConfiguration(entrypoint, libraryUrl, entrypoint_args);
   if (!config) {
     return;
@@ -323,7 +323,7 @@ std::optional<RunConfiguration> OHOSShellHolder::BuildRunConfiguration(
   }
 
   RunConfiguration config(std::move(isolate_configuration));
-  config.AddAssetResolver(assetProvider_->Clone());
+  config.AddAssetResolver(asset_provider_->Clone());
 
   {
     if (!entrypoint.empty() && !libraryUrl.empty()) {

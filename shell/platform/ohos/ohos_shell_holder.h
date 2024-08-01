@@ -82,7 +82,7 @@ class OHOSShellHolder {
   bool is_valid_ = false;
   uint64_t next_pointer_flow_id_ = 0;
 
-  std::unique_ptr<OHOSAssetProvider> assetProvider_;
+  std::unique_ptr<OHOSAssetProvider> asset_provider_;
 
   std::shared_ptr<PlatformViewOHOSNapi> napi_facade_;
 

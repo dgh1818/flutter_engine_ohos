@@ -16,12 +16,12 @@
 #define FLUTTER_SHELL_PLATFORM_OHOS_TYPES_H_
 namespace flutter {
 
-constexpr int PIXEL_FMT_RGBA_8888 = 12;
+constexpr int kPixelFmtRgba8888 = 12;
 
 enum Locales {
-  LANGUAGE_INDEX = 0,
-  REGION_INDEX,
-  SCRIPT_INDEX,
+  kLanguageIndex = 0,
+  kRegionIndex,
+  kScriptIndex,
 };
 
 }  // namespace flutter

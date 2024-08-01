@@ -400,9 +400,9 @@ PlatformViewOHOSNapi::FlutterViewComputePlatformResolvedLocales(
   const int localeDataLength = 3;
   flutter::locale mlocale;
   for (size_t i = 0; i < support_locale_data.size(); i += localeDataLength) {
-    mlocale.language = support_locale_data[i + LANGUAGE_INDEX];
-    mlocale.region = support_locale_data[i + REGION_INDEX];
-    mlocale.script = support_locale_data[i + SCRIPT_INDEX];
+    mlocale.language = support_locale_data[i + kLanguageIndex];
+    mlocale.region = support_locale_data[i + kRegionIndex];
+    mlocale.script = support_locale_data[i + kScriptIndex];
     supportedLocales.push_back(mlocale);
   }
   mlocale = resolveNativeLocale(supportedLocales);
@@ -410,9 +410,9 @@ PlatformViewOHOSNapi::FlutterViewComputePlatformResolvedLocales(
   result.push_back(mlocale.region);
   result.push_back(mlocale.script);
   FML_DLOG(INFO) << "resolveNativeLocale result to flutter language: "
-                 << result[LANGUAGE_INDEX]
-                 << " region: " << result[REGION_INDEX]
-                 << " script: " << result[SCRIPT_INDEX];
+                 << result[kLanguageIndex]
+                 << " region: " << result[kRegionIndex]
+                 << " script: " << result[kScriptIndex];
   return std::make_unique<std::vector<std::string>>(std::move(result));
 }
 
