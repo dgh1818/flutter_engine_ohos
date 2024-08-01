@@ -44,7 +44,6 @@ export struct FlutterPage {
 
   @State rootDvModel: DVModelChildren | undefined = undefined
 
-
   private flutterView?: FlutterView | null
   private lastArea?: Area;
 
@@ -58,7 +57,6 @@ export struct FlutterPage {
     this.flutterView?.setCheckAiBar(this.checkGesture)
 
     this.rootDvModel = this.flutterView!!.getDVModel().children
-
   }
 
   aboutToDisappear() {

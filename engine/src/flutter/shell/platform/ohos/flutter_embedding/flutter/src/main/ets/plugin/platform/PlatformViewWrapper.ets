@@ -67,14 +67,6 @@ export class PlatformViewWrapper {
 
     this.setParams(this.model.params, "width", this.getParams(parameters, "width"));
     this.setParams(this.model.params, "height", this.getParams(parameters, "height"));
-
-    // this.model.params.marginLeft = parameters.marginLeft;
-    // this.model.params.marginTop = parameters.marginTop;
-    // this.left = parameters.marginLeft;
-    // this.top = parameters.marginTop;;
-
-    // this.model.params.width = parameters.width;
-    // this.model.params.height = parameters.height;
   }
 
   public addDvModel(model: DVModel): void {
