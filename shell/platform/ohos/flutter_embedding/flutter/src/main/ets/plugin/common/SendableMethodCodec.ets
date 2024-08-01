@@ -77,7 +77,7 @@ export default interface SendableMethodCodec extends ISendable {
    * @return a {@link ByteBuffer} containing the encoding between position 0 and the current
    *     position.
    */
-  encodeErrorEnvelopeWithStacktrace(errorCode: string, errorMessage: string, errorDetails: Any, errorStacktrace: string): ArrayBuffer
+  encodeErrorEnvelopeWithStacktrace(errorCode: string, errorMessage: string, errorDetails: Any, errorStacktrace: string): ArrayBuffer;
 
   /**
    * Decodes a result envelope from binary.
@@ -86,5 +86,5 @@ export default interface SendableMethodCodec extends ISendable {
    * @return the enveloped result Object.
    * @throws FlutterException if the envelope was an error envelope.
    */
-  decodeEnvelope(envelope: ArrayBuffer): Any
+  decodeEnvelope(envelope: ArrayBuffer): Any;
 }

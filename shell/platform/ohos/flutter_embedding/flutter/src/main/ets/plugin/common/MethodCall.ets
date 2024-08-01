@@ -44,7 +44,7 @@ export default class MethodCall {
     } else if (this.args instanceof Map) {
       return (this.args as Map<Any, Any>).get(key);
     } else if (ToolUtils.isObj(this.args)) {
-      return this.args[key]
+      return this.args[key];
     } else {
       throw new Error("ClassCastException");
     }

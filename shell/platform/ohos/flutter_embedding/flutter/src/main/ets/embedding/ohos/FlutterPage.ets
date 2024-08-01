@@ -18,6 +18,7 @@ import { FlutterView } from '../../view/FlutterView';
 import { EmbeddingNodeController } from './EmbeddingNodeController';
 import FlutterManager from './FlutterManager';
 import { DVModel, DVModelChildren, DynamicView } from '../../view/DynamicView/dynamicView';
+import Any from '../../plugin/common/Any';
 
 const TAG = "FlutterPage";
 
@@ -70,7 +71,7 @@ export struct FlutterPage {
 
   build() {
     Stack() {
-      ForEach(this.rootDvModel!!, (child: ESObject) => {
+      ForEach(this.rootDvModel!!, (child: Any) => {
         DynamicView({
           model: child as DVModel,
           params: child.params,
@@ -78,7 +79,7 @@ export struct FlutterPage {
           children: child.children,
           customBuilder: child.builder
         })
-      }, (child: ESObject) => `${child.id_}`)
+      }, (child: Any) => `${child.id_}`)
 
 
       Text('')
