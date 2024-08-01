@@ -65,14 +65,13 @@ class CustomArea implements Area {
   position: Position = {x: 0, y: 0};
   globalPosition: Position = {x: 0, y: 0};
 
-  constructor(width: Length, height: Length, position: Position, globalPosition: Position ) {
+  constructor(width: Length, height: Length, position: Position, globalPosition: Position) {
     this.width = width;
     this.height = height;
     this.position = position;
     this.globalPosition = globalPosition;
   }
 }
-
 
 export class CustomTouchObject implements TouchObject {
   type: TouchType;

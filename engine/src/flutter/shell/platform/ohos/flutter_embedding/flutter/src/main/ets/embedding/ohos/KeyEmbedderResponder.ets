@@ -228,7 +228,7 @@ export default class KeyEmbedderResponder implements Responder {
       }
     } else {
       if (lastLogicalKey === undefined) {
-        /* Ignore abrupy up events */
+        /* Ignore abrupt up events */
         return false;
       } else {
         type = Type.KUP;

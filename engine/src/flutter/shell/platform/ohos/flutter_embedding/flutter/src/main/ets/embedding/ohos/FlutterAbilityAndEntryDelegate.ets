@@ -75,16 +75,16 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     if (this.flutterEngine == null) {
       await this.setupFlutterEngine();
     }
-    //shouldAttachEngineToAbility
+
     if (this.host?.shouldAttachEngineToAbility()) {
       // Notify any plugins that are currently attached to our FlutterEngine that they
       // are now attached to an Ability.
       Log.d(TAG, "Attaching FlutterEngine to the Ability that owns this delegate.");
       this.flutterEngine?.getAbilityControlSurface()?.attachToAbility(this);
     }
-    //providePlatformPlugin
+
     this.platformPlugin = this.host?.providePlatformPlugin(this.flutterEngine!)
-    //configureFlutterEngine
+
     this.isAttached = true;
     if (this.flutterEngine) {
       this.textInputPlugin = new TextInputPlugin(this.flutterEngine.getTextInputChannel()!);
@@ -131,7 +131,6 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
   private maybeGetInitialRouteFromIntent(want: Want): string {
     return '';
   }
-
 
   /**
    * 通过参数，配置flutterEngine
@@ -394,7 +393,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
         "The internal FlutterEngine created by "
           + this.host
           + " has been attached to by another Ability. To persist a FlutterEngine beyond the "
-          + "ownership of this ablity, explicitly create a FlutterEngine");
+          + "ownership of this ability, explicitly create a FlutterEngine");
     }
 
     // Default, but customizable, behavior is for the host to call {@link #onDetach}
@@ -514,7 +513,6 @@ interface Host extends FlutterEngineProvider, FlutterEngineConfigurator, Platfor
 
   shouldRestoreAndSaveState(): boolean;
 
-  /* Return the ExclusiveAppComponent */
   getExclusiveAppComponent(): ExclusiveAppComponent<UIAbility> | null
 
   providePlatformPlugin(flutterEngine: FlutterEngine): PlatformPlugin | undefined

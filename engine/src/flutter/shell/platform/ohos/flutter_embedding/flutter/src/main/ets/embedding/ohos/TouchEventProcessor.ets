@@ -180,16 +180,16 @@ export default class TouchEventProcessor {
     let tiltXTouch: number = parseInt(strings[offset++]);
     let tiltYTouch: number = parseInt(strings[offset++]);
 
-    const touchpointeventpacket: TouchPacket = new TouchPacket(
+    const touchPointEventPacket: TouchPacket = new TouchPacket(
       touchEventInput,
       toolTypeInput,
       tiltXTouch,
       tiltYTouch
     );
-    return touchpointeventpacket;
+    return touchPointEventPacket;
   }
 
-  private constureCustomTouchEventImpl(touchPacket: TouchPacket): CustomTouchEvent {
+  private constructCustomTouchEventImpl(touchPacket: TouchPacket): CustomTouchEvent {
     let changes1: CustomTouchObject = new CustomTouchObject(
       touchPacket.touchEvent.type,
       touchPacket.touchEvent.id,
@@ -237,11 +237,11 @@ export default class TouchEventProcessor {
   }
 
   /** Construct the CustomTouchEvent and return. */
-  public constureCustomTouchEvent(strings: Array<string>, top: number, left: number) : CustomTouchEvent {
+  public constructCustomTouchEvent(strings: Array<string>, top: number, left: number) : CustomTouchEvent {
     let densityPixels:number = display.getDefaultDisplaySync().densityPixels;
 
     let touchPacket: TouchPacket = this.decodeTouchPacket(strings, densityPixels, top, left);
-    let customTouchEvent: CustomTouchEvent = this.constureCustomTouchEventImpl(touchPacket);
+    let customTouchEvent: CustomTouchEvent = this.constructCustomTouchEventImpl(touchPacket);
     return customTouchEvent;
   }
 
@@ -250,14 +250,13 @@ export default class TouchEventProcessor {
       let length = value.getDVModel().children.length;
       for (let index = length - 1; index >= 0; index--) {
         let dvModel = value.getDVModel().children[index];
-        let params = dvModel.getLayoutParams();
-        let params2 = params as Record<string, Any>;
-        let nodeController = params2['nodeController'] as EmbeddingNodeController;
-        let left = params2['left'] as number ?? 0;
-        let top = params2['top'] as number ?? 0;
-        let width = params2['width'] as number ?? 0;
-        let height = params2['height'] as number ?? 0;
-        let customTouchEvent = TouchEventProcessor.instance.constureCustomTouchEvent(strings, top, left);
+        let params = dvModel.getLayoutParams() as Record<string, Any>;
+        let nodeController = params['nodeController'] as EmbeddingNodeController;
+        let left = params['left'] as number ?? 0;
+        let top = params['top'] as number ?? 0;
+        let width = params['width'] as number ?? 0;
+        let height = params['height'] as number ?? 0;
+        let customTouchEvent = TouchEventProcessor.instance.constructCustomTouchEvent(strings, top, left);
         let x = customTouchEvent.changedTouches[0].screenX;
         let y = customTouchEvent.changedTouches[0].screenY;
         if (TouchEventProcessor.instance.checkHitPlatformView(left, top, width, height, x, y)) {

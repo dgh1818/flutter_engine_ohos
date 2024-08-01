@@ -45,7 +45,6 @@ export class ListenableEditingState {
   private mComposingStartWhenBeginBatchEdit: number = 0;
   private mComposingEndWhenBeginBatchEdit: number = 0;
 
-
   constructor(TextInputChannel:TextInputChannel | null,client:number) {
     this.TextInputChannel = TextInputChannel;
     this.client = client
@@ -140,7 +139,6 @@ export class ListenableEditingState {
       for(const listener of this.mListeners) {
         this.notifyListener(listener, textChanged, selectionChanged, composingChanged);
       }
-
     }
   }
 
@@ -156,7 +154,6 @@ export class ListenableEditingState {
       this.mStringCache = tempStr;
       this.setSelectionStart(this.mStringCache.length);
       this.setSelectionEnd(this.mStringCache.length);
-
     } else if (this.mStringCache.length > this.mSelectionStartCache) {
       //Insert text in the middle of string
       let tempStr: string = this.mStringCache.substring(0, start) + text + this.mStringCache.substring(end);
@@ -226,7 +223,6 @@ export class ListenableEditingState {
     }
     this.mPendingListeners.clear();
     this.mBatchEditNestDepth--;
-
   }
 
   addEditingStateListener(listener: EditingStateWatcher): void {
@@ -304,7 +300,6 @@ export class ListenableEditingState {
       this.mStringCache = tempStr;
       this.setSelectionStart(this.mStringCache.length);
       this.setSelectionEnd(this.mStringCache.length);
-
     } else if (this.mStringCache.length > this.mSelectionStartCache) {
       //Insert newline in the middle of string
       let tempStr: string = this.mStringCache.substring(0, start) + '\n' + this.mStringCache.substring(end);
@@ -355,9 +350,6 @@ export class ListenableEditingState {
   handleSelectByRange(range: inputMethod.Range): void {
     Log.d(TAG, "handleSelectByRange start: " + range.start +" end: " + range.end);
   }
-
-
-
 }
 
 export interface EditingStateWatcher {
