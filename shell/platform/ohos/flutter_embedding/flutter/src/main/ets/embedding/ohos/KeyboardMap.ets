@@ -226,8 +226,8 @@ export default class KeyboardMap {
       [0x00000000004, 0x00100001004] // endCall
     ]);
 
-  /** Map OH KeyCode to Flutter PhycialKey.
-    * Should map OH ScanCode to Flutter PhycialKey, but we use KeyCode here
+  /** Map OH KeyCode to Flutter PhysicalKey.
+    * Should map OH ScanCode to Flutter PhysicalKey, but we use KeyCode here
     * instead since there is no ScanCode in OH KeyEvent yet. There may be some
     * mistakes and should correct the map as soon as we can access ScanCode.
   */

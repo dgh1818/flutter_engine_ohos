@@ -103,7 +103,6 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     this.nodeControllers = new Stack<EmbeddingNodeController>();
   }
 
-
   getPlatformViewById(viewId: number): Object {
     throw new Error('Method not implemented.');
   }
@@ -203,7 +202,7 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     }
   }
 
-  validateDirection(direction:number):boolean {
+  validateDirection(direction:number): boolean {
     return direction == Direction.Ltr || direction == Direction.Rtl || direction == Direction.Auto;
   }
 
@@ -220,6 +219,7 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     }
     focusControl.requestFocus('emptyFocusText' + this.flutterView?.getId());
   }
+
   synchronizeToNativeViewHierarchy(yes: boolean): void {
     throw new Error('Method not implemented.');
   }
@@ -266,7 +266,6 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     if (embeddedView == null) {
       throw new Error("PlatformView#getView() returned null, but an WrappedBuilder reference was expected.");
     }
-
 
     this.platformViews.set(request.viewId, platformView);
     return platformView;
@@ -319,9 +318,6 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
   }
 
   public attach(context: Context, textureRegistry: TextureRegistry | null, dartExecutor: DartExecutor): void {
-    if (this.context != null) {
-
-    }
     this.context = context;
     this.textureRegistry = textureRegistry;
     this.platformViewsChannel = new PlatformViewsChannel(dartExecutor);
@@ -407,7 +403,6 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
   private toLogicalPixels(physicalPixels: number): number {
     return this.toLogicalPixelsByDensity(physicalPixels, this.getDisplayDensity());
   }
-
 
   private diposeAllViews(): void {
   }

@@ -58,7 +58,6 @@ export default class TextInputPlugin implements EditingStateWatcher {
         editable.getSelectionStart(), editable.getSelectionEnd(),
         editable.getComposingStart(), editable.getComposingEnd())
     }
-
   }
 
   detach(): void {

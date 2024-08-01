@@ -163,7 +163,7 @@ export class FlutterAbility extends UIAbility implements Host {
       });
 
       this.flutterView = this.delegate!!.createView(this.context)
-      Log.e(TAG, 'onWindowStageCreate:' +  this.flutterView!!.getId());
+      Log.i(TAG, 'onWindowStageCreate:' +  this.flutterView!!.getId());
       let storage: LocalStorage = new LocalStorage();
       storage.setOrCreate("viewId", this.flutterView!!.getId())
       windowStage.loadContent(this.pagePath(), storage, (err, data) => {
@@ -219,7 +219,7 @@ export class FlutterAbility extends UIAbility implements Host {
     return this;
   }
 
-  getFlutterAbilityAndEntryDelegate(): FlutterAbilityAndEntryDelegate | null{
+  getFlutterAbilityAndEntryDelegate(): FlutterAbilityAndEntryDelegate | null {
     return this.delegate ?? null;
   }
 
@@ -306,7 +306,7 @@ export class FlutterAbility extends UIAbility implements Host {
     return true;
   }
 
-  shouldRestoreAndSaveState(): boolean{
+  shouldRestoreAndSaveState(): boolean {
     if (this.launchWant.parameters![FlutterAbilityLaunchConfigs.EXTRA_CACHED_ENGINE_ID] != undefined) {
       return this.launchWant.parameters![FlutterAbilityLaunchConfigs.EXTRA_CACHED_ENGINE_ID] as boolean;
     }
@@ -364,7 +364,7 @@ export class FlutterAbility extends UIAbility implements Host {
     }
   }
 
-  onConfigurationUpdated(config: Configuration){
+  onConfigurationUpdated(config: Configuration) {
     Log.i(TAG, 'onConfigurationUpdated config:' + JSON.stringify(config));
     this?.delegate?.flutterEngine?.getSettingsChannel()?.startMessage()
       .setAlwaysUse24HourFormat(I18n.System.is24HourClock())

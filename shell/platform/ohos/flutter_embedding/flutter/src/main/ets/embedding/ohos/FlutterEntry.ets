@@ -98,11 +98,11 @@ export default class FlutterEntry implements Host {
   }
 
   aboutToDisappear() {
-    Log.d(TAG, "FlutterEntry aboutToDisappear===");
+    Log.d(TAG, "FlutterEntry aboutToDisappear");
     try {
       this.windowStage?.off('windowStageEvent', this.windowStageEventCallback);
     } catch (err) {
-
+      Log.e(TAG, "windowStage off failed");
     }
     if (this.flutterView != null) {
       this.flutterView.onDestroy();
@@ -115,17 +115,17 @@ export default class FlutterEntry implements Host {
   }
 
   onPageShow() { //生命周期
-    Log.d(TAG, "FlutterEntry onPageShow===");
+    Log.d(TAG, "FlutterEntry onPageShow");
     this?.delegate?.onForeground();
   }
 
   onPageHide() { //生命周期
-    Log.d(TAG, "FlutterEntry onPageHide===");
+    Log.d(TAG, "FlutterEntry onPageHide");
     this?.delegate?.onBackground();
   }
 
   onBackPress() {
-    Log.d(TAG, "FlutterEntry onBackPress===");
+    Log.d(TAG, "FlutterEntry onBackPress");
     this?.delegate?.flutterEngine?.getNavigationChannel()?.popRoute();
   }
 

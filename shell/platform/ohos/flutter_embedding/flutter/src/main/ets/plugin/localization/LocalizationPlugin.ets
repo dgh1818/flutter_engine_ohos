@@ -48,6 +48,7 @@ export default class LocalizationPlugin {
     Log.i(TAG, "getResource enter");
     return ""
   })
+
   constructor(context: common.Context, localizationChannel: LocalizationChannel) {
     this.context = context;
     this.localizationChannel = localizationChannel;
@@ -61,6 +62,7 @@ export default class LocalizationPlugin {
     this.localizationChannel.sendLocales(data);
   }
 }
+
 class enterGetStringResource{
   getStringResource : (key: string, localeString: string)=>string
 
