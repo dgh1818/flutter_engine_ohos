@@ -20,7 +20,7 @@ import StandardMethodCodec from '../../../plugin/common/StandardMethodCodec';
 import Log from '../../../util/Log';
 import DartExecutor from '../dart/DartExecutor';
 
-const TAG:string = 'MouseCursorChannel'
+const TAG: string = 'MouseCursorChannel';
 
 export default class MouseCursorChannel implements MethodCallHandler {
   public channel: MethodChannel;

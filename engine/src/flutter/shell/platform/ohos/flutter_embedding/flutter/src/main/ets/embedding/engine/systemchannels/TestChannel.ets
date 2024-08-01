@@ -21,7 +21,7 @@ import Log from '../../../util/Log';
 const TAG = "TestChannel"
 
 export default class TestChannel {
-  private channel: BasicMessageChannel<String>
+  private channel: BasicMessageChannel<String>;
 
   constructor(dartExecutor: DartExecutor) {
     this.channel = new BasicMessageChannel<String>(dartExecutor, "flutter/test", JSONMessageCodec.INSTANCE);

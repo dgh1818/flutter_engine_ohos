@@ -29,6 +29,7 @@ const NATIVE_SPELL_CHECK_SERVICE_DEFINED = "nativeSpellCheckServiceDefined";
 const BRIEFLY_SHOW_PASSWORD = "brieflyShowPassword";
 const ALWAYS_USE_24_HOUR_FORMAT = "alwaysUse24HourFormat";
 const PLATFORM_BRIGHTNESS = "platformBrightness";
+
 export default class SettingsChannel {
   private static CHANNEL_NAME = "flutter/settings";
   private channel: BasicMessageChannel<Object>;
@@ -45,6 +46,7 @@ export default class SettingsChannel {
 class MessageBuilder {
   private channel: BasicMessageChannel<Object>;
   private settingsMessage: SettingsMessage = new SettingsMessage();
+
   constructor(channel: BasicMessageChannel<Object>) {
     this.channel = channel;
   }

@@ -21,7 +21,7 @@ import DartExecutor from '../dart/DartExecutor';
 
 export default class NavigationChannel {
   private static TAG = "NavigationChannel";
-  private channel: MethodChannel
+  private channel: MethodChannel;
 
   constructor(dartExecutor: DartExecutor) {
     this.channel = new MethodChannel(dartExecutor, "flutter/navigation", JSONMethodCodec.INSTANCE);
