@@ -31,7 +31,6 @@ const ALWAYS_USE_24_HOUR_FORMAT = "alwaysUse24HourFormat";
 const PLATFORM_BRIGHTNESS = "platformBrightness";
 export default class SettingsChannel {
   private static CHANNEL_NAME = "flutter/settings";
-
   private channel: BasicMessageChannel<Object>;
 
   constructor(dartExecutor: DartExecutor) {

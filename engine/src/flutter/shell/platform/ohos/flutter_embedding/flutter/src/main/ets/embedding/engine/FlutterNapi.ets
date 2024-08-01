@@ -115,7 +115,7 @@ export default class FlutterNapi {
       Log.e(TAG, "runBundleAndSnapshotFromLibrary fail, FlutterNapi.hasInit=" + FlutterNapi.hasInit);
       return;
     }
-    Log.w(TAG, "init: bundlePath=" + bundlePath + "  entrypointFunctionName=" + entrypointFunctionName + "  pathToEntrypointFunction=" + pathToEntrypointFunction + "  entrypointArgs=" + JSON.stringify(entrypointArgs))
+    Log.i(TAG, "init: bundlePath=" + bundlePath + "  entrypointFunctionName=" + entrypointFunctionName + "  pathToEntrypointFunction=" + pathToEntrypointFunction + "  entrypointArgs=" + JSON.stringify(entrypointArgs))
     flutter.nativeRunBundleAndSnapshotFromLibrary(this.nativeShellHolderId!, bundlePath, entrypointFunctionName, pathToEntrypointFunction, assetManager, entrypointArgs);
   };
 
@@ -409,7 +409,6 @@ export default class FlutterNapi {
   detachFromNativeAndReleaseResources() {
     flutter.nativeDestroy(this.nativeShellHolderId!!);
   }
-
 
   unregisterTexture(textureId: number): void {
     Log.d(TAG, "called unregisterTexture ");
