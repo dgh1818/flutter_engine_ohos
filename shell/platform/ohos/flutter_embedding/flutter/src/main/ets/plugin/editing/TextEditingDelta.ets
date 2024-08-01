@@ -33,7 +33,7 @@ export class TextEditingDelta {
               composingEnd: number,
               replacementDestinationStart?: number,
               replacementDestinationEnd?: number,
-              replacementSource?: string,) {
+              replacementSource?: string) {
     this.newSelectionStart = selectionStart;
     this.newSelectionEnd = selectionEnd;
     this.newComposingStart = composingStart;
@@ -49,7 +49,6 @@ export class TextEditingDelta {
         replacementDestinationStart,
         replacementDestinationEnd);
     }
-
   }
 
   setDeltas(oldText: string, newText: string, newStart: number, newExtent: number): void {
@@ -73,7 +72,6 @@ export class TextEditingDelta {
     return state;
   }
 }
-
 
 export interface TextEditingDeltaJson {
   oldText: string;

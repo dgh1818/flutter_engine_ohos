@@ -44,5 +44,4 @@ export class RawPointerCoords {
   getY(): number {
     return this.y;
   }
-
 }
