@@ -471,4 +471,35 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
       return;
     }
   }
+  
+  public render(surfaceId: number, platformView: PlatformView,
+    width: number, height: number, left: number, top: number) {
+    this.flutterView!.setSurfaceId(surfaceId.toString());
+    let wrappedBuilder: WrappedBuilder<[Params]> = platformView.getView();
+    this.flutterView?.setWrappedBuilder(wrappedBuilder);
+    this.flutterView?.setPlatformView(platformView);
+
+    let nodeController = new EmbeddingNodeController();
+
+    nodeController.setRenderOption(platformView, surfaceId.toString(), NodeRenderType.RENDER_TYPE_TEXTURE, undefined);
+
+    this.nodeControllers.push(nodeController);
+
+    let dvModel = createDVModelFromJson(new DVModelJson("NodeContainer",
+      [],
+      {
+        "width": width,
+        "height": height,
+        "nodeController": nodeController,
+        "left": left,
+        "top": top
+      },
+      {},
+      undefined));
+
+    let viewWrapper: PlatformViewWrapper = new PlatformViewWrapper();
+    viewWrapper.addDvModel(dvModel);
+    this.viewWrappers.set(surfaceId, viewWrapper);
+    this.flutterView?.getDVModel().children.push(viewWrapper.getDvModel());
+  }
 }
