@@ -114,5 +114,6 @@ export struct FlutterPage {
       Log.d(TAG, "onKeyEvent " + event.type);
       this.flutterView?.onKeyEvent(event)
     })
+    .defaultFocus(true)
   }
 }
