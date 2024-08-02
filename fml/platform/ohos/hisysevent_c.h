@@ -41,31 +41,31 @@ namespace fml {
  * @brief Define the type of the param.
  */
 enum HiSysEventParamType {
-    HISYSEVENT_INVALID = 0,
-    HISYSEVENT_BOOL = 1,
-    HISYSEVENT_INT8 = 2,
-    HISYSEVENT_UINT8 = 3,
-    HISYSEVENT_INT16 = 4,
-    HISYSEVENT_UINT16 = 5,
-    HISYSEVENT_INT32 = 6,
-    HISYSEVENT_UINT32 = 7,
-    HISYSEVENT_INT64 = 8,
-    HISYSEVENT_UINT64 = 9,
-    HISYSEVENT_FLOAT = 10,
-    HISYSEVENT_DOUBLE = 11,
-    HISYSEVENT_STRING = 12,
-    HISYSEVENT_BOOL_ARRAY = 13,
-    HISYSEVENT_INT8_ARRAY = 14,
-    HISYSEVENT_UINT8_ARRAY = 15,
-    HISYSEVENT_INT16_ARRAY = 16,
-    HISYSEVENT_UINT16_ARRAY = 17,
-    HISYSEVENT_INT32_ARRAY = 18,
-    HISYSEVENT_UINT32_ARRAY = 19,
-    HISYSEVENT_INT64_ARRAY = 20,
-    HISYSEVENT_UINT64_ARRAY = 21,
-    HISYSEVENT_FLOAT_ARRAY = 22,
-    HISYSEVENT_DOUBLE_ARRAY = 23,
-    HISYSEVENT_STRING_ARRAY = 24
+    kHisyseventInvalid = 0,
+    kHisyseventBool = 1,
+    kHisyseventInt8 = 2,
+    kHisyseventUint8 = 3,
+    kHisyseventInt16 = 4,
+    kHisyseventUint16 = 5,
+    kHisyseventInt32 = 6,
+    kHisyseventUint32 = 7,
+    kHisyseventInt64 = 8,
+    kHisyseventUint64 = 9,
+    kHisyseventFloat = 10,
+    kHisyseventDouble = 11,
+    kHisyseventString = 12,
+    kHisyseventBoolArray = 13,
+    kHisyseventInt8Array = 14,
+    kHisyseventUint8Array = 15,
+    kHisyseventInt16Array = 16,
+    kHisyseventUint16Array = 17,
+    kHisyseventInt32Array = 18,
+    kHisyseventUint32Array = 19,
+    kHisyseventInt64Array = 20,
+    kHisyseventUint64Array = 21,
+    kHisyseventFloatArray = 22,
+    kHisyseventDoubleArray = 23,
+    kHisyseventStringArray = 24
 };
 typedef enum HiSysEventParamType HiSysEventParamType;
 
@@ -104,10 +104,10 @@ typedef struct HiSysEventParam HiSysEventParam;
  * @brief Event type.
  */
 enum HiSysEventEventType {
-    HISYSEVENT_FAULT = 1,
-    HISYSEVENT_STATISTIC = 2,
-    HISYSEVENT_SECURITY = 3,
-    HISYSEVENT_BEHAVIOR = 4
+    kHisyseventFault = 1,
+    kHisyseventStatistic = 2,
+    kHisyseventSecurity = 3,
+    kHisyseventBehavior = 4
 };
 typedef enum HiSysEventEventType HiSysEventEventType;
 

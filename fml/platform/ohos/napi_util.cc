@@ -149,11 +149,11 @@ int32_t GetString(napi_env env, napi_value arg, std::string& strValue) {
   if (NapiIsType(env, arg, napi_null)) {
     FML_DLOG(INFO) << "napi_null";
     strValue = "";
-    return SUCCESS;
+    return kSuccess;
   }
   if (!NapiIsType(env, arg, napi_string)) {
     FML_DLOG(ERROR) << "Invalid type:";
-    return ERROR_TYPE;
+    return kErrorType;
   }
 
   // 获取字符串长度
@@ -175,7 +175,7 @@ int32_t GetString(napi_env env, napi_value arg, std::string& strValue) {
     return status;
   }
   strValue.assign(buff.data(), copy_lenth);
-  return SUCCESS;
+  return kSuccess;
 }
 
 int32_t GetArrayString(napi_env env,
@@ -195,7 +195,7 @@ int32_t GetArrayString(napi_env env,
     GetString(env, element, str);
     arrayString.push_back(str);
   }
-  return SUCCESS;
+  return kSuccess;
 }
 int32_t GetArrayBuffer(napi_env env,
                        napi_value arg,
@@ -204,7 +204,7 @@ int32_t GetArrayBuffer(napi_env env,
   napi_status status;
   if (NapiIsType(env, arg, napi_null)) {
     FML_DLOG(ERROR) << "GetArrayBuffer value is null :";
-    return ERROR_NULL;
+    return kErrorNull;
   }
 
   if (!IsArrayBuffer(env, arg)) {
@@ -219,10 +219,10 @@ int32_t GetArrayBuffer(napi_env env,
     return status;
   }
   if (*message == nullptr) {
-    return ERROR_NULL;
+    return kErrorNull;
   }
 
-  return SUCCESS;
+  return kSuccess;
 }
 
 napi_value CreateArrayBuffer(napi_env env, void* inputData, size_t dataSize) {
