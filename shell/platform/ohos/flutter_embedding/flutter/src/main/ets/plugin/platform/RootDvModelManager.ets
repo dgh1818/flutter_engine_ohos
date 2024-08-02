@@ -13,17 +13,19 @@
 * limitations under the License.
 */
 
-import { DVModel,
+import {
+  DVModel,
   DVModelChildren,
   DVModelContainer,
   DVModelEvents,
-  DVModelParameters } from '../../view/DynamicView/dynamicView';
+  DVModelParameters
+} from '../../view/DynamicView/dynamicView';
 import Log from '../../util/Log';
 
 export class RootDvModeManager {
-  private static model: DVModel = new DVModel("Stack", new DVModelParameters(), new DVModelEvents(), new DVModelChildren(), null);
-
-  private static container : DVModelContainer = new DVModelContainer(RootDvModeManager.model);
+  private static model: DVModel =
+    new DVModel("Stack", new DVModelParameters(), new DVModelEvents(), new DVModelChildren(), null);
+  private static container: DVModelContainer = new DVModelContainer(RootDvModeManager.model);
 
   public static getRootDvMode(): DVModelContainer {
     return RootDvModeManager.container;
@@ -31,6 +33,7 @@ export class RootDvModeManager {
 
   public static addDvModel(model: DVModel): void {
     RootDvModeManager.container.model.children.push(model);
-    Log.i("flutter RootDvModeManager", 'DVModel: %{public}s', JSON.stringify(RootDvModeManager.container.model.children) ?? '');
+    Log.i("flutter RootDvModeManager", 'DVModel: %{public}s',
+      JSON.stringify(RootDvModeManager.container.model.children) ?? '');
   }
 }

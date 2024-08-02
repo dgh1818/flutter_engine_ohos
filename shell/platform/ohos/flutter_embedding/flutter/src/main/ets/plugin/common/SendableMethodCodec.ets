@@ -16,6 +16,7 @@ import { lang } from '@kit.ArkTS';
 
 import Any from './Any';
 import MethodCall from './MethodCall';
+
 /**
  * A codec for method calls and enveloped results.
  *
@@ -26,6 +27,7 @@ import MethodCall from './MethodCall';
  * <p>All operations throw {@link IllegalArgumentException}, if conversion fails.
  */
 type ISendable = lang.ISendable;
+
 export default interface SendableMethodCodec extends ISendable {
   /**
    * Encodes a message call into binary.
@@ -77,7 +79,8 @@ export default interface SendableMethodCodec extends ISendable {
    * @return a {@link ByteBuffer} containing the encoding between position 0 and the current
    *     position.
    */
-  encodeErrorEnvelopeWithStacktrace(errorCode: string, errorMessage: string, errorDetails: Any, errorStacktrace: string): ArrayBuffer;
+  encodeErrorEnvelopeWithStacktrace(errorCode: string, errorMessage: string, errorDetails: Any,
+    errorStacktrace: string): ArrayBuffer;
 
   /**
    * Decodes a result envelope from binary.

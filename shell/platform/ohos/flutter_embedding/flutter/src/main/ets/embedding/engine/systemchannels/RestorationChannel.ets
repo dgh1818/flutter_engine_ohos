@@ -40,9 +40,7 @@ import DartExecutor from '../dart/DartExecutor';
  */
 export default class RestorationChannel {
   private static TAG = "RestorationChannel";
-
   private static CHANNEL_NAME = "flutter/restoration";
-
   /**
    * Whether the channel delays responding to the framework's initial request for restoration data
    * until {@code setRestorationData} has been called.
@@ -57,20 +55,14 @@ export default class RestorationChannel {
    * to true avoids that extra work.
    */
   public waitForRestorationData: boolean = false;
-
   public pendingFrameworkRestorationChannelRequest: MethodResult | null = null;
-
   public engineHasProvidedData: boolean = false;
-
   public frameworkHasRequestedData: boolean = false;
-
   // Holds the most current restoration data which may have been provided by the engine
   // via "setRestorationData" or by the framework via the method channel. This is the data the
   // framework should be restored to in case the app is terminated.
   private restorationData: Uint8Array;
-
   private channel: MethodChannel | null = null;
-
   private handler: MethodCallHandler;
 
   constructor(channelOrExecutor: MethodChannel | DartExecutor, waitForRestorationData: boolean) {

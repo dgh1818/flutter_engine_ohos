@@ -16,7 +16,7 @@
 import FlutterEngine from "./FlutterEngine"
 
 export default class FlutterEngineCache {
-  private static instance : FlutterEngineCache;
+  private static instance: FlutterEngineCache;
   private cachedEngines: Map<String, FlutterEngine> = new Map();
 
   static getInstance(): FlutterEngineCache {
@@ -25,40 +25,43 @@ export default class FlutterEngineCache {
     }
     return FlutterEngineCache.instance;
   }
+
   /**
    * 返回engineId对应的FlutterEngine是否存在
    */
-  contains(engineId: String) : boolean {
+  contains(engineId: String): boolean {
     return this.cachedEngines.has(engineId);
   }
 
   /**
    * 返回engineId对应的FlutterEngine
    */
-  get(engineId: String) : FlutterEngine | null {
+  get(engineId: String): FlutterEngine | null {
     return this.cachedEngines.get(engineId) || null;
   }
+
   /**
    * 将传入的FlutterEngine与engineId放在缓存中
    */
-  put(engineId :String, engine: FlutterEngine | null): void {
-    if(engine != null) {
+  put(engineId: String, engine: FlutterEngine | null): void {
+    if (engine != null) {
       this.cachedEngines.set(engineId, engine);
     } else {
       this.cachedEngines.delete(engineId);
     }
   }
+
   /**
    * 移除engineId对应的FlutterEngine
    */
-  remove(engineId: String) : void {
+  remove(engineId: String): void {
     this.put(engineId, null);
   }
 
   /**
    * 移除cachedEngines所有中所有的FlutterEngine
    */
-  clear():void {
+  clear(): void {
     this.cachedEngines.clear();
   }
 }

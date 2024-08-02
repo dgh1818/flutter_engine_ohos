@@ -21,6 +21,7 @@ import FlutterNapi from '../FlutterNapi';
 import Log from '../../../util/Log';
 
 const TAG = "FlutterRenderer"
+
 export class FlutterRenderer implements TextureRegistry {
   private nextTextureId: number = 0;
   private flutterNapi: FlutterNapi;
@@ -31,7 +32,7 @@ export class FlutterRenderer implements TextureRegistry {
 
   getTextureId(): number {
     this.nextTextureId = this.nextTextureId + 1;
-    Log.i(TAG, "getTextureId: ", this.nextTextureId )
+    Log.i(TAG, "getTextureId: ", this.nextTextureId)
     return this.nextTextureId;
   }
 
@@ -53,6 +54,7 @@ export class FlutterRenderer implements TextureRegistry {
   unregisterTexture(textureId: number): void {
     this.flutterNapi.unregisterTexture(textureId);
   }
+
   onTrimMemory(level: number) {
     throw new Error('Method not implemented.');
   }

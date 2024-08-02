@@ -104,9 +104,11 @@ class EngineLifecycleListenerImpl implements EngineLifecycleListener {
     this.activeEngines = activeEngines;
     this.engine = engine;
   }
+
   onPreEngineRestart(): void {
     this.platformViewsController.onPreEngineRestart();
   }
+
   onEngineWillDestroy(): void {
     this.activeEngines.remove(this.engine);
   }

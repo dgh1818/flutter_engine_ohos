@@ -42,7 +42,7 @@ export default class NavigationChannel {
 
   pushRouteInformation(route: string): void {
     Log.i(NavigationChannel.TAG, "Sending message to push route information '" + route + "'");
-    this.channel.invokeMethod("pushRouteInformation", new Map().set("location", route) );
+    this.channel.invokeMethod("pushRouteInformation", new Map().set("location", route));
   }
 
   popRoute(): void {

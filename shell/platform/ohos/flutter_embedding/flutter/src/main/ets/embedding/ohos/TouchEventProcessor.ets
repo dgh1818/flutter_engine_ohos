@@ -40,15 +40,15 @@ class OH_NativeXComponent_TouchPoint {
   isPressed: boolean = false;
 
   constructor(id: number,
-              screenX: number,
-              screenY: number,
-              x: number,
-              y: number,
-              type: number,
-              size: number,
-              force: number,
-              timeStamp: number,
-              isPressed: boolean) {
+    screenX: number,
+    screenY: number,
+    x: number,
+    y: number,
+    type: number,
+    size: number,
+    force: number,
+    timeStamp: number,
+    isPressed: boolean) {
     this.id = id;
     this.screenX = screenX;
     this.screenY = screenY;
@@ -77,17 +77,17 @@ class OH_NativeXComponent_TouchEvent {
   numPoints: number = 0;
 
   constructor(id: number,
-              screenX: number,
-              screenY: number,
-              x: number,
-              y: number,
-              type: number,
-              size: number,
-              force: number,
-              deviceId: number,
-              timeStamp: number,
-              touchPoints: OH_NativeXComponent_TouchPoint[],
-              numPoints: number) {
+    screenX: number,
+    screenY: number,
+    x: number,
+    y: number,
+    type: number,
+    size: number,
+    force: number,
+    deviceId: number,
+    timeStamp: number,
+    touchPoints: OH_NativeXComponent_TouchPoint[],
+    numPoints: number) {
     this.id = id;
     this.screenX = screenX;
     this.screenY = screenY;
@@ -110,9 +110,9 @@ class TouchPacket {
   tiltY: number = 0;
 
   constructor(touchEvent: OH_NativeXComponent_TouchEvent,
-              toolType: number,
-              tiltX: number,
-              tiltY: number) {
+    toolType: number,
+    tiltX: number,
+    tiltY: number) {
     this.touchEvent = touchEvent;
     this.toolType = toolType;
     this.tiltX = tiltX;
@@ -204,9 +204,9 @@ export default class TouchEventProcessor {
     );
 
     let touches: CustomTouchObject[] = [];
-    let touchPointer:number = touchPacket.touchEvent.numPoints;
+    let touchPointer: number = touchPacket.touchEvent.numPoints;
     for (let i = 0; i < touchPointer; i++) {
-        let touchesItem: CustomTouchObject = new CustomTouchObject(
+      let touchesItem: CustomTouchObject = new CustomTouchObject(
         touchPacket.touchEvent.touchPoints[i].type,
         touchPacket.touchEvent.touchPoints[i].id,
         touchPacket.touchEvent.touchPoints[i].screenX,
@@ -222,23 +222,23 @@ export default class TouchEventProcessor {
     }
 
     let customTouchEvent1: CustomTouchEvent = new CustomTouchEvent(
-        touchPacket.touchEvent.type,
-        touches,
-        [changes1],
-        touchPacket.touchEvent.timeStamp,
-        SourceType.TouchScreen,
-        touchPacket.touchEvent.force,
-        touchPacket.tiltX,
-        touchPacket.tiltY,
-        touchPacket.toolType
+      touchPacket.touchEvent.type,
+      touches,
+      [changes1],
+      touchPacket.touchEvent.timeStamp,
+      SourceType.TouchScreen,
+      touchPacket.touchEvent.force,
+      touchPacket.tiltX,
+      touchPacket.tiltY,
+      touchPacket.toolType
     );
 
     return customTouchEvent1;
   }
 
   /** Construct the CustomTouchEvent and return. */
-  public constructCustomTouchEvent(strings: Array<string>, top: number, left: number) : CustomTouchEvent {
-    let densityPixels:number = display.getDefaultDisplaySync().densityPixels;
+  public constructCustomTouchEvent(strings: Array<string>, top: number, left: number): CustomTouchEvent {
+    let densityPixels: number = display.getDefaultDisplaySync().densityPixels;
 
     let touchPacket: TouchPacket = this.decodeTouchPacket(strings, densityPixels, top, left);
     let customTouchEvent: CustomTouchEvent = this.constructCustomTouchEventImpl(touchPacket);

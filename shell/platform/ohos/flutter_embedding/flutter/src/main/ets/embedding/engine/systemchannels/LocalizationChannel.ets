@@ -14,7 +14,7 @@
 */
 
 import DartExecutor from '../dart/DartExecutor';
-import MethodChannel, { MethodCallHandler, MethodResult} from '../../../plugin/common/MethodChannel';
+import MethodChannel, { MethodCallHandler, MethodResult } from '../../../plugin/common/MethodChannel';
 import MethodCall from '../../../plugin/common/MethodCall';
 import List from '@ohos.util.List';
 import JSONMethodCodec from '../../../plugin/common/JSONMethodCodec';
@@ -23,13 +23,13 @@ import Log from '../../../util/Log';
 
 const TAG = "LocalizationChannel";
 
-export default class LocalizationChannel implements MethodCallHandler{
+export default class LocalizationChannel implements MethodCallHandler {
   private static TAG = "LocalizationChannel";
   private static CHANNEL_NAME = "flutter/localization";
   private channel: MethodChannel;
   private localizationMessageHandler: LocalizationMessageHandler | null = null;
 
-  onMethodCall(call: MethodCall, result: MethodResult) :void {
+  onMethodCall(call: MethodCall, result: MethodResult): void {
     if (this.localizationMessageHandler == null) {
       Log.e(TAG, "localizationMessageHandler is null");
       return;
@@ -41,7 +41,7 @@ export default class LocalizationChannel implements MethodCallHandler{
         let key: string = call.argument("key");
         let localeString: string = "";
         if (call.hasArgument("locale")) {
-          localeString  = call.argument("locale");
+          localeString = call.argument("locale");
         }
         result.success(this.localizationMessageHandler?.getStringResource(key, localeString));
         break;
@@ -64,7 +64,7 @@ export default class LocalizationChannel implements MethodCallHandler{
 
   sendLocales(locales: string[]): void {
     let data: string[] = [];
-    for (let i = 0 ; i < locales.length ; i++) {
+    for (let i = 0; i < locales.length; i++) {
       let locale = new intl.Locale(locales[i]);
       data.push(locale.language);
       data.push(locale.region);
@@ -76,5 +76,5 @@ export default class LocalizationChannel implements MethodCallHandler{
 }
 
 export interface LocalizationMessageHandler {
-    getStringResource(key: string, local: string): void;
+  getStringResource(key: string, local: string): void;
 }

@@ -22,6 +22,7 @@ import Log from '../../util/Log';
 import Any from '../common/Any';
 
 const TAG: string = "PlatformViewWrapper";
+
 export class PlatformViewWrapper {
   private prevLeft: number = 0;
   private prevTop: number = 0;
@@ -43,17 +44,18 @@ export class PlatformViewWrapper {
     return this.model!;
   }
 
-  setParams: (params: DVModelParameters, key: string, element: Any ) => void = (params: DVModelParameters, key: string, element: Any): void => {
-    let params2 = params as Record<string, Any>;
-    params2[key] =element;
-  }
+  setParams: (params: DVModelParameters, key: string, element: Any) => void =
+    (params: DVModelParameters, key: string, element: Any): void => {
+      let params2 = params as Record<string, Any>;
+      params2[key] = element;
+    }
+  getParams: (params: DVModelParameters, element: string) => string | Any =
+    (params: DVModelParameters, element: string): string | Any => {
+      let params2 = params as Record<string, Any>;
+      return params2[element];
+    }
 
-  getParams: (params: DVModelParameters, element: string) => string | Any = (params: DVModelParameters, element: string): string | Any => {
-    let params2 = params as Record<string, Any>;
-    return params2[element];
-  }
-
-  public setLayoutParams(parameters : DVModelParameters): void {
+  public setLayoutParams(parameters: DVModelParameters): void {
     if (!this.model) {
       return;
     }
@@ -62,7 +64,7 @@ export class PlatformViewWrapper {
     }
     this.setParams(this.model.params, "marginLeft", this.getParams(parameters, "marginLeft"));
     this.setParams(this.model.params, "marginTop", this.getParams(parameters, "marginTop"));
-    this.left =  this.getParams(parameters, "marginLeft");
+    this.left = this.getParams(parameters, "marginLeft");
     this.top = this.getParams(parameters, "marginTop");
 
     this.setParams(this.model.params, "width", this.getParams(parameters, "width"));
@@ -82,4 +84,4 @@ class DVModelParam {
     this.compType = compType;
     this.children = children;
   }
-};
+}

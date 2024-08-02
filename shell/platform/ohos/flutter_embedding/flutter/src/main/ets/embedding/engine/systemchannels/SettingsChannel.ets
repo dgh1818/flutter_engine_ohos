@@ -35,7 +35,8 @@ export default class SettingsChannel {
   private channel: BasicMessageChannel<Object>;
 
   constructor(dartExecutor: DartExecutor) {
-    this.channel = new BasicMessageChannel<Object>(dartExecutor, SettingsChannel.CHANNEL_NAME, JSONMessageCodec.INSTANCE);
+    this.channel =
+      new BasicMessageChannel<Object>(dartExecutor, SettingsChannel.CHANNEL_NAME, JSONMessageCodec.INSTANCE);
   }
 
   startMessage(): MessageBuilder {

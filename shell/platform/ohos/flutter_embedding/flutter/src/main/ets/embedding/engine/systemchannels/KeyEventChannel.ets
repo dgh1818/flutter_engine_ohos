@@ -24,12 +24,13 @@ export default class KeyEventChannel {
   private channel: BasicMessageChannel<Map<String, Object>>;
 
   constructor(binaryMessenger: BinaryMessenger) {
-    this.channel = new BasicMessageChannel<Map<String, Object>>(binaryMessenger, KeyEventChannel.CHANNEL_NAME, JSONMessageCodec.INSTANCE);
+    this.channel = new BasicMessageChannel<Map<String, Object>>(binaryMessenger, KeyEventChannel.CHANNEL_NAME,
+      JSONMessageCodec.INSTANCE);
   }
 
   sendFlutterKeyEvent(keyEvent: FlutterKeyEvent,
-                      isKeyUp: boolean,
-                      responseHandler: EventResponseHandler): void {
+    isKeyUp: boolean,
+    responseHandler: EventResponseHandler): void {
     this.channel.send(this.encodeKeyEvent(keyEvent, isKeyUp),
       (message: Map<String, Object>) => {
         let isEventHandled = false;

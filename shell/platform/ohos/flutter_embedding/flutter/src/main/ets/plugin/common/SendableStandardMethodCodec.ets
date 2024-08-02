@@ -33,8 +33,8 @@ import SendableStandardMessageCodec from './SendableStandardMessageCodec';
 @Sendable
 export default class SendableStandardMethodCodec implements SendableMethodCodec {
   private static TAG: string = "SendableStandardMethodCodec";
-  public static INSTANCE: SendableStandardMethodCodec = new SendableStandardMethodCodec(SendableStandardMessageCodec.INSTANCE);
-
+  public static INSTANCE: SendableStandardMethodCodec =
+    new SendableStandardMethodCodec(SendableStandardMessageCodec.INSTANCE);
   private messageCodec: SendableStandardMessageCodec;
 
   /** Creates a new method codec based on the specified message codec. */
@@ -79,7 +79,8 @@ export default class SendableStandardMethodCodec implements SendableMethodCodec 
     return stream.buffer;
   }
 
-  encodeErrorEnvelopeWithStacktrace(errorCode: string, errorMessage: string, errorDetails: Any, errorStacktrace: string): ArrayBuffer {
+  encodeErrorEnvelopeWithStacktrace(errorCode: string, errorMessage: string, errorDetails: Any,
+    errorStacktrace: string): ArrayBuffer {
     const stream = ByteBuffer.from(new ArrayBuffer(1024));
     stream.writeInt8(1);
     this.messageCodec.writeValue(stream, errorCode);

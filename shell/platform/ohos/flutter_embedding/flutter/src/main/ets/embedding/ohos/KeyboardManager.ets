@@ -23,7 +23,7 @@ import HashSet from '@ohos.util.HashSet';
 export default class KeyboardManager {
   private keyEventChannel: KeyEventChannel | null = null;
   private keyboardChannel: KeyboardChannel | null = null;
-  protected keyEmbedderResponder : KeyEmbedderResponder;
+  protected keyEmbedderResponder: KeyEmbedderResponder;
 
   constructor(engine: FlutterEngine) {
     this.keyEventChannel = new KeyEventChannel(engine.dartExecutor);

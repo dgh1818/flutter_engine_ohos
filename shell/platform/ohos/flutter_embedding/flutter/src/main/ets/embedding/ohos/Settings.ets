@@ -20,6 +20,7 @@ import { MediaQuery } from '@ohos.arkui.UIContext';
 
 
 const TAG = "Settings";
+
 export default class Settings {
   settingsChannel: SettingsChannel | null;
 
@@ -41,10 +42,10 @@ export default class Settings {
 
     let listener = mediaQuery.matchMediaSync('(dark-mode: true)');
     if (listener.matches) {
-      Log.i(TAG,"return dark");
+      Log.i(TAG, "return dark");
       return PlatformBrightness.DARK;
     } else {
-      Log.i(TAG,"return light");
+      Log.i(TAG, "return light");
       return PlatformBrightness.LIGHT;
     }
   }

@@ -43,7 +43,7 @@ export default class FlutterPluginRegistry {
     this.mPlatformViewsController.onDetachedFromNapi();
   }
 
-  onPreEngineRestart(): void{
+  onPreEngineRestart(): void {
     this.mPlatformViewsController.onPreEngineRestart();
   }
 }
