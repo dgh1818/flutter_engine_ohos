@@ -33,10 +33,10 @@ class MessageLoopOhos : public MessageLoopImpl {
 	fml::UniqueFD epoll_fd_;
   fml::UniqueFD timer_fd_;
   std::atomic<bool> running_;
-  std::thread timerhandleThread;
-	bool isPlatformLoop;
+  std::thread timerhandle_thread_;
+	bool is_platform_loop_;
 
-  MessageLoopOhos(void* platform_loop);
+  explicit MessageLoopOhos(void* platform_loop);
 
   ~MessageLoopOhos() override;
 

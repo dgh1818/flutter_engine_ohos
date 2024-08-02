@@ -16,17 +16,10 @@
 #ifndef FLUTTER_SHELL_PLATFORM_OHOS_NAPI_PLATFORM_VIEW_OHOS_NAPI_H_
 #define FLUTTER_SHELL_PLATFORM_OHOS_NAPI_PLATFORM_VIEW_OHOS_NAPI_H_
 #include <memory>
-#include "flutter/assets/directory_asset_bundle.h"
-#include "flutter/common/settings.h"
 #include "flutter/fml/file.h"
-#include "flutter/fml/logging.h"
 #include "flutter/fml/mapping.h"
-#include "flutter/fml/native_library.h"
-#include "flutter/fml/size.h"
-#include "flutter/lib/ui/plugins/callback_cache.h"
-#include "flutter/runtime/dart_service_isolate.h"
-#include "flutter/shell/common/run_configuration.h"
-#include "flutter/shell/platform/ohos/napi_common.h"
+#include "flutter/fml/task_runner.h"
+#include "flutter/lib/ui/window/platform_message.h"
 #include "napi/native_api.h"
 // class for all c++ to call js function
 namespace flutter {

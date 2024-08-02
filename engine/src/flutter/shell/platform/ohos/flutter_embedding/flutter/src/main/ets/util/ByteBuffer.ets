@@ -38,9 +38,6 @@ export class ByteBuffer {
    * @returns A byte buffer.
    */
   static from(source: ArrayBuffer, byteOffset?: number, byteLength?: number): ByteBuffer {
-    // if (ArrayBuffer.isView(source)) {
-    //   byteOffset = source.byteOffset + (byteOffset || 0)
-    // }
     const byteBuffer = new ByteBuffer()
     byteBuffer.dataView = byteLength === undefined ? new DataView(source, byteOffset) : new DataView(source, byteOffset, Math.min(source.byteLength, byteLength))
     byteBuffer.mByteOffset = byteBuffer.dataView.byteOffset
@@ -655,9 +652,9 @@ export class ByteBuffer {
    * @returns The value.
    */
   getUint8Array(byteOffset: number, byteLength?: number): Uint8Array {
-    return this.dataView == null
-      ? new Uint8Array(StringUtils.stringToArrayBuffer(""), byteOffset, byteLength)
-      : new Uint8Array(this.dataView?.buffer, this.dataView?.byteOffset + byteOffset, byteLength)
+    return this.dataView == null ?
+      new Uint8Array(StringUtils.stringToArrayBuffer(""), byteOffset, byteLength) :
+      new Uint8Array(this.dataView?.buffer, this.dataView?.byteOffset + byteOffset, byteLength)
   }
 
   /**
@@ -701,9 +698,9 @@ export class ByteBuffer {
     if (byteLength !== undefined) {
       byteLength = Math.floor(byteLength / 2)
     }
-    return this.dataView == null
-      ? new Uint16Array(StringUtils.stringToArrayBuffer(""), byteOffset, byteLength)
-      : new Uint16Array(this.dataView.buffer, this.dataView.byteOffset + byteOffset, byteLength)
+    return this.dataView == null ?
+      new Uint16Array(StringUtils.stringToArrayBuffer(""), byteOffset, byteLength) :
+      new Uint16Array(this.dataView.buffer, this.dataView.byteOffset + byteOffset, byteLength)
   }
 
   /**

@@ -177,12 +177,12 @@ static int32_t SetNativeWindowOpt(OHNativeWindow* nativeWindow,
   }
   // Set the format of the native window buffer.
   code = SET_FORMAT;
-  int32_t format = PIXEL_FMT_RGBA_8888;
+  int32_t format = kPixelFmtRgba8888;
 
   ret = OH_NativeWindow_NativeWindowHandleOpt(nativeWindow, code, format);
   if (ret) {
     LOGE(
-        "Set NativeWindow PIXEL_FMT_RGBA_8888   Failed :window:%{public}p "
+        "Set NativeWindow kPixelFmtRgba8888   Failed :window:%{public}p "
         ",w:%{public}d x %{public}d:%{public}d",
         nativeWindow, width, height, ret);
   }

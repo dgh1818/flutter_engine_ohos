@@ -46,18 +46,18 @@ MessageLoopOhos::MessageLoopOhos(void* platform_loop)
     : epoll_fd_(FML_HANDLE_EINTR(::epoll_create(1 /* unused */))),
       timer_fd_(::timerfd_create(kClockType, TFD_NONBLOCK | TFD_CLOEXEC)),
       running_(false),
-      isPlatformLoop(false) {
+      is_platform_loop_(false) {
   FML_CHECK(epoll_fd_.is_valid());
   FML_CHECK(timer_fd_.is_valid());
   bool added_source = AddOrRemoveTimerSource(true);
   FML_CHECK(added_source);
   async_handle_.data = this;
   if (platform_loop != nullptr) {
-    isPlatformLoop = true;
+    is_platform_loop_ = true;
     uv_loop_t* loop = reinterpret_cast<uv_loop_t*>(platform_loop);
     uv_async_init(loop, &async_handle_,
                   OnAsyncCallback);  // ohos after API12 not allow use uv_poll
-    timerhandleThread = std::thread([this]() {
+    timerhandle_thread_ = std::thread([this]() {
       running_ = true;
       TimerFdWatcher();
     });
@@ -70,7 +70,7 @@ MessageLoopOhos::MessageLoopOhos(void* platform_loop)
 }
 
 MessageLoopOhos::~MessageLoopOhos() {
-  if (isPlatformLoop) {
+  if (is_platform_loop_) {
     bool removed_source = AddOrRemoveTimerSource(false);
     FML_CHECK(removed_source);
   } else {
@@ -89,9 +89,9 @@ void MessageLoopOhos::Run() {
 void MessageLoopOhos::Terminate() {
   running_ = false;
   WakeUp(fml::TimePoint::Now());
-  if (isPlatformLoop) {
-    if (timerhandleThread.joinable()) {
-      timerhandleThread.join();
+  if (is_platform_loop_) {
+    if (timerhandle_thread_.joinable()) {
+      timerhandle_thread_.join();
     }
     uv_close((uv_handle_t*)&async_handle_, OnAsyncHandleClose);
   } else {
