@@ -18,7 +18,7 @@ import DartExecutor from '../dart/DartExecutor';
 import BasicMessageChannel, { MessageHandler, Reply} from '../../../plugin/common/BasicMessageChannel';
 import HashMap from '@ohos.util.HashMap';
 import FlutterNapi, {AccessibilityDelegate} from '../FlutterNapi';
-import { Action } from '../../../view/AccessibilityBridge'
+import { Action } from '../../../view/AccessibilityBridge';
 import StandardMessageCodec from '../../../plugin/common/StandardMessageCodec';
 import StringUtils from '../../../util/StringUtils';
 import Any from '../../../plugin/common/Any';
@@ -27,94 +27,94 @@ import Any from '../../../plugin/common/Any';
 * 辅助功能channel
 */
 export default class AccessibilityChannel implements MessageHandler<object>{
-    private static TAG = "AccessibilityChannel";
-    private static CHANNEL_NAME = "flutter/accessibility";
-    private channel: BasicMessageChannel<object>;
-    private flutterNapi: FlutterNapi;
-    private handler: AccessibilityMessageHandler | null = null;
-    private nextReplyId: number = 1;
+  private static TAG = "AccessibilityChannel";
+  private static CHANNEL_NAME = "flutter/accessibility";
+  private channel: BasicMessageChannel<object>;
+  private flutterNapi: FlutterNapi;
+  private handler: AccessibilityMessageHandler | null = null;
+  private nextReplyId: number = 1;
 
-    onMessage(message: object, reply: Reply<object>): void {
-        if (this.handler == null) {
-            Log.i(AccessibilityChannel.TAG, "NULL");
-            reply.reply(StringUtils.stringToArrayBuffer(""));
-            return;
+  onMessage(message: object, reply: Reply<object>): void {
+    if (this.handler == null) {
+      Log.i(AccessibilityChannel.TAG, "NULL");
+      reply.reply(StringUtils.stringToArrayBuffer(""));
+      return;
+    }
+    let annotatedEvent: HashMap<string, Any> = message as HashMap<string, Any>;
+    let type: string = annotatedEvent.get("type") as string;
+    let data: HashMap<string, Any> = annotatedEvent.get("data") as HashMap<string, Any>;
+
+    Log.i(AccessibilityChannel.TAG, "Received " + type + " message.");
+    switch (type) {
+      case "announce": {
+        Log.i(AccessibilityChannel.TAG, "Announce");
+        let announceMessage: string = data.get("message");
+        if (announceMessage != null) {
+          this.handler.announce(announceMessage);
         }
-        let annotatedEvent: HashMap<string, Any> = message as HashMap<string, Any>;
-        let type: string = annotatedEvent.get("type") as string;
-        let data: HashMap<string, Any> = annotatedEvent.get("data") as HashMap<string, Any>;
-
-        Log.i(AccessibilityChannel.TAG, "Received " + type + " message.");
-        switch (type) {
-            case "announce": {
-                Log.i(AccessibilityChannel.TAG, "Announce");
-                let announceMessage: string = data.get("message");
-                if (announceMessage != null) {
-                    this.handler.announce(announceMessage);
-                }
-                break;
-            }
-            case "tap": {
-              Log.i(AccessibilityChannel.TAG, "Tag");
-              let nodeId: number = annotatedEvent.get("nodeId");
-                if (nodeId != null) {
-                  this.handler.onTap(nodeId);
-                }
-                break;
-            }
-            case "longPress": {
-                Log.i(AccessibilityChannel.TAG, "LongPress");
-                let nodeId: number = annotatedEvent.get("nodeId");
-                if (nodeId != null) {
-                    this.handler.onLongPress(nodeId);
-                }
-                break;
-            }
-            case "tooltip": {
-                Log.i(AccessibilityChannel.TAG, "ToolTip");
-                let tooltipMessage: string = data.get("message");
-                if (tooltipMessage != null) {
-                    this.handler.onTooltip(tooltipMessage);
-                }
-                break;
-            }
+        break;
+      }
+      case "tap": {
+        Log.i(AccessibilityChannel.TAG, "Tag");
+        let nodeId: number = annotatedEvent.get("nodeId");
+          if (nodeId != null) {
+            this.handler.onTap(nodeId);
+          }
+          break;
+      }
+      case "longPress": {
+        Log.i(AccessibilityChannel.TAG, "LongPress");
+        let nodeId: number = annotatedEvent.get("nodeId");
+        if (nodeId != null) {
+          this.handler.onLongPress(nodeId);
         }
-        reply.reply(StringUtils.stringToArrayBuffer(""));
+        break;
+      }
+      case "tooltip": {
+        Log.i(AccessibilityChannel.TAG, "ToolTip");
+        let tooltipMessage: string = data.get("message");
+        if (tooltipMessage != null) {
+          this.handler.onTooltip(tooltipMessage);
+        }
+        break;
+      }
     }
+    reply.reply(StringUtils.stringToArrayBuffer(""));
+  }
 
-    constructor(dartExecutor: DartExecutor, flutterNapi: FlutterNapi) {
-        Log.i(AccessibilityChannel.TAG, "Channel entered");
-        this.channel = new BasicMessageChannel<object>(dartExecutor, AccessibilityChannel.CHANNEL_NAME, StandardMessageCodec.INSTANCE);
-        this.channel.setMessageHandler(this);
-        this.flutterNapi = flutterNapi;
-    }
+  constructor(dartExecutor: DartExecutor, flutterNapi: FlutterNapi) {
+    Log.i(AccessibilityChannel.TAG, "Channel entered");
+    this.channel = new BasicMessageChannel<object>(dartExecutor, AccessibilityChannel.CHANNEL_NAME, StandardMessageCodec.INSTANCE);
+    this.channel.setMessageHandler(this);
+    this.flutterNapi = flutterNapi;
+  }
 
-    onOhosAccessibilityEnabled(): void {
-        let replyId: number = this.nextReplyId++;
-        this.flutterNapi.setSemanticsEnabled(true, replyId);
-    }
+  onOhosAccessibilityEnabled(): void {
+    let replyId: number = this.nextReplyId++;
+    this.flutterNapi.setSemanticsEnabled(true, replyId);
+  }
 
-    onOhosAccessibilityFeatures(accessibilityFeatureFlags: number): void {
-        let replyId: number = this.nextReplyId++;
-        this.flutterNapi.setAccessibilityFeatures(accessibilityFeatureFlags, replyId);
-    }
+  onOhosAccessibilityFeatures(accessibilityFeatureFlags: number): void {
+    let replyId: number = this.nextReplyId++;
+    this.flutterNapi.setAccessibilityFeatures(accessibilityFeatureFlags, replyId);
+  }
 
-    dispatchSemanticsAction(virtualViewId: number, action: Action): void {
-        let replyId: number = this.nextReplyId++;
-        this.flutterNapi.dispatchSemanticsAction(virtualViewId, action, replyId);
-    }
+  dispatchSemanticsAction(virtualViewId: number, action: Action): void {
+    let replyId: number = this.nextReplyId++;
+    this.flutterNapi.dispatchSemanticsAction(virtualViewId, action, replyId);
+  }
 
-    setAccessibilityMessageHandler(handler: AccessibilityMessageHandler): void {
-      this.handler = handler;
-      let replyId: number = this.nextReplyId++;
-      this.flutterNapi.setAccessibilityDelegate(handler, replyId);
-    }
+  setAccessibilityMessageHandler(handler: AccessibilityMessageHandler): void {
+    this.handler = handler;
+    let replyId: number = this.nextReplyId++;
+    this.flutterNapi.setAccessibilityDelegate(handler, replyId);
+  }
 
 }
 
 interface AccessibilityMessageHandler extends AccessibilityDelegate {
-    announce(message: string): void;
-    onTap(nodeId: number): void;
-    onLongPress(nodeId: number): void;
-    onTooltip(nodeId: string): void;
+  announce(message: string): void;
+  onTap(nodeId: number): void;
+  onLongPress(nodeId: number): void;
+  onTooltip(nodeId: string): void;
 }

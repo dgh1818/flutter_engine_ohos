@@ -62,7 +62,7 @@ export default class TextInputChannel {
   }
 
   createEditingDeltaJSON(batchDeltas: ArrayList<TextEditingDelta>): EditingDelta {
-    let deltas: Array<TextEditingDeltaJson> = [];
+    let deltas: TextEditingDeltaJson[] = [];
     batchDeltas.forEach((val, idx, array) => {
       deltas.push(val.toJSON());
     })
