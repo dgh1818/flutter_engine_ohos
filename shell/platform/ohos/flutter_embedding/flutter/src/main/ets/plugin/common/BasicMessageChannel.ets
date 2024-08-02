@@ -56,8 +56,9 @@ export default class BasicMessageChannel<T> {
    * @param message the message, possibly null.
    * @param callback a {@link Reply} callback, possibly null.
    */
-  send(message: T, callback?: (reply: T)=>void): void {
-    this.messenger.send(this.name, this.codec.encodeMessage(message), callback == null ? null : new IncomingReplyHandler(callback, this.codec));
+  send(message: T, callback?: (reply: T) => void): void {
+    this.messenger.send(this.name, this.codec.encodeMessage(message),
+      callback == null ? null : new IncomingReplyHandler(callback, this.codec));
   }
 
   /**
@@ -72,7 +73,8 @@ export default class BasicMessageChannel<T> {
    * @param handler a {@link MessageHandler}, or null to deregister.
    */
   setMessageHandler(handler: MessageHandler<T> | null): void {
-    this.messenger.setMessageHandler(this.name, handler == null ? null : new IncomingMessageHandler(handler, this.codec));
+    this.messenger.setMessageHandler(this.name,
+      handler == null ? null : new IncomingMessageHandler(handler, this.codec));
   }
 
   /**
@@ -117,11 +119,11 @@ export interface MessageHandler<T> {
   onMessage(message: T, reply: Reply<T>): void;
 }
 
-class IncomingReplyHandler <T> implements BinaryReply {
-  private callback: (reply: T)=>void;
+class IncomingReplyHandler<T> implements BinaryReply {
+  private callback: (reply: T) => void;
   private codec: MessageCodec<T>
 
-  constructor(callback:(reply: T)=>void, codec: MessageCodec<T>) {
+  constructor(callback: (reply: T) => void, codec: MessageCodec<T>) {
     this.callback = callback
     this.codec = codec
   }

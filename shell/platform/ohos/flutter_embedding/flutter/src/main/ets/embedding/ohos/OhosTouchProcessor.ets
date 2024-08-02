@@ -18,9 +18,7 @@ import Any from '../../plugin/common/Any';
 
 export default class OhosTouchProcessor {
   private static POINTER_DATA_FIELD_COUNT: number = 35;
-
   static BYTES_PER_FIELD: number = 8;
-
   private static POINTER_DATA_FLAG_BATCHED: number = 1;
 
   public onTouchEvent(event: TouchEvent, transformMatrix: Any): void {

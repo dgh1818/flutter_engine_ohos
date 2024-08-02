@@ -69,7 +69,8 @@ export default class SendableJSONMethodCodec implements SendableMethodCodec {
     return SendableJSONMessageCodec.INSTANCE.encodeMessage([errorCode, errorMessage, errorDetails]);
   }
 
-  encodeErrorEnvelopeWithStacktrace(errorCode: string, errorMessage: string, errorDetails: Any, errorStacktrace: string): ArrayBuffer {
+  encodeErrorEnvelopeWithStacktrace(errorCode: string, errorMessage: string, errorDetails: Any,
+    errorStacktrace: string): ArrayBuffer {
     return SendableJSONMessageCodec.INSTANCE.encodeMessage([errorCode, errorMessage, errorDetails, errorStacktrace])
   }
 

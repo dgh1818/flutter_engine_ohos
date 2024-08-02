@@ -18,8 +18,8 @@ import { BinaryMessenger } from '../plugin/common/BinaryMessenger';
 import StringUtils from './StringUtils';
 
 export default class MessageChannelUtils {
-    static resizeChannelBuffer(messenger: BinaryMessenger, channel: string, newSize: number) {
-        const dataStr = `resize\r${channel}\r${newSize}`
-        messenger.send(BasicMessageChannel.CHANNEL_BUFFERS_CHANNEL, StringUtils.stringToArrayBuffer(dataStr));
-    }
+  static resizeChannelBuffer(messenger: BinaryMessenger, channel: string, newSize: number) {
+    const dataStr = `resize\r${channel}\r${newSize}`
+    messenger.send(BasicMessageChannel.CHANNEL_BUFFERS_CHANNEL, StringUtils.stringToArrayBuffer(dataStr));
+  }
 }

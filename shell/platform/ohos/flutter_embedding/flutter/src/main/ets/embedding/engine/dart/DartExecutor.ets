@@ -30,7 +30,7 @@ const TAG = "DartExecutor";
 /**
  * dart代码执行器
  */
-export default class DartExecutor implements  BinaryMessenger {
+export default class DartExecutor implements BinaryMessenger {
   flutterNapi: FlutterNapi;
   assetManager: resourceManager.ResourceManager;
   private dartMessenger: DartMessenger;
@@ -38,7 +38,6 @@ export default class DartExecutor implements  BinaryMessenger {
   private isApplicationRunning: boolean = false;
   private isolateServiceId: String = "";
   private isolateServiceIdListener: IsolateServiceIdListener | null = null;
-
   private isolateChannelMessageHandler: BinaryMessageHandler =
     new IsolateChannelMessageHandler(this.isolateServiceId, this.isolateServiceIdListener);
 
@@ -172,7 +171,8 @@ export default class DartExecutor implements  BinaryMessenger {
     this.getBinaryMessenger().send(channel, message, callback);
   }
 
-  setMessageHandler(channel: String, handler: BinaryMessageHandler | SendableBinaryMessageHandler | null, taskQueue?: TaskQueue, ...args: Object[]): void {
+  setMessageHandler(channel: String, handler: BinaryMessageHandler | SendableBinaryMessageHandler | null,
+    taskQueue?: TaskQueue, ...args: Object[]): void {
     this.getBinaryMessenger().setMessageHandler(channel, handler, taskQueue, ...args);
   }
 
@@ -202,7 +202,6 @@ export default class DartExecutor implements  BinaryMessenger {
   getIsolateServiceId(): String {
     return this.isolateServiceId;
   }
-
 
 
   /**
@@ -241,16 +240,14 @@ export default class DartExecutor implements  BinaryMessenger {
 export class DartEntrypoint {
   /** The path within the AssetManager where the app will look for assets. */
   pathToBundle: string;
-
   /** The library or file location that contains the Dart entrypoint function. */
   dartEntrypointLibrary: string;
-
   /** The name of a Dart function to execute. */
   dartEntrypointFunctionName: string;
 
   constructor(pathToBundle: string,
-              dartEntrypointLibrary: string,
-              dartEntrypointFunctionName: string) {
+    dartEntrypointLibrary: string,
+    dartEntrypointFunctionName: string) {
     this.pathToBundle = pathToBundle;
     this.dartEntrypointLibrary = dartEntrypointLibrary;
     this.dartEntrypointFunctionName = dartEntrypointFunctionName;
@@ -280,16 +277,14 @@ interface IsolateServiceIdListener {
 export class DartCallback {
   /** Standard HarmonyOS AssetManager, provided from some {@code Context} or {@code Resources}. */
   public resourceManager: resourceManager.ResourceManager;
-
   /** The path within the AssetManager where the app will look for assets. */
   public pathToBundle: string;
-
   /** A Dart callback that was previously registered with the Dart VM. */
   public callbackHandle: FlutterCallbackInformation;
 
   constructor(resourceManager: resourceManager.ResourceManager,
-              pathToBundle: string,
-              callbackHandle: FlutterCallbackInformation) {
+    pathToBundle: string,
+    callbackHandle: FlutterCallbackInformation) {
     this.resourceManager = resourceManager;
     this.pathToBundle = pathToBundle;
     this.callbackHandle = callbackHandle;
@@ -339,7 +334,8 @@ export class DefaultBinaryMessenger implements BinaryMessenger {
    * @param channel the name of the channel.
    * @param handler a {@link BinaryMessageHandler} to be invoked on incoming messages, or null.
    */
-  setMessageHandler(channel: String, handler: BinaryMessageHandler | SendableBinaryMessageHandler | null, taskQueue?: TaskQueue, ...args: Object[]): void {
+  setMessageHandler(channel: String, handler: BinaryMessageHandler | SendableBinaryMessageHandler | null,
+    taskQueue?: TaskQueue, ...args: Object[]): void {
     this.messenger.setMessageHandler(channel, handler, taskQueue, ...args);
   }
 }

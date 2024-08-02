@@ -27,7 +27,6 @@ export class FlutterMutatorView {
   private top: number = 0;
   private prevLeft: number = 0;
   private prevTop: number = 0;
-
   private onTouch = (touchEvent: Any) => {
     let params = this.model.params as Record<string, number>;
     switch (touchEvent.type) {
@@ -49,7 +48,6 @@ export class FlutterMutatorView {
         break;
     }
   }
-
   private model: DVModel = createDVModelFromJson(
     new DVModelParam("Column", [], { backgroundColor: Color.Red }, { onTouch: this.onTouch })
   );
@@ -67,13 +65,14 @@ export class FlutterMutatorView {
       this.model.params = new DVModelParameters();
     }
     let params = this.model.params as Record<string, string | number | Array<string | number> | matrix4.Matrix4Transit>;
-    let parametersRecord = parameters as Record<string, string | number | Array<string | number> | matrix4.Matrix4Transit>;
+    let parametersRecord =
+      parameters as Record<string, string | number | Array<string | number> | matrix4.Matrix4Transit>;
     params.marginLeft = parametersRecord['marginLeft'];
     params.marginTop = parametersRecord['marginTop'];
     params.width = parametersRecord['width'];
     params.height = parametersRecord['height'];
     this.left = parametersRecord.marginLeft as number;
-    this.top = parametersRecord.marginTop as number ;
+    this.top = parametersRecord.marginTop as number;
   }
 
   public addDvModel(model: DVModel): void {
@@ -84,7 +83,8 @@ export class FlutterMutatorView {
     this.mutatorsStack = mutatorsStack;
     this.left = left;
     this.top = top;
-    let parameters = new DVModelParameters() as Record<string, string | number | Array<string | number> | matrix4.Matrix4Transit>;
+    let parameters =
+      new DVModelParameters() as Record<string, string | number | Array<string | number> | matrix4.Matrix4Transit>;
     parameters['marginLeft'] = left;
     parameters['marginTop'] = top;
     parameters['width'] = width;
@@ -133,4 +133,4 @@ class DVModelParam {
     this.attributes = attributes;
     this.events = events;
   }
-};
+}

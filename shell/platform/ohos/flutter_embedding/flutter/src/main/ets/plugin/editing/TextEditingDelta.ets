@@ -27,13 +27,13 @@ export class TextEditingDelta {
   private newComposingEnd: number;
 
   constructor(oldEditable: string,
-              selectionStart: number,
-              selectionEnd: number,
-              composingStart: number,
-              composingEnd: number,
-              replacementDestinationStart?: number,
-              replacementDestinationEnd?: number,
-              replacementSource?: string) {
+    selectionStart: number,
+    selectionEnd: number,
+    composingStart: number,
+    composingEnd: number,
+    replacementDestinationStart?: number,
+    replacementDestinationEnd?: number,
+    replacementSource?: string) {
     this.newSelectionStart = selectionStart;
     this.newSelectionEnd = selectionEnd;
     this.newComposingStart = composingStart;

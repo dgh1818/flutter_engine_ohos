@@ -50,9 +50,9 @@ struct XComponentStruct {
         })
     }
   }
-
 }
 
-@Builder export function BuildXComponentStruct(buildParams: BuilderParams) {
-  XComponentStruct({dvModelParams: buildParams.params});
+@Builder
+export function BuildXComponentStruct(buildParams: BuilderParams) {
+  XComponentStruct({ dvModelParams: buildParams.params });
 }

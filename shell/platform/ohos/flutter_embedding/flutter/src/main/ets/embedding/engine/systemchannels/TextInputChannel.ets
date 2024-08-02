@@ -47,10 +47,10 @@ export default class TextInputChannel {
   }
 
   createEditingStateJSON(text: string,
-                         selectionStart: number,
-                         selectionEnd: number,
-                         composingStart: number,
-                         composingEnd: number): EditingState {
+    selectionStart: number,
+    selectionEnd: number,
+    composingStart: number,
+    composingEnd: number): EditingState {
     let state: EditingState = {
       text: text,
       selectionBase: selectionStart,
@@ -77,11 +77,11 @@ export default class TextInputChannel {
    * Instructs Flutter to update its text input editing state to reflect the given configuration.
    */
   updateEditingState(inputClientId: number,
-                     text: string,
-                     selectionStart: number,
-                     selectionEnd: number,
-                     composingStart: number,
-                     composingEnd: number): void {
+    text: string,
+    selectionStart: number,
+    selectionEnd: number,
+    composingStart: number,
+    composingEnd: number): void {
     Log.d(TAG, "updateEditingState:"
       + "Text: " + text + " Selection start: " + selectionStart + " Selection end: "
       + selectionEnd + " Composing start: " + composingStart + " Composing end: " + composingEnd);
@@ -199,17 +199,17 @@ export class Configuration {
   fields: Configuration[] = [];
 
   constructor(obscureText: boolean,
-              autocorrect: boolean,
-              enableSuggestions: boolean,
-              enableIMEPersonalizedLearning: boolean,
-              enableDeltaModel: boolean,
-              textCapitalization: TextCapitalization,
-              inputType: InputType,
-              inputAction: Number,
-              actionLabel: String,
-              autofill: boolean,
-              contentListString: [],
-              fields: Configuration[]
+    autocorrect: boolean,
+    enableSuggestions: boolean,
+    enableIMEPersonalizedLearning: boolean,
+    enableDeltaModel: boolean,
+    textCapitalization: TextCapitalization,
+    inputType: InputType,
+    inputAction: Number,
+    actionLabel: String,
+    autofill: boolean,
+    contentListString: [],
+    fields: Configuration[]
   ) {
     this.obscureText = obscureText;
     this.autocorrect = autocorrect;
@@ -337,7 +337,9 @@ export class InputType {
   }
 
   static getTextInputTypeFromValue(encodedName: string): TextInputType {
-    let textKeys = ["TEXT", "DATETIME", "NAME", "POSTAL_ADDRESS", "NUMBER", "PHONE", "MULTILINE", "EMAIL_ADDRESS", "URL", "VISIBLE_PASSWORD", "NONE",];
+    let textKeys =
+      ["TEXT", "DATETIME", "NAME", "POSTAL_ADDRESS", "NUMBER", "PHONE", "MULTILINE", "EMAIL_ADDRESS", "URL",
+        "VISIBLE_PASSWORD", "NONE",];
     for (let textKey of textKeys) {
       if (TextInputType[textKey] === encodedName) {
         return textKey as TextInputType;
@@ -356,10 +358,10 @@ export class TextEditState {
   composingEnd: number;
 
   constructor(text: string,
-              selectionStart: number,
-              selectionEnd: number,
-              composingStart: number,
-              composingEnd: number) {
+    selectionStart: number,
+    selectionEnd: number,
+    composingStart: number,
+    composingEnd: number) {
     if ((selectionStart != -1 || selectionEnd != -1)
       && (selectionStart < 0 || selectionEnd < 0)) {
       throw new Error("invalid selection: (" + selectionStart + ", " + selectionEnd + ")");
@@ -400,7 +402,7 @@ export class TextEditState {
   }
 
   static fromJson(textEditState: Any): TextEditState {
-    if(textEditState.text != null && textEditState.text != undefined && textEditState.text != "") {
+    if (textEditState.text != null && textEditState.text != undefined && textEditState.text != "") {
       return new TextEditState(
         textEditState.text,
         textEditState.selectionBase,

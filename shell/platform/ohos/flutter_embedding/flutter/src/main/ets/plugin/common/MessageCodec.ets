@@ -20,7 +20,7 @@ export default interface MessageCodec<T> {
   /**
    * Encodes the specified message into binary.
    */
-  encodeMessage(message: T) : ArrayBuffer;
+  encodeMessage(message: T): ArrayBuffer;
 
   /**
    * Decodes the specified message from binary.

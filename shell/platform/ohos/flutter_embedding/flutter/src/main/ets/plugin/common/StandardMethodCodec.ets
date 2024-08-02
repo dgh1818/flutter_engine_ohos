@@ -33,7 +33,6 @@ import StandardMessageCodec from './StandardMessageCodec';
 export default class StandardMethodCodec implements MethodCodec {
   private static TAG = "StandardMethodCodec";
   public static INSTANCE = new StandardMethodCodec(StandardMessageCodec.INSTANCE);
-
   private messageCodec: StandardMessageCodec;
 
   /** Creates a new method codec based on the specified message codec. */
@@ -78,7 +77,8 @@ export default class StandardMethodCodec implements MethodCodec {
     return stream.buffer;
   }
 
-  encodeErrorEnvelopeWithStacktrace(errorCode: string, errorMessage: string, errorDetails: Any, errorStacktrace: string): ArrayBuffer {
+  encodeErrorEnvelopeWithStacktrace(errorCode: string, errorMessage: string, errorDetails: Any,
+    errorStacktrace: string): ArrayBuffer {
     const stream = ByteBuffer.from(new ArrayBuffer(1024));
     stream.writeInt8(1);
     this.messageCodec.writeValue(stream, errorCode);

@@ -54,7 +54,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
   protected textInputPlugin?: TextInputPlugin;
   protected isFlutterEngineFromHostOrCache: boolean = false;
   private engineGroup?: FlutterEngineGroup;
-  private isHost:boolean = false;
+  private isHost: boolean = false;
   private flutterView?: FlutterView
 
   constructor(host?: Host) {
@@ -109,7 +109,9 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
       initialRoute = FlutterAbilityLaunchConfigs.DEFAULT_INITIAL_ROUTE;
     }
     const libraryUri = this.host?.getDartEntrypointLibraryUri();
-    Log.d(TAG, "Executing Dart entrypoint: " + this.host?.getDartEntrypointFunctionName() + ", library uri: " + libraryUri == null ? "\"\"" : libraryUri + ", and sending initial route: " + initialRoute);
+    Log.d(TAG,
+      "Executing Dart entrypoint: " + this.host?.getDartEntrypointFunctionName() + ", library uri: " + libraryUri ==
+        null ? "\"\"" : libraryUri + ", and sending initial route: " + initialRoute);
 
     // The engine needs to receive the Flutter app's initial route before executing any
     // Dart code to ensure that the initial route arrives in time to be applied.
@@ -177,9 +179,9 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
       this.isFlutterEngineFromHostOrCache = true;
       if (this.flutterEngine == null) {
         throw new Error(
-            "The requested cached FlutterEngine did not exist in the FlutterEngineCache: '"
-                + cachedEngineId
-                + "'");
+          "The requested cached FlutterEngine did not exist in the FlutterEngineCache: '"
+            + cachedEngineId
+            + "'");
       }
       return;
     }
@@ -201,9 +203,9 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
       const flutterEngineGroup = FlutterEngineGroupCache.instance.get(cachedEngineGroupId);
       if (flutterEngineGroup == null) {
         throw new Error(
-            "The requested cached FlutterEngineGroup did not exist in the FlutterEngineGroupCache: '"
-                + cachedEngineGroupId
-                + "'");
+          "The requested cached FlutterEngineGroup did not exist in the FlutterEngineGroupCache: '"
+            + cachedEngineGroupId
+            + "'");
       }
 
       if (this.context != null) {
@@ -217,13 +219,13 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     // Our host did not provide a custom FlutterEngine. Create a FlutterEngine to back our
     // FlutterView.
     Log.d(
-        TAG,
-        "No preferred FlutterEngine was provided. Creating a new FlutterEngine for this FlutterAbility.");
+      TAG,
+      "No preferred FlutterEngine was provided. Creating a new FlutterEngine for this FlutterAbility.");
 
     let group = this.engineGroup;
     if (group == null && this.context != null) {
       group = new FlutterEngineGroup();
-      const flutterShellArgs = this.host? this.host.getFlutterShellArgs(): new FlutterShellArgs();
+      const flutterShellArgs = this.host ? this.host.getFlutterShellArgs() : new FlutterShellArgs();
       await group.checkLoader(this.context, flutterShellArgs.toArray() ?? []);
       this.engineGroup = group;
     }
@@ -331,7 +333,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
 
   }
 
-  onWindowFocusChanged(hasFocus: boolean):void {
+  onWindowFocusChanged(hasFocus: boolean): void {
     if (this.shouldDispatchAppLifecycleState()) {
       this.flutterEngine?.getAbilityControlSurface()?.onWindowFocusChanged(hasFocus);
       if (hasFocus) {
@@ -377,7 +379,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     }
   }
 
-  getFlutterNapi() : FlutterNapi | null {
+  getFlutterNapi(): FlutterNapi | null {
     return this.flutterEngine?.getFlutterNapi() ?? null
   }
 
@@ -433,7 +435,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
       wantParam[FRAMEWORK_RESTORATION_BUNDLE_KEY] = this.flutterEngine!.getRestorationChannel()!.getRestorationData();
     }
     if (this.host?.shouldAttachEngineToAbility()) {
-      const plugins:Record<string, Object> = {}
+      const plugins: Record<string, Object> = {}
       const result = this.flutterEngine?.getAbilityControlSurface()?.onSaveState(reason, plugins);
       wantParam[PLUGINS_RESTORATION_BUNDLE_KEY] = plugins;
       return result ?? AbilityConstant.OnSaveResult.ALL_REJECT

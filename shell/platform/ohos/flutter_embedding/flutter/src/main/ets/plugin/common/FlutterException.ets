@@ -24,6 +24,6 @@ export default class FlutterException implements Error {
   constructor(code: string, message: string, details: Any) {
     this.message = message;
     this.code = code;
-    this.details =details;
+    this.details = details;
   }
 }

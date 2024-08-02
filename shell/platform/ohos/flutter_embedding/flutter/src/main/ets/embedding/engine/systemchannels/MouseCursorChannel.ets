@@ -24,7 +24,6 @@ const TAG: string = 'MouseCursorChannel';
 
 export default class MouseCursorChannel implements MethodCallHandler {
   public channel: MethodChannel;
-
   private mouseCursorMethodHandler: MouseCursorMethodHandler | null = null;
 
   onMethodCall(call: MethodCall, result: MethodResult): void {

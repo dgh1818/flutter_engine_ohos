@@ -45,9 +45,8 @@ const TAG = "FlutterEngine";
 /**
  * 操作FlutterEngin相关
  */
-export default class FlutterEngine implements EngineLifecycleListener{
+export default class FlutterEngine implements EngineLifecycleListener {
   private engineLifecycleListeners = new Set<EngineLifecycleListener>();
-
   dartExecutor: DartExecutor;
   private flutterLoader: FlutterLoader;
   private assetManager: resourceManager.ResourceManager;
@@ -60,7 +59,6 @@ export default class FlutterEngine implements EngineLifecycleListener{
   private systemChannel: SystemChannel | null = null;
   private mouseCursorChannel: MouseCursorChannel | null = null;
   private restorationChannel: RestorationChannel | null = null;
-
   private accessibilityChannel: AccessibilityChannel | null = null;
   private localeChannel: LocalizationChannel | null = null;
   private flutterNapi: FlutterNapi;
@@ -80,7 +78,8 @@ export default class FlutterEngine implements EngineLifecycleListener{
    * 5、初始化flutterNapi
    * 6、engineLifecycleListeners
    */
-  constructor(context: common.Context, flutterLoader: FlutterLoader | null, flutterNapi: FlutterNapi | null, platformViewsController: PlatformViewsController | null) {
+  constructor(context: common.Context, flutterLoader: FlutterLoader | null, flutterNapi: FlutterNapi | null,
+    platformViewsController: PlatformViewsController | null) {
     const injector: FlutterInjector = FlutterInjector.getInstance();
     if (flutterNapi == null) {
       flutterNapi = FlutterInjector.getInstance().getFlutterNapi();
@@ -91,14 +90,14 @@ export default class FlutterEngine implements EngineLifecycleListener{
     this.dartExecutor = new DartExecutor(this.flutterNapi, this.assetManager);
     this.dartExecutor.onAttachedToNAPI();
 
-    if(flutterLoader == null) {
+    if (flutterLoader == null) {
       flutterLoader = injector.getFlutterLoader();
     }
     this.flutterLoader = flutterLoader;
 
     this.renderer = new FlutterRenderer(this.flutterNapi);
 
-    if(platformViewsController == null) {
+    if (platformViewsController == null) {
       platformViewsController = new PlatformViewsController();
     }
     this.platformViewsController = platformViewsController;
@@ -131,7 +130,8 @@ export default class FlutterEngine implements EngineLifecycleListener{
     if (!this.flutterNapi.isAttached()) {
       this.attachToNapi();
     }
-    this.pluginRegistry = new FlutterEngineConnectionRegistry(context.getApplicationContext(), this, this.flutterLoader);
+    this.pluginRegistry =
+      new FlutterEngineConnectionRegistry(context.getApplicationContext(), this, this.flutterLoader);
     this.localizationPlugin.sendLocaleToFlutter();
     Log.d(TAG, "Call init finished.")
   }
@@ -146,22 +146,22 @@ export default class FlutterEngine implements EngineLifecycleListener{
   }
 
   async spawn(context: common.Context,
-              dartEntrypoint: DartEntrypoint,
-              initialRoute: string,
-              dartEntrypointArgs: Array<string>,
-              platformViewsController: PlatformViewsController,
-              waitForRestorationData: boolean) {
+    dartEntrypoint: DartEntrypoint,
+    initialRoute: string,
+    dartEntrypointArgs: Array<string>,
+    platformViewsController: PlatformViewsController,
+    waitForRestorationData: boolean) {
     if (!this.isAttachedToNapi()) {
       throw new Error(
         "Spawn can only be called on a fully constructed FlutterEngine");
     }
 
     const newFlutterNapi =
-    this.flutterNapi.spawn(
-      dartEntrypoint.dartEntrypointFunctionName,
-      dartEntrypoint.dartEntrypointLibrary,
-      initialRoute,
-      dartEntrypointArgs);
+      this.flutterNapi.spawn(
+        dartEntrypoint.dartEntrypointFunctionName,
+        dartEntrypoint.dartEntrypointLibrary,
+        initialRoute,
+        dartEntrypointArgs);
     const flutterEngine = new FlutterEngine(
       context,
       null,
@@ -282,5 +282,6 @@ export default class FlutterEngine implements EngineLifecycleListener{
 
 export interface EngineLifecycleListener {
   onPreEngineRestart(): void;
+
   onEngineWillDestroy(): void;
 }

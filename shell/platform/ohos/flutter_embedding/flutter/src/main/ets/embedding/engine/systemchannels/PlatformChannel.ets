@@ -47,9 +47,9 @@ export default class PlatformChannel {
   decodeOrientations(encodedOrientations: string[]): number {
     let requestedOrientation = 0x00;
     let firstRequestedOrientation = 0x00;
-    for(let index = 0; index< encodedOrientations.length; index += 1) {
+    for (let index = 0; index < encodedOrientations.length; index += 1) {
       let encodedOrientation = encodedOrientations[index];
-      Log.d(PlatformChannel.TAG,"encodedOrientation[" + index + "]: "+encodedOrientation);
+      Log.d(PlatformChannel.TAG, "encodedOrientation[" + index + "]: " + encodedOrientation);
       let orientation = this.getDeviceOrientationFromValue(encodedOrientation);
       switch (orientation) {
         case DeviceOrientation.PORTRAIT_UP:
@@ -94,16 +94,16 @@ export default class PlatformChannel {
       case 0x0c:
       case 0x0d:
       case 0x0e:
-            switch (firstRequestedOrientation) {
-              case 0x01:
-                return bundleManager.DisplayOrientation.PORTRAIT;
-              case 0x02:
-                return bundleManager.DisplayOrientation.LANDSCAPE_INVERTED;
-              case 0x04:
-                return bundleManager.DisplayOrientation.PORTRAIT_INVERTED;
-              case 0x08:
-                return bundleManager.DisplayOrientation.LANDSCAPE;
-            }
+        switch (firstRequestedOrientation) {
+          case 0x01:
+            return bundleManager.DisplayOrientation.PORTRAIT;
+          case 0x02:
+            return bundleManager.DisplayOrientation.LANDSCAPE_INVERTED;
+          case 0x04:
+            return bundleManager.DisplayOrientation.PORTRAIT_INVERTED;
+          case 0x08:
+            return bundleManager.DisplayOrientation.LANDSCAPE;
+        }
       case 0x0f:
     }
     return bundleManager.DisplayOrientation.PORTRAIT;
@@ -129,7 +129,7 @@ export default class PlatformChannel {
   }
 
   getClipboardContentFormatFromValue(encodedName: string): ClipboardContentFormat {
-    let clipboardFormats : string[] = [ClipboardContentFormat.PLAIN_TEXT];
+    let clipboardFormats: string[] = [ClipboardContentFormat.PLAIN_TEXT];
     if (clipboardFormats.includes(encodedName as ClipboardContentFormat)) {
       return encodedName as ClipboardContentFormat;
     }
@@ -137,7 +137,7 @@ export default class PlatformChannel {
   }
 
   getSystemUiOverlayFromValue(encodedName: string): SystemUiOverlay {
-    let systemUiOverlays : string[] = [SystemUiOverlay.TOP_OVERLAYS, SystemUiOverlay.BOTTOM_OVERLAYS];
+    let systemUiOverlays: string[] = [SystemUiOverlay.TOP_OVERLAYS, SystemUiOverlay.BOTTOM_OVERLAYS];
     if (systemUiOverlays.includes(encodedName as SystemUiOverlay)) {
       return encodedName as SystemUiOverlay;
     }
@@ -145,7 +145,7 @@ export default class PlatformChannel {
   }
 
   getSystemUiModeFromValue(encodedName: string): SystemUiMode {
-    let systemUiModes : string[] = [
+    let systemUiModes: string[] = [
       SystemUiMode.LEAN_BACK, SystemUiMode.IMMERSIVE,
       SystemUiMode.IMMERSIVE_STICKY, SystemUiMode.EDGE_TO_EDGE
     ];
@@ -156,7 +156,7 @@ export default class PlatformChannel {
   }
 
   getBrightnessFromValue(encodedName: string): Brightness {
-    let brightnesses : string[] = [Brightness.LIGHT, Brightness.DARK];
+    let brightnesses: string[] = [Brightness.LIGHT, Brightness.DARK];
     if (brightnesses.includes(encodedName as Brightness)) {
       return encodedName as Brightness;
     }
@@ -173,7 +173,6 @@ export default class PlatformChannel {
     }
     throw new Error("No such DeviceOrientation: " + encodedName);
   }
-
 }
 
 export enum HapticFeedbackType {
@@ -258,12 +257,12 @@ export class SystemChromeStyle {
   public readonly systemNavigationBarContrastEnforced: boolean | null;
 
   constructor(statusBarColor: number | null,
-              statusBarIconBrightness: Brightness | null,
-              systemStatusBarContrastEnforced: boolean | null,
-              systemNavigationBarColor: number | null,
-              systemNavigationBarIconBrightness: Brightness | null,
-              systemNavigationBarDividerColor: number | null,
-              systemNavigationBarContrastEnforced: boolean | null) {
+    statusBarIconBrightness: Brightness | null,
+    systemStatusBarContrastEnforced: boolean | null,
+    systemNavigationBarColor: number | null,
+    systemNavigationBarIconBrightness: Brightness | null,
+    systemNavigationBarDividerColor: number | null,
+    systemNavigationBarContrastEnforced: boolean | null) {
     this.statusBarColor = statusBarColor;
     this.statusBarIconBrightness = statusBarIconBrightness;
     this.systemStatusBarContrastEnforced = systemStatusBarContrastEnforced;
@@ -409,7 +408,7 @@ class PlatformMethodCallback implements MethodCallHandler {
 
   private decodeSystemUiOverlays(encodedSystemUiOverlay: string[]): SystemUiOverlay[] {
     let overlays: SystemUiOverlay[] = [];
-    for(let i = 0; i < encodedSystemUiOverlay.length; i++) {
+    for (let i = 0; i < encodedSystemUiOverlay.length; i++) {
       const encodedOverlay = encodedSystemUiOverlay[i];
       const overlay = this.platform.getSystemUiOverlayFromValue(encodedOverlay);
       switch (overlay) {
@@ -451,7 +450,8 @@ class PlatformMethodCallback implements MethodCallHandler {
       statusBarColor = encodedStyle.get('statusBarColor') as number;
     }
     if (encodedStyle?.get('statusBarIconBrightness') != null) {
-      statusBarIconBrightness = this.platform.getBrightnessFromValue(encodedStyle.get('statusBarIconBrightness') as string);
+      statusBarIconBrightness =
+        this.platform.getBrightnessFromValue(encodedStyle.get('statusBarIconBrightness') as string);
     }
     if (encodedStyle?.get('systemStatusBarContrastEnforced') != null) {
       systemStatusBarContrastEnforced = encodedStyle.get('systemStatusBarContrastEnforced') as boolean;
@@ -460,7 +460,8 @@ class PlatformMethodCallback implements MethodCallHandler {
       systemNavigationBarColor = encodedStyle.get('systemNavigationBarColor') as number;
     }
     if (encodedStyle?.get('systemNavigationBarIconBrightness') != null) {
-      systemNavigationBarIconBrightness = this.platform.getBrightnessFromValue(encodedStyle.get('systemNavigationBarIconBrightness') as string);
+      systemNavigationBarIconBrightness =
+        this.platform.getBrightnessFromValue(encodedStyle.get('systemNavigationBarIconBrightness') as string);
     }
     if (encodedStyle?.get('systemNavigationBarDividerColor') != null) {
       systemNavigationBarDividerColor = encodedStyle.get('systemNavigationBarDividerColor') as number;

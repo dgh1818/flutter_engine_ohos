@@ -23,7 +23,6 @@ import Any from './Any';
 export default class MethodCall {
   /** The name of the called method. */
   method: string;
-
   /**
    * Arguments for the call.
    *

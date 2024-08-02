@@ -56,7 +56,8 @@ export class FlutterPluginBinding {
   private textureRegistry: TextureRegistry;
   private platformViewRegistry: PlatformViewRegistry;
 
-  constructor(applicationContext: common.Context, flutterEngine: FlutterEngine, binaryMessenger: BinaryMessenger, flutterAssets: FlutterAssets, textureRegistry: TextureRegistry, platformViewRegistry?: PlatformViewRegistry) {
+  constructor(applicationContext: common.Context, flutterEngine: FlutterEngine, binaryMessenger: BinaryMessenger,
+    flutterAssets: FlutterAssets, textureRegistry: TextureRegistry, platformViewRegistry?: PlatformViewRegistry) {
     this.applicationContext = applicationContext;
     this.flutterEngine = flutterEngine;
     this.binaryMessenger = binaryMessenger;
@@ -84,7 +85,7 @@ export class FlutterPluginBinding {
   getTextureRegistry(): TextureRegistry {
     return this.textureRegistry;
   }
-  
+
   public getPlatformViewRegistry(): PlatformViewRegistry {
     return this.platformViewRegistry;
   }

@@ -84,14 +84,14 @@ export default class SendableJSONMessageCodec implements SendableMessageCodec<Ob
       });
       return messageObj;
     } else if (message instanceof Array) {
-      let messageArr:Array<Any> = [];
-      message.forEach((value:Any)=>{
+      let messageArr: Array<Any> = [];
+      message.forEach((value: Any) => {
         messageArr.push(this.toBaseData(value));
       })
       return messageArr;
     } else if (message instanceof Object) {
       let messageObj: Any = {};
-      Object.keys(message).forEach((key:Any)=>{
+      Object.keys(message).forEach((key: Any) => {
         messageObj[this.toBaseData(key)] = this.toBaseData(message[key]);
       })
       return messageObj;

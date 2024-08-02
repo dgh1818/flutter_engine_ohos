@@ -58,7 +58,8 @@ export default class MethodChannel {
    * @param callback a {@link Result} callback for the invocation result, or null.
    */
   invokeMethod(method: string, args: Any, callback?: MethodResult): void {
-    this.messenger.send(this.name, this.codec.encodeMethodCall(new MethodCall(method, args)), callback == null ? null : new IncomingResultHandler(callback, this.codec));
+    this.messenger.send(this.name, this.codec.encodeMethodCall(new MethodCall(method, args)),
+      callback == null ? null : new IncomingResultHandler(callback, this.codec));
   }
 
   /**
@@ -76,7 +77,8 @@ export default class MethodChannel {
    * @param handler a {@link MethodCallHandler}, or null to deregister.
    */
   setMethodCallHandler(handler: MethodCallHandler | null): void {
-    this.messenger.setMessageHandler(this.name, handler == null ? null : new IncomingMethodCallHandler(handler, this.codec));
+    this.messenger.setMessageHandler(this.name,
+      handler == null ? null : new IncomingMethodCallHandler(handler, this.codec));
   }
 
   /**
@@ -196,7 +198,7 @@ export class IncomingMethodCallHandler implements BinaryMessageHandler {
         },
 
         notImplemented: (): void => {
-          Log.w(MethodChannel.TAG,"method not implemented");
+          Log.w(MethodChannel.TAG, "method not implemented");
           reply.reply(StringUtils.stringToArrayBuffer(""));
         }
       });

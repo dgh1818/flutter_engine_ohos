@@ -25,7 +25,7 @@ export class RawPointerCoords {
   private y: number = 0;
 
   constructor(orientation: number, pressure: number, size: number, toolMajor: number, toolMinor: number,
-              touchMajor: number, touchMinor: number, x: number, y: number) {
+    touchMajor: number, touchMinor: number, x: number, y: number) {
     this.orientation = orientation;
     this.pressure = pressure;
     this.size = size;

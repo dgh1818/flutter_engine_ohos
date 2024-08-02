@@ -69,10 +69,13 @@ export default class EventChannel {
     // See https://github.com/flutter/flutter/issues/92582.
     if (this.taskQueue != null) {
       this.messenger.setMessageHandler(
-        this.name, handler == null ? null : new IncomingStreamRequestHandler(handler, this.name, this.codec, this.messenger), this.taskQueue);
+        this.name,
+        handler == null ? null : new IncomingStreamRequestHandler(handler, this.name, this.codec, this.messenger),
+        this.taskQueue);
     } else {
       this.messenger.setMessageHandler(
-        this.name, handler == null ? null : new IncomingStreamRequestHandler(handler, this.name, this.codec, this.messenger));
+        this.name,
+        handler == null ? null : new IncomingStreamRequestHandler(handler, this.name, this.codec, this.messenger));
     }
   }
 }

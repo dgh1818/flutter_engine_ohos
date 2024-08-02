@@ -20,8 +20,12 @@ import ExclusiveAppComponent from '../../../ohos/ExclusiveAppComponent';
 
 export default interface ActivityControlSurface {
   attachToAbility(exclusiveActivity: ExclusiveAppComponent<UIAbility>): void;
+
   detachFromAbility(): void;
+
   onNewWant(want: Want, launchParams: AbilityConstant.LaunchParam): void;
+
   onWindowFocusChanged(hasFocus: boolean): void;
+
   onSaveState(reason: AbilityConstant.StateType, wantParam: Record<string, Object>): AbilityConstant.OnSaveResult;
 }

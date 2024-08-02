@@ -16,6 +16,7 @@ import { lang } from '@kit.ArkTS';
 import { BinaryReply } from './BinaryMessenger';
 
 type ISendable = lang.ISendable;
+
 export default interface SendableBinaryMessageHandler extends ISendable {
   onMessage(message: ArrayBuffer, reply: BinaryReply, ...args: Object[]): void;
 }

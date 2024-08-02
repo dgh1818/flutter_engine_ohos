@@ -18,9 +18,9 @@ import { TouchEvent } from '@ohos.multimodalInput.touchEvent';
 import Queue from '@ohos.util.Queue';
 
 export class TouchEventTracker {
-  private eventById : PlainArray<TouchEvent>;
-  private unusedEvents : Queue<number>;
-  private static INSTANCE:TouchEventTracker;
+  private eventById: PlainArray<TouchEvent>;
+  private unusedEvents: Queue<number>;
+  private static INSTANCE: TouchEventTracker;
 
   public static getInstance(): TouchEventTracker {
     if (TouchEventTracker.INSTANCE == null) {
@@ -35,8 +35,8 @@ export class TouchEventTracker {
   }
 
   /** Tracks the event and returns a unique MotionEventId identifying the event. */
-  public track(event :TouchEvent) : TouchEventId {
-    const eventId:TouchEventId = TouchEventId.createUnique();
+  public track(event: TouchEvent): TouchEventId {
+    const eventId: TouchEventId = TouchEventId.createUnique();
     this.eventById.add(eventId.getId(), event);
     this.unusedEvents.add(eventId.getId());
     return eventId;
@@ -47,7 +47,7 @@ export class TouchEventTracker {
    * that occurred prior to the event represented by the eventId. Returns null if this event was
    * popped or discarded.
    */
-  public pop(eventId : TouchEventId) : TouchEvent {
+  public pop(eventId: TouchEventId): TouchEvent {
     // remove all the older events.
     while (this.unusedEvents.length != 0 && this.unusedEvents.getFirst() < eventId.getId()) {
       this.eventById.remove(this.unusedEvents.pop());
@@ -58,7 +58,7 @@ export class TouchEventTracker {
       this.unusedEvents.pop();
     }
 
-    const event : TouchEvent = this.eventById.get(eventId.getId());
+    const event: TouchEvent = this.eventById.get(eventId.getId());
     this.eventById.remove(eventId.getId());
     return event;
   }
@@ -66,22 +66,22 @@ export class TouchEventTracker {
 
 /** Represents a unique identifier corresponding to a motion event. */
 export class TouchEventId {
-  private static ID_COUNTER : number = 0;
-  private id : number;
+  private static ID_COUNTER: number = 0;
+  private id: number;
 
-  constructor(id : number) {
+  constructor(id: number) {
     this.id = id;
   }
 
-  public static from(id : number) : TouchEventId {
+  public static from(id: number): TouchEventId {
     return new TouchEventId(id);
   }
 
-  public static createUnique() : TouchEventId {
+  public static createUnique(): TouchEventId {
     return new TouchEventId(TouchEventId.ID_COUNTER++);
   }
 
-  public getId() : number {
+  public getId(): number {
     return this.id;
   }
 }

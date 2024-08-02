@@ -66,21 +66,36 @@ export default class FlutterShellArgs {
    */
   static fromWant(want: Want): FlutterShellArgs {
     let flutterShellArgs: FlutterShellArgs = new FlutterShellArgs();
-    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_TRACE_STARTUP, FlutterShellArgs.ARG_TRACE_STARTUP, want, flutterShellArgs);
-    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_START_PAUSED, FlutterShellArgs.ARG_START_PAUSED, want, flutterShellArgs);
-    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_DISABLE_SERVICE_AUTH_CODES, FlutterShellArgs.ARG_DISABLE_SERVICE_AUTH_CODES, want, flutterShellArgs);
-    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_ENDLESS_TRACE_BUFFER, FlutterShellArgs.ARG_ENDLESS_TRACE_BUFFER, want, flutterShellArgs);
-    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_USE_TEST_FONTS, FlutterShellArgs.ARG_USE_TEST_FONTS, want, flutterShellArgs);
-    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_ENABLE_DART_PROFILING, FlutterShellArgs.ARG_ENABLE_DART_PROFILING, want, flutterShellArgs);
-    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_ENABLE_SOFTWARE_RENDERING, FlutterShellArgs.ARG_ENABLE_SOFTWARE_RENDERING, want, flutterShellArgs);
-    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_SKIA_DETERMINISTIC_RENDERING, FlutterShellArgs.ARG_SKIA_DETERMINISTIC_RENDERING, want, flutterShellArgs);
-    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_TRACE_SKIA, FlutterShellArgs.ARG_TRACE_SKIA, want, flutterShellArgs);
-    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_TRACE_SYSTRACE, FlutterShellArgs.ARG_TRACE_SYSTRACE, want, flutterShellArgs);
-    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_ENABLE_IMPELLER, FlutterShellArgs.ARG_ENABLE_IMPELLER, want, flutterShellArgs);
-    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_DUMP_SHADER_SKP_ON_SHADER_COMPILATION, FlutterShellArgs.ARG_DUMP_SHADER_SKP_ON_SHADER_COMPILATION, want, flutterShellArgs);
-    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_CACHE_SKSL, FlutterShellArgs.ARG_CACHE_SKSL, want, flutterShellArgs);
-    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_PURGE_PERSISTENT_CACHE, FlutterShellArgs.ARG_PURGE_PERSISTENT_CACHE, want, flutterShellArgs);
-    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_VERBOSE_LOGGING, FlutterShellArgs.ARG_VERBOSE_LOGGING, want, flutterShellArgs);
+    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_TRACE_STARTUP, FlutterShellArgs.ARG_TRACE_STARTUP, want,
+      flutterShellArgs);
+    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_START_PAUSED, FlutterShellArgs.ARG_START_PAUSED, want,
+      flutterShellArgs);
+    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_DISABLE_SERVICE_AUTH_CODES,
+      FlutterShellArgs.ARG_DISABLE_SERVICE_AUTH_CODES, want, flutterShellArgs);
+    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_ENDLESS_TRACE_BUFFER, FlutterShellArgs.ARG_ENDLESS_TRACE_BUFFER,
+      want, flutterShellArgs);
+    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_USE_TEST_FONTS, FlutterShellArgs.ARG_USE_TEST_FONTS, want,
+      flutterShellArgs);
+    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_ENABLE_DART_PROFILING,
+      FlutterShellArgs.ARG_ENABLE_DART_PROFILING, want, flutterShellArgs);
+    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_ENABLE_SOFTWARE_RENDERING,
+      FlutterShellArgs.ARG_ENABLE_SOFTWARE_RENDERING, want, flutterShellArgs);
+    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_SKIA_DETERMINISTIC_RENDERING,
+      FlutterShellArgs.ARG_SKIA_DETERMINISTIC_RENDERING, want, flutterShellArgs);
+    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_TRACE_SKIA, FlutterShellArgs.ARG_TRACE_SKIA, want,
+      flutterShellArgs);
+    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_TRACE_SYSTRACE, FlutterShellArgs.ARG_TRACE_SYSTRACE, want,
+      flutterShellArgs);
+    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_ENABLE_IMPELLER, FlutterShellArgs.ARG_ENABLE_IMPELLER, want,
+      flutterShellArgs);
+    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_DUMP_SHADER_SKP_ON_SHADER_COMPILATION,
+      FlutterShellArgs.ARG_DUMP_SHADER_SKP_ON_SHADER_COMPILATION, want, flutterShellArgs);
+    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_CACHE_SKSL, FlutterShellArgs.ARG_CACHE_SKSL, want,
+      flutterShellArgs);
+    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_PURGE_PERSISTENT_CACHE,
+      FlutterShellArgs.ARG_PURGE_PERSISTENT_CACHE, want, flutterShellArgs);
+    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_VERBOSE_LOGGING, FlutterShellArgs.ARG_VERBOSE_LOGGING, want,
+      flutterShellArgs);
 
     let skia_allow_list: Object = want.parameters![FlutterShellArgs.ARG_KEY_TRACE_SKIA_ALLOWLIST];
     if (skia_allow_list != undefined) {
