@@ -21,7 +21,8 @@ import JSONMethodCodec from '../../../plugin/common/JSONMethodCodec';
 import intl from '@ohos.intl';
 import Log from '../../../util/Log';
 
-const TAG =  "LocalizationChannel";
+const TAG = "LocalizationChannel";
+
 export default class LocalizationChannel implements MethodCallHandler{
   private static TAG = "LocalizationChannel";
   private static CHANNEL_NAME = "flutter/localization";
@@ -46,8 +47,8 @@ export default class LocalizationChannel implements MethodCallHandler{
         break;
       }
       default: {
-          result.notImplemented();
-          break;
+        result.notImplemented();
+        break;
       }
     }
   }
@@ -61,8 +62,8 @@ export default class LocalizationChannel implements MethodCallHandler{
     this.localizationMessageHandler = localizationMessageHandler;
   }
 
-  sendLocales(locales: Array<string>): void {
-    let data: Array<string> = [];
+  sendLocales(locales: string[]): void {
+    let data: string[] = [];
     for (let i = 0 ; i < locales.length ; i++) {
       let locale = new intl.Locale(locales[i]);
       data.push(locale.language);

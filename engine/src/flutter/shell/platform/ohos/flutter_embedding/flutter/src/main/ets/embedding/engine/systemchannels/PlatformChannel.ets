@@ -39,9 +39,9 @@ export default class PlatformChannel {
     this.platformMessageHandler = platformMessageHandler;
   }
 
-  systemChromeChanged(overlaysAreVisible: boolean): void {
+  systemChromeChanged(areOverlaysVisible: boolean): void {
     Log.d(PlatformChannel.TAG, "Sending 'systemUIChange' message.");
-    this.channel.invokeMethod("SystemChrome.systemUIChange", [overlaysAreVisible]);
+    this.channel.invokeMethod("SystemChrome.systemUIChange", [areOverlaysVisible]);
   }
 
   decodeOrientations(encodedOrientations: string[]): number {
@@ -129,7 +129,7 @@ export default class PlatformChannel {
   }
 
   getClipboardContentFormatFromValue(encodedName: string): ClipboardContentFormat {
-    let clipboardFormats : string[]= [ClipboardContentFormat.PLAIN_TEXT];
+    let clipboardFormats : string[] = [ClipboardContentFormat.PLAIN_TEXT];
     if (clipboardFormats.includes(encodedName as ClipboardContentFormat)) {
       return encodedName as ClipboardContentFormat;
     }
