@@ -29,7 +29,6 @@ import StringUtils from './StringUtils'
  *
  */
 export class ByteBuffer {
-
   /**
    * Creates a byte buffer.
    * @param source The data source.
@@ -39,7 +38,8 @@ export class ByteBuffer {
    */
   static from(source: ArrayBuffer, byteOffset?: number, byteLength?: number): ByteBuffer {
     const byteBuffer = new ByteBuffer()
-    byteBuffer.dataView = byteLength === undefined ? new DataView(source, byteOffset) : new DataView(source, byteOffset, Math.min(source.byteLength, byteLength))
+    byteBuffer.dataView = byteLength === undefined ? new DataView(source, byteOffset) :
+      new DataView(source, byteOffset, Math.min(source.byteLength, byteLength))
     byteBuffer.mByteOffset = byteBuffer.dataView.byteOffset
     return byteBuffer
   }
@@ -48,7 +48,6 @@ export class ByteBuffer {
    * The dataView.
    */
   private dataView?: DataView
-
   /**
    * The byte offset.
    */
@@ -780,7 +779,7 @@ export class ByteBuffer {
       this.checkWriteCapacity(byteLength)
     }
     const destination = this.getUint8Array(byteOffset, byteLength)
-    const written  = encoder.encodeInto(value, destination).written
+    const written = encoder.encodeInto(value, destination).written
     return written || 0
   }
 
@@ -801,7 +800,7 @@ export class ByteBuffer {
    */
   toString(format?: string): string {
     return [...this.getUint8Array(0)].map((byte: number) => {
-      switch(format) {
+      switch (format) {
         case "hex":
           return ("00" + byte.toString(16)).slice(-2)
         default:

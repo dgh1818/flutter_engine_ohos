@@ -1,17 +1,17 @@
- /*
- * Copyright (C) Huawei Technologies Co., Ltd. 2024.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/*
+* Copyright (C) Huawei Technologies Co., Ltd. 2024.
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*     http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
 
 export class KeyPair {
   public physicalKey: number;
@@ -34,7 +34,6 @@ export class ModifierGoal {
 }
 
 export default class KeyboardMap {
-
   /**  Map OH KeyCode to Flutter LogicalKey. */
   public static toLogicalKey: Map<number, number> =
     new Map<number, number>([
@@ -235,12 +234,11 @@ export default class KeyboardMap {
       [0x00000000017, 0x00100000A11], // audioVolumeMute
       [0x00000000004, 0x00100001004] // endCall
     ]);
-
   /** Map OH KeyCode to Flutter PhysicalKey.
-    * Should map OH ScanCode to Flutter PhysicalKey, but we use KeyCode here
-    * instead since there is no ScanCode in OH KeyEvent yet. There may be some
-    * mistakes and should correct the map as soon as we can access ScanCode.
-  */
+   * Should map OH ScanCode to Flutter PhysicalKey, but we use KeyCode here
+   * instead since there is no ScanCode in OH KeyEvent yet. There may be some
+   * mistakes and should correct the map as soon as we can access ScanCode.
+   */
   public static toPhysicalKey: Map<number, number> =
     new Map<number, number>([
       [0x000000007D0, 0x00000070027], // digit0
@@ -414,7 +412,6 @@ export default class KeyboardMap {
       [0x00000000B0F, 0x00000000014], // suspend
       [0x00000000017, 0x0000007007F] // audioVolumeMute
     ]);
-
   /* Map Oh KeyCode to ScanCode since cannot access ScanCode directly from KeyEvent */
   public static ohKeyToScanCode: Map<number, number> =
     new Map<number, number>([
@@ -584,11 +581,9 @@ export default class KeyboardMap {
       [0x00000000B0F, 0x000000000CD], // suspend
       [0x00000000017, 0x00000000071], // audioVolumeMute
     ]);
-
   public static kValueMask: number = 0x000FFFFFFFF;
   public static kUnicodePlane: number = 0x00000000000;
   public static kOhosPlane: number = 0x01900000000;
-
   public static modifierGoals: ModifierGoal[] = [
     new ModifierGoal(
       "Ctrl",

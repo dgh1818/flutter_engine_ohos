@@ -15,11 +15,12 @@
 import { lang } from '@kit.ArkTS';
 
 type ISendable = lang.ISendable;
+
 export default interface SendableMessageCodec<T> extends ISendable {
   /**
    * Encodes the specified message into binary.
    */
-  encodeMessage(message: T) : ArrayBuffer;
+  encodeMessage(message: T): ArrayBuffer;
 
   /**
    * Decodes the specified message from binary.

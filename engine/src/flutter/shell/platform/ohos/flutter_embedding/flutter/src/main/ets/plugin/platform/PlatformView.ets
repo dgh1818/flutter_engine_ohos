@@ -17,13 +17,14 @@ import { DVModel, DynamicView } from '../../view/DynamicView/dynamicView'
 
 export declare class Params {
   direction: Direction
-  platformView : PlatformView
+  platformView: PlatformView
 }
 
 /** A handle to an DynamicView to be embedded in the Flutter hierarchy. */
 export default abstract class PlatformView {
   /** Returns the DynamicView to be embedded in the Flutter hierarchy. */
   abstract getView(): WrappedBuilder<[Params]>;
+
   /**
    * Called by the {@link io.flutter.embedding.engine.FlutterEngine} that owns this {@code
    * PlatformView} when the DynamicView responsible for rendering a Flutter UI is
@@ -38,7 +39,8 @@ export default abstract class PlatformView {
    * depending on this {@link View} will tend to make platform view code more brittle to future
    * changes.
    */
-  onFlutterViewAttached(dvModel: DVModel): void {}
+  onFlutterViewAttached(dvModel: DVModel): void {
+  }
 
   /**
    * Called by the {@link io.flutter.embedding.engine.FlutterEngine} that owns this {@code
@@ -51,7 +53,8 @@ export default abstract class PlatformView {
    * <p>This platform view must release any references related to the DynamicView that was
    * provided in {@link #onFlutterViewAttached(View)}.
    */
-  onFlutterViewDetached(): void {}
+  onFlutterViewDetached(): void {
+  }
 
   /**
    * Dispose this platform view.
@@ -72,7 +75,8 @@ export default abstract class PlatformView {
    * <p>This hook only exists for rare cases where the plugin relies on the state of the input
    * connection. This probably doesn't need to be implemented.
    */
-  onInputConnectionLocked(): void {}
+  onInputConnectionLocked(): void {
+  }
 
   /**
    * Callback fired when the platform input connection has been unlocked.
@@ -80,5 +84,6 @@ export default abstract class PlatformView {
    * <p>This hook only exists for rare cases where the plugin relies on the state of the input
    * connection. This probably doesn't need to be implemented.
    */
-  onInputConnectionUnlocked(): void {}
+  onInputConnectionUnlocked(): void {
+  }
 }

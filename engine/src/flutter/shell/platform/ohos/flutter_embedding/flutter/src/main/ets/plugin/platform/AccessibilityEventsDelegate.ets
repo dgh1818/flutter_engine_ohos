@@ -32,7 +32,7 @@ export class AccessibilityEventsDelegate {
     return true;
   }
 
-  setAccessibilityBridge (accessibilityBridge: AccessibilityBridge): void {
+  setAccessibilityBridge(accessibilityBridge: AccessibilityBridge): void {
     this.accessibilityBridge = accessibilityBridge;
   }
 }

@@ -15,6 +15,7 @@
 import Any from './Any';
 
 import MethodCall from './MethodCall';
+
 /**
  * A codec for method calls and enveloped results.
  *
@@ -75,7 +76,8 @@ export default interface MethodCodec {
    * @return a {@link ByteBuffer} containing the encoding between position 0 and the current
    *     position.
    */
-  encodeErrorEnvelopeWithStacktrace(errorCode: string, errorMessage: string, errorDetails: Any, errorStacktrace: string): ArrayBuffer
+  encodeErrorEnvelopeWithStacktrace(errorCode: string, errorMessage: string, errorDetails: Any,
+    errorStacktrace: string): ArrayBuffer
 
   /**
    * Decodes a result envelope from binary.

@@ -17,8 +17,8 @@ export class CustomTouchEvent implements TouchEvent {
   type: TouchType = 0;
   touches: CustomTouchObject[];
   changedTouches: CustomTouchObject[];
-  stopPropagation: () => void = () => {};
-
+  stopPropagation: () => void = () => {
+  };
   timestamp: number;
   source: SourceType;
   pressure: number;
@@ -26,7 +26,8 @@ export class CustomTouchEvent implements TouchEvent {
   tiltY: number;
   sourceTool: SourceTool;
 
-  constructor(type: TouchType, touches: CustomTouchObject[], changedTouches: CustomTouchObject[], timestamp: number, source: SourceType, pressure: number, tiltX: number, tiltY: number, sourceTool: SourceTool) {
+  constructor(type: TouchType, touches: CustomTouchObject[], changedTouches: CustomTouchObject[], timestamp: number,
+    source: SourceType, pressure: number, tiltX: number, tiltY: number, sourceTool: SourceTool) {
     this.type = type;
     this.touches = touches;
     this.changedTouches = changedTouches;
@@ -38,13 +39,14 @@ export class CustomTouchEvent implements TouchEvent {
     this.sourceTool = sourceTool;
   }
 
-  preventDefault: () => void = () => {};
+  preventDefault: () => void = () => {
+  };
 
   getModifierKeyState(keys: string[]): boolean {
     throw new Error('Method not implemented.');
   }
 
-  target: EventTarget = new CustomEventTarget(new CustomArea(0, 0, {x: 0, y: 0}, {x: 0, y: 0}));
+  target: EventTarget = new CustomEventTarget(new CustomArea(0, 0, { x: 0, y: 0 }, { x: 0, y: 0 }));
 
   getHistoricalPoints(): HistoricalPoint[] {
     throw new Error('Method not implemented.');
@@ -52,7 +54,7 @@ export class CustomTouchEvent implements TouchEvent {
 }
 
 class CustomEventTarget implements EventTarget {
-  area: Area = new CustomArea(0, 0, {x: 0, y: 0}, {x: 0, y: 0});
+  area: Area = new CustomArea(0, 0, { x: 0, y: 0 }, { x: 0, y: 0 });
 
   constructor(area: Area) {
     this.area = area;
@@ -62,8 +64,8 @@ class CustomEventTarget implements EventTarget {
 class CustomArea implements Area {
   width: Length = 0;
   height: Length = 0;
-  position: Position = {x: 0, y: 0};
-  globalPosition: Position = {x: 0, y: 0};
+  position: Position = { x: 0, y: 0 };
+  globalPosition: Position = { x: 0, y: 0 };
 
   constructor(width: Length, height: Length, position: Position, globalPosition: Position) {
     this.width = width;
@@ -85,7 +87,8 @@ export class CustomTouchObject implements TouchObject {
   x: number;
   y: number;
 
-  constructor(type: TouchType, id: number, displayX: number, displayY: number, windowX: number, windowY: number, screenX: number, screenY: number, x: number, y: number) {
+  constructor(type: TouchType, id: number, displayX: number, displayY: number, windowX: number, windowY: number,
+    screenX: number, screenY: number, x: number, y: number) {
     this.type = type;
     this.id = id;
     this.displayX = displayX;

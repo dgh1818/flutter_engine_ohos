@@ -13,20 +13,23 @@
 * limitations under the License.
 */
 
-import LocalizationChannel, { LocalizationMessageHandler } from '../../embedding/engine/systemchannels/LocalizationChannel'
+import LocalizationChannel, {
+  LocalizationMessageHandler
+} from '../../embedding/engine/systemchannels/LocalizationChannel'
 import common from '@ohos.app.ability.common';
 import intl from '@ohos.intl';
 import Log from '../../util/Log';
 import i18n from '@ohos.i18n';
 
-const TAG =  "LocalizationPlugin";
+const TAG = "LocalizationPlugin";
+
 export default class LocalizationPlugin {
-  private localizationChannel:LocalizationChannel;
+  private localizationChannel: LocalizationChannel;
   private context: common.Context;
 
   localeFromString(localeString: string): intl.Locale {
-    localeString = localeString.replace('_','-');
-    let parts: string[] = localeString.split('-',-1);
+    localeString = localeString.replace('_', '-');
+    let parts: string[] = localeString.split('-', -1);
     let languageCode = parts[0];
     let scriptCode = "";
     let countryCode = "";
@@ -41,10 +44,10 @@ export default class LocalizationPlugin {
       countryCode = parts[index];
       index++;
     }
-    return new intl.Locale(languageCode+'-'+ countryCode +'-' + scriptCode);
+    return new intl.Locale(languageCode + '-' + countryCode + '-' + scriptCode);
   }
 
-  private localizationMessageHandler: LocalizationMessageHandler =new enterGetStringResource(()=>{
+  private localizationMessageHandler: LocalizationMessageHandler = new enterGetStringResource(() => {
     Log.i(TAG, "getResource enter");
     return ""
   })
@@ -63,10 +66,10 @@ export default class LocalizationPlugin {
   }
 }
 
-class enterGetStringResource{
-  getStringResource : (key: string, localeString: string)=>string
+class enterGetStringResource {
+  getStringResource: (key: string, localeString: string) => string
 
-  constructor(getStringResource: (key: string, localeString: string)=>string) {
+  constructor(getStringResource: (key: string, localeString: string) => string) {
     this.getStringResource = getStringResource
   }
 }

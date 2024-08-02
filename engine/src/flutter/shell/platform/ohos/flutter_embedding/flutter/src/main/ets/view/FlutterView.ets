@@ -70,7 +70,8 @@ export class PlatformViewParas {
 export class FlutterView {
   private flutterEngine: FlutterEngine | null = null
   private id: string = ""
-  private dVModel: DVModel = new DVModel("Stack", new DVModelParameters(), new DVModelEvents(), new DVModelChildren(), null);
+  private dVModel: DVModel =
+    new DVModel("Stack", new DVModelParameters(), new DVModelEvents(), new DVModelChildren(), null);
   private wrapBuilder: WrappedBuilder<[Params]> | undefined = undefined;
   private platformView: PlatformView | undefined = undefined;
   private isSurfaceAvailableForRendering: boolean = false
@@ -110,7 +111,7 @@ export class FlutterView {
     });
   }
 
-  private  windowSizeChangeCallback= (data: window.Size) => {
+  private windowSizeChangeCallback = (data: window.Size) => {
     Log.i(TAG, "windowSizeChangeCallback");
     this.onAreaChange(null);
   }
@@ -281,15 +282,15 @@ export class FlutterView {
   // At the bottom of the single-frame phone is an AI assistant wake-up bar
   // The area can lead to confusing gestures in repetitive areas without handled properly
   private onAiBarAreaChange() {
-    let navigationAvoidArea = 
+    let navigationAvoidArea =
       this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR);
-    if(this.checkAiBar && navigationAvoidArea != null) {
+    if (this.checkAiBar && navigationAvoidArea != null) {
       this.viewportMetrics.physicalViewInsetBottom = navigationAvoidArea.bottomRect.height
     } else {
       this.viewportMetrics.physicalViewInsetBottom = 0
     }
   }
-  
+
   private onKeyboardAreaChange() {
     if (this.checkKeyboard) {
       let keyboardAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_KEYBOARD);

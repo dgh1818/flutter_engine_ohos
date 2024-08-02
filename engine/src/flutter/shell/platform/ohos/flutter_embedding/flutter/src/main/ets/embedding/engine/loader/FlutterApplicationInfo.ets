@@ -38,12 +38,12 @@ export default class FlutterApplicationInfo {
   isProfile: boolean;
 
   constructor(aotSharedLibraryName: string | null,
-              vmSnapshotData: string | null,
-              isolateSnapshotData: string | null,
-              flutterAssetsDir: string | null,
-              domainNetworkPolicy: string | null,
-              nativeLibraryDir: string,
-              automaticallyRegisterPlugins: boolean) {
+    vmSnapshotData: string | null,
+    isolateSnapshotData: string | null,
+    flutterAssetsDir: string | null,
+    domainNetworkPolicy: string | null,
+    nativeLibraryDir: string,
+    automaticallyRegisterPlugins: boolean) {
     this.aotSharedLibraryName = aotSharedLibraryName == null ? DEFAULT_AOT_SHARED_LIBRARY_NAME : aotSharedLibraryName;
     this.vmSnapshotData = vmSnapshotData == null ? DEFAULT_VM_SNAPSHOT_DATA : vmSnapshotData;
     this.isolateSnapshotData = isolateSnapshotData == null ? DEFAULT_ISOLATE_SNAPSHOT_DATA : isolateSnapshotData;

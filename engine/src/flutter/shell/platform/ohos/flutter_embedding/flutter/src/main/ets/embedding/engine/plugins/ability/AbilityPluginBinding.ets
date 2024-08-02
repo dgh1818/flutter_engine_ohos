@@ -19,6 +19,7 @@ import AbilityConstant from '@ohos.app.ability.AbilityConstant';
 
 export interface AbilityPluginBinding {
   getAbility(): UIAbility;
+
   /**
    * Adds a listener that is invoked whenever the associated {@link ohos.app.ability.UIAbility}'s {@code
    * onNewWant(...)} method is invoked.

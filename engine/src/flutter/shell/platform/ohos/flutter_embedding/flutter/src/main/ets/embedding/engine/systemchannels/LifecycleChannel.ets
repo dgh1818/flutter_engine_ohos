@@ -24,17 +24,14 @@ import BasicMessageChannel from '../../../plugin/common/BasicMessageChannel';
 export default class LifecycleChannel {
   private static TAG = "LifecycleChannel";
   private static CHANNEL_NAME = "flutter/lifecycle";
-
   // These should stay in sync with the AppLifecycleState enum in the framework.
   private static RESUMED = "AppLifecycleState.resumed";
   private static INACTIVE = "AppLifecycleState.inactive";
   private static PAUSED = "AppLifecycleState.paused";
   private static DETACHED = "AppLifecycleState.detached";
-
   private lastOhosState = "";
   private lastFlutterState = "";
   private lastFocus = true;
-
   private channel: BasicMessageChannel<string>;
 
   constructor(dartExecutor: DartExecutor) {

@@ -30,8 +30,7 @@ import FlutterEngineConfigurator from './FlutterEngineConfigurator';
 const TAG = "FlutterEntry";
 
 export default class FlutterEntry implements Host {
-  private static ARG_SHOULD_ATTACH_ENGINE_TO_ABILITY: string =  "should_attach_engine_to_ability";
-
+  private static ARG_SHOULD_ATTACH_ENGINE_TO_ABILITY: string = "should_attach_engine_to_ability";
   protected uiAbility: UIAbility | null = null
   protected delegate: FlutterAbilityAndEntryDelegate | null = null
   protected flutterView: FlutterView | null = null
@@ -160,7 +159,8 @@ export default class FlutterEntry implements Host {
   }
 
   shouldDestroyEngineWithHost(): boolean {
-    if ((this.getCachedEngineId() != null && this.getCachedEngineId().length > 0) || this.delegate!!.isFlutterEngineFromHost()) {
+    if ((this.getCachedEngineId() != null && this.getCachedEngineId().length > 0) ||
+    this.delegate!!.isFlutterEngineFromHost()) {
       // Only destroy a cached engine if explicitly requested by app developer.
       return false;
     }

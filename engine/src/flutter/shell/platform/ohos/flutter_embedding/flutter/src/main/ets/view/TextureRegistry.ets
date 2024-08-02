@@ -17,10 +17,14 @@ import image from '@ohos.multimedia.image';
 export interface TextureRegistry {
 
   getTextureId(): number;
+
   registerTexture(textureId: number): SurfaceTextureEntry;
+
   registerPixelMap(pixelMap: PixelMap): number;
+
   unregisterTexture(textureId: number): void;
-  onTrimMemory(level: number) : void;
+
+  onTrimMemory(level: number): void;
 }
 
 export interface SurfaceTextureEntry {
@@ -36,5 +40,5 @@ export interface OnFrameConsumedListener {
 }
 
 export interface OnTrimMemoryListener {
-  onTrimMemory(level: number) : void;
+  onTrimMemory(level: number): void;
 }

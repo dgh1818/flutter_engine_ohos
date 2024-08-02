@@ -22,7 +22,6 @@ enum BackgroundMode {
 }
 
 export default class FlutterAbilityLaunchConfigs {
-
   static DART_ENTRYPOINT_META_DATA_KEY = "io.flutter.Entrypoint";
   static DART_ENTRYPOINT_URI_META_DATA_KEY = "io.flutter.EntrypointUri";
   static INITIAL_ROUTE_META_DATA_KEY = "io.flutter.InitialRoute";
@@ -38,7 +37,6 @@ export default class FlutterAbilityLaunchConfigs {
   static EXTRA_CACHED_ENGINE_GROUP_ID = "cached_engine_group_id";
   static EXTRA_DESTROY_ENGINE_WITH_ACTIVITY = "destroy_engine_with_activity";
   static EXTRA_ENABLE_STATE_RESTORATION = "enable_state_restoration";
-
   // Default configuration.
   static DEFAULT_DART_ENTRYPOINT = "main";
   static DEFAULT_INITIAL_ROUTE = "/";

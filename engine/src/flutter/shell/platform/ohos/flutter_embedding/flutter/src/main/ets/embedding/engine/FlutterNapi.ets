@@ -45,36 +45,35 @@ export default class FlutterNapi {
   private static hasInit: boolean = false;
   //是否已实现
   hasImplemented: boolean = false;
-
   nativeShellHolderId: number | null = null;
   platformMessageHandler: PlatformMessageHandler | null = null;
   private engineLifecycleListeners = new Set<EngineLifecycleListener>();
   accessibilityDelegate: AccessibilityDelegate | null = null;
   localizationPlugin: LocalizationPlugin | null = null;
-
   isDisplayingFlutterUi: boolean = false;
+
   /**
    * 更新刷新率
    * @param rate
    */
-  updateRefreshRate(refreshRateFPS : number) {
+  updateRefreshRate(refreshRateFPS: number) {
     flutter.nativeUpdateRefreshRate(refreshRateFPS);
   }
 
-  updateSize(width : number, height : number) {
+  updateSize(width: number, height: number) {
     flutter.nativeUpdateSize(width, height);
   }
 
-  updateDensity(densityPixels : number) {
+  updateDensity(densityPixels: number) {
     flutter.nativeUpdateDensity(densityPixels);
   }
 
   init(context: common.Context,
-       args: Array<string>,
-       bundlePath: string,
-       appStoragePath: string,
-       engineCachesPath: string,
-       initTimeMillis: number) {
+    args: Array<string>,
+    bundlePath: string,
+    appStoragePath: string,
+    engineCachesPath: string,
+    initTimeMillis: number) {
     if (FlutterNapi.hasInit) {
       Log.e(TAG, "the engine has init");
       return;
@@ -115,8 +114,10 @@ export default class FlutterNapi {
       Log.e(TAG, "runBundleAndSnapshotFromLibrary fail, FlutterNapi.hasInit=" + FlutterNapi.hasInit);
       return;
     }
-    Log.i(TAG, "init: bundlePath=" + bundlePath + "  entrypointFunctionName=" + entrypointFunctionName + "  pathToEntrypointFunction=" + pathToEntrypointFunction + "  entrypointArgs=" + JSON.stringify(entrypointArgs))
-    flutter.nativeRunBundleAndSnapshotFromLibrary(this.nativeShellHolderId!, bundlePath, entrypointFunctionName, pathToEntrypointFunction, assetManager, entrypointArgs);
+    Log.i(TAG, "init: bundlePath=" + bundlePath + "  entrypointFunctionName=" + entrypointFunctionName +
+      "  pathToEntrypointFunction=" + pathToEntrypointFunction + "  entrypointArgs=" + JSON.stringify(entrypointArgs))
+    flutter.nativeRunBundleAndSnapshotFromLibrary(this.nativeShellHolderId!, bundlePath, entrypointFunctionName,
+      pathToEntrypointFunction, assetManager, entrypointArgs);
   };
 
   /**
@@ -217,12 +218,12 @@ export default class FlutterNapi {
   }
 
   setViewportMetrics(devicePixelRatio: number, physicalWidth: number
-                     , physicalHeight: number, physicalPaddingTop: number, physicalPaddingRight: number
-                     , physicalPaddingBottom: number, physicalPaddingLeft: number, physicalViewInsetTop: number
-                     , physicalViewInsetRight: number, physicalViewInsetBottom: number, physicalViewInsetLeft: number
-                     , systemGestureInsetTop: number, systemGestureInsetRight: number, systemGestureInsetBottom: number
-                     , systemGestureInsetLeft: number, physicalTouchSlop: number, displayFeaturesBounds: Array<number>
-                     , displayFeaturesType: Array<number>, displayFeaturesState: Array<number>): void {
+    , physicalHeight: number, physicalPaddingTop: number, physicalPaddingRight: number
+    , physicalPaddingBottom: number, physicalPaddingLeft: number, physicalViewInsetTop: number
+    , physicalViewInsetRight: number, physicalViewInsetBottom: number, physicalViewInsetLeft: number
+    , systemGestureInsetTop: number, systemGestureInsetRight: number, systemGestureInsetBottom: number
+    , systemGestureInsetLeft: number, physicalTouchSlop: number, displayFeaturesBounds: Array<number>
+    , displayFeaturesType: Array<number>, displayFeaturesState: Array<number>): void {
     if (this.isAttached()) {
       flutter.nativeSetViewportMetrics(this.nativeShellHolderId!, devicePixelRatio,
         physicalWidth,
@@ -246,9 +247,12 @@ export default class FlutterNapi {
     }
   }
 
-  spawn(entrypointFunctionName: string, pathToEntrypointFunction: string, initialRoute: string, entrypointArgs: Array<string>): FlutterNapi {
+  spawn(entrypointFunctionName: string, pathToEntrypointFunction: string, initialRoute: string,
+    entrypointArgs: Array<string>): FlutterNapi {
     let flutterNapi = new FlutterNapi()
-    let shellHolderId: number = flutter.nativeSpawn(this.nativeShellHolderId, entrypointFunctionName, pathToEntrypointFunction, initialRoute, entrypointArgs, flutterNapi)
+    let shellHolderId: number =
+      flutter.nativeSpawn(this.nativeShellHolderId, entrypointFunctionName, pathToEntrypointFunction, initialRoute,
+        entrypointArgs, flutterNapi)
     flutterNapi.nativeShellHolderId = shellHolderId
     return flutterNapi;
   }
@@ -281,7 +285,7 @@ export default class FlutterNapi {
   onFirstFrame(): void {
     this.isDisplayingFlutterUi = true;
     Log.d(TAG, "called onFirstFrame")
-    FlutterManager.getInstance().getFlutterViewList().forEach((value)=> {
+    FlutterManager.getInstance().getFlutterViewList().forEach((value) => {
       value.onFirstFrame();
     });
   }
@@ -289,7 +293,7 @@ export default class FlutterNapi {
   // Called by native.
   onPreEngineRestart(): void {
     Log.d(TAG, "called onPreEngineRestart")
-    this.engineLifecycleListeners.forEach( listener =>  listener.onPreEngineRestart());
+    this.engineLifecycleListeners.forEach(listener => listener.onPreEngineRestart());
   }
 
   //  /** Invoked by native to obtain the results of OHOS's locale resolution algorithm. */
@@ -310,8 +314,10 @@ export default class FlutterNapi {
         tempPixelMap = pixelMap
         return pixelMap.getImageInfo()
       }).then(imageInfo => {
-        Log.d(TAG, `nativeImageHeaderCallback width=${imageInfo.size.width}  height=${imageInfo.size.height} imageGeneratorAddress=${imageGeneratorAddress}`)
-        flutter.nativeImageDecodeCallback(imageInfo.size.width, imageInfo.size.height, imageGeneratorAddress, tempPixelMap)
+        Log.d(TAG,
+          `nativeImageHeaderCallback width=${imageInfo.size.width}  height=${imageInfo.size.height} imageGeneratorAddress=${imageGeneratorAddress}`)
+        flutter.nativeImageDecodeCallback(imageInfo.size.width, imageInfo.size.height, imageGeneratorAddress,
+          tempPixelMap)
       }).catch((error: Any) => {
         Log.d(TAG, "decodeImage error=" + JSON.stringify(error))
         flutter.nativeImageDecodeCallback(0, 0, imageGeneratorAddress, null);
@@ -333,7 +339,8 @@ export default class FlutterNapi {
   }
 
   // Send an empty response to a platform message received from Dart.
-  nativeSetSemanticsEnabled(enabled: boolean):void {}
+  nativeSetSemanticsEnabled(enabled: boolean): void {
+  }
 
   setAccessibilityFeatures(accessibilityFeatureFlags: number, responseId: number): void {
     if (this.isAttached()) {
@@ -346,7 +353,8 @@ export default class FlutterNapi {
     }
   }
 
-  nativeSetAccessibilityFeatures(accessibilityFeatureFlags: number, responseId: number): void {}
+  nativeSetAccessibilityFeatures(accessibilityFeatureFlags: number, responseId: number): void {
+  }
 
   dispatchSemanticsAction(virtualViewId: number, action: Action, responseId: number): void {
     if (this.isAttached()) {
@@ -359,7 +367,8 @@ export default class FlutterNapi {
     }
   }
 
-  nativeDispatchSemanticsAction(virtualViewId: number, action: Action, responseId: number): void {}
+  nativeDispatchSemanticsAction(virtualViewId: number, action: Action, responseId: number): void {
+  }
 
   setAccessibilityDelegate(delegate: AccessibilityDelegate, responseId: number): void {
     if (this.isAttached()) {
@@ -385,7 +394,7 @@ export default class FlutterNapi {
     let index: number;
     let systemLanguages = i18n.System.getPreferredLanguageList();
     for (index = 0; index < systemLanguages.length; index++) {
-      Log.d(TAG, "systemlanguages "+ index + ":" + systemLanguages[index]);
+      Log.d(TAG, "systemlanguages " + index + ":" + systemLanguages[index]);
     }
     flutter.nativeGetSystemLanguages(this.nativeShellHolderId!, systemLanguages);
   }
@@ -430,7 +439,6 @@ export default class FlutterNapi {
     Log.d(TAG, "called onTouchEvent ");
     TouchEventProcessor.getInstance().postTouchEvent(strings);
   }
-
 }
 
 export interface AccessibilityDelegate {

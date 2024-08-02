@@ -120,8 +120,11 @@ export default class FlutterLoader {
         fs.rmdirSync(filePath);
       }
       fs.mkdirSync(filePath)
-      let icudtlBuffer = await this.context.resourceManager.getRawFileContent(this.flutterApplicationInfo!.flutterAssetsDir + "/icudtl.dat")
-      let icudtlFile = fs.openSync(filePath + FILE_SEPARATOR + "/icudtl.dat", fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE)
+      let icudtlBuffer =
+        await this.context.resourceManager.getRawFileContent(this.flutterApplicationInfo!.flutterAssetsDir +
+          "/icudtl.dat")
+      let icudtlFile =
+        fs.openSync(filePath + FILE_SEPARATOR + "/icudtl.dat", fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE)
       fs.writeSync(icudtlFile.fd, icudtlBuffer.buffer)
       if (timestamp != null) {
         fs.openSync(filePath + FILE_SEPARATOR + timestamp, fs.OpenMode.READ_ONLY | fs.OpenMode.CREATE)
@@ -148,20 +151,32 @@ export default class FlutterLoader {
         fs.mkdirSync(filePath)
       }
 
-      let icudtlBuffer = await this.context.resourceManager.getRawFileContent(this.flutterApplicationInfo!.flutterAssetsDir + "/icudtl.dat")
-      let icudtlFile = fs.openSync(filePath + FILE_SEPARATOR + "/icudtl.dat", fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE)
+      let icudtlBuffer =
+        await this.context.resourceManager.getRawFileContent(this.flutterApplicationInfo!.flutterAssetsDir +
+          "/icudtl.dat")
+      let icudtlFile =
+        fs.openSync(filePath + FILE_SEPARATOR + "/icudtl.dat", fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE)
       fs.writeSync(icudtlFile.fd, icudtlBuffer.buffer)
 
-      let kernelBuffer = await this.context.resourceManager.getRawFileContent(this.flutterApplicationInfo!.flutterAssetsDir + FILE_SEPARATOR + DEFAULT_KERNEL_BLOB)
-      let kernelFile = fs.openSync(filePath + FILE_SEPARATOR + DEFAULT_KERNEL_BLOB, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE)
+      let kernelBuffer =
+        await this.context.resourceManager.getRawFileContent(this.flutterApplicationInfo!.flutterAssetsDir +
+          FILE_SEPARATOR + DEFAULT_KERNEL_BLOB)
+      let kernelFile =
+        fs.openSync(filePath + FILE_SEPARATOR + DEFAULT_KERNEL_BLOB, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE)
       fs.writeSync(kernelFile.fd, kernelBuffer.buffer)
 
-      let vmBuffer = await this.context.resourceManager.getRawFileContent(this.flutterApplicationInfo!.flutterAssetsDir + FILE_SEPARATOR + this.flutterApplicationInfo!.vmSnapshotData)
-      let vmFile = fs.openSync(filePath + FILE_SEPARATOR + this.flutterApplicationInfo!.vmSnapshotData, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE)
+      let vmBuffer =
+        await this.context.resourceManager.getRawFileContent(this.flutterApplicationInfo!.flutterAssetsDir +
+          FILE_SEPARATOR + this.flutterApplicationInfo!.vmSnapshotData)
+      let vmFile = fs.openSync(filePath + FILE_SEPARATOR + this.flutterApplicationInfo!.vmSnapshotData,
+        fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE)
       fs.writeSync(vmFile.fd, vmBuffer.buffer)
 
-      let isolateBuffer = await this.context.resourceManager.getRawFileContent(this.flutterApplicationInfo!.flutterAssetsDir + FILE_SEPARATOR + this.flutterApplicationInfo!.isolateSnapshotData)
-      let isolateFile = fs.openSync(filePath + FILE_SEPARATOR + this.flutterApplicationInfo!.isolateSnapshotData, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE)
+      let isolateBuffer =
+        await this.context.resourceManager.getRawFileContent(this.flutterApplicationInfo!.flutterAssetsDir +
+          FILE_SEPARATOR + this.flutterApplicationInfo!.isolateSnapshotData)
+      let isolateFile = fs.openSync(filePath + FILE_SEPARATOR + this.flutterApplicationInfo!.isolateSnapshotData,
+        fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE)
       fs.writeSync(isolateFile.fd, isolateBuffer.buffer)
 
       if (timestamp != null) {
@@ -193,7 +208,8 @@ export default class FlutterLoader {
     let kernelPath: string = "";
     if (this.flutterApplicationInfo!.isDebugMode) {
       Log.d(TAG, "this.initResult!.dataDirPath=" + this.initResult!.dataDirPath)
-      const snapshotAssetPath = this.initResult!.dataDirPath + FILE_SEPARATOR + this.flutterApplicationInfo!.flutterAssetsDir;
+      const snapshotAssetPath =
+        this.initResult!.dataDirPath + FILE_SEPARATOR + this.flutterApplicationInfo!.flutterAssetsDir;
       kernelPath = snapshotAssetPath + FILE_SEPARATOR + DEFAULT_KERNEL_BLOB;
       shellArgs.push("--icu-data-file-path=" + snapshotAssetPath + "/icudtl.dat")
       shellArgs.push("--" + SNAPSHOT_ASSET_PATH_KEY + "=" + snapshotAssetPath);
@@ -212,7 +228,8 @@ export default class FlutterLoader {
           + FILE_SEPARATOR
           + this.flutterApplicationInfo!.aotSharedLibraryName);
 
-      const snapshotAssetPath = this.initResult!.dataDirPath + FILE_SEPARATOR + this.flutterApplicationInfo!.flutterAssetsDir;
+      const snapshotAssetPath =
+        this.initResult!.dataDirPath + FILE_SEPARATOR + this.flutterApplicationInfo!.flutterAssetsDir;
       shellArgs.push("--icu-data-file-path=" + snapshotAssetPath + "/icudtl.dat")
 
       if (this.flutterApplicationInfo!.isProfile) {
@@ -259,7 +276,7 @@ export default class FlutterLoader {
     return this.flutterApplicationInfo == null ? "" : this.flutterApplicationInfo!.flutterAssetsDir + "/" + filePath;
   }
 
-  private async checkTimestamp(dataDir: string) : Promise<string | null> {
+  private async checkTimestamp(dataDir: string): Promise<string | null> {
     let bundleInfo = await bundleManager.getBundleInfoForSelf(bundleManager.BundleFlag.GET_BUNDLE_INFO_DEFAULT);
     const expectedTimestamp = TIMESTAMP_PREFIX + bundleInfo.versionCode + "-" + bundleInfo.updateTime;
     const existingTimestamps = this.getExistingTimestamps(dataDir);
@@ -291,7 +308,6 @@ export default class FlutterLoader {
   isInitialized(): boolean {
     return this.initialized;
   }
-
 }
 
 class InitResult {
@@ -300,8 +316,8 @@ class InitResult {
   dataDirPath: string;
 
   constructor(appStoragePath: string,
-              engineCachesPath: string,
-              dataDirPath: string) {
+    engineCachesPath: string,
+    dataDirPath: string) {
     this.appStoragePath = appStoragePath;
     this.engineCachesPath = engineCachesPath;
     this.dataDirPath = dataDirPath;

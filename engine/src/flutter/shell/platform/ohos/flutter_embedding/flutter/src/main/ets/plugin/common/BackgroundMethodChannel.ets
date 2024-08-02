@@ -48,10 +48,10 @@ export default class BackgroundMethodChannel {
   private args: Object[];
 
   constructor(messenger: BinaryMessenger,
-              name: string,
-              codec: SendableMethodCodec = SendableStandardMethodCodec.INSTANCE,
-              taskQueue?: TaskQueue,
-              ...args: Object[]) {
+    name: string,
+    codec: SendableMethodCodec = SendableStandardMethodCodec.INSTANCE,
+    taskQueue?: TaskQueue,
+    ...args: Object[]) {
     this.messenger = messenger
     this.name = name
     this.codec = codec
@@ -70,8 +70,8 @@ export default class BackgroundMethodChannel {
    */
   invokeMethod(method: string, args: Any, callback?: MethodResult): void {
     this.messenger.send(this.name,
-                        this.codec.encodeMethodCall(new MethodCall(method, args)),
-                        callback == null ? null : new IncomingSendableResultHandler(callback, this.codec));
+      this.codec.encodeMethodCall(new MethodCall(method, args)),
+      callback == null ? null : new IncomingSendableResultHandler(callback, this.codec));
   }
 
   /**
@@ -90,8 +90,8 @@ export default class BackgroundMethodChannel {
    */
   setMethodCallHandler(handler: SendableMethodCallHandler | null): void {
     this.messenger.setMessageHandler(this.name,
-                                     handler == null ? null : new IncomingSendableMethodCallHandler(handler, this.codec),
-                                     this.taskQueue, ...this.args);
+      handler == null ? null : new IncomingSendableMethodCallHandler(handler, this.codec),
+      this.taskQueue, ...this.args);
   }
 
   /**

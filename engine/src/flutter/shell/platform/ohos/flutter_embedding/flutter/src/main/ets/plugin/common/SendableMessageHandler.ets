@@ -13,9 +13,10 @@
 * limitations under the License.
 */
 import { lang } from '@kit.ArkTS';
-import { Reply} from './BasicMessageChannel';
+import { Reply } from './BasicMessageChannel';
 
 type ISendable = lang.ISendable;
+
 export default interface SendableMessageHandler<T> extends ISendable {
   onMessage(message: T, reply: Reply<T>): void;
 }

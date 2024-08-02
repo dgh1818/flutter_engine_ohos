@@ -20,15 +20,13 @@ import Log from '../../util/Log';
 import Any from '../common/Any';
 
 const TAG: string = "MouseCursorPlugin";
-export default class MouseCursorPlugin implements MouseCursorMethodHandler{
 
+export default class MouseCursorPlugin implements MouseCursorMethodHandler {
   private mouseCursorChannel: MouseCursorChannel;
-
   private systemCursorConstants: HashMap<string, pointer.PointerStyle> | null = null;
+  private windowId: number;
 
-  private windowId : number;
-
-  constructor(windowId : number, mouseCursorChannel: MouseCursorChannel) {
+  constructor(windowId: number, mouseCursorChannel: MouseCursorChannel) {
     this.windowId = windowId;
     this.mouseCursorChannel = mouseCursorChannel;
     this.mouseCursorChannel.setMethodHandler(this);
@@ -103,7 +101,8 @@ export default class MouseCursorPlugin implements MouseCursorMethodHandler{
       this.systemCursorConstants.set("middleBtnNorthWest", pointer.PointerStyle.MIDDLE_BTN_NORTH_WEST);
       this.systemCursorConstants.set("middleBtnSouthEast", pointer.PointerStyle.MIDDLE_BTN_SOUTH_EAST);
       this.systemCursorConstants.set("middleBtnSouthWest", pointer.PointerStyle.MIDDLE_BTN_SOUTH_WEST);
-      this.systemCursorConstants.set("middleBtnNorthSouthWestEast", pointer.PointerStyle.MIDDLE_BTN_NORTH_SOUTH_WEST_EAST);
+      this.systemCursorConstants.set("middleBtnNorthSouthWestEast",
+        pointer.PointerStyle.MIDDLE_BTN_NORTH_SOUTH_WEST_EAST);
       this.systemCursorConstants.set("horizontalTextCursor", pointer.PointerStyle.HORIZONTAL_TEXT_CURSOR);
       this.systemCursorConstants.set("cursorCross", pointer.PointerStyle.CURSOR_CROSS);
       this.systemCursorConstants.set("cursorCircle", pointer.PointerStyle.CURSOR_CIRCLE);
@@ -113,7 +112,7 @@ export default class MouseCursorPlugin implements MouseCursorMethodHandler{
       this.systemCursorConstants.set("screenshotChoose", pointer.PointerStyle.SCREENSHOT_CHOOSE);
       this.systemCursorConstants.set("screenshotCursor", pointer.PointerStyle.SCREENSHOT_CURSOR);
     }
-    let pointStyle:pointer.PointerStyle = this.systemCursorConstants.get(kind);
+    let pointStyle: pointer.PointerStyle = this.systemCursorConstants.get(kind);
     if (pointStyle === null) {
       return pointer.PointerStyle.DEFAULT;
     }

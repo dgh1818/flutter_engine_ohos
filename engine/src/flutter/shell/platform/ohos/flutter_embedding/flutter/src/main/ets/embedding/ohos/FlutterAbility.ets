@@ -51,7 +51,7 @@ export class FlutterAbility extends UIAbility implements Host {
   private delegate?: FlutterAbilityAndEntryDelegate | null;
   private flutterView: FlutterView | null = null;
   private mainWindow?: window.Window | null;
-  private errorManagerId:number = 0;
+  private errorManagerId: number = 0;
 
   getFlutterView(): FlutterView | null {
     return this.flutterView;
@@ -92,7 +92,7 @@ export class FlutterAbility extends UIAbility implements Host {
       this.delegate?.flutterEngine?.getNavigationChannel()?.popRoute();
       this.delegate?.flutterEngine?.getPlatformViewsController()?.setBackNodeControllers();
     });
-    let observer:errorManager.ErrorObserver = {
+    let observer: errorManager.ErrorObserver = {
       onUnhandledException(errorMsg) {
         console.log("onUnhandledException, errorMsg:", errorMsg);
         appRecovery.saveAppState();
@@ -163,7 +163,7 @@ export class FlutterAbility extends UIAbility implements Host {
       });
 
       this.flutterView = this.delegate!!.createView(this.context)
-      Log.i(TAG, 'onWindowStageCreate:' +  this.flutterView!!.getId());
+      Log.i(TAG, 'onWindowStageCreate:' + this.flutterView!!.getId());
       let storage: LocalStorage = new LocalStorage();
       storage.setOrCreate("viewId", this.flutterView!!.getId())
       windowStage.loadContent(this.pagePath(), storage, (err, data) => {
@@ -182,7 +182,7 @@ export class FlutterAbility extends UIAbility implements Host {
   }
 
   onNewWant(want: Want, launchParams: AbilityConstant.LaunchParam): void {
-    this?.delegate?.onNewWant(want,launchParams)
+    this?.delegate?.onNewWant(want, launchParams)
   }
 
   onWindowStageDestroy() {
@@ -295,7 +295,8 @@ export class FlutterAbility extends UIAbility implements Host {
   }
 
   shouldDestroyEngineWithHost(): boolean {
-    if ((this.getCachedEngineId() != null && this.getCachedEngineId().length > 0) || this.delegate!!.isFlutterEngineFromHost()) {
+    if ((this.getCachedEngineId() != null && this.getCachedEngineId().length > 0) ||
+    this.delegate!!.isFlutterEngineFromHost()) {
       // Only destroy a cached engine if explicitly requested by app developer.
       return false;
     }

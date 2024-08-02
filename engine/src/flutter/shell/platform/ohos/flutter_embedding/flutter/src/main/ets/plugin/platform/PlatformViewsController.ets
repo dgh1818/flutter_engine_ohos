@@ -18,7 +18,9 @@ import PlatformViewsChannel, {
   PlatformViewBufferResized,
   PlatformViewCreationRequest,
   PlatformViewResizeRequest,
-  PlatformViewsHandler, PlatformViewTouch, PlatformViewBufferSize
+  PlatformViewsHandler,
+  PlatformViewTouch,
+  PlatformViewBufferSize
 } from '../../../ets/embedding/engine/systemchannels/PlatformViewsChannel';
 import PlatformView, { Params } from './PlatformView';
 import { DVModelParameters, } from '../../view/DynamicView/dynamicView';
@@ -78,7 +80,6 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
   private accessibilityEventsDelegate: AccessibilityEventsDelegate;
   private nextOverlayLayerId: number = 0;
   private usesSoftwareRendering: boolean = false;
-
   private platformViews: Map<number, PlatformView>;
   private viewIdWithTextureId: Map<number, number>;
   private viewIdWithNodeController: Map<number, EmbeddingNodeController>;
@@ -157,16 +158,18 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     }
   }
 
-  setParams: (params: DVModelParameters, key: string, element: Any ) => void = (params: DVModelParameters, key: string, element: Any): void => {
-    let params2 = params as Record<string, Any>;
-    params2[key] =element;
-  }
+  setParams: (params: DVModelParameters, key: string, element: Any) => void =
+    (params: DVModelParameters, key: string, element: Any): void => {
+      let params2 = params as Record<string, Any>;
+      params2[key] = element;
+    }
 
   resize(request: PlatformViewResizeRequest, onComplete: PlatformViewBufferResized): void {
     let physicalWidth: number = this.toPhysicalPixels(request.newLogicalWidth);
     let physicalHeight: number = this.toPhysicalPixels(request.newLogicalHeight);
     let viewId: number = request.viewId;
-    Log.i(TAG, `Resize viewId ${viewId}, pw:${physicalWidth}, ph:${physicalHeight},lw:${request.newLogicalWidth}, lh:${request.newLogicalHeight}`);
+    Log.i(TAG,
+      `Resize viewId ${viewId}, pw:${physicalWidth}, ph:${physicalHeight},lw:${request.newLogicalWidth}, lh:${request.newLogicalHeight}`);
 
     let viewWrapper = this.viewWrappers.get(request.viewId)
     let params: DVModelParameters | undefined = viewWrapper?.getDvModel()!.params
@@ -180,8 +183,8 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
   offset(viewId: number, top: number, left: number): void {
     Log.i(TAG, `Offset is id${viewId}, t:${top}, l:${left}`);
 
-    let viewWrapper=this.viewWrappers.get(viewId)
-    if(viewWrapper!=undefined){
+    let viewWrapper = this.viewWrappers.get(viewId)
+    if (viewWrapper != undefined) {
       let params: DVModelParameters | undefined = viewWrapper?.getDvModel()!.params
       this.setParams(params!, "left", left);
       this.setParams(params!, "top", top);
@@ -202,7 +205,7 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     }
   }
 
-  validateDirection(direction:number): boolean {
+  validateDirection(direction: number): boolean {
     return direction == Direction.Ltr || direction == Direction.Rtl || direction == Direction.Auto;
   }
 
@@ -253,7 +256,7 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
 
     let createParams: Any = null;
     if (request.params != null) {
-      let byteParas : ByteBuffer = request.params as ByteBuffer;
+      let byteParas: ByteBuffer = request.params as ByteBuffer;
       createParams = viewFactory.getCreateArgsCodec().decodeMessage(byteParas.buffer);
     }
 
@@ -276,9 +279,10 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     Log.i(TAG, "Using hybrid composition for platform view: " + request.viewId);
   }
 
-  private configureForTextureLayerComposition(platformView: PlatformView, request: PlatformViewCreationRequest): number {
+  private configureForTextureLayerComposition(platformView: PlatformView,
+    request: PlatformViewCreationRequest): number {
     Log.i(TAG, "Hosting view in view hierarchy for platform view: " + request.viewId);
-    let surfaceId: string  = '0';
+    let surfaceId: string = '0';
     let textureId: number = 0;
     if (this.textureRegistry != null) {
       textureId = this.textureRegistry!.getTextureId();
@@ -334,7 +338,7 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     this.textureRegistry = null;
   }
 
-  public attachToView(newFlutterView : FlutterView) {
+  public attachToView(newFlutterView: FlutterView) {
     this.flutterView = newFlutterView;
     for (let wrapper of this.viewWrappers.values()) {
       this.flutterView?.getDVModel().children.push(wrapper.getDvModel()!);
@@ -379,7 +383,8 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     return this.registry;
   }
 
-  public setBackNodeControllers(): void {}
+  public setBackNodeControllers(): void {
+  }
 
   public onDetachedFromNapi(): void {
     this.diposeAllViews();
@@ -392,6 +397,7 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
   private getDisplayDensity(): number {
     return display.getDefaultDisplaySync().densityPixels;
   }
+
   private toPhysicalPixels(logicalPixels: number): number {
     return Math.round(px2vp(logicalPixels * this.getDisplayDensity()));
   }

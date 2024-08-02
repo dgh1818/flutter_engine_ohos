@@ -72,7 +72,8 @@ export class DVModel {
   children: DVModelChildren;
   builder: Any;
 
-  constructor(compType: string, params: DVModelParameters, events: DVModelEvents, children: DVModelChildren, builder?: Any) {
+  constructor(compType: string, params: DVModelParameters, events: DVModelEvents, children: DVModelChildren,
+    builder?: Any) {
     this.id_ = nextId++;
     this.compType = compType;
     this.params = params ?? new DVModelParameters;
@@ -131,22 +132,22 @@ export struct DynamicView {
   @ObjectLink params: DVModelParameters;
   @ObjectLink events: DVModelEvents;
   @BuilderParam customBuilder?: ($$: BuilderParams) => void;
-
-
-  getParams: (params: DVModelParameters, element: string) => string | Any = (params: DVModelParameters, element: string): string | Any => {
-    let params2 = params as Record<string, Any>;
-    return params2[element];
-  }
-
+  getParams: (params: DVModelParameters, element: string) => string | Any =
+    (params: DVModelParameters, element: string): string | Any => {
+      let params2 = params as Record<string, Any>;
+      return params2[element];
+    }
   getEvents: (events: DVModelEvents, element: string) => Any = (events: DVModelEvents, element: string): Any => {
     let events2 = events as Record<string, Any>;
     return events2[element];
   }
+
   /*
     we use this @Styles member function to set all common attributes and event handlers
     and set component specific attribute and event handler functions in the @Builder function
   */
-  @Styles common_attrs() {
+  @Styles
+  common_attrs() {
     .width(this.getParams(this.params, "width"))
     .height(this.getParams(this.params, "height"))
     .backgroundColor(this.getParams(this.params, "backgroundColor"))
@@ -169,7 +170,8 @@ export struct DynamicView {
     .direction(this.getParams(this.params, "direction"))
   }
 
-  @Styles clip_attrs() {
+  @Styles
+  clip_attrs() {
     .clip(this.getParams(this.params, "rectWidth") ? new Rect({
       width: this.getParams(this.params, "rectWidth"),
       height: this.getParams(this.params, "rectHeight"),
@@ -182,7 +184,8 @@ export struct DynamicView {
     }) : null)
   }
 
-  @Builder buildChildren() {
+  @Builder
+  buildChildren() {
     ForEach(this.children,
       (child: Any) => {
         DynamicView({
@@ -197,7 +200,8 @@ export struct DynamicView {
     )
   }
 
-  @Builder buildRow() {
+  @Builder
+  buildRow() {
     Row() {
       this.buildChildren()
     }
@@ -205,7 +209,8 @@ export struct DynamicView {
     .clip_attrs()
   }
 
-  @Builder buildColumn() {
+  @Builder
+  buildColumn() {
     Column() {
       this.buildChildren()
     }
@@ -213,7 +218,8 @@ export struct DynamicView {
     .clip_attrs()
   }
 
-  @Builder buildStack() {
+  @Builder
+  buildStack() {
     Stack() {
       this.buildChildren()
     }
@@ -222,24 +228,28 @@ export struct DynamicView {
     .alignContent(this.getParams(this.params, "alignContent"))
   }
 
-  @Builder buildText() {
+  @Builder
+  buildText() {
     Text(`${this.getParams(this.params, "value")}`)
       .common_attrs()
       .fontColor(this.getParams(this.params, "fontColor"))
   }
 
-  @Builder buildImage() {
+  @Builder
+  buildImage() {
     Image(this.getParams(this.params, "src"))
       .common_attrs()
   }
 
   // Button with label
-  @Builder buildButton() {
+  @Builder
+  buildButton() {
     Button(this.getParams(this.params, "value"))
       .common_attrs()
   }
 
-  @Builder buildNodeContainer() {
+  @Builder
+  buildNodeContainer() {
     NodeContainer(this.getParams(this.params, "nodeController"))
       .common_attrs()
       .position({

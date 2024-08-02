@@ -14,7 +14,7 @@
 */
 
 export default class AccessibilityBridge {
-  constructor(){
+  constructor() {
 
   }
 }
@@ -42,4 +42,4 @@ export enum Action {
   MOVE_CURSOR_FORWARD_BY_WORD = 1 << 19,
   MOVE_CURSOR_BACKWARD_BY_WORD = 1 << 20,
   SET_NEXT = 1 << 21,
-};
+}
