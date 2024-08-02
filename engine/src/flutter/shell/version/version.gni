@@ -1,0 +1,17 @@
+# Copyright 2013 The Flutter Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//flutter/build/dart/dart.gni")
+
+declare_args() {
+  engine_version = "1a65d409c7a1438a34d21b60bf30a6fd5db59314"
+  skia_version = "7e1844439eaa3eb24d00c6314ddc81ca532fdd1b"
+  dart_version = "5b8936496673a285bf8f37472119bc2afb38a295"
+}
+
+_flutter_root = "//flutter"
+
+assert(engine_version != "", "The engine_version argument must be supplied")
+assert(skia_version != "", "The skia_version argument must be supplied")
+assert(dart_version != "", "The dart_version argument must be supplied")
