@@ -16,7 +16,6 @@
 import hiTraceMeter from '@ohos.hiTraceMeter'
 
 export class TraceSection {
-
   static taskId: number = 1;
 
   private static cropSectionName(sectionName: string): string {

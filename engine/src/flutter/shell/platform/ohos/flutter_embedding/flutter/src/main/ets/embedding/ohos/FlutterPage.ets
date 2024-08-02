@@ -30,20 +30,19 @@ export struct FlutterPage {
   @Prop viewId: string = ""
   @Prop xComponentType: XComponentType = XComponentType.SURFACE
 
-  @Builder doNothingBuilder() {}
+  @Builder
+  doNothingBuilder() {
+  }
+
   @BuilderParam splashScreenView: () => void = this.doNothingBuilder;
   @State showSplashScreen: boolean = true;
-
   @State checkFullScreen: boolean = true;
   @State checkKeyboard: boolean = true;
   @State checkGesture: boolean = true;
   @State checkAiBar: boolean = true;
-
   @StorageLink('nodeWidth') storageLinkWidth: number = 0;
   @StorageLink('nodeHeight') storageLinkHeight: number = 0;
-
   @State rootDvModel: DVModelChildren | undefined = undefined
-
   private flutterView?: FlutterView | null
   private lastArea?: Area;
 

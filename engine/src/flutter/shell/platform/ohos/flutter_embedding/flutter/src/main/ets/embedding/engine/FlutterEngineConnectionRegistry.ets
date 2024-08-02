@@ -41,22 +41,20 @@ const TAG = "FlutterEngineCxnRegistry";
 export default class FlutterEngineConnectionRegistry implements PluginRegistry, AbilityControlSurface {
   // PluginRegistry
   private plugins = new Map<string, FlutterPlugin>();
-
-  private defaultPlugin : FlutterPlugin = new EmptyPlugin();
-
+  private defaultPlugin: FlutterPlugin = new EmptyPlugin();
   // Standard FlutterPlugin
   private flutterEngine: FlutterEngine;
   private pluginBinding: FlutterPluginBinding;
-
   // AbilityAware
   private abilityAwarePlugins = new Map<string, AbilityAware>();
-
   private exclusiveAbility: ExclusiveAppComponent<UIAbility> | null = null;
   private abilityPluginBinding: FlutterEngineAbilityPluginBinding | null = null;
 
   constructor(appContext: common.Context, flutterEngine: FlutterEngine, flutterLoader: FlutterLoader) {
     this.flutterEngine = flutterEngine;
-    this.pluginBinding = new FlutterPluginBinding(appContext, flutterEngine, flutterEngine.getDartExecutor(), new DefaultFlutterAssets(flutterLoader), flutterEngine.getFlutterRenderer(), flutterEngine.getPlatformViewsController()?.getRegistry());
+    this.pluginBinding = new FlutterPluginBinding(appContext, flutterEngine, flutterEngine.getDartExecutor(),
+      new DefaultFlutterAssets(flutterLoader), flutterEngine.getFlutterRenderer(),
+      flutterEngine.getPlatformViewsController()?.getRegistry());
   }
 
   add(plugin: FlutterPlugin): void {
@@ -189,7 +187,7 @@ export default class FlutterEngineConnectionRegistry implements PluginRegistry, 
     this.abilityPluginBinding = null;
   }
 
-  destroy(): void{
+  destroy(): void {
     this.detachFromAppComponent();
     // Remove all registered plugins.
     this.removeAll();

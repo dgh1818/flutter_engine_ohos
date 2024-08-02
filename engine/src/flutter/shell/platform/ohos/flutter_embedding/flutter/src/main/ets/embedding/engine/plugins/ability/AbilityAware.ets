@@ -20,7 +20,7 @@
  */
 import { AbilityPluginBinding } from './AbilityPluginBinding';
 
-export default  interface AbilityAware {
+export default interface AbilityAware {
   /**
    * This {@code AbilityAware} {@link io.flutter.embedding.engine.plugins.FlutterPlugin} is now
    * associated with an {@link ohos.app.ability.UIAbility}.
@@ -46,7 +46,7 @@ export default  interface AbilityAware {
    * binding is no longer valid. Clear any references to the binding or its resources, and do not
    * invoke any further methods on the binding or its resources.
    */
-  onAttachedToAbility(binding: AbilityPluginBinding): void ;
+  onAttachedToAbility(binding: AbilityPluginBinding): void;
 
   /**
    * This plugin has been detached from an {@link ohos.app.ability.UIAbility}.

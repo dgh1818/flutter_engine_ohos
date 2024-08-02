@@ -154,5 +154,6 @@ export interface BinaryMessenger {
    * @param taskQueue a {@link BinaryMessenger.TaskQueue} that specifies what thread will execute
    *     the handler. Specifying null means execute on the platform thread.
    */
-  setMessageHandler(channel: String, handler: BinaryMessageHandler | SendableBinaryMessageHandler | null, taskQueue?: TaskQueue, ...args: Object[]): void;
+  setMessageHandler(channel: String, handler: BinaryMessageHandler | SendableBinaryMessageHandler | null,
+    taskQueue?: TaskQueue, ...args: Object[]): void;
 }

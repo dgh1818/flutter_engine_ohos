@@ -14,7 +14,6 @@
 */
 
 export class FlutterOverlaySurface {
-
   private id: number;
 
   constructor(id: number) {

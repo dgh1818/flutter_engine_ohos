@@ -1,38 +1,35 @@
- /*
- * Copyright (C) Huawei Technologies Co., Ltd. 2024.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/*
+* Copyright (C) Huawei Technologies Co., Ltd. 2024.
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*     http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
 
 import util from '@ohos.util'
 
 export default class KeyData {
   private static TAG = "KeyData";
   public static CHANNEL = "flutter/keydata";
-
   // If this value changes, update the code in the following files:
   //
   //  * key_data.h (kKeyDataFieldCount)
   //  * platform_dispatcher.dart (_kKeyDataFieldCount)
   private static FIELD_COUNT: number = 6;
   private static BYTES_PER_FIELD: number = 8;
-
   public timestamp: number = 0;
   public type: Type = Type.KDOWN;
   public physicalKey: number = 0;
   public logicalKey: number = 0;
   public isSynthesized: boolean = false;
   public deviceType: DeviceType = DeviceType.KKEYBOARD;
-
   public character: string | null = null;
 
   constructor(buffer?: ArrayBuffer) {
@@ -67,7 +64,7 @@ export default class KeyData {
       }
 
       if (charSize != 0) {
-        const strBytes =  new Uint8Array(buffer, offset, charSize);
+        const strBytes = new Uint8Array(buffer, offset, charSize);
         this.character = decoder.decode(strBytes);
       }
     }

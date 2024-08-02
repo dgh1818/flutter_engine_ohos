@@ -28,7 +28,7 @@ class Rect {
   height: number;
   radius: string | number | Array<string | number>;
 
-  constructor(width:number, height:number, radius?:string | number | Array<string | number>) {
+  constructor(width: number, height: number, radius?: string | number | Array<string | number>) {
     this.width = width;
     this.height = height;
     this.radius = radius ?? 0;
@@ -40,7 +40,7 @@ class Path {
   height: number | string;
   commands: string;
 
-  constructor(width:number | string, height:number | string, commands?:string) {
+  constructor(width: number | string, height: number | string, commands?: string) {
     this.width = width;
     this.height = height;
     this.commands = commands ?? '';
@@ -62,7 +62,7 @@ export class FlutterMutator {
     }
   }
 
-  public getMatrix() : matrix4.Matrix4Transit | null {
+  public getMatrix(): matrix4.Matrix4Transit | null {
     return this.matrix;
   }
 
@@ -79,7 +79,6 @@ export class FlutterMutatorsStack {
   private mutators: List<FlutterMutator>;
   private finalClippingPaths: List<Path>;
   private finalClippingRects: List<Rect>;
-
   private finalMatrix: matrix4.Matrix4Transit;
 
   constructor() {
@@ -96,22 +95,22 @@ export class FlutterMutatorsStack {
     let index = 0;
     let matrix = matrix4.init(
       [values[index++], values[index++], values[index++], values[index++],
-      values[index++], values[index++], values[index++], values[index++],
-      values[index++], values[index++], values[index++], values[index++],
-      values[index++], values[index++], values[index++], values[index++]]);
+        values[index++], values[index++], values[index++], values[index++],
+        values[index++], values[index++], values[index++], values[index++],
+        values[index++], values[index++], values[index++], values[index++]]);
     let mutator = new FlutterMutator(matrix);
     this.mutators.add(mutator);
     this.finalMatrix.combine(matrix);
   }
 
-  public pushClipRect(width:number, height:number, radius?:number) {
+  public pushClipRect(width: number, height: number, radius?: number) {
     let rect = new Rect(width, height, radius);
     let mutator = new FlutterMutator(rect);
     this.mutators.add(mutator);
     this.finalClippingRects.add(rect);
   }
 
-  public pushClipPath(width:number, height:number, command?:string) {
+  public pushClipPath(width: number, height: number, command?: string) {
     let path = new Path(width, height, command);
     let mutator = new FlutterMutator(path);
     this.mutators.add(mutator);

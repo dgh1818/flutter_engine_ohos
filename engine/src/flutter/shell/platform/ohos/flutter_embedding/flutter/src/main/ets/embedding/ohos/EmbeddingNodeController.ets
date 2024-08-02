@@ -20,24 +20,25 @@ import { DVModel, DVModelChildren, DynamicView } from '../../view/DynamicView/dy
 
 
 declare class nodeControllerParams {
-  surfaceId : string
-  type : string
-  renderType : NodeRenderType
-  embedId : string
-  width : number
-  height : number
+  surfaceId: string
+  type: string
+  renderType: NodeRenderType
+  embedId: string
+  width: number
+  height: number
 }
 
 const TAG = 'EmbeddingNodeController'
+
 export class EmbeddingNodeController extends NodeController {
   private rootNode: BuilderNode<[Params]> | undefined | null = null;
   private wrappedBuilder: WrappedBuilder<[Params]> | null = null;
   private platformView: PlatformView | undefined = undefined;
-  private embedId : string = "";
-  private surfaceId : string = "";
-  private renderType :NodeRenderType = NodeRenderType.RENDER_TYPE_DISPLAY;
+  private embedId: string = "";
+  private surfaceId: string = "";
+  private renderType: NodeRenderType = NodeRenderType.RENDER_TYPE_DISPLAY;
   private direction: Direction = Direction.Auto;
-  private isDestroy : boolean = false;
+  private isDestroy: boolean = false;
 
   setRenderOption(platformView: PlatformView, surfaceId: string, renderType: NodeRenderType, direction: Direction) {
     if (platformView == undefined) {
@@ -51,30 +52,31 @@ export class EmbeddingNodeController extends NodeController {
     this.direction = direction;
   }
 
-  makeNode(uiContext: UIContext): FrameNode | null{
-    this.rootNode = new BuilderNode(uiContext, { surfaceId: this.surfaceId, type: this.renderType});
+  makeNode(uiContext: UIContext): FrameNode | null {
+    this.rootNode = new BuilderNode(uiContext, { surfaceId: this.surfaceId, type: this.renderType });
     if (this.wrappedBuilder) {
-      this.rootNode.build(this.wrappedBuilder, {direction: this.direction, platformView: this.platformView});
+      this.rootNode.build(this.wrappedBuilder, { direction: this.direction, platformView: this.platformView });
     }
     return this.rootNode.getFrameNode();
   }
 
-  setBuilderNode(rootNode: BuilderNode<Params[]> | null): void{
+  setBuilderNode(rootNode: BuilderNode<Params[]> | null): void {
     this.rootNode = rootNode;
   }
 
-  getBuilderNode(): BuilderNode<[Params]> | undefined | null{
+  getBuilderNode(): BuilderNode<[Params]> | undefined | null {
     return this.rootNode;
   }
 
   updateNode(arg: Object): void {
     this.rootNode?.update(arg);
   }
-  getEmbedId() : string {
+
+  getEmbedId(): string {
     return this.embedId;
   }
 
-  setDestroy(isDestroy : boolean) : void {
+  setDestroy(isDestroy: boolean): void {
     this.isDestroy = isDestroy;
     if (this.isDestroy) {
       this.rootNode = null;
@@ -89,7 +91,7 @@ export class EmbeddingNodeController extends NodeController {
     // change vp to px
     if (!isPx) {
       let changedTouchLen = event.changedTouches.length;
-      for (let i = 0; i< changedTouchLen; i++) {
+      for (let i = 0; i < changedTouchLen; i++) {
         event.changedTouches[i].displayX = vp2px(event.changedTouches[i].displayX);
         event.changedTouches[i].displayY = vp2px(event.changedTouches[i].displayY);
         event.changedTouches[i].windowX = vp2px(event.changedTouches[i].windowX);

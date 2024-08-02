@@ -42,7 +42,8 @@ export default class PlatformPlugin {
   private static TAG = "PlatformPlugin";
   callback = new PlatformPluginCallback();
 
-  constructor(platformChannel: PlatformChannel, context: common.Context, platformPluginDelegate?: PlatformPluginDelegate) {
+  constructor(platformChannel: PlatformChannel, context: common.Context,
+    platformPluginDelegate?: PlatformPluginDelegate) {
     this.callback.platformChannel = platformChannel;
     this.callback.context = context;
     this.callback.applicationContext = context?.getApplicationContext();
@@ -223,6 +224,7 @@ export class PlatformPluginCallback implements PlatformMessageHandler {
         GRANTED = 0,
         INVALID_REQ = 2
       }
+
       let message: string = 'Failed to request permissions from user.';
       let authResult: number = data.authResults[0];
       switch (authResult) {
@@ -380,14 +382,9 @@ export class PlatformPluginCallback implements PlatformMessageHandler {
 
 class SystemBarProperties {
   statusBarColor?: string;
-
   isStatusBarLightIcon?: boolean;
-
   statusBarContentColor?: string;
-
   navigationBarColor?: string;
-
   isNavigationBarLightIcon?: boolean;
-
   navigationBarContentColor?: string;
 }

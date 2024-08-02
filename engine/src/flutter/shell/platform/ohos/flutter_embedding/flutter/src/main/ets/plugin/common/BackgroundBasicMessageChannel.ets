@@ -60,9 +60,9 @@ export default class BackgroundBasicMessageChannel<T> {
    * @param message the message, possibly null.
    * @param callback a {@link Reply} callback, possibly null.
    */
-  send(message: T, callback?: (reply: T)=>void): void {
+  send(message: T, callback?: (reply: T) => void): void {
     this.messenger.send(this.name, this.codec.encodeMessage(message),
-                        callback == null ? null : new IncomingReplyHandler(callback, this.codec));
+      callback == null ? null : new IncomingReplyHandler(callback, this.codec));
   }
 
   /**
@@ -78,7 +78,7 @@ export default class BackgroundBasicMessageChannel<T> {
    */
   setMessageHandler(handler: SendableMessageHandler<T> | null): void {
     this.messenger.setMessageHandler(this.name,
-          handler == null ? null : new IncomingSendableMessageHandler(handler, this.codec), this.taskQueue);
+      handler == null ? null : new IncomingSendableMessageHandler(handler, this.codec), this.taskQueue);
   }
 
   /**
@@ -92,11 +92,11 @@ export default class BackgroundBasicMessageChannel<T> {
 }
 
 
-class IncomingReplyHandler <T> implements BinaryReply {
-  private callback: (reply: T)=>void;
+class IncomingReplyHandler<T> implements BinaryReply {
+  private callback: (reply: T) => void;
   private codec: SendableMessageCodec<T>
 
-  constructor(callback:(reply: T)=>void, codec: SendableMessageCodec<T>) {
+  constructor(callback: (reply: T) => void, codec: SendableMessageCodec<T>) {
     this.callback = callback
     this.codec = codec
   }

@@ -21,7 +21,6 @@ import FlutterLoader from './embedding/engine/loader/FlutterLoader';
  */
 export default class FlutterInjector {
   private static instance: FlutterInjector;
-
   private flutterLoader: FlutterLoader;
 
   static getInstance(): FlutterInjector {
@@ -30,6 +29,7 @@ export default class FlutterInjector {
     }
     return FlutterInjector.instance;
   }
+
   /**
    * 初始化
    */

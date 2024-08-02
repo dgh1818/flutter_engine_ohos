@@ -1,20 +1,20 @@
- /*
- * Copyright (C) Huawei Technologies Co., Ltd. 2024.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/*
+* Copyright (C) Huawei Technologies Co., Ltd. 2024.
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*     http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
 
 import { BinaryMessenger, BinaryReply } from '../../plugin/common/BinaryMessenger';
-import KeyData, { Type, DeviceType }from './KeyData';
+import KeyData, { Type, DeviceType } from './KeyData';
 import { Responder } from './KeyboardManager';
 import KeyboardMap, { KeyPair, ModifierGoal } from './KeyboardMap';
 import Log from '../../util/Log';
@@ -22,7 +22,8 @@ import Log from '../../util/Log';
 class EventTaskRunner {
   private tasks: Array<() => void> = [];
 
-  constructor() {}
+  constructor() {
+  }
 
   public addTask(task: () => void): void {
     this.tasks.push(task);
@@ -71,8 +72,8 @@ export default class KeyEmbedderResponder implements Responder {
   }
 
   /** Should use ScanCode here, but cannot access it from KeyEvent yet.
-    * Use KeyCode instead and need correct it in the future.
-    */
+   * Use KeyCode instead and need correct it in the future.
+   */
   private getPhysicalKey(event: KeyEvent): number {
     let keyCode: number = event.keyCode;
     let physicalKey: number | undefined = KeyboardMap.toPhysicalKey.get(keyCode);
@@ -97,11 +98,11 @@ export default class KeyEmbedderResponder implements Responder {
   }
 
   synchronizeModifierKey(goal: ModifierGoal,
-                         truePressed: boolean,
-                         logicalKey: number,
-                         physicalKey: number,
-                         event: KeyEvent,
-                         postSyncEvents: EventTaskRunner) {
+    truePressed: boolean,
+    logicalKey: number,
+    physicalKey: number,
+    event: KeyEvent,
+    postSyncEvents: EventTaskRunner) {
     let nowStates: boolean[] = new Array(goal.keys.length);
     let expectedPreStates: boolean[] = new Array(goal.keys.length);
     let postAnyPressed: boolean = false;
@@ -115,9 +116,9 @@ export default class KeyEmbedderResponder implements Responder {
             expectedPreStates[keyIdx] = false;
             postAnyPressed = true;
             if (!truePressed) {
-                postSyncEvents.addTask(() => {
-                    this.synthesizeEvent(false, event.timestamp, logicalKey, physicalKey);
-                });
+              postSyncEvents.addTask(() => {
+                this.synthesizeEvent(false, event.timestamp, logicalKey, physicalKey);
+              });
             }
             break;
           case Type.KUP:
@@ -127,9 +128,9 @@ export default class KeyEmbedderResponder implements Responder {
             expectedPreStates[keyIdx] = nowStates[keyIdx];
             postAnyPressed = true;
             if (!truePressed) {
-                postSyncEvents.addTask(() => {
-                    this.synthesizeEvent(false, event.timestamp, logicalKey, physicalKey);
-                });
+              postSyncEvents.addTask(() => {
+                this.synthesizeEvent(false, event.timestamp, logicalKey, physicalKey);
+              });
             }
             break;
         }
@@ -166,13 +167,13 @@ export default class KeyEmbedderResponder implements Responder {
       if (expectedPreStates[keyIdx] != nowStates[keyIdx]) {
         let key: KeyPair = goal.keys[keyIdx];
         this.synthesizeEvent(expectedPreStates[keyIdx], event.timestamp,
-                             key.logicalKey, key.physicalKey);
+          key.logicalKey, key.physicalKey);
       }
     }
   }
 
   synthesizeEvent(isDown: boolean, timestamp: number,
-                  logicalKey: number, physicalKey: number) {
+    logicalKey: number, physicalKey: number) {
     const data: KeyData = new KeyData();
     data.timestamp = timestamp;
     data.type = isDown ? Type.KDOWN : Type.KUP;
@@ -206,7 +207,7 @@ export default class KeyEmbedderResponder implements Responder {
       let goal: ModifierGoal = KeyboardMap.modifierGoals[goalIdx];
       this.synchronizeModifierKey(
         goal,
-        false,  // Should use "event.getModifierKeyState[goal.name]", which is not available now.
+        false, // Should use "event.getModifierKeyState[goal.name]", which is not available now.
         logicalKey,
         physicalKey,
         event,

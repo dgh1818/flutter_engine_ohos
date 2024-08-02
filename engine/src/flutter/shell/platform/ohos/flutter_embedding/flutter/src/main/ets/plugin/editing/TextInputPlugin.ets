@@ -50,8 +50,8 @@ export default class TextInputPlugin implements EditingStateWatcher {
     let editable = this.mTextInputHandler.mEditable;
     let inputTarget = this.mTextInputHandler.inputTarget;
     let configuration = this.mTextInputHandler.configuration;
-    if (configuration!= null && configuration.enableDeltaModel) {
-      this.textInputChannel.updateEditingStateWithDeltas(inputTarget.id,editable.extractBatchTextEditingDeltas());
+    if (configuration != null && configuration.enableDeltaModel) {
+      this.textInputChannel.updateEditingStateWithDeltas(inputTarget.id, editable.extractBatchTextEditingDeltas());
       editable.clearBatchDeltas();
     } else {
       this.textInputChannel.updateEditingState(inputTarget.id, editable.getStringCache(),
@@ -85,7 +85,8 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
       inputAttribute: {
         textInputType: 0,
         enterKeyType: 1
-      } };
+      }
+    };
     this.plugin = plugin;
     this.mEditable = new ListenableEditingState(null, 0);
     this.inputMethodController = inputMethod.getController();
@@ -122,8 +123,10 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   }
 
   setEditingState(editingState: TextEditState): void {
-    Log.d(TextInputMethodHandlerImpl.TAG, "text:" + editingState.text + " selectionStart:" + editingState.selectionStart + " selectionEnd:"
-      + editingState.selectionEnd + " composingStart:" + editingState.composingStart + " composingEnd" + editingState.composingEnd);
+    Log.d(TextInputMethodHandlerImpl.TAG,
+      "text:" + editingState.text + " selectionStart:" + editingState.selectionStart + " selectionEnd:"
+        + editingState.selectionEnd + " composingStart:" + editingState.composingStart + " composingEnd" +
+      editingState.composingEnd);
     this.mEditable.updateTextInputState(editingState);
   }
 
@@ -165,7 +168,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
         inputAttribute: {
           textInputType: 0,
           enterKeyType: 1
-        } 
+        }
       };
       await this.inputMethodController.attach(false, textConfig);
     } catch (err) {
@@ -174,7 +177,8 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   }
 
   setTextInputClient(client: number, configuration: Configuration | null): void {
-    const INPUT_TYPE_NAME = ['NONE', 'TEXT', 'MULTILINE', 'NUMBER', 'PHONE', 'DATETIME', 'EMAIL_ADDRESS', 'URL', 'VISIBLE_PASSWORD']
+    const INPUT_TYPE_NAME =
+      ['NONE', 'TEXT', 'MULTILINE', 'NUMBER', 'PHONE', 'DATETIME', 'EMAIL_ADDRESS', 'URL', 'VISIBLE_PASSWORD']
     if (configuration) {
       this.configuration = configuration;
       if (configuration.inputType) {
@@ -237,7 +241,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     try {
       this.inputMethodController.on('sendFunctionKey', (functionKey) => {
         /// 临时规避缺少newline对应枚举类型问题
-        if(functionKey.enterKeyType == NEWLINE_KEY_TYPE) {
+        if (functionKey.enterKeyType == NEWLINE_KEY_TYPE) {
           this.mEditable.handleNewlineEvent();
         }
         this.mEditable.handleFunctionKey(functionKey);

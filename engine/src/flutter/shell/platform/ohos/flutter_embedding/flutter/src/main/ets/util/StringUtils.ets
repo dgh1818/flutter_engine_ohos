@@ -20,7 +20,7 @@ import util from '@ohos.util'
  */
 export default class StringUtils {
   static stringToArrayBuffer(str: string): ArrayBuffer {
-    if(str.length == 0){
+    if (str.length == 0) {
       return new ArrayBuffer(0);
     }
     let textEncoder = new util.TextEncoder("utf-8");
@@ -31,7 +31,9 @@ export default class StringUtils {
     if (buffer.byteLength <= 0) {
       return "";
     }
-    let textDecoder = util.TextDecoder.create('utf-8', { ignoreBOM : true })
+    let textDecoder = util.TextDecoder.create('utf-8', {
+      ignoreBOM: true
+    })
     return textDecoder.decode(new Uint8Array(buffer));
   }
 
@@ -39,7 +41,9 @@ export default class StringUtils {
     if (buffer.length <= 0) {
       return "";
     }
-    let textDecoder = util.TextDecoder.create('utf-8', { ignoreBOM : true })
+    let textDecoder = util.TextDecoder.create('utf-8', {
+      ignoreBOM: true
+    })
     return textDecoder.decodeWithStream(buffer);
   }
 

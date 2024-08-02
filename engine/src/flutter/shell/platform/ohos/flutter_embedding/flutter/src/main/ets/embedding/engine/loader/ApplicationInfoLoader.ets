@@ -18,7 +18,8 @@ import common from '@ohos.app.ability.common';
 
 export default class ApplicationInfoLoader {
   static load(context: common.Context) {
-    let applicationInfo = new FlutterApplicationInfo(null, null, null, null, null, context.bundleCodeDir + '/libs/arm64', true);
+    let applicationInfo =
+      new FlutterApplicationInfo(null, null, null, null, null, context.bundleCodeDir + '/libs/arm64', true);
     return applicationInfo
   }
 }

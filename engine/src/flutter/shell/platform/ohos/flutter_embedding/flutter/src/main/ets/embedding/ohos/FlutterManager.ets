@@ -117,7 +117,9 @@ export default class FlutterManager {
 
 export interface FullScreenListener {
   useFullScreen(): boolean;
+
   setUseFullScreen(useFullScreen: boolean): void;
+
   onScreenStateChanged(data: window.WindowStatusType): void;
 }
 
@@ -154,5 +156,4 @@ export class DefaultFullScreenListener implements FullScreenListener {
         break;
     }
   }
-
 }

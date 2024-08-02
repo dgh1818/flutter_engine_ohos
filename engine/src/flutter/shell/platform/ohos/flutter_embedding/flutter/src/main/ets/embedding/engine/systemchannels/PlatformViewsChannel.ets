@@ -23,6 +23,7 @@ import DartExecutor from '../dart/DartExecutor';
 
 const TAG = "PlatformViewsChannel";
 const NON_TEXTURE_FALLBACK = -2;
+
 export default class PlatformViewsChannel {
   private channel: MethodChannel;
   private handler: PlatformViewsHandler | null = null;
@@ -89,7 +90,7 @@ export default class PlatformViewsChannel {
         const hybridFallback: boolean = createArgs.has("hybridFallback") && createArgs.get("hybridFallback");
         const displayMode: RequestedDisplayMode =
           hybridFallback ? RequestedDisplayMode.TEXTURE_WITH_HYBRID_FALLBACK
-                         : RequestedDisplayMode.TEXTURE_WITH_VIRTUAL_FALLBACK;
+            : RequestedDisplayMode.TEXTURE_WITH_VIRTUAL_FALLBACK;
         const request: PlatformViewCreationRequest = new PlatformViewCreationRequest(
           createArgs.get("id"),
           createArgs.get("viewType"),
@@ -247,7 +248,7 @@ export default class PlatformViewsChannel {
  * <p>To register a {@code PlatformViewsHandler} with a {@link PlatformViewsChannel}, see {@link
  * PlatformViewsChannel#setPlatformViewsHandler(PlatformViewsHandler)}.
  */
-export interface  PlatformViewsHandler {
+export interface PlatformViewsHandler {
   /*
   * The ID returned by {@code createForTextureLayer} to indicate that the requested texture mode
   * was not available and the view creation fell back to {@code PlatformViewLayer} mode.
@@ -336,28 +337,21 @@ enum RequestedDisplayMode {
 export class PlatformViewCreationRequest {
   /** The ID of the platform view as seen by the Flutter side. */
   public viewId: number;
-
   /** The type of view to create for this platform view. */
   public viewType: string;
-
   /** The density independent width to display the platform view. */
   public logicalWidth: number;
-
   /** The density independent height to display the platform view. */
   public logicalHeight: number;
-
   /** The density independent top position to display the platform view. */
   public logicalTop: number;
-
   /** The density independent left position to display the platform view. */
   public logicalLeft: number;
-
   /**
    * The layout direction of the new platform view.
    */
   public direction: Direction;
   public displayMode: RequestedDisplayMode;
-
   /** Custom parameters that are unique to the desired platform view. */
   public params: ByteBuffer;
 
@@ -379,10 +373,8 @@ export class PlatformViewCreationRequest {
 export class PlatformViewResizeRequest {
   /** The ID of the platform view as seen by the Flutter side. */
   public viewId: number;
-
   /** The new density independent width to display the platform view. */
   public newLogicalWidth: number;
-
   /** The new density independent height to display the platform view. */
   public newLogicalHeight: number;
 
@@ -397,7 +389,6 @@ export class PlatformViewResizeRequest {
 export class PlatformViewBufferSize {
   /** The width of the screen buffer. */
   public width: number;
-
   /** The height of the screen buffer. */
   public height: number;
 
@@ -416,59 +407,44 @@ export abstract class PlatformViewBufferResized {
 export class PlatformViewTouch {
   /** The ID of the platform view as seen by the Flutter side. */
   public viewId: number;
-
   /** The amount of time that the touch has been pressed. */
   public downTime: number;
-
   public eventTime: number;
-
   public action: number;
-
   /** The number of pointers (e.g, fingers) involved in the touch event. */
   public pointerCount: number;
-
   /** Properties for each pointer, encoded in a raw format. */
   public rawPointerPropertiesList: Any;
-
   /** Coordinates for each pointer, encoded in a raw format. */
   public rawPointerCoords: Any;
-
   public metaState: number;
-
   public buttonState: number;
-
   /** Coordinate precision along the x-axis. */
   public xPrecision: number;
-
   /** Coordinate precision along the y-axis. */
   public yPrecision: number;
-
   public deviceId: number;
-
   public edgeFlags: number;
-
   public source: number;
-
   public flags: number;
-
   public motionEventId: number;
 
   constructor(viewId: number,
-              downTime: number,
-              eventTime: number,
-              action: number,
-              pointerCount: number,
-              rawPointerPropertiesList: Any,
-              rawPointerCoords: Any,
-              metaState: number,
-              buttonState: number,
-              xPrecision: number,
-              yPrecision: number,
-              deviceId: number,
-              edgeFlags: number,
-              source: number,
-              flags: number,
-              motionEventId: number) {
+    downTime: number,
+    eventTime: number,
+    action: number,
+    pointerCount: number,
+    rawPointerPropertiesList: Any,
+    rawPointerCoords: Any,
+    metaState: number,
+    buttonState: number,
+    xPrecision: number,
+    yPrecision: number,
+    deviceId: number,
+    edgeFlags: number,
+    source: number,
+    flags: number,
+    motionEventId: number) {
     this.viewId = viewId;
     this.downTime = downTime;
     this.eventTime = eventTime;
@@ -489,7 +465,7 @@ export class PlatformViewTouch {
 }
 
 class ParsingCallback implements MethodCallHandler {
-  platformChannel : PlatformViewsChannel | null = null;
+  platformChannel: PlatformViewsChannel | null = null;
   handler: PlatformViewsHandler | null = null;
 
   onMethodCall(call: MethodCall, result: MethodResult) {
@@ -538,7 +514,8 @@ class ParsingCallback implements MethodCallHandler {
 }
 
 class ResizeCallback extends PlatformViewBufferResized {
-  result : MethodResult | null = null;
+  result: MethodResult | null = null;
+
   run(bufferSize: PlatformViewBufferSize) {
     if (bufferSize == null) {
       this.result?.error("error", "Failed to resize the platform view", null);

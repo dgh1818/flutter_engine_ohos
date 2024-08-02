@@ -33,7 +33,7 @@ export default class SystemChannel {
 
   public sendMemoryPressureWarning(): void {
     Log.i(TAG, "Sending memory pressure warning to Flutter");
-    let message : Map<string,string> = new Map().set("type", "memoryPressure");
+    let message: Map<string, string> = new Map().set("type", "memoryPressure");
     this.channel.send(message);
   }
 }

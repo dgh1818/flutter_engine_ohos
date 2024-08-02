@@ -24,7 +24,8 @@ export class PlatformViewInfo {
   public left: number;
   public direction: Direction;
 
-  constructor(platformView: PlatformView, surfaceId: string, width: number, height: number, top: number, left: number, direction: Direction) {
+  constructor(platformView: PlatformView, surfaceId: string, width: number, height: number, top: number, left: number,
+    direction: Direction) {
     this.platformView = platformView;
     this.surfaceId = surfaceId;
     this.width = width;
