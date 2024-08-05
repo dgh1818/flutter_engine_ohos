@@ -91,8 +91,8 @@ export default class FlutterNapi {
       Log.e(TAG, "the engine has init");
       return;
     }
-    Log.i(TAG, "HAR_VERSION=" + BuildProfile.HAR_VERSION);
-    Log.w(TAG, JSON.stringify({
+    Log.d(TAG, "HAR_VERSION=" + BuildProfile.HAR_VERSION);
+    Log.d(TAG, JSON.stringify({
       "name": "init, initTimeMillis=" + initTimeMillis,
       "bundlePath": bundlePath,
       "appStoragePath": appStoragePath,
@@ -102,7 +102,7 @@ export default class FlutterNapi {
     let code: number | null = flutter.nativeInit(context, args, bundlePath, appStoragePath,
       engineCachesPath, initTimeMillis, deviceInfo.productModel);
     FlutterNapi.hasInit = code == 0;
-    Log.i(TAG, "init code=" + code + ", FlutterNapi.hasInit" + FlutterNapi.hasInit);
+    Log.d(TAG, "init code=" + code + ", FlutterNapi.hasInit" + FlutterNapi.hasInit);
   }
 
   static prefetchDefaultFontManager(): void {
@@ -121,7 +121,7 @@ export default class FlutterNapi {
     if (this.nativeShellHolderId == null) {
       this.nativeShellHolderId = flutter.nativeAttach(this);
     }
-    Log.w(TAG, "nativeShellHolderId=" + this.nativeShellHolderId);
+    Log.d(TAG, "nativeShellHolderId=" + this.nativeShellHolderId);
   }
 
   runBundleAndSnapshotFromLibrary(
@@ -134,7 +134,7 @@ export default class FlutterNapi {
       Log.e(TAG, "runBundleAndSnapshotFromLibrary fail, FlutterNapi.hasInit=" + FlutterNapi.hasInit);
       return;
     }
-    Log.i(TAG, "init: bundlePath=" + bundlePath + "  entrypointFunctionName=" + entrypointFunctionName +
+    Log.d(TAG, "init: bundlePath=" + bundlePath + "  entrypointFunctionName=" + entrypointFunctionName +
       "  pathToEntrypointFunction=" + pathToEntrypointFunction + "  entrypointArgs=" + JSON.stringify(entrypointArgs))
     flutter.nativeRunBundleAndSnapshotFromLibrary(this.nativeShellHolderId!, bundlePath, entrypointFunctionName,
       pathToEntrypointFunction, assetManager, entrypointArgs);
