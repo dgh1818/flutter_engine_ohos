@@ -22,6 +22,7 @@ import FlutterLoader from './embedding/engine/loader/FlutterLoader';
 export default class FlutterInjector {
   private static instance: FlutterInjector;
   private flutterLoader: FlutterLoader;
+  private flutterNapi: FlutterNapi;
 
   static getInstance(): FlutterInjector {
     if (FlutterInjector.instance == null) {
@@ -34,7 +35,8 @@ export default class FlutterInjector {
    * 初始化
    */
   private constructor() {
-    this.flutterLoader = new FlutterLoader(this.getFlutterNapi());
+    this.flutterNapi = new FlutterNapi();
+    this.flutterLoader = new FlutterLoader(this.flutterNapi);
   }
 
   getFlutterLoader(): FlutterLoader {
@@ -42,6 +44,6 @@ export default class FlutterInjector {
   }
 
   getFlutterNapi(): FlutterNapi {
-    return new FlutterNapi();
+    return this.flutterNapi;
   }
 }
