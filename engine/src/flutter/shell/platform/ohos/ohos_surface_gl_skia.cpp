@@ -128,6 +128,7 @@ bool OhosSurfaceGLSkia::SetNativeWindow(fml::RefPtr<OHOSNativeWindow> window) {
     onscreen_surface_ = nullptr;
     return false;
   }
+  GLContextClearCurrent();
   native_window_ = window;
   // Ensure the destructor is called since it destroys the `EGLSurface` before
   // creating a new onscreen surface.
@@ -138,12 +139,13 @@ bool OhosSurfaceGLSkia::SetNativeWindow(fml::RefPtr<OHOSNativeWindow> window) {
   if (!onscreen_surface_->IsValid()) {
     return false;
   }
+  GLContextMakeCurrent();
   return true;
 }
 
 bool OhosSurfaceGLSkia::PaintOffscreenData(OHNativeWindowBuffer* buffer,
                                            int fence_fd) {
-  if (onscreen_nativewindow_ == nullptr) {
+  if (onscreen_nativewindow_ == nullptr || buffer == nullptr) {
     return false;
   }
   int ret =
@@ -161,6 +163,7 @@ bool OhosSurfaceGLSkia::PaintOffscreenData(OHNativeWindowBuffer* buffer,
     FML_LOG(INFO) << "ohos_surface flush last nativewindow buffer result: "
                   << ret;
   }
+  FML_LOG(INFO) << "PaintOffscreenData " << buffer;
 
   OH_NativeWindow_DestroyNativeWindowBuffer(buffer);
   return true;

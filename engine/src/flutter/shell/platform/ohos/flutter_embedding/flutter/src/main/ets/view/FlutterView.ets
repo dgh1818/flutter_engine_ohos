@@ -251,9 +251,7 @@ export class FlutterView {
     Log.i(TAG, "attachToFlutterEngine");
     this.flutterEngine = flutterEngine;
     this.keyboardManager = new KeyboardManager(flutterEngine);
-    if (this.isSurfaceAvailableForRendering) {
-      this.flutterEngine.getFlutterNapi().xComponentAttachFlutterEngine(this.id)
-    }
+    this.flutterEngine?.getFlutterNapi().xComponentAttachFlutterEngine(this.id)
     this.flutterEngine?.getFlutterNapi()?.updateRefreshRate(this.displayInfo!.refreshRate)
     this.flutterEngine?.getFlutterNapi()?.updateSize(this.displayInfo!.width, this.displayInfo!.height)
     this.flutterEngine?.getFlutterNapi()?.updateDensity(this.displayInfo!.densityPixels)
@@ -271,6 +269,16 @@ export class FlutterView {
       this.onFirstFrame();
     }
     hiTraceMeter.finishTrace("attachToFlutterEngine", 0);
+  }
+
+  preDraw(width: number = 0, height: number = 0): void {
+    if (this.isAttachedToFlutterEngine()) {
+      if (width == 0 || height == 0) {
+        width = this.displayInfo!.width;
+        height = this.displayInfo!.height;
+      }
+      this.flutterEngine?.getFlutterNapi().xComponentPreDraw(this.id, width, height);
+    }
   }
 
   detachFromFlutterEngine(): void {
@@ -305,9 +313,6 @@ export class FlutterView {
 
   onSurfaceCreated() {
     this.isSurfaceAvailableForRendering = true;
-    if (this.isAttachedToFlutterEngine()) {
-      this.flutterEngine!!.getFlutterNapi().xComponentAttachFlutterEngine(this.id)
-    }
   }
 
   onSurfaceDestroyed() {

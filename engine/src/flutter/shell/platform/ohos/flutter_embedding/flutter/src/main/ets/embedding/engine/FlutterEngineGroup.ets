@@ -15,12 +15,14 @@
 
 import FlutterEngine, { EngineLifecycleListener } from "./FlutterEngine"
 import common from '@ohos.app.ability.common'
+import display from '@ohos.display';
 import FlutterLoader from './loader/FlutterLoader'
 import FlutterInjector from '../../FlutterInjector'
 import { DartEntrypoint } from './dart/DartExecutor'
 import PlatformViewsController from '../../plugin/platform/PlatformViewsController'
 import ArrayList from '@ohos.util.ArrayList'
 import Log from '../../util/Log';
+import FlutterManager from '../ohos/FlutterManager';
 
 const TAG = "FlutterEngineGroup"
 
@@ -30,6 +32,32 @@ export default class FlutterEngineGroup {
   constructor() {
 
   }
+
+  static async preloadEngine(context: common.Context, dartEnterFunction:string, dartEntrypointLibraryUri: string = "", dartArgs: Array<string> = [], width: number = 0, height: number = 0) {
+    let loader: FlutterLoader = FlutterInjector.getInstance().getFlutterLoader();
+    if (!loader.initialized) {
+      await loader.startInitialization(context);
+      loader.ensureInitializationComplete(dartArgs);
+    }
+    let flutterNapi = FlutterInjector.getInstance().getFlutterNapi()
+    if (!flutterNapi.isAttached()) {
+      flutterNapi.attachToNative();
+    }
+
+    flutterNapi.runBundleAndSnapshotFromLibrary(
+      loader.findAppBundlePath(),
+      dartEnterFunction,
+      dartEntrypointLibraryUri,
+      context.resourceManager,
+      dartArgs);
+    if (width == 0 || height == 0) {
+      let display_info: display.Display = display.getDefaultDisplaySync();;
+      width = display_info.width;
+      height = display_info.height;
+    }
+    let next_viewid = FlutterManager.getInstance().getNextFlutterViewId();
+    flutterNapi.xComponentPreDraw(next_viewid, width, height);
+}
 
   async checkLoader(context: common.Context, args: Array<string>) {
     let loader: FlutterLoader = FlutterInjector.getInstance().getFlutterLoader();
