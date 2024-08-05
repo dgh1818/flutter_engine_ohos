@@ -39,7 +39,6 @@ class OhosEGLSurface;
 class OhosContextGLSkia : public OHOSContext {
  public:
   OhosContextGLSkia(OHOSRenderingAPI rendering_api,
-                    fml::RefPtr<OhosEnvironmentGL> environment,
                     const TaskRunners& taskRunners,
                     uint8_t msaa_samples);
 
@@ -68,7 +67,7 @@ class OhosContextGLSkia : public OHOSContext {
   ///
   /// @return     The pbuffer surface.
   ///
-  std::unique_ptr<OhosEGLSurface> CreatePbufferSurface() const;
+  std::unique_ptr<OhosEGLSurface> CreatePbufferSurface(int width = 1, int height = 1) const;
 
   //----------------------------------------------------------------------------
   /// @return     The Ohos environment that contains a reference to the
