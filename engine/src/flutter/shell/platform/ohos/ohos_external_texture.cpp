@@ -32,6 +32,7 @@ OHOSExternalTexture::~OHOSExternalTexture() {
     if (producer_nativewindow_buffer_ != nullptr) {
       OH_NativeWindow_NativeWindowAbortBuffer(producer_nativewindow_,
                                               producer_nativewindow_buffer_);
+      OH_NativeWindow_DestroyNativeWindow(producer_nativewindow_);
     }
     // producer_nativewindow_ will be destroy and
     // UnsetOnFrameAvailableListener will be invoked in OH_NativeImage_Destroy.
