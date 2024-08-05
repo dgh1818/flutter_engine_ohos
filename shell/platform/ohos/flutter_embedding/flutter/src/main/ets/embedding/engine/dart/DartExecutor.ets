@@ -49,7 +49,7 @@ export default class DartExecutor implements BinaryMessenger {
     this.binaryMessenger = new DefaultBinaryMessenger(this.dartMessenger);
     // The NAPI might already be attached if coming from a spawned engine. If so, correctly report
     // that this DartExecutor is already running.
-    if (flutterNapi.isAttached()) {
+    if (flutterNapi.isRunningDart) {
       this.isApplicationRunning = true;
     }
   }

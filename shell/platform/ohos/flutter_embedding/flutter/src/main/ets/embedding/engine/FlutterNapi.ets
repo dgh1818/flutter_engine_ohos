@@ -51,6 +51,7 @@ export default class FlutterNapi {
   accessibilityDelegate: AccessibilityDelegate | null = null;
   localizationPlugin: LocalizationPlugin | null = null;
   isDisplayingFlutterUi: boolean = false;
+  isRunningDart: boolean = false;
 
   /**
    * 更新刷新率
@@ -100,7 +101,9 @@ export default class FlutterNapi {
       Log.e(TAG, "attachToNative fail, FlutterNapi.hasInit=" + FlutterNapi.hasInit);
       return;
     }
-    this.nativeShellHolderId = flutter.nativeAttach(this);
+    if (this.nativeShellHolderId == null) {
+      this.nativeShellHolderId = flutter.nativeAttach(this);
+    }
     Log.w(TAG, "nativeShellHolderId=" + this.nativeShellHolderId);
   }
 
@@ -118,6 +121,7 @@ export default class FlutterNapi {
       "  pathToEntrypointFunction=" + pathToEntrypointFunction + "  entrypointArgs=" + JSON.stringify(entrypointArgs))
     flutter.nativeRunBundleAndSnapshotFromLibrary(this.nativeShellHolderId!, bundlePath, entrypointFunctionName,
       pathToEntrypointFunction, assetManager, entrypointArgs);
+    this.isRunningDart = true;
   };
 
   /**
@@ -249,11 +253,12 @@ export default class FlutterNapi {
 
   spawn(entrypointFunctionName: string, pathToEntrypointFunction: string, initialRoute: string,
     entrypointArgs: Array<string>): FlutterNapi {
-    let flutterNapi = new FlutterNapi()
+    let flutterNapi = new FlutterNapi();
     let shellHolderId: number =
       flutter.nativeSpawn(this.nativeShellHolderId, entrypointFunctionName, pathToEntrypointFunction, initialRoute,
-        entrypointArgs, flutterNapi)
-    flutterNapi.nativeShellHolderId = shellHolderId
+        entrypointArgs, flutterNapi);
+    flutterNapi.nativeShellHolderId = shellHolderId;
+    flutterNapi.isRunningDart = this.isRunningDart;
     return flutterNapi;
   }
 
@@ -417,6 +422,9 @@ export default class FlutterNapi {
 
   detachFromNativeAndReleaseResources() {
     flutter.nativeDestroy(this.nativeShellHolderId!!);
+    this.hasInit = false;
+    this.nativeShellHolderId = null;
+    this.isRunningDart = false;
   }
 
   unregisterTexture(textureId: number): void {
