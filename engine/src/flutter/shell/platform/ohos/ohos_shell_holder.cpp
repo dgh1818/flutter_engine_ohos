@@ -21,6 +21,7 @@
 #include "flutter/shell/platform/ohos/ohos_display.h"
 
 #include "flutter/fml/logging.h"
+#include "fml/trace_event.h"
 
 #include <sys/resource.h>
 #include <sys/time.h>
@@ -69,7 +70,7 @@ OHOSShellHolder::OHOSShellHolder(
   FML_DLOG(INFO) << " ohos shell holder constructor";
   static size_t thread_host_count = 1;
   auto thread_label = std::to_string(thread_host_count++);
-
+  TRACE_EVENT0("OHOSShellHolder", "Create");
   auto mask =
       ThreadHost::Type::kUi | ThreadHost::Type::kRaster | ThreadHost::Type::kIo;
 
