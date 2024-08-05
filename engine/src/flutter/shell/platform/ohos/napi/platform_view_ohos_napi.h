@@ -65,7 +65,8 @@ class PlatformViewOHOSNapi {
                    void* inputData,
                    size_t dataSize);
 
-  void FlutterViewOnTouchEvent(std::shared_ptr<std::string[]> touchPacketString, int size);
+  void FlutterViewOnTouchEvent(std::shared_ptr<std::string[]> touchPacketString,
+                               int size);
 
   static napi_value nativeUpdateRefreshRate(
       napi_env env,
@@ -158,6 +159,8 @@ class PlatformViewOHOSNapi {
   // Surface相关，XComponent调用
   static void SurfaceCreated(int64_t shell_holder, void* window);
 
+  static void SurfacePreload(int64_t shell_holder, int width, int height);
+
   static void SurfaceChanged(int64_t shell_holder, void* window);
 
   static void SurfaceDestroyed(int64_t shell_holder);
@@ -168,6 +171,8 @@ class PlatformViewOHOSNapi {
   static napi_value nativeXComponentDetachFlutterEngine(
       napi_env env,
       napi_callback_info info);
+  static napi_value nativeXComponentPreDraw(napi_env env,
+                                            napi_callback_info info);
 
   static int64_t display_width;
   static int64_t display_height;

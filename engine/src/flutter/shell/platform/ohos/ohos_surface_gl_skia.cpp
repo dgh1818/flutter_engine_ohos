@@ -122,7 +122,12 @@ bool OhosSurfaceGLSkia::ResourceContextClearCurrent() {
 
 bool OhosSurfaceGLSkia::SetNativeWindow(fml::RefPtr<OHOSNativeWindow> window) {
   FML_DCHECK(IsValid());
-  FML_DCHECK(window);
+  if (!window) {
+    GLContextClearCurrent();
+    native_window_ = nullptr;
+    onscreen_surface_ = nullptr;
+    return false;
+  }
   native_window_ = window;
   // Ensure the destructor is called since it destroys the `EGLSurface` before
   // creating a new onscreen surface.
@@ -135,6 +140,31 @@ bool OhosSurfaceGLSkia::SetNativeWindow(fml::RefPtr<OHOSNativeWindow> window) {
   }
   return true;
 }
+
+bool OhosSurfaceGLSkia::PaintOffscreenData(OHNativeWindowBuffer* buffer,
+                                           int fence_fd) {
+  if (onscreen_nativewindow_ == nullptr) {
+    return false;
+  }
+  int ret =
+      OH_NativeWindow_NativeWindowAttachBuffer(onscreen_nativewindow_, buffer);
+  if (ret != 0) {
+    FML_LOG(ERROR) << "ohos_surface cannot attach onscreen nativewindow "
+                      "buffer to window: ret error:"
+                   << ret;
+    return false;
+  }
+
+  ret = OH_NativeWindow_NativeWindowFlushBuffer(onscreen_nativewindow_, buffer,
+                                                fence_fd, {});
+  if (ret != 0) {
+    FML_LOG(INFO) << "ohos_surface flush last nativewindow buffer result: "
+                  << ret;
+  }
+
+  OH_NativeWindow_DestroyNativeWindowBuffer(buffer);
+  return true;
+};
 
 std::unique_ptr<GLContextResult> OhosSurfaceGLSkia::GLContextMakeCurrent() {
   FML_DCHECK(IsValid());

@@ -16,11 +16,13 @@
 #ifndef FLUTTER_SHELL_PLATFORM_OHOS_OHOS_SURFACE_VULKAN_IMPELLER_H_
 #define FLUTTER_SHELL_PLATFORM_OHOS_OHOS_SURFACE_VULKAN_IMPELLER_H_
 
+#include <mutex>
 #include "flutter/fml/concurrent_message_loop.h"
 #include "flutter/fml/macros.h"
 #include "flutter/impeller/renderer/backend/vulkan/surface_context_vk.h"
 #include "flutter/impeller/renderer/context.h"
 
+#include "shell/gpu/gpu_surface_vulkan_impeller.h"
 #include "shell/platform/ohos/ohos_context_vulkan_impeller.h"
 #include "surface/ohos_native_window.h"
 #include "surface/ohos_surface.h"
@@ -59,9 +61,13 @@ class OHOSSurfaceVulkanImpeller : public OHOSSurface {
   // |OHOSSurface|
   bool SetNativeWindow(fml::RefPtr<OHOSNativeWindow> window) override;
 
+  bool PrepareOffscreenWindow(int32_t width, int32_t height) override;
+
  private:
   fml::RefPtr<OHOSNativeWindow> native_window_;
   std::shared_ptr<impeller::SurfaceContextVK> surface_context_vk_;
+  std::unique_ptr<GPUSurfaceVulkanImpeller> preload_gpu_surface_;
+  std::mutex surface_preload_mutex_;
   bool is_valid_ = false;
 
   FML_DISALLOW_COPY_AND_ASSIGN(OHOSSurfaceVulkanImpeller);

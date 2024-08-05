@@ -23,9 +23,9 @@
 #include "flutter/fml/logging.h"
 #include "fml/trace_event.h"
 
+#include <qos/qos.h>
 #include <sys/resource.h>
 #include <sys/time.h>
-#include <qos/qos.h>
 
 namespace flutter {
 
@@ -35,23 +35,24 @@ static void OHOSPlatformThreadConfigSetter(
   // set thread priority
   switch (config.priority) {
     case fml::Thread::ThreadPriority::kBackground: {
-        int ret = OH_QoS_SetThreadQoS(QoS_Level::QOS_BACKGROUND);
-        FML_DLOG(INFO) << "qos set background result:" << ret << ",tid:" << gettid();
-        break;
+      int ret = OH_QoS_SetThreadQoS(QoS_Level::QOS_BACKGROUND);
+      FML_DLOG(INFO) << "qos set background result:" << ret
+                     << ",tid:" << gettid();
+      break;
     }
     case fml::Thread::ThreadPriority::kDisplay: {
-        int ret = OH_QoS_SetThreadQoS(QoS_Level::QOS_USER_INTERACTIVE);
-        FML_DLOG(INFO) << "qos set display result:" << ret << ",tid:" << gettid();
-        break;
+      int ret = OH_QoS_SetThreadQoS(QoS_Level::QOS_USER_INTERACTIVE);
+      FML_DLOG(INFO) << "qos set display result:" << ret << ",tid:" << gettid();
+      break;
     }
     case fml::Thread::ThreadPriority::kRaster: {
-        int ret = OH_QoS_SetThreadQoS(QoS_Level::QOS_USER_INTERACTIVE);
-        FML_DLOG(INFO) << "qos set raster result:" << ret << ",tid:" << gettid();
-        break;
+      int ret = OH_QoS_SetThreadQoS(QoS_Level::QOS_USER_INTERACTIVE);
+      FML_DLOG(INFO) << "qos set raster result:" << ret << ",tid:" << gettid();
+      break;
     }
     default:
-        int ret = OH_QoS_SetThreadQoS(QoS_Level::QOS_DEFAULT);
-        FML_DLOG(INFO) << "qos set default result:" << ret << ",tid:" << gettid();
+      int ret = OH_QoS_SetThreadQoS(QoS_Level::QOS_DEFAULT);
+      FML_DLOG(INFO) << "qos set default result:" << ret << ",tid:" << gettid();
   }
 }
 
@@ -163,10 +164,9 @@ OHOSShellHolder::OHOSShellHolder(
 
     LOGI("shell_ end");
     shell_->RegisterImageDecoder(
-        [task_runners,
-         napi_facade = napi_facade_](sk_sp<SkData> buffer) {
-          return OHOSImageGenerator::MakeFromData(std::move(buffer), task_runners,
-                                                  napi_facade);
+        [task_runners, napi_facade = napi_facade_](sk_sp<SkData> buffer) {
+          return OHOSImageGenerator::MakeFromData(std::move(buffer),
+                                                  task_runners, napi_facade);
         },
         -1);
 

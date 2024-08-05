@@ -67,7 +67,8 @@ class OhosContextGLSkia : public OHOSContext {
   ///
   /// @return     The pbuffer surface.
   ///
-  std::unique_ptr<OhosEGLSurface> CreatePbufferSurface(int width = 1, int height = 1) const;
+  std::unique_ptr<OhosEGLSurface> CreatePbufferSurface(int width = 1,
+                                                       int height = 1) const;
 
   //----------------------------------------------------------------------------
   /// @return     The Ohos environment that contains a reference to the

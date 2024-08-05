@@ -81,45 +81,44 @@ OhosContextGLSkia::OhosContextGLSkia(OHOSRenderingAPI rendering_api,
     : OHOSContext(OHOSRenderingAPI::kOpenGLES),
       config_(nullptr),
       task_runners_(task_runners) {
+  environment_ = fml::MakeRefCounted<OhosEnvironmentGL>();
+  if (!environment_->IsValid()) {
+    FML_LOG(ERROR) << "Could not create an Ohos GL environment.";
+    return;
+  }
 
-    environment_ = fml::MakeRefCounted<OhosEnvironmentGL>();
-    if (!environment_->IsValid()) {
-      FML_LOG(ERROR) << "Could not create an Ohos GL environment.";
-      return;
-    }
+  bool success = false;
 
-    bool success = false;
-    
-    TRACE_EVENT0("flutter", "OhosContextGLSkia");
+  TRACE_EVENT0("flutter", "OhosContextGLSkia");
 
-    // Choose a valid configuration.
-    std::tie(success, config_) =
-        ChooseEGLConfiguration(environment_->Display(), msaa_samples);
-    if (!success) {
-      FML_LOG(ERROR) << "Could not choose an EGL configuration.";
-      LogLastEGLError();
-      return;
-    }
-    FML_LOG(INFO) << "create gl context";
-    // Create a context for the configuration.
-    std::tie(success, context_) =
-        CreateContext(environment_->Display(), config_, EGL_NO_CONTEXT);
-    if (!success) {
-      FML_LOG(ERROR) << "Could not create an EGL context";
-      LogLastEGLError();
-      return;
-    }
+  // Choose a valid configuration.
+  std::tie(success, config_) =
+      ChooseEGLConfiguration(environment_->Display(), msaa_samples);
+  if (!success) {
+    FML_LOG(ERROR) << "Could not choose an EGL configuration.";
+    LogLastEGLError();
+    return;
+  }
+  FML_LOG(INFO) << "create gl context";
+  // Create a context for the configuration.
+  std::tie(success, context_) =
+      CreateContext(environment_->Display(), config_, EGL_NO_CONTEXT);
+  if (!success) {
+    FML_LOG(ERROR) << "Could not create an EGL context";
+    LogLastEGLError();
+    return;
+  }
 
-    std::tie(success, resource_context_) =
-        CreateContext(environment_->Display(), config_, context_);
-    if (!success) {
-      FML_LOG(ERROR) << "Could not create an EGL resource context";
-      LogLastEGLError();
-      return;
-    }
+  std::tie(success, resource_context_) =
+      CreateContext(environment_->Display(), config_, context_);
+  if (!success) {
+    FML_LOG(ERROR) << "Could not create an EGL resource context";
+    LogLastEGLError();
+    return;
+  }
 
-    // All done!
-    valid_ = true;
+  // All done!
+  valid_ = true;
 }
 
 OhosContextGLSkia::~OhosContextGLSkia() {
@@ -194,8 +193,9 @@ std::unique_ptr<OhosEGLSurface> OhosContextGLSkia::CreateOffscreenSurface()
   return std::make_unique<OhosEGLSurface>(surface, display, resource_context_);
 }
 
-std::unique_ptr<OhosEGLSurface> OhosContextGLSkia::CreatePbufferSurface(int width, int height)
-    const {
+std::unique_ptr<OhosEGLSurface> OhosContextGLSkia::CreatePbufferSurface(
+    int width,
+    int height) const {
   EGLDisplay display = environment_->Display();
 
   const EGLint attribs[] = {EGL_WIDTH, width, EGL_HEIGHT, height, EGL_NONE};

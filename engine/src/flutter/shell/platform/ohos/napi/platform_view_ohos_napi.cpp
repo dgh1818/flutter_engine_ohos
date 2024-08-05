@@ -1605,11 +1605,18 @@ void PlatformViewOHOSNapi::SurfaceCreated(int64_t shell_holder, void* window) {
   OHOS_SHELL_HOLDER->GetPlatformView()->NotifyCreate(std::move(native_window));
 }
 
+void PlatformViewOHOSNapi::SurfacePreload(int64_t shell_holder,
+                                          int width,
+                                          int height) {
+  OHOS_SHELL_HOLDER->GetPlatformView()->Preload(width, height);
+}
+
 void PlatformViewOHOSNapi::SurfaceChanged(int64_t shell_holder, void* window) {
   FML_LOG(INFO) << "impeller" << "SurfaceChanged:";
   auto native_window = fml::MakeRefCounted<OHOSNativeWindow>(
       static_cast<OHNativeWindow*>(window));
-  OHOS_SHELL_HOLDER->GetPlatformView()->NotifySurfaceWindowChanged(native_window);
+  OHOS_SHELL_HOLDER->GetPlatformView()->NotifySurfaceWindowChanged(
+      native_window);
   auto size = native_window->GetSize();
   display_width = size.width();
   display_height = size.height();
@@ -1669,6 +1676,67 @@ napi_value PlatformViewOHOSNapi::nativeXComponentAttachFlutterEngine(
                                                         shell_holder_str);
   return nullptr;
 }
+
+/**
+ * @brief   提前绘制xcomponent的内容
+ * @note
+ * @param  nativeShellHolderId: number
+ * @param  xcomponentId: number
+ * @return void
+ */
+napi_value PlatformViewOHOSNapi::nativeXComponentPreDraw(
+    napi_env env,
+    napi_callback_info info) {
+  napi_status ret;
+  size_t argc = 4;
+  napi_value args[4] = {nullptr};
+  std::string xcomponent_id;
+  int64_t shell_holder;
+  int width = 0;
+  int height = 0;
+  ret = napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+  if (ret != napi_ok) {
+    FML_DLOG(ERROR) << "nativeXComponentPreDraw napi_get_cb_info error:" << ret;
+    return nullptr;
+  }
+
+  if (fml::napi::GetString(env, args[0], xcomponent_id) != 0) {
+    FML_DLOG(ERROR) << "nativeXComponentPreDraw xcomponent_id GetString error";
+    return nullptr;
+  }
+
+  ret = napi_get_value_int64(env, args[1], &shell_holder);
+  if (ret != napi_ok) {
+    FML_DLOG(ERROR) << "nativeXComponentPreDraw shell_holder "
+                       "napi_get_value_int64 error";
+    return nullptr;
+  }
+  std::string shell_holder_str = std::to_string(shell_holder);
+
+  ret = napi_get_value_int32(env, args[2], &width);
+  if (ret != napi_ok) {
+    FML_DLOG(ERROR) << "nativeXComponentPreDraw width "
+                       "napi_get_value_int32 error";
+    return nullptr;
+  }
+
+  ret = napi_get_value_int32(env, args[3], &height);
+  if (ret != napi_ok) {
+    FML_DLOG(ERROR) << "nativeXComponentPreDraw height "
+                       "napi_get_value_int32 error";
+    return nullptr;
+  }
+
+  LOGD(
+      "nativeXComponentPreDraw xcomponent_id: %{public}s, "
+      "shell_holder: %{public}ld ",
+      xcomponent_id.c_str(), shell_holder);
+
+  XComponentAdapter::GetInstance()->PreDraw(xcomponent_id, shell_holder_str,
+                                            width, height);
+  return nullptr;
+}
+
 /**
  * @brief xcomponent解除flutter引擎绑定
  * @note

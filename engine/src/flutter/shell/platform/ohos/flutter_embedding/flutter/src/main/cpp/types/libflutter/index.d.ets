@@ -106,6 +106,8 @@ export const nativeGetSystemLanguages: (nativeShellHolderId: number, languages: 
 
 export const nativeXComponentAttachFlutterEngine: (xcomponentId: string, nativeShellHolderId: number) => void;
 
+export const nativeXComponentPreDraw: (xcomponentId: string, nativeShellHolderId: number, width: number, height: number) => void;
+
 export const nativeXComponentDetachFlutterEngine: (xcomponentId: string, nativeShellHolderId: number) => void;
 
 /**
