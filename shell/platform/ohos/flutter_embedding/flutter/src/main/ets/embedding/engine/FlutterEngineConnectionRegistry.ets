@@ -71,7 +71,7 @@ export default class FlutterEngineConnectionRegistry implements PluginRegistry, 
         return;
       }
 
-      Log.w(TAG, "Adding plugin: " + plugin);
+      Log.d(TAG, "Adding plugin: " + plugin);
       // Add the plugin to our generic set of plugins and notify the plugin
       // that is has been attached to an engine.
       this.plugins.set(plugin.getUniqueClassName(), plugin);
