@@ -67,6 +67,7 @@ void OHOSExternalTextureGL::SetGPUFence(int* fence_fd) {
     FML_DLOG(INFO) << "create norma fence sync fd " << *fence_fd
                    << " fence_sync " << fence_sync << " eglError "
                    << eglGetError();
+    glFlush();
     eglDestroySyncKHR_(disp, fence_sync);
   } else {
     FML_LOG(ERROR) << "get null proc ptr eglCreateSyncKHR:" << eglCreateSyncKHR_
