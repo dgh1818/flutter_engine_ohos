@@ -32,6 +32,7 @@ class XComponentBase {
   ~XComponentBase();
 
   void AttachFlutterEngine(std::string shellholderId);
+  void PreDraw(std::string shellholderId, int width, int height);
   void DetachFlutterEngine();
   void SetNativeXComponent(OH_NativeXComponent* nativeXComponent);
 
@@ -47,6 +48,7 @@ class XComponentBase {
   std::string shellholderId_;
   bool is_engine_attached_ = false;
   bool is_surface_present_ = false;
+  bool is_surface_preloaded_ = false;
   OH_NativeXComponent* nativeXComponent_ = nullptr;
   void* window_ = nullptr;
   uint64_t width_ = 0;
@@ -63,6 +65,10 @@ class XComponentAdapter {
   void SetNativeXComponent(std::string& id,
                            OH_NativeXComponent* nativeXComponent);
   void AttachFlutterEngine(std::string& id, std::string& shellholderId);
+  void PreDraw(std::string& id,
+               std::string& shellholderId,
+               int width,
+               int height);
   void DetachFlutterEngine(std::string& id);
 
  public:

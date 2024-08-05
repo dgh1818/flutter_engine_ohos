@@ -98,6 +98,22 @@ void XComponentAdapter::AttachFlutterEngine(std::string& id,
   }
 }
 
+void XComponentAdapter::PreDraw(std::string& id,
+                                std::string& shellholderId,
+                                int width,
+                                int height) {
+  auto iter = xcomponetMap_.find(id);
+  if (iter == xcomponetMap_.end()) {
+    XComponentBase* xcomponet = new XComponentBase(id);
+    xcomponetMap_[id] = xcomponet;
+  }
+
+  auto findIter = xcomponetMap_.find(id);
+  if (findIter != xcomponetMap_.end()) {
+    findIter->second->PreDraw(shellholderId, width, height);
+  }
+}
+
 void XComponentAdapter::DetachFlutterEngine(std::string& id) {
   auto iter = xcomponetMap_.find(id);
   if (iter != xcomponetMap_.end()) {
@@ -247,6 +263,21 @@ void XComponentBase::AttachFlutterEngine(std::string shellholderId) {
   }
 }
 
+void XComponentBase::PreDraw(std::string shellholderId, int width, int height) {
+  LOGD(
+      "AttachFlutterEngine XComponentBase is not attached---use preload "
+      "%{public}d %{public}d",
+      width, height);
+  shellholderId_ = std::move(shellholderId);
+  is_engine_attached_ = true;
+  if (is_surface_preloaded_) {
+    return;
+  }
+  PlatformViewOHOSNapi::SurfacePreload(std::stoll(shellholderId_), width,
+                                       height);
+  is_surface_preloaded_ = true;
+}
+
 void XComponentBase::DetachFlutterEngine() {
   LOGD(
       "XComponentManger::DetachFlutterEngine xcomponentId:%{public}s, "
@@ -260,6 +291,7 @@ void XComponentBase::DetachFlutterEngine() {
   shellholderId_ = "";
   is_engine_attached_ = false;
   is_surface_present_ = false;
+  is_surface_preloaded_ = false;
 }
 
 void XComponentBase::SetNativeXComponent(
@@ -324,6 +356,7 @@ void XComponentBase::OnSurfaceDestroyed(OH_NativeXComponent* component,
   LOGD("XComponentManger::OnSurfaceDestroyed");
   if (is_engine_attached_) {
     is_surface_present_ = false;
+    is_surface_preloaded_ = false;
     PlatformViewOHOSNapi::SurfaceDestroyed(std::stoll(shellholderId_));
   } else {
     LOGE("OnSurfaceCreated OnSurfaceDestroyed is not attached");

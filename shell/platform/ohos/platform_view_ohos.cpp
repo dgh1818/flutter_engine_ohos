@@ -141,19 +141,43 @@ void PlatformViewOHOS::NotifyCreate(
   if (ohos_surface_) {
     InstallFirstFrameCallback();
     LOGI("NotifyCreate start1");
-    fml::AutoResetWaitableEvent latch;
     fml::TaskRunner::RunNowOrPostTask(
         task_runners_.GetRasterTaskRunner(),
-        [&latch, surface = ohos_surface_.get(),
+        [&, surface = ohos_surface_.get(),
          native_window = std::move(native_window)]() {
           LOGI("NotifyCreate start4");
-          surface->SetNativeWindow(native_window);
-          latch.Signal();
+          surface->SetDisplayWindow(native_window);
+          // Note that NotifyDestroyed will wait raster task, so platformview is
+          // not deleted here.
+          if (!window_is_preload_) {
+            PlatformView::NotifyCreated();
+          } else if (surface->NeedNewFrame()) {
+            PlatformView::ScheduleFrame();
+          }
         });
-    latch.Wait();
   }
+}
 
-  PlatformView::NotifyCreated();
+void PlatformViewOHOS::Preload(int width, int height) {
+  if (ohos_surface_ && !window_is_preload_) {
+    LOGI("Preload start");
+    InstallFirstFrameCallback();
+    fml::TaskRunner::RunNowOrPostTask(
+        task_runners_.GetRasterTaskRunner(),
+        [&, surface = ohos_surface_.get(), width, height]() {
+          TRACE_EVENT0("flutter", "surface:Preload");
+          LOGI("Preload PlatformViewOHOS");
+          if (!window_is_preload_) {
+            bool ret = surface->PrepareOffscreenWindow(width, height);
+            if (ret) {
+              // Note that NotifyDestroyed will wait raster task, so
+              // platformview is not deleted here.
+              PlatformView::NotifyCreated();
+              window_is_preload_ = true;
+            }
+          }
+        });
+  }
 }
 
 void PlatformViewOHOS::NotifySurfaceWindowChanged(
@@ -190,7 +214,17 @@ void PlatformViewOHOS::NotifyChanged(const SkISize& size) {
 // |PlatformView|
 void PlatformViewOHOS::NotifyDestroyed() {
   LOGI("PlatformViewOHOS NotifyDestroyed enter");
-  PlatformView::NotifyDestroyed();
+
+  // Note: NotifyCreate is invoked in raster thread. So we post NotifyDestroyed
+  // to raster to avoid latent conflic.
+  fml::AutoResetWaitableEvent latch;
+  fml::TaskRunner::RunNowOrPostTask(task_runners_.GetRasterTaskRunner(), [&]() {
+    window_is_preload_ = false;
+    PlatformView::NotifyDestroyed();
+    latch.Signal();
+  });
+  latch.Wait();
+
   if (ohos_surface_) {
     // If we don't unregister external texture, PlatformViewOHOS ptr in
     // texture_platformview_map_ will bring use-after-free crash in

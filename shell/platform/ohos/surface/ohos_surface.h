@@ -13,9 +13,10 @@
  * limitations under the License.
  */
 
-#ifndef OHOS_SURFACE_H
-#define OHOS_SURFACE_H
+#ifndef FLUTTER_SHELL_PLATFORM_OHOS_SURFACE_OHOS_SURFACE_H_
+#define FLUTTER_SHELL_PLATFORM_OHOS_SURFACE_OHOS_SURFACE_H_
 
+#include <native_image/native_image.h>
 #include <memory>
 #include "flutter/flow/surface.h"
 #include "flutter/shell/platform/ohos/context/ohos_context.h"
@@ -49,9 +50,40 @@ class OHOSSurface {
 
   virtual std::shared_ptr<impeller::Context> GetImpellerContext();
 
+  virtual bool PaintOffscreenData(OHNativeWindowBuffer* buffer, int fence_fd) {
+    return false;
+  };
+
+  virtual bool PrepareOffscreenWindow(int32_t width, int32_t height);
+
+  void ReleaseOffscreenWindow();
+
+  bool SetDisplayWindow(fml::RefPtr<OHOSNativeWindow> window);
+
+  bool NeedNewFrame() { return need_schedule_frame_; }
+
+  static void OnFrameAvailable(void* data);
+
  protected:
   explicit OHOSSurface(const std::shared_ptr<OHOSContext>& ohos_context);
   std::shared_ptr<OHOSContext> ohos_context_;
+  OHNativeWindow* onscreen_nativewindow_ = nullptr;
+
+ private:
+  OH_NativeImage* offscreen_native_image_ = nullptr;
+  //
+  // std::vector<OHNativeWindowBuffer*> all_offscreen_window_buffers_;
+  OHNativeWindow* offscreen_nativewindow_ = nullptr;
+  OHNativeWindowBuffer* last_nativewindow_buffer_ = nullptr;
+
+  int32_t offscreen_width_ = 0;
+  int32_t offscreen_height_ = 0;
+
+  // int32_t free_buffer_cnt_;
+  // int32_t max_buffer_cnt_;
+  int last_fence_fd_ = -1;
+
+  bool need_schedule_frame_ = false;
 };
 
 class OhosSurfaceFactory {
@@ -64,4 +96,4 @@ class OhosSurfaceFactory {
 };
 }  // namespace flutter
 
-#endif
+#endif  // FLUTTER_SHELL_PLATFORM_OHOS_SURFACE_OHOS_SURFACE_H_

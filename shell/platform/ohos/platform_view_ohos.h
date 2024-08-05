@@ -67,6 +67,8 @@ class PlatformViewOHOS final : public PlatformView {
 
   void NotifyCreate(fml::RefPtr<OHOSNativeWindow> native_window);
 
+  void Preload(int width, int height);
+
   void NotifySurfaceWindowChanged(fml::RefPtr<OHOSNativeWindow> native_window);
 
   void NotifyChanged(const SkISize& size);
@@ -126,6 +128,8 @@ class PlatformViewOHOS final : public PlatformView {
 
   std::shared_ptr<OhosSurfaceFactoryImpl> surface_factory_;
   std::map<int64_t, std::shared_ptr<OHOSExternalTexture>> all_external_texture_;
+
+  bool window_is_preload_ = false;
 
   // |PlatformView|
   void UpdateSemantics(
