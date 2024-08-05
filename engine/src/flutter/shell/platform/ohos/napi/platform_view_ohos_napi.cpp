@@ -1605,13 +1605,14 @@ void PlatformViewOHOSNapi::SurfaceCreated(int64_t shell_holder, void* window) {
   OHOS_SHELL_HOLDER->GetPlatformView()->NotifyCreate(std::move(native_window));
 }
 
-void PlatformViewOHOSNapi::SurfaceChanged(int64_t shell_holder,
-                                          int32_t width,
-                                          int32_t height) {
-  OHOS_SHELL_HOLDER->GetPlatformView()->NotifyChanged(
-      SkISize::Make(width, height));
-  display_width = width;
-  display_height = height;
+void PlatformViewOHOSNapi::SurfaceChanged(int64_t shell_holder, void* window) {
+  FML_LOG(INFO) << "impeller" << "SurfaceChanged:";
+  auto native_window = fml::MakeRefCounted<OHOSNativeWindow>(
+      static_cast<OHNativeWindow*>(window));
+  OHOS_SHELL_HOLDER->GetPlatformView()->NotifySurfaceWindowChanged(native_window);
+  auto size = native_window->GetSize();
+  display_width = size.width();
+  display_height = size.height();
 }
 
 void PlatformViewOHOSNapi::SurfaceDestroyed(int64_t shell_holder) {
