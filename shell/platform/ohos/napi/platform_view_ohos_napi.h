@@ -158,9 +158,7 @@ class PlatformViewOHOSNapi {
   // Surface相关，XComponent调用
   static void SurfaceCreated(int64_t shell_holder, void* window);
 
-  static void SurfaceChanged(int64_t shell_holder,
-                             int32_t width,
-                             int32_t height);
+  static void SurfaceChanged(int64_t shell_holder, void* window);
 
   static void SurfaceDestroyed(int64_t shell_holder);
   static int64_t GetShellHolder();

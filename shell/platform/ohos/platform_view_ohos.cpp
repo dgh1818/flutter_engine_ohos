@@ -156,6 +156,23 @@ void PlatformViewOHOS::NotifyCreate(
   PlatformView::NotifyCreated();
 }
 
+void PlatformViewOHOS::NotifySurfaceWindowChanged(
+    fml::RefPtr<OHOSNativeWindow> native_window) {
+  LOGI("PlatformViewOHOS NotifySurfaceWindowChanged enter");
+  if (ohos_surface_) {
+    fml::AutoResetWaitableEvent latch;
+    fml::TaskRunner::RunNowOrPostTask(
+        task_runners_.GetRasterTaskRunner(),
+        [&latch, surface = ohos_surface_.get(),
+         native_window = std::move(native_window)]() {
+          surface->TeardownOnScreenContext();
+          surface->SetNativeWindow(native_window);
+          latch.Signal();
+        });
+    latch.Wait();
+  }
+}
+
 void PlatformViewOHOS::NotifyChanged(const SkISize& size) {
   LOGI("PlatformViewOHOS NotifyChanged enter");
   if (ohos_surface_) {
