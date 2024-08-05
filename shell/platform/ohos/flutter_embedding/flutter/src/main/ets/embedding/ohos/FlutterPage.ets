@@ -56,6 +56,8 @@ export struct FlutterPage {
     this.flutterView?.setCheckAiBar(this.checkGesture)
 
     this.rootDvModel = this.flutterView!!.getDVModel().children
+    this.flutterView?.preDraw();
+    Log.d(TAG, "XComponent aboutToAppear "+ this.storageLinkWidth + " "+ this.storageLinkHeight);
   }
 
   aboutToDisappear() {

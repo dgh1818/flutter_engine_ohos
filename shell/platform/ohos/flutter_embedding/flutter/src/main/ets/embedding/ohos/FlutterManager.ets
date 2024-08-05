@@ -94,6 +94,10 @@ export default class FlutterManager {
     return flutterView;
   }
 
+  getNextFlutterViewId(): string {
+    return `oh_flutter_${this.flutterViewIndex}`;
+  }
+
   clear(): void {
     this.flutterViewList.clear();
   }

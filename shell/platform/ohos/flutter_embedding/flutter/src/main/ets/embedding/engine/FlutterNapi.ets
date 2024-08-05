@@ -413,6 +413,14 @@ export default class FlutterNapi {
   }
 
   /**
+   * xcomponet预渲染
+   * @param xcomponentId
+   */
+  xComponentPreDraw(xcomponentId: string, width: number, height: number) {
+    flutter.nativeXComponentPreDraw(xcomponentId, this.nativeShellHolderId!, width, height);
+  }
+
+  /**
    * xcomponet解除绑定flutterEngine
    * @param xcomponentId
    */
