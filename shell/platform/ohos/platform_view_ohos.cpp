@@ -23,6 +23,7 @@
 #include "flutter/shell/platform/ohos/ohos_surface_gl_skia.h"
 #include "flutter/shell/platform/ohos/ohos_surface_software.h"
 #include "flutter/shell/platform/ohos/platform_message_response_ohos.h"
+#include "fml/trace_event.h"
 #include "napi_common.h"
 #include "ohos_context_gl_impeller.h"
 #include "ohos_external_texture_gl.h"
@@ -35,8 +36,8 @@ namespace flutter {
 
 // This global map's key is (PlatformViewOHOS-ptr + texture_id) because there
 // may be many platformViews.
-std::map<uint64_t, PlatformViewOHOS*> texture_platformview_map_;
-std::mutex map_mutex_;
+std::map<uint64_t, PlatformViewOHOS*> g_texture_platformview_map;
+std::mutex g_map_mutex;
 
 OhosSurfaceFactoryImpl::OhosSurfaceFactoryImpl(
     const std::shared_ptr<OHOSContext>& context)
@@ -69,13 +70,13 @@ std::unique_ptr<OHOSContext> CreateOHOSContext(
     bool enable_vulkan_validation,
     bool enable_opengl_gpu_tracing,
     bool enable_vulkan_gpu_tracing) {
+  TRACE_EVENT0("flutter", "CreateOHOSContext");
   switch (rendering_api) {
     case OHOSRenderingAPI::kSoftware:
       return std::make_unique<OHOSContext>(OHOSRenderingAPI::kSoftware);
     case OHOSRenderingAPI::kOpenGLES:
-      return std::make_unique<OhosContextGLSkia>(
-          OHOSRenderingAPI::kOpenGLES, fml::MakeRefCounted<OhosEnvironmentGL>(),
-          task_runners, msaa_samples);
+      return std::make_unique<OhosContextGLSkia>(OHOSRenderingAPI::kOpenGLES,
+                                                 task_runners, msaa_samples);
     case OHOSRenderingAPI::kImpellerVulkan:
       return std::make_unique<OHOSContextVulkanImpeller>(
           enable_vulkan_validation, enable_vulkan_gpu_tracing);
@@ -426,8 +427,8 @@ uint64_t PlatformViewOHOS::RegisterExternalTexture(int64_t texture_id) {
   } else {
     surface_id = extrenal_texture->GetProducerSurfaceId();
     if (surface_id != 0) {
-      std::lock_guard<std::mutex> lock(map_mutex_);
-      texture_platformview_map_[context_frame_data] = this;
+      std::lock_guard<std::mutex> lock(g_map_mutex);
+      g_texture_platformview_map[context_frame_data] = this;
       all_external_texture_[texture_id] = extrenal_texture;
       RegisterTexture(extrenal_texture);
     }
@@ -437,12 +438,12 @@ uint64_t PlatformViewOHOS::RegisterExternalTexture(int64_t texture_id) {
 
 void PlatformViewOHOS::OnNativeImageFrameAvailable(void* data) {
   uint64_t ptexture_id = (uint64_t)data;
-  std::lock_guard<std::mutex> lock(map_mutex_);
-  if (texture_platformview_map_.find(ptexture_id) ==
-      texture_platformview_map_.end()) {
+  std::lock_guard<std::mutex> lock(g_map_mutex);
+  if (g_texture_platformview_map.find(ptexture_id) ==
+      g_texture_platformview_map.end()) {
     return;
   }
-  PlatformViewOHOS* platform = texture_platformview_map_[ptexture_id];
+  PlatformViewOHOS* platform = g_texture_platformview_map[ptexture_id];
 
   if (platform == nullptr || platform->ohos_surface_ == nullptr) {
     FML_LOG(ERROR) << "OnNativeImageFrameAvailable NotifyDstroyed, will not "
@@ -452,12 +453,12 @@ void PlatformViewOHOS::OnNativeImageFrameAvailable(void* data) {
 
   fml::TaskRunner::RunNowOrPostTask(
       platform->task_runners_.GetPlatformTaskRunner(), [ptexture_id]() {
-        std::lock_guard<std::mutex> lock(map_mutex_);
-        if (texture_platformview_map_.find(ptexture_id) ==
-            texture_platformview_map_.end()) {
+        std::lock_guard<std::mutex> lock(g_map_mutex);
+        if (g_texture_platformview_map.find(ptexture_id) ==
+            g_texture_platformview_map.end()) {
           return;
         }
-        PlatformViewOHOS* platform = texture_platformview_map_[ptexture_id];
+        PlatformViewOHOS* platform = g_texture_platformview_map[ptexture_id];
         uint64_t texture_id = ptexture_id - (uint64_t)platform;
         platform->MarkTextureFrameAvailable(texture_id);
       });
@@ -468,8 +469,8 @@ void PlatformViewOHOS::UnRegisterExternalTexture(int64_t texture_id) {
   FML_LOG(INFO) << "UnRegisterExternalTexture " << texture_id;
   UnregisterTexture(texture_id);
 
-  std::lock_guard<std::mutex> lock(map_mutex_);
-  texture_platformview_map_.erase((uint64_t)this + (uint64_t)texture_id);
+  std::lock_guard<std::mutex> lock(g_map_mutex);
+  g_texture_platformview_map.erase((uint64_t)this + (uint64_t)texture_id);
 }
 
 void PlatformViewOHOS::RegisterExternalTextureByPixelMap(
