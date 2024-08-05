@@ -422,7 +422,6 @@ export default class FlutterNapi {
 
   detachFromNativeAndReleaseResources() {
     flutter.nativeDestroy(this.nativeShellHolderId!!);
-    this.hasInit = false;
     this.nativeShellHolderId = null;
     this.isRunningDart = false;
   }
