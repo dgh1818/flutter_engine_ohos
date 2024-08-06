@@ -107,6 +107,7 @@ export struct FlutterPage {
         this.splashScreenView();
       }
     }
+    .defaultFocus(true)
     .onAreaChange((oldValue: Area, newValue: Area) => {
       if (!this.lastArea || oldValue.width != newValue.width
         || oldValue.height != newValue.height) {
