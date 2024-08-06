@@ -15,6 +15,7 @@
 
 #include "flutter/shell/platform/ohos/ohos_surface_gl_skia.h"
 
+#include <EGL/egl.h>
 #include <GLES2/gl2.h>
 #include <cstddef>
 
@@ -46,10 +47,7 @@ OhosSurfaceGLSkia::OhosSurfaceGLSkia(
   FML_LOG(INFO) << "OhosSurfaceGLSkia constructor end";
 }
 
-OhosSurfaceGLSkia::~OhosSurfaceGLSkia() {
-  eglMakeCurrent(eglGetCurrentDisplay(), EGL_NO_SURFACE, EGL_NO_SURFACE,
-                 EGL_NO_CONTEXT);
-}
+OhosSurfaceGLSkia::~OhosSurfaceGLSkia() {}
 
 void OhosSurfaceGLSkia::TeardownOnScreenContext() {
   // When the onscreen surface is destroyed, the context and the surface
@@ -88,6 +86,8 @@ bool OhosSurfaceGLSkia::OnScreenSurfaceResize(const SkISize& size) {
   FML_DCHECK(onscreen_surface_);
   FML_DCHECK(native_window_);
 
+  FML_LOG(INFO) << "OnScreenSurfaceResize update window size:" << size.width()
+                << "*" << size.height();
   if (size == onscreen_surface_->GetSize()) {
     return true;
   }
@@ -113,11 +113,11 @@ bool OhosSurfaceGLSkia::ResourceContextMakeCurrent() {
 }
 
 bool OhosSurfaceGLSkia::ResourceContextClearCurrent() {
-  // FML_DCHECK(IsValid());
-  // EGLBoolean result = eglMakeCurrent(eglGetCurrentDisplay(), EGL_NO_SURFACE,
-  //                                    EGL_NO_SURFACE, EGL_NO_CONTEXT);
-  // return result == EGL_TRUE;
-  return true;
+  FML_DCHECK(IsValid());
+  EGLBoolean result = eglMakeCurrent(eglGetCurrentDisplay(), EGL_NO_SURFACE,
+                                     EGL_NO_SURFACE, EGL_NO_CONTEXT);
+  FML_LOG(ERROR) << "ResourceContextClearCurrent ~OhosSurfaceGLSkia";
+  return result == EGL_TRUE;
 }
 
 bool OhosSurfaceGLSkia::SetNativeWindow(fml::RefPtr<OHOSNativeWindow> window) {
@@ -234,6 +234,7 @@ OhosContextGLSkia* OhosSurfaceGLSkia::GLContextPtr() const {
 }
 
 std::unique_ptr<Surface> OhosSurfaceGLSkia::CreateSnapshotSurface() {
+  FML_DLOG(INFO) << "CreateSnapshotSurface  ";
   if (!onscreen_surface_ || !onscreen_surface_->IsValid()) {
     onscreen_surface_ = GLContextPtr()->CreatePbufferSurface();
   }

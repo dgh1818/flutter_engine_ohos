@@ -46,6 +46,12 @@ class OHOSContext {
  protected:
   /// Intended to be called from a subclass constructor after setup work for the
   /// context has completed.
+
+  // note: if this vulkan_dylib_ is in OHOSContextVulkanImpeller,
+  // it will get vulkan func addr not mapped crash when ~ContextVK()
+  // because ~ContextVK() is invoked later then ~NativeLibrary().
+  fml::RefPtr<fml::NativeLibrary> vulkan_dylib_;
+
   void SetImpellerContext(const std::shared_ptr<impeller::Context>& context);
 
  private:
