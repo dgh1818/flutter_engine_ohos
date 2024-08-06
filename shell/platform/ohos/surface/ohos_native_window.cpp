@@ -40,7 +40,7 @@ SkISize OHOSNativeWindow::GetSize() const {
   if (window_ != nullptr) {
     int32_t width, height;
     int ret = OH_NativeWindow_NativeWindowHandleOpt(
-        window_, GET_BUFFER_GEOMETRY, &width, &height);
+        window_, GET_BUFFER_GEOMETRY, &height, &width);
     if (ret != 0) {
       FML_LOG(ERROR) << "OH_NativeWindow_NativeWindowHandleOpt GetSize err:"
                      << ret;
