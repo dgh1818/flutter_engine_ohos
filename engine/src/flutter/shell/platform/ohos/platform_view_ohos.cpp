@@ -465,7 +465,7 @@ void PlatformViewOHOS::OnNativeImageFrameAvailable(void* data) {
 
 void PlatformViewOHOS::UnRegisterExternalTexture(int64_t texture_id) {
   all_external_texture_.erase(texture_id);
-  FML_LOG(ERROR) << "UnRegisterExternalTexture ";
+  FML_LOG(INFO) << "UnRegisterExternalTexture " << texture_id;
   UnregisterTexture(texture_id);
 
   std::lock_guard<std::mutex> lock(map_mutex_);
@@ -479,6 +479,9 @@ void PlatformViewOHOS::RegisterExternalTextureByPixelMap(
   listener.context = nullptr;
   listener.onFrameAvailable = &PlatformViewOHOS::OnNativeImageFrameAvailable;
   std::shared_ptr<OHOSExternalTexture> extrenal_texture = nullptr;
+  FML_LOG(INFO) << " RegisterExternalTextureByPixelMap api type "
+                << int(ohos_context_->RenderingApi()) << " texture_id "
+                << texture_id;
   if (ohos_context_->RenderingApi() == OHOSRenderingAPI::kOpenGLES) {
     extrenal_texture =
         std::make_shared<OHOSExternalTextureGL>(texture_id, listener);

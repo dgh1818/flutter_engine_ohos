@@ -206,7 +206,7 @@ static vk::UniqueImageView CreateVkImageView(
         yuv_conversion;
   } else {
     view_chain.unlink<vk::SamplerYcbcrConversionInfo>();
-    FML_LOG(ERROR) << "unlink yuv sampler ";
+    FML_LOG(INFO) << "unlink yuv sampler ";
   }
   auto view_result = device.createImageViewUnique(view_info);
   if (view_result.result != vk::Result::eSuccess) {

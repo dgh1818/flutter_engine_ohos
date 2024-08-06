@@ -74,8 +74,8 @@ void OHOSExternalTextureVulkan::SetGPUFence(int* fence_fd) {
                    << impeller::vk::to_string(result);
     return;
   }
-  bool fence_ok = (fcntl(*fence_fd, F_GETFD) != -1 || errno != EBADF);
-  FML_LOG(ERROR) << "set signal fd " << *fence_fd << " ok " << fence_ok;
+  // bool fence_ok = (fcntl(*fence_fd, F_GETFD) != -1 || errno != EBADF);
+  // FML_LOG(INFO) << "set signal fd " << *fence_fd << " ok " << fence_ok;
   return;
 }
 
@@ -172,7 +172,7 @@ sk_sp<flutter::DlImage> OHOSExternalTextureVulkan::CreateDlImage(
     const SkRect& bounds,
     NativeBufferKey key,
     OHNativeWindowBuffer* nw_buffer) {
-  FML_LOG(ERROR) << " OHOSExternalTexture::CreateDlImage";
+  FML_LOG(INFO) << " OHOSExternalTexture::CreateDlImage";
   auto texture_source = std::make_shared<impeller::OHBTextureSourceVK>(
       impeller_context_, nw_buffer);
   if (!texture_source->IsValid()) {
