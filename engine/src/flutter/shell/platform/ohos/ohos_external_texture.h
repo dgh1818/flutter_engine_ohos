@@ -16,7 +16,6 @@
 #ifndef FLUTTER_SHELL_PLATFORM_OHOS_OHOS_EXTERNAL_TEXTURE_H_
 #define FLUTTER_SHELL_PLATFORM_OHOS_OHOS_EXTERNAL_TEXTURE_H_
 
-#include <multimedia/image_framework/image_mdk.h>
 #include <multimedia/image_framework/image_pixel_map_mdk.h>
 #include <native_buffer/native_buffer.h>
 #include <native_image/native_image.h>
@@ -24,7 +23,6 @@
 #include <atomic>
 
 #include "flutter/common/graphics/texture.h"
-#include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
 
 #include "image_lru.h"
 
@@ -55,9 +53,9 @@ class OHOSExternalTexture : public flutter::Texture {
   bool SetPixelMapAsProducer(NativePixelMap* pixelMap);
 
  protected:
-  OH_NativeBuffer* GetConsumerNativeBuffer(int* fence_fd);
+  OHNativeWindowBuffer* GetConsumerNativeBuffer(int* fence_fd);
 
-  void ReleaseConsumerNativeBuffer(OH_NativeBuffer* buffer, int fence_fd);
+  void ReleaseConsumerNativeBuffer(OHNativeWindowBuffer* buffer, int fence_fd);
 
   virtual void SetGPUFence(int* fence_fd) = 0;
   virtual void WaitGPUFence(int fence_fd) { close(fence_fd); }
@@ -72,9 +70,12 @@ class OHOSExternalTexture : public flutter::Texture {
   ImageLRU image_lru_ = ImageLRU();
 
  private:
+  sk_sp<flutter::DlImage> GetNextDrawImage(PaintContext& context,
+                                           const SkRect& bounds);
+
   bool CreateProducerNativeBuffer(int width, int height);
 
-  bool CopyDataToNativeBuffer(const char* src,
+  bool CopyDataToNativeBuffer(const unsigned char* src,
                               int width,
                               int height,
                               int stride);
@@ -85,9 +86,9 @@ class OHOSExternalTexture : public flutter::Texture {
 
   AttachmentState state_ = AttachmentState::kUninitialized;
 
-  bool new_frame_ready_ = false;
+  // bool new_frame_ready_ = false;
 
-  uint64_t producer_surface_id_;
+  uint64_t producer_surface_id_ = 0;
 
   int producer_nativewindow_width_ = 0;
   int producer_nativewindow_height_ = 0;
@@ -101,17 +102,13 @@ class OHOSExternalTexture : public flutter::Texture {
 
   std::atomic<int64_t> now_new_frame_seq_num_ = 0;
 
-  OH_NativeImage* native_image_source_;
-
-  NativePixelMap* pixelmap_source_;
-
-  OHNativeWindowBuffer* pixelmap_buffer_;
+  OH_NativeImage* native_image_source_ = nullptr;
 
   SkMatrix transform_;
 
-  OhosPixelMapInfos pixelmap_info_;
-
   sk_sp<flutter::DlImage> old_dl_image_;
+
+  OH_OnFrameAvailableListener frame_listener_;
 
   FML_DISALLOW_COPY_AND_ASSIGN(OHOSExternalTexture);
 };

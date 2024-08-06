@@ -17,6 +17,7 @@
 #define FLUTTER_SHELL_PLATFORM_OHOS_OHOS_EGL_SURFACE_H_
 
 #include <EGL/egl.h>
+#define EGL_EGLEXT_PROTOTYPES
 #include <EGL/eglext.h>
 #include <KHR/khrplatform.h>
 #include <optional>

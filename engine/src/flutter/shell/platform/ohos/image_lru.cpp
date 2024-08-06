@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 #include "flutter/shell/platform/ohos/image_lru.h"
-
+#include "fml/logging.h"
 namespace flutter {
 
 sk_sp<flutter::DlImage> ImageLRU::FindImage(NativeBufferKey key) {
@@ -47,7 +47,6 @@ NativeBufferKey ImageLRU::AddImage(const sk_sp<flutter::DlImage>& image,
   if (lru_key != 0) {
     FML_LOG(ERROR) << "lru release one " << lru_key;
   }
-  UpdateKey(image, key);
   return lru_key;
 }
 

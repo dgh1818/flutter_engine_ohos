@@ -123,7 +123,7 @@ class PlatformViewOHOS final : public PlatformView {
   std::shared_ptr<PlatformMessageHandlerOHOS> platform_message_handler_;
 
   std::shared_ptr<OhosSurfaceFactoryImpl> surface_factory_;
-  std::map<int64_t, std::shared_ptr<OHOSExternalTextureGL>> all_external_texture_;
+  std::map<int64_t, std::shared_ptr<OHOSExternalTexture>> all_external_texture_;
 
   // |PlatformView|
   void UpdateSemantics(
