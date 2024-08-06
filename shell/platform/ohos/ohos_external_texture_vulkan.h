@@ -16,6 +16,7 @@
 #ifndef FLUTTER_SHELL_PLATFORM_OHOS_OHOS_EXTERNAL_TEXTURE_VULKAN_H_
 #define FLUTTER_SHELL_PLATFORM_OHOS_OHOS_EXTERNAL_TEXTURE_VULKAN_H_
 
+#include <native_window/external_window.h>
 #include "flutter/impeller/renderer/backend/vulkan/context_vk.h"
 #include "impeller/renderer/backend/vulkan/texture_vk.h"
 #include "ohos_external_texture.h"

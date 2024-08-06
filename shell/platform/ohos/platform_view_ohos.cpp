@@ -349,7 +349,7 @@ void PlatformViewOHOS::ReleaseResourceContext() const {
   LOGI("PlatformViewOHOS::ReleaseResourceContext");
   // IO thread will invoke glGetError() when exit.
   // It will bring lots of "Call To OpenGL ES API With No Current Context"
-  // without gl context. So we don't clear current. 
+  // without gl context. So we don't clear current.
   // if (ohos_surface_) {
   //   ohos_surface_->ResourceContextClearCurrent();
   // }
@@ -478,7 +478,7 @@ void PlatformViewOHOS::RegisterExternalTextureByPixelMap(
   OH_OnFrameAvailableListener listener;
   listener.context = nullptr;
   listener.onFrameAvailable = &PlatformViewOHOS::OnNativeImageFrameAvailable;
-  std::shared_ptr<OHOSExternalTextureGL> extrenal_texture = nullptr;
+  std::shared_ptr<OHOSExternalTexture> extrenal_texture = nullptr;
   if (ohos_context_->RenderingApi() == OHOSRenderingAPI::kOpenGLES) {
     extrenal_texture =
         std::make_shared<OHOSExternalTextureGL>(texture_id, listener);

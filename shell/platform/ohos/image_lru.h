@@ -17,7 +17,9 @@ namespace flutter {
 // cache. If the value is too small, we will unnecessarily churn through
 // images, while if it is too large we may retain images longer than
 // necessary.
-static constexpr size_t kMaxQueueSize = 6u;
+// OHOS' camera queue size is 8
+// OHOS' video queue size is 9
+static constexpr size_t kMaxQueueSize = 9u;
 
 using NativeBufferKey = uint64_t;
 

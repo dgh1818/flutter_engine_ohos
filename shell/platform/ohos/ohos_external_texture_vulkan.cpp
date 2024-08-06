@@ -15,6 +15,8 @@
 #include "flutter/impeller/renderer/backend/vulkan/command_encoder_vk.h"
 #include "flutter/impeller/renderer/backend/vulkan/ohos/ohb_texture_source_vk.h"
 #include "flutter/impeller/renderer/backend/vulkan/texture_vk.h"
+#include "fml/logging.h"
+#include "vulkan/vulkan_core.h"
 
 namespace flutter {
 
