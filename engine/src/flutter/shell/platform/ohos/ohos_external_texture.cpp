@@ -431,21 +431,17 @@ void OHOSExternalTexture::GetNewTransformBound(SkM44& transform,
   // Note that SkM44's operate * is multiplied in row-major order so we use
   // postConcat. This operate is to do a flip-V and translate it to origin
   // place.
-  SkM44 transform_end = transform_origin.postConcat(
+  SkM44 transform_end = transform_origin.preConcat(
       SkM44(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1));
-
-  // this code is prepare for future update
-  // SkM44 transform_end = transform_origin.preConcat(
-  //     SkM44(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1));
-  // if (transform_end.rc(0 ,0) == 0 && transform_end.rc(1 ,1) == 0) {
-  //   // it has flip 90/270 and has no flip-v/flip-h -> rotate 180 degree
-  //   int dx = transform_end.rc(0 ,3);
-  //   int dy = transform_end.rc(1 ,3);
-  //   if ((dx^dy) == 1) {
-  //     transform_end = transform_end.preConcat(
-  //     SkM44(-1, 0, 0, 1, 0, -1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1));
-  //   }
-  // }
+  if (transform_end.rc(0, 0) == 0 && transform_end.rc(1, 1) == 0) {
+    // it has flip 90/270 and has no flip-v/flip-h -> rotate 180 degree
+    int dx = transform_end.rc(0, 3);
+    int dy = transform_end.rc(1, 3);
+    if ((dx ^ dy) == 1) {
+      transform_end = transform_end.preConcat(
+          SkM44(-1, 0, 0, 1, 0, -1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1));
+    }
+  }
 
   // The transformation matrix is used to transform texture coordinates.
   // The range of texture coordinates is (0,1), so translation transformations
