@@ -123,16 +123,8 @@ class PlatformViewOHOS final : public PlatformView {
   std::shared_ptr<PlatformMessageHandlerOHOS> platform_message_handler_;
 
   std::shared_ptr<OhosSurfaceFactoryImpl> surface_factory_;
-  std::map<int64_t, std::shared_ptr<OHOSExternalTextureGL>>
-      external_texture_gl_;
-  std::map<int64_t, void*> contextDatas_;
+  std::map<int64_t, std::shared_ptr<OHOSExternalTextureGL>> all_external_texture_;
 
-  static bool isDestroyed_;
-  static pthread_mutex_t mutex_;
-
-  static bool GetDestroyed();
-
-  static void SetDestroyed(bool isDestroyed_);
   // |PlatformView|
   void UpdateSemantics(
       flutter::SemanticsNodeUpdates update,
@@ -181,17 +173,6 @@ class PlatformViewOHOS final : public PlatformView {
   FML_DISALLOW_COPY_AND_ASSIGN(PlatformViewOHOS);
 
   static void OnNativeImageFrameAvailable(void* data);
-};
-
-class OhosImageFrameData {
- public:
-  OhosImageFrameData(PlatformViewOHOS* context, int64_t texture_id);
-
-  ~OhosImageFrameData();
-
-  PlatformViewOHOS* context_;
-
-  int64_t texture_id_;
 };
 
 }  // namespace flutter
