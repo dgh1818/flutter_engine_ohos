@@ -92,8 +92,9 @@ void OHOSExternalTexture::Paint(PaintContext& context,
 
 void OHOSExternalTexture::MarkNewFrameAvailable() {
   // NOOP.
-  FML_LOG(INFO) << " OHOSExternalTexture::MarkNewFrameAvailable-- "
-                << now_new_frame_seq_num_ << " " << now_paint_frame_seq_num_;
+  FML_LOG(INFO) << " OHOSExternalTexture::MarkNewFrameAvailable avail-seq "
+                << now_new_frame_seq_num_ << " paint-seq "
+                << now_paint_frame_seq_num_;
   // new_frame_ready_ = true;
   now_new_frame_seq_num_++;
 }
@@ -169,7 +170,7 @@ bool OHOSExternalTexture::SetPixelMapAsProducer(NativePixelMap* pixelMap) {
                    << ret;
     return false;
   }
-  FML_LOG(ERROR) << "SetPixelMapAsProducer";
+  FML_LOG(INFO) << "SetPixelMapAsProducer";
   bool end_ret = true;
   if (!CreateProducerNativeBuffer(pixelmap_info.width, pixelmap_info.height) ||
       !CopyDataToNativeBuffer(pixel_addr, pixelmap_info.width,
