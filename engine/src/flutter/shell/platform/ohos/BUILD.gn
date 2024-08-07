@@ -136,6 +136,10 @@ source_set("flutter_ohos_sources") {
     "__MUSL__",
   ]
 
+  if (flutter_runtime_mode == "release" || flutter_runtime_mode == "profile") {
+    defines += [ "REQUIRE_ERROR_LOG_LEVEL" ]
+  }
+
   deps = [
     "//flutter/shell/platform/common:common_cpp_input",
     "//flutter/shell/platform/common:common_cpp_switches",
