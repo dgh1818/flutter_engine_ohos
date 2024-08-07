@@ -19,32 +19,28 @@ import util from '@ohos.util'
  * 默认字符串工具
  */
 export default class StringUtils {
+  static TEXT_ENCODER = new util.TextEncoder("utf-8");
+  static TEXT_DECODER = util.TextDecoder.create('utf-8', { ignoreBOM : true });
+
   static stringToArrayBuffer(str: string): ArrayBuffer {
     if (str.length == 0) {
       return new ArrayBuffer(0);
     }
-    let textEncoder = new util.TextEncoder("utf-8");
-    return textEncoder.encodeInto(str).buffer;
+    return StringUtils.TEXT_ENCODER.encodeInto(str).buffer;
   }
 
   static arrayBufferToString(buffer: ArrayBuffer): string {
     if (buffer.byteLength <= 0) {
       return "";
     }
-    let textDecoder = util.TextDecoder.create('utf-8', {
-      ignoreBOM: true
-    })
-    return textDecoder.decode(new Uint8Array(buffer));
+    return StringUtils.TEXT_DECODER.decodeWithStream(new Uint8Array(buffer));
   }
 
   static uint8ArrayToString(buffer: Uint8Array): string {
     if (buffer.length <= 0) {
       return "";
     }
-    let textDecoder = util.TextDecoder.create('utf-8', {
-      ignoreBOM: true
-    })
-    return textDecoder.decodeWithStream(buffer);
+    return StringUtils.TEXT_DECODER.decodeWithStream(buffer);
   }
 
   static isNotEmpty(str: string): boolean {

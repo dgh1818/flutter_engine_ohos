@@ -112,7 +112,11 @@ export class ByteBuffer {
    */
   checkWriteCapacity(slen: number): void {
     if (this.mByteOffset + slen > this.dataView!.byteLength) {
-      let newBuffer = new ArrayBuffer(this.dataView!.byteLength + slen + 512);
+      let newCapacity = this.dataView!.byteLength + (this.dataView!.byteLength >> 1);
+      if (newCapacity < this.dataView!.byteLength + slen + 512) {
+        newCapacity = this.dataView!.byteLength + slen + 512;
+      }
+      let newBuffer = new ArrayBuffer(newCapacity);
       let newDataView = new DataView(newBuffer);
       let oldUint8Array = new Uint8Array(this.dataView!.buffer);
       let newUint8Array = new Uint8Array(newBuffer);
