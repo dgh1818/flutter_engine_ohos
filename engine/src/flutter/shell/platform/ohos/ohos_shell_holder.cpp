@@ -273,7 +273,6 @@ OHOSShellHolder::OHOSShellHolder(
 
   platform_view_ = weak_platform_view;
   FML_DCHECK(platform_view_);
-  is_valid_ = shell_ != nullptr;
 }
 
 OHOSShellHolder::OHOSShellHolder(
@@ -294,17 +293,17 @@ OHOSShellHolder::OHOSShellHolder(
   FML_DCHECK(shell_->IsSetup());
   FML_DCHECK(platform_view_);
   FML_DCHECK(thread_host_);
-  is_valid_ = shell_ != nullptr;
 }
 
 OHOSShellHolder::~OHOSShellHolder() {
   FML_LOG(INFO) << "MHN enter ~OHOSShellHolder()";
   shell_.reset();
   thread_host_.reset();
+  shell_ = nullptr;
 }
 
 bool OHOSShellHolder::IsValid() const {
-  return is_valid_;
+  return shell_ != nullptr;
 }
 
 const flutter::Settings& OHOSShellHolder::GetSettings() const {
@@ -317,9 +316,11 @@ std::unique_ptr<OHOSShellHolder> OHOSShellHolder::Spawn(
     const std::string& libraryUrl,
     const std::string& initial_route,
     const std::vector<std::string>& entrypoint_args) const {
-  FML_DCHECK(shell_ && shell_->IsSetup())
-      << "A new Shell can only be spawned "
+  if (!IsValid()) {
+    FML_LOG(ERROR) << "A new Shell can only be spawned "
          "if the current Shell is properly constructed";
+    return nullptr;
+  }
 
   fml::WeakPtr<PlatformViewOHOS> weak_platform_view;
   PlatformViewOHOS* ohos_platform_view = platform_view_.get();
@@ -367,7 +368,10 @@ fml::WeakPtr<PlatformViewOHOS> OHOSShellHolder::GetPlatformView() {
 }
 
 void OHOSShellHolder::NotifyLowMemoryWarning() {
-  FML_DCHECK(shell_);
+  if (!IsValid()) {
+    FML_LOG(ERROR) << "NotifyLowMemoryWarning, Is Not Valid";
+    return;
+  }
   shell_->NotifyLowMemoryWarning();
 }
 
@@ -379,7 +383,7 @@ void OHOSShellHolder::Launch(
   FML_DLOG(INFO) << "Launch ...entrypoint<<" << entrypoint
                  << ",libraryUrl:" << libraryUrl;
   if (!IsValid()) {
-    FML_DLOG(ERROR) << "Is Not Valid";
+    FML_LOG(ERROR) << "Launch, Is Not Valid";
     return;
   }
 
