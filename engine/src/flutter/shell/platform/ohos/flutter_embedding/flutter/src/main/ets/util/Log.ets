@@ -14,6 +14,7 @@
 */
 
 import HiLog from '@ohos.hilog';
+import BuildProfile from '../../../../BuildProfile';
 
 const DOMAIN: number = 0x00FF;
 const TAG = "Flutter";
@@ -107,6 +108,9 @@ export default class Log {
    * @since 7
    */
   private static isLoggable(level: HiLog.LogLevel): boolean {
+    if (!BuildProfile.DEBUG) {
+      return level >= HiLog.LogLevel.WARN && HiLog.isLoggable(DOMAIN, TAG, level);
+    }
     return HiLog.isLoggable(DOMAIN, TAG, level);
   }
 }
