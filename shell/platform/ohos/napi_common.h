@@ -25,18 +25,68 @@
 #include <hilog/log.h>
 #define APP_LOG_DOMAIN 0x0000
 #define APP_LOG_TAG "XComFlutterOHOS_Native"
-#define LOGI(...)                                                     \
-  ((void)OH_LOG_Print(LOG_APP, LOG_INFO, APP_LOG_DOMAIN, APP_LOG_TAG, \
-                      __VA_ARGS__))
-#define LOGD(...)                                                     \
-  ((void)OH_LOG_Print(LOG_APP, LOG_INFO, APP_LOG_DOMAIN, APP_LOG_TAG, \
-                      __VA_ARGS__))
-#define LOGW(...)                                                     \
-  ((void)OH_LOG_Print(LOG_APP, LOG_WARN, APP_LOG_DOMAIN, APP_LOG_TAG, \
-                      __VA_ARGS__))
-#define LOGE(...)                                                      \
-  ((void)OH_LOG_Print(LOG_APP, LOG_ERROR, APP_LOG_DOMAIN, APP_LOG_TAG, \
-                      __VA_ARGS__))
+
+#if defined(REQUIRE_DEBUG_LOG_LEVEL)
+  #define require_log_level 3
+#elif defined(REQUIRE_INFO_LOG_LEVEL)
+  #define require_log_level 4
+#elif defined(REQUIRE_WARN_LOG_LEVEL)
+  #define require_log_level 5
+#elif defined(REQUIRE_ERROR_LOG_LEVEL)
+  #define require_log_level 6
+#elif defined(REQUIRE_FATAL_LOG_LEVEL)
+  #define require_log_level 7
+#else
+  #define require_log_level 0
+#endif
+
+#define LOGD(...)                                 \
+  do {                                            \
+    if (require_log_level == 0) {                 \
+      ((void)OH_LOG_Print(LOG_APP, LOG_DEBUG,     \
+      APP_LOG_DOMAIN, APP_LOG_TAG, __VA_ARGS__)); \
+    }                                             \
+    else if (require_log_level <= LOG_DEBUG) {    \
+      ((void)OH_LOG_Print(LOG_APP, LOG_DEBUG,     \
+      APP_LOG_DOMAIN, APP_LOG_TAG, __VA_ARGS__)); \
+    }                                             \
+  } while (0)
+
+#define LOGI(...)                                 \
+  do {                                            \
+    if (require_log_level == 0) {                 \
+      ((void)OH_LOG_Print(LOG_APP, LOG_INFO,      \
+      APP_LOG_DOMAIN, APP_LOG_TAG, __VA_ARGS__)); \
+    }                                             \
+    else if (require_log_level <= LOG_INFO) {     \
+      ((void)OH_LOG_Print(LOG_APP, LOG_INFO,      \
+      APP_LOG_DOMAIN, APP_LOG_TAG, __VA_ARGS__)); \
+    }                                             \
+  } while (0)
+
+#define LOGW(...)                                 \
+  do {                                            \
+    if (require_log_level == 0) {                 \
+      ((void)OH_LOG_Print(LOG_APP, LOG_WARN,      \
+      APP_LOG_DOMAIN, APP_LOG_TAG, __VA_ARGS__)); \
+    }                                             \
+    else if (require_log_level <= LOG_WARN) {     \
+      ((void)OH_LOG_Print(LOG_APP, LOG_WARN,      \
+      APP_LOG_DOMAIN, APP_LOG_TAG, __VA_ARGS__)); \
+    }                                             \
+  } while (0)
+
+#define LOGE(...)                                 \
+  do {                                            \
+    if (require_log_level == 0) {                 \
+      ((void)OH_LOG_Print(LOG_APP, LOG_ERROR,     \
+      APP_LOG_DOMAIN, APP_LOG_TAG, __VA_ARGS__)); \
+    }                                             \
+    else if (require_log_level <= LOG_ERROR) {    \
+      ((void)OH_LOG_Print(LOG_APP, LOG_ERROR,     \
+      APP_LOG_DOMAIN, APP_LOG_TAG, __VA_ARGS__)); \
+    }                                             \
+  } while (0)
 
 #define NAPI_RETVAL_NOTHING
 
