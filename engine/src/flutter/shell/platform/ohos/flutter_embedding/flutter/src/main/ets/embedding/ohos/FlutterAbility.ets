@@ -30,7 +30,6 @@ import { PlatformBrightness } from '../engine/systemchannels/SettingsChannel';
 import ConfigurationConstant from '@ohos.app.ability.ConfigurationConstant';
 import { Configuration } from '@ohos.app.ability.Configuration';
 
-import List from '@ohos.util.List';
 import ExclusiveAppComponent from './ExclusiveAppComponent';
 import errorManager from '@ohos.app.ability.errorManager';
 import appRecovery from '@ohos.app.ability.appRecovery';
@@ -86,7 +85,7 @@ export class FlutterAbility extends UIAbility implements Host {
       this?.delegate?.onWindowStageCreate();
     }
 
-    console.log('MyAbility onCreate');
+    Log.i(TAG, 'MyAbility onCreate');
 
     this.context.eventHub.on(EVENT_BACK_PRESS, () => {
       this.delegate?.flutterEngine?.getNavigationChannel()?.popRoute();
@@ -94,7 +93,7 @@ export class FlutterAbility extends UIAbility implements Host {
     });
     let observer: errorManager.ErrorObserver = {
       onUnhandledException(errorMsg) {
-        console.log("onUnhandledException, errorMsg:", errorMsg);
+        Log.e(TAG, "onUnhandledException, errorMsg:", errorMsg);
         appRecovery.saveAppState();
         appRecovery.restartApp();
       }
