@@ -99,6 +99,9 @@ class PlatformViewOHOS final : public PlatformView {
   uint64_t GetExternalTextureWindowId(int64_t texture_id);
 
   // |PlatformView|
+  PointerDataDispatcherMaker GetDispatcherMaker() override;
+
+  // |PlatformView|
   void LoadDartDeferredLibrary(
       intptr_t loading_unit_id,
       std::unique_ptr<const fml::Mapping> snapshot_data,
