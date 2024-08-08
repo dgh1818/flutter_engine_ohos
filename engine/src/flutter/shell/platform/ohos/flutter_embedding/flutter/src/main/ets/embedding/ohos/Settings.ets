@@ -31,14 +31,14 @@ export default class Settings {
   sendSettings(mediaQuery: MediaQuery): void {
     this.settingsChannel?.startMessage()
       .setAlwaysUse24HourFormat(I18n.System.is24HourClock())
-      .setTextScaleFactor(1.0)
       .setNativeSpellCheckServiceDefined(false)
       .setBrieflyShowPassword(false)
-      .setPlatformBrightness(this.getDarkMode(mediaQuery))
+      .setPlatformBrightness(this.getThemeMode(mediaQuery))
+      .setTextScaleFactor(this.getTextScaleFactor())
       .send();
   }
 
-  getDarkMode(mediaQuery: MediaQuery): PlatformBrightness {
+  getThemeMode(mediaQuery: MediaQuery): PlatformBrightness {
 
     let listener = mediaQuery.matchMediaSync('(dark-mode: true)');
     if (listener.matches) {
@@ -49,4 +49,15 @@ export default class Settings {
       return PlatformBrightness.LIGHT;
     }
   }
+
+  getTextScaleFactor() : number {
+    let sysTextScaleFactor = AppStorage.get<number>('fontSizeScale');
+    if(sysTextScaleFactor == undefined) {
+      sysTextScaleFactor = 1.0;
+      Log.e(TAG, 'get textScaleFactor error, it is assigned to ' + JSON.stringify(sysTextScaleFactor));
+    }
+    Log.i(TAG, "return textScaleFactor = " + JSON.stringify(sysTextScaleFactor))
+    return sysTextScaleFactor;
+  }
+
 }
