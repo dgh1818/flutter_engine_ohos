@@ -68,6 +68,9 @@ export class FlutterAbility extends UIAbility implements Host {
    * 4. setContentView()  noNeed
    */
   async onCreate(want: Want, launchParam: AbilityConstant.LaunchParam) {
+    // 冷启动通过上下文环境获取到系统当前文字大小，并进行键值存储
+    AppStorage.setOrCreate('fontSizeScale', this.context.config.fontSizeScale);
+
     Log.i(TAG, "bundleCodeDir=" + this.context.bundleCodeDir);
     FlutterManager.getInstance().pushUIAbility(this)
 
@@ -367,9 +370,13 @@ export class FlutterAbility extends UIAbility implements Host {
   onConfigurationUpdated(config: Configuration) {
     Log.i(TAG, 'onConfigurationUpdated config:' + JSON.stringify(config));
     this?.delegate?.flutterEngine?.getSettingsChannel()?.startMessage()
+      .setNativeSpellCheckServiceDefined(false)
+      .setBrieflyShowPassword(false)
       .setAlwaysUse24HourFormat(I18n.System.is24HourClock())
       .setPlatformBrightness(config.colorMode != ConfigurationConstant.ColorMode.COLOR_MODE_DARK
-        ? PlatformBrightness.LIGHT : PlatformBrightness.DARK);
+        ? PlatformBrightness.LIGHT : PlatformBrightness.DARK)
+      .setTextScaleFactor(config.fontSizeScale == undefined? 1.0 : config.fontSizeScale)
+      .send(); //热启动生命周期内，实时监听系统设置环境改变并实时发送相应信息
 
     if (config.language != '') {
       this.getFlutterEngine()?.getLocalizationPlugin()?.sendLocaleToFlutter();
