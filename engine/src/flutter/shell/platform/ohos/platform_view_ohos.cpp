@@ -458,6 +458,12 @@ void PlatformViewOHOS::FireFirstFrameCallback(bool is_preload) {
   napi_facade_->FlutterViewOnFirstFrame(is_preload);
 }
 
+PointerDataDispatcherMaker PlatformViewOHOS::GetDispatcherMaker() {
+  return [](DefaultPointerDataDispatcher::Delegate& delegate) {
+    return std::make_unique<SmoothPointerDataDispatcher>(delegate);
+  };
+}
+
 uint64_t PlatformViewOHOS::RegisterExternalTexture(int64_t texture_id) {
   uint64_t surface_id = 0;
   uint64_t context_frame_data = (uint64_t)this + (uint64_t)texture_id;
