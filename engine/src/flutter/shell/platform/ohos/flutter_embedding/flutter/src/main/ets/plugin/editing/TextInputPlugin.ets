@@ -320,7 +320,8 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
           if (this.showType != keyboardType.DONE) {
             this.showType = keyboardType.TRANSFER
           }
-          this.resetAttach();
+          this.hideTextInput()
+          this.cancelListenKeyBoardEvent()
         }
       })
     } catch (err) {
