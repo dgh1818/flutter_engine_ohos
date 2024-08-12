@@ -16,12 +16,15 @@
 #include "flutter/shell/platform/ohos/vsync_waiter_ohos.h"
 #include "flutter/fml/logging.h"
 #include "napi_common.h"
+#include <qos/qos.h>
 
 namespace flutter {
 
 static std::atomic_uint g_refresh_rate_ = 60;
 
 const char* flutterSyncName = "flutter_connect";
+
+thread_local bool VsyncWaiterOHOS::firstCall = true;
 
 VsyncWaiterOHOS::VsyncWaiterOHOS(const flutter::TaskRunners& task_runners)
     : VsyncWaiter(task_runners) {
@@ -53,6 +56,11 @@ void VsyncWaiterOHOS::AwaitVSync() {
 }
 
 void VsyncWaiterOHOS::OnVsyncFromOHOS(long long timestamp, void* data) {
+  if (VsyncWaiterOHOS::firstCall) {
+    int ret = OH_QoS_SetThreadQoS(QoS_Level::QOS_USER_INTERACTIVE);
+    FML_DLOG(INFO) << "qos set VsyncWaiterOHOS result:" << ret << ",tid:" << gettid();
+    VsyncWaiterOHOS::firstCall = false;
+  }
   int64_t frame_nanos = static_cast<int64_t>(timestamp);
   auto frame_time = fml::TimePoint::FromEpochDelta(
       fml::TimeDelta::FromNanoseconds(frame_nanos));
