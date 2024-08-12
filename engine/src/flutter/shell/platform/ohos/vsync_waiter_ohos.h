@@ -31,6 +31,7 @@ class VsyncWaiterOHOS final : public VsyncWaiter {
   ~VsyncWaiterOHOS() override;
 
  private:
+  thread_local static bool firstCall;
   // |VsyncWaiter|
   void AwaitVSync() override;
 
