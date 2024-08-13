@@ -38,6 +38,13 @@ enum ContextType {
   JS_PAGE_LIFECYCLE,
 }
 
+interface PendingMessage {
+  channel: string;
+  message: ArrayBuffer;
+  replyId: number;
+  messageData: number;
+}
+
 /**
  * 提供arkTs的flutterNAPI接口
  */
@@ -52,6 +59,8 @@ export default class FlutterNapi {
   localizationPlugin: LocalizationPlugin | null = null;
   isDisplayingFlutterUi: boolean = false;
   isRunningDart: boolean = false;
+  private nextSpawnNapi: FlutterNapi | null = null;
+  private pendingMessages: PendingMessage[] = [];
 
   /**
    * 更新刷新率
@@ -253,12 +262,32 @@ export default class FlutterNapi {
 
   spawn(entrypointFunctionName: string, pathToEntrypointFunction: string, initialRoute: string,
     entrypointArgs: Array<string>): FlutterNapi {
+    if (this.nextSpawnNapi) {
+      let ret = this.nextSpawnNapi;
+      this.nextSpawnNapi = null;
+      return ret;
+    }
     let flutterNapi = new FlutterNapi();
     let shellHolderId: number =
       flutter.nativeSpawn(this.nativeShellHolderId, entrypointFunctionName, pathToEntrypointFunction, initialRoute,
         entrypointArgs, flutterNapi);
     flutterNapi.nativeShellHolderId = shellHolderId;
     flutterNapi.isRunningDart = this.isRunningDart;
+    return flutterNapi;
+  }
+
+  preSpawn(entrypointFunctionName: string, pathToEntrypointFunction: string, initialRoute: string,
+    entrypointArgs: Array<string>): FlutterNapi {
+    if (this.nextSpawnNapi) {
+      this.nextSpawnNapi.detachFromNativeAndReleaseResources();
+    }
+    let flutterNapi = new FlutterNapi();
+    let shellHolderId: number =
+      flutter.nativeSpawn(this.nativeShellHolderId, entrypointFunctionName, pathToEntrypointFunction, initialRoute,
+        entrypointArgs, flutterNapi);
+    flutterNapi.nativeShellHolderId = shellHolderId;
+    flutterNapi.isRunningDart = this.isRunningDart;
+    this.nextSpawnNapi = flutterNapi;
     return flutterNapi;
   }
 
@@ -281,8 +310,25 @@ export default class FlutterNapi {
   // Called by native on any thread.
   handlePlatformMessage(channel: string, message: ArrayBuffer, replyId: number, messageData: number): void {
     Log.w(TAG, "called handlePlatformMessage Channel: " + channel + ". Response ID: " + replyId);
-    if (this.platformMessageHandler != null) {
+    if (this.platformMessageHandler != null) {  
       this.platformMessageHandler.handleMessageFromDart(channel, message, replyId, messageData);
+    } else {
+      const pendingMessage: PendingMessage = { channel, message, replyId, messageData };
+      this.pendingMessages.push(pendingMessage);
+    }
+  }
+
+  processPendingMessages(): void {
+    while (this.pendingMessages.length > 0 && this.platformMessageHandler) {
+      const pendingMessage = this.pendingMessages.shift();
+      if (pendingMessage) {
+        this.platformMessageHandler.handleMessageFromDart(
+          pendingMessage.channel, 
+          pendingMessage.message, 
+          pendingMessage.replyId, 
+          pendingMessage.messageData
+        );
+      }
     }
   }
 

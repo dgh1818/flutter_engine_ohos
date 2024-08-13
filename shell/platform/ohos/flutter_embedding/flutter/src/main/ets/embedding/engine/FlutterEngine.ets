@@ -177,6 +177,12 @@ export default class FlutterEngine implements EngineLifecycleListener {
     return this.flutterNapi.isAttached();
   }
 
+  processPendingMessages() {
+    if (this.flutterNapi.isAttached()) {
+      this.flutterNapi.processPendingMessages();
+    }
+  }
+
   getLifecycleChannel(): LifecycleChannel | null {
     return this.lifecycleChannel;
   }

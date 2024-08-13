@@ -33,31 +33,6 @@ export default class FlutterEngineGroup {
 
   }
 
-  static async preloadEngine(context: common.Context, dartEnterFunction:string, dartEntrypointLibraryUri: string = "", dartArgs: Array<string> = [], width: number = 0, height: number = 0) {
-    let loader: FlutterLoader = FlutterInjector.getInstance().getFlutterLoader();
-    if (!loader.initialized) {
-      await loader.startInitialization(context);
-      loader.ensureInitializationComplete(dartArgs);
-    }
-    let flutterNapi = FlutterInjector.getInstance().getFlutterNapi()
-    if (!flutterNapi.isAttached()) {
-      flutterNapi.attachToNative();
-    }
-
-    flutterNapi.runBundleAndSnapshotFromLibrary(
-      loader.findAppBundlePath(),
-      dartEnterFunction,
-      dartEntrypointLibraryUri,
-      context.resourceManager,
-      dartArgs);
-    if (width == 0 || height == 0) {
-      let display_info: display.Display = display.getDefaultDisplaySync();;
-      width = display_info.width;
-      height = display_info.height;
-    }
-    let next_viewid = FlutterManager.getInstance().getNextFlutterViewId();
-    flutterNapi.xComponentPreDraw(next_viewid, width, height);
-}
 
   async checkLoader(context: common.Context, args: Array<string>) {
     let loader: FlutterLoader = FlutterInjector.getInstance().getFlutterLoader();
@@ -116,6 +91,14 @@ export default class FlutterEngineGroup {
 
   createEngine(context: common.Context, platformViewsController: PlatformViewsController): FlutterEngine {
     return new FlutterEngine(context, null, null, platformViewsController);
+  }
+
+  getDefaultEngine(): FlutterEngine | null {
+    let engine: FlutterEngine | null = null;
+    if (this.activeEngines.length != 0) {
+      engine = this.activeEngines[0];
+    }
+    return engine;
   }
 }
 
