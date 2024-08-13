@@ -19,6 +19,7 @@
 #include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
 #include "fml/trace_event.h"
 #include "types.h"
+#include "ohos_logging.h"
 namespace flutter {
 
 bool g_isMouseLeftActive = false;

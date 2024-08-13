@@ -266,6 +266,7 @@ export default class FlutterLoader {
       shellArgs.push(
         "--" + ISOLATE_SNAPSHOT_DATA_KEY + "=" + this.flutterApplicationInfo!.isolateSnapshotData);
       shellArgs.push('--enable-checked-mode')
+      shellArgs.push('--verbose-logging')
     } else {
       shellArgs.push(
         "--" + AOT_SHARED_LIBRARY_NAME + "=" + this.flutterApplicationInfo!.aotSharedLibraryName);

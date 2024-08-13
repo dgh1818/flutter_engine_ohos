@@ -19,7 +19,8 @@
 #include "flutter/shell/common/run_configuration.h"
 #include "flutter/shell/common/thread_host.h"
 #include "flutter/shell/platform/ohos/ohos_display.h"
-#include "flutter/fml/logging.h"
+
+#include "flutter/shell/platform/ohos/ohos_logging.h"
 #include "fml/trace_event.h"
 
 #include "third_party/skia/src/ports/skia_ohos/SkFontMgr_ohos.h"

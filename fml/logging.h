@@ -10,24 +10,6 @@
 #include "flutter/fml/log_level.h"
 #include "flutter/fml/macros.h"
 
-#ifdef require_log_level
-#undef require_log_level
-#endif
-
-#if defined(REQUIRE_DEBUG_LOG_LEVEL)
-  #define require_log_level 3
-#elif defined(REQUIRE_INFO_LOG_LEVEL)
-  #define require_log_level 4
-#elif defined(REQUIRE_WARN_LOG_LEVEL)
-  #define require_log_level 5
-#elif defined(REQUIRE_ERROR_LOG_LEVEL)
-  #define require_log_level 6
-#elif defined(REQUIRE_FATAL_LOG_LEVEL)
-  #define require_log_level 7
-#else
-  #define require_log_level 0
-#endif
-
 namespace fml {
 
 namespace testing {
@@ -97,9 +79,8 @@ void KillProcess();
 #define FML_LOG_IS_ON(severity) \
   (::fml::ShouldCreateLogMessage(::fml::LOG_##severity))
 
-#define FML_LOG(severity)                                                   \
-  FML_LAZY_STREAM(FML_LOG_STREAM(severity),                                 \
-  (require_log_level - ::fml::LOG_##severity <= ::fml::LOG_NUM_SEVERITIES))
+#define FML_LOG(severity) \
+  FML_LAZY_STREAM(FML_LOG_STREAM(severity), FML_LOG_IS_ON(severity))
 
 #define FML_CHECK(condition)                                              \
   FML_LAZY_STREAM(                                                        \

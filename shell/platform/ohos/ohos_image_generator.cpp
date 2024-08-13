@@ -20,6 +20,7 @@
 
 #include <multimedia/image_framework/image_pixel_map_napi.h>
 #include "third_party/skia/include/codec/SkCodecAnimation.h"
+#include "ohos_logging.h"
 
 namespace flutter {
 

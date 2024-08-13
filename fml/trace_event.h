@@ -18,7 +18,7 @@
 // TODO(DNO-448): This is disabled because the Fuchsia counter id json parsing
 // only handles ints whereas this can produce ints or strings.
 #define FML_TRACE_COUNTER(a, b, c, arg1, ...) \
-  ::fml::tracing::TraceCounterNopHACK((a), (b), (c), (arg1), __VA_ARGS__);
+  ::fml::tracing::TraceCounterNopHACK((a), (b), (c), (arg1), __VA_ARGS__)
 
 #define FML_TRACE_EVENT(a, b, args...) TRACE_DURATION(a, b)
 // On Fuchsia, the flow_id arguments to this macro are ignored.
@@ -74,17 +74,17 @@
 
 #define __FML__TOKEN_CAT__(x, y) x##y
 #define __FML__TOKEN_CAT__2(x, y) __FML__TOKEN_CAT__(x, y)
-#define __FML__AUTO_TRACE_END(name)                                  \
-  ::fml::tracing::ScopedInstantEnd __FML__TOKEN_CAT__2(__trace_end_, \
-                                                       __LINE__)(name);
+#define __FML__AUTO_TRACE_END(name)                                                 \
+  ::fml::tracing::ScopedInstantEnd __FML__TOKEN_CAT__2(__trace_end_,                \
+                                                       __LINE__)(name)
 
 // This macro has the FML_ prefix so that it does not collide with the macros
 // from lib/trace/event.h on Fuchsia.
 //
 // TODO(chinmaygarde): All macros here should have the FML prefix.
-#define FML_TRACE_COUNTER(category_group, name, counter_id, arg1, ...)         \
-  ::fml::tracing::TraceCounter((category_group), (name), (counter_id), (arg1), \
-                               __VA_ARGS__);
+#define FML_TRACE_COUNTER(category_group, name, counter_id, arg1, ...)              \
+  ::fml::tracing::TraceCounter((category_group), (name), (counter_id), (arg1),      \
+                               __VA_ARGS__)
 
 // Avoid using the same `name` and `argX_name` for nested traces, which can
 // lead to double free errors. E.g. the following code should be avoided:
