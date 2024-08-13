@@ -47,10 +47,32 @@ export default class LocalizationPlugin {
     return new intl.Locale(languageCode + '-' + countryCode + '-' + scriptCode);
   }
 
-  private localizationMessageHandler: LocalizationMessageHandler = new enterGetStringResource(() => {
-    Log.i(TAG, "getResource enter");
-    return ""
-  })
+  private localizationMessageHandler: LocalizationMessageHandler =
+    new enterGetStringResource((key: string, localeString: string | null) => {
+
+      Log.i(TAG, "getStringResource,key: " + key + ",localeString: " + localeString);
+      let localContext: common.Context = this.context;
+      let stringToReturn: string | null = null;
+      // 获取资源管理器
+      let resMgr = localContext.resourceManager;
+
+      try {
+        // 如果localeString不为空，则更新为指定地区的资源管理器
+        if (localeString) {
+          let overrideConfig = resMgr.getOverrideConfiguration();
+          overrideConfig.locale = localeString;
+          let overrideResMgr = resMgr.getOverrideResourceManager(overrideConfig);
+          stringToReturn = overrideResMgr.getStringByNameSync(key);
+        } else {
+          stringToReturn = resMgr.getStringByNameSync(key);
+        }
+      } catch (e) {
+        Log.e(TAG, e);
+        return null;
+      }
+
+      return stringToReturn;
+    })
 
   constructor(context: common.Context, localizationChannel: LocalizationChannel) {
     this.context = context;
@@ -67,9 +89,9 @@ export default class LocalizationPlugin {
 }
 
 class enterGetStringResource {
-  getStringResource: (key: string, localeString: string) => string
+  getStringResource: (key: string, localeString: string | null) => string | null
 
-  constructor(getStringResource: (key: string, localeString: string) => string) {
+  constructor(getStringResource: (key: string, localeString: string | null) => string | null) {
     this.getStringResource = getStringResource
   }
 }
