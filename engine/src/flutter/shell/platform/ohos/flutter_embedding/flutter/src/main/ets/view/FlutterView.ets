@@ -330,7 +330,7 @@ export class FlutterView {
     }
 
     // 根据是否全屏显示，设置标题栏高度
-    if (this.checkFullScreen && (setFullScreen || this.mainWindow.getWindowProperties().isLayoutFullScreen)) { // 全屏显示
+    if (this.checkFullScreen && (setFullScreen || (this.mainWindow && this.mainWindow.getWindowProperties().isLayoutFullScreen))) { // 全屏显示
       this.viewportMetrics.physicalViewPaddingTop = this.systemAvoidArea!.topRect.height
       this.viewportMetrics.physicalViewPaddingBottom = this.navigationAvoidArea!.bottomRect.height
     } else { // 非全屏显示
@@ -345,7 +345,9 @@ export class FlutterView {
     this.onAiBarAreaChange()
     this.onGestureAreaChange()
     if (!this.viewportMetrics.isEqual(originalMetrics)) {
-      this.updateViewportMetrics()
+      if (!this.updateViewportMetrics()) {
+        this.viewportMetrics = originalMetrics
+      }
     }
   }
 
@@ -391,7 +393,7 @@ export class FlutterView {
     return this.flutterEngine != null
   }
 
-  private updateViewportMetrics() {
+  private updateViewportMetrics(): boolean {
     if (this.isAttachedToFlutterEngine()) {
       this?.flutterEngine?.getFlutterNapi()?.setViewportMetrics(this.viewportMetrics.devicePixelRatio,
         this.viewportMetrics.physicalWidth,
@@ -412,7 +414,9 @@ export class FlutterView {
         new Array(0),
         new Array(0),
         new Array(0))
+      return true
     }
+    return false
   }
 
   onKeyEvent(event: KeyEvent) {
