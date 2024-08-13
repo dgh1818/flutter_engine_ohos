@@ -14,8 +14,8 @@
  */
 
 #include "flutter/shell/platform/ohos/vsync_waiter_ohos.h"
-#include "flutter/fml/logging.h"
 #include "napi_common.h"
+#include "ohos_logging.h"
 #include <qos/qos.h>
 
 namespace flutter {

@@ -34,6 +34,7 @@
 #include "third_party/skia/src/ports/skia_ohos/SkFontMgr_ohos.h"
 #include "txt/platform.h"
 #include "unicode/uchar.h"
+#include "flutter/shell/platform/ohos/ohos_logging.h"
 
 #define OHOS_SHELL_HOLDER (reinterpret_cast<OHOSShellHolder*>(shell_holder))
 namespace flutter {

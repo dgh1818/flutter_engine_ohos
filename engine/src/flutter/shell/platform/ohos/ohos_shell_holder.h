@@ -65,7 +65,6 @@ class OHOSShellHolder {
 
   const std::shared_ptr<PlatformMessageHandler>& GetPlatformMessageHandler()
       const {
-    LOGI("GetPlatformMessageHandler LOGI");
     return shell_->GetPlatformMessageHandler();
   }
 

@@ -14,7 +14,6 @@
  */
 
 #include "flutter/shell/platform/ohos/platform_view_ohos.h"
-#include "flutter/fml/logging.h"
 #include "flutter/fml/make_copyable.h"
 #include "flutter/impeller/renderer/backend/vulkan/context_vk.h"
 #include "flutter/lib/ui/window/viewport_metrics.h"
@@ -25,6 +24,7 @@
 #include "flutter/shell/platform/ohos/platform_message_response_ohos.h"
 #include "fml/trace_event.h"
 #include "napi_common.h"
+#include "ohos_logging.h"
 #include "ohos_context_gl_impeller.h"
 #include "ohos_external_texture_gl.h"
 #include "ohos_external_texture_vulkan.h"

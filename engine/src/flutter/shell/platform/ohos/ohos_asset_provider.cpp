@@ -17,6 +17,7 @@
 #include <rawfile/raw_file.h>
 #include <rawfile/raw_file_manager.h>
 #include "napi_common.h"
+#include "ohos_logging.h"
 
 namespace flutter {
 
