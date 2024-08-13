@@ -18,6 +18,7 @@
 #include "napi/native_api.h"
 #include "napi_common.h"
 #include "ohos_xcomponent_adapter.h"
+#include "ohos_logging.h"
 
 // namespace flutter {
 

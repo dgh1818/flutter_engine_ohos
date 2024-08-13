@@ -110,12 +110,6 @@ source_set("fml") {
     sources += [ "backtrace_stub.cc" ]
   }
 
-  defines = []
-
-  if (flutter_runtime_mode == "release" || flutter_runtime_mode == "profile") {
-    defines += [ "REQUIRE_ERROR_LOG_LEVEL" ]
-  }
-
   public_deps = [
     ":build_config",
     ":command_line",
