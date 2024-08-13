@@ -26,10 +26,11 @@ import ArrayList from '@ohos.util.ArrayList';
 import { EmbeddingNodeController } from '../embedding/ohos/EmbeddingNodeController';
 import PlatformView, { Params } from '../plugin/platform/PlatformView';
 import hiTraceMeter from '@ohos.hiTraceMeter'
+import { JSON } from '@kit.ArkTS';
 
 const TAG = "FlutterViewTag";
 
-class ViewportMetrics {
+export class ViewportMetrics {
   devicePixelRatio: number = 1.0;
   physicalWidth: number = 0;
   physicalHeight: number = 0;
@@ -109,6 +110,7 @@ export class PlatformViewParas {
 }
 
 export class FlutterView {
+
   private flutterEngine: FlutterEngine | null = null
   private id: string = ""
   private dVModel: DVModel =

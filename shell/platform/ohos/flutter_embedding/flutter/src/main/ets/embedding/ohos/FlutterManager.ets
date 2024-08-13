@@ -145,6 +145,7 @@ export class DefaultFullScreenListener implements FullScreenListener {
     let window = FlutterManager.getInstance()
       .getWindowStage(FlutterManager.getInstance().getUIAbility(getContext(this)));
     window.getMainWindowSync().setWindowLayoutFullScreen(useFullScreen);
+    Log.i(TAG, "WindowLayoutFullScreen is on")
   }
 
   onScreenStateChanged(data: window.WindowStatusType): void {
@@ -154,13 +155,16 @@ export class DefaultFullScreenListener implements FullScreenListener {
     }
     switch (data) {
       case window.WindowStatusType.FULL_SCREEN:
+
       case window.WindowStatusType.SPLIT_SCREEN:
       case window.WindowStatusType.FLOATING:
       case window.WindowStatusType.MAXIMIZE:
         this.fullScreen = true;
+        Log.i(TAG, "onScreenStateChanged: fullScreen = true")
         break;
       default:
         this.fullScreen = false;
+        Log.i(TAG, "onScreenStateChanged: fullScreen = false")
         break;
     }
   }
