@@ -927,13 +927,13 @@ napi_value PlatformViewOHOSNapi::nativeSetViewportMetrics(
   LOGD("nativeSetViewportMetrics::systemGestureInsetLeft : %{public}ld",
        systemGestureInsetLeft);
 
-  int64_t physicalTouchSlop;
-  ret = napi_get_value_int64(env, args[16], &physicalTouchSlop);
+  double physicalTouchSlop;
+  ret = napi_get_value_double(env, args[16], &physicalTouchSlop);
   if (ret != napi_ok) {
-    LOGE("nativeSetViewportMetrics napi_get_value_int64 error");
+    LOGE("nativeSetViewportMetrics napi_get_value_double error");
     return nullptr;
   }
-  LOGD("nativeSetViewportMetrics::physicalTouchSlop : %{public}ld",
+  LOGD("nativeSetViewportMetrics::physicalTouchSlop : %{public}lf",
        physicalTouchSlop);
 
   std::vector<double> displayFeaturesBounds;

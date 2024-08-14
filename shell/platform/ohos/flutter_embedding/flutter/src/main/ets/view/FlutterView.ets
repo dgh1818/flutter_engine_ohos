@@ -45,7 +45,7 @@ class ViewportMetrics {
   systemGestureInsetRight: number = 0;
   systemGestureInsetBottom: number = 0;
   systemGestureInsetLeft: number = 0;
-  physicalTouchSlop = -1;
+  physicalTouchSlop: number = -1;
 
   clone(): ViewportMetrics {
     const copy = new ViewportMetrics();
@@ -143,7 +143,9 @@ export class FlutterView {
   constructor(viewId: string, context: Context) {
     this.id = viewId
     this.displayInfo = display.getDefaultDisplaySync();
-    this.viewportMetrics.devicePixelRatio = this.displayInfo?.densityPixels
+    this.viewportMetrics.devicePixelRatio = this.displayInfo?.densityPixels;
+    this.viewportMetrics.physicalTouchSlop = 1.0 * this.displayInfo?.densityPixels;
+
     this.mainWindow = FlutterManager.getInstance()
       .getWindowStage(FlutterManager.getInstance().getUIAbility(context))
       .getMainWindowSync();
