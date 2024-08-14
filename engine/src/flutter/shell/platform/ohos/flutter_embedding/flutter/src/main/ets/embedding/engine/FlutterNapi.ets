@@ -61,6 +61,7 @@ export default class FlutterNapi {
   isRunningDart: boolean = false;
   private nextSpawnNapi: FlutterNapi | null = null;
   private pendingMessages: PendingMessage[] = [];
+  private readyForHandleMessage: boolean = false;
 
   /**
    * 更新刷新率
@@ -310,7 +311,7 @@ export default class FlutterNapi {
   // Called by native on any thread.
   handlePlatformMessage(channel: string, message: ArrayBuffer, replyId: number, messageData: number): void {
     Log.w(TAG, "called handlePlatformMessage Channel: " + channel + ". Response ID: " + replyId);
-    if (this.platformMessageHandler != null) {  
+    if (this.platformMessageHandler != null && this.readyForHandleMessage) {  
       this.platformMessageHandler.handleMessageFromDart(channel, message, replyId, messageData);
     } else {
       const pendingMessage: PendingMessage = { channel, message, replyId, messageData };
@@ -319,6 +320,7 @@ export default class FlutterNapi {
   }
 
   processPendingMessages(): void {
+    this.readyForHandleMessage = true;
     while (this.pendingMessages.length > 0 && this.platformMessageHandler) {
       const pendingMessage = this.pendingMessages.shift();
       if (pendingMessage) {
