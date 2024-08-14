@@ -138,7 +138,12 @@ bool OHOSSurfaceVulkanImpeller::PrepareOffscreenWindow(int32_t width,
   preload_gpu_surface_ =
       std::make_unique<GPUSurfaceVulkanImpeller>(surface_context_vk_);
   // return false means that it will not invoke PlatformView::NotifyCreated().
-  return false;
+  // return false;
+  // If we want to skip time-consuming tasks during the first frame, we can
+  // render it to offscreen window. However, the result of the offscreen
+  // rendering will not be drawn to the onscreen window.
+  OHOSSurface::PrepareOffscreenWindow(width, height);
+  return true;
 }
 
 std::shared_ptr<impeller::Context>
