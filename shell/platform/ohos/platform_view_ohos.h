@@ -172,9 +172,9 @@ class PlatformViewOHOS final : public PlatformView {
   // |PlatformView|
   void RequestDartDeferredLibrary(intptr_t loading_unit_id) override;
 
-  void InstallFirstFrameCallback();
+  void InstallFirstFrameCallback(bool is_preload = false);
 
-  void FireFirstFrameCallback();
+  void FireFirstFrameCallback(bool is_preload = false);
 
   FML_DISALLOW_COPY_AND_ASSIGN(PlatformViewOHOS);
 

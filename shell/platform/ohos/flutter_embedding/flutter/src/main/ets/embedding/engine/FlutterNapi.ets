@@ -58,6 +58,7 @@ export default class FlutterNapi {
   accessibilityDelegate: AccessibilityDelegate | null = null;
   localizationPlugin: LocalizationPlugin | null = null;
   isDisplayingFlutterUi: boolean = false;
+  isPreloadedFlutterUi: boolean = false;
   isRunningDart: boolean = false;
   private nextSpawnNapi: FlutterNapi | null = null;
   private pendingMessages: PendingMessage[] = [];
@@ -133,6 +134,7 @@ export default class FlutterNapi {
       pathToEntrypointFunction, assetManager, entrypointArgs);
     this.isRunningDart = true;
     this.isDisplayingFlutterUi = false;
+    this.isPreloadedFlutterUi = false;
   };
 
   /**
@@ -276,6 +278,7 @@ export default class FlutterNapi {
     flutterNapi.nativeShellHolderId = shellHolderId;
     flutterNapi.isRunningDart = this.isRunningDart;
     flutterNapi.isDisplayingFlutterUi = false;
+    flutterNapi.isPreloadedFlutterUi = false;
     return flutterNapi;
   }
 
@@ -291,6 +294,7 @@ export default class FlutterNapi {
     flutterNapi.nativeShellHolderId = shellHolderId;
     flutterNapi.isRunningDart = this.isRunningDart;
     flutterNapi.isDisplayingFlutterUi = false;
+    flutterNapi.isPreloadedFlutterUi = false;
     this.nextSpawnNapi = flutterNapi;
     return flutterNapi;
   }
@@ -338,12 +342,19 @@ export default class FlutterNapi {
   }
 
   // Called by native to notify first Flutter frame rendered.
-  onFirstFrame(): void {
-    this.isDisplayingFlutterUi = true;
-    Log.d(TAG, "called onFirstFrame")
+  onFirstFrame(isPreload: number): void {
+    Log.d(TAG, "called onFirstFrame isPreload:" + isPreload);
+    if (isPreload) {
+      this.isPreloadedFlutterUi = true;
+    } else {
+      if (this.isDisplayingFlutterUi) {
+        return;
+      }
+      this.isDisplayingFlutterUi = true;
+    }
     FlutterManager.getInstance().getFlutterViewList().forEach((value) => {
       if (this.nativeShellHolderId != null && value.isSameEngineShellHolderId(this.nativeShellHolderId)) {
-        value.onFirstFrame();
+        value.onFirstFrame(isPreload);
       }
     });
   }
@@ -486,6 +497,7 @@ export default class FlutterNapi {
     this.nativeShellHolderId = null;
     this.isRunningDart = false;
     this.isDisplayingFlutterUi = false;
+    this.isPreloadedFlutterUi = false;
   }
 
   unregisterTexture(textureId: number): void {
