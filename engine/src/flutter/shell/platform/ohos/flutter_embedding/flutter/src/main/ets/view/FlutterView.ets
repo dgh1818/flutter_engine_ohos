@@ -125,7 +125,9 @@ export class FlutterView {
   private uiContext?: UIContext | undefined;
   private settings?: Settings;
   private mFirstFrameListeners: ArrayList<FirstFrameListener>;
+  private mFirstPreloadFrameListeners: ArrayList<FirstPreloadFrameListener>;
   private isFlutterUiDisplayed: boolean = false;
+  private isFlutterUiPreload: boolean = false;
   private surfaceId: string = "0";
   private nodeController: EmbeddingNodeController = new EmbeddingNodeController();
   private platformViewSize: PlatformViewParas = new PlatformViewParas();
@@ -146,6 +148,8 @@ export class FlutterView {
       .getWindowStage(FlutterManager.getInstance().getUIAbility(context))
       .getMainWindowSync();
     this.mFirstFrameListeners = new ArrayList<FirstFrameListener>();
+    this.mFirstPreloadFrameListeners = new ArrayList<FirstPreloadFrameListener>();
+
 
     this.mainWindow?.on('windowSizeChange', this.windowSizeChangeCallback);
     this.mainWindow?.on('avoidAreaChange', this.avoidAreaChangeCallback);
@@ -265,6 +269,10 @@ export class FlutterView {
     this.settings = new Settings(this.flutterEngine.getSettingsChannel()!);
     this.sendSettings();
     this.isFlutterUiDisplayed = this.flutterEngine.getFlutterNapi().isDisplayingFlutterUi;
+    this.isFlutterUiPreload = this.flutterEngine.getFlutterNapi().isPreloadedFlutterUi;
+    if (this.isFlutterUiPreload) {
+      this.onFirstFrame(1);
+    }
     if (this.isFlutterUiDisplayed) {
       this.onFirstFrame();
     }
@@ -441,15 +449,30 @@ export class FlutterView {
     this.mFirstFrameListeners.remove(listener);
   }
 
+  addFirstPreloadFrameListener(listener: FirstPreloadFrameListener) {
+    this.mFirstPreloadFrameListeners.add(listener);
+  }
+
+  removeFirstPreloadFrameListener(listener: FirstPreloadFrameListener) {
+    this.mFirstPreloadFrameListeners.remove(listener);
+  }
+
   hasRenderedFirstFrame(): boolean {
     return this.isFlutterUiDisplayed;
   }
 
-  onFirstFrame() {
-    let listeners = this.mFirstFrameListeners.clone();
-    listeners.forEach((listener) => {
-      listener.onFirstFrame();
-    })
+  onFirstFrame(isPreload: number = 0) {
+    if (isPreload) {
+      let listeners = this.mFirstPreloadFrameListeners.clone();
+      listeners.forEach((listener) => {
+        listener.onFirstPreloadFrame();
+      })
+    } else {
+      let listeners = this.mFirstFrameListeners.clone();
+      listeners.forEach((listener) => {
+        listener.onFirstFrame();
+      })
+    }
   }
 
   setCheckFullScreen(check: boolean) {
@@ -471,4 +494,8 @@ export class FlutterView {
 
 export interface FirstFrameListener {
   onFirstFrame(): void;
+}
+
+export interface FirstPreloadFrameListener {
+  onFirstPreloadFrame(): void;
 }

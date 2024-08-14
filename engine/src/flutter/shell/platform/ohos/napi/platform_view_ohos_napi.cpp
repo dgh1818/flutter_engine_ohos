@@ -329,10 +329,15 @@ void PlatformViewOHOSNapi::FlutterViewHandlePlatformMessage(
   }
 }
 
-void PlatformViewOHOSNapi::FlutterViewOnFirstFrame() {
+void PlatformViewOHOSNapi::FlutterViewOnFirstFrame(bool is_preload) {
   FML_DLOG(INFO) << "FlutterViewOnFirstFrame";
-  napi_status status = fml::napi::InvokeJsMethod(env_, ref_napi_obj_,
-                                                 "onFirstFrame", 0, nullptr);
+  napi_value callbackParam[1];
+  napi_status status = napi_create_int64(env_, is_preload, callbackParam);
+  if (status != napi_ok) {
+    FML_DLOG(ERROR) << "napi_create_int64 firstframe fail ";
+  }
+  status = fml::napi::InvokeJsMethod(env_, ref_napi_obj_, "onFirstFrame", 1,
+                                     callbackParam);
   if (status != napi_ok) {
     FML_DLOG(ERROR) << "InvokeJsMethod onFirstFrame fail ";
   }

@@ -29,6 +29,7 @@
 #include "ohos_external_texture_gl.h"
 #include "ohos_external_texture_vulkan.h"
 #include "ohos_surface_gl_impeller.h"
+#include "shell/common/platform_view.h"
 #include "shell/platform/ohos/context/ohos_context.h"
 #include "shell/platform/ohos/ohos_surface_vulkan_impeller.h"
 
@@ -153,6 +154,10 @@ void PlatformViewOHOS::NotifyCreate(
             PlatformView::NotifyCreated();
           } else if (surface->NeedNewFrame()) {
             PlatformView::ScheduleFrame();
+          } else {
+            fml::TaskRunner::RunNowOrPostTask(
+                task_runners_.GetPlatformTaskRunner(),
+                [&] { PlatformViewOHOS::FireFirstFrameCallback(); });
           }
         });
   }
@@ -161,7 +166,7 @@ void PlatformViewOHOS::NotifyCreate(
 void PlatformViewOHOS::Preload(int width, int height) {
   if (ohos_surface_ && !window_is_preload_) {
     LOGI("Preload start");
-    InstallFirstFrameCallback();
+    InstallFirstFrameCallback(true);
     fml::TaskRunner::RunNowOrPostTask(
         task_runners_.GetRasterTaskRunner(),
         [&, surface = ohos_surface_.get(), width, height]() {
@@ -432,25 +437,26 @@ void PlatformViewOHOS::RequestDartDeferredLibrary(intptr_t loading_unit_id) {
   return;
 }
 
-void PlatformViewOHOS::InstallFirstFrameCallback() {
+void PlatformViewOHOS::InstallFirstFrameCallback(bool is_preload) {
   FML_DLOG(INFO) << "InstallFirstFrameCallback";
   SetNextFrameCallback(
       [platform_view = GetWeakPtr(),
-       platform_task_runner = task_runners_.GetPlatformTaskRunner()]() {
-        platform_task_runner->PostTask([platform_view]() {
+       platform_task_runner = task_runners_.GetPlatformTaskRunner(),
+       is_preload]() {
+        platform_task_runner->PostTask([platform_view, is_preload]() {
           // Back on Platform Task Runner.
           FML_DLOG(INFO) << "install InstallFirstFrameCallback ";
           if (platform_view) {
             reinterpret_cast<PlatformViewOHOS*>(platform_view.get())
-                ->FireFirstFrameCallback();
+                ->FireFirstFrameCallback(is_preload);
           }
         });
       });
 }
 
-void PlatformViewOHOS::FireFirstFrameCallback() {
+void PlatformViewOHOS::FireFirstFrameCallback(bool is_preload) {
   FML_DLOG(INFO) << "FlutterViewOnFirstFrame";
-  napi_facade_->FlutterViewOnFirstFrame();
+  napi_facade_->FlutterViewOnFirstFrame(is_preload);
 }
 
 uint64_t PlatformViewOHOS::RegisterExternalTexture(int64_t texture_id) {

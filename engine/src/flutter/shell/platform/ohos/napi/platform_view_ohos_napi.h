@@ -54,7 +54,7 @@ class PlatformViewOHOSNapi {
       int reponse_id,
       std::unique_ptr<flutter::PlatformMessage> message);
 
-  void FlutterViewOnFirstFrame();
+  void FlutterViewOnFirstFrame(bool is_preload = false);
   void FlutterViewOnPreEngineRestart();
   flutter::locale resolveNativeLocale(
       std::vector<flutter::locale> supportedLocales);
