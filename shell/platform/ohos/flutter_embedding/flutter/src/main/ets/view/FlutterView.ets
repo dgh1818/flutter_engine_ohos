@@ -393,6 +393,16 @@ export class FlutterView {
     return this.flutterEngine != null
   }
 
+  public isSameEngineShellHolderId(id: number): boolean {
+    if (this.flutterEngine) {
+      let flutterNapi = this.flutterEngine.getFlutterNapi();
+      if (flutterNapi.nativeShellHolderId == id && id != 0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private updateViewportMetrics(): boolean {
     if (this.isAttachedToFlutterEngine()) {
       this?.flutterEngine?.getFlutterNapi()?.setViewportMetrics(this.viewportMetrics.devicePixelRatio,

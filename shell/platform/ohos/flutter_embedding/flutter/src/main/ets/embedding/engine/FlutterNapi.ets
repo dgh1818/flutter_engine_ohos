@@ -132,6 +132,7 @@ export default class FlutterNapi {
     flutter.nativeRunBundleAndSnapshotFromLibrary(this.nativeShellHolderId!, bundlePath, entrypointFunctionName,
       pathToEntrypointFunction, assetManager, entrypointArgs);
     this.isRunningDart = true;
+    this.isDisplayingFlutterUi = false;
   };
 
   /**
@@ -274,6 +275,7 @@ export default class FlutterNapi {
         entrypointArgs, flutterNapi);
     flutterNapi.nativeShellHolderId = shellHolderId;
     flutterNapi.isRunningDart = this.isRunningDart;
+    flutterNapi.isDisplayingFlutterUi = false;
     return flutterNapi;
   }
 
@@ -288,6 +290,7 @@ export default class FlutterNapi {
         entrypointArgs, flutterNapi);
     flutterNapi.nativeShellHolderId = shellHolderId;
     flutterNapi.isRunningDart = this.isRunningDart;
+    flutterNapi.isDisplayingFlutterUi = false;
     this.nextSpawnNapi = flutterNapi;
     return flutterNapi;
   }
@@ -339,7 +342,9 @@ export default class FlutterNapi {
     this.isDisplayingFlutterUi = true;
     Log.d(TAG, "called onFirstFrame")
     FlutterManager.getInstance().getFlutterViewList().forEach((value) => {
-      value.onFirstFrame();
+      if (this.nativeShellHolderId != null && value.isSameEngineShellHolderId(this.nativeShellHolderId)) {
+        value.onFirstFrame();
+      }
     });
   }
 
@@ -480,6 +485,7 @@ export default class FlutterNapi {
     flutter.nativeDestroy(this.nativeShellHolderId!!);
     this.nativeShellHolderId = null;
     this.isRunningDart = false;
+    this.isDisplayingFlutterUi = false;
   }
 
   unregisterTexture(textureId: number): void {
