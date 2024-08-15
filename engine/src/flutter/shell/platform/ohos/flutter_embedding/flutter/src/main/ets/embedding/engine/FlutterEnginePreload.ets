@@ -57,6 +57,26 @@ export default class FlutterEnginePreload {
     }
   }
 
+  static predrawEngine(engine: FlutterEngine, next_viewid: string | null = null, width: number = 0, height: number = 0) {
+    if (!engine) {
+        return;
+    }
+    let flutterNapi = engine.getFlutterNapi();
+    if (!flutterNapi.isAttached()) {
+        flutterNapi.attachToNative();
+    }
+    if (!next_viewid) {
+        next_viewid = FlutterManager.getInstance().getNextFlutterViewId();
+    }
+    if (width == 0 || height == 0) {
+      let display_info: display.Display = display.getDefaultDisplaySync();;
+      width = display_info.width;
+      height = display_info.height;
+    }
+    flutterNapi.xComponentPreDraw(next_viewid, width, height);
+    flutterNapi.setViewportMetrics(1.0, width, height, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, new Array(0), new Array(0), new Array(0));
+  }
+
   static preLoadFlutterNapi(context: common.Context, bundlePath: string, params: Record<string, Object> = {}): FlutterNapi | null{
 
     let cachedEngineId = params[FlutterAbilityLaunchConfigs.EXTRA_CACHED_ENGINE_ID] as string;
