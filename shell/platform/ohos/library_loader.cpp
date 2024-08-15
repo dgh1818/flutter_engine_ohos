@@ -143,7 +143,7 @@ static napi_value Init(napi_env env, napi_value exports) {
   napi_define_properties(env, exports, sizeof(desc) / sizeof(desc[0]), desc);
   bool ret = flutter::XComponentAdapter::GetInstance()->Export(env, exports);
   if (!ret) {
-    LOGE("Init NAPI Failed.");
+    FML_DLOG(ERROR) << "Init NAPI Failed.";
   } else {
     FML_DLOG(INFO) << "Init NAPI Succeed.";
   }

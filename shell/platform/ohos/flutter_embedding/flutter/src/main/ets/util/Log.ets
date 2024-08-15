@@ -24,6 +24,17 @@ const SYMBOL = " --> ";
  * Basic log class
  */
 export default class Log {
+  private static _logLevel = HiLog.LogLevel.WARN;
+
+  /**
+   * Set log level.
+   *
+   * @param level Indecated the log level.
+   */
+  public static setLogLevel(level: HiLog.LogLevel) {
+    Log._logLevel = level;
+  }
+
   /**
    * Outputs debug-level logs.
    *
@@ -110,7 +121,7 @@ export default class Log {
   private static isLoggable(level: HiLog.LogLevel): boolean {
     let buildModeName: string = BuildProfile.BUILD_MODE_NAME.toLowerCase();
     if (buildModeName == 'release' || buildModeName == 'profile') {
-      return level >= HiLog.LogLevel.WARN && HiLog.isLoggable(DOMAIN, TAG, level);
+      return level >= Log._logLevel && HiLog.isLoggable(DOMAIN, TAG, level);
     }
     return HiLog.isLoggable(DOMAIN, TAG, level);
   }
