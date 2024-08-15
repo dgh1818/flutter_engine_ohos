@@ -309,7 +309,7 @@ export default class FlutterNapi {
 
   //Called by native to respond to a platform message that we sent.
   handlePlatformMessageResponse(replyId: number, reply: ArrayBuffer): void {
-    Log.w(TAG, "called handlePlatformMessageResponse Response ID: " + replyId);
+    Log.d(TAG, "called handlePlatformMessageResponse Response ID: " + replyId);
     if (this.platformMessageHandler != null) {
       this.platformMessageHandler.handlePlatformMessageResponse(replyId, reply);
     }
@@ -317,7 +317,7 @@ export default class FlutterNapi {
 
   // Called by native on any thread.
   handlePlatformMessage(channel: string, message: ArrayBuffer, replyId: number, messageData: number): void {
-    Log.w(TAG, "called handlePlatformMessage Channel: " + channel + ". Response ID: " + replyId);
+    Log.d(TAG, "called handlePlatformMessage Channel: " + channel + ". Response ID: " + replyId);
     if (this.platformMessageHandler != null && this.readyForHandleMessage) {  
       this.platformMessageHandler.handleMessageFromDart(channel, message, replyId, messageData);
     } else {
@@ -327,6 +327,7 @@ export default class FlutterNapi {
   }
 
   processPendingMessages(): void {
+    Log.d(TAG, "processPendingMessages len:" + this.pendingMessages.length);
     this.readyForHandleMessage = true;
     while (this.pendingMessages.length > 0 && this.platformMessageHandler) {
       const pendingMessage = this.pendingMessages.shift();
@@ -498,6 +499,7 @@ export default class FlutterNapi {
     this.isRunningDart = false;
     this.isDisplayingFlutterUi = false;
     this.isPreloadedFlutterUi = false;
+    this.readyForHandleMessage = false;
   }
 
   unregisterTexture(textureId: number): void {
