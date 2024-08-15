@@ -259,7 +259,7 @@ export default class TouchEventProcessor {
           let touchEvent: CustomTouchEvent = TouchEventProcessor.getInstance().constructCustomTouchEvent(strings, top, left);
           let nodeController = params['nodeController'] as EmbeddingNodeController;
           nodeController.postEvent(touchEvent)
-        } else if (strings[6] == '0' && !down) {
+        } else {
           //如果触摸事件为OH_NATIVEXCOMPONENT_DOWN=0，且只有一个手指，说明是下一次点击了，这时候需要清空上一次的数据
           if (strings[6] == '0' && strings[0] == '1') {
             params['touchEvent'] = undefined
