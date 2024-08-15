@@ -247,7 +247,7 @@ export default class FlutterEntry implements Host {
   }
 
   popSystemNavigator(): boolean {
-    return true;
+    return false;
   }
 
   addPlugin(plugin: FlutterPlugin): void {
