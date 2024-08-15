@@ -102,7 +102,7 @@ export default class FlutterEnginePreload {
     }
 
     if (!flutterNapi) {
-      flutterNapi = FlutterInjector.getInstance().getFlutterNapi();
+      flutterNapi = FlutterInjector.getInstance().getPreloadFlutterNapi();
     }
     if (flutterNapi) {
       if (!flutterNapi.isAttached()) {
