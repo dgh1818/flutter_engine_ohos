@@ -261,7 +261,10 @@ export class FlutterView {
     this.flutterEngine?.getFlutterNapi()?.updateDensity(this.displayInfo!.densityPixels)
     flutterEngine.getPlatformViewsController()?.attachToView(this);
     
-    let newArea: Area = {width: px2vp(this.displayInfo!.width), height: px2vp(this.displayInfo!.height), position: {x: 0, y: 0},globalPosition: {x: 0, y: 0}};
+    let newArea: Area | null = {width: px2vp(this.displayInfo!.width), height: px2vp(this.displayInfo!.height), position: {x: 0, y: 0},globalPosition: {x: 0, y: 0}};
+    if (this.viewportMetrics.physicalWidth != 0 || this.viewportMetrics.physicalHeight != 0) {
+      newArea = null;
+    }
     this.onAreaChange(newArea, true);
     
     let windowId = this.mainWindow?.getWindowProperties()?.id
