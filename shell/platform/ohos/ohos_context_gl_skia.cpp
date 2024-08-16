@@ -216,9 +216,6 @@ bool OhosContextGLSkia::IsValid() const {
 bool OhosContextGLSkia::ClearCurrent() const {
   if (eglGetCurrentContext() != context_) {
     return true;
-  } else {
-    FML_LOG(INFO) << "OhosContextGLSkia::ClearCurrent get error context "
-                  << (eglGetCurrentContext());
   }
   if (eglMakeCurrent(environment_->Display(), EGL_NO_SURFACE, EGL_NO_SURFACE,
                      EGL_NO_CONTEXT) != EGL_TRUE) {

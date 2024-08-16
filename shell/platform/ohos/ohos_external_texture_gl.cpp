@@ -106,6 +106,11 @@ void OHOSExternalTextureGL::WaitGPUFence(int fence_fd) {
 
 void OHOSExternalTextureGL::GPUResourceDestroy() {
   gl_resources_.clear();
+  // here we should have context.
+  GLenum err = glGetError();
+  if (err != GL_NO_ERROR) {
+    FML_LOG(ERROR) << "GPUResourceDestroy get gl error:" << glGetError();
+  }
 }
 
 sk_sp<flutter::DlImage> OHOSExternalTextureGL::CreateDlImage(

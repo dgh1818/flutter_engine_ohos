@@ -112,10 +112,10 @@ class OhosEGLSurface {
   ///
   SkISize GetSize() const;
 
- private:
   /// Returns true if the EGLContext held is current for the display and surface
   bool IsContextCurrent() const;
 
+ private:
   const EGLSurface surface_;
   const EGLDisplay display_;
   const EGLContext context_;
