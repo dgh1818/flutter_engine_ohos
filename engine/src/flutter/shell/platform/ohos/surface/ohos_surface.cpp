@@ -70,6 +70,7 @@ bool OHOSSurface::PrepareOffscreenWindow(int32_t width, int32_t height) {
                    << ret;
     return false;
   }
+  FML_LOG(INFO) << "set offscreen window" << offscreen_nativewindow_;
 
   SetNativeWindow(fml::MakeRefCounted<OHOSNativeWindow>(
       static_cast<OHNativeWindow*>(offscreen_nativewindow_)));
@@ -90,10 +91,18 @@ bool OHOSSurface::PrepareOffscreenWindow(int32_t width, int32_t height) {
 
 void OHOSSurface::ReleaseOffscreenWindow() {
   if (last_nativewindow_buffer_) {
-    OH_NativeImage_ReleaseNativeWindowBuffer(
+    int ret = OH_NativeImage_ReleaseNativeWindowBuffer(
         offscreen_native_image_, last_nativewindow_buffer_, last_fence_fd_);
+    if (ret != 0) {
+      // Swapchain destroying may clean the buffercache of
+      // offscreen_native_image_. In this situation, we need destroy the buffer.
+      OH_NativeWindow_DestroyNativeWindowBuffer(last_nativewindow_buffer_);
+      close(last_fence_fd_);
+    }
     last_nativewindow_buffer_ = nullptr;
+    last_fence_fd_ = -1;
   }
+  FML_LOG(INFO) << "ReleaseOffscreenWindow " << offscreen_nativewindow_;
   if (offscreen_nativewindow_) {
     OH_NativeWindow_DestroyNativeWindow(offscreen_nativewindow_);
     offscreen_nativewindow_ = nullptr;

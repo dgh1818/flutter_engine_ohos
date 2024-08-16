@@ -524,6 +524,7 @@ void PlatformViewOHOS::OnNativeImageFrameAvailable(void* data) {
 void PlatformViewOHOS::UnRegisterExternalTexture(int64_t texture_id) {
   all_external_texture_.erase(texture_id);
   FML_LOG(INFO) << "UnRegisterExternalTexture " << texture_id;
+  // Note that external_texture will be destroy after UnregisterTexture.
   UnregisterTexture(texture_id);
 
   std::lock_guard<std::mutex> lock(g_map_mutex);
