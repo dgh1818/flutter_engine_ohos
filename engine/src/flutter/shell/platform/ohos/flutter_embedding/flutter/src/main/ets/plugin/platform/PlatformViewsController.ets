@@ -180,7 +180,7 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     let params: DVModelParameters | undefined = viewWrapper?.getDvModel()!.params
     
     const platformView = this.platformViews.get(request.viewId);
-    if(platformView?.getType() === 'web'){
+    if (platformView?.getType() === 'web') {
       physicalWidth = this.getParams(params!, 'width');
       physicalHeight = this.getParams(params!, 'height');
     }
