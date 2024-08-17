@@ -164,6 +164,11 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
       params2[key] = element;
     }
 
+  getParams: (params: DVModelParameters, key: string) => number = (params: DVModelParameters, key: string): number => {
+    let params2 = params as Record<string, Any>;
+    return params2[key];
+  }
+
   resize(request: PlatformViewResizeRequest, onComplete: PlatformViewBufferResized): void {
     let physicalWidth: number = this.toPhysicalPixels(request.newLogicalWidth);
     let physicalHeight: number = this.toPhysicalPixels(request.newLogicalHeight);
@@ -173,7 +178,13 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
 
     let viewWrapper = this.viewWrappers.get(request.viewId)
     let params: DVModelParameters | undefined = viewWrapper?.getDvModel()!.params
-
+    
+    const platformView = this.platformViews.get(request.viewId);
+    if(platformView?.getType() === 'web'){
+      physicalWidth = this.getParams(params!, 'width');
+      physicalHeight = this.getParams(params!, 'height');
+    }
+     
     this.setParams(params!, "width", physicalWidth);
     this.setParams(params!, "height", physicalHeight);
 
