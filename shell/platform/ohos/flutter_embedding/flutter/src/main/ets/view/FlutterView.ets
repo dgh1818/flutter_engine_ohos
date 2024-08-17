@@ -280,6 +280,9 @@ export class FlutterView {
     if (this.isFlutterUiDisplayed) {
       this.onFirstFrame();
     }
+    if (this.isSurfaceAvailableForRendering) {
+      this.flutterEngine?.processPendingMessages();
+    }
     hiTraceMeter.finishTrace("attachToFlutterEngine", 0);
   }
 

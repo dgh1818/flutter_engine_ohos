@@ -348,6 +348,7 @@ export default class FlutterNapi {
     if (isPreload) {
       this.isPreloadedFlutterUi = true;
     } else {
+      this.processPendingMessages();
       if (this.isDisplayingFlutterUi) {
         return;
       }
