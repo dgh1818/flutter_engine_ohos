@@ -139,6 +139,7 @@ export class FlutterView {
   private navigationAvoidArea: window.AvoidArea;
   private gestureAvoidArea: window.AvoidArea;
   private keyboardAvoidArea: window.AvoidArea;
+  private needSetViewport: boolean = false;
 
   constructor(viewId: string, context: Context) {
     this.id = viewId
@@ -356,9 +357,9 @@ export class FlutterView {
     this.onKeyboardAreaChange()
     this.onAiBarAreaChange()
     this.onGestureAreaChange()
-    if (!this.viewportMetrics.isEqual(originalMetrics)) {
+    if (!this.viewportMetrics.isEqual(originalMetrics) || this.needSetViewport) {
       if (!this.updateViewportMetrics()) {
-        this.viewportMetrics = originalMetrics
+        this.needSetViewport = true;
       }
     }
   }
