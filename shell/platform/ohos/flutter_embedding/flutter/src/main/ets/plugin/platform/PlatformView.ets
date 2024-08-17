@@ -23,7 +23,9 @@ export declare class Params {
 /** A handle to an DynamicView to be embedded in the Flutter hierarchy. */
 export default abstract class PlatformView {  
 
-  abstract getType(): string;
+  getType(): string {
+    return 'default';
+  }
 
   /** Returns the DynamicView to be embedded in the Flutter hierarchy. */
   abstract getView(): WrappedBuilder<[Params]>;
