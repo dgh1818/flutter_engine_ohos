@@ -34,7 +34,6 @@ constexpr char kEmulatorRendererPrefix[] = "Mali-G78";
 OhosSurfaceGLSkia::OhosSurfaceGLSkia(
     const std::shared_ptr<OHOSContext>& ohos_context)
     : OHOSSurface(ohos_context),
-      native_window_(nullptr),
       onscreen_surface_(nullptr),
       offscreen_surface_(nullptr) {
   // Acquire the offscreen surface.
@@ -88,21 +87,13 @@ bool OhosSurfaceGLSkia::OnScreenSurfaceResize(const SkISize& size) {
 
   FML_LOG(INFO) << "OnScreenSurfaceResize update window size:" << size.width()
                 << "*" << size.height();
-  if (size == onscreen_surface_->GetSize()) {
+  if (onscreen_surface_ && onscreen_surface_->IsValid() &&
+      size == onscreen_surface_->GetSize()) {
     return true;
   }
 
-  GLContextPtr()->ClearCurrent();
-
-  // Ensure the destructor is called since it destroys the `EGLSurface` before
-  // creating a new onscreen surface.
-  onscreen_surface_ = nullptr;
-  onscreen_surface_ = GLContextPtr()->CreateOnscreenSurface(native_window_);
-  if (!onscreen_surface_->IsValid()) {
-    FML_LOG(ERROR) << "Unable to create EGL window surface on resize.";
-    return false;
-  }
-  onscreen_surface_->MakeCurrent();
+  // In EGL we need create the surface again.
+  SetNativeWindow(native_window_);
   return true;
 }
 
@@ -153,11 +144,12 @@ bool OhosSurfaceGLSkia::SetNativeWindow(fml::RefPtr<OHOSNativeWindow> window) {
 
 bool OhosSurfaceGLSkia::PaintOffscreenData(OHNativeWindowBuffer* buffer,
                                            int fence_fd) {
-  if (onscreen_nativewindow_ == nullptr || buffer == nullptr) {
+  if (!native_window_ || !native_window_->IsValid() || buffer == nullptr) {
     return false;
   }
+  OHNativeWindow* onscreen_nativewindow = native_window_->Gethandle();
   int ret =
-      OH_NativeWindow_NativeWindowAttachBuffer(onscreen_nativewindow_, buffer);
+      OH_NativeWindow_NativeWindowAttachBuffer(onscreen_nativewindow, buffer);
   if (ret != 0) {
     FML_LOG(ERROR) << "ohos_surface cannot attach onscreen nativewindow "
                       "buffer to window: ret error:"
@@ -165,7 +157,7 @@ bool OhosSurfaceGLSkia::PaintOffscreenData(OHNativeWindowBuffer* buffer,
     return false;
   }
 
-  ret = OH_NativeWindow_NativeWindowFlushBuffer(onscreen_nativewindow_, buffer,
+  ret = OH_NativeWindow_NativeWindowFlushBuffer(onscreen_nativewindow, buffer,
                                                 fence_fd, {});
   if (ret != 0) {
     FML_LOG(INFO) << "ohos_surface flush last nativewindow buffer result: "

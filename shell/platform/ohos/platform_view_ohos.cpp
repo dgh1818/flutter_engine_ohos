@@ -194,8 +194,7 @@ void PlatformViewOHOS::NotifySurfaceWindowChanged(
         task_runners_.GetRasterTaskRunner(),
         [&latch, surface = ohos_surface_.get(),
          native_window = std::move(native_window)]() {
-          surface->TeardownOnScreenContext();
-          surface->SetNativeWindow(native_window);
+          surface->SetDisplayWindow(native_window);
           latch.Signal();
         });
     latch.Wait();
