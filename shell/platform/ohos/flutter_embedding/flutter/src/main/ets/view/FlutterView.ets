@@ -324,6 +324,7 @@ export class FlutterView {
 
   onSurfaceCreated() {
     this.isSurfaceAvailableForRendering = true;
+    this.flutterEngine?.processPendingMessages();
   }
 
   onSurfaceDestroyed() {
