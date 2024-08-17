@@ -64,7 +64,6 @@ class OHOSSurfaceVulkanImpeller : public OHOSSurface {
   bool PrepareOffscreenWindow(int32_t width, int32_t height) override;
 
  private:
-  fml::RefPtr<OHOSNativeWindow> native_window_;
   std::shared_ptr<impeller::SurfaceContextVK> surface_context_vk_;
   std::unique_ptr<GPUSurfaceVulkanImpeller> preload_gpu_surface_;
   std::mutex surface_preload_mutex_;

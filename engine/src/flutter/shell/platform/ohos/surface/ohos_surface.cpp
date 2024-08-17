@@ -35,6 +35,7 @@ std::unique_ptr<Surface> OHOSSurface::CreateSnapshotSurface() {
 OHOSSurface::~OHOSSurface() {
   std::lock_guard<std::mutex> lock(g_surface_alive_mutex);
   g_surface_is_alive.erase((uint64_t)this);
+  FML_LOG(ERROR) << "ReleaseOffscreenWindow in ~OHOSSurface()";
   ReleaseOffscreenWindow();
 }
 
@@ -91,6 +92,9 @@ bool OHOSSurface::PrepareOffscreenWindow(int32_t width, int32_t height) {
 
 void OHOSSurface::ReleaseOffscreenWindow() {
   if (last_nativewindow_buffer_) {
+    FML_LOG(INFO) << "release last_nativewindow_buffer_ "
+                  << last_nativewindow_buffer_;
+
     int ret = OH_NativeImage_ReleaseNativeWindowBuffer(
         offscreen_native_image_, last_nativewindow_buffer_, last_fence_fd_);
     if (ret != 0) {
@@ -117,11 +121,30 @@ bool OHOSSurface::SetDisplayWindow(fml::RefPtr<OHOSNativeWindow> window) {
   if (!window || !window->IsValid()) {
     return false;
   }
+  TRACE_EVENT0("flutter", "surface:SetDisplayWindow");
 
-  int new_width;
-  int new_height;
   SkISize size = window->GetSize();
+  SkISize old_size = window_size_;
+  window_size_ = size;
   need_schedule_frame_ = false;
+  FML_LOG(INFO) << "SetDisplayWindow " << window->Gethandle();
+
+  if (native_window_ && native_window_->IsValid() &&
+      window->Gethandle() == native_window_->Gethandle()) {
+    // window is same, we just set surface resize.
+    FML_LOG(INFO) << "window size change: (" << old_size.width() << ","
+                  << old_size.height() << ")=>(" << size.width() << ","
+                  << size.height() << ")";
+    // Note: In vulkan mode, creating a swapchain with the same window can cause
+    // the process to hang (stuck on requestBuffer). Therefore, SurfaceResize is
+    // called here instead of directly calling SetNativeWindow. We should invoke
+    // this always because it may create surface again (even sizes don't
+    // change). In GL mode, EGLSurface will be be destroy after
+    // TeardownOnScreenContext. In vulkan mode, nothing will happen after
+    // TeardownOnScreenContext so swapchain can be reused.
+    OnScreenSurfaceResize(size);
+    return true;
+  }
 
   if (offscreen_nativewindow_ == nullptr || size.width() != offscreen_width_ ||
       size.height() != offscreen_height_) {
@@ -130,11 +153,6 @@ bool OHOSSurface::SetDisplayWindow(fml::RefPtr<OHOSNativeWindow> window) {
   }
 
   TRACE_EVENT0("flutter", "surface:SetNativeWindow");
-
-  // It will not bring memory leak if onscreen_nativewindow_ is not null because
-  // the native_window will be relased when the xcomponment is destroyed.
-  onscreen_nativewindow_ = window->Gethandle();
-
   SetNativeWindow(window);
   if (PaintOffscreenData(last_nativewindow_buffer_, last_fence_fd_)) {
     last_nativewindow_buffer_ = nullptr;

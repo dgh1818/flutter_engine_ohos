@@ -50,6 +50,7 @@ class OHOSSurface {
 
   virtual std::shared_ptr<impeller::Context> GetImpellerContext();
 
+  // Return true means it will consume and release the buffer.
   virtual bool PaintOffscreenData(OHNativeWindowBuffer* buffer, int fence_fd) {
     return false;
   };
@@ -67,7 +68,8 @@ class OHOSSurface {
  protected:
   explicit OHOSSurface(const std::shared_ptr<OHOSContext>& ohos_context);
   std::shared_ptr<OHOSContext> ohos_context_;
-  OHNativeWindow* onscreen_nativewindow_ = nullptr;
+  fml::RefPtr<OHOSNativeWindow> native_window_;
+  SkISize window_size_ = {0, 0};
 
  private:
   OH_NativeImage* offscreen_native_image_ = nullptr;
