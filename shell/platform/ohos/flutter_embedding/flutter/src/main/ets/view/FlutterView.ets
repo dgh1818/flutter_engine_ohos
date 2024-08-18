@@ -27,7 +27,7 @@ import { EmbeddingNodeController } from '../embedding/ohos/EmbeddingNodeControll
 import PlatformView, { Params } from '../plugin/platform/PlatformView';
 import hiTraceMeter from '@ohos.hiTraceMeter'
 
-const TAG = "FlutterView";
+const TAG = "FlutterViewTag";
 
 class ViewportMetrics {
   devicePixelRatio: number = 1.0;
@@ -119,7 +119,7 @@ export class FlutterView {
   private viewportMetrics = new ViewportMetrics();
   private displayInfo?: display.Display;
   private keyboardManager: KeyboardManager | null = null;
-  private mainWindow: window.Window
+  private mainWindow: window.Window | null = null;
   private mouseCursorPlugin?: MouseCursorPlugin;
   private uiContext?: UIContext | undefined;
   private settings?: Settings;
@@ -155,24 +155,14 @@ export class FlutterView {
 
     this.mainWindow?.on('windowSizeChange', this.windowSizeChangeCallback);
     this.mainWindow?.on('avoidAreaChange', this.avoidAreaChangeCallback);
-    this.mainWindow?.on('keyboardHeightChange', this.keyboardHeightChangeCallback);
-    this.mainWindow?.on('windowStatusChange', (data: window.WindowStatusType) => {
-      Log.i(TAG, "windowStatusChangeCallback " + JSON.stringify(data));
-      FlutterManager.getInstance().getFullScreenListener().onScreenStateChanged(data);
-      this.onAreaChange(null);
-    });
-
+    this.mainWindow?.on('windowStatusChange', this.windowStatusChangeCallback);
     this.systemAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
     this.navigationAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR);
     this.gestureAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM_GESTURE);
     this.keyboardAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_KEYBOARD);
   }
 
-  private windowSizeChangeCallback = (data: window.Size) => {
-    Log.i(TAG, "windowSizeChangeCallback");
-    this.onAreaChange(null);
-  }
-  private avoidAreaChangeCallback = (data: Any) => {
+  private avoidAreaChangeCallback = (data: window.AvoidAreaOptions) => {
     Log.i(TAG, "avoidAreaChangeCallback type:" + data.type);
     if (data.type == window.AvoidAreaType.TYPE_SYSTEM) { //0
       this.systemAvoidArea = data.area;
@@ -183,17 +173,23 @@ export class FlutterView {
     } else if (data.type == window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR) { //4
       this.navigationAvoidArea = data.area;
     }
-    this.onAreaChange(null);
+    if (this.isAttachedToFlutterEngine()) {
+      this.onAreaChange(null);
+    }
   }
-  private keyboardHeightChangeCallback = (data: number) => {
-    Log.i(TAG, "keyboardHeightChangeCallback");
-    this.onAreaChange(null);
+
+  private  windowSizeChangeCallback = (data: window.Size) => {
+    Log.i(TAG, "windowSizeChangeCallback w:" + data.width + ", h:" + data.height);
+    if (this.isAttachedToFlutterEngine()) {
+      this.onAreaChange(null);
+    }
   }
 
   private windowStatusChangeCallback = (data: window.WindowStatusType) => {
     Log.i(TAG, "windowStatusChangeCallback " + data);
-    FlutterManager.getInstance().getFullScreenListener().onScreenStateChanged(data);
-    this.onAreaChange(null);
+    if (this.isAttachedToFlutterEngine()) {
+      FlutterManager.getInstance().getFullScreenListener().onScreenStateChanged(data);
+    }
   };
 
   getId(): string {
@@ -240,10 +236,11 @@ export class FlutterView {
     try {
       this.mainWindow?.off('windowSizeChange', this.windowSizeChangeCallback);
       this.mainWindow?.off('avoidAreaChange', this.avoidAreaChangeCallback);
-      this.mainWindow?.off('keyboardHeightChange', this.keyboardHeightChangeCallback);
-      this.mainWindow?.off('windowStatusChange');
+      this.mainWindow?.off('windowStatusChange', this.windowStatusChangeCallback);
     } catch (e) {
+      Log.e(TAG, "mainWindow off error: " + JSON.stringify(e));
     }
+    this.mainWindow = null;
   }
 
   attachToFlutterEngine(flutterEngine: FlutterEngine): void {
@@ -280,7 +277,7 @@ export class FlutterView {
     }
     this.onAreaChange(newArea, true);
 
-    let windowId = this.mainWindow?.getWindowProperties()?.id
+    let windowId = this.mainWindow?.getWindowProperties()?.id ?? 0
     this.mouseCursorPlugin = new MouseCursorPlugin(windowId, this.flutterEngine?.getMouseCursorChannel()!);
     this.settings = new Settings(this.flutterEngine.getSettingsChannel()!);
     this.sendSettings();
@@ -359,7 +356,7 @@ export class FlutterView {
 
     // 根据是否全屏显示，设置标题栏高度
     if (this.checkFullScreen &&
-      (setFullScreen || (this.mainWindow && this.mainWindow.getWindowProperties().isLayoutFullScreen))) { // 全屏显示
+      (setFullScreen || FlutterManager.getInstance().getFullScreenListener().useFullScreen())) { // 全屏显示
       this.viewportMetrics.physicalViewPaddingTop = this.systemAvoidArea!.topRect.height
       this.viewportMetrics.physicalViewPaddingBottom = this.navigationAvoidArea!.bottomRect.height
     } else { // 非全屏显示
