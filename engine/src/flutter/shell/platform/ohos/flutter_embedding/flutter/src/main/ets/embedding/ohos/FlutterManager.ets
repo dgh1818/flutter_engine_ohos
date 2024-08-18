@@ -17,6 +17,9 @@
 import { FlutterView } from '../../view/FlutterView';
 import UIAbility from '@ohos.app.ability.UIAbility';
 import window from '@ohos.window';
+import Log from '../../util/Log';
+
+const TAG = "FlutterManager"
 
 export default class FlutterManager {
   private static instance: FlutterManager;
@@ -146,6 +149,7 @@ export class DefaultFullScreenListener implements FullScreenListener {
 
   onScreenStateChanged(data: window.WindowStatusType): void {
     if (this.skipCheck) {
+      Log.i(TAG, "onScreenStateChanged: skipCheck is on, WindowStatusType = " + data)
       return;
     }
     switch (data) {
