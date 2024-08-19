@@ -30,8 +30,8 @@ import FlutterNapi from './FlutterNapi';
 const TAG = "FlutterEnginePreload"
 
 export default class FlutterEnginePreload {
-
-  static async preloadEngine(context: common.Context, params: Record<string, Object> = {}, nextViewId: string | null = null, width: number = 0, height: number = 0) {
+  static async preloadEngine(context: common.Context, params: Record<string, Object> = {},
+    nextViewId: string | null = null, width: number = 0, height: number = 0) {
     let loader: FlutterLoader = FlutterInjector.getInstance().getFlutterLoader();
     let dartArgs = new Array<string>();
     if (params[FlutterAbilityLaunchConfigs.EXTRA_DART_ENTRYPOINT_ARGS]) {
@@ -42,33 +42,36 @@ export default class FlutterEnginePreload {
       await loader.startInitialization(context);
       loader.ensureInitializationComplete(dartArgs);
     }
-    
-    let flutterNapi: FlutterNapi | null = FlutterEnginePreload.preLoadFlutterNapi(context, loader.findAppBundlePath(), params)
+
+    let flutterNapi: FlutterNapi | null =
+      FlutterEnginePreload.preLoadFlutterNapi(context, loader.findAppBundlePath(), params)
 
     if (width == 0 || height == 0) {
-      let display_info: display.Display = display.getDefaultDisplaySync();;
+      let display_info: display.Display = display.getDefaultDisplaySync();
+      ;
       width = display_info.width;
       height = display_info.height;
     }
     if (flutterNapi) {
-        if (!nextViewId) {
-            nextViewId = FlutterManager.getInstance().getNextFlutterViewId();
-        }
-        flutterNapi.xComponentPreDraw(nextViewId, width, height);
-        flutterNapi.setViewportMetrics(1.0, width, height, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, new Array(0), new Array(0), new Array(0));
+      if (!nextViewId) {
+        nextViewId = FlutterManager.getInstance().getNextFlutterViewId();
+      }
+      flutterNapi.xComponentPreDraw(nextViewId, width, height);
+      flutterNapi.setViewportMetrics(1.0, width, height, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, new Array(0),
+        new Array(0), new Array(0));
     }
   }
 
   static predrawEngine(engine: FlutterEngine, nextViewId: string | null = null, width: number = 0, height: number = 0) {
     if (!engine) {
-        return;
+      return;
     }
     let flutterNapi = engine.getFlutterNapi();
     if (!flutterNapi.isAttached()) {
-        flutterNapi.attachToNative();
+      flutterNapi.attachToNative();
     }
     if (!nextViewId) {
-        nextViewId = FlutterManager.getInstance().getNextFlutterViewId();
+      nextViewId = FlutterManager.getInstance().getNextFlutterViewId();
     }
     if (width == 0 || height == 0) {
       let display_info: display.Display = display.getDefaultDisplaySync();
@@ -76,10 +79,12 @@ export default class FlutterEnginePreload {
       height = display_info.height;
     }
     flutterNapi.xComponentPreDraw(nextViewId, width, height);
-    flutterNapi.setViewportMetrics(1.0, width, height, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, new Array(0), new Array(0), new Array(0));
+    flutterNapi.setViewportMetrics(1.0, width, height, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, new Array(0),
+      new Array(0), new Array(0));
   }
 
-  static preLoadFlutterNapi(context: common.Context, bundlePath: string, params: Record<string, Object> = {}): FlutterNapi | null{
+  static preLoadFlutterNapi(context: common.Context, bundlePath: string,
+    params: Record<string, Object> = {}): FlutterNapi | null {
 
     let cachedEngineId = params[FlutterAbilityLaunchConfigs.EXTRA_CACHED_ENGINE_ID] as string;
     let cachedEngineGroupId = params[FlutterAbilityLaunchConfigs.EXTRA_CACHED_ENGINE_GROUP_ID] as string;
@@ -88,7 +93,7 @@ export default class FlutterEnginePreload {
     if (params[FlutterAbilityLaunchConfigs.EXTRA_DART_ENTRYPOINT]) {
       dartEntrypoint = params[FlutterAbilityLaunchConfigs.EXTRA_DART_ENTRYPOINT] as string;
     }
-    
+
     let dartEntrypointLibraryUri = "";
     if (params[FlutterAbilityLaunchConfigs.EXTRA_DART_ENTRYPOINT_LIBRARY_URI]) {
       dartEntrypointLibraryUri = params[FlutterAbilityLaunchConfigs.EXTRA_DART_ENTRYPOINT_LIBRARY_URI] as string;
@@ -103,7 +108,7 @@ export default class FlutterEnginePreload {
     if (params[FlutterAbilityLaunchConfigs.EXTRA_DART_ENTRYPOINT_ARGS]) {
       dartArgs = params[FlutterAbilityLaunchConfigs.EXTRA_DART_ENTRYPOINT_ARGS] as Array<string>;
     }
-    
+
     Log.d(TAG, "cachedEngineId=" + cachedEngineId);
     let flutterNapi: FlutterNapi | null = null;
     if (cachedEngineId && cachedEngineId.length > 0) {
@@ -133,7 +138,7 @@ export default class FlutterEnginePreload {
       Log.d(TAG, "setInitialRoute: " + initialRoute);
       let message = JSONMethodCodec.INSTANCE.encodeMethodCall(new MethodCall("setInitialRoute", initialRoute));
       flutterNapi.dispatchPlatformMessage("flutter/navigation", message, message.byteLength, 0);
-      
+
       flutterNapi.runBundleAndSnapshotFromLibrary(
         bundlePath,
         dartEntrypoint,
