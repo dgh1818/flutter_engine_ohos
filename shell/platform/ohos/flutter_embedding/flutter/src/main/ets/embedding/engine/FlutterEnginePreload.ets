@@ -31,7 +31,7 @@ const TAG = "FlutterEnginePreload"
 
 export default class FlutterEnginePreload {
 
-  static async preloadEngine(context: common.Context, params: Record<string, Object> = {}, width: number = 0, height: number = 0) {
+  static async preloadEngine(context: common.Context, params: Record<string, Object> = {}, nextViewId: string | null = null, width: number = 0, height: number = 0) {
     let loader: FlutterLoader = FlutterInjector.getInstance().getFlutterLoader();
     let dartArgs = new Array<string>();
     if (params[FlutterAbilityLaunchConfigs.EXTRA_DART_ENTRYPOINT_ARGS]) {
@@ -51,13 +51,15 @@ export default class FlutterEnginePreload {
       height = display_info.height;
     }
     if (flutterNapi) {
-        let next_viewid = FlutterManager.getInstance().getNextFlutterViewId();
-        flutterNapi.xComponentPreDraw(next_viewid, width, height);
+        if (!nextViewId) {
+            nextViewId = FlutterManager.getInstance().getNextFlutterViewId();
+        }
+        flutterNapi.xComponentPreDraw(nextViewId, width, height);
         flutterNapi.setViewportMetrics(1.0, width, height, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, new Array(0), new Array(0), new Array(0));
     }
   }
 
-  static predrawEngine(engine: FlutterEngine, next_viewid: string | null = null, width: number = 0, height: number = 0) {
+  static predrawEngine(engine: FlutterEngine, nextViewId: string | null = null, width: number = 0, height: number = 0) {
     if (!engine) {
         return;
     }
@@ -65,15 +67,15 @@ export default class FlutterEnginePreload {
     if (!flutterNapi.isAttached()) {
         flutterNapi.attachToNative();
     }
-    if (!next_viewid) {
-        next_viewid = FlutterManager.getInstance().getNextFlutterViewId();
+    if (!nextViewId) {
+        nextViewId = FlutterManager.getInstance().getNextFlutterViewId();
     }
     if (width == 0 || height == 0) {
-      let display_info: display.Display = display.getDefaultDisplaySync();;
+      let display_info: display.Display = display.getDefaultDisplaySync();
       width = display_info.width;
       height = display_info.height;
     }
-    flutterNapi.xComponentPreDraw(next_viewid, width, height);
+    flutterNapi.xComponentPreDraw(nextViewId, width, height);
     flutterNapi.setViewportMetrics(1.0, width, height, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, new Array(0), new Array(0), new Array(0));
   }
 
