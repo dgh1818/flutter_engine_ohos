@@ -318,10 +318,15 @@ export default class FlutterNapi {
   // Called by native on any thread.
   handlePlatformMessage(channel: string, message: ArrayBuffer, replyId: number, messageData: number): void {
     Log.d(TAG, "called handlePlatformMessage Channel: " + channel + ". Response ID: " + replyId);
-    if (this.platformMessageHandler != null && this.readyForHandleMessage) {  
+    if (this.platformMessageHandler != null && this.readyForHandleMessage) {
       this.platformMessageHandler.handleMessageFromDart(channel, message, replyId, messageData);
     } else {
-      const pendingMessage: PendingMessage = { channel, message, replyId, messageData };
+      const pendingMessage: PendingMessage = {
+        channel,
+        message,
+        replyId,
+        messageData
+      };
       this.pendingMessages.push(pendingMessage);
     }
   }
@@ -333,9 +338,9 @@ export default class FlutterNapi {
       const pendingMessage = this.pendingMessages.shift();
       if (pendingMessage) {
         this.platformMessageHandler.handleMessageFromDart(
-          pendingMessage.channel, 
-          pendingMessage.message, 
-          pendingMessage.replyId, 
+          pendingMessage.channel,
+          pendingMessage.message,
+          pendingMessage.replyId,
           pendingMessage.messageData
         );
       }

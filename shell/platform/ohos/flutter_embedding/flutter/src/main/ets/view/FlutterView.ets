@@ -70,23 +70,22 @@ class ViewportMetrics {
 
   isEqual(other: ViewportMetrics): boolean {
     return this.devicePixelRatio === other.devicePixelRatio &&
-           this.physicalWidth === other.physicalWidth &&
-           this.physicalHeight === other.physicalHeight &&
-           this.physicalViewPaddingTop === other.physicalViewPaddingTop &&
-           this.physicalViewPaddingRight === other.physicalViewPaddingRight &&
-           this.physicalViewPaddingBottom === other.physicalViewPaddingBottom &&
-           this.physicalViewPaddingLeft === other.physicalViewPaddingLeft &&
-           this.physicalViewInsetTop === other.physicalViewInsetTop &&
-           this.physicalViewInsetRight === other.physicalViewInsetRight &&
-           this.physicalViewInsetBottom === other.physicalViewInsetBottom &&
-           this.physicalViewInsetLeft === other.physicalViewInsetLeft &&
-           this.systemGestureInsetTop === other.systemGestureInsetTop &&
-           this.systemGestureInsetRight === other.systemGestureInsetRight &&
-           this.systemGestureInsetBottom === other.systemGestureInsetBottom &&
-           this.systemGestureInsetLeft === other.systemGestureInsetLeft &&
-           this.physicalTouchSlop === other.physicalTouchSlop;
+      this.physicalWidth === other.physicalWidth &&
+      this.physicalHeight === other.physicalHeight &&
+      this.physicalViewPaddingTop === other.physicalViewPaddingTop &&
+      this.physicalViewPaddingRight === other.physicalViewPaddingRight &&
+      this.physicalViewPaddingBottom === other.physicalViewPaddingBottom &&
+      this.physicalViewPaddingLeft === other.physicalViewPaddingLeft &&
+      this.physicalViewInsetTop === other.physicalViewInsetTop &&
+      this.physicalViewInsetRight === other.physicalViewInsetRight &&
+      this.physicalViewInsetBottom === other.physicalViewInsetBottom &&
+      this.physicalViewInsetLeft === other.physicalViewInsetLeft &&
+      this.systemGestureInsetTop === other.systemGestureInsetTop &&
+      this.systemGestureInsetRight === other.systemGestureInsetRight &&
+      this.systemGestureInsetBottom === other.systemGestureInsetBottom &&
+      this.systemGestureInsetLeft === other.systemGestureInsetLeft &&
+      this.physicalTouchSlop === other.physicalTouchSlop;
   }
-
 }
 
 export class PlatformViewParas {
@@ -261,13 +260,18 @@ export class FlutterView {
     this.flutterEngine?.getFlutterNapi()?.updateSize(this.displayInfo!.width, this.displayInfo!.height)
     this.flutterEngine?.getFlutterNapi()?.updateDensity(this.displayInfo!.densityPixels)
     flutterEngine.getPlatformViewsController()?.attachToView(this);
-    
-    let newArea: Area | null = {width: px2vp(this.displayInfo!.width), height: px2vp(this.displayInfo!.height), position: {x: 0, y: 0},globalPosition: {x: 0, y: 0}};
+
+    let newArea: Area | null = {
+      width: px2vp(this.displayInfo!.width),
+      height: px2vp(this.displayInfo!.height),
+      position: { x: 0, y: 0 },
+      globalPosition: { x: 0, y: 0 }
+    };
     if (this.viewportMetrics.physicalWidth != 0 || this.viewportMetrics.physicalHeight != 0) {
       newArea = null;
     }
     this.onAreaChange(newArea, true);
-    
+
     let windowId = this.mainWindow?.getWindowProperties()?.id
     this.mouseCursorPlugin = new MouseCursorPlugin(windowId, this.flutterEngine?.getMouseCursorChannel()!);
     this.settings = new Settings(this.flutterEngine.getSettingsChannel()!);
@@ -346,7 +350,8 @@ export class FlutterView {
     }
 
     // 根据是否全屏显示，设置标题栏高度
-    if (this.checkFullScreen && (setFullScreen || (this.mainWindow && this.mainWindow.getWindowProperties().isLayoutFullScreen))) { // 全屏显示
+    if (this.checkFullScreen &&
+      (setFullScreen || (this.mainWindow && this.mainWindow.getWindowProperties().isLayoutFullScreen))) { // 全屏显示
       this.viewportMetrics.physicalViewPaddingTop = this.systemAvoidArea!.topRect.height
       this.viewportMetrics.physicalViewPaddingBottom = this.navigationAvoidArea!.bottomRect.height
     } else { // 非全屏显示
@@ -371,7 +376,8 @@ export class FlutterView {
   // The area can lead to confusing gestures in repetitive areas without handled properly
   private onAiBarAreaChange() {
     if (this.checkAiBar && this.navigationAvoidArea != null) {
-      this.viewportMetrics.physicalViewInsetBottom = Math.max(this.navigationAvoidArea.bottomRect.height, this.viewportMetrics.physicalViewInsetBottom)
+      this.viewportMetrics.physicalViewInsetBottom =
+        Math.max(this.navigationAvoidArea.bottomRect.height, this.viewportMetrics.physicalViewInsetBottom)
     } else {
       this.viewportMetrics.physicalViewInsetBottom = 0
     }
