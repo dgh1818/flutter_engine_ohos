@@ -94,8 +94,8 @@ export default class FlutterManager {
     return flutterView;
   }
 
-  getNextFlutterViewId(): string {
-    return `oh_flutter_${this.flutterViewIndex}`;
+  getNextFlutterViewId(idOffset: number = 0): string {
+    return `oh_flutter_${this.flutterViewIndex + idOffset}`;
   }
 
   clear(): void {
