@@ -67,6 +67,7 @@ void OHOSExternalTextureGL::SetGPUFence(int* fence_fd) {
     FML_DLOG(INFO) << "create norma fence sync fd " << *fence_fd
                    << " fence_sync " << fence_sync << " eglError "
                    << eglGetError();
+    glFlush();
     eglDestroySyncKHR_(disp, fence_sync);
   } else {
     FML_LOG(ERROR) << "get null proc ptr eglCreateSyncKHR:" << eglCreateSyncKHR_
@@ -105,6 +106,11 @@ void OHOSExternalTextureGL::WaitGPUFence(int fence_fd) {
 
 void OHOSExternalTextureGL::GPUResourceDestroy() {
   gl_resources_.clear();
+  // here we should have context.
+  GLenum err = glGetError();
+  if (err != GL_NO_ERROR) {
+    FML_LOG(ERROR) << "GPUResourceDestroy get gl error:" << glGetError();
+  }
 }
 
 sk_sp<flutter::DlImage> OHOSExternalTextureGL::CreateDlImage(

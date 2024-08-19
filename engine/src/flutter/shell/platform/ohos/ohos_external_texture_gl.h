@@ -37,7 +37,7 @@ struct OHOSEGLImageKHRWithDisplayTraits {
     static PFNEGLDESTROYIMAGEKHRPROC eglDestroyImageKHR =
         (PFNEGLDESTROYIMAGEKHRPROC)eglGetProcAddress("eglDestroyImageKHR");
     if (eglDestroyImageKHR == nullptr) {
-      FML_LOG(ERROR) << "get null eglCreateImageKHR";
+      FML_LOG(ERROR) << "get null eglDestroyImageKHR";
       return;
     }
     eglDestroyImageKHR(image.display, image.image);
