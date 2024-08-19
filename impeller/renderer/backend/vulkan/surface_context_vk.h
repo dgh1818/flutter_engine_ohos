@@ -79,6 +79,8 @@ class SurfaceContextVK : public Context,
   [[nodiscard]] bool SetWindowSurface(vk::UniqueSurfaceKHR surface,
                                       const ISize& size);
 
+  void ClearSwapchain();
+
   std::unique_ptr<Surface> AcquireNextSurface();
 
   /// @brief Mark the current swapchain configuration as dirty, forcing it to be

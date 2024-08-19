@@ -78,6 +78,10 @@ bool SurfaceContextVK::SetWindowSurface(vk::UniqueSurfaceKHR surface,
   return true;
 }
 
+void SurfaceContextVK::ClearSwapchain() {
+  swapchain_ = nullptr;
+}
+
 std::unique_ptr<Surface> SurfaceContextVK::AcquireNextSurface() {
   TRACE_EVENT0("impeller", __FUNCTION__);
   auto surface = swapchain_ ? swapchain_->AcquireNextDrawable() : nullptr;
