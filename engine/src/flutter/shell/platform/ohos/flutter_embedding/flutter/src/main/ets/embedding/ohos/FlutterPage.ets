@@ -99,6 +99,7 @@ export struct FlutterPage {
         .focusable(true)
 
       XComponent({ id: this.viewId, type: this.xComponentType, libraryname: 'flutter' })
+        .id(this.viewId)
         .focusable(true)
         .onLoad((context) => {
           this.flutterView?.onSurfaceCreated()
