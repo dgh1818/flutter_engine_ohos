@@ -35,51 +35,60 @@ export struct FlutterPage {
   }
 
   @BuilderParam splashScreenView: () => void = this.doNothingBuilder;
-  @State showSplashScreen: boolean = true;
-  @State checkFullScreen: boolean = true;
-  @State checkKeyboard: boolean = true;
-  @State checkGesture: boolean = true;
-  @State checkAiBar: boolean = true;
-  @StorageLink('nodeWidth') storageLinkWidth: number = 0;
-  @StorageLink('nodeHeight') storageLinkHeight: number = 0;
-  @State rootDvModel: DVModelChildren | undefined = undefined
+  @Builder defaultPage() {
+    Stack() {
+      ForEach(this.rootDvModel!!, (child: ESObject) => {
+        DynamicView({
+          model: child as DVModel,
+          params: child.params,
+          events: child.events,
+          children: child.children,
+          customBuilder: child.builder
+        })
+      }, (child: ESObject) => `${child.id_}`)
 
-  @State isNeedUpdate: boolean = false;
 
-  private flutterView?: FlutterView | null
-  private lastArea?: Area;
-  private panOption: PanGestureOptions = new PanGestureOptions({ direction: PanDirection.Up | PanDirection.Down });
+      Text('')
+        .id('emptyFocusText' + this.viewId)
+        .size({ width: 0, height: 0 })
+        .opacity(0)
+        .focusable(true)
 
-  aboutToAppear() {
-    this.flutterView = FlutterManager.getInstance().getFlutterView(this.viewId);
-    this.flutterView?.addFirstFrameListener(this)
-    this.flutterView?.addFirstPreloadFrameListener(this)
+      XComponent({ id: this.viewId, type: this.xComponentType, libraryname: 'flutter' })
+        .id(this.viewId)
+        .focusable(true)
+        .onLoad((context) => {
+          this.flutterView?.onSurfaceCreated()
+          Log.d(TAG, "XComponent onLoad ");
+        })
+        .onDestroy(() => {
+          Log.d(TAG, "XComponent onDestroy ");
+          this.flutterView?.onSurfaceDestroyed()
+        })
+        .backgroundColor(Color.Transparent)
 
-    this.flutterView?.setCheckFullScreen(this.checkFullScreen)
-    this.flutterView?.setCheckKeyboard(this.checkKeyboard)
-    this.flutterView?.setCheckGesture(this.checkGesture)
-    this.flutterView?.setCheckAiBar(this.checkGesture)
-
-    this.rootDvModel = this.flutterView!!.getDVModel().children
-    getContext().eventHub.on(OHOS_FLUTTER_PAGE_UPDATE, () => {
-      this.isNeedUpdate = true;
+      if (this.showSplashScreen) {
+        this.splashScreenView();
+      }
+    }
+    .defaultFocus(true)
+    .onAreaChange((oldValue: Area, newValue: Area) => {
+      if (this.isNeedUpdate || !this.lastArea || oldValue.width != newValue.width
+        || oldValue.height != newValue.height) {
+        Log.d(TAG, "onAreaChange, old=" + JSON.stringify(oldValue));
+        Log.d(TAG, "onAreaChange, new=" + JSON.stringify(newValue));
+        this.lastArea = newValue;
+        this.flutterView?.onAreaChange(newValue)
+        this.isNeedUpdate = false;
+      }
+    })
+    .onKeyPreIme((event: KeyEvent) => {
+      Log.d(TAG, "onKeyEvent " + event.type);
+      this.flutterView?.onKeyEvent(event);
+      return false;
     })
   }
-
-  aboutToDisappear() {
-    this.flutterView?.removeFirstFrameListener(this);
-    this.flutterView?.removeFirstPreloadFrameListener(this)
-    getContext().eventHub.off(OHOS_FLUTTER_PAGE_UPDATE)
-  }
-
-  onFirstFrame() {
-    this.showSplashScreen = false;
-  }
-
-  onFirstPreloadFrame() {
-  }
-
-  build() {
+  @Builder mouseWheelPage() {
     Stack() {
       ForEach(this.rootDvModel!!, (child: Any) => {
         DynamicView({
@@ -143,5 +152,60 @@ export struct FlutterPage {
           this.flutterView?.onMouseWheel("actionEnd", event);
         })
     )
+  }
+  @State showSplashScreen: boolean = true;
+
+  @State checkFullScreen: boolean = true;
+  @State checkKeyboard: boolean = true;
+  @State checkGesture: boolean = true;
+  @State checkMouseWheel: boolean = true;
+  @State checkAiBar: boolean = true;
+
+  @StorageLink('nodeWidth') storageLinkWidth: number = 0;
+  @StorageLink('nodeHeight') storageLinkHeight: number = 0;
+
+  @State rootDvModel: DVModelChildren | undefined = undefined
+
+  @State isNeedUpdate: boolean = false;
+
+  private flutterView?: FlutterView | null
+  private lastArea?: Area;
+  private panOption: PanGestureOptions = new PanGestureOptions({ direction: PanDirection.Up | PanDirection.Down });
+
+  aboutToAppear() {
+    this.flutterView = FlutterManager.getInstance().getFlutterView(this.viewId);
+    this.flutterView?.addFirstFrameListener(this)
+    this.flutterView?.addFirstPreloadFrameListener(this)
+
+    this.flutterView?.setCheckFullScreen(this.checkFullScreen)
+    this.flutterView?.setCheckKeyboard(this.checkKeyboard)
+    this.flutterView?.setCheckGesture(this.checkGesture)
+    this.flutterView?.setCheckAiBar(this.checkGesture)
+
+    this.rootDvModel = this.flutterView!!.getDVModel().children
+    getContext().eventHub.on(OHOS_FLUTTER_PAGE_UPDATE, () => {
+      this.isNeedUpdate = true;
+    })
+  }
+
+  aboutToDisappear() {
+    this.flutterView?.removeFirstFrameListener(this);
+    this.flutterView?.removeFirstPreloadFrameListener(this)
+    getContext().eventHub.off(OHOS_FLUTTER_PAGE_UPDATE)
+  }
+
+  onFirstFrame() {
+    this.showSplashScreen = false;
+  }
+
+  onFirstPreloadFrame() {
+  }
+
+  build() {
+    if (this.checkMouseWheel) {
+      this.mouseWheelPage();
+    } else {
+      this.defaultPage();
+    }
   }
 }
