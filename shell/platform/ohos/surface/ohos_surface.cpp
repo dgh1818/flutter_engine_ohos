@@ -148,8 +148,11 @@ bool OHOSSurface::SetDisplayWindow(fml::RefPtr<OHOSNativeWindow> window) {
 
   if (offscreen_nativewindow_ == nullptr || size.width() != offscreen_width_ ||
       size.height() != offscreen_height_) {
+    // The old swapchain must be destroyed before releasing the window to
+    // prevent application crashes in Vulkan.
+    bool ret = SetNativeWindow(window);
     ReleaseOffscreenWindow();
-    return SetNativeWindow(window);
+    return ret;
   }
 
   TRACE_EVENT0("flutter", "surface:SetNativeWindow");
