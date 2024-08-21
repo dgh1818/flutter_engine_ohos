@@ -105,7 +105,7 @@ export default class PlatformChannel {
             return bundleManager.DisplayOrientation.LANDSCAPE;
         }
       case 0x0f:
-        return window.Orientation.AUTO_ROTATION;
+        return window.Orientation.AUTO_ROTATION_RESTRICTED;
     }
     return bundleManager.DisplayOrientation.PORTRAIT;
   }
