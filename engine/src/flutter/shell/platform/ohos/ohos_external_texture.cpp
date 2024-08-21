@@ -248,10 +248,10 @@ OHNativeWindowBuffer* OHOSExternalTexture::GetConsumerNativeBuffer(
       OHNativeWindowBuffer* nw_buffer = nullptr;
       int ret = OH_NativeImage_AcquireNativeWindowBuffer(native_image_source_,
                                                          &nw_buffer, fence_fd);
-      if (nw_buffer != nullptr || ret != 0) {
-        FML_LOG(ERROR) << "external_texture skip one frame: "
-                       << last_native_window_buffer_ << " fence_fd "
-                       << last_fence_fd_;
+      if (nw_buffer != nullptr && ret == 0) {
+        FML_LOG(INFO) << "external_texture skip one frame: "
+                      << last_native_window_buffer_ << " fence_fd "
+                      << last_fence_fd_;
         int ret = OH_NativeImage_ReleaseNativeWindowBuffer(
             native_image_source_, last_native_window_buffer_, last_fence_fd_);
         if (ret != 0) {
