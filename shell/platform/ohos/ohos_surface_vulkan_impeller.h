@@ -29,7 +29,8 @@
 
 namespace flutter {
 
-class OHOSSurfaceVulkanImpeller : public OHOSSurface {
+class OHOSSurfaceVulkanImpeller : public GPUSurfaceVulkanDelegate,
+                                  public OHOSSurface {
  public:
   explicit OHOSSurfaceVulkanImpeller(
       const std::shared_ptr<OHOSContext>& ohos_context);
@@ -63,12 +64,35 @@ class OHOSSurfaceVulkanImpeller : public OHOSSurface {
 
   bool PrepareOffscreenWindow(int32_t width, int32_t height) override;
 
+  // |GPUSurfaceVulkanDelegate|
+  bool SetPresentInfo(const VulkanPresentInfo& present_info) override;
+
+  // |GPUSurfaceVulkanDelegate|
+  const vulkan::VulkanProcTable& vk() override {
+    // will never be invoke
+    return vk_;
+  };
+
+  // |GPUSurfaceVulkanDelegate|
+  FlutterVulkanImage AcquireImage(const SkISize& size) override {
+    // will never be invoke
+    return FlutterVulkanImage();
+  };
+
+  // |GPUSurfaceVulkanDelegate|
+  bool PresentImage(VkImage image, VkFormat format) override {
+    // will never be invoke
+    return false;
+  };
+
  private:
   std::shared_ptr<impeller::SurfaceContextVK> surface_context_vk_;
   std::unique_ptr<GPUSurfaceVulkanImpeller> preload_gpu_surface_;
   std::mutex surface_preload_mutex_;
   bool is_valid_ = false;
 
+  // will never be used
+  vulkan::VulkanProcTable vk_;
   FML_DISALLOW_COPY_AND_ASSIGN(OHOSSurfaceVulkanImpeller);
 };
 }  // namespace flutter

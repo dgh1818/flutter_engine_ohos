@@ -53,6 +53,7 @@ std::unique_ptr<Surface> OHOSSurfaceVulkanImpeller::CreateGPUSurface(
   std::lock_guard<std::mutex> lock(surface_preload_mutex_);
 
   if (preload_gpu_surface_ && preload_gpu_surface_->IsValid()) {
+    preload_gpu_surface_->SetDelegate(this);
     return std::move(preload_gpu_surface_);
   }
 
@@ -62,7 +63,7 @@ std::unique_ptr<Surface> OHOSSurfaceVulkanImpeller::CreateGPUSurface(
   if (!gpu_surface->IsValid()) {
     return nullptr;
   }
-
+  gpu_surface->SetDelegate(this);
   return gpu_surface;
 }
 
@@ -146,13 +147,26 @@ bool OHOSSurfaceVulkanImpeller::PrepareOffscreenWindow(int32_t width,
   // If we want to skip time-consuming tasks during the first frame, we can
   // render it to offscreen window. However, the result of the offscreen
   // rendering will not be drawn to the onscreen window.
-  OHOSSurface::PrepareOffscreenWindow(width, height);
-  return true;
+  return OHOSSurface::PrepareOffscreenWindow(width, height);
 }
 
 std::shared_ptr<impeller::Context>
 OHOSSurfaceVulkanImpeller::GetImpellerContext() {
   return surface_context_vk_;
+}
+
+bool OHOSSurfaceVulkanImpeller::SetPresentInfo(
+    const VulkanPresentInfo& present_info) {
+  if (native_window_ && native_window_->IsValid() &&
+      present_info.presentation_time) {
+    uint64_t present_time =
+        present_info.presentation_time->ToEpochDelta().ToNanoseconds();
+    OH_NativeWindow_NativeWindowHandleOpt(
+        (OHNativeWindow*)native_window_->Gethandle(), SET_UI_TIMESTAMP,
+        present_time);
+    return true;
+  }
+  return false;
 }
 
 }  // namespace flutter

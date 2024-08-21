@@ -209,8 +209,14 @@ void OhosSurfaceGLSkia::GLContextSetDamageRegion(
 bool OhosSurfaceGLSkia::GLContextPresent(const GLPresentInfo& present_info) {
   FML_DCHECK(IsValid());
   FML_DCHECK(onscreen_surface_);
-  if (present_info.presentation_time) {
+  if (native_window_ && native_window_->IsValid() &&
+      present_info.presentation_time) {
     onscreen_surface_->SetPresentationTime(*present_info.presentation_time);
+    uint64_t present_time =
+        present_info.presentation_time->ToEpochDelta().ToNanoseconds();
+    OH_NativeWindow_NativeWindowHandleOpt(
+        (OHNativeWindow*)native_window_->Gethandle(), SET_UI_TIMESTAMP,
+        present_time);
   }
   return onscreen_surface_->SwapBuffers(present_info.frame_damage);
 }

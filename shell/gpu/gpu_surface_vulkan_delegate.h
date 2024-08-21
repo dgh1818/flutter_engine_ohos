@@ -10,9 +10,26 @@
 #include "flutter/vulkan/procs/vulkan_proc_table.h"
 #include "flutter/vulkan/vulkan_device.h"
 #include "flutter/vulkan/vulkan_image.h"
+#include "fml/time/time_point.h"
+#include "include/core/SkRect.h"
 #include "third_party/skia/include/core/SkSize.h"
 
 namespace flutter {
+
+// Information passed during presentation of a frame.
+struct VulkanPresentInfo {
+  // The frame damage is a hint to compositor telling it which parts of front
+  // buffer need to be updated.
+  const std::optional<SkIRect>& frame_damage;
+
+  // Time at which this frame is scheduled to be presented. This is a hint
+  // that can be passed to the platform to drop queued frames.
+  std::optional<fml::TimePoint> presentation_time = std::nullopt;
+
+  // The buffer damage refers to the region that needs to be set as damaged
+  // within the frame buffer.
+  const std::optional<SkIRect>& buffer_damage;
+};
 
 //------------------------------------------------------------------------------
 /// @brief      Interface implemented by all platform surfaces that can present
@@ -43,6 +60,12 @@ class GPUSurfaceVulkanDelegate {
   ///         and it's ready to be bound for further reading/writing.
   ///
   virtual bool PresentImage(VkImage image, VkFormat format) = 0;
+
+  /// @brief Called by the engine to tell the delegate present_info.
+  ///
+  virtual bool SetPresentInfo(const VulkanPresentInfo& present_info) {
+    return false;
+  };
 };
 
 }  // namespace flutter
