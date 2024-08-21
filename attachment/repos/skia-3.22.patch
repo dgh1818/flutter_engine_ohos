@@ -460,6 +460,19 @@ index 0000000000..4199b4ad96
 +SK_API sk_sp<SkFontMgr> SkFontMgr_New_OHOS();
 +
 +#endif // SkFontMgr_ohos_api_DEFINED
+diff --git a/src/core/SkRRectPriv.h b/src/core/SkRRectPriv.h
+index cea579c901..baaeaff966 100644
+--- a/src/core/SkRRectPriv.h
++++ b/src/core/SkRRectPriv.h
+@@ -20,7 +20,7 @@ public:
+     }
+ 
+     static SkVector GetSimpleRadii(const SkRRect& rr) {
+-        SkASSERT(!rr.isComplex());
++        // SkASSERT(!rr.isComplex());
+         return rr.fRadii[0];
+     }
+ 
 diff --git a/src/gpu/ganesh/gl/egl/gl2.h b/src/gpu/ganesh/gl/egl/gl2.h
 new file mode 100644
 index 0000000000..176023660e
@@ -1259,17 +1272,17 @@ index 6a58936900..004102aead 100644
  #include <stdio.h>
 diff --git a/src/ports/skia_ohos/FontConfig_ohos.cpp b/src/ports/skia_ohos/FontConfig_ohos.cpp
 new file mode 100644
-index 0000000000..6ee08c088a
+index 0000000000..483083bf28
 --- /dev/null
 +++ b/src/ports/skia_ohos/FontConfig_ohos.cpp
-@@ -0,0 +1,1323 @@
+@@ -0,0 +1,1336 @@
 +// Copyright (c) 2023 Huawei Device Co., Ltd. All rights reserved
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
 +
 +#include "FontConfig_ohos.h"
 +
-+#include<array>
++#include <array>
 +#include <dirent.h>
 +#include <libgen.h>
 +#include <sys/stat.h>
@@ -1278,6 +1291,7 @@ index 0000000000..6ee08c088a
 +
 +#include "SkFontStyle.h"
 +#include "SkString.h"
++#include "SkTypeface_ohos.h"
 +#include "include/private/base/SkDebug.h"
 +
 +using namespace ErrorCode;
@@ -1678,7 +1692,7 @@ index 0000000000..6ee08c088a
 + */
 +void FontConfig_OHOS::dumpFont(const FontInfo& font) const
 +{
-+    LOGI("name=%s, family=%s, weight=%d, width=%d, slant=%d, index=%d",
++    SkDEBUGF("name=%s, family=%s, weight=%d, width=%d, slant=%d, index=%d",
 +        font.fname.c_str(), font.familyName.c_str(), font.style.weight(), font.style.width(), font.style.slant(),
 +        font.index);
 +    int count = font.axisSet.axis.size();
@@ -1690,7 +1704,7 @@ index 0000000000..6ee08c088a
 +                str.append(",");
 +            }
 +        }
-+        LOGI("axis={%s}\n", str.c_str());
++        SkDEBUGF("axis={%s}\n", str.c_str());
 +    }
 +}
 +
@@ -1698,9 +1712,9 @@ index 0000000000..6ee08c088a
 + */
 +void FontConfig_OHOS::dumpGeneric() const
 +{
-+    LOGI("\n");
++    SkDEBUGF("\n");
 +    for (unsigned int i = 0; i < genericFamilySet.size(); i++) {
-+        LOGI("[%d] familyName : %s - %d\n", i, genericFamilySet[i]->familyName.c_str(),
++        SkDEBUGF("[%d] familyName : %s - %d\n", i, genericFamilySet[i]->familyName.c_str(),
 +            static_cast<int>(genericFamilySet[i]->typefaceSet->size()));
 +        for (int j = 0; j < genericFamilySet[i]->typefaceSet->size(); j++) {
 +            if ((*(genericFamilySet[i]->typefaceSet))[j].get()) {
@@ -1708,10 +1722,10 @@ index 0000000000..6ee08c088a
 +                if (font) {
 +                    dumpFont(*font);
 +                } else {
-+                    LOGE("font [%d] is null\n", j);
++                    SkDEBUGF("font [%d] is null\n", j);
 +                }
 +            } else {
-+                LOGE("typefeace [%d] is null\n", j);
++                SkDEBUGF("typefeace [%d] is null\n", j);
 +            }
 +        }
 +    }
@@ -1721,21 +1735,21 @@ index 0000000000..6ee08c088a
 + */
 +void FontConfig_OHOS::dumpFallback() const
 +{
-+    LOGI("\n");
++    SkDEBUGF("\n");
 +    int count = 0;
 +    fallbackForMap.foreach([this, &count](const SkString& key,
 +        const FallbackSetPos& setIndex) {
-+        LOGI("[%d] family : %s - %d\n", count++, key.c_str(), setIndex.count);
++        SkDEBUGF("[%d] family : %s - %d\n", count++, key.c_str(), setIndex.count);
 +        for (unsigned int i = setIndex.index; i < setIndex.index + setIndex.count; i++) {
 +            const TypefaceSet& tpSet = *(fallbackSet[i]->typefaceSet.get());
-+            LOGI("[%s] - %d\n", fallbackSet[i]->familyName.c_str(), static_cast<int>(tpSet.size()));
++            SkDEBUGF("[%s] - %d\n", fallbackSet[i]->familyName.c_str(), static_cast<int>(tpSet.size()));
 +
 +            for (unsigned int j = 0; j < tpSet.size(); j++) {
 +                const FontInfo* font = tpSet[j]->getFontInfo();
 +                if (font) {
 +                    this->dumpFont(*font);
 +                } else {
-+                    LOGE("font [%d] is null\n", j);
++                    SkDEBUGF("font [%d] is null\n", j);
 +                }
 +            }
 +        }
@@ -2085,7 +2099,7 @@ index 0000000000..6ee08c088a
 +        if (root.size() != keyCount) {
 +            text.appendf("%s#0", key);
 +            errSet.emplace_back(ret, text.c_str());
-+            LOGE("%s : '%s' size should be 2, but here it's %d\n", errToString(ret), key, root.size());
++            SkDEBUGF("%s : '%s' size should be 2, but here it's %d\n", errToString(ret), key, root.size());
 +            return ret;
 +        } else if (!root[0].isString()) {
 +            text.appendf("%s#1", key);
@@ -2241,7 +2255,7 @@ index 0000000000..6ee08c088a
 +        } else {
 +            err = ERROR_FONT_INVALID_STREAM;
 +        }
-+        LOGE("load font %s : %s\n", errToString(err), fname);
++        SkDEBUGF("load font %s : %s\n", errToString(err), fname);
 +        char* fnameCopy = strdup(fname);
 +        errSet.emplace_back(err, basename(fnameCopy));
 +        free(fnameCopy);
@@ -2497,7 +2511,7 @@ index 0000000000..6ee08c088a
 +{
 +    errSet.emplace_back(err, key);
 +    if (err != ERROR_CONFIG_INVALID_VALUE_TYPE) {
-+        LOGE("%s : %s\n", errToString(err), key);
++        SkDEBUGF("%s : %s\n", errToString(err), key);
 +    } else {
 +        const char* types[] = {
 +            "null",
@@ -2512,10 +2526,10 @@ index 0000000000..6ee08c088a
 +        int size = sizeof(types) / sizeof(char*);
 +        if ((expected >= 0 && expected < size) &&
 +            (actual >= 0 && actual < size)) {
-+            LOGE("%s : '%s' should be '%s', but here it's '%s'\n",
++            SkDEBUGF("%s : '%s' should be '%s', but here it's '%s'\n",
 +                errToString(err), key, types[expected], types[actual]);
 +        } else {
-+            LOGE("%s : %s\n", errToString(err), key);
++            SkDEBUGF("%s : %s\n", errToString(err), key);
 +        }
 +    }
 +    return err;
@@ -2586,12 +2600,24 @@ index 0000000000..6ee08c088a
 +    }
 +    return err;
 +}
++
++void FontConfig_OHOS::setSystemDefaultFont(sk_sp<SkTypeface> typeface) {
++    std::unique_ptr<GenericFamily> familySet = std::make_unique<GenericFamily>();
++    typeface->getFamilyName(&(familySet->familyName));
++    familySet->typefaceSet = std::make_shared<TypefaceSet>();
++
++    SkTypeface_OHOS* typeface_ = (SkTypeface_OHOS* )(typeface.get());
++    FontInfo info = FontInfo(*(typeface_->getFontInfo()));
++    familySet->typefaceSet->push_back(sk_make_sp<SkTypeface_OHOS>(info));
++    
++    genericFamilySet.insert(genericFamilySet.begin(), std::move(familySet));
++}
 diff --git a/src/ports/skia_ohos/FontConfig_ohos.h b/src/ports/skia_ohos/FontConfig_ohos.h
 new file mode 100644
-index 0000000000..14bea572bf
+index 0000000000..d53ce299cf
 --- /dev/null
 +++ b/src/ports/skia_ohos/FontConfig_ohos.h
-@@ -0,0 +1,235 @@
+@@ -0,0 +1,219 @@
 +// Copyright (c) 2023 Huawei Device Co., Ltd. All rights reserved
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
@@ -2599,36 +2625,19 @@ index 0000000000..14bea572bf
 +#ifndef FONTCONFIG_OHOS_H
 +#define FONTCONFIG_OHOS_H
 +
-+#include <json/json.h>
++#include "../vulkan-deps/spirv-headers/src/tools/buildHeaders/jsoncpp/dist/json/json.h"
 +#include <vector>
 +
-+#include "SkFontDescriptor.h"
-+#include "SkFontHost_FreeType_common.h"
-+#include "SkFontStyle.h"
-+#include "SkStream.h"
-+#include "SkString.h"
-+#include "SkTypes.h"
-+#include "SkTHash.h"
++#include "src/core/SkFontDescriptor.h"
++#include "src/ports/SkFontHost_FreeType_common.h"
++#include "include/core/SkFontStyle.h"
++#include "include/core/SkStream.h"
++#include "include/core/SkString.h"
++#include "include/core/SkTypes.h"
++#include "src/core/SkTHash.h"
 +
 +#include "FontInfo_ohos.h"
 +#include "SkTypeface_ohos.h"
-+
-+#ifdef ENABLE_DEBUG
-+
-+#define LOGE(fmt, args...)        \
-+    printf("E %s:%d  %s - " fmt, basename(__FILE__), __LINE__, __FUNCTION__, ##args)
-+#define LOGI(fmt, args...)        \
-+    printf("I %s:%d - " fmt,  __FUNCTION__, __LINE__, ##args)
-+#define LOGW(fmt, args...)        \
-+    printf("W %s:%d  %s - " fmt, basename(__FILE__), __LINE__, __FUNCTION__, ##args)
-+
-+#else
-+
-+#define LOGE        SkDEBUGF
-+#define LOGI        SkDEBUGF
-+#define LOGW        SkDEBUGF
-+
-+#endif
 +
 +struct FontInfo;
 +struct FallbackInfo;
@@ -2721,6 +2730,7 @@ index 0000000000..14bea572bf
 +    static sk_sp<SkTypeface_OHOS> matchFontStyle(const TypefaceSet& typefaceSet, const SkFontStyle& pattern);
 +
 +    static const char* errToString(int err);
++    void setSystemDefaultFont(sk_sp<SkTypeface> typeface);
 +private:
 +    struct AliasInfo;
 +    struct AdjustInfo;
@@ -2829,7 +2839,7 @@ index 0000000000..14bea572bf
 +#endif /* FONTCONFIG_OHOS_H */
 diff --git a/src/ports/skia_ohos/FontInfo_ohos.h b/src/ports/skia_ohos/FontInfo_ohos.h
 new file mode 100644
-index 0000000000..0292a58e92
+index 0000000000..66b1424333
 --- /dev/null
 +++ b/src/ports/skia_ohos/FontInfo_ohos.h
 @@ -0,0 +1,148 @@
@@ -2842,10 +2852,10 @@ index 0000000000..0292a58e92
 +
 +#include <vector>
 +
-+#include "SkFixed.h"
-+#include "SkFontScanner.h"
-+#include "SkFontDescriptor.h"
-+#include "SkFontHost_FreeType_common.h"
++#include "include/private/base/SkFixed.h"
++#include "src/core/SkFontScanner.h"
++#include "src/core/SkFontDescriptor.h"
++#include "src/ports/SkFontHost_FreeType_common.h"
 +
 +/*!
 + * \brief To manage the font information
@@ -2983,10 +2993,10 @@ index 0000000000..0292a58e92
 +#endif /* FONTINFO_OHOS_H */
 diff --git a/src/ports/skia_ohos/SkFontMgr_ohos.cpp b/src/ports/skia_ohos/SkFontMgr_ohos.cpp
 new file mode 100644
-index 0000000000..4863430366
+index 0000000000..b36c1fe2d0
 --- /dev/null
 +++ b/src/ports/skia_ohos/SkFontMgr_ohos.cpp
-@@ -0,0 +1,432 @@
+@@ -0,0 +1,445 @@
 +// Copyright (c) 2023 Huawei Device Co., Ltd. All rights reserved
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
@@ -3131,7 +3141,7 @@ index 0000000000..4863430366
 +        }
 +    }
 +    if (item == nullptr) {
-+        LOGE("%s : '%s' must be a fallback key in the config file\n",
++        SkDEBUGF("%s : '%s' must be a fallback key in the config file\n",
 +            FontConfig_OHOS::errToString(ERROR_FAMILY_NOT_FOUND), defaultFamily.c_str());
 +        return nullptr;
 +    }
@@ -3333,7 +3343,7 @@ index 0000000000..4863430366
 +
 +    std::unique_ptr<SkStreamAsset> stream = SkStreamAsset::MakeFromFile(path);
 +    if (stream == nullptr) {
-+        LOGE("%s : %s\n", FontConfig_OHOS::errToString(ERROR_FONT_NOT_EXIST), path);
++        SkDEBUGF("%s : %s\n", FontConfig_OHOS::errToString(ERROR_FONT_NOT_EXIST), path);
 +        return nullptr;
 +    }
 +    SkFontArguments args;
@@ -3360,7 +3370,7 @@ index 0000000000..4863430366
 +    if (typeface) {
 +        return sk_sp<SkTypeface>(typeface);
 +    }
-+    LOGE("onLegacyMakeTypeface %s\n", FontConfig_OHOS::errToString(ERROR_NO_AVAILABLE_FAMILY));
++    SkDEBUGF("onLegacyMakeTypeface %s\n", FontConfig_OHOS::errToString(ERROR_NO_AVAILABLE_FAMILY));
 +    return nullptr;
 +}
 +
@@ -3384,14 +3394,14 @@ index 0000000000..4863430366
 +    if (axisCount == 0) {
 +        if (!fontScanner.scanInstance(stream.get(), ttcIndex, 0, &fontInfo.familyName, &fontInfo.style,
 +            &fontInfo.isFixedWidth, nullptr)) {
-+            LOGE("%s\n", FontConfig_OHOS::errToString(ERROR_FONT_INVALID_STREAM));
++            SkDEBUGF("%s\n", FontConfig_OHOS::errToString(ERROR_FONT_INVALID_STREAM));
 +            return nullptr;
 +        }
 +    } else {
 +        AxisDefinitions axisDef;
 +        if (!fontScanner.scanInstance(stream.get(), ttcIndex, 0, &fontInfo.familyName, &fontInfo.style,
 +            &fontInfo.isFixedWidth, &axisDef)) {
-+            LOGE("%s\n", FontConfig_OHOS::errToString(ERROR_FONT_INVALID_STREAM));
++            SkDEBUGF("%s\n", FontConfig_OHOS::errToString(ERROR_FONT_INVALID_STREAM));
 +            return nullptr;
 +        }
 +        if (axisDef.size() > 0) {
@@ -3407,24 +3417,37 @@ index 0000000000..4863430366
 +    return sk_make_sp<SkTypeface_OHOS>(fontInfo);
 +}
 +
++void SkFontMgr_OHOS::AddSystemFont(std::string path) {
++    static SkOnce once;
++
++    once([this, path]{
++        sk_sp<SkTypeface> typeface = this->onMakeFromFile(path.c_str(), 0);
++        if(!typeface) {
++            SkDEBUGF("parse system font failed");
++            return;
++        }
++        this->fontConfig->setSystemDefaultFont(typeface);
++    });
++}
++
 +/*! To create SkFontMgr object for Harmony platform
 + * \param fname the full name of system font configuration documents
 + * \return The object of SkFontMgr_OHOS
 + */
 +sk_sp<SkFontMgr> SkFontMgr_New_OHOS(const char* fname)
 +{
-+    return sk_make_sp<SkFontMgr_OHOS>(fname);
++return sk_make_sp<SkFontMgr_OHOS>(fname);
 +}
 +
-+sk_sp<SkFontMgr> SkFontMgr_New_OHOS() {;
-+   return SkFontMgr_New_OHOS("/system/etc/fontconfig.json");
++sk_sp<SkFontMgr> SkFontMgr_New_OHOS() {
++    return SkFontMgr_New_OHOS("/system/etc/fontconfig.json");
 +}
 diff --git a/src/ports/skia_ohos/SkFontMgr_ohos.h b/src/ports/skia_ohos/SkFontMgr_ohos.h
 new file mode 100644
-index 0000000000..0d50fae9e9
+index 0000000000..c0a8379174
 --- /dev/null
 +++ b/src/ports/skia_ohos/SkFontMgr_ohos.h
-@@ -0,0 +1,65 @@
+@@ -0,0 +1,66 @@
 +/*
 + * Copyright 2015 Google Inc.
 + *
@@ -3437,13 +3460,13 @@ index 0000000000..0d50fae9e9
 +#ifndef SKFONTMGR_OHOS_H
 +#define SKFONTMGR_OHOS_H
 +
-+#include "SkFontDescriptor.h"
-+#include "SkFontMgr.h"
++#include "src/core/SkFontDescriptor.h"
++#include "include/core/SkFontMgr.h"
 +
 +#include "FontConfig_ohos.h"
 +#include "SkFontStyleSet_ohos.h"
 +
-+#include "SkFontMgr_ohos_api.h"
++#include "include/ports/SkFontMgr_ohos_api.h"
 +
 +/*!
 + * \brief To implement the SkFontMgr for ohos platform
@@ -3452,6 +3475,7 @@ index 0000000000..0d50fae9e9
 +public:
 +    explicit SkFontMgr_OHOS(const char* path = nullptr);
 +    virtual ~SkFontMgr_OHOS() override = default;
++    void AddSystemFont(std::string path);
 +protected:
 +    int onCountFamilies() const override;
 +    void onGetFamilyName(int index, SkString* familyName) const override;
@@ -3620,7 +3644,7 @@ index 0000000000..d3027858bf
 +}
 diff --git a/src/ports/skia_ohos/SkFontStyleSet_ohos.h b/src/ports/skia_ohos/SkFontStyleSet_ohos.h
 new file mode 100644
-index 0000000000..032f0f3240
+index 0000000000..27a7064f86
 --- /dev/null
 +++ b/src/ports/skia_ohos/SkFontStyleSet_ohos.h
 @@ -0,0 +1,32 @@
@@ -3631,7 +3655,7 @@ index 0000000000..032f0f3240
 +#ifndef SKFONTSTYLESET_OHOS_H
 +#define SKFONTSTYLESET_OHOS_H
 +
-+#include "SkFontMgr.h"
++#include "include/core/SkFontMgr.h"
 +
 +#include "FontConfig_ohos.h"
 +#include "SkTypeface_ohos.h"
@@ -3804,7 +3828,7 @@ index 0000000000..cea92889a8
 +}
 diff --git a/src/ports/skia_ohos/SkTypeface_ohos.h b/src/ports/skia_ohos/SkTypeface_ohos.h
 new file mode 100644
-index 0000000000..66ee32960d
+index 0000000000..d5c8a57404
 --- /dev/null
 +++ b/src/ports/skia_ohos/SkTypeface_ohos.h
 @@ -0,0 +1,34 @@
@@ -3815,9 +3839,9 @@ index 0000000000..66ee32960d
 +#ifndef SKTYPEFACE_OHOS_H
 +#define SKTYPEFACE_OHOS_H
 +
-+#include "SkTypeface_FreeType.h"
-+#include "SkFontStyle.h"
-+#include "SkStream.h"
++#include "src/ports/SkTypeface_FreeType.h"
++#include "include/core/SkFontStyle.h"
++#include "include/core/SkStream.h"
 +
 +#include "FontInfo_ohos.h"
 +
@@ -3924,17 +3948,4 @@ index 0000000000..ec225a188e
 +    }
 +  ]
 +}
-diff --git a/src/core/SkRRectPriv.h b/src/core/SkRRectPriv.h
-index cea579c901..baaeaff966 100644
---- a/src/core/SkRRectPriv.h
-+++ b/src/core/SkRRectPriv.h
-@@ -20,7 +20,7 @@ public:
-     }
- 
-     static SkVector GetSimpleRadii(const SkRRect& rr) {
--        SkASSERT(!rr.isComplex());
-+        // SkASSERT(!rr.isComplex());
-         return rr.fRadii[0];
-     }
- 
 -- 
