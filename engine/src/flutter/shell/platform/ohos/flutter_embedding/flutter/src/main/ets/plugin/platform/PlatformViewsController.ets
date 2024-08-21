@@ -90,6 +90,7 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
   private platformViewParent: Map<number, FlutterMutatorView>;
   private nodeControllers: Stack<EmbeddingNodeController>;
   private viewPhysicalInfo: Map<number, number> = new Map<number, number>();
+  private dValue: number = 3;
 
   constructor() {
     this.registry = new PlatformViewRegistryImpl();
@@ -189,7 +190,7 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
       if (this.viewPhysicalInfo.has(viewId)) {
         oldPhysicalHeight = this.viewPhysicalInfo.get(viewId) as number;
         //高度变化小于3，不做刷新处理，减少闪烁
-        if (physicalHeight - oldPhysicalHeight < 3) {
+        if (physicalHeight - oldPhysicalHeight < this.dValue) {
           onComplete.run(new PlatformViewBufferSize(physicalWidth, oldPhysicalHeight));
           return;
         }
