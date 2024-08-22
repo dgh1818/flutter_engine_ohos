@@ -13,34 +13,32 @@
 * limitations under the License.
 */
 
-import util from '@ohos.util'
+import flutter from 'libflutter.so'
 
 /**
  * 默认字符串工具
  */
 export default class StringUtils {
-  static TEXT_ENCODER = new util.TextEncoder("utf-8");
-  static TEXT_DECODER = util.TextDecoder.create('utf-8', { ignoreBOM : true });
 
   static stringToArrayBuffer(str: string): ArrayBuffer {
     if (str.length == 0) {
       return new ArrayBuffer(0);
     }
-    return StringUtils.TEXT_ENCODER.encodeInto(str).buffer;
+    return flutter.encodeUtf8(str).buffer;
   }
 
   static arrayBufferToString(buffer: ArrayBuffer): string {
     if (buffer.byteLength <= 0) {
       return "";
     }
-    return StringUtils.TEXT_DECODER.decodeWithStream(new Uint8Array(buffer));
+    return flutter.decodeUtf8(new Uint8Array(buffer));
   }
 
   static uint8ArrayToString(buffer: Uint8Array): string {
     if (buffer.length <= 0) {
       return "";
     }
-    return StringUtils.TEXT_DECODER.decodeWithStream(buffer);
+    return flutter.decodeUtf8(buffer);
   }
 
   static isNotEmpty(str: string): boolean {
