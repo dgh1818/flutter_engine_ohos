@@ -43,6 +43,7 @@ PFNEGLWAITSYNCKHRPROC OHOSExternalTextureGL::eglWaitSyncKHR_ = nullptr;
 PFNEGLCREATEIMAGEKHRPROC OHOSExternalTextureGL::eglCreateImageKHR_ = nullptr;
 PFNGLEGLIMAGETARGETTEXTURE2DOESPROC
 OHOSExternalTextureGL::glEGLImageTargetTexture2DOES_ = nullptr;
+PFNEGLDESTROYIMAGEKHRPROC OHOSExternalTextureGL::eglDestroyImageKHR_ = nullptr;
 
 OHOSExternalTextureGL::OHOSExternalTextureGL(
     int64_t id,
@@ -92,12 +93,18 @@ void OHOSExternalTextureGL::WaitGPUFence(int fence_fd) {
       eglDestroySyncKHR_ != nullptr) {
     EGLint attribs[] = {EGL_SYNC_NATIVE_FENCE_FD_ANDROID, fence_fd, EGL_NONE};
     EGLSyncKHR fence_sync =
-        eglCreateSyncKHR_(disp, EGL_SYNC_NATIVE_FENCE_ANDROID, nullptr);
-    eglWaitSyncKHR_(disp, fence_sync, 0);
-    eglDestroySyncKHR_(disp, fence_sync);
+        eglCreateSyncKHR_(disp, EGL_SYNC_NATIVE_FENCE_ANDROID, attribs);
+    if (fence_sync != EGL_NO_SYNC_KHR) {
+      eglWaitSyncKHR_(disp, fence_sync, 0);
+      gl_resources_[now_key_].sync = UniqueEGLSync(fence_sync);
+    } else {
+      // eglDestroySync will close the fence_fd.
+      close(fence_fd);
+    }
+  } else {
+    close(fence_fd);
   }
 
-  close(fence_fd);
   EGLenum err = eglGetError();
   if (err != EGL_SUCCESS) {
     FML_LOG(ERROR) << "eglWaitSync get error" << err;
@@ -121,7 +128,7 @@ sk_sp<flutter::DlImage> OHOSExternalTextureGL::CreateDlImage(
   GLuint texture_name = 0;
   glGenTextures(1, &texture_name);
   impeller::UniqueGLTexture unique_texture(impeller::GLTexture{texture_name});
-  impeller::OHOSUniqueEGLImageKHR unique_eglimage = CreateEGLImage(nw_buffer);
+  OHOSUniqueEGLImageKHR unique_eglimage = CreateEGLImage(nw_buffer);
   if (!unique_eglimage.is_valid() || texture_name == 0) {
     return nullptr;
   }
@@ -137,8 +144,8 @@ sk_sp<flutter::DlImage> OHOSExternalTextureGL::CreateDlImage(
       GL_TEXTURE_EXTERNAL_OES, unique_texture.get().texture_name, GL_RGBA8_OES};
   auto backendTexture =
       GrBackendTextures::MakeGL(1, 1, skgpu::Mipmapped::kNo, textureInfo);
-  gl_resources_[key] =
-      GlResource{std::move(unique_eglimage), std::move(unique_texture)};
+  gl_resources_[key] = GlResource{std::move(unique_eglimage),
+                                  std::move(unique_texture), UniqueEGLSync()};
 
   sk_sp<SkImage> image = SkImages::BorrowTextureFrom(
       context.gr_context, backendTexture, kTopLeft_GrSurfaceOrigin,
@@ -146,21 +153,22 @@ sk_sp<flutter::DlImage> OHOSExternalTextureGL::CreateDlImage(
   sk_sp<flutter::DlImage> dl_image = DlImage::Make(image);
 
   // lru: oldest resource need earse
+  now_key_ = key;
   gl_resources_.erase(image_lru_.AddImage(dl_image, key));
   return dl_image;
 }
 
-impeller::OHOSUniqueEGLImageKHR OHOSExternalTextureGL::CreateEGLImage(
+OHOSUniqueEGLImageKHR OHOSExternalTextureGL::CreateEGLImage(
     OHNativeWindowBuffer* nw_buffer) {
   EGLDisplay disp = eglGetCurrentDisplay();
   if (disp == EGL_NO_DISPLAY || nw_buffer == nullptr) {
-    return impeller::OHOSUniqueEGLImageKHR();
+    return OHOSUniqueEGLImageKHR();
   }
   EGLint attrs[] = {EGL_IMAGE_PRESERVED, EGL_TRUE, EGL_NONE};
 
   if (eglCreateImageKHR_ == nullptr) {
     FML_LOG(ERROR) << "get null eglCreateImageKHR";
-    return impeller::OHOSUniqueEGLImageKHR();
+    return OHOSUniqueEGLImageKHR();
   }
 
   impeller::EGLImageKHRWithDisplay ohos_eglimage =
@@ -173,7 +181,7 @@ impeller::OHOSUniqueEGLImageKHR OHOSExternalTextureGL::CreateEGLImage(
     FML_LOG(ERROR) << "eglCreateImageKHR get error" << err;
   }
 
-  return impeller::OHOSUniqueEGLImageKHR(ohos_eglimage);
+  return OHOSUniqueEGLImageKHR(ohos_eglimage);
 }
 
 void OHOSExternalTextureGL::InitEGLFunPtr() {
@@ -223,6 +231,14 @@ void OHOSExternalTextureGL::InitEGLFunPtr() {
     if (eglCreateImageKHR_ == nullptr) {
       eglCreateImageKHR_ =
           (PFNEGLCREATEIMAGEKHRPROC)eglGetProcAddress("eglCreateImageKHR");
+    }
+  }
+  if (eglDestroyImageKHR_ == nullptr) {
+    eglDestroyImageKHR_ =
+        (PFNEGLDESTROYIMAGEKHRPROC)dlsym(handle, "eglDestroyImageKHR");
+    if (eglDestroyImageKHR_ == nullptr) {
+      eglDestroyImageKHR_ =
+          (PFNEGLDESTROYIMAGEKHRPROC)eglGetProcAddress("eglDestroyImageKHR");
     }
   }
   if (glEGLImageTargetTexture2DOES_ == nullptr) {
