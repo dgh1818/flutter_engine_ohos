@@ -52,33 +52,38 @@ This warehouse is based on the extension of Flutter's official engine warehouse 
    c) Edit the `.gclient` file:
 
    ```
-   solutions = [
-      {
-        "managed": False,
-        "name": "src/flutter",
-        "url": "git@gitee.com:openharmony-sig/flutter_engine.git",
-        "custom_deps": {},
-        "deps_file": "DEPS",
-        "safesync_url": "",
-      },
-   ]
+    solutions = [
+       {
+         "managed": False,
+         "name": "src/flutter",
+         "url": "git@gitee.com:openharmony-sig/flutter_engine.git",
+         "custom_deps": {},
+         "deps_file": "DEPS",
+         "safesync_url": "",
+       },
+    ]
    ```
 
 3. Synchronize code: In the engine directory, execute `gclient sync`; Here the engine source code, official packages repository will be synchronized and the ohos_setup task will be executed;
 
-4. Download sdk: From [HarmonyOS Kit List](https://developer.huawei.com/consumer/cn/download/) Download development tools for your platform accordingly.
+4. Download sdk: From [OpenHarmony SDK]（https://developer.huawei.com/consumer/cn/develop）Download the matching development tool,Suites that are not downloaded through this channel are not supported
 
-```sh
-# Unzip file commandline/command-line-tools-xxxx.zip
-export HOS_SDK_HOME=/home/<user>/ohos/command-line-tools/sdk
-export NODE_HOME=/home/<user>/ohos/command-line-tools/tool/node/
-export PATH=/home/<user>/ohos/command-line-tools/bin:$PATH
-export PATH=$NODE_HOME/bin:$PATH
-```
+   ```sh
+    # Environment variables that need to be set: HarmonyOS SDK, ohpm, hvigor, node
+    export TOOL_HOME=/Applications/DevEco-Studio.app/Contents # For mac
+    export DEVECO_SDK_HOME=$TOOL_HOME/sdk # command-line-tools/sdk
+    export PATH=$TOOL_HOME/tools/ohpm/bin:$PATH # command-line-tools/ohpm/bin
+    export PATH=$TOOL_HOME/tools/hvigor/bin:$PATH # command-line-tools/hvigor/bin
+    export PATH=$TOOL_HOME/tools/node/bin:$PATH # command-line-tools/tool/node/bin
+   ```
 
 5. Start building: In the engine directory, execute `./ohos` to start building the flutter engine that supports ohos devices.
    
-6. Update project: In the engine directory, execute `./ohos -b master`
+6. Update code: In the engine directory, execute `./ohos -b master`
+
+## Engine Construction product
+
+  [Construction product](https://docs.qq.com/sheet/DUnljRVBYUWZKZEtF?tab=BB08J2)
 
 ## FAQ:
 1. When running the project, an error of `Member notfound:'isOhos' is reported: Please ensure that all dart patches are applied in the src/third_party/dart directory` (the patches are located in the `src/flutter/attachment/repos` directory, and you can use git apply to apply the patch). Recompile the engine after patching
@@ -103,20 +108,20 @@ export PATH=$NODE_HOME/bin:$PATH
 
 1. Edit `shell/platform/ohos/flutter_embedding/local.properties`:
 
-     ```
-     sdk.dir=<OpenHarmony sdk directory>
-     nodejs.dir=<nodejs sdk directory>
-     ```
+   ```
+    sdk.dir=<OpenHarmony sdk directory>
+    nodejs.dir=<nodejs sdk directory>
+   ```
 
-2. You need to copy file to `shell/platform/ohos/flutter_embedding/flutter/libs/arm64-v8a/` 
-   1. debug/release，copy `libflutter.so`
-   2. profile，copy `libflutter.so` and `libvmservice_snapshot.so`
+2. You need to copy files from the compiled `engine` directory to `shell/platform/ohos/flutter_embedding/flutter/libs/arm64-v8a/`
+    1. debug/release，copy `libflutter.so`
+    2. profile，copy `libflutter.so` and `libvmservice_snapshot.so`
 
 3. In the `shell/platform/ohos/flutter_embedding` directory, execute
 
      ```
-     # The optional values for buildMode are: debug release profile
-     hvigorw --mode module -p module=flutter@default -p product=default -p buildMode=debug assembleHar --no-daemon
+      # The optional values for buildMode are: debug release profile
+      hvigorw --mode module -p module=flutter@default -p product=default -p buildMode=debug assembleHar --no-daemon
      ```
 
 
