@@ -125,6 +125,9 @@ static napi_value Init(napi_env env, napi_value exports) {
           "nativeRegisterTexture",
           flutter::PlatformViewOHOSNapi::nativeRegisterTexture),
       DECLARE_NAPI_FUNCTION(
+          "nativeSetTextureBufferSize",
+          flutter::PlatformViewOHOSNapi::nativeSetTextureBufferSize),
+      DECLARE_NAPI_FUNCTION(
           "nativeUnregisterTexture",
           flutter::PlatformViewOHOSNapi::nativeUnregisterTexture),
       DECLARE_NAPI_FUNCTION(
