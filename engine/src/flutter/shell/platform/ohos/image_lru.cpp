@@ -45,7 +45,7 @@ NativeBufferKey ImageLRU::AddImage(const sk_sp<flutter::DlImage>& image,
   }
   images_[0] = Data{.key = key, .value = image};
   if (lru_key != 0) {
-    FML_LOG(ERROR) << "lru release one " << lru_key;
+    FML_LOG(INFO) << "lru release one " << lru_key;
   }
   return lru_key;
 }
