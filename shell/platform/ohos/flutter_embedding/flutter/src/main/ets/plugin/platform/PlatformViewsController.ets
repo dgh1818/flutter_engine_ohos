@@ -460,6 +460,10 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
   }
 
   private diposeAllViews(): void {
+    let viewKeys = this.platformViews.keys();
+    for (let viewId of viewKeys) {
+      this.dispose(viewId);
+    }
   }
 
   private initializeRootImageViewIfNeeded(): void {
