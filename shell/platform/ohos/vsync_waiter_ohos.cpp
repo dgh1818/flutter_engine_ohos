@@ -34,6 +34,7 @@ VsyncWaiterOHOS::VsyncWaiterOHOS(const flutter::TaskRunners& task_runners)
 
 VsyncWaiterOHOS::~VsyncWaiterOHOS() {
   OH_NativeVSync_Destroy(vsyncHandle);
+  vsyncHandle = nullptr;
 }
 
 void VsyncWaiterOHOS::AwaitVSync() {
@@ -56,6 +57,10 @@ void VsyncWaiterOHOS::AwaitVSync() {
 }
 
 void VsyncWaiterOHOS::OnVsyncFromOHOS(long long timestamp, void* data) {
+  if (data == nullptr) {
+    FML_LOG(ERROR) << "VsyncWaiterOHOS::OnVsyncFromOHOS, data is nullptr.";
+    return;
+  }
   if (VsyncWaiterOHOS::firstCall) {
     int ret = OH_QoS_SetThreadQoS(QoS_Level::QOS_USER_INTERACTIVE);
     FML_DLOG(INFO) << "qos set VsyncWaiterOHOS result:" << ret << ",tid:" << gettid();
