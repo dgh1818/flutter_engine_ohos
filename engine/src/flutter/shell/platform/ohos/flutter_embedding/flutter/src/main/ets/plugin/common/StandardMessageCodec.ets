@@ -23,6 +23,7 @@ import PlainArray from '@ohos.util.PlainArray';
 import List from '@ohos.util.List';
 import LinkedList from '@ohos.util.LinkedList';
 import Any from './Any';
+import { ArrayList } from '@kit.ArkTS';
 
 /**
  * MessageCodec using the Flutter standard binary encoding.
@@ -173,7 +174,7 @@ export default class StandardMessageCodec implements MessageCodec<Any> {
       value.forEach(item => stream.writeFloat64(item, true));
     } else if (value instanceof Array || value instanceof Int8Array || value instanceof Int16Array
       || value instanceof Uint16Array || value instanceof Uint32Array || value instanceof List
-      || value instanceof LinkedList) {
+      || value instanceof LinkedList || value instanceof ArrayList) {
       stream.writeInt8(StandardMessageCodec.LIST)
       this.writeSize(stream, value.length);
       value.forEach((item: Any): void => this.writeValue(stream, item));
