@@ -137,10 +137,10 @@ static napi_value Init(napi_env env, napi_value exports) {
           "nativeRegisterPixelMap",
           flutter::PlatformViewOHOSNapi::nativeRegisterPixelMap),
       DECLARE_NAPI_FUNCTION(
-          "encodeUtf8",
+          "nativeEncodeUtf8",
           flutter::PlatformViewOHOSNapi::nativeEncodeUtf8),
       DECLARE_NAPI_FUNCTION(
-          "decodeUtf8",
+          "nativeDecodeUtf8",
           flutter::PlatformViewOHOSNapi::nativeDecodeUtf8),
 
   };
