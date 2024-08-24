@@ -24,21 +24,21 @@ export default class StringUtils {
     if (str.length == 0) {
       return new ArrayBuffer(0);
     }
-    return flutter.encodeUtf8(str).buffer;
+    return flutter.nativeEncodeUtf8(str).buffer;
   }
 
   static arrayBufferToString(buffer: ArrayBuffer): string {
     if (buffer.byteLength <= 0) {
       return "";
     }
-    return flutter.decodeUtf8(new Uint8Array(buffer));
+    return flutter.nativeDecodeUtf8(new Uint8Array(buffer));
   }
 
   static uint8ArrayToString(buffer: Uint8Array): string {
     if (buffer.length <= 0) {
       return "";
     }
-    return flutter.decodeUtf8(buffer);
+    return flutter.nativeDecodeUtf8(buffer);
   }
 
   static isNotEmpty(str: string): boolean {

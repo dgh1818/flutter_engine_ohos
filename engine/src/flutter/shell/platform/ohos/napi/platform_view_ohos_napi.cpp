@@ -1914,7 +1914,7 @@ napi_value PlatformViewOHOSNapi::nativeXComponentDispatchMouseWheel(napi_env env
 }
 
 /**
- * @brief flutterEngine convert string to ArrayBuffer
+ * @brief flutterEngine convert string to Uint8Array
  * @note
  * @param  str: string
  * @return napi_value
