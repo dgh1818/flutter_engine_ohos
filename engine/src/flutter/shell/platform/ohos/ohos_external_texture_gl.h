@@ -21,35 +21,16 @@
 #include "flutter/impeller/toolkit/egl/image.h"
 #include "flutter/impeller/toolkit/gles/texture.h"
 
-namespace impeller {
-// ohos' sdk don't have eglDestroyImageKHR symbol, so we manually get the
-// eglDestroyImageKHR address.
-struct OHOSEGLImageKHRWithDisplayTraits {
-  static impeller::EGLImageKHRWithDisplay InvalidValue() {
-    return {EGL_NO_IMAGE_KHR, EGL_NO_DISPLAY};
-  }
+namespace flutter {
 
-  static bool IsValid(const impeller::EGLImageKHRWithDisplay& value) {
-    return value != InvalidValue();
-  }
-
-  static void Free(impeller::EGLImageKHRWithDisplay image) {
-    static PFNEGLDESTROYIMAGEKHRPROC eglDestroyImageKHR =
-        (PFNEGLDESTROYIMAGEKHRPROC)eglGetProcAddress("eglDestroyImageKHR");
-    if (eglDestroyImageKHR == nullptr) {
-      FML_LOG(ERROR) << "get null eglDestroyImageKHR";
-      return;
-    }
-    eglDestroyImageKHR(image.display, image.image);
-  }
-};
+struct OHOSEGLImageKHRWithDisplayTraits;
+struct EGLSyncKHRTraits;
+struct GlResource;
 
 using OHOSUniqueEGLImageKHR =
     fml::UniqueObject<impeller::EGLImageKHRWithDisplay,
                       OHOSEGLImageKHRWithDisplayTraits>;
-}  // namespace impeller
-
-namespace flutter {
+using UniqueEGLSync = fml::UniqueObject<EGLSyncKHR, EGLSyncKHRTraits>;
 
 class OHOSExternalTextureGL : public OHOSExternalTexture {
  public:
@@ -57,6 +38,16 @@ class OHOSExternalTextureGL : public OHOSExternalTexture {
                                  OH_OnFrameAvailableListener listener);
 
   ~OHOSExternalTextureGL() override;
+
+  static PFNEGLCREATESYNCKHRPROC eglCreateSyncKHR_;
+  static PFNEGLDUPNATIVEFENCEFDANDROIDPROC eglDupNativeFenceFDANDROID_;
+  static PFNEGLDESTROYSYNCKHRPROC eglDestroySyncKHR_;
+  static PFNEGLWAITSYNCKHRPROC eglWaitSyncKHR_;
+  static PFNEGLCREATEIMAGEKHRPROC eglCreateImageKHR_;
+  static PFNGLEGLIMAGETARGETTEXTURE2DOESPROC glEGLImageTargetTexture2DOES_;
+  static PFNEGLDESTROYIMAGEKHRPROC eglDestroyImageKHR_;
+
+  static void InitEGLFunPtr();
 
  protected:
   void SetGPUFence(int* fence_fd) override;
@@ -70,28 +61,54 @@ class OHOSExternalTextureGL : public OHOSExternalTexture {
       OHNativeWindowBuffer* nw_buffer) override;
 
  private:
-  struct GlResource {
-    impeller::OHOSUniqueEGLImageKHR egl_image;
-    impeller::UniqueGLTexture texture;
-  };
-
   std::unordered_map<NativeBufferKey, GlResource> gl_resources_;
+  NativeBufferKey now_key_;
 
   // void UpdateTransform();
-  impeller::OHOSUniqueEGLImageKHR CreateEGLImage(
-      OHNativeWindowBuffer* nw_buffer);
-
-  static PFNEGLCREATESYNCKHRPROC eglCreateSyncKHR_;
-  static PFNEGLDUPNATIVEFENCEFDANDROIDPROC eglDupNativeFenceFDANDROID_;
-  static PFNEGLDESTROYSYNCKHRPROC eglDestroySyncKHR_;
-  static PFNEGLWAITSYNCKHRPROC eglWaitSyncKHR_;
-  static PFNEGLCREATEIMAGEKHRPROC eglCreateImageKHR_;
-  static PFNGLEGLIMAGETARGETTEXTURE2DOESPROC glEGLImageTargetTexture2DOES_;
-
-  static void InitEGLFunPtr();
+  OHOSUniqueEGLImageKHR CreateEGLImage(OHNativeWindowBuffer* nw_buffer);
 
   FML_DISALLOW_COPY_AND_ASSIGN(OHOSExternalTextureGL);
 };
 
+// ohos' sdk don't have eglDestroyImageKHR symbol, so we manually get the
+// eglDestroyImageKHR address.
+struct OHOSEGLImageKHRWithDisplayTraits {
+  static impeller::EGLImageKHRWithDisplay InvalidValue() {
+    return {EGL_NO_IMAGE_KHR, EGL_NO_DISPLAY};
+  }
+
+  static bool IsValid(const impeller::EGLImageKHRWithDisplay& value) {
+    return value != InvalidValue();
+  }
+
+  static void Free(impeller::EGLImageKHRWithDisplay image) {
+    if (OHOSExternalTextureGL::eglDestroyImageKHR_) {
+      OHOSExternalTextureGL::eglDestroyImageKHR_(image.display, image.image);
+    }
+  }
+};
+
+struct EGLSyncKHRTraits {
+  static EGLSyncKHR InvalidValue() { return EGL_NO_SYNC_KHR; }
+
+  static bool IsValid(const EGLSyncKHR& value) {
+    return value != InvalidValue();
+  }
+
+  static void Free(EGLSyncKHR sync) {
+    if (OHOSExternalTextureGL::eglDestroySyncKHR_) {
+      EGLDisplay disp = eglGetCurrentDisplay();
+      OHOSExternalTextureGL::eglDestroySyncKHR_(disp, sync);
+    }
+  }
+};
+
+struct GlResource {
+  OHOSUniqueEGLImageKHR egl_image;
+  impeller::UniqueGLTexture texture;
+  UniqueEGLSync sync;
+};
+
 }  // namespace flutter
+
 #endif  // FLUTTER_SHELL_PLATFORM_OHOS_OHOS_EXTERNAL_TEXTURE_GL_H_
