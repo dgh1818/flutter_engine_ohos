@@ -98,6 +98,7 @@ export default class KeyboardMap {
       [0x0000000080C, 0x0000000005D], // bracketRight
       [0x0000000080D, 0x0000000005C], // backslash
       [0x0000000080E, 0x0000000003B], // semicolon
+      [0x0000000080F, 0x00000000022], // apostrophe/quote
       [0x00000000810, 0x0000000002F], // slash
       [0x00000000813, 0x00100000505], // contextMenu
       [0x000000009A2, 0x00100000704], // compose
@@ -299,6 +300,7 @@ export default class KeyboardMap {
       [0x0000000080C, 0x00000070030], // bracketRight
       [0x0000000080D, 0x00000070031], // backslash
       [0x0000000080E, 0x00000070033], // semicolon
+      [0x0000000080F, 0x00000070034], // apostrophe/quote
       [0x00000000810, 0x00000070038], // slash
       [0x00000000813, 0x00000070065], // contextMenu
       [0x00000000814, 0x0000007004B], // pageUp
@@ -473,6 +475,7 @@ export default class KeyboardMap {
       [0x0000000080C, 0x0000000001B], // bracketRight
       [0x0000000080D, 0x00000000056], // backslash
       [0x0000000080E, 0x00000000027], // semicolon
+      [0x0000000080F, 0x00000000028], // apostrophe/quote
       [0x00000000810, 0x00000000035], // slash
       [0x00000000813, 0x0000000008B], // contextMenu
       [0x00000000814, 0x000000000B1], // pageUp
