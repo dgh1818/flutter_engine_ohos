@@ -14,12 +14,14 @@
  */
 
 #include "flutter/shell/platform/ohos/ohos_environment_gl.h"
+#include "fml/trace_event.h"
 
 namespace flutter {
 
 OhosEnvironmentGL::OhosEnvironmentGL()
     : display_(EGL_NO_DISPLAY), valid_(false) {
   // Get the display.
+  TRACE_EVENT0("flutter", "OhosEnvironmentGL");
   display_ = eglGetDisplay(EGL_DEFAULT_DISPLAY);
 
   if (display_ == EGL_NO_DISPLAY) {

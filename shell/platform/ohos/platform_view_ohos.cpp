@@ -23,11 +23,13 @@
 #include "flutter/shell/platform/ohos/ohos_surface_gl_skia.h"
 #include "flutter/shell/platform/ohos/ohos_surface_software.h"
 #include "flutter/shell/platform/ohos/platform_message_response_ohos.h"
+#include "fml/trace_event.h"
 #include "napi_common.h"
 #include "ohos_context_gl_impeller.h"
 #include "ohos_external_texture_gl.h"
 #include "ohos_external_texture_vulkan.h"
 #include "ohos_surface_gl_impeller.h"
+#include "shell/common/platform_view.h"
 #include "shell/platform/ohos/context/ohos_context.h"
 #include "shell/platform/ohos/ohos_surface_vulkan_impeller.h"
 
@@ -35,8 +37,8 @@ namespace flutter {
 
 // This global map's key is (PlatformViewOHOS-ptr + texture_id) because there
 // may be many platformViews.
-std::map<uint64_t, PlatformViewOHOS*> texture_platformview_map_;
-std::mutex map_mutex_;
+std::map<uint64_t, PlatformViewOHOS*> g_texture_platformview_map;
+std::mutex g_map_mutex;
 
 OhosSurfaceFactoryImpl::OhosSurfaceFactoryImpl(
     const std::shared_ptr<OHOSContext>& context)
@@ -69,13 +71,13 @@ std::unique_ptr<OHOSContext> CreateOHOSContext(
     bool enable_vulkan_validation,
     bool enable_opengl_gpu_tracing,
     bool enable_vulkan_gpu_tracing) {
+  TRACE_EVENT0("flutter", "CreateOHOSContext");
   switch (rendering_api) {
     case OHOSRenderingAPI::kSoftware:
       return std::make_unique<OHOSContext>(OHOSRenderingAPI::kSoftware);
     case OHOSRenderingAPI::kOpenGLES:
-      return std::make_unique<OhosContextGLSkia>(
-          OHOSRenderingAPI::kOpenGLES, fml::MakeRefCounted<OhosEnvironmentGL>(),
-          task_runners, msaa_samples);
+      return std::make_unique<OhosContextGLSkia>(OHOSRenderingAPI::kOpenGLES,
+                                                 task_runners, msaa_samples);
     case OHOSRenderingAPI::kImpellerVulkan:
       return std::make_unique<OHOSContextVulkanImpeller>(
           enable_vulkan_validation, enable_vulkan_gpu_tracing);
@@ -140,19 +142,63 @@ void PlatformViewOHOS::NotifyCreate(
   if (ohos_surface_) {
     InstallFirstFrameCallback();
     LOGI("NotifyCreate start1");
+    fml::TaskRunner::RunNowOrPostTask(
+        task_runners_.GetRasterTaskRunner(),
+        [&, surface = ohos_surface_.get(),
+         native_window = std::move(native_window)]() {
+          LOGI("NotifyCreate start4");
+          surface->SetDisplayWindow(native_window);
+          // Note that NotifyDestroyed will wait raster task, so platformview is
+          // not deleted here.
+          if (!window_is_preload_) {
+            PlatformView::NotifyCreated();
+          } else if (surface->NeedNewFrame()) {
+            PlatformView::ScheduleFrame();
+          } else {
+            fml::TaskRunner::RunNowOrPostTask(
+                task_runners_.GetPlatformTaskRunner(),
+                [&] { PlatformViewOHOS::FireFirstFrameCallback(); });
+          }
+        });
+  }
+}
+
+void PlatformViewOHOS::Preload(int width, int height) {
+  if (ohos_surface_ && !window_is_preload_) {
+    LOGI("Preload start");
+    InstallFirstFrameCallback(true);
+    fml::TaskRunner::RunNowOrPostTask(
+        task_runners_.GetRasterTaskRunner(),
+        [&, surface = ohos_surface_.get(), width, height]() {
+          TRACE_EVENT0("flutter", "surface:Preload");
+          LOGI("Preload PlatformViewOHOS");
+          if (!window_is_preload_) {
+            bool ret = surface->PrepareOffscreenWindow(width, height);
+            if (ret) {
+              // Note that NotifyDestroyed will wait raster task, so
+              // platformview is not deleted here.
+              PlatformView::NotifyCreated();
+              window_is_preload_ = true;
+            }
+          }
+        });
+  }
+}
+
+void PlatformViewOHOS::NotifySurfaceWindowChanged(
+    fml::RefPtr<OHOSNativeWindow> native_window) {
+  LOGI("PlatformViewOHOS NotifySurfaceWindowChanged enter");
+  if (ohos_surface_) {
     fml::AutoResetWaitableEvent latch;
     fml::TaskRunner::RunNowOrPostTask(
         task_runners_.GetRasterTaskRunner(),
         [&latch, surface = ohos_surface_.get(),
          native_window = std::move(native_window)]() {
-          LOGI("NotifyCreate start4");
-          surface->SetNativeWindow(native_window);
+          surface->SetDisplayWindow(native_window);
           latch.Signal();
         });
     latch.Wait();
   }
-
-  PlatformView::NotifyCreated();
 }
 
 void PlatformViewOHOS::NotifyChanged(const SkISize& size) {
@@ -172,7 +218,17 @@ void PlatformViewOHOS::NotifyChanged(const SkISize& size) {
 // |PlatformView|
 void PlatformViewOHOS::NotifyDestroyed() {
   LOGI("PlatformViewOHOS NotifyDestroyed enter");
-  PlatformView::NotifyDestroyed();
+
+  // Note: NotifyCreate is invoked in raster thread. So we post NotifyDestroyed
+  // to raster to avoid latent conflic.
+  fml::AutoResetWaitableEvent latch;
+  fml::TaskRunner::RunNowOrPostTask(task_runners_.GetRasterTaskRunner(), [&]() {
+    window_is_preload_ = false;
+    PlatformView::NotifyDestroyed();
+    latch.Signal();
+  });
+  latch.Wait();
+
   if (ohos_surface_) {
     // If we don't unregister external texture, PlatformViewOHOS ptr in
     // texture_platformview_map_ will bring use-after-free crash in
@@ -380,25 +436,26 @@ void PlatformViewOHOS::RequestDartDeferredLibrary(intptr_t loading_unit_id) {
   return;
 }
 
-void PlatformViewOHOS::InstallFirstFrameCallback() {
+void PlatformViewOHOS::InstallFirstFrameCallback(bool is_preload) {
   FML_DLOG(INFO) << "InstallFirstFrameCallback";
   SetNextFrameCallback(
       [platform_view = GetWeakPtr(),
-       platform_task_runner = task_runners_.GetPlatformTaskRunner()]() {
-        platform_task_runner->PostTask([platform_view]() {
+       platform_task_runner = task_runners_.GetPlatformTaskRunner(),
+       is_preload]() {
+        platform_task_runner->PostTask([platform_view, is_preload]() {
           // Back on Platform Task Runner.
           FML_DLOG(INFO) << "install InstallFirstFrameCallback ";
           if (platform_view) {
             reinterpret_cast<PlatformViewOHOS*>(platform_view.get())
-                ->FireFirstFrameCallback();
+                ->FireFirstFrameCallback(is_preload);
           }
         });
       });
 }
 
-void PlatformViewOHOS::FireFirstFrameCallback() {
+void PlatformViewOHOS::FireFirstFrameCallback(bool is_preload) {
   FML_DLOG(INFO) << "FlutterViewOnFirstFrame";
-  napi_facade_->FlutterViewOnFirstFrame();
+  napi_facade_->FlutterViewOnFirstFrame(is_preload);
 }
 
 uint64_t PlatformViewOHOS::RegisterExternalTexture(int64_t texture_id) {
@@ -426,8 +483,8 @@ uint64_t PlatformViewOHOS::RegisterExternalTexture(int64_t texture_id) {
   } else {
     surface_id = extrenal_texture->GetProducerSurfaceId();
     if (surface_id != 0) {
-      std::lock_guard<std::mutex> lock(map_mutex_);
-      texture_platformview_map_[context_frame_data] = this;
+      std::lock_guard<std::mutex> lock(g_map_mutex);
+      g_texture_platformview_map[context_frame_data] = this;
       all_external_texture_[texture_id] = extrenal_texture;
       RegisterTexture(extrenal_texture);
     }
@@ -437,12 +494,12 @@ uint64_t PlatformViewOHOS::RegisterExternalTexture(int64_t texture_id) {
 
 void PlatformViewOHOS::OnNativeImageFrameAvailable(void* data) {
   uint64_t ptexture_id = (uint64_t)data;
-  std::lock_guard<std::mutex> lock(map_mutex_);
-  if (texture_platformview_map_.find(ptexture_id) ==
-      texture_platformview_map_.end()) {
+  std::lock_guard<std::mutex> lock(g_map_mutex);
+  if (g_texture_platformview_map.find(ptexture_id) ==
+      g_texture_platformview_map.end()) {
     return;
   }
-  PlatformViewOHOS* platform = texture_platformview_map_[ptexture_id];
+  PlatformViewOHOS* platform = g_texture_platformview_map[ptexture_id];
 
   if (platform == nullptr || platform->ohos_surface_ == nullptr) {
     FML_LOG(ERROR) << "OnNativeImageFrameAvailable NotifyDstroyed, will not "
@@ -452,12 +509,12 @@ void PlatformViewOHOS::OnNativeImageFrameAvailable(void* data) {
 
   fml::TaskRunner::RunNowOrPostTask(
       platform->task_runners_.GetPlatformTaskRunner(), [ptexture_id]() {
-        std::lock_guard<std::mutex> lock(map_mutex_);
-        if (texture_platformview_map_.find(ptexture_id) ==
-            texture_platformview_map_.end()) {
+        std::lock_guard<std::mutex> lock(g_map_mutex);
+        if (g_texture_platformview_map.find(ptexture_id) ==
+            g_texture_platformview_map.end()) {
           return;
         }
-        PlatformViewOHOS* platform = texture_platformview_map_[ptexture_id];
+        PlatformViewOHOS* platform = g_texture_platformview_map[ptexture_id];
         uint64_t texture_id = ptexture_id - (uint64_t)platform;
         platform->MarkTextureFrameAvailable(texture_id);
       });
@@ -466,10 +523,11 @@ void PlatformViewOHOS::OnNativeImageFrameAvailable(void* data) {
 void PlatformViewOHOS::UnRegisterExternalTexture(int64_t texture_id) {
   all_external_texture_.erase(texture_id);
   FML_LOG(INFO) << "UnRegisterExternalTexture " << texture_id;
+  // Note that external_texture will be destroy after UnregisterTexture.
   UnregisterTexture(texture_id);
 
-  std::lock_guard<std::mutex> lock(map_mutex_);
-  texture_platformview_map_.erase((uint64_t)this + (uint64_t)texture_id);
+  std::lock_guard<std::mutex> lock(g_map_mutex);
+  g_texture_platformview_map.erase((uint64_t)this + (uint64_t)texture_id);
 }
 
 void PlatformViewOHOS::RegisterExternalTextureByPixelMap(

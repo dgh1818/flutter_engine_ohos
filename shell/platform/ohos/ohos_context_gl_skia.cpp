@@ -76,19 +76,20 @@ static bool TeardownContext(EGLDisplay display, EGLContext context) {
 }
 
 OhosContextGLSkia::OhosContextGLSkia(OHOSRenderingAPI rendering_api,
-                                     fml::RefPtr<OhosEnvironmentGL> environment,
                                      const TaskRunners& task_runners,
                                      uint8_t msaa_samples)
     : OHOSContext(OHOSRenderingAPI::kOpenGLES),
-      environment_(std::move(environment)),
       config_(nullptr),
       task_runners_(task_runners) {
+  environment_ = fml::MakeRefCounted<OhosEnvironmentGL>();
   if (!environment_->IsValid()) {
     FML_LOG(ERROR) << "Could not create an Ohos GL environment.";
     return;
   }
 
   bool success = false;
+
+  TRACE_EVENT0("flutter", "OhosContextGLSkia");
 
   // Choose a valid configuration.
   std::tie(success, config_) =
@@ -192,11 +193,12 @@ std::unique_ptr<OhosEGLSurface> OhosContextGLSkia::CreateOffscreenSurface()
   return std::make_unique<OhosEGLSurface>(surface, display, resource_context_);
 }
 
-std::unique_ptr<OhosEGLSurface> OhosContextGLSkia::CreatePbufferSurface()
-    const {
+std::unique_ptr<OhosEGLSurface> OhosContextGLSkia::CreatePbufferSurface(
+    int width,
+    int height) const {
   EGLDisplay display = environment_->Display();
 
-  const EGLint attribs[] = {EGL_WIDTH, 1, EGL_HEIGHT, 1, EGL_NONE};
+  const EGLint attribs[] = {EGL_WIDTH, width, EGL_HEIGHT, height, EGL_NONE};
 
   FML_LOG(INFO) << "CreatePbufferSurface";
   EGLSurface surface = eglCreatePbufferSurface(display, config_, attribs);
@@ -214,9 +216,6 @@ bool OhosContextGLSkia::IsValid() const {
 bool OhosContextGLSkia::ClearCurrent() const {
   if (eglGetCurrentContext() != context_) {
     return true;
-  } else {
-    FML_LOG(INFO) << "OhosContextGLSkia::ClearCurrent get error context "
-                  << (eglGetCurrentContext());
   }
   if (eglMakeCurrent(environment_->Display(), EGL_NO_SURFACE, EGL_NO_SURFACE,
                      EGL_NO_CONTEXT) != EGL_TRUE) {

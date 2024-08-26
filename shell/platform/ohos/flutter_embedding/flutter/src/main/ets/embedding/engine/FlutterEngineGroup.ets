@@ -15,12 +15,14 @@
 
 import FlutterEngine, { EngineLifecycleListener } from "./FlutterEngine"
 import common from '@ohos.app.ability.common'
+import display from '@ohos.display';
 import FlutterLoader from './loader/FlutterLoader'
 import FlutterInjector from '../../FlutterInjector'
 import { DartEntrypoint } from './dart/DartExecutor'
 import PlatformViewsController from '../../plugin/platform/PlatformViewsController'
 import ArrayList from '@ohos.util.ArrayList'
 import Log from '../../util/Log';
+import FlutterManager from '../ohos/FlutterManager';
 
 const TAG = "FlutterEngineGroup"
 
@@ -30,6 +32,7 @@ export default class FlutterEngineGroup {
   constructor() {
 
   }
+
 
   async checkLoader(context: common.Context, args: Array<string>) {
     let loader: FlutterLoader = FlutterInjector.getInstance().getFlutterLoader();
@@ -88,6 +91,14 @@ export default class FlutterEngineGroup {
 
   createEngine(context: common.Context, platformViewsController: PlatformViewsController): FlutterEngine {
     return new FlutterEngine(context, null, null, platformViewsController);
+  }
+
+  getDefaultEngine(): FlutterEngine | null {
+    let engine: FlutterEngine | null = null;
+    if (this.activeEngines.length != 0) {
+      engine = this.activeEngines[0];
+    }
+    return engine;
   }
 }
 

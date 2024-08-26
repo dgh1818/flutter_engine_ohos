@@ -25,11 +25,17 @@ class GPUSurfaceVulkanImpeller final : public Surface {
   // |Surface|
   bool IsValid() override;
 
+  void SetDelegate(GPUSurfaceVulkanDelegate* delegate) {
+    this->delegate_ = delegate;
+  };
+
  private:
   std::shared_ptr<impeller::Context> impeller_context_;
   std::shared_ptr<impeller::Renderer> impeller_renderer_;
   std::shared_ptr<impeller::AiksContext> aiks_context_;
   bool is_valid_ = false;
+
+  GPUSurfaceVulkanDelegate* delegate_ = nullptr;
 
   // |Surface|
   std::unique_ptr<SurfaceFrame> AcquireFrame(const SkISize& size) override;

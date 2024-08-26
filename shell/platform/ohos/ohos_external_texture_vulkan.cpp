@@ -127,8 +127,6 @@ void OHOSExternalTextureVulkan::WaitGPUFence(int fence_fd) {
     // we cannot destroy semaphore until it is signal in vulkan.
     vk_resources_[now_key_].wait_semaphore = std::move(semaphore);
 
-    bool fence_ok = (fcntl(fence_fd, F_GETFD) != -1 || errno != EBADF);
-    FML_LOG(INFO) << "fence_fd is still ok " << fence_ok;
     // the driver will close the fence_fd after importing the semaphore.
     // close(fence_fd);
   }
@@ -172,7 +170,6 @@ sk_sp<flutter::DlImage> OHOSExternalTextureVulkan::CreateDlImage(
     const SkRect& bounds,
     NativeBufferKey key,
     OHNativeWindowBuffer* nw_buffer) {
-  FML_LOG(INFO) << " OHOSExternalTexture::CreateDlImage";
   auto texture_source = std::make_shared<impeller::OHBTextureSourceVK>(
       impeller_context_, nw_buffer);
   if (!texture_source->IsValid()) {

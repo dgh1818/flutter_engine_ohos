@@ -38,6 +38,13 @@ enum ContextType {
   JS_PAGE_LIFECYCLE,
 }
 
+interface PendingMessage {
+  channel: string;
+  message: ArrayBuffer;
+  replyId: number;
+  messageData: number;
+}
+
 /**
  * 提供arkTs的flutterNAPI接口
  */
@@ -51,6 +58,11 @@ export default class FlutterNapi {
   accessibilityDelegate: AccessibilityDelegate | null = null;
   localizationPlugin: LocalizationPlugin | null = null;
   isDisplayingFlutterUi: boolean = false;
+  isPreloadedFlutterUi: boolean = false;
+  isRunningDart: boolean = false;
+  private nextSpawnNapi: FlutterNapi | null = null;
+  private pendingMessages: PendingMessage[] = [];
+  private readyForHandleMessage: boolean = false;
 
   /**
    * 更新刷新率
@@ -100,7 +112,9 @@ export default class FlutterNapi {
       Log.e(TAG, "attachToNative fail, FlutterNapi.hasInit=" + FlutterNapi.hasInit);
       return;
     }
-    this.nativeShellHolderId = flutter.nativeAttach(this);
+    if (this.nativeShellHolderId == null) {
+      this.nativeShellHolderId = flutter.nativeAttach(this);
+    }
     Log.w(TAG, "nativeShellHolderId=" + this.nativeShellHolderId);
   }
 
@@ -118,6 +132,9 @@ export default class FlutterNapi {
       "  pathToEntrypointFunction=" + pathToEntrypointFunction + "  entrypointArgs=" + JSON.stringify(entrypointArgs))
     flutter.nativeRunBundleAndSnapshotFromLibrary(this.nativeShellHolderId!, bundlePath, entrypointFunctionName,
       pathToEntrypointFunction, assetManager, entrypointArgs);
+    this.isRunningDart = true;
+    this.isDisplayingFlutterUi = false;
+    this.isPreloadedFlutterUi = false;
   };
 
   /**
@@ -249,11 +266,36 @@ export default class FlutterNapi {
 
   spawn(entrypointFunctionName: string, pathToEntrypointFunction: string, initialRoute: string,
     entrypointArgs: Array<string>): FlutterNapi {
-    let flutterNapi = new FlutterNapi()
+    if (this.nextSpawnNapi) {
+      let ret = this.nextSpawnNapi;
+      this.nextSpawnNapi = null;
+      return ret;
+    }
+    let flutterNapi = new FlutterNapi();
     let shellHolderId: number =
       flutter.nativeSpawn(this.nativeShellHolderId, entrypointFunctionName, pathToEntrypointFunction, initialRoute,
-        entrypointArgs, flutterNapi)
-    flutterNapi.nativeShellHolderId = shellHolderId
+        entrypointArgs, flutterNapi);
+    flutterNapi.nativeShellHolderId = shellHolderId;
+    flutterNapi.isRunningDart = this.isRunningDart;
+    flutterNapi.isDisplayingFlutterUi = false;
+    flutterNapi.isPreloadedFlutterUi = false;
+    return flutterNapi;
+  }
+
+  preSpawn(entrypointFunctionName: string, pathToEntrypointFunction: string, initialRoute: string,
+    entrypointArgs: Array<string>): FlutterNapi {
+    if (this.nextSpawnNapi) {
+      this.nextSpawnNapi.detachFromNativeAndReleaseResources();
+    }
+    let flutterNapi = new FlutterNapi();
+    let shellHolderId: number =
+      flutter.nativeSpawn(this.nativeShellHolderId, entrypointFunctionName, pathToEntrypointFunction, initialRoute,
+        entrypointArgs, flutterNapi);
+    flutterNapi.nativeShellHolderId = shellHolderId;
+    flutterNapi.isRunningDart = this.isRunningDart;
+    flutterNapi.isDisplayingFlutterUi = false;
+    flutterNapi.isPreloadedFlutterUi = false;
+    this.nextSpawnNapi = flutterNapi;
     return flutterNapi;
   }
 
@@ -267,7 +309,7 @@ export default class FlutterNapi {
 
   //Called by native to respond to a platform message that we sent.
   handlePlatformMessageResponse(replyId: number, reply: ArrayBuffer): void {
-    Log.w(TAG, "called handlePlatformMessageResponse Response ID: " + replyId);
+    Log.d(TAG, "called handlePlatformMessageResponse Response ID: " + replyId);
     if (this.platformMessageHandler != null) {
       this.platformMessageHandler.handlePlatformMessageResponse(replyId, reply);
     }
@@ -275,18 +317,52 @@ export default class FlutterNapi {
 
   // Called by native on any thread.
   handlePlatformMessage(channel: string, message: ArrayBuffer, replyId: number, messageData: number): void {
-    Log.w(TAG, "called handlePlatformMessage Channel: " + channel + ". Response ID: " + replyId);
-    if (this.platformMessageHandler != null) {
+    Log.d(TAG, "called handlePlatformMessage Channel: " + channel + ". Response ID: " + replyId);
+    if (this.platformMessageHandler != null && this.readyForHandleMessage) {
       this.platformMessageHandler.handleMessageFromDart(channel, message, replyId, messageData);
+    } else {
+      const pendingMessage: PendingMessage = {
+        channel,
+        message,
+        replyId,
+        messageData
+      };
+      this.pendingMessages.push(pendingMessage);
+    }
+  }
+
+  processPendingMessages(): void {
+    Log.d(TAG, "processPendingMessages len:" + this.pendingMessages.length);
+    this.readyForHandleMessage = true;
+    while (this.pendingMessages.length > 0 && this.platformMessageHandler) {
+      const pendingMessage = this.pendingMessages.shift();
+      if (pendingMessage) {
+        this.platformMessageHandler.handleMessageFromDart(
+          pendingMessage.channel,
+          pendingMessage.message,
+          pendingMessage.replyId,
+          pendingMessage.messageData
+        );
+      }
     }
   }
 
   // Called by native to notify first Flutter frame rendered.
-  onFirstFrame(): void {
-    this.isDisplayingFlutterUi = true;
-    Log.d(TAG, "called onFirstFrame")
+  onFirstFrame(isPreload: number): void {
+    Log.d(TAG, "called onFirstFrame isPreload:" + isPreload);
+    if (isPreload) {
+      this.isPreloadedFlutterUi = true;
+    } else {
+      this.processPendingMessages();
+      if (this.isDisplayingFlutterUi) {
+        return;
+      }
+      this.isDisplayingFlutterUi = true;
+    }
     FlutterManager.getInstance().getFlutterViewList().forEach((value) => {
-      value.onFirstFrame();
+      if (this.nativeShellHolderId != null && value.isSameEngineShellHolderId(this.nativeShellHolderId)) {
+        value.onFirstFrame(isPreload);
+      }
     });
   }
 
@@ -408,6 +484,14 @@ export default class FlutterNapi {
   }
 
   /**
+   * xcomponet预渲染
+   * @param xcomponentId
+   */
+  xComponentPreDraw(xcomponentId: string, width: number, height: number) {
+    flutter.nativeXComponentPreDraw(xcomponentId, this.nativeShellHolderId!, width, height);
+  }
+
+  /**
    * xcomponet解除绑定flutterEngine
    * @param xcomponentId
    */
@@ -417,6 +501,11 @@ export default class FlutterNapi {
 
   detachFromNativeAndReleaseResources() {
     flutter.nativeDestroy(this.nativeShellHolderId!!);
+    this.nativeShellHolderId = null;
+    this.isRunningDart = false;
+    this.isDisplayingFlutterUi = false;
+    this.isPreloadedFlutterUi = false;
+    this.readyForHandleMessage = false;
   }
 
   unregisterTexture(textureId: number): void {

@@ -68,7 +68,8 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceVulkanImpeller::AcquireFrame(
   SurfaceFrame::SubmitCallback submit_callback =
       fml::MakeCopyable([renderer = impeller_renderer_,  //
                          aiks_context = aiks_context_,   //
-                         surface = std::move(surface)    //
+                         surface = std::move(surface),   //
+                         delegate = delegate_            //
   ](SurfaceFrame& surface_frame, DlCanvas* canvas) mutable -> bool {
         if (!aiks_context) {
           return false;
@@ -78,6 +79,16 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceVulkanImpeller::AcquireFrame(
         if (!display_list) {
           FML_LOG(ERROR) << "Could not build display list for surface frame.";
           return false;
+        }
+
+        if (delegate) {
+          VulkanPresentInfo present_info = {
+              .frame_damage = surface_frame.submit_info().frame_damage,
+              .presentation_time =
+                  surface_frame.submit_info().presentation_time,
+              .buffer_damage = surface_frame.submit_info().buffer_damage,
+          };
+          delegate->SetPresentInfo(present_info);
         }
 
         auto cull_rect =

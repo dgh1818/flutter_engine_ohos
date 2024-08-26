@@ -55,6 +55,8 @@ export default class FlutterEntry implements Host {
       this.flutterView = this.delegate?.createView(this.context);
       this.flutterView?.onWindowCreated();
       await this?.delegate?.onAttach(this.context);
+      //this.flutterView?.preDraw();
+      //Log.d(TAG, "XComponent aboutToAppear predraw");
       Log.i(TAG, 'onAttach end');
       this?.delegate?.platformPlugin?.setUIAbilityContext(this.uiAbility!!.context);
       this.delegate?.onCreate();

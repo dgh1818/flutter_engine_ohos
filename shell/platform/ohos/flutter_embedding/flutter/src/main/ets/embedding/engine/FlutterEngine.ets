@@ -130,6 +130,8 @@ export default class FlutterEngine implements EngineLifecycleListener {
     if (!this.flutterNapi.isAttached()) {
       this.attachToNapi();
     }
+    this.flutterNapi.setLocalizationPlugin(this.localizationPlugin);
+
     this.pluginRegistry =
       new FlutterEngineConnectionRegistry(context.getApplicationContext(), this, this.flutterLoader);
     this.localizationPlugin.sendLocaleToFlutter();
@@ -142,7 +144,6 @@ export default class FlutterEngine implements EngineLifecycleListener {
     if (!this.isAttachedToNapi()) {
       throw new Error("FlutterEngine failed to attach to its native Object reference.");
     }
-    this.flutterNapi.setLocalizationPlugin(this.localizationPlugin);
   }
 
   async spawn(context: common.Context,
@@ -174,6 +175,12 @@ export default class FlutterEngine implements EngineLifecycleListener {
 
   private isAttachedToNapi(): boolean {
     return this.flutterNapi.isAttached();
+  }
+
+  processPendingMessages() {
+    if (this.flutterNapi.isAttached()) {
+      this.flutterNapi.processPendingMessages();
+    }
   }
 
   getLifecycleChannel(): LifecycleChannel | null {

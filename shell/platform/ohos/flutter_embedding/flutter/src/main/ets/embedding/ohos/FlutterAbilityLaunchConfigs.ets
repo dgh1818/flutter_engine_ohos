@@ -30,6 +30,7 @@ export default class FlutterAbilityLaunchConfigs {
   static HANDLE_DEEPLINKING_META_DATA_KEY = "flutter_deeplinking_enabled";
   // Intent extra arguments.
   static EXTRA_DART_ENTRYPOINT = "dart_entrypoint";
+  static EXTRA_DART_ENTRYPOINT_LIBRARY_URI = "dart_entrypoint_library_uri";
   static EXTRA_INITIAL_ROUTE = "route";
   static EXTRA_BACKGROUND_MODE = "background_mode";
   static EXTRA_CACHED_ENGINE_ID = "cached_engine_id";
