@@ -285,7 +285,7 @@ export class FlutterView {
     let navigationAvoidArea =
       this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR);
     if (this.checkAiBar && navigationAvoidArea != null) {
-      this.viewportMetrics.physicalViewInsetBottom = navigationAvoidArea.bottomRect.height
+      this.viewportMetrics.physicalViewInsetBottom = Math.max(navigationAvoidArea.bottomRect.height, this.viewportMetrics.physicalViewInsetBottom)
     } else {
       this.viewportMetrics.physicalViewInsetBottom = 0
     }
