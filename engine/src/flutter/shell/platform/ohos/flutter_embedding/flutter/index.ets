@@ -20,6 +20,7 @@ export { default as FlutterEngine } from './src/main/ets/embedding/engine/Flutte
 export { default as FlutterEngineCache } from './src/main/ets/embedding/engine/FlutterEngineCache';
 export { default as FlutterEngineConnectionRegistry } from './src/main/ets/embedding/engine/FlutterEngineConnectionRegistry';
 export { default as FlutterEngineGroup } from './src/main/ets/embedding/engine/FlutterEngineGroup';
+export { default as FlutterEnginePreload } from './src/main/ets/embedding/engine/FlutterEnginePreload';
 export { default as FlutterEngineGroupCache } from './src/main/ets/embedding/engine/FlutterEngineGroupCache';
 export { default as FlutterNapi } from './src/main/ets/embedding/engine/FlutterNapi';
 export * from './src/main/ets/embedding/engine/FlutterOverlaySurface';

@@ -32,6 +32,7 @@ class XComponentBase {
   ~XComponentBase();
 
   void AttachFlutterEngine(std::string shellholderId);
+  void PreDraw(std::string shellholderId, int width, int height);
   void DetachFlutterEngine();
   void SetNativeXComponent(OH_NativeXComponent* nativeXComponent);
 
@@ -45,12 +46,13 @@ class XComponentBase {
   OH_NativeXComponent_Callback callback_;
   std::string id_;
   std::string shellholderId_;
-  bool isEngineAttached_;
-  bool isWindowAttached_;
-  OH_NativeXComponent* nativeXComponent_;
-  void* window_;
-  uint64_t width_;
-  uint64_t height_;
+  bool is_engine_attached_ = false;
+  bool is_surface_present_ = false;
+  bool is_surface_preloaded_ = false;
+  OH_NativeXComponent* nativeXComponent_ = nullptr;
+  void* window_ = nullptr;
+  uint64_t width_ = 0;
+  uint64_t height_ = 0;
   OhosTouchProcessor ohosTouchProcessor_;
 };
 
@@ -63,6 +65,10 @@ class XComponentAdapter {
   void SetNativeXComponent(std::string& id,
                            OH_NativeXComponent* nativeXComponent);
   void AttachFlutterEngine(std::string& id, std::string& shellholderId);
+  void PreDraw(std::string& id,
+               std::string& shellholderId,
+               int width,
+               int height);
   void DetachFlutterEngine(std::string& id);
 
  public:

@@ -29,10 +29,28 @@ OHOSExternalTexture::OHOSExternalTexture(int64_t id,
 
 OHOSExternalTexture::~OHOSExternalTexture() {
   if (native_image_source_) {
-    if (producer_nativewindow_buffer_ != nullptr) {
-      OH_NativeWindow_NativeWindowAbortBuffer(producer_nativewindow_,
-                                              producer_nativewindow_buffer_);
+    if (last_native_window_buffer_ != nullptr) {
+      int ret = OH_NativeImage_ReleaseNativeWindowBuffer(
+          native_image_source_, last_native_window_buffer_, last_fence_fd_);
+      if (ret != 0) {
+        FML_LOG(ERROR)
+            << "~OHOSExternalTexture ReleaseConsumerNativeBuffer(Get "
+               "Last) get err:"
+            << ret;
+      }
     }
+    if (producer_nativewindow_buffer_ != nullptr) {
+      int ret = OH_NativeWindow_NativeWindowAbortBuffer(
+          producer_nativewindow_, producer_nativewindow_buffer_);
+      if (ret != 0) {
+        FML_LOG(ERROR) << "external texture "
+                          "OH_NativeWindow_NativeWindowAbortBuffer destroy ret "
+                       << ret;
+      }
+      OH_NativeWindow_DestroyNativeWindow(producer_nativewindow_);
+    }
+    FML_LOG(INFO) << "OH_NativeImage_Destroy " << native_image_source_;
+
     // producer_nativewindow_ will be destroy and
     // UnsetOnFrameAvailableListener will be invoked in OH_NativeImage_Destroy.
     OH_NativeImage_Destroy(&native_image_source_);
@@ -101,6 +119,15 @@ void OHOSExternalTexture::MarkNewFrameAvailable() {
 
 void OHOSExternalTexture::OnTextureUnregistered() {
   FML_LOG(INFO) << " OHOSExternalTexture::OnTextureUnregistered";
+  // GPU resource must be release here (in raster thread).
+  // Otherwise, gpu memory will leak.
+  old_dl_image_.reset();
+  image_lru_.Clear();
+  if (last_fence_fd_ > 0) {
+    close(last_fence_fd_);
+    last_fence_fd_ = -1;
+  }
+  GPUResourceDestroy();
 }
 
 void OHOSExternalTexture::OnGrContextCreated() {
@@ -150,7 +177,7 @@ uint64_t OHOSExternalTexture::GetProducerSurfaceId() {
     FML_LOG(ERROR) << "Error with OH_NativeImage_GetSurfaceId " << ret;
     return 0;
   }
-  FML_LOG(ERROR) << "OH_NativeImage_GetSurfaceId " << producer_surface_id_;
+  FML_LOG(INFO) << "OH_NativeImage_GetSurfaceId " << producer_surface_id_;
   return producer_surface_id_;
 }
 
@@ -221,10 +248,10 @@ OHNativeWindowBuffer* OHOSExternalTexture::GetConsumerNativeBuffer(
       OHNativeWindowBuffer* nw_buffer = nullptr;
       int ret = OH_NativeImage_AcquireNativeWindowBuffer(native_image_source_,
                                                          &nw_buffer, fence_fd);
-      if (nw_buffer != nullptr || ret != 0) {
-        FML_LOG(ERROR) << "external_texture skip one frame: "
-                       << last_native_window_buffer_ << " fence_fd "
-                       << last_fence_fd_;
+      if (nw_buffer != nullptr && ret == 0) {
+        FML_LOG(INFO) << "external_texture skip one frame: "
+                      << last_native_window_buffer_ << " fence_fd "
+                      << last_fence_fd_;
         int ret = OH_NativeImage_ReleaseNativeWindowBuffer(
             native_image_source_, last_native_window_buffer_, last_fence_fd_);
         if (ret != 0) {

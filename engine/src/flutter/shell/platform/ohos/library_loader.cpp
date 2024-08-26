@@ -109,6 +109,9 @@ static napi_value Init(napi_env env, napi_value exports) {
           "nativeXComponentAttachFlutterEngine",
           flutter::PlatformViewOHOSNapi::nativeXComponentAttachFlutterEngine),
       DECLARE_NAPI_FUNCTION(
+          "nativeXComponentPreDraw",
+          flutter::PlatformViewOHOSNapi::nativeXComponentPreDraw),
+      DECLARE_NAPI_FUNCTION(
           "nativeXComponentDetachFlutterEngine",
           flutter::PlatformViewOHOSNapi::nativeXComponentDetachFlutterEngine),
       DECLARE_NAPI_FUNCTION(

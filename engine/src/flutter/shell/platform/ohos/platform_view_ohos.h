@@ -67,6 +67,10 @@ class PlatformViewOHOS final : public PlatformView {
 
   void NotifyCreate(fml::RefPtr<OHOSNativeWindow> native_window);
 
+  void Preload(int width, int height);
+
+  void NotifySurfaceWindowChanged(fml::RefPtr<OHOSNativeWindow> native_window);
+
   void NotifyChanged(const SkISize& size);
 
   // |PlatformView|
@@ -125,6 +129,8 @@ class PlatformViewOHOS final : public PlatformView {
   std::shared_ptr<OhosSurfaceFactoryImpl> surface_factory_;
   std::map<int64_t, std::shared_ptr<OHOSExternalTexture>> all_external_texture_;
 
+  bool window_is_preload_ = false;
+
   // |PlatformView|
   void UpdateSemantics(
       flutter::SemanticsNodeUpdates update,
@@ -166,9 +172,9 @@ class PlatformViewOHOS final : public PlatformView {
   // |PlatformView|
   void RequestDartDeferredLibrary(intptr_t loading_unit_id) override;
 
-  void InstallFirstFrameCallback();
+  void InstallFirstFrameCallback(bool is_preload = false);
 
-  void FireFirstFrameCallback();
+  void FireFirstFrameCallback(bool is_preload = false);
 
   FML_DISALLOW_COPY_AND_ASSIGN(PlatformViewOHOS);
 

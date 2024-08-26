@@ -34,7 +34,6 @@ constexpr char kEmulatorRendererPrefix[] = "Mali-G78";
 OhosSurfaceGLSkia::OhosSurfaceGLSkia(
     const std::shared_ptr<OHOSContext>& ohos_context)
     : OHOSSurface(ohos_context),
-      native_window_(nullptr),
       onscreen_surface_(nullptr),
       offscreen_surface_(nullptr) {
   // Acquire the offscreen surface.
@@ -88,21 +87,13 @@ bool OhosSurfaceGLSkia::OnScreenSurfaceResize(const SkISize& size) {
 
   FML_LOG(INFO) << "OnScreenSurfaceResize update window size:" << size.width()
                 << "*" << size.height();
-  if (size == onscreen_surface_->GetSize()) {
+  if (onscreen_surface_ && onscreen_surface_->IsValid() &&
+      size == onscreen_surface_->GetSize()) {
     return true;
   }
 
-  GLContextPtr()->ClearCurrent();
-
-  // Ensure the destructor is called since it destroys the `EGLSurface` before
-  // creating a new onscreen surface.
-  onscreen_surface_ = nullptr;
-  onscreen_surface_ = GLContextPtr()->CreateOnscreenSurface(native_window_);
-  if (!onscreen_surface_->IsValid()) {
-    FML_LOG(ERROR) << "Unable to create EGL window surface on resize.";
-    return false;
-  }
-  onscreen_surface_->MakeCurrent();
+  // In EGL we need create the surface again.
+  SetNativeWindow(native_window_);
   return true;
 }
 
@@ -122,7 +113,19 @@ bool OhosSurfaceGLSkia::ResourceContextClearCurrent() {
 
 bool OhosSurfaceGLSkia::SetNativeWindow(fml::RefPtr<OHOSNativeWindow> window) {
   FML_DCHECK(IsValid());
-  FML_DCHECK(window);
+  if (!window) {
+    GLContextClearCurrent();
+    native_window_ = nullptr;
+    onscreen_surface_ = nullptr;
+    return false;
+  }
+
+  bool need_current = false;
+  if (onscreen_surface_ && onscreen_surface_->IsValid() &&
+      onscreen_surface_->IsContextCurrent()) {
+    GLContextClearCurrent();
+    need_current = true;
+  }
   native_window_ = window;
   // Ensure the destructor is called since it destroys the `EGLSurface` before
   // creating a new onscreen surface.
@@ -133,8 +136,38 @@ bool OhosSurfaceGLSkia::SetNativeWindow(fml::RefPtr<OHOSNativeWindow> window) {
   if (!onscreen_surface_->IsValid()) {
     return false;
   }
+  if (need_current) {
+    GLContextMakeCurrent();
+  }
   return true;
 }
+
+bool OhosSurfaceGLSkia::PaintOffscreenData(OHNativeWindowBuffer* buffer,
+                                           int fence_fd) {
+  if (!native_window_ || !native_window_->IsValid() || buffer == nullptr) {
+    return false;
+  }
+  OHNativeWindow* onscreen_nativewindow = native_window_->Gethandle();
+  int ret =
+      OH_NativeWindow_NativeWindowAttachBuffer(onscreen_nativewindow, buffer);
+  if (ret != 0) {
+    FML_LOG(ERROR) << "ohos_surface cannot attach onscreen nativewindow "
+                      "buffer to window: ret error:"
+                   << ret;
+    return false;
+  }
+
+  ret = OH_NativeWindow_NativeWindowFlushBuffer(onscreen_nativewindow, buffer,
+                                                fence_fd, {});
+  if (ret != 0) {
+    FML_LOG(INFO) << "ohos_surface flush last nativewindow buffer result: "
+                  << ret;
+  }
+  FML_LOG(INFO) << "PaintOffscreenData " << buffer;
+
+  OH_NativeWindow_DestroyNativeWindowBuffer(buffer);
+  return true;
+};
 
 std::unique_ptr<GLContextResult> OhosSurfaceGLSkia::GLContextMakeCurrent() {
   FML_DCHECK(IsValid());
@@ -176,8 +209,14 @@ void OhosSurfaceGLSkia::GLContextSetDamageRegion(
 bool OhosSurfaceGLSkia::GLContextPresent(const GLPresentInfo& present_info) {
   FML_DCHECK(IsValid());
   FML_DCHECK(onscreen_surface_);
-  if (present_info.presentation_time) {
+  if (native_window_ && native_window_->IsValid() &&
+      present_info.presentation_time) {
     onscreen_surface_->SetPresentationTime(*present_info.presentation_time);
+    uint64_t present_time =
+        present_info.presentation_time->ToEpochDelta().ToNanoseconds();
+    OH_NativeWindow_NativeWindowHandleOpt(
+        (OHNativeWindow*)native_window_->Gethandle(), SET_UI_TIMESTAMP,
+        present_time);
   }
   return onscreen_surface_->SwapBuffers(present_info.frame_damage);
 }

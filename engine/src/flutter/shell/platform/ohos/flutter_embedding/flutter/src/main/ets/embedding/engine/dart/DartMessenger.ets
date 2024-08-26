@@ -99,8 +99,8 @@ export class DartMessenger implements BinaryMessenger, PlatformMessageHandler {
         this.flutterNapi.dispatchPlatformMessage(channel, message, message.byteLength, replyId);
       }
     } finally {
-      TraceSection.end("DartMessenger#send on " + channel);
     }
+    TraceSection.end("DartMessenger#send on " + channel);
   }
 
   dispatchMessageToQueue(handlerInfo: HandlerInfo, message: ArrayBuffer, replyId: number): void {

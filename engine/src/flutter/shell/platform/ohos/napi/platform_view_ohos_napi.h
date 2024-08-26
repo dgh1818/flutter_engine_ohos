@@ -54,7 +54,7 @@ class PlatformViewOHOSNapi {
       int reponse_id,
       std::unique_ptr<flutter::PlatformMessage> message);
 
-  void FlutterViewOnFirstFrame();
+  void FlutterViewOnFirstFrame(bool is_preload = false);
   void FlutterViewOnPreEngineRestart();
   flutter::locale resolveNativeLocale(
       std::vector<flutter::locale> supportedLocales);
@@ -65,7 +65,8 @@ class PlatformViewOHOSNapi {
                    void* inputData,
                    size_t dataSize);
 
-  void FlutterViewOnTouchEvent(std::shared_ptr<std::string[]> touchPacketString, int size);
+  void FlutterViewOnTouchEvent(std::shared_ptr<std::string[]> touchPacketString,
+                               int size);
 
   static napi_value nativeUpdateRefreshRate(
       napi_env env,
@@ -158,9 +159,9 @@ class PlatformViewOHOSNapi {
   // Surface相关，XComponent调用
   static void SurfaceCreated(int64_t shell_holder, void* window);
 
-  static void SurfaceChanged(int64_t shell_holder,
-                             int32_t width,
-                             int32_t height);
+  static void SurfacePreload(int64_t shell_holder, int width, int height);
+
+  static void SurfaceChanged(int64_t shell_holder, void* window);
 
   static void SurfaceDestroyed(int64_t shell_holder);
   static int64_t GetShellHolder();
@@ -170,6 +171,8 @@ class PlatformViewOHOSNapi {
   static napi_value nativeXComponentDetachFlutterEngine(
       napi_env env,
       napi_callback_info info);
+  static napi_value nativeXComponentPreDraw(napi_env env,
+                                            napi_callback_info info);
 
   static int64_t display_width;
   static int64_t display_height;

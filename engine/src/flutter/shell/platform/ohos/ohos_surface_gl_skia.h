@@ -86,8 +86,9 @@ class OhosSurfaceGLSkia final : public GPUSurfaceGLDelegate,
   // delete the returned pointer.
   OhosEGLSurface* GetOnscreenSurface() const { return onscreen_surface_.get(); }
 
+  bool PaintOffscreenData(OHNativeWindowBuffer* buffer, int fence_fd) override;
+
  private:
-  fml::RefPtr<OHOSNativeWindow> native_window_;
   std::unique_ptr<OhosEGLSurface> onscreen_surface_;
   std::unique_ptr<OhosEGLSurface> offscreen_surface_;
 
