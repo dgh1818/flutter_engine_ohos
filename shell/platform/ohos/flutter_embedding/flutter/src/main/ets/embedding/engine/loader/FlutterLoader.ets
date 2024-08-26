@@ -248,7 +248,7 @@ export default class FlutterLoader {
 
     shellArgs.push("--leak-vm=" + true);
 
-    //shellArgs.push("--enable-impeller");
+    shellArgs.push("--enable-impeller");
 
     // //最终初始化操作
     const costTime = Date.now() - this.initStartTimestampMillis;

@@ -444,7 +444,9 @@ void PlatformViewOHOSNapi::DecodeImage(int64_t imageGeneratorAddress,
       }));
 }
 
-void PlatformViewOHOSNapi::FlutterViewOnTouchEvent(std::shared_ptr<std::string[]> touchPacketString, int size) {
+void PlatformViewOHOSNapi::FlutterViewOnTouchEvent(
+    std::shared_ptr<std::string[]> touchPacketString,
+    int size) {
   if (touchPacketString == nullptr) {
     FML_LOG(ERROR) << "Input parameter error";
     return;
@@ -454,11 +456,13 @@ void PlatformViewOHOSNapi::FlutterViewOnTouchEvent(std::shared_ptr<std::string[]
 
   for (int i = 0; i < size; ++i) {
     napi_value stringItem;
-    napi_create_string_utf8(env_, touchPacketString[i].c_str(), -1, &stringItem);
+    napi_create_string_utf8(env_, touchPacketString[i].c_str(), -1,
+                            &stringItem);
     napi_set_element(env_, arrayString, i, stringItem);
   }
 
-  napi_status status = fml::napi::InvokeJsMethod(env_, ref_napi_obj_, "onTouchEvent", 1, &arrayString);
+  napi_status status = fml::napi::InvokeJsMethod(
+      env_, ref_napi_obj_, "onTouchEvent", 1, &arrayString);
   if (status != napi_ok) {
     FML_LOG(ERROR) << "InvokeJsMethod onTouchEvent fail";
   }
@@ -642,7 +646,8 @@ napi_value PlatformViewOHOSNapi::nativeSpawn(napi_env env,
   LOGD(" libraryUrl: %{public}s", libraryUrl.c_str());
 
   std::string initial_route;
-  if (fml::napi::kSuccess != fml::napi::GetString(env, args[3], initial_route)) {
+  if (fml::napi::kSuccess !=
+      fml::napi::GetString(env, args[3], initial_route)) {
     LOGE(" napi_get_value_string_utf8 error");
     return nullptr;
   }
@@ -1087,7 +1092,7 @@ napi_value PlatformViewOHOSNapi::nativeUpdateSize(napi_env env,
     return nullptr;
   }
 
-  ret = napi_get_value_int64(env, args[0], &height);
+  ret = napi_get_value_int64(env, args[1], &height);
   if (ret != napi_ok) {
     LOGE("nativeUpdateSize napi_get_value_int64 error");
     return nullptr;

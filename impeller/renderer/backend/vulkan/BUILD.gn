@@ -132,6 +132,17 @@ impeller_component("vulkan") {
     ]
   }
 
+  if (is_ohos) {
+    sources += [
+      "ohos/ohb_texture_source_vk.cc",
+      "ohos/ohb_texture_source_vk.h",
+    ]
+    libs = [
+      "native_window",
+      "native_buffer",
+    ]
+  }
+
   public_deps = [
     "../../:renderer",
     "../../../shader_archive",

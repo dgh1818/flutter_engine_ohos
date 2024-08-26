@@ -63,7 +63,7 @@ static std::shared_ptr<impeller::Context> CreateImpellerContext(
     if (context && impeller::CapabilitiesVK::Cast(*context->GetCapabilities())
                        .AreValidationsEnabled()) {
       FML_LOG(INFO) << "Using the Impeller rendering backend (Vulkan with "
-                            "Validation Layers).";
+                       "Validation Layers).";
     } else {
       FML_LOG(INFO) << "Using the Impeller rendering backend (Vulkan).";
     }
@@ -75,8 +75,8 @@ static std::shared_ptr<impeller::Context> CreateImpellerContext(
 OHOSContextVulkanImpeller::OHOSContextVulkanImpeller(bool enable_validation,
                                                      bool enable_gpu_tracing,
                                                      bool quiet)
-    : OHOSContext(OHOSRenderingAPI::kImpellerVulkan),
-      vulkan_dylib_(fml::NativeLibrary::Create("libvulkan.so")) {
+    : OHOSContext(OHOSRenderingAPI::kImpellerVulkan) {
+  vulkan_dylib_ = fml::NativeLibrary::Create("libvulkan.so");
   auto impeller_context = CreateImpellerContext(
       vulkan_dylib_, enable_validation, enable_gpu_tracing, quiet);
   SetImpellerContext(impeller_context);

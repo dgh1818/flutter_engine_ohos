@@ -23,7 +23,6 @@ class OHOSContextVulkanImpeller : public OHOSContext {
   bool IsValid() const override;
 
  private:
-  fml::RefPtr<fml::NativeLibrary> vulkan_dylib_;
   bool is_valid_ = false;
 
   FML_DISALLOW_COPY_AND_ASSIGN(OHOSContextVulkanImpeller);
