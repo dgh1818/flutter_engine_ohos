@@ -205,14 +205,16 @@ export default class KeyEmbedderResponder implements Responder {
 
     for (let goalIdx = 0; goalIdx < KeyboardMap.modifierGoals.length; goalIdx += 1) {
       let goal: ModifierGoal = KeyboardMap.modifierGoals[goalIdx];
-      this.synchronizeModifierKey(
-        goal,
-        false, // Should use "event.getModifierKeyState[goal.name]", which is not available now.
-        logicalKey,
-        physicalKey,
-        event,
-        postSyncEvents
-      );
+      if (event.getModifierKeyState != undefined) {
+        this.synchronizeModifierKey(
+          goal,
+          event.getModifierKeyState([goal.name]),
+          logicalKey,
+          physicalKey,
+          event,
+          postSyncEvents
+        );
+      }
     }
 
     let isDownEvent: boolean;
