@@ -32,6 +32,9 @@
 #include "flutter/shell/platform/ohos/surface/ohos_native_window.h"
 #include "flutter/shell/platform/ohos/types.h"
 #include "unicode/uchar.h"
+#include "flutter/shell/platform/ohos/ohos_font_utils.h"
+#include "third_party/skia/src/ports/skia_ohos/SkFontMgr_ohos.h"
+#include "txt/platform.h"
 
 #define OHOS_SHELL_HOLDER (reinterpret_cast<OHOSShellHolder*>(shell_holder))
 namespace flutter {
@@ -1140,8 +1143,14 @@ napi_value PlatformViewOHOSNapi::nativePrefetchDefaultFontManager(
     napi_env env,
     napi_callback_info info) {
   LOGD("PlatformViewOHOSNapi::nativePrefetchDefaultFontManager");
+  SkFontMgr_OHOS* mgr = (SkFontMgr_OHOS*)(txt::GetDefaultFontManager().get());
 
-  SkFontMgr::RefEmpty();
+  std::string path = flutter::OHOSCheckFontSource();
+  if (path.empty()) {
+    LOGE("system font file not found");
+    return nullptr;
+  }
+  mgr->AddSystemFont(path);
   return nullptr;
 }
 
