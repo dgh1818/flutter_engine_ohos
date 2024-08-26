@@ -64,6 +64,7 @@ export default class FlutterEntry implements Host {
       this.delegate?.onWindowStageCreate()
       this.windowStage?.on('windowStageEvent', this.windowStageEventCallback);
       this.hasInit = true;
+      this.delegate?.initWindow();
     }
   }
 
