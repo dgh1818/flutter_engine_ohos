@@ -12,39 +12,57 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "flutter/shell/platform/ohos/accessibility/ohos_accessibility_features.h"
+#include "ohos_accessibility_features.h"
 #include "flutter/fml/logging.h"
 #include "flutter/shell/platform/ohos/ohos_shell_holder.h"
 
 namespace flutter {
 
-OhosAccessibilityFeatures OhosAccessibilityFeatures::instance;
+OhosAccessibilityFeatures::OhosAccessibilityFeatures()
+{
+    nativeAccessibilityChannel_ = std::make_shared<NativeAccessibilityChannel>();
+};
 
-OhosAccessibilityFeatures::OhosAccessibilityFeatures(){};
-OhosAccessibilityFeatures::~OhosAccessibilityFeatures(){};
+OhosAccessibilityFeatures::~OhosAccessibilityFeatures() {};
 
-OhosAccessibilityFeatures* OhosAccessibilityFeatures::GetInstance() {
-  return &OhosAccessibilityFeatures::instance;
+/**
+ * 无障碍特征之无障碍导航
+ */
+void OhosAccessibilityFeatures::SetAccessibleNavigation(
+    bool isAccessibleNavigation,
+    int64_t shell_holder_id)
+{
+  if (ACCESSIBLE_NAVIGATION == isAccessibleNavigation) {
+    return;
+  }
+  ACCESSIBLE_NAVIGATION = isAccessibleNavigation;
+  if (ACCESSIBLE_NAVIGATION) {
+    accessibilityFeatureFlags |=
+        static_cast<int32_t>(AccessibilityFeatures::AccessibleNavigation);
+    FML_DLOG(INFO) << "SetAccessibleNavigation -> accessibilityFeatureFlags: "
+                   << accessibilityFeatureFlags;
+  } else {
+    accessibilityFeatureFlags &=
+        ~static_cast<int32_t>(AccessibilityFeatures::AccessibleNavigation);
+  }
+  SendAccessibilityFlags(shell_holder_id);
 }
 
 /**
- * bold text for AccessibilityFeature
+ * 无障碍特征之字体加粗
  */
 void OhosAccessibilityFeatures::SetBoldText(double fontWeightScale,
                                             int64_t shell_holder_id) {
   bool shouldBold = fontWeightScale > 1.0;
-
   if (shouldBold) {
     accessibilityFeatureFlags |=
-        static_cast<int32_t>(flutter::AccessibilityFeatureFlag::kBoldText);
+        static_cast<int32_t>(AccessibilityFeatures::BoldText);
     FML_DLOG(INFO) << "SetBoldText -> accessibilityFeatureFlags: "
                    << accessibilityFeatureFlags;
-
   } else {
     accessibilityFeatureFlags &=
-        static_cast<int32_t>(flutter::AccessibilityFeatureFlag::kBoldText);
+        static_cast<int32_t>(AccessibilityFeatures::BoldText);
   }
-
   SendAccessibilityFlags(shell_holder_id);
 }
 
@@ -53,12 +71,10 @@ void OhosAccessibilityFeatures::SetBoldText(double fontWeightScale,
  */
 void OhosAccessibilityFeatures::SendAccessibilityFlags(
     int64_t shell_holder_id) {
-  auto ohos_shell_holder = reinterpret_cast<OHOSShellHolder*>(shell_holder_id);
-  ohos_shell_holder->GetPlatformView()->SetAccessibilityFeatures(
-      accessibilityFeatureFlags);
+  nativeAccessibilityChannel_->SetAccessibilityFeatures(shell_holder_id, accessibilityFeatureFlags);
   FML_DLOG(INFO) << "SendAccessibilityFlags -> accessibilityFeatureFlags = "
                  << accessibilityFeatureFlags;
-  // set accessibility feature flag to 0
   accessibilityFeatureFlags = 0;
 }
+
 }  // namespace flutter

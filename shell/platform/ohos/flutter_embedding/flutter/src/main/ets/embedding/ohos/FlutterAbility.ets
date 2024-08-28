@@ -37,6 +37,7 @@ import FlutterManager from './FlutterManager';
 import { FlutterView } from '../../view/FlutterView';
 import ApplicationInfoLoader from '../engine/loader/ApplicationInfoLoader';
 import { AccessibilityManager } from '../../view/AccessibilityBridge';
+import { accessibility } from '@kit.AccessibilityKit';
 
 const TAG = "FlutterAbility";
 
@@ -71,6 +72,7 @@ export class FlutterAbility extends UIAbility implements Host {
   async onCreate(want: Want, launchParam: AbilityConstant.LaunchParam) {
     // 冷启动通过上下文环境获取到系统当前文字大小，并进行键值存储
     AppStorage.setOrCreate('fontSizeScale', this.context.config.fontSizeScale);
+    Log.i(TAG, "this.context.config.fontSizeScale = " + this.context.config.fontSizeScale);
 
     Log.i(TAG, "bundleCodeDir=" + this.context.bundleCodeDir);
     FlutterManager.getInstance().pushUIAbility(this)
@@ -101,6 +103,13 @@ export class FlutterAbility extends UIAbility implements Host {
     if (flutterApplicationInfo.isDebugMode) {
       this.delegate?.initWindow();
     }
+
+    //冷启动对os是否开启无障碍服务进行查询
+    let accessibilityState: boolean = accessibility.isOpenAccessibilitySync();
+    if(accessibilityState) {
+      this.delegate?.getFlutterNapi()?.accessibilityStateChange(accessibilityState);
+    }
+    Log.i(TAG, `accessibility isOpen state -> ${JSON.stringify(accessibilityState)}`);
   }
 
   onDestroy() {

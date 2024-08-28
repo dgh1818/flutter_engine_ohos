@@ -74,6 +74,7 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
   private textureRegistry: TextureRegistry | null = null;
   private textInputPlugin: TextInputPlugin | null = null;
   private platformViewsChannel: PlatformViewsChannel | null = null;
+  private accessibilityEventsDelegate: AccessibilityEventsDelegate;
   private nextOverlayLayerId: number = 0;
   private platformViews: Map<number, PlatformView>;
   private viewIdWithTextureId: Map<number, number>;
@@ -86,6 +87,7 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
 
   constructor() {
     this.registry = new PlatformViewRegistryImpl();
+    this.accessibilityEventsDelegate = new AccessibilityEventsDelegate();
     this.overlayLayerViews = new Map<number, PlatformOverlayView>();
     this.currentFrameUsedOverlayLayerIds = new HashSet();
     this.currentFrameUsedPlatformViewIds = new HashSet();
@@ -105,11 +107,11 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
   }
 
   attachAccessibilityBridge(accessibilityBridge: AccessibilityBridge): void {
-    throw new Error('Method not implemented.');
+    this.accessibilityEventsDelegate.setAccessibilityBridge(accessibilityBridge);
   }
 
   detachAccessibilityBridge(): void {
-    throw new Error('Method not implemented.');
+    this.accessibilityEventsDelegate.setAccessibilityBridge(null);
   }
 
   createForPlatformViewLayer(request: PlatformViewCreationRequest): void {
