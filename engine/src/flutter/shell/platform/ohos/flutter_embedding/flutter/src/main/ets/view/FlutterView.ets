@@ -27,6 +27,7 @@ import hiTraceMeter from '@ohos.hiTraceMeter'
 import { JSON } from '@kit.ArkTS';
 import TextInputPlugin from '../plugin/editing/TextInputPlugin';
 import { BusinessError } from '@kit.BasicServicesKit';
+import { accessibility } from '@kit.AccessibilityKit';
 
 const TAG = "FlutterViewTag";
 
@@ -144,6 +145,9 @@ export class FlutterView {
     this.mainWindow?.on('windowStatusChange', this.windowStatusChangeCallback);
     this.mainWindow?.on('keyboardHeightChange', this.keyboardHeightChangeCallback);
     this.mainWindow?.on('windowRectChange', this.windowRectChangeCallback);
+    //监听系统无障碍服务状态改变
+    accessibility.on('accessibilityStateChange', this.accessibilityStateChangeCallback);
+
     this.systemAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
     this.navigationAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR);
     this.gestureAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM_GESTURE);
@@ -155,6 +159,7 @@ export class FlutterView {
     } catch (e) {
       Log.e(TAG, "displayInfo error" + JSON.stringify(e));
     }
+
   }
 
   private avoidAreaChangeCallback = (data: window.AvoidAreaOptions) => {
@@ -216,6 +221,11 @@ export class FlutterView {
     Log.i(TAG, "windowRectChangeCallback " + data);
     this.windowPosition = data.rect as window.Rect;
     this.flutterEngine?.getTextInputChannel()?.setWindowPosition(this.windowPosition);
+  }
+
+  private accessibilityStateChangeCallback = (data: boolean) => {
+    Log.i(TAG, `subscribe accessibility state change, result: ${JSON.stringify(data)}`);
+    this.flutterEngine?.getFlutterNapi()?.accessibilityStateChange(data);
   }
 
   private async getDisplayFeature(): Promise<Array<DisplayFeature>> {
@@ -315,6 +325,7 @@ export class FlutterView {
       this.mainWindow?.off('windowStatusChange', this.windowStatusChangeCallback);
       this.mainWindow?.off('keyboardHeightChange', this.keyboardHeightChangeCallback);
       this.mainWindow?.off('windowRectChange', this.windowRectChangeCallback);
+      accessibility.off('accessibilityStateChange', this.accessibilityStateChangeCallback);
     } catch (e) {
       Log.e(TAG, "mainWindow off error: " + JSON.stringify(e));
     }

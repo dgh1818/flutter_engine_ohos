@@ -24,6 +24,7 @@
 #include "flutter/shell/platform/ohos/ohos_surface_gl_skia.h"
 #include "flutter/shell/platform/ohos/ohos_surface_software.h"
 #include "flutter/shell/platform/ohos/platform_message_response_ohos.h"
+#include "flutter/shell/platform/ohos/platform_view_ohos_delegate.h"
 #include "fml/trace_event.h"
 #include "napi_common.h"
 #include "ohos_context_gl_impeller.h"
@@ -34,6 +35,7 @@
 #include "shell/common/platform_view.h"
 #include "shell/platform/ohos/context/ohos_context.h"
 #include "shell/platform/ohos/ohos_surface_vulkan_impeller.h"
+#include <GLES2/gl2ext.h>
 
 namespace flutter {
 
@@ -309,7 +311,7 @@ void PlatformViewOHOS::DispatchPlatformMessage(std::string name,
                                                void* message,
                                                int messageLenth,
                                                int reponseId) {
-  FML_DLOG(INFO) << "DispatchSemanticsAction (" << name << ",," << messageLenth
+  FML_DLOG(INFO) << "DispatchPlatformMessage（" << name << "," << messageLenth
                  << "," << reponseId;
   fml::MallocMapping mapMessage =
       fml::MallocMapping::Copy(message, messageLenth);
@@ -340,7 +342,8 @@ void PlatformViewOHOS::DispatchSemanticsAction(int id,
                                                int action,
                                                void* actionData,
                                                int actionDataLenth) {
-  FML_DLOG(INFO) << "DispatchSemanticsAction (" << id << "," << action << ","
+  FML_DLOG(INFO) << "DispatchSemanticsAction -> id=" << id
+                 << ", action=" << action << ", actionDataLenth"
                  << actionDataLenth;
   auto args_vector = fml::MallocMapping::Copy(actionData, actionDataLenth);
 
@@ -377,11 +380,13 @@ void PlatformViewOHOS::UpdateAssetResolverByType(
   delegate_.UpdateAssetResolverByType(std::move(updated_asset_resolver), type);
 }
 
-// todo
+// ohos_accessbility_bridge
 void PlatformViewOHOS::UpdateSemantics(
     flutter::SemanticsNodeUpdates update,
     flutter::CustomAccessibilityActionUpdates actions) {
-  FML_DLOG(INFO) << "UpdateSemantics";
+  FML_DLOG(INFO) << "PlatformViewOHOS::UpdateSemantics is called";
+  auto nativeAccessibilityChannel_ = std::make_shared<NativeAccessibilityChannel>();
+  nativeAccessibilityChannel_->UpdateSemantics(update, actions);
 }
 
 // |PlatformView|

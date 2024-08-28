@@ -27,14 +27,18 @@
 #include "flutter/fml/memory/weak_ptr.h"
 #include "flutter/lib/ui/window/platform_message.h"
 #include "flutter/shell/common/platform_view.h"
+#include "flutter/shell/platform/ohos/accessibility/ohos_accessibility_bridge.h"
 #include "flutter/shell/platform/ohos/context/ohos_context.h"
 #include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
 #include "flutter/shell/platform/ohos/ohos_external_texture_gl.h"
 #include "flutter/shell/platform/ohos/platform_message_handler_ohos.h"
+#include "flutter/shell/platform/ohos/platform_view_ohos_delegate.h"
 #include "flutter/shell/platform/ohos/surface/ohos_native_window.h"
 #include "flutter/shell/platform/ohos/surface/ohos_snapshot_surface_producer.h"
 #include "flutter/shell/platform/ohos/surface/ohos_surface.h"
 #include "flutter/shell/platform/ohos/vsync_waiter_ohos.h"
+#include "flutter/shell/platform/ohos/platform_view_ohos_delegate.h"
+#include "flutter/shell/platform/ohos/accessibility/native_accessibility_channel.h"
 
 namespace flutter {
 
@@ -164,6 +168,9 @@ class PlatformViewOHOS final : public PlatformView {
  private:
   const std::shared_ptr<PlatformViewOHOSNapi> napi_facade_;
   std::shared_ptr<OHOSContext> ohos_context_;
+
+  std::shared_ptr<PlatformViewOHOSDelegate> platform_view_ohos_delegate_;
+  NativeAccessibilityChannel nativeAccessibilityChannel_;
 
   std::shared_ptr<OHOSSurface> ohos_surface_;
   std::shared_ptr<PlatformMessageHandlerOHOS> platform_message_handler_;
