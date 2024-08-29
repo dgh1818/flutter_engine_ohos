@@ -27,6 +27,7 @@ import bundleManager from '@ohos.bundle.bundleManager';
 import fs from '@ohos.file.fs';
 import { BusinessError } from '@ohos.base';
 import data_preferences from '@ohos.data.preferences';
+import { util } from '@kit.ArkTS';
 
 const TAG = "FlutterLoader";
 
@@ -53,6 +54,20 @@ const FILE_SEPARATOR = "/";
 
 const TIMESTAMP_PREFIX = "res_timestamp-";
 
+const ENABLE_IMPELLER_TAG = "enable_impeller";
+
+const TRUE_STRING = "true";
+
+const BUILD_INFO_FILE_NAME = "buildinfo.json5";
+
+interface StringItem {
+  name: string;
+  value: string;
+}
+
+interface InfoData {
+  string: StringItem[];
+}
 
 async function prefetchDefaultFontManager(): Promise<void> {
   await new Promise<void>((resolve: Function) => {
@@ -72,9 +87,32 @@ export default class FlutterLoader {
   initialized: boolean = false;
   //初始化开始时间戳
   initStartTimestampMillis: number = 0;
+  isEnableImpeller: boolean = false;
 
   constructor(flutterNapi: FlutterNapi) {
     this.flutterNapi = flutterNapi;
+  }
+
+ private async getBuildInfo(context: common.Context): Promise<Map<string, string>> {
+    let buildInfoMap: Map<string, string> = new Map();
+    try {
+      let rawFile = await context.resourceManager.getRawFileContent(BUILD_INFO_FILE_NAME);
+        let textDecoder = util.TextDecoder.create('utf-8', {
+          ignoreBOM: true
+        });
+        let record = textDecoder.decodeWithStream(rawFile, {
+          stream: false
+        });
+        let jsonRecord: InfoData = JSON.parse(record);
+        jsonRecord.string.forEach((item: StringItem) => {
+          buildInfoMap.set(item.name, item.value);
+        });
+      return buildInfoMap;
+    } catch (error) {
+      Log.e(TAG, "can not find buildinfo.json5 file.")
+      return buildInfoMap;
+    }
+
   }
 
   /**
@@ -98,6 +136,12 @@ export default class FlutterLoader {
       await this.copyResource(context)
     } else {
       await this.copyICU(context)
+    }
+    let buildInfoMap = await this.getBuildInfo(this.context!); 
+    if (!buildInfoMap.has(ENABLE_IMPELLER_TAG) || buildInfoMap.get(ENABLE_IMPELLER_TAG) == TRUE_STRING) {
+        this.isEnableImpeller = true;
+    } else {
+      this.isEnableImpeller = false;
     }
     this.initResult = new InitResult(
       `${context.filesDir}/`,
@@ -247,8 +291,13 @@ export default class FlutterLoader {
     shellArgs.push("--prefetched-default-font-manager");
 
     shellArgs.push("--leak-vm=" + true);
-
-    shellArgs.push("--enable-impeller");
+ 
+    if (this.isEnableImpeller == true) {
+        shellArgs.push("--enable-impeller");
+        Log.d(TAG, "Enable Impeller in Ohos.");
+    } else {
+      Log.d(TAG, "Do not find enableImpeller tag or enableImpeller tag set to false, enable Skia in Ohos.");
+    }
 
     // //最终初始化操作
     const costTime = Date.now() - this.initStartTimestampMillis;
