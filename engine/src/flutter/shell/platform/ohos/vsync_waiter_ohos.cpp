@@ -44,8 +44,9 @@ void VsyncWaiterOHOS::AwaitVSync() {
   fml::TaskRunner::RunNowOrPostTask(
       task_runners_.GetUITaskRunner(), [weak_this, handle]() {
         int32_t ret = 0;
-        if (0 != (ret = OH_NativeVSync_RequestFrame(handle, &OnVsyncFromOHOS,
-                                                    weak_this))) {
+        if (0 != (ret = OH_NativeVSync_RequestFrameWithMultiCallback(handle,
+                                                                    &OnVsyncFromOHOS,
+                                                                    weak_this))) {
           FML_DLOG(ERROR) << "AwaitVSync...failed:" << ret;
         }
       });
