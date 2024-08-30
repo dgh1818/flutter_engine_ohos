@@ -181,6 +181,9 @@ template("embedder_source_set") {
     if (is_android) {
       deps += [ "//flutter/shell/platform/android:icudtl_asm" ]
       sources += [ "$root_build_dir/gen/flutter/shell/platform/android/flutter/third_party/icu/flutter/icudtl.dat.S" ]
+    } else if (is_ohos) {
+      deps += [ "//flutter/shell/platform/ohos:icudtl_asm" ]
+      sources += [ "$root_build_dir/gen/flutter/shell/platform/ohos/flutter/third_party/icu/flutter/icudtl.dat.S" ]
     }
 
     public_configs += [
