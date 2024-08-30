@@ -18,9 +18,9 @@
     },
     {
         "name": "dart4",
-        "target": "third_party/dart",
+        "target": "./src/third_party/dart",
         "type": "patch",
-        "file_path": "flutter/attachment/repos/dart.patch4"
+        "file_path": "../../flutter/attachment/repos/dart.patch4"
     },
     {
         "name": "skia",

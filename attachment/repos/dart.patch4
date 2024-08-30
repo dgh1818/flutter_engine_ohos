@@ -1,18 +1,18 @@
 diff --git a/runtime/vm/flag_list.h b/runtime/vm/flag_list.h
-index 2f448049ef0..01eef6deb62 100644
+index 92264e535b1..fc254768d62 100644
 --- a/runtime/vm/flag_list.h
 +++ b/runtime/vm/flag_list.h
-@@ -156,7 +156,7 @@ constexpr bool FLAG_support_il_printer = false;
+@@ -149,7 +149,7 @@ constexpr bool FLAG_support_il_printer = false;
      "Maximum number of polymorphic checks in equality operator,")              \
    P(new_gen_semi_max_size, int, kDefaultNewGenSemiMaxSize,                     \
      "Max size of new gen semi space in MB")                                    \
 -  P(new_gen_semi_initial_size, int, (kWordSize <= 4) ? 1 : 2,                  \
-+  P(new_gen_semi_initial_size, int, (kWordSize <= 4) ? 1 : 32,                  \
++  P(new_gen_semi_initial_size, int, (kWordSize <= 4) ? 1 : 32,                 \
      "Initial size of new gen semi space in MB")                                \
    P(optimization_counter_threshold, int, kDefaultOptimizationCounterThreshold, \
      "Function's usage-counter value before it is optimized, -1 means never")   \
 diff --git a/runtime/vm/globals.h b/runtime/vm/globals.h
-index 13db280340a..0e70edeea8f 100644
+index 69c54277b03..c66141aea91 100644
 --- a/runtime/vm/globals.h
 +++ b/runtime/vm/globals.h
 @@ -60,7 +60,7 @@ const intptr_t kBytesPerBigIntDigit = 4;
@@ -25,31 +25,29 @@ index 13db280340a..0e70edeea8f 100644
  #define kPosInfinity bit_cast<double>(DART_UINT64_C(0x7ff0000000000000))
  #define kNegInfinity bit_cast<double>(DART_UINT64_C(0xfff0000000000000))
 diff --git a/runtime/vm/heap/page.h b/runtime/vm/heap/page.h
-index 13e31d6a68a..d981485efe3 100644
+index 75de57017b6..9859be5d80a 100644
 --- a/runtime/vm/heap/page.h
 +++ b/runtime/vm/heap/page.h
-@@ -24,7 +24,7 @@ class Thread;
+@@ -24,7 +24,7 @@ class UnwindingRecords;
  // can be computed by masking the object with kPageMask. This does not apply to
- // image pages, whose address is choosen by the system loader rather than the
+ // image pages, whose address is chosen by the system loader rather than the
  // Dart VM.
 -static constexpr intptr_t kPageSize = 512 * KB;
-+static constexpr intptr_t kPageSize = 1024 * KB;
++static constexpr intptr_t kPageSize = 4 * 1024 * KB;
  static constexpr intptr_t kPageSizeInWords = kPageSize / kWordSize;
  static constexpr intptr_t kPageMask = ~(kPageSize - 1);
  
 diff --git a/runtime/vm/heap/scavenger.h b/runtime/vm/heap/scavenger.h
-index 9f04c8e21a4..3814ccb1e19 100644
+index c61452f91a6..e66049579dd 100644
 --- a/runtime/vm/heap/scavenger.h
 +++ b/runtime/vm/heap/scavenger.h
-@@ -118,7 +118,7 @@ class ScavengeStats {
+@@ -123,7 +123,7 @@ class ScavengeStats {
  
  class Scavenger {
   private:
--  static const intptr_t kTLABSize = 512 * KB;
-+  static const intptr_t kTLABSize = 1024 * KB;
+-  static constexpr intptr_t kTLABSize = 512 * KB;
++  static constexpr intptr_t kTLABSize = 4 * 1024 * KB;
  
   public:
    Scavenger(Heap* heap, intptr_t max_semi_capacity_in_words);
 -- 
-2.39.3 (Apple Git-146)
-
