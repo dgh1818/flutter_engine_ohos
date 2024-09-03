@@ -107,6 +107,10 @@ export default class FlutterNapi {
     flutter.nativePrefetchDefaultFontManager();
   }
 
+  checkAndReloadFont(): void {
+    flutter.nativeCheckAndReloadFont(this.nativeShellHolderId!);
+  }
+
   attachToNative(): void {
     if (!FlutterNapi.hasInit) {
       Log.e(TAG, "attachToNative fail, FlutterNapi.hasInit=" + FlutterNapi.hasInit);
