@@ -69,6 +69,10 @@ class OHOSShellHolder {
     return shell_->GetPlatformMessageHandler();
   }
 
+  static void InitializeSystemFont();
+  
+  void ReloadSystemFonts();
+
  private:
   std::optional<RunConfiguration> BuildRunConfiguration(
       const std::string& entrypoint,
