@@ -289,8 +289,6 @@ export class PlatformPluginCallback implements PlatformMessageHandler {
       //全屏显示，通过在显示器边缘的滑动手势可以显示状态和导航栏,此手势由应用程序接收
       FlutterManager.getInstance().setUseFullScreen(true);
     } else if (mode == SystemUiMode.EDGE_TO_EDGE) {
-      //全屏显示，在应用程序上呈现状态和导航元素
-      FlutterManager.getInstance().setUseFullScreen(false);
       uiConfig = ['status', 'navigation'];
     } else {
       return;
