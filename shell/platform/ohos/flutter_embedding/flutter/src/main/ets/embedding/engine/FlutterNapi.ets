@@ -527,6 +527,11 @@ export default class FlutterNapi {
     return flutter.nativeRegisterTexture(this.nativeShellHolderId!, textureId);
   }
 
+  getTextureNativeWindowId(textureId: number): number {
+    Log.d(TAG, "called getTextureNativeWindowId ");
+    return flutter.nativeGetTextureWindowId(this.nativeShellHolderId!, textureId);
+  }
+
   /** Dispatch Touch Event */
   onTouchEvent(strings: Array<string>): void {
     Log.d(TAG, "called onTouchEvent ");

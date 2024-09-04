@@ -50,6 +50,8 @@ class OHOSExternalTexture : public flutter::Texture {
 
   uint64_t GetProducerSurfaceId();
 
+  uint64_t GetProducerWindowId();
+
   bool SetPixelMapAsProducer(NativePixelMap* pixelMap);
 
  protected:

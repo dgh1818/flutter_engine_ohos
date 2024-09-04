@@ -492,6 +492,14 @@ uint64_t PlatformViewOHOS::RegisterExternalTexture(int64_t texture_id) {
   }
 }
 
+uint64_t PlatformViewOHOS::GetExternalTextureWindowId(int64_t texture_id) {
+  if (all_external_texture_.find(texture_id) != all_external_texture_.end()) {
+    auto external_texture = all_external_texture_[texture_id];
+    return external_texture->GetProducerWindowId();
+  }
+  return 0;
+}
+
 void PlatformViewOHOS::OnNativeImageFrameAvailable(void* data) {
   uint64_t ptexture_id = (uint64_t)data;
   std::lock_guard<std::mutex> lock(g_map_mutex);
@@ -507,17 +515,17 @@ void PlatformViewOHOS::OnNativeImageFrameAvailable(void* data) {
     return;
   }
 
-  fml::TaskRunner::RunNowOrPostTask(
-      platform->task_runners_.GetPlatformTaskRunner(), [ptexture_id]() {
-        std::lock_guard<std::mutex> lock(g_map_mutex);
-        if (g_texture_platformview_map.find(ptexture_id) ==
-            g_texture_platformview_map.end()) {
-          return;
-        }
-        PlatformViewOHOS* platform = g_texture_platformview_map[ptexture_id];
-        uint64_t texture_id = ptexture_id - (uint64_t)platform;
-        platform->MarkTextureFrameAvailable(texture_id);
-      });
+  // Note: RunNowOrPostTask may get dead lock when running in platform thread.
+  platform->task_runners_.GetPlatformTaskRunner()->PostTask([ptexture_id]() {
+    std::lock_guard<std::mutex> lock(g_map_mutex);
+    if (g_texture_platformview_map.find(ptexture_id) ==
+        g_texture_platformview_map.end()) {
+      return;
+    }
+    PlatformViewOHOS* platform = g_texture_platformview_map[ptexture_id];
+    uint64_t texture_id = ptexture_id - (uint64_t)platform;
+    platform->MarkTextureFrameAvailable(texture_id);
+  });
 }
 
 void PlatformViewOHOS::UnRegisterExternalTexture(int64_t texture_id) {

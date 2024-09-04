@@ -124,6 +124,9 @@ static napi_value Init(napi_env env, napi_value exports) {
           "nativeUnregisterTexture",
           flutter::PlatformViewOHOSNapi::nativeUnregisterTexture),
       DECLARE_NAPI_FUNCTION(
+          "nativeGetTextureWindowId",
+          flutter::PlatformViewOHOSNapi::nativeGetTextureWindowId),
+      DECLARE_NAPI_FUNCTION(
           "nativeMarkTextureFrameAvailable",
           flutter::PlatformViewOHOSNapi::nativeMarkTextureFrameAvailable),
       DECLARE_NAPI_FUNCTION(
