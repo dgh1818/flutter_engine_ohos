@@ -32,7 +32,6 @@
 #include "flutter/shell/platform/ohos/surface/ohos_native_window.h"
 #include "flutter/shell/platform/ohos/types.h"
 #include "unicode/uchar.h"
-#include "flutter/shell/platform/ohos/ohos_font_utils.h"
 #include "third_party/skia/src/ports/skia_ohos/SkFontMgr_ohos.h"
 #include "txt/platform.h"
 
@@ -1148,14 +1147,35 @@ napi_value PlatformViewOHOSNapi::nativePrefetchDefaultFontManager(
     napi_env env,
     napi_callback_info info) {
   LOGD("PlatformViewOHOSNapi::nativePrefetchDefaultFontManager");
-  SkFontMgr_OHOS* mgr = (SkFontMgr_OHOS*)(txt::GetDefaultFontManager().get());
 
-  std::string path = flutter::OHOSCheckFontSource();
-  if (path.empty()) {
-    LOGE("system font file not found");
+  OHOSShellHolder::InitializeSystemFont();
+  return nullptr;
+}
+
+/**
+ *  hot reload font
+ */
+napi_value PlatformViewOHOSNapi::nativeCheckAndReloadFont(
+    napi_env env,
+    napi_callback_info info) {
+  LOGD("PlatformViewOHOSNapi::nativeCheckAndReloadFont");
+
+  napi_status ret;
+  size_t argc = 1;
+  napi_value args[1] = {nullptr};
+  ret = napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+  if (ret != napi_ok) {
+    LOGE("nativeCheckAndReloadFont napi_get_cb_info error");
     return nullptr;
   }
-  mgr->AddSystemFont(path);
+  int64_t shell_holder;
+  ret = napi_get_value_int64(env, args[0], &shell_holder);
+  if (ret != napi_ok) {
+    LOGE("nativeCheckAndReloadFont napi_get_value_int64 error");
+    return nullptr;
+  }
+  LOGD("nativeCheckAndReloadFont shell_holder: %{public}ld", shell_holder);
+  OHOS_SHELL_HOLDER->ReloadSystemFonts();
   return nullptr;
 }
 
