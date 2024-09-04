@@ -41,6 +41,8 @@ export class FlutterRenderer implements TextureRegistry {
     let surfaceId = this.flutterNapi.registerTexture(textureId);
     Log.i(TAG, "registerTexture, surfaceId=" + surfaceId);
     surfaceTextureRegistryEntry.setSurfaceId(surfaceId);
+    let nativeWindowId = this.flutterNapi.getTextureNativeWindowId(textureId);
+    surfaceTextureRegistryEntry.setNativeWindowId(nativeWindowId);
     return surfaceTextureRegistryEntry;
   }
 
@@ -63,6 +65,7 @@ export class FlutterRenderer implements TextureRegistry {
 export class SurfaceTextureRegistryEntry implements SurfaceTextureEntry {
   private textureId: number = 0;
   private surfaceId: number = 0;
+  private nativeWindowId: number = 0;
   private released: boolean = false;
 
   constructor(id: number) {
@@ -77,8 +80,16 @@ export class SurfaceTextureRegistryEntry implements SurfaceTextureEntry {
     return this.surfaceId;
   }
 
+  getNativeWindowId(): number {
+    return this.nativeWindowId;
+  }
+
   setSurfaceId(surfaceId: number): void {
     this.surfaceId = surfaceId;
+  }
+
+  setNativeWindowId(nativeWindowId: number): void {
+    this.nativeWindowId = nativeWindowId;
   }
 
   release() {

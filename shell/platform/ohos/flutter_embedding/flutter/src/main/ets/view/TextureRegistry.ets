@@ -32,6 +32,13 @@ export interface SurfaceTextureEntry {
 
   getSurfaceId(): number;
 
+  /*
+  * This return value is OHNativeWindow* in native code.
+  * Once converted to OHNativeWindow*, it can be used to create an EGLSurface or VkSurface for rendering.
+  * This OHNativeWindow* needn't be released when invoking unregisterTexture.
+  */
+  getNativeWindowId(): number;
+
   release(): void;
 }
 

@@ -96,6 +96,8 @@ class PlatformViewOHOS final : public PlatformView {
 
   void UnRegisterExternalTexture(int64_t texture_id);
 
+  uint64_t GetExternalTextureWindowId(int64_t texture_id);
+
   // |PlatformView|
   void LoadDartDeferredLibrary(
       intptr_t loading_unit_id,
