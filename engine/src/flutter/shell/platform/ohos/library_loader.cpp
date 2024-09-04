@@ -43,6 +43,9 @@ static napi_value Init(napi_env env, napi_value exports) {
           "nativePrefetchDefaultFontManager",
           flutter::PlatformViewOHOSNapi::nativePrefetchDefaultFontManager),
       DECLARE_NAPI_FUNCTION(
+          "nativeCheckAndReloadFont",
+          flutter::PlatformViewOHOSNapi::nativeCheckAndReloadFont),
+      DECLARE_NAPI_FUNCTION(
           "nativeGetIsSoftwareRenderingEnabled",
           flutter::PlatformViewOHOSNapi::nativeGetIsSoftwareRenderingEnabled),
       DECLARE_NAPI_FUNCTION("nativeAttach",

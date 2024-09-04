@@ -82,7 +82,11 @@ class PlatformViewOHOSNapi {
   static napi_value nativePrefetchDefaultFontManager(
       napi_env env,
       napi_callback_info
-          info);  // 初始化SkFontMgr::RefDefault()，skia引擎文字管理初始化
+          info);  // 初始化SkFontMgr::RefDefault(),skia引擎文字管理初始化
+  static napi_value nativeCheckAndReloadFont(
+      napi_env env,
+      napi_callback_info
+          info);  // hot reload font
   static napi_value nativeGetIsSoftwareRenderingEnabled(
       napi_env env,
       napi_callback_info info);  // 返回是否支持软件绘制
