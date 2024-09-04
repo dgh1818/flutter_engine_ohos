@@ -196,6 +196,13 @@ uint64_t OHOSExternalTexture::GetProducerSurfaceId() {
   return producer_surface_id_;
 }
 
+uint64_t OHOSExternalTexture::GetProducerWindowId() {
+  OHNativeWindow* window =
+      OH_NativeImage_AcquireNativeWindow(native_image_source_);
+  FML_LOG(INFO) << "OH_NativeImage_AcquireNativeWindow " << window;
+  return (uint64_t)window;
+}
+
 bool OHOSExternalTexture::SetPixelMapAsProducer(NativePixelMap* pixelMap) {
   int32_t ret = -1;
   OhosPixelMapInfos pixelmap_info;
