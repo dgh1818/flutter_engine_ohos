@@ -31,9 +31,9 @@
 #include "flutter/shell/platform/ohos/ohos_xcomponent_adapter.h"
 #include "flutter/shell/platform/ohos/surface/ohos_native_window.h"
 #include "flutter/shell/platform/ohos/types.h"
-#include "unicode/uchar.h"
 #include "third_party/skia/src/ports/skia_ohos/SkFontMgr_ohos.h"
 #include "txt/platform.h"
+#include "unicode/uchar.h"
 
 #define OHOS_SHELL_HOLDER (reinterpret_cast<OHOSShellHolder*>(shell_holder))
 namespace flutter {
@@ -1600,6 +1600,25 @@ napi_value PlatformViewOHOSNapi::nativeUnregisterTexture(
   NAPI_CALL(env, napi_get_value_int64(env, args[1], &textureId));
   OHOS_SHELL_HOLDER->GetPlatformView()->UnRegisterExternalTexture(textureId);
   return nullptr;
+}
+
+napi_value PlatformViewOHOSNapi::nativeGetTextureWindowId(
+    napi_env env,
+    napi_callback_info info) {
+  FML_DLOG(INFO) << "PlatformViewOHOSNapi::nativeGetTextureWindowId";
+  size_t argc = 2;
+  napi_value args[2] = {nullptr};
+  int64_t shell_holder;
+  int64_t textureId;
+  NAPI_CALL(env, napi_get_cb_info(env, info, &argc, args, nullptr, nullptr));
+  NAPI_CALL(env, napi_get_value_int64(env, args[0], &shell_holder));
+  NAPI_CALL(env, napi_get_value_int64(env, args[1], &textureId));
+  uint64_t windowId =
+      OHOS_SHELL_HOLDER->GetPlatformView()->GetExternalTextureWindowId(
+          textureId);
+  napi_value res;
+  napi_create_int64(env, windowId, &res);
+  return res;
 }
 
 napi_value PlatformViewOHOSNapi::nativeMarkTextureFrameAvailable(

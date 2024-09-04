@@ -126,3 +126,5 @@ export const nativeUnregisterTexture: (nativeShellHolderId: number, textureId: n
 export const nativeRegisterPixelMap: (nativeShellHolderId: number, textureId: number, pixelMap: PixelMap) => void;
 
 export const nativeRegisterTexture: (nativeShellHolderId: number, textureId: number) => number;
+
+export const nativeGetTextureWindowId: (nativeShellHolderId: number, textureId: number) => number;
