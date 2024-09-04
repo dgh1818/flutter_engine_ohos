@@ -1,0 +1,107 @@
+diff --git a/src/ports/skia_ohos/FontConfig_ohos.cpp b/src/ports/skia_ohos/FontConfig_ohos.cpp
+index 483083bf28..78225758d1 100644
+--- a/src/ports/skia_ohos/FontConfig_ohos.cpp
++++ b/src/ports/skia_ohos/FontConfig_ohos.cpp
+@@ -1323,7 +1323,11 @@ int FontConfig_OHOS::checkProductFile(const char* fname)
+     return err;
+ }
+ 
+-void FontConfig_OHOS::setSystemDefaultFont(sk_sp<SkTypeface> typeface) {
++void FontConfig_OHOS::resetSystemDefaultFont() {
++    genericFamilySet.erase(genericFamilySet.begin());
++}
++
++void FontConfig_OHOS::addCustomFont(int familyCount, sk_sp<SkTypeface> typeface) {
+     std::unique_ptr<GenericFamily> familySet = std::make_unique<GenericFamily>();
+     typeface->getFamilyName(&(familySet->familyName));
+     familySet->typefaceSet = std::make_shared<TypefaceSet>();
+@@ -1331,6 +1335,10 @@ void FontConfig_OHOS::setSystemDefaultFont(sk_sp<SkTypeface> typeface) {
+     SkTypeface_OHOS* typeface_ = (SkTypeface_OHOS* )(typeface.get());
+     FontInfo info = FontInfo(*(typeface_->getFontInfo()));
+     familySet->typefaceSet->push_back(sk_make_sp<SkTypeface_OHOS>(info));
+-    
+-    genericFamilySet.insert(genericFamilySet.begin(), std::move(familySet));
++
++    if (familyCount == this->getFamilyCount()) {
++        genericFamilySet.insert(genericFamilySet.begin(), std::move(familySet));
++    } else {
++        genericFamilySet[0] = std::move(familySet);
++    }
+ }
+diff --git a/src/ports/skia_ohos/FontConfig_ohos.h b/src/ports/skia_ohos/FontConfig_ohos.h
+index d53ce299cf..9311f237bc 100644
+--- a/src/ports/skia_ohos/FontConfig_ohos.h
++++ b/src/ports/skia_ohos/FontConfig_ohos.h
+@@ -110,7 +110,8 @@ public:
+     static sk_sp<SkTypeface_OHOS> matchFontStyle(const TypefaceSet& typefaceSet, const SkFontStyle& pattern);
+ 
+     static const char* errToString(int err);
+-    void setSystemDefaultFont(sk_sp<SkTypeface> typeface);
++    void resetSystemDefaultFont();
++    void addCustomFont(int familyCount, sk_sp<SkTypeface> typeface);
+ private:
+     struct AliasInfo;
+     struct AdjustInfo;
+diff --git a/src/ports/skia_ohos/SkFontMgr_ohos.cpp b/src/ports/skia_ohos/SkFontMgr_ohos.cpp
+index b36c1fe2d0..c1477a1f1b 100644
+--- a/src/ports/skia_ohos/SkFontMgr_ohos.cpp
++++ b/src/ports/skia_ohos/SkFontMgr_ohos.cpp
+@@ -2,6 +2,8 @@
+ // Use of this source code is governed by a BSD-style license that can be
+ // found in the LICENSE file.
+ 
++#include <filesystem>
++
+ #include "SkFontMgr_ohos.h"
+ 
+ #include "SkTypeface_ohos.h"
+@@ -418,17 +420,27 @@ sk_sp<SkTypeface> SkFontMgr_OHOS::makeTypeface(std::unique_ptr<SkStreamAsset> st
+     return sk_make_sp<SkTypeface_OHOS>(fontInfo);
+ }
+ 
+-void SkFontMgr_OHOS::AddSystemFont(std::string path) {
++void SkFontMgr_OHOS::InitializeSystemFont(std::string path) {
+     static SkOnce once;
+-
+     once([this, path]{
++        this->AddSystemFont(path);
++    });
++}
++
++void SkFontMgr_OHOS::AddSystemFont(std::string path) {
++    std::string fileName = std::filesystem::path(path).filename();
++    if (fileName == OHOS_DEFAULT_FONT_FILENAME) {
++        if (familyCount != this->fontConfig->getFamilyCount()) {
++            this->fontConfig->resetSystemDefaultFont();
++        }
++    } else {
+         sk_sp<SkTypeface> typeface = this->onMakeFromFile(path.c_str(), 0);
+         if(!typeface) {
+             SkDEBUGF("parse system font failed");
+             return;
+         }
+-        this->fontConfig->setSystemDefaultFont(typeface);
+-    });
++        this->fontConfig->addCustomFont(familyCount, typeface);
++    }
+ }
+ 
+ /*! To create SkFontMgr object for Harmony platform
+diff --git a/src/ports/skia_ohos/SkFontMgr_ohos.h b/src/ports/skia_ohos/SkFontMgr_ohos.h
+index c0a8379174..1ce8c79eb5 100644
+--- a/src/ports/skia_ohos/SkFontMgr_ohos.h
++++ b/src/ports/skia_ohos/SkFontMgr_ohos.h
+@@ -21,10 +21,12 @@
+ /*!
+  * \brief To implement the SkFontMgr for ohos platform
+  */
++#define OHOS_DEFAULT_FONT_FILENAME "default.ttf"
+ class SkFontMgr_OHOS : public SkFontMgr {
+ public:
+     explicit SkFontMgr_OHOS(const char* path = nullptr);
+     virtual ~SkFontMgr_OHOS() override = default;
++    void InitializeSystemFont(std::string path);
+     void AddSystemFont(std::string path);
+ protected:
+     int onCountFamilies() const override;
+-- 

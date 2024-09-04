@@ -362,6 +362,10 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     }
   }
 
+  onCheckAndReloadFont() {
+    this.getFlutterNapi()?.checkAndReloadFont();
+  }
+
   /**
    * 生命周期回调结束
    */

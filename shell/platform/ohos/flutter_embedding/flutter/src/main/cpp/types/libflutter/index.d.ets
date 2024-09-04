@@ -38,6 +38,8 @@ export const nativeUpdateRefreshRate: (
  */
 export const nativePrefetchDefaultFontManager: () => void;
 
+export const nativeCheckAndReloadFont: (nativeShellHolderId: number) => void;
+
 export const nativeUpdateSize: (
   width: number,
   height: number
