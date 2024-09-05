@@ -24,6 +24,9 @@ import Log from '../../util/Log';
 import { EditingStateWatcher, ListenableEditingState } from './ListenableEditingState';
 import Any from '../common/Any';
 import { window } from '@kit.ArkUI';
+import FlutterManager from '../../embedding/ohos/FlutterManager';
+import { IntentionCode } from '@ohos.multimodalInput.intentionCode';
+import {KeyCode} from '@kit.InputKit';
 
 /// 临时规避缺少newline对应枚举问题
 const NEWLINE_KEY_TYPE: number = 8;
@@ -279,6 +282,12 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
 
     try {
       this.inputMethodController.on('deleteLeft', (length) => {
+        /// 暂时规避方案
+        /// OS机制与Android不一致，需要去监听软键盘事件才能发送KeyEvent事件
+        if (this.mEditable.getStringCache() == "") {
+          this.sendKeyboardEvent(KeyType.Down, KeyCode.KEYCODE_DEL)
+          this.sendKeyboardEvent(KeyType.Up, KeyCode.KEYCODE_DEL)
+        }
         this.mEditable.handleDeleteEvent(false, length);
       })
     } catch (err) {
@@ -341,6 +350,25 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     }
     Log.d(TextInputMethodHandlerImpl.TAG, "listenKeyBoardEvent success");
     this.imcFlag = true;
+  }
+
+  sendKeyboardEvent(type: KeyType, keyCode: number): void {
+    let event: KeyEvent = {
+      type: type,
+      keyCode: keyCode,
+      keyText: '',
+      keySource: KeySource.Keyboard,
+      deviceId: 0,
+      metaKey: 0,
+      timestamp: 0,
+      stopPropagation: (): void => {
+        throw new Error('Function not implemented.');
+      },
+      intentionCode: IntentionCode.INTENTION_BACK
+    }
+    FlutterManager.getInstance().getFlutterViewList().forEach((value) => {
+      value.onKeyEvent(event)
+    })
   }
 
   cancelListenKeyBoardEvent(): void {
