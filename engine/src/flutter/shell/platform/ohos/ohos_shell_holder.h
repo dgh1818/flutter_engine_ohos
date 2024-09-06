@@ -69,7 +69,7 @@ class OHOSShellHolder {
   }
 
   static void InitializeSystemFont();
-  
+
   void ReloadSystemFonts();
 
  private:

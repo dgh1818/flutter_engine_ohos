@@ -19,8 +19,8 @@
 #include <utility>
 
 #include <multimedia/image_framework/image_pixel_map_napi.h>
-#include "third_party/skia/include/codec/SkCodecAnimation.h"
 #include "ohos_logging.h"
+#include "third_party/skia/include/codec/SkCodecAnimation.h"
 
 namespace flutter {
 
@@ -133,10 +133,11 @@ std::shared_ptr<ImageGenerator> OHOSImageGenerator::MakeFromData(
 
   // contructer is private,
   std::shared_ptr<OHOSImageGenerator> generator(new OHOSImageGenerator(
-              std::move(data), task_runners.GetPlatformTaskRunner(), napi_facade));
+      std::move(data), task_runners.GetPlatformTaskRunner(), napi_facade));
 
   fml::TaskRunner::RunNowOrPostTask(
-      task_runners.GetIOTaskRunner(), [generator]() { generator->DecodeImage(); });
+      task_runners.GetIOTaskRunner(),
+      [generator]() { generator->DecodeImage(); });
 
   if (generator->IsValidImageData()) {
     return generator;
@@ -167,7 +168,7 @@ struct ReleaseCtx {
 
 void on_release(const void* ptr, void* context) {
   auto release_ctx = static_cast<ReleaseCtx*>(context);
-  fml::TaskRunner::RunNowOrPostTask(release_ctx->task_runner, [release_ctx]() { 
+  fml::TaskRunner::RunNowOrPostTask(release_ctx->task_runner, [release_ctx]() {
     napi_value res = nullptr;
     napi_get_reference_value(release_ctx->env, release_ctx->ref, &res);
     OHOS::Media::OH_UnAccessPixels(release_ctx->env, res);

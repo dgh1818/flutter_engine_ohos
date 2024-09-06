@@ -30,9 +30,9 @@
 #include "flutter/runtime/ptrace_check.h"
 #include "flutter/shell/common/shell.h"
 #include "flutter/shell/common/switches.h"
+#include "ohos_logging.h"
 #include "third_party/dart/runtime/include/dart_tools_api.h"
 #include "third_party/skia/include/core/SkFontMgr.h"
-#include "ohos_logging.h"
 
 namespace flutter {
 
@@ -146,8 +146,10 @@ napi_value OhosMain::Init(napi_env env, napi_callback_info info) {
   };
   settings.log_message_callback = [](const std::string& tag,
                                      const std::string& message) {
-    // The logs output here are very important for The Dart VM and cannot be deleted or blocked.
-    LOGW("%{public}s settings log message: %{public}s", tag.c_str(), message.c_str());
+    // The logs output here are very important for The Dart VM and cannot be
+    // deleted or blocked.
+    LOGW("%{public}s settings log message: %{public}s", tag.c_str(),
+         message.c_str());
   };
 
   if (settings.enable_software_rendering) {
@@ -173,10 +175,13 @@ napi_value OhosMain::Init(napi_env env, napi_callback_info info) {
 
   if (!EnableTracingIfNecessary(settings)) {
     LOGE(
-      "Cannot create a FlutterEngine instance in debug mode without Flutter tooling.\n\n"
-      "To Launch in debug mode, run 'flutter run' from Flutter tools, run from an IDE with a"
-      "Flutter IDE plugin.\nAlternatively profile and release mode apps canbe launched from "
-      "the home screen.");
+        "Cannot create a FlutterEngine instance in debug mode without Flutter "
+        "tooling.\n\n"
+        "To Launch in debug mode, run 'flutter run' from Flutter tools, run "
+        "from an IDE with a"
+        "Flutter IDE plugin.\nAlternatively profile and release mode apps "
+        "canbe launched from "
+        "the home screen.");
     return nullptr;
   }
 
@@ -194,8 +199,7 @@ napi_value OhosMain::NativeInit(napi_env env, napi_callback_info info) {
   return result;
 }
 
-bool OhosMain::IsEmulator()
-{
+bool OhosMain::IsEmulator() {
   return productModel_ == "emulator";
 }
 

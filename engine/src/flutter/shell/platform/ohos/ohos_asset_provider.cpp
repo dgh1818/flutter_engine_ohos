@@ -108,8 +108,7 @@ OHOSAssetProvider::OHOSAssetProvider(void* assetHandle, const std::string& dir)
 
 OHOSAssetProvider::OHOSAssetProvider(
     std::shared_ptr<OHOSAssetProviderInternal> handle)
-    : asset_handle_(handle.get()) {
-}
+    : asset_handle_(handle.get()) {}
 
 bool OHOSAssetProvider::IsValid() const {
   return (asset_handle_ != nullptr);
