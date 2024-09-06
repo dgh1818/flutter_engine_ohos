@@ -17,6 +17,7 @@
 #include <rawfile/raw_file.h>
 #include <rawfile/raw_file_manager.h>
 #include "napi_common.h"
+#include "ohos_logging.h"
 
 namespace flutter {
 
@@ -107,8 +108,7 @@ OHOSAssetProvider::OHOSAssetProvider(void* assetHandle, const std::string& dir)
 
 OHOSAssetProvider::OHOSAssetProvider(
     std::shared_ptr<OHOSAssetProviderInternal> handle)
-    : asset_handle_(handle.get()) {
-}
+    : asset_handle_(handle.get()) {}
 
 bool OHOSAssetProvider::IsValid() const {
   return (asset_handle_ != nullptr);

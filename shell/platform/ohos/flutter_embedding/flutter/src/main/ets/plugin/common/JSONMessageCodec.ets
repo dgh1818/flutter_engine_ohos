@@ -72,7 +72,7 @@ export default class JSONMessageCodec implements MessageCodec<Object> {
 
   toBaseData(message: Any): Any {
     if (message == null || message == undefined) {
-      return "";
+      return null;
     } else if (message instanceof List || message instanceof LinkedList) {
       return this.toBaseData(message.convertToArray());
     } else if (message instanceof Map || message instanceof HashMap || message instanceof TreeMap

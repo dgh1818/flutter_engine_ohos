@@ -78,7 +78,7 @@ class MessageBuilder {
   }
 
   send(): void {
-    Log.i(TAG, "Sending message: \n"
+    Log.i(TAG, "Sending message: "
       + TEXT_SCALE_FACTOR + " : "
       + this.settingsMessage.getTextScaleFactor()
       + ", " + NATIVE_SPELL_CHECK_SERVICE_DEFINED + " : "

@@ -17,6 +17,12 @@
         "file_path": "../../flutter/attachment/repos/dart.debug_tmp.patch"
     },
     {
+        "name": "dart4",
+        "target": "./src/third_party/dart",
+        "type": "patch",
+        "file_path": "../../flutter/attachment/repos/dart.patch4"
+    },
+    {
         "name": "skia",
         "target": "./src/flutter/third_party/skia",
         "type": "patch",
@@ -27,6 +33,12 @@
         "target": "./src/flutter/third_party/skia",
         "type": "patch",
         "file_path": "../../../flutter/attachment/repos/skia-3.22.patch1"
+    },
+    {
+      "name": "skia-2",
+      "target": "./src/flutter/third_party/skia",
+      "type": "patch",
+      "file_path": "../../../flutter/attachment/repos/skia-3.22.patch2"
     },
     {
         "name": "spirv-headers",

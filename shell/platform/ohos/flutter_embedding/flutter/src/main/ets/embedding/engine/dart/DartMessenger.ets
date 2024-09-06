@@ -12,7 +12,7 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-import { Queue, taskpool } from '@kit.ArkTS';
+import { ErrorEvent, Queue, taskpool, worker, MessageEvents } from '@kit.ArkTS';
 
 import Log from '../../../util/Log';
 import {
@@ -104,10 +104,8 @@ export class DartMessenger implements BinaryMessenger, PlatformMessageHandler {
   }
 
   dispatchMessageToQueue(handlerInfo: HandlerInfo, message: ArrayBuffer, replyId: number): void {
-    let task: taskpool.Task = new taskpool.Task(handleMessageInBackground,
-      handlerInfo.handler, message,
-      ...handlerInfo.args);
-    handlerInfo.taskQueue?.dispatch(task, new Reply(this.flutterNapi, replyId));
+    let taskState: TaskState = new TaskState(handlerInfo.handler as ESObject, message, ...handlerInfo.args);
+    handlerInfo.taskQueue?.dispatch(taskState, new Reply(this.flutterNapi, replyId));
   }
 
   invokeHandler(handler: BinaryMessageHandler | null, message: ArrayBuffer, replyId: number): void {
@@ -206,8 +204,23 @@ class Reply implements BinaryReply {
   }
 }
 
+export class TaskState {
+  handler: SendableBinaryMessageHandler;
+  message: ArrayBuffer;
+  args: Object[];
+
+  constructor(handler: SendableBinaryMessageHandler, message: ArrayBuffer, ...args: Object[]) {
+    this.handler = handler;
+    this.message = message;
+    this.args = args;
+  }
+}
+
 interface DartMessengerTaskQueue {
-  dispatch(task: taskpool.Task, callback: Reply): void;
+  dispatch(taskState: TaskState, callback: Reply): void;
+}
+
+interface SerialTaskQueue extends DartMessengerTaskQueue {
 }
 
 interface TaskQueueFactory {
@@ -218,10 +231,14 @@ class ConcurrentTaskQueue implements DartMessengerTaskQueue {
   private priority: TaskPriority;
 
   constructor(priority: TaskPriority) {
-    this.priority = priority as number;
+    this.priority = priority;
   }
 
-  dispatch(task: taskpool.Task, callback: Reply): void {
+  dispatch(taskState: TaskState, callback: Reply): void {
+    let task: taskpool.Task = new taskpool.Task(handleMessageInBackground,
+                                                taskState.handler,
+                                                taskState.message,
+                                                ...taskState.args);
     taskpool.execute(task, this.priority as number).then((result: Object) => {
       callback.reply(result as ArrayBuffer);
     }).catch((err: string) => {
@@ -231,9 +248,33 @@ class ConcurrentTaskQueue implements DartMessengerTaskQueue {
   }
 }
 
-type Runnable = () => Promise<void>;
+const scriptURL: string = '../workers/PlatformChannelWorker.ets';
+class SerialTaskQueueWithWorker implements SerialTaskQueue {
+  private static workerInstance: worker.ThreadWorker | null = null;
 
-class SerialTaskQueue implements DartMessengerTaskQueue {
+  constructor () {
+    if (!SerialTaskQueueWithWorker.workerInstance) {
+      SerialTaskQueueWithWorker.workerInstance =
+        new worker.ThreadWorker(scriptURL, {name: 'PlatformChannelWorker'});
+    }
+  }
+
+  dispatch(taskState: TaskState, callback: Reply): void {
+    SerialTaskQueueWithWorker.workerInstance!.onmessage = (e: MessageEvents): void => {
+      callback.reply(e.data as ArrayBuffer);
+    }
+
+    SerialTaskQueueWithWorker.workerInstance!.onerror = (err: ErrorEvent) => {
+      callback.reply(null);
+      Log.e(TAG, "Oops! Failed to execute task in worker thread: ", err.message);
+    }
+
+    SerialTaskQueueWithWorker.workerInstance!.postMessageWithSharedSendable(taskState, [taskState.message]);
+  }
+}
+
+type Runnable = () => Promise<void>;
+class SerialTaskQueueWithTaskPool implements SerialTaskQueue {
   private priority: TaskPriority;
   private queue: Queue<Runnable> = new Queue();
   private isRunning: boolean = false;
@@ -242,7 +283,11 @@ class SerialTaskQueue implements DartMessengerTaskQueue {
     this.priority = priority;
   }
 
-  dispatch(task: taskpool.Task, callback: Reply): void {
+  dispatch(taskState: TaskState, callback: Reply): void {
+    let task: taskpool.Task = new taskpool.Task(handleMessageInBackground,
+                                                taskState.handler,
+                                                taskState.message,
+                                                ...taskState.args);
     const runnable: Runnable = async () => {
       try {
         const result = await taskpool.execute(task, this.priority as number);
@@ -276,10 +321,14 @@ class SerialTaskQueue implements DartMessengerTaskQueue {
 
 class DefaultTaskQueueFactory implements TaskQueueFactory {
   makeBackgroundTaskQueue(options: TaskQueueOptions): DartMessengerTaskQueue {
-    if (options.getIsSerial()) {
-      return new SerialTaskQueue(options.getPriority());
+    if (options.isSingleThreadMode()) {
+      return new SerialTaskQueueWithWorker();
+    } else {
+      if (options.getIsSerial()) {
+        return new SerialTaskQueueWithTaskPool(options.getPriority());
+      }
+      return new ConcurrentTaskQueue(options.getPriority());
     }
-    return new ConcurrentTaskQueue(options.getPriority());
   }
 }
 

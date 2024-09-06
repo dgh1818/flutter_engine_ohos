@@ -23,6 +23,7 @@ import PlainArray from '@ohos.util.PlainArray';
 import List from '@ohos.util.List';
 import LinkedList from '@ohos.util.LinkedList';
 import Any from './Any';
+import { ArrayList } from '@kit.ArkTS';
 
 /**
  * MessageCodec using the Flutter standard binary encoding.
@@ -173,7 +174,7 @@ export default class StandardMessageCodec implements MessageCodec<Any> {
       value.forEach(item => stream.writeFloat64(item, true));
     } else if (value instanceof Array || value instanceof Int8Array || value instanceof Int16Array
       || value instanceof Uint16Array || value instanceof Uint32Array || value instanceof List
-      || value instanceof LinkedList) {
+      || value instanceof LinkedList || value instanceof ArrayList) {
       stream.writeInt8(StandardMessageCodec.LIST)
       this.writeSize(stream, value.length);
       value.forEach((item: Any): void => this.writeValue(stream, item));
@@ -216,13 +217,13 @@ export default class StandardMessageCodec implements MessageCodec<Any> {
 
   writeSize(stream: ByteBuffer, value: number) {
     if (value < 254) {
-      stream.writeInt8(value);
+      stream.writeUint8(value);
     } else if (value <= 0xffff) {
-      stream.writeInt8(254);
-      stream.writeInt16(value, true);
+      stream.writeUint8(254);
+      stream.writeUint16(value, true);
     } else {
-      stream.writeInt8(255);
-      stream.writeInt32(value, true);
+      stream.writeUint8(255);
+      stream.writeUint32(value, true);
     }
   }
 
@@ -232,13 +233,13 @@ export default class StandardMessageCodec implements MessageCodec<Any> {
   }
 
   readSize(buffer: ByteBuffer) {
-    let value = buffer.readInt8() & 0xff;
+    let value = buffer.readUint8() & 0xff;
     if (value < 254) {
       return value;
     } else if (value == 254) {
       return buffer.readUint16(true);
     } else {
-      return buffer.readInt32(true);
+      return buffer.readUint32(true);
     }
   }
 
@@ -256,10 +257,9 @@ export default class StandardMessageCodec implements MessageCodec<Any> {
 
   readBytes(buffer: ByteBuffer): Uint8Array {
     let length = this.readSize(buffer);
-    let bytes = new Uint8Array(length)
-    for (let i = 0; i < length; i++) {
-      bytes[i] = buffer.readUint8()
-    }
+    let bytesBuffer = new ArrayBuffer(length);
+    let bytes = new Uint8Array(bytesBuffer);
+    bytes.set(buffer.readUint8Array(length));
     return bytes;
   }
 

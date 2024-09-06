@@ -16,8 +16,8 @@
 #include "flutter/shell/platform/ohos/ohos_surface_software.h"
 #include <native_window/buffer_handle.h>
 #include <sys/mman.h>
-#include "flutter/fml/logging.h"
 #include "napi_common.h"
+#include "ohos_logging.h"
 #include "third_party/skia/include/core/SkImage.h"
 #include "third_party/skia/include/core/SkSurface.h"
 #include "types.h"

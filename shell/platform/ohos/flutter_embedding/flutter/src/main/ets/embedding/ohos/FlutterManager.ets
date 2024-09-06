@@ -17,6 +17,9 @@
 import { FlutterView } from '../../view/FlutterView';
 import UIAbility from '@ohos.app.ability.UIAbility';
 import window from '@ohos.window';
+import Log from '../../util/Log';
+
+const TAG = "FlutterManager"
 
 export default class FlutterManager {
   private static instance: FlutterManager;
@@ -142,21 +145,26 @@ export class DefaultFullScreenListener implements FullScreenListener {
     let window = FlutterManager.getInstance()
       .getWindowStage(FlutterManager.getInstance().getUIAbility(getContext(this)));
     window.getMainWindowSync().setWindowLayoutFullScreen(useFullScreen);
+    Log.i(TAG, "WindowLayoutFullScreen is on")
   }
 
   onScreenStateChanged(data: window.WindowStatusType): void {
     if (this.skipCheck) {
+      Log.i(TAG, "onScreenStateChanged: skipCheck is on, WindowStatusType = " + data)
       return;
     }
     switch (data) {
       case window.WindowStatusType.FULL_SCREEN:
+
       case window.WindowStatusType.SPLIT_SCREEN:
       case window.WindowStatusType.FLOATING:
       case window.WindowStatusType.MAXIMIZE:
         this.fullScreen = true;
+        Log.i(TAG, "onScreenStateChanged: fullScreen = true")
         break;
       default:
         this.fullScreen = false;
+        Log.i(TAG, "onScreenStateChanged: fullScreen = false")
         break;
     }
   }

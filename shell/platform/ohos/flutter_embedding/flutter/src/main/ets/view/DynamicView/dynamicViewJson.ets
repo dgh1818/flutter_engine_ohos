@@ -15,6 +15,8 @@
 import Any from '../../plugin/common/Any';
 
 import { DVModel, DVModelParameters, DVModelEvents, DVModelChildren } from "./dynamicView";
+import Log from '../../util/Log';
+const TAG = "dynamicViewJson";
 
 export function createDVModelFromJson(json: Object): DVModel {
 
@@ -59,7 +61,7 @@ export function createDVModelFromJson(json: Object): DVModel {
   }
 
   if (typeof json !== 'object') {
-    console.error("createDVModelFromJson: input is not JSON");
+    Log.e(TAG, "createDVModelFromJson: input is not JSON");
     return new DVModel("", "", "", createChildrenFrom([]));
   }
 

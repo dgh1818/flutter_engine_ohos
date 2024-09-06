@@ -89,6 +89,8 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
   private currentFrameUsedPlatformViewIds: HashSet<number>;
   private platformViewParent: Map<number, FlutterMutatorView>;
   private nodeControllers: Stack<EmbeddingNodeController>;
+  private viewPhysicalInfo: Map<number, number> = new Map<number, number>();
+  private dValue: number = 3;
 
   constructor() {
     this.registry = new PlatformViewRegistryImpl();
@@ -136,6 +138,9 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
       return;
     }
     this.platformViews.delete(viewId);
+    if (this.viewPhysicalInfo.has(viewId)) {
+      this.viewPhysicalInfo.delete(viewId);
+    }
     let textureId = this.viewIdWithTextureId.get(viewId);
 
     if (textureId != undefined) {
@@ -164,6 +169,11 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
       params2[key] = element;
     }
 
+  getParams: (params: DVModelParameters, key: string) => number = (params: DVModelParameters, key: string): number => {
+    let params2 = params as Record<string, Any>;
+    return params2[key];
+  }
+
   resize(request: PlatformViewResizeRequest, onComplete: PlatformViewBufferResized): void {
     let physicalWidth: number = this.toPhysicalPixels(request.newLogicalWidth);
     let physicalHeight: number = this.toPhysicalPixels(request.newLogicalHeight);
@@ -173,7 +183,23 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
 
     let viewWrapper = this.viewWrappers.get(request.viewId)
     let params: DVModelParameters | undefined = viewWrapper?.getDvModel()!.params
+    
+    const platformView = this.platformViews.get(request.viewId);
+    if (platformView?.getType() === 'web') {
+      let oldPhysicalHeight: number = 0;
+      if (this.viewPhysicalInfo.has(viewId)) {
+        oldPhysicalHeight = this.viewPhysicalInfo.get(viewId) as number;
+        //高度变化小于3，不做刷新处理，减少闪烁
+        if (physicalHeight - oldPhysicalHeight < this.dValue) {
+          onComplete.run(new PlatformViewBufferSize(physicalWidth, oldPhysicalHeight));
+          return;
+        }
+      }
+    }
 
+    //保存组件最高位置，解决webview上下滑动带来的组件高度变化而引起的页面闪烁
+    this.viewPhysicalInfo.set(viewId, physicalHeight);
+     
     this.setParams(params!, "width", physicalWidth);
     this.setParams(params!, "height", physicalHeight);
 
@@ -192,8 +218,31 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
   }
 
   onTouch(touch: PlatformViewTouch): void {
-    console.log("nodeController onTouch:do nothing")
-    // do nothing
+    let viewWrapper: undefined | PlatformViewWrapper = this.viewWrappers.get(touch.viewId)
+    if (viewWrapper != undefined) {
+      let dvModel = viewWrapper.getDvModel()
+      let params = dvModel.getLayoutParams() as Record<string, Any>;
+      //接收到点击类型为down的时候
+      if (touch.action == 0) {
+        //将当前点击状态设置为true
+        params['down'] = true
+        //首次收到触控点击类型为 OH_NATIVEXCOMPONENT_DOWN ，则将存到列表中的事件分发出去
+        let touchEventArray: Array<CustomTouchEvent> | undefined = params['touchEvent'] as Array<CustomTouchEvent>
+        if (touchEventArray != undefined) {
+          let nodeController = params['nodeController'] as EmbeddingNodeController;
+          for (let it of touchEventArray) {
+            nodeController.postEvent(it)
+          }
+          //首次执行完之后，将列表数据置空
+          params['touchEvent'] = undefined
+        }
+      //当前接收的事件类型为up的时候
+      } else if (touch.action == 1) {
+        //手指抬起之后，将当前点击状态设置为false。测试了一下，多个手指突然抬起，最后返回的状态也是1
+        //所以，这边就以状态抬起，代表当前用户不点击platformview了
+        params['down'] = false
+      }
+    }
   }
 
   setDirection(viewId: number, direction: Direction): void {
@@ -411,6 +460,10 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
   }
 
   private diposeAllViews(): void {
+    let viewKeys = this.platformViews.keys();
+    for (let viewId of viewKeys) {
+      this.dispose(viewId);
+    }
   }
 
   private initializeRootImageViewIfNeeded(): void {
@@ -447,5 +500,36 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     if (!(this.flutterView instanceof FlutterView)) {
       return;
     }
+  }
+  
+  public render(surfaceId: number, platformView: PlatformView,
+    width: number, height: number, left: number, top: number) {
+    this.flutterView!.setSurfaceId(surfaceId.toString());
+    let wrappedBuilder: WrappedBuilder<[Params]> = platformView.getView();
+    this.flutterView?.setWrappedBuilder(wrappedBuilder);
+    this.flutterView?.setPlatformView(platformView);
+
+    let nodeController = new EmbeddingNodeController();
+
+    nodeController.setRenderOption(platformView, surfaceId.toString(), NodeRenderType.RENDER_TYPE_TEXTURE, Direction.Auto);
+
+    this.nodeControllers.push(nodeController);
+
+    let dvModel = createDVModelFromJson(new DVModelJson("NodeContainer",
+      [],
+      {
+        "width": width,
+        "height": height,
+        "nodeController": nodeController,
+        "left": left,
+        "top": top
+      },
+      {},
+      undefined));
+
+    let viewWrapper: PlatformViewWrapper = new PlatformViewWrapper();
+    viewWrapper.addDvModel(dvModel);
+    this.viewWrappers.set(surfaceId, viewWrapper);
+    this.flutterView?.getDVModel().children.push(viewWrapper.getDvModel());
   }
 }
