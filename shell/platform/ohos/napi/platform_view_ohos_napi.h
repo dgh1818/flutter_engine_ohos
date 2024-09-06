@@ -31,13 +31,13 @@ struct locale {
 };
 
 struct mouseWheelEvent {
-    std::string eventType;
-    int64_t shellHolder;
-    int64_t fingerId;
-    double globalX;
-    double globalY;
-    double offsetY;
-    int64_t timestamp;
+  std::string eventType;
+  int64_t shellHolder;
+  int64_t fingerId;
+  double globalX;
+  double globalY;
+  double offsetY;
+  int64_t timestamp;
 };
 
 class PlatformViewOHOSNapi {
@@ -194,15 +194,10 @@ class PlatformViewOHOSNapi {
   static int64_t display_height;
   static int64_t display_refresh_rate;
   static double display_density_pixels;
-  static napi_value nativeXComponentDispatchMouseWheel(
-      napi_env env,
-      napi_callback_info info);
-  static napi_value nativeEncodeUtf8(
-      napi_env env,
-      napi_callback_info info);
-  static napi_value nativeDecodeUtf8(
-      napi_env env,
-      napi_callback_info info);
+  static napi_value nativeXComponentDispatchMouseWheel(napi_env env,
+                                                       napi_callback_info info);
+  static napi_value nativeEncodeUtf8(napi_env env, napi_callback_info info);
+  static napi_value nativeDecodeUtf8(napi_env env, napi_callback_info info);
 
  private:
   static napi_env env_;

@@ -26,6 +26,7 @@
 #include "flutter/common/constants.h"
 #include "flutter/fml/make_copyable.h"
 #include "flutter/fml/platform/ohos/napi_util.h"
+#include "flutter/shell/platform/ohos/ohos_logging.h"
 #include "flutter/shell/platform/ohos/ohos_main.h"
 #include "flutter/shell/platform/ohos/ohos_shell_holder.h"
 #include "flutter/shell/platform/ohos/ohos_xcomponent_adapter.h"
@@ -34,7 +35,6 @@
 #include "third_party/skia/src/ports/skia_ohos/SkFontMgr_ohos.h"
 #include "txt/platform.h"
 #include "unicode/uchar.h"
-#include "flutter/shell/platform/ohos/ohos_logging.h"
 
 #define OHOS_SHELL_HOLDER (reinterpret_cast<OHOSShellHolder*>(shell_holder))
 namespace flutter {
@@ -1843,74 +1843,82 @@ napi_value PlatformViewOHOSNapi::nativeXComponentDetachFlutterEngine(
  * @param  timestamp: number
  * @return napi_value
  */
-napi_value PlatformViewOHOSNapi::nativeXComponentDispatchMouseWheel(napi_env env, napi_callback_info info)
-{
-    napi_status ret;
-    size_t argc = 8;
-    napi_value args[8] = {nullptr};
-    int64_t shellHolder;
-    std::string xcomponentId;
-    std::string eventType;
-    int64_t fingerId;
-    double globalX;
-    double globalY;
-    double offsetY;
-    int64_t timestamp;
-    ret = napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
-    if (ret != napi_ok) {
-        FML_DLOG(ERROR) << "nativeXComponentDispatchMouseWheel napi_get_cb_info error:"
-                        << ret;
-        return nullptr;
-    }
-    ret = napi_get_value_int64(env, args[0], &shellHolder);
-    if (ret != napi_ok) {
-        LOGE("nativeXComponentDispatchMouseWheel shellHolder napi_get_value_int64 error");
-        return nullptr;
-    }
-    if (fml::napi::GetString(env, args[1], xcomponentId) != 0) {
-        FML_DLOG(ERROR) << "nativeXComponentDispatchMouseWheel xcomponentId GetString error";
-        return nullptr;
-    }
-    if (fml::napi::GetString(env, args[2], eventType) != 0) {
-        FML_DLOG(ERROR) << "nativeXComponentDispatchMouseWheel eventType GetString error";
-        return nullptr;
-    }
-    ret = napi_get_value_int64(env, args[3], &fingerId);
-    if (ret != napi_ok) {
-        LOGE("nativeXComponentDispatchMouseWheel fingerId napi_get_value_int64 error");
-        return nullptr;
-    }
-    ret = napi_get_value_double(env, args[4], &globalX);
-    if (ret != napi_ok) {
-        LOGE("nativeXComponentDispatchMouseWheel globalX napi_get_value_double error");
-        return nullptr;
-    }
-    ret = napi_get_value_double(env, args[5], &globalY);
-    if (ret != napi_ok) {
-        LOGE("nativeXComponentDispatchMouseWheel globalY napi_get_value_double error");
-        return nullptr;
-    }
-    ret = napi_get_value_double(env, args[6], &offsetY);
-    if (ret != napi_ok) {
-        LOGE("nativeXComponentDispatchMouseWheel offsetY napi_get_value_double error");
-        return nullptr;
-    }
-    ret = napi_get_value_int64(env, args[7], &timestamp);
-    if (ret != napi_ok) {
-        LOGE("nativeXComponentDispatchMouseWheel timestamp napi_get_value_int64 error");
-        return nullptr;
-    }
-    flutter::mouseWheelEvent event {
-        eventType,
-        shellHolder,
-        fingerId,
-        globalX,
-        globalY,
-        offsetY,
-        timestamp
-    };
-    XComponentAdapter::GetInstance()->OnMouseWheel(xcomponentId, event);
+napi_value PlatformViewOHOSNapi::nativeXComponentDispatchMouseWheel(
+    napi_env env,
+    napi_callback_info info) {
+  napi_status ret;
+  size_t argc = 8;
+  napi_value args[8] = {nullptr};
+  int64_t shellHolder;
+  std::string xcomponentId;
+  std::string eventType;
+  int64_t fingerId;
+  double globalX;
+  double globalY;
+  double offsetY;
+  int64_t timestamp;
+  ret = napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+  if (ret != napi_ok) {
+    FML_DLOG(ERROR)
+        << "nativeXComponentDispatchMouseWheel napi_get_cb_info error:" << ret;
     return nullptr;
+  }
+  ret = napi_get_value_int64(env, args[0], &shellHolder);
+  if (ret != napi_ok) {
+    LOGE(
+        "nativeXComponentDispatchMouseWheel shellHolder napi_get_value_int64 "
+        "error");
+    return nullptr;
+  }
+  if (fml::napi::GetString(env, args[1], xcomponentId) != 0) {
+    FML_DLOG(ERROR)
+        << "nativeXComponentDispatchMouseWheel xcomponentId GetString error";
+    return nullptr;
+  }
+  if (fml::napi::GetString(env, args[2], eventType) != 0) {
+    FML_DLOG(ERROR)
+        << "nativeXComponentDispatchMouseWheel eventType GetString error";
+    return nullptr;
+  }
+  ret = napi_get_value_int64(env, args[3], &fingerId);
+  if (ret != napi_ok) {
+    LOGE(
+        "nativeXComponentDispatchMouseWheel fingerId napi_get_value_int64 "
+        "error");
+    return nullptr;
+  }
+  ret = napi_get_value_double(env, args[4], &globalX);
+  if (ret != napi_ok) {
+    LOGE(
+        "nativeXComponentDispatchMouseWheel globalX napi_get_value_double "
+        "error");
+    return nullptr;
+  }
+  ret = napi_get_value_double(env, args[5], &globalY);
+  if (ret != napi_ok) {
+    LOGE(
+        "nativeXComponentDispatchMouseWheel globalY napi_get_value_double "
+        "error");
+    return nullptr;
+  }
+  ret = napi_get_value_double(env, args[6], &offsetY);
+  if (ret != napi_ok) {
+    LOGE(
+        "nativeXComponentDispatchMouseWheel offsetY napi_get_value_double "
+        "error");
+    return nullptr;
+  }
+  ret = napi_get_value_int64(env, args[7], &timestamp);
+  if (ret != napi_ok) {
+    LOGE(
+        "nativeXComponentDispatchMouseWheel timestamp napi_get_value_int64 "
+        "error");
+    return nullptr;
+  }
+  flutter::mouseWheelEvent event{eventType, shellHolder, fingerId, globalX,
+                                 globalY,   offsetY,     timestamp};
+  XComponentAdapter::GetInstance()->OnMouseWheel(xcomponentId, event);
+  return nullptr;
 }
 
 /**
@@ -1919,27 +1927,29 @@ napi_value PlatformViewOHOSNapi::nativeXComponentDispatchMouseWheel(napi_env env
  * @param  str: string
  * @return napi_value
  */
-napi_value PlatformViewOHOSNapi::nativeEncodeUtf8(napi_env env, napi_callback_info info)
-{
-    size_t argc = 1;
-    napi_value args[1] = {nullptr};
-    napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+napi_value PlatformViewOHOSNapi::nativeEncodeUtf8(napi_env env,
+                                                  napi_callback_info info) {
+  size_t argc = 1;
+  napi_value args[1] = {nullptr};
+  napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
 
-    size_t length = 0;
-    napi_get_value_string_utf8(env, args[0], nullptr, 0, &length);
+  size_t length = 0;
+  napi_get_value_string_utf8(env, args[0], nullptr, 0, &length);
 
-    auto null_terminated_length = length + 1;
-    auto char_array = std::make_unique<char[]>(null_terminated_length);
-    napi_get_value_string_utf8(env, args[0], char_array.get(), null_terminated_length, nullptr);
+  auto null_terminated_length = length + 1;
+  auto char_array = std::make_unique<char[]>(null_terminated_length);
+  napi_get_value_string_utf8(env, args[0], char_array.get(),
+                             null_terminated_length, nullptr);
 
-    void *data;
-    napi_value arraybuffer;
-    napi_create_arraybuffer(env, length, &data, &arraybuffer);
-    std::memcpy(data, char_array.get(), length);
+  void* data;
+  napi_value arraybuffer;
+  napi_create_arraybuffer(env, length, &data, &arraybuffer);
+  std::memcpy(data, char_array.get(), length);
 
-    napi_value uint8_array;
-    napi_create_typedarray(env, napi_uint8_array, length, arraybuffer, 0, &uint8_array);
-    return uint8_array;
+  napi_value uint8_array;
+  napi_create_typedarray(env, napi_uint8_array, length, arraybuffer, 0,
+                         &uint8_array);
+  return uint8_array;
 }
 
 /**
@@ -1948,19 +1958,20 @@ napi_value PlatformViewOHOSNapi::nativeEncodeUtf8(napi_env env, napi_callback_in
  * @param  array: Uint8Array
  * @return napi_value
  */
-napi_value PlatformViewOHOSNapi::nativeDecodeUtf8(napi_env env, napi_callback_info info)
-{
-    size_t argc = 1;
-    napi_value args[1] = {nullptr};
-    napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+napi_value PlatformViewOHOSNapi::nativeDecodeUtf8(napi_env env,
+                                                  napi_callback_info info) {
+  size_t argc = 1;
+  napi_value args[1] = {nullptr};
+  napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
 
-    size_t size = 0;
-    void *data = nullptr;
-    napi_get_typedarray_info(env, args[0], nullptr, &size, &data, nullptr, nullptr);
+  size_t size = 0;
+  void* data = nullptr;
+  napi_get_typedarray_info(env, args[0], nullptr, &size, &data, nullptr,
+                           nullptr);
 
-    napi_value result;
-    napi_create_string_utf8(env, static_cast<char *>(data), size, &result);
-    return result;
+  napi_value result;
+  napi_create_string_utf8(env, static_cast<char*>(data), size, &result);
+  return result;
 }
 
 }  // namespace flutter

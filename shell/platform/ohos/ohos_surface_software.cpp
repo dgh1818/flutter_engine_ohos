@@ -17,10 +17,10 @@
 #include <native_window/buffer_handle.h>
 #include <sys/mman.h>
 #include "napi_common.h"
+#include "ohos_logging.h"
 #include "third_party/skia/include/core/SkImage.h"
 #include "third_party/skia/include/core/SkSurface.h"
 #include "types.h"
-#include "ohos_logging.h"
 
 namespace flutter {
 

@@ -68,98 +68,93 @@ static PlatformData GetDefaultPlatformData() {
   return platform_data;
 }
 
-static bool EndsWith(std::string str, std::string suffix)
-{
-    if (str.length() < suffix.length()) {
-        return false;
-    }
-    return str.substr(str.length() - suffix.length()) == suffix;
+static bool EndsWith(std::string str, std::string suffix) {
+  if (str.length() < suffix.length()) {
+    return false;
+  }
+  return str.substr(str.length() - suffix.length()) == suffix;
 }
 
-static std::string GetFontFileName(std::string path)
-{
-    std::string fontFamilyName = "";
-    DIR* dir;
-    struct dirent* ent;
-    if ((dir = opendir(path.c_str())) == nullptr) {
-        return fontFamilyName;
-    }
-    while ((ent = readdir(dir)) != nullptr) {
-        if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) {
-            continue;
-        }
-        if (EndsWith(ent->d_name, ".ttf")) {
-            fontFamilyName = ent->d_name;
-            break;
-        }
-    }
-    closedir(dir);
+static std::string GetFontFileName(std::string path) {
+  std::string fontFamilyName = "";
+  DIR* dir;
+  struct dirent* ent;
+  if ((dir = opendir(path.c_str())) == nullptr) {
     return fontFamilyName;
+  }
+  while ((ent = readdir(dir)) != nullptr) {
+    if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) {
+      continue;
+    }
+    if (EndsWith(ent->d_name, ".ttf")) {
+      fontFamilyName = ent->d_name;
+      break;
+    }
+  }
+  closedir(dir);
+  return fontFamilyName;
 }
 
-static bool IsFontDirValid(std::string path)
-{
-    DIR* dir;
-    struct dirent* ent;
-    bool isFlagFileExist = false;
-    bool isFontDirExist = false;
-    if ((dir = opendir(path.c_str())) == nullptr) {
-        if (errno == ENOENT) {
-            FML_DLOG(ERROR) << "ERROR ENOENT";
-        } else if (errno == EACCES) {
-            FML_DLOG(ERROR) << "ERROR EACCES";
-        } else {
-            FML_DLOG(ERROR) << "ERROR Other";
-        }
-        return false;
-    }
-    while ((ent = readdir(dir)) != nullptr) {
-        if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) {
-            continue;
-        }
-        if (strcmp(ent->d_name, "flag") == 0) {
-            isFlagFileExist = true;
-        } else if (strcmp(ent->d_name, "fonts") == 0) {
-            isFontDirExist = true;
-        }
-    }
-    closedir(dir);
-    if (isFlagFileExist && isFontDirExist) {
-        FML_DLOG(INFO) << "font path exist" << path;
-        return true;
+static bool IsFontDirValid(std::string path) {
+  DIR* dir;
+  struct dirent* ent;
+  bool isFlagFileExist = false;
+  bool isFontDirExist = false;
+  if ((dir = opendir(path.c_str())) == nullptr) {
+    if (errno == ENOENT) {
+      FML_DLOG(ERROR) << "ERROR ENOENT";
+    } else if (errno == EACCES) {
+      FML_DLOG(ERROR) << "ERROR EACCES";
+    } else {
+      FML_DLOG(ERROR) << "ERROR Other";
     }
     return false;
+  }
+  while ((ent = readdir(dir)) != nullptr) {
+    if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) {
+      continue;
+    }
+    if (strcmp(ent->d_name, "flag") == 0) {
+      isFlagFileExist = true;
+    } else if (strcmp(ent->d_name, "fonts") == 0) {
+      isFontDirExist = true;
+    }
+  }
+  closedir(dir);
+  if (isFlagFileExist && isFontDirExist) {
+    FML_DLOG(INFO) << "font path exist" << path;
+    return true;
+  }
+  return false;
 }
 
-static std::string CheckFontSource()
-{
-    std::string path = "/data/themes/a/app";
+static std::string CheckFontSource() {
+  std::string path = "/data/themes/a/app";
+  if (!IsFontDirValid(path)) {
+    path = "/data/themes/b/app";
     if (!IsFontDirValid(path)) {
-        path = "/data/themes/b/app";
-        if (!IsFontDirValid(path)) {
-            return "";
-        }
+      return "";
     }
-    path = path.append("/fonts/");
-    std::string fileName = GetFontFileName(path);
-    if (fileName.empty()) {
-        return "";
-    }
-    path = path.append(fileName);
-    if (OHOSLastFontPath.empty()) {
-        OHOSLastFontPath = path;
-    }
-    return path;
+  }
+  path = path.append("/fonts/");
+  std::string fileName = GetFontFileName(path);
+  if (fileName.empty()) {
+    return "";
+  }
+  path = path.append(fileName);
+  if (OHOSLastFontPath.empty()) {
+    OHOSLastFontPath = path;
+  }
+  return path;
 }
 
-static bool IsFontChanged(std::string currentPath)
-{
-    if (!currentPath.empty() && currentPath != OHOSLastFontPath) {
-        OHOSLastFontPath = currentPath;
-        return true;
-    } else {
-        return false;
-    }
+static bool IsFontChanged(std::string currentPath) {
+  if (!currentPath.empty() && currentPath != OHOSLastFontPath) {
+    OHOSLastFontPath = currentPath;
+    return true;
+  } else {
+    return false;
+  }
 }
 
 OHOSShellHolder::OHOSShellHolder(
@@ -319,7 +314,7 @@ std::unique_ptr<OHOSShellHolder> OHOSShellHolder::Spawn(
     const std::vector<std::string>& entrypoint_args) const {
   if (!IsValid()) {
     FML_LOG(ERROR) << "A new Shell can only be spawned "
-         "if the current Shell is properly constructed";
+                      "if the current Shell is properly constructed";
     return nullptr;
   }
 

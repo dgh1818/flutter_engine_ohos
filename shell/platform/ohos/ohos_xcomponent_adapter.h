@@ -18,8 +18,8 @@
 #include <ace/xcomponent/native_interface_xcomponent.h>
 #include <map>
 #include <string>
-#include "flutter/shell/platform/ohos/ohos_touch_processor.h"
 #include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
+#include "flutter/shell/platform/ohos/ohos_touch_processor.h"
 #include "napi/native_api.h"
 #include "napi_common.h"
 namespace flutter {
