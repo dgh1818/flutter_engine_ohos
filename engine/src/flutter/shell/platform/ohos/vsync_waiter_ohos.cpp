@@ -14,9 +14,9 @@
  */
 
 #include "flutter/shell/platform/ohos/vsync_waiter_ohos.h"
+#include <qos/qos.h>
 #include "napi_common.h"
 #include "ohos_logging.h"
-#include <qos/qos.h>
 
 namespace flutter {
 
@@ -48,9 +48,8 @@ void VsyncWaiterOHOS::AwaitVSync() {
   fml::TaskRunner::RunNowOrPostTask(
       task_runners_.GetUITaskRunner(), [weak_this, handle]() {
         int32_t ret = 0;
-        if (0 != (ret = OH_NativeVSync_RequestFrameWithMultiCallback(handle,
-                                                                    &OnVsyncFromOHOS,
-                                                                    weak_this))) {
+        if (0 != (ret = OH_NativeVSync_RequestFrameWithMultiCallback(
+                      handle, &OnVsyncFromOHOS, weak_this))) {
           FML_DLOG(ERROR) << "AwaitVSync...failed:" << ret;
         }
       });
@@ -63,7 +62,8 @@ void VsyncWaiterOHOS::OnVsyncFromOHOS(long long timestamp, void* data) {
   }
   if (VsyncWaiterOHOS::firstCall) {
     int ret = OH_QoS_SetThreadQoS(QoS_Level::QOS_USER_INTERACTIVE);
-    FML_DLOG(INFO) << "qos set VsyncWaiterOHOS result:" << ret << ",tid:" << gettid();
+    FML_DLOG(INFO) << "qos set VsyncWaiterOHOS result:" << ret
+                   << ",tid:" << gettid();
     VsyncWaiterOHOS::firstCall = false;
   }
   int64_t frame_nanos = static_cast<int64_t>(timestamp);
