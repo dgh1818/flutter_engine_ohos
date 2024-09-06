@@ -11,6 +11,12 @@
         "file_path": "../../flutter/attachment/repos/dart.3.4.0.patch"
     },
     {
+        "name": "dart_debug",
+        "target": "./src/third_party/dart",
+        "type": "patch",
+        "file_path": "../../flutter/attachment/repos/dart.debug_tmp.patch"
+    },
+    {
         "name": "skia",
         "target": "./src/flutter/third_party/skia",
         "type": "patch",
