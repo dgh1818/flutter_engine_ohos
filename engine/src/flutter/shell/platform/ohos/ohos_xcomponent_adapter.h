@@ -18,6 +18,7 @@
 #include <ace/xcomponent/native_interface_xcomponent.h>
 #include <map>
 #include <string>
+#include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
 #include "flutter/shell/platform/ohos/ohos_touch_processor.h"
 #include "napi/native_api.h"
 #include "napi_common.h"
@@ -41,9 +42,12 @@ class XComponentBase {
   void OnSurfaceChanged(OH_NativeXComponent* component, void* window);
   void OnSurfaceDestroyed(OH_NativeXComponent* component, void* window);
   void OnDispatchTouchEvent(OH_NativeXComponent* component, void* window);
+  void OnDispatchMouseEvent(OH_NativeXComponent* component, void* window);
+  void OnDispatchMouseWheelEvent(mouseWheelEvent event);
 
   OH_NativeXComponent_TouchEvent touchEvent_;
   OH_NativeXComponent_Callback callback_;
+  OH_NativeXComponent_MouseEvent_Callback mouseCallback_;
   std::string id_;
   std::string shellholderId_;
   bool is_engine_attached_ = false;
@@ -70,6 +74,7 @@ class XComponentAdapter {
                int width,
                int height);
   void DetachFlutterEngine(std::string& id);
+  void OnMouseWheel(std::string& id, mouseWheelEvent event);
 
  public:
   std::map<std::string, XComponentBase*> xcomponetMap_;

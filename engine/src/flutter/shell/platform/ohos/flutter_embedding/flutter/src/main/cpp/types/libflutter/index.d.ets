@@ -112,6 +112,16 @@ export const nativeXComponentPreDraw: (xcomponentId: string, nativeShellHolderId
 
 export const nativeXComponentDetachFlutterEngine: (xcomponentId: string, nativeShellHolderId: number) => void;
 
+export const nativeXComponentDispatchMouseWheel: (nativeShellHolderId: number,
+                                                  xcomponentId: string,
+                                                  eventType: string,
+                                                  fingerId: number,
+                                                  globalX: number,
+                                                  globalY: number,
+                                                  offsetY: number,
+                                                  timestamp: number
+                                                  ) => void;
+
 /**
  * Detaches flutterNapi和engine之间的关联
  * 这个方法执行前提是flutterNapi已经和engine关联
@@ -128,3 +138,7 @@ export const nativeRegisterPixelMap: (nativeShellHolderId: number, textureId: nu
 export const nativeRegisterTexture: (nativeShellHolderId: number, textureId: number) => number;
 
 export const nativeGetTextureWindowId: (nativeShellHolderId: number, textureId: number) => number;
+
+export const nativeEncodeUtf8: (str: string) => Uint8Array;
+
+export const nativeDecodeUtf8: (array: Uint8Array) => string;

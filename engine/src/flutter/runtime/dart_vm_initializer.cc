@@ -38,8 +38,8 @@ void LogUnhandledException(Dart_Handle exception_handle,
 
   // Either the exception handler was not set or it could not handle the
   // error, just log the exception.
-  FML_LOG(ERROR) << "Unhandled Exception: " << error << std::endl
-                 << stack_trace;
+  // FML_LOG(ERROR) << "Unhandled Exception: " << error << std::endl
+  //                << stack_trace;
 }
 
 void ReportUnhandledException(Dart_Handle exception_handle,

@@ -200,12 +200,9 @@ export class PlatformPluginCallback implements PlatformMessageHandler {
 
   popSystemNavigator() {
     if (this.platformPluginDelegate != null && this.platformPluginDelegate?.popSystemNavigator()) {
-      router.back();
       return;
     }
-    if (this.uiAbilityContext != null) {
-      this.uiAbilityContext.terminateSelf();
-    }
+    router.back();
   }
 
   getClipboardData(result: MethodResult): void {
@@ -284,7 +281,7 @@ export class PlatformPluginCallback implements PlatformMessageHandler {
     let uiConfig: ('status' | 'navigation')[] = [];
     if (mode == SystemUiMode.LEAN_BACK) {
       //全屏显示，通过点击显示器上的任何位置都可以显示状态和导航栏
-      FlutterManager.getInstance().setUseFullScreen(false);
+      FlutterManager.getInstance().setUseFullScreen(true);
     } else if (mode == SystemUiMode.IMMERSIVE) {
       //全屏显示，通过在显示器边缘的滑动手势可以显示状态和导航栏,应用程序不会接收到此手势
       FlutterManager.getInstance().setUseFullScreen(true);

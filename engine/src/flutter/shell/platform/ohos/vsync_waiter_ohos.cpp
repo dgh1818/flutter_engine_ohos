@@ -14,14 +14,17 @@
  */
 
 #include "flutter/shell/platform/ohos/vsync_waiter_ohos.h"
-#include "flutter/fml/logging.h"
+#include <qos/qos.h>
 #include "napi_common.h"
+#include "ohos_logging.h"
 
 namespace flutter {
 
 static std::atomic_uint g_refresh_rate_ = 60;
 
 const char* flutterSyncName = "flutter_connect";
+
+thread_local bool VsyncWaiterOHOS::firstCall = true;
 
 VsyncWaiterOHOS::VsyncWaiterOHOS(const flutter::TaskRunners& task_runners)
     : VsyncWaiter(task_runners) {
@@ -31,6 +34,7 @@ VsyncWaiterOHOS::VsyncWaiterOHOS(const flutter::TaskRunners& task_runners)
 
 VsyncWaiterOHOS::~VsyncWaiterOHOS() {
   OH_NativeVSync_Destroy(vsyncHandle);
+  vsyncHandle = nullptr;
 }
 
 void VsyncWaiterOHOS::AwaitVSync() {
@@ -44,15 +48,24 @@ void VsyncWaiterOHOS::AwaitVSync() {
   fml::TaskRunner::RunNowOrPostTask(
       task_runners_.GetUITaskRunner(), [weak_this, handle]() {
         int32_t ret = 0;
-        if (0 != (ret = OH_NativeVSync_RequestFrameWithMultiCallback(handle,
-                                                                    &OnVsyncFromOHOS,
-                                                                    weak_this))) {
+        if (0 != (ret = OH_NativeVSync_RequestFrameWithMultiCallback(
+                      handle, &OnVsyncFromOHOS, weak_this))) {
           FML_DLOG(ERROR) << "AwaitVSync...failed:" << ret;
         }
       });
 }
 
 void VsyncWaiterOHOS::OnVsyncFromOHOS(long long timestamp, void* data) {
+  if (data == nullptr) {
+    FML_LOG(ERROR) << "VsyncWaiterOHOS::OnVsyncFromOHOS, data is nullptr.";
+    return;
+  }
+  if (VsyncWaiterOHOS::firstCall) {
+    int ret = OH_QoS_SetThreadQoS(QoS_Level::QOS_USER_INTERACTIVE);
+    FML_DLOG(INFO) << "qos set VsyncWaiterOHOS result:" << ret
+                   << ",tid:" << gettid();
+    VsyncWaiterOHOS::firstCall = false;
+  }
   int64_t frame_nanos = static_cast<int64_t>(timestamp);
   auto frame_time = fml::TimePoint::FromEpochDelta(
       fml::TimeDelta::FromNanoseconds(frame_nanos));

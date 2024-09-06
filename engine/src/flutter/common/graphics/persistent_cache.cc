@@ -250,7 +250,7 @@ std::vector<PersistentCache::SkSLCache> PersistentCache::LoadSkSLs() const {
     mapping = asset_manager_->GetAsMapping(kAssetFileName);
   }
   if (mapping == nullptr) {
-    FML_LOG(INFO) << "No sksl asset found.";
+    FML_LOG(ERROR) << "No sksl asset found.";
   } else {
     FML_LOG(INFO) << "Found sksl asset. Loading SkSLs from it...";
     rapidjson::Document json_doc;
