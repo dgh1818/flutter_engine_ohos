@@ -39,7 +39,7 @@ export default class FlutterEnginePreload {
     }
 
     if (!loader.initialized) {
-      await loader.startInitialization(context);
+      loader.startInitialization(context);
       loader.ensureInitializationComplete(dartArgs);
     }
 

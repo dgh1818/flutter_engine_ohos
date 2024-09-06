@@ -37,7 +37,7 @@ export default class FlutterEngineGroup {
   async checkLoader(context: common.Context, args: Array<string>) {
     let loader: FlutterLoader = FlutterInjector.getInstance().getFlutterLoader();
     if (!loader.initialized) {
-      await loader.startInitialization(context);
+      loader.startInitialization(context);
       loader.ensureInitializationComplete(args);
     }
   }

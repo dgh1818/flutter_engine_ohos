@@ -93,10 +93,10 @@ export default class FlutterLoader {
     this.flutterNapi = flutterNapi;
   }
 
- private async getBuildInfo(context: common.Context): Promise<Map<string, string>> {
+ private getBuildInfo(context: common.Context): Map<string, string> {
     let buildInfoMap: Map<string, string> = new Map();
     try {
-      let rawFile = await context.resourceManager.getRawFileContent(BUILD_INFO_FILE_NAME);
+      let rawFile = context.resourceManager.getRawFileContentSync(BUILD_INFO_FILE_NAME);
         let textDecoder = util.TextDecoder.create('utf-8', {
           ignoreBOM: true
         });
@@ -126,18 +126,18 @@ export default class FlutterLoader {
    * @param applicationContext The HarmonyOS application context.
    * @param settings Configuration settings.
    */
-  async startInitialization(context: common.Context) {
+  startInitialization(context: common.Context) {
     Log.d(TAG, "flutterLoader start init")
     this.initStartTimestampMillis = Date.now();
     this.context = context;
     this.flutterApplicationInfo = ApplicationInfoLoader.load(context);
-    await prefetchDefaultFontManager();
+    prefetchDefaultFontManager();
     if (this.flutterApplicationInfo!.isDebugMode) {
-      await this.copyResource(context)
+      this.copyResource(context)
     } else {
-      await this.copyICU(context)
+      this.copyICU(context)
     }
-    let buildInfoMap = await this.getBuildInfo(this.context!); 
+    let buildInfoMap = this.getBuildInfo(this.context!); 
     if (!buildInfoMap.has(ENABLE_IMPELLER_TAG) || buildInfoMap.get(ENABLE_IMPELLER_TAG) == TRUE_STRING) {
         this.isEnableImpeller = true;
     } else {
@@ -151,9 +151,9 @@ export default class FlutterLoader {
     Log.d(TAG, "flutterLoader end init")
   }
 
-  private async copyICU(context: common.Context) {
+  private copyICU(context: common.Context) {
     let filePath = context.filesDir + FILE_SEPARATOR + this.flutterApplicationInfo!.flutterAssetsDir
-    const timestamp = await this.checkTimestamp(filePath);
+    const timestamp = this.checkTimestamp(filePath);
     if (timestamp == null) {
       Log.d(TAG, "no need copyICU")
       return;
@@ -165,21 +165,22 @@ export default class FlutterLoader {
       }
       fs.mkdirSync(filePath)
       let icudtlBuffer =
-        await this.context.resourceManager.getRawFileContent(this.flutterApplicationInfo!.flutterAssetsDir +
+        this.context.resourceManager.getRawFileContentSync(this.flutterApplicationInfo!.flutterAssetsDir +
           "/icudtl.dat")
       let icudtlFile =
         fs.openSync(filePath + FILE_SEPARATOR + "/icudtl.dat", fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE)
       fs.writeSync(icudtlFile.fd, icudtlBuffer.buffer)
       if (timestamp != null) {
-        fs.openSync(filePath + FILE_SEPARATOR + timestamp, fs.OpenMode.READ_ONLY | fs.OpenMode.CREATE)
+        fs.closeSync(fs.openSync(filePath + FILE_SEPARATOR + timestamp, fs.OpenMode.READ_ONLY | fs.OpenMode.CREATE))
       }
+      fs.closeSync(icudtlFile)
       Log.d(TAG, "copyICU end")
     }
   }
 
-  private async copyResource(context: common.Context) {
+  private copyResource(context: common.Context) {
     let filePath = context.filesDir + FILE_SEPARATOR + this.flutterApplicationInfo!.flutterAssetsDir
-    const timestamp = await this.checkTimestamp(filePath);
+    const timestamp = this.checkTimestamp(filePath);
     if (timestamp == null) {
       Log.d(TAG, "no need copyResource")
       return;
@@ -196,36 +197,40 @@ export default class FlutterLoader {
       }
 
       let icudtlBuffer =
-        await this.context.resourceManager.getRawFileContent(this.flutterApplicationInfo!.flutterAssetsDir +
+        this.context.resourceManager.getRawFileContentSync(this.flutterApplicationInfo!.flutterAssetsDir +
           "/icudtl.dat")
       let icudtlFile =
         fs.openSync(filePath + FILE_SEPARATOR + "/icudtl.dat", fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE)
       fs.writeSync(icudtlFile.fd, icudtlBuffer.buffer)
 
       let kernelBuffer =
-        await this.context.resourceManager.getRawFileContent(this.flutterApplicationInfo!.flutterAssetsDir +
+        this.context.resourceManager.getRawFileContentSync(this.flutterApplicationInfo!.flutterAssetsDir +
           FILE_SEPARATOR + DEFAULT_KERNEL_BLOB)
       let kernelFile =
         fs.openSync(filePath + FILE_SEPARATOR + DEFAULT_KERNEL_BLOB, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE)
       fs.writeSync(kernelFile.fd, kernelBuffer.buffer)
 
       let vmBuffer =
-        await this.context.resourceManager.getRawFileContent(this.flutterApplicationInfo!.flutterAssetsDir +
+        this.context.resourceManager.getRawFileContentSync(this.flutterApplicationInfo!.flutterAssetsDir +
           FILE_SEPARATOR + this.flutterApplicationInfo!.vmSnapshotData)
       let vmFile = fs.openSync(filePath + FILE_SEPARATOR + this.flutterApplicationInfo!.vmSnapshotData,
         fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE)
       fs.writeSync(vmFile.fd, vmBuffer.buffer)
 
       let isolateBuffer =
-        await this.context.resourceManager.getRawFileContent(this.flutterApplicationInfo!.flutterAssetsDir +
+        this.context.resourceManager.getRawFileContentSync(this.flutterApplicationInfo!.flutterAssetsDir +
           FILE_SEPARATOR + this.flutterApplicationInfo!.isolateSnapshotData)
       let isolateFile = fs.openSync(filePath + FILE_SEPARATOR + this.flutterApplicationInfo!.isolateSnapshotData,
         fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE)
       fs.writeSync(isolateFile.fd, isolateBuffer.buffer)
 
       if (timestamp != null) {
-        fs.openSync(filePath + FILE_SEPARATOR + timestamp, fs.OpenMode.READ_ONLY | fs.OpenMode.CREATE)
+        fs.closeSync(fs.openSync(filePath + FILE_SEPARATOR + timestamp, fs.OpenMode.READ_ONLY | fs.OpenMode.CREATE))
       }
+      fs.closeSync(icudtlFile)
+      fs.closeSync(kernelFile)
+      fs.closeSync(vmFile)
+      fs.closeSync(isolateFile)
       Log.d(TAG, "copyResource end")
     } else {
       Log.d(TAG, "no copyResource")
@@ -325,8 +330,8 @@ export default class FlutterLoader {
     return this.flutterApplicationInfo == null ? "" : this.flutterApplicationInfo!.flutterAssetsDir + "/" + filePath;
   }
 
-  private async checkTimestamp(dataDir: string): Promise<string | null> {
-    let bundleInfo = await bundleManager.getBundleInfoForSelf(bundleManager.BundleFlag.GET_BUNDLE_INFO_DEFAULT);
+  private checkTimestamp(dataDir: string): string | null {
+    let bundleInfo = bundleManager.getBundleInfoForSelfSync(bundleManager.BundleFlag.GET_BUNDLE_INFO_DEFAULT);
     const expectedTimestamp = TIMESTAMP_PREFIX + bundleInfo.versionCode + "-" + bundleInfo.updateTime;
     const existingTimestamps = this.getExistingTimestamps(dataDir);
     if (existingTimestamps == null) {

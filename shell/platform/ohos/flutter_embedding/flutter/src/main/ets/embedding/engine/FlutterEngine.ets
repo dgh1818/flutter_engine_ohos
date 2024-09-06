@@ -106,7 +106,7 @@ export default class FlutterEngine implements EngineLifecycleListener {
 
   async init(context: common.Context, dartVmArgs: Array<string> | null, waitForRestorationData: boolean) {
     if (!this.flutterNapi.isAttached()) {
-      await this.flutterLoader.startInitialization(context)
+      this.flutterLoader.startInitialization(context)
       this.flutterLoader.ensureInitializationComplete(dartVmArgs);
     }
     //channel初始化
