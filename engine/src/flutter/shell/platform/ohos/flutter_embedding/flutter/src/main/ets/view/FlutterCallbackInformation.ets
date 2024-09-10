@@ -16,9 +16,9 @@
 import FlutterNapi from '../embedding/engine/FlutterNapi';
 
 export class FlutterCallbackInformation {
-  callbackName: string;
-  callbackClassName: string;
-  callbackLibraryPath: string;
+  callbackName?: string;
+  callbackClassName?: string;
+  callbackLibraryPath?: string;
 
   /**
    * Get callback information for a given handle.
@@ -31,7 +31,13 @@ export class FlutterCallbackInformation {
     return FlutterNapi.nativeLookupCallbackInformation(handle);
   }
 
-  constructor(callbackName: string, callbackClassName: string, callbackLibraryPath: string) {
+  constructor(callbackName?: string, callbackClassName?: string, callbackLibraryPath?: string) {
+    this.callbackName = callbackName;
+    this.callbackClassName = callbackClassName;
+    this.callbackLibraryPath = callbackLibraryPath;
+  }
+
+  init(callbackName: string, callbackClassName: string, callbackLibraryPath: string) {
     this.callbackName = callbackName;
     this.callbackClassName = callbackClassName;
     this.callbackLibraryPath = callbackLibraryPath;
