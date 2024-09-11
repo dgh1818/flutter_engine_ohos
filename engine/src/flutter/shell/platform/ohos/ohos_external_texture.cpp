@@ -156,12 +156,42 @@ void OHOSExternalTexture::Paint(PaintContext& context,
 }
 
 void OHOSExternalTexture::MarkNewFrameAvailable() {
-  // NOOP.
   FML_LOG(INFO) << " OHOSExternalTexture::MarkNewFrameAvailable avail-seq "
                 << now_new_frame_seq_num_ << " paint-seq "
                 << now_paint_frame_seq_num_;
   now_new_frame_seq_num_++;
   producer_has_frame_ = true;
+  if (producer_nativewindow_ != nullptr) {
+    int buffer_queue_size = 0;
+    int ret = OH_NativeWindow_NativeWindowHandleOpt(
+        producer_nativewindow_, GET_BUFFERQUEUE_SIZE, &buffer_queue_size);
+    if (ret != 0) {
+      return;
+    }
+    // Here we release the buffers in the buffer_queue to ensure there is always
+    // space in the queue, preventing the producer side from stalling.
+    int max_jank_frame = buffer_queue_size * 2 / 3;
+    while (max_jank_frame > 1 &&
+           now_new_frame_seq_num_ - now_paint_frame_seq_num_ > max_jank_frame) {
+      OHNativeWindowBuffer* buffer = nullptr;
+      int fence_fd;
+      ret = OH_NativeImage_AcquireNativeWindowBuffer(native_image_source_,
+                                                     &buffer, &fence_fd);
+      if (buffer != nullptr && ret == 0) {
+        FML_LOG(INFO) << "external_texture skip one frame(slow consumer): "
+                      << buffer << " buffer_queue_size " << buffer_queue_size
+                      << " max_jank_frame " << max_jank_frame;
+        int ret = OH_NativeImage_ReleaseNativeWindowBuffer(native_image_source_,
+                                                           buffer, fence_fd);
+        if (ret != 0) {
+          FML_LOG(ERROR) << "ReleaseNativeWindowBuffe get err:" << ret;
+          OH_NativeWindow_DestroyNativeWindowBuffer(buffer);
+          close(fence_fd);
+        }
+        now_paint_frame_seq_num_++;
+      }
+    }
+  }
 }
 
 void OHOSExternalTexture::OnTextureUnregistered() {
