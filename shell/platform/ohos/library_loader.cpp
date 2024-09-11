@@ -140,6 +140,9 @@ static napi_value Init(napi_env env, napi_value exports) {
                             flutter::PlatformViewOHOSNapi::nativeEncodeUtf8),
       DECLARE_NAPI_FUNCTION("nativeDecodeUtf8",
                             flutter::PlatformViewOHOSNapi::nativeDecodeUtf8),
+      DECLARE_NAPI_FUNCTION(
+          "nativeSetTextureBackGroundPixelMap",
+          flutter::PlatformViewOHOSNapi::nativeSetTextureBackGroundPixelMap),
 
   };
 

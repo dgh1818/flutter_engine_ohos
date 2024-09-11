@@ -587,6 +587,10 @@ export default class FlutterNapi {
     flutter.nativeRegisterPixelMap(this.nativeShellHolderId!, textureId, pixelMap);
   }
 
+  setTextureBackGroundPixelMap(textureId: number, pixelMap: PixelMap): void {
+    flutter.nativeSetTextureBackGroundPixelMap(this.nativeShellHolderId!, textureId, pixelMap);
+  }
+
   registerTexture(textureId: number): number {
     Log.d(TAG, "called registerTexture ");
     if (!this.nativeShellHolderId) {
