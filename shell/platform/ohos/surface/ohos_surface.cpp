@@ -35,7 +35,6 @@ std::unique_ptr<Surface> OHOSSurface::CreateSnapshotSurface() {
 OHOSSurface::~OHOSSurface() {
   std::lock_guard<std::mutex> lock(g_surface_alive_mutex);
   g_surface_is_alive.erase((uint64_t)this);
-  FML_LOG(ERROR) << "ReleaseOffscreenWindow in ~OHOSSurface()";
   ReleaseOffscreenWindow();
 }
 

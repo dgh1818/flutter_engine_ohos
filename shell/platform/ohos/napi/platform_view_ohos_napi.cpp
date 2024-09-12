@@ -1653,6 +1653,23 @@ napi_value PlatformViewOHOSNapi::nativeRegisterPixelMap(
   return nullptr;
 }
 
+napi_value PlatformViewOHOSNapi::nativeSetTextureBackGroundPixelMap(
+    napi_env env,
+    napi_callback_info info) {
+  FML_DLOG(INFO) << "PlatformViewOHOSNapi::nativeSetTextureBackGroundPixelMap";
+  size_t argc = 3;
+  napi_value args[3] = {nullptr};
+  int64_t shell_holder;
+  int64_t textureId;
+  NAPI_CALL(env, napi_get_cb_info(env, info, &argc, args, nullptr, nullptr));
+  NAPI_CALL(env, napi_get_value_int64(env, args[0], &shell_holder));
+  NAPI_CALL(env, napi_get_value_int64(env, args[1], &textureId));
+  NativePixelMap* nativePixelMap = OH_PixelMap_InitNativePixelMap(env, args[2]);
+  OHOS_SHELL_HOLDER->GetPlatformView()->SetExternalTextureBackGroundPixelMap(
+      textureId, nativePixelMap);
+  return nullptr;
+}
+
 void PlatformViewOHOSNapi::SurfaceCreated(int64_t shell_holder, void* window) {
   auto native_window = fml::MakeRefCounted<OHOSNativeWindow>(
       static_cast<OHNativeWindow*>(window));
