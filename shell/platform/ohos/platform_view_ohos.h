@@ -100,6 +100,8 @@ class PlatformViewOHOS final : public PlatformView {
   void SetExternalTextureBackGroundPixelMap(int64_t texture_id,
                                             NativePixelMap* pixelMap);
 
+  void SetTextureBufferSize(int64_t texture_id, int32_t width, int32_t height);
+
   void UnRegisterExternalTexture(int64_t texture_id);
 
   uint64_t GetExternalTextureWindowId(int64_t texture_id);
