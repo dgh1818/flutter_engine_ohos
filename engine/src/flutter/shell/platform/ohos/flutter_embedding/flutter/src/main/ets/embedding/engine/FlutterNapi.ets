@@ -605,6 +605,15 @@ export default class FlutterNapi {
     return flutter.nativeGetTextureWindowId(this.nativeShellHolderId!, textureId);
   }
 
+  setTextureBufferSize(textureId: number, width: number, height: number): void {
+    Log.d(TAG, "called setTextureBufferSize ");
+    if (!this.isAttached()) {
+      Log.e(TAG, "setTextureBufferSize this.nativeShellHolderId:" + this.nativeShellHolderId)
+      return;
+    }
+    flutter.nativeSetTextureBufferSize(this.nativeShellHolderId!, textureId, width, height);
+  }
+
   /** Dispatch Touch Event */
   onTouchEvent(strings: Array<string>): void {
     if (this.isAttached()) {

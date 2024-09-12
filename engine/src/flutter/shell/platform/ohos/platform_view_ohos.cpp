@@ -569,6 +569,15 @@ void PlatformViewOHOS::SetExternalTextureBackGroundPixelMap(
   }
 }
 
+void PlatformViewOHOS::SetTextureBufferSize(int64_t texture_id,
+                                            int32_t width,
+                                            int32_t height) {
+  if (all_external_texture_.find(texture_id) != all_external_texture_.end()) {
+    auto external_texture = all_external_texture_[texture_id];
+    external_texture->SetProducerWindowSize(width, height);
+  }
+}
+
 void PlatformViewOHOS::OnTouchEvent(
     const std::shared_ptr<std::string[]> touchPacketString,
     int size) {

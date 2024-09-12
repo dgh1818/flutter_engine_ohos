@@ -24,6 +24,8 @@ export interface TextureRegistry {
 
   setTextureBackGroundPixelMap(textureId: number, pixelMap: PixelMap): void;
 
+  setTextureBufferSize(textureId: number, width: number, height: number): void;
+
   unregisterTexture(textureId: number): void;
 
   onTrimMemory(level: number): void;
