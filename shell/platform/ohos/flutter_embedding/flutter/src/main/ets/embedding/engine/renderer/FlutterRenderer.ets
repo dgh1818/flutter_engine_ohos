@@ -61,6 +61,10 @@ export class FlutterRenderer implements TextureRegistry {
     this.flutterNapi.setTextureBufferSize(textureId, width, height);
   }
 
+  setExternalNativeImage(textureId: number, native_image: number): boolean {
+    return this.flutterNapi.setExternalNativeImage(textureId, native_image);
+  }
+
   unregisterTexture(textureId: number): void {
     this.flutterNapi.unregisterTexture(textureId);
   }

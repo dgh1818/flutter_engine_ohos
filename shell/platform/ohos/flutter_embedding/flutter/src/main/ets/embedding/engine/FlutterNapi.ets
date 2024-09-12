@@ -588,7 +588,15 @@ export default class FlutterNapi {
   }
 
   setTextureBackGroundPixelMap(textureId: number, pixelMap: PixelMap): void {
-    flutter.nativeSetTextureBackGroundPixelMap(this.nativeShellHolderId!, textureId, pixelMap);
+    if (this.isAttached()) {
+      if (!this.nativeShellHolderId) {
+        Log.e(TAG, "this.nativeShellHolderId = " + this.nativeShellHolderId)
+        return;
+      }
+      flutter.nativeSetTextureBackGroundPixelMap(this.nativeShellHolderId!, textureId, pixelMap);
+    } else {
+      return;
+    }
   }
 
   registerTexture(textureId: number): number {
@@ -602,7 +610,28 @@ export default class FlutterNapi {
 
   getTextureNativeWindowId(textureId: number): number {
     Log.d(TAG, "called getTextureNativeWindowId ");
-    return flutter.nativeGetTextureWindowId(this.nativeShellHolderId!, textureId);
+    if (this.isAttached()) {
+      if (!this.nativeShellHolderId) {
+        Log.e(TAG, "this.nativeShellHolderId = " + this.nativeShellHolderId)
+        return 0;
+      }
+      return flutter.nativeGetTextureWindowId(this.nativeShellHolderId!, textureId);
+    } else {
+      return 0;
+    }
+  }
+
+  setExternalNativeImage(textureId: number, native_image: number): boolean {
+    Log.d(TAG, "called setExternalNativeImage ");
+    if (this.isAttached()) {
+      if (!this.nativeShellHolderId) {
+        Log.e(TAG, "this.nativeShellHolderId = " + this.nativeShellHolderId)
+        return false;
+      }
+      return Boolean(flutter.nativeSetExternalNativeImage(this.nativeShellHolderId!, textureId, native_image));
+    } else {
+      return false;
+    }
   }
 
   setTextureBufferSize(textureId: number, width: number, height: number): void {
