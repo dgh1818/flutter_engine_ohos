@@ -16,6 +16,7 @@
 #ifndef FLUTTER_SHELL_PLATFORM_OHOS_OHOS_EXTERNAL_TEXTURE_H_
 #define FLUTTER_SHELL_PLATFORM_OHOS_OHOS_EXTERNAL_TEXTURE_H_
 
+#include <multimedia/image_framework/image/pixelmap_native.h>
 #include <multimedia/image_framework/image_pixel_map_mdk.h>
 #include <native_buffer/native_buffer.h>
 #include <native_image/native_image.h>
@@ -54,10 +55,10 @@ class OHOSExternalTexture : public flutter::Texture {
 
   bool SetPixelMapAsProducer(NativePixelMap* pixelMap);
 
+  bool SetProducerWindowSize(int width, int height);
+
  protected:
   OHNativeWindowBuffer* GetConsumerNativeBuffer(int* fence_fd);
-
-  void ReleaseConsumerNativeBuffer(OHNativeWindowBuffer* buffer, int fence_fd);
 
   virtual void SetGPUFence(int* fence_fd) = 0;
   virtual void WaitGPUFence(int fence_fd) { close(fence_fd); }
@@ -75,12 +76,23 @@ class OHOSExternalTexture : public flutter::Texture {
   sk_sp<flutter::DlImage> GetNextDrawImage(PaintContext& context,
                                            const SkRect& bounds);
 
-  bool CreateProducerNativeBuffer(int width, int height);
+  bool CopyDataToPixelMapBuffer(const unsigned char* src,
+                                int width,
+                                int height,
+                                int stride,
+                                int pixelmap_format);
 
-  bool CopyDataToNativeBuffer(const unsigned char* src,
-                              int width,
-                              int height,
-                              int stride);
+  bool CreatePixelMapBuffer(int width, int height, int pixel_format);
+
+  void DestroyPixelMapBuffer();
+
+  bool SetWindowSize(OHNativeWindow* window, int width, int height);
+
+  bool SetWindowFormat(OHNativeWindow* window, int format);
+
+  bool CPUWaitFence(int fence_fd, uint32_t timeout);
+
+  bool SetNativeWindowCPUAccess(OHNativeWindow* window, bool cpuAccess);
 
   void GetNewTransformBound(SkM44& transform, SkRect& bounds);
 
@@ -88,14 +100,13 @@ class OHOSExternalTexture : public flutter::Texture {
 
   AttachmentState state_ = AttachmentState::kUninitialized;
 
-  // bool new_frame_ready_ = false;
-
   uint64_t producer_surface_id_ = 0;
 
+  bool producer_has_frame_ = false;
   int producer_nativewindow_width_ = 0;
   int producer_nativewindow_height_ = 0;
   OHNativeWindow* producer_nativewindow_ = nullptr;
-  OHNativeWindowBuffer* producer_nativewindow_buffer_ = nullptr;
+  OHNativeWindowBuffer* pixelmap_buffer_ = nullptr;
 
   OHNativeWindowBuffer* last_native_window_buffer_ = nullptr;
   int last_fence_fd_ = -1;
@@ -105,6 +116,8 @@ class OHOSExternalTexture : public flutter::Texture {
   std::atomic<int64_t> now_new_frame_seq_num_ = 0;
 
   OH_NativeImage* native_image_source_ = nullptr;
+
+  OH_NativeImage* pixelmap_native_image_ = nullptr;
 
   SkMatrix transform_;
 
