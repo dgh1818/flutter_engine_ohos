@@ -63,7 +63,8 @@ export default class FlutterNapi {
   isRunningDart: boolean = false;
   private nextSpawnNapi: FlutterNapi | null = null;
   private pendingMessages: PendingMessage[] = [];
-  private readyForHandleMessage: boolean = false;
+  private readyForHandleMessage: boolean = true;
+  private firstPreloading: boolean = true;
 
   /**
    * 更新刷新率
@@ -354,6 +355,13 @@ export default class FlutterNapi {
         messageData
       };
       this.pendingMessages.push(pendingMessage);
+    }
+  }
+
+  setPreloading(): void {
+    if (this.firstPreloading) {
+      this.readyForHandleMessage = false;
+      this.firstPreloading = false;
     }
   }
 
