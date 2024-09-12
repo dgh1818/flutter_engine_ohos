@@ -41,5 +41,7 @@ export default class FlutterAbilityLaunchConfigs {
   // Default configuration.
   static DEFAULT_DART_ENTRYPOINT = "main";
   static DEFAULT_INITIAL_ROUTE = "/";
-  static DEFAULT_BACKGROUND_MODE = BackgroundMode.opaque
+  static DEFAULT_BACKGROUND_MODE = BackgroundMode.opaque;
+  // Preload configuration.
+  static PRELOAD_VIEWPORT_METRICS_KEY = "viewport_metrics";
 }

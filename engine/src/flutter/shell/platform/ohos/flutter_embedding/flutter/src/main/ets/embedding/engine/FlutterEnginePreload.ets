@@ -26,12 +26,13 @@ import FlutterAbilityLaunchConfigs from '../ohos/FlutterAbilityLaunchConfigs';
 import JSONMethodCodec from '../../plugin/common/JSONMethodCodec';
 import MethodCall from '../../plugin/common/MethodCall';
 import FlutterNapi from './FlutterNapi';
+import { ViewportMetrics } from '../../view/FlutterView';
 
 const TAG = "FlutterEnginePreload"
 
 export default class FlutterEnginePreload {
   static async preloadEngine(context: common.Context, params: Record<string, Object> = {},
-    nextViewId: string | null = null, width: number = 0, height: number = 0) {
+    nextViewId: string | null = null) {
     let loader: FlutterLoader = FlutterInjector.getInstance().getFlutterLoader();
     let dartArgs = new Array<string>();
     if (params[FlutterAbilityLaunchConfigs.EXTRA_DART_ENTRYPOINT_ARGS]) {
@@ -45,24 +46,45 @@ export default class FlutterEnginePreload {
 
     let flutterNapi: FlutterNapi | null =
       FlutterEnginePreload.preLoadFlutterNapi(context, loader.findAppBundlePath(), params)
-
-    if (width == 0 || height == 0) {
+    let viewportMetrics: ViewportMetrics = new ViewportMetrics();
+    if (params[FlutterAbilityLaunchConfigs.PRELOAD_VIEWPORT_METRICS_KEY]) {
+      viewportMetrics = params[FlutterAbilityLaunchConfigs.PRELOAD_VIEWPORT_METRICS_KEY] as ViewportMetrics;
+    } else {
       let display_info: display.Display = display.getDefaultDisplaySync();
-      ;
-      width = display_info.width;
-      height = display_info.height;
+      viewportMetrics.physicalWidth = display_info.width;
+      viewportMetrics.physicalHeight = display_info.height;
+      viewportMetrics.devicePixelRatio = display_info.densityPixels;
+      viewportMetrics.physicalTouchSlop = 1.0 * display_info.densityPixels;
     }
     if (flutterNapi) {
       if (!nextViewId) {
         nextViewId = FlutterManager.getInstance().getNextFlutterViewId();
       }
-      flutterNapi.xComponentPreDraw(nextViewId, width, height);
-      flutterNapi.setViewportMetrics(1.0, width, height, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, new Array(0),
-        new Array(0), new Array(0));
+      flutterNapi.xComponentPreDraw(nextViewId, viewportMetrics.physicalWidth, viewportMetrics.physicalHeight);
+      flutterNapi.setViewportMetrics(viewportMetrics.devicePixelRatio,
+        viewportMetrics.physicalWidth,
+        viewportMetrics.physicalHeight,
+        viewportMetrics.physicalViewPaddingTop,
+        viewportMetrics.physicalViewPaddingRight,
+        viewportMetrics.physicalViewPaddingBottom,
+        viewportMetrics.physicalViewPaddingLeft,
+        viewportMetrics.physicalViewInsetTop,
+        viewportMetrics.physicalViewInsetRight,
+        viewportMetrics.physicalViewInsetBottom,
+        viewportMetrics.physicalViewInsetLeft,
+        viewportMetrics.systemGestureInsetTop,
+        viewportMetrics.systemGestureInsetRight,
+        viewportMetrics.systemGestureInsetBottom,
+        viewportMetrics.systemGestureInsetLeft,
+        viewportMetrics.physicalTouchSlop,
+        new Array(0),
+        new Array(0),
+        new Array(0)
+      );
     }
   }
 
-  static predrawEngine(engine: FlutterEngine, nextViewId: string | null = null, width: number = 0, height: number = 0) {
+  static predrawEngine(engine: FlutterEngine, params: Record<string, Object> = {}, nextViewId: string | null = null) {
     if (!engine) {
       return;
     }
@@ -73,14 +95,37 @@ export default class FlutterEnginePreload {
     if (!nextViewId) {
       nextViewId = FlutterManager.getInstance().getNextFlutterViewId();
     }
-    if (width == 0 || height == 0) {
+    let viewportMetrics: ViewportMetrics = new ViewportMetrics();
+    if (params[FlutterAbilityLaunchConfigs.PRELOAD_VIEWPORT_METRICS_KEY]) {
+      viewportMetrics = params[FlutterAbilityLaunchConfigs.PRELOAD_VIEWPORT_METRICS_KEY] as ViewportMetrics;
+    } else {
       let display_info: display.Display = display.getDefaultDisplaySync();
-      width = display_info.width;
-      height = display_info.height;
+      viewportMetrics.physicalWidth = display_info.width;
+      viewportMetrics.physicalHeight = display_info.height;
+      viewportMetrics.devicePixelRatio = display_info.densityPixels;
+      viewportMetrics.physicalTouchSlop = 1.0 * display_info.densityPixels;
     }
-    flutterNapi.xComponentPreDraw(nextViewId, width, height);
-    flutterNapi.setViewportMetrics(1.0, width, height, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, new Array(0),
-      new Array(0), new Array(0));
+    flutterNapi.xComponentPreDraw(nextViewId, viewportMetrics.physicalWidth, viewportMetrics.physicalHeight);
+    flutterNapi.setViewportMetrics(viewportMetrics.devicePixelRatio,
+      viewportMetrics.physicalWidth,
+      viewportMetrics.physicalHeight,
+      viewportMetrics.physicalViewPaddingTop,
+      viewportMetrics.physicalViewPaddingRight,
+      viewportMetrics.physicalViewPaddingBottom,
+      viewportMetrics.physicalViewPaddingLeft,
+      viewportMetrics.physicalViewInsetTop,
+      viewportMetrics.physicalViewInsetRight,
+      viewportMetrics.physicalViewInsetBottom,
+      viewportMetrics.physicalViewInsetLeft,
+      viewportMetrics.systemGestureInsetTop,
+      viewportMetrics.systemGestureInsetRight,
+      viewportMetrics.systemGestureInsetBottom,
+      viewportMetrics.systemGestureInsetLeft,
+      viewportMetrics.physicalTouchSlop,
+      new Array(0),
+      new Array(0),
+      new Array(0)
+    );
   }
 
   static preLoadFlutterNapi(context: common.Context, bundlePath: string,
