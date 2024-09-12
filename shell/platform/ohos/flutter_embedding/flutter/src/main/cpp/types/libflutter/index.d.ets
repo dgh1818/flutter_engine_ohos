@@ -141,6 +141,8 @@ export const nativeRegisterTexture: (nativeShellHolderId: number, textureId: num
 
 export const nativeGetTextureWindowId: (nativeShellHolderId: number, textureId: number) => number;
 
+export const nativeSetExternalNativeImage: (nativeShellHolderId: number, textureId: number, native_image: number) => number;
+
 export const nativeEncodeUtf8: (str: string) => Uint8Array;
 
 export const nativeDecodeUtf8: (array: Uint8Array) => string;

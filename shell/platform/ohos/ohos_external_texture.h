@@ -57,6 +57,15 @@ class OHOSExternalTexture : public flutter::Texture {
 
   bool SetProducerWindowSize(int width, int height);
 
+  // Replace the original native_image_source_ with the external native_image.
+  // This must be called on the raster thread to avoid concurrent operations
+  // on native_image_source_, as the OnFrameAvailable callback for native_image
+  // may be triggered immediately (the callback relies on native_image_source_
+  // within the raster thread).
+  bool SetExternalNativeImage(OH_NativeImage* native_image);
+
+  static void DefaultOnFrameAvailable(void* native_image_ptr);
+
  protected:
   OHNativeWindowBuffer* GetConsumerNativeBuffer(int* fence_fd);
 
@@ -83,6 +92,8 @@ class OHOSExternalTexture : public flutter::Texture {
                                 int pixelmap_format);
 
   bool CreatePixelMapBuffer(int width, int height, int pixel_format);
+
+  void DestroyNativeImageSource();
 
   void DestroyPixelMapBuffer();
 
@@ -115,6 +126,7 @@ class OHOSExternalTexture : public flutter::Texture {
 
   std::atomic<int64_t> now_new_frame_seq_num_ = 0;
 
+  bool source_is_external_ = false;
   OH_NativeImage* native_image_source_ = nullptr;
 
   OH_NativeImage* pixelmap_native_image_ = nullptr;

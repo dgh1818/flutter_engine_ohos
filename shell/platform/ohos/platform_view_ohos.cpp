@@ -14,6 +14,7 @@
  */
 
 #include "flutter/shell/platform/ohos/platform_view_ohos.h"
+#include <native_image/native_image.h>
 #include "flutter/fml/make_copyable.h"
 #include "flutter/impeller/renderer/backend/vulkan/context_vk.h"
 #include "flutter/lib/ui/window/viewport_metrics.h"
@@ -575,6 +576,25 @@ void PlatformViewOHOS::SetTextureBufferSize(int64_t texture_id,
   if (all_external_texture_.find(texture_id) != all_external_texture_.end()) {
     auto external_texture = all_external_texture_[texture_id];
     external_texture->SetProducerWindowSize(width, height);
+  }
+}
+
+bool PlatformViewOHOS::SetExternalNativeImage(int64_t texture_id,
+                                              OH_NativeImage* native_image) {
+  if (all_external_texture_.find(texture_id) != all_external_texture_.end()) {
+    auto external_texture = all_external_texture_[texture_id];
+    fml::AutoResetWaitableEvent latch;
+    bool result = false;
+    fml::TaskRunner::RunNowOrPostTask(
+        task_runners_.GetRasterTaskRunner(),
+        [&external_texture, &latch, &result, native_image]() {
+          result = external_texture->SetExternalNativeImage(native_image);
+          latch.Signal();
+        });
+    latch.Wait();
+    return result;
+  } else {
+    return false;
   }
 }
 
