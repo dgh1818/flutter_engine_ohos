@@ -60,6 +60,7 @@ export default class FlutterEnginePreload {
       if (!nextViewId) {
         nextViewId = FlutterManager.getInstance().getNextFlutterViewId();
       }
+      flutterNapi.setPreloading();
       flutterNapi.xComponentPreDraw(nextViewId, viewportMetrics.physicalWidth, viewportMetrics.physicalHeight);
       flutterNapi.setViewportMetrics(viewportMetrics.devicePixelRatio,
         viewportMetrics.physicalWidth,
@@ -105,6 +106,7 @@ export default class FlutterEnginePreload {
       viewportMetrics.devicePixelRatio = display_info.densityPixels;
       viewportMetrics.physicalTouchSlop = 1.0 * display_info.densityPixels;
     }
+    flutterNapi.setPreloading();
     flutterNapi.xComponentPreDraw(nextViewId, viewportMetrics.physicalWidth, viewportMetrics.physicalHeight);
     flutterNapi.setViewportMetrics(viewportMetrics.devicePixelRatio,
       viewportMetrics.physicalWidth,
