@@ -22,22 +22,6 @@
 #ifndef FLUTTER_SHELL_PLATFORM_OHOS_NAPI_COMMON_H_
 #define FLUTTER_SHELL_PLATFORM_OHOS_NAPI_COMMON_H_
 
-#include <hilog/log.h>
-#define APP_LOG_DOMAIN 0x0000
-#define APP_LOG_TAG "XComFlutterOHOS_Native"
-#define LOGI(...)                                                     \
-  ((void)OH_LOG_Print(LOG_APP, LOG_INFO, APP_LOG_DOMAIN, APP_LOG_TAG, \
-                      __VA_ARGS__))
-#define LOGD(...)                                                     \
-  ((void)OH_LOG_Print(LOG_APP, LOG_INFO, APP_LOG_DOMAIN, APP_LOG_TAG, \
-                      __VA_ARGS__))
-#define LOGW(...)                                                     \
-  ((void)OH_LOG_Print(LOG_APP, LOG_WARN, APP_LOG_DOMAIN, APP_LOG_TAG, \
-                      __VA_ARGS__))
-#define LOGE(...)                                                      \
-  ((void)OH_LOG_Print(LOG_APP, LOG_ERROR, APP_LOG_DOMAIN, APP_LOG_TAG, \
-                      __VA_ARGS__))
-
 #define NAPI_RETVAL_NOTHING
 
 #define GET_AND_THROW_LAST_ERROR(env)                                \

@@ -14,7 +14,6 @@
  */
 
 #include "flutter/shell/platform/ohos/platform_view_ohos.h"
-#include "flutter/fml/logging.h"
 #include "flutter/fml/make_copyable.h"
 #include "flutter/impeller/renderer/backend/vulkan/context_vk.h"
 #include "flutter/lib/ui/window/viewport_metrics.h"
@@ -28,6 +27,7 @@
 #include "ohos_context_gl_impeller.h"
 #include "ohos_external_texture_gl.h"
 #include "ohos_external_texture_vulkan.h"
+#include "ohos_logging.h"
 #include "ohos_surface_gl_impeller.h"
 #include "shell/common/platform_view.h"
 #include "shell/platform/ohos/context/ohos_context.h"
@@ -456,6 +456,12 @@ void PlatformViewOHOS::InstallFirstFrameCallback(bool is_preload) {
 void PlatformViewOHOS::FireFirstFrameCallback(bool is_preload) {
   FML_DLOG(INFO) << "FlutterViewOnFirstFrame";
   napi_facade_->FlutterViewOnFirstFrame(is_preload);
+}
+
+PointerDataDispatcherMaker PlatformViewOHOS::GetDispatcherMaker() {
+  return [](DefaultPointerDataDispatcher::Delegate& delegate) {
+    return std::make_unique<SmoothPointerDataDispatcher>(delegate);
+  };
 }
 
 uint64_t PlatformViewOHOS::RegisterExternalTexture(int64_t texture_id) {

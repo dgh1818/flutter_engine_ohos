@@ -19,7 +19,8 @@
 #include "flutter/shell/common/run_configuration.h"
 #include "flutter/shell/common/thread_host.h"
 #include "flutter/shell/platform/ohos/ohos_display.h"
-#include "flutter/fml/logging.h"
+
+#include "flutter/shell/platform/ohos/ohos_logging.h"
 #include "fml/trace_event.h"
 
 #include "third_party/skia/src/ports/skia_ohos/SkFontMgr_ohos.h"
@@ -67,98 +68,93 @@ static PlatformData GetDefaultPlatformData() {
   return platform_data;
 }
 
-static bool EndsWith(std::string str, std::string suffix)
-{
-    if (str.length() < suffix.length()) {
-        return false;
-    }
-    return str.substr(str.length() - suffix.length()) == suffix;
+static bool EndsWith(std::string str, std::string suffix) {
+  if (str.length() < suffix.length()) {
+    return false;
+  }
+  return str.substr(str.length() - suffix.length()) == suffix;
 }
 
-static std::string GetFontFileName(std::string path)
-{
-    std::string fontFamilyName = "";
-    DIR* dir;
-    struct dirent* ent;
-    if ((dir = opendir(path.c_str())) == nullptr) {
-        return fontFamilyName;
-    }
-    while ((ent = readdir(dir)) != nullptr) {
-        if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) {
-            continue;
-        }
-        if (EndsWith(ent->d_name, ".ttf")) {
-            fontFamilyName = ent->d_name;
-            break;
-        }
-    }
-    closedir(dir);
+static std::string GetFontFileName(std::string path) {
+  std::string fontFamilyName = "";
+  DIR* dir;
+  struct dirent* ent;
+  if ((dir = opendir(path.c_str())) == nullptr) {
     return fontFamilyName;
+  }
+  while ((ent = readdir(dir)) != nullptr) {
+    if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) {
+      continue;
+    }
+    if (EndsWith(ent->d_name, ".ttf")) {
+      fontFamilyName = ent->d_name;
+      break;
+    }
+  }
+  closedir(dir);
+  return fontFamilyName;
 }
 
-static bool IsFontDirValid(std::string path)
-{
-    DIR* dir;
-    struct dirent* ent;
-    bool isFlagFileExist = false;
-    bool isFontDirExist = false;
-    if ((dir = opendir(path.c_str())) == nullptr) {
-        if (errno == ENOENT) {
-            FML_DLOG(ERROR) << "ERROR ENOENT";
-        } else if (errno == EACCES) {
-            FML_DLOG(ERROR) << "ERROR EACCES";
-        } else {
-            FML_DLOG(ERROR) << "ERROR Other";
-        }
-        return false;
-    }
-    while ((ent = readdir(dir)) != nullptr) {
-        if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) {
-            continue;
-        }
-        if (strcmp(ent->d_name, "flag") == 0) {
-            isFlagFileExist = true;
-        } else if (strcmp(ent->d_name, "fonts") == 0) {
-            isFontDirExist = true;
-        }
-    }
-    closedir(dir);
-    if (isFlagFileExist && isFontDirExist) {
-        FML_DLOG(INFO) << "font path exist" << path;
-        return true;
+static bool IsFontDirValid(std::string path) {
+  DIR* dir;
+  struct dirent* ent;
+  bool isFlagFileExist = false;
+  bool isFontDirExist = false;
+  if ((dir = opendir(path.c_str())) == nullptr) {
+    if (errno == ENOENT) {
+      FML_DLOG(ERROR) << "ERROR ENOENT";
+    } else if (errno == EACCES) {
+      FML_DLOG(ERROR) << "ERROR EACCES";
+    } else {
+      FML_DLOG(ERROR) << "ERROR Other";
     }
     return false;
+  }
+  while ((ent = readdir(dir)) != nullptr) {
+    if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) {
+      continue;
+    }
+    if (strcmp(ent->d_name, "flag") == 0) {
+      isFlagFileExist = true;
+    } else if (strcmp(ent->d_name, "fonts") == 0) {
+      isFontDirExist = true;
+    }
+  }
+  closedir(dir);
+  if (isFlagFileExist && isFontDirExist) {
+    FML_DLOG(INFO) << "font path exist" << path;
+    return true;
+  }
+  return false;
 }
 
-static std::string CheckFontSource()
-{
-    std::string path = "/data/themes/a/app";
+static std::string CheckFontSource() {
+  std::string path = "/data/themes/a/app";
+  if (!IsFontDirValid(path)) {
+    path = "/data/themes/b/app";
     if (!IsFontDirValid(path)) {
-        path = "/data/themes/b/app";
-        if (!IsFontDirValid(path)) {
-            return "";
-        }
+      return "";
     }
-    path = path.append("/fonts/");
-    std::string fileName = GetFontFileName(path);
-    if (fileName.empty()) {
-        return "";
-    }
-    path = path.append(fileName);
-    if (OHOSLastFontPath.empty()) {
-        OHOSLastFontPath = path;
-    }
-    return path;
+  }
+  path = path.append("/fonts/");
+  std::string fileName = GetFontFileName(path);
+  if (fileName.empty()) {
+    return "";
+  }
+  path = path.append(fileName);
+  if (OHOSLastFontPath.empty()) {
+    OHOSLastFontPath = path;
+  }
+  return path;
 }
 
-static bool IsFontChanged(std::string currentPath)
-{
-    if (!currentPath.empty() && currentPath != OHOSLastFontPath) {
-        OHOSLastFontPath = currentPath;
-        return true;
-    } else {
-        return false;
-    }
+static bool IsFontChanged(std::string currentPath) {
+  if (!currentPath.empty() && currentPath != OHOSLastFontPath) {
+    OHOSLastFontPath = currentPath;
+    return true;
+  } else {
+    return false;
+  }
 }
 
 OHOSShellHolder::OHOSShellHolder(
@@ -273,7 +269,6 @@ OHOSShellHolder::OHOSShellHolder(
 
   platform_view_ = weak_platform_view;
   FML_DCHECK(platform_view_);
-  is_valid_ = shell_ != nullptr;
 }
 
 OHOSShellHolder::OHOSShellHolder(
@@ -294,17 +289,17 @@ OHOSShellHolder::OHOSShellHolder(
   FML_DCHECK(shell_->IsSetup());
   FML_DCHECK(platform_view_);
   FML_DCHECK(thread_host_);
-  is_valid_ = shell_ != nullptr;
 }
 
 OHOSShellHolder::~OHOSShellHolder() {
   FML_LOG(INFO) << "MHN enter ~OHOSShellHolder()";
   shell_.reset();
   thread_host_.reset();
+  shell_ = nullptr;
 }
 
 bool OHOSShellHolder::IsValid() const {
-  return is_valid_;
+  return shell_ != nullptr;
 }
 
 const flutter::Settings& OHOSShellHolder::GetSettings() const {
@@ -317,9 +312,11 @@ std::unique_ptr<OHOSShellHolder> OHOSShellHolder::Spawn(
     const std::string& libraryUrl,
     const std::string& initial_route,
     const std::vector<std::string>& entrypoint_args) const {
-  FML_DCHECK(shell_ && shell_->IsSetup())
-      << "A new Shell can only be spawned "
-         "if the current Shell is properly constructed";
+  if (!IsValid()) {
+    FML_LOG(ERROR) << "A new Shell can only be spawned "
+                      "if the current Shell is properly constructed";
+    return nullptr;
+  }
 
   fml::WeakPtr<PlatformViewOHOS> weak_platform_view;
   PlatformViewOHOS* ohos_platform_view = platform_view_.get();
@@ -367,7 +364,10 @@ fml::WeakPtr<PlatformViewOHOS> OHOSShellHolder::GetPlatformView() {
 }
 
 void OHOSShellHolder::NotifyLowMemoryWarning() {
-  FML_DCHECK(shell_);
+  if (!IsValid()) {
+    FML_LOG(ERROR) << "NotifyLowMemoryWarning, Is Not Valid";
+    return;
+  }
   shell_->NotifyLowMemoryWarning();
 }
 
@@ -379,7 +379,7 @@ void OHOSShellHolder::Launch(
   FML_DLOG(INFO) << "Launch ...entrypoint<<" << entrypoint
                  << ",libraryUrl:" << libraryUrl;
   if (!IsValid()) {
-    FML_DLOG(ERROR) << "Is Not Valid";
+    FML_LOG(ERROR) << "Launch, Is Not Valid";
     return;
   }
 
