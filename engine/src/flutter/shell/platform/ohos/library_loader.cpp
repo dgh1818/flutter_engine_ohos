@@ -134,6 +134,9 @@ static napi_value Init(napi_env env, napi_value exports) {
           "nativeGetTextureWindowId",
           flutter::PlatformViewOHOSNapi::nativeGetTextureWindowId),
       DECLARE_NAPI_FUNCTION(
+          "nativeSetExternalNativeImage",
+          flutter::PlatformViewOHOSNapi::nativeSetExternalNativeImage),
+      DECLARE_NAPI_FUNCTION(
           "nativeMarkTextureFrameAvailable",
           flutter::PlatformViewOHOSNapi::nativeMarkTextureFrameAvailable),
       DECLARE_NAPI_FUNCTION(

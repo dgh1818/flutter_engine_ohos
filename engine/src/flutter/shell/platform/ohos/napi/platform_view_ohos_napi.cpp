@@ -1642,6 +1642,30 @@ napi_value PlatformViewOHOSNapi::nativeSetTextureBufferSize(
   return nullptr;
 }
 
+napi_value PlatformViewOHOSNapi::nativeSetExternalNativeImage(
+    napi_env env,
+    napi_callback_info info) {
+  FML_DLOG(INFO) << "PlatformViewOHOSNapi::nativeSetExternalNativeImage";
+  size_t argc = 3;
+  napi_value args[3] = {nullptr};
+  int64_t shell_holder;
+  int64_t textureId;
+  int64_t native_image_ptr;
+  NAPI_CALL(env, napi_get_cb_info(env, info, &argc, args, nullptr, nullptr));
+  NAPI_CALL(env, napi_get_value_int64(env, args[0], &shell_holder));
+  NAPI_CALL(env, napi_get_value_int64(env, args[1], &textureId));
+  NAPI_CALL(env, napi_get_value_int64(env, args[2], &native_image_ptr));
+
+  OH_NativeImage* native_image =
+      (reinterpret_cast<OH_NativeImage*>(native_image_ptr));
+
+  bool ret = OHOS_SHELL_HOLDER->GetPlatformView()->SetExternalNativeImage(
+      textureId, native_image);
+  napi_value res;
+  napi_create_int64(env, (int64_t)ret, &res);
+  return res;
+}
+
 napi_value PlatformViewOHOSNapi::nativeMarkTextureFrameAvailable(
     napi_env env,
     napi_callback_info info) {
