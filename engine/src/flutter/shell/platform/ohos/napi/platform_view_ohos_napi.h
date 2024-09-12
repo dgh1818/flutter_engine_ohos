@@ -171,6 +171,8 @@ class PlatformViewOHOSNapi {
 
   static napi_value nativeGetTextureWindowId(napi_env env,
                                              napi_callback_info info);
+  static napi_value nativeSetTextureBackGroundPixelMap(napi_env env,
+                                                       napi_callback_info info);
 
   // Surface相关，XComponent调用
   static void SurfaceCreated(int64_t shell_holder, void* window);
