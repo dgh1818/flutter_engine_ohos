@@ -64,6 +64,8 @@ class OHOSSurfaceVulkanImpeller : public GPUSurfaceVulkanDelegate,
 
   bool PrepareOffscreenWindow(int32_t width, int32_t height) override;
 
+  void PrepareGpuSurface() override;
+
   // |GPUSurfaceVulkanDelegate|
   bool SetPresentInfo(const VulkanPresentInfo& present_info) override;
 
@@ -90,6 +92,7 @@ class OHOSSurfaceVulkanImpeller : public GPUSurfaceVulkanDelegate,
   std::unique_ptr<GPUSurfaceVulkanImpeller> preload_gpu_surface_;
   std::mutex surface_preload_mutex_;
   bool is_valid_ = false;
+  bool is_surface_preload_ = false;
 
   // will never be used
   vulkan::VulkanProcTable vk_;

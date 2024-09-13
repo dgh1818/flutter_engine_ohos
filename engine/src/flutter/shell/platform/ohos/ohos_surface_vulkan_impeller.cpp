@@ -74,6 +74,7 @@ void OHOSSurfaceVulkanImpeller::TeardownOnScreenContext() {
   // destroyed, it may cause a stall if the swapchain is not cleared.
   surface_context_vk_->ClearSwapchain();
   native_window_ = nullptr;
+  is_surface_preload_ = false;
 }
 
 // |OHOSSurface|
@@ -140,14 +141,26 @@ bool OHOSSurfaceVulkanImpeller::PrepareOffscreenWindow(int32_t width,
   // creation work here without using NativeImage for off-screen rendering.
   TRACE_EVENT0("flutter", "impeller-PrepareContext");
   std::lock_guard<std::mutex> lock(surface_preload_mutex_);
-  preload_gpu_surface_ =
-      std::make_unique<GPUSurfaceVulkanImpeller>(surface_context_vk_);
+  if (!preload_gpu_surface_ && !is_surface_preload_) {
+    is_surface_preload_ = true;
+    preload_gpu_surface_ =
+        std::make_unique<GPUSurfaceVulkanImpeller>(surface_context_vk_);
+  }
   // return false means that it will not invoke PlatformView::NotifyCreated().
   // return false;
   // If we want to skip time-consuming tasks during the first frame, we can
   // render it to offscreen window. However, the result of the offscreen
   // rendering will not be drawn to the onscreen window.
   return OHOSSurface::PrepareOffscreenWindow(width, height);
+}
+
+void OHOSSurfaceVulkanImpeller::PrepareGpuSurface() {
+  std::lock_guard<std::mutex> lock(surface_preload_mutex_);
+  if (!preload_gpu_surface_ && !is_surface_preload_) {
+    is_surface_preload_ = true;
+    preload_gpu_surface_ =
+        std::make_unique<GPUSurfaceVulkanImpeller>(surface_context_vk_);
+  }
 }
 
 std::shared_ptr<impeller::Context>
