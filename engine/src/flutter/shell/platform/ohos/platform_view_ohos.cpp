@@ -121,11 +121,18 @@ PlatformViewOHOS::PlatformViewOHOS(
   if (ohos_context_) {
     FML_CHECK(ohos_context_->IsValid())
         << "Could not create surface from invalid HarmonyOS context.";
-    LOGI("ohos_surface_ end 1");
     surface_factory_ = std::make_shared<OhosSurfaceFactoryImpl>(ohos_context_);
-    LOGI("ohos_surface_ end 2");
     ohos_surface_ = surface_factory_->CreateSurface();
-    LOGI("ohos_surface_ end 3");
+
+    // PrepareGpuSurface preloads the GPUSurface, which in turn preloads the
+    // Vulkan rendering pipeline. This helps reduce the time between application
+    // launch and the rendering of the first frame. The 1ms delay ensures that
+    // subsequent raster tasks can run first, as it can block the platform
+    // thread.
+    auto task_delay = fml::TimeDelta::FromMicroseconds(1000);
+    task_runners_.GetRasterTaskRunner()->PostDelayedTask(
+        [surface = ohos_surface_]() { surface->PrepareGpuSurface(); },
+        task_delay);
     FML_CHECK(ohos_surface_ && ohos_surface_->IsValid())
         << "Could not create an OpenGL, Vulkan or Software surface to set "
            "up "
