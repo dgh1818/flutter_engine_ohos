@@ -1,0 +1,157 @@
+diff --git a/runtime/bin/file_ohos.cc b/runtime/bin/file_ohos.cc
+index 27066ae440b..ce636b02a12 100644
+--- a/runtime/bin/file_ohos.cc
++++ b/runtime/bin/file_ohos.cc
+@@ -104,15 +104,19 @@ MappedMemory* File::Map(MapType type,
+     flags |= MAP_FIXED;
+   }
+ 
+-#if defined(DEBUG)
++#if defined(DART_HOST_OS_OHOS)
++  if (prot & PROT_EXEC) {
+     prctl(PRCTL_SET_JITFORT, 0, 0);
+-#endif // defined(DEBUG)
++  }
++#endif // defined(DART_HOST_OS_OHOS)
+ 
+   void* addr = mmap(hint, length, prot, flags, handle_->fd(), position);
+ 
+-#if defined(DEBUG)
++#if defined(DART_HOST_OS_OHOS)
++  if (prot & PROT_EXEC) {
+     prctl(PRCTL_SET_JITFORT, 0, 1);
+-#endif // defined(DEBUG)
++  }
++#endif // defined(DART_HOST_OS_OHOS)
+ 
+   if (addr == MAP_FAILED) {
+     return NULL;
+diff --git a/runtime/bin/virtual_memory_posix.cc b/runtime/bin/virtual_memory_posix.cc
+index 298fa98c622..21f25edf4e5 100644
+--- a/runtime/bin/virtual_memory_posix.cc
++++ b/runtime/bin/virtual_memory_posix.cc
+@@ -58,11 +58,15 @@ VirtualMemory* VirtualMemory::Allocate(intptr_t size,
+   void* hint = is_executable ? reinterpret_cast<void*>(&Allocate) : nullptr;
+ 
+ #if defined(DART_HOST_OS_OHOS)
++  if (prot & PROT_EXEC) {
+     prctl(PRCTL_SET_JITFORT, 0, 0);
++  }
+ #endif // defined(DART_HOST_OS_OHOS)
+   void* address = mmap(hint, size, prot, map_flags, -1, 0);
+ #if defined(DART_HOST_OS_OHOS)
++  if (prot & PROT_EXEC) {
+     prctl(PRCTL_SET_JITFORT, 0, 1);
++  }
+ #endif // defined(DART_HOST_OS_OHOS)
+ 
+ #if defined(DART_HOST_OS_LINUX)
+@@ -131,7 +135,9 @@ void VirtualMemory::Protect(void* address, intptr_t size, Protection mode) {
+   }
+ 
+ #if defined(DART_HOST_OS_OHOS)
++  if (prot & PROT_EXEC) {
+     prctl(PRCTL_SET_JITFORT, 0, 0);
++  }
+ #endif // defined(DART_HOST_OS_OHOS)
+   if (mprotect(reinterpret_cast<void*>(page_address),
+                end_address - page_address, prot) != 0) {
+@@ -142,7 +148,9 @@ void VirtualMemory::Protect(void* address, intptr_t size, Protection mode) {
+           Utils::StrError(error, error_buf, kBufferSize));
+   }
+ #if defined(DART_HOST_OS_OHOS)
++  if (prot & PROT_EXEC) {
+     prctl(PRCTL_SET_JITFORT, 0, 1);
++  }
+ #endif // defined(DART_HOST_OS_OHOS)
+ }
+ 
+diff --git a/runtime/vm/os_ohos.cc b/runtime/vm/os_ohos.cc
+index 86449ecb952..ec67b1dfc1c 100644
+--- a/runtime/vm/os_ohos.cc
++++ b/runtime/vm/os_ohos.cc
+@@ -161,14 +161,14 @@ class JitDumpCodeObserver : public CodeObserver {
+       return;
+     }
+ 
+-#if defined(DEBUG)
++#if defined(DART_HOST_OS_OHOS)
+     prctl(PRCTL_SET_JITFORT, 0, 0);
+-#endif // defined(DEBUG)
++#endif // defined(DART_HOST_OS_OHOS)
+     mapped_ =
+         mmap(nullptr, page_size, PROT_READ | PROT_EXEC, MAP_PRIVATE, fd, 0);
+-#if defined(DEBUG)
++#if defined(DART_HOST_OS_OHOS)
+     prctl(PRCTL_SET_JITFORT, 0, 1);
+-#endif // defined(DEBUG)
++#endif // defined(DART_HOST_OS_OHOS)
+     if (mapped_ == nullptr) {
+       close(fd);
+       return;
+diff --git a/runtime/vm/virtual_memory_posix.cc b/runtime/vm/virtual_memory_posix.cc
+index b6b9d9a49a1..a39987342b9 100644
+--- a/runtime/vm/virtual_memory_posix.cc
++++ b/runtime/vm/virtual_memory_posix.cc
+@@ -292,15 +292,19 @@ VirtualMemory* VirtualMemory::AllocateAligned(intptr_t size,
+   }
+ 
+ #if defined(DART_HOST_OS_OHOS)
++  if (prot & PROT_EXEC) {
+     MutexLocker ml(&prctl_lock_);
+     prctl(PRCTL_SET_JITFORT, 0, 0);
++  }
+ #endif // defined(DART_HOST_OS_OHOS)
+ 
+   void* address =
+       GenericMapAligned(hint, prot, size, alignment, allocated_size, map_flags);
+ 
+ #if defined(DART_HOST_OS_OHOS)
++  if (prot & PROT_EXEC) {
+     prctl(PRCTL_SET_JITFORT, 0, 1);
++  }
+ #endif // defined(DART_HOST_OS_OHOS)
+ 
+ #if defined(DART_HOST_OS_LINUX)
+@@ -312,15 +316,19 @@ VirtualMemory* VirtualMemory::AllocateAligned(intptr_t size,
+   if (address == nullptr && hint != nullptr &&
+       Utils::IsWindowsSubsystemForLinux()) {
+ #if defined(DART_HOST_OS_OHOS)
++  if (prot & PROT_EXEC) {
+     MutexLocker ml(&prctl_lock_);
+     prctl(PRCTL_SET_JITFORT, 0, 0);
++  }
+ #endif // defined(DART_HOST_OS_OHOS)
+ 
+     address = GenericMapAligned(nullptr, prot, size, alignment, allocated_size,
+                                 map_flags);
+ 
+ #if defined(DART_HOST_OS_OHOS)
++  if (prot & PROT_EXEC) {
+     prctl(PRCTL_SET_JITFORT, 0, 1);
++  }
+ #endif // defined(DART_HOST_OS_OHOS)
+   }
+ #endif
+@@ -444,8 +452,10 @@ void VirtualMemory::Protect(void* address, intptr_t size, Protection mode) {
+   }
+ 
+ #if defined(DART_HOST_OS_OHOS)
++  if (prot & PROT_EXEC) {
+     MutexLocker ml(&prctl_lock_);
+     prctl(PRCTL_SET_JITFORT, 0, 0);
++  }
+ #endif // defined(DART_HOST_OS_OHOS)
+ 
+   if (mprotect(reinterpret_cast<void*>(page_address),
+@@ -460,7 +470,9 @@ void VirtualMemory::Protect(void* address, intptr_t size, Protection mode) {
+   }
+ 
+ #if defined(DART_HOST_OS_OHOS)
++  if (prot & PROT_EXEC) {
+     prctl(PRCTL_SET_JITFORT, 0, 1);
++  }
+ #endif // defined(DART_HOST_OS_OHOS)
+ 
+   LOG_INFO("mprotect(0x%" Px ", 0x%" Px ", %u) ok\n", page_address,
+-- 
