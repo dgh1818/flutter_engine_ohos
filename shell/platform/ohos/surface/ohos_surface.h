@@ -55,6 +55,10 @@ class OHOSSurface {
     return false;
   };
 
+  // Preload GPU surface for vulkan (GPUSurface creating is time consuming in
+  // vulkan because of graphic pipeline building)
+  virtual void PrepareGpuSurface() {};
+
   virtual bool PrepareOffscreenWindow(int32_t width, int32_t height);
 
   void ReleaseOffscreenWindow();
