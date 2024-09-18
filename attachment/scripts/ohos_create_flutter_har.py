@@ -31,7 +31,6 @@ HAR_CONFIG_TEMPLATE = """
       {
         "name": "default",
         "signingConfig": "default",
-        "compileSdkVersion": "%s",
         "compatibleSdkVersion": "%s",
         "runtimeOS": "HarmonyOS",
       }
@@ -78,10 +77,11 @@ def updateConfig(buildDir, apiInt):
   apiVersionMap = {
       11: "4.1.0(11)",
       12: "5.0.0(12)",
+      13: "5.0.1(13)",
   }
   apiStr = apiVersionMap[apiInt]
   with open(os.path.join(buildDir, "build-profile.json5"), "w", encoding="utf-8") as file:
-    file.write(HAR_CONFIG_TEMPLATE % (apiStr, apiStr))
+    file.write(HAR_CONFIG_TEMPLATE % (apiStr))
 
   if apiInt != 11:
     with open(
@@ -156,7 +156,7 @@ def main():
   parser.add_argument("--output", help="Path to output flutter.har.")
   parser.add_argument("--native_lib", action="append", help="Native code library.")
   parser.add_argument("--ohos_abi", help="Native code ABI.")
-  parser.add_argument("--ohos_api_int", type=int, choices=[11, 12], help="Ohos api int.")
+  parser.add_argument("--ohos_api_int", type=int, choices=[11, 12, 13], help="Ohos api int.")
   options = parser.parse_args()
   # copy source code
   if os.path.exists(options.build_dir):
