@@ -17,6 +17,12 @@
         "file_path": "../../flutter/attachment/repos/dart.debug_tmp.patch"
     },
     {
+        "name": "dart_debug1",
+        "target": "./src/third_party/dart",
+        "type": "patch",
+        "file_path": "../../flutter/attachment/repos/dart.debug_tmp1.patch"
+    },
+    {
         "name": "dart4",
         "target": "./src/third_party/dart",
         "type": "patch",
