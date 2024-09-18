@@ -275,4 +275,30 @@ void OhosTouchProcessor::HandleMouseEvent(
       std::move(packet));
   return;
 }
+
+void OhosTouchProcessor::HandleVirtualTouchEvent(
+    int64_t shell_holderID,
+    OH_NativeXComponent* component,
+    OH_NativeXComponent_TouchEvent* touchEvent)
+{
+    int numPoints = touchEvent->numPoints;
+    float tiltX = 0.0;
+    float tiltY = 0.0;
+    auto ohos_shell_holder = reinterpret_cast<OHOSShellHolder*>(shell_holderID);
+    OH_NativeXComponent_TouchPointToolType toolType;
+    OH_NativeXComponent_GetTouchPointToolType(component, 0, &toolType);
+    OH_NativeXComponent_GetTouchPointTiltX(component, 0, &tiltX);
+    OH_NativeXComponent_GetTouchPointTiltY(component, 0, &tiltY);
+    std::unique_ptr<OhosTouchProcessor::TouchPacket> touchPacket =
+        std::make_unique<OhosTouchProcessor::TouchPacket>();
+    touchPacket->touchEventInput = touchEvent;
+    touchPacket->toolTypeInput = toolType;
+    touchPacket->tiltX = tiltX;
+    touchPacket->tiltX = tiltY;
+    
+    std::shared_ptr<std::string[]> touchPacketString = packagePacketData(std::move(touchPacket));
+    int size = CHANGES_POINTER_MEMBER + PER_POINTER_MEMBER * numPoints + TOUCH_EVENT_ADDITIONAL_ATTRIBUTES;
+    ohos_shell_holder->GetPlatformView()->OnTouchEvent(touchPacketString, size);
+    return;
+}
 }  // namespace flutter
