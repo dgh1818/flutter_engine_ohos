@@ -40,6 +40,9 @@ class OhosTouchProcessor {
                         OH_NativeXComponent* component,
                         OH_NativeXComponent_MouseEvent mouseEvent,
                         double offsetY);
+  void HandleVirtualTouchEvent(int64_t shell_holderID,
+                               OH_NativeXComponent* component,
+                               OH_NativeXComponent_TouchEvent* touchEvent);
   flutter::PointerData::Change getPointerChangeForAction(int maskedAction);
   flutter::PointerData::DeviceKind getPointerDeviceTypeForToolType(
       int toolType);
