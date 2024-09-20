@@ -143,11 +143,11 @@ used to filter file path.
             <filefilter name="licenseFileNamePolicyFilter" desc="Filters for LICENSE file policies">
             </filefilter>
             <filefilter name="readmeFileNamePolicyFilter" desc="Filters for README file policies">
-                <filteritem type="filepath" name="*README.md|*README.en.md" desc="README文件，不参与编译"/>
+                <filteritem type="filename" name="*README.md|*README.en.md" desc="README文件，不参与编译"/>
             </filefilter>
             <filefilter name="readmeOpenSourcefileNamePolicyFilter"
                 desc="Filters for README.OpenSource file policies">
-                <filteritem type="filepath" name="*README.md|*README.en.md" desc="README文件，不参与编译"/>
+                <filteritem type="filename" name="*README.md|*README.en.md" desc="README文件，不参与编译"/>
             </filefilter>
             <filefilter name="binaryFileTypePolicyFilter" desc="Filters for binary file policies">
                 <filteritem type="filename" name="*.iml|*.json|*.txt" desc="desc files" />
