@@ -1,0 +1,15 @@
+diff --git a/runtime/bin/socket_base_posix.cc b/runtime/bin/socket_base_posix.cc
+index e10127aa71a..2ce99833887 100644
+--- a/runtime/bin/socket_base_posix.cc
++++ b/runtime/bin/socket_base_posix.cc
+@@ -3,7 +3,7 @@
+ // BSD-style license that can be found in the LICENSE file.
+ 
+ #include "platform/globals.h"
+-#if defined(DART_HOST_OS_LINUX) || defined(DART_HOST_OS_MACOS) || defined(DART_HOST_OS_OHOS)
++#if defined(DART_HOST_OS_ANDROID) || defined(DART_HOST_OS_LINUX) || defined(DART_HOST_OS_MACOS) || defined(DART_HOST_OS_OHOS)
+ #include "bin/socket_base.h"
+ 
+ #include <errno.h>        // NOLINT
+-- 
+

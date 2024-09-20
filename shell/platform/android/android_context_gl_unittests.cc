@@ -50,36 +50,46 @@ class TestImpellerContext : public impeller::Context {
   const std::shared_ptr<const impeller::Capabilities>& GetCapabilities()
       const override {
     FML_UNREACHABLE();
+    static const std::shared_ptr<const impeller::Capabilities> empty_ptr =
+        nullptr;
+    return empty_ptr;
   }
 
   bool UpdateOffscreenLayerPixelFormat(impeller::PixelFormat format) override {
     FML_UNREACHABLE();
+    return false;
   }
 
   std::shared_ptr<impeller::Allocator> GetResourceAllocator() const override {
     FML_UNREACHABLE();
+    return nullptr;
   }
 
   std::shared_ptr<impeller::ShaderLibrary> GetShaderLibrary() const override {
     FML_UNREACHABLE();
+    return nullptr;
   }
 
   std::shared_ptr<impeller::SamplerLibrary> GetSamplerLibrary() const override {
     FML_UNREACHABLE();
+    return nullptr;
   }
 
   std::shared_ptr<impeller::PipelineLibrary> GetPipelineLibrary()
       const override {
     FML_UNREACHABLE();
+    return nullptr;
   }
 
   std::shared_ptr<impeller::CommandBuffer> CreateCommandBuffer()
       const override {
     FML_UNREACHABLE();
+    return nullptr;
   }
 
   std::shared_ptr<impeller::CommandQueue> GetCommandQueue() const override {
     FML_UNREACHABLE();
+    return nullptr;
   }
 
   void Shutdown() override { did_shutdown = true; }
