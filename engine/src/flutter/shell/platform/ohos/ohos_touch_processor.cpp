@@ -119,7 +119,10 @@ std::shared_ptr<std::string[]> OhosTouchProcessor::packagePacketData(
   package[offset++] = std::to_string(touchPacket->touchEventInput->force);
   package[offset++] = std::to_string(touchPacket->touchEventInput->deviceId);
   package[offset++] = std::to_string(touchPacket->touchEventInput->timeStamp);
-
+  FML_LOG(DEBUG) << "screenX:" << touchPacket->touchEventInput->screenX
+                 << " screenY:" << touchPacket->touchEventInput->screenY
+                 << " x:" << touchPacket->touchEventInput->x
+                 << " y:" << touchPacket->touchEventInput->y;
   for (int i = 0; i < numPoints; i++) {
     package[offset++] =
         std::to_string(touchPacket->touchEventInput->touchPoints[i].id);
@@ -141,6 +144,12 @@ std::shared_ptr<std::string[]> OhosTouchProcessor::packagePacketData(
         std::to_string(touchPacket->touchEventInput->touchPoints[i].timeStamp);
     package[offset++] =
         std::to_string(touchPacket->touchEventInput->touchPoints[i].isPressed);
+    FML_LOG(DEBUG) << "touches [" << i << "] screenX:"
+                   << touchPacket->touchEventInput->touchPoints[i].screenX
+                   << " screenY:"
+                   << touchPacket->touchEventInput->touchPoints[i].screenY
+                   << " x:" << touchPacket->touchEventInput->touchPoints[i].x
+                   << " y:" << touchPacket->touchEventInput->touchPoints[i].y;
   }
   package[offset++] = std::to_string(touchPacket->toolTypeInput);
   package[offset++] = std::to_string(touchPacket->tiltX);
@@ -279,26 +288,27 @@ void OhosTouchProcessor::HandleMouseEvent(
 void OhosTouchProcessor::HandleVirtualTouchEvent(
     int64_t shell_holderID,
     OH_NativeXComponent* component,
-    OH_NativeXComponent_TouchEvent* touchEvent)
-{
-    int numPoints = touchEvent->numPoints;
-    float tiltX = 0.0;
-    float tiltY = 0.0;
-    auto ohos_shell_holder = reinterpret_cast<OHOSShellHolder*>(shell_holderID);
-    OH_NativeXComponent_TouchPointToolType toolType;
-    OH_NativeXComponent_GetTouchPointToolType(component, 0, &toolType);
-    OH_NativeXComponent_GetTouchPointTiltX(component, 0, &tiltX);
-    OH_NativeXComponent_GetTouchPointTiltY(component, 0, &tiltY);
-    std::unique_ptr<OhosTouchProcessor::TouchPacket> touchPacket =
-        std::make_unique<OhosTouchProcessor::TouchPacket>();
-    touchPacket->touchEventInput = touchEvent;
-    touchPacket->toolTypeInput = toolType;
-    touchPacket->tiltX = tiltX;
-    touchPacket->tiltX = tiltY;
-    
-    std::shared_ptr<std::string[]> touchPacketString = packagePacketData(std::move(touchPacket));
-    int size = CHANGES_POINTER_MEMBER + PER_POINTER_MEMBER * numPoints + TOUCH_EVENT_ADDITIONAL_ATTRIBUTES;
-    ohos_shell_holder->GetPlatformView()->OnTouchEvent(touchPacketString, size);
-    return;
+    OH_NativeXComponent_TouchEvent* touchEvent) {
+  int numPoints = touchEvent->numPoints;
+  float tiltX = 0.0;
+  float tiltY = 0.0;
+  auto ohos_shell_holder = reinterpret_cast<OHOSShellHolder*>(shell_holderID);
+  OH_NativeXComponent_TouchPointToolType toolType;
+  OH_NativeXComponent_GetTouchPointToolType(component, 0, &toolType);
+  OH_NativeXComponent_GetTouchPointTiltX(component, 0, &tiltX);
+  OH_NativeXComponent_GetTouchPointTiltY(component, 0, &tiltY);
+  std::unique_ptr<OhosTouchProcessor::TouchPacket> touchPacket =
+      std::make_unique<OhosTouchProcessor::TouchPacket>();
+  touchPacket->touchEventInput = touchEvent;
+  touchPacket->toolTypeInput = toolType;
+  touchPacket->tiltX = tiltX;
+  touchPacket->tiltX = tiltY;
+
+  std::shared_ptr<std::string[]> touchPacketString =
+      packagePacketData(std::move(touchPacket));
+  int size = CHANGES_POINTER_MEMBER + PER_POINTER_MEMBER * numPoints +
+             TOUCH_EVENT_ADDITIONAL_ATTRIBUTES;
+  ohos_shell_holder->GetPlatformView()->OnTouchEvent(touchPacketString, size);
+  return;
 }
 }  // namespace flutter

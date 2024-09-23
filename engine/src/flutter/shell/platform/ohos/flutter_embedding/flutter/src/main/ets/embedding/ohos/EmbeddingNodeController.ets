@@ -100,6 +100,21 @@ export class EmbeddingNodeController extends NodeController {
         event.changedTouches[i].screenY = vp2px(event.changedTouches[i].screenY);
         event.changedTouches[i].x = vp2px(event.changedTouches[i].x);
         event.changedTouches[i].y = vp2px(event.changedTouches[i].y);
+        Log.d(TAG, "changedTouches[" + i + "] displayX:" + event.changedTouches[i].displayX + " displayY:" +
+          event.changedTouches[i].displayY + " x:" + event.changedTouches[i].x + " y:" + event.changedTouches[i].y);
+      }
+      let touchesLen = event.touches.length;
+      for (let i = 0; i< touchesLen; i++) {
+        event.touches[i].displayX = vp2px(event.touches[i].displayX);
+        event.touches[i].displayY = vp2px(event.touches[i].displayY);
+        event.touches[i].windowX = vp2px(event.touches[i].windowX);
+        event.touches[i].windowY = vp2px(event.touches[i].windowY);
+        event.touches[i].screenX = vp2px(event.touches[i].screenX);
+        event.touches[i].screenY = vp2px(event.touches[i].screenY);
+        event.touches[i].x = vp2px(event.touches[i].x);
+        event.touches[i].y = vp2px(event.touches[i].y);
+        Log.d(TAG, "touches[" + i + "] displayX:" + event.touches[i].displayX + " displayY:" +
+          event.touches[i].displayY + " x:" + event.touches[i].x + " y:" + event.touches[i].y);
       }
     }
 
