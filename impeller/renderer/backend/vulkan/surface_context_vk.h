@@ -87,6 +87,7 @@ class SurfaceContextVK : public Context,
   ///        recreated on the next frame.
   void UpdateSurfaceSize(const ISize& size) const;
 
+  // |Context|
   void InitializeCommonlyUsedShadersIfNeeded() const override;
 
 #ifdef FML_OS_ANDROID
@@ -96,6 +97,9 @@ class SurfaceContextVK : public Context,
 #ifdef FML_OS_OHOS
   vk::UniqueSurfaceKHR CreateOHOSSurface(OHNativeWindow* window) const;
 #endif  // FML_OS_OHOS
+
+  // |Context|
+  void DisposeThreadLocalCachedResources() override;
 
   const vk::Device& GetDevice() const;
 
