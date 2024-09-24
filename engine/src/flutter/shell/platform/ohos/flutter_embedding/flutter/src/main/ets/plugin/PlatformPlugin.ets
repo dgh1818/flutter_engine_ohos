@@ -300,25 +300,28 @@ export class PlatformPluginCallback implements PlatformMessageHandler {
   setSystemChromeSystemUIOverlayStyle(systemChromeStyle: SystemChromeStyle): void {
     let isStatusBarLightIconValue: boolean = false;
     let statusBarColorValue: string | undefined = undefined;
-    let statusBarContentColorValue: string | undefined = undefined;
     let navigationBarColorValue: string | undefined = undefined;
     let isNavigationBarLightIconValue: boolean = false;
-    let navigationBarContentColorValue: string | undefined = undefined;
+
+    const currentProps = this.mainWindow?.getWindowSystemBarProperties();
+
     if (systemChromeStyle.statusBarIconBrightness != null) {
       switch (systemChromeStyle.statusBarIconBrightness) {
         case Brightness.DARK:
           isStatusBarLightIconValue = false;
-          statusBarContentColorValue = '#000000';
           break;
         case Brightness.LIGHT:
           isStatusBarLightIconValue = true;
-          statusBarContentColorValue = '#FFFFFF';
           break;
       }
+    } else {
+      isStatusBarLightIconValue = currentProps?.isStatusBarLightIcon ?? false
     }
 
     if (systemChromeStyle.statusBarColor != null) {
-      statusBarColorValue = "#" + systemChromeStyle.statusBarColor.toString(16);
+      statusBarColorValue = "#" + systemChromeStyle.statusBarColor.toString(16).padStart(8, '0');
+    } else {
+      statusBarColorValue = currentProps?.statusBarColor
     }
 
     if (systemChromeStyle.systemStatusBarContrastEnforced != null) {
@@ -333,23 +336,30 @@ export class PlatformPluginCallback implements PlatformMessageHandler {
         case Brightness.LIGHT:
           isNavigationBarLightIconValue = false;
       }
+    } else {
+      isNavigationBarLightIconValue = currentProps?.isNavigationBarLightIcon ?? false
     }
 
     if (systemChromeStyle.systemNavigationBarColor != null) {
-      navigationBarColorValue = "#" + systemChromeStyle.systemNavigationBarColor.toString(16);
+      navigationBarColorValue = "#" + systemChromeStyle.systemNavigationBarColor.toString(16).padStart(8, '0');
+    } else {
+      navigationBarColorValue = currentProps?.navigationBarColor
     }
 
     if (systemChromeStyle.systemNavigationBarContrastEnforced != null) {
 
     }
     this.currentTheme = systemChromeStyle;
-    let systemBarProperties = new SystemBarProperties();
-    systemBarProperties.statusBarColor = statusBarColorValue;
-    systemBarProperties.isStatusBarLightIcon = isStatusBarLightIconValue;
-    systemBarProperties.statusBarContentColor = statusBarContentColorValue;
-    systemBarProperties.navigationBarColor = navigationBarColorValue;
-    systemBarProperties.isNavigationBarLightIcon = isNavigationBarLightIconValue;
-    systemBarProperties.navigationBarContentColor = navigationBarContentColorValue;
+    const systemBarProperties: window.SystemBarProperties = {
+      statusBarColor: statusBarColorValue,
+      isStatusBarLightIcon: isStatusBarLightIconValue,
+      statusBarContentColor: currentProps?.statusBarContentColor,
+      navigationBarColor: navigationBarColorValue,
+      isNavigationBarLightIcon: isNavigationBarLightIconValue,
+      navigationBarContentColor: currentProps?.navigationBarContentColor,
+      enableStatusBarAnimation: currentProps?.enableStatusBarAnimation,
+      enableNavigationBarAnimation: currentProps?.enableNavigationBarAnimation,
+    }
     Log.d(PlatformPluginCallback.TAG, "systemBarProperties: " + JSON.stringify(systemBarProperties));
     this.mainWindow?.setWindowSystemBarProperties(systemBarProperties);
   }
@@ -373,13 +383,4 @@ export class PlatformPluginCallback implements PlatformMessageHandler {
     this.showBarOrNavigation = uiConfig;
     this.platform?.updateSystemUiOverlays();
   }
-}
-
-class SystemBarProperties {
-  statusBarColor?: string;
-  isStatusBarLightIcon?: boolean;
-  statusBarContentColor?: string;
-  navigationBarColor?: string;
-  isNavigationBarLightIcon?: boolean;
-  navigationBarContentColor?: string;
 }
