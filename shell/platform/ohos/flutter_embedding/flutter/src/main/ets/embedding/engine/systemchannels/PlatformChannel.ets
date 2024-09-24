@@ -320,7 +320,8 @@ class PlatformMethodCallback implements MethodCallHandler {
         case "SystemChrome.setApplicationSwitcherDescription":
           Log.d(PlatformMethodCallback.TAG, "setApplicationSwitcherDescription: " + JSON.stringify(args));
           try {
-            this.platform.platformMessageHandler.setApplicationSwitcherDescription(args);
+            let description: AppSwitcherDescription = this.decodeAppSwitcherDescription(args);
+            this.platform.platformMessageHandler.setApplicationSwitcherDescription(description);
             result.success(null);
           } catch (err) {
             Log.e(PlatformMethodCallback.TAG, "setApplicationSwitcherDescription err:" + JSON.stringify(err));
@@ -395,6 +396,12 @@ class PlatformMethodCallback implements MethodCallHandler {
     } catch (e) {
       result.error("error", JSON.stringify(e), null);
     }
+  }
+
+  private decodeAppSwitcherDescription(encodedDescription: Map<string, Object>): AppSwitcherDescription {
+    let color: number = encodedDescription.get('color') as number;
+    let label: string = encodedDescription.get('label') as string;
+    return new AppSwitcherDescription(color, label);
   }
 
   private decodeSystemUiOverlays(encodedSystemUiOverlay: string[]): SystemUiOverlay[] {

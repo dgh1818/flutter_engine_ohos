@@ -127,8 +127,8 @@ export default class FlutterNapi {
 
   runBundleAndSnapshotFromLibrary(
     bundlePath: string,
-    entrypointFunctionName: string,
-    pathToEntrypointFunction: string,
+    entrypointFunctionName: string | undefined,
+    pathToEntrypointFunction: string | undefined,
     assetManager: resourceManager.ResourceManager,
     entrypointArgs: Array<string>) {
     if (!FlutterNapi.hasInit) {
@@ -169,6 +169,11 @@ export default class FlutterNapi {
   }
 
   static nativeLookupCallbackInformation(handle: number): FlutterCallbackInformation | null {
+    let callbackInformation = new FlutterCallbackInformation();
+    let ret : number = flutter.nativeLookupCallbackInformation(callbackInformation, handle);
+    if (ret == 0) {
+      return callbackInformation;
+    }
     return null;
   }
 

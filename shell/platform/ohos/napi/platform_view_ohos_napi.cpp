@@ -26,6 +26,7 @@
 #include "flutter/common/constants.h"
 #include "flutter/fml/make_copyable.h"
 #include "flutter/fml/platform/ohos/napi_util.h"
+#include "flutter/lib/ui/plugins/callback_cache.h"
 #include "flutter/shell/platform/ohos/ohos_logging.h"
 #include "flutter/shell/platform/ohos/ohos_main.h"
 #include "flutter/shell/platform/ohos/ohos_shell_holder.h"
@@ -2035,4 +2036,63 @@ napi_value PlatformViewOHOSNapi::nativeDecodeUtf8(napi_env env,
   return result;
 }
 
+napi_value PlatformViewOHOSNapi::nativeLookupCallbackInformation(
+    napi_env env,
+    napi_callback_info info) {
+  napi_value result;
+  size_t argc = 2;
+  napi_value args[2] = {nullptr};
+  napi_status ret = napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+  if (ret != napi_ok) {
+    LOGE("nativeLookupCallbackInformation napi_get_cb_info error");
+    napi_create_int32(env, -1, &result);
+    return result;
+  }
+
+  int64_t handle;
+  bool lossless;
+  ret = napi_get_value_bigint_int64(env, args[1], &handle, &lossless);
+  if (ret != napi_ok) {
+    LOGE("nativeLookupCallbackInformation napi_get_value_int64 error");
+    napi_create_int32(env, -1, &result);
+    return result;
+  }
+
+  LOGD("nativeLookupCallbackInformation::handle : %{public}ld", handle);
+  auto cbInfo = flutter::DartCallbackCache::GetCallbackInformation(handle);
+  if (cbInfo == nullptr) {
+    LOGE(
+        "nativeLookupCallbackInformation DartCallbackCache "
+        "GetCallbackInformation nullptr");
+    napi_create_int32(env, -1, &result);
+    return result;
+  }
+
+  napi_ref callbck_napi_obj;
+  ret = napi_create_reference(env, args[0], 1, &callbck_napi_obj);
+  if (ret != napi_ok) {
+    LOGE("nativeLookupCallbackInformation napi_create_reference error");
+    napi_create_int32(env, -1, &result);
+    return result;
+  }
+
+  napi_value callbackParam[3];
+  napi_create_string_utf8(env, cbInfo->name.c_str(), NAPI_AUTO_LENGTH,
+                          &callbackParam[0]);
+  napi_create_string_utf8(env, cbInfo->class_name.c_str(), NAPI_AUTO_LENGTH,
+                          &callbackParam[1]);
+  napi_create_string_utf8(env, cbInfo->library_path.c_str(), NAPI_AUTO_LENGTH,
+                          &callbackParam[2]);
+
+  ret = fml::napi::InvokeJsMethod(env, callbck_napi_obj, "init", 3,
+                                  callbackParam);
+  if (ret != napi_ok) {
+    FML_DLOG(ERROR) << "nativeLookupCallbackInformation init fail ";
+    napi_create_int32(env, -1, &result);
+    return result;
+  }
+  napi_delete_reference(env, callbck_napi_obj);
+  napi_create_int32(env, 0, &result);
+  return result;
+}
 }  // namespace flutter

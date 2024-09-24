@@ -404,6 +404,8 @@ void XComponentBase::OnDispatchTouchEvent(OH_NativeXComponent* component,
           component, touchEvent_.id, &sourceType);
       if (ret2 == OH_NATIVEXCOMPONENT_RESULT_SUCCESS &&
           sourceType == OH_NATIVEXCOMPONENT_SOURCE_TYPE_MOUSE) {
+        ohosTouchProcessor_.HandleVirtualTouchEvent(std::stoll(shellholderId_),
+                                                    component, &touchEvent_);
         return;
       }
       ohosTouchProcessor_.HandleTouchEvent(std::stoll(shellholderId_),
