@@ -149,7 +149,9 @@ static napi_value Init(napi_env env, napi_value exports) {
       DECLARE_NAPI_FUNCTION(
           "nativeSetTextureBackGroundPixelMap",
           flutter::PlatformViewOHOSNapi::nativeSetTextureBackGroundPixelMap),
-
+      DECLARE_NAPI_FUNCTION(
+          "nativeLookupCallbackInformation",
+          flutter::PlatformViewOHOSNapi::nativeLookupCallbackInformation),
   };
 
   FML_DLOG(INFO) << "Init NAPI size=" << sizeof(desc) / sizeof(desc[0]);
