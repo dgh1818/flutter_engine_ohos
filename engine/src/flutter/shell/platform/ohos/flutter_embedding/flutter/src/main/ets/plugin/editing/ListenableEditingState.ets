@@ -19,6 +19,7 @@ import inputMethod from '@ohos.inputMethod';
 import ArrayList from '@ohos.util.ArrayList';
 import { TextEditingDelta } from './TextEditingDelta';
 import TextInputChannel from '../../embedding/engine/systemchannels/TextInputChannel';
+import { FlutterTextUtils } from './TextUtils';
 
 const TAG = "ListenableEditingState";
 
@@ -258,15 +259,14 @@ export class ListenableEditingState {
       if (start == 0 && end == 0) {
         return;
       }
-      let tbStart = start == end ? start - 1 : start;
-      let tbEnd = start == end ? -1 : 0;
-      let crCode: number = this.mStringCache.charCodeAt(tbStart)
-      if (0xdc00 <= crCode && crCode <= 0xdffff) {
-        tbStart = tbStart - 1
+      
+      let unicodeStart = start;
+      if (start == end) {
+        unicodeStart = FlutterTextUtils.getOffsetBefore(this.mStringCache, start);
       }
-      this.replace(tbStart, end, "", 0, tbEnd);
-      this.mSelectionStartCache = tbStart;
-      let tempStr: string = this.mStringCache.slice(0, tbStart) + this.mStringCache.slice(end);
+      this.replace(unicodeStart, end, "", 0, 0);
+      this.mSelectionStartCache = unicodeStart;
+      let tempStr: string = this.mStringCache.slice(0, unicodeStart) + this.mStringCache.slice(end);
       this.mStringCache = tempStr;
       this.mSelectionEndCache = this.mSelectionStartCache;
     } else if (leftOrRight == true) {
@@ -274,15 +274,14 @@ export class ListenableEditingState {
       if (start == this.mStringCache.length) {
         return;
       }
-      let tbStart = start == end ? 1 : 0;
-      let crCode: number = this.mStringCache.charCodeAt(tbStart)
-      if (0xdc00 <= crCode && crCode <= 0xdffff) {
-        tbStart = tbStart - 1
+      let unicodeEnd = end;
+      if (start == end) {
+        unicodeEnd = FlutterTextUtils.getOffsetAfter(this.mStringCache, start);
       }
-      this.replace(start, end, "", tbStart, 0);
+      this.replace(start, unicodeEnd, "", 0, 0);
       this.mSelectionEndCache = start;
       let tempStr: string = this.mStringCache.slice(0, start) +
-        (end + 1 >= this.mStringCache.length ? "" : this.mStringCache.slice(end + 1));
+        (unicodeEnd >= this.mStringCache.length ? "" : this.mStringCache.slice(unicodeEnd));
       this.mStringCache = tempStr;
       this.mSelectionStartCache = this.mSelectionEndCache;
     }
