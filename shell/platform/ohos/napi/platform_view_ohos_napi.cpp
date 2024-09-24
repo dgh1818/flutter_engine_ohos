@@ -2095,4 +2095,121 @@ napi_value PlatformViewOHOSNapi::nativeLookupCallbackInformation(
   napi_create_int32(env, 0, &result);
   return result;
 }
+
+napi_value PlatformViewOHOSNapi::nativeUnicodeIsEmoji(napi_env env,
+                                                      napi_callback_info info) {
+  size_t argc = 1;
+  napi_value args[1] = {nullptr};
+  napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+
+  bool is_emoji = false;
+  int64_t codePoint = 0;
+  bool ret = napi_get_value_int64(env, args[0], &codePoint);
+  if (ret != napi_ok) {
+    FML_DLOG(ERROR) << "nativeXComponentAttachFlutterEngine shell_holder "
+                       "napi_get_value_int64 error";
+    return nullptr;
+  }
+
+  is_emoji = u_hasBinaryProperty(codePoint, UProperty::UCHAR_EMOJI);
+
+  napi_value result;
+  napi_create_int32(env, (int)is_emoji, &result);
+  return result;
+}
+
+napi_value PlatformViewOHOSNapi::nativeUnicodeIsEmojiModifier(
+    napi_env env,
+    napi_callback_info info) {
+  size_t argc = 1;
+  napi_value args[1] = {nullptr};
+  napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+
+  bool is_emoji = false;
+  int64_t codePoint = 0;
+  bool ret = napi_get_value_int64(env, args[0], &codePoint);
+  if (ret != napi_ok) {
+    FML_DLOG(ERROR) << "nativeXComponentAttachFlutterEngine shell_holder "
+                       "napi_get_value_int64 error";
+    return nullptr;
+  }
+
+  is_emoji = u_hasBinaryProperty(codePoint, UProperty::UCHAR_EMOJI_MODIFIER);
+
+  napi_value result;
+  napi_create_int32(env, (int)is_emoji, &result);
+  return result;
+}
+
+napi_value PlatformViewOHOSNapi::nativeUnicodeIsEmojiModifierBase(
+    napi_env env,
+    napi_callback_info info) {
+  size_t argc = 1;
+  napi_value args[1] = {nullptr};
+  napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+
+  bool is_emoji = false;
+  int64_t codePoint = 0;
+  bool ret = napi_get_value_int64(env, args[0], &codePoint);
+  if (ret != napi_ok) {
+    FML_DLOG(ERROR) << "nativeXComponentAttachFlutterEngine shell_holder "
+                       "napi_get_value_int64 error";
+    return nullptr;
+  }
+
+  is_emoji =
+      u_hasBinaryProperty(codePoint, UProperty::UCHAR_EMOJI_MODIFIER_BASE);
+
+  napi_value result;
+  napi_create_int32(env, (int)is_emoji, &result);
+  return result;
+}
+
+napi_value PlatformViewOHOSNapi::nativeUnicodeIsVariationSelector(
+    napi_env env,
+    napi_callback_info info) {
+  size_t argc = 1;
+  napi_value args[1] = {nullptr};
+  napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+
+  bool is_emoji = false;
+  int64_t codePoint = 0;
+  bool ret = napi_get_value_int64(env, args[0], &codePoint);
+  if (ret != napi_ok) {
+    FML_DLOG(ERROR) << "nativeXComponentAttachFlutterEngine shell_holder "
+                       "napi_get_value_int64 error";
+    return nullptr;
+  }
+
+  is_emoji =
+      u_hasBinaryProperty(codePoint, UProperty::UCHAR_VARIATION_SELECTOR);
+
+  napi_value result;
+  napi_create_int32(env, (int)is_emoji, &result);
+  return result;
+}
+
+napi_value PlatformViewOHOSNapi::nativeUnicodeIsRegionalIndicatorSymbol(
+    napi_env env,
+    napi_callback_info info) {
+  size_t argc = 1;
+  napi_value args[1] = {nullptr};
+  napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+
+  bool is_emoji = false;
+  int64_t codePoint = 0;
+  bool ret = napi_get_value_int64(env, args[0], &codePoint);
+  if (ret != napi_ok) {
+    FML_DLOG(ERROR) << "nativeXComponentAttachFlutterEngine shell_holder "
+                       "napi_get_value_int64 error";
+    return nullptr;
+  }
+
+  is_emoji =
+      u_hasBinaryProperty(codePoint, UProperty::UCHAR_REGIONAL_INDICATOR);
+
+  napi_value result;
+  napi_create_int32(env, (int)is_emoji, &result);
+  return result;
+}
 }  // namespace flutter
