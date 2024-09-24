@@ -367,8 +367,8 @@ export class FlutterAbility extends UIAbility implements Host {
     }
   }
 
-  onConfigurationUpdated(config: Configuration) {
-    Log.i(TAG, 'onConfigurationUpdated config:' + JSON.stringify(config));
+  onConfigurationUpdate(config: Configuration) {
+    Log.i(TAG, 'onConfigurationUpdate config:' + JSON.stringify(config));
     this?.delegate?.flutterEngine?.getSettingsChannel()?.startMessage()
       .setNativeSpellCheckServiceDefined(false)
       .setBrieflyShowPassword(false)
