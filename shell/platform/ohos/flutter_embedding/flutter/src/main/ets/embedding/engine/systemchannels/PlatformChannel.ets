@@ -22,6 +22,7 @@ import pasteboard from '@ohos.pasteboard';
 import bundleManager from '@ohos.bundle.bundleManager';
 import window from '@ohos.window';
 import Any from '../../../plugin/common/Any';
+import { BusinessError } from '@kit.BasicServicesKit';
 
 export default class PlatformChannel {
   private static TAG = "PlatformChannel";
@@ -187,7 +188,7 @@ export enum HapticFeedbackType {
 export interface PlatformMessageHandler {
   playSystemSound(soundType: SoundType): void;
 
-  vibrateHapticFeedback(feedbackType: HapticFeedbackType): void;
+  vibrateHapticFeedback(feedbackType: HapticFeedbackType): Promise<void>;
 
   setPreferredOrientations(ohosOrientation: number, result: MethodResult): void;
 
@@ -306,8 +307,13 @@ class PlatformMethodCallback implements MethodCallHandler {
           try {
             Log.d(PlatformMethodCallback.TAG, "HapticFeedback: " + args as string);
             let feedbackType = this.platform.getFeedbackTypeFromValue(args as string);
-            this.platform.platformMessageHandler.vibrateHapticFeedback(feedbackType);
-            result.success(null);
+            this.platform.platformMessageHandler.vibrateHapticFeedback(feedbackType)
+              .then(() => {
+                result.success(null);
+              })
+              .catch((e: BusinessError) => {
+                Log.e(PlatformMethodCallback.TAG, `HapticFeedback.vibrate error: ${e.code} - ${e.message}`);
+              });
           } catch (e) {
             Log.e(PlatformMethodCallback.TAG, "HapticFeedback.vibrate error:" + JSON.stringify(e));
           }
