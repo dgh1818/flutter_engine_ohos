@@ -145,7 +145,7 @@ export class FlutterView {
         this.displayInfo = display.getDefaultDisplaySync();
         this.viewportMetrics.devicePixelRatio = this.displayInfo?.densityPixels;
         this.viewportMetrics.physicalTouchSlop = 1.0 * this.displayInfo?.densityPixels;
-        Log.i(TAG, "Display Info: " + JSON.stringify(this.displayInfo))
+        Log.i(TAG, "Display on: " + JSON.stringify(this.displayInfo))
         this.updateViewportMetrics()
       });
     } catch (e) {
@@ -224,6 +224,18 @@ export class FlutterView {
       Log.e(TAG, "mainWindow off error: " + JSON.stringify(e));
     }
     this.mainWindow = null;
+
+    try {
+      display.off("change", ()=>{
+        this.displayInfo = display.getDefaultDisplaySync();
+        this.viewportMetrics.devicePixelRatio = this.displayInfo?.densityPixels;
+        this.viewportMetrics.physicalTouchSlop = 1.0 * this.displayInfo?.densityPixels;
+        Log.i(TAG, "Display Info: " + JSON.stringify(this.displayInfo))
+        this.updateViewportMetrics()
+      });
+    } catch (e) {
+      Log.e(TAG, "displayInfo off error" + JSON.stringify(e));
+    }
   }
 
   attachToFlutterEngine(flutterEngine: FlutterEngine): void {
