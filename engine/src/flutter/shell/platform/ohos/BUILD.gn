@@ -15,6 +15,7 @@ assert(is_ohos)
 
 import("//build/config/ohos/config.gni")
 import("//build/toolchain/clang.gni")
+import("//flutter/build/bin_to_obj.gni")
 import("//flutter/build/zip_bundle.gni")
 import("//flutter/common/config.gni")
 import("//flutter/shell/gpu/gpu.gni")
@@ -58,6 +59,14 @@ _public_headers = [
 
 config("relative_flutter_ohos_headers") {
   include_dirs = [ "public" ]
+}
+
+bin_to_assembly("icudtl_asm") {
+  deps = []
+  input = "//flutter/third_party/icu/flutter/icudtl.dat"
+  symbol = "_binary_icudtl_dat_start"
+  size_symbol = "_binary_icudtl_dat_size"
+  executable = false
 }
 
 source_set("flutter_ohos_sources") {
@@ -129,6 +138,8 @@ source_set("flutter_ohos_sources") {
     "vsync_waiter_ohos.cpp",
   ]
 
+  sources += get_target_outputs(":icudtl_asm")
+
   # Set flag to stop headers being directly included (library users should not do this)
   defines = [
     "FLUTTER_LINUX_COMPILATION",
@@ -145,6 +156,7 @@ source_set("flutter_ohos_sources") {
   ]
 
   public_deps = [
+    ":icudtl_asm",
     ":ohos_gpu_configuration",
     "//flutter/assets",
     "//flutter/common",
@@ -172,8 +184,6 @@ source_set("flutter_ohos_src") {
   defines = [ "FLUTTER_ENGINE_NO_PROTOTYPES" ]
 
   public_deps = [ ":flutter_ohos_sources" ]
-
-  deps = [ "//flutter/shell/platform/embedder:embedder_as_internal_library" ]
 }
 
 test_fixtures("flutter_ohos_fixtures") {

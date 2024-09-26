@@ -134,8 +134,6 @@ export default class FlutterLoader {
     prefetchDefaultFontManager();
     if (this.flutterApplicationInfo!.isDebugMode) {
       this.copyResource(context)
-    } else {
-      this.copyICU(context)
     }
     let buildInfoMap = this.getBuildInfo(this.context!); 
     if (!buildInfoMap.has(ENABLE_IMPELLER_TAG) || buildInfoMap.get(ENABLE_IMPELLER_TAG) == TRUE_STRING) {
@@ -149,33 +147,6 @@ export default class FlutterLoader {
       `${context.filesDir}`
     )
     Log.d(TAG, "flutterLoader end init")
-  }
-
-  private copyICU(context: common.Context) {
-    let filePath = context.filesDir + FILE_SEPARATOR + this.flutterApplicationInfo!.flutterAssetsDir
-    const timestamp = this.checkTimestamp(filePath);
-    if (timestamp == null) {
-      Log.d(TAG, "no need copyICU")
-      return;
-    }
-    if (this.context != null) {
-      Log.d(TAG, "start copyICU")
-      if (fs.accessSync(filePath)) {
-        fs.rmdirSync(filePath);
-      }
-      fs.mkdirSync(filePath)
-      let icudtlBuffer =
-        this.context.resourceManager.getRawFileContentSync(this.flutterApplicationInfo!.flutterAssetsDir +
-          "/icudtl.dat")
-      let icudtlFile =
-        fs.openSync(filePath + FILE_SEPARATOR + "/icudtl.dat", fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE)
-      fs.writeSync(icudtlFile.fd, icudtlBuffer.buffer)
-      if (timestamp != null) {
-        fs.closeSync(fs.openSync(filePath + FILE_SEPARATOR + timestamp, fs.OpenMode.READ_ONLY | fs.OpenMode.CREATE))
-      }
-      fs.closeSync(icudtlFile)
-      Log.d(TAG, "copyICU end")
-    }
   }
 
   private copyResource(context: common.Context) {
@@ -195,13 +166,6 @@ export default class FlutterLoader {
       if (!fs.accessSync(filePath)) {
         fs.mkdirSync(filePath)
       }
-
-      let icudtlBuffer =
-        this.context.resourceManager.getRawFileContentSync(this.flutterApplicationInfo!.flutterAssetsDir +
-          "/icudtl.dat")
-      let icudtlFile =
-        fs.openSync(filePath + FILE_SEPARATOR + "/icudtl.dat", fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE)
-      fs.writeSync(icudtlFile.fd, icudtlBuffer.buffer)
 
       let kernelBuffer =
         this.context.resourceManager.getRawFileContentSync(this.flutterApplicationInfo!.flutterAssetsDir +
@@ -227,7 +191,6 @@ export default class FlutterLoader {
       if (timestamp != null) {
         fs.closeSync(fs.openSync(filePath + FILE_SEPARATOR + timestamp, fs.OpenMode.READ_ONLY | fs.OpenMode.CREATE))
       }
-      fs.closeSync(icudtlFile)
       fs.closeSync(kernelFile)
       fs.closeSync(vmFile)
       fs.closeSync(isolateFile)
@@ -248,6 +211,7 @@ export default class FlutterLoader {
     if (shellArgs == null) {
       shellArgs = new Array<string>();
     }
+    shellArgs.push("--icu-symbol-prefix=_binary_icudtl_dat");
     shellArgs.push(
       "--icu-native-lib-path="
         + this.flutterApplicationInfo!.nativeLibraryDir
@@ -260,7 +224,6 @@ export default class FlutterLoader {
       const snapshotAssetPath =
         this.initResult!.dataDirPath + FILE_SEPARATOR + this.flutterApplicationInfo!.flutterAssetsDir;
       kernelPath = snapshotAssetPath + FILE_SEPARATOR + DEFAULT_KERNEL_BLOB;
-      shellArgs.push("--icu-data-file-path=" + snapshotAssetPath + "/icudtl.dat")
       shellArgs.push("--" + SNAPSHOT_ASSET_PATH_KEY + "=" + snapshotAssetPath);
       shellArgs.push("--" + VM_SNAPSHOT_DATA_KEY + "=" + this.flutterApplicationInfo!.vmSnapshotData);
       shellArgs.push(
@@ -280,7 +243,6 @@ export default class FlutterLoader {
 
       const snapshotAssetPath =
         this.initResult!.dataDirPath + FILE_SEPARATOR + this.flutterApplicationInfo!.flutterAssetsDir;
-      shellArgs.push("--icu-data-file-path=" + snapshotAssetPath + "/icudtl.dat")
 
       if (this.flutterApplicationInfo!.isProfile) {
         shellArgs.push("--" + AOT_VMSERVICE_SHARED_LIBRARY_NAME + "=" + VMSERVICE_SNAPSHOT_LIBRARY);
