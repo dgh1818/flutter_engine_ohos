@@ -261,12 +261,13 @@ void OhosTouchProcessor::HandleMouseEvent(
   pointerData.pressure = 0.0;
   pointerData.pressure_max = 1.0;
   pointerData.pressure_min = 0.0;
-  pointerData.kind = PointerData::DeviceKind::kMouse;
+  pointerData.kind = PointerData::DeviceKind::kTouch;
   pointerData.buttons = getPointerButtonFromMouse(mouseEvent.button);
   // hover support
   if (mouseEvent.button == OH_NATIVEXCOMPONENT_NONE_BUTTON &&
       pointerData.change == PointerData::Change::kMove) {
     pointerData.change = PointerData::Change::kHover;
+    pointerData.kind = PointerData::DeviceKind::kMouse;
     pointerData.buttons = 0;
   }
   pointerData.pan_x = 0.0;
