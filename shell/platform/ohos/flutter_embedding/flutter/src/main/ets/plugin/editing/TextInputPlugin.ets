@@ -318,9 +318,9 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   private keyboardHeightChangeCallback = (data: number) => {
     console.info('Succeeded in enabling the listener for keyboard height changes. Data: ' + JSON.stringify(data));
     if (data == 0) {
-      this.showType = keyboardType.ENTRY
+      this.firstShow = true
     } else {
-      this.showType = keyboardType.NONE
+      this.firstShow = false
     }
   }
 
