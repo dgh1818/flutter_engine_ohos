@@ -28,6 +28,8 @@ export interface TextureRegistry {
 
   setExternalNativeImage(textureId: number, native_image: number): boolean;
 
+  resetExternalTexture(textureId: number, need_surfaceId: boolean): number;
+
   unregisterTexture(textureId: number): void;
 
   onTrimMemory(level: number): void;
