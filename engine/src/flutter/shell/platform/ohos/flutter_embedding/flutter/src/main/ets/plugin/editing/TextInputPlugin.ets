@@ -173,12 +173,12 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     this.listenNoShowKeyboard()
   }
 
-  /// 通过监听规避区域内，是否有软键盘区域来进行监听。该方法在回到桌面和锁屏依然可以正常监听
+  /// 通过监听键盘高度，决定是否需要弹出键盘
   listenShowKeyboard() {
     let windowStage = FlutterManager.getInstance()
       .getWindowStage(FlutterManager.getInstance().getUIAbility(getContext(this)));
     windowStage.getMainWindow((err: BusinessError, currentWindow ) => {
-      currentWindow.on('avoidAreaChange', this.avoidAreaChangeCallback)
+      currentWindow.on('keyboardHeightChange', this.keyboardHeightChangeCallback);
     });
   }
 
@@ -187,7 +187,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     let windowStage = FlutterManager.getInstance()
       .getWindowStage(FlutterManager.getInstance().getUIAbility(getContext(this)));
     windowStage.getMainWindow((err: BusinessError, currentWindow ) => {
-      currentWindow.off('avoidAreaChange', this.avoidAreaChangeCallback)
+      currentWindow.off('keyboardHeightChange', this.keyboardHeightChangeCallback);
     });
   }
 
@@ -208,6 +208,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
         }
       };
       await this.inputMethodController.attach(false, textConfig);
+      this.firstShow = true
     } catch (err) {
       Log.e(TextInputMethodHandlerImpl.TAG, "Failed to attach:" + JSON.stringify(err));
     }
@@ -234,7 +235,6 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
 
     this.mRestartInputPending = true;
     this.mEditable.addEditingStateListener(this.plugin);
-    this.firstShow = true
   }
 
   canShowTextInput(): boolean {
@@ -315,15 +315,12 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     })
   }
 
-  private avoidAreaChangeCallback = (data: window.AvoidAreaOptions) => {
+  private keyboardHeightChangeCallback = (data: number) => {
     console.info('Succeeded in enabling the listener for keyboard height changes. Data: ' + JSON.stringify(data));
-    if (data.type !== window.AvoidAreaType.TYPE_KEYBOARD) {
-      return;
-    }
-    if (data.area.bottomRect.height == 0) {
-      this.firstShow = true
+    if (data == 0) {
+      this.showType = keyboardType.ENTRY
     } else {
-      this.firstShow = false
+      this.showType = keyboardType.NONE
     }
   }
 
