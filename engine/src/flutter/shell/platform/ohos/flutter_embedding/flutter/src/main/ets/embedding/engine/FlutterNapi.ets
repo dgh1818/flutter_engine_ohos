@@ -647,6 +647,19 @@ export default class FlutterNapi {
     }
   }
 
+  resetExternalTexture(textureId: number, need_surfaceId: boolean): number {
+    Log.d(TAG, "called resetExternalTexture ");
+    if (this.isAttached()) {
+      if (!this.nativeShellHolderId) {
+        Log.e(TAG, "this.nativeShellHolderId = " + this.nativeShellHolderId)
+        return 0;
+      }
+      return flutter.nativeResetExternalTexture(this.nativeShellHolderId!, textureId, need_surfaceId);
+    } else {
+      return 0;
+    }
+  }
+
   setTextureBufferSize(textureId: number, width: number, height: number): void {
     Log.d(TAG, "called setTextureBufferSize ");
     if (!this.isAttached()) {
