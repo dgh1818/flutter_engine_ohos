@@ -182,7 +182,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     try {
       await this.inputMethodController.updateAttribute(this.inputAttribute);
     } catch (err) {
-      Log.e(TextInputMethodHandlerImpl.TAG, "Failed to attach:" + JSON.stringify(err));
+      Log.e(TextInputMethodHandlerImpl.TAG, "Failed to updateAttribute:" + JSON.stringify(err));
     }
   }
 
