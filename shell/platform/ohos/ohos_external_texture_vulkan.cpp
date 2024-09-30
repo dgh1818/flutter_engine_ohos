@@ -182,10 +182,9 @@ sk_sp<flutter::DlImage> OHOSExternalTextureVulkan::CreateDlImage(
 
   auto dl_image = impeller::DlImageImpeller::Make(texture);
 
-  // Temporary: Prevent freezes when using Vulkan to render camera data.
-  // vk_resources_[key] = {.texture = texture};
-  // now_key_ = key;
-  // vk_resources_.erase(image_lru_.AddImage(dl_image, key));
+  vk_resources_[key] = {.texture = texture};
+  now_key_ = key;
+  vk_resources_.erase(image_lru_.AddImage(dl_image, key));
   return dl_image;
 }
 
