@@ -63,6 +63,10 @@ OHOSExternalTexture::OHOSExternalTexture(int64_t id,
   FML_LOG(INFO) << "OH_NativeImage_AcquireNativeWindow "
                 << producer_nativewindow_;
 
+  if (!SetNativeWindowCPUAccess(producer_nativewindow_, false)) {
+    FML_LOG(ERROR) << "Error with SetNativeWindowCPUAccess";
+  }
+
   int ret = OH_NativeImage_SetOnFrameAvailableListener(native_image_source_,
                                                        frame_listener_);
   if (ret != 0) {
@@ -89,24 +93,9 @@ void OHOSExternalTexture::Paint(PaintContext& context,
   sk_sp<flutter::DlImage> draw_dl_image;
   if (freeze ||
       (draw_dl_image = GetNextDrawImage(context, bounds)) == nullptr) {
-    // draw_dl_image = old_dl_image_;
-    // Temporary: Prevent freezes when using Vulkan to render camera data.
-    if (last_native_window_buffer_) {
-      OH_NativeBuffer* native_buffer;
-      int ret = OH_NativeBuffer_FromNativeWindowBuffer(
-          last_native_window_buffer_, &native_buffer);
-      if (ret != 0) {
-        FML_LOG(ERROR) << "OHOSExternalTextureGL get OH_NativeBuffer error:"
-                       << ret;
-      } else {
-        // ensure buffer_id > 0 (may get seqNum = 0)
-        uint32_t buffer_id = OH_NativeBuffer_GetSeqNum(native_buffer) + 1;
-        draw_dl_image = CreateDlImage(context, bounds, buffer_id,
-                                      last_native_window_buffer_);
-      }
-    }
+    draw_dl_image = old_dl_image_;
   } else {
-    // old_dl_image_ = draw_dl_image;
+    old_dl_image_ = draw_dl_image;
   }
 
   if (draw_dl_image) {
