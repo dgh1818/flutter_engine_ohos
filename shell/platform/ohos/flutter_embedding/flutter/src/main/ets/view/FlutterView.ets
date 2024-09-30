@@ -23,7 +23,6 @@ import MouseCursorPlugin from '../plugin/mouse/MouseCursorPlugin';
 import Any from '../plugin/common/Any';
 import Settings from '../embedding/ohos/Settings';
 import ArrayList from '@ohos.util.ArrayList';
-import { EmbeddingNodeController } from '../embedding/ohos/EmbeddingNodeController';
 import PlatformView, { Params } from '../plugin/platform/PlatformView';
 import hiTraceMeter from '@ohos.hiTraceMeter'
 import { JSON } from '@kit.ArkTS';
@@ -89,26 +88,6 @@ export class ViewportMetrics {
   }
 }
 
-export class PlatformViewParas {
-  width: number = 0.0;
-  height: number = 0.0;
-  top: number = 0.0;
-  left: number = 0.0;
-  direction: Direction = Direction.Auto;
-
-  setValue(width: number, height: number, top: number, left: number): void {
-    this.width = width;
-    this.height = height;
-    this.top = top;
-    this.left = left;
-  }
-
-  setOffset(top: number, left: number): void {
-    this.top = top;
-    this.left = left;
-  }
-}
-
 export class FlutterView {
 
   private flutterEngine: FlutterEngine | null = null
@@ -130,8 +109,6 @@ export class FlutterView {
   private isFlutterUiDisplayed: boolean = false;
   private isFlutterUiPreload: boolean = false;
   private surfaceId: string = "0";
-  private nodeController: EmbeddingNodeController = new EmbeddingNodeController();
-  private platformViewSize: PlatformViewParas = new PlatformViewParas();
   private checkFullScreen: boolean = true;
   private checkKeyboard: boolean = true;
   private checkGesture: boolean = true;
@@ -206,10 +183,6 @@ export class FlutterView {
     return this.surfaceId;
   }
 
-  getEmbeddingNodeController(): EmbeddingNodeController {
-    return this.nodeController;
-  }
-
   setWrappedBuilder(wrappedBuilder: WrappedBuilder<[Params]>) {
     this.wrapBuilder = wrappedBuilder;
   }
@@ -224,10 +197,6 @@ export class FlutterView {
 
   getPlatformView(): PlatformView | undefined {
     return this.platformView;
-  }
-
-  getPlatformViewSize(): PlatformViewParas {
-    return this.platformViewSize;
   }
 
   getDVModel() {
