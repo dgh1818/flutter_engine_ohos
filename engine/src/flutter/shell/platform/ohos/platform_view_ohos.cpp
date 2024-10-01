@@ -554,6 +554,13 @@ void PlatformViewOHOS::UnRegisterExternalTexture(int64_t texture_id) {
   // Note that external_texture will be destroy after UnregisterTexture.
   UnregisterTexture(texture_id);
 
+  // Wait to prevent potential conflicts with SetExternalNativeImage(use same
+  // NativeImage) being called from another raster thread.
+  fml::AutoResetWaitableEvent latch;
+  fml::TaskRunner::RunNowOrPostTask(task_runners_.GetRasterTaskRunner(),
+                                    [&latch]() { latch.Signal(); });
+  latch.Wait();
+
   std::lock_guard<std::mutex> lock(g_map_mutex);
   g_texture_platformview_map.erase((uint64_t)this + (uint64_t)texture_id);
 }
