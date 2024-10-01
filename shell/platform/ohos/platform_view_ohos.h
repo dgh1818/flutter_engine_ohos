@@ -108,6 +108,8 @@ class PlatformViewOHOS final : public PlatformView {
 
   uint64_t GetExternalTextureWindowId(int64_t texture_id);
 
+  uint64_t ResetExternalTexture(int64_t texture_id, bool need_surfaceId);
+
   // |PlatformView|
   PointerDataDispatcherMaker GetDispatcherMaker() override;
 

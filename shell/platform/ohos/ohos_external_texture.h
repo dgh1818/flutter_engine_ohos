@@ -64,6 +64,8 @@ class OHOSExternalTexture : public flutter::Texture {
   // within the raster thread).
   bool SetExternalNativeImage(OH_NativeImage* native_image);
 
+  uint64_t Reset(bool need_surfaceId);
+
   static void DefaultOnFrameAvailable(void* native_image_ptr);
 
  protected:

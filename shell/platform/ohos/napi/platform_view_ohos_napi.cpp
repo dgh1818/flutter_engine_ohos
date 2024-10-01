@@ -1667,6 +1667,28 @@ napi_value PlatformViewOHOSNapi::nativeSetExternalNativeImage(
   return res;
 }
 
+napi_value PlatformViewOHOSNapi::nativeResetExternalTexture(
+    napi_env env,
+    napi_callback_info info) {
+  FML_DLOG(INFO) << "PlatformViewOHOSNapi::nativeResetExternalTexture";
+  size_t argc = 3;
+  napi_value args[3] = {nullptr};
+  int64_t shell_holder;
+  int64_t textureId;
+  bool need_surfaceId;
+  NAPI_CALL(env, napi_get_cb_info(env, info, &argc, args, nullptr, nullptr));
+  NAPI_CALL(env, napi_get_value_int64(env, args[0], &shell_holder));
+  NAPI_CALL(env, napi_get_value_int64(env, args[1], &textureId));
+  NAPI_CALL(env, napi_get_value_bool(env, args[2], &need_surfaceId));
+
+  uint64_t surface_id =
+      OHOS_SHELL_HOLDER->GetPlatformView()->ResetExternalTexture(
+          textureId, need_surfaceId);
+  napi_value res;
+  napi_create_int64(env, surface_id, &res);
+  return res;
+}
+
 napi_value PlatformViewOHOSNapi::nativeMarkTextureFrameAvailable(
     napi_env env,
     napi_callback_info info) {
