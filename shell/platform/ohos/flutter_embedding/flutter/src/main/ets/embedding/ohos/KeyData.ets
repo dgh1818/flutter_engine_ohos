@@ -86,6 +86,9 @@ export default class KeyData {
     view.setBigInt64(offset, BigInt(this.timestamp), true);
     offset += 8;
 
+    view.setBigInt64(offset, BigInt(this.type), true);
+    offset += 8;
+
     view.setBigInt64(offset, BigInt(this.physicalKey), true);
     offset += 8;
 

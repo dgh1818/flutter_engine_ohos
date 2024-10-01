@@ -257,6 +257,7 @@ export default class KeyEmbedderResponder implements Responder {
     data.timestamp = event.timestamp;
     data.type = type;
     data.physicalKey = physicalKey;
+    data.logicalKey = logicalKey;
     data.character = null;
     data.isSynthesized = false;
     // no deviceType found in KeyEvent
