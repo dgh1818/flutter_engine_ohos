@@ -3,6 +3,7 @@
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #include <native_buffer/native_buffer.h>
+#include <native_image/native_image.h>
 #include <native_window/external_window.h>
 #include <poll.h>
 #include <cerrno>
@@ -135,11 +136,13 @@ void OHOSExternalTexture::MarkNewFrameAvailable() {
                 << now_paint_frame_seq_num_;
   now_new_frame_seq_num_++;
   producer_has_frame_ = true;
-  if (producer_nativewindow_ != nullptr) {
+  if (producer_nativewindow_ != nullptr && native_image_source_ != nullptr) {
     int buffer_queue_size = 0;
     int ret = OH_NativeWindow_NativeWindowHandleOpt(
         producer_nativewindow_, GET_BUFFERQUEUE_SIZE, &buffer_queue_size);
-    if (ret != 0) {
+    if (ret != 0 || buffer_queue_size > 100) {
+      FML_LOG(INFO) << " MarkNewFrameAvailable get error buffer queue size "
+                    << buffer_queue_size << " ret " << ret;
       return;
     }
     // Here we release the buffers in the buffer_queue to ensure there is always
@@ -163,6 +166,14 @@ void OHOSExternalTexture::MarkNewFrameAvailable() {
           close(fence_fd);
         }
         now_paint_frame_seq_num_++;
+        buffer = nullptr;
+      } else {
+        FML_LOG(ERROR) << "MarkNewFrameAvailable AcquireBuffer error ret:"
+                       << ret << " buffer_queue_size " << buffer_queue_size
+                       << " max_jank_frame " << max_jank_frame
+                       << " NativeImage " << native_image_source_;
+        now_paint_frame_seq_num_ = (int64_t)now_new_frame_seq_num_;
+        break;
       }
     }
   }
@@ -184,6 +195,9 @@ void OHOSExternalTexture::OnTextureUnregistered() {
 void OHOSExternalTexture::OnGrContextCreated() {
   FML_LOG(INFO) << " OHOSExternalTextureGL::OnGrContextCreated";
   state_ = AttachmentState::kUninitialized;
+  if (native_image_source_ == nullptr) {
+    return;
+  }
   // move SetOnFrame here to avoid MarkNewFrameAvailable being invoked when
   // rasterizer thread is in starting. Hit: MarkNewFrameAvailable will be
   // invoked in rasterizer thread.
@@ -202,14 +216,11 @@ void OHOSExternalTexture::OnGrContextDestroyed() {
     // move UnsetOnFrame here to avoid MarkNewFrameAvailable being invoked when
     // rasterizer thread exit. Hit: MarkNewFrameAvailable will be invoked in
     // rasterizer thread.
-    FML_LOG(ERROR)
-        << "OnGrContextDestroyed OH_NativeImage_UnsetOnFrameAvailableListener ";
-    int ret =
-        OH_NativeImage_UnsetOnFrameAvailableListener(native_image_source_);
-    if (ret != 0) {
-      FML_LOG(ERROR)
-          << "Error with OH_NativeImage_UnsetOnFrameAvailableListener " << ret;
+    if (native_image_source_ == nullptr) {
+      return;
     }
+    // when GrContextDestroyed invoking, we just need release gpu resource.
+    FML_LOG(INFO) << "OnGrContextDestroyed release gpu resource";
     old_dl_image_.reset();
     image_lru_.Clear();
     if (last_fence_fd_ > 0) {
@@ -222,6 +233,9 @@ void OHOSExternalTexture::OnGrContextDestroyed() {
 }
 
 uint64_t OHOSExternalTexture::GetProducerSurfaceId() {
+  if (native_image_source_ == nullptr) {
+    return 0;
+  }
   int ret =
       OH_NativeImage_GetSurfaceId(native_image_source_, &producer_surface_id_);
   if (ret != 0) {
@@ -233,6 +247,9 @@ uint64_t OHOSExternalTexture::GetProducerSurfaceId() {
 }
 
 uint64_t OHOSExternalTexture::GetProducerWindowId() {
+  if (native_image_source_ == nullptr) {
+    return 0;
+  }
   if (producer_nativewindow_ == nullptr) {
     producer_nativewindow_ =
         OH_NativeImage_AcquireNativeWindow(native_image_source_);
@@ -243,6 +260,11 @@ uint64_t OHOSExternalTexture::GetProducerWindowId() {
 bool OHOSExternalTexture::SetPixelMapAsProducer(NativePixelMap* pixelMap) {
   int32_t ret = -1;
   OhosPixelMapInfos pixelmap_info;
+  if (pixelMap == nullptr) {
+    FML_LOG(ERROR)
+        << "OHOSExternalTextureGL SetPixelMapAsProducer get null pixelmap";
+    return false;
+  }
   ret = OH_PixelMap_GetImageInfo(pixelMap, &pixelmap_info);
   if (ret != 0) {
     FML_LOG(ERROR) << "OHOSExternalTextureGL OH_PixelMap_GetImageInfo err:"
@@ -286,6 +308,9 @@ OHNativeWindowBuffer* OHOSExternalTexture::GetConsumerNativeBuffer(
       DestroyPixelMapBuffer();
     }
   }
+  if (native_image_source_ == nullptr) {
+    return nullptr;
+  }
   OHNativeWindowBuffer* now_nw_buffer = nullptr;
   int ret = OH_NativeImage_AcquireNativeWindowBuffer(native_image_source_,
                                                      &now_nw_buffer, fence_fd);
@@ -306,6 +331,8 @@ OHNativeWindowBuffer* OHOSExternalTexture::GetConsumerNativeBuffer(
       FML_LOG(ERROR) << "OHOSExternalTexture ReleaseNativeWindowBuffe(Get "
                         "Last) get err:"
                      << ret;
+      OH_NativeWindow_DestroyNativeWindowBuffer(last_native_window_buffer_);
+      close(last_fence_fd_);
     }
   }
   last_native_window_buffer_ = now_nw_buffer;
@@ -326,6 +353,8 @@ OHNativeWindowBuffer* OHOSExternalTexture::GetConsumerNativeBuffer(
         FML_LOG(ERROR) << "OHOSExternalTexture ReleaseNativeWindowBuffe(Get "
                           "Last) get err:"
                        << ret;
+        OH_NativeWindow_DestroyNativeWindowBuffer(last_native_window_buffer_);
+        close(last_fence_fd_);
       }
       last_native_window_buffer_ = nw_buffer;
       last_fence_fd_ = *fence_fd;
@@ -359,11 +388,12 @@ sk_sp<flutter::DlImage> OHOSExternalTexture::GetNextDrawImage(
     return nullptr;
   }
 
-  OH_NativeBuffer* native_buffer;
+  OH_NativeBuffer* native_buffer = nullptr;
   int ret = OH_NativeBuffer_FromNativeWindowBuffer(native_widnow_buffer,
                                                    &native_buffer);
-  if (ret != 0) {
+  if (ret != 0 || native_buffer == nullptr) {
     FML_LOG(ERROR) << "OHOSExternalTextureGL get OH_NativeBuffer error:" << ret;
+    return nullptr;
   }
   // ensure buffer_id > 0 (may get seqNum = 0)
   uint32_t buffer_id = OH_NativeBuffer_GetSeqNum(native_buffer) + 1;
@@ -384,6 +414,9 @@ sk_sp<flutter::DlImage> OHOSExternalTexture::GetNextDrawImage(
 }
 
 bool OHOSExternalTexture::SetProducerWindowSize(int width, int height) {
+  if (native_image_source_ == nullptr) {
+    return false;
+  }
   if (producer_nativewindow_ == nullptr) {
     producer_nativewindow_ =
         OH_NativeImage_AcquireNativeWindow(native_image_source_);
@@ -404,6 +437,10 @@ bool OHOSExternalTexture::SetProducerWindowSize(int width, int height) {
 bool OHOSExternalTexture::SetExternalNativeImage(OH_NativeImage* native_image) {
   if (native_image == nullptr) {
     return false;
+  }
+  if (native_image == native_image_source_) {
+    FML_LOG(ERROR) << "SetExternalNativeImage set same image " << native_image;
+    return true;
   }
   int ret =
       OH_NativeImage_SetOnFrameAvailableListener(native_image, frame_listener_);
@@ -428,6 +465,8 @@ bool OHOSExternalTexture::SetExternalNativeImage(OH_NativeImage* native_image) {
       OH_NativeWindow_DestroyNativeWindowBuffer(buffer);
       close(fence_fd);
     }
+    buffer = nullptr;
+    fence_fd = -1;
     ret = OH_NativeImage_AcquireNativeWindowBuffer(native_image, &buffer,
                                                    &fence_fd);
   }
@@ -442,6 +481,41 @@ bool OHOSExternalTexture::SetExternalNativeImage(OH_NativeImage* native_image) {
   now_new_frame_seq_num_ = 0;
 
   return true;
+}
+
+uint64_t OHOSExternalTexture::Reset(bool need_surfaceId) {
+  FML_LOG(INFO) << "ResetExternalTexture need_surfaceId" << need_surfaceId;
+
+  OnTextureUnregistered();
+  DestroyNativeImageSource();
+  if (need_surfaceId) {
+    native_image_source_ = OH_NativeImage_Create(0, GL_TEXTURE_EXTERNAL_OES);
+    if (native_image_source_ == nullptr) {
+      FML_LOG(ERROR) << "Error with OH_NativeImage_Create";
+      return 0;
+    }
+
+    producer_nativewindow_ =
+        OH_NativeImage_AcquireNativeWindow(native_image_source_);
+    if (producer_nativewindow_ == nullptr) {
+      FML_LOG(INFO) << "OH_NativeImage_AcquireNativeWindow failed";
+      OH_NativeImage_Destroy(&native_image_source_);
+      return 0;
+    }
+
+    int ret = OH_NativeImage_SetOnFrameAvailableListener(native_image_source_,
+                                                         frame_listener_);
+    if (ret != 0) {
+      OH_NativeImage_Destroy(&native_image_source_);
+      FML_LOG(ERROR) << "Error with OH_NativeImage_SetOnFrameAvailableListener "
+                     << ret;
+      return 0;
+    }
+    uint64_t surface_id = 0;
+    OH_NativeImage_GetSurfaceId(native_image_source_, &surface_id);
+    return surface_id;
+  }
+  return 0;
 }
 
 bool OHOSExternalTexture::CreatePixelMapBuffer(int width,
@@ -545,7 +619,10 @@ void OHOSExternalTexture::DestroyNativeImageSource() {
                                                  listener);
       native_image_source_ = nullptr;
     }
+    producer_nativewindow_ = nullptr;
   }
+  now_paint_frame_seq_num_ = 0;
+  now_new_frame_seq_num_ = 0;
 }
 
 void OHOSExternalTexture::DefaultOnFrameAvailable(void* native_image_ptr) {
@@ -569,6 +646,9 @@ void OHOSExternalTexture::DefaultOnFrameAvailable(void* native_image_ptr) {
 bool OHOSExternalTexture::SetWindowSize(OHNativeWindow* window,
                                         int width,
                                         int height) {
+  if (window == nullptr) {
+    return false;
+  }
   int ret = OH_NativeWindow_NativeWindowHandleOpt(window, SET_BUFFER_GEOMETRY,
                                                   width, height);
   if (ret != 0) {
@@ -579,6 +659,9 @@ bool OHOSExternalTexture::SetWindowSize(OHNativeWindow* window,
 }
 
 bool OHOSExternalTexture::SetWindowFormat(OHNativeWindow* window, int format) {
+  if (window == nullptr) {
+    return false;
+  }
   int ret = OH_NativeWindow_NativeWindowHandleOpt(window, SET_FORMAT, format);
   if (ret != 0) {
     int old_format;
@@ -634,11 +717,12 @@ bool OHOSExternalTexture::CopyDataToPixelMapBuffer(const unsigned char* src,
 
   // native_buffer ptr is convert from nativeWindowBuffer inner member, so it
   // don't need release
-  OH_NativeBuffer* native_buffer;
+  OH_NativeBuffer* native_buffer = nullptr;
   int ret =
       OH_NativeBuffer_FromNativeWindowBuffer(pixelmap_buffer_, &native_buffer);
-  if (ret != 0) {
+  if (ret != 0 || native_buffer == nullptr) {
     FML_LOG(ERROR) << "OHOSExternalTextureGL get OH_NativeBuffer error:" << ret;
+    return false;
   }
   OH_NativeBuffer_GetConfig(native_buffer, &nativebuffer_config);
   if (nativebuffer_config.width != width ||
@@ -711,7 +795,7 @@ bool OHOSExternalTexture::SetNativeWindowCPUAccess(OHNativeWindow* window,
 
 void OHOSExternalTexture::GetNewTransformBound(SkM44& transform,
                                                SkRect& bounds) {
-  if (pixelmap_buffer_ != nullptr) {
+  if (pixelmap_buffer_ != nullptr || native_image_source_ == nullptr) {
     transform.setIdentity();
     return;
   }

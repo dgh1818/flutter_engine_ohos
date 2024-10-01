@@ -605,6 +605,27 @@ bool PlatformViewOHOS::SetExternalNativeImage(int64_t texture_id,
   }
 }
 
+uint64_t PlatformViewOHOS::ResetExternalTexture(int64_t texture_id,
+                                                bool need_surfaceId) {
+  if (all_external_texture_.find(texture_id) != all_external_texture_.end()) {
+    FML_LOG(INFO) << "ResetExternalTexture " << texture_id;
+
+    auto external_texture = all_external_texture_[texture_id];
+    fml::AutoResetWaitableEvent latch;
+    uint64_t surface_id = 0;
+    fml::TaskRunner::RunNowOrPostTask(
+        task_runners_.GetRasterTaskRunner(),
+        [&external_texture, &latch, &surface_id, need_surfaceId]() {
+          surface_id = external_texture->Reset(need_surfaceId);
+          latch.Signal();
+        });
+    latch.Wait();
+    return surface_id;
+  } else {
+    return 0;
+  }
+}
+
 void PlatformViewOHOS::OnTouchEvent(
     const std::shared_ptr<std::string[]> touchPacketString,
     int size) {

@@ -144,6 +144,8 @@ export const nativeGetTextureWindowId: (nativeShellHolderId: number, textureId: 
 
 export const nativeSetExternalNativeImage: (nativeShellHolderId: number, textureId: number, native_image: number) => number;
 
+export const nativeResetExternalTexture: (nativeShellHolderId: number, textureId: number, need_surfaceId: boolean) => number;
+
 export const nativeEncodeUtf8: (str: string) => Uint8Array;
 
 export const nativeDecodeUtf8: (array: Uint8Array) => string;
