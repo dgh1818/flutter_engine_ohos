@@ -23,6 +23,8 @@
 
 namespace flutter {
 
+struct VkResource;
+
 class OHOSExternalTextureVulkan : public OHOSExternalTexture {
  public:
   explicit OHOSExternalTextureVulkan(
@@ -33,11 +35,6 @@ class OHOSExternalTextureVulkan : public OHOSExternalTexture {
   ~OHOSExternalTextureVulkan() override;
 
  protected:
-  struct VkResource {
-    impeller::vk::UniqueSemaphore wait_semaphore;
-    std::shared_ptr<impeller::TextureVK> texture;
-    impeller::vk::UniqueSemaphore draw_semaphore;
-  };
   std::unordered_map<NativeBufferKey, VkResource> vk_resources_;
   NativeBufferKey now_key_;
 
@@ -56,6 +53,12 @@ class OHOSExternalTextureVulkan : public OHOSExternalTexture {
   impeller::vk::UniqueSemaphore CreateVkSemaphore(int fence_fd);
 
   FML_DISALLOW_COPY_AND_ASSIGN(OHOSExternalTextureVulkan);
+};
+
+struct VkResource {
+  impeller::vk::UniqueSemaphore wait_semaphore;
+  std::shared_ptr<impeller::TextureVK> texture;
+  impeller::vk::UniqueSemaphore draw_semaphore;
 };
 
 }  // namespace flutter
