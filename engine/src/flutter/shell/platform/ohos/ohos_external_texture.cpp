@@ -116,6 +116,7 @@ void OHOSExternalTexture::Paint(PaintContext& context,
     if (last_fence_fd_ > 0) {
       close(last_fence_fd_);
     }
+    context.canvas->Flush();
     SetGPUFence(&last_fence_fd_);
     FML_LOG(INFO) << "Draw one dl image (" << draw_dl_image->bounds().width()
                   << "," << draw_dl_image->bounds().height() << ")->("

@@ -29,53 +29,8 @@ OHOSExternalTextureVulkan::OHOSExternalTextureVulkan(
 OHOSExternalTextureVulkan::~OHOSExternalTextureVulkan() {}
 
 void OHOSExternalTextureVulkan::SetGPUFence(int* fence_fd) {
-  impeller::vk::Device device = impeller_context_->GetDevice();
-
-  auto texture = vk_resources_[now_key_].texture;
   *fence_fd = -1;
-  if (!texture) {
-    return;
-  }
-
-  impeller::vk::ExportSemaphoreCreateInfo export_info;
-  export_info.setHandleTypes(
-      impeller::vk::ExternalSemaphoreHandleTypeFlagBits::eSyncFd);
-
-  impeller::vk::SemaphoreCreateInfo create_info;
-  create_info.setPNext(&export_info);
-
-  auto ret = device.createSemaphoreUnique(create_info);
-  if (ret.result != impeller::vk::Result::eSuccess) {
-    FML_LOG(ERROR) << "createSemaphoreUnique in SetGPUFence failed";
-    return;
-  }
-  auto semaphore = std::move(ret.value);
-
-  impeller::vk::SubmitInfo submit_info;
-  submit_info.setCommandBufferCount(0);
-  submit_info.setSignalSemaphores(*semaphore);
-  auto result = impeller_context_->GetGraphicsQueue()->Submit(
-      submit_info, impeller::vk::Fence());
-
-  if (result != impeller::vk::Result::eSuccess) {
-    FML_LOG(ERROR) << "Could not create export semaphore: "
-                   << impeller::vk::to_string(result);
-    return;
-  }
-
-  std::vector<impeller::vk::Semaphore> semaphore_vector;
-  semaphore_vector.push_back(semaphore.get());
-
-  result = impeller_context_->GetGraphicsQueue()->QueueSignalReleaseImageOHOS(
-      semaphore_vector, texture->GetTextureSource()->GetImage(), fence_fd);
-
-  if (result != impeller::vk::Result::eSuccess) {
-    FML_LOG(ERROR) << "Could not QueueSignalReleaseImageOHOS: "
-                   << impeller::vk::to_string(result);
-    return;
-  }
-  // bool fence_ok = (fcntl(*fence_fd, F_GETFD) != -1 || errno != EBADF);
-  // FML_LOG(INFO) << "set signal fd " << *fence_fd << " ok " << fence_ok;
+  // need create vkSemaphore with fence_fd in the future.
   return;
 }
 
@@ -113,9 +68,18 @@ void OHOSExternalTextureVulkan::WaitGPUFence(int fence_fd) {
   if (fence_fd > 0) {
     auto semaphore = CreateVkSemaphore(fence_fd);
 
+    if (semaphore.get() == VK_NULL_HANDLE) {
+      return;
+    }
+
     impeller::vk::SubmitInfo submit_info;
     submit_info.setCommandBufferCount(0);
-    submit_info.setSignalSemaphores(*semaphore);
+    submit_info.setWaitSemaphoreCount(1);
+    submit_info.setWaitSemaphores(semaphore.get());
+    impeller::vk::PipelineStageFlags wait_stage =
+        impeller::vk::PipelineStageFlagBits::eFragmentShader;
+    submit_info.setWaitDstStageMask(wait_stage);
+
     auto result = impeller_context_->GetGraphicsQueue()->Submit(
         submit_info, impeller::vk::Fence());
 
@@ -126,9 +90,6 @@ void OHOSExternalTextureVulkan::WaitGPUFence(int fence_fd) {
     }
     // we cannot destroy semaphore until it is signal in vulkan.
     vk_resources_[now_key_].wait_semaphore = std::move(semaphore);
-
-    // the driver will close the fence_fd after importing the semaphore.
-    // close(fence_fd);
   }
 
   auto texture = vk_resources_[now_key_].texture;
