@@ -92,7 +92,6 @@ export class FlutterAbility extends UIAbility implements Host {
 
     this.context.eventHub.on(EVENT_BACK_PRESS, () => {
       this.delegate?.flutterEngine?.getNavigationChannel()?.popRoute();
-      this.delegate?.flutterEngine?.getPlatformViewsController()?.setBackNodeControllers();
     });
     let observer: errorManager.ErrorObserver = {
       onUnhandledException(errorMsg) {

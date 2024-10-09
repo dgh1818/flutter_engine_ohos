@@ -39,13 +39,10 @@ import DartExecutor from '../../embedding/engine/dart/DartExecutor';
 import { AccessibilityEventsDelegate } from './AccessibilityEventsDelegate';
 import AccessibilityBridge from '../../view/AccessibilityBridge';
 import { FlutterMutatorView } from '../../embedding/engine/mutatorsstack/FlutterMutatorView';
-import common from '@ohos.app.ability.common';
 import Log from '../../util/Log'
-import OhosTouchProcessor from '../../embedding/ohos/OhosTouchProcessor'
 import PlatformViewFactory from './PlatformViewFactory'
 import { ByteBuffer } from '../../util/ByteBuffer';
 import Any from '../common/Any';
-import { RawPointerCoords } from './RawPointerCoord';
 import { ArrayList, Stack } from '@kit.ArkTS';
 import { CustomTouchEvent, CustomTouchObject } from './CustomTouchEvent';
 import { NodeRenderType } from '@kit.ArkUI';
@@ -77,9 +74,7 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
   private textureRegistry: TextureRegistry | null = null;
   private textInputPlugin: TextInputPlugin | null = null;
   private platformViewsChannel: PlatformViewsChannel | null = null;
-  private accessibilityEventsDelegate: AccessibilityEventsDelegate;
   private nextOverlayLayerId: number = 0;
-  private usesSoftwareRendering: boolean = false;
   private platformViews: Map<number, PlatformView>;
   private viewIdWithTextureId: Map<number, number>;
   private viewIdWithNodeController: Map<number, EmbeddingNodeController>;
@@ -88,13 +83,11 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
   private currentFrameUsedOverlayLayerIds: HashSet<number>;
   private currentFrameUsedPlatformViewIds: HashSet<number>;
   private platformViewParent: Map<number, FlutterMutatorView>;
-  private nodeControllers: Stack<EmbeddingNodeController>;
   private viewPhysicalInfo: Map<number, number> = new Map<number, number>();
   private dValue: number = 3;
 
   constructor() {
     this.registry = new PlatformViewRegistryImpl();
-    this.accessibilityEventsDelegate = new AccessibilityEventsDelegate();
     this.overlayLayerViews = new Map<number, PlatformOverlayView>();
     this.currentFrameUsedOverlayLayerIds = new HashSet();
     this.currentFrameUsedPlatformViewIds = new HashSet();
@@ -103,7 +96,6 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     this.viewIdWithTextureId = new Map();
     this.viewIdWithNodeController = new Map();
     this.platformViewParent = new Map();
-    this.nodeControllers = new Stack<EmbeddingNodeController>();
   }
 
   getPlatformViewById(viewId: number): Object {
@@ -151,6 +143,12 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
       platformView.dispose();
     } catch (err) {
       Log.e(TAG, "Disposing platform view threw an exception", err);
+    }
+
+    let nodeController: EmbeddingNodeController | null = this.viewIdWithNodeController.get(viewId) || null;
+    if (nodeController != null) {
+      nodeController?.dispose();
+      this.viewIdWithNodeController.delete(viewId);
     }
 
     let viewWrapper: PlatformViewWrapper | null = this.viewWrappers.get(viewId) || null;
@@ -349,7 +347,6 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     let nodeController = new EmbeddingNodeController();
     nodeController.setRenderOption(platformView, surfaceId, NodeRenderType.RENDER_TYPE_TEXTURE, request.direction);
     this.viewIdWithNodeController.set(request.viewId, nodeController);
-    this.nodeControllers.push(nodeController);
     let dvModel = createDVModelFromJson(new DVModelJson("NodeContainer",
       [],
       {
@@ -432,9 +429,6 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     return this.registry;
   }
 
-  public setBackNodeControllers(): void {
-  }
-
   public onDetachedFromNapi(): void {
     this.diposeAllViews();
   }
@@ -512,8 +506,6 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     let nodeController = new EmbeddingNodeController();
 
     nodeController.setRenderOption(platformView, surfaceId.toString(), NodeRenderType.RENDER_TYPE_TEXTURE, Direction.Auto);
-
-    this.nodeControllers.push(nodeController);
 
     let dvModel = createDVModelFromJson(new DVModelJson("NodeContainer",
       [],
