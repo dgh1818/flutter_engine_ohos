@@ -33,13 +33,13 @@ export default class KeyboardManager {
   }
 
   handleKeyEvent(event: KeyEvent) {
+    this.keyEmbedderResponder.handleKeyEvent(event);
+
     this.keyEventChannel?.sendFlutterKeyEvent(new FlutterKeyEvent(event), event.type == KeyType.Up, {
       onFrameworkResponse: (isEventHandled: boolean): void => {
 
       }
     })
-
-    this.keyEmbedderResponder.handleKeyEvent(event);
   }
 
   public getKeyboardState(): Map<number, number> {
