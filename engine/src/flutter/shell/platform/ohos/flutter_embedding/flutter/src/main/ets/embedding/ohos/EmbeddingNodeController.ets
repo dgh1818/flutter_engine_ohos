@@ -60,6 +60,10 @@ export class EmbeddingNodeController extends NodeController {
     return this.rootNode.getFrameNode();
   }
 
+  dispose() {
+    this.rootNode?.dispose();
+  }
+
   setBuilderNode(rootNode: BuilderNode<Params[]> | null): void {
     this.rootNode = rootNode;
   }
