@@ -86,7 +86,7 @@ export class DartMessenger implements BinaryMessenger, PlatformMessageHandler {
 
   send(channel: String, message: ArrayBuffer, callback?: BinaryReply): void {
     Log.d(TAG, "Sending message over channel '" + channel + "'");
-    TraceSection.begin("DartMessenger#send on " + channel);
+    let traceId: number = TraceSection.begin("DartMessenger#send on " + channel);
     try {
       Log.d(TAG, "Sending message with callback over channel '" + channel + "'");
       let replyId: number = this.nextReplyId++;
@@ -99,8 +99,8 @@ export class DartMessenger implements BinaryMessenger, PlatformMessageHandler {
         this.flutterNapi.dispatchPlatformMessage(channel, message, message.byteLength, replyId);
       }
     } finally {
+      TraceSection.endWithId("DartMessenger#send on " + channel, traceId);
     }
-    TraceSection.end("DartMessenger#send on " + channel);
   }
 
   dispatchMessageToQueue(handlerInfo: HandlerInfo, message: ArrayBuffer, replyId: number): void {
