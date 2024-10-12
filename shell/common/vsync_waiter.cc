@@ -14,9 +14,9 @@
 
 namespace flutter {
 
-static constexpr const char* kVsyncFlowName = "VsyncFlow";
+const char* kVsyncFlowName = "VsyncFlow";
 
-static constexpr const char* kVsyncTraceName = "VsyncProcessCallback";
+const char* kVsyncTraceName = "VsyncProcessCallback";
 
 VsyncWaiter::VsyncWaiter(const TaskRunners& task_runners)
     : task_runners_(task_runners) {}
