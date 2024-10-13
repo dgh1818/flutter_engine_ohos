@@ -2,6 +2,7 @@
 
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
+#include <fcntl.h>
 #include <native_buffer/native_buffer.h>
 #include <native_image/native_image.h>
 #include <native_window/external_window.h>
@@ -113,11 +114,7 @@ void OHOSExternalTexture::Paint(PaintContext& context,
         context.paint,                                 // paint
         flutter::DlCanvas::SrcRectConstraint::kStrict  // enforce edges
     );
-    if (last_fence_fd_ > 0) {
-      close(last_fence_fd_);
-    }
     context.canvas->Flush();
-    SetGPUFence(&last_fence_fd_);
     FML_LOG(INFO) << "Draw one dl image (" << draw_dl_image->bounds().width()
                   << "," << draw_dl_image->bounds().height() << ")->("
                   << bounds.width() << "," << bounds.height() << ")";
@@ -326,6 +323,16 @@ OHNativeWindowBuffer* OHOSExternalTexture::GetConsumerNativeBuffer(
   }
 
   if (last_native_window_buffer_ != nullptr) {
+    // Pixelmap does not require a fence to ensure synchronization.
+    if (pixelmap_buffer_ == nullptr) {
+      // Calling SetGPUFence here can reduce overhead while ensuring the correct
+      // placement of the fence in Vulkan mode.
+      if (FdIsVaild(last_fence_fd_)) {
+        close(last_fence_fd_);
+      }
+      last_fence_fd_ = -1;
+      SetGPUFence(last_native_window_buffer_, &last_fence_fd_);
+    }
     ret = OH_NativeImage_ReleaseNativeWindowBuffer(
         native_image_source_, last_native_window_buffer_, last_fence_fd_);
     if (ret != 0) {
@@ -404,8 +411,9 @@ sk_sp<flutter::DlImage> OHOSExternalTexture::GetNextDrawImage(
     ret_image = CreateDlImage(context, bounds, buffer_id, native_widnow_buffer);
   }
   if (ret_image == nullptr) {
-    // set last_fence_fd_ so it can be close later.
-    last_fence_fd_ = fence_fd;
+    if (FdIsVaild(fence_fd)) {
+      close(fence_fd);
+    }
   } else {
     // let gpu wait for the nativebuffer end use
     // fence_fd will be close in WaitGPUFence.
@@ -501,6 +509,7 @@ uint64_t OHOSExternalTexture::Reset(bool need_surfaceId) {
     if (producer_nativewindow_ == nullptr) {
       FML_LOG(INFO) << "OH_NativeImage_AcquireNativeWindow failed";
       OH_NativeImage_Destroy(&native_image_source_);
+      native_image_source_ = nullptr;
       return 0;
     }
 
@@ -508,6 +517,7 @@ uint64_t OHOSExternalTexture::Reset(bool need_surfaceId) {
                                                          frame_listener_);
     if (ret != 0) {
       OH_NativeImage_Destroy(&native_image_source_);
+      native_image_source_ = nullptr;
       FML_LOG(ERROR) << "Error with OH_NativeImage_SetOnFrameAvailableListener "
                      << ret;
       return 0;
@@ -853,6 +863,32 @@ void OHOSExternalTexture::GetNewTransformBound(SkM44& transform,
 
   transform = transform_end;
   return;
+}
+
+bool OHOSExternalTexture::FenceIsSignal(int fence_fd) {
+  if (fence_fd <= 0) {
+    return false;
+  }
+  struct pollfd poll_fd = {0};
+  poll_fd.fd = fence_fd;
+  poll_fd.events = POLLIN;
+
+  int ret = poll(&poll_fd, 1, 0);
+  return (ret > 0) && !(poll_fd.revents & (POLLERR | POLLNVAL));
+}
+
+bool OHOSExternalTexture::FdIsVaild(int fd) {
+  errno = 0;
+  if (fcntl(fd, F_GETFD) == -1) {
+    if (errno == EBADF) {
+      return false;
+    } else {
+      FML_LOG(ERROR) << "check fd " << fd << "vaild get error " << errno;
+      return true;
+    }
+  } else {
+    return true;
+  }
 }
 
 }  // namespace flutter
