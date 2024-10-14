@@ -38,6 +38,7 @@ VsyncWaiterOHOS::~VsyncWaiterOHOS() {
 }
 
 void VsyncWaiterOHOS::AwaitVSync() {
+  TRACE_EVENT0("flutter", "VsyncWaiterOHOS::AwaitVSync");
   if (vsyncHandle == nullptr) {
     LOGE("AwaitVSync vsyncHandle is nullptr");
     return;
