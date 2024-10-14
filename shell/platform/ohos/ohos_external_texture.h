@@ -69,7 +69,7 @@ class OHOSExternalTexture : public flutter::Texture {
   static void DefaultOnFrameAvailable(void* native_image_ptr);
 
   static bool FenceIsSignal(int fence_fd);
-  static bool FdIsVaild(int fd);
+  static bool FdIsValid(int fd);
 
  protected:
   OHNativeWindowBuffer* GetConsumerNativeBuffer(int* fence_fd);

@@ -42,10 +42,10 @@ void OHOSExternalTextureVulkan::SetGPUFence(OHNativeWindowBuffer* window_buffer,
   if (fence_fd == nullptr || window_buffer == nullptr) {
     return;
   }
-  if (*fence_fd != -1) {
+  if (FdIsValid(*fence_fd)) {
     close(*fence_fd);
-    *fence_fd = -1;
   }
+  *fence_fd = -1;
 
   OH_NativeBuffer* native_buffer = nullptr;
   int ret =
@@ -96,7 +96,7 @@ void OHOSExternalTextureVulkan::SetGPUFence(OHNativeWindowBuffer* window_buffer,
                      << *fence_fd;
       // Sometimes, it may return a valid file descriptor even if the call
       // fails.
-      if (*fence_fd != -1 && FdIsVaild(*fence_fd)) {
+      if (*fence_fd != -1 && FdIsValid(*fence_fd)) {
         close(*fence_fd);
       }
       *fence_fd = -1;
@@ -105,13 +105,13 @@ void OHOSExternalTextureVulkan::SetGPUFence(OHNativeWindowBuffer* window_buffer,
   }
 
   bool is_signal = FenceIsSignal(*fence_fd);
-  bool fence_ok = FdIsVaild(*fence_fd);
+  bool fence_ok = FdIsValid(*fence_fd);
   FML_LOG(INFO) << "set fence signal fd " << *fence_fd << " ok " << fence_ok
                 << " buffer_id " << buffer_id << " signal " << is_signal;
 
   // If the fd has already signaled, there is no need to send the fd to the
   // producer, as the data has already been consumed.
-  if (is_signal) {
+  if (fence_ok && is_signal) {
     close(*fence_fd);
     *fence_fd = -1;
   }
@@ -126,7 +126,9 @@ impeller::vk::UniqueSemaphore OHOSExternalTextureVulkan::CreateVkSemaphore(
   auto semaphore_result = device.createSemaphoreUnique(semaphore_info, nullptr);
   if (semaphore_result.result != impeller::vk::Result::eSuccess) {
     FML_LOG(ERROR) << "vkCreateSemaphore failed";
-    close(fence_fd);
+    if (FdIsValid(fence_fd)) {
+      close(fence_fd);
+    }
     return impeller::vk::UniqueSemaphore();
   }
 
@@ -142,7 +144,9 @@ impeller::vk::UniqueSemaphore OHOSExternalTextureVulkan::CreateVkSemaphore(
   auto import_result = device.importSemaphoreFdKHR(import_info);
   if (import_result != impeller::vk::Result::eSuccess) {
     FML_LOG(ERROR) << "importSemaphoreFdKHR failed";
-    close(fence_fd);
+    if (FdIsValid(fence_fd)) {
+      close(fence_fd);
+    }
     return impeller::vk::UniqueSemaphore();
   }
   return semaphore;
@@ -176,7 +180,7 @@ void OHOSExternalTextureVulkan::WaitGPUFence(int fence_fd) {
     }
   }
 
-  if (fence_fd > 0 && FdIsVaild(fence_fd)) {
+  if (fence_fd > 0 && FdIsValid(fence_fd)) {
     if (FenceIsSignal(fence_fd)) {
       // If the fence_fd is already signaled, it means the related data has
       // already been produced, so there's no need to import it into Vulkan.
@@ -191,6 +195,7 @@ void OHOSExternalTextureVulkan::WaitGPUFence(int fence_fd) {
     // released manually.
     auto wait_semaphore = CreateVkSemaphore(fence_fd);
     if (wait_semaphore.get() == VK_NULL_HANDLE) {
+      // fence_fd has been closed in CreateVkSemaphore
       return;
     }
 
@@ -213,7 +218,7 @@ void OHOSExternalTextureVulkan::WaitGPUFence(int fence_fd) {
             FML_LOG(ERROR) << "wait gpu semaphore "
                            << shared_wait_semaphore->get() << " failed: status "
                            << (int)status << " close fd: " << fence_fd;
-            if (FdIsVaild(fence_fd)) {
+            if (FdIsValid(fence_fd)) {
               close(fence_fd);
             }
           }
@@ -222,7 +227,9 @@ void OHOSExternalTextureVulkan::WaitGPUFence(int fence_fd) {
           // If the task submission fails, we also need to manually close the
           // fd.
           if (status != impeller::CommandBuffer::Status::kCompleted) {
-            close(fence_fd);
+            if (FdIsValid(fence_fd)) {
+              close(fence_fd);
+            }
           }
         });
   }

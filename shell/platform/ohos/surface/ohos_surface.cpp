@@ -22,6 +22,23 @@ namespace flutter {
 std::map<uint64_t, bool> g_surface_is_alive;
 std::mutex g_surface_alive_mutex;
 
+static bool FdIsValid(int fd) {
+  if (fd <= 0) {
+    return false;
+  }
+  errno = 0;
+  if (fcntl(fd, F_GETFD) == -1) {
+    if (errno == EBADF) {
+      return false;
+    } else {
+      FML_LOG(ERROR) << "check fd " << fd << " is valid, error:" << errno;
+      return true;
+    }
+  } else {
+    return true;
+  }
+}
+
 OHOSSurface::OHOSSurface(const std::shared_ptr<OHOSContext>& ohos_context)
     : ohos_context_(ohos_context) {
   FML_DCHECK(ohos_context->IsValid());
@@ -99,8 +116,13 @@ void OHOSSurface::ReleaseOffscreenWindow() {
     if (ret != 0) {
       // Swapchain destroying may clean the buffercache of
       // offscreen_native_image_. In this situation, we need destroy the buffer.
+      FML_LOG(ERROR) << "ReleaseOffscreenWindow failed err:" << ret;
       OH_NativeWindow_DestroyNativeWindowBuffer(last_nativewindow_buffer_);
-      close(last_fence_fd_);
+      // OH_NativeImage_ReleaseNativeWindowBuffer may close the fd even if it
+      // returns a failure.
+      if (FdIsValid(last_fence_fd_)) {
+        close(last_fence_fd_);
+      }
     }
     last_nativewindow_buffer_ = nullptr;
     last_fence_fd_ = -1;
@@ -188,10 +210,14 @@ void OHOSSurface::OnFrameAvailable(void* data) {
     if (ret != 0) {
       // this cannot hanppen
       FML_LOG(ERROR) << "release offscreen windowbuffer failed:" << ret;
-    } else {
-      surface->last_nativewindow_buffer_ = nullptr;
-      surface->last_fence_fd_ = -1;
+      OH_NativeWindow_DestroyNativeWindowBuffer(
+          surface->last_nativewindow_buffer_);
+      if (FdIsValid(surface->last_fence_fd_)) {
+        close(surface->last_fence_fd_);
+      }
     }
+    surface->last_nativewindow_buffer_ = nullptr;
+    surface->last_fence_fd_ = -1;
   }
 
   int ret = OH_NativeImage_AcquireNativeWindowBuffer(

@@ -98,7 +98,7 @@ void OHOSExternalTextureGL::SetGPUFence(OHNativeWindowBuffer* window_buffer,
 
 void OHOSExternalTextureGL::WaitGPUFence(int fence_fd) {
   EGLDisplay disp = eglGetCurrentDisplay();
-  if (disp == EGL_NO_DISPLAY || fence_fd <= 0) {
+  if (disp == EGL_NO_DISPLAY || !FdIsValid(fence_fd)) {
     return;
   }
   if (FenceIsSignal(fence_fd)) {
