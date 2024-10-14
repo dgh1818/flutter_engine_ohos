@@ -68,10 +68,14 @@ class OHOSExternalTexture : public flutter::Texture {
 
   static void DefaultOnFrameAvailable(void* native_image_ptr);
 
+  static bool FenceIsSignal(int fence_fd);
+  static bool FdIsVaild(int fd);
+
  protected:
   OHNativeWindowBuffer* GetConsumerNativeBuffer(int* fence_fd);
 
-  virtual void SetGPUFence(int* fence_fd) = 0;
+  virtual void SetGPUFence(OHNativeWindowBuffer* window_buffer,
+                           int* fence_fd) = 0;
   virtual void WaitGPUFence(int fence_fd) { close(fence_fd); }
   virtual void GPUResourceDestroy() = 0;
 

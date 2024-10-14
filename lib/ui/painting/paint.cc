@@ -199,7 +199,6 @@ void Paint::toDlPaint(DlPaint& paint) const {
     return;
   }
   FML_DCHECK(paint == DlPaint());
-  FML_DLOG(INFO) << " Paint::toDlPaint" ;
 
   tonic::DartByteData byte_data(paint_data_);
   FML_CHECK(byte_data.length_in_bytes() == kDataByteCount);

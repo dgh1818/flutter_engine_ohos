@@ -50,7 +50,7 @@ class OHOSExternalTextureGL : public OHOSExternalTexture {
   static void InitEGLFunPtr();
 
  protected:
-  void SetGPUFence(int* fence_fd) override;
+  void SetGPUFence(OHNativeWindowBuffer* window_buffer, int* fence_fd) override;
   void WaitGPUFence(int fence_fd) override;
   void GPUResourceDestroy() override;
 
@@ -106,7 +106,8 @@ struct EGLSyncKHRTraits {
 struct GlResource {
   OHOSUniqueEGLImageKHR egl_image;
   impeller::UniqueGLTexture texture;
-  UniqueEGLSync sync;
+  UniqueEGLSync wait_sync;
+  UniqueEGLSync signal_sync;
 };
 
 }  // namespace flutter
