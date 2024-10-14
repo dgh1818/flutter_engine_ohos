@@ -54,11 +54,23 @@ OHOSExternalTextureGL::OHOSExternalTextureGL(
 
 OHOSExternalTextureGL::~OHOSExternalTextureGL() {}
 
-void OHOSExternalTextureGL::SetGPUFence(int* fence_fd) {
+void OHOSExternalTextureGL::SetGPUFence(OHNativeWindowBuffer* window_buffer,
+                                        int* fence_fd) {
   EGLDisplay disp = eglGetCurrentDisplay();
   if (disp == EGL_NO_DISPLAY) {
     return;
   }
+
+  OH_NativeBuffer* native_buffer = nullptr;
+  int ret =
+      OH_NativeBuffer_FromNativeWindowBuffer(window_buffer, &native_buffer);
+  if (ret != 0 || native_buffer == nullptr) {
+    FML_LOG(ERROR) << "OHOSExternalTextureGL get OH_NativeBuffer error:" << ret;
+    return;
+  }
+
+  // ensure buffer_id > 0 (may get seqNum = 0)
+  uint32_t buffer_id = OH_NativeBuffer_GetSeqNum(native_buffer) + 1;
 
   if (eglCreateSyncKHR_ != nullptr && eglDupNativeFenceFDANDROID_ != nullptr &&
       eglDestroySyncKHR_ != nullptr) {
@@ -69,7 +81,7 @@ void OHOSExternalTextureGL::SetGPUFence(int* fence_fd) {
                    << " fence_sync " << fence_sync << " eglError "
                    << eglGetError();
     glFlush();
-    eglDestroySyncKHR_(disp, fence_sync);
+    gl_resources_[buffer_id].wait_sync = UniqueEGLSync(fence_sync);
   } else {
     FML_LOG(ERROR) << "get null proc ptr eglCreateSyncKHR:" << eglCreateSyncKHR_
                    << " eglDupNativeFenceFDANDROID:"
@@ -89,6 +101,12 @@ void OHOSExternalTextureGL::WaitGPUFence(int fence_fd) {
   if (disp == EGL_NO_DISPLAY || fence_fd <= 0) {
     return;
   }
+  if (FenceIsSignal(fence_fd)) {
+    // If the fence_fd is already signaled, it means the related data has
+    // already been produced, so there's no need to import it into OpenGL.
+    close(fence_fd);
+    return;
+  }
   if (eglCreateSyncKHR_ != nullptr && eglWaitSyncKHR_ != nullptr &&
       eglDestroySyncKHR_ != nullptr) {
     EGLint attribs[] = {EGL_SYNC_NATIVE_FENCE_FD_ANDROID, fence_fd, EGL_NONE};
@@ -96,7 +114,7 @@ void OHOSExternalTextureGL::WaitGPUFence(int fence_fd) {
         eglCreateSyncKHR_(disp, EGL_SYNC_NATIVE_FENCE_ANDROID, attribs);
     if (fence_sync != EGL_NO_SYNC_KHR) {
       eglWaitSyncKHR_(disp, fence_sync, 0);
-      gl_resources_[now_key_].sync = UniqueEGLSync(fence_sync);
+      gl_resources_[now_key_].wait_sync = UniqueEGLSync(fence_sync);
     } else {
       // eglDestroySync will close the fence_fd.
       close(fence_fd);
