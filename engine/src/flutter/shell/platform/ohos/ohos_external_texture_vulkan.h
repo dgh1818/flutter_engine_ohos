@@ -38,7 +38,7 @@ class OHOSExternalTextureVulkan : public OHOSExternalTexture {
   std::unordered_map<NativeBufferKey, VkResource> vk_resources_;
   NativeBufferKey now_key_;
 
-  void SetGPUFence(int* fence_fd) override;
+  void SetGPUFence(OHNativeWindowBuffer* window_buffer, int* fence_fd) override;
   void WaitGPUFence(int fence_fd) override;
   void GPUResourceDestroy() override;
 
@@ -56,9 +56,11 @@ class OHOSExternalTextureVulkan : public OHOSExternalTexture {
 };
 
 struct VkResource {
-  impeller::vk::UniqueSemaphore wait_semaphore;
   std::shared_ptr<impeller::TextureVK> texture;
-  impeller::vk::UniqueSemaphore draw_semaphore;
+  // This is used to ensure that when the window_buffer is held by the producer,
+  // the corresponding vksemaphore associated with the fence_fd will not be
+  // destroyed.
+  impeller::vk::UniqueSemaphore signal_semaphore;
 };
 
 }  // namespace flutter
