@@ -85,14 +85,12 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   private plugin: EditingStateWatcher | Any;
   private imcFlag: boolean = false;
   private inputTypeNone: string = 'NONE'
-  private firstShow: boolean = true;
+  private keyboardStatus: inputMethod.KeyboardStatus = inputMethod.KeyboardStatus.HIDE;
+  private inputAttribute: inputMethod.InputAttribute = { textInputType: 0, enterKeyType: 1 }
 
   constructor(plugin: TextInputPlugin | Any) {
     this.textConfig = {
-      inputAttribute: {
-        textInputType: 0,
-        enterKeyType: 1
-      }
+      inputAttribute: this.inputAttribute
     };
     this.plugin = plugin;
     this.mEditable = new ListenableEditingState(null, 0);
@@ -147,16 +145,14 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   }
 
   private async showTextInput(): Promise<void> {
-    if (!this.firstShow) {
-      return
+    if (this.keyboardStatus == inputMethod.KeyboardStatus.SHOW) {
+      return;
     }
-    this.listenShowKeyboard()
     await this.attach(true);
     if (!this.imcFlag) {
       this.listenKeyBoardEvent();
     }
     this.inputMethodController.showTextInput().then(() => {
-      this.firstShow = false
       Log.d(TextInputMethodHandlerImpl.TAG, "Succeeded in showing softKeyboard");
     }).catch((err: Any) => {
       Log.e(TextInputMethodHandlerImpl.TAG, "Failed to show softKeyboard:" + JSON.stringify(err));
@@ -165,30 +161,10 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
 
   private async hideTextInput(): Promise<void> {
     this.inputMethodController.hideTextInput().then(() => {
-      this.firstShow = true
       Log.d(TextInputMethodHandlerImpl.TAG, "Succeeded in hide softKeyboard");
     }).catch((err: Any) => {
       Log.e(TextInputMethodHandlerImpl.TAG, "Failed to hide softKeyboard:" + JSON.stringify(err));
     })
-    this.listenNoShowKeyboard()
-  }
-
-  /// 通过监听规避区域内，是否有软键盘区域来进行监听。该方法在回到桌面和锁屏依然可以正常监听
-  listenShowKeyboard() {
-    let windowStage = FlutterManager.getInstance()
-      .getWindowStage(FlutterManager.getInstance().getUIAbility(getContext(this)));
-    windowStage.getMainWindow((err: BusinessError, currentWindow ) => {
-      currentWindow.on('avoidAreaChange', this.avoidAreaChangeCallback)
-    });
-  }
-
-  /// 取消监听规避区域的软键盘范围
-  listenNoShowKeyboard() {
-    let windowStage = FlutterManager.getInstance()
-      .getWindowStage(FlutterManager.getInstance().getUIAbility(getContext(this)));
-    windowStage.getMainWindow((err: BusinessError, currentWindow ) => {
-      currentWindow.off('avoidAreaChange', this.avoidAreaChangeCallback)
-    });
   }
 
   async attach(showKeyboard: boolean): Promise<void> {
@@ -199,17 +175,14 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     }
   }
 
-  async resetAttach(): Promise<void> {
+  async updateAttribute(): Promise<void> {
+    if (this.keyboardStatus == inputMethod.KeyboardStatus.HIDE) {
+      return;
+    }
     try {
-      let textConfig: inputMethod.TextConfig = {
-        inputAttribute: {
-          textInputType: 0,
-          enterKeyType: 1
-        }
-      };
-      await this.inputMethodController.attach(false, textConfig);
+      await this.inputMethodController.updateAttribute(this.inputAttribute);
     } catch (err) {
-      Log.e(TextInputMethodHandlerImpl.TAG, "Failed to attach:" + JSON.stringify(err));
+      Log.e(TextInputMethodHandlerImpl.TAG, "Failed to updateAttribute:" + JSON.stringify(err));
     }
   }
 
@@ -234,7 +207,10 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
 
     this.mRestartInputPending = true;
     this.mEditable.addEditingStateListener(this.plugin);
-    this.firstShow = true
+
+    this.inputAttribute = this.textConfig.inputAttribute;
+
+    this.updateAttribute();
   }
 
   canShowTextInput(): boolean {
@@ -315,18 +291,6 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     })
   }
 
-  private avoidAreaChangeCallback = (data: window.AvoidAreaOptions) => {
-    console.info('Succeeded in enabling the listener for keyboard height changes. Data: ' + JSON.stringify(data));
-    if (data.type !== window.AvoidAreaType.TYPE_KEYBOARD) {
-      return;
-    }
-    if (data.area.bottomRect.height == 0) {
-      this.firstShow = true
-    } else {
-      this.firstShow = false
-    }
-  }
-
   private insertTextCallback = (text: string) => {
     Log.d(TextInputMethodHandlerImpl.TAG, "insertText: " + text);
     this.mEditable.handleInsertTextEvent(text);
@@ -355,6 +319,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   }
 
   private sendKeyboardStatusCallback = (state: inputMethod.KeyboardStatus) => {
+    this.keyboardStatus = state;
     if (state == inputMethod.KeyboardStatus.HIDE) {
       this.plugin.textInputChannel.onConnectionClosed(this.inputTarget.id);
       this.hideTextInput()
@@ -383,7 +348,6 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     this.mEditable.removeEditingStateListener(this.plugin);
     this.configuration = null;
     this.inputTarget = new InputTarget(Type.NO_TARGET, 0);
-    this.resetAttach();
   }
 }
 
