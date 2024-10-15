@@ -65,7 +65,7 @@ export struct FlutterPage {
           Log.d(TAG, "XComponent onDestroy ");
           this.flutterView?.onSurfaceDestroyed()
         })
-        .backgroundColor(Color.Transparent)
+        .backgroundColor(this.firstFrameDisplayed ? this.xComponentColor : Color.Transparent)
 
       if (this.showSplashScreen) {
         this.splashScreenView();
@@ -118,7 +118,7 @@ export struct FlutterPage {
           Log.d(TAG, "XComponent onDestroy ");
           this.flutterView?.onSurfaceDestroyed()
         })
-        .backgroundColor(Color.Transparent)
+        .backgroundColor(this.firstFrameDisplayed ? this.xComponentColor : Color.Transparent)
 
       if (this.showSplashScreen) {
         this.splashScreenView();
@@ -154,6 +154,12 @@ export struct FlutterPage {
     )
   }
   @State showSplashScreen: boolean = true;
+  /**
+   * To address the black(or other color set by usr) flashing frame when switching between ArkUI and Flutter pages,
+   * the background color should be kept transparent until the onFirstFrame is called.
+   */
+  @State firstFrameDisplayed: boolean = false;
+  @State xComponentColor: Color = Color.Black
 
   @State checkFullScreen: boolean = true;
   @State checkKeyboard: boolean = true;
@@ -180,7 +186,7 @@ export struct FlutterPage {
     this.flutterView?.setCheckFullScreen(this.checkFullScreen)
     this.flutterView?.setCheckKeyboard(this.checkKeyboard)
     this.flutterView?.setCheckGesture(this.checkGesture)
-    this.flutterView?.setCheckAiBar(this.checkGesture)
+    this.flutterView?.setCheckAiBar(this.checkAiBar)
 
     this.rootDvModel = this.flutterView!!.getDVModel().children
     getContext().eventHub.on(OHOS_FLUTTER_PAGE_UPDATE, () => {
@@ -196,6 +202,7 @@ export struct FlutterPage {
 
   onFirstFrame() {
     this.showSplashScreen = false;
+    this.firstFrameDisplayed = true;
   }
 
   onFirstPreloadFrame() {
