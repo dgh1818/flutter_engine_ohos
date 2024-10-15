@@ -45,6 +45,10 @@ config("impeller_public_config") {
     ]
   }
 
+  if (is_ohos) {
+    defines += [ "OHOS_PLATFORM" ]
+  }
+
   if (impeller_enable_3d) {
     defines += [ "IMPELLER_ENABLE_3D" ]
   }
