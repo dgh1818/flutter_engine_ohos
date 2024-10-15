@@ -161,7 +161,10 @@ void OHOSExternalTexture::MarkNewFrameAvailable() {
         if (ret != 0) {
           FML_LOG(ERROR) << "ReleaseNativeWindowBuffe get err:" << ret;
           OH_NativeWindow_DestroyNativeWindowBuffer(buffer);
-          close(fence_fd);
+          if (FdIsValid(fence_fd)) {
+            close(fence_fd);
+          }
+          fence_fd = -1;
         }
         now_paint_frame_seq_num_++;
         buffer = nullptr;
@@ -183,10 +186,10 @@ void OHOSExternalTexture::OnTextureUnregistered() {
   // Otherwise, gpu memory will leak.
   old_dl_image_.reset();
   image_lru_.Clear();
-  if (last_fence_fd_ > 0) {
+  if (FdIsValid(last_fence_fd_)) {
     close(last_fence_fd_);
-    last_fence_fd_ = -1;
   }
+  last_fence_fd_ = -1;
   GPUResourceDestroy();
 }
 
@@ -221,10 +224,10 @@ void OHOSExternalTexture::OnGrContextDestroyed() {
     FML_LOG(INFO) << "OnGrContextDestroyed release gpu resource";
     old_dl_image_.reset();
     image_lru_.Clear();
-    if (last_fence_fd_ > 0) {
+    if (FdIsValid(last_fence_fd_)) {
       close(last_fence_fd_);
-      last_fence_fd_ = -1;
     }
+    last_fence_fd_ = -1;
     GPUResourceDestroy();
   }
   state_ = AttachmentState::kDetached;
@@ -318,7 +321,7 @@ OHNativeWindowBuffer* OHOSExternalTexture::GetConsumerNativeBuffer(
     return nullptr;
   }
   if (*fence_fd <= 0) {
-    FML_DLOG(INFO) << "get not null native_window_buffer but invaild fence_fd: "
+    FML_DLOG(INFO) << "get not null native_window_buffer but inValid fence_fd: "
                    << *fence_fd;
   }
 
@@ -327,7 +330,7 @@ OHNativeWindowBuffer* OHOSExternalTexture::GetConsumerNativeBuffer(
     if (pixelmap_buffer_ == nullptr) {
       // Calling SetGPUFence here can reduce overhead while ensuring the correct
       // placement of the fence in Vulkan mode.
-      if (FdIsVaild(last_fence_fd_)) {
+      if (FdIsValid(last_fence_fd_)) {
         close(last_fence_fd_);
       }
       last_fence_fd_ = -1;
@@ -340,7 +343,10 @@ OHNativeWindowBuffer* OHOSExternalTexture::GetConsumerNativeBuffer(
                         "Last) get err:"
                      << ret;
       OH_NativeWindow_DestroyNativeWindowBuffer(last_native_window_buffer_);
-      close(last_fence_fd_);
+      if (FdIsValid(last_fence_fd_)) {
+        close(last_fence_fd_);
+      }
+      last_fence_fd_ = -1;
     }
   }
   last_native_window_buffer_ = now_nw_buffer;
@@ -362,7 +368,10 @@ OHNativeWindowBuffer* OHOSExternalTexture::GetConsumerNativeBuffer(
                           "Last) get err:"
                        << ret;
         OH_NativeWindow_DestroyNativeWindowBuffer(last_native_window_buffer_);
-        close(last_fence_fd_);
+        if (FdIsValid(last_fence_fd_)) {
+          close(last_fence_fd_);
+        }
+        last_fence_fd_ = -1;
       }
       last_native_window_buffer_ = nw_buffer;
       last_fence_fd_ = *fence_fd;
@@ -411,9 +420,10 @@ sk_sp<flutter::DlImage> OHOSExternalTexture::GetNextDrawImage(
     ret_image = CreateDlImage(context, bounds, buffer_id, native_widnow_buffer);
   }
   if (ret_image == nullptr) {
-    if (FdIsVaild(fence_fd)) {
+    if (FdIsValid(fence_fd)) {
       close(fence_fd);
     }
+    fence_fd = -1;
   } else {
     // let gpu wait for the nativebuffer end use
     // fence_fd will be close in WaitGPUFence.
@@ -472,7 +482,10 @@ bool OHOSExternalTexture::SetExternalNativeImage(OH_NativeImage* native_image) {
     if (ret != 0) {
       FML_LOG(ERROR) << "ReleaseNativeWindowBuffe(clear all) get err:" << ret;
       OH_NativeWindow_DestroyNativeWindowBuffer(buffer);
-      close(fence_fd);
+      if (FdIsValid(fence_fd)) {
+        close(fence_fd);
+      }
+      fence_fd = -1;
     }
     buffer = nullptr;
     fence_fd = -1;
@@ -570,10 +583,11 @@ bool OHOSExternalTexture::CreatePixelMapBuffer(int width,
     pixelmap_buffer_ = nullptr;
     return false;
   }
-  if (fence_fd > 0) {
+  if (FdIsValid(fence_fd)) {
     CPUWaitFence(fence_fd, -1);
     close(fence_fd);
   }
+  fence_fd = -1;
   pixelmap_native_image_ = native_image;
 
   return true;
@@ -583,9 +597,8 @@ void OHOSExternalTexture::DestroyPixelMapBuffer() {
   if (pixelmap_buffer_ != nullptr) {
     OHNativeWindow* native_window =
         OH_NativeImage_AcquireNativeWindow(pixelmap_native_image_);
-    if (native_window != nullptr) {
-      OH_NativeWindow_NativeWindowAbortBuffer(native_window, pixelmap_buffer_);
-    } else {
+    if (native_window != nullptr && OH_NativeWindow_NativeWindowAbortBuffer(
+                                        native_window, pixelmap_buffer_) != 0) {
       OH_NativeWindow_DestroyNativeWindowBuffer(pixelmap_buffer_);
     }
     OH_NativeImage_Destroy(&pixelmap_native_image_);
@@ -605,7 +618,10 @@ void OHOSExternalTexture::DestroyNativeImageSource() {
                           "Last) get err:"
                        << ret;
         OH_NativeWindow_DestroyNativeWindowBuffer(last_native_window_buffer_);
-        close(last_fence_fd_);
+        if (FdIsValid(last_fence_fd_)) {
+          close(last_fence_fd_);
+        }
+        last_fence_fd_ = -1;
       }
       last_native_window_buffer_ = nullptr;
       last_fence_fd_ = -1;
@@ -649,7 +665,10 @@ void OHOSExternalTexture::DefaultOnFrameAvailable(void* native_image_ptr) {
     if (ret != 0) {
       FML_LOG(ERROR) << "ReleaseNativeWindowBuffe get err:" << ret;
       OH_NativeWindow_DestroyNativeWindowBuffer(buffer);
-      close(fence_fd);
+      if (FdIsValid(fence_fd)) {
+        close(fence_fd);
+      }
+      fence_fd = -1;
     }
   }
 }
@@ -877,13 +896,16 @@ bool OHOSExternalTexture::FenceIsSignal(int fence_fd) {
   return (ret > 0) && !(poll_fd.revents & (POLLERR | POLLNVAL));
 }
 
-bool OHOSExternalTexture::FdIsVaild(int fd) {
+bool OHOSExternalTexture::FdIsValid(int fd) {
+  if (fd <= 0) {
+    return false;
+  }
   errno = 0;
   if (fcntl(fd, F_GETFD) == -1) {
     if (errno == EBADF) {
       return false;
     } else {
-      FML_LOG(ERROR) << "check fd " << fd << "vaild get error " << errno;
+      FML_LOG(ERROR) << "check fd " << fd << " is valid, error:" << errno;
       return true;
     }
   } else {
