@@ -349,6 +349,10 @@ export class ListenableEditingState {
     }
   }
 
+  removeFocus() {
+    this.TextInputChannel?.removeFocus(this.client);
+  }
+
   handleSelectByRange(range: inputMethod.Range): void {
     Log.d(TAG, "handleSelectByRange start: " + range.start + " end: " + range.end);
   }
