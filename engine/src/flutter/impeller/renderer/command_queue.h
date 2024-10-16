@@ -12,9 +12,11 @@
 
 namespace impeller {
 
+#ifdef OHOS_PLATFORM
 namespace vk {
 class Semaphore;
 }
+#endif
 
 /// @brief An interface for submitting command buffers to the GPU for
 ///        encoding and execution.
@@ -43,6 +45,7 @@ class CommandQueue {
       const std::vector<std::shared_ptr<CommandBuffer>>& buffers,
       const CompletionCallback& completion_callback = {});
 
+#ifdef OHOS_PLATFORM
   /// @brief Add the following semaphores to the next submit task of the
   ///        CommandQueue (for Vulkan only), allowing certain tasks to be
   ///        synchronized.
@@ -62,6 +65,7 @@ class CommandQueue {
       vk::Semaphore& signal_semaphore,
       const CompletionCallback& completion_callback = {},
       const CompletionCallback& submit_callback = {}) {};
+#endif
 
  private:
   CommandQueue(const CommandQueue&) = delete;

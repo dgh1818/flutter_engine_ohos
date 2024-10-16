@@ -32,6 +32,7 @@ fml::Status CommandQueueVK::Submit(
   fml::ScopedCleanupClosure reset([&]() {
     if (completion_callback) {
       completion_callback(CommandBuffer::Status::kError);
+#ifdef OHOS_PLATFORM
       for (const auto& callback : next_semaphore_completion_callbacks_) {
         if (callback) {
           callback(CommandBuffer::Status::kError);
@@ -46,6 +47,7 @@ fml::Status CommandQueueVK::Submit(
       next_semaphore_submit_callbacks_.clear();
       next_wait_semaphores_.clear();
       next_signal_semaphores_.clear();
+#endif
     }
   });
 
@@ -76,6 +78,7 @@ fml::Status CommandQueueVK::Submit(
   }
 
   vk::SubmitInfo submit_info;
+#ifdef OHOS_PLATFORM
   // Add this to wait and signal semaphores.
   std::vector<vk::PipelineStageFlags> all_wait_stage;
   if (next_wait_semaphores_.size() > 0) {
@@ -88,10 +91,13 @@ fml::Status CommandQueueVK::Submit(
   if (next_signal_semaphores_.size() > 0) {
     submit_info.setSignalSemaphores(next_signal_semaphores_);
   }
+#endif
   submit_info.setCommandBuffers(vk_buffers);
   auto status = context->GetGraphicsQueue()->Submit(submit_info, *fence);
+#ifdef OHOS_PLATFORM
   next_wait_semaphores_.clear();
   next_signal_semaphores_.clear();
+#endif
   if (status != vk::Result::eSuccess) {
     VALIDATION_LOG << "Failed to submit queue: " << vk::to_string(status);
     return fml::Status(fml::StatusCode::kCancelled, "Failed to submit queue: ");
@@ -102,7 +108,9 @@ fml::Status CommandQueueVK::Submit(
   auto added_fence = context->GetFenceWaiter()->AddFence(
       std::move(fence),
       [completion_callback,
+#ifdef OHOS_PLATFORM
        next_callbacks = next_semaphore_completion_callbacks_,
+#endif
        tracked_objects = std::move(tracked_objects)]() mutable {
         // Ensure tracked objects are destructed before calling any final
         // callbacks.
@@ -110,17 +118,20 @@ fml::Status CommandQueueVK::Submit(
         if (completion_callback) {
           completion_callback(CommandBuffer::Status::kCompleted);
         }
+#ifdef OHOS_PLATFORM
         for (const auto& callback : next_callbacks) {
           if (callback) {
             callback(CommandBuffer::Status::kCompleted);
           }
         }
+#endif
       });
   if (!added_fence) {
     return fml::Status(fml::StatusCode::kCancelled, "Failed to add fence.");
   }
   reset.Release();
 
+#ifdef OHOS_PLATFORM
   // Callback invoked when the task is submitted
   next_semaphore_completion_callbacks_.clear();
   for (const auto& callback : next_semaphore_submit_callbacks_) {
@@ -129,9 +140,11 @@ fml::Status CommandQueueVK::Submit(
     }
   }
   next_semaphore_submit_callbacks_.clear();
+#endif
   return fml::Status();
 }
 
+#ifdef OHOS_PLATFORM
 void CommandQueueVK::AddNextSemaphores(
     vk::Semaphore& wait_semaphore,
     vk::Semaphore& signal_semaphore,
@@ -150,5 +163,6 @@ void CommandQueueVK::AddNextSemaphores(
     next_semaphore_submit_callbacks_.push_back(submit_callback);
   }
 };
+#endif
 
 }  // namespace impeller
