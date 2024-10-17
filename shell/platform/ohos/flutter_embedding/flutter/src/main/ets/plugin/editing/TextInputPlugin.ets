@@ -82,8 +82,10 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   mEditable: ListenableEditingState;
   private mRestartInputPending: boolean = false;
   private plugin: EditingStateWatcher | Any;
+  private imcFlag: boolean = false;
   private keyboardStatus: inputMethod.KeyboardStatus = inputMethod.KeyboardStatus.HIDE;
-  private inputAttribute: inputMethod.InputAttribute = { textInputType: 0, enterKeyType: 1 }
+  private inputAttribute: inputMethod.InputAttribute =
+    { textInputType: inputMethod.TextInputType.TEXT, enterKeyType: inputMethod.EnterKeyType.NONE };
 
   constructor(plugin: TextInputPlugin | Any) {
     this.textConfig = {
@@ -146,11 +148,15 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
       return;
     }
     await this.attach(true);
-    this.listenKeyBoardEvent();
+    if (!this.imcFlag) {
+      this.listenKeyBoardEvent();
+    }
   }
 
   private async hideTextInput(): Promise<void> {
     this.inputMethodController.detach();
+    this.keyboardStatus = inputMethod.KeyboardStatus.NONE;
+    this.cancelListenKeyBoardEvent();
   }
 
   async attach(showKeyboard: boolean): Promise<void> {
@@ -253,6 +259,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
       return;
     }
     Log.d(TextInputMethodHandlerImpl.TAG, "listenKeyBoardEvent success");
+    this.imcFlag = true;
   }
 
   sendKeyboardEvent(type: KeyType, keyCode: number): void {
@@ -305,8 +312,9 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     this.keyboardStatus = state;
     if (state == inputMethod.KeyboardStatus.HIDE) {
       this.plugin.textInputChannel.onConnectionClosed(this.inputTarget.id);
-      this.hideTextInput()
-      this.cancelListenKeyBoardEvent()
+      /// 收起软键盘时重置键盘状态，避免出现软键盘类型问题
+      /// 系统对软键盘的改变也会被该方法监听到，如果继续使用使用detach和取消监听方法会导致其他问题，使用updateAttribute方法去重置，取消监听放在detach方法内，避免出现问题
+      this.inputMethodController.updateAttribute({ textInputType: 0, enterKeyType: 1 });
     }
   }
 
@@ -321,6 +329,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     this.inputMethodController.off('sendFunctionKey', this.sendFunctionKeyCallback);
     this.inputMethodController.off('sendKeyboardStatus', this.sendKeyboardStatusCallback);
     this.inputMethodController.off('selectByRange', this.selectByRangeCallback);
+    this.imcFlag = false;
   }
 
   public clearTextInputClient(): void {
