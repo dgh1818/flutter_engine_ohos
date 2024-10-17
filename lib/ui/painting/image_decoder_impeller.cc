@@ -472,6 +472,7 @@ ImageDecoderImpeller::UploadTextureToStorage(
       return std::make_pair(nullptr, decode_error.value());
     }
   }
+  context->DisposeThreadLocalCachedResources();
 
   return std::make_pair(impeller::DlImageImpeller::Make(std::move(texture)),
                         std::string());
