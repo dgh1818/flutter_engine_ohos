@@ -140,6 +140,11 @@ export default class TextInputChannel {
     this.channel.invokeMethod("TextInputClient.performAction", [inputClientId, "TextInputAction.commitContent"]);
   }
 
+  removeFocus(inputClientId: number): void {
+    Log.d(TAG, "Sending 'removeFocus' message.");
+    this.channel.invokeMethod("TextInputClient.performAction", [inputClientId, "TextInputAction.removeFocus"]);
+  }
+
   onConnectionClosed(inputClientId: number): void {
     Log.d(TAG, "Sending 'onConnectionClosed' message.");
   }
