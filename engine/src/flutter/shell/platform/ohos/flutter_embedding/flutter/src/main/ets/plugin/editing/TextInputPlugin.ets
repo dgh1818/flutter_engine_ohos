@@ -165,6 +165,11 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     }).catch((err: Any) => {
       Log.e(TextInputMethodHandlerImpl.TAG, "Failed to hide softKeyboard:" + JSON.stringify(err));
     })
+    /**
+     * When hiding keyboard on HarmonyOS, the current input widget wiil be unfocused.
+     * To keep the same behavior with HarmonyOS, send removeFocus to Flutter app.
+     */
+    this.mEditable.removeFocus();
   }
 
   async attach(showKeyboard: boolean): Promise<void> {
