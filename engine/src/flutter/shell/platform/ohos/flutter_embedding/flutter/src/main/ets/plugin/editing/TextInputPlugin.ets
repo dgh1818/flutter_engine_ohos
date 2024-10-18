@@ -168,7 +168,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   }
 
   async updateAttribute(): Promise<void> {
-    if (this.keyboardStatus == inputMethod.KeyboardStatus.HIDE) {
+    if (this.keyboardStatus != inputMethod.KeyboardStatus.SHOW) {
       return;
     }
     try {
@@ -312,9 +312,6 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     this.keyboardStatus = state;
     if (state == inputMethod.KeyboardStatus.HIDE) {
       this.plugin.textInputChannel.onConnectionClosed(this.inputTarget.id);
-      /// 收起软键盘时重置键盘状态，避免出现软键盘类型问题
-      /// 系统对软键盘的改变也会被该方法监听到，如果继续使用使用detach和取消监听方法会导致其他问题，使用updateAttribute方法去重置，取消监听放在detach方法内，避免出现问题
-      this.inputMethodController.updateAttribute({ textInputType: 0, enterKeyType: 1 });
     }
   }
 
