@@ -43,7 +43,7 @@ export default class FlutterManager {
 
   popUIAbility(uiAbility: UIAbility) {
     let index = this.uiAbilityList.findIndex((item: UIAbility) => item == uiAbility)
-    if (index > 0) {
+    if (index >= 0) {
       this.uiAbilityList.splice(index, 1)
     }
   }
