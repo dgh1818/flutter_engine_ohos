@@ -76,6 +76,7 @@ export default class FlutterEntry implements Host {
         break;
       case window.WindowStageEventType.ACTIVE: // 获焦状态
         Log.i(TAG, 'windowStage active.');
+        this.delegate?.getFlutterEngine()?.getTextInputChannel()?.textInputMethodHandler?.handleChangeFocus(true);
         this?.delegate?.onWindowFocusChanged(true);
         break;
       case window.WindowStageEventType.INACTIVE: // 失焦状态

@@ -27,6 +27,7 @@ import FlutterManager from '../../embedding/ohos/FlutterManager';
 import { IntentionCode } from '@ohos.multimodalInput.intentionCode';
 import {KeyCode} from '@kit.InputKit';
 import { BusinessError } from '@kit.BasicServicesKit';
+import { inputDevice } from '@kit.InputKit';
 
 /// 临时规避缺少newline对应枚举问题
 const NEWLINE_KEY_TYPE: number = 8;
@@ -86,6 +87,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   private keyboardStatus: inputMethod.KeyboardStatus = inputMethod.KeyboardStatus.HIDE;
   private inputAttribute: inputMethod.InputAttribute =
     { textInputType: inputMethod.TextInputType.TEXT, enterKeyType: inputMethod.EnterKeyType.NONE };
+  private keyboardFocusState: boolean = false
 
   constructor(plugin: TextInputPlugin | Any) {
     this.textConfig = {
@@ -100,6 +102,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   /// 通过判断是否是TextInputType.none来决定是否弹出键盘
   show(): void {
     if (this.canShowTextInput()) {
+      this.keyboardFocusState = true;
       this.showTextInput();
     } else {
       this.hide();
@@ -107,6 +110,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   }
 
   hide(): void {
+    this.keyboardFocusState = false;
     this.hideTextInput();
   }
 
@@ -164,6 +168,31 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
       await this.inputMethodController.attach(showKeyboard, this.textConfig);
     } catch (err) {
       Log.e(TextInputMethodHandlerImpl.TAG, "Failed to attach:" + JSON.stringify(err));
+    }
+  }
+
+  handleChangeFocus(focusState: boolean) {
+    try {
+      inputDevice.getDeviceList((Error: Error, ids: Array<number>) => {
+        let isPhysicalKeyboard = false;
+        for (let i = 0; i < ids.length; i++) {
+          const type = inputDevice.getKeyboardTypeSync(ids[i]);
+          if (type == inputDevice.KeyboardType.ALPHABETIC_KEYBOARD || type == inputDevice.KeyboardType.DIGITAL_KEYBOARD) {
+            isPhysicalKeyboard = true;
+            break;
+          }
+        }
+
+        if(focusState && isPhysicalKeyboard && this.keyboardFocusState) {
+          this.cancelListenKeyBoardEvent();
+          this.inputMethodController.detach().then(async () =>{
+            await this.attach(true);
+            this.listenKeyBoardEvent();
+          })
+        }
+      })
+    } catch (error) {
+      Log.e(TextInputMethodHandlerImpl.TAG, `Failed to query device. Code is ${error.code}, message is ${error.message}`)
     }
   }
 
