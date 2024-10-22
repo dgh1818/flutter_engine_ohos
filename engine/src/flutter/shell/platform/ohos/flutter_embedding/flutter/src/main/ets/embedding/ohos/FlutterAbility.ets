@@ -150,6 +150,7 @@ export class FlutterAbility extends UIAbility implements Host {
           case window.WindowStageEventType.ACTIVE: // 获焦状态
             Log.i(TAG, 'windowStage active.');
             if (this.stillAttachedForEvent("onWindowFocusChanged")) {
+              this.delegate?.getFlutterEngine()?.getTextInputChannel()?.textInputMethodHandler?.handleChangeFocus(true);
               this?.delegate?.onWindowFocusChanged(true);
             }
             break;
