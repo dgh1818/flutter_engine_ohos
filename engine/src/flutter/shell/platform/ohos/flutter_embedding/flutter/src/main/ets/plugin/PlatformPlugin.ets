@@ -282,13 +282,13 @@ export class PlatformPluginCallback implements PlatformMessageHandler {
     let uiConfig: ('status' | 'navigation')[] = [];
     if (mode == SystemUiMode.LEAN_BACK) {
       //全屏显示，通过点击显示器上的任何位置都可以显示状态和导航栏
-      FlutterManager.getInstance().setUseFullScreen(true);
+      FlutterManager.getInstance().setUseFullScreen(true, null);
     } else if (mode == SystemUiMode.IMMERSIVE) {
       //全屏显示，通过在显示器边缘的滑动手势可以显示状态和导航栏,应用程序不会接收到此手势
-      FlutterManager.getInstance().setUseFullScreen(true);
+      FlutterManager.getInstance().setUseFullScreen(true, null);
     } else if (mode == SystemUiMode.IMMERSIVE_STICKY) {
       //全屏显示，通过在显示器边缘的滑动手势可以显示状态和导航栏,此手势由应用程序接收
-      FlutterManager.getInstance().setUseFullScreen(true);
+      FlutterManager.getInstance().setUseFullScreen(true, null);
     } else if (mode == SystemUiMode.EDGE_TO_EDGE) {
       uiConfig = ['status', 'navigation'];
     } else {
