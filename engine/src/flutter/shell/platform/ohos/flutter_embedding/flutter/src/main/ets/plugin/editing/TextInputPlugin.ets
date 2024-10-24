@@ -349,12 +349,12 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   }
 
   cancelListenKeyBoardEvent(): void {
-    this.inputMethodController.off('insertText', this.insertTextCallback);
-    this.inputMethodController.off('deleteLeft', this.deleteLeftCallback);
-    this.inputMethodController.off('deleteRight', this.deleteRightCallback);
-    this.inputMethodController.off('sendFunctionKey', this.sendFunctionKeyCallback);
-    this.inputMethodController.off('sendKeyboardStatus', this.sendKeyboardStatusCallback);
-    this.inputMethodController.off('selectByRange', this.selectByRangeCallback);
+    this.inputMethodController?.off('insertText', this.insertTextCallback);
+    this.inputMethodController?.off('deleteLeft', this.deleteLeftCallback);
+    this.inputMethodController?.off('deleteRight', this.deleteRightCallback);
+    this.inputMethodController?.off('sendFunctionKey', this.sendFunctionKeyCallback);
+    this.inputMethodController?.off('sendKeyboardStatus', this.sendKeyboardStatusCallback);
+    this.inputMethodController?.off('selectByRange', this.selectByRangeCallback);
     this.imcFlag = false;
   }
 
