@@ -20,6 +20,12 @@
       "workers": [
         "./src/main/ets/embedding/engine/workers/PlatformChannelWorker.ets"
       ]
+    },
+    "nativeLib": {
+      "debugSymbol": {
+        "strip": false,
+        "exclude": []
+      }
     }
   },
   "buildOptionSet": [
