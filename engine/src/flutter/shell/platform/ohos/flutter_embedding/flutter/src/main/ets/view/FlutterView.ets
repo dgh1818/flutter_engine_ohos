@@ -134,6 +134,7 @@ export class FlutterView {
     this.mainWindow?.on('windowSizeChange', this.windowSizeChangeCallback);
     this.mainWindow?.on('avoidAreaChange', this.avoidAreaChangeCallback);
     this.mainWindow?.on('windowStatusChange', this.windowStatusChangeCallback);
+    this.mainWindow?.on('keyboardHeightChange', this.keyboardHeightChangeCallback);
     this.systemAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
     this.navigationAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR);
     this.gestureAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM_GESTURE);
@@ -189,6 +190,12 @@ export class FlutterView {
       this.onAreaChange(null);
     }
   }
+  
+  private keyboardHeightChangeCallback = (data: number) => {
+    Log.i(TAG, "keyboardHeightChangeCallback " + data);
+    this.keyboardAvoidArea.bottomRect.height = data;
+    this.onAreaChange(null);
+  };
 
   getId(): string {
     return this.id
@@ -227,6 +234,7 @@ export class FlutterView {
       this.mainWindow?.off('windowSizeChange', this.windowSizeChangeCallback);
       this.mainWindow?.off('avoidAreaChange', this.avoidAreaChangeCallback);
       this.mainWindow?.off('windowStatusChange', this.windowStatusChangeCallback);
+      this.mainWindow?.off('keyboardHeightChange', this.keyboardHeightChangeCallback);
     } catch (e) {
       Log.e(TAG, "mainWindow off error: " + JSON.stringify(e));
     }
