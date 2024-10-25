@@ -23,6 +23,9 @@ import inputMethod from '@ohos.inputMethod';
 import ArrayList from '@ohos.util.ArrayList';
 import { TextEditingDelta, TextEditingDeltaJson } from '../../../plugin/editing/TextEditingDelta';
 import Any from '../../../plugin/common/Any';
+import { display } from '@kit.ArkUI'
+import { window } from '@kit.ArkUI';
+import { BusinessError, print } from '@kit.BasicServicesKit';
 
 const TAG = "TextInputChannel";
 /// 规避换行标识无法显示问题，api修改后再删除
@@ -32,6 +35,7 @@ export default class TextInputChannel {
   private static CHANNEL_NAME = "flutter/textinput";
   public channel: MethodChannel;
   textInputMethodHandler: TextInputMethodHandler | null = null;
+  private TextInputCallback: TextInputCallback | null = null;
 
   constructor(dartExecutor: DartExecutor) {
     this.channel = new MethodChannel(dartExecutor, TextInputChannel.CHANNEL_NAME, JSONMethodCodec.INSTANCE);
@@ -39,7 +43,8 @@ export default class TextInputChannel {
 
   setTextInputMethodHandler(textInputMethodHandler: TextInputMethodHandler): void {
     this.textInputMethodHandler = textInputMethodHandler;
-    this.channel.setMethodCallHandler(new TextInputCallback(this.textInputMethodHandler));
+    this.TextInputCallback = new TextInputCallback(this.textInputMethodHandler);
+    this.channel.setMethodCallHandler(this.TextInputCallback);
   }
 
   requestExistingInputState(): void {
@@ -148,6 +153,15 @@ export default class TextInputChannel {
   performPrivateCommand(inputClientId: number, action: string, data: Any) {
 
   }
+
+  public setWindowPosition(windowPosition: window.Rect) {
+    this.TextInputCallback?.setWindowPosition(windowPosition);
+    this.TextInputCallback?.setCursorPosition();
+  }
+
+  public setDevicePixelRatio(devicePixelRatio: number) {
+    this.TextInputCallback?.setDevicePixelRatio(devicePixelRatio);
+  }
 }
 
 interface EditingState {
@@ -178,6 +192,8 @@ export interface TextInputMethodHandler {
   setPlatformViewClient(id: number, usesVirtualDisplay: boolean): void;
 
   setEditableSizeAndTransform(width: number, height: number, transform: number[]): void;
+
+  setCursorSizeAndPosition(cursorInfo: inputMethod.CursorInfo): void;
 
   setEditingState(editingState: TextEditState): void;
 
@@ -396,10 +412,43 @@ export class TextEditState {
 
 class TextInputCallback implements MethodCallHandler {
   textInputMethodHandler: TextInputMethodHandler;
-
+  windowPosition: window.Rect | null = null;
+  cursorPosition: window.Rect = {
+    left: 0,
+    top: 0,
+    width: 0,
+    height: 0,
+  }
+  devicePixelRatio = display.getDefaultDisplaySync()?.densityPixels as number;
+  inputPosition: window.Rect = {
+    left: 0,
+    top: 0,
+    width: 0,
+    height: 0,
+  }
   constructor(handler: TextInputMethodHandler) {
     this.textInputMethodHandler = handler;
   }
+
+  setWindowPosition(windowPosition: window.Rect) {
+    this.windowPosition = windowPosition;
+  }
+
+  setDevicePixelRatio(devicePixelRatio: number) {
+    this.devicePixelRatio = devicePixelRatio;
+  }
+
+  setCursorPosition() {
+    const left = (this.windowPosition?.left ?? 0 as number) + (this.cursorPosition.left + this.inputPosition.left) * this.devicePixelRatio;
+    const top = (this.windowPosition?.top ?? 0 as number) + (this.cursorPosition.top + this.inputPosition.top) * this.devicePixelRatio;
+    this.textInputMethodHandler.setCursorSizeAndPosition({
+      left: left,
+      top: top,
+      width: 100,
+      height: 50,
+    })
+  }
+
 
   onMethodCall(call: MethodCall, result: MethodResult) {
     if (this.textInputMethodHandler == null) {
@@ -438,9 +487,17 @@ class TextInputCallback implements MethodCallHandler {
         this.textInputMethodHandler.setEditingState(TextEditState.fromJson(args));
         result.success(null);
         break;
+      case "TextInput.setCaretRect":
+        this.cursorPosition.top = args.get('y');
+        this.cursorPosition.left = args.get('x');
+        this.cursorPosition.width = args.get('width');
+        this.cursorPosition.height = args.get('height');
+        this.setCursorPosition();
+        break;
       case "TextInput.setEditableSizeAndTransform":
-      //TODO:
-        result.notImplemented();
+        this.inputPosition.left = args.get('transform')[12];
+        this.inputPosition.top = args.get('transform')[13];
+        this.setCursorPosition();
         break;
       case "TextInput.clearClient":
         this.textInputMethodHandler.clearClient();

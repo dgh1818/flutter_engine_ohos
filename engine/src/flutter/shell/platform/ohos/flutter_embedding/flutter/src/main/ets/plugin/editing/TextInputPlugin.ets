@@ -135,6 +135,10 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
 
   }
 
+  setCursorSizeAndPosition(cursorInfo: inputMethod.CursorInfo) {
+    this.inputMethodController.updateCursor(cursorInfo)
+  }
+
   setEditingState(editingState: TextEditState): void {
     Log.d(TextInputMethodHandlerImpl.TAG,
       "text:" + editingState.text + " selectionStart:" + editingState.selectionStart + " selectionEnd:"
