@@ -117,6 +117,7 @@ export class FlutterView {
   private gestureAvoidArea: window.AvoidArea;
   private keyboardAvoidArea: window.AvoidArea;
   private needSetViewport: boolean = false;
+  private windowPosition: window.Rect | null = null;
 
   constructor(viewId: string, context: Context) {
     this.id = viewId
@@ -135,6 +136,7 @@ export class FlutterView {
     this.mainWindow?.on('avoidAreaChange', this.avoidAreaChangeCallback);
     this.mainWindow?.on('windowStatusChange', this.windowStatusChangeCallback);
     this.mainWindow?.on('keyboardHeightChange', this.keyboardHeightChangeCallback);
+    this.mainWindow?.on('windowRectChange', this.windowRectChangeCallback);
     this.systemAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
     this.navigationAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR);
     this.gestureAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM_GESTURE);
@@ -180,6 +182,7 @@ export class FlutterView {
 
   private displayChangeCallback = (data: number) => {
     this.displayInfo = display.getDefaultDisplaySync();
+    this.flutterEngine?.getTextInputChannel()?.setDevicePixelRatio(this.displayInfo.densityPixels);
     let devicePixelRatio: number = this.displayInfo?.densityPixels;
     let physicalTouchSlop: number = 1.0 * this.displayInfo?.densityPixels;;
     Log.i(TAG, "Display on: " + JSON.stringify(this.displayInfo) + ". Display id:" + JSON.stringify(data))
@@ -196,9 +199,15 @@ export class FlutterView {
     this.keyboardAvoidArea.bottomRect.height = data;
     this.onAreaChange(null);
   };
+  
+  private windowRectChangeCallback = (data: window.RectChangeOptions) => {
+    Log.i(TAG, "windowRectChangeCallback " + data);
+    this.windowPosition = data.rect as window.Rect;
+    this.flutterEngine?.getTextInputChannel()?.setWindowPosition(this.windowPosition);
+  }
 
   getId(): string {
-    return this.id
+    return this.id;
   }
 
   setSurfaceId(surfaceId: string): void {
@@ -226,7 +235,7 @@ export class FlutterView {
   }
 
   getDVModel() {
-    return this.dVModel
+    return this.dVModel;
   }
 
   onDestroy() {
@@ -235,6 +244,7 @@ export class FlutterView {
       this.mainWindow?.off('avoidAreaChange', this.avoidAreaChangeCallback);
       this.mainWindow?.off('windowStatusChange', this.windowStatusChangeCallback);
       this.mainWindow?.off('keyboardHeightChange', this.keyboardHeightChangeCallback);
+      this.mainWindow?.off('windowRectChange', this.windowRectChangeCallback);
     } catch (e) {
       Log.e(TAG, "mainWindow off error: " + JSON.stringify(e));
     }
