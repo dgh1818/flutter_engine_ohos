@@ -1,0 +1,63 @@
+{
+  "darwin-arm64": {
+    "src/out/host_release/gen/flutter/build/archives/LICENSE.artifacts.md": "LICENSE.artifacts.md",
+    "src/flutter/lib/gpu/": "flutter_gpu",
+    "src/out/host_release/frontend_server.dart.snapshot": "frontend_server.dart.snapshot",
+    "src/out/host_release/gen_snapshot": "gen_snapshot",
+    "src/out/host_release/icudtl.dat": "icudtl.dat",
+    "src/out/host_release/impellerc": "impellerc",
+    "src/out/host_debug_unopt/gen/flutter/lib/snapshot/isolate_snapshot.bin": "isolate_snapshot.bin",
+    "src/out/host_release/libpath_ops.dylib": "libpath_ops.dylib",
+    "src/out/host_release/libtessellator.dylib": "libtessellator.dylib",
+    "src/out/host_release/shader_lib/": "shader_lib",
+    "src/out/host_debug_unopt/gen/flutter/lib/snapshot/vm_isolate_snapshot.bin": "vm_isolate_snapshot.bin",
+    "src/out/host_release/gen/const_finder.dart.snapshot": "const_finder.dart.snapshot"
+
+  },
+  "darwin-x64": {
+    "src/out/host_release/gen/flutter/build/archives/LICENSE.artifacts.md": "LICENSE.artifacts.md",
+    "src/flutter/lib/gpu/": "flutter_gpu",
+    "src/out/host_release/flutter_tester": "flutter_tester",
+    "src/out/host_release/frontend_server.dart.snapshot": "frontend_server.dart.snapshot",
+    "src/out/host_release/gen_snapshot": "gen_snapshot",
+    "src/out/host_release/icudtl.dat": "icudtl.dat",
+    "src/out/host_release/impellerc": "impellerc",
+    "src/out/host_debug_unopt/gen/flutter/lib/snapshot/isolate_snapshot.bin": "isolate_snapshot.bin",
+    "src/out/host_release/libpath_ops.dylib": "libpath_ops.dylib",
+    "src/out/host_release/libtessellator.dylib": "libtessellator.dylib",
+    "src/out/host_release/shader_lib/": "shader_lib",
+    "src/out/host_debug_unopt/gen/flutter/lib/snapshot/vm_isolate_snapshot.bin": "vm_isolate_snapshot.bin",
+    "src/out/host_release/gen/const_finder.dart.snapshot": "const_finder.dart.snapshot"
+  },
+  "windows-x64": {
+    "src/out/host_release/gen/flutter/build/archives/LICENSE.artifacts.md": "LICENSE.artifacts.md",
+    "src/flutter/lib/gpu/": "flutter_gpu",
+    "src/out/host_release/flutter_tester.exe": "flutter_tester.exe",
+    "src/out/host_release/frontend_server.dart.snapshot": "frontend_server.dart.snapshot",
+    "src/out/host_release/gen_snapshot.exe": "gen_snapshot.exe",
+    "src/out/host_release/icudtl.dat": "icudtl.dat",
+    "src/out/host_release/impellerc.exe": "impellerc.exe",
+    "src/out/host_debug_unopt/gen/flutter/lib/snapshot/isolate_snapshot.bin": "isolate_snapshot.bin",
+    "src/out/host_release/path_ops.dll": "path_ops.dll",
+    "src/out/host_release/libtessellator.dll": "libtessellator.dll",
+    "src/out/host_release/shader_lib/": "shader_lib",
+    "src/out/host_debug_unopt/gen/flutter/lib/snapshot/vm_isolate_snapshot.bin": "vm_isolate_snapshot.bin",
+    "src/out/host_release/gen/const_finder.dart.snapshot": "const_finder.dart.snapshot"
+  },
+  "linux-x64": {
+    "src/out/host_release/gen/flutter/build/archives/LICENSE.artifacts.md": "LICENSE.artifacts.md",
+    "src/flutter/lib/gpu/": "flutter_gpu",
+    "src/out/host_release/flutter_tester": "flutter_tester",
+    "src/out/host_release/frontend_server.dart.snapshot": "frontend_server.dart.snapshot",
+    "src/out/host_release/gen_snapshot": "gen_snapshot",
+    "src/out/host_release/icudtl.dat": "icudtl.dat",
+    "src/out/host_release/impellerc": "impellerc",
+    "src/out/host_debug_unopt/gen/flutter/lib/snapshot/isolate_snapshot.bin": "isolate_snapshot.bin",
+    "src/out/host_release/libpath_ops.so": "libpath_ops.so",
+    "src/out/host_release/libtessellator.so": "libtessellator.so",
+    "src/out/host_release/shader_lib/": "shader_lib",
+    "src/out/host_debug_unopt/gen/flutter/lib/snapshot/vm_isolate_snapshot.bin": "vm_isolate_snapshot.bin",
+    "src/out/host_release/gen/const_finder.dart.snapshot": "const_finder.dart.snapshot"
+  }
+}
+
