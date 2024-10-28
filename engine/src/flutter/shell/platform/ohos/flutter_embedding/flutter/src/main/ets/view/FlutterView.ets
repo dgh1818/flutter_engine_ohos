@@ -141,13 +141,7 @@ export class FlutterView {
 
     //监听系统设置显示大小改变
     try {
-      display.on("change", ()=>{
-        this.displayInfo = display.getDefaultDisplaySync();
-        this.viewportMetrics.devicePixelRatio = this.displayInfo?.densityPixels;
-        this.viewportMetrics.physicalTouchSlop = 1.0 * this.displayInfo?.densityPixels;
-        Log.i(TAG, "Display on: " + JSON.stringify(this.displayInfo))
-        this.updateViewportMetrics()
-      });
+      display.on("change", this.displayChangeCallback);
     } catch (e) {
       Log.e(TAG, "displayInfo error" + JSON.stringify(e));
     }
@@ -182,6 +176,14 @@ export class FlutterView {
       FlutterManager.getInstance().getFullScreenListener().onScreenStateChanged(data);
     }
   };
+
+  private displayChangeCallback = (data: number) => {
+    this.displayInfo = display.getDefaultDisplaySync();
+    this.viewportMetrics.devicePixelRatio = this.displayInfo?.densityPixels;
+    this.viewportMetrics.physicalTouchSlop = 1.0 * this.displayInfo?.densityPixels;
+    Log.i(TAG, "Display on: " + JSON.stringify(this.displayInfo) + ". Display id:" + JSON.stringify(data))
+    this.updateViewportMetrics()
+  }
 
   getId(): string {
     return this.id
@@ -226,13 +228,7 @@ export class FlutterView {
     this.mainWindow = null;
 
     try {
-      display.off("change", ()=>{
-        this.displayInfo = display.getDefaultDisplaySync();
-        this.viewportMetrics.devicePixelRatio = this.displayInfo?.densityPixels;
-        this.viewportMetrics.physicalTouchSlop = 1.0 * this.displayInfo?.densityPixels;
-        Log.i(TAG, "Display Info: " + JSON.stringify(this.displayInfo))
-        this.updateViewportMetrics()
-      });
+      display.off("change", this.displayChangeCallback);
     } catch (e) {
       Log.e(TAG, "displayInfo off error" + JSON.stringify(e));
     }
@@ -427,7 +423,6 @@ export class FlutterView {
 
   private updateViewportMetrics(): boolean {
     if (this.isAttachedToFlutterEngine()) {
-      Log.i(TAG, 'updateViewportMetrics devicePixelRatio:' + this.viewportMetrics.devicePixelRatio)
       this?.flutterEngine?.getFlutterNapi()?.setViewportMetrics(this.viewportMetrics.devicePixelRatio,
         this.viewportMetrics.physicalWidth,
         this.viewportMetrics.physicalHeight,
