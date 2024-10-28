@@ -36,6 +36,7 @@ import appRecovery from '@ohos.app.ability.appRecovery';
 import FlutterManager from './FlutterManager';
 import { FlutterView } from '../../view/FlutterView';
 import ApplicationInfoLoader from '../engine/loader/ApplicationInfoLoader';
+import { AccessibilityManager } from '../../view/AccessibilityBridge';
 
 const TAG = "FlutterAbility";
 const EVENT_BACK_PRESS = 'EVENT_BACK_PRESS';
@@ -51,6 +52,7 @@ export class FlutterAbility extends UIAbility implements Host {
   private flutterView: FlutterView | null = null;
   private mainWindow?: window.Window | null;
   private errorManagerId: number = 0;
+  private accessibilityManager?: AccessibilityManager | null;
 
   getFlutterView(): FlutterView | null {
     return this.flutterView;
@@ -376,6 +378,10 @@ export class FlutterAbility extends UIAbility implements Host {
         ? PlatformBrightness.LIGHT : PlatformBrightness.DARK)
       .setTextScaleFactor(config.fontSizeScale == undefined? 1.0 : config.fontSizeScale)
       .send(); //热启动生命周期内，实时监听系统设置环境改变并实时发送相应信息
+
+    //实时获取系统字体加粗系数
+    this.delegate?.getFlutterNapi()?.setFontWeightScale(config.fontWeightScale == undefined? 0 : config.fontWeightScale);
+    Log.i(TAG, 'fontWeightScale: ' + JSON.stringify(config.fontWeightScale));
 
     if (config.language != '') {
       this.getFlutterEngine()?.getLocalizationPlugin()?.sendLocaleToFlutter();

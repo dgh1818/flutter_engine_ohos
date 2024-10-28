@@ -21,6 +21,9 @@
 #include "flutter/fml/task_runner.h"
 #include "flutter/lib/ui/window/platform_message.h"
 #include "napi/native_api.h"
+
+#include "flutter/shell/platform/ohos/accessibility/ohos_accessibility_features.h"
+
 // class for all c++ to call js function
 namespace flutter {
 
@@ -226,6 +229,18 @@ class PlatformViewOHOSNapi {
   static napi_value nativeUnicodeIsRegionalIndicatorSymbol(
       napi_env env,
       napi_callback_info info);
+
+  /**
+   * ets call c++
+   */
+  static napi_value nativeUpdateSemantics(napi_env env,
+                                          napi_callback_info info);
+  static napi_value nativeUpdateCustomAccessibilityActions(
+      napi_env env,
+      napi_callback_info info);
+
+  static napi_value nativeSetFontWeightScale(napi_env env,
+                                             napi_callback_info info);
 
  private:
   static napi_env env_;

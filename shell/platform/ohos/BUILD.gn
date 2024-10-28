@@ -98,6 +98,7 @@ source_set("flutter_ohos_sources") {
              "image_lru.h",
              "types.h",
              "ohos_logging.h",
+             "./accessibility/ohos_accessibility_features.h",
            ]
 
   #configs += [ "//flutter/shell/platform/ohos/config:gtk" ]
@@ -114,6 +115,7 @@ source_set("flutter_ohos_sources") {
     "ohos_context_vulkan_impeller.cpp",
 
     # "//flutter/impeller/toolkit/egl/display.cc",
+    "./accessibility/ohos_accessibility_features.cpp",
     "image_lru.cpp",
     "ohos_context_gl_skia.cpp",
     "ohos_display.cpp",

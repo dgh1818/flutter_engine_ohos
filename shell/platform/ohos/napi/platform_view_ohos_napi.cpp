@@ -2058,6 +2058,55 @@ napi_value PlatformViewOHOSNapi::nativeDecodeUtf8(napi_env env,
   return result;
 }
 
+napi_value PlatformViewOHOSNapi::nativeUpdateSemantics(
+    napi_env env,
+    napi_callback_info info) {
+  return nullptr;
+}
+
+napi_value PlatformViewOHOSNapi::nativeUpdateCustomAccessibilityActions(
+    napi_env env,
+    napi_callback_info info) {
+  return nullptr;
+}
+
+/**
+ * 无障碍特征之字体加粗功能，获取ets侧系统字体粗细系数
+ */
+napi_value PlatformViewOHOSNapi::nativeSetFontWeightScale(
+    napi_env env,
+    napi_callback_info info) {
+  napi_status ret;
+  size_t argc = 2;
+  napi_value args[2] = {nullptr};
+  napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+  // get param nativeShellHolderId
+  int64_t shell_holder;
+  ret = napi_get_value_int64(env, args[0], &shell_holder);
+  if (ret != napi_ok) {
+    FML_DLOG(ERROR) << "PlatformViewOHOSNapi::nativeSetFontWeightScale "
+                       "napi_get_value_int64 error:"
+                    << ret;
+    return nullptr;
+  }
+  // get param fontWeightScale
+  double fontWeightScale = 1.0;
+  ret = napi_get_value_double(env, args[1], &fontWeightScale);
+  if (ret != napi_ok) {
+    FML_DLOG(ERROR) << "PlatformViewOHOSNapi::nativeSetFontWeightScale "
+                       "napi_get_value_double error:"
+                    << ret;
+    return nullptr;
+  }
+  // accessibility features get the params
+  auto ohosAccessibilityFeatures = OhosAccessibilityFeatures::GetInstance();
+  ohosAccessibilityFeatures->SetBoldText(fontWeightScale, shell_holder);
+  FML_DLOG(INFO)
+      << "PlatformViewOHOSNapi::nativeSetFontWeightScale -> shell_holder: "
+      << shell_holder << " fontWeightScale: " << fontWeightScale;
+  return nullptr;
+}
+
 napi_value PlatformViewOHOSNapi::nativeLookupCallbackInformation(
     napi_env env,
     napi_callback_info info) {
