@@ -1,0 +1,30 @@
+diff --git a/runtime/platform/assert.cc b/runtime/platform/assert.cc
+index 63aa05f4323..95372422b3c 100644
+--- a/runtime/platform/assert.cc
++++ b/runtime/platform/assert.cc
+@@ -8,6 +8,10 @@
+ #include "platform/globals.h"
+ #include "platform/syslog.h"
+ 
++#if defined(DART_HOST_OS_OHOS)
++#include <info/fatal_message.h>
++#endif  // defined(DART_HOST_OS_OHOS)
++
+ #if defined(DART_HOST_OS_ANDROID)
+ extern "C" __attribute__((weak)) void android_set_abort_message(const char*);
+ #endif  // defined(DART_HOST_OS_ANDROID)
+@@ -36,6 +40,13 @@ void DynamicAssertionHelper::Print(const char* format,
+ 
+   // Print the buffer on stderr and/or syslog.
+   Syslog::PrintErr("%s\n", buffer);
++
++#if defined(DART_HOST_OS_OHOS)
++  if (will_abort && (&set_fatal_message != nullptr)) {
++    set_fatal_message(buffer);
++  }
++#endif  // defined(DART_HOST_OS_OHOS)
++
+ #if defined(DART_HOST_OS_ANDROID)
+   if (will_abort && (&android_set_abort_message != nullptr)) {
+     android_set_abort_message(buffer);
+-- 
