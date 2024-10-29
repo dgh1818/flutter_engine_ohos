@@ -282,6 +282,9 @@ export default class FlutterLoader {
   }
 
   getLookupKeyForAsset(asset: string, packageName?: string): string {
+    if (typeof packageName === 'string' && packageName.trim().length > 0) {
+        return this.fullAssetPathFrom('packages' + FILE_SEPARATOR + packageName + FILE_SEPARATOR + asset);
+    }
     return this.fullAssetPathFrom(asset);
   }
 
