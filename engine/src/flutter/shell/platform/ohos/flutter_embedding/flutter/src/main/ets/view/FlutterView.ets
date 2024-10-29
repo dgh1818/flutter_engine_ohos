@@ -370,12 +370,11 @@ export class FlutterView {
 
   // At the bottom of the single-frame phone is an AI assistant wake-up bar
   // The area can lead to confusing gestures in repetitive areas without handled properly
+  // PhysicalViewInsetBottom is modified by this function which needs to be called after onKeyboardAreaChange
   private onAiBarAreaChange() {
     if (this.checkAiBar && this.navigationAvoidArea != null) {
       this.viewportMetrics.physicalViewInsetBottom =
         Math.max(this.navigationAvoidArea.bottomRect.height, this.viewportMetrics.physicalViewInsetBottom)
-    } else {
-      this.viewportMetrics.physicalViewInsetBottom = 0
     }
   }
 
