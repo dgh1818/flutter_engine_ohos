@@ -15,12 +15,11 @@
 import FlutterEngine from '../embedding/engine/FlutterEngine';
 import Log from '../util/Log';
 import { DVModel, DVModelChildren, DVModelEvents, DVModelParameters } from './DynamicView/dynamicView';
-import display from '@ohos.display';
+import {display} from '@kit.ArkUI'
 import FlutterManager from '../embedding/ohos/FlutterManager';
 import window from '@ohos.window';
 import KeyboardManager from '../embedding/ohos/KeyboardManager';
 import MouseCursorPlugin from '../plugin/mouse/MouseCursorPlugin';
-import Any from '../plugin/common/Any';
 import Settings from '../embedding/ohos/Settings';
 import ArrayList from '@ohos.util.ArrayList';
 import PlatformView, { Params } from '../plugin/platform/PlatformView';
@@ -139,6 +138,13 @@ export class FlutterView {
     this.navigationAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR);
     this.gestureAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM_GESTURE);
     this.keyboardAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_KEYBOARD);
+
+    //监听系统设置显示大小改变
+    try {
+      display.on("change", this.displayChangeCallback);
+    } catch (e) {
+      Log.e(TAG, "displayInfo error" + JSON.stringify(e));
+    }
   }
 
   private avoidAreaChangeCallback = (data: window.AvoidAreaOptions) => {
@@ -170,6 +176,14 @@ export class FlutterView {
       FlutterManager.getInstance().getFullScreenListener().onScreenStateChanged(data);
     }
   };
+
+  private displayChangeCallback = (data: number) => {
+    this.displayInfo = display.getDefaultDisplaySync();
+    this.viewportMetrics.devicePixelRatio = this.displayInfo?.densityPixels;
+    this.viewportMetrics.physicalTouchSlop = 1.0 * this.displayInfo?.densityPixels;
+    Log.i(TAG, "Display on: " + JSON.stringify(this.displayInfo) + ". Display id:" + JSON.stringify(data))
+    this.updateViewportMetrics()
+  }
 
   getId(): string {
     return this.id
@@ -212,6 +226,12 @@ export class FlutterView {
       Log.e(TAG, "mainWindow off error: " + JSON.stringify(e));
     }
     this.mainWindow = null;
+
+    try {
+      display.off("change", this.displayChangeCallback);
+    } catch (e) {
+      Log.e(TAG, "displayInfo off error" + JSON.stringify(e));
+    }
   }
 
   attachToFlutterEngine(flutterEngine: FlutterEngine): void {
