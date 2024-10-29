@@ -264,12 +264,13 @@ export class PlatformPluginCallback implements PlatformMessageHandler {
   setClipboardData(text: string, result: MethodResult) {
     let pasteData = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, text);
     let systemPasteboard: pasteboard.SystemPasteboard = pasteboard.getSystemPasteboard();
-    systemPasteboard.setData(pasteData).then((data: void) => {
+    try {
+      systemPasteboard.setDataSync(pasteData);
       result.success(null);
-    }).catch((err: BusinessError) => {
+    } catch (err) {
       Log.d(PlatformPluginCallback.TAG, "Failed to set PasteData. Cause: " + JSON.stringify(err));
       result.error("error", JSON.stringify(err), null);
-    });
+    }
   }
 
   clipboardHasStrings(): boolean {
