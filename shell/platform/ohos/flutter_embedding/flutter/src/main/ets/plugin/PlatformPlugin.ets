@@ -299,6 +299,7 @@ export class PlatformPluginCallback implements PlatformMessageHandler {
 
   setSystemChromeSystemUIOverlayStyle(systemChromeStyle: SystemChromeStyle): void {
     let isStatusBarLightIconValue: boolean = false;
+    let statusBarContentColorValue: string | undefined = undefined;
     let statusBarColorValue: string | undefined = undefined;
     let navigationBarColorValue: string | undefined = undefined;
     let isNavigationBarLightIconValue: boolean = false;
@@ -309,9 +310,11 @@ export class PlatformPluginCallback implements PlatformMessageHandler {
       switch (systemChromeStyle.statusBarIconBrightness) {
         case Brightness.DARK:
           isStatusBarLightIconValue = false;
+          statusBarContentColorValue = '#000000';
           break;
         case Brightness.LIGHT:
           isStatusBarLightIconValue = true;
+          statusBarContentColorValue = '#FFFFFF';
           break;
       }
     } else {
@@ -353,7 +356,7 @@ export class PlatformPluginCallback implements PlatformMessageHandler {
     const systemBarProperties: window.SystemBarProperties = {
       statusBarColor: statusBarColorValue,
       isStatusBarLightIcon: isStatusBarLightIconValue,
-      statusBarContentColor: currentProps?.statusBarContentColor,
+      statusBarContentColor: statusBarContentColorValue,
       navigationBarColor: navigationBarColorValue,
       isNavigationBarLightIcon: isNavigationBarLightIconValue,
       navigationBarContentColor: currentProps?.navigationBarContentColor,
