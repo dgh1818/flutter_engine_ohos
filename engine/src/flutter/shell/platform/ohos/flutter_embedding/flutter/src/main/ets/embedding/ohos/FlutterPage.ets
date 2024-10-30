@@ -20,6 +20,7 @@ import { DVModel, DVModelChildren, DynamicView } from '../../view/DynamicView/dy
 import Any from '../../plugin/common/Any';
 
 const TAG = "FlutterPage";
+
 export const OHOS_FLUTTER_PAGE_UPDATE = "ohos_flutter_page_update";
 
 /**
@@ -29,13 +30,21 @@ export const OHOS_FLUTTER_PAGE_UPDATE = "ohos_flutter_page_update";
 export struct FlutterPage {
   @Prop viewId: string = ""
   @Prop xComponentType: XComponentType = XComponentType.SURFACE
+  /**
+   * renderFit under XComponent has a default setting of RESIZE_FILL.
+   * If the size of XComponent may change, this property needs to be passed in and set to a size-preserving property,
+   * such as TOP_LEFT.
+   */
+  @Prop xComponentRenderFit: RenderFit = RenderFit.RESIZE_FILL;
 
   @Builder
   doNothingBuilder() {
   }
 
   @BuilderParam splashScreenView: () => void = this.doNothingBuilder;
-  @Builder defaultPage() {
+
+  @Builder
+  defaultPage() {
     Stack() {
       ForEach(this.rootDvModel!!, (child: ESObject) => {
         DynamicView({
@@ -65,7 +74,9 @@ export struct FlutterPage {
           Log.d(TAG, "XComponent onDestroy ");
           this.flutterView?.onSurfaceDestroyed()
         })
-        .backgroundColor(this.firstFrameDisplayed ? this.xComponentColor : Color.Transparent)
+        .renderFit(this.xComponentRenderFit)
+        .backgroundColor(this.firstFrameDisplayed && this.xComponentRenderFit == RenderFit.RESIZE_FILL ?
+        this.xComponentColor : Color.Transparent)
 
       if (this.showSplashScreen) {
         this.splashScreenView();
@@ -88,7 +99,9 @@ export struct FlutterPage {
       return false;
     })
   }
-  @Builder mouseWheelPage() {
+
+  @Builder
+  mouseWheelPage() {
     Stack() {
       ForEach(this.rootDvModel!!, (child: Any) => {
         DynamicView({
@@ -118,7 +131,9 @@ export struct FlutterPage {
           Log.d(TAG, "XComponent onDestroy ");
           this.flutterView?.onSurfaceDestroyed()
         })
-        .backgroundColor(this.firstFrameDisplayed ? this.xComponentColor : Color.Transparent)
+        .renderFit(this.xComponentRenderFit)
+        .backgroundColor(this.firstFrameDisplayed && this.xComponentRenderFit == RenderFit.RESIZE_FILL ?
+        this.xComponentColor : Color.Transparent)
 
       if (this.showSplashScreen) {
         this.splashScreenView();
@@ -153,10 +168,14 @@ export struct FlutterPage {
         })
     )
   }
+
   @State showSplashScreen: boolean = true;
   /**
    * To address the black(or other color set by usr) flashing frame when switching between ArkUI and Flutter pages,
    * the background color should be kept transparent until the onFirstFrame is called.
+   * When the window size changes, modifying the renderFit property in the relevant callback does not take effect immediately.
+   * The first frame will use the old renderFit property and the old background color, resulting in visual artifacts (such as stretching or a black screen).
+   * Therefore, we cannot automatically change the relevant properties through state variables at this time.
    */
   @State firstFrameDisplayed: boolean = false;
   @State xComponentColor: Color = Color.Black
