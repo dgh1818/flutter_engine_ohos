@@ -238,9 +238,14 @@ static std::unique_ptr<PipelineT> CreateDefaultPipeline(
   // Apply default ContentContextOptions to the descriptor.
   const auto default_color_format =
       context.GetCapabilities()->GetDefaultColorFormat();
-  ContentContextOptions{.sample_count = SampleCount::kCount4,
-                        .primitive_type = PrimitiveType::kTriangleStrip,
-                        .color_attachment_pixel_format = default_color_format}
+  ContentContextOptions{
+#ifdef OHOS_PLATFORM
+      .sample_count = SampleCount::kCount2,
+#else
+      .sample_count = SampleCount::kCount4,
+#endif
+      .primitive_type = PrimitiveType::kTriangleStrip,
+      .color_attachment_pixel_format = default_color_format}
       .ApplyToPipelineDescriptor(*desc);
   return std::make_unique<PipelineT>(context, desc);
 }
@@ -267,11 +272,19 @@ ContentContext::ContentContext(
   }
 
   auto options = ContentContextOptions{
+#ifdef OHOS_PLATFORM
+      .sample_count = SampleCount::kCount2,
+#else
       .sample_count = SampleCount::kCount4,
+#endif
       .color_attachment_pixel_format =
           context_->GetCapabilities()->GetDefaultColorFormat()};
   auto options_trianglestrip = ContentContextOptions{
+#ifdef OHOS_PLATFORM
+      .sample_count = SampleCount::kCount2,
+#else
       .sample_count = SampleCount::kCount4,
+#endif
       .primitive_type = PrimitiveType::kTriangleStrip,
       .color_attachment_pixel_format =
           context_->GetCapabilities()->GetDefaultColorFormat()};
@@ -450,7 +463,11 @@ ContentContext::ContentContext(
     return;
   }
   ContentContextOptions{
+#ifdef OHOS_PLATFORM
+      .sample_count = SampleCount::kCount2,
+#else
       .sample_count = SampleCount::kCount4,
+#endif
       .color_attachment_pixel_format =
           context_->GetCapabilities()->GetDefaultColorFormat()}
       .ApplyToPipelineDescriptor(*clip_pipeline_descriptor);
@@ -614,7 +631,11 @@ void ContentContext::InitializeCommonlyUsedShadersIfNeeded() const {
   // triangle-strip geometry, and also have fairly agressive srcOver to src
   // blend mode conversions.
   auto options = ContentContextOptions{
+#ifdef OHOS_PLATFORM
+      .sample_count = SampleCount::kCount2,
+#else
       .sample_count = SampleCount::kCount4,
+#endif
       .color_attachment_pixel_format =
           context_->GetCapabilities()->GetDefaultColorFormat()};
 
