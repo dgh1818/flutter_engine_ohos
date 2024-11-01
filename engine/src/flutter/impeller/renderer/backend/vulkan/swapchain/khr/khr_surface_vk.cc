@@ -25,7 +25,11 @@ std::unique_ptr<KHRSurfaceVK> KHRSurfaceVK::WrapSwapchainImage(
     TextureDescriptor msaa_tex_desc;
     msaa_tex_desc.storage_mode = StorageMode::kDeviceTransient;
     msaa_tex_desc.type = TextureType::kTexture2DMultisample;
+#ifdef OHOS_PLATFORM
+    msaa_tex_desc.sample_count = SampleCount::kCount2;
+#else
     msaa_tex_desc.sample_count = SampleCount::kCount4;
+#endif
     msaa_tex_desc.format = swapchain_image->GetPixelFormat();
     msaa_tex_desc.size = swapchain_image->GetSize();
     msaa_tex_desc.usage = TextureUsage::kRenderTarget;
