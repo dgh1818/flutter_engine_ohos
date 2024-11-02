@@ -41,9 +41,10 @@ export default class TextInputChannel {
     this.channel = new MethodChannel(dartExecutor, TextInputChannel.CHANNEL_NAME, JSONMethodCodec.INSTANCE);
   }
 
-  setTextInputMethodHandler(textInputMethodHandler: TextInputMethodHandler): void {
+  setTextInputMethodHandler(textInputMethodHandler: TextInputMethodHandler | null): void {
     this.textInputMethodHandler = textInputMethodHandler;
-    this.TextInputCallback = new TextInputCallback(this.textInputMethodHandler);
+    this.TextInputCallback = this.textInputMethodHandler == null
+      ? null : new TextInputCallback(this.textInputMethodHandler);
     this.channel.setMethodCallHandler(this.TextInputCallback);
   }
 
