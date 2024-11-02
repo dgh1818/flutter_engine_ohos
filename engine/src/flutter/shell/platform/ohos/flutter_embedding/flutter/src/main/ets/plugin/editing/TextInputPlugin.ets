@@ -51,6 +51,10 @@ export default class TextInputPlugin implements EditingStateWatcher {
 
   }
 
+  getEditingState() {
+    return this.mTextInputHandler.mEditable;
+  }
+
   didChangeEditingState(textChanged: boolean, selectionChanged: boolean, composingRegionChanged: boolean): void {
     let editable = this.mTextInputHandler.mEditable;
     let inputTarget = this.mTextInputHandler.inputTarget;
@@ -71,6 +75,10 @@ export default class TextInputPlugin implements EditingStateWatcher {
         Log.e(TextInputPlugin.TAG, "Failed to detach: " + JSON.stringify(err));
       }
     })
+  }
+
+  destroy() {
+    this.textInputChannel.setTextInputMethodHandler(null);
   }
 }
 
