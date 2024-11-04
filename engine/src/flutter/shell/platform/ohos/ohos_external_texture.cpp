@@ -13,6 +13,7 @@
 #include "fml/trace_event.h"
 #include "include/core/SkM44.h"
 #include "include/core/SkMatrix.h"
+#include "ohos_main.h"
 
 namespace flutter {
 
@@ -77,6 +78,8 @@ OHOSExternalTexture::OHOSExternalTexture(int64_t id,
     FML_LOG(ERROR) << "Error with OH_NativeImage_SetOnFrameAvailableListener "
                    << ret;
   }
+
+  is_emulator_ = OhosMain::IsEmulator();
 }
 
 OHOSExternalTexture::~OHOSExternalTexture() {
@@ -837,6 +840,11 @@ void OHOSExternalTexture::GetNewTransformBound(SkM44& transform,
                                                SkRect& bounds) {
   if (pixelmap_buffer_ != nullptr || native_image_source_ == nullptr) {
     transform.setIdentity();
+    if (is_emulator_) {
+      // do a flip-V if we are in emulator.
+      transform = transform.preConcat(
+          SkM44(1, 0, 0, 0, 0, -1, 0, bounds.height(), 0, 0, 1, 0, 0, 0, 0, 1));
+    }
     return;
   }
 
@@ -855,9 +863,15 @@ void OHOSExternalTexture::GetNewTransformBound(SkM44& transform,
   // }
 
   SkM44 transform_origin = SkM44::ColMajor(matrix);
+
+  if (is_emulator_) {
+    // do a flip-V if we are in emulator.
+    transform_origin = transform_origin.preConcat(
+        SkM44(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1));
+  }
+
   // Note that SkM44's constructor parameters are in row-major order.
-  // Note that SkM44's operate * is multiplied in row-major order so we use
-  // postConcat. This operate is to do a flip-V and translate it to origin
+  // This operate is to do a flip-V and translate it to origin
   // place.
   SkM44 transform_end = transform_origin.preConcat(
       SkM44(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1));
