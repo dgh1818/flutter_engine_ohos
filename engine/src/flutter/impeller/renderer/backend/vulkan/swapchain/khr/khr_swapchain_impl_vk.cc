@@ -233,7 +233,11 @@ KHRSwapchainImplVK::KHRSwapchainImplVK(const std::shared_ptr<Context>& context,
   TextureDescriptor msaa_desc;
   msaa_desc.storage_mode = StorageMode::kDeviceTransient;
   msaa_desc.type = TextureType::kTexture2DMultisample;
+#ifdef OHOS_PLATFORM
+  msaa_desc.sample_count = SampleCount::kCount2;
+#else
   msaa_desc.sample_count = SampleCount::kCount4;
+#endif
   msaa_desc.format = texture_desc.format;
   msaa_desc.size = texture_desc.size;
   msaa_desc.usage = TextureUsage::kRenderTarget;
@@ -245,7 +249,11 @@ KHRSwapchainImplVK::KHRSwapchainImplVK(const std::shared_ptr<Context>& context,
   depth_stencil_desc.storage_mode = StorageMode::kDeviceTransient;
   if (enable_msaa) {
     depth_stencil_desc.type = TextureType::kTexture2DMultisample;
+#ifdef OHOS_PLATFORM
+    depth_stencil_desc.sample_count = SampleCount::kCount2;
+#else
     depth_stencil_desc.sample_count = SampleCount::kCount4;
+#endif
   } else {
     depth_stencil_desc.type = TextureType::kTexture2D;
     depth_stencil_desc.sample_count = SampleCount::kCount1;

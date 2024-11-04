@@ -101,6 +101,10 @@ bool InternalFlutterGpu_Texture_Initialize(Dart_Handle wrapper,
       desc.type = impeller::TextureType::kTexture2D;
       desc.sample_count = impeller::SampleCount::kCount1;
       break;
+    case 2:
+      desc.type = impeller::TextureType::kTexture2DMultisample;
+      desc.sample_count = impeller::SampleCount::kCount2;
+      break;
     case 4:
       desc.type = impeller::TextureType::kTexture2DMultisample;
       desc.sample_count = impeller::SampleCount::kCount4;
