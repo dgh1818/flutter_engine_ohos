@@ -347,7 +347,12 @@ static bool PhysicalDeviceSupportsRequiredFormats(
 static bool HasRequiredProperties(const vk::PhysicalDevice& physical_device) {
   auto properties = physical_device.getProperties();
   if (!(properties.limits.framebufferColorSampleCounts &
+#ifdef OHOS_PLATFORM
+        (vk::SampleCountFlagBits::e1 | vk::SampleCountFlagBits::e2 |
+         vk::SampleCountFlagBits::e4))) {
+#else
         (vk::SampleCountFlagBits::e1 | vk::SampleCountFlagBits::e4))) {
+#endif
     return false;
   }
   return true;

@@ -335,7 +335,11 @@ RenderTarget RenderTargetAllocator::CreateOffscreenMSAA(
     TextureDescriptor color0_tex_desc;
     color0_tex_desc.storage_mode = color_attachment_config.storage_mode;
     color0_tex_desc.type = TextureType::kTexture2DMultisample;
+#ifdef OHOS_PLATFORM
+    color0_tex_desc.sample_count = SampleCount::kCount2;
+#else
     color0_tex_desc.sample_count = SampleCount::kCount4;
+#endif
     color0_tex_desc.format = pixel_format;
     color0_tex_desc.size = size;
     color0_tex_desc.usage = TextureUsage::kRenderTarget;
@@ -427,7 +431,11 @@ void RenderTarget::SetupDepthStencilAttachments(
         stencil_attachment_config.storage_mode;
     if (msaa) {
       depth_stencil_texture_desc.type = TextureType::kTexture2DMultisample;
+#ifdef OHOS_PLATFORM
+      depth_stencil_texture_desc.sample_count = SampleCount::kCount2;
+#else
       depth_stencil_texture_desc.sample_count = SampleCount::kCount4;
+#endif
     }
     depth_stencil_texture_desc.format =
         context.GetCapabilities()->GetDefaultDepthStencilFormat();
