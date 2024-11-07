@@ -182,6 +182,8 @@ void ImageEncodingImpeller::ConvertDlImageToSkImage(
            .ok()) {
     FML_LOG(ERROR) << "Failed to submit commands.";
   }
+
+  impeller_context->DisposeThreadLocalCachedResources();
 }
 
 void ImageEncodingImpeller::ConvertImageToRaster(

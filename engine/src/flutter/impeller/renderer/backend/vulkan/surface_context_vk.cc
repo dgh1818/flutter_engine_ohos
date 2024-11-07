@@ -163,4 +163,8 @@ const ContextVK& SurfaceContextVK::GetParent() const {
   return *parent_;
 }
 
+void SurfaceContextVK::DisposeThreadLocalCachedResources() {
+  parent_->DisposeThreadLocalCachedResources();
+}
+
 }  // namespace impeller
