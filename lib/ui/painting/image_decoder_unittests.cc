@@ -79,10 +79,15 @@ class TestImpellerContext : public impeller::Context {
 
   void Shutdown() override {}
 
+  void DisposeThreadLocalCachedResources() override { did_dispose_ = true; }
+
+  bool DidDisposeResources() const { return did_dispose_; }
+
   mutable size_t command_buffer_count_ = 0;
 
  private:
   std::shared_ptr<const Capabilities> capabilities_;
+  bool did_dispose_ = false;
 };
 
 }  // namespace impeller
@@ -341,12 +346,14 @@ TEST_F(ImageDecoderFixtureTest, ImpellerUploadToSharedNoGpu) {
       no_gpu_access_context, buffer, info, bitmap, gpu_disabled_switch);
   ASSERT_EQ(no_gpu_access_context->command_buffer_count_, 0ul);
   ASSERT_EQ(result.second, "");
+  EXPECT_EQ(no_gpu_access_context->DidDisposeResources(), false);
 
   result = ImageDecoderImpeller::UploadTextureToStorage(
       no_gpu_access_context, bitmap, gpu_disabled_switch,
       impeller::StorageMode::kHostVisible, true);
   ASSERT_EQ(no_gpu_access_context->command_buffer_count_, 0ul);
   ASSERT_EQ(result.second, "");
+  EXPECT_EQ(no_gpu_access_context->DidDisposeResources(), true);
 }
 
 TEST_F(ImageDecoderFixtureTest, ImpellerNullColorspace) {

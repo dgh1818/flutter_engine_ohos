@@ -164,7 +164,11 @@ class ContextVK final : public Context,
 
   void RecordFrameEndTime() const;
 
+  // |Context|
   void InitializeCommonlyUsedShadersIfNeeded() const override;
+
+  // |Context|
+  void DisposeThreadLocalCachedResources() override;
 
  private:
   struct DeviceHolderImpl : public DeviceHolderVK {
