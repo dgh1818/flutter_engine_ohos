@@ -60,7 +60,7 @@ export { default as FlutterAbilityLaunchConfigs } from './src/main/ets/embedding
 export { default as FlutterEngineConfigurator } from './src/main/ets/embedding/ohos/FlutterEngineConfigurator';
 export { default as FlutterEngineProvider } from './src/main/ets/embedding/ohos/FlutterEngineProvider';
 export { default as FlutterEntry } from './src/main/ets/embedding/ohos/FlutterEntry';
-export { default as FlutterManager } from './src/main/ets/embedding/ohos/FlutterManager';
+export { default as FlutterManager, DragDropCallback as DragDropCallback } from './src/main/ets/embedding/ohos/FlutterManager';
 export * from './src/main/ets/embedding/ohos/FlutterPage';
 export { default as KeyboardManager } from './src/main/ets/embedding/ohos/KeyboardManager';
 export { default as OhosTouchProcessor } from './src/main/ets/embedding/ohos/OhosTouchProcessor';
