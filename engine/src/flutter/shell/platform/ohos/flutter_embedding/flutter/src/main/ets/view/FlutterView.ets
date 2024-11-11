@@ -481,8 +481,12 @@ export class FlutterView {
     return false
   }
 
-  onKeyEvent(event: KeyEvent) {
-    this.keyboardManager?.handleKeyEvent(event)
+  onKeyPreIme(event: KeyEvent) : boolean {
+    return this.keyboardManager?.onKeyPreIme(event) ?? false;
+  }
+
+  onKeyEvent(event: KeyEvent) : boolean {
+    return this.keyboardManager?.onKeyEvent(event) ?? false;
   }
 
   onMouseWheel(eventType: string, event: PanGestureEvent) {
