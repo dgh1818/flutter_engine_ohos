@@ -18,6 +18,7 @@ import { FlutterView } from '../../view/FlutterView';
 import UIAbility from '@ohos.app.ability.UIAbility';
 import window from '@ohos.window';
 import Log from '../../util/Log';
+import List from '@ohos.util.List';
 
 const TAG = "FlutterManager"
 
@@ -36,6 +37,26 @@ export default class FlutterManager {
   private uiAbilityList = new Array<UIAbility>();
   private windowStageList = new Map<UIAbility, window.WindowStage>();
   private mFullScreenListener: FullScreenListener = new DefaultFullScreenListener();
+  private dragEnterCbs: List<DragDropCallback> = new List();
+  private dragMoveCbs: List<DragDropCallback> = new List();
+  private dragLeaveCbs: List<DragDropCallback> = new List();
+  private dropCbs: List<DragDropCallback> = new List();
+
+  getDragEnterCbs() {
+    return this.dragEnterCbs;
+  }
+
+  getDragMoveCbs() {
+    return this.dragMoveCbs;
+  }
+
+  getDragLeaveCbs() {
+    return this.dragLeaveCbs;
+  }
+
+  getDropCbs() {
+    return this.dropCbs;
+  }
 
   pushUIAbility(uiAbility: UIAbility) {
     this.uiAbilityList.push(uiAbility);
@@ -120,6 +141,10 @@ export default class FlutterManager {
   useFullScreen(): boolean {
     return this.mFullScreenListener.useFullScreen();
   }
+}
+
+export interface DragDropCallback {
+  do(event: DragEvent, extraParams: string): void;
 }
 
 export interface FullScreenListener {
