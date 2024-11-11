@@ -19,9 +19,9 @@ import TextInputPlugin from '../../plugin/editing/TextInputPlugin';
 import Log from '../../util/Log';
 import { KeyCode } from '@kit.InputKit';
 
-const TAG = "KeyEventHandlerForEmulator";
+const TAG = "KeyEventHandler";
 
-export class KeyEventHandlerForEmulator {
+export class KeyEventHandler {
   private textInputPlugin?: TextInputPlugin;
   private charMap : HashMap<number, string> = new HashMap();
   private shiftMap : HashMap<number, string> = new HashMap();
@@ -144,18 +144,11 @@ export class KeyEventHandlerForEmulator {
     }
   }
 
-  isEmulator() : boolean {
-    return deviceInfo.productModel == 'emulator';
-  }
-
   handleKeyEvent(event: KeyEvent) {
     Log.i(TAG, JSON.stringify({
       "name": "handleKeyEvent",
       "event": event
     }));
-    if (!this.isEmulator()) {
-      return;
-    }
     if (event.type == KeyType.Up) {
       // 处理字符按键相关逻辑
       if (this.charMap.hasKey(event.keyCode)) {
