@@ -243,6 +243,7 @@ executable("flutter_ohos_unittests") {
   ldflags += [ "-lm" ]
   ldflags += [ "-lpthread" ]
   ldflags += [ "-lpixelmap_ndk.z" ]
+  ldflags += [ "-lpixelmap" ]
   ldflags += [ "-lqos" ]
 }
 
@@ -282,6 +283,7 @@ shared_library("flutter_shell_native") {
   ldflags += [ "-lm" ]
   ldflags += [ "-lpthread" ]
   ldflags += [ "-lpixelmap_ndk.z" ]
+  ldflags += [ "-lpixelmap" ]
   ldflags += [ "-lqos" ]
 
   public_configs = [ "//flutter:config" ]

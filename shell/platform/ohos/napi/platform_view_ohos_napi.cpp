@@ -16,6 +16,7 @@
 #include "platform_view_ohos_napi.h"
 #include <dlfcn.h>
 #include <js_native_api.h>
+#include <multimedia/image_framework/image/pixelmap_native.h>
 #include <multimedia/image_framework/image_mdk.h>
 #include <multimedia/image_framework/image_pixel_map_mdk.h>
 #include <native_image/native_image.h>
@@ -27,14 +28,13 @@
 #include "flutter/fml/make_copyable.h"
 #include "flutter/fml/platform/ohos/napi_util.h"
 #include "flutter/lib/ui/plugins/callback_cache.h"
+#include "flutter/shell/platform/ohos/accessibility/ohos_accessibility_features.h"
 #include "flutter/shell/platform/ohos/ohos_logging.h"
 #include "flutter/shell/platform/ohos/ohos_main.h"
 #include "flutter/shell/platform/ohos/ohos_shell_holder.h"
 #include "flutter/shell/platform/ohos/ohos_xcomponent_adapter.h"
 #include "flutter/shell/platform/ohos/surface/ohos_native_window.h"
 #include "flutter/shell/platform/ohos/types.h"
-#include "third_party/skia/src/ports/skia_ohos/SkFontMgr_ohos.h"
-#include "txt/platform.h"
 #include "unicode/uchar.h"
 
 #define OHOS_SHELL_HOLDER (reinterpret_cast<OHOSShellHolder*>(shell_holder))
@@ -1703,6 +1703,21 @@ napi_value PlatformViewOHOSNapi::nativeMarkTextureFrameAvailable(
   return nullptr;
 }
 
+static OH_NativeBuffer* GetNativeBufferFromPixelMap(napi_env env,
+                                                    napi_value pixel_map) {
+  OH_PixelmapNative* pixelMap_native = nullptr;
+  OH_NativeBuffer* native_buffer = nullptr;
+  OH_PixelmapNative_ConvertPixelmapNativeFromNapi(env, pixel_map,
+                                                  &pixelMap_native);
+  if (pixelMap_native) {
+    // Once a NativeBuffer is obtained, Reference is automatically called, so it
+    // needs to be Unreferenced before it can be released.
+    OH_PixelmapNative_GetNativeBuffer(pixelMap_native, &native_buffer);
+    OH_PixelmapNative_Release(pixelMap_native);
+  }
+  return native_buffer;
+}
+
 napi_value PlatformViewOHOSNapi::nativeRegisterPixelMap(
     napi_env env,
     napi_callback_info info) {
@@ -1715,8 +1730,10 @@ napi_value PlatformViewOHOSNapi::nativeRegisterPixelMap(
   NAPI_CALL(env, napi_get_value_int64(env, args[0], &shell_holder));
   NAPI_CALL(env, napi_get_value_int64(env, args[1], &textureId));
   NativePixelMap* nativePixelMap = OH_PixelMap_InitNativePixelMap(env, args[2]);
+  OH_NativeBuffer* native_buffer = GetNativeBufferFromPixelMap(env, args[2]);
+
   OHOS_SHELL_HOLDER->GetPlatformView()->RegisterExternalTextureByPixelMap(
-      textureId, nativePixelMap);
+      textureId, nativePixelMap, native_buffer);
   return nullptr;
 }
 
@@ -1732,8 +1749,10 @@ napi_value PlatformViewOHOSNapi::nativeSetTextureBackGroundPixelMap(
   NAPI_CALL(env, napi_get_value_int64(env, args[0], &shell_holder));
   NAPI_CALL(env, napi_get_value_int64(env, args[1], &textureId));
   NativePixelMap* nativePixelMap = OH_PixelMap_InitNativePixelMap(env, args[2]);
+  OH_NativeBuffer* native_buffer = GetNativeBufferFromPixelMap(env, args[2]);
+
   OHOS_SHELL_HOLDER->GetPlatformView()->SetExternalTextureBackGroundPixelMap(
-      textureId, nativePixelMap);
+      textureId, nativePixelMap, native_buffer);
   return nullptr;
 }
 
