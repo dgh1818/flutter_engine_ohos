@@ -22,8 +22,6 @@
 #include "flutter/lib/ui/window/platform_message.h"
 #include "napi/native_api.h"
 
-#include "flutter/shell/platform/ohos/accessibility/ohos_accessibility_features.h"
-
 // class for all c++ to call js function
 namespace flutter {
 

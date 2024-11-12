@@ -53,7 +53,8 @@ class OHOSExternalTexture : public flutter::Texture {
 
   uint64_t GetProducerWindowId();
 
-  bool SetPixelMapAsProducer(NativePixelMap* pixelMap);
+  bool SetPixelMapAsProducer(NativePixelMap* pixelMap,
+                             OH_NativeBuffer* pixelMap_native_buffer);
 
   bool SetProducerWindowSize(int width, int height);
 
