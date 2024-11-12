@@ -184,7 +184,7 @@ export struct FlutterPage {
   @State checkKeyboard: boolean = true;
   @State checkGesture: boolean = true;
   @State checkMouseWheel: boolean = true;
-  @State checkAiBar: boolean = false;
+  @State checkAiBar: boolean = true;
 
   @StorageLink('nodeWidth') storageLinkWidth: number = 0;
   @StorageLink('nodeHeight') storageLinkHeight: number = 0;
