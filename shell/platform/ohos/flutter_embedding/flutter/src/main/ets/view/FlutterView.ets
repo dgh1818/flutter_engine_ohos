@@ -111,7 +111,7 @@ export class FlutterView {
   private checkFullScreen: boolean = true;
   private checkKeyboard: boolean = true;
   private checkGesture: boolean = true;
-  private checkAiBar: boolean = false;
+  private checkAiBar: boolean = true;
   private systemAvoidArea: window.AvoidArea;
   private navigationAvoidArea: window.AvoidArea;
   private gestureAvoidArea: window.AvoidArea;
