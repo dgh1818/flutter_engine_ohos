@@ -18,6 +18,7 @@ import { FlutterView } from '../../view/FlutterView';
 import UIAbility from '@ohos.app.ability.UIAbility';
 import window from '@ohos.window';
 import Log from '../../util/Log';
+import HashMap from '@ohos.util.HashMap';
 import List from '@ohos.util.List';
 
 const TAG = "FlutterManager"
@@ -37,25 +38,75 @@ export default class FlutterManager {
   private uiAbilityList = new Array<UIAbility>();
   private windowStageList = new Map<UIAbility, window.WindowStage>();
   private mFullScreenListener: FullScreenListener = new DefaultFullScreenListener();
-  private dragEnterCbs: List<DragDropCallback> = new List();
-  private dragMoveCbs: List<DragDropCallback> = new List();
-  private dragLeaveCbs: List<DragDropCallback> = new List();
-  private dropCbs: List<DragDropCallback> = new List();
 
-  getDragEnterCbs() {
-    return this.dragEnterCbs;
+  private dragEnterCbId: number = 1;
+  private dragMoveCbId: number = 1;
+  private dragLeaveCbId: number = 1;
+  private dropCbId: number = 1;
+
+  private dragEnterCbs: HashMap<number, DragDropCallback> = new HashMap();
+  private dragMoveCbs: HashMap<number, DragDropCallback> = new HashMap();
+  private dragLeaveCbs: HashMap<number, DragDropCallback> = new HashMap();
+  private dropCbs: HashMap<number, DragDropCallback> = new HashMap();
+
+  private getValuesFromMap(map: HashMap<number, DragDropCallback>): List<DragDropCallback> {
+    let list: List<DragDropCallback> = new List();
+    map.forEach((value, key) => {
+      list.add(value);
+    });
+    return list;
   }
 
-  getDragMoveCbs() {
-    return this.dragMoveCbs;
+  getDragEnterCbs(): List<DragDropCallback> {
+    return this.getValuesFromMap(this.dragEnterCbs);
   }
 
-  getDragLeaveCbs() {
-    return this.dragLeaveCbs;
+  getDragMoveCbs(): List<DragDropCallback> {
+    return this.getValuesFromMap(this.dragMoveCbs);
   }
 
-  getDropCbs() {
-    return this.dropCbs;
+  getDragLeaveCbs(): List<DragDropCallback> {
+    return this.getValuesFromMap(this.dragLeaveCbs);
+  }
+
+  getDropCbs(): List<DragDropCallback> {
+    return this.getValuesFromMap(this.dropCbs);
+  }
+
+  addDragEnterCb(callback: DragDropCallback): number {
+    this.dragEnterCbs.set(this.dragEnterCbId, callback);
+    return this.dragEnterCbId++;
+  }
+
+  addDragMoveCb(callback: DragDropCallback): number {
+    this.dragMoveCbs.set(this.dragMoveCbId, callback);
+    return this.dragMoveCbId++;
+  }
+
+  addDragLeaveCb(callback: DragDropCallback): number {
+    this.dragLeaveCbs.set(this.dragLeaveCbId, callback);
+    return this.dragLeaveCbId++;
+  }
+
+  addDropCb(callback: DragDropCallback): number {
+    this.dropCbs.set(this.dropCbId, callback);
+    return this.dropCbId++;
+  }
+
+  removeDragEnterCb(id: number) {
+    this.dragEnterCbs.remove(id);
+  }
+
+  removeDragMoveCb(id: number) {
+    this.dragMoveCbs.remove(id);
+  }
+
+  removeDragLeaveCb(id: number) {
+    this.dragLeaveCbs.remove(id);
+  }
+
+  removeDropCb(id: number) {
+    this.dropCbs.remove(id);
   }
 
   pushUIAbility(uiAbility: UIAbility) {
