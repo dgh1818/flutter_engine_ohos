@@ -518,6 +518,22 @@ const vk::Device& ContextVK::GetDevice() const {
   return device_holder_->device.get();
 }
 
+void ContextVK::WaitIdle() const {
+  // vkDeviceWaitIdle is equivalent to calling vkQueueWaitIdle on all queues.
+  // We must call vkQueueWaitIdle to acquire the queue lock, ensuring that the
+  // queue is not accessed concurrently.
+  if (queues_.graphics_queue) {
+    queues_.graphics_queue->WaitIdle();
+  }
+  if (queues_.compute_queue) {
+    queues_.compute_queue->WaitIdle();
+  }
+  if (queues_.transfer_queue) {
+    queues_.transfer_queue->WaitIdle();
+  }
+  return;
+}
+
 const std::shared_ptr<fml::ConcurrentTaskRunner>
 ContextVK::GetConcurrentWorkerTaskRunner() const {
   return raster_message_loop_->GetTaskRunner();
