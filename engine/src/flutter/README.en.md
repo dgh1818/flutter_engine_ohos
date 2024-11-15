@@ -23,14 +23,6 @@ This repository is an extension of the Flutter engine repository. It enables Flu
    sudo apt install ninja-build
    ```
 
-   Configure `node`. Specifically, download `node`, unzip it, and configure it into environment variables.
-
-   ```
-   # nodejs
-   export NODE_HOME=/home/<user>/env/node-v14.19.1-linux-x64
-   export PATH=$NODE_HOME/bin:$PATH
-   ```
-
    For Windows:
    Refer to the section "Compiling for Windows"
    in the [official document](https://github.com/flutter/flutter/wiki/Compiling-the-engine#compiling-for-windows).
@@ -43,7 +35,7 @@ This repository is an extension of the Flutter engine repository. It enables Flu
    {
       "managed": False,
       "name": "src/flutter",
-      "url": "git@gitee.com:openharmony-sig/flutter_engine.git",
+      "url": "git@gitee.com:harmonycommando_flutter/flutter_engine.git@oh-3.22.0",
       "custom_deps": {},
       "deps_file": "DEPS",
       "safesync_url": "",
@@ -65,12 +57,17 @@ This repository is an extension of the Flutter engine repository. It enables Flu
    ```
 
 5. Start building. In the **engine** directory, execute `./ohos` to start building the Flutter engine that supports ohos devices.
-   
+Starting from version 3.22.0, the engine compilation will by default compile both the `local-engine` and `local-host-engine`. When the SDK specifies local compiled artifacts, it must specify both of these compiled artifacts. For example:
+
+   ```shell
+   flutter build hap --target-platform ohos-arm64 --release --local-engine=<DIR>/engine/src/out/ohos_release_arm64/ --local-engine-host=<DIR>/engine/src/out/host_release
+   ```
+
 6. Update the code. In the **engine** directory, execute `./ohos -b master`.
 
-## Engine Build Products
+- Manual code update method (after completing at least one full `gclient sync`):
+   * Navigate directly to the `engine/src/flutter` directory. After ensuring that the current code update does not involve any patches, you may freely edit or switch code branches, and then execute the build command. If patches are involved, you can manually apply the relevant patches or refer to FAQ.7 to batch reverse and reapply patches.
 
-  See [Build Products](https://docs.qq.com/sheet/DUnljRVBYUWZKZEtF?tab=BB08J2).
 
 ## FAQs
 1. The message `Member notfound:'isOhos'` is reported during project running.<br>Install all dart patches in the **src/third_party/dart** directory. (The patches are located in the **src/flutter/attachment/repos** directory, and you can use **git apply** to apply the patches). Recompile the engine after installing the patches.
@@ -90,6 +87,34 @@ This repository is an extension of the Flutter engine repository. It enables Flu
    Here, **xxx** is the engine path you created.
 
    If the obtained value is not **8af474944053df1f0a3be6e6165fa7cf**, check whether all lines of the **xxx/src/third_party/dart/runtime/vm/dart.cc** file and the **xxx/src/third_party/dart/runtime/vm/image_snapshot.cc** file end with **LF**. For Windows, you can use **Notepad++** to check; for other systems, consult specific methods on your own.
+
+6. After modifying the embedding layer code, running `./ohos` does not take effect. You need to modify the timestamp of any file in the C++ layer for the build system to recognize it (e.g., add a space in any C++ file, save it, then remove the space and save again). Re-run the build to trigger the embedding layer to be repackaged.
+
+7. Method to manually reapply patches:
+
+   ```shell
+   python engine/src/flutter/attachment/scripts/ohos_reverse_patch.py
+   python engine/src/flutter/attachment/scripts/ohos_setup.py
+   ```
+
+8. Configure automatic code navigation
+
+   It is recommended to use the `vscode+clangd` plugin (note: it conflicts with C/C++ IntelliSense).
+   Example configuration:
+   ```json
+    "clangd.path": "./src/flutter/buildtools/linux-x64/clang/bin/clangd",
+    "clangd.arguments": [
+      "--compile-commands-dir=./src/out/ohos_release_arm64/",
+      "--query-driver=./src/flutter/buildtools/linux-x64/clang/bin/clang++"
+    ],
+    "C_Cpp.intelliSenseEngine": "disabled",
+   ```
+
+9. `gclient sync` error on Windows
+
+   Key error message: `'A required privilege is not held by the client'`
+
+   Solution: Go to Settings -> Developer Options -> Enable "Developer Mode"
 
 
 ## Code Building at the Embedding Layer
@@ -113,9 +138,5 @@ This repository is an extension of the Flutter engine repository. It enables Flu
     ```
 
 4. Find the HAR file from the path `shell/platform/ohos/flutter_embedding/flutter/build/default/outputs/default/flutter.har`.
-
-5. Rename the HAR file in the `flutter.har.BUILD_TYPE.API` format, where `BUILD_TYPE` indicates `debug`, `release`, or `profile`, and `API` indicates the current SDK version (for example, 11 indicates API version 11). For example, to build a debug version of API version 11, rename the file `flutter.har.debug.11`.
-
-6. Replace the corresponding file in the `flutter_flutter/packages/flutter_tools/templates/app_shared/ohos.tmpl/har/har_product.tmpl/` directory and execute the project again for the modification to take effect.
 
 If you are using DevEco Studio of a Beta version and encounter the error message `must have required property 'compatibleSdkVersion', location: build-profile.json5:17:11` when building the project, refer to the section "Configuring Plugins" in chapter 6 "Creating a Project and Runing Hello World" of *DevEco Studio Environment Setup.docx* to modify the **shell/platform/ohos/flutter_embedding/hvigor/hvigor-config.json5** file.
