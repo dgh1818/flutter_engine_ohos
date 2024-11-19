@@ -314,9 +314,7 @@ def addParseParam(parser):
       default="",
       help='Extra param to src/flutter/tools/gn. Such as: -g "\\--enable-unittests"',
   )
-  parser.add_argument(
-      "--ohos_api_int", type=int, choices=[11, 12, 13], default=12, help="Ohos api int."
-  )
+  parser.add_argument("--ohos_api_int", type=int, default=13, help="Ohos api int. Deprecated.")
   parser.add_argument("--har-unstripped", action="store_true", help="Use so.unstripped or not.")
 
 
