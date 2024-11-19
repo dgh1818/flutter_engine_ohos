@@ -687,4 +687,29 @@ void PlatformViewOHOS::OnTouchEvent(
   return napi_facade_->FlutterViewOnTouchEvent(touchPacketString, size);
 }
 
+void PlatformViewOHOS::RunTask(OhosThreadType type, const fml::closure& task) {
+  fml::RefPtr<fml::TaskRunner> TaskRunnerPtr = nullptr;
+  switch (type) {
+    case OhosThreadType::kPlatform:
+      TaskRunnerPtr = task_runners_.GetPlatformTaskRunner();
+      break;
+    case OhosThreadType::kUI:
+      TaskRunnerPtr = task_runners_.GetUITaskRunner();
+      break;
+    case OhosThreadType::kRaster:
+      TaskRunnerPtr = task_runners_.GetRasterTaskRunner();
+      break;
+    case OhosThreadType::kIO:
+      TaskRunnerPtr = task_runners_.GetIOTaskRunner();
+      break;
+    default:
+      break;
+  }
+
+  if (!TaskRunnerPtr) {
+    return;
+  }
+
+  fml::TaskRunner::RunNowOrPostTask(TaskRunnerPtr, task);
+}
 }  // namespace flutter

@@ -33,7 +33,7 @@ void MessageLoopOhos::OnPollCallback(uv_poll_t* handle,
                                      int status,
                                      int events) {
   if (status < 0) {
-    FML_DLOG(ERROR) << "Poll error:" << uv_strerror(status);
+    FML_LOG(ERROR) << "Poll error:" << uv_strerror(status);
     return;
   }
 
