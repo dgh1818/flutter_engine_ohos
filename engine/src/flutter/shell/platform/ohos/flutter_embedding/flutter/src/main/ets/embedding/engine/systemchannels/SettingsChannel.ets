@@ -33,7 +33,7 @@ const PLATFORM_BRIGHTNESS = "platformBrightness";
 export default class SettingsChannel {
   private static CHANNEL_NAME = "flutter/settings";
   private channel: BasicMessageChannel<Object>;
-
+  
   constructor(dartExecutor: DartExecutor) {
     this.channel =
       new BasicMessageChannel<Object>(dartExecutor, SettingsChannel.CHANNEL_NAME, JSONMessageCodec.INSTANCE);
@@ -46,97 +46,55 @@ export default class SettingsChannel {
 
 class MessageBuilder {
   private channel: BasicMessageChannel<Object>;
-  private settingsMessage: SettingsMessage = new SettingsMessage();
+  private settingsMessage: Map<String, Object> = new Map<String, Object>([
+    [TEXT_SCALE_FACTOR, 1.0],
+    [NATIVE_SPELL_CHECK_SERVICE_DEFINED, false],
+    [BRIEFLY_SHOW_PASSWORD, false],
+    [ALWAYS_USE_24_HOUR_FORMAT, false],
+    [PLATFORM_BRIGHTNESS, PlatformBrightness.LIGHT]
+  ]);
 
   constructor(channel: BasicMessageChannel<Object>) {
     this.channel = channel;
   }
 
   setTextScaleFactor(textScaleFactor: Number): MessageBuilder {
-    this.settingsMessage.setTextScaleFactor(textScaleFactor);
+    this.settingsMessage.set(TEXT_SCALE_FACTOR, textScaleFactor);
     return this;
   }
 
   setNativeSpellCheckServiceDefined(nativeSpellCheckServiceDefined: boolean): MessageBuilder {
-    this.settingsMessage.setNativeSpellCheckServiceDefined(nativeSpellCheckServiceDefined);
+    this.settingsMessage.set(NATIVE_SPELL_CHECK_SERVICE_DEFINED, nativeSpellCheckServiceDefined);
     return this;
   }
 
   setBrieflyShowPassword(brieflyShowPassword: boolean): MessageBuilder {
-    this.settingsMessage.setBrieflyShowPassword(brieflyShowPassword);
+    this.settingsMessage.set(BRIEFLY_SHOW_PASSWORD, brieflyShowPassword);
     return this;
   }
 
   setAlwaysUse24HourFormat(alwaysUse24HourFormat: boolean): MessageBuilder {
-    this.settingsMessage.setAlwaysUse24HourFormat(alwaysUse24HourFormat);
+    this.settingsMessage.set(ALWAYS_USE_24_HOUR_FORMAT, alwaysUse24HourFormat);
     return this;
   }
 
   setPlatformBrightness(platformBrightness: PlatformBrightness): MessageBuilder {
-    this.settingsMessage.setPlatformBrightness(platformBrightness);
+    this.settingsMessage.set(PLATFORM_BRIGHTNESS, platformBrightness);
     return this;
   }
 
   send(): void {
     Log.i(TAG, "Sending message: "
       + TEXT_SCALE_FACTOR + " : "
-      + this.settingsMessage.getTextScaleFactor()
+      + this.settingsMessage.get(TEXT_SCALE_FACTOR)
       + ", " + NATIVE_SPELL_CHECK_SERVICE_DEFINED + " : "
-      + this.settingsMessage.getNativeSpellCheckServiceDefined()
+      + this.settingsMessage.get(NATIVE_SPELL_CHECK_SERVICE_DEFINED)
       + ", " + BRIEFLY_SHOW_PASSWORD + " : "
-      + this.settingsMessage.getBrieflyShowPassword()
+      + this.settingsMessage.get(BRIEFLY_SHOW_PASSWORD)
       + ", " + ALWAYS_USE_24_HOUR_FORMAT + " : "
-      + this.settingsMessage.getAlwaysUse24HourFormat()
+      + this.settingsMessage.get(ALWAYS_USE_24_HOUR_FORMAT)
       + ", " + PLATFORM_BRIGHTNESS + " : "
-      + this.settingsMessage.getPlatformBrightness());
+      + this.settingsMessage.get(PLATFORM_BRIGHTNESS));
     this.channel.send(this.settingsMessage)
-  }
-}
-
-class SettingsMessage {
-  private textScaleFactor: Number = 1.0;
-  private nativeSpellCheckServiceDefined: boolean = false;
-  private brieflyShowPassword: boolean = false;
-  private alwaysUse24HourFormat: boolean = false;
-  private platformBrightness: PlatformBrightness = PlatformBrightness.LIGHT;
-
-  setTextScaleFactor(textScaleFactor: Number): void {
-    this.textScaleFactor = textScaleFactor;
-  }
-
-  setNativeSpellCheckServiceDefined(nativeSpellCheckServiceDefined: boolean): void {
-    this.nativeSpellCheckServiceDefined = nativeSpellCheckServiceDefined;
-  }
-
-  setBrieflyShowPassword(brieflyShowPassword: boolean): void {
-    this.brieflyShowPassword = brieflyShowPassword;
-  }
-
-  setAlwaysUse24HourFormat(alwaysUse24HourFormat: boolean): void {
-    this.alwaysUse24HourFormat = alwaysUse24HourFormat;
-  }
-
-  setPlatformBrightness(platformBrightness: PlatformBrightness): void {
-    this.platformBrightness = platformBrightness;
-  }
-
-  getTextScaleFactor(): Number {
-    return this.textScaleFactor;
-  }
-
-  getNativeSpellCheckServiceDefined(): boolean {
-    return this.nativeSpellCheckServiceDefined;
-  }
-
-  getBrieflyShowPassword(): boolean {
-    return this.brieflyShowPassword;
-  }
-
-  getAlwaysUse24HourFormat(): boolean {
-    return this.alwaysUse24HourFormat;
-  }
-
-  getPlatformBrightness(): PlatformBrightness {
-    return this.platformBrightness;
   }
 }
