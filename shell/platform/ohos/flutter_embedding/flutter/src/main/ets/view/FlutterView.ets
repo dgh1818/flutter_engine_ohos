@@ -144,7 +144,7 @@ export class FlutterView {
     this.gestureAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM_GESTURE);
     this.keyboardAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_KEYBOARD);
 
-    //监听系统设置显示大小改变
+    // Subscribes to display changes. Example: event that the display size is changed.
     try {
       display.on("change", this.displayChangeCallback);
     } catch (e) {
