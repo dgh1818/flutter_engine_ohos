@@ -179,10 +179,15 @@ export class FlutterView {
 
   private displayChangeCallback = (data: number) => {
     this.displayInfo = display.getDefaultDisplaySync();
-    this.viewportMetrics.devicePixelRatio = this.displayInfo?.densityPixels;
-    this.viewportMetrics.physicalTouchSlop = 1.0 * this.displayInfo?.densityPixels;
+    let devicePixelRatio: number = this.displayInfo?.densityPixels;
+    let physicalTouchSlop: number = 1.0 * this.displayInfo?.densityPixels;;
     Log.i(TAG, "Display on: " + JSON.stringify(this.displayInfo) + ". Display id:" + JSON.stringify(data))
-    this.updateViewportMetrics()
+    if (devicePixelRatio != this.viewportMetrics.devicePixelRatio || this.viewportMetrics.physicalTouchSlop != physicalTouchSlop) {
+      this.viewportMetrics.devicePixelRatio = devicePixelRatio;
+      this.viewportMetrics.physicalTouchSlop = physicalTouchSlop
+      this.needSetViewport = true;
+      this.onAreaChange(null);
+    }
   }
 
   getId(): string {
@@ -365,6 +370,8 @@ export class FlutterView {
     if (!this.viewportMetrics.isEqual(originalMetrics) || this.needSetViewport) {
       if (!this.updateViewportMetrics()) {
         this.needSetViewport = true;
+      } else {
+        this.needSetViewport = false;
       }
     }
   }
