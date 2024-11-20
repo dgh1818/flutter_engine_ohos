@@ -147,7 +147,8 @@ void OHOSExternalTexture::MarkNewFrameAvailable() {
     // space in the queue, preventing the producer side from stalling.
     int max_jank_frame = buffer_queue_size * 2 / 3;
     while (max_jank_frame > 1 &&
-           now_new_frame_seq_num_ - now_paint_frame_seq_num_ > max_jank_frame) {
+           now_new_frame_seq_num_ - now_paint_frame_seq_num_ >=
+               max_jank_frame) {
       OHNativeWindowBuffer* buffer = nullptr;
       int fence_fd;
       ret = OH_NativeImage_AcquireNativeWindowBuffer(native_image_source_,
