@@ -983,7 +983,7 @@ napi_value PlatformViewOHOSNapi::nativeSetViewportMetrics(
     LOGD(" %{public}ld", featurestate);
   }
 
-  const flutter::ViewportMetrics metrics{
+  flutter::ViewportMetrics metrics{
       static_cast<double>(devicePixelRatio),
       static_cast<double>(physicalWidth),
       static_cast<double>(physicalHeight),
@@ -1737,27 +1737,33 @@ napi_value PlatformViewOHOSNapi::nativeSetTextureBackGroundPixelMap(
   return nullptr;
 }
 
-void PlatformViewOHOSNapi::SurfaceCreated(int64_t shell_holder, void* window) {
+void PlatformViewOHOSNapi::SurfaceCreated(int64_t shell_holder,
+                                          void* window,
+                                          int width,
+                                          int height) {
   auto native_window = fml::MakeRefCounted<OHOSNativeWindow>(
       static_cast<OHNativeWindow*>(window));
+  OHOS_SHELL_HOLDER->GetPlatformView()->UpdateDisplaySize(width, height);
   OHOS_SHELL_HOLDER->GetPlatformView()->NotifyCreate(std::move(native_window));
 }
 
 void PlatformViewOHOSNapi::SurfacePreload(int64_t shell_holder,
                                           int width,
                                           int height) {
+  OHOS_SHELL_HOLDER->GetPlatformView()->UpdateDisplaySize(width, height);
   OHOS_SHELL_HOLDER->GetPlatformView()->Preload(width, height);
 }
 
-void PlatformViewOHOSNapi::SurfaceChanged(int64_t shell_holder, void* window) {
+void PlatformViewOHOSNapi::SurfaceChanged(int64_t shell_holder,
+                                          void* window,
+                                          int width,
+                                          int height) {
   FML_LOG(INFO) << "impeller" << "SurfaceChanged:";
   auto native_window = fml::MakeRefCounted<OHOSNativeWindow>(
       static_cast<OHNativeWindow*>(window));
+  OHOS_SHELL_HOLDER->GetPlatformView()->UpdateDisplaySize(width, height);
   OHOS_SHELL_HOLDER->GetPlatformView()->NotifySurfaceWindowChanged(
       native_window);
-  auto size = native_window->GetSize();
-  display_width = size.width();
-  display_height = size.height();
 }
 
 void PlatformViewOHOSNapi::SurfaceDestroyed(int64_t shell_holder) {

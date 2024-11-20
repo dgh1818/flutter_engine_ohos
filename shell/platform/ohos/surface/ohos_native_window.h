@@ -37,10 +37,12 @@ class OHOSNativeWindow : public fml::RefCountedThreadSafe<OHOSNativeWindow> {
 
   SkISize GetSize() const;
 
+  void SetSize(int width, int height);
+
   Handle handle() const;
 
-  /// Returns true when this HarmonyOSNativeWindow is not backed by a real window
-  /// (used for testing).
+  /// Returns true when this HarmonyOS NativeWindow is not backed by a real
+  /// window (used for testing).
   bool IsFakeWindow() const { return is_fake_window_; }
 
  private:
