@@ -257,7 +257,16 @@ class CapabilitiesVK final : public Capabilities,
       required_android_device_extensions_;
   std::set<RequiredOHOSDeviceExtensionVK> required_ohos_device_extensions_;
   std::set<OptionalDeviceExtensionVK> optional_device_extensions_;
+#ifdef OHOS_PLATFORM
+  // This format is set during swapchain initialization and is used for creating
+  // offscreen textures. On OHOS, offscreen textures are created before the
+  // swapchain is initialized due to pipeline preloading. In such cases, the
+  // texture format is undefined, violating Vulkan specifications. To prevent
+  // this, a default value is assigned.
+  mutable PixelFormat default_color_format_ = PixelFormat::kR8G8B8A8UNormInt;
+#else
   mutable PixelFormat default_color_format_ = PixelFormat::kUnknown;
+#endif
   PixelFormat default_stencil_format_ = PixelFormat::kUnknown;
   PixelFormat default_depth_stencil_format_ = PixelFormat::kUnknown;
   vk::PhysicalDeviceProperties device_properties_;
