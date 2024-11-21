@@ -16,8 +16,7 @@
 import TextInputChannel, {
   Configuration,
   TextEditState,
-  TextInputMethodHandler,
-  TextInputType
+  TextInputMethodHandler
 } from '../../embedding/engine/systemchannels/TextInputChannel';
 import inputMethod from '@ohos.inputMethod';
 import Log from '../../util/Log';
@@ -83,7 +82,6 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   mEditable: ListenableEditingState;
   private mRestartInputPending: boolean = false;
   private plugin: EditingStateWatcher | Any;
-  private inputTypeNone: string = 'NONE'
   private keyboardStatus: inputMethod.KeyboardStatus = inputMethod.KeyboardStatus.HIDE;
   private inputAttribute: inputMethod.InputAttribute = { textInputType: 0, enterKeyType: 1 }
 
@@ -175,12 +173,10 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   }
 
   setTextInputClient(client: number, configuration: Configuration | null): void {
-    const INPUT_TYPE_NAME =
-      ['NONE', 'TEXT', 'MULTILINE', 'NUMBER', 'PHONE', 'DATETIME', 'EMAIL_ADDRESS', 'URL', 'VISIBLE_PASSWORD']
     if (configuration) {
       this.configuration = configuration;
       if (configuration.inputType) {
-        this.textConfig.inputAttribute.textInputType = INPUT_TYPE_NAME.indexOf(configuration.inputType.type) - 1
+        this.textConfig.inputAttribute.textInputType = configuration.inputType.type;
         this.textConfig.inputAttribute.enterKeyType = configuration.inputAction as Any;
       }
     }
@@ -205,7 +201,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     if (this.configuration == null || this.configuration.inputType == null) {
       return true;
     }
-    return this.configuration.inputType.type != this.inputTypeNone;
+    return this.configuration.inputType.type != inputMethod.TextInputType.NONE;
   }
 
   listenKeyBoardEvent(): void {
