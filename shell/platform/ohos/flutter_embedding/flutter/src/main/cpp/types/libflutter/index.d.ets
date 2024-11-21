@@ -20,14 +20,6 @@ import FlutterNapi from '../../../ets/embedding/engine/FlutterNapi';
 import { ByteBuffer } from '../../../ets/util/ByteBuffer';
 import { FlutterCallbackInformation } from '../../../ets/view/FlutterCallbackInformation';
 
-export const getContext: (a: number) => napiContext;
-
-export class napiContext {
-  onPageShow(): void;
-
-  onPageHide(): void;
-}
-
 /**
  * 设置刷新率
  */
