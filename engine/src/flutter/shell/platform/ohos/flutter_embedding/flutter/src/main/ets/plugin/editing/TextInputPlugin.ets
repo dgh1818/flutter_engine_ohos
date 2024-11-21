@@ -153,11 +153,6 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
 
   private async hideTextInput(): Promise<void> {
     this.inputMethodController.detach();
-    /**
-     * When hiding keyboard on HarmonyOS, the current input widget will be unfocused.
-     * To keep the same behavior with HarmonyOS, send removeFocus to Flutter app.
-     */
-    this.mEditable.removeFocus();
   }
 
   async attach(showKeyboard: boolean): Promise<void> {
