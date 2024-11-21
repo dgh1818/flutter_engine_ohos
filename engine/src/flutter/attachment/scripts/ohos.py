@@ -350,19 +350,6 @@ def buildLocalEngine(buildType, extraParam):
       checkCode=False,
       timeout=600,
   )
-  outputName = "host_%s%s" % (buildType, "_unopt" if buildType != "profile" else "")
-  runCommand("ninja -C %s" % os.path.join("src", "out", outputName))
-
-
-def buildLocalEngine(buildType, extraParam):
-  OPT = "--unoptimized --no-lto " if buildType == "debug" else ""
-  runCommand(
-      "%s " % os.path.join("src", "flutter", "tools", "gn") + "--runtime-mode %s " % buildType +
-      OPT + "--no-goma " + "--no-prebuilt-dart-sdk " + "--disable-desktop-embeddings " +
-      "--no-build-embedder-examples " + "--verbose " + extraParam.replace("\\", ""),
-      checkCode=False,
-      timeout=600,
-  )
   outputName = "host_%s%s" % (buildType, "_unopt" if buildType == "debug" else "")
   runCommand("ninja -C %s" % os.path.join("src", "out", outputName))
 
