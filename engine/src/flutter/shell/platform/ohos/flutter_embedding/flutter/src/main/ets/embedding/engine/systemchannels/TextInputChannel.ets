@@ -192,7 +192,6 @@ export class Configuration {
   enableSuggestions: boolean = false;
   enableIMEPersonalizedLearning: boolean = false;
   enableDeltaModel: boolean = false;
-  textCapitalization: TextCapitalization | null = null;
   inputType: InputType | null = null;
   inputAction: Number = 0;
   actionLabel: String = "";
@@ -204,7 +203,6 @@ export class Configuration {
     enableSuggestions: boolean,
     enableIMEPersonalizedLearning: boolean,
     enableDeltaModel: boolean,
-    textCapitalization: TextCapitalization,
     inputType: InputType,
     inputAction: Number,
     actionLabel: String,
@@ -216,7 +214,6 @@ export class Configuration {
     this.autocorrect = autocorrect;
     this.enableSuggestions = enableSuggestions;
     this.enableIMEPersonalizedLearning = enableIMEPersonalizedLearning;
-    this.textCapitalization = textCapitalization
     this.enableDeltaModel = enableDeltaModel;
     this.inputType = inputType;
     this.inputAction = inputAction;
@@ -225,16 +222,6 @@ export class Configuration {
     this.contentCommitMimeTypes = contentListString;
     this.fields = fields
 
-  }
-
-  static getTextCapitalizationFromValue(encodedName: string): TextCapitalization {
-    let textKeys = ["CHARACTERS", "WORDS", "SENTENCES", "NONE"];
-    for (let textKey of textKeys) {
-      if (TextCapitalization[textKey] === encodedName) {
-        return textKey as TextCapitalization;
-      }
-    }
-    throw new Error("No such TextCapitalization: " + encodedName);
   }
 
   private static inputActionFromTextInputAction(inputActionName: string): number {
@@ -289,7 +276,6 @@ export class Configuration {
       json.enableSuggestions ?? false,
       json.enableIMEPersonalizedLearning ?? false,
       json.enableDeltaModel ?? false,
-      Configuration.getTextCapitalizationFromValue(json.textCapitalization),
       InputType.fromJson(json.inputType),
       inputAction,
       json.actionLabel ?? null,
@@ -300,53 +286,36 @@ export class Configuration {
   }
 }
 
-enum TextCapitalization {
-  CHARACTERS = "TextCapitalization.characters",
-  WORDS = "TextCapitalization.words",
-  SENTENCES = "TextCapitalization.sentences",
-  NONE = "TextCapitalization.none",
-}
-
-export enum TextInputType {
-  TEXT = "TextInputType.text",
-  DATETIME = "TextInputType.datetime",
-  NAME = "TextInputType.name",
-  POSTAL_ADDRESS = "TextInputType.address",
-  NUMBER = "TextInputType.number",
-  PHONE = "TextInputType.phone",
-  MULTILINE = "TextInputType.multiline",
-  EMAIL_ADDRESS = "TextInputType.emailAddress",
-  URL = "TextInputType.url",
-  VISIBLE_PASSWORD = "TextInputType.visiblePassword",
-  NONE = "TextInputType.none",
-}
+const TextInputType: Map<String, inputMethod.TextInputType> = new Map<String, inputMethod.TextInputType>([
+  ["TextInputType.none", inputMethod.TextInputType.NONE],
+  ["TextInputType.text", inputMethod.TextInputType.TEXT],
+  ["TextInputType.multiline", inputMethod.TextInputType.MULTILINE],
+  ["TextInputType.number", inputMethod.TextInputType.NUMBER],
+  ["TextInputType.phone", inputMethod.TextInputType.PHONE],
+  ["TextInputType.datetime", inputMethod.TextInputType.DATETIME],
+  ["TextInputType.emailAddress", inputMethod.TextInputType.EMAIL_ADDRESS],
+  ["TextInputType.url", inputMethod.TextInputType.URL],
+  ["TextInputType.visiblePassword", inputMethod.TextInputType.VISIBLE_PASSWORD],
+  ["TextInputType.numberPassword", inputMethod.TextInputType.NUMBER_PASSWORD]
+]);
 
 export class InputType {
-  type: TextInputType;
+  type: inputMethod.TextInputType;
   isSigned: boolean;
   isDecimal: boolean;
 
-  constructor(type: TextInputType, isSigned: boolean, isDecimal: boolean) {
+  constructor(type: inputMethod.TextInputType, isSigned: boolean, isDecimal: boolean) {
     this.type = type;
     this.isSigned = isSigned;
     this.isDecimal = isDecimal;
   }
 
   static fromJson(json: Any): InputType {
-    return new InputType(InputType.getTextInputTypeFromValue(json.name as string),
-      json.signed as boolean, json.decimal as boolean)
-  }
-
-  static getTextInputTypeFromValue(encodedName: string): TextInputType {
-    let textKeys =
-      ["TEXT", "DATETIME", "NAME", "POSTAL_ADDRESS", "NUMBER", "PHONE", "MULTILINE", "EMAIL_ADDRESS", "URL",
-        "VISIBLE_PASSWORD", "NONE",];
-    for (let textKey of textKeys) {
-      if (TextInputType[textKey] === encodedName) {
-        return textKey as TextInputType;
-      }
+    if (TextInputType.has(json.name as string)) {
+      return new InputType(TextInputType.get(json.name as string) as inputMethod.TextInputType,
+        json.signed as boolean, json.decimal as boolean)
     }
-    throw new Error("No such TextInputType: " + encodedName);
+    throw new Error("No such TextInputType: " + json.name as string);
   }
 }
 
