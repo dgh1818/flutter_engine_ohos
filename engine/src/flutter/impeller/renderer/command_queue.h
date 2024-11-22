@@ -45,28 +45,6 @@ class CommandQueue {
       const std::vector<std::shared_ptr<CommandBuffer>>& buffers,
       const CompletionCallback& completion_callback = {});
 
-#ifdef OHOS_PLATFORM
-  /// @brief Add the following semaphores to the next submit task of the
-  ///        CommandQueue (for Vulkan only), allowing certain tasks to be
-  ///        synchronized.
-  ///        Since various rendering tasks are not immediately sent to the GPU,
-  ///        such a function is needed to achieve synchronization between task
-  ///        submission and execution.
-  /// @param wait_semaphore is the semaphore that the task needs to wait for.
-  /// @param signal_semaphore is the semaphore that will be triggered after the
-  ///                         task is completed on the GPU.
-  /// @param completion_callback is the callback after the task is completed on
-  ///                            the GPU side and it will be invoked on the
-  ///                            fence-wait thread.
-  /// @param submit_callback is the callback after the task submission and it
-  ///                        will be invoked on raster thread.
-  virtual void AddNextSemaphores(
-      vk::Semaphore& wait_semaphore,
-      vk::Semaphore& signal_semaphore,
-      const CompletionCallback& completion_callback = {},
-      const CompletionCallback& submit_callback = {}) {};
-#endif
-
  private:
   CommandQueue(const CommandQueue&) = delete;
 
