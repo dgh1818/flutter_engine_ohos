@@ -73,8 +73,19 @@ class PlatformViewOHOS final : public PlatformView {
 
   void NotifyChanged(const SkISize& size);
 
+  /**
+   * @brief Update the size of the current Flutter window. This function will
+   * also synchronize the viewport size.
+   *
+   * @param width
+   * @param height
+   */
+  void UpdateDisplaySize(int width, int height);
+
   // |PlatformView|
   void NotifyDestroyed() override;
+
+  void SetViewportMetrics(int64_t view_id, ViewportMetrics& metrics);
 
   // todo
   void DispatchPlatformMessage(std::string name,
@@ -149,6 +160,12 @@ class PlatformViewOHOS final : public PlatformView {
 
   std::shared_ptr<OhosSurfaceFactoryImpl> surface_factory_;
   std::map<int64_t, std::shared_ptr<OHOSExternalTexture>> all_external_texture_;
+
+  // viewport will use this size
+  int display_width_ = 0;
+  int display_height_ = 0;
+
+  ViewportMetrics viewport_metrics_;
 
   bool window_is_preload_ = false;
 

@@ -15,6 +15,7 @@
 
 #include "flutter/shell/platform/ohos/platform_view_ohos.h"
 #include <native_image/native_image.h>
+#include "flutter/common/constants.h"
 #include "flutter/fml/make_copyable.h"
 #include "flutter/impeller/renderer/backend/vulkan/context_vk.h"
 #include "flutter/lib/ui/window/viewport_metrics.h"
@@ -196,13 +197,25 @@ void PlatformViewOHOS::Preload(int width, int height) {
 void PlatformViewOHOS::NotifySurfaceWindowChanged(
     fml::RefPtr<OHOSNativeWindow> native_window) {
   LOGI("PlatformViewOHOS NotifySurfaceWindowChanged enter");
+  TRACE_EVENT0("flutter", "NotifySurfaceWindowChanged");
   if (ohos_surface_) {
     fml::AutoResetWaitableEvent latch;
     fml::TaskRunner::RunNowOrPostTask(
         task_runners_.GetRasterTaskRunner(),
-        [&latch, surface = ohos_surface_.get(),
+        [&latch, width = display_width_, height = display_height_,
+         surface = ohos_surface_.get(),
          native_window = std::move(native_window)]() {
-          surface->SetDisplayWindow(native_window);
+          if (native_window) {
+            // Reset the window size here to prevent the window size from being
+            // unsynchronized when the XComponent size changes.
+            // Note: Setting the window size in the platform thread may not take
+            // effect because Vulkan might request the buffer using the
+            // previously configured size before raster reaches this point,
+            // causing the window size to revert to its original value during
+            // the process.
+            native_window->SetSize(width, height);
+            surface->SetDisplayWindow(native_window);
+          }
           latch.Signal();
         });
     latch.Wait();
@@ -220,6 +233,18 @@ void PlatformViewOHOS::NotifyChanged(const SkISize& size) {
           latch.Signal();
         });
     latch.Wait();
+  }
+}
+
+void PlatformViewOHOS::UpdateDisplaySize(int width, int height) {
+  if (display_width_ != width || display_height_ != height) {
+    display_width_ = width;
+    display_height_ = height;
+    // Here, we update the viewport to ensure that the size of the window buffer
+    // matches the size of the viewport. This prevents stretching or
+    // compression, which can occur if the physical size of the viewport differs
+    // from the window size.
+    SetViewportMetrics(kFlutterImplicitViewId, viewport_metrics_);
   }
 }
 
@@ -255,6 +280,27 @@ void PlatformViewOHOS::NotifyDestroyed() {
         });
     latch.Wait();
   }
+}
+
+void PlatformViewOHOS::SetViewportMetrics(int64_t view_id,
+                                          ViewportMetrics& metrics) {
+  if (display_width_ != 0 && display_height_ != 0) {
+    // Note: Size change notifications from ArkUI are sent tens of milliseconds
+    // after the window size changes. Using them for updates may cause visual
+    // anomalies.
+    // We use the previously set window size as the physical_size instead of the
+    // provided one to ensure that the viewport size matches the buffer size
+    // (avoiding screen stretching). As a result, size updates from the ArkUI
+    // layer will not take effect.
+    metrics.physical_width = display_width_;
+    metrics.physical_height = display_height_;
+  }
+  FML_LOG(INFO) << "SetViewportMetrics physical size: "
+                << metrics.physical_width << "," << metrics.physical_height
+                << " display size: " << display_width_ << ","
+                << display_height_;
+  viewport_metrics_ = metrics;
+  PlatformView::SetViewportMetrics(view_id, metrics);
 }
 
 // todo
