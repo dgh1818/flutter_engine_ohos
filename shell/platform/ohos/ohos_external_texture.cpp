@@ -9,6 +9,8 @@
 #include <poll.h>
 #include <cerrno>
 #include <cstdint>
+#include <string>
+#include "fml/trace_event.h"
 #include "include/core/SkM44.h"
 #include "include/core/SkMatrix.h"
 
@@ -259,7 +261,10 @@ uint64_t OHOSExternalTexture::GetProducerWindowId() {
   return (uint64_t)producer_nativewindow_;
 }
 
-bool OHOSExternalTexture::SetPixelMapAsProducer(NativePixelMap* pixelMap) {
+bool OHOSExternalTexture::SetPixelMapAsProducer(
+    NativePixelMap* pixelMap,
+    OH_NativeBuffer* pixelMap_native_buffer) {
+  TRACE_EVENT0("flutter", "SetPixelMapAsProducer");
   int32_t ret = -1;
   OhosPixelMapInfos pixelmap_info;
   if (pixelMap == nullptr) {
@@ -273,6 +278,24 @@ bool OHOSExternalTexture::SetPixelMapAsProducer(NativePixelMap* pixelMap) {
                    << ret;
     return false;
   }
+
+  // we needn't do copy when NativeBuffer is available.
+  if (pixelMap_native_buffer != nullptr) {
+    DestroyPixelMapBuffer();
+    pixelmap_buffer_ = OH_NativeWindow_CreateNativeWindowBufferFromNativeBuffer(
+        pixelMap_native_buffer);
+    if (pixelmap_buffer_ != nullptr) {
+      pixelmap_native_buffer_ = pixelMap_native_buffer;
+      FML_LOG(INFO)
+          << "SetPixelMapAsProducer use direct native_buffer(without copy) "
+          << pixelmap_native_buffer_;
+      return true;
+    }
+    // when creating OHNativeWindowBuffer failed, we release the OH_NativeBuffer
+    // and go the copy path.
+    OH_NativeBuffer_Unreference(pixelMap_native_buffer);
+  }
+
   unsigned char* pixel_addr = nullptr;
   ret = OH_PixelMap_AccessPixels(pixelMap, (void**)&pixel_addr);
   if (ret != IMAGE_RESULT_SUCCESS || pixel_addr == nullptr) {
@@ -280,7 +303,14 @@ bool OHOSExternalTexture::SetPixelMapAsProducer(NativePixelMap* pixelMap) {
                    << ret;
     return false;
   }
-  FML_LOG(INFO) << "SetPixelMapAsProducer";
+
+  std::string trace_str = "SetPixelMapAsProducer(copy image size-" +
+                          std::to_string(pixelmap_info.width) + "*" +
+                          std::to_string(pixelmap_info.height) + " format " +
+                          std::to_string(pixelmap_info.pixelFormat) + ")";
+  TRACE_EVENT0("flutter", trace_str.c_str());
+
+  FML_LOG(INFO) << "SetPixelMapAsProducer with copy";
   bool end_ret = true;
   if (!CreatePixelMapBuffer(pixelmap_info.width, pixelmap_info.height,
                             pixelmap_info.pixelFormat) ||
@@ -555,58 +585,37 @@ bool OHOSExternalTexture::CreatePixelMapBuffer(int width,
     return false;
   }
 
-  OH_NativeImage* native_image =
-      OH_NativeImage_Create(0, GL_TEXTURE_EXTERNAL_OES);
-  if (native_image == nullptr) {
-    FML_LOG(ERROR) << "Error with OH_NativeImage_Create";
+  OH_NativeBuffer_Config config = {width, height, window_format,
+                                   NATIVEBUFFER_USAGE_HW_TEXTURE |
+                                       NATIVEBUFFER_USAGE_MEM_DMA |
+                                       NATIVEBUFFER_USAGE_CPU_WRITE,
+                                   0x8};
+
+  OH_NativeBuffer* native_buffer = OH_NativeBuffer_Alloc(&config);
+
+  if (native_buffer == nullptr) {
     return false;
   }
-
-  OHNativeWindow* native_window =
-      OH_NativeImage_AcquireNativeWindow(native_image);
-
-  if (native_window == nullptr ||
-      !SetWindowSize(native_window, width, height) ||
-      !SetWindowFormat(native_window, window_format) ||
-      !SetNativeWindowCPUAccess(native_window, true)) {
-    OH_NativeImage_Destroy(&native_image);
-    pixelmap_buffer_ = nullptr;
+  pixelmap_buffer_ =
+      OH_NativeWindow_CreateNativeWindowBufferFromNativeBuffer(native_buffer);
+  if (pixelmap_buffer_ == nullptr) {
+    OH_NativeBuffer_Unreference(native_buffer);
     return false;
   }
-
-  int ret = OH_NativeWindow_NativeWindowRequestBuffer(
-      native_window, &pixelmap_buffer_, &fence_fd);
-  if (ret != 0) {
-    FML_LOG(ERROR) << "OHOSExternalTexture "
-                      "OH_NativeWindow_NativeWindowRequestBuffer err:"
-                   << ret;
-    OH_NativeImage_Destroy(&native_image);
-    pixelmap_buffer_ = nullptr;
-    return false;
-  }
-  if (FdIsValid(fence_fd)) {
-    CPUWaitFence(fence_fd, -1);
-    close(fence_fd);
-  }
-  fence_fd = -1;
-  pixelmap_native_image_ = native_image;
-
+  pixelmap_native_buffer_ = native_buffer;
   return true;
 }
 
 void OHOSExternalTexture::DestroyPixelMapBuffer() {
   if (pixelmap_buffer_ != nullptr) {
-    OHNativeWindow* native_window =
-        OH_NativeImage_AcquireNativeWindow(pixelmap_native_image_);
-    if (native_window != nullptr && OH_NativeWindow_NativeWindowAbortBuffer(
-                                        native_window, pixelmap_buffer_) != 0) {
-      OH_NativeWindow_DestroyNativeWindowBuffer(pixelmap_buffer_);
-    }
-    OH_NativeImage_Destroy(&pixelmap_native_image_);
-    pixelmap_buffer_ = nullptr;
-    pixelmap_native_image_ = nullptr;
-    FML_LOG(INFO) << "DestroyPixelMapBuffer";
+    OH_NativeWindow_DestroyNativeWindowBuffer(pixelmap_buffer_);
   }
+  if (pixelmap_native_buffer_ != nullptr) {
+    OH_NativeBuffer_Unreference(pixelmap_native_buffer_);
+    FML_LOG(INFO) << "try DestroyPixelMapBuffer " << pixelmap_native_buffer_;
+  }
+  pixelmap_buffer_ = nullptr;
+  pixelmap_native_buffer_ = nullptr;
 }
 
 void OHOSExternalTexture::DestroyNativeImageSource() {

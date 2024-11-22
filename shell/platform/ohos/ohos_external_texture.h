@@ -53,7 +53,8 @@ class OHOSExternalTexture : public flutter::Texture {
 
   uint64_t GetProducerWindowId();
 
-  bool SetPixelMapAsProducer(NativePixelMap* pixelMap);
+  bool SetPixelMapAsProducer(NativePixelMap* pixelMap,
+                             OH_NativeBuffer* pixelMap_native_buffer);
 
   bool SetProducerWindowSize(int width, int height);
 
@@ -124,6 +125,7 @@ class OHOSExternalTexture : public flutter::Texture {
   int producer_nativewindow_height_ = 0;
   OHNativeWindow* producer_nativewindow_ = nullptr;
   OHNativeWindowBuffer* pixelmap_buffer_ = nullptr;
+  OH_NativeBuffer* pixelmap_native_buffer_ = nullptr;
 
   OHNativeWindowBuffer* last_native_window_buffer_ = nullptr;
   int last_fence_fd_ = -1;
@@ -134,8 +136,6 @@ class OHOSExternalTexture : public flutter::Texture {
 
   bool source_is_external_ = false;
   OH_NativeImage* native_image_source_ = nullptr;
-
-  OH_NativeImage* pixelmap_native_image_ = nullptr;
 
   SkMatrix transform_;
 
