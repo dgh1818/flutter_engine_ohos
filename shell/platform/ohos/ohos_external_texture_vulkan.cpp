@@ -10,12 +10,12 @@
 #include "flutter/impeller/core/formats.h"
 #include "flutter/impeller/core/texture_descriptor.h"
 #include "flutter/impeller/display_list/dl_image_impeller.h"
-
 #include "flutter/impeller/renderer/backend/vulkan/command_buffer_vk.h"
 #include "flutter/impeller/renderer/backend/vulkan/command_encoder_vk.h"
 #include "flutter/impeller/renderer/backend/vulkan/ohos/ohb_texture_source_vk.h"
 #include "flutter/impeller/renderer/backend/vulkan/texture_vk.h"
 #include "fml/logging.h"
+#include "impeller/renderer/backend/vulkan/fence_waiter_vk.h"
 #include "vulkan/vulkan_core.h"
 
 namespace flutter {
@@ -30,8 +30,8 @@ OHOSExternalTextureVulkan::~OHOSExternalTextureVulkan() {}
 
 void OHOSExternalTextureVulkan::SetGPUFence(OHNativeWindowBuffer* window_buffer,
                                             int* fence_fd) {
-  /// We cannot move the logic for generating fence_fd into the submit_callback
-  /// of AddNextSemaphores because Vulkan's task reordering means that
+  /// We cannot move the logic for generating fence_fd into the fence_callback
+  /// of QueueSubmit because Vulkan's task reordering means that
   /// submitting a rendering task doesn’t guarantee its execution before the
   /// semaphore specified by QueueSignalReleaseImageOHOS. This could cause
   /// synchronization issues. To address this, the SetGPUFence call is adjusted
@@ -126,9 +126,6 @@ impeller::vk::UniqueSemaphore OHOSExternalTextureVulkan::CreateVkSemaphore(
   auto semaphore_result = device.createSemaphoreUnique(semaphore_info, nullptr);
   if (semaphore_result.result != impeller::vk::Result::eSuccess) {
     FML_LOG(ERROR) << "vkCreateSemaphore failed";
-    if (FdIsValid(fence_fd)) {
-      close(fence_fd);
-    }
     return impeller::vk::UniqueSemaphore();
   }
 
@@ -154,14 +151,34 @@ impeller::vk::UniqueSemaphore OHOSExternalTextureVulkan::CreateVkSemaphore(
 
 void OHOSExternalTextureVulkan::WaitGPUFence(int fence_fd) {
   auto texture = vk_resources_[now_key_].texture;
+  impeller::vk::SubmitInfo submit_info;
+  impeller::BarrierVK barrier;
+  std::shared_ptr<impeller::CommandBuffer> cmd_buffer =
+      impeller_context_->CreateCommandBuffer();
+
+  std::function<void()> fence_callback = [fence_fd, cmd_buffer]() {
+    if (FdIsValid(fence_fd)) {
+      close(fence_fd);
+    }
+  };
+  // auto close fd when error return.
+  fml::ScopedCleanupClosure auto_close(fence_callback);
+
+  auto [fence_result, complete_fence] =
+      impeller_context_->GetDevice().createFenceUnique({});
+  if (fence_result != impeller::vk::Result::eSuccess) {
+    FML_LOG(ERROR) << "Failed to create fence: "
+                   << impeller::vk::to_string(fence_result);
+    return;
+  }
+
   if (texture) {
     // Transition the layout to shader read.
-    auto buffer = impeller_context_->CreateCommandBuffer();
     impeller::CommandBufferVK& buffer_vk =
-        impeller::CommandBufferVK::Cast(*buffer);
+        impeller::CommandBufferVK::Cast(*cmd_buffer);
+    auto encoder = buffer_vk.GetEncoder();
 
-    impeller::BarrierVK barrier;
-    barrier.cmd_buffer = buffer_vk.GetEncoder()->GetCommandBuffer();
+    barrier.cmd_buffer = encoder->GetCommandBuffer();
     barrier.src_access = impeller::vk::AccessFlagBits::eColorAttachmentWrite |
                          impeller::vk::AccessFlagBits::eTransferWrite;
     barrier.src_stage =
@@ -173,66 +190,73 @@ void OHOSExternalTextureVulkan::WaitGPUFence(int fence_fd) {
     barrier.new_layout = impeller::vk::ImageLayout::eShaderReadOnlyOptimal;
 
     if (!texture->SetLayout(barrier)) {
+      FML_LOG(ERROR) << "External texture SetLayout failed";
       return;
     }
-    if (!impeller_context_->GetCommandQueue()->Submit({buffer}).ok()) {
+
+    if (!encoder->EndCommandBuffer()) {
+      FML_LOG(ERROR) << "Failed to end command buffer";
       return;
     }
+
+    submit_info.setCommandBuffers(barrier.cmd_buffer);
   }
 
   if (fence_fd > 0 && FdIsValid(fence_fd)) {
-    if (FenceIsSignal(fence_fd)) {
-      // If the fence_fd is already signaled, it means the related data has
-      // already been produced, so there's no need to import it into Vulkan.
-      close(fence_fd);
-      return;
+    // If the fence_fd is already signaled, it means the related data has
+    // already been produced, so there's no need to import it into Vulkan.
+    if (!FenceIsSignal(fence_fd)) {
+      // The ownership of the fence_fd will be transferred to Vulkan. Once the
+      // corresponding wait signal is received, Vulkan will automatically
+      // release this fd. However, if this semaphore is not correctly submitted
+      // to the GraphicQueue, the fence_fd will not be triggered and will need
+      // to be released manually.
+      auto wait_semaphore = CreateVkSemaphore(fence_fd);
+      if (wait_semaphore.get() != VK_NULL_HANDLE) {
+        // We use shared_ptr to ensure that the semaphore can only be destroyed
+        // after Vulkan has finished using it (i.e., after the wait is
+        // complete).
+        auto shared_wait_semaphore =
+            std::make_shared<impeller::vk::UniqueSemaphore>(
+                std::move(wait_semaphore));
+        impeller::vk::PipelineStageFlags wait_stage =
+            impeller::vk::PipelineStageFlagBits::eAllCommands;
+        submit_info.setWaitSemaphores(shared_wait_semaphore->get());
+        submit_info.setWaitDstStageMask(wait_stage);
+        fence_callback = [shared_wait_semaphore, cmd_buffer]() {
+          // This lambda function will hold the semaphore and cmd_buffer until
+          // the signal is triggered, ensuring that the semaphore is destroyed
+          // only after Vulkan has finished using it. It is called on the
+          // fence-wait thread.
+        };
+      }
     }
-
-    // The ownership of the fence_fd will be transferred to Vulkan. Once the
-    // corresponding wait signal is received, Vulkan will automatically release
-    // this fd. However, if this semaphore is not correctly submitted to the
-    // GraphicQueue, the fence_fd will not be triggered and will need to be
-    // released manually.
-    auto wait_semaphore = CreateVkSemaphore(fence_fd);
-    if (wait_semaphore.get() == VK_NULL_HANDLE) {
-      // fence_fd has been closed in CreateVkSemaphore
-      return;
-    }
-
-    // We use shared_ptr to ensure that the semaphore can only be destroyed
-    // after Vulkan has finished using it (i.e., after the wait is complete).
-    auto shared_wait_semaphore =
-        std::make_shared<impeller::vk::UniqueSemaphore>(
-            std::move(wait_semaphore));
-
-    auto null_semaphore = impeller::vk::UniqueSemaphore();
-    impeller_context_->GetCommandQueue()->AddNextSemaphores(
-        shared_wait_semaphore->get(), null_semaphore.get(),
-        [shared_wait_semaphore,
-         fence_fd](impeller::CommandBuffer::Status status) {
-          // This lambda function will hold the semaphore until the signal is
-          // triggered, ensuring that the semaphore is destroyed only after
-          // Vulkan has finished using it.
-          // It is called on the fence-wait thread.
-          if (status != impeller::CommandBuffer::Status::kCompleted) {
-            FML_LOG(ERROR) << "wait gpu semaphore "
-                           << shared_wait_semaphore->get() << " failed: status "
-                           << (int)status << " close fd: " << fence_fd;
-            if (FdIsValid(fence_fd)) {
-              close(fence_fd);
-            }
-          }
-        },
-        [fence_fd](impeller::CommandBuffer::Status status) {
-          // If the task submission fails, we also need to manually close the
-          // fd.
-          if (status != impeller::CommandBuffer::Status::kCompleted) {
-            if (FdIsValid(fence_fd)) {
-              close(fence_fd);
-            }
-          }
-        });
   }
+
+  if (submit_info.waitSemaphoreCount == 0 &&
+      submit_info.commandBufferCount == 0) {
+    FML_LOG(ERROR) << "Texture is null with fence fd " << fence_fd
+                   << " :no need submit";
+    return;
+  }
+
+  auto status = impeller_context_->GetGraphicsQueue()->Submit(submit_info,
+                                                              *complete_fence);
+  if (status != impeller::vk::Result::eSuccess) {
+    FML_LOG(ERROR) << "Failed to submit queue: "
+                   << impeller::vk::to_string(status);
+    return;
+  }
+
+  auto added_fence = impeller_context_->GetFenceWaiter()->AddFence(
+      std::move(complete_fence), fence_callback);
+  if (!added_fence) {
+    // only happen when the FenceWaiter thread is terminated.
+    FML_LOG(ERROR) << "failed to add Fence";
+    return;
+  }
+
+  auto_close.Release();
   return;
 }
 
