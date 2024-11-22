@@ -185,11 +185,17 @@ class PlatformViewOHOSNapi {
                                                napi_callback_info info);
 
   // Surface相关，XComponent调用
-  static void SurfaceCreated(int64_t shell_holder, void* window);
+  static void SurfaceCreated(int64_t shell_holder,
+                             void* window,
+                             int width,
+                             int height);
 
   static void SurfacePreload(int64_t shell_holder, int width, int height);
 
-  static void SurfaceChanged(int64_t shell_holder, void* window);
+  static void SurfaceChanged(int64_t shell_holder,
+                             void* window,
+                             int width,
+                             int height);
 
   static void SurfaceDestroyed(int64_t shell_holder);
   static int64_t GetShellHolder();
