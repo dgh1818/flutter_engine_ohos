@@ -27,7 +27,6 @@ import FlutterInjector from '../../FlutterInjector';
 import UIAbility from '@ohos.app.ability.UIAbility';
 import ExclusiveAppComponent from './ExclusiveAppComponent';
 import AbilityConstant from '@ohos.app.ability.AbilityConstant';
-import TextInputPlugin from '../../plugin/editing/TextInputPlugin';
 import { FlutterPlugin } from '../engine/plugins/FlutterPlugin';
 import FlutterEngineCache from '../engine/FlutterEngineCache';
 import FlutterEngineGroupCache from '../engine/FlutterEngineGroupCache';
@@ -36,10 +35,12 @@ import FlutterNapi from '../engine/FlutterNapi';
 import { FlutterView } from '../../view/FlutterView';
 import FlutterManager from './FlutterManager';
 import Any from '../../plugin/common/Any';
+import inputMethod from '@ohos.inputMethod';
 
 const TAG = "FlutterAbilityDelegate";
 const PLUGINS_RESTORATION_BUNDLE_KEY = "plugins";
 const FRAMEWORK_RESTORATION_BUNDLE_KEY = "framework";
+const EVENT_BACK_PRESS = 'EVENT_BACK_PRESS';
 
 /**
  * 主要职责：
@@ -51,11 +52,11 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
   flutterEngine?: FlutterEngine | null;
   platformPlugin?: PlatformPlugin;
   protected context?: common.Context;
-  protected textInputPlugin?: TextInputPlugin;
   protected isFlutterEngineFromHostOrCache: boolean = false;
   private engineGroup?: FlutterEngineGroup;
-  private isHost: boolean = false;
-  private flutterView?: FlutterView
+  private isHost:boolean = false;
+  private flutterView?: FlutterView;
+  private inputMethodController: inputMethod.InputMethodController = inputMethod.getController();
 
   constructor(host?: Host) {
     this.host = host;
@@ -87,7 +88,6 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
 
     this.isAttached = true;
     if (this.flutterEngine) {
-      this.textInputPlugin = new TextInputPlugin(this.flutterEngine.getTextInputChannel()!);
       this.flutterEngine.getSystemLanguages();
     }
     if (this.flutterEngine && this.flutterView && this.host?.attachToEngineAutomatically()) {
@@ -97,6 +97,13 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     if (this.flutterEngine) {
       this.flutterEngine.processPendingMessages();
     }
+    this.context.eventHub.on(EVENT_BACK_PRESS, () => {
+      if (this.flutterView?.getKeyboardHeight() == 0) {
+        this.flutterEngine?.getNavigationChannel()?.popRoute();
+      } else {
+        this.flutterEngine?.getTextInputChannel()?.textInputMethodHandler?.hide();
+      }
+    });
   }
 
   /**
@@ -275,7 +282,6 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
   release() {
     this.host = null;
     this.flutterEngine = null;
-    this.textInputPlugin = undefined;
     this.platformPlugin = undefined;
   }
 
@@ -306,6 +312,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     }
 
     this.isAttached = false;
+    this.context?.eventHub.off(EVENT_BACK_PRESS);
   }
 
   onLowMemory(): void {

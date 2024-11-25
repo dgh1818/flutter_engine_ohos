@@ -83,8 +83,6 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
   private currentFrameUsedOverlayLayerIds: HashSet<number>;
   private currentFrameUsedPlatformViewIds: HashSet<number>;
   private platformViewParent: Map<number, FlutterMutatorView>;
-  private viewPhysicalInfo: Map<number, number> = new Map<number, number>();
-  private dValue: number = 3;
 
   constructor() {
     this.registry = new PlatformViewRegistryImpl();
@@ -130,9 +128,6 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
       return;
     }
     this.platformViews.delete(viewId);
-    if (this.viewPhysicalInfo.has(viewId)) {
-      this.viewPhysicalInfo.delete(viewId);
-    }
     let textureId = this.viewIdWithTextureId.get(viewId);
 
     if (textureId != undefined) {
@@ -181,26 +176,6 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
 
     let viewWrapper = this.viewWrappers.get(request.viewId)
     let params: DVModelParameters | undefined = viewWrapper?.getDvModel()!.params
-    
-    const platformView = this.platformViews.get(request.viewId);
-    if (platformView?.getType() === 'web') {
-      let oldPhysicalHeight: number = 0;
-      if (this.viewPhysicalInfo.has(viewId)) {
-        oldPhysicalHeight = this.viewPhysicalInfo.get(viewId) as number;
-        //高度变化小于3，不做刷新处理，减少闪烁
-        if (physicalHeight - oldPhysicalHeight < this.dValue) {
-
-          this.setParams(params!, "width", physicalWidth);
-          this.setParams(params!, "height", oldPhysicalHeight);
-
-          onComplete.run(new PlatformViewBufferSize(physicalWidth, oldPhysicalHeight));
-          return;
-        }
-      }
-    }
-
-    //保存组件最高位置，解决webview上下滑动带来的组件高度变化而引起的页面闪烁
-    this.viewPhysicalInfo.set(viewId, physicalHeight);
      
     this.setParams(params!, "width", physicalWidth);
     this.setParams(params!, "height", physicalHeight);

@@ -39,7 +39,6 @@ import ApplicationInfoLoader from '../engine/loader/ApplicationInfoLoader';
 import { AccessibilityManager } from '../../view/AccessibilityBridge';
 
 const TAG = "FlutterAbility";
-const EVENT_BACK_PRESS = 'EVENT_BACK_PRESS';
 
 /**
  * flutter ohos基础ability，请在让主ability继承自该类。
@@ -92,9 +91,6 @@ export class FlutterAbility extends UIAbility implements Host {
 
     Log.i(TAG, 'MyAbility onCreate');
 
-    this.context.eventHub.on(EVENT_BACK_PRESS, () => {
-      this.delegate?.flutterEngine?.getNavigationChannel()?.popRoute();
-    });
     let observer: errorManager.ErrorObserver = {
       onUnhandledException(errorMsg) {
         Log.e(TAG, "onUnhandledException, errorMsg:", errorMsg);
@@ -113,7 +109,7 @@ export class FlutterAbility extends UIAbility implements Host {
 
   onDestroy() {
     FlutterManager.getInstance().popUIAbility(this);
-    this.context.eventHub.off(EVENT_BACK_PRESS);
+
     errorManager.off('error', this.errorManagerId);
 
     if (this.flutterView != null) {
@@ -150,6 +146,7 @@ export class FlutterAbility extends UIAbility implements Host {
           case window.WindowStageEventType.ACTIVE: // 获焦状态
             Log.i(TAG, 'windowStage active.');
             if (this.stillAttachedForEvent("onWindowFocusChanged")) {
+              this.delegate?.getFlutterEngine()?.getTextInputChannel()?.textInputMethodHandler?.handleChangeFocus(true);
               this?.delegate?.onWindowFocusChanged(true);
             }
             break;
@@ -178,7 +175,7 @@ export class FlutterAbility extends UIAbility implements Host {
 
         Log.i(TAG, 'Succeeded in loading the content. Data: %{public}s', JSON.stringify(data) ?? '');
       });
-      FlutterManager.getInstance().setUseFullScreen(true);
+      FlutterManager.getInstance().setUseFullScreen(true, this.context);
     } catch (exception) {
       Log.e(TAG, 'Failed to enable the listener for window stage event changes. Cause:' + JSON.stringify(exception));
     }

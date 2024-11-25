@@ -38,6 +38,13 @@
 
 namespace flutter {
 
+enum class OhosThreadType {
+  kPlatform,
+  kUI,
+  kRaster,
+  kIO,
+};
+
 class OhosSurfaceFactoryImpl : public OhosSurfaceFactory {
  public:
   OhosSurfaceFactoryImpl(const std::shared_ptr<OHOSContext>& context);
@@ -149,7 +156,10 @@ class PlatformViewOHOS final : public PlatformView {
       const override {
     return platform_message_handler_;
   }
+
   void OnTouchEvent(std::shared_ptr<std::string[]> touchPacketString, int size);
+
+  void RunTask(OhosThreadType type, const fml::closure& task);
 
  private:
   const std::shared_ptr<PlatformViewOHOSNapi> napi_facade_;
