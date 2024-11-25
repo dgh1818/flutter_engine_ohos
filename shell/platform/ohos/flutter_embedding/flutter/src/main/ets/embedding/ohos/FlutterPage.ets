@@ -83,9 +83,34 @@ export struct FlutterPage {
     }
     .defaultFocus(true)
     .onKeyPreIme((event: KeyEvent) => {
-      Log.d(TAG, "onKeyEvent " + event.type);
-      this.flutterView?.onKeyEvent(event);
-      return false;
+      return this.flutterView?.onKeyPreIme(event) ?? false;
+    })
+    .onKeyEvent((event: KeyEvent) => {
+      return this.flutterView?.onKeyEvent(event) ?? false;
+    })
+    .onDragEnter((event: DragEvent, extraParams: string) => {
+      FlutterManager.getInstance().getDragEnterCbs().forEach(dragEnterCb => {
+        dragEnterCb.do(event, extraParams);
+      });
+      Log.d(TAG, "onDragEnter");
+    })
+    .onDragMove((event: DragEvent, extraParams: string) => {
+      FlutterManager.getInstance().getDragMoveCbs().forEach(dragMoveCb => {
+        dragMoveCb.do(event, extraParams);
+      });
+      Log.d(TAG, "onDragMove");
+    })
+    .onDragLeave((event: DragEvent, extraParams: string) => {
+      FlutterManager.getInstance().getDragLeaveCbs().forEach(dragLeaveCb => {
+        dragLeaveCb.do(event, extraParams);
+      });
+      Log.d(TAG, "onDragLeave");
+    })
+    .onDrop((event: DragEvent, extraParams: string) => {
+      FlutterManager.getInstance().getDropCbs().forEach(dropCb => {
+        dropCb.do(event, extraParams);
+      });
+      Log.d(TAG, "onDrop");
     })
   }
 
@@ -129,11 +154,37 @@ export struct FlutterPage {
       }
     }
     .defaultFocus(true)
+    .onKeyPreIme((event: KeyEvent) => {
+      return this.flutterView?.onKeyPreIme(event) ?? false;
+    })
     .onKeyEvent((event: KeyEvent) => {
-      Log.d(TAG, "onKeyEvent " + event.type);
       this.flutterView?.onKeyEvent(event)
     })
     .defaultFocus(true)
+    .onDragEnter((event: DragEvent, extraParams: string) => {
+      FlutterManager.getInstance().getDragEnterCbs().forEach(dragEnterCb => {
+        dragEnterCb.do(event, extraParams);
+      });
+      Log.d(TAG, "onDragEnter");
+    })
+    .onDragMove((event: DragEvent, extraParams: string) => {
+      FlutterManager.getInstance().getDragMoveCbs().forEach(dragMoveCb => {
+        dragMoveCb.do(event, extraParams);
+      });
+      Log.d(TAG, "onDragMove");
+    })
+    .onDragLeave((event: DragEvent, extraParams: string) => {
+      FlutterManager.getInstance().getDragLeaveCbs().forEach(dragLeaveCb => {
+        dragLeaveCb.do(event, extraParams);
+      });
+      Log.d(TAG, "onDragLeave");
+    })
+    .onDrop((event: DragEvent, extraParams: string) => {
+      FlutterManager.getInstance().getDropCbs().forEach(dropCb => {
+        dropCb.do(event, extraParams);
+      });
+      Log.d(TAG, "onDrop");
+    })
     .gesture(
       PanGesture(this.panOption)
         .onActionStart((event: GestureEvent) => {

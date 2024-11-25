@@ -27,6 +27,7 @@ import FlutterManager from '../../embedding/ohos/FlutterManager';
 import { IntentionCode } from '@ohos.multimodalInput.intentionCode';
 import {KeyCode} from '@kit.InputKit';
 import { BusinessError } from '@kit.BasicServicesKit';
+import { inputDevice } from '@kit.InputKit';
 
 /// 临时规避缺少newline对应枚举问题
 const NEWLINE_KEY_TYPE: number = 8;
@@ -50,6 +51,10 @@ export default class TextInputPlugin implements EditingStateWatcher {
 
   }
 
+  getEditingState() {
+    return this.mTextInputHandler.mEditable;
+  }
+
   didChangeEditingState(textChanged: boolean, selectionChanged: boolean, composingRegionChanged: boolean): void {
     let editable = this.mTextInputHandler.mEditable;
     let inputTarget = this.mTextInputHandler.inputTarget;
@@ -71,6 +76,10 @@ export default class TextInputPlugin implements EditingStateWatcher {
       }
     })
   }
+
+  destroy() {
+    this.textInputChannel.setTextInputMethodHandler(null);
+  }
 }
 
 class TextInputMethodHandlerImpl implements TextInputMethodHandler {
@@ -82,8 +91,11 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   mEditable: ListenableEditingState;
   private mRestartInputPending: boolean = false;
   private plugin: EditingStateWatcher | Any;
+  private imcFlag: boolean = false;
   private keyboardStatus: inputMethod.KeyboardStatus = inputMethod.KeyboardStatus.HIDE;
-  private inputAttribute: inputMethod.InputAttribute = { textInputType: 0, enterKeyType: 1 }
+  private inputAttribute: inputMethod.InputAttribute =
+    { textInputType: inputMethod.TextInputType.TEXT, enterKeyType: inputMethod.EnterKeyType.NONE };
+  private keyboardFocusState: boolean = false
 
   constructor(plugin: TextInputPlugin | Any) {
     this.textConfig = {
@@ -98,6 +110,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   /// 通过判断是否是TextInputType.none来决定是否弹出键盘
   show(): void {
     if (this.canShowTextInput()) {
+      this.keyboardFocusState = true;
       this.showTextInput();
     } else {
       this.hide();
@@ -105,6 +118,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   }
 
   hide(): void {
+    this.keyboardFocusState = false;
     this.hideTextInput();
   }
 
@@ -129,6 +143,10 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
 
   }
 
+  setCursorSizeAndPosition(cursorInfo: inputMethod.CursorInfo) {
+    this.inputMethodController.updateCursor(cursorInfo)
+  }
+
   setEditingState(editingState: TextEditState): void {
     Log.d(TextInputMethodHandlerImpl.TAG,
       "text:" + editingState.text + " selectionStart:" + editingState.selectionStart + " selectionEnd:"
@@ -146,11 +164,15 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
       return;
     }
     await this.attach(true);
-    this.listenKeyBoardEvent();
+    if (!this.imcFlag) {
+      this.listenKeyBoardEvent();
+    }
   }
 
   private async hideTextInput(): Promise<void> {
     this.inputMethodController.detach();
+    this.keyboardStatus = inputMethod.KeyboardStatus.NONE;
+    this.cancelListenKeyBoardEvent();
   }
 
   async attach(showKeyboard: boolean): Promise<void> {
@@ -161,8 +183,33 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     }
   }
 
+  handleChangeFocus(focusState: boolean) {
+    try {
+      inputDevice.getDeviceList((Error: Error, ids: Array<number>) => {
+        let isPhysicalKeyboard = false;
+        for (let i = 0; i < ids.length; i++) {
+          const type = inputDevice.getKeyboardTypeSync(ids[i]);
+          if (type == inputDevice.KeyboardType.ALPHABETIC_KEYBOARD || type == inputDevice.KeyboardType.DIGITAL_KEYBOARD) {
+            isPhysicalKeyboard = true;
+            break;
+          }
+        }
+
+        if(focusState && isPhysicalKeyboard && this.keyboardFocusState) {
+          this.cancelListenKeyBoardEvent();
+          this.inputMethodController.detach().then(async () =>{
+            await this.attach(true);
+            this.listenKeyBoardEvent();
+          })
+        }
+      })
+    } catch (error) {
+      Log.e(TextInputMethodHandlerImpl.TAG, `Failed to query device. Code is ${error.code}, message is ${error.message}`)
+    }
+  }
+
   async updateAttribute(): Promise<void> {
-    if (this.keyboardStatus == inputMethod.KeyboardStatus.HIDE) {
+    if (this.keyboardStatus != inputMethod.KeyboardStatus.SHOW) {
       return;
     }
     try {
@@ -253,6 +300,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
       return;
     }
     Log.d(TextInputMethodHandlerImpl.TAG, "listenKeyBoardEvent success");
+    this.imcFlag = true;
   }
 
   sendKeyboardEvent(type: KeyType, keyCode: number): void {
@@ -305,8 +353,6 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     this.keyboardStatus = state;
     if (state == inputMethod.KeyboardStatus.HIDE) {
       this.plugin.textInputChannel.onConnectionClosed(this.inputTarget.id);
-      this.hideTextInput()
-      this.cancelListenKeyBoardEvent()
     }
   }
 
@@ -315,12 +361,13 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   }
 
   cancelListenKeyBoardEvent(): void {
-    this.inputMethodController.off('insertText', this.insertTextCallback);
-    this.inputMethodController.off('deleteLeft', this.deleteLeftCallback);
-    this.inputMethodController.off('deleteRight', this.deleteRightCallback);
-    this.inputMethodController.off('sendFunctionKey', this.sendFunctionKeyCallback);
-    this.inputMethodController.off('sendKeyboardStatus', this.sendKeyboardStatusCallback);
-    this.inputMethodController.off('selectByRange', this.selectByRangeCallback);
+    this.inputMethodController?.off('insertText', this.insertTextCallback);
+    this.inputMethodController?.off('deleteLeft', this.deleteLeftCallback);
+    this.inputMethodController?.off('deleteRight', this.deleteRightCallback);
+    this.inputMethodController?.off('sendFunctionKey', this.sendFunctionKeyCallback);
+    this.inputMethodController?.off('sendKeyboardStatus', this.sendKeyboardStatusCallback);
+    this.inputMethodController?.off('selectByRange', this.selectByRangeCallback);
+    this.imcFlag = false;
   }
 
   public clearTextInputClient(): void {
