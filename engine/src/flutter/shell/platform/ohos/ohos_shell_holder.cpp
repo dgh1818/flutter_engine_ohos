@@ -261,7 +261,9 @@ OHOSShellHolder::OHOSShellHolder(
         [](sk_sp<SkData> buffer) {
           return OHOSImageGenerator::MakeFromData(std::move(buffer));
         },
-        -1);
+        // OHOS's PixelMap decoding supports hardware decoding, offering higher
+        // performance compared to Skia decoding.
+        1);
 
     FML_DLOG(INFO) << "Registered ohos image decoder";
   }

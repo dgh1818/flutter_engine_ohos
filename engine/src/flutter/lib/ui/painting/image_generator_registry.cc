@@ -23,8 +23,13 @@ ImageGeneratorRegistry::ImageGeneratorRegistry() : weak_factory_(this) {
       [](sk_sp<SkData> buffer) {
         return APNGImageGenerator::MakeFromData(std::move(buffer));
       },
+#ifdef OHOS_PLATFORM
+      // OHOS's PixelMap currently does not support APNG decoding. Direct
+      // decoding will result in the image being decoded as PNG.
+      2);
+#else
       0);
-
+#endif
   AddFactory(
       [](sk_sp<SkData> buffer) {
         return BuiltinSkiaCodecImageGenerator::MakeFromData(std::move(buffer));
