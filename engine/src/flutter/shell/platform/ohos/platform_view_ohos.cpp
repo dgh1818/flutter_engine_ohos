@@ -567,20 +567,22 @@ void PlatformViewOHOS::UnRegisterExternalTexture(int64_t texture_id) {
 
 void PlatformViewOHOS::RegisterExternalTextureByPixelMap(
     int64_t texture_id,
-    NativePixelMap* pixelMap) {
+    NativePixelMap* pixelMap,
+    OH_NativeBuffer* pixelMap_native_buffer) {
   auto extrenal_texture = CreateExternalTexture(texture_id);
   if (extrenal_texture != nullptr) {
-    extrenal_texture->SetPixelMapAsProducer(pixelMap);
+    extrenal_texture->SetPixelMapAsProducer(pixelMap, pixelMap_native_buffer);
   }
 }
 
 void PlatformViewOHOS::SetExternalTextureBackGroundPixelMap(
     int64_t texture_id,
-    NativePixelMap* pixelMap) {
+    NativePixelMap* pixelMap,
+    OH_NativeBuffer* pixelMap_native_buffer) {
   if (all_external_texture_.find(texture_id) != all_external_texture_.end()) {
     auto external_texture = all_external_texture_[texture_id];
     FML_LOG(INFO) << "SetExternalTextureBackGroundPixelMap " << texture_id;
-    external_texture->SetPixelMapAsProducer(pixelMap);
+    external_texture->SetPixelMapAsProducer(pixelMap, pixelMap_native_buffer);
   }
 }
 
