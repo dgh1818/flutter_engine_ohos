@@ -28,9 +28,6 @@ static napi_value Init(napi_env env, napi_value exports) {
   napi_property_descriptor desc[] = {
       DECLARE_NAPI_FUNCTION("nativeInit", flutter::OhosMain::NativeInit),
       DECLARE_NAPI_FUNCTION(
-          "nativeImageDecodeCallback",
-          flutter::OHOSImageGenerator::NativeImageDecodeCallback),
-      DECLARE_NAPI_FUNCTION(
           "nativeUpdateRefreshRate",
           flutter::PlatformViewOHOSNapi::nativeUpdateRefreshRate),
       DECLARE_NAPI_FUNCTION("nativeUpdateSize",

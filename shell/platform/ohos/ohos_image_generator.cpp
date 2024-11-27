@@ -15,239 +15,277 @@
 
 #include "ohos_image_generator.h"
 
+#include <multimedia/image_framework/image/image_common.h>
+#include <multimedia/image_framework/image/image_source_native.h>
+#include <multimedia/image_framework/image/pixelmap_native.h>
+#include <cstdint>
 #include <memory>
-#include <utility>
+#include <string>
 
 #include <multimedia/image_framework/image_pixel_map_napi.h>
-#include "ohos_logging.h"
+#include "fml/logging.h"
+#include "fml/trace_event.h"
+#include "include/core/SkAlphaType.h"
+#include "include/core/SkColorType.h"
+#include "include/core/SkImageInfo.h"
 #include "third_party/skia/include/codec/SkCodecAnimation.h"
 
 namespace flutter {
 
-OHOSImageGenerator::OHOSImageGenerator(
-    sk_sp<SkData> buffer,
-    const fml::RefPtr<fml::TaskRunner>& task_runner,
-    std::shared_ptr<PlatformViewOHOSNapi> napi_facade)
-    : data_(std::move(buffer)),
-      task_runner_(std::move(task_runner)),
-      image_info_(SkImageInfo::MakeUnknown(-1, -1)) {
-  napi_facade_ = napi_facade;
+OHOSImageGenerator::OHOSImageGenerator(OH_ImageSourceNative* image_source)
+    : image_source_(image_source) {
+  OH_ImageSource_Info* info = nullptr;
+  OH_ImageSourceInfo_Create(&info);
+  if (info == nullptr) {
+    return;
+  }
+  uint32_t width = 0, height = 0;
+  OH_ImageSourceNative_GetImageInfo(image_source, 0, info);
+  OH_ImageSourceInfo_GetWidth(info, &width);
+  OH_ImageSourceInfo_GetHeight(info, &height);
+  OH_ImageSourceInfo_GetDynamicRange(info, &is_hdr_);
+  OH_ImageSourceInfo_Release(info);
+  origin_image_info_ = SkImageInfo::Make(width, height, kRGBA_8888_SkColorType,
+                                         kOpaque_SkAlphaType);
+
+  // this is used for gif.
+  OH_ImageSourceNative_GetFrameCount(image_source, &frame_count_);
+  if (frame_count_ > 1) {
+    int* temp_delay_time = new int[frame_count_];
+    OH_ImageSourceNative_GetDelayTimeList(image_source, temp_delay_time,
+                                          frame_count_);
+    frame_time_duration_.reserve(frame_count_);
+    frame_time_duration_.assign(temp_delay_time,
+                                temp_delay_time + frame_count_);
+    FML_LOG(INFO) << "Create animated image generator frame:" << frame_count_
+                  << " duration:" << temp_delay_time[0];
+    delete[] temp_delay_time;
+  }
 }
 
-napi_env OHOSImageGenerator::g_env = nullptr;
-
-napi_value OHOSImageGenerator::ImageNativeInit(napi_env env,
-                                               napi_callback_info info) {
-  g_env = env;
-
-  return nullptr;
+OHOSImageGenerator::~OHOSImageGenerator() {
+  if (image_source_) {
+    OH_ImageSourceNative_Release(image_source_);
+  }
 }
 
-OHOSImageGenerator::~OHOSImageGenerator() = default;
-
-// |ImageGenerator|
 const SkImageInfo& OHOSImageGenerator::GetInfo() {
-  header_decoded_latch_.Wait();
-  return image_info_;
+  std::string trace_str = "Image-GetInfo-" + to_string();
+  TRACE_EVENT0("flutter", trace_str.c_str());
+  return origin_image_info_;
 }
 
-// |ImageGenerator|
 unsigned int OHOSImageGenerator::GetFrameCount() const {
-  return 1;
+  return frame_count_;
 }
 
-// |ImageGenerator|
 unsigned int OHOSImageGenerator::GetPlayCount() const {
-  return 1;
+  return frame_count_ == 1 ? 1 : kInfinitePlayCount;
 }
 
-// |ImageGenerator|
 const ImageGenerator::FrameInfo OHOSImageGenerator::GetFrameInfo(
     unsigned int frame_index) {
+  int32_t frame_duration = 0;
+  if (frame_index < frame_time_duration_.size()) {
+    frame_duration = frame_time_duration_[frame_index];
+  }
+  if (frame_duration < 0) {
+    frame_duration = 0;
+  }
   return {.required_frame = std::nullopt,
-          .duration = 0,
+          .duration = (uint32_t)frame_duration,
           .disposal_method = SkCodecAnimation::DisposalMethod::kKeep};
 }
 
-// |ImageGenerator|
 SkISize OHOSImageGenerator::GetScaledDimensions(float desired_scale) {
-  return GetInfo().dimensions();
+  // OHOS's PixelMap has the ability to automatically resize, and it will always
+  // return the requested size.
+  return {int(GetInfo().width() * desired_scale),
+          int(GetInfo().height() * desired_scale)};
 }
 
-// |ImageGenerator|
 bool OHOSImageGenerator::GetPixels(const SkImageInfo& info,
                                    void* pixels,
                                    size_t row_bytes,
                                    unsigned int frame_index,
                                    std::optional<unsigned int> prior_frame) {
-  fully_decoded_latch_.Wait();
-  if (!software_decoded_data_) {
+  std::string trace_str = "GetPixelsOHOS-" + to_string() + "->" +
+                          std::to_string(info.width()) + "*" +
+                          std::to_string(info.height()) +
+                          "-index:" + std::to_string(frame_index);
+  TRACE_EVENT0("flutter", trace_str.c_str());
+  FML_DLOG(INFO) << trace_str;
+  if (image_source_ == nullptr || info.colorType() != kRGBA_8888_SkColorType) {
+    FML_LOG(ERROR) << "invailed color type:" << std::to_string(info.colorType())
+                   << " " << to_string();
     return false;
   }
 
-  if (kRGBA_8888_SkColorType != info.colorType()) {
-    return false;
+  std::shared_ptr<PixelMapOHOS> image_pixelmap = nullptr;
+  if (cached_pixelmaps_.find(frame_index) != cached_pixelmaps_.end()) {
+    // find pixelmap from the cache.
+    image_pixelmap = cached_pixelmaps_[frame_index];
+    if ((int)image_pixelmap->width_ != info.width() ||
+        (int)image_pixelmap->height_ != info.height()) {
+      // this cannot happen.
+      image_pixelmap = nullptr;
+      FML_LOG(WARNING) << "get changed size:"
+                       << std::to_string(image_pixelmap->width_) << "*"
+                       << std::to_string(image_pixelmap->height_) << "->"
+                       << std::to_string(info.width()) << "*"
+                       << std::to_string(info.height());
+    }
   }
 
-  switch (info.alphaType()) {
-    case kOpaque_SkAlphaType:
-      if (kOpaque_SkAlphaType != GetInfo().alphaType()) {
-        return false;
-      }
-      break;
-    case kPremul_SkAlphaType:
-      break;
-    default:
+  if (image_pixelmap == nullptr) {
+    image_pixelmap = CreatePixelMap(info.width(), info.height(), frame_index);
+  }
+
+  if (image_pixelmap) {
+    uint32_t buffer_size =
+        image_pixelmap->width_ * image_pixelmap->height_ * RBGA8888_BYTES;
+    std::string trace_str = "ReadPixels-size:" + std::to_string(buffer_size) +
+                            "-stride:" + std::to_string(row_bytes);
+    TRACE_EVENT0("flutter", trace_str.c_str());
+    FML_DLOG(INFO) << trace_str;
+    Image_ErrorCode err_code =
+        image_pixelmap->ReadPixels((uint8_t*)pixels, buffer_size, row_bytes);
+    if (err_code != IMAGE_SUCCESS) {
+      FML_LOG(ERROR) << "Pixelmap ReadPixels failed:" << err_code << " "
+                     << to_string();
       return false;
+    }
+    if (image_pixelmap && frame_count_ > 1) {
+      // Cache animated images to improve performance.
+      cached_pixelmaps_[frame_index] = image_pixelmap;
+    }
+    return true;
+  } else {
+    return false;
   }
-
-  // TODO(bdero): Override `GetImage()` to use `SkImage::FromAHardwareBuffer` on
-  // API level 30+ once it's updated to do symbol lookups and not get
-  // preprocessed out in Skia. This will allow for avoiding this copy in
-  // cases where the result image doesn't need to be resized.
-  memcpy(pixels, software_decoded_data_->data(),
-         software_decoded_data_->size());
-  return true;
-}
-
-fml::RefPtr<fml::TaskRunner> OHOSImageGenerator::GetTaskRunner() const {
-  return task_runner_;
-}
-
-void OHOSImageGenerator::DecodeImage() {
-  DoDecodeImage();
-
-  header_decoded_latch_.Signal();
-  fully_decoded_latch_.Signal();
 }
 
 std::shared_ptr<ImageGenerator> OHOSImageGenerator::MakeFromData(
-    sk_sp<SkData> data,
-    const TaskRunners& task_runners,
-    std::shared_ptr<PlatformViewOHOSNapi> napi_facade) {
+    sk_sp<SkData> data) {
   // Return directly if the image data is empty.
-  // https://gitee.com/openharmony-sig/flutter_engine/issues/I9NX5N
   if (!data->data() || !data->size()) {
     return nullptr;
   }
 
-  // contructer is private,
-  std::shared_ptr<OHOSImageGenerator> generator(new OHOSImageGenerator(
-      std::move(data), task_runners.GetPlatformTaskRunner(), napi_facade));
+  TRACE_EVENT0("flutter", "MakeFromDataOHOS");
 
-  fml::TaskRunner::RunNowOrPostTask(
-      task_runners.GetIOTaskRunner(),
-      [generator]() { generator->DecodeImage(); });
+  OH_ImageSourceNative* image_source = nullptr;
+  // The data will be coyied to ImageSourceNative.
+  // No modifications will be made to origin data.
+  Image_ErrorCode err_code = OH_ImageSourceNative_CreateFromData(
+      (uint8_t*)data->bytes(), data->size(), &image_source);
+
+  if (err_code != IMAGE_SUCCESS || image_source == nullptr) {
+    FML_LOG(ERROR) << "Create ImageSource failed: " << err_code;
+    return nullptr;
+  }
+
+  std::shared_ptr<OHOSImageGenerator> generator(
+      new OHOSImageGenerator(image_source));
 
   if (generator->IsValidImageData()) {
     return generator;
+  } else {
+    FML_LOG(ERROR) << "Invalid ImageData:" << generator->to_string();
+    return nullptr;
   }
-  return nullptr;
 }
 
-void OHOSImageGenerator::DoDecodeImage() {
-  napi_facade_->DecodeImage((int64_t)this, (void*)data_->data(), data_->size());
-  native_callback_latch_.Wait();
+std::shared_ptr<OHOSImageGenerator::PixelMapOHOS>
+OHOSImageGenerator::CreatePixelMap(int width, int height, int frame_index) {
+  OH_DecodingOptions* opts = nullptr;
+  Image_ErrorCode err_code = OH_DecodingOptions_Create(&opts);
+  if (err_code != IMAGE_SUCCESS || opts == nullptr) {
+    FML_LOG(ERROR) << "Create DecodingOptions failed:" << err_code;
+    return nullptr;
+  }
+
+  Image_Size size = {(uint32_t)width, (uint32_t)height};
+  OH_DecodingOptions_SetDesiredSize(opts, &size);
+  OH_DecodingOptions_SetPixelFormat(opts, PIXEL_FORMAT_RGBA_8888);
+
+  // HDR requires the RGBA1010102 format and will need future support.
+  OH_DecodingOptions_SetDesiredDynamicRange(opts, IMAGE_DYNAMIC_RANGE_SDR);
+  OH_DecodingOptions_SetIndex(opts, frame_index);
+
+  OH_PixelmapNative* pixelmap = nullptr;
+  // This could be time-consuming.
+  err_code =
+      OH_ImageSourceNative_CreatePixelmap(image_source_, opts, &pixelmap);
+  if (pixelmap && err_code == IMAGE_SUCCESS) {
+    auto image_pixelmap = std::make_shared<PixelMapOHOS>(pixelmap);
+    FML_LOG(INFO) << "Create Pixelmap size:"
+                  << std::to_string(image_pixelmap->width_) << "*"
+                  << std::to_string(image_pixelmap->height_) << " stride "
+                  << std::to_string(image_pixelmap->row_stride_) << " format "
+                  << std::to_string(image_pixelmap->pixel_format_);
+    return image_pixelmap;
+  } else {
+    FML_LOG(ERROR) << "Create Pixelmap from Image source failed:" << err_code
+                   << " request size:" << std::to_string(width) << "*"
+                   << std::to_string(height) << " " << to_string();
+    if (pixelmap) {
+      OH_PixelmapNative_Release(pixelmap);
+    }
+    return nullptr;
+  }
 }
 
 bool OHOSImageGenerator::IsValidImageData() {
-  // The generator kicks off an IO task to decode everything, and calls to
-  // "GetInfo()" block until either the header has been decoded or decoding has
-  // failed, whichever is sooner. The decoder is initialized with a width and
-  // height of -1 and will update the dimensions if the image is able to be
-  // decoded.
-  return GetInfo().height() != -1;
+  return GetInfo().width() != 0 && GetInfo().height() != 0 && frame_count_ != 0;
 }
 
-struct ReleaseCtx {
-  napi_env env;
-  napi_ref ref = nullptr;
-  char* buf;
-  fml::RefPtr<fml::TaskRunner> task_runner;
-};
-
-void on_release(const void* ptr, void* context) {
-  auto release_ctx = static_cast<ReleaseCtx*>(context);
-  fml::TaskRunner::RunNowOrPostTask(release_ctx->task_runner, [release_ctx]() {
-    napi_value res = nullptr;
-    napi_get_reference_value(release_ctx->env, release_ctx->ref, &res);
-    OHOS::Media::OH_UnAccessPixels(release_ctx->env, res);
-    napi_delete_reference(release_ctx->env, release_ctx->ref);
-    delete release_ctx;  // 删除 ReleaseCtx 对象以避免内存泄漏
-  });
+OHOSImageGenerator::PixelMapOHOS::PixelMapOHOS(OH_PixelmapNative* pixelmap) {
+  if (pixelmap == nullptr) {
+    return;
+  }
+  pixelmap_ = pixelmap;
+  OH_Pixelmap_ImageInfo* info = nullptr;
+  OH_PixelmapImageInfo_Create(&info);
+  if (info == nullptr) {
+    return;
+  }
+  OH_PixelmapNative_GetImageInfo(pixelmap, info);
+  OH_PixelmapImageInfo_GetWidth(info, &width_);
+  OH_PixelmapImageInfo_GetHeight(info, &height_);
+  OH_PixelmapImageInfo_GetRowStride(info, &row_stride_);
+  OH_PixelmapImageInfo_GetPixelFormat(info, &pixel_format_);
+  OH_PixelmapImageInfo_Release(info);
 }
 
-napi_value OHOSImageGenerator::NativeImageDecodeCallback(
-    napi_env env,
-    napi_callback_info info) {
-  // to get this
-
-  size_t argc = 4;
-
-  napi_value args[4] = {nullptr};
-
-  napi_status status =
-      napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
-  if (status != napi_ok) {
-    LOGE("NativeImageDecodeCallback napi_get_cb_info error");
+Image_ErrorCode OHOSImageGenerator::PixelMapOHOS::ReadPixels(
+    uint8_t* dst_buffer,
+    uint32_t buffer_size,
+    uint32_t row_stride) {
+  if (pixelmap_ == nullptr || row_stride < width_ * RBGA8888_BYTES) {
+    return IMAGE_BAD_PARAMETER;
   }
-
-  if (argc != 4) {
-    FML_LOG(ERROR) << "argc is error";
+  Image_ErrorCode ret_code = IMAGE_SUCCESS;
+  uint8_t* temp_dst_buffer = dst_buffer;
+  if (row_stride > width_ * RBGA8888_BYTES) {
+    temp_dst_buffer = new uint8_t[buffer_size];
   }
-
-  // unwarp object
-  int64_t width = 0;
-  int64_t height = 0;
-  OHOSImageGenerator* generator = nullptr;
-
-  status = napi_get_value_int64(env, args[0], &width);
-  if (status != napi_ok) {
-    FML_LOG(ERROR) << "napi_get_value_int32 width error";
+  if (temp_dst_buffer != NULL) {
+    size_t dst_size = buffer_size;
+    ret_code =
+        OH_PixelmapNative_ReadPixels(pixelmap_, temp_dst_buffer, &dst_size);
   }
-
-  status = napi_get_value_int64(env, args[1], &height);
-  if (status != napi_ok) {
-    FML_LOG(ERROR) << "napi_get_value_int32 height error";
+  if (row_stride > width_ * RBGA8888_BYTES && temp_dst_buffer != nullptr) {
+    if (ret_code == IMAGE_SUCCESS) {
+      for (int i = 0; i < int(height_); i++) {
+        memcpy(dst_buffer + row_stride * i,
+               temp_dst_buffer + (width_ * RBGA8888_BYTES) * i,
+               width_ * RBGA8888_BYTES);
+      }
+    }
+    delete[] temp_dst_buffer;
   }
-
-  status = napi_get_value_int64(env, args[2], (int64_t*)&generator);
-  if (status != napi_ok) {
-    FML_LOG(ERROR) << "napi_get_value_int64 this  error";
-  }
-
-  // call object native func to set image_info
-
-  generator->image_info_ = SkImageInfo::Make(
-      width, height, kRGBA_8888_SkColorType, kPremul_SkAlphaType);
-
-  generator->header_decoded_latch_.Signal();
-
-  void* pixel_lock;
-
-  int ret = OHOS::Media::OH_AccessPixels(g_env, args[3], (void**)&pixel_lock);
-  if (ret != 0) {
-    FML_DLOG(ERROR) << "Failed to lock pixels, error=" << ret;
-    generator->native_callback_latch_.Signal();
-    return nullptr;
-  }
-  // pixel_lock, g_env_ =g_env , resultout
-
-  ReleaseCtx* ctx = new ReleaseCtx();
-  ctx->env = env;
-  ctx->buf = static_cast<char*>(pixel_lock);
-  napi_create_reference(env, args[3], 1, &(ctx->ref));
-  ctx->task_runner = generator->GetTaskRunner();
-
-  // get software_decode_data by call back, bitmap buffer will unlock in
-  // callback
-
-  generator->software_decoded_data_ = SkData::MakeWithProc(
-      pixel_lock, width * height * sizeof(uint32_t), on_release, ctx);
-
-  // notify dodecode
-  generator->native_callback_latch_.Signal();
-  return nullptr;
+  return ret_code;
 }
 
 }  // namespace flutter
