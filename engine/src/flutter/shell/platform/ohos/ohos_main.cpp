@@ -195,7 +195,6 @@ napi_value OhosMain::Init(napi_env env, napi_callback_info info) {
 
 napi_value OhosMain::NativeInit(napi_env env, napi_callback_info info) {
   napi_value result = OhosMain::Init(env, info);
-  OHOSImageGenerator::ImageNativeInit(env, info);
   return result;
 }
 
