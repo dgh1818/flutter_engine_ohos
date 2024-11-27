@@ -332,8 +332,8 @@ bool KHRSwapchainImplVK::IsValid() const {
 
 void KHRSwapchainImplVK::WaitIdle() const {
   if (auto context = context_.lock()) {
-    [[maybe_unused]] auto result =
-        ContextVK::Cast(*context).GetDevice().waitIdle();
+    // vkDeviceWaitIdle is equivalent to calling vkQueueWaitIdle on all queues.
+    ContextVK::Cast(*context).WaitIdle();
   }
 }
 
