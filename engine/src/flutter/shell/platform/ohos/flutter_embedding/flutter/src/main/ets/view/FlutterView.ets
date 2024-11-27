@@ -25,6 +25,7 @@ import ArrayList from '@ohos.util.ArrayList';
 import PlatformView, { Params } from '../plugin/platform/PlatformView';
 import hiTraceMeter from '@ohos.hiTraceMeter'
 import { JSON } from '@kit.ArkTS';
+import TextInputPlugin from '../plugin/editing/TextInputPlugin';
 
 const TAG = "FlutterViewTag";
 
@@ -101,6 +102,7 @@ export class FlutterView {
   private keyboardManager: KeyboardManager | null = null;
   private mainWindow: window.Window | null = null;
   private mouseCursorPlugin?: MouseCursorPlugin;
+  private textInputPlugin?: TextInputPlugin;
   private uiContext?: UIContext | undefined;
   private settings?: Settings;
   private mFirstFrameListeners: ArrayList<FirstFrameListener>;
@@ -117,6 +119,7 @@ export class FlutterView {
   private gestureAvoidArea: window.AvoidArea;
   private keyboardAvoidArea: window.AvoidArea;
   private needSetViewport: boolean = false;
+  private windowPosition: window.Rect | null = null;
 
   constructor(viewId: string, context: Context) {
     this.id = viewId
@@ -134,12 +137,14 @@ export class FlutterView {
     this.mainWindow?.on('windowSizeChange', this.windowSizeChangeCallback);
     this.mainWindow?.on('avoidAreaChange', this.avoidAreaChangeCallback);
     this.mainWindow?.on('windowStatusChange', this.windowStatusChangeCallback);
+    this.mainWindow?.on('keyboardHeightChange', this.keyboardHeightChangeCallback);
+    this.mainWindow?.on('windowRectChange', this.windowRectChangeCallback);
     this.systemAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
     this.navigationAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR);
     this.gestureAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM_GESTURE);
     this.keyboardAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_KEYBOARD);
 
-    //监听系统设置显示大小改变
+    // Subscribes to display changes. Example: event that the display size is changed.
     try {
       display.on("change", this.displayChangeCallback);
     } catch (e) {
@@ -179,6 +184,7 @@ export class FlutterView {
 
   private displayChangeCallback = (data: number) => {
     this.displayInfo = display.getDefaultDisplaySync();
+    this.flutterEngine?.getTextInputChannel()?.setDevicePixelRatio(this.displayInfo.densityPixels);
     let devicePixelRatio: number = this.displayInfo?.densityPixels;
     let physicalTouchSlop: number = 1.0 * this.displayInfo?.densityPixels;;
     Log.i(TAG, "Display on: " + JSON.stringify(this.displayInfo) + ". Display id:" + JSON.stringify(data))
@@ -189,9 +195,21 @@ export class FlutterView {
       this.onAreaChange(null);
     }
   }
+  
+  private keyboardHeightChangeCallback = (data: number) => {
+    Log.i(TAG, "keyboardHeightChangeCallback " + data);
+    this.keyboardAvoidArea.bottomRect.height = data;
+    this.onAreaChange(null);
+  };
+  
+  private windowRectChangeCallback = (data: window.RectChangeOptions) => {
+    Log.i(TAG, "windowRectChangeCallback " + data);
+    this.windowPosition = data.rect as window.Rect;
+    this.flutterEngine?.getTextInputChannel()?.setWindowPosition(this.windowPosition);
+  }
 
   getId(): string {
-    return this.id
+    return this.id;
   }
 
   setSurfaceId(surfaceId: string): void {
@@ -219,7 +237,11 @@ export class FlutterView {
   }
 
   getDVModel() {
-    return this.dVModel
+    return this.dVModel;
+  }
+
+  getKeyboardHeight() {
+    return this.keyboardAvoidArea.bottomRect.height
   }
 
   onDestroy() {
@@ -227,6 +249,8 @@ export class FlutterView {
       this.mainWindow?.off('windowSizeChange', this.windowSizeChangeCallback);
       this.mainWindow?.off('avoidAreaChange', this.avoidAreaChangeCallback);
       this.mainWindow?.off('windowStatusChange', this.windowStatusChangeCallback);
+      this.mainWindow?.off('keyboardHeightChange', this.keyboardHeightChangeCallback);
+      this.mainWindow?.off('windowRectChange', this.windowRectChangeCallback);
     } catch (e) {
       Log.e(TAG, "mainWindow off error: " + JSON.stringify(e));
     }
@@ -255,7 +279,6 @@ export class FlutterView {
     }
     Log.i(TAG, "attachToFlutterEngine");
     this.flutterEngine = flutterEngine;
-    this.keyboardManager = new KeyboardManager(flutterEngine);
     this.flutterEngine?.getFlutterNapi().xComponentAttachFlutterEngine(this.id)
     this.flutterEngine?.getFlutterNapi()?.updateRefreshRate(this.displayInfo!.refreshRate)
     this.flutterEngine?.getFlutterNapi()?.updateSize(this.displayInfo!.width, this.displayInfo!.height)
@@ -275,6 +298,8 @@ export class FlutterView {
 
     let windowId = this.mainWindow?.getWindowProperties()?.id ?? 0
     this.mouseCursorPlugin = new MouseCursorPlugin(windowId, this.flutterEngine?.getMouseCursorChannel()!);
+    this.textInputPlugin = new TextInputPlugin(this.flutterEngine?.getTextInputChannel()!);
+    this.keyboardManager = new KeyboardManager(flutterEngine, this.textInputPlugin!);
     this.settings = new Settings(this.flutterEngine.getSettingsChannel()!);
     this.sendSettings();
     this.isFlutterUiDisplayed = this.flutterEngine.getFlutterNapi().isDisplayingFlutterUi;
@@ -313,6 +338,7 @@ export class FlutterView {
     this.flutterEngine?.getPlatformViewsController()?.detachFromView();
     this.flutterEngine = null;
     this.keyboardManager = null;
+    this.textInputPlugin?.destroy();
   }
 
   onWindowCreated() {
@@ -455,8 +481,12 @@ export class FlutterView {
     return false
   }
 
-  onKeyEvent(event: KeyEvent) {
-    this.keyboardManager?.handleKeyEvent(event)
+  onKeyPreIme(event: KeyEvent) : boolean {
+    return this.keyboardManager?.onKeyPreIme(event) ?? false;
+  }
+
+  onKeyEvent(event: KeyEvent) : boolean {
+    return this.keyboardManager?.onKeyEvent(event) ?? false;
   }
 
   onMouseWheel(eventType: string, event: PanGestureEvent) {
