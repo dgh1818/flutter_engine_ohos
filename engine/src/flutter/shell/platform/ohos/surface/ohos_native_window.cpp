@@ -51,6 +51,17 @@ SkISize OHOSNativeWindow::GetSize() const {
   return SkISize::Make(0, 0);
 }
 
+void OHOSNativeWindow::SetSize(int width, int height) {
+  if (window_ != nullptr) {
+    int ret = OH_NativeWindow_NativeWindowHandleOpt(
+        window_, SET_BUFFER_GEOMETRY, width, height);
+    if (ret != 0) {
+      FML_LOG(ERROR) << "OHOSNativeWindow setSize failed:" << ret;
+    }
+  }
+  return;
+}
+
 OHOSNativeWindow::Handle OHOSNativeWindow::Gethandle() const {
   return window_;
 }
