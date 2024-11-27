@@ -12,10 +12,30 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
+import AccessibilityChannel from '../embedding/engine/systemchannels/AccessibilityChannel';
+import { ByteBuffer } from '../util/ByteBuffer';
+import Log from '../util/Log';
+
+const TAG = "AccessibilityBridge";
 
 export default class AccessibilityBridge {
-  constructor() {
 
+  private accessibilityChannel: AccessibilityChannel | null = null;
+
+  constructor(){}
+}
+
+export class AccessibilityManager {
+  private fontWeightScale: number | null = null;
+
+  setFontWeightScale(fontWeightScale: number): void {
+    this.fontWeightScale  = fontWeightScale;
+    Log.i(TAG, 'setFontWeightScale: ' + JSON.stringify(this.fontWeightScale));
+  }
+
+  getFontWeightScale(): number {
+    Log.i(TAG, 'getFontWeightScale: ' + JSON.stringify(this.fontWeightScale));
+    return this.fontWeightScale!;
   }
 }
 
