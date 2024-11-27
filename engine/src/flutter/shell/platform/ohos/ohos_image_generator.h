@@ -16,86 +16,97 @@
 #ifndef FLUTTER_SHELL_PLATFORM_OHOS_OHOS_IMAGE_GENERATOR_H_
 #define FLUTTER_SHELL_PLATFORM_OHOS_OHOS_IMAGE_GENERATOR_H_
 
-#include "flutter/common/task_runners.h"
-#include "flutter/fml/memory/ref_ptr.h"
-#include "flutter/fml/synchronization/waitable_event.h"
-#include "flutter/fml/task_runner.h"
+#include <multimedia/image_framework/image/image_common.h>
+#include <multimedia/image_framework/image/image_source_native.h>
+#include <multimedia/image_framework/image/pixelmap_native.h>
+#include <cstdint>
+#include <cstring>
+#include <map>
+#include <memory>
+#include <sstream>
+#include <vector>
 #include "flutter/lib/ui/painting/image_generator.h"
+#include "include/core/SkRefCnt.h"
 
-#include "napi/native_api.h"
-#include "napi/platform_view_ohos_napi.h"
-#include "napi_common.h"
+#define RBGA8888_BYTES 4
 
 namespace flutter {
 
 class OHOSImageGenerator : public ImageGenerator {
  private:
-  explicit OHOSImageGenerator(
-      sk_sp<SkData> buffer,
-      const fml::RefPtr<fml::TaskRunner>& task_runner,
-      std::shared_ptr<PlatformViewOHOSNapi> napi_facade);
-
-  static napi_env g_env;
+  explicit OHOSImageGenerator(OH_ImageSourceNative* image_source);
 
  public:
-  static napi_value ImageNativeInit(napi_env env, napi_callback_info info);
-
-  static napi_value NativeImageDecodeCallback(napi_env env,
-                                              napi_callback_info info);
-
   ~OHOSImageGenerator();
 
-  // |ImageGenerator|
   const SkImageInfo& GetInfo() override;
 
-  // |ImageGenerator|
   unsigned int GetFrameCount() const override;
 
-  // |ImageGenerator|
   unsigned int GetPlayCount() const override;
 
-  // |ImageGenerator|
   const ImageGenerator::FrameInfo GetFrameInfo(
       unsigned int frame_index) override;
 
-  // |ImageGenerator|
   SkISize GetScaledDimensions(float desired_scale) override;
 
-  // |ImageGenerator|
   bool GetPixels(const SkImageInfo& info,
                  void* pixels,
                  size_t row_bytes,
                  unsigned int frame_index,
                  std::optional<unsigned int> prior_frame) override;
 
-  void DecodeImage();
+  static std::shared_ptr<ImageGenerator> MakeFromData(sk_sp<SkData> data);
 
-  static std::shared_ptr<ImageGenerator> MakeFromData(
-      sk_sp<SkData> data,
-      const TaskRunners& task_runners,
-      std::shared_ptr<PlatformViewOHOSNapi> napi_facade);
-
-  fml::RefPtr<fml::TaskRunner> GetTaskRunner() const;
+  std::string to_string() const {
+    std::ostringstream oss;
+    oss << "ImageGenerate-" << reinterpret_cast<const void*>(this) << ":(size-"
+        << origin_image_info_.width() << "*" << origin_image_info_.height()
+        << ",frame_count-" << frame_count_ << "-duration-"
+        << (frame_time_duration_.size() == 0 ? 0 : frame_time_duration_[0])
+        << ",isHdr-" << is_hdr_ << ")";
+    return oss.str();
+  }
 
  private:
-  sk_sp<SkData> data_;
-  sk_sp<SkData> software_decoded_data_;
-  const fml::RefPtr<fml::TaskRunner> task_runner_;
-  SkImageInfo image_info_;
+  OH_ImageSourceNative* image_source_;
+  SkImageInfo origin_image_info_;
+  uint32_t frame_count_ = 0;
+  bool is_hdr_ = false;
+  std::vector<int32_t> frame_time_duration_;
 
-  std::shared_ptr<PlatformViewOHOSNapi> napi_facade_;
+  struct PixelMapOHOS {
+    OH_PixelmapNative* pixelmap_ = nullptr;
+    uint32_t width_ = 0;
+    uint32_t height_ = 0;
+    uint32_t row_stride_ = 0;
+    int32_t pixel_format_ = 0;
 
-  /// Blocks until the header of the image has been decoded and the image
-  /// dimensions have been determined.
-  fml::ManualResetWaitableEvent header_decoded_latch_;
+    explicit PixelMapOHOS(OH_PixelmapNative* pixelmap);
 
-  /// Blocks until the image has been fully decoded.
-  fml::ManualResetWaitableEvent fully_decoded_latch_;
+    ~PixelMapOHOS() {
+      if (pixelmap_) {
+        OH_PixelmapNative_Release(pixelmap_);
+      }
+    };
 
-  // block this unconstruct until nativeCallback called
-  fml::ManualResetWaitableEvent native_callback_latch_;
+    bool IsValid() {
+      return pixelmap_ != nullptr && width_ != 0 && height_ != 0;
+    };
 
-  void DoDecodeImage();
+    Image_ErrorCode ReadPixels(uint8_t* dst_buffer,
+                               uint32_t buffer_size,
+                               uint32_t row_stride);
+
+    PixelMapOHOS(const PixelMapOHOS&) = delete;
+    PixelMapOHOS& operator=(const PixelMapOHOS&) = delete;
+  };
+
+  std::map<uint32_t, std::shared_ptr<PixelMapOHOS>> cached_pixelmaps_;
+
+  std::shared_ptr<PixelMapOHOS> CreatePixelMap(int width,
+                                               int height,
+                                               int frame_index);
 
   bool IsValidImageData();
 
