@@ -72,9 +72,6 @@ class PlatformViewOHOSNapi {
   std::unique_ptr<std::vector<std::string>>
   FlutterViewComputePlatformResolvedLocales(
       const std::vector<std::string>& support_locale_data);
-  void DecodeImage(int64_t imageGeneratorAddress,
-                   void* inputData,
-                   size_t dataSize);
 
   void FlutterViewOnTouchEvent(std::shared_ptr<std::string[]> touchPacketString,
                                int size);

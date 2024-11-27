@@ -425,31 +425,6 @@ PlatformViewOHOSNapi::FlutterViewComputePlatformResolvedLocales(
   return std::make_unique<std::vector<std::string>>(std::move(result));
 }
 
-void PlatformViewOHOSNapi::DecodeImage(int64_t imageGeneratorAddress,
-                                       void* inputData,
-                                       size_t dataSize) {
-  FML_DLOG(INFO) << "start decodeImage";
-  platform_task_runner_->PostTask(
-      fml::MakeCopyable([imageGeneratorAddress_ = imageGeneratorAddress,
-                         inputData_ = std::move(inputData),
-                         dataSize_ = dataSize, this]() mutable {
-        napi_value callbackParam[2];
-
-        callbackParam[0] =
-            fml::napi::CreateArrayBuffer(env_, inputData_, dataSize_);
-        napi_status status =
-            napi_create_int64(env_, imageGeneratorAddress_, &callbackParam[1]);
-        if (status != napi_ok) {
-          FML_DLOG(ERROR) << "napi_create_int64 decodeImage fail ";
-        }
-        status = fml::napi::InvokeJsMethod(env_, ref_napi_obj_, "decodeImage",
-                                           2, callbackParam);
-        if (status != napi_ok) {
-          FML_DLOG(ERROR) << "InvokeJsMethod decodeImage fail ";
-        }
-      }));
-}
-
 void PlatformViewOHOSNapi::FlutterViewOnTouchEvent(
     std::shared_ptr<std::string[]> touchPacketString,
     int size) {
