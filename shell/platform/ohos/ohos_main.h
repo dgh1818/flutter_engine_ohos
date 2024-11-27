@@ -21,7 +21,6 @@
 #include "flutter/runtime/dart_service_isolate.h"
 #include "napi/native_api.h"
 #include "napi_common.h"
-#include "ohos_image_generator.h"
 
 namespace flutter {
 class OhosMain {

@@ -258,9 +258,8 @@ OHOSShellHolder::OHOSShellHolder(
 
     LOGI("shell_ end");
     shell_->RegisterImageDecoder(
-        [task_runners, napi_facade = napi_facade_](sk_sp<SkData> buffer) {
-          return OHOSImageGenerator::MakeFromData(std::move(buffer),
-                                                  task_runners, napi_facade);
+        [](sk_sp<SkData> buffer) {
+          return OHOSImageGenerator::MakeFromData(std::move(buffer));
         },
         -1);
 
