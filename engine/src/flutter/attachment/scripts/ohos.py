@@ -183,8 +183,8 @@ def engineConfig(buildInfo, args):
   runCommand(
       "%s " % os.path.join("src", "flutter", "tools", "gn") + "--ohos " +
       "--ohos-cpu %s " % buildInfo.targetArch + "--runtime-mode %s " % buildInfo.buildType + OPT +
-      unixCommand + "--no-goma " + "--no-prebuilt-dart-sdk " + "--embedder-for-target " +
-      "--disable-desktop-embeddings " + "--no-build-embedder-examples " +
+      unixCommand + "--no-goma " + "--no-prebuilt-dart-sdk " + "--full-dart-sdk " +
+      "--embedder-for-target " + "--disable-desktop-embeddings " + "--no-build-embedder-examples " +
       "--ohos-api-int %s " % args.ohos_api_int + "--verbose " +
       args.gn_extra_param.replace("\\", ""),
       checkCode=False,
@@ -344,8 +344,9 @@ def buildLocalEngine(buildType, extraParam):
   OPT = "--unoptimized --no-lto " if buildType == "debug" else ""
   runCommand(
       "%s " % os.path.join("src", "flutter", "tools", "gn") + "--runtime-mode %s " % buildType +
-      OPT + "--no-goma " + "--no-prebuilt-dart-sdk " + "--disable-desktop-embeddings " +
-      "--no-build-embedder-examples " + "--verbose " + extraParam.replace("\\", ""),
+      OPT + "--no-goma " + "--no-prebuilt-dart-sdk " + "--full-dart-sdk " +
+      "--disable-desktop-embeddings " + "--no-build-embedder-examples " + "--verbose " +
+      extraParam.replace("\\", ""),
       checkCode=False,
       timeout=600,
   )
