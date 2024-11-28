@@ -1,0 +1,51 @@
+diff --git a/src/ports/skia_ohos/FontConfig_ohos.cpp b/src/ports/skia_ohos/FontConfig_ohos.cpp
+index 78225758d1..405bcb3c14 100644
+--- a/src/ports/skia_ohos/FontConfig_ohos.cpp
++++ b/src/ports/skia_ohos/FontConfig_ohos.cpp
+@@ -520,7 +520,7 @@ int FontConfig_OHOS::parseGeneric(const Json::Value& root)
+         return logErrInfo(ERROR_CONFIG_MISSING_TAG, "alias");
+     }
+     // "adjust", "variation" - optional
+-    const char* tags[] = {"alias", "adjust", "variations", "index"};
++    const char* tags[] = {"alias", "adjust", "font-variations", "index"};
+     std::vector<AliasInfo> aliasSet;
+     std::vector<AdjustInfo> adjustSet;
+     std::vector<VariationInfo> variationSet;
+@@ -685,7 +685,7 @@ int FontConfig_OHOS::parseFallbackItem(const Json::Value& root)
+     bool hasIndex = false;
+     bool hasVariations = false;
+     for (unsigned int i = 0; i < members.size(); i++) {
+-        if (members[i] == "variations") {
++        if (members[i] == "font-variations") {
+             hasVariations = true;
+         } else if (members[i] == "index") {
+             hasIndex = true;
+@@ -703,7 +703,7 @@ int FontConfig_OHOS::parseFallbackItem(const Json::Value& root)
+     SkString lang = SkString(key);
+     SkString familyName = SkString(root[key].asCString());
+     if (hasVariations) {
+-        key = "variations";
++        key = "font-variations";
+         if (root[key].isArray()) {
+             const Json::Value& varArr = root[key];
+             std::vector<VariationInfo> variationSet;
+@@ -711,7 +711,7 @@ int FontConfig_OHOS::parseFallbackItem(const Json::Value& root)
+                 if (varArr[i].isObject()) {
+                     parseVariation(varArr[i], variationSet);
+                 } else {
+-                    SkString text = SkString("variations#");
++                    SkString text = SkString("font-variations#");
+                     text.appendU32(i + 1);
+                     (void) logErrInfo(ERROR_CONFIG_INVALID_VALUE_TYPE, text.c_str(),
+                         Json::objectValue, varArr[i].type());
+@@ -742,8 +742,8 @@ int FontConfig_OHOS::parseFallbackItem(const Json::Value& root)
+     return NO_ERROR;
+ }
+ 
+-/*! To parse an item of 'variations' attribute
+- * \param root the root node of an item in 'variations' list
++/*! To parse an item of 'font-variations' attribute
++ * \param root the root node of an item in 'font-variations' list
+  * \param[out] variationSet the value of VariationInfo is written to and returned to the caller
+  * \return NO_ERROR successful
+  * \return ERROR_CONFIG_INVALID_VALUE_TYPE invalid value type for an attribute
