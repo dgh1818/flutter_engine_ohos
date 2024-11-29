@@ -227,9 +227,25 @@ export class PlatformPluginCallback implements PlatformMessageHandler {
       switch (authResult) {
         case AuthResultStatus.GRANTED: {
           let systemPasteboard: pasteboard.SystemPasteboard = pasteboard.getSystemPasteboard();
-          systemPasteboard.getData().then((pasteData: pasteboard.PasteData) => {
-            let text: string = pasteData.getPrimaryText();
-            let response: Any = new Map().set("text", text);
+          systemPasteboard.getData().then(async (pasteData: pasteboard.PasteData) => {
+            let pasteText: string = '';
+            const recordCount: number = pasteData.getRecordCount();
+            for (let i = 0; i < recordCount; i++) {
+              const record = pasteData.getRecord(i);
+              if (record.mimeType != pasteboard.MIMETYPE_TEXT_PLAIN
+                && record.mimeType != pasteboard.MIMETYPE_TEXT_HTML) {
+                continue;
+              }
+              let text: string = '';
+              if (record.mimeType == pasteboard.MIMETYPE_TEXT_PLAIN){
+                text = record.plainText;
+              } else if (record.mimeType == pasteboard.MIMETYPE_TEXT_HTML) {
+                const htmlText: StyledString = await StyledString.fromHtml(record.htmlText);
+                text = htmlText.getString();
+              }
+              pasteText += text;
+            }
+            let response: Any = new Map().set("text", pasteText);
             result.success(response);
           }).catch((err: BusinessError) => {
             Log.e(PlatformPluginCallback.TAG, "Failed to get PasteData. Cause: " + JSON.stringify(err));
