@@ -114,7 +114,9 @@ bool OHOSImageGenerator::GetPixels(const SkImageInfo& info,
                           std::to_string(info.height()) +
                           "-index:" + std::to_string(frame_index);
   TRACE_EVENT0("flutter", trace_str.c_str());
-  FML_DLOG(INFO) << trace_str;
+  if (frame_index == 0) {
+    FML_DLOG(INFO) << trace_str;
+  }
   if (image_source_ == nullptr || info.colorType() != kRGBA_8888_SkColorType) {
     FML_LOG(ERROR) << "invailed color type:" << std::to_string(info.colorType())
                    << " " << to_string();
@@ -147,7 +149,9 @@ bool OHOSImageGenerator::GetPixels(const SkImageInfo& info,
     std::string trace_str = "ReadPixels-size:" + std::to_string(buffer_size) +
                             "-stride:" + std::to_string(row_bytes);
     TRACE_EVENT0("flutter", trace_str.c_str());
-    FML_DLOG(INFO) << trace_str;
+    if (frame_index == 0) {
+      FML_DLOG(INFO) << trace_str;
+    }
     Image_ErrorCode err_code =
         image_pixelmap->ReadPixels((uint8_t*)pixels, buffer_size, row_bytes);
     if (err_code != IMAGE_SUCCESS) {
@@ -171,8 +175,8 @@ std::shared_ptr<ImageGenerator> OHOSImageGenerator::MakeFromData(
   if (!data->data() || !data->size()) {
     return nullptr;
   }
-
-  TRACE_EVENT0("flutter", "MakeFromDataOHOS");
+  std::string trace_str = "MakeFromDataOHOS-" + std::to_string(data->size());
+  TRACE_EVENT0("flutter", trace_str.c_str());
 
   OH_ImageSourceNative* image_source = nullptr;
   // The data will be coyied to ImageSourceNative.
