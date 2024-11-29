@@ -370,7 +370,6 @@ void XComponentBase::OnDispatchTouchEvent(OH_NativeXComponent* component,
       OH_NativeXComponent_GetTouchEvent(component, window, &touchEvent_);
   if (ret == OH_NATIVEXCOMPONENT_RESULT_SUCCESS) {
     if (is_engine_attached_ && is_surface_present_) {
-      LOGD("XComponentManger::HandleTouchEvent");
       // if this touchEvent triggered by mouse, return
       OH_NativeXComponent_EventSourceType sourceType;
       int32_t ret2 = OH_NativeXComponent_GetTouchEventSourceType(

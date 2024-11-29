@@ -120,10 +120,6 @@ std::shared_ptr<std::string[]> OhosTouchProcessor::packagePacketData(
   package[offset++] = std::to_string(touchPacket->touchEventInput->force);
   package[offset++] = std::to_string(touchPacket->touchEventInput->deviceId);
   package[offset++] = std::to_string(touchPacket->touchEventInput->timeStamp);
-  FML_LOG(DEBUG) << "screenX:" << touchPacket->touchEventInput->screenX
-                 << " screenY:" << touchPacket->touchEventInput->screenY
-                 << " x:" << touchPacket->touchEventInput->x
-                 << " y:" << touchPacket->touchEventInput->y;
   for (int i = 0; i < numPoints; i++) {
     package[offset++] =
         std::to_string(touchPacket->touchEventInput->touchPoints[i].id);
@@ -145,12 +141,6 @@ std::shared_ptr<std::string[]> OhosTouchProcessor::packagePacketData(
         std::to_string(touchPacket->touchEventInput->touchPoints[i].timeStamp);
     package[offset++] =
         std::to_string(touchPacket->touchEventInput->touchPoints[i].isPressed);
-    FML_LOG(DEBUG) << "touches [" << i << "] screenX:"
-                   << touchPacket->touchEventInput->touchPoints[i].screenX
-                   << " screenY:"
-                   << touchPacket->touchEventInput->touchPoints[i].screenY
-                   << " x:" << touchPacket->touchEventInput->touchPoints[i].x
-                   << " y:" << touchPacket->touchEventInput->touchPoints[i].y;
   }
   package[offset++] = std::to_string(touchPacket->toolTypeInput);
   package[offset++] = std::to_string(touchPacket->tiltX);
