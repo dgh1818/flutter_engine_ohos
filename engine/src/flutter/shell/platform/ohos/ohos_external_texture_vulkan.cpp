@@ -106,8 +106,6 @@ void OHOSExternalTextureVulkan::SetGPUFence(OHNativeWindowBuffer* window_buffer,
 
   bool is_signal = FenceIsSignal(*fence_fd);
   bool fence_ok = FdIsValid(*fence_fd);
-  FML_LOG(INFO) << "set fence signal fd " << *fence_fd << " ok " << fence_ok
-                << " buffer_id " << buffer_id << " signal " << is_signal;
 
   // If the fd has already signaled, there is no need to send the fd to the
   // producer, as the data has already been consumed.
