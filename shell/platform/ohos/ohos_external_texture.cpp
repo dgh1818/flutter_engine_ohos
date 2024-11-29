@@ -117,9 +117,6 @@ void OHOSExternalTexture::Paint(PaintContext& context,
         flutter::DlCanvas::SrcRectConstraint::kStrict  // enforce edges
     );
     context.canvas->Flush();
-    FML_LOG(INFO) << "Draw one dl image (" << draw_dl_image->bounds().width()
-                  << "," << draw_dl_image->bounds().height() << ")->("
-                  << bounds.width() << "," << bounds.height() << ")";
   } else {
     // ready for fix black background issue when external texture is not ready.
     // note: it may be incorrect because the background color should be set in
@@ -131,9 +128,12 @@ void OHOSExternalTexture::Paint(PaintContext& context,
 }
 
 void OHOSExternalTexture::MarkNewFrameAvailable() {
-  FML_LOG(INFO) << " OHOSExternalTexture::MarkNewFrameAvailable avail-seq "
-                << now_new_frame_seq_num_ << " paint-seq "
-                << now_paint_frame_seq_num_;
+  if (now_new_frame_seq_num_ - now_paint_frame_seq_num_ > 5 ||
+      now_paint_frame_seq_num_ % 60 == 0) {
+    FML_LOG(INFO) << " OHOSExternalTexture::MarkNewFrameAvailable avail-seq "
+                  << now_new_frame_seq_num_ << " paint-seq "
+                  << now_paint_frame_seq_num_;
+  }
   now_new_frame_seq_num_++;
   producer_has_frame_ = true;
   if (producer_nativewindow_ != nullptr && native_image_source_ != nullptr) {
@@ -351,7 +351,7 @@ OHNativeWindowBuffer* OHOSExternalTexture::GetConsumerNativeBuffer(
     now_paint_frame_seq_num_ = (int64_t)now_new_frame_seq_num_;
     return nullptr;
   }
-  if (*fence_fd <= 0) {
+  if (*fence_fd <= 0 && now_paint_frame_seq_num_ % 60 == 0) {
     FML_DLOG(INFO) << "get not null native_window_buffer but inValid fence_fd: "
                    << *fence_fd;
   }
