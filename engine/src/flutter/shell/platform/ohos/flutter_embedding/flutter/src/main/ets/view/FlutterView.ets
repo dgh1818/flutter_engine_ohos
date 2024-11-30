@@ -15,7 +15,7 @@
 import FlutterEngine from '../embedding/engine/FlutterEngine';
 import Log from '../util/Log';
 import { DVModel, DVModelChildren, DVModelEvents, DVModelParameters } from './DynamicView/dynamicView';
-import {display} from '@kit.ArkUI'
+import { display } from '@kit.ArkUI'
 import FlutterManager from '../embedding/ohos/FlutterManager';
 import window from '@ohos.window';
 import KeyboardManager from '../embedding/ohos/KeyboardManager';
@@ -26,6 +26,7 @@ import PlatformView, { Params } from '../plugin/platform/PlatformView';
 import hiTraceMeter from '@ohos.hiTraceMeter'
 import { JSON } from '@kit.ArkTS';
 import TextInputPlugin from '../plugin/editing/TextInputPlugin';
+import { BusinessError } from '@kit.BasicServicesKit';
 
 const TAG = "FlutterViewTag";
 
@@ -46,6 +47,7 @@ export class ViewportMetrics {
   systemGestureInsetBottom: number = 0;
   systemGestureInsetLeft: number = 0;
   physicalTouchSlop: number = -1;
+  displayFeatures: Array<DisplayFeature> = [];
 
   clone(): ViewportMetrics {
     const copy = new ViewportMetrics();
@@ -65,6 +67,7 @@ export class ViewportMetrics {
     copy.systemGestureInsetBottom = this.systemGestureInsetBottom;
     copy.systemGestureInsetLeft = this.systemGestureInsetLeft;
     copy.physicalTouchSlop = this.physicalTouchSlop;
+    copy.displayFeatures = this.displayFeatures;
     return copy;
   }
 
@@ -84,7 +87,8 @@ export class ViewportMetrics {
       this.systemGestureInsetRight === other.systemGestureInsetRight &&
       this.systemGestureInsetBottom === other.systemGestureInsetBottom &&
       this.systemGestureInsetLeft === other.systemGestureInsetLeft &&
-      this.physicalTouchSlop === other.physicalTouchSlop;
+      this.physicalTouchSlop === other.physicalTouchSlop &&
+      this.displayFeatures === other.displayFeatures;
   }
 }
 
@@ -120,6 +124,8 @@ export class FlutterView {
   private keyboardAvoidArea: window.AvoidArea;
   private needSetViewport: boolean = false;
   private windowPosition: window.Rect | null = null;
+  private displayFeaturesCache: Map<display.FoldDisplayMode, Array<DisplayFeature>> =
+    new Map<display.FoldDisplayMode, Array<DisplayFeature>>();
 
   constructor(viewId: string, context: Context) {
     this.id = viewId
@@ -132,7 +138,6 @@ export class FlutterView {
       .getMainWindowSync();
     this.mFirstFrameListeners = new ArrayList<FirstFrameListener>();
     this.mFirstPreloadFrameListeners = new ArrayList<FirstPreloadFrameListener>();
-
 
     this.mainWindow?.on('windowSizeChange', this.windowSizeChangeCallback);
     this.mainWindow?.on('avoidAreaChange', this.avoidAreaChangeCallback);
@@ -182,30 +187,89 @@ export class FlutterView {
     }
   };
 
-  private displayChangeCallback = (data: number) => {
+  private displayChangeCallback = async (data: number) => {
     this.displayInfo = display.getDefaultDisplaySync();
     this.flutterEngine?.getTextInputChannel()?.setDevicePixelRatio(this.displayInfo.densityPixels);
     let devicePixelRatio: number = this.displayInfo?.densityPixels;
-    let physicalTouchSlop: number = 1.0 * this.displayInfo?.densityPixels;;
+    let physicalTouchSlop: number = 1.0 * this.displayInfo?.densityPixels;
+    let displayFeatures: Array<DisplayFeature> = await this.getDisplayFeature();
+
     Log.i(TAG, "Display on: " + JSON.stringify(this.displayInfo) + ". Display id:" + JSON.stringify(data))
-    if (devicePixelRatio != this.viewportMetrics.devicePixelRatio || this.viewportMetrics.physicalTouchSlop != physicalTouchSlop) {
+    if (devicePixelRatio != this.viewportMetrics.devicePixelRatio ||
+      physicalTouchSlop != this.viewportMetrics.physicalTouchSlop ||
+      displayFeatures != this.viewportMetrics.displayFeatures) {
       this.viewportMetrics.devicePixelRatio = devicePixelRatio;
-      this.viewportMetrics.physicalTouchSlop = physicalTouchSlop
+      this.viewportMetrics.physicalTouchSlop = physicalTouchSlop;
+      this.viewportMetrics.displayFeatures = displayFeatures;
       this.needSetViewport = true;
       this.onAreaChange(null);
     }
   }
-  
+
   private keyboardHeightChangeCallback = (data: number) => {
     Log.i(TAG, "keyboardHeightChangeCallback " + data);
     this.keyboardAvoidArea.bottomRect.height = data;
     this.onAreaChange(null);
   };
-  
+
   private windowRectChangeCallback = (data: window.RectChangeOptions) => {
     Log.i(TAG, "windowRectChangeCallback " + data);
     this.windowPosition = data.rect as window.Rect;
     this.flutterEngine?.getTextInputChannel()?.setWindowPosition(this.windowPosition);
+  }
+
+  private async getDisplayFeature(): Promise<Array<DisplayFeature>> {
+    let displayMode: display.FoldDisplayMode = display.getFoldDisplayMode();
+    if (this.displayFeaturesCache.has(displayMode)) {
+      return this.displayFeaturesCache.get(displayMode)!;
+    }
+    let displayFeatures: Array<DisplayFeature> = [];
+    // Folded crease areas of screen
+    let foldCreaseRegion: display.FoldCreaseRegion = display.getCurrentFoldCreaseRegion();
+    if ((displayMode == display.FoldDisplayMode.FOLD_DISPLAY_MODE_FULL ||
+      displayMode == display.FoldDisplayMode.FOLD_DISPLAY_MODE_COORDINATION) &&
+      foldCreaseRegion != undefined) {
+      let type: DisplayFeatureType = DisplayFeatureType.FOLD;
+      let state: DisplayFeatureState = DisplayFeatureState.UNKNOWN;
+      // FULL when internal screen is displayed
+      // COORDINATION when both the internal and external screen are displayed
+      if (displayMode == display.FoldDisplayMode.FOLD_DISPLAY_MODE_FULL ||
+        displayMode == display.FoldDisplayMode.FOLD_DISPLAY_MODE_COORDINATION) {
+        state = DisplayFeatureState.POSTURE_FLAT;
+      // MAIN or SUB when external screen is displayed in large-screen or small-screen folding products
+      } else if (displayMode == display.FoldDisplayMode.FOLD_DISPLAY_MODE_MAIN ||
+        displayMode == display.FoldDisplayMode.FOLD_DISPLAY_MODE_SUB) {
+        state = DisplayFeatureState.POSTURE_HALF_OPENED;
+      }
+      foldCreaseRegion.creaseRects.forEach((rect: display.Rect) => {
+        displayFeatures.push(new DisplayFeature(rect, type, state));
+      });
+    }
+
+    let cutoutInfo: display.CutoutInfo | undefined = await this.displayInfo?.getCutoutInfo();
+    if (cutoutInfo != undefined) {
+      // Unusable areas such as diggings and bangs
+      cutoutInfo.boundingRects.forEach((bounding: display.Rect) => {
+        displayFeatures.push(new DisplayFeature(bounding, DisplayFeatureType.CUTOUT));
+      });
+      // Curved areas of waterfall screen
+      let waterFallRects: display.WaterfallDisplayAreaRects = cutoutInfo.waterfallDisplayAreaRects;
+      if (!this.isEmptyRect(waterFallRects.left)) {
+        displayFeatures.push(new DisplayFeature(waterFallRects.left, DisplayFeatureType.FOLD));
+      }
+      if (!this.isEmptyRect(waterFallRects.right)) {
+        displayFeatures.push(new DisplayFeature(waterFallRects.right, DisplayFeatureType.FOLD));
+      }
+      if (!this.isEmptyRect(waterFallRects.top)) {
+        displayFeatures.push(new DisplayFeature(waterFallRects.top, DisplayFeatureType.FOLD));
+      }
+      if (!this.isEmptyRect(waterFallRects.bottom)) {
+        displayFeatures.push(new DisplayFeature(waterFallRects.bottom, DisplayFeatureType.FOLD));
+      }
+    }
+
+    this.displayFeaturesCache.set(displayMode, displayFeatures);
+    return displayFeatures;
   }
 
   getId(): string {
@@ -457,6 +521,19 @@ export class FlutterView {
 
   private updateViewportMetrics(): boolean {
     if (this.isAttachedToFlutterEngine()) {
+      const displayFeature = this.viewportMetrics.displayFeatures;
+      let displayFeaturesBounds: number[] = new Array(displayFeature.length * 4);
+      let displayFeaturesType: number[] = new Array(displayFeature.length);
+      let displayFeaturesState: number[] = new Array(displayFeature.length);
+
+      for (let i = 0; i < displayFeature.length; i++) {
+        displayFeaturesBounds[4*i] = displayFeature[i].bounds.left;
+        displayFeaturesBounds[4*i + 1] = displayFeature[i].bounds.top;
+        displayFeaturesBounds[4*i + 2] = displayFeature[i].bounds.width;
+        displayFeaturesBounds[4*i + 3] = displayFeature[i].bounds.height;
+        displayFeaturesType[i] = displayFeature[i].type;
+        displayFeaturesState[i] = displayFeature[i].state;
+      }
       this?.flutterEngine?.getFlutterNapi()?.setViewportMetrics(this.viewportMetrics.devicePixelRatio,
         this.viewportMetrics.physicalWidth,
         this.viewportMetrics.physicalHeight,
@@ -473,12 +550,12 @@ export class FlutterView {
         this.viewportMetrics.systemGestureInsetBottom,
         this.viewportMetrics.systemGestureInsetLeft,
         this.viewportMetrics.physicalTouchSlop,
-        new Array(0),
-        new Array(0),
-        new Array(0))
-      return true
+        displayFeaturesBounds,
+        displayFeaturesType,
+        displayFeaturesState)
+      return true;
     }
-    return false
+    return false;
   }
 
   onKeyPreIme(event: KeyEvent) : boolean {
@@ -542,6 +619,13 @@ export class FlutterView {
   setCheckAiBar(check: boolean) {
     this.checkAiBar = check
   }
+
+  isEmptyRect(rect: display.Rect | null | undefined) {
+    if (rect == null || rect == undefined) {
+      return true;
+    }
+    return rect.left == 0 && rect.top == 0 && rect.width == 0 && rect.height == 0;
+  }
 }
 
 export interface FirstFrameListener {
@@ -550,4 +634,31 @@ export interface FirstFrameListener {
 
 export interface FirstPreloadFrameListener {
   onFirstPreloadFrame(): void;
+}
+
+export class DisplayFeature {
+  bounds: display.Rect;
+  type: DisplayFeatureType;
+  state: DisplayFeatureState;
+
+  constructor(bounds: display.Rect, type: DisplayFeatureType, state: DisplayFeatureState = DisplayFeatureState.UNKNOWN) {
+    this.bounds = bounds;
+    this.type = type;
+    this.state = state;
+  }
+}
+
+// Unusual types of areas in screen such as occlusion, folding or curved areas
+export enum DisplayFeatureType {
+  UNKNOWN = 0,
+  FOLD = 1,
+  HINGE = 2,
+  CUTOUT = 3,
+}
+
+// State of screen
+export enum DisplayFeatureState {
+  UNKNOWN = 0,
+  POSTURE_FLAT = 1,
+  POSTURE_HALF_OPENED = 2,
 }
