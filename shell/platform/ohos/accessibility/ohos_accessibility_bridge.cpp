@@ -28,14 +28,16 @@
 #define ARKUI_FAILED_CODE -1
 #define ARKUI_BAD_PARAM_CODE -2
 #define ARKUI_OOM_CODE  -3
-#define ARKUI_ACCESSIBILITY_CALL_CHECK(X)                                      \
-    do {                                                                       \
-        int32_t ret = X;                                                       \
-        if (ret != ARKUI_SUCCEED_CODE) {                                       \
-          LOGE("Failed arkui a11y function call, error code:%{public}d", ret); \
-        }                                                                      \
-    }  while (false)                                                           \
-    
+#define FUNCTION_NAME_STR(n) #n
+#define ARKUI_ACCESSIBILITY_CALL_CHECK(X)                                \
+    do {                                                                 \
+        int32_t RET = X;                                                 \
+        if (RET != ARKUI_SUCCEED_CODE) {                                 \
+          LOGE("Failed function %{public}s call, error code:%{public}d", \
+              FUNCTION_NAME_STR(X), RET);                                \
+        }                                                                \
+    }  while (false)                                                     \
+
 namespace flutter {
 OhosAccessibilityBridge* OhosAccessibilityBridge::bridgeInstance = nullptr;
 
