@@ -7,6 +7,7 @@
 #include <native_image/native_image.h>
 #include <native_window/external_window.h>
 #include <poll.h>
+#include <sys/stat.h>
 #include <cerrno>
 #include <cstdint>
 #include <string>
@@ -911,15 +912,26 @@ bool OHOSExternalTexture::FdIsValid(int fd) {
     return false;
   }
   errno = 0;
-  if (fcntl(fd, F_GETFD) == -1) {
-    if (errno == EBADF) {
-      return false;
-    } else {
-      FML_LOG(ERROR) << "check fd " << fd << " is valid, error:" << errno;
-      return true;
+  struct stat file_stat = {};
+  int ret = 0;
+  do {
+    ret = fstat(fd, &file_stat);
+  } while (ret == -1 && (errno == EINTR || errno == EAGAIN));
+
+  if (ret == -1) {
+    if (errno != EBADF) {
+      FML_LOG(WARNING) << "check fd " << fd << " is valid, error:" << errno;
     }
+    return false;
   } else {
-    return true;
+    // anon_inode:sync_file is a chr device
+    if (S_ISCHR(file_stat.st_mode)) {
+      return true;
+    } else {
+      FML_LOG(WARNING) << "get no-sync_file fd " << fd
+                       << " mode: " << file_stat.st_mode;
+      return false;
+    }
   }
 }
 
