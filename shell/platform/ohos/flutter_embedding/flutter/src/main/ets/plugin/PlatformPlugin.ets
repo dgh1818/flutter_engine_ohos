@@ -255,14 +255,14 @@ export class PlatformPluginCallback implements PlatformMessageHandler {
         }
         case AuthResultStatus.NOT_CONFIGURED: {
           message += 'Cause: Not configured in Settings';
-          Log.e(PlatformPluginCallback.TAG, message);
-          result.error("error", message, null);
+          Log.i(PlatformPluginCallback.TAG, message);
+          result.success(null);
           break;
         }
         case AuthResultStatus.INVALID_REQ: {
           message += 'Cause: Invalid request';
-          Log.e(PlatformPluginCallback.TAG, message);
-          result.error("error", message, null);
+          Log.i(PlatformPluginCallback.TAG, message);
+          result.success(null);
           break;
         }
         default: {
