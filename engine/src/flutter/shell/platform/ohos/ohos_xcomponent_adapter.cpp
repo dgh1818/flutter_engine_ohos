@@ -665,7 +665,8 @@ void XComponentBase::OnDispatchMouseWheelEvent(mouseWheelEvent event) {
     }
     if (event.eventType == "actionUpdate") {
       OH_NativeXComponent_MouseEvent mouseEvent;
-      double scrollY = event.offsetY - g_scrollDistance;
+      // 调整鼠标滚轮滚动时，列表滑动的方向。和Windows保持一致。
+      double scrollY = g_scrollDistance - event.offsetY;
       g_scrollDistance = event.offsetY;
       // fix resize ratio
       mouseEvent.x = event.globalX / g_resizeRate;

@@ -183,11 +183,10 @@ void OhosTouchProcessor::HandleTouchEvent(
   OH_NativeXComponent_TouchPointToolType toolType;
   OH_NativeXComponent_GetTouchPointToolType(component, 0, &toolType);
   pointerData.kind = getPointerDeviceTypeForToolType(toolType);
-  if (pointerData.kind == PointerData::DeviceKind::kTouch) {
-    if (pointerData.change == PointerData::Change::kDown ||
-        pointerData.change == PointerData::Change::kMove) {
-      pointerData.buttons = kPointerButtonTouchContact;
-    }
+  // 适配PC兼容模式，kind的值可能不是kTouch，需要确保 pointerData.buttons 被赋值
+  if (pointerData.change == PointerData::Change::kDown ||
+      pointerData.change == PointerData::Change::kMove) {
+    pointerData.buttons = kPointerButtonTouchContact;
   }
   pointerData.pan_x = 0.0;
   pointerData.pan_y = 0.0;
@@ -266,7 +265,7 @@ void OhosTouchProcessor::HandleMouseEvent(
   pointerData.pressure = 0.0;
   pointerData.pressure_max = 1.0;
   pointerData.pressure_min = 0.0;
-  pointerData.kind = PointerData::DeviceKind::kTouch;
+  pointerData.kind = PointerData::DeviceKind::kMouse; // kMouse支持鼠标框选文字
   pointerData.buttons = getPointerButtonFromMouse(mouseEvent.button);
   // hover support
   if (mouseEvent.button == OH_NATIVEXCOMPONENT_NONE_BUTTON &&
