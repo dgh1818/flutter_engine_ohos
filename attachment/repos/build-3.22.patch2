@@ -1,0 +1,19 @@
+diff --git a/build/config/compiler/BUILD.gn b/build/config/compiler/BUILD.gn
+index 08b5f08..ac21f66 100644
+--- a/build/config/compiler/BUILD.gn
++++ b/build/config/compiler/BUILD.gn
+@@ -548,12 +548,8 @@ config("runtime_library") {
+     }
+     include_dirs = [
++      "//third_party/libcxx/include",
+       "//third_party/libcxxabi/include",
+     ]
+-    if (custom_toolchain != "") {
+-      include_dirs += [ "$custom_toolchain/include/c++/v1" ]
+-    } else {
+-      include_dirs += [ "//third_party/libcxx/include" ]
+-    }
+   }
+ 
+   # Android standard library setup.
+-- 

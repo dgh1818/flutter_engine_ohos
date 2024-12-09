@@ -1,0 +1,51 @@
+diff --git a/include/__config b/include/__config
+index 22c2ed7fd..c151bbec9 100644
+--- a/include/__config
++++ b/include/__config
+@@ -889,7 +889,8 @@ _LIBCPP_BEGIN_NAMESPACE_STD _LIBCPP_END_NAMESPACE_STD
+         defined(__sun__) ||                                                                                            \
+         defined(__MVS__) ||                                                                                            \
+         defined(_AIX) ||                                                                                               \
+-        defined(__EMSCRIPTEN__)
++        defined(__EMSCRIPTEN__) ||                                                                                     \
++        defined(__OHOS_FAMILY__)
+ // clang-format on
+ #      define _LIBCPP_HAS_THREAD_API_PTHREAD
+ #    elif defined(__Fuchsia__)
+@@ -967,7 +968,7 @@ _LIBCPP_BEGIN_NAMESPACE_STD _LIBCPP_END_NAMESPACE_STD
+ #  endif
+ 
+ #  if defined(__BIONIC__) || defined(__NuttX__) || defined(__Fuchsia__) || defined(__wasi__) ||                        \
+-      defined(_LIBCPP_HAS_MUSL_LIBC) || defined(__OpenBSD__)
++      defined(_LIBCPP_HAS_MUSL_LIBC) || defined(__OpenBSD__) || defined(__OHOS_FAMILY__)
+ #    define _LIBCPP_PROVIDES_DEFAULT_RUNE_TABLE
+ #  endif
+ 
+diff --git a/include/__locale b/include/__locale
+index 4450123db..0a429c4a7 100644
+--- a/include/__locale
++++ b/include/__locale
+@@ -40,6 +40,9 @@
+ #elif defined(__wasi__)
+ // WASI libc uses musl's locales support.
+ # include <__support/musl/xlocale.h>
++#elif defined(__LITEOS__) || defined(__OHOS__)
++// LiteOS libc uses musl's locales support.
++# include <__support/musl/xlocale.h>
+ #elif defined(_LIBCPP_HAS_MUSL_LIBC)
+ # include <__support/musl/xlocale.h>
+ #endif
+diff --git a/src/include/config_elast.h b/src/include/config_elast.h
+index bef26ec50..0e762d276 100644
+--- a/src/include/config_elast.h
++++ b/src/include/config_elast.h
+@@ -29,6 +29,8 @@
+ // No _LIBCPP_ELAST needed on Fuchsia
+ #elif defined(__wasi__)
+ // No _LIBCPP_ELAST needed on WASI
++#elif defined(__OHOS_FAMILY__)
++// No _LIBCPP_ELAST needed on OHOS
+ #elif defined(__EMSCRIPTEN__)
+ // No _LIBCPP_ELAST needed on Emscripten
+ #elif defined(__linux__) || defined(_LIBCPP_HAS_MUSL_LIBC)
+-- 
