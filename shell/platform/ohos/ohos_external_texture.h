@@ -70,6 +70,8 @@ class OHOSExternalTexture : public flutter::Texture {
   static void DefaultOnFrameAvailable(void* native_image_ptr);
 
   static bool FenceIsSignal(int fence_fd);
+
+  // Check if the fd is a valid sync file.
   static bool FdIsValid(int fd);
 
  protected:
