@@ -347,13 +347,11 @@ void OhosAccessibilityBridge::Announce(std::unique_ptr<char[]>& message)
 SemanticsNodeExtent OhosAccessibilityBridge::GetFlutterRootSemanticsNode()
 {
   if (!g_flutterSemanticsTree.size()) {
-    FML_DLOG(ERROR)
-        << "GetFlutterRootSemanticsNode -> g_flutterSemanticsTree.size()=0";
+    LOGE("GetFlutterRootSemanticsNode: g_flutterSemanticsTree.size()=0");
     return {};
   }
   if (g_flutterSemanticsTree.find(0) == g_flutterSemanticsTree.end()) {
-    FML_DLOG(ERROR) << "GetFlutterRootSemanticsNode -> g_flutterSemanticsTree "
-                       "has no keys = 0";
+    LOGE("GetFlutterRootSemanticsNod: g_flutterSemanticsTree has no root id");
     return {};
   }
   return g_flutterSemanticsTree.at(0);
@@ -367,10 +365,8 @@ SemanticsNodeExtent OhosAccessibilityBridge::GetFlutterSemanticsNode(
 {
   if (g_flutterSemanticsTree.count(id) > 0) {
     return g_flutterSemanticsTree.at(id);
-    FML_DLOG(INFO) << "GetFlutterSemanticsNode get node.id=" << id;
   } else {
-    FML_DLOG(ERROR)
-        << "GetFlutterSemanticsNode g_flutterSemanticsTree = null" << id;
+    LOGE("GetFlutterSemanticsNode g_flutterSemanticsTree = null");
     return {};
   }
 }
@@ -503,24 +499,22 @@ int32_t OhosAccessibilityBridge::GetParentId(int64_t elementId)
 /**
  * 设置并获取xcomponet上渲染的组件的屏幕绝对坐标rect
  */
-void OhosAccessibilityBridge::SetAbsoluteScreenRect(int32_t flutterNodeId,
+void OhosAccessibilityBridge::SetAbsoluteScreenRect(SemanticsNodeExtent& flutterNode,
                                                     float left,
                                                     float top,
                                                     float right,
                                                     float bottom) {
-  g_screenRectMap[flutterNodeId] =
-      std::make_pair(std::make_pair(left, top), std::make_pair(right, bottom));
-  FML_DLOG(INFO) << "SetAbsoluteScreenRect -> id=" << flutterNodeId
+  g_screenRectMap[flutterNode.id] = AbsoluteRect{left, top, right, bottom};
+  FML_DLOG(INFO) << "SetAbsoluteScreenRect -> id=" << flutterNode.id
                   << ", {" << left << ", " << top << ", " << right << ", "<< bottom << "> }";
 }
 
-std::pair<std::pair<float, float>, std::pair<float, float>>
-OhosAccessibilityBridge::GetAbsoluteScreenRect(int32_t flutterNodeId) {
-  if (!g_screenRectMap.empty() && g_screenRectMap.count(flutterNodeId) > 0) {
-    return g_screenRectMap.at(flutterNodeId);
+AbsoluteRect OhosAccessibilityBridge::GetAbsoluteScreenRect(SemanticsNodeExtent& flutterNode) {
+  if (!g_screenRectMap.empty() && g_screenRectMap.count(flutterNode.id) > 0) {
+    return g_screenRectMap.at(flutterNode.id);
   } else {
     FML_DLOG(ERROR) << "GetAbsoluteScreenRect -> flutterNodeId="
-                    << flutterNodeId << " is not found !";
+                    << flutterNode.id << " is not found !";
     return {};
   }
 }
@@ -541,7 +535,7 @@ std::pair<float, float> OhosAccessibilityBridge::GetRealScaleFactor()
  * flutter无障碍语义树的子节点相对坐标系转化为屏幕绝对坐标的映射算法
  * 目前暂未考虑旋转、透视场景，不影响屏幕朗读功能
  */
-void OhosAccessibilityBridge::ConvertChildRelativeRectToScreenRect(
+void OhosAccessibilityBridge::FlutterRelativeRectToScreenRect(
     SemanticsNodeExtent currNode) {
   // 获取当前flutter节点的相对rect
   auto currLeft = static_cast<float>(currNode.rect.fLeft);
@@ -564,18 +558,18 @@ void OhosAccessibilityBridge::ConvertChildRelativeRectToScreenRect(
   // 获取当前flutter节点的父节点的相对rect
   int32_t parentId = GetParentId(currNode.id);
   auto parentNode = GetFlutterSemanticsNode(parentId);
+  if (!g_flutterSemanticsTree.count(parentId)) {
+    LOGE("FlutterRelativeRectToScreenRect: GetFlutterSemanticsNode id=%{public}d null", parentId);
+  }
 
   // 获取当前flutter节点的父节点的绝对坐标
-  auto _rectPairs = GetAbsoluteScreenRect(parentNode.id);
-  auto realParentLeft = _rectPairs.first.first;
-  auto realParentTop = _rectPairs.first.second;
-  auto realParentRight = _rectPairs.second.first;
-  auto realParentBottom = _rectPairs.second.second;
+  auto [realParentLeft, realParentTop, realParentRight, realParentBottom] = GetAbsoluteScreenRect(parentNode);
 
   //获取root节点的绝对坐标
-  auto _rootRect = GetAbsoluteScreenRect(0);
-  auto rootWidth = _rootRect.second.first;
-  auto rootHeight = _rootRect.second.second;
+  auto rootNode = GetFlutterSemanticsNode(0);
+  auto _rootRect = GetAbsoluteScreenRect(rootNode);
+  auto rootWidth = _rootRect.right;
+  auto rootHeight = _rootRect.bottom;
 
   // 获取真实缩放系数
   auto [realScaleXFactor, realScaleYFactor] = GetRealScaleFactor();
@@ -593,7 +587,7 @@ void OhosAccessibilityBridge::ConvertChildRelativeRectToScreenRect(
     newRight = currRight * _kMScaleX;
     newBottom = currBottom * _kMScaleY;
     // 更新当前flutter节点currNode的相对坐标 -> 屏幕绝对坐标
-    SetAbsoluteScreenRect(currNode.id, newLeft, newTop, newRight, newBottom);
+    SetAbsoluteScreenRect(currNode, newLeft, newTop, newRight, newBottom);
   } else {
     // 子节点的屏幕绝对坐标转换，包括offset偏移值计算、缩放系数变换
     newLeft = (currLeft + _kMTransX) * realScaleXFactor + realParentLeft;
@@ -612,9 +606,9 @@ void OhosAccessibilityBridge::ConvertChildRelativeRectToScreenRect(
                       << currNode.id << ", (" << newLeft << ", " << newTop
                       << ", " << newRight << ", " << newBottom << ")}";
       // 防止滑动场景下绿框坐标超出屏幕范围，进行正则化处理
-      SetAbsoluteScreenRect(currNode.id, rootWidth, rootHeight, 0, 0);
+      SetAbsoluteScreenRect(currNode, rootWidth, rootHeight, 0, 0);
     } else {
-      SetAbsoluteScreenRect(currNode.id, newLeft, newTop, newRight, newBottom);
+      SetAbsoluteScreenRect(currNode, newLeft, newTop, newRight, newBottom);
     }
   }
 }
@@ -634,8 +628,10 @@ void OhosAccessibilityBridge::FlutterNodeToElementInfoById(
   // 当elementId = -1或0时，创建root节点
   if (elementId == 0 || elementId == -1) {
     // 获取flutter的root节点
-    SemanticsNodeExtent flutterNode =
-        GetFlutterSemanticsNode(static_cast<int32_t>(0));
+    SemanticsNodeExtent flutterNode = GetFlutterSemanticsNode(static_cast<int32_t>(0));
+    if (flutterNode.isNull) {
+      LOGE("FlutterNodeToElementInfoById: GetFlutterSemanticsNode id=%{public}ld null", elementId);
+    }
 
     // 设置elementinfo的屏幕坐标范围
     int32_t left = static_cast<int32_t>(flutterNode.rect.fLeft);
@@ -649,11 +645,10 @@ void OhosAccessibilityBridge::FlutterNodeToElementInfoById(
     );
 
     // 设置root节点的屏幕绝对坐标rect
-    SetAbsoluteScreenRect(0, left, top, right, bottom);
+    SetAbsoluteScreenRect(flutterNode, left, top, right, bottom);
 
-    // 设置elementinfo的action类型
-    std::string widget_type = "root";
-    FlutterSetElementInfoOperationActions(elementInfoFromList, widget_type);
+    // 设置root节点的action类型
+    FlutterSetElementInfoOperationActions(elementInfoFromList, OTHER_WIDGET_NAME);
 
     // 根据flutternode信息配置对应的elementinfo
     ARKUI_ACCESSIBILITY_CALL_CHECK(
@@ -836,8 +831,10 @@ void OhosAccessibilityBridge::FlutterSetElementInfoOperationActions(
 void OhosAccessibilityBridge::FlutterSetElementInfoProperties(
     ArkUI_AccessibilityElementInfo* elementInfoFromList,
     int64_t elementId) {
-  SemanticsNodeExtent flutterNode =
-      GetFlutterSemanticsNode(static_cast<int32_t>(elementId));
+  SemanticsNodeExtent flutterNode = GetFlutterSemanticsNode(static_cast<int32_t>(elementId));
+  if (flutterNode.isNull) {
+    LOGE("FlutterSetElementInfoProperties: GetFlutterSemanticsNode id=%{public}ld null", elementId);
+  }
 
   // set elementinfo id
   ARKUI_ACCESSIBILITY_CALL_CHECK(
@@ -845,15 +842,11 @@ void OhosAccessibilityBridge::FlutterSetElementInfoProperties(
                                                     flutterNode.id)
   );
 
-  // convert relative rect to absolute rect
-  ConvertChildRelativeRectToScreenRect(flutterNode);
-  auto rectPairs = GetAbsoluteScreenRect(flutterNode.id);
-  // set screen rect in xcomponent
-  int32_t left = rectPairs.first.first;
-  int32_t top = rectPairs.first.second;
-  int32_t right = rectPairs.second.first;
-  int32_t bottom = rectPairs.second.second;
-  ArkUI_AccessibleRect rect = {left, top, right, bottom};
+  // 相对-绝对坐标映射
+  FlutterRelativeRectToScreenRect(flutterNode);
+  auto [left, top, right, bottom] = GetAbsoluteScreenRect(flutterNode);
+  ArkUI_AccessibleRect rect = {static_cast<int32_t>(left), static_cast<int32_t>(top), 
+                                static_cast<int32_t>(right), static_cast<int32_t>(bottom)};
   ARKUI_ACCESSIBILITY_CALL_CHECK(
       OH_ArkUI_AccessibilityElementInfoSetScreenRect(elementInfoFromList, &rect)
   );
@@ -864,19 +857,17 @@ void OhosAccessibilityBridge::FlutterSetElementInfoProperties(
   // 配置arkui的elementinfo可操作动作属性
   if (IsTextField(flutterNode)) {
     // 若当前flutter节点为文本输入框组件
-    std::string widget_type = "textfield";
-    FlutterSetElementInfoOperationActions(elementInfoFromList, widget_type);
+    std::string widgeType = flutterNode.HasFlag(FLAGS_::kIsMultiline) ? EDIT_MULTILINE_TEXT_WIDGET_NAME : EDIT_TEXT_WIDGET_NAME;
+    FlutterSetElementInfoOperationActions(elementInfoFromList, widgeType);
   } else if (IsScrollableWidget(flutterNode) || IsNodeScrollable(flutterNode)) {
     // 若当前flutter节点为可滑动组件类型
-    std::string widget_type = "scrollable";
-    FlutterSetElementInfoOperationActions(elementInfoFromList, widget_type);
+    FlutterSetElementInfoOperationActions(elementInfoFromList, SCROLL_WIDGET_NAME);
   } else {
     // 若当前flutter节点为通用组件
-    std::string widget_type = "common";
-    FlutterSetElementInfoOperationActions(elementInfoFromList, widget_type);
+    FlutterSetElementInfoOperationActions(elementInfoFromList, OTHER_WIDGET_NAME);
   }
 
-  // set current elementinfo parent id
+  // 设置当前节点的父节点id
   int32_t parentId = GetParentId(elementId);
   ARKUI_ACCESSIBILITY_CALL_CHECK(
       OH_ArkUI_AccessibilityElementInfoSetParentId(elementInfoFromList, parentId)
@@ -884,7 +875,7 @@ void OhosAccessibilityBridge::FlutterSetElementInfoProperties(
   FML_DLOG(INFO) << "FlutterNodeToElementInfoById GetParentId = " << parentId;
   
 
-  // set accessibility text for announcing
+  // 设置可朗读文本
   std::string text = flutterNode.label + flutterNode.value;
   ARKUI_ACCESSIBILITY_CALL_CHECK(
       OH_ArkUI_AccessibilityElementInfoSetAccessibilityText(elementInfoFromList,
@@ -892,17 +883,18 @@ void OhosAccessibilityBridge::FlutterSetElementInfoProperties(
   );
   FML_DLOG(INFO) << "FlutterNodeToElementInfoById SetAccessibilityText = "
                  << text;
-  //set contents (same as AccessibilityText)
+  // 设置无障碍content文本
   ARKUI_ACCESSIBILITY_CALL_CHECK(
       OH_ArkUI_AccessibilityElementInfoSetContents(elementInfoFromList, text.c_str())
   );
+  // 设置hint提示文本
   std::string hint = flutterNode.hint;
   ARKUI_ACCESSIBILITY_CALL_CHECK(
       OH_ArkUI_AccessibilityElementInfoSetHintText(elementInfoFromList,
                                                    hint.c_str())
   );
 
-  // set chidren elementinfo ids
+  // 设置当前节点的全部孩子节点
   int32_t childCount = flutterNode.childrenInTraversalOrder.size();
   if (childCount > 0) {
     auto childrenIdsVec = flutterNode.childrenInTraversalOrder;
@@ -1098,13 +1090,14 @@ void OhosAccessibilityBridge::BuildArkUISemanticsTree(
   for (int64_t i = 1; i < elementInfoCount; i++) {
     int64_t levelOrderId = levelOrderTreeVec[i];
     auto newNode = GetFlutterSemanticsNode(levelOrderId);
-    //当节点为隐藏状态时，自动规避
-    if (IsNodeVisible(newNode)) {
-      ArkUI_AccessibilityElementInfo* newElementInfo =
-        OH_ArkUI_AddAndGetAccessibilityElementInfo(elementList);
-      //配置当前子节点信息
-      FlutterNodeToElementInfoById(newElementInfo, levelOrderId);
+    if (g_flutterSemanticsTree.count(newNode.id)) {
+      LOGE("BuildArkUISemanticsTree: GetFlutterSemanticsNode id=%{public}ld null", levelOrderId);
     }
+    //当节点为隐藏状态时，自动规避
+    ArkUI_AccessibilityElementInfo* newElementInfo =
+      OH_ArkUI_AddAndGetAccessibilityElementInfo(elementList);
+    //配置当前子节点信息
+    FlutterNodeToElementInfoById(newElementInfo, levelOrderId);
   }
 }
 
@@ -1131,6 +1124,11 @@ int32_t OhosAccessibilityBridge::FindAccessibilityNodeInfosById(
     FML_DLOG(INFO) << "FindAccessibilityNodeInfosById elementList is null";
     return ARKUI_ACCESSIBILITY_NATIVE_RESULT_FAILED;
   }
+  // 获取当前对应id的flutter节点，若为空则返回错误编码
+  auto flutterNode = GetFlutterSemanticsNode(static_cast<int32_t>(elementId));
+  if (!g_flutterSemanticsTree.count(flutterNode.id)) {
+      LOGE("FindAccessibilityNodeInfosById: GetFlutterSemanticsNode id=%{public}ld is null", elementId);
+  }
 
   // 开启无障碍导航功能
   if(elementId == -1 || elementId == 0) {
@@ -1145,9 +1143,6 @@ int32_t OhosAccessibilityBridge::FindAccessibilityNodeInfosById(
         << "FindAccessibilityNodeInfosById elementInfoFromList is null";
     return ARKUI_ACCESSIBILITY_NATIVE_RESULT_FAILED;
   }
-
-  // 过滤非当前屏幕显示的语义节点创建、配置，防止溢出屏幕坐标绘制bug以及优化性能开销
-  auto flutterNode = GetFlutterSemanticsNode(static_cast<int32_t>(elementId));
 
   if (mode == ArkUI_AccessibilitySearchMode::
                   ARKUI_ACCESSIBILITY_NATIVE_SEARCH_MODE_PREFETCH_CURRENT) {
@@ -1224,6 +1219,9 @@ int32_t OhosAccessibilityBridge::ExecuteAccessibilityAction(
   // 获取当前elementid对应的flutter语义节点
   auto flutterNode =
       GetFlutterSemanticsNode(static_cast<int32_t>(elementId));
+  if (!g_flutterSemanticsTree.count(flutterNode.id)) {
+    LOGE("ExecuteAccessibilityAction: GetFlutterSemanticsNode id=%{public}ld is null", elementId);
+  }
   // 若当前节点为非屏幕显示状态，将其显示在屏幕上
   if (!IsNodeShowOnScreen(flutterNode)) {
     DispatchSemanticsAction(static_cast<int32_t>(elementId), ACTIONS_::kShowOnScreen, {});
@@ -1617,17 +1615,9 @@ void OhosAccessibilityBridge::PerformSetText(
     ArkUI_AccessibilityActionArguments* actionArguments)
 {
     // 获取特殊动作参数
-    const char* key_setText = "setText";
-    char* newValue;
-    char** value = &newValue;
-    ARKUI_ACCESSIBILITY_CALL_CHECK(OH_ArkUI_FindAccessibilityActionArgumentByKey(actionArguments, key_setText, value));
-    if (newValue == nullptr) {
-        // newValue = "888";
-        LOGE("PerformSetText -> OH_ArkUI_FindAccessibilityActionArgumentByKey get null value");
-    }
     auto flutterSetTextAction = ArkuiActionsToFlutterActions(action);
     DispatchSemanticsAction(flutterNode.id, flutterSetTextAction, {});
-    flutterNode.value = newValue;
+    flutterNode.value = "debug";
     flutterNode.valueAttributes = {};
 }
 
@@ -1951,6 +1941,7 @@ SemanticsNodeExtent OhosAccessibilityBridge::UpdatetSemanticsNodeExtent(
     nodeEx.previousLabel = prevNode.label;
   }
   // 更新当前flutter节点信息
+  nodeEx.isNull = false;
   nodeEx.id = std::move(node.id);
   nodeEx.flags = std::move(node.flags);
   nodeEx.actions = std::move(node.actions);
