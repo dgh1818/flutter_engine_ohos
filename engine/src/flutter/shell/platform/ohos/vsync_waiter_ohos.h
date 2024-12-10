@@ -26,7 +26,8 @@ namespace flutter {
 class VsyncWaiterOHOS final : public VsyncWaiter {
  public:
   explicit VsyncWaiterOHOS(const flutter::TaskRunners& task_runners);
-  static void OnUpdateRefreshRate(long long refresh_rate);
+
+  int64_t GetVsyncPeriod();
 
   ~VsyncWaiterOHOS() override;
 
