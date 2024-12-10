@@ -53,10 +53,10 @@
         "file_path": "../../../flutter/attachment/repos/skia-3.22.patch1"
     },
     {
-      "name": "skia-2",
-      "target": "./src/flutter/third_party/skia",
-      "type": "patch",
-      "file_path": "../../../flutter/attachment/repos/skia-3.22.patch2"
+        "name": "skia-2",
+        "target": "./src/flutter/third_party/skia",
+        "type": "patch",
+        "file_path": "../../../flutter/attachment/repos/skia-3.22.patch2"
     },
     {
         "name": "spirv-headers",
@@ -75,6 +75,12 @@
         "target": "./src/build",
         "type": "patch",
         "file_path": "../flutter/attachment/repos/build-3.22.patch"
+    },
+    {
+        "name": "build2",
+        "target": "./src/build",
+        "type": "patch",
+        "file_path": "../flutter/attachment/repos/build-3.22.patch2"
     },
     {
         "name": "zlib",
@@ -111,5 +117,17 @@
         "target": "./src/third_party/libcxxabi",
         "type": "patch",
         "file_path": "../../flutter/attachment/repos/libcxxabi.patch"
+    },
+    {
+        "name": "libcxxabi2",
+        "target": "./src/third_party/libcxxabi",
+        "type": "patch",
+        "file_path": "../../flutter/attachment/repos/libcxxabi.patch2"
+    },
+    {
+        "name": "libcxx",
+        "target": "./src/third_party/libcxx",
+        "type": "patch",
+        "file_path": "../../flutter/attachment/repos/libcxx.patch"
     }
 ]

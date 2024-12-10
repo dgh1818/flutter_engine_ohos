@@ -31,10 +31,6 @@ source_set("libcxxabi") {
     "_LIBCXXABI_DISABLE_VISIBILITY_ANNOTATIONS",
   ]
 
-  if (is_ohos && current_cpu == "arm64") {
-    defines += [ "__MUSL_OHOS__" ]
-  }
-
   sources = []
 
   # Compile libcxx ABI using C++11. This replicates the rule in the
