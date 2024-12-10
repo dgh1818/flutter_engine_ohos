@@ -43,6 +43,7 @@ struct AbsoluteRect {
     }
 };
 struct SemanticsNodeExtent : flutter::SemanticsNode {
+    bool isNull = false;
     AbsoluteRect absoluteRect = AbsoluteRect::MakeEmpty();
     int32_t parentId = -1;
     bool hadPreviousConfig = false;
@@ -133,10 +134,9 @@ public:
         int64_t elementId);
     int32_t GetParentId(int64_t elementId);
 
-    void ConvertChildRelativeRectToScreenRect(SemanticsNodeExtent node);
-    std::pair<std::pair<float, float>, std::pair<float, float>>
-    GetAbsoluteScreenRect(int32_t flutterNodeId);
-    void SetAbsoluteScreenRect(int32_t flutterNodeId,
+    void FlutterRelativeRectToScreenRect(SemanticsNodeExtent node);
+    AbsoluteRect GetAbsoluteScreenRect(SemanticsNodeExtent& flutterNode);
+    void SetAbsoluteScreenRect(SemanticsNodeExtent& flutterNode,
                                float left,
                                float top,
                                float right,
@@ -158,8 +158,7 @@ private:
 
     std::vector<std::pair<int32_t, int32_t>> g_parentChildIdVec;
     std::map<int32_t, SemanticsNodeExtent> g_flutterSemanticsTree;
-    std::unordered_map<int32_t,
-                       std::pair<std::pair<float, float>, std::pair<float, float>>> g_screenRectMap;
+    std::unordered_map<int32_t, AbsoluteRect> g_screenRectMap;
     std::unordered_map<int32_t, flutter::CustomAccessibilityAction> g_actions_mp;
     std::vector<int32_t> g_flutterNavigationVec;
 
@@ -169,7 +168,7 @@ private:
 
     // arkui的root节点的父节点id
     static const int32_t ARKUI_ACCESSIBILITY_ROOT_PARENT_ID = -2100000;
-    static const int32_t RET_ERROR_STATE_CODE = -999;
+    static const int32_t RET_ERROR_STATE_CODE = -1;
     static const int32_t ROOT_NODE_ID = 0;
     constexpr static const double SCROLL_EXTENT_FOR_INFINITY = 100000.0;
     constexpr static const double SCROLL_POSITION_CAP_FOR_INFINITY = 70000.0;
