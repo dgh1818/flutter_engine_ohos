@@ -1044,7 +1044,6 @@ napi_value PlatformViewOHOSNapi::nativeUpdateRefreshRate(
   LOGD("PlatformViewOHOSNapi::nativeUpdateRefreshRate: %{public}ld",
        refreshRate);
   FML_DCHECK(refreshRate > 0);
-  VsyncWaiterOHOS::OnUpdateRefreshRate(refreshRate);
   display_refresh_rate = refreshRate;
   return nullptr;
 }

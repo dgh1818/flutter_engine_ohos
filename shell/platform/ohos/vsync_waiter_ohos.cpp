@@ -15,12 +15,11 @@
 
 #include "flutter/shell/platform/ohos/vsync_waiter_ohos.h"
 #include <qos/qos.h>
+#include "fml/trace_event.h"
 #include "napi_common.h"
 #include "ohos_logging.h"
 
 namespace flutter {
-
-static std::atomic_uint g_refresh_rate_ = 60;
 
 const char* flutterSyncName = "flutter_connect";
 
@@ -35,6 +34,14 @@ VsyncWaiterOHOS::VsyncWaiterOHOS(const flutter::TaskRunners& task_runners)
 VsyncWaiterOHOS::~VsyncWaiterOHOS() {
   OH_NativeVSync_Destroy(vsyncHandle);
   vsyncHandle = nullptr;
+}
+
+int64_t VsyncWaiterOHOS::GetVsyncPeriod() {
+  long long period = 0;
+  if (vsyncHandle) {
+    OH_NativeVSync_GetPeriod(vsyncHandle, &period);
+  }
+  return period;
 }
 
 void VsyncWaiterOHOS::AwaitVSync() {
@@ -70,13 +77,19 @@ void VsyncWaiterOHOS::OnVsyncFromOHOS(long long timestamp, void* data) {
   int64_t frame_nanos = static_cast<int64_t>(timestamp);
   auto frame_time = fml::TimePoint::FromEpochDelta(
       fml::TimeDelta::FromNanoseconds(frame_nanos));
-  auto now = fml::TimePoint::Now();
-  if (frame_time > now) {
-    frame_time = now;
-  }
-  auto target_time = frame_time + fml::TimeDelta::FromNanoseconds(
-                                      1000000000.0 / g_refresh_rate_);
+
   auto* weak_this = reinterpret_cast<std::weak_ptr<VsyncWaiter>*>(data);
+  uint64_t vsync_period = 0;
+  auto shared_this = weak_this->lock();
+  if (shared_this) {
+    auto ohos_vsync_waiter = static_cast<VsyncWaiterOHOS*>(shared_this.get());
+    vsync_period = ohos_vsync_waiter->GetVsyncPeriod();
+  }
+  auto target_time = frame_time + fml::TimeDelta::FromNanoseconds(vsync_period);
+  std::string trace_str =
+      "OnVsyncFromOHOS-timestamp:" + std::to_string(timestamp) +
+      "-period:" + std::to_string(vsync_period);
+  TRACE_EVENT0("flutter", trace_str.c_str());
   ConsumePendingCallback(weak_this, frame_time, target_time);
 }
 
@@ -90,11 +103,6 @@ void VsyncWaiterOHOS::ConsumePendingCallback(
   if (shared_this) {
     shared_this->FireCallback(frame_start_time, frame_target_time);
   }
-}
-
-void VsyncWaiterOHOS::OnUpdateRefreshRate(long long refresh_rate) {
-  FML_DCHECK(refresh_rate > 0);
-  g_refresh_rate_ = static_cast<int>(refresh_rate);
 }
 
 }  // namespace flutter
