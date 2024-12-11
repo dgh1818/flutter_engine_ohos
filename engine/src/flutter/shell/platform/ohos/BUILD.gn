@@ -254,6 +254,7 @@ executable("flutter_ohos_unittests") {
   ldflags += [ "-lpixelmap" ]
   ldflags += [ "-limage_source" ]
   ldflags += [ "-lqos" ]
+  ldflags += [ "-ldeviceinfo_ndk.z" ]
 }
 
 shared_library("flutter_shell_native") {
