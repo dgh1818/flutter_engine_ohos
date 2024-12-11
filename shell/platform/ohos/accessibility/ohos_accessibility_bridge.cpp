@@ -1736,18 +1736,7 @@ bool OhosAccessibilityBridge::IsSlider(flutter::SemanticsNode flutterNode)
 bool OhosAccessibilityBridge::IsNodeClickable(
     flutter::SemanticsNode flutterNode)
 {
-  return flutterNode.HasAction(ACTIONS_::kTap) ||
-         flutterNode.HasFlag(FLAGS_::kHasCheckedState) ||
-         flutterNode.HasFlag(FLAGS_::kIsButton) ||
-         flutterNode.HasFlag(FLAGS_::kIsTextField) ||
-         flutterNode.HasFlag(FLAGS_::kIsImage) ||
-         flutterNode.HasFlag(FLAGS_::kIsLiveRegion) ||
-         flutterNode.HasFlag(FLAGS_::kIsMultiline) ||
-         flutterNode.HasFlag(FLAGS_::kIsLink) ||
-         flutterNode.HasFlag(FLAGS_::kIsSlider) ||
-         flutterNode.HasFlag(FLAGS_::kIsKeyboardKey) ||
-         flutterNode.HasFlag(FLAGS_::kHasToggledState) ||
-         flutterNode.HasFlag(FLAGS_::kHasImplicitScrolling);
+    return flutterNode.HasAction(ACTIONS_::kTap);
 }
 /**
  * 判断当前flutter节点组件是否可显示
