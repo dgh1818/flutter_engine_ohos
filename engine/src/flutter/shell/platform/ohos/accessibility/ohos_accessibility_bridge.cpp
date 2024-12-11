@@ -80,13 +80,6 @@ void OhosAccessibilityBridge::SetNativeShellHolderId(int64_t id)
   this->native_shell_holder_id_ = id;
 }
 
-void OhosAccessibilityBridge::FlutterSemanticsTreeUpdateCallOnce() {
-    static std::once_flag flag; 
-    std::call_once(flag, [this]() {
-        this->RequestFocusWhenPageUpdate(0);
-        LOGD("call once -> RequestFocusWhenPageUpdate(0)");
-    }); 
-}
 /**
  * 从dart侧传递到c++侧的flutter无障碍语义树节点更新过程，
  * 路由新页面、滑动页面等操作会自动触发该语义树的更新
@@ -105,9 +98,9 @@ void OhosAccessibilityBridge::updateSemantics(
     IS_FLUTTER_NAVIGATE = false;
   }
 
-  // 页面状态更新事件
+  // 页面内容更新事件
   Flutter_SendAccessibilityAsyncEvent(0, ArkUI_AccessibilityEventType::ARKUI_ACCESSIBILITY_NATIVE_EVENT_TYPE_PAGE_CONTENT_UPDATE);
-  LOGE("Flutter_SendAccessibilityAsyncEvent -> PAGE_CONTENT_UPDATE");
+  LOGD("Flutter_SendAccessibilityAsyncEvent -> PAGE_CONTENT_UPDATE");
 
   /** 获取并分析每个语义节点的更新属性 */
   for (auto& item : update) {
@@ -166,29 +159,9 @@ void OhosAccessibilityBridge::updateSemantics(
     }
   }
 
-  // 遍历更新的actions，并将所有的actions的id添加进actionMap
-  for (const auto& item : actions) {
-    const flutter::CustomAccessibilityAction action = item.second;
-    GetCustomActionDebugInfo(action);
-    g_actions_mp[action.id] = action;
-  }
-
-  // 打印flutter语义树的不同节点的属性信息
-  for (const auto& item : g_flutterSemanticsTree) {
-    FML_DLOG(INFO) << "g_flutterSemanticsTree -> {" << item.first << ", "
-                   << item.second.id << "}";
-  }
-  for (const auto& item : g_parentChildIdVec) {
-    FML_DLOG(INFO) << "g_parentChildIdVec -> (" << item.first << ", "
-                   << item.second << ")";
-  }
-
-  //打印按层次遍历排序的flutter语义树节点id数组
-  std::vector<int64_t> levelOrderTraversalTree = GetLevelOrderTraversalTree(0);
-  for (const auto& item: levelOrderTraversalTree) {
-    FML_DLOG(INFO) << "LevelOrderTraversalTree: { " << item << " }";
-  }
-  FML_DLOG(INFO) << "=== UpdateSemantics is end ===";
+  // 输出flutter语义树相关重要语义信息debug日志
+  GetSemanticsDebugInfo();
+  FML_DLOG(INFO) << "=== UpdateSemantics() is finished ===";
 }
 
 /**
@@ -2107,4 +2080,22 @@ void OhosAccessibilityBridge::GetCustomActionDebugInfo(
                  << customAccessibilityAction.hint;
   FML_DLOG(INFO) << "------------CustomAccessibilityAction--------------";
 }
+
+void OhosAccessibilityBridge::GetSemanticsDebugInfo() {
+  // 打印flutter语义树的不同节点的属性信息
+  for (const auto& item : g_flutterSemanticsTree) {
+    FML_DLOG(INFO) << "g_flutterSemanticsTree -> {" << item.first << ", "
+                    << item.second.id << "}";
+  }
+  for (const auto& item : g_parentChildIdVec) {
+    FML_DLOG(INFO) << "g_parentChildIdVec -> (" << item.first << ", "
+                    << item.second << ")";
+  }
+  //打印按层次遍历排序的flutter语义树节点id数组
+  std::vector<int64_t> levelOrderTraversalTree = GetLevelOrderTraversalTree(0);
+  for (const auto& item: levelOrderTraversalTree) {
+    FML_DLOG(INFO) << "LevelOrderTraversalTree: { " << item << " }";
+  }
+}
+
 }  // namespace flutter
