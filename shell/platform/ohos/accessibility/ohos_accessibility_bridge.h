@@ -286,6 +286,8 @@ private:
     bool Contains(const std::string source, const std::string target);
     std::pair<float, float> GetRealScaleFactor();
     void FlutterSemanticsTreeUpdateCallOnce();
+
+    void GetSemanticsDebugInfo();
 };
 
 enum class AccessibilityAction : int32_t {
