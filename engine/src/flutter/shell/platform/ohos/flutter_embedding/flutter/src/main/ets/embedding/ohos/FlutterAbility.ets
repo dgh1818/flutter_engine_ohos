@@ -295,7 +295,7 @@ export class FlutterAbility extends UIAbility implements Host {
     if (this.launchWant.parameters![FlutterAbilityLaunchConfigs.EXTRA_CACHED_ENGINE_ID] != undefined) {
       return this.launchWant.parameters![FlutterAbilityLaunchConfigs.EXTRA_CACHED_ENGINE_ID] as boolean;
     }
-    if (this.getCachedEngineId() != null) {
+    if (this.getCachedEngineId() != null && this.getCachedEngineId().length > 0) {
       // Prevent overwriting the existing state in a cached engine with restoration state.
       return false;
     }
