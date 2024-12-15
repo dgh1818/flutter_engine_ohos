@@ -373,7 +373,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     }
   }
 
-  onForeground() {
+  onShow() {
     this.ensureAlive();
     if (this.shouldDispatchAppLifecycleState()) {
       this.flutterEngine?.getLifecycleChannel()?.appIsResumed();
@@ -392,7 +392,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     }
   }
 
-  onBackground() {
+  onHide() {
     if (this.shouldDispatchAppLifecycleState()) {
       this.flutterEngine?.getLifecycleChannel()?.appIsPaused();
     }
