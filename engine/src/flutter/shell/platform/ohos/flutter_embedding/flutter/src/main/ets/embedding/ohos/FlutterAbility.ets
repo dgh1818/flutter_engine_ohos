@@ -81,10 +81,6 @@ export class FlutterAbility extends UIAbility implements Host {
     this?.delegate?.platformPlugin?.setUIAbilityContext(this.context);
     this?.delegate?.onRestoreInstanceState(want);
 
-    if (this.stillAttachedForEvent("onCreate")) {
-      this.delegate?.onCreate();
-    }
-
     if (this.stillAttachedForEvent("onWindowStageCreate")) {
       this?.delegate?.onWindowStageCreate();
     }

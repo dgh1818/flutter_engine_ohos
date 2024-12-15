@@ -64,7 +64,6 @@ export default class FlutterEntry implements Host {
       //Log.d(TAG, "XComponent aboutToAppear predraw");
       Log.i(TAG, 'onAttach end');
       this?.delegate?.platformPlugin?.setUIAbilityContext(this.uiAbility!!.context);
-      this.delegate?.onCreate();
       this.delegate?.onWindowStageCreate()
       this.windowStage?.on('windowStageEvent', this.windowStageEventCallback);
       this.hasInit = true;
