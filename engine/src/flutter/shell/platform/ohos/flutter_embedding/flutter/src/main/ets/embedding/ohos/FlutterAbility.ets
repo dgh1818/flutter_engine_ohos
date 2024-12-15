@@ -170,13 +170,13 @@ export class FlutterAbility extends UIAbility implements Host {
 
   onForeground() {
     if (this.stillAttachedForEvent("onForeground")) {
-      this?.delegate?.onForeground();
+      this?.delegate?.onShow();
     }
   }
 
   onBackground() {
     if (this.stillAttachedForEvent("onBackground")) {
-      this?.delegate?.onBackground();
+      this?.delegate?.onHide();
     }
   }
 

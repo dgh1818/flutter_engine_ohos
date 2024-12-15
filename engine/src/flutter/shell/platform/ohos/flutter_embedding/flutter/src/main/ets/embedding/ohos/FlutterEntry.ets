@@ -102,12 +102,12 @@ export default class FlutterEntry implements Host {
 
   onPageShow() { //生命周期
     Log.d(TAG, "FlutterEntry onPageShow");
-    this?.delegate?.onForeground();
+    this?.delegate?.onShow();
   }
 
   onPageHide() { //生命周期
     Log.d(TAG, "FlutterEntry onPageHide");
-    this?.delegate?.onBackground();
+    this?.delegate?.onHide();
   }
 
   onBackPress() {
