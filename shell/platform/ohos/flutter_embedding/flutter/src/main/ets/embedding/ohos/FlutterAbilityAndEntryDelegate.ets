@@ -325,19 +325,9 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
    * 生命周期回调
    */
 
-  onCreate() {
-    this.ensureAlive();
-    if (this.shouldDispatchAppLifecycleState()) {
-      this.flutterEngine?.getLifecycleChannel()?.appIsResumed();
-    }
-  }
-
   onWindowStageCreate() {
     this.ensureAlive();
     this.doInitialFlutterViewRun();
-    if (this.shouldDispatchAppLifecycleState()) {
-      this.flutterEngine?.getLifecycleChannel()?.appIsResumed();
-    }
   }
 
   onWindowStageDestroy() {
@@ -387,7 +377,6 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     this.ensureAlive();
     if (this.shouldDispatchAppLifecycleState()) {
       this.flutterEngine?.getLifecycleChannel()?.appIsResumed();
-      this.flutterEngine?.getLifecycleChannel()?.aWindowIsFocused();
     }
   }
 
@@ -405,7 +394,6 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
 
   onBackground() {
     if (this.shouldDispatchAppLifecycleState()) {
-      this.flutterEngine?.getLifecycleChannel()?.noWindowsAreFocused();
       this.flutterEngine?.getLifecycleChannel()?.appIsPaused();
     }
   }
