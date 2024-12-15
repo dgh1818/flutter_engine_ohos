@@ -49,6 +49,10 @@ export default class FlutterEntry implements Host {
     this.hasInit = false;
   }
 
+  protected windowStageEventCallback = (data: window.WindowStageEventType) => {
+    this.delegate?.onWindowStageChanged(data)
+  }
+
   async aboutToAppear() {
     Log.i(TAG, 'aboutToAppear');
     if (this.hasInit == false) {
@@ -65,27 +69,6 @@ export default class FlutterEntry implements Host {
       this.windowStage?.on('windowStageEvent', this.windowStageEventCallback);
       this.hasInit = true;
       this.delegate?.initWindow();
-    }
-  }
-
-  protected windowStageEventCallback = (data: window.WindowStageEventType) => {
-    let stageEventType: window.WindowStageEventType = data;
-    switch (stageEventType) {
-      case window.WindowStageEventType.SHOWN: // 切到前台
-        Log.i(TAG, 'windowStage foreground.');
-        break;
-      case window.WindowStageEventType.ACTIVE: // 获焦状态
-        Log.i(TAG, 'windowStage active.');
-        this.delegate?.getFlutterEngine()?.getTextInputChannel()?.textInputMethodHandler?.handleChangeFocus(true);
-        this?.delegate?.onWindowFocusChanged(true);
-        break;
-      case window.WindowStageEventType.INACTIVE: // 失焦状态
-        Log.i(TAG, 'windowStage inactive.');
-        this?.delegate?.onWindowFocusChanged(false);
-        break;
-      case window.WindowStageEventType.HIDDEN: // 切到后台
-        Log.i(TAG, 'windowStage background.');
-        break;
     }
   }
 
