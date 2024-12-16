@@ -13,11 +13,9 @@
  * limitations under the License.
  */
 #include "ohos_utils.h"
-
 namespace flutter {
 
 OHOSUtils::OHOSUtils() {};
 OHOSUtils::~OHOSUtils() {};
-
 
 }

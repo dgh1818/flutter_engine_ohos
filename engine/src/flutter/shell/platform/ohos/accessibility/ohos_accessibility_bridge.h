@@ -27,6 +27,7 @@
 #include "flutter/lib/ui/semantics/semantics_node.h"
 #include "native_accessibility_channel.h"
 #include "ohos_accessibility_features.h"
+#include "flutter/shell/platform/ohos/utils/ohos_utils.h"
 
 namespace flutter {
 
@@ -85,7 +86,7 @@ public:
 
     void SetNativeShellHolderId(int64_t id);
 
-    void updateSemantics(flutter::SemanticsNodeUpdates update,
+    void UpdateSemantics(flutter::SemanticsNodeUpdates update,
                          flutter::CustomAccessibilityActionUpdates actions);
 
     void DispatchSemanticsAction(int32_t id,
@@ -233,8 +234,6 @@ private:
     void FlutterSetElementInfoOperationActions(
         ArkUI_AccessibilityElementInfo* elementInfoFromList,
         std::string widget_type);
-    void FlutterTreeToArkuiTree(
-        ArkUI_AccessibilityElementInfoList* elementInfoList);
     void BuildArkUISemanticsTree(
         int64_t elementId,
         ArkUI_AccessibilityElementInfo* elementInfoFromList,
@@ -266,27 +265,27 @@ private:
     bool IsSlider(SemanticsNodeExtent flutterNode);
     bool IsScrollableWidget(SemanticsNodeExtent flutterNode);
 
-    void PerformClickAction(int64_t elementId, 
-                            ArkUI_Accessibility_ActionType action, 
+    void PerformClickAction(int64_t elementId,
+                            ArkUI_Accessibility_ActionType action,
                             SemanticsNodeExtent flutterNode);
-    void PerformLongClickAction(int64_t elementId, 
-                                ArkUI_Accessibility_ActionType action, 
+    void PerformLongClickAction(int64_t elementId,
+                                ArkUI_Accessibility_ActionType action,
                                 SemanticsNodeExtent flutterNode);
-    void PerformGainFocusnAction(int64_t elementId, 
+    void PerformGainFocusnAction(int64_t elementId,
                                  ArkUI_Accessibility_ActionType action,
                                  SemanticsNodeExtent flutterNode);
-    void PerformClearFocusAction(int64_t elementId, 
+    void PerformClearFocusAction(int64_t elementId,
                                  ArkUI_Accessibility_ActionType action,
                                  SemanticsNodeExtent flutterNode);
-    void PerformScrollUpAction(int64_t elementId, 
+    void PerformScrollUpAction(int64_t elementId,
                                ArkUI_Accessibility_ActionType action,
                                SemanticsNodeExtent flutterNode);
-    void PerformScrollDownAction(int64_t elementId, 
+    void PerformScrollDownAction(int64_t elementId,
                                  ArkUI_Accessibility_ActionType action,
                                  SemanticsNodeExtent flutterNode);
-    void PerformClipboardAction(int64_t elementId, 
+    void PerformClipboardAction(int64_t elementId,
                                 ArkUI_Accessibility_ActionType action);
-    void PerformInvalidAction(int64_t elementId, 
+    void PerformInvalidAction(int64_t elementId,
                               ArkUI_Accessibility_ActionType action,
                               SemanticsNodeExtent flutterNode);
     void PerformSetText(SemanticsNodeExtent flutterNode,
@@ -304,10 +303,10 @@ private:
     void PerformShowOnScreenAction(SemanticsNodeExtent flutterNode);
 
     void AddRouteNodes(std::vector<SemanticsNodeExtent> edges,
-                        SemanticsNodeExtent node);
+                       SemanticsNodeExtent node);
     std::string GetRouteName(SemanticsNodeExtent node);
-    void onWindowNameChange(SemanticsNodeExtent route);
-    void removeSemanticsNode(SemanticsNodeExtent nodeToBeRemoved);
+    void OnWindowNameChange(SemanticsNodeExtent route);
+    void RemoveSemanticsNode(SemanticsNodeExtent nodeToBeRemoved);
 
     void GetSemanticsNodeDebugInfo(SemanticsNodeExtent node);
     void GetSemanticsFlagsDebugInfo(SemanticsNodeExtent node);
