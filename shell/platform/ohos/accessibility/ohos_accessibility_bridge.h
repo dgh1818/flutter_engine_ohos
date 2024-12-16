@@ -162,6 +162,7 @@ private:
     std::unordered_map<int32_t, flutter::CustomAccessibilityAction> g_actions_mp;
     std::vector<int32_t> g_flutterNavigationVec;
 
+    bool isFlutterSemanticsTreeUpdated = false;
     SemanticsNodeExtent inputFocusedNode;
     SemanticsNodeExtent lastInputFocusedNode;
     SemanticsNodeExtent accessibilityFocusedNode;
@@ -264,12 +265,43 @@ private:
     bool IsTextField(SemanticsNodeExtent flutterNode);
     bool IsSlider(SemanticsNodeExtent flutterNode);
     bool IsScrollableWidget(SemanticsNodeExtent flutterNode);
+
+    void PerformClickAction(int64_t elementId, 
+                            ArkUI_Accessibility_ActionType action, 
+                            SemanticsNodeExtent flutterNode);
+    void PerformLongClickAction(int64_t elementId, 
+                                ArkUI_Accessibility_ActionType action, 
+                                SemanticsNodeExtent flutterNode);
+    void PerformGainFocusnAction(int64_t elementId, 
+                                 ArkUI_Accessibility_ActionType action,
+                                 SemanticsNodeExtent flutterNode);
+    void PerformClearFocusAction(int64_t elementId, 
+                                 ArkUI_Accessibility_ActionType action,
+                                 SemanticsNodeExtent flutterNode);
+    void PerformScrollUpAction(int64_t elementId, 
+                               ArkUI_Accessibility_ActionType action,
+                               SemanticsNodeExtent flutterNode);
+    void PerformScrollDownAction(int64_t elementId, 
+                                 ArkUI_Accessibility_ActionType action,
+                                 SemanticsNodeExtent flutterNode);
+    void PerformClipboardAction(int64_t elementId, 
+                                ArkUI_Accessibility_ActionType action);
+    void PerformInvalidAction(int64_t elementId, 
+                              ArkUI_Accessibility_ActionType action,
+                              SemanticsNodeExtent flutterNode);
     void PerformSetText(SemanticsNodeExtent flutterNode,
                         ArkUI_Accessibility_ActionType action,
                         ArkUI_AccessibilityActionArguments* actionArguments);
     void PerformSelectText(SemanticsNodeExtent flutterNode,
-                            ArkUI_Accessibility_ActionType action,
-                            ArkUI_AccessibilityActionArguments* actionArguments);
+                           ArkUI_Accessibility_ActionType action,
+                           ArkUI_AccessibilityActionArguments* actionArguments);
+    void PerformSetCursorPosition(SemanticsNodeExtent flutterNode,
+                                  ArkUI_Accessibility_ActionType action,
+                                  ArkUI_AccessibilityActionArguments* actionArguments);
+    void PerformCustomAction(SemanticsNodeExtent flutterNode,
+                             ArkUI_Accessibility_ActionType action,
+                             ArkUI_AccessibilityActionArguments* actionArguments);
+    void PerformShowOnScreenAction(SemanticsNodeExtent flutterNode);
 
     void AddRouteNodes(std::vector<SemanticsNodeExtent> edges,
                         SemanticsNodeExtent node);
@@ -285,8 +317,7 @@ private:
     void RequestFocusWhenPageUpdate(int32_t requestFocusId);
     bool Contains(const std::string source, const std::string target);
     std::pair<float, float> GetRealScaleFactor();
-    void FlutterSemanticsTreeUpdateCallOnce();
-
+    void DoubleClickRouteToNewPage(SemanticsNodeExtent node);
     void GetSemanticsDebugInfo();
 };
 
