@@ -102,7 +102,8 @@ source_set("flutter_ohos_sources") {
              "platform_view_ohos_delegate.h",
              "./accessibility/ohos_accessibility_bridge.h",
              "./accessibility/ohos_accessibility_manager.h",
-             "./accessibility/native_accessibility_channel.h"
+             "./accessibility/native_accessibility_channel.h",
+             "./utils/ohos_utils.h"
            ]
 
   #configs += [ "//flutter/shell/platform/ohos/config:gtk" ]
@@ -145,7 +146,8 @@ source_set("flutter_ohos_sources") {
     "platform_view_ohos.cpp",
     "platform_view_ohos_delegate.cpp",
     "vsync_waiter_ohos.cpp",
-    "./accessibility/native_accessibility_channel.cpp"
+    "./accessibility/native_accessibility_channel.cpp",
+    "./utils/ohos_utils.cpp"
   ]
 
   sources += get_target_outputs(":icudtl_asm")
