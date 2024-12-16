@@ -39,6 +39,7 @@
     }  while (false)                                                       \
 
 namespace flutter {
+
 OhosAccessibilityBridge* OhosAccessibilityBridge::bridgeInstance = nullptr;
 
 OhosAccessibilityBridge* OhosAccessibilityBridge::GetInstance() 
@@ -445,9 +446,9 @@ void OhosAccessibilityBridge::FlutterRelativeRectToScreenRect(
 
   //获取root节点的绝对坐标
   auto rootNode = GetFlutterSemanticsNode(0);
-  auto _rootRect = GetAbsoluteScreenRect(rootNode);
-  auto rootWidth = _rootRect.right;
-  auto rootHeight = _rootRect.bottom;
+  auto rootRect = GetAbsoluteScreenRect(rootNode);
+  auto rootWidth = rootRect.right;
+  auto rootHeight = rootRect.bottom;
 
   // 获取真实缩放系数
   auto [realScaleXFactor, realScaleYFactor] = GetRealScaleFactor();
