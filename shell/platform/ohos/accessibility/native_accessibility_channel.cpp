@@ -84,7 +84,7 @@ namespace flutter {
       flutter::CustomAccessibilityActionUpdates actions)
   {
     auto ohos_a11y_bridge = OhosAccessibilityBridge::GetInstance();
-    ohos_a11y_bridge->updateSemantics(update, actions);
+    ohos_a11y_bridge->UpdateSemantics(update, actions);
   }  
 
   /**
