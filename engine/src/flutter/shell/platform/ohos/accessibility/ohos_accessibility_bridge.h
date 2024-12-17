@@ -175,6 +175,10 @@ private:
     constexpr static const double SCROLL_EXTENT_FOR_INFINITY = 100000.0;
     constexpr static const double SCROLL_POSITION_CAP_FOR_INFINITY = 70000.0;
     
+    const char* ARKUI_ACTION_ARG_SET_TEXT = "setText";
+    const char* ARKUI_ACTION_ARG_SELECT_TEXT_START = "selectTextBegin";
+    const char* ARKUI_ACTION_ARG_SELECT_TEXT_END = "selectTextEnd";
+
     const std::string OTHER_WIDGET_NAME = "View";
     const std::string TEXT_WIDGET_NAME = "Text";
     const std::string EDIT_TEXT_WIDGET_NAME = "TextInput";
