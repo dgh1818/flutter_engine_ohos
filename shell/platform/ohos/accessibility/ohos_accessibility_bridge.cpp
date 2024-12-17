@@ -1273,23 +1273,20 @@ void OhosAccessibilityBridge::PerformSetText(
     ArkUI_Accessibility_ActionType action,
     ArkUI_AccessibilityActionArguments* actionArguments)
 {
-  const char* key_setText = "setText";
-  const char* valueStr = flutterNode.value.c_str();
-  char* newValue = strdup(valueStr);
-  char** value = &newValue;
-  ARKUI_ACCESSIBILITY_CALL_CHECK(OH_ArkUI_FindAccessibilityActionArgumentByKey(actionArguments, key_setText, value));
-  if (newValue == nullptr) {
+  char* newText;
+  ARKUI_ACCESSIBILITY_CALL_CHECK(OH_ArkUI_FindAccessibilityActionArgumentByKey(actionArguments, ARKUI_ACTION_ARG_SET_TEXT, &newText));
+  if (newText == nullptr) {
       LOGE("PerformSetText -> OH_ArkUI_FindAccessibilityActionArgumentByKey get null value");
   }
   auto flutterSetTextAction = ArkuiActionsToFlutterActions(action);
-  DispatchSemanticsAction(flutterNode.id, flutterSetTextAction, fml::MallocMapping::Copy(newValue, strlen(newValue)));
-  flutterNode.value = newValue;
+  DispatchSemanticsAction(flutterNode.id, flutterSetTextAction, fml::MallocMapping::Copy(newText, strlen(newText)));
+  flutterNode.value = newText;
   flutterNode.valueAttributes = {};
-  LOGI("ExecuteAccessibilityAction -> action: set text(%{public}d), newText=%{public}s", action, newValue);
+  LOGI("ExecuteAccessibilityAction -> action: set text(%{public}d), newText=%{public}s", action, newText);
 }
 
 /**
- * perform cursor position setting in accessibility status
+ * perform select text (from base to extent) in accessibility status
  */
 void OhosAccessibilityBridge::PerformSelectText(
     SemanticsNodeExtent flutterNode,
@@ -1297,7 +1294,45 @@ void OhosAccessibilityBridge::PerformSelectText(
     ArkUI_AccessibilityActionArguments* actionArguments)
 {
     FML_DLOG(INFO) << "ExecuteAccessibilityAction -> action: select text(" << action << ")";
-    return;
+
+    auto flutterSelectTextAction = ArkuiActionsToFlutterActions(action);
+
+    char* textSelectBase;
+    ARKUI_ACCESSIBILITY_CALL_CHECK(
+        OH_ArkUI_FindAccessibilityActionArgumentByKey(actionArguments, ARKUI_ACTION_ARG_SELECT_TEXT_START, &textSelectBase)
+    );
+    if (textSelectBase == nullptr) {
+      LOGE("PerformSelectText -> textSelectBase get null value");
+    }
+
+    char* textSelectExtent;
+    ARKUI_ACCESSIBILITY_CALL_CHECK(
+        OH_ArkUI_FindAccessibilityActionArgumentByKey(actionArguments, ARKUI_ACTION_ARG_SELECT_TEXT_END, &textSelectExtent)
+    );
+    if (textSelectBase == nullptr) {
+      LOGE("PerformSelectText -> textSelectExtent get null value");
+    }
+
+    std::map<std::string, int32_t> selectionMap;
+    bool hasSelected = actionArguments != nullptr &&
+                       textSelectBase != nullptr &&
+                       textSelectExtent != nullptr;
+    if (hasSelected) {
+        int32_t base;
+        int32_t extent;
+        std::memcpy(&base, textSelectBase, sizeof(base));
+        std::memcpy(&extent, textSelectExtent, sizeof(extent));  
+        selectionMap.insert({ARKUI_ACTION_ARG_SELECT_TEXT_START, base});
+        selectionMap.insert({ARKUI_ACTION_ARG_SELECT_TEXT_END, extent});
+    } else {
+        selectionMap.insert({ARKUI_ACTION_ARG_SELECT_TEXT_START, flutterNode.textSelectionBase});
+        selectionMap.insert({ARKUI_ACTION_ARG_SELECT_TEXT_END, flutterNode.textSelectionExtent});
+    }
+    // serialize map<string, int32_t> to byte vector
+    std::vector<uint8_t> encodedData = OHOSUtils::SerializeStringIntMap(selectionMap);
+    DispatchSemanticsAction(flutterNode.id,
+                            flutterSelectTextAction,
+                            fml::MallocMapping::Copy(encodedData.data(), encodedData.size() * sizeof(uint8_t)));
 }
 
 /**
