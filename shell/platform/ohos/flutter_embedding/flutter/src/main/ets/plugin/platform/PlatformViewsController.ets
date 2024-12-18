@@ -246,7 +246,8 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
       Log.e(TAG, "Setting direction to a null view with id: " + viewId);
       return;
     }
-    focusControl.requestFocus('emptyFocusText' + this.flutterView?.getId());
+    // Make the Xcomponent gain focus.
+    focusControl.requestFocus(this.flutterView?.getId());
   }
 
   synchronizeToNativeViewHierarchy(yes: boolean): void {
