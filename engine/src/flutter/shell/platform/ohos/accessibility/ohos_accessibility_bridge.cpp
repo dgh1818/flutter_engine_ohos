@@ -1407,88 +1407,62 @@ int32_t OhosAccessibilityBridge::ExecuteAccessibilityAction(
   // 根据当前elementid和无障碍动作类型，发送无障碍事件
   switch (action) {
     /** Response to a click. 16 */
-    case ArkUI_Accessibility_ActionType::
-        ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_CLICK: {
+    case ArkUI_Accessibility_ActionType::ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_CLICK:
       PerformClickAction(elementId, action, flutterNode);
       break;
-    }
     /** Response to a long click. 32 */
-    case ArkUI_Accessibility_ActionType::
-        ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_LONG_CLICK: {
+    case ArkUI_Accessibility_ActionType::ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_LONG_CLICK:
       PerformLongClickAction(elementId, action, flutterNode);
       break;
-    }
     /** Accessibility focus acquisition. 64 */
-    case ArkUI_Accessibility_ActionType::
-        ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_GAIN_ACCESSIBILITY_FOCUS: {
+    case ArkUI_Accessibility_ActionType::ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_GAIN_ACCESSIBILITY_FOCUS:
       PerformGainFocusnAction(elementId, action, flutterNode);
       break;
-    }
     /** Accessibility focus clearance. 128 */
-    case ArkUI_Accessibility_ActionType::
-        ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_CLEAR_ACCESSIBILITY_FOCUS: {
+    case ArkUI_Accessibility_ActionType::ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_CLEAR_ACCESSIBILITY_FOCUS:
       PerformClearFocusAction(elementId, action, flutterNode);
       break;
-    }
     /** Forward scroll action. 256 */
-    case ArkUI_Accessibility_ActionType::
-        ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SCROLL_FORWARD: {
+    case ArkUI_Accessibility_ActionType::ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SCROLL_FORWARD:
       PerformScrollUpAction(elementId, action, flutterNode);
       break;
-    }
     /** Backward scroll action. 512 */
-    case ArkUI_Accessibility_ActionType::
-        ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SCROLL_BACKWARD: {
+    case ArkUI_Accessibility_ActionType::ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SCROLL_BACKWARD:
       PerformScrollDownAction(elementId, action, flutterNode);
       break;
-    }
     /** Copy action for text content. 1024 */
-    case ArkUI_Accessibility_ActionType::
-        ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_COPY: {
+    case ArkUI_Accessibility_ActionType::ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_COPY:
       PerformClipboardAction(elementId, action);
       break;
-    }
     /** Paste action for text content. 2048 */
-    case ArkUI_Accessibility_ActionType::
-        ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_PASTE: {
+    case ArkUI_Accessibility_ActionType::ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_PASTE:
       PerformClipboardAction(elementId, action);
       break;
-    }
     /** Cut action for text content. 4096 */
-    case ArkUI_Accessibility_ActionType::
-        ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_CUT:
+    case ArkUI_Accessibility_ActionType::ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_CUT:
       PerformClipboardAction(elementId, action);
       break;
     /** Text selection action, requiring the setting of <b>selectTextBegin</b>,
      * <b>TextEnd</b>, and <b>TextInForward</b> parameters to select a text
      * segment in the text box. 8192 */
-    case ArkUI_Accessibility_ActionType::
-        ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SELECT_TEXT: {
+    case ArkUI_Accessibility_ActionType::ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SELECT_TEXT:
       PerformSelectText(flutterNode, action, actionArguments);
       break;
-    }
     /** Text content setting action. 16384 */
-    case ArkUI_Accessibility_ActionType::
-        ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SET_TEXT: {
+    case ArkUI_Accessibility_ActionType::ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SET_TEXT:
       PerformSetText(flutterNode, action, actionArguments);
       break;
-    }
     /** Cursor position setting action. 1048576 */
-    case ArkUI_Accessibility_ActionType::
-        ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SET_CURSOR_POSITION: {
+    case ArkUI_Accessibility_ActionType::ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SET_CURSOR_POSITION:
       PerformSetCursorPosition(flutterNode, action, actionArguments);
       break;
-    }
     /** Invalid action. 0 */
-    case ArkUI_Accessibility_ActionType::
-        ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_INVALID: {
+    case ArkUI_Accessibility_ActionType::ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_INVALID:
       PerformInvalidAction(elementId, action, flutterNode);
       break;
-    }
-    default: {
+    default:
       /** custom semantics action */
       PerformCustomAction(flutterNode, action, actionArguments);
-    }
   }
 
   FML_DLOG(INFO) << "--- ExecuteAccessibilityAction is end ---";
