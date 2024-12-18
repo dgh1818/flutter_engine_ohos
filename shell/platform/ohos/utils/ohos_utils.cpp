@@ -25,8 +25,8 @@ void OHOSUtils::SerializeString(const std::string& str, std::vector<uint8_t>& bu
 {
     // store the length of the string as a uint8_t
     uint32_t length = str.size();
-    buffer.insert(buffer.end(), 
-                  reinterpret_cast<uint8_t*>(&length), 
+    buffer.insert(buffer.end(),
+                  reinterpret_cast<uint8_t*>(&length),
                   reinterpret_cast<uint8_t*>(&length) + sizeof(length));
     // store the actual string data
     buffer.insert(buffer.end(), str.begin(), str.end());
@@ -54,6 +54,28 @@ std::vector<uint8_t> OHOSUtils::SerializeStringIntMap(const std::map<std::string
     }
 
     return buffer;
+}
+
+/**
+ * convert char* type to int32_t type with a safe way
+ */
+void OHOSUtils::CharArrayToInt32(const char* str, int32_t& target)
+{
+    char* end;
+    long int num = std::strtol(str, &end, 10);
+
+    // Check if the entire string was converted
+    if (*end == '\0') {
+        if (INT_MIN <= num && num <= INT_MAX) {
+            target = static_cast<int32_t>(num);
+            LOGD("The int32_t value is: %{public}d", target);
+        } else {
+            LOGE("The value of num is out of range of int32_t");
+        }
+    } else {
+        target = 0;
+        LOGE("Conversion error, non-convertible part: %{public}s", end);
+    }
 }
 
 }
