@@ -81,10 +81,6 @@ export class FlutterAbility extends UIAbility implements Host {
     this?.delegate?.platformPlugin?.setUIAbilityContext(this.context);
     this?.delegate?.onRestoreInstanceState(want);
 
-    if (this.stillAttachedForEvent("onCreate")) {
-      this.delegate?.onCreate();
-    }
-
     if (this.stillAttachedForEvent("onWindowStageCreate")) {
       this?.delegate?.onWindowStageCreate();
     }
@@ -128,6 +124,10 @@ export class FlutterAbility extends UIAbility implements Host {
     return this?.delegate?.onSaveState(reason, wantParam) ?? AbilityConstant.OnSaveResult.ALL_REJECT;
   }
 
+  protected windowStageEventCallback = (data: window.WindowStageEventType) => {
+    this.delegate?.onWindowStageChanged(data)
+  }
+
   /**
    * window状态改变回调
    * @param windowStage
@@ -137,31 +137,7 @@ export class FlutterAbility extends UIAbility implements Host {
     this.delegate?.initWindow();
     this.mainWindow = windowStage.getMainWindowSync();
     try {
-      windowStage.on('windowStageEvent', (data) => {
-        let stageEventType: window.WindowStageEventType = data;
-        switch (stageEventType) {
-          case window.WindowStageEventType.SHOWN: // 切到前台
-            Log.i(TAG, 'windowStage foreground.');
-            break;
-          case window.WindowStageEventType.ACTIVE: // 获焦状态
-            Log.i(TAG, 'windowStage active.');
-            if (this.stillAttachedForEvent("onWindowFocusChanged")) {
-              this.delegate?.getFlutterEngine()?.getTextInputChannel()?.textInputMethodHandler?.handleChangeFocus(true);
-              this?.delegate?.onWindowFocusChanged(true);
-            }
-            break;
-          case window.WindowStageEventType.INACTIVE: // 失焦状态
-            Log.i(TAG, 'windowStage inactive.');
-            if (this.stillAttachedForEvent("onWindowFocusChanged")) {
-              this?.delegate?.onWindowFocusChanged(false);
-            }
-            break;
-          case window.WindowStageEventType.HIDDEN: // 切到后台
-            Log.i(TAG, 'windowStage background.');
-            break;
-        }
-      });
-
+      windowStage.on('windowStageEvent', this.windowStageEventCallback);
       this.flutterView = this.delegate!!.createView(this.context)
       Log.i(TAG, 'onWindowStageCreate:' + this.flutterView!!.getId());
       let storage: LocalStorage = new LocalStorage();
@@ -194,13 +170,21 @@ export class FlutterAbility extends UIAbility implements Host {
 
   onForeground() {
     if (this.stillAttachedForEvent("onForeground")) {
-      this?.delegate?.onForeground();
+      this?.delegate?.onShow();
     }
   }
 
   onBackground() {
     if (this.stillAttachedForEvent("onBackground")) {
-      this?.delegate?.onBackground();
+      this?.delegate?.onHide();
+    }
+  }
+
+  onWindowStageWillDestroy(windowStage: window.WindowStage) {
+    try {
+      windowStage.off('windowStageEvent', this.windowStageEventCallback);
+    } catch (err) {
+      Log.e(TAG, "windowStage off failed");
     }
   }
 
@@ -373,11 +357,12 @@ export class FlutterAbility extends UIAbility implements Host {
       .setAlwaysUse24HourFormat(I18n.System.is24HourClock())
       .setPlatformBrightness(config.colorMode != ConfigurationConstant.ColorMode.COLOR_MODE_DARK
         ? PlatformBrightness.LIGHT : PlatformBrightness.DARK)
-      .setTextScaleFactor(config.fontSizeScale == undefined? 1.0 : config.fontSizeScale)
+      .setTextScaleFactor(config.fontSizeScale == undefined ? 1.0 : config.fontSizeScale)
       .send(); //热启动生命周期内，实时监听系统设置环境改变并实时发送相应信息
 
     //实时获取系统字体加粗系数
-    this.delegate?.getFlutterNapi()?.setFontWeightScale(config.fontWeightScale == undefined? 0 : config.fontWeightScale);
+    this.delegate?.getFlutterNapi()?.setFontWeightScale(config.fontWeightScale == undefined ? 0 :
+    config.fontWeightScale);
     Log.i(TAG, 'fontWeightScale: ' + JSON.stringify(config.fontWeightScale));
 
     if (config.language != '') {

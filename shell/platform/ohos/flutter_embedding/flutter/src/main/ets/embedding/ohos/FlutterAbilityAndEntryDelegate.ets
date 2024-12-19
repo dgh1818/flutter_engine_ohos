@@ -36,6 +36,7 @@ import { FlutterView } from '../../view/FlutterView';
 import FlutterManager from './FlutterManager';
 import Any from '../../plugin/common/Any';
 import inputMethod from '@ohos.inputMethod';
+import window from '@ohos.window';
 
 const TAG = "FlutterAbilityDelegate";
 const PLUGINS_RESTORATION_BUNDLE_KEY = "plugins";
@@ -54,7 +55,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
   protected context?: common.Context;
   protected isFlutterEngineFromHostOrCache: boolean = false;
   private engineGroup?: FlutterEngineGroup;
-  private isHost:boolean = false;
+  private isHost: boolean = false;
   private flutterView?: FlutterView;
   private inputMethodController: inputMethod.InputMethodController = inputMethod.getController();
 
@@ -324,23 +325,41 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
    * 生命周期回调
    */
 
-  onCreate() {
-    this.ensureAlive();
-    if (this.shouldDispatchAppLifecycleState()) {
-      this.flutterEngine?.getLifecycleChannel()?.appIsResumed();
-    }
-  }
-
   onWindowStageCreate() {
     this.ensureAlive();
     this.doInitialFlutterViewRun();
-    if (this.shouldDispatchAppLifecycleState()) {
-      this.flutterEngine?.getLifecycleChannel()?.appIsResumed();
-    }
   }
 
   onWindowStageDestroy() {
 
+  }
+
+  onWindowStageChanged(stageEventType: window.WindowStageEventType) {
+    switch (stageEventType) {
+      case window.WindowStageEventType.SHOWN:
+        Log.i(TAG, 'windowStage shown.');
+        break;
+      case window.WindowStageEventType.ACTIVE: // 获焦状态
+        Log.i(TAG, 'windowStage active.');
+        this.getFlutterEngine()?.getTextInputChannel()?.textInputMethodHandler?.handleChangeFocus(true);
+        this.onWindowFocusChanged(true);
+        break;
+      case window.WindowStageEventType.INACTIVE: // 失焦状态
+        Log.i(TAG, 'windowStage inactive.');
+        this.onWindowFocusChanged(false);
+        break;
+      case window.WindowStageEventType.PAUSED:
+        Log.i(TAG, 'windowStage paused.');
+        this.onPaused();
+        break;
+      case window.WindowStageEventType.RESUMED:
+        Log.i(TAG, 'windowStage resumed.');
+        this.onResumed();
+        break;
+      case window.WindowStageEventType.HIDDEN:
+        Log.i(TAG, 'windowStage hidden.');
+        break;
+    }
   }
 
   onWindowFocusChanged(hasFocus: boolean): void {
@@ -354,17 +373,27 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     }
   }
 
-  onForeground() {
+  onShow() {
     this.ensureAlive();
     if (this.shouldDispatchAppLifecycleState()) {
       this.flutterEngine?.getLifecycleChannel()?.appIsResumed();
-      this.flutterEngine?.getLifecycleChannel()?.aWindowIsFocused();
     }
   }
 
-  onBackground() {
+  onPaused() {
     if (this.shouldDispatchAppLifecycleState()) {
-      this.flutterEngine?.getLifecycleChannel()?.noWindowsAreFocused();
+      this.flutterEngine?.getLifecycleChannel()?.appIsInactive();
+    }
+  }
+
+  onResumed() {
+    if (this.shouldDispatchAppLifecycleState()) {
+      this.flutterEngine?.getLifecycleChannel()?.appIsResumed();
+    }
+  }
+
+  onHide() {
+    if (this.shouldDispatchAppLifecycleState()) {
       this.flutterEngine?.getLifecycleChannel()?.appIsPaused();
     }
   }
@@ -475,7 +504,6 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     }
   }
 }
-
 
 /**
  * FlutterAbility句柄
