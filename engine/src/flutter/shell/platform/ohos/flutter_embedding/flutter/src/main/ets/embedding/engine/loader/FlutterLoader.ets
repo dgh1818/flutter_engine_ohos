@@ -28,6 +28,7 @@ import fs from '@ohos.file.fs';
 import { BusinessError } from '@ohos.base';
 import data_preferences from '@ohos.data.preferences';
 import { util } from '@kit.ArkTS';
+import deviceInfo from '@ohos.deviceInfo';
 
 const TAG = "FlutterLoader";
 
@@ -259,8 +260,8 @@ export default class FlutterLoader {
     shellArgs.push("--prefetched-default-font-manager");
 
     shellArgs.push("--leak-vm=" + true);
- 
-    if (this.isEnableImpeller == true) {
+
+    if (this.isEnableImpeller == true && deviceInfo.productModel != "emulator") {
         shellArgs.push("--enable-impeller");
         Log.d(TAG, "Enable Impeller in Ohos.");
     } else {
