@@ -60,6 +60,20 @@ class DVModelJson {
     this.build = build;
   }
 }
+enum TouchEventType {
+  /// Action code for when a primary pointer touched the screen.
+  ACTION_DOWN = 0,
+  /// Action code for when a primary pointer stopped touching the screen.
+  ACTION_UP = 1,
+  /// Action code for when the event only includes information about pointer movement.
+  ACTION_MOVE = 2,
+  /// Action code for when a motion event has been canceled.
+  ACTION_CANCEL = 3,
+  /// Action code for when a secondary pointer touched the screen.
+  ACTION_POINTER_DOWN = 5,
+  /// Action code for when a secondary pointer touched the screen.
+  ACTION_POINTER_UP = 6,
+}
 
 const TAG = "PlatformViewsController"
 
@@ -181,12 +195,12 @@ export default class PlatformViewsController implements PlatformViewsHandler {
       let dvModel = viewWrapper.getDvModel()
       let params = dvModel.getLayoutParams() as Record<string, Any>;
       //接收到点击类型为down的时候
-      if (touch.action == 0) {
+      if (touch.action === TouchEventType.ACTION_DOWN) {
         //将当前点击状态设置为true
         params['down'] = true
         //首次收到触控点击类型为 OH_NATIVEXCOMPONENT_DOWN ，则将存到列表中的事件分发出去
         let touchEventArray: Array<CustomTouchEvent> | undefined = params['touchEvent'] as Array<CustomTouchEvent>
-        if (touchEventArray != undefined) {
+        if (touchEventArray !== undefined) {
           let nodeController = params['nodeController'] as EmbeddingNodeController;
           for (let it of touchEventArray) {
             nodeController.postEvent(it)
@@ -194,9 +208,10 @@ export default class PlatformViewsController implements PlatformViewsHandler {
           //首次执行完之后，将列表数据置空
           params['touchEvent'] = undefined
         }
-      //当前接收的事件类型为up的时候
-      } else if (touch.action == 1) {
+        //当前接收的事件类型为up的时候
+      } else if (touch.action === TouchEventType.ACTION_UP || touch.action === TouchEventType.ACTION_CANCEL) {
         //手指抬起之后，将当前点击状态设置为false。测试了一下，多个手指突然抬起，最后返回的状态也是1
+        // 手指移动点击的时候，会直接触发取消，不再触发up事件。
         //所以，这边就以状态抬起，代表当前用户不点击platformview了
         params['down'] = false
       }
