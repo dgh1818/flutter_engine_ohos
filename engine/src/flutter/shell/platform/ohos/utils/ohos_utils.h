@@ -13,25 +13,26 @@
  * limitations under the License.
  */
 
-#ifndef OHOS_UTILS_H
-#define OHOS_UTILS_H
-#include <string>
+#ifndef FLUTTER_SHELL_PLATFORM_OHOS_UTILS_OHOS_UTILS_H_
+#define FLUTTER_SHELL_PLATFORM_OHOS_UTILS_OHOS_UTILS_H_
+#include <cstring>
 #include <map>
 #include <string>
 #include <vector>
-#include <cstring>
 #include "flutter/shell/platform/ohos/ohos_logging.h"
 namespace flutter {
 
 class OHOSUtils {
-public:
-    OHOSUtils();
-    ~OHOSUtils();
-    
-    static void SerializeString(const std::string& str, std::vector<uint8_t>& buffer);
-    static std::vector<uint8_t> SerializeStringIntMap(const std::map<std::string, int32_t>& mp);
-    static void CharArrayToInt32(const char* str, int32_t& target);
+ public:
+  OHOSUtils();
+  ~OHOSUtils();
+
+  static void SerializeString(const std::string& str,
+                              std::vector<uint8_t>& buffer);
+  static std::vector<uint8_t> SerializeStringIntMap(
+      const std::map<std::string, int32_t>& mp);
+  static void CharArrayToInt32(const char* str, int32_t& target);
 };
 
-}
-#endif
+}  // namespace flutter
+#endif  // FLUTTER_SHELL_PLATFORM_OHOS_UTILS_OHOS_UTILS_H_

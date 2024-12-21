@@ -31,7 +31,7 @@ class OhosAccessibilityManager {
   void SetOhosAccessibilityEnabled(bool isEnabled);
 
  private:
-   bool isOhosAccessibilityEnabled_;
+  bool isOhosAccessibilityEnabled_;
 };
 
 }  // namespace flutter

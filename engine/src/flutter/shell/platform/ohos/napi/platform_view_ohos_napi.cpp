@@ -2318,7 +2318,7 @@ napi_value PlatformViewOHOSNapi::nativeAccessibilityStateChange(
       "%{public}s",
       (state ? "true" : "false"));
 
-  //send to accessibility bridge
+  // send to accessibility bridge
   auto a11y_bridge = OhosAccessibilityBridge::GetInstance();
   a11y_bridge->OnOhosAccessibilityStateChange(shell_holder_id, state);
   FML_DLOG(INFO) << "nativeAccessibilityStateChange: state=" << state
@@ -2339,8 +2339,10 @@ napi_value PlatformViewOHOSNapi::nativeAnnounce(napi_env env,
   auto char_array = std::make_unique<char[]>(null_terminated_length);
   napi_get_value_string_utf8(env, args[0], char_array.get(),
                              null_terminated_length, nullptr);
-  LOGD("PlatformViewOHOSNapi::nativeAnnounce message: %{public}s", char_array.get());
-  auto handler = std::make_shared<NativeAccessibilityChannel::AccessibilityMessageHandler>();
+  LOGD("PlatformViewOHOSNapi::nativeAnnounce message: %{public}s",
+       char_array.get());
+  auto handler = std::make_shared<
+      NativeAccessibilityChannel::AccessibilityMessageHandler>();
   handler->Announce(char_array);
   return nullptr;
 }
@@ -2392,35 +2394,37 @@ napi_value PlatformViewOHOSNapi::nativeSetSemanticsEnabled(
   // 给无障碍bridge传递nativeShellHolderId
   auto ohosAccessibilityBridge = OhosAccessibilityBridge::GetInstance();
   ohosAccessibilityBridge->native_shell_holder_id_ = shell_holder;
-  FML_DLOG(INFO) << "PlatformViewOHOSNapi::nativeSetSemanticsEnabled -> shell_holder:"<<shell_holder;
+  FML_DLOG(INFO)
+      << "PlatformViewOHOSNapi::nativeSetSemanticsEnabled -> shell_holder:"
+      << shell_holder;
   return nullptr;
 }
 
 /**
  * accessibility-relevant interfaces
  */
-void PlatformViewOHOSNapi::SetSemanticsEnabled(int64_t shell_holder, 
-                                               bool enabled)
-{
+void PlatformViewOHOSNapi::SetSemanticsEnabled(int64_t shell_holder,
+                                               bool enabled) {
   OHOS_SHELL_HOLDER->GetPlatformView()->SetSemanticsEnabled(enabled);
 }
 
 void PlatformViewOHOSNapi::DispatchSemanticsAction(
     int64_t shell_holder,
-    int32_t id, 
-    flutter::SemanticsAction action, 
-    fml::MallocMapping args)
-{
-  OHOS_SHELL_HOLDER->GetPlatformView()->PlatformView::DispatchSemanticsAction(id, action, fml::MallocMapping());
+    int32_t id,
+    flutter::SemanticsAction action,
+    fml::MallocMapping args) {
+  OHOS_SHELL_HOLDER->GetPlatformView()->PlatformView::DispatchSemanticsAction(
+      id, action, fml::MallocMapping());
 }
 
 void PlatformViewOHOSNapi::SetAccessibilityFeatures(int64_t shell_holder,
-                                                    int32_t flags)
-{
+                                                    int32_t flags) {
   OHOS_SHELL_HOLDER->GetPlatformView()->SetAccessibilityFeatures(flags);
 }
 
-napi_value PlatformViewOHOSNapi::nativeSetFlutterNavigationAction(napi_env env, napi_callback_info info) {
+napi_value PlatformViewOHOSNapi::nativeSetFlutterNavigationAction(
+    napi_env env,
+    napi_callback_info info) {
   napi_status ret;
   size_t argc = 1;
   napi_value args[1] = {nullptr};

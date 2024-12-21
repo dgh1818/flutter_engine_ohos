@@ -166,7 +166,7 @@ export class DartMessenger implements BinaryMessenger, PlatformMessageHandler {
 
   //获取当前flutter页面是否路由跳转，并传递到native侧
   IsFlutterNavigationExecuted(channel: String): void {
-    if(channel == "flutter/navigation") {
+    if (channel == "flutter/navigation") {
       this.flutterNapi.setFlutterNavigationAction(true);
       Log.d(TAG, "setFlutterNavigationAction -> '" + channel + "'");
     }

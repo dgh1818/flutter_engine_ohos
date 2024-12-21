@@ -93,11 +93,11 @@ export default class AccessibilityChannel implements MessageHandler<object> {
     this.flutterNapi = flutterNapi;
   }
 
-    onOhosAccessibilityEnabled(): void {
-        let replyId: number = this.nextReplyId++;
-        this.flutterNapi.setSemanticsEnabledWithRespId(true, replyId);
-        Log.i(AccessibilityChannel.TAG, "onOhosAccessibilityEnabled = true");
-    }
+  onOhosAccessibilityEnabled(): void {
+    let replyId: number = this.nextReplyId++;
+    this.flutterNapi.setSemanticsEnabledWithRespId(true, replyId);
+    Log.i(AccessibilityChannel.TAG, "onOhosAccessibilityEnabled = true");
+  }
 
   onOhosAccessibilityFeatures(accessibilityFeatureFlags: number): void {
     let replyId: number = this.nextReplyId++;
@@ -129,27 +129,34 @@ export interface AccessibilityMessageHandler extends AccessibilityDelegate {
 }
 
 export class DefaultHandler implements AccessibilityMessageHandler {
-    private static TAG = "AccessibilityMessageHandler";
+  private static TAG = "AccessibilityMessageHandler";
+
   announce(message: string): void {
-    Log.i(DefaultHandler.TAG,  "handler announce.");
+    Log.i(DefaultHandler.TAG, "handler announce.");
     flutter.nativeAnnounce(message);
   }
+
   onTap(nodeId: number): void {
-    Log.i(DefaultHandler.TAG,  "handler onTap.");
+    Log.i(DefaultHandler.TAG, "handler onTap.");
   }
+
   onLongPress(nodeId: number): void {
-    Log.i(DefaultHandler.TAG,  "handler onLongPress.");
+    Log.i(DefaultHandler.TAG, "handler onLongPress.");
   }
+
   onTooltip(nodeId: string): void {
-    Log.i(DefaultHandler.TAG,  "handler onTooltip.");
+    Log.i(DefaultHandler.TAG, "handler onTooltip.");
   }
+
   updateSemantics(buffer: ByteBuffer, strings: string[], stringAttributeArgs: ByteBuffer[]): void {
-    Log.i(DefaultHandler.TAG,  "handler updateSemantics");
+    Log.i(DefaultHandler.TAG, "handler updateSemantics");
   }
+
   updateCustomAccessibilityActions(buffer: ByteBuffer, strings: string[]): void {
-    Log.i(DefaultHandler.TAG,  "handler updateCustomAccessibilityActions");
+    Log.i(DefaultHandler.TAG, "handler updateCustomAccessibilityActions");
   }
-  accessibilityStateChange(state: Boolean): void{
-    Log.i(DefaultHandler.TAG,  "handler accessibilityStateChange");
+
+  accessibilityStateChange(state: Boolean): void {
+    Log.i(DefaultHandler.TAG, "handler accessibilityStateChange");
   }
 }

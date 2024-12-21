@@ -18,20 +18,18 @@
 
 namespace flutter {
 
-OhosAccessibilityFeatures::OhosAccessibilityFeatures()
-{
-    nativeAccessibilityChannel_ = std::make_shared<NativeAccessibilityChannel>();
+OhosAccessibilityFeatures::OhosAccessibilityFeatures() {
+  nativeAccessibilityChannel_ = std::make_shared<NativeAccessibilityChannel>();
 };
 
-OhosAccessibilityFeatures::~OhosAccessibilityFeatures() {};
+OhosAccessibilityFeatures::~OhosAccessibilityFeatures(){};
 
 /**
  * 无障碍特征之无障碍导航
  */
 void OhosAccessibilityFeatures::SetAccessibleNavigation(
     bool isAccessibleNavigation,
-    int64_t shell_holder_id)
-{
+    int64_t shell_holder_id) {
   if (ACCESSIBLE_NAVIGATION == isAccessibleNavigation) {
     return;
   }
@@ -71,7 +69,8 @@ void OhosAccessibilityFeatures::SetBoldText(double fontWeightScale,
  */
 void OhosAccessibilityFeatures::SendAccessibilityFlags(
     int64_t shell_holder_id) {
-  nativeAccessibilityChannel_->SetAccessibilityFeatures(shell_holder_id, accessibilityFeatureFlags);
+  nativeAccessibilityChannel_->SetAccessibilityFeatures(
+      shell_holder_id, accessibilityFeatureFlags);
   FML_DLOG(INFO) << "SendAccessibilityFlags -> accessibilityFeatureFlags = "
                  << accessibilityFeatureFlags;
   accessibilityFeatureFlags = 0;

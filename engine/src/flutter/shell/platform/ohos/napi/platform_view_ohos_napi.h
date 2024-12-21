@@ -82,8 +82,8 @@ class PlatformViewOHOSNapi {
   void SetSemanticsEnabled(int64_t shell_hoder, bool enabled);
   void SetAccessibilityFeatures(int64_t shell_hoder, int32_t flags);
   void DispatchSemanticsAction(int64_t shell_hoder,
-                               int32_t id, 
-                               flutter::SemanticsAction action, 
+                               int32_t id,
+                               flutter::SemanticsAction action,
                                fml::MallocMapping args);
 
   static napi_value nativeUpdateRefreshRate(

@@ -14,6 +14,7 @@
  */
 
 #include "flutter/shell/platform/ohos/platform_view_ohos.h"
+#include <GLES2/gl2ext.h>
 #include <native_image/native_image.h>
 #include "flutter/common/constants.h"
 #include "flutter/fml/make_copyable.h"
@@ -35,7 +36,6 @@
 #include "shell/common/platform_view.h"
 #include "shell/platform/ohos/context/ohos_context.h"
 #include "shell/platform/ohos/ohos_surface_vulkan_impeller.h"
-#include <GLES2/gl2ext.h>
 
 namespace flutter {
 
@@ -385,7 +385,8 @@ void PlatformViewOHOS::UpdateSemantics(
     flutter::SemanticsNodeUpdates update,
     flutter::CustomAccessibilityActionUpdates actions) {
   FML_DLOG(INFO) << "PlatformViewOHOS::UpdateSemantics is called";
-  auto nativeAccessibilityChannel_ = std::make_shared<NativeAccessibilityChannel>();
+  auto nativeAccessibilityChannel_ =
+      std::make_shared<NativeAccessibilityChannel>();
   nativeAccessibilityChannel_->UpdateSemantics(update, actions);
 }
 

@@ -27,6 +27,7 @@
 #include "flutter/fml/memory/weak_ptr.h"
 #include "flutter/lib/ui/window/platform_message.h"
 #include "flutter/shell/common/platform_view.h"
+#include "flutter/shell/platform/ohos/accessibility/native_accessibility_channel.h"
 #include "flutter/shell/platform/ohos/accessibility/ohos_accessibility_bridge.h"
 #include "flutter/shell/platform/ohos/context/ohos_context.h"
 #include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
@@ -37,8 +38,6 @@
 #include "flutter/shell/platform/ohos/surface/ohos_snapshot_surface_producer.h"
 #include "flutter/shell/platform/ohos/surface/ohos_surface.h"
 #include "flutter/shell/platform/ohos/vsync_waiter_ohos.h"
-#include "flutter/shell/platform/ohos/platform_view_ohos_delegate.h"
-#include "flutter/shell/platform/ohos/accessibility/native_accessibility_channel.h"
 
 namespace flutter {
 
