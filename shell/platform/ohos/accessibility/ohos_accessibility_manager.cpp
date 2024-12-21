@@ -26,13 +26,11 @@ OhosAccessibilityManager::~OhosAccessibilityManager() {}
 void OhosAccessibilityManager::OnAccessibilityStateChanged(
     bool ohosAccessibilityEnabled) {}
 
-void OhosAccessibilityManager::SetOhosAccessibilityEnabled(bool isEnabled) 
-{
+void OhosAccessibilityManager::SetOhosAccessibilityEnabled(bool isEnabled) {
   this->isOhosAccessibilityEnabled_ = isEnabled;
 }
 
-bool OhosAccessibilityManager::GetOhosAccessibilityEnabled() 
-{
+bool OhosAccessibilityManager::GetOhosAccessibilityEnabled() {
   return this->isOhosAccessibilityEnabled_;
 }
 

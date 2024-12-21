@@ -67,7 +67,6 @@ export default class FlutterNapi {
   private firstPreloading: boolean = true;
   accessibilityManager: AccessibilityManager | null = null;
 
-
   /**
    * 更新刷新率
    * @param rate
@@ -172,7 +171,7 @@ export default class FlutterNapi {
 
   static nativeLookupCallbackInformation(handle: number): FlutterCallbackInformation | null {
     let callbackInformation = new FlutterCallbackInformation();
-    let ret : number = flutter.nativeLookupCallbackInformation(callbackInformation, handle);
+    let ret: number = flutter.nativeLookupCallbackInformation(callbackInformation, handle);
     if (ret == 0) {
       return callbackInformation;
     }
@@ -483,7 +482,7 @@ export default class FlutterNapi {
 
   accessibilityStateChange(state: Boolean): void {
     this.ensureRunningOnMainThread();
-    if(this.accessibilityDelegate != null) {
+    if (this.accessibilityDelegate != null) {
       this.accessibilityDelegate.accessibilityStateChange(state);
     }
     Log.d(TAG, "accessibilityStateChange is called");
@@ -709,7 +708,6 @@ export default class FlutterNapi {
       Log.w(TAG, "setFlutterNavigationAction is detached !");
     }
   }
-
 }
 
 export interface AccessibilityDelegate {
