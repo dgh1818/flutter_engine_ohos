@@ -331,8 +331,10 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     /// 暂时规避方案
     /// OS机制与Android不一致，需要去监听软键盘事件才能发送KeyEvent事件
     if (this.mEditable.getStringCache() == "") {
-      this.sendKeyboardEvent(KeyType.Down, KeyCode.KEYCODE_DEL)
-      this.sendKeyboardEvent(KeyType.Up, KeyCode.KEYCODE_DEL)
+      for (let i = 0; i < length; i++) {
+        this.sendKeyboardEvent(KeyType.Down, KeyCode.KEYCODE_DEL)
+        this.sendKeyboardEvent(KeyType.Up, KeyCode.KEYCODE_DEL)
+      }
     }
     this.mEditable.handleDeleteEvent(false, length);
   }

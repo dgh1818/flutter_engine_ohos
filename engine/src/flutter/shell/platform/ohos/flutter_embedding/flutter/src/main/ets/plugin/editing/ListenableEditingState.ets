@@ -250,6 +250,10 @@ export class ListenableEditingState {
   }
 
   handleDeleteEvent(leftOrRight: boolean, length: number): void {
+    if (length === 0) {
+      return;
+    }
+
     let start =
       this.mSelectionStartCache < this.mSelectionEndCache ? this.mSelectionStartCache : this.mSelectionEndCache;
     let end = this.mSelectionStartCache > this.mSelectionEndCache ? this.mSelectionStartCache : this.mSelectionEndCache;
@@ -259,10 +263,15 @@ export class ListenableEditingState {
       if (start == 0 && end == 0) {
         return;
       }
-      
+
       let unicodeStart = start;
       if (start == end) {
-        unicodeStart = FlutterTextUtils.getOffsetBefore(this.mStringCache, start);
+        for (let i = 0; i < length; i++) {
+          unicodeStart = FlutterTextUtils.getOffsetBefore(this.mStringCache, unicodeStart);
+          if (unicodeStart === 0) {
+            break;
+          }
+        }
       }
       this.replace(unicodeStart, end, "", 0, 0);
       this.mSelectionStartCache = unicodeStart;
@@ -276,7 +285,12 @@ export class ListenableEditingState {
       }
       let unicodeEnd = end;
       if (start == end) {
-        unicodeEnd = FlutterTextUtils.getOffsetAfter(this.mStringCache, start);
+        for (let i = 0; i < length; i++) {
+          unicodeEnd = FlutterTextUtils.getOffsetAfter(this.mStringCache, unicodeEnd);
+          if (unicodeEnd === this.mStringCache.length) {
+            break;
+          }
+        }
       }
       this.replace(start, unicodeEnd, "", 0, 0);
       this.mSelectionEndCache = start;
