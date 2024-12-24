@@ -83,8 +83,6 @@ class OhosAccessibilityBridge {
   void OnOhosAccessibilityStateChange(int64_t shellHolderId,
                                       bool ohosAccessibilityEnabled);
 
-  void SetNativeShellHolderId(int64_t id);
-
   void UpdateSemantics(flutter::SemanticsNodeUpdates update,
                        flutter::CustomAccessibilityActionUpdates actions);
 
