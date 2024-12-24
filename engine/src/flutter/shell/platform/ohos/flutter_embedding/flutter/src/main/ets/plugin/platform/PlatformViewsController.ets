@@ -13,7 +13,6 @@
 * limitations under the License.
 */
 
-import { PlatformViewsAccessibilityDelegate } from './PlatformViewsAccessibilityDelegate';
 import PlatformViewsChannel, {
   PlatformViewBufferResized,
   PlatformViewCreationRequest,
@@ -29,15 +28,12 @@ import display from '@ohos.display';
 import { FlutterView } from '../../view/FlutterView';
 import { TextureRegistry } from '../../view/TextureRegistry';
 import TextInputPlugin from '../editing/TextInputPlugin';
-import { PlatformOverlayView } from './PlatformOverlayView';
 import { PlatformViewWrapper } from './PlatformViewWrapper';
 import { FlutterOverlaySurface } from '../../embedding/engine/FlutterOverlaySurface';
 import HashSet from '@ohos.util.HashSet';
 import PlatformViewRegistry from './PlatformViewRegistry';
 import PlatformViewRegistryImpl from './PlatformViewRegistryImpl';
 import DartExecutor from '../../embedding/engine/dart/DartExecutor';
-import { AccessibilityEventsDelegate } from './AccessibilityEventsDelegate';
-import AccessibilityBridge from '../../view/AccessibilityBridge';
 import { FlutterMutatorView } from '../../embedding/engine/mutatorsstack/FlutterMutatorView';
 import Log from '../../util/Log'
 import PlatformViewFactory from './PlatformViewFactory'
@@ -67,19 +63,17 @@ class DVModelJson {
 
 const TAG = "PlatformViewsController"
 
-export default class PlatformViewsController implements PlatformViewsAccessibilityDelegate, PlatformViewsHandler {
+export default class PlatformViewsController implements PlatformViewsHandler {
   private registry: PlatformViewRegistryImpl;
   private context: Context | null = null;
   private flutterView: FlutterView | null = null;
   private textureRegistry: TextureRegistry | null = null;
   private textInputPlugin: TextInputPlugin | null = null;
   private platformViewsChannel: PlatformViewsChannel | null = null;
-  private accessibilityEventsDelegate: AccessibilityEventsDelegate;
   private nextOverlayLayerId: number = 0;
   private platformViews: Map<number, PlatformView>;
   private viewIdWithTextureId: Map<number, number>;
   private viewIdWithNodeController: Map<number, EmbeddingNodeController>;
-  private overlayLayerViews: Map<number, PlatformOverlayView>;
   private viewWrappers: Map<number, PlatformViewWrapper>;
   private currentFrameUsedOverlayLayerIds: HashSet<number>;
   private currentFrameUsedPlatformViewIds: HashSet<number>;
@@ -87,8 +81,6 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
 
   constructor() {
     this.registry = new PlatformViewRegistryImpl();
-    this.accessibilityEventsDelegate = new AccessibilityEventsDelegate();
-    this.overlayLayerViews = new Map<number, PlatformOverlayView>();
     this.currentFrameUsedOverlayLayerIds = new HashSet();
     this.currentFrameUsedPlatformViewIds = new HashSet();
     this.viewWrappers = new Map();
@@ -96,22 +88,6 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
     this.viewIdWithTextureId = new Map();
     this.viewIdWithNodeController = new Map();
     this.platformViewParent = new Map();
-  }
-
-  getPlatformViewById(viewId: number): Object {
-    throw new Error('Method not implemented.');
-  }
-
-  usesVirtualDisplay(id: number): boolean {
-    throw new Error('Method not implemented.');
-  }
-
-  attachAccessibilityBridge(accessibilityBridge: AccessibilityBridge): void {
-    this.accessibilityEventsDelegate.setAccessibilityBridge(accessibilityBridge);
-  }
-
-  detachAccessibilityBridge(): void {
-    this.accessibilityEventsDelegate.setAccessibilityBridge(null);
   }
 
   createForPlatformViewLayer(request: PlatformViewCreationRequest): void {
@@ -456,12 +432,6 @@ export default class PlatformViewsController implements PlatformViewsAccessibili
   }
 
   private finishFrame(isFrameRenderedUsingImageReaders: boolean): void {
-  }
-
-  public createOverlaySurfaceByPlatformOverlayView(imageView: PlatformOverlayView) {
-    let id = this.nextOverlayLayerId++;
-    this.overlayLayerViews.set(id, imageView);
-    return new FlutterOverlaySurface(this.nextOverlayLayerId++);
   }
 
   public createOverlaySurface(): FlutterOverlaySurface {

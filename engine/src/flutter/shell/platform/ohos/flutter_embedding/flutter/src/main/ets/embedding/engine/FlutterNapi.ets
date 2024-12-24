@@ -22,7 +22,6 @@ import { FlutterCallbackInformation } from '../../view/FlutterCallbackInformatio
 import image from '@ohos.multimedia.image';
 import { EngineLifecycleListener } from './FlutterEngine';
 import { ByteBuffer } from '../../util/ByteBuffer';
-import { AccessibilityManager, Action } from '../../view/AccessibilityBridge'
 import LocalizationPlugin from '../../plugin/localization/LocalizationPlugin';
 import i18n from '@ohos.i18n';
 import Any from '../../plugin/common/Any';
@@ -31,6 +30,7 @@ import deviceInfo from '@ohos.deviceInfo';
 import TouchEventProcessor from '../ohos/TouchEventProcessor';
 import { EmbeddingNodeController } from '../ohos/EmbeddingNodeController';
 import BuildProfile from '../../../../../BuildProfile';
+import { Action } from '../engine/systemchannels/AccessibilityChannel';
 
 const TAG = "FlutterNapi";
 
@@ -65,7 +65,6 @@ export default class FlutterNapi {
   private pendingMessages: PendingMessage[] = [];
   private readyForHandleMessage: boolean = true;
   private firstPreloading: boolean = true;
-  accessibilityManager: AccessibilityManager | null = null;
 
   /**
    * 更新刷新率

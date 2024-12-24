@@ -75,10 +75,6 @@ void OhosAccessibilityBridge::OnOhosAccessibilityStateChange(
   }
 }
 
-void OhosAccessibilityBridge::SetNativeShellHolderId(int64_t id) {
-  this->native_shell_holder_id_ = id;
-}
-
 /**
  * 从dart侧传递到c++侧的flutter无障碍语义树节点更新过程，
  * 路由新页面、滑动页面等操作会自动触发该语义树的更新

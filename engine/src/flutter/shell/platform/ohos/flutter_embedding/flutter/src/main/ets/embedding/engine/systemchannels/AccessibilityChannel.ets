@@ -18,7 +18,6 @@ import DartExecutor from '../dart/DartExecutor';
 import BasicMessageChannel, { MessageHandler, Reply } from '../../../plugin/common/BasicMessageChannel';
 import HashMap from '@ohos.util.HashMap';
 import FlutterNapi, { AccessibilityDelegate } from '../FlutterNapi';
-import { Action } from '../../../view/AccessibilityBridge';
 import StandardMessageCodec from '../../../plugin/common/StandardMessageCodec';
 import StringUtils from '../../../util/StringUtils';
 import Any from '../../../plugin/common/Any';
@@ -159,4 +158,29 @@ export class DefaultHandler implements AccessibilityMessageHandler {
   accessibilityStateChange(state: Boolean): void {
     Log.i(DefaultHandler.TAG, "handler accessibilityStateChange");
   }
+}
+
+export enum Action {
+  TAP = 1 << 0,
+  LONG_PRESS = 1 << 1,
+  SCROLL_LEFT = 1 << 2,
+  SCROLL_RIGHT = 1 << 3,
+  SCROLL_UP = 1 << 4,
+  SCROLL_DOWN = 1 << 5,
+  INCREASE = 1 << 6,
+  DECREASE = 1 << 7,
+  SHOW_ON_SCREEN = 1 << 8,
+  MOVE_CURSOR_FORWARD_BY_CHARACTER = 1 << 9,
+  MOVE_CURSOR_BACKWARD_BY_CHARACTER = 1 << 10,
+  SET_SELECTION = 1 << 11,
+  COPY = 1 << 12,
+  CUT = 1 << 13,
+  PASTE = 1 << 14,
+  DID_GAIN_ACCESSIBILITY_FOCUS = 1 << 15,
+  DID_LOSE_ACCESSIBILITY_FOCUS = 1 << 16,
+  CUSTOM_ACTION = 1 << 17,
+  DISMISS = 1 << 18,
+  MOVE_CURSOR_FORWARD_BY_WORD = 1 << 19,
+  MOVE_CURSOR_BACKWARD_BY_WORD = 1 << 20,
+  SET_NEXT = 1 << 21,
 }
