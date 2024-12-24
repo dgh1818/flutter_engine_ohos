@@ -70,8 +70,7 @@ OHOSImageGenerator::~OHOSImageGenerator() {
 }
 
 const SkImageInfo& OHOSImageGenerator::GetInfo() {
-  std::string trace_str = "Image-GetInfo-" + to_string();
-  TRACE_EVENT0("flutter", trace_str.c_str());
+  TRACE_EVENT1("flutter", "Image", "GetInfo", to_string().c_str());
   return origin_image_info_;
 }
 
@@ -109,11 +108,10 @@ bool OHOSImageGenerator::GetPixels(const SkImageInfo& info,
                                    size_t row_bytes,
                                    unsigned int frame_index,
                                    std::optional<unsigned int> prior_frame) {
-  std::string trace_str = "GetPixelsOHOS-" + to_string() + "->" +
-                          std::to_string(info.width()) + "*" +
-                          std::to_string(info.height()) +
+  std::string trace_str = to_string() + "->" + std::to_string(info.width()) +
+                          "*" + std::to_string(info.height()) +
                           "-index:" + std::to_string(frame_index);
-  TRACE_EVENT0("flutter", trace_str.c_str());
+  TRACE_EVENT1("flutter", "Image", "GetPixelsOHOS", trace_str.c_str());
   if (frame_index == 0) {
     FML_DLOG(INFO) << trace_str;
   }
@@ -146,9 +144,9 @@ bool OHOSImageGenerator::GetPixels(const SkImageInfo& info,
   if (image_pixelmap) {
     uint32_t buffer_size =
         image_pixelmap->width_ * image_pixelmap->height_ * RBGA8888_BYTES;
-    std::string trace_str = "ReadPixels-size:" + std::to_string(buffer_size) +
+    std::string trace_str = "size:" + std::to_string(buffer_size) +
                             "-stride:" + std::to_string(row_bytes);
-    TRACE_EVENT0("flutter", trace_str.c_str());
+    TRACE_EVENT1("flutter", "Image", "ReadPixels", trace_str.c_str());
     if (frame_index == 0) {
       FML_DLOG(INFO) << trace_str;
     }
@@ -175,8 +173,8 @@ std::shared_ptr<ImageGenerator> OHOSImageGenerator::MakeFromData(
   if (!data->data() || !data->size()) {
     return nullptr;
   }
-  std::string trace_str = "MakeFromDataOHOS-" + std::to_string(data->size());
-  TRACE_EVENT0("flutter", trace_str.c_str());
+  TRACE_EVENT1("flutter", "Image", "MakeFromDataOHOS",
+               std::to_string(data->size()).c_str());
 
   OH_ImageSourceNative* image_source = nullptr;
   // The data will be coyied to ImageSourceNative.

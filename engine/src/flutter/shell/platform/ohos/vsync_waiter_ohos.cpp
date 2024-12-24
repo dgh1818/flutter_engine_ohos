@@ -87,9 +87,8 @@ void VsyncWaiterOHOS::OnVsyncFromOHOS(long long timestamp, void* data) {
   }
   auto target_time = frame_time + fml::TimeDelta::FromNanoseconds(vsync_period);
   std::string trace_str =
-      "OnVsyncFromOHOS-timestamp:" + std::to_string(timestamp) +
-      "-period:" + std::to_string(vsync_period);
-  TRACE_EVENT0("flutter", trace_str.c_str());
+      std::to_string(timestamp) + "-" + std::to_string(vsync_period);
+  TRACE_EVENT1("flutter", "OHOSVsync", "timestamp-period", trace_str.c_str());
   ConsumePendingCallback(weak_this, frame_time, target_time);
 }
 
