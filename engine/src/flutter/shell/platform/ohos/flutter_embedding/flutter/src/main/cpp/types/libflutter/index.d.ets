@@ -166,7 +166,7 @@ export const nativeUnicodeIsRegionalIndicatorSymbol: (code: number) => number;
  */
 export const nativeSetAccessibilityFeatures: (accessibilityFeatureFlags: number, responseId: number) => void;
 
-export const nativeAccessibilityStateChange: (state: Boolean) => void;
+export const nativeAccessibilityStateChange: (nativeShellHolderId: number, state: Boolean) => void;
 
 export const nativeAnnounce: (message: string) => void;
 
@@ -174,4 +174,4 @@ export const nativeSetSemanticsEnabled: (nativeShellHolderId: number, enabled: b
 
 export const nativeSetFontWeightScale: (nativeShellHolderId: number, fontWeightScale: number) => void;
 
-export const nativeGetShellHolderId: (nativeShellHolderId: number) => void;
+export const nativeSetFlutterNavigationAction: (isNavigate: boolean) => void;

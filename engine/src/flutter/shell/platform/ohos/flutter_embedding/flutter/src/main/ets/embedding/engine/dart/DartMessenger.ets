@@ -12,7 +12,7 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-import { ErrorEvent, Queue, taskpool, worker, MessageEvents } from '@kit.ArkTS';
+import { ErrorEvent, Queue, taskpool, worker, MessageEvents, JSON } from '@kit.ArkTS';
 
 import Log from '../../../util/Log';
 import {
@@ -101,6 +101,7 @@ export class DartMessenger implements BinaryMessenger, PlatformMessageHandler {
     } finally {
       TraceSection.endWithId("DartMessenger#send on " + channel, traceId);
     }
+    this.IsFlutterNavigationExecuted(channel);
   }
 
   dispatchMessageToQueue(handlerInfo: HandlerInfo, message: ArrayBuffer, replyId: number): void {
@@ -131,6 +132,7 @@ export class DartMessenger implements BinaryMessenger, PlatformMessageHandler {
     } else {
       this.invokeHandler(handlerInfo?.handler as BinaryMessageHandler, message, replyId);
     }
+    this.IsFlutterNavigationExecuted(channel);
   }
 
   handlePlatformMessageResponse(replyId: number, reply: ArrayBuffer): void {
@@ -160,6 +162,14 @@ export class DartMessenger implements BinaryMessenger, PlatformMessageHandler {
    */
   getPendingChannelResponseCount(): number {
     return this.pendingReplies.size;
+  }
+
+  //获取当前flutter页面是否路由跳转，并传递到native侧
+  IsFlutterNavigationExecuted(channel: String): void {
+    if (channel == "flutter/navigation") {
+      this.flutterNapi.setFlutterNavigationAction(true);
+      Log.d(TAG, "setFlutterNavigationAction -> '" + channel + "'");
+    }
   }
 }
 

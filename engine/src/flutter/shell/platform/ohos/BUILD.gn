@@ -99,6 +99,11 @@ source_set("flutter_ohos_sources") {
              "types.h",
              "ohos_logging.h",
              "./accessibility/ohos_accessibility_features.h",
+             "platform_view_ohos_delegate.h",
+             "./accessibility/ohos_accessibility_bridge.h",
+             "./accessibility/ohos_accessibility_manager.h",
+             "./accessibility/native_accessibility_channel.h",
+             "./utils/ohos_utils.h",
            ]
 
   #configs += [ "//flutter/shell/platform/ohos/config:gtk" ]
@@ -115,7 +120,11 @@ source_set("flutter_ohos_sources") {
     "ohos_context_vulkan_impeller.cpp",
 
     # "//flutter/impeller/toolkit/egl/display.cc",
+    "./accessibility/native_accessibility_channel.cpp",
+    "./accessibility/ohos_accessibility_bridge.cpp",
     "./accessibility/ohos_accessibility_features.cpp",
+    "./accessibility/ohos_accessibility_manager.cpp",
+    "./utils/ohos_utils.cpp",
     "image_lru.cpp",
     "ohos_context_gl_skia.cpp",
     "ohos_display.cpp",
@@ -137,6 +146,7 @@ source_set("flutter_ohos_sources") {
     "platform_message_handler_ohos.cpp",
     "platform_message_response_ohos.cpp",
     "platform_view_ohos.cpp",
+    "platform_view_ohos_delegate.cpp",
     "vsync_waiter_ohos.cpp",
   ]
 
@@ -246,6 +256,7 @@ executable("flutter_ohos_unittests") {
   ldflags += [ "-lpixelmap" ]
   ldflags += [ "-limage_source" ]
   ldflags += [ "-lqos" ]
+  ldflags += [ "-ldeviceinfo_ndk.z" ]
 }
 
 shared_library("flutter_shell_native") {

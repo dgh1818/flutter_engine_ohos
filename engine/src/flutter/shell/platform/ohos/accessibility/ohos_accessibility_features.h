@@ -17,7 +17,7 @@
 #include <cstdint>
 #include "flutter/lib/ui/window/platform_configuration.h"
 #include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
-
+#include "native_accessibility_channel.h"
 namespace flutter {
 
 class OhosAccessibilityFeatures {
@@ -25,18 +25,32 @@ class OhosAccessibilityFeatures {
   OhosAccessibilityFeatures();
   ~OhosAccessibilityFeatures();
 
-  static OhosAccessibilityFeatures* GetInstance();
+  bool ACCESSIBLE_NAVIGATION = false;
 
+  void SetAccessibleNavigation(bool isAccessibleNavigation,
+                               int64_t shell_holder_id);
   void SetBoldText(double fontWeightScale, int64_t shell_holder_id);
+
   void SendAccessibilityFlags(int64_t shell_holder_id);
 
  private:
-  static OhosAccessibilityFeatures instance;
-
-  // Font weight adjustment (FontWeight.Bold - FontWeight.Normal = w700 - w400 =
-  // 300)
-  static const int32_t BOLD_TEXT_WEIGHT_ADJUSTMENT = 300;
+  std::shared_ptr<NativeAccessibilityChannel> nativeAccessibilityChannel_;
   int32_t accessibilityFeatureFlags = 0;
+};
+
+/**
+ * 无障碍特征枚举类（flutter平台通用）
+ * 注意：必须同src/flutter/lib/ui/window/platform_configuration.h
+ * 中的`AccessibilityFeatureFlag`枚举类保持一致
+ */
+enum AccessibilityFeatures : int32_t {
+  AccessibleNavigation = 1 << 0,
+  InvertColors = 1 << 1,
+  DisableAnimations = 1 << 2,
+  BoldText = 1 << 3,
+  ReduceMotion = 1 << 4,
+  HighContrast = 1 << 5,
+  OnOffSwitchLabels = 1 << 6,
 };
 
 }  // namespace flutter

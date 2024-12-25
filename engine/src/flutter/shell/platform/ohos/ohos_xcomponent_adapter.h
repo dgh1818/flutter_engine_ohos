@@ -16,8 +16,10 @@
 #ifndef FLUTTER_SHELL_PLATFORM_OHOS_OHOS_XCOMPONENT_ADAPTER_H_
 #define FLUTTER_SHELL_PLATFORM_OHOS_OHOS_XCOMPONENT_ADAPTER_H_
 #include <ace/xcomponent/native_interface_xcomponent.h>
+#include <arkui/native_interface_accessibility.h>
 #include <map>
 #include <string>
+#include "flutter/shell/platform/ohos/accessibility/ohos_accessibility_bridge.h"
 #include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
 #include "flutter/shell/platform/ohos/ohos_touch_processor.h"
 #include "napi/native_api.h"
@@ -27,6 +29,7 @@ namespace flutter {
 class XComponentBase {
  private:
   void BindXComponentCallback();
+  void BindAccessibilityProviderCallback();
 
  public:
   XComponentBase(std::string id);
@@ -48,6 +51,7 @@ class XComponentBase {
   OH_NativeXComponent_TouchEvent touchEvent_;
   OH_NativeXComponent_Callback callback_;
   OH_NativeXComponent_MouseEvent_Callback mouseCallback_;
+  ArkUI_AccessibilityProviderCallbacks accessibilityProviderCallback_;
   std::string id_;
   std::string shellholderId_;
   bool is_engine_attached_ = false;
