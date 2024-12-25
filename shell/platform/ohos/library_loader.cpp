@@ -149,7 +149,6 @@ static napi_value Init(napi_env env, napi_value exports) {
       DECLARE_NAPI_FUNCTION(
           "nativeSetTextureBackGroundPixelMap",
           flutter::PlatformViewOHOSNapi::nativeSetTextureBackGroundPixelMap),
-
       DECLARE_NAPI_FUNCTION(
           "nativeUpdateSemantics",
           flutter::PlatformViewOHOSNapi::nativeUpdateSemantics),
@@ -178,7 +177,20 @@ static napi_value Init(napi_env env, napi_value exports) {
       DECLARE_NAPI_FUNCTION("nativeUnicodeIsRegionalIndicatorSymbol",
                             flutter::PlatformViewOHOSNapi::
                                 nativeUnicodeIsRegionalIndicatorSymbol),
-
+      DECLARE_NAPI_FUNCTION(
+          "nativeAccessibilityStateChange",
+          flutter::PlatformViewOHOSNapi::nativeAccessibilityStateChange),
+      DECLARE_NAPI_FUNCTION("nativeAnnounce",
+                            flutter::PlatformViewOHOSNapi::nativeAnnounce),
+      DECLARE_NAPI_FUNCTION(
+          "nativeSetSemanticsEnabled",
+          flutter::PlatformViewOHOSNapi::nativeSetSemanticsEnabled),
+      DECLARE_NAPI_FUNCTION(
+          "nativeSetFontWeightScale",
+          flutter::PlatformViewOHOSNapi::nativeSetFontWeightScale),
+      DECLARE_NAPI_FUNCTION(
+          "nativeSetFlutterNavigationAction",
+          flutter::PlatformViewOHOSNapi::nativeSetFlutterNavigationAction),
   };
 
   FML_DLOG(INFO) << "Init NAPI size=" << sizeof(desc) / sizeof(desc[0]);

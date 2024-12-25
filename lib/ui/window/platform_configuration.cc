@@ -297,7 +297,6 @@ void PlatformConfiguration::DispatchPlatformMessage(
   std::shared_ptr<tonic::DartState> dart_state =
       dispatch_platform_message_.dart_state().lock();
 
-  FML_DLOG(INFO) << "DispatchPlatformMessage channel: " << message->channel();
   if (!dart_state) {
     FML_DLOG(WARNING)
         << "Dropping platform message for lack of DartState on channel: "
@@ -351,7 +350,6 @@ void PlatformConfiguration::DispatchSemanticsAction(int32_t node_id,
                                                     fml::MallocMapping args) {
   std::shared_ptr<tonic::DartState> dart_state =
       dispatch_semantics_action_.dart_state().lock();
-  FML_DLOG(INFO) << "DispatchSemanticsAction : " << node_id;
   if (!dart_state) {
     return;
   }
@@ -363,7 +361,6 @@ void PlatformConfiguration::DispatchSemanticsAction(int32_t node_id,
   if (Dart_IsError(args_handle)) {
     return;
   }
-
   tonic::CheckAndHandleError(tonic::DartInvoke(
       dispatch_semantics_action_.Get(),
       {tonic::ToDart(node_id), tonic::ToDart(static_cast<int32_t>(action)),
@@ -542,8 +539,6 @@ Dart_Handle PlatformConfigurationNativeApi::SendPortPlatformMessage(
 void PlatformConfigurationNativeApi::RespondToPlatformMessage(
     int response_id,
     const tonic::DartByteData& data) {
-  FML_DLOG(INFO) << "PlatformConfigurationNativeApi::RespondToPlatformMessage:"
-                 << response_id;
   if (Dart_IsNull(data.dart_handle())) {
     UIDartState::Current()
         ->platform_configuration()

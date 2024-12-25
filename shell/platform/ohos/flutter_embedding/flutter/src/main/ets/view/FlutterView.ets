@@ -27,6 +27,7 @@ import hiTraceMeter from '@ohos.hiTraceMeter'
 import { JSON } from '@kit.ArkTS';
 import TextInputPlugin from '../plugin/editing/TextInputPlugin';
 import { BusinessError } from '@kit.BasicServicesKit';
+import { accessibility } from '@kit.AccessibilityKit';
 
 const TAG = "FlutterViewTag";
 
@@ -93,7 +94,6 @@ export class ViewportMetrics {
 }
 
 export class FlutterView {
-
   private flutterEngine: FlutterEngine | null = null
   private id: string = ""
   private dVModel: DVModel =
@@ -144,6 +144,9 @@ export class FlutterView {
     this.mainWindow?.on('windowStatusChange', this.windowStatusChangeCallback);
     this.mainWindow?.on('keyboardHeightChange', this.keyboardHeightChangeCallback);
     this.mainWindow?.on('windowRectChange', this.windowRectChangeCallback);
+    //监听系统无障碍服务状态改变
+    accessibility.on('accessibilityStateChange', this.accessibilityStateChangeCallback);
+
     this.systemAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
     this.navigationAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR);
     this.gestureAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM_GESTURE);
@@ -155,6 +158,7 @@ export class FlutterView {
     } catch (e) {
       Log.e(TAG, "displayInfo error" + JSON.stringify(e));
     }
+
   }
 
   private avoidAreaChangeCallback = (data: window.AvoidAreaOptions) => {
@@ -172,21 +176,18 @@ export class FlutterView {
       this.onAreaChange(null);
     }
   }
-
-  private  windowSizeChangeCallback = (data: window.Size) => {
+  private windowSizeChangeCallback = (data: window.Size) => {
     Log.i(TAG, "windowSizeChangeCallback w:" + data.width + ", h:" + data.height);
     if (this.isAttachedToFlutterEngine()) {
       this.onAreaChange(null);
     }
   }
-
   private windowStatusChangeCallback = (data: window.WindowStatusType) => {
     Log.i(TAG, "windowStatusChangeCallback " + data);
     if (this.isAttachedToFlutterEngine()) {
       FlutterManager.getInstance().getFullScreenListener().onScreenStateChanged(data);
     }
   };
-
   private displayChangeCallback = async (data: number) => {
     this.displayInfo = display.getDefaultDisplaySync();
     this.flutterEngine?.getTextInputChannel()?.setDevicePixelRatio(this.displayInfo.densityPixels);
@@ -205,17 +206,19 @@ export class FlutterView {
       this.onAreaChange(null);
     }
   }
-
   private keyboardHeightChangeCallback = (data: number) => {
     Log.i(TAG, "keyboardHeightChangeCallback " + data);
     this.keyboardAvoidArea.bottomRect.height = data;
     this.onAreaChange(null);
   };
-
   private windowRectChangeCallback = (data: window.RectChangeOptions) => {
     Log.i(TAG, "windowRectChangeCallback " + data);
     this.windowPosition = data.rect as window.Rect;
     this.flutterEngine?.getTextInputChannel()?.setWindowPosition(this.windowPosition);
+  }
+  private accessibilityStateChangeCallback = (data: boolean) => {
+    Log.i(TAG, `subscribe accessibility state change, result: ${JSON.stringify(data)}`);
+    this.flutterEngine?.getFlutterNapi()?.accessibilityStateChange(data);
   }
 
   private async getDisplayFeature(): Promise<Array<DisplayFeature>> {
@@ -236,7 +239,7 @@ export class FlutterView {
       if (displayMode == display.FoldDisplayMode.FOLD_DISPLAY_MODE_FULL ||
         displayMode == display.FoldDisplayMode.FOLD_DISPLAY_MODE_COORDINATION) {
         state = DisplayFeatureState.POSTURE_FLAT;
-      // MAIN or SUB when external screen is displayed in large-screen or small-screen folding products
+        // MAIN or SUB when external screen is displayed in large-screen or small-screen folding products
       } else if (displayMode == display.FoldDisplayMode.FOLD_DISPLAY_MODE_MAIN ||
         displayMode == display.FoldDisplayMode.FOLD_DISPLAY_MODE_SUB) {
         state = DisplayFeatureState.POSTURE_HALF_OPENED;
@@ -315,6 +318,7 @@ export class FlutterView {
       this.mainWindow?.off('windowStatusChange', this.windowStatusChangeCallback);
       this.mainWindow?.off('keyboardHeightChange', this.keyboardHeightChangeCallback);
       this.mainWindow?.off('windowRectChange', this.windowRectChangeCallback);
+      accessibility.off('accessibilityStateChange', this.accessibilityStateChangeCallback);
     } catch (e) {
       Log.e(TAG, "mainWindow off error: " + JSON.stringify(e));
     }
@@ -528,9 +532,9 @@ export class FlutterView {
 
       for (let i = 0; i < displayFeature.length; i++) {
         displayFeaturesBounds[4*i] = displayFeature[i].bounds.left;
-        displayFeaturesBounds[4*i + 1] = displayFeature[i].bounds.top;
-        displayFeaturesBounds[4*i + 2] = displayFeature[i].bounds.width;
-        displayFeaturesBounds[4*i + 3] = displayFeature[i].bounds.height;
+        displayFeaturesBounds[4 * i + 1] = displayFeature[i].bounds.top;
+        displayFeaturesBounds[4 * i + 2] = displayFeature[i].bounds.width;
+        displayFeaturesBounds[4 * i + 3] = displayFeature[i].bounds.height;
         displayFeaturesType[i] = displayFeature[i].type;
         displayFeaturesState[i] = displayFeature[i].state;
       }
@@ -558,11 +562,11 @@ export class FlutterView {
     return false;
   }
 
-  onKeyPreIme(event: KeyEvent) : boolean {
+  onKeyPreIme(event: KeyEvent): boolean {
     return this.keyboardManager?.onKeyPreIme(event) ?? false;
   }
 
-  onKeyEvent(event: KeyEvent) : boolean {
+  onKeyEvent(event: KeyEvent): boolean {
     return this.keyboardManager?.onKeyEvent(event) ?? false;
   }
 
