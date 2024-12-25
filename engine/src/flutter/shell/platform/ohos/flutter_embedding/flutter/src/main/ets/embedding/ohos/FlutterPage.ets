@@ -55,13 +55,6 @@ export struct FlutterPage {
         })
       }, (child: ESObject) => `${child.id_}`)
 
-
-      Text('')
-        .id('emptyFocusText' + this.viewId)
-        .size({ width: 0, height: 0 })
-        .opacity(0)
-        .focusable(true)
-
       XComponent({ id: this.viewId, type: this.xComponentType, libraryname: 'flutter' })
         .id(this.viewId)
         .focusable(true)
@@ -127,13 +120,6 @@ export struct FlutterPage {
         })
       }, (child: ESObject) => `${child.id_}`)
 
-
-      Text('')
-        .id('emptyFocusText' + this.viewId)
-        .size({ width: 0, height: 0 })
-        .opacity(0)
-        .focusable(true)
-
       XComponent({ id: this.viewId, type: this.xComponentType, libraryname: 'flutter' })
         .id(this.viewId)
         .focusable(true)
@@ -160,7 +146,6 @@ export struct FlutterPage {
     .onKeyEvent((event: KeyEvent) => {
       this.flutterView?.onKeyEvent(event)
     })
-    .defaultFocus(true)
     .onDragEnter((event: DragEvent, extraParams: string) => {
       FlutterManager.getInstance().getDragEnterCbs().forEach(dragEnterCb => {
         dragEnterCb.do(event, extraParams);
