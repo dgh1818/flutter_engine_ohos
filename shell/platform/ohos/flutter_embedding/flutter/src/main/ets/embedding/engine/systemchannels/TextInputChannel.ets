@@ -427,6 +427,7 @@ class TextInputCallback implements MethodCallHandler {
     width: 0,
     height: 0,
   }
+
   constructor(handler: TextInputMethodHandler) {
     this.textInputMethodHandler = handler;
   }
