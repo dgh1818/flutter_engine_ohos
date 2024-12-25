@@ -55,6 +55,8 @@ export struct FlutterPage {
         })
       }, (child: ESObject) => `${child.id_}`)
 
+      Text("").id("unfocus-xcomponent-node").focusable(true)
+
       XComponent({ id: this.viewId, type: this.xComponentType, libraryname: 'flutter' })
         .id(this.viewId)
         .focusable(true)
@@ -119,6 +121,8 @@ export struct FlutterPage {
           customBuilder: child.builder
         })
       }, (child: ESObject) => `${child.id_}`)
+
+      Text("").id("unfocus-xcomponent-node").focusable(true)
 
       XComponent({ id: this.viewId, type: this.xComponentType, libraryname: 'flutter' })
         .id(this.viewId)
