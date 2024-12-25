@@ -93,7 +93,8 @@ void XComponentAdapter::SetNativeXComponent(
 
 void XComponentAdapter::AttachFlutterEngine(std::string& id,
                                             std::string& shellholderId) {
-  TRACE_EVENT0("AttachFlutterEngine", shellholderId.c_str());
+  TRACE_EVENT1("flutter", "AttachFlutterEngine", "ShellID",
+               shellholderId.c_str());
   auto iter = xcomponetMap_.find(id);
   if (iter == xcomponetMap_.end()) {
     XComponentBase* xcomponet = new XComponentBase(id);
@@ -427,7 +428,8 @@ void XComponentBase::OnSurfaceCreated(OH_NativeXComponent* component,
       "XComponentManger::OnSurfaceCreated window = %{public}p component = "
       "%{public}p",
       window, component);
-  TRACE_EVENT0("OnSurfaceCreated", shellholderId_.c_str());
+  TRACE_EVENT1("flutter", "OnSurfaceCreated", "ShellID",
+               shellholderId_.c_str());
   window_ = window;
   int32_t ret = OH_NativeXComponent_GetXComponentSize(component, window,
                                                       &width_, &height_);

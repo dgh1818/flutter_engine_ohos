@@ -308,11 +308,11 @@ bool OHOSExternalTexture::SetPixelMapAsProducer(
     return false;
   }
 
-  std::string trace_str = "SetPixelMapAsProducer(copy image size-" +
+  std::string trace_str = "(copy image size-" +
                           std::to_string(pixelmap_info.width) + "*" +
                           std::to_string(pixelmap_info.height) + " format " +
                           std::to_string(pixelmap_info.pixelFormat) + ")";
-  TRACE_EVENT0("flutter", trace_str.c_str());
+  TRACE_EVENT1("flutter", "SetPixelMapAsProducer", "info", trace_str.c_str());
 
   FML_LOG(INFO) << "SetPixelMapAsProducer with copy";
   bool end_ret = true;
