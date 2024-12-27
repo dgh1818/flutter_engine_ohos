@@ -125,10 +125,6 @@ class OHOSExternalTexture : public flutter::Texture {
 
   void GetNewTransformBound(SkM44& transform, SkRect& bounds);
 
-  enum class AttachmentState { kUninitialized, kAttached, kDetached };
-
-  AttachmentState state_ = AttachmentState::kUninitialized;
-
   uint64_t producer_surface_id_ = 0;
 
   bool producer_has_frame_ = false;
