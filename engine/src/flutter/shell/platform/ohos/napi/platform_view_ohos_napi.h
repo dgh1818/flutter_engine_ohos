@@ -185,6 +185,9 @@ class PlatformViewOHOSNapi {
   static napi_value nativeSetTextureBufferSize(napi_env env,
                                                napi_callback_info info);
 
+  static napi_value nativeNotifyTextureResizing(napi_env env,
+                                                napi_callback_info info);
+
   static napi_value nativeSetExternalNativeImage(napi_env env,
                                                  napi_callback_info info);
 
