@@ -23,6 +23,7 @@ import Log from '../../util/Log';
 import { EditingStateWatcher, ListenableEditingState } from './ListenableEditingState';
 import Any from '../common/Any';
 import { inputDevice } from '@kit.InputKit';
+import { BusinessError } from '@kit.BasicServicesKit';
 
 /// 临时规避缺少newline对应枚举问题
 const NEWLINE_KEY_TYPE: number = 8;
@@ -170,9 +171,13 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   }
 
   private async hideTextInput(): Promise<void> {
-    this.inputMethodController.detach();
-    this.keyboardStatus = inputMethod.KeyboardStatus.NONE;
-    this.cancelListenKeyBoardEvent();
+    await this.inputMethodController.detach().then(() => {
+      this.keyboardStatus = inputMethod.KeyboardStatus.HIDE;
+      this.cancelListenKeyBoardEvent();
+    }).catch((err: BusinessError) => {
+      Log.e(TextInputMethodHandlerImpl.TAG, "Failed to detach: " + JSON.stringify(err));
+      this.keyboardStatus = inputMethod.KeyboardStatus.NONE;
+    });
   }
 
   async attach(showKeyboard: boolean): Promise<void> {
