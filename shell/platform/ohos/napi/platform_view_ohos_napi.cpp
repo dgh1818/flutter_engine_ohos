@@ -1616,6 +1616,26 @@ napi_value PlatformViewOHOSNapi::nativeSetTextureBufferSize(
   return nullptr;
 }
 
+napi_value PlatformViewOHOSNapi::nativeNotifyTextureResizing(
+    napi_env env,
+    napi_callback_info info) {
+  FML_DLOG(INFO) << "PlatformViewOHOSNapi::nativeNotifyTextureResizing";
+  size_t argc = 4;
+  napi_value args[4] = {nullptr};
+  int64_t shell_holder;
+  int64_t textureId;
+  int32_t width;
+  int32_t height;
+  NAPI_CALL(env, napi_get_cb_info(env, info, &argc, args, nullptr, nullptr));
+  NAPI_CALL(env, napi_get_value_int64(env, args[0], &shell_holder));
+  NAPI_CALL(env, napi_get_value_int64(env, args[1], &textureId));
+  NAPI_CALL(env, napi_get_value_int32(env, args[2], &width));
+  NAPI_CALL(env, napi_get_value_int32(env, args[3], &height));
+  OHOS_SHELL_HOLDER->GetPlatformView()->NotifyTextureResizing(textureId, width,
+                                                              height);
+  return nullptr;
+}
+
 napi_value PlatformViewOHOSNapi::nativeSetExternalNativeImage(
     napi_env env,
     napi_callback_info info) {
