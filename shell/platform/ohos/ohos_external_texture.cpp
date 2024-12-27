@@ -94,11 +94,6 @@ void OHOSExternalTexture::Paint(PaintContext& context,
                                 const SkRect& bounds,
                                 bool freeze,
                                 DlImageSampling sampling) {
-  if (state_ == AttachmentState::kDetached) {
-    FML_LOG(INFO) << "paint state is kDetached";
-    return;
-  }
-
   SkRect new_bounds = bounds;
   sk_sp<flutter::DlImage> draw_dl_image;
 
@@ -170,7 +165,7 @@ void OHOSExternalTexture::MarkNewFrameAvailable() {
       now_paint_frame_seq_num_ % 60 == 0) {
     FML_LOG(INFO) << " OHOSExternalTexture::MarkNewFrameAvailable avail-seq "
                   << now_new_frame_seq_num_ << " paint-seq "
-                  << now_paint_frame_seq_num_;
+                  << now_paint_frame_seq_num_ << " texture_id " << Id();
   }
   now_new_frame_seq_num_++;
   producer_has_frame_ = true;
@@ -226,8 +221,7 @@ void OHOSExternalTexture::OnTextureUnregistered() {
 }
 
 void OHOSExternalTexture::OnGrContextCreated() {
-  FML_LOG(INFO) << " OHOSExternalTextureGL::OnGrContextCreated";
-  state_ = AttachmentState::kUninitialized;
+  FML_LOG(INFO) << "OnGrContextCreated texture_id " << Id();
   if (native_image_source_ == nullptr) {
     return;
   }
@@ -245,24 +239,22 @@ void OHOSExternalTexture::OnGrContextCreated() {
 }
 
 void OHOSExternalTexture::OnGrContextDestroyed() {
-  if (state_ == AttachmentState::kAttached) {
-    // move UnsetOnFrame here to avoid MarkNewFrameAvailable being invoked when
-    // rasterizer thread exit. Hit: MarkNewFrameAvailable will be invoked in
-    // rasterizer thread.
-    if (native_image_source_ == nullptr) {
-      return;
-    }
-    // when GrContextDestroyed invoking, we just need release gpu resource.
-    FML_LOG(INFO) << "OnGrContextDestroyed release gpu resource";
-    old_dl_image_.reset();
-    image_lru_.Clear();
-    if (FdIsValid(last_fence_fd_)) {
-      close(last_fence_fd_);
-    }
-    last_fence_fd_ = -1;
-    GPUResourceDestroy();
+  // move UnsetOnFrame here to avoid MarkNewFrameAvailable being invoked when
+  // rasterizer thread exit. Hit: MarkNewFrameAvailable will be invoked in
+  // rasterizer thread.
+  if (native_image_source_ == nullptr) {
+    return;
   }
-  state_ = AttachmentState::kDetached;
+  // when GrContextDestroyed invoking, we just need release gpu resource.
+  FML_LOG(INFO) << "OnGrContextDestroyed release gpu resource texture_id "
+                << Id();
+  old_dl_image_.reset();
+  image_lru_.Clear();
+  if (FdIsValid(last_fence_fd_)) {
+    close(last_fence_fd_);
+  }
+  last_fence_fd_ = -1;
+  GPUResourceDestroy();
 }
 
 uint64_t OHOSExternalTexture::GetProducerSurfaceId() {
