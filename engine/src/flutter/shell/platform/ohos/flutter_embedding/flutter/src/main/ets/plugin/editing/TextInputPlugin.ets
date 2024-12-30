@@ -74,6 +74,9 @@ export default class TextInputPlugin implements EditingStateWatcher {
   }
 
   destroy() {
+    // Since the Dart side no longer listens to the lifecycle, 
+    // the keyboard must be explicitly hidden before the engine is destroyed.
+    this.mTextInputHandler.hide();
     this.textInputChannel.setTextInputMethodHandler(null);
   }
 }
@@ -118,6 +121,8 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   }
 
   hide(): void {
+    // Ensure the Xcomponent loses focus before the soft keyboard is hided.
+    focusControl.requestFocus("unfocus-xcomponent-node");
     this.keyboardFocusState = false;
     this.hideTextInput();
   }
@@ -178,12 +183,19 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   async attach(showKeyboard: boolean): Promise<void> {
     try {
       await this.inputMethodController.attach(showKeyboard, this.textConfig);
+      this.keyboardStatus = inputMethod.KeyboardStatus.SHOW;
     } catch (err) {
       Log.e(TextInputMethodHandlerImpl.TAG, "Failed to attach:" + JSON.stringify(err));
+      this.keyboardStatus = inputMethod.KeyboardStatus.NONE;
     }
   }
 
   handleChangeFocus(focusState: boolean) {
+    if (focusState && this.keyboardFocusState) {
+      // When the app loses focus, the system automatically detaches the input method.
+      // Upon regaining focus, if the input method should be displayed, it must be reattached.
+      this.show();
+    }
     try {
       inputDevice.getDeviceList((Error: Error, ids: Array<number>) => {
         let isPhysicalKeyboard = false;
