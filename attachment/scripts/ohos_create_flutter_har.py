@@ -23,73 +23,12 @@ import shutil
 import subprocess
 import sys
 
-HAR_CONFIG_TEMPLATE = """
-{
-  "app": {
-    "signingConfigs": [],
-    "products": [
-      {
-        "name": "default",
-        "signingConfig": "default",
-        "compatibleSdkVersion": "%s",
-        "runtimeOS": "HarmonyOS",
-      }
-    ],
-    "buildModeSet": [
-      {
-        "name": "debug",
-      },
-      {
-        "name": "release"
-      },
-      {
-        "name": "profile"
-      },
-    ]
-  },
-  "modules": [
-    {
-      "name": "flutter",
-      "srcPath": "./flutter"
-    }
-  ]
-}
-"""
-
-HVIGOR_CONFIG = """
-{
-  "modelVersion": "5.0.0",
-  "dependencies": {
-  }
-}
-"""
-
 
 def runGitCommand(command):
   result = subprocess.run(command, capture_output=True, text=True, shell=True)
   if result.returncode != 0:
     raise Exception(f"Git command failed: {result.stderr}")
   return result.stdout.strip()
-
-
-# 更新har的配置文件，指定编译使用的api版本
-def updateConfig(buildDir, apiInt):
-  apiVersionMap = {
-      11: "4.1.0(11)",
-      12: "5.0.0(12)",
-      13: "5.0.1(13)",
-  }
-  apiStr = apiVersionMap[apiInt]
-  with open(os.path.join(buildDir, "build-profile.json5"), "w", encoding="utf-8") as file:
-    file.write(HAR_CONFIG_TEMPLATE % (apiStr))
-
-  if apiInt != 11:
-    with open(
-        os.path.join(buildDir, "hvigor", "hvigor-config.json5"),
-        "w",
-        encoding="utf-8",
-    ) as file:
-      file.write(HVIGOR_CONFIG)
 
 
 # 自动更新flutter.har的版本号,把日期加到末尾。如: 1.0.0-20240731
@@ -134,7 +73,6 @@ def runCommand(command, checkCode=True, timeout=None):
 
 # 编译har文件，通过hvigorw的命令行参数指定编译类型(debug/release/profile)
 def buildHar(buildDir, apiInt, buildType):
-  updateConfig(buildDir, apiInt)
   updateVersion(buildDir)
   hvigorwCommand = "hvigorw" if apiInt != 11 else (".%shvigorw" % os.sep)
   runCommand(
@@ -156,7 +94,7 @@ def main():
   parser.add_argument("--output", help="Path to output flutter.har.")
   parser.add_argument("--native_lib", action="append", help="Native code library.")
   parser.add_argument("--ohos_abi", help="Native code ABI.")
-  parser.add_argument("--ohos_api_int", type=int, choices=[11, 12, 13], help="Ohos api int.")
+  parser.add_argument("--ohos_api_int", type=int, default=13, help="Ohos api int. Deprecated.")
   options = parser.parse_args()
   # copy source code
   if os.path.exists(options.build_dir):
