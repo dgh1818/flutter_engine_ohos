@@ -158,6 +158,9 @@ class OHOSExternalTexture : public flutter::Texture {
   bool draw_size_has_changed_ = true;
   bool buffer_size_has_changed_ = true;
 
+  OHNativeWindowBuffer* size_change_buffer_ = nullptr;
+  int size_change_buffer_fence_fd_ = -1;
+
   OH_OnFrameAvailableListener frame_listener_;
 
   bool is_emulator_ = false;

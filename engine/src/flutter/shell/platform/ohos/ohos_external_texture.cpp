@@ -410,7 +410,8 @@ OHNativeWindowBuffer* OHOSExternalTexture::GetConsumerNativeBuffer(
   OHNativeWindowBuffer* now_nw_buffer = nullptr;
   int ret = OH_NativeImage_AcquireNativeWindowBuffer(native_image_source_,
                                                      &now_nw_buffer, fence_fd);
-  if (now_nw_buffer == nullptr || ret != 0) {
+  if ((now_nw_buffer == nullptr && size_change_buffer_ == nullptr) ||
+      ret != 0) {
     // buffer_queue is empty.
     now_paint_frame_seq_num_ = (int64_t)now_new_frame_seq_num_;
     return nullptr;
@@ -419,6 +420,21 @@ OHNativeWindowBuffer* OHOSExternalTexture::GetConsumerNativeBuffer(
     FML_DLOG(INFO) << "get not null native_window_buffer but inValid fence_fd: "
                    << *fence_fd;
   }
+
+  if (now_nw_buffer != nullptr) {
+    if (size_change_buffer_ != nullptr) {
+      // release old size_change_buffer
+      ReleaseWindowBuffer(native_image_source_, size_change_buffer_,
+                          &size_change_buffer_fence_fd_);
+      now_paint_frame_seq_num_++;
+    }
+  } else {
+    // reuse old size_change_buffer
+    now_nw_buffer = size_change_buffer_;
+    *fence_fd = size_change_buffer_fence_fd_;
+  }
+  size_change_buffer_ = nullptr;
+  size_change_buffer_fence_fd_ = -1;
 
   SkRect now_buffer_bounds = UpdateWindowSize(now_nw_buffer);
   if (now_buffer_bounds != old_buffer_bounds_) {
@@ -432,10 +448,11 @@ OHNativeWindowBuffer* OHOSExternalTexture::GetConsumerNativeBuffer(
     // When the size is changing and the buffer size changes first, the buffer
     // cannot be used for rendering to avoid stretched visuals—thus, the buffer
     // should be discarded, and the previous buffer should be used.
-    ReleaseWindowBuffer(native_image_source_, now_nw_buffer, fence_fd);
+    size_change_buffer_ = now_nw_buffer;
+    size_change_buffer_fence_fd_ = *fence_fd;
+    *fence_fd = -1;
     FML_LOG(INFO) << "direct release size changed buffer because draw-size is "
                      "not changed.";
-    now_paint_frame_seq_num_++;
     return nullptr;
   } else {
     old_buffer_bounds_ = now_buffer_bounds;
@@ -688,6 +705,12 @@ void OHOSExternalTexture::DestroyNativeImageSource() {
                           &last_fence_fd_);
       last_native_window_buffer_ = nullptr;
       last_fence_fd_ = -1;
+    }
+    if (size_change_buffer_ != nullptr) {
+      ReleaseWindowBuffer(native_image_source_, size_change_buffer_,
+                          &size_change_buffer_fence_fd_);
+      size_change_buffer_ = nullptr;
+      size_change_buffer_fence_fd_ = -1;
     }
     FML_LOG(INFO) << "OH_NativeImage_Destroy " << native_image_source_;
 
