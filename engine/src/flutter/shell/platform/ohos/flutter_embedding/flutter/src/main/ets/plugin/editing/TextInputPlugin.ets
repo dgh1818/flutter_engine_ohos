@@ -23,6 +23,7 @@ import Log from '../../util/Log';
 import { EditingStateWatcher, ListenableEditingState } from './ListenableEditingState';
 import Any from '../common/Any';
 import { inputDevice } from '@kit.InputKit';
+import { BusinessError } from '@kit.BasicServicesKit';
 
 /// 临时规避缺少newline对应枚举问题
 const NEWLINE_KEY_TYPE: number = 8;
@@ -149,7 +150,16 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   }
 
   setCursorSizeAndPosition(cursorInfo: inputMethod.CursorInfo) {
-    this.inputMethodController.updateCursor(cursorInfo)
+    try {
+      this.inputMethodController.updateCursor(cursorInfo, (err: BusinessError) => {
+        if (err) {
+          Log.e(TextInputMethodHandlerImpl.TAG, "Failed to updateCursor:" + JSON.stringify(err));
+          return;
+        }
+      })
+    } catch (err) {
+      Log.e(TextInputMethodHandlerImpl.TAG, "Failed to updateCursor:" + JSON.stringify(err));
+    }
   }
 
   setEditingState(editingState: TextEditState): void {
