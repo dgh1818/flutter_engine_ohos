@@ -26,6 +26,7 @@
 #include "flutter/common/graphics/texture.h"
 
 #include "image_lru.h"
+#include "include/core/SkRect.h"
 
 namespace flutter {
 
@@ -58,6 +59,8 @@ class OHOSExternalTexture : public flutter::Texture {
 
   bool SetProducerWindowSize(int width, int height);
 
+  void NotifyResizing(int width, int height);
+
   // Replace the original native_image_source_ with the external native_image.
   // This must be called on the raster thread to avoid concurrent operations
   // on native_image_source_, as the OnFrameAvailable callback for native_image
@@ -68,6 +71,10 @@ class OHOSExternalTexture : public flutter::Texture {
   uint64_t Reset(bool need_surfaceId);
 
   static void DefaultOnFrameAvailable(void* native_image_ptr);
+
+  static void ReleaseWindowBuffer(OH_NativeImage* native_image,
+                                  OHNativeWindowBuffer* buffer,
+                                  int* fence_fd);
 
   static bool FenceIsSignal(int fence_fd);
 
@@ -106,6 +113,8 @@ class OHOSExternalTexture : public flutter::Texture {
 
   void DestroyPixelMapBuffer();
 
+  SkRect UpdateWindowSize(OHNativeWindowBuffer* buffer);
+
   bool SetWindowSize(OHNativeWindow* window, int width, int height);
 
   bool SetWindowFormat(OHNativeWindow* window, int format);
@@ -142,6 +151,15 @@ class OHOSExternalTexture : public flutter::Texture {
   SkMatrix transform_;
 
   sk_sp<flutter::DlImage> old_dl_image_;
+  SkRect old_buffer_bounds_ = {};
+  SkRect old_draw_bounds_ = {};
+  int size_change_frames_ = 0;
+  std::atomic<bool> size_is_changing_ = false;
+  bool draw_size_has_changed_ = true;
+  bool buffer_size_has_changed_ = true;
+
+  OHNativeWindowBuffer* size_change_buffer_ = nullptr;
+  int size_change_buffer_fence_fd_ = -1;
 
   OH_OnFrameAvailableListener frame_listener_;
 

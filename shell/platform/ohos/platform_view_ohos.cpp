@@ -647,6 +647,15 @@ void PlatformViewOHOS::SetTextureBufferSize(int64_t texture_id,
   }
 }
 
+void PlatformViewOHOS::NotifyTextureResizing(int64_t texture_id,
+                                             int32_t width,
+                                             int32_t height) {
+  if (all_external_texture_.find(texture_id) != all_external_texture_.end()) {
+    auto external_texture = all_external_texture_[texture_id];
+    external_texture->NotifyResizing(width, height);
+  }
+}
+
 bool PlatformViewOHOS::SetExternalNativeImage(int64_t texture_id,
                                               OH_NativeImage* native_image) {
   if (all_external_texture_.find(texture_id) != all_external_texture_.end()) {

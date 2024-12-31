@@ -26,6 +26,8 @@ export interface TextureRegistry {
 
   setTextureBufferSize(textureId: number, width: number, height: number): void;
 
+  notifyTextureResizing(textureId: number, width: number, height: number): void;
+
   setExternalNativeImage(textureId: number, native_image: number): boolean;
 
   resetExternalTexture(textureId: number, need_surfaceId: boolean): number;

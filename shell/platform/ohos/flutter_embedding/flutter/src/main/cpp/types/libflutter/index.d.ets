@@ -149,6 +149,8 @@ export const nativeDecodeUtf8: (array: Uint8Array) => string;
 
 export const nativeSetTextureBufferSize: (nativeShellHolderId: number, textureId: number, width: number, height: number) => void;
 
+export const nativeNotifyTextureResizing: (nativeShellHolderId: number, textureId: number, width: number, height: number) => void;
+
 export const nativeLookupCallbackInformation: (callback: FlutterCallbackInformation, handler: number) => number;
 
 export const nativeUnicodeIsEmoji: (code: number) => number;
