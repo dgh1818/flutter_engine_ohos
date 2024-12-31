@@ -150,7 +150,16 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   }
 
   setCursorSizeAndPosition(cursorInfo: inputMethod.CursorInfo) {
-    this.inputMethodController.updateCursor(cursorInfo)
+    try {
+      this.inputMethodController.updateCursor(cursorInfo, (err: BusinessError) => {
+        if (err) {
+          Log.e(TextInputMethodHandlerImpl.TAG, "Failed to updateCursor:" + JSON.stringify(err));
+          return;
+        }
+      })
+    } catch (err) {
+      Log.e(TextInputMethodHandlerImpl.TAG, "Failed to updateCursor:" + JSON.stringify(err));
+    }
   }
 
   setEditingState(editingState: TextEditState): void {
