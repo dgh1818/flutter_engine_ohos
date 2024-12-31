@@ -127,6 +127,8 @@ class PlatformViewOHOS final : public PlatformView {
 
   void SetTextureBufferSize(int64_t texture_id, int32_t width, int32_t height);
 
+  void NotifyTextureResizing(int64_t texture_id, int32_t width, int32_t height);
+
   bool SetExternalNativeImage(int64_t texture_id, OH_NativeImage* native_image);
 
   void UnRegisterExternalTexture(int64_t texture_id);

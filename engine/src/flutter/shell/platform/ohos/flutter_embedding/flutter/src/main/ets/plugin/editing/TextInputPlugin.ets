@@ -23,6 +23,7 @@ import Log from '../../util/Log';
 import { EditingStateWatcher, ListenableEditingState } from './ListenableEditingState';
 import Any from '../common/Any';
 import { inputDevice } from '@kit.InputKit';
+import { BusinessError } from '@kit.BasicServicesKit';
 
 /// 临时规避缺少newline对应枚举问题
 const NEWLINE_KEY_TYPE: number = 8;
@@ -74,6 +75,9 @@ export default class TextInputPlugin implements EditingStateWatcher {
   }
 
   destroy() {
+    // Since the Dart side no longer listens to the lifecycle, 
+    // the keyboard must be explicitly hidden before the engine is destroyed.
+    this.mTextInputHandler.hide();
     this.textInputChannel.setTextInputMethodHandler(null);
   }
 }
@@ -118,6 +122,8 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   }
 
   hide(): void {
+    // Ensure the Xcomponent loses focus before the soft keyboard is hided.
+    focusControl.requestFocus("unfocus-xcomponent-node");
     this.keyboardFocusState = false;
     this.hideTextInput();
   }
@@ -144,7 +150,16 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   }
 
   setCursorSizeAndPosition(cursorInfo: inputMethod.CursorInfo) {
-    this.inputMethodController.updateCursor(cursorInfo)
+    try {
+      this.inputMethodController.updateCursor(cursorInfo, (err: BusinessError) => {
+        if (err) {
+          Log.e(TextInputMethodHandlerImpl.TAG, "Failed to updateCursor:" + JSON.stringify(err));
+          return;
+        }
+      })
+    } catch (err) {
+      Log.e(TextInputMethodHandlerImpl.TAG, "Failed to updateCursor:" + JSON.stringify(err));
+    }
   }
 
   setEditingState(editingState: TextEditState): void {
@@ -170,20 +185,31 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   }
 
   private async hideTextInput(): Promise<void> {
-    this.inputMethodController.detach();
-    this.keyboardStatus = inputMethod.KeyboardStatus.NONE;
-    this.cancelListenKeyBoardEvent();
+    await this.inputMethodController.detach().then(() => {
+      this.keyboardStatus = inputMethod.KeyboardStatus.HIDE;
+      this.cancelListenKeyBoardEvent();
+    }).catch((err: BusinessError) => {
+      Log.e(TextInputMethodHandlerImpl.TAG, "Failed to detach: " + JSON.stringify(err));
+      this.keyboardStatus = inputMethod.KeyboardStatus.NONE;
+    });
   }
 
   async attach(showKeyboard: boolean): Promise<void> {
     try {
       await this.inputMethodController.attach(showKeyboard, this.textConfig);
+      this.keyboardStatus = inputMethod.KeyboardStatus.SHOW;
     } catch (err) {
       Log.e(TextInputMethodHandlerImpl.TAG, "Failed to attach:" + JSON.stringify(err));
+      this.keyboardStatus = inputMethod.KeyboardStatus.NONE;
     }
   }
 
   handleChangeFocus(focusState: boolean) {
+    if (focusState && this.keyboardFocusState) {
+      // When the app loses focus, the system automatically detaches the input method.
+      // Upon regaining focus, if the input method should be displayed, it must be reattached.
+      this.show();
+    }
     try {
       inputDevice.getDeviceList((Error: Error, ids: Array<number>) => {
         let isPhysicalKeyboard = false;

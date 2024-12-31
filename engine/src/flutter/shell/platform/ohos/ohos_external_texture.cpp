@@ -19,6 +19,7 @@
 namespace flutter {
 
 #define MAX_DELAYED_FRAMES 3
+#define MAX_SIZE_CHANGE_FRAMES 10
 
 static int PixelMapToWindowFormat(PIXEL_FORMAT pixel_format) {
   switch (pixel_format) {
@@ -98,7 +99,15 @@ void OHOSExternalTexture::Paint(PaintContext& context,
     return;
   }
 
+  SkRect new_bounds = bounds;
   sk_sp<flutter::DlImage> draw_dl_image;
+
+  if (bounds != old_draw_bounds_) {
+    draw_size_has_changed_ = true;
+  } else {
+    draw_size_has_changed_ = false;
+  }
+
   if (freeze ||
       (draw_dl_image = GetNextDrawImage(context, bounds)) == nullptr) {
     draw_dl_image = old_dl_image_;
@@ -106,9 +115,34 @@ void OHOSExternalTexture::Paint(PaintContext& context,
     old_dl_image_ = draw_dl_image;
   }
 
+  if (size_is_changing_ && draw_size_has_changed_ &&
+      !buffer_size_has_changed_) {
+    // When the size is changing and the draw size changes first, rendering with
+    // the new size is not allowed to avoid stretched visuals—therefore, the
+    // previous draw size should be used for rendering.
+    new_bounds = old_draw_bounds_;
+  } else {
+    old_draw_bounds_ = bounds;
+  }
+
+  if (size_is_changing_) {
+    size_change_frames_++;
+    if ((buffer_size_has_changed_ && draw_size_has_changed_) ||
+        size_change_frames_ > MAX_SIZE_CHANGE_FRAMES) {
+      size_is_changing_ = false;
+      if (size_change_frames_ > MAX_SIZE_CHANGE_FRAMES) {
+        FML_LOG(INFO) << "stop size change state: frame > "
+                      << MAX_SIZE_CHANGE_FRAMES;
+      } else {
+        FML_LOG(INFO) << "size change took " << size_change_frames_
+                      << " frames.";
+      }
+      size_change_frames_ = 0;
+    }
+  }
+
   if (draw_dl_image) {
     DlAutoCanvasRestore auto_restore(context.canvas, true);
-    SkRect new_bounds = bounds;
     SkM44 new_transform;
     GetNewTransformBound(new_transform, new_bounds);
     context.canvas->Transform(new_transform);
@@ -163,16 +197,7 @@ void OHOSExternalTexture::MarkNewFrameAvailable() {
         FML_LOG(INFO) << "external_texture skip one frame(slow consumer): "
                       << buffer << " buffer_queue_size " << buffer_queue_size
                       << " max_jank_frame " << max_jank_frame;
-        int ret = OH_NativeImage_ReleaseNativeWindowBuffer(native_image_source_,
-                                                           buffer, fence_fd);
-        if (ret != 0) {
-          FML_LOG(ERROR) << "ReleaseNativeWindowBuffe get err:" << ret;
-          OH_NativeWindow_DestroyNativeWindowBuffer(buffer);
-          if (FdIsValid(fence_fd)) {
-            close(fence_fd);
-          }
-          fence_fd = -1;
-        }
+        ReleaseWindowBuffer(native_image_source_, buffer, &fence_fd);
         now_paint_frame_seq_num_++;
         buffer = nullptr;
       } else {
@@ -335,6 +360,41 @@ bool OHOSExternalTexture::SetPixelMapAsProducer(
   return end_ret;
 }
 
+void OHOSExternalTexture::ReleaseWindowBuffer(OH_NativeImage* native_image,
+                                              OHNativeWindowBuffer* buffer,
+                                              int* fence_fd) {
+  int temp_fence_fd = -1;
+  if (fence_fd == nullptr) {
+    fence_fd = &temp_fence_fd;
+  }
+  int ret =
+      OH_NativeImage_ReleaseNativeWindowBuffer(native_image, buffer, *fence_fd);
+  if (ret != 0) {
+    FML_LOG(ERROR) << "OHOSExternalTexture ReleaseNativeWindowBuffe(Get "
+                      "Last) get err:"
+                   << ret;
+    OH_NativeWindow_DestroyNativeWindowBuffer(buffer);
+    if (FdIsValid(*fence_fd)) {
+      close(*fence_fd);
+    }
+  }
+  *fence_fd = -1;
+  return;
+}
+
+SkRect OHOSExternalTexture::UpdateWindowSize(OHNativeWindowBuffer* buffer) {
+  OH_NativeBuffer_Config config = {0, 0};
+  OH_NativeBuffer* native_buffer = nullptr;
+  int ret = OH_NativeBuffer_FromNativeWindowBuffer(buffer, &native_buffer);
+  if (native_buffer != nullptr) {
+    OH_NativeBuffer_GetConfig(native_buffer, &config);
+    producer_nativewindow_width_ = config.width;
+    producer_nativewindow_height_ = config.height;
+  }
+  return {0, 0, static_cast<float>(producer_nativewindow_width_),
+          static_cast<float>(producer_nativewindow_height_)};
+}
+
 OHNativeWindowBuffer* OHOSExternalTexture::GetConsumerNativeBuffer(
     int* fence_fd) {
   if (!producer_has_frame_) {
@@ -350,7 +410,8 @@ OHNativeWindowBuffer* OHOSExternalTexture::GetConsumerNativeBuffer(
   OHNativeWindowBuffer* now_nw_buffer = nullptr;
   int ret = OH_NativeImage_AcquireNativeWindowBuffer(native_image_source_,
                                                      &now_nw_buffer, fence_fd);
-  if (now_nw_buffer == nullptr || ret != 0) {
+  if ((now_nw_buffer == nullptr && size_change_buffer_ == nullptr) ||
+      ret != 0) {
     // buffer_queue is empty.
     now_paint_frame_seq_num_ = (int64_t)now_new_frame_seq_num_;
     return nullptr;
@@ -358,6 +419,43 @@ OHNativeWindowBuffer* OHOSExternalTexture::GetConsumerNativeBuffer(
   if (*fence_fd <= 0 && now_paint_frame_seq_num_ % 60 == 0) {
     FML_DLOG(INFO) << "get not null native_window_buffer but inValid fence_fd: "
                    << *fence_fd;
+  }
+
+  if (now_nw_buffer != nullptr) {
+    if (size_change_buffer_ != nullptr) {
+      // release old size_change_buffer
+      ReleaseWindowBuffer(native_image_source_, size_change_buffer_,
+                          &size_change_buffer_fence_fd_);
+      now_paint_frame_seq_num_++;
+    }
+  } else {
+    // reuse old size_change_buffer
+    now_nw_buffer = size_change_buffer_;
+    *fence_fd = size_change_buffer_fence_fd_;
+  }
+  size_change_buffer_ = nullptr;
+  size_change_buffer_fence_fd_ = -1;
+
+  SkRect now_buffer_bounds = UpdateWindowSize(now_nw_buffer);
+  if (now_buffer_bounds != old_buffer_bounds_) {
+    buffer_size_has_changed_ = true;
+  } else {
+    buffer_size_has_changed_ = false;
+  }
+
+  if (size_is_changing_ && !draw_size_has_changed_ &&
+      buffer_size_has_changed_) {
+    // When the size is changing and the buffer size changes first, the buffer
+    // cannot be used for rendering to avoid stretched visuals—thus, the buffer
+    // should be discarded, and the previous buffer should be used.
+    size_change_buffer_ = now_nw_buffer;
+    size_change_buffer_fence_fd_ = *fence_fd;
+    *fence_fd = -1;
+    FML_LOG(INFO) << "direct release size changed buffer because draw-size is "
+                     "not changed.";
+    return nullptr;
+  } else {
+    old_buffer_bounds_ = now_buffer_bounds;
   }
 
   if (last_native_window_buffer_ != nullptr) {
@@ -371,18 +469,9 @@ OHNativeWindowBuffer* OHOSExternalTexture::GetConsumerNativeBuffer(
       last_fence_fd_ = -1;
       SetGPUFence(last_native_window_buffer_, &last_fence_fd_);
     }
-    ret = OH_NativeImage_ReleaseNativeWindowBuffer(
-        native_image_source_, last_native_window_buffer_, last_fence_fd_);
-    if (ret != 0) {
-      FML_LOG(ERROR) << "OHOSExternalTexture ReleaseNativeWindowBuffe(Get "
-                        "Last) get err:"
-                     << ret;
-      OH_NativeWindow_DestroyNativeWindowBuffer(last_native_window_buffer_);
-      if (FdIsValid(last_fence_fd_)) {
-        close(last_fence_fd_);
-      }
-      last_fence_fd_ = -1;
-    }
+
+    ReleaseWindowBuffer(native_image_source_, last_native_window_buffer_,
+                        &last_fence_fd_);
   }
   last_native_window_buffer_ = now_nw_buffer;
   last_fence_fd_ = *fence_fd;
@@ -396,18 +485,8 @@ OHNativeWindowBuffer* OHOSExternalTexture::GetConsumerNativeBuffer(
       FML_LOG(INFO) << "external_texture skip one frame: "
                     << last_native_window_buffer_ << " fence_fd "
                     << last_fence_fd_;
-      int ret = OH_NativeImage_ReleaseNativeWindowBuffer(
-          native_image_source_, last_native_window_buffer_, last_fence_fd_);
-      if (ret != 0) {
-        FML_LOG(ERROR) << "OHOSExternalTexture ReleaseNativeWindowBuffe(Get "
-                          "Last) get err:"
-                       << ret;
-        OH_NativeWindow_DestroyNativeWindowBuffer(last_native_window_buffer_);
-        if (FdIsValid(last_fence_fd_)) {
-          close(last_fence_fd_);
-        }
-        last_fence_fd_ = -1;
-      }
+      ReleaseWindowBuffer(native_image_source_, last_native_window_buffer_,
+                          &last_fence_fd_);
       last_native_window_buffer_ = nw_buffer;
       last_fence_fd_ = *fence_fd;
       now_nw_buffer = nw_buffer;
@@ -488,6 +567,13 @@ bool OHOSExternalTexture::SetProducerWindowSize(int width, int height) {
   return ret;
 }
 
+void OHOSExternalTexture::NotifyResizing(int width, int height) {
+  if (width != producer_nativewindow_width_ ||
+      height != producer_nativewindow_height_) {
+    size_is_changing_ = true;
+  }
+}
+
 bool OHOSExternalTexture::SetExternalNativeImage(OH_NativeImage* native_image) {
   if (native_image == nullptr) {
     return false;
@@ -510,18 +596,8 @@ bool OHOSExternalTexture::SetExternalNativeImage(OH_NativeImage* native_image) {
   ret = OH_NativeImage_AcquireNativeWindowBuffer(native_image, &buffer,
                                                  &fence_fd);
   while (ret == 0 && buffer != nullptr) {
-    ret = OH_NativeImage_ReleaseNativeWindowBuffer(native_image, buffer,
-                                                   fence_fd);
+    ReleaseWindowBuffer(native_image, buffer, &fence_fd);
     release_cnt++;
-
-    if (ret != 0) {
-      FML_LOG(ERROR) << "ReleaseNativeWindowBuffe(clear all) get err:" << ret;
-      OH_NativeWindow_DestroyNativeWindowBuffer(buffer);
-      if (FdIsValid(fence_fd)) {
-        close(fence_fd);
-      }
-      fence_fd = -1;
-    }
     buffer = nullptr;
     fence_fd = -1;
     ret = OH_NativeImage_AcquireNativeWindowBuffer(native_image, &buffer,
@@ -625,20 +701,16 @@ void OHOSExternalTexture::DestroyPixelMapBuffer() {
 void OHOSExternalTexture::DestroyNativeImageSource() {
   if (native_image_source_) {
     if (last_native_window_buffer_ != nullptr) {
-      int ret = OH_NativeImage_ReleaseNativeWindowBuffer(
-          native_image_source_, last_native_window_buffer_, last_fence_fd_);
-      if (ret != 0) {
-        FML_LOG(ERROR) << "~OHOSExternalTexture ReleaseNativeWindowBuffe(Get "
-                          "Last) get err:"
-                       << ret;
-        OH_NativeWindow_DestroyNativeWindowBuffer(last_native_window_buffer_);
-        if (FdIsValid(last_fence_fd_)) {
-          close(last_fence_fd_);
-        }
-        last_fence_fd_ = -1;
-      }
+      ReleaseWindowBuffer(native_image_source_, last_native_window_buffer_,
+                          &last_fence_fd_);
       last_native_window_buffer_ = nullptr;
       last_fence_fd_ = -1;
+    }
+    if (size_change_buffer_ != nullptr) {
+      ReleaseWindowBuffer(native_image_source_, size_change_buffer_,
+                          &size_change_buffer_fence_fd_);
+      size_change_buffer_ = nullptr;
+      size_change_buffer_fence_fd_ = -1;
     }
     FML_LOG(INFO) << "OH_NativeImage_Destroy " << native_image_source_;
 
@@ -674,16 +746,7 @@ void OHOSExternalTexture::DefaultOnFrameAvailable(void* native_image_ptr) {
                                                      &fence_fd);
   if (buffer != nullptr && ret == 0) {
     FML_LOG(INFO) << "direct release one frame: no consumer " << buffer;
-    ret = OH_NativeImage_ReleaseNativeWindowBuffer(native_image, buffer,
-                                                   fence_fd);
-    if (ret != 0) {
-      FML_LOG(ERROR) << "ReleaseNativeWindowBuffe get err:" << ret;
-      OH_NativeWindow_DestroyNativeWindowBuffer(buffer);
-      if (FdIsValid(fence_fd)) {
-        close(fence_fd);
-      }
-      fence_fd = -1;
-    }
+    ReleaseWindowBuffer(native_image, buffer, &fence_fd);
   }
 }
 
