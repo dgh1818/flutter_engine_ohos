@@ -367,6 +367,8 @@ void OHOSExternalTexture::ReleaseWindowBuffer(OH_NativeImage* native_image,
   if (fence_fd == nullptr) {
     fence_fd = &temp_fence_fd;
   }
+  // OH_NativeImage_ReleaseNativeWindowBuffer will close the fence_fd even if it
+  // fails.
   int ret =
       OH_NativeImage_ReleaseNativeWindowBuffer(native_image, buffer, *fence_fd);
   if (ret != 0) {
@@ -374,9 +376,6 @@ void OHOSExternalTexture::ReleaseWindowBuffer(OH_NativeImage* native_image,
                       "Last) get err:"
                    << ret;
     OH_NativeWindow_DestroyNativeWindowBuffer(buffer);
-    if (FdIsValid(*fence_fd)) {
-      close(*fence_fd);
-    }
   }
   *fence_fd = -1;
   return;
