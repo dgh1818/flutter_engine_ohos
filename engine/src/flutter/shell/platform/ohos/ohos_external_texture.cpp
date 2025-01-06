@@ -105,9 +105,9 @@ void OHOSExternalTexture::Paint(PaintContext& context,
 
   if (freeze ||
       (draw_dl_image = GetNextDrawImage(context, bounds)) == nullptr) {
-    draw_dl_image = old_dl_image_;
+    draw_dl_image = GetOldDlImage(context, bounds);
   } else {
-    old_dl_image_ = draw_dl_image;
+    SetOldDlImage(draw_dl_image);
   }
 
   if (size_is_changing_ && draw_size_has_changed_ &&
@@ -536,6 +536,30 @@ sk_sp<flutter::DlImage> OHOSExternalTexture::GetNextDrawImage(
     WaitGPUFence(fence_fd);
   }
   return ret_image;
+}
+
+sk_sp<flutter::DlImage> OHOSExternalTexture::GetOldDlImage(
+    PaintContext& context,
+    const SkRect& bounds) {
+  if (!old_dl_image_ && last_native_window_buffer_ != nullptr) {
+    OH_NativeBuffer* native_buffer = nullptr;
+    int ret = OH_NativeBuffer_FromNativeWindowBuffer(last_native_window_buffer_,
+                                                     &native_buffer);
+    if (ret != 0 || native_buffer == nullptr) {
+      FML_LOG(ERROR) << "OHOSExternalTextureGL get OH_NativeBuffer error:"
+                     << ret;
+      return nullptr;
+    }
+    // ensure buffer_id > 0 (may get seqNum = 0)
+    uint32_t buffer_id = OH_NativeBuffer_GetSeqNum(native_buffer) + 1;
+    old_dl_image_ =
+        CreateDlImage(context, bounds, buffer_id, last_native_window_buffer_);
+  }
+  return old_dl_image_;
+}
+
+void OHOSExternalTexture::SetOldDlImage(sk_sp<flutter::DlImage> old_image) {
+  old_dl_image_ = std::move(old_image);
 }
 
 bool OHOSExternalTexture::SetProducerWindowSize(int width, int height) {
