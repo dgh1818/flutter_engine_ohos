@@ -239,12 +239,16 @@ void OHOSExternalTexture::OnGrContextCreated() {
 }
 
 void OHOSExternalTexture::OnGrContextDestroyed() {
-  // move UnsetOnFrame here to avoid MarkNewFrameAvailable being invoked when
-  // rasterizer thread exit. Hit: MarkNewFrameAvailable will be invoked in
-  // rasterizer thread.
+  // move SetOnFrame using default listener here to avoid MarkNewFrameAvailable
+  // being invoked when rasterizer thread exit. Hit: MarkNewFrameAvailable will
+  // be invoked in rasterizer thread.
   if (native_image_source_ == nullptr) {
     return;
   }
+  OH_OnFrameAvailableListener listener;
+  listener.context = (void*)native_image_source_;
+  listener.onFrameAvailable = &OHOSExternalTexture::DefaultOnFrameAvailable;
+  OH_NativeImage_SetOnFrameAvailableListener(native_image_source_, listener);
   // when GrContextDestroyed invoking, we just need release gpu resource.
   FML_LOG(INFO) << "OnGrContextDestroyed release gpu resource texture_id "
                 << Id();
