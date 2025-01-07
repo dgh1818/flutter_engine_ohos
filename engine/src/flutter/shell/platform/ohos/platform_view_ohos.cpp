@@ -145,6 +145,8 @@ PlatformViewOHOS::PlatformViewOHOS(
 
 PlatformViewOHOS::~PlatformViewOHOS() {
   FML_LOG(INFO) << "PlatformViewOHOS::~PlatformViewOHOS";
+  // The UnregisterTexture cannot be called here because it depends on
+  // rasterizer_, and rasterizer_ may be null at this time.
 }
 
 void PlatformViewOHOS::NotifyCreate(
@@ -153,6 +155,19 @@ void PlatformViewOHOS::NotifyCreate(
   if (ohos_surface_) {
     InstallFirstFrameCallback();
     LOGI("NotifyCreate start1");
+    // We register these external textures with the engine again to ensure that
+    // the screen is normal in the scenario of page jump and return (when there
+    // is a detachEngine operation during page jump, there will be a
+    // NotifyDestroy call, which will bring unregister texture).
+    for (auto [texture_id, external_texture] : all_external_texture_) {
+      // registerTexture must be called before PlatformView::NotifyCreated,
+      // because the onGrContextCreate method of the external texture will be
+      // called in PlatformView::NotifyCreated.
+      RegisterTexture(external_texture);
+      std::lock_guard<std::mutex> lock(g_map_mutex);
+      g_texture_platformview_map[(uint64_t)this + (uint64_t)texture_id] = this;
+    }
+
     fml::TaskRunner::RunNowOrPostTask(
         task_runners_.GetRasterTaskRunner(),
         [&, surface = ohos_surface_.get(),
@@ -178,6 +193,13 @@ void PlatformViewOHOS::Preload(int width, int height) {
   if (ohos_surface_ && !window_is_preload_) {
     LOGI("Preload start");
     InstallFirstFrameCallback(true);
+
+    for (auto [texture_id, external_texture] : all_external_texture_) {
+      RegisterTexture(external_texture);
+      std::lock_guard<std::mutex> lock(g_map_mutex);
+      g_texture_platformview_map[(uint64_t)this + (uint64_t)texture_id] = this;
+    }
+
     fml::TaskRunner::RunNowOrPostTask(
         task_runners_.GetRasterTaskRunner(),
         [&, surface = ohos_surface_.get(), width, height]() {
@@ -259,20 +281,27 @@ void PlatformViewOHOS::NotifyDestroyed() {
   fml::AutoResetWaitableEvent latch;
   fml::TaskRunner::RunNowOrPostTask(task_runners_.GetRasterTaskRunner(), [&]() {
     window_is_preload_ = false;
+    // This function will internally call the GrContextDestroy of the external
+    // texture, and within this callback, the graphic resources occupied by the
+    // external texture will be released.
     PlatformView::NotifyDestroyed();
     latch.Signal();
   });
   latch.Wait();
 
   if (ohos_surface_) {
-    // If we don't unregister external texture, PlatformViewOHOS ptr in
-    // texture_platformview_map_ will bring use-after-free crash in
+    // If we don't remove ptr in g_texture_platformview_map, PlatformViewOHOS
+    // ptr in g_texture_platformview_map_ will bring use-after-free crash in
     // OnNativeImageFrameAvailable.
-    auto temp_external_textures = all_external_texture_;
-    for (const auto& [texture_id, external_texture] : temp_external_textures) {
-      UnRegisterExternalTexture(texture_id);
+    for (const auto& [texture_id, external_texture] : all_external_texture_) {
+      // Here we only remove the external textures maintained internally by the
+      // engine, but do not actually destroy them. Without actively calling
+      // unregisterExternalTexture, their actual destruction will occur after
+      // ~PlatformViewOHOS.
+      UnregisterTexture(texture_id);
+      std::lock_guard<std::mutex> lock(g_map_mutex);
+      g_texture_platformview_map.erase((uint64_t)this + (uint64_t)texture_id);
     }
-    temp_external_textures.clear();
     fml::AutoResetWaitableEvent latch;
     fml::TaskRunner::RunNowOrPostTask(
         task_runners_.GetRasterTaskRunner(),

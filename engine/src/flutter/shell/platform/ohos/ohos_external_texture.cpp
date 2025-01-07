@@ -85,6 +85,7 @@ OHOSExternalTexture::OHOSExternalTexture(int64_t id,
 }
 
 OHOSExternalTexture::~OHOSExternalTexture() {
+  FML_LOG(INFO) << "~OHOSExternalTexture " << Id();
   DestroyNativeImageSource();
   DestroyPixelMapBuffer();
   return;
