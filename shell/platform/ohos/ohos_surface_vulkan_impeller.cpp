@@ -175,8 +175,8 @@ bool OHOSSurfaceVulkanImpeller::SetPresentInfo(
     uint64_t present_time =
         present_info.presentation_time->ToEpochDelta().ToNanoseconds();
     OH_NativeWindow_NativeWindowHandleOpt(
-        (OHNativeWindow*)native_window_->Gethandle(), SET_UI_TIMESTAMP,
-        present_time);
+        (OHNativeWindow*)native_window_->Gethandle(),
+        SET_DESIRED_PRESENT_TIMESTAMP, present_time);
     return true;
   }
   return false;
