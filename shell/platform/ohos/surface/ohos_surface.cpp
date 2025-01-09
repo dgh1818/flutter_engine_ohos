@@ -140,13 +140,11 @@ void OHOSSurface::ReleaseOffscreenWindow() {
     last_fence_fd_ = -1;
   }
   FML_LOG(INFO) << "ReleaseOffscreenWindow " << offscreen_nativewindow_;
-  if (offscreen_nativewindow_) {
-    OH_NativeWindow_DestroyNativeWindow(offscreen_nativewindow_);
-    offscreen_nativewindow_ = nullptr;
-  }
   if (offscreen_native_image_) {
+    // offscreen_nativewindow_ will be destroy in OH_NativeImage_Destroy.
     OH_NativeImage_Destroy(&offscreen_native_image_);
     offscreen_native_image_ = nullptr;
+    offscreen_nativewindow_ = nullptr;
   }
 }
 
