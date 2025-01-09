@@ -118,6 +118,7 @@ export class FlutterView {
   private checkKeyboard: boolean = true;
   private checkGesture: boolean = true;
   private checkAiBar: boolean = true;
+  private frameCache: boolean = true;
   private systemAvoidArea: window.AvoidArea;
   private navigationAvoidArea: window.AvoidArea;
   private gestureAvoidArea: window.AvoidArea;
@@ -351,6 +352,7 @@ export class FlutterView {
     this.flutterEngine?.getFlutterNapi()?.updateRefreshRate(this.displayInfo!.refreshRate)
     this.flutterEngine?.getFlutterNapi()?.updateSize(this.displayInfo!.width, this.displayInfo!.height)
     this.flutterEngine?.getFlutterNapi()?.updateDensity(this.displayInfo!.densityPixels)
+    this.flutterEngine?.getFlutterNapi().enableFrameCache(this.frameCache);
     flutterEngine.getPlatformViewsController()?.attachToView(this);
 
     let newArea: Area | null = {
@@ -622,6 +624,13 @@ export class FlutterView {
 
   setCheckAiBar(check: boolean) {
     this.checkAiBar = check
+  }
+
+  enableFrameCache(cacheEnable: boolean) {
+    this.frameCache = cacheEnable;
+    if (this.isAttachedToFlutterEngine()) {
+      this.flutterEngine?.getFlutterNapi().enableFrameCache(cacheEnable);
+    }
   }
 
   isEmptyRect(rect: display.Rect | null | undefined) {

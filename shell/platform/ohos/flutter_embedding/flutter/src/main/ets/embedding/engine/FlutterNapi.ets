@@ -670,6 +670,13 @@ export default class FlutterNapi {
     flutter.nativeNotifyTextureResizing(this.nativeShellHolderId!, textureId, width, height);
   }
 
+  enableFrameCache(enable: boolean): void {
+    if (!this.nativeShellHolderId) {
+      return;
+    }
+    flutter.nativeEnableFrameCache(this.nativeShellHolderId!, enable);
+  }
+
   /** Dispatch Touch Event */
   onTouchEvent(strings: Array<string>): void {
     if (this.isAttached()) {
