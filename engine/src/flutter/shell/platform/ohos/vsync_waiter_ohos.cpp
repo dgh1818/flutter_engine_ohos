@@ -25,8 +25,9 @@ const char* flutterSyncName = "flutter_connect";
 
 thread_local bool VsyncWaiterOHOS::firstCall = true;
 
-VsyncWaiterOHOS::VsyncWaiterOHOS(const flutter::TaskRunners& task_runners)
-    : VsyncWaiter(task_runners) {
+VsyncWaiterOHOS::VsyncWaiterOHOS(const flutter::TaskRunners& task_runners,
+                                 std::shared_ptr<bool>& enable_frame_cache)
+    : VsyncWaiter(task_runners), enable_frame_cache_(enable_frame_cache) {
   vsyncHandle =
       OH_NativeVSync_Create("flutterSyncName", strlen(flutterSyncName));
 }
@@ -84,6 +85,13 @@ void VsyncWaiterOHOS::OnVsyncFromOHOS(long long timestamp, void* data) {
   if (shared_this) {
     auto ohos_vsync_waiter = static_cast<VsyncWaiterOHOS*>(shared_this.get());
     vsync_period = ohos_vsync_waiter->GetVsyncPeriod();
+    // To avoid excessive response latency, frames will not be cached when the
+    // refresh rate is 60 Hz.
+    if (*ohos_vsync_waiter->enable_frame_cache_ && vsync_period < 15000000) {
+      // When the frame cache is enabled, one frame will be cached, sacrificing
+      // one frame of latency in exchange for smoothness.
+      vsync_period += vsync_period - 1000000;
+    }
   }
 
   // [-1ms] is to avoid this situation:
