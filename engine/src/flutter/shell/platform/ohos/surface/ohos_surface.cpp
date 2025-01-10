@@ -23,34 +23,6 @@ namespace flutter {
 std::map<uint64_t, bool> g_surface_is_alive;
 std::mutex g_surface_alive_mutex;
 
-static bool FdIsValid(int fd) {
-  if (fd <= 0) {
-    return false;
-  }
-  errno = 0;
-  struct stat file_stat = {};
-  int ret = 0;
-  do {
-    ret = fstat(fd, &file_stat);
-  } while (ret == -1 && (errno == EINTR || errno == EAGAIN));
-
-  if (ret == -1) {
-    if (errno != EBADF) {
-      FML_LOG(WARNING) << "check fd " << fd << " is valid, error:" << errno;
-    }
-    return false;
-  } else {
-    // anon_inode:sync_file is a chr device
-    if (S_ISCHR(file_stat.st_mode)) {
-      return true;
-    } else {
-      FML_LOG(WARNING) << "get no-sync_file fd " << fd
-                       << " mode: " << file_stat.st_mode;
-      return false;
-    }
-  }
-}
-
 OHOSSurface::OHOSSurface(const std::shared_ptr<OHOSContext>& ohos_context)
     : ohos_context_(ohos_context) {
   FML_DCHECK(ohos_context->IsValid());
@@ -123,6 +95,8 @@ void OHOSSurface::ReleaseOffscreenWindow() {
     FML_LOG(INFO) << "release last_nativewindow_buffer_ "
                   << last_nativewindow_buffer_;
 
+    // OH_NativeImage_ReleaseNativeWindowBuffer will close the fence_fd even if
+    // it fails.
     int ret = OH_NativeImage_ReleaseNativeWindowBuffer(
         offscreen_native_image_, last_nativewindow_buffer_, last_fence_fd_);
     if (ret != 0) {
@@ -130,11 +104,6 @@ void OHOSSurface::ReleaseOffscreenWindow() {
       // offscreen_native_image_. In this situation, we need destroy the buffer.
       FML_LOG(ERROR) << "ReleaseOffscreenWindow failed err:" << ret;
       OH_NativeWindow_DestroyNativeWindowBuffer(last_nativewindow_buffer_);
-      // OH_NativeImage_ReleaseNativeWindowBuffer may close the fd even if it
-      // returns a failure.
-      if (FdIsValid(last_fence_fd_)) {
-        close(last_fence_fd_);
-      }
     }
     last_nativewindow_buffer_ = nullptr;
     last_fence_fd_ = -1;
@@ -216,6 +185,8 @@ void OHOSSurface::OnFrameAvailable(void* data) {
   if (surface->offscreen_native_image_ != nullptr &&
       surface->last_nativewindow_buffer_ != nullptr) {
     // there is no consumer, so we just released it.
+    // OH_NativeImage_ReleaseNativeWindowBuffer will close the fence_fd even if
+    // it fails.
     int ret = OH_NativeImage_ReleaseNativeWindowBuffer(
         surface->offscreen_native_image_, surface->last_nativewindow_buffer_,
         surface->last_fence_fd_);
@@ -224,9 +195,6 @@ void OHOSSurface::OnFrameAvailable(void* data) {
       FML_LOG(ERROR) << "release offscreen windowbuffer failed:" << ret;
       OH_NativeWindow_DestroyNativeWindowBuffer(
           surface->last_nativewindow_buffer_);
-      if (FdIsValid(surface->last_fence_fd_)) {
-        close(surface->last_fence_fd_);
-      }
     }
     surface->last_nativewindow_buffer_ = nullptr;
     surface->last_fence_fd_ = -1;
