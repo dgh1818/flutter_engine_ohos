@@ -88,9 +88,10 @@ void VsyncWaiterOHOS::OnVsyncFromOHOS(long long timestamp, void* data) {
 
   // [-1ms] is to avoid this situation:
   // ui_timestamp(xxx8.334ms) > now_time(xxx8.332ms) => skip this frame
+  // update [-2ms]: vsync may get a perid of 7.1 ms when 120hz.
   auto target_time = frame_time +
                      fml::TimeDelta::FromNanoseconds(vsync_period) -
-                     fml::TimeDelta::FromMilliseconds(1);
+                     fml::TimeDelta::FromMilliseconds(2);
   std::string trace_str =
       std::to_string(timestamp) + "-" + std::to_string(vsync_period) + "-" +
       std::to_string(target_time.ToEpochDelta().ToNanoseconds());
