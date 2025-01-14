@@ -39,8 +39,7 @@
 
 namespace flutter {
 
-// This global map's key is (PlatformViewOHOS-ptr + texture_id) because there
-// may be many platformViews.
+// This global map's key is (texture_id)
 std::map<uint64_t, PlatformViewOHOS*> g_texture_platformview_map;
 std::mutex g_map_mutex;
 
@@ -165,7 +164,7 @@ void PlatformViewOHOS::NotifyCreate(
       // called in PlatformView::NotifyCreated.
       RegisterTexture(external_texture);
       std::lock_guard<std::mutex> lock(g_map_mutex);
-      g_texture_platformview_map[(uint64_t)this + (uint64_t)texture_id] = this;
+      g_texture_platformview_map[(uint64_t)texture_id] = this;
     }
 
     fml::TaskRunner::RunNowOrPostTask(
@@ -197,7 +196,7 @@ void PlatformViewOHOS::Preload(int width, int height) {
     for (auto [texture_id, external_texture] : all_external_texture_) {
       RegisterTexture(external_texture);
       std::lock_guard<std::mutex> lock(g_map_mutex);
-      g_texture_platformview_map[(uint64_t)this + (uint64_t)texture_id] = this;
+      g_texture_platformview_map[(uint64_t)texture_id] = this;
     }
 
     fml::TaskRunner::RunNowOrPostTask(
@@ -300,7 +299,7 @@ void PlatformViewOHOS::NotifyDestroyed() {
       // ~PlatformViewOHOS.
       UnregisterTexture(texture_id);
       std::lock_guard<std::mutex> lock(g_map_mutex);
-      g_texture_platformview_map.erase((uint64_t)this + (uint64_t)texture_id);
+      g_texture_platformview_map.erase((uint64_t)texture_id);
     }
     fml::AutoResetWaitableEvent latch;
     fml::TaskRunner::RunNowOrPostTask(
@@ -555,7 +554,7 @@ PointerDataDispatcherMaker PlatformViewOHOS::GetDispatcherMaker() {
 
 std::shared_ptr<OHOSExternalTexture> PlatformViewOHOS::CreateExternalTexture(
     int64_t texture_id) {
-  uint64_t context_frame_data = (uint64_t)this + (uint64_t)texture_id;
+  uint64_t context_frame_data = (uint64_t)texture_id;
   OH_OnFrameAvailableListener listener;
   listener.context = (void*)context_frame_data;
   listener.onFrameAvailable = &PlatformViewOHOS::OnNativeImageFrameAvailable;
@@ -643,7 +642,7 @@ void PlatformViewOHOS::UnRegisterExternalTexture(int64_t texture_id) {
   latch.Wait();
 
   std::lock_guard<std::mutex> lock(g_map_mutex);
-  g_texture_platformview_map.erase((uint64_t)this + (uint64_t)texture_id);
+  g_texture_platformview_map.erase((uint64_t)texture_id);
 }
 
 void PlatformViewOHOS::RegisterExternalTextureByPixelMap(
