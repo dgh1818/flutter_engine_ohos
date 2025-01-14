@@ -85,9 +85,16 @@ void VsyncWaiterOHOS::OnVsyncFromOHOS(long long timestamp, void* data) {
     auto ohos_vsync_waiter = static_cast<VsyncWaiterOHOS*>(shared_this.get());
     vsync_period = ohos_vsync_waiter->GetVsyncPeriod();
   }
-  auto target_time = frame_time + fml::TimeDelta::FromNanoseconds(vsync_period);
+
+  // [-1ms] is to avoid this situation:
+  // ui_timestamp(xxx8.334ms) > now_time(xxx8.332ms) => skip this frame
+  // update [-2ms]: vsync may get a perid of 7.1 ms when 120hz.
+  auto target_time = frame_time +
+                     fml::TimeDelta::FromNanoseconds(vsync_period) -
+                     fml::TimeDelta::FromMilliseconds(2);
   std::string trace_str =
-      std::to_string(timestamp) + "-" + std::to_string(vsync_period);
+      std::to_string(timestamp) + "-" + std::to_string(vsync_period) + "-" +
+      std::to_string(target_time.ToEpochDelta().ToNanoseconds());
   TRACE_EVENT1("flutter", "OHOSVsync", "timestamp-period", trace_str.c_str());
   ConsumePendingCallback(weak_this, frame_time, target_time);
 }
