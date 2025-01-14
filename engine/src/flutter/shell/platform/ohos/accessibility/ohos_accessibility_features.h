@@ -16,7 +16,6 @@
 #define FLUTTER_SHELL_PLATFORM_OHOS_ACCESSIBILITY_OHOS_ACCESSIBILITY_FEATURES_H_
 #include <cstdint>
 #include "flutter/lib/ui/window/platform_configuration.h"
-#include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
 #include "native_accessibility_channel.h"
 namespace flutter {
 
