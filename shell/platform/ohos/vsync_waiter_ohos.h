@@ -25,7 +25,8 @@ namespace flutter {
 
 class VsyncWaiterOHOS final : public VsyncWaiter {
  public:
-  explicit VsyncWaiterOHOS(const flutter::TaskRunners& task_runners);
+  explicit VsyncWaiterOHOS(const flutter::TaskRunners& task_runners,
+                           std::shared_ptr<bool>& enable_frame_cache);
 
   int64_t GetVsyncPeriod();
 
@@ -42,6 +43,7 @@ class VsyncWaiterOHOS final : public VsyncWaiter {
                                      fml::TimePoint frame_target_time);
 
   OH_NativeVSync* vsyncHandle;
+  std::shared_ptr<bool> enable_frame_cache_;
   FML_DISALLOW_COPY_AND_ASSIGN(VsyncWaiterOHOS);
 };
 }  // namespace flutter

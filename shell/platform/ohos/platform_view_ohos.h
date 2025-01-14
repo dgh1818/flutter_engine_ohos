@@ -137,6 +137,8 @@ class PlatformViewOHOS final : public PlatformView {
 
   uint64_t ResetExternalTexture(int64_t texture_id, bool need_surfaceId);
 
+  void EnableFrameCache(bool enable) { *enable_frame_cache_ = enable; };
+
   // |PlatformView|
   PointerDataDispatcherMaker GetDispatcherMaker() override;
 
@@ -178,6 +180,8 @@ class PlatformViewOHOS final : public PlatformView {
 
   std::shared_ptr<OhosSurfaceFactoryImpl> surface_factory_;
   std::map<int64_t, std::shared_ptr<OHOSExternalTexture>> all_external_texture_;
+
+  std::shared_ptr<bool> enable_frame_cache_ = std::make_shared<bool>(true);
 
   // viewport will use this size
   int display_width_ = 0;
