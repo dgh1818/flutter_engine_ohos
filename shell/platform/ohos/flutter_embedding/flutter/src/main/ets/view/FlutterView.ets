@@ -128,25 +128,25 @@ export class DisplayFeature {
   }
 }
 
-export enum DisplayFeatureType{
+export enum DisplayFeatureType {
   UNKNOWN = 0,
   FOLD = 1,
   HINGE = 2,
   CUTOUT = 3
-};
+}
 
-export enum DisplayFeatureState{
+export enum DisplayFeatureState {
   UNKNOWN = 0,
   POSTURE_FLAT = 1,
   POSTURE_HALF_OPENED = 2,
-};
+}
 
-export enum DisplayFoldStatus{
+export enum DisplayFoldStatus {
   FOLD_STATUS_UNKNOWN = 0,
   FOLD_STATUS_EXPANDED = 1,
   FOLD_STATUS_FOLDED = 2,
   FOLD_STATUS_HALF_FOLDED = 3
-};
+}
 
 export class FlutterView {
   private flutterEngine: FlutterEngine | null = null
@@ -290,14 +290,14 @@ export class FlutterView {
       FlutterManager.getInstance().getFullScreenListener().onScreenStateChanged(data);
     }
   };
-
   private displayChangeCallback = (data: number) => {
     this.displayInfo = display.getDefaultDisplaySync();
     this.flutterEngine?.getTextInputChannel()?.setDevicePixelRatio(this.displayInfo.densityPixels);
     let devicePixelRatio: number = this.displayInfo?.densityPixels;
     let physicalTouchSlop: number = 1.0 * this.displayInfo?.densityPixels;
     Log.i(TAG, "Display on: " + JSON.stringify(this.displayInfo) + ". Display id:" + JSON.stringify(data))
-    if (devicePixelRatio != this.viewportMetrics.devicePixelRatio || this.viewportMetrics.physicalTouchSlop != physicalTouchSlop) {
+    if (devicePixelRatio != this.viewportMetrics.devicePixelRatio ||
+      this.viewportMetrics.physicalTouchSlop != physicalTouchSlop) {
       this.viewportMetrics.devicePixelRatio = devicePixelRatio;
       this.viewportMetrics.physicalTouchSlop = physicalTouchSlop
       this.needSetViewport = true;
@@ -587,10 +587,10 @@ export class FlutterView {
       for (let i = 0; i < displayFeatures.length; i++) {
         let singleFeatureBound = displayFeatures[i].getBounds();
         for (let j = 0; j < singleFeatureBound.length; j++) {
-          displayFeatureBound[4*i + 4*j] = singleFeatureBound[j].left;
-          displayFeatureBound[4*i + 4*j + 1] = singleFeatureBound[j].top
-          displayFeatureBound[4*i + 4*j + 2] = singleFeatureBound[j].width;
-          displayFeatureBound[4*i + 4*j + 3] = singleFeatureBound[j].height;
+          displayFeatureBound[4 * i + 4 * j] = singleFeatureBound[j].left;
+          displayFeatureBound[4 * i + 4 * j + 1] = singleFeatureBound[j].top
+          displayFeatureBound[4 * i + 4 * j + 2] = singleFeatureBound[j].width;
+          displayFeatureBound[4 * i + 4 * j + 3] = singleFeatureBound[j].height;
         }
         displayFeatureType[i] = displayFeatures[i].getType();
         displayFeatureStatus[i] = displayFeatures[i].getState();
