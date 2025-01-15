@@ -209,7 +209,7 @@ export default class PlatformViewsController implements PlatformViewsHandler {
           params['touchEvent'] = undefined
         }
         //当前接收的事件类型为up的时候
-      } else if (touch.action === TouchEventType.ACTION_UP) {
+      } else if (touch.action === TouchEventType.ACTION_UP || touch.action === TouchEventType.ACTION_CANCEL) {
         //手指抬起之后，将当前点击状态设置为false。测试了一下，多个手指突然抬起，最后返回的状态也是ACTION_UP
         //所以，这边就以状态抬起，代表当前用户不点击platformview了
         params['down'] = false
