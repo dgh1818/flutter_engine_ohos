@@ -48,6 +48,8 @@ export struct FlutterPage {
   doNothingBuilder() {
   }
 
+  defaultFocusOnTouch = false;
+  @Builder doNothingBuilder() {}
   @BuilderParam splashScreenView: () => void = this.doNothingBuilder;
 
   @Builder
@@ -68,6 +70,7 @@ export struct FlutterPage {
       XComponent({ id: this.viewId, type: this.xComponentType, libraryname: 'flutter' })
         .id(this.viewId)
         .focusable(true)
+        .focusOnTouch(this.defaultFocusOnTouch)
         .onLoad((context) => {
           this.flutterView?.onSurfaceCreated();
           // Callback is triggered when the xcomponent window is partially visible or completely hidden.
@@ -146,6 +149,7 @@ export struct FlutterPage {
       XComponent({ id: this.viewId, type: this.xComponentType, libraryname: 'flutter' })
         .id(this.viewId)
         .focusable(true)
+        .focusOnTouch(this.defaultFocusOnTouch)
         .onLoad((context) => {
           this.flutterView?.onSurfaceCreated();
           // Callback is triggered when the xcomponent window is partially visible or completely hidden.
