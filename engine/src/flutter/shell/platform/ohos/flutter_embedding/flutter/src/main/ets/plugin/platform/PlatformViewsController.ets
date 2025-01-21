@@ -112,25 +112,23 @@ export default class PlatformViewsController implements PlatformViewsHandler {
       this.textureRegistry!.unregisterTexture(textureId);
     }
 
+    this.viewIdWithNodeController.get(viewId)?.removeBuilderNode()
+    this.viewIdWithNodeController.get(viewId)?.disposeFrameNode()
+    this.viewIdWithNodeController.delete(viewId);
+
+    let viewWrapper: PlatformViewWrapper | null = this.viewWrappers.get(viewId) || null;
+    if (viewWrapper != null && this.flutterView) {
+      let index = this.flutterView.getDVModel().children.indexOf(viewWrapper.getDvModel()!);
+      if (index > -1) {
+        this.flutterView.getDVModel().children.splice(index, 1);
+      }
+    }
+    this.viewWrappers.delete(viewId);
+
     try {
       platformView.dispose();
     } catch (err) {
       Log.e(TAG, "Disposing platform view threw an exception", err);
-    }
-
-    let nodeController: EmbeddingNodeController | null = this.viewIdWithNodeController.get(viewId) || null;
-    if (nodeController != null) {
-      nodeController?.dispose();
-      this.viewIdWithNodeController.delete(viewId);
-    }
-
-    let viewWrapper: PlatformViewWrapper | null = this.viewWrappers.get(viewId) || null;
-    if (viewWrapper != null) {
-      if (this.flutterView) {
-        let index = this.flutterView.getDVModel().children.indexOf(viewWrapper.getDvModel()!);
-        this.flutterView.getDVModel().children.splice(index, 1);
-      }
-      this.viewWrappers.delete(viewId);
     }
   }
 
@@ -456,6 +454,18 @@ export default class PlatformViewsController implements PlatformViewsHandler {
   
   public render(surfaceId: number, platformView: PlatformView,
     width: number, height: number, left: number, top: number) {
+
+    let wrapper = this.viewWrappers.get(surfaceId);
+    if (wrapper != null) {
+      let params: DVModelParameters | undefined = wrapper?.getDvModel()!.params
+
+      this.setParams(params!, "width", width);
+      this.setParams(params!, "height", height);
+      this.setParams(params!, "left", left);
+      this.setParams(params!, "top", top);
+      return;
+    }
+
     this.flutterView!.setSurfaceId(surfaceId.toString());
     let wrappedBuilder: WrappedBuilder<[Params]> = platformView.getView();
     this.flutterView?.setWrappedBuilder(wrappedBuilder);
@@ -463,7 +473,9 @@ export default class PlatformViewsController implements PlatformViewsHandler {
 
     let nodeController = new EmbeddingNodeController();
 
-    nodeController.setRenderOption(platformView, surfaceId.toString(), NodeRenderType.RENDER_TYPE_TEXTURE, Direction.Auto);
+    nodeController.setRenderOption(platformView, surfaceId.toString(), NodeRenderType.RENDER_TYPE_TEXTURE,
+      Direction.Auto);
+    this.viewIdWithNodeController.set(surfaceId, nodeController);
 
     let dvModel = createDVModelFromJson(new DVModelJson("NodeContainer",
       [],
@@ -481,5 +493,6 @@ export default class PlatformViewsController implements PlatformViewsHandler {
     viewWrapper.addDvModel(dvModel);
     this.viewWrappers.set(surfaceId, viewWrapper);
     this.flutterView?.getDVModel().children.push(viewWrapper.getDvModel());
+    this.platformViews.set(surfaceId, platformView!);
   }
 }

@@ -31,7 +31,8 @@ declare class nodeControllerParams {
 const TAG = 'EmbeddingNodeController'
 
 export class EmbeddingNodeController extends NodeController {
-  private rootNode: BuilderNode<[Params]> | undefined | null = null;
+  private rootNode: FrameNode | null = null;
+  private builderNode: BuilderNode<[Params]> | undefined | null = null;
   private wrappedBuilder: WrappedBuilder<[Params]> | null = null;
   private platformView: PlatformView | undefined = undefined;
   private embedId: string = "";
@@ -53,27 +54,25 @@ export class EmbeddingNodeController extends NodeController {
   }
 
   makeNode(uiContext: UIContext): FrameNode | null {
-    this.rootNode = new BuilderNode(uiContext, { surfaceId: this.surfaceId, type: this.renderType });
-    if (this.wrappedBuilder) {
-      this.rootNode.build(this.wrappedBuilder, { direction: this.direction, platformView: this.platformView });
+    this.rootNode = new FrameNode(uiContext);
+    this.builderNode = new BuilderNode(uiContext, { surfaceId: this.surfaceId, type: this.renderType });
+    if (this.platformView) {
+      this.builderNode.build(this.wrappedBuilder, { direction: this.direction, platformView: this.platformView });
     }
-    return this.rootNode.getFrameNode();
+    this.rootNode.appendChild(this.builderNode.getFrameNode())
+    return this.rootNode.getFirstChild();
   }
 
-  dispose() {
-    this.rootNode?.dispose();
-  }
-
-  setBuilderNode(rootNode: BuilderNode<Params[]> | null): void {
-    this.rootNode = rootNode;
+  setBuilderNode(builderNode: BuilderNode<Params[]> | null): void {
+    this.builderNode = builderNode;
   }
 
   getBuilderNode(): BuilderNode<[Params]> | undefined | null {
-    return this.rootNode;
+    return this.builderNode;
   }
 
   updateNode(arg: Object): void {
-    this.rootNode?.update(arg);
+    this.builderNode?.update(arg);
   }
 
   getEmbedId(): string {
@@ -83,7 +82,24 @@ export class EmbeddingNodeController extends NodeController {
   setDestroy(isDestroy: boolean): void {
     this.isDestroy = isDestroy;
     if (this.isDestroy) {
+      this.rootNode?.dispose()
       this.rootNode = null;
+    }
+  }
+
+  disposeFrameNode() {
+    if (this.rootNode !== null && this.builderNode !== null) {
+      this.rootNode.removeChild(this.builderNode?.getFrameNode());
+      this.builderNode?.dispose();
+
+      this.rootNode.dispose();
+    }
+  }
+
+  removeBuilderNode() {
+    const rootRenderNode = this.rootNode!.getRenderNode();
+    if (rootRenderNode !== null && this.builderNode !== null && this.builderNode?.getFrameNode() !== null) {
+      rootRenderNode.removeChild(this.builderNode!.getFrameNode()!.getRenderNode());
     }
   }
 
@@ -122,6 +138,6 @@ export class EmbeddingNodeController extends NodeController {
       }
     }
 
-    return this.rootNode?.postTouchEvent(event) as boolean
+    return this.builderNode?.postTouchEvent(event) as boolean
   }
 }
