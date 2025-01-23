@@ -151,7 +151,7 @@ export const nativeSetTextureBufferSize: (nativeShellHolderId: number, textureId
 
 export const nativeNotifyTextureResizing: (nativeShellHolderId: number, textureId: number, width: number, height: number) => void;
 
-export const nativeEnableFrameCache(nativeShellHolderId: number, enable: boolean) => void;
+export const nativeEnableFrameCache: (nativeShellHolderId: number, enable: boolean) => void;
 
 export const nativeLookupCallbackInformation: (callback: FlutterCallbackInformation, handler: number) => number;
 
