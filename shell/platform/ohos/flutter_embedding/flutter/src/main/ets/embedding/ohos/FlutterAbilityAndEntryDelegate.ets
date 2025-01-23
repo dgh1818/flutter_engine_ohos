@@ -71,11 +71,11 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
    */
   isAttached = false;
 
-  async onAttach(context: common.Context): Promise<void> {
+  onAttach(context: common.Context) {
     this.context = context;
     this.ensureAlive();
     if (this.flutterEngine == null) {
-      await this.setupFlutterEngine();
+      this.setupFlutterEngine();
     }
 
     if (this.host?.shouldAttachEngineToAbility()) {
@@ -181,7 +181,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
   /**
    * 初始化flutterEngine
    */
-  async setupFlutterEngine() {
+  setupFlutterEngine() {
     // First, check if the host wants to use a cached FlutterEngine.
     const cachedEngineId = this.host?.getCachedEngineId();
     Log.d(TAG, "cachedEngineId=" + cachedEngineId);
@@ -220,7 +220,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
       }
 
       if (this.context != null) {
-        this.flutterEngine = await flutterEngineGroup.createAndRunEngineByOptions(
+        this.flutterEngine = flutterEngineGroup.createAndRunEngineByOptions(
           this.addEntrypointOptions(new Options(this.context)));
       }
       this.isFlutterEngineFromHostOrCache = false;
@@ -237,11 +237,11 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     if (group == null && this.context != null) {
       group = new FlutterEngineGroup();
       const flutterShellArgs = this.host ? this.host.getFlutterShellArgs() : new FlutterShellArgs();
-      await group.checkLoader(this.context, flutterShellArgs.toArray() ?? []);
+      group.checkLoader(this.context, flutterShellArgs.toArray() ?? []);
       this.engineGroup = group;
     }
     if (this.context) {
-      this.flutterEngine = await group?.createAndRunEngineByOptions(this.addEntrypointOptions(new Options(this.context)
+      this.flutterEngine = group?.createAndRunEngineByOptions(this.addEntrypointOptions(new Options(this.context)
         .setWaitForRestorationData(this.host?.shouldRestoreAndSaveState() || false)));
     }
     this.isFlutterEngineFromHostOrCache = false;

@@ -67,7 +67,7 @@ export class FlutterAbility extends UIAbility implements Host {
    * 3、lifecycle.onCreate
    * 4. setContentView()  noNeed
    */
-  async onCreate(want: Want, launchParam: AbilityConstant.LaunchParam) {
+  onCreate(want: Want, launchParam: AbilityConstant.LaunchParam) {
     // 冷启动通过上下文环境获取到系统当前文字大小，并进行键值存储
     AppStorage.setOrCreate('fontSizeScale', this.context.config.fontSizeScale);
     Log.i(TAG, "this.context.config.fontSizeScale = " + this.context.config.fontSizeScale);
@@ -76,7 +76,7 @@ export class FlutterAbility extends UIAbility implements Host {
     FlutterManager.getInstance().pushUIAbility(this)
 
     this.delegate = new FlutterAbilityAndEntryDelegate(this);
-    await this?.delegate?.onAttach(this.context);
+    this?.delegate?.onAttach(this.context);
     Log.i(TAG, 'onAttach end');
     this?.delegate?.platformPlugin?.setUIAbilityContext(this.context);
     this?.delegate?.onRestoreInstanceState(want);
