@@ -31,7 +31,6 @@ declare class nodeControllerParams {
 const TAG = 'EmbeddingNodeController'
 
 export class EmbeddingNodeController extends NodeController {
-  private rootNode: FrameNode | null = null;
   private builderNode: BuilderNode<[Params]> | undefined | null = null;
   private wrappedBuilder: WrappedBuilder<[Params]> | null = null;
   private platformView: PlatformView | undefined = undefined;
@@ -54,13 +53,11 @@ export class EmbeddingNodeController extends NodeController {
   }
 
   makeNode(uiContext: UIContext): FrameNode | null {
-    this.rootNode = new FrameNode(uiContext);
     this.builderNode = new BuilderNode(uiContext, { surfaceId: this.surfaceId, type: this.renderType });
     if (this.platformView) {
       this.builderNode.build(this.wrappedBuilder, { direction: this.direction, platformView: this.platformView });
     }
-    this.rootNode.appendChild(this.builderNode.getFrameNode())
-    return this.rootNode.getFirstChild();
+    return this.builderNode.getFrameNode();
   }
 
   setBuilderNode(builderNode: BuilderNode<Params[]> | null): void {
@@ -82,25 +79,13 @@ export class EmbeddingNodeController extends NodeController {
   setDestroy(isDestroy: boolean): void {
     this.isDestroy = isDestroy;
     if (this.isDestroy) {
-      this.rootNode?.dispose()
-      this.rootNode = null;
+      this.builderNode?.dispose();
     }
   }
 
   disposeFrameNode() {
-    if (this.rootNode !== null && this.builderNode !== null) {
-      this.rootNode.removeChild(this.builderNode?.getFrameNode());
-      this.builderNode?.dispose();
-
-      this.rootNode.dispose();
-    }
-  }
-
-  removeBuilderNode() {
-    const rootRenderNode = this.rootNode!.getRenderNode();
-    if (rootRenderNode !== null && this.builderNode !== null && this.builderNode?.getFrameNode() !== null) {
-      rootRenderNode.removeChild(this.builderNode!.getFrameNode()!.getRenderNode());
-    }
+    this.builderNode?.getFrameNode()?.getRenderNode()?.dispose();
+    this.builderNode?.dispose();
   }
 
   postEvent(event: TouchEvent | undefined, isPx: boolean = false): boolean {

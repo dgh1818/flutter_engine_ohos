@@ -112,7 +112,6 @@ export default class PlatformViewsController implements PlatformViewsHandler {
       this.textureRegistry!.unregisterTexture(textureId);
     }
 
-    this.viewIdWithNodeController.get(viewId)?.removeBuilderNode()
     this.viewIdWithNodeController.get(viewId)?.disposeFrameNode()
     this.viewIdWithNodeController.delete(viewId);
 
