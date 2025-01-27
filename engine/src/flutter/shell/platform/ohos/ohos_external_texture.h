@@ -101,6 +101,11 @@ class OHOSExternalTexture : public flutter::Texture {
   sk_sp<flutter::DlImage> GetNextDrawImage(PaintContext& context,
                                            const SkRect& bounds);
 
+  sk_sp<flutter::DlImage> GetOldDlImage(PaintContext& context,
+                                        const SkRect& bounds);
+
+  void SetOldDlImage(sk_sp<flutter::DlImage> old_image);
+
   bool CopyDataToPixelMapBuffer(const unsigned char* src,
                                 int width,
                                 int height,
@@ -124,10 +129,6 @@ class OHOSExternalTexture : public flutter::Texture {
   bool SetNativeWindowCPUAccess(OHNativeWindow* window, bool cpuAccess);
 
   void GetNewTransformBound(SkM44& transform, SkRect& bounds);
-
-  enum class AttachmentState { kUninitialized, kAttached, kDetached };
-
-  AttachmentState state_ = AttachmentState::kUninitialized;
 
   uint64_t producer_surface_id_ = 0;
 
