@@ -85,6 +85,7 @@ OHOSExternalTexture::OHOSExternalTexture(int64_t id,
 }
 
 OHOSExternalTexture::~OHOSExternalTexture() {
+  FML_LOG(INFO) << "~OHOSExternalTexture " << Id();
   DestroyNativeImageSource();
   DestroyPixelMapBuffer();
   return;
@@ -94,11 +95,6 @@ void OHOSExternalTexture::Paint(PaintContext& context,
                                 const SkRect& bounds,
                                 bool freeze,
                                 DlImageSampling sampling) {
-  if (state_ == AttachmentState::kDetached) {
-    FML_LOG(INFO) << "paint state is kDetached";
-    return;
-  }
-
   SkRect new_bounds = bounds;
   sk_sp<flutter::DlImage> draw_dl_image;
 
@@ -110,9 +106,9 @@ void OHOSExternalTexture::Paint(PaintContext& context,
 
   if (freeze ||
       (draw_dl_image = GetNextDrawImage(context, bounds)) == nullptr) {
-    draw_dl_image = old_dl_image_;
+    draw_dl_image = GetOldDlImage(context, bounds);
   } else {
-    old_dl_image_ = draw_dl_image;
+    SetOldDlImage(draw_dl_image);
   }
 
   if (size_is_changing_ && draw_size_has_changed_ &&
@@ -170,7 +166,7 @@ void OHOSExternalTexture::MarkNewFrameAvailable() {
       now_paint_frame_seq_num_ % 60 == 0) {
     FML_LOG(INFO) << " OHOSExternalTexture::MarkNewFrameAvailable avail-seq "
                   << now_new_frame_seq_num_ << " paint-seq "
-                  << now_paint_frame_seq_num_;
+                  << now_paint_frame_seq_num_ << " texture_id " << Id();
   }
   now_new_frame_seq_num_++;
   producer_has_frame_ = true;
@@ -226,8 +222,7 @@ void OHOSExternalTexture::OnTextureUnregistered() {
 }
 
 void OHOSExternalTexture::OnGrContextCreated() {
-  FML_LOG(INFO) << " OHOSExternalTextureGL::OnGrContextCreated";
-  state_ = AttachmentState::kUninitialized;
+  FML_LOG(INFO) << "OnGrContextCreated texture_id " << Id();
   if (native_image_source_ == nullptr) {
     return;
   }
@@ -245,24 +240,26 @@ void OHOSExternalTexture::OnGrContextCreated() {
 }
 
 void OHOSExternalTexture::OnGrContextDestroyed() {
-  if (state_ == AttachmentState::kAttached) {
-    // move UnsetOnFrame here to avoid MarkNewFrameAvailable being invoked when
-    // rasterizer thread exit. Hit: MarkNewFrameAvailable will be invoked in
-    // rasterizer thread.
-    if (native_image_source_ == nullptr) {
-      return;
-    }
-    // when GrContextDestroyed invoking, we just need release gpu resource.
-    FML_LOG(INFO) << "OnGrContextDestroyed release gpu resource";
-    old_dl_image_.reset();
-    image_lru_.Clear();
-    if (FdIsValid(last_fence_fd_)) {
-      close(last_fence_fd_);
-    }
-    last_fence_fd_ = -1;
-    GPUResourceDestroy();
+  // move SetOnFrame using default listener here to avoid MarkNewFrameAvailable
+  // being invoked when rasterizer thread exit. Hit: MarkNewFrameAvailable will
+  // be invoked in rasterizer thread.
+  if (native_image_source_ == nullptr) {
+    return;
   }
-  state_ = AttachmentState::kDetached;
+  OH_OnFrameAvailableListener listener;
+  listener.context = (void*)native_image_source_;
+  listener.onFrameAvailable = &OHOSExternalTexture::DefaultOnFrameAvailable;
+  OH_NativeImage_SetOnFrameAvailableListener(native_image_source_, listener);
+  // when GrContextDestroyed invoking, we just need release gpu resource.
+  FML_LOG(INFO) << "OnGrContextDestroyed release gpu resource texture_id "
+                << Id();
+  old_dl_image_.reset();
+  image_lru_.Clear();
+  if (FdIsValid(last_fence_fd_)) {
+    close(last_fence_fd_);
+  }
+  last_fence_fd_ = -1;
+  GPUResourceDestroy();
 }
 
 uint64_t OHOSExternalTexture::GetProducerSurfaceId() {
@@ -543,6 +540,30 @@ sk_sp<flutter::DlImage> OHOSExternalTexture::GetNextDrawImage(
     WaitGPUFence(fence_fd);
   }
   return ret_image;
+}
+
+sk_sp<flutter::DlImage> OHOSExternalTexture::GetOldDlImage(
+    PaintContext& context,
+    const SkRect& bounds) {
+  if (!old_dl_image_ && last_native_window_buffer_ != nullptr) {
+    OH_NativeBuffer* native_buffer = nullptr;
+    int ret = OH_NativeBuffer_FromNativeWindowBuffer(last_native_window_buffer_,
+                                                     &native_buffer);
+    if (ret != 0 || native_buffer == nullptr) {
+      FML_LOG(ERROR) << "OHOSExternalTextureGL get OH_NativeBuffer error:"
+                     << ret;
+      return nullptr;
+    }
+    // ensure buffer_id > 0 (may get seqNum = 0)
+    uint32_t buffer_id = OH_NativeBuffer_GetSeqNum(native_buffer) + 1;
+    old_dl_image_ =
+        CreateDlImage(context, bounds, buffer_id, last_native_window_buffer_);
+  }
+  return old_dl_image_;
+}
+
+void OHOSExternalTexture::SetOldDlImage(sk_sp<flutter::DlImage> old_image) {
+  old_dl_image_ = std::move(old_image);
 }
 
 bool OHOSExternalTexture::SetProducerWindowSize(int width, int height) {
