@@ -34,7 +34,7 @@ export default class FlutterEngineGroup {
   }
 
 
-  async checkLoader(context: common.Context, args: Array<string>) {
+  checkLoader(context: common.Context, args: Array<string>) {
     let loader: FlutterLoader = FlutterInjector.getInstance().getFlutterLoader();
     if (!loader.initialized) {
       loader.startInitialization(context);
@@ -42,7 +42,7 @@ export default class FlutterEngineGroup {
     }
   }
 
-  async createAndRunEngineByOptions(options: Options) {
+  createAndRunEngineByOptions(options: Options) {
     let engine: FlutterEngine | null = null;
     let context: common.Context = options.getContext();
     let dartEntrypoint: DartEntrypoint | null = options.getDartEntrypoint();
@@ -62,14 +62,14 @@ export default class FlutterEngineGroup {
     Log.i(TAG, "shellHolder, this.activeEngines.length=" + this.activeEngines.length)
     if (this.activeEngines.length == 0) {
       engine = this.createEngine(context, platformViewsController);
-      await engine.init(context, null, // String[]. The Dart VM has already started, this arguments will have no effect.
+      engine.init(context, null, // String[]. The Dart VM has already started, this arguments will have no effect.
         waitForRestorationData)
       if (initialRoute != null) {
         engine.getNavigationChannel()?.setInitialRoute(initialRoute);
       }
       engine.getDartExecutor().executeDartEntrypoint(dartEntrypoint, dartEntrypointArgs)
     } else {
-      engine = await this.activeEngines[0]
+      engine = this.activeEngines[0]
         .spawn(
           context,
           dartEntrypoint,

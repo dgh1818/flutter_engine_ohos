@@ -104,7 +104,7 @@ export default class FlutterEngine implements EngineLifecycleListener {
     this.platformViewsController.attach(context, this.renderer, this.dartExecutor);
   }
 
-  async init(context: common.Context, dartVmArgs: Array<string> | null, waitForRestorationData: boolean) {
+  init(context: common.Context, dartVmArgs: Array<string> | null, waitForRestorationData: boolean) {
     if (!this.flutterNapi.isAttached()) {
       this.flutterLoader.startInitialization(context)
       this.flutterLoader.ensureInitializationComplete(dartVmArgs);
@@ -146,7 +146,7 @@ export default class FlutterEngine implements EngineLifecycleListener {
     }
   }
 
-  async spawn(context: common.Context,
+  spawn(context: common.Context,
     dartEntrypoint: DartEntrypoint,
     initialRoute: string,
     dartEntrypointArgs: Array<string>,
@@ -169,7 +169,7 @@ export default class FlutterEngine implements EngineLifecycleListener {
       newFlutterNapi,
       platformViewsController
     );
-    await flutterEngine.init(context, null, waitForRestorationData)
+    flutterEngine.init(context, null, waitForRestorationData)
     return flutterEngine
   }
 
