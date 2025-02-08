@@ -623,7 +623,7 @@ void PlatformViewOHOS::OnNativeImageFrameAvailable(void* data) {
       return;
     }
     PlatformViewOHOS* platform = g_texture_platformview_map[ptexture_id];
-    uint64_t texture_id = ptexture_id - (uint64_t)platform;
+    uint64_t texture_id = ptexture_id;
     platform->MarkTextureFrameAvailable(texture_id);
   });
 }
