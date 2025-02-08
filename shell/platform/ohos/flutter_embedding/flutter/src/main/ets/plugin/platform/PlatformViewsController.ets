@@ -77,7 +77,6 @@ export default class PlatformViewsController implements PlatformViewsHandler {
   private viewWrappers: Map<number, PlatformViewWrapper>;
   private currentFrameUsedOverlayLayerIds: HashSet<number>;
   private currentFrameUsedPlatformViewIds: HashSet<number>;
-  private platformViewParent: Map<number, FlutterMutatorView>;
 
   constructor() {
     this.registry = new PlatformViewRegistryImpl();
@@ -87,7 +86,6 @@ export default class PlatformViewsController implements PlatformViewsHandler {
     this.platformViews = new Map();
     this.viewIdWithTextureId = new Map();
     this.viewIdWithNodeController = new Map();
-    this.platformViewParent = new Map();
   }
 
   createForPlatformViewLayer(request: PlatformViewCreationRequest): void {
@@ -121,6 +119,7 @@ export default class PlatformViewsController implements PlatformViewsHandler {
       let index = this.flutterView.getDVModel().children.indexOf(viewWrapper.getDvModel()!);
       if (index > -1) {
         this.flutterView.getDVModel().children.splice(index, 1);
+        platformView.onFlutterViewDetached();
       }
     }
     this.viewWrappers.delete(viewId);
@@ -324,7 +323,7 @@ export default class PlatformViewsController implements PlatformViewsHandler {
     viewWrapper.addDvModel(dvModel);
     this.viewWrappers.set(request.viewId, viewWrapper);
     this.flutterView?.getDVModel().children.push(viewWrapper.getDvModel())
-
+    platformView.onFlutterViewAttached(this.flutterView?.getDVModel());
     Log.i(TAG, "Create platform view success");
     return textureId;
   }
@@ -348,31 +347,12 @@ export default class PlatformViewsController implements PlatformViewsHandler {
 
   public attachToView(newFlutterView: FlutterView) {
     this.flutterView = newFlutterView;
-    for (let wrapper of this.viewWrappers.values()) {
-      this.flutterView?.getDVModel().children.push(wrapper.getDvModel()!);
-    }
-    for (let mutator of this.platformViewParent.values()) {
-      this.flutterView?.getDVModel().children.push(mutator.getDvModel()!);
-    }
-    for (let platformView of this.platformViews.values()) {
-      platformView.onFlutterViewAttached(this.flutterView?.getDVModel());
-    }
   }
 
   public detachFromView(): void {
-    for (let index = 0; index < this.viewWrappers.size; index++) {
-      this.flutterView?.getDVModel().children.pop();
-    }
-    for (let index = 0; index < this.platformViewParent.size; index++) {
-      this.flutterView?.getDVModel().children.pop();
-    }
     this.destroyOverlaySurfaces();
     this.removeOverlaySurfaces();
     this.flutterView = null;
-
-    for (let platformView of this.platformViews.values()) {
-      platformView.onFlutterViewDetached();
-    }
   }
 
   public getFlutterView(): FlutterView | null {
@@ -493,6 +473,7 @@ export default class PlatformViewsController implements PlatformViewsHandler {
     viewWrapper.addDvModel(dvModel);
     this.viewWrappers.set(surfaceId, viewWrapper);
     this.flutterView?.getDVModel().children.push(viewWrapper.getDvModel());
+    platformView.onFlutterViewAttached(this.flutterView?.getDVModel());
     this.platformViews.set(surfaceId, platformView!);
   }
 }
