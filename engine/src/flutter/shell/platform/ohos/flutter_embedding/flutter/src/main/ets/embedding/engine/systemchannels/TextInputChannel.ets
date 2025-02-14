@@ -305,8 +305,21 @@ export class Configuration {
   }
 }
 
+/*
+/// All possible enum values from flutter.
+static const List<TextInputType> values = <TextInputType>[
+  text, multiline, number, phone, datetime, emailAddress, url, visiblePassword, name, streetAddress, none,
+];
+
+// Corresponding string name for each of the [values].
+static const List<String> _names = <String>[
+  'text', 'multiline', 'number', 'phone', 'datetime', 'emailAddress', 'url', 'visiblePassword', 'name', 'address', 'none',
+];
+
+// Because TextInputType.name and TextInputType.streetAddress do not exist on ohos,
+// these two types will be mapped to the default keyboard.
+*/
 const TextInputType: Map<String, inputMethod.TextInputType> = new Map<String, inputMethod.TextInputType>([
-  ["TextInputType.none", inputMethod.TextInputType.NONE],
   ["TextInputType.text", inputMethod.TextInputType.TEXT],
   ["TextInputType.multiline", inputMethod.TextInputType.MULTILINE],
   ["TextInputType.number", inputMethod.TextInputType.NUMBER],
@@ -315,7 +328,9 @@ const TextInputType: Map<String, inputMethod.TextInputType> = new Map<String, in
   ["TextInputType.emailAddress", inputMethod.TextInputType.EMAIL_ADDRESS],
   ["TextInputType.url", inputMethod.TextInputType.URL],
   ["TextInputType.visiblePassword", inputMethod.TextInputType.VISIBLE_PASSWORD],
-  ["TextInputType.numberPassword", inputMethod.TextInputType.NUMBER_PASSWORD]
+  ["TextInputType.name", inputMethod.TextInputType.TEXT],
+  ["TextInputType.address", inputMethod.TextInputType.TEXT],
+  ["TextInputType.none", inputMethod.TextInputType.NONE],
 ]);
 
 export class InputType {

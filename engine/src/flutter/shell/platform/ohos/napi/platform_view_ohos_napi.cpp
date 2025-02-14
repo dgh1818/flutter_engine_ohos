@@ -1749,6 +1749,21 @@ napi_value PlatformViewOHOSNapi::nativeSetTextureBackGroundPixelMap(
   return nullptr;
 }
 
+napi_value PlatformViewOHOSNapi::nativeEnableFrameCache(
+    napi_env env,
+    napi_callback_info info) {
+  size_t argc = 2;
+  napi_value args[2] = {nullptr};
+  int64_t shell_holder;
+  bool enable;
+  NAPI_CALL(env, napi_get_cb_info(env, info, &argc, args, nullptr, nullptr));
+  NAPI_CALL(env, napi_get_value_int64(env, args[0], &shell_holder));
+  NAPI_CALL(env, napi_get_value_bool(env, args[1], &enable));
+
+  OHOS_SHELL_HOLDER->GetPlatformView()->EnableFrameCache(enable);
+  return nullptr;
+}
+
 void PlatformViewOHOSNapi::SurfaceCreated(int64_t shell_holder,
                                           void* window,
                                           int width,

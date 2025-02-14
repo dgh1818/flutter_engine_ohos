@@ -53,13 +53,13 @@ export default class FlutterEntry implements Host {
     this.delegate?.onWindowStageChanged(data)
   }
 
-  async aboutToAppear() {
+  aboutToAppear() {
     Log.i(TAG, 'aboutToAppear');
     if (this.hasInit == false) {
       this.delegate = new FlutterAbilityAndEntryDelegate(this);
       this.flutterView = this.delegate?.createView(this.context);
       this.flutterView?.onWindowCreated();
-      await this?.delegate?.onAttach(this.context);
+      this?.delegate?.onAttach(this.context);
       //this.flutterView?.preDraw();
       //Log.d(TAG, "XComponent aboutToAppear predraw");
       Log.i(TAG, 'onAttach end');

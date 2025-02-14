@@ -36,6 +36,13 @@ export struct FlutterPage {
    */
   @Prop xComponentRenderFit: RenderFit = RenderFit.RESIZE_FILL;
 
+  /**
+   * A switch for enabling the frame cache.
+   * When it is true, one frame of response latency will be increased in exchange for higher smoothness,
+   * and occasional timeouts in rendering frame submissions will not result in frame dropping.
+   */
+  @Prop enableFrameCacheForSmooth: boolean = true;
+
   @Builder
   doNothingBuilder() {
   }
@@ -222,6 +229,7 @@ export struct FlutterPage {
     this.flutterView?.setCheckKeyboard(this.checkKeyboard)
     this.flutterView?.setCheckGesture(this.checkGesture)
     this.flutterView?.setCheckAiBar(this.checkAiBar)
+    this.flutterView?.enableFrameCache(this.enableFrameCacheForSmooth);
 
     this.rootDvModel = this.flutterView!!.getDVModel().children
   }

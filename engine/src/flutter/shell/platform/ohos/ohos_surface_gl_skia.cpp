@@ -215,8 +215,8 @@ bool OhosSurfaceGLSkia::GLContextPresent(const GLPresentInfo& present_info) {
     uint64_t present_time =
         present_info.presentation_time->ToEpochDelta().ToNanoseconds();
     OH_NativeWindow_NativeWindowHandleOpt(
-        (OHNativeWindow*)native_window_->Gethandle(), SET_UI_TIMESTAMP,
-        present_time);
+        (OHNativeWindow*)native_window_->Gethandle(),
+        SET_DESIRED_PRESENT_TIMESTAMP, present_time);
   }
   return onscreen_surface_->SwapBuffers(present_info.frame_damage);
 }
