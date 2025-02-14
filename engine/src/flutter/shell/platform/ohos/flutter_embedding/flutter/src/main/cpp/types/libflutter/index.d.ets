@@ -115,11 +115,6 @@ export const nativeXComponentDispatchMouseWheel: (nativeShellHolderId: number,
                                                   ) => void;
 
 
-// send updateSemantics and updateCustomAccessibilityActions from ets to c++
-export const nativeUpdateSemantics: (buffer: ByteBuffer, strings: string[], stringAttributeArgs: ByteBuffer[]) => void;
-export const nativeUpdateCustomAccessibilityActions: (buffer: ByteBuffer, strings: string[]) => void;
-
-
 /**
  * Detaches flutterNapi和engine之间的关联
  * 这个方法执行前提是flutterNapi已经和engine关联
@@ -172,10 +167,18 @@ export const nativeSetAccessibilityFeatures: (accessibilityFeatureFlags: number,
 
 export const nativeAccessibilityStateChange: (nativeShellHolderId: number, state: Boolean) => void;
 
-export const nativeAnnounce: (message: string) => void;
+export const nativeAccessibilityAnnounce: (nativeShellHolderId: number, message: string) => void;
+
+export const nativeAccessibilityOnTap: (nativeShellHolderId: number, nodeId: number) => void;
+
+export const nativeAccessibilityOnLongPress: (nativeShellHolderId: number, nodeId: number) => void;
+
+export const nativeAccessibilityOnTooltip: (nativeShellHolderId: number, message: string) => void;
 
 export const nativeSetSemanticsEnabled: (nativeShellHolderId: number, enabled: boolean) => void;
 
 export const nativeSetFontWeightScale: (nativeShellHolderId: number, fontWeightScale: number) => void;
 
-export const nativeSetFlutterNavigationAction: (isNavigate: boolean) => void;
+export const nativeSetFlutterNavigationAction: (nativeShellHolderId: number, isNavigate: boolean) => void;
+
+export const nativeUpdateCurrentXComponentId: (xcomponent_id: string) => void;

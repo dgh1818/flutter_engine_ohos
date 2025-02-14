@@ -18,6 +18,7 @@ import { FlutterView } from '../../view/FlutterView';
 import FlutterManager from './FlutterManager';
 import { DVModel, DVModelChildren, DynamicView } from '../../view/DynamicView/dynamicView';
 import Any from '../../plugin/common/Any';
+import flutter from 'libflutter.so';
 
 const TAG = "FlutterPage";
 
@@ -68,7 +69,18 @@ export struct FlutterPage {
         .id(this.viewId)
         .focusable(true)
         .onLoad((context) => {
-          this.flutterView?.onSurfaceCreated()
+          this.flutterView?.onSurfaceCreated();
+          // Callback is triggered when the xcomponent window is partially visible or completely hidden.
+          this.getUIContext()?.getAttachedFrameNodeById(this.viewId)?.commonEvent.setOnVisibleAreaApproximateChange(
+            { ratios: [0.0, 1.0], expectedUpdateInterval: 0 },
+            (isExpanding: boolean, currentRatio: number) => {
+              if (isExpanding) {
+                Log.i(TAG, "setOnVisibleAreaApproximateChange -> xcomponentId: " + this.viewId +
+                  " isExpanding: " + isExpanding + " ratio: " + currentRatio);
+                flutter.nativeUpdateCurrentXComponentId(this.viewId);
+              }
+            }
+          )
           Log.d(TAG, "XComponent onLoad ");
         })
         .onDestroy(() => {
@@ -135,7 +147,18 @@ export struct FlutterPage {
         .id(this.viewId)
         .focusable(true)
         .onLoad((context) => {
-          this.flutterView?.onSurfaceCreated()
+          this.flutterView?.onSurfaceCreated();
+          // Callback is triggered when the xcomponent window is partially visible or completely hidden.
+          this.getUIContext()?.getAttachedFrameNodeById(this.viewId)?.commonEvent.setOnVisibleAreaApproximateChange(
+            { ratios: [0.0, 1.0], expectedUpdateInterval: 0 },
+            (isExpanding: boolean, currentRatio: number) => {
+              if (isExpanding) {
+                Log.i(TAG, "setOnVisibleAreaApproximateChange -> xcomponentId: " + this.viewId +
+                  " isExpanding: " + isExpanding + " ratio: " + currentRatio);
+                flutter.nativeUpdateCurrentXComponentId(this.viewId);
+              }
+            }
+          )
           Log.d(TAG, "XComponent onLoad ");
         })
         .onDestroy(() => {

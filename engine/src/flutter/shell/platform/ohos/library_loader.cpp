@@ -153,12 +153,6 @@ static napi_value Init(napi_env env, napi_value exports) {
           "nativeSetTextureBackGroundPixelMap",
           flutter::PlatformViewOHOSNapi::nativeSetTextureBackGroundPixelMap),
       DECLARE_NAPI_FUNCTION(
-          "nativeUpdateSemantics",
-          flutter::PlatformViewOHOSNapi::nativeUpdateSemantics),
-      DECLARE_NAPI_FUNCTION("nativeUpdateCustomAccessibilityActions",
-                            flutter::PlatformViewOHOSNapi::
-                                nativeUpdateCustomAccessibilityActions),
-      DECLARE_NAPI_FUNCTION(
           "nativeSetFontWeightScale",
           flutter::PlatformViewOHOSNapi::nativeSetFontWeightScale),
 
@@ -183,8 +177,18 @@ static napi_value Init(napi_env env, napi_value exports) {
       DECLARE_NAPI_FUNCTION(
           "nativeAccessibilityStateChange",
           flutter::PlatformViewOHOSNapi::nativeAccessibilityStateChange),
-      DECLARE_NAPI_FUNCTION("nativeAnnounce",
-                            flutter::PlatformViewOHOSNapi::nativeAnnounce),
+      DECLARE_NAPI_FUNCTION(
+          "nativeAccessibilityAnnounce",
+          flutter::PlatformViewOHOSNapi::nativeAccessibilityAnnounce),
+      DECLARE_NAPI_FUNCTION(
+          "nativeAccessibilityOnTap",
+          flutter::PlatformViewOHOSNapi::nativeAccessibilityOnTap),
+      DECLARE_NAPI_FUNCTION(
+          "nativeAccessibilityOnLongPress",
+          flutter::PlatformViewOHOSNapi::nativeAccessibilityOnLongPress),
+      DECLARE_NAPI_FUNCTION(
+          "nativeAccessibilityOnTooltip",
+          flutter::PlatformViewOHOSNapi::nativeAccessibilityOnTooltip),
       DECLARE_NAPI_FUNCTION(
           "nativeSetSemanticsEnabled",
           flutter::PlatformViewOHOSNapi::nativeSetSemanticsEnabled),
@@ -197,6 +201,9 @@ static napi_value Init(napi_env env, napi_value exports) {
       DECLARE_NAPI_FUNCTION(
           "nativeEnableFrameCache",
           flutter::PlatformViewOHOSNapi::nativeEnableFrameCache),
+      DECLARE_NAPI_FUNCTION(
+          "nativeUpdateCurrentXComponentId",
+          flutter::PlatformViewOHOSNapi::nativeUpdateCurrentXComponentId),
   };
 
   FML_DLOG(INFO) << "Init NAPI size=" << sizeof(desc) / sizeof(desc[0]);

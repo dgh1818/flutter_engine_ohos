@@ -25,6 +25,7 @@
 
 #include "third_party/skia/src/ports/skia_ohos/SkFontMgr_ohos.h"
 #include "txt/platform.h"
+#include "utils/ohos_utils.h"
 
 #include <qos/qos.h>
 #include <sys/resource.h>
@@ -269,6 +270,9 @@ OHOSShellHolder::OHOSShellHolder(
   }
 
   platform_view_ = weak_platform_view;
+  bridge_ = std::make_shared<SemanticsBridge>();
+  bridge_mutex_ = std::make_shared<std::mutex>();
+  platform_view_->SetSemanticsBridge(bridge_, bridge_mutex_);
   FML_DCHECK(platform_view_);
 }
 
@@ -290,6 +294,9 @@ OHOSShellHolder::OHOSShellHolder(
   FML_DCHECK(shell_->IsSetup());
   FML_DCHECK(platform_view_);
   FML_DCHECK(thread_host_);
+  bridge_ = std::make_shared<SemanticsBridge>();
+  bridge_mutex_ = std::make_shared<std::mutex>();
+  platform_view_->SetSemanticsBridge(bridge_, bridge_mutex_);
 }
 
 OHOSShellHolder::~OHOSShellHolder() {
@@ -459,6 +466,289 @@ std::optional<RunConfiguration> OHOSShellHolder::BuildRunConfiguration(
     }
   }
   return config;
+}
+
+static ACTIONS_ ArkuiActionsToFlutterActions(
+    ArkUI_Accessibility_ActionType arkui_action,
+    SemanticsNodeExtend* node) {
+  switch (arkui_action) {
+    case ArkUI_Accessibility_ActionType::
+        ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_CLICK:
+      return ACTIONS_::kTap;
+
+    case ArkUI_Accessibility_ActionType::
+        ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_LONG_CLICK:
+      return ACTIONS_::kLongPress;
+
+    case ArkUI_Accessibility_ActionType::
+        ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SCROLL_FORWARD:
+      if (node->HasAction(SemanticsAction::kScrollUp)) {
+        return ACTIONS_::kScrollUp;
+      } else if (node->HasAction(SemanticsAction::kScrollLeft)) {
+        return ACTIONS_::kScrollLeft;
+      } else if (node->HasAction(SemanticsAction::kIncrease)) {
+        return ACTIONS_::kIncrease;
+      } else {
+        return ACTIONS_::kCustomAction;
+      }
+
+    case ArkUI_Accessibility_ActionType::
+        ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SCROLL_BACKWARD:
+      if (node->HasAction(SemanticsAction::kScrollDown)) {
+        return ACTIONS_::kScrollDown;
+      } else if (node->HasAction(SemanticsAction::kScrollRight)) {
+        return ACTIONS_::kScrollRight;
+      } else if (node->HasAction(SemanticsAction::kDecrease)) {
+        return ACTIONS_::kDecrease;
+      } else {
+        return ACTIONS_::kCustomAction;
+      }
+
+    case ArkUI_Accessibility_ActionType::
+        ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_COPY:
+      return ACTIONS_::kCopy;
+
+    case ArkUI_Accessibility_ActionType::
+        ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_CUT:
+      return ACTIONS_::kCut;
+
+    case ArkUI_Accessibility_ActionType::
+        ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_PASTE:
+      return ACTIONS_::kPaste;
+
+    case ArkUI_Accessibility_ActionType::
+        ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_GAIN_ACCESSIBILITY_FOCUS:
+      return ACTIONS_::kDidGainAccessibilityFocus;
+
+    case ArkUI_Accessibility_ActionType::
+        ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_CLEAR_ACCESSIBILITY_FOCUS:
+      return ACTIONS_::kDidLoseAccessibilityFocus;
+
+    case ArkUI_Accessibility_ActionType::
+        ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SELECT_TEXT:
+      return ACTIONS_::kSetSelection;
+
+    case ArkUI_Accessibility_ActionType::
+        ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SET_TEXT:
+      return ACTIONS_::kSetText;
+
+    default:
+      // might not match to the valid action in arkui
+      return ACTIONS_::kCustomAction;
+  }
+}
+
+static const char* ARKUI_ACTION_ARG_SET_TEXT = "setText";
+static const char* ARKUI_ACTION_ARG_SELECT_TEXT_START = "selectTextBegin";
+static const char* ARKUI_ACTION_ARG_SELECT_TEXT_END = "selectTextEnd";
+static const char* ACTION_ARGU_SET_OFFSET = "offset";
+
+static std::vector<uint8_t> GetAccessibilitySelectText(
+    ArkUI_AccessibilityActionArguments* args,
+    SemanticsNodeExtend* node) {
+  char* textSelectBase = nullptr;
+  OH_ArkUI_FindAccessibilityActionArgumentByKey(
+      args, ARKUI_ACTION_ARG_SELECT_TEXT_START, &textSelectBase);
+  if (textSelectBase == nullptr) {
+    LOGE("PerformSelectText -> textSelectBase get null value");
+    return {};
+  }
+
+  char* textSelectExtent = nullptr;
+  OH_ArkUI_FindAccessibilityActionArgumentByKey(
+      args, ARKUI_ACTION_ARG_SELECT_TEXT_END, &textSelectExtent);
+  if (textSelectExtent == nullptr) {
+    LOGE("PerformSelectText -> textSelectExtent get null value");
+    return {};
+  }
+
+  std::map<std::string, int32_t> selectionMap;
+  bool hasSelected = args != nullptr && textSelectBase != nullptr &&
+                     textSelectExtent != nullptr;
+  if (hasSelected) {
+    int32_t base;
+    int32_t extent;
+    OHOSUtils::CharArrayToInt32(textSelectBase, base);
+    OHOSUtils::CharArrayToInt32(textSelectExtent, extent);
+    selectionMap.insert({"base", base});
+    selectionMap.insert({"extent", extent});
+    node->textSelectionBase = base;
+    node->textSelectionExtent = extent;
+  } else {
+    selectionMap.insert(
+        {ARKUI_ACTION_ARG_SELECT_TEXT_START, node->textSelectionBase});
+    selectionMap.insert(
+        {ARKUI_ACTION_ARG_SELECT_TEXT_END, node->textSelectionExtent});
+  }
+
+  // serialize map<string, int32_t> to byte vector
+  std::vector<uint8_t> encodedData =
+      OHOSUtils::SerializeStringIntMap(selectionMap);
+  return encodedData;
+}
+
+static std::vector<uint8_t> GetAccessibilitySetText(
+    ArkUI_AccessibilityActionArguments* args,
+    SemanticsNodeExtend* node) {
+  char* newText = nullptr;
+  OH_ArkUI_FindAccessibilityActionArgumentByKey(args, ARKUI_ACTION_ARG_SET_TEXT,
+                                                &newText);
+  if (newText == nullptr) {
+    LOGE(
+        "PerformSetText -> OH_ArkUI_FindAccessibilityActionArgumentByKey get "
+        "null value");
+    return {};
+  }
+  node->value = newText;
+  node->valueAttributes = {};
+  return std::vector<uint8_t>(newText, newText + strlen(newText));
+}
+
+void OHOSShellHolder::SetAccessibilityProvider(
+    ArkUI_AccessibilityProvider* provider) {
+  LOGD("SetAccessibilityProvider %{public}p", provider);
+  std::lock_guard<std::mutex> lock(*bridge_mutex_);
+  if (bridge_->provider_ohos_) {
+    bridge_->old_provider_ohos_ = bridge_->provider_ohos_;
+  }
+  bridge_->provider_ohos_ = provider;
+}
+
+int32_t OHOSShellHolder::FindFocusNode(int32_t id,
+                                       ArkUI_AccessibilityFocusType focusType,
+                                       ArkUI_AccessibilityElementInfo* info) {
+  std::lock_guard<std::mutex> lock(*bridge_mutex_);
+  return bridge_->FindFocusNode(id, focusType, info);
+}
+
+int32_t OHOSShellHolder::FindNextFocusNode(
+    int32_t id,
+    ArkUI_AccessibilityFocusMoveDirection direction,
+    ArkUI_AccessibilityElementInfo* info) {
+  std::lock_guard<std::mutex> lock(*bridge_mutex_);
+  return bridge_->FindNextFocusNode(id, direction, info);
+}
+
+int32_t OHOSShellHolder::FillNodesWithSearchText(
+    int32_t id,
+    const char* text,
+    ArkUI_AccessibilityElementInfoList* list) {
+  std::lock_guard<std::mutex> lock(*bridge_mutex_);
+  return bridge_->FillNodesWithSearchText(id, text, list);
+  ;
+}
+
+int32_t OHOSShellHolder::FillNodesWithSearch(
+    int32_t id,
+    ArkUI_AccessibilitySearchMode mode,
+    ArkUI_AccessibilityElementInfoList* list) {
+  std::lock_guard<std::mutex> lock(*bridge_mutex_);
+  return bridge_->FillNodesWithSearch(id, mode, list);
+}
+
+int32_t OHOSShellHolder::ExecuteAction(
+    int64_t elementId,
+    ArkUI_Accessibility_ActionType action,
+    ArkUI_AccessibilityActionArguments* actionArguments) {
+  std::lock_guard<std::mutex> lock(*bridge_mutex_);
+  if (bridge_->provider_ohos_ == nullptr) {
+    return ARKUI_ACCESSIBILITY_NATIVE_RESULT_FAILED;
+  }
+
+  auto node = bridge_->GetNodeById((int32_t)elementId);
+  if (!node) {
+    return ARKUI_ACCESSIBILITY_NATIVE_RESULT_FAILED;
+  }
+
+  FML_DLOG(INFO) << "ExecuteAction: " << elementId << " action:" << action;
+
+  std::string trace_str =
+      "id-" + std::to_string(elementId) + "-action-" + std::to_string(action);
+  TRACE_EVENT1("flutter", "ExecuteAction", "action", trace_str.c_str());
+
+  std::vector<uint8_t> flutter_args;
+  if (action == ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SELECT_TEXT) {
+    flutter_args = GetAccessibilitySelectText(actionArguments, node);
+  } else if (action == ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SET_TEXT) {
+    flutter_args = GetAccessibilitySetText(actionArguments, node);
+  }
+
+  auto flutter_action = ArkuiActionsToFlutterActions(action, node);
+
+  fml::TaskRunner::RunNowOrPostTask(
+      shell_->GetTaskRunners().GetPlatformTaskRunner(),
+      [this, id = elementId, flutter_action, action,
+       args = std::move(flutter_args)]() {
+        // this ptr is valid because the shell is running.
+
+        std::lock_guard<std::mutex> lock(*bridge_mutex_);
+        auto node = bridge_->GetNodeById(id);
+        if (!node) {
+          return;
+        }
+        if (flutter_action == ACTIONS_::kCustomAction) {
+          bridge_->SendSemanticsEvent(
+              node, ARKUI_ACCESSIBILITY_NATIVE_EVENT_TYPE_INVALID, nullptr);
+          return;
+        }
+        if (action == ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SCROLL_FORWARD ||
+            action == ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SCROLL_BACKWARD) {
+          node->performScrollAction = true;
+        }
+        if (action == ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SELECT_TEXT) {
+          node->performSelectAction = true;
+        }
+
+        switch (action) {
+          case ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_CLICK:
+            if (!node->HasAction(SemanticsAction::kTap)) {
+              platform_view_->SimulateTouchEvent(node);
+              break;
+            }
+          case ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_LONG_CLICK:
+          case ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SCROLL_FORWARD:
+          case ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SCROLL_BACKWARD:
+          case ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_COPY:
+          case ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_PASTE:
+          case ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_CUT:
+          case ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SET_TEXT:
+          case ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SELECT_TEXT:
+            if (args.size()) {
+              platform_view_->DispatchSemanticsAction(
+                  id, flutter_action,
+                  fml::MallocMapping::Copy(args.data(),
+                                           args.size() * sizeof(uint8_t)));
+            } else {
+              platform_view_->DispatchSemanticsAction(id, flutter_action, {});
+            }
+            break;
+
+          case ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_GAIN_ACCESSIBILITY_FOCUS:
+            bridge_->GainAccessibilityFocus(id);
+            break;
+          case ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_CLEAR_ACCESSIBILITY_FOCUS:
+            bridge_->ClearAccessibilityFocus(id);
+            break;
+
+          case ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SET_CURSOR_POSITION:
+          // @todo flutter don't support this setting.
+          default:
+            break;
+        }
+      });
+
+  return ARKUI_ACCESSIBILITY_NATIVE_RESULT_SUCCESSFUL;
+}
+
+int32_t OHOSShellHolder::ClearAccessibilityFocus(int64_t elementId) {
+  std::lock_guard<std::mutex> lock(*bridge_mutex_);
+  return bridge_->ClearAccessibilityFocus(elementId);
+}
+
+int32_t OHOSShellHolder::GetAccessibilityNodeCursorPosition(int64_t elementId,
+                                                            int32_t* index) {
+  std::lock_guard<std::mutex> lock(*bridge_mutex_);
+  return bridge_->GetAccessibilityNodeCursorPosition(elementId, index);
 }
 
 }  // namespace flutter

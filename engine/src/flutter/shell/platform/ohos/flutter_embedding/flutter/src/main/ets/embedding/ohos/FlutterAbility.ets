@@ -101,13 +101,6 @@ export class FlutterAbility extends UIAbility implements Host {
     if (flutterApplicationInfo.isDebugMode) {
       this.delegate?.initWindow();
     }
-
-    //冷启动对os是否开启无障碍服务进行查询
-    let accessibilityState: boolean = accessibility.isOpenAccessibilitySync();
-    if (accessibilityState) {
-      this.delegate?.getFlutterNapi()?.accessibilityStateChange(accessibilityState);
-    }
-    Log.i(TAG, `accessibility isOpen state -> ${JSON.stringify(accessibilityState)}`);
   }
 
   onDestroy() {

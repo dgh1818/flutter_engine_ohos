@@ -28,7 +28,6 @@
 #include "flutter/fml/make_copyable.h"
 #include "flutter/fml/platform/ohos/napi_util.h"
 #include "flutter/lib/ui/plugins/callback_cache.h"
-#include "flutter/shell/platform/ohos/accessibility/ohos_accessibility_features.h"
 #include "flutter/shell/platform/ohos/ohos_logging.h"
 #include "flutter/shell/platform/ohos/ohos_main.h"
 #include "flutter/shell/platform/ohos/ohos_shell_holder.h"
@@ -2091,18 +2090,6 @@ napi_value PlatformViewOHOSNapi::nativeDecodeUtf8(napi_env env,
   return result;
 }
 
-napi_value PlatformViewOHOSNapi::nativeUpdateSemantics(
-    napi_env env,
-    napi_callback_info info) {
-  return nullptr;
-}
-
-napi_value PlatformViewOHOSNapi::nativeUpdateCustomAccessibilityActions(
-    napi_env env,
-    napi_callback_info info) {
-  return nullptr;
-}
-
 /**
  * 无障碍特征之字体加粗功能，获取ets侧系统字体粗细系数
  */
@@ -2131,8 +2118,7 @@ napi_value PlatformViewOHOSNapi::nativeSetFontWeightScale(
                     << ret;
     return nullptr;
   }
-  auto accessibilityFeatures = std::make_shared<OhosAccessibilityFeatures>();
-  accessibilityFeatures->SetBoldText(fontWeightScale, shell_holder);
+  OHOS_SHELL_HOLDER->GetPlatformView()->SetBoldText(fontWeightScale);
   FML_DLOG(INFO)
       << "PlatformViewOHOSNapi::nativeSetFontWeightScale -> shell_holder: "
       << shell_holder << " fontWeightScale: " << fontWeightScale;
@@ -2322,63 +2308,93 @@ napi_value PlatformViewOHOSNapi::nativeUnicodeIsRegionalIndicatorSymbol(
 napi_value PlatformViewOHOSNapi::nativeAccessibilityStateChange(
     napi_env env,
     napi_callback_info info) {
-  napi_status ret;
   size_t argc = 2;
   napi_value args[2] = {nullptr};
-  ret = napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
-  if (ret != napi_ok) {
-    FML_DLOG(ERROR) << "PlatformViewOHOSNapi::nativeAccessibilityStateChange "
-                       "napi_get_cb_info error:"
-                    << ret;
-    return nullptr;
-  }
-  int64_t shell_holder_id;
-  ret = napi_get_value_int64(env, args[0], &shell_holder_id);
-  if (ret != napi_ok) {
-    FML_DLOG(ERROR) << "PlatformViewOHOSNapi::nativeAccessibilityStateChange "
-                       "napi_get_value_int64 error:"
-                    << ret;
-    return nullptr;
-  }
-  bool state = false;
-  ret = napi_get_value_bool(env, args[1], &state);
-  if (ret != napi_ok) {
-    FML_DLOG(ERROR) << "PlatformViewOHOSNapi::nativeAccessibilityStateChange "
-                       "napi_get_value_bool error:"
-                    << ret;
-    return nullptr;
-  }
-  LOGD(
-      "PlatformViewOHOSNapi::nativeAccessibilityStateChange state is: "
-      "%{public}s",
-      (state ? "true" : "false"));
+  int64_t shell_holder;
+  bool state;
+  NAPI_CALL(env, napi_get_cb_info(env, info, &argc, args, nullptr, nullptr));
+  NAPI_CALL(env, napi_get_value_int64(env, args[0], &shell_holder));
+  NAPI_CALL(env, napi_get_value_bool(env, args[1], &state));
 
-  // send to accessibility bridge
-  auto a11y_bridge = OhosAccessibilityBridge::GetInstance();
-  a11y_bridge->OnOhosAccessibilityStateChange(shell_holder_id, state);
-  FML_DLOG(INFO) << "nativeAccessibilityStateChange: state=" << state
-                 << " shell_holder_id=" << shell_holder_id;
+  OHOS_SHELL_HOLDER->GetPlatformView()->OnAccessibilityStateChange(state);
+
   return nullptr;
 }
 
-napi_value PlatformViewOHOSNapi::nativeAnnounce(napi_env env,
-                                                napi_callback_info info) {
-  size_t argc = 1;
-  napi_value args[1] = {nullptr};
-  napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+napi_value PlatformViewOHOSNapi::nativeAccessibilityAnnounce(
+    napi_env env,
+    napi_callback_info info) {
+  FML_DLOG(INFO) << "PlatformViewOHOSNapi::nativeAccessibilityAnnounce";
+  size_t argc = 2;
+  napi_value args[2] = {nullptr};
+  int64_t shell_holder;
+  NAPI_CALL(env, napi_get_cb_info(env, info, &argc, args, nullptr, nullptr));
+  NAPI_CALL(env, napi_get_value_int64(env, args[0], &shell_holder));
 
   size_t length = 0;
-  napi_get_value_string_utf8(env, args[0], nullptr, 0, &length);
+  napi_get_value_string_utf8(env, args[1], nullptr, 0, &length);
 
   auto null_terminated_length = length + 1;
   auto char_array = std::make_unique<char[]>(null_terminated_length);
-  napi_get_value_string_utf8(env, args[0], char_array.get(),
+  napi_get_value_string_utf8(env, args[1], char_array.get(),
                              null_terminated_length, nullptr);
-  LOGD("PlatformViewOHOSNapi::nativeAnnounce message: %{public}s",
-       char_array.get());
-  auto handler = std::make_shared<
-      NativeAccessibilityChannel::AccessibilityMessageHandler>();
-  handler->Announce(char_array);
+
+  OHOS_SHELL_HOLDER->GetPlatformView()->AccessibilityAnnounce(char_array);
+  return nullptr;
+}
+
+napi_value PlatformViewOHOSNapi::nativeAccessibilityOnTap(
+    napi_env env,
+    napi_callback_info info) {
+  FML_DLOG(INFO) << "PlatformViewOHOSNapi::nativeAccessibilityOnTap";
+  size_t argc = 2;
+  napi_value args[2] = {nullptr};
+  int64_t shell_holder;
+  int32_t nodeId;
+  NAPI_CALL(env, napi_get_cb_info(env, info, &argc, args, nullptr, nullptr));
+  NAPI_CALL(env, napi_get_value_int64(env, args[0], &shell_holder));
+  NAPI_CALL(env, napi_get_value_int32(env, args[1], &nodeId));
+
+  OHOS_SHELL_HOLDER->GetPlatformView()->AccessibilityOnTap(nodeId);
+
+  return nullptr;
+}
+
+napi_value PlatformViewOHOSNapi::nativeAccessibilityOnLongPress(
+    napi_env env,
+    napi_callback_info info) {
+  FML_DLOG(INFO) << "PlatformViewOHOSNapi::nativeAccessibilityOnTap";
+  size_t argc = 2;
+  napi_value args[2] = {nullptr};
+  int64_t shell_holder;
+  int32_t nodeId;
+  NAPI_CALL(env, napi_get_cb_info(env, info, &argc, args, nullptr, nullptr));
+  NAPI_CALL(env, napi_get_value_int64(env, args[0], &shell_holder));
+  NAPI_CALL(env, napi_get_value_int32(env, args[1], &nodeId));
+
+  OHOS_SHELL_HOLDER->GetPlatformView()->AccessibilityOnLongPress(nodeId);
+  return nullptr;
+}
+
+napi_value PlatformViewOHOSNapi::nativeAccessibilityOnTooltip(
+    napi_env env,
+    napi_callback_info info) {
+  FML_DLOG(INFO) << "PlatformViewOHOSNapi::nativeAccessibilityAnnounce";
+  size_t argc = 2;
+  napi_value args[2] = {nullptr};
+  int64_t shell_holder;
+  NAPI_CALL(env, napi_get_cb_info(env, info, &argc, args, nullptr, nullptr));
+  NAPI_CALL(env, napi_get_value_int64(env, args[0], &shell_holder));
+
+  size_t length = 0;
+  napi_get_value_string_utf8(env, args[1], nullptr, 0, &length);
+
+  auto null_terminated_length = length + 1;
+  auto char_array = std::make_unique<char[]>(null_terminated_length);
+  napi_get_value_string_utf8(env, args[1], char_array.get(),
+                             null_terminated_length, nullptr);
+
+  OHOS_SHELL_HOLDER->GetPlatformView()->AccessibilityOnTooltip(char_array);
   return nullptr;
 }
 
@@ -2418,20 +2434,6 @@ napi_value PlatformViewOHOSNapi::nativeSetSemanticsEnabled(
          "OHOS_SHELL_HOLDER->GetPlatformView()->SetSemanticsEnabled= "
       << enabled;
 
-  // when the system accessibility service is off
-  if (!enabled) {
-    auto ohosAccessibilityBridge = OhosAccessibilityBridge::GetInstance();
-    ohosAccessibilityBridge->ClearFlutterSemanticsCaches();
-    FML_DLOG(INFO) << "PlatformViewOHOSNapi::nativeSetSemanticsEnabled -> "
-                      "ClearFlutterSemanticsCaches()";
-  }
-
-  // 给无障碍bridge传递nativeShellHolderId
-  auto ohosAccessibilityBridge = OhosAccessibilityBridge::GetInstance();
-  ohosAccessibilityBridge->native_shell_holder_id_ = shell_holder;
-  FML_DLOG(INFO)
-      << "PlatformViewOHOSNapi::nativeSetSemanticsEnabled -> shell_holder:"
-      << shell_holder;
   return nullptr;
 }
 
@@ -2443,15 +2445,6 @@ void PlatformViewOHOSNapi::SetSemanticsEnabled(int64_t shell_holder,
   OHOS_SHELL_HOLDER->GetPlatformView()->SetSemanticsEnabled(enabled);
 }
 
-void PlatformViewOHOSNapi::DispatchSemanticsAction(
-    int64_t shell_holder,
-    int32_t id,
-    flutter::SemanticsAction action,
-    fml::MallocMapping args) {
-  OHOS_SHELL_HOLDER->GetPlatformView()->PlatformView::DispatchSemanticsAction(
-      id, action, fml::MallocMapping());
-}
-
 void PlatformViewOHOSNapi::SetAccessibilityFeatures(int64_t shell_holder,
                                                     int32_t flags) {
   OHOS_SHELL_HOLDER->GetPlatformView()->SetAccessibilityFeatures(flags);
@@ -2460,24 +2453,39 @@ void PlatformViewOHOSNapi::SetAccessibilityFeatures(int64_t shell_holder,
 napi_value PlatformViewOHOSNapi::nativeSetFlutterNavigationAction(
     napi_env env,
     napi_callback_info info) {
-  napi_status ret;
-  size_t argc = 1;
-  napi_value args[1] = {nullptr};
-  napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
-
+  size_t argc = 2;
+  napi_value args[2] = {nullptr};
+  int64_t shell_holder;
   bool isNavigate;
-  ret = napi_get_value_bool(env, args[0], &isNavigate);
-  if (ret != napi_ok) {
-    FML_DLOG(ERROR) << "PlatformViewOHOSNapi::nativeSetFlutterNavigationAction "
-                       "napi_get_value_bool error:"
-                    << ret;
-    return nullptr;
-  }
+  NAPI_CALL(env, napi_get_cb_info(env, info, &argc, args, nullptr, nullptr));
+  NAPI_CALL(env, napi_get_value_int64(env, args[0], &shell_holder));
+  NAPI_CALL(env, napi_get_value_bool(env, args[1], &isNavigate));
 
-  auto ohosAccessibilityBridge = OhosAccessibilityBridge::GetInstance();
-  ohosAccessibilityBridge->IS_FLUTTER_NAVIGATE = isNavigate;
+  OHOS_SHELL_HOLDER->GetPlatformView()->SetAccessibleNavigation(isNavigate);
   FML_DLOG(INFO) << "PlatformViewOHOSNapi::nativeSetFlutterNavigationAction -> "
                  << isNavigate;
   return nullptr;
 }
+
+napi_value PlatformViewOHOSNapi::nativeUpdateCurrentXComponentId(
+    napi_env env,
+    napi_callback_info info) {
+  napi_status ret;
+  size_t argc = 1;
+  napi_value args[1] = {nullptr};
+  napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+  std::string xcomponent_id;
+
+  if (fml::napi::GetString(env, args[0], xcomponent_id) != 0) {
+    FML_DLOG(ERROR)
+        << "nativeUpdateCurrentXComponentId xcomponent_id GetString error";
+    return nullptr;
+  }
+
+  std::lock_guard<std::mutex> lock(
+      XComponentAdapter::GetInstance()->xcomponentMap_mutex_);
+  XComponentAdapter::GetInstance()->SetCurrentXcomponentId(xcomponent_id);
+  return nullptr;
+}
+
 }  // namespace flutter

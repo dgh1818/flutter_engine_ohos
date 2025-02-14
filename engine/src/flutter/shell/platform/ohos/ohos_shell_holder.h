@@ -25,6 +25,7 @@
 #include "flutter/shell/common/shell.h"
 #include "flutter/shell/common/thread_host.h"
 
+#include "accessibility/ohos_semantics_bridge.h"
 #include "flutter/assets/asset_resolver.h"
 #include "flutter/common/settings.h"
 #include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
@@ -72,6 +73,31 @@ class OHOSShellHolder {
 
   void ReloadSystemFonts();
 
+  void SetAccessibilityProvider(ArkUI_AccessibilityProvider* provider);
+
+  int32_t FindFocusNode(int32_t id,
+                        ArkUI_AccessibilityFocusType focusType,
+                        ArkUI_AccessibilityElementInfo* info);
+  int32_t FindNextFocusNode(int32_t id,
+                            ArkUI_AccessibilityFocusMoveDirection direction,
+                            ArkUI_AccessibilityElementInfo* info);
+
+  int32_t FillNodesWithSearchText(int32_t id,
+                                  const char* text,
+                                  ArkUI_AccessibilityElementInfoList* list);
+
+  int32_t FillNodesWithSearch(int32_t id,
+                              ArkUI_AccessibilitySearchMode mode,
+                              ArkUI_AccessibilityElementInfoList* list);
+
+  int32_t ExecuteAction(int64_t elementId,
+                        ArkUI_Accessibility_ActionType action,
+                        ArkUI_AccessibilityActionArguments* actionArguments);
+
+  int32_t ClearAccessibilityFocus(int64_t elementId);
+
+  int32_t GetAccessibilityNodeCursorPosition(int64_t elementId, int32_t* index);
+
  private:
   std::optional<RunConfiguration> BuildRunConfiguration(
       const std::string& entrypoint,
@@ -79,6 +105,8 @@ class OHOSShellHolder {
       const std::vector<std::string>& entrypoint_args) const;
 
   const flutter::Settings settings_;
+  std::shared_ptr<SemanticsBridge> bridge_;
+  std::shared_ptr<std::mutex> bridge_mutex_;
   fml::WeakPtr<PlatformViewOHOS> platform_view_;
   std::shared_ptr<ThreadHost> thread_host_;
   std::unique_ptr<Shell> shell_;

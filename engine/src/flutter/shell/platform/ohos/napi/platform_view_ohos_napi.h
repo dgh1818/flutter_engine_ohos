@@ -20,7 +20,6 @@
 #include "flutter/fml/mapping.h"
 #include "flutter/fml/task_runner.h"
 #include "flutter/lib/ui/window/platform_message.h"
-#include "flutter/shell/platform/ohos/accessibility/ohos_accessibility_features.h"
 #include "napi/native_api.h"
 
 // class for all c++ to call js function
@@ -81,10 +80,6 @@ class PlatformViewOHOSNapi {
    */
   void SetSemanticsEnabled(int64_t shell_hoder, bool enabled);
   void SetAccessibilityFeatures(int64_t shell_hoder, int32_t flags);
-  void DispatchSemanticsAction(int64_t shell_hoder,
-                               int32_t id,
-                               flutter::SemanticsAction action,
-                               fml::MallocMapping args);
 
   static napi_value nativeUpdateRefreshRate(
       napi_env env,
@@ -250,14 +245,16 @@ class PlatformViewOHOSNapi {
   /**
    * ets call c++
    */
-  static napi_value nativeUpdateSemantics(napi_env env,
-                                          napi_callback_info info);
-  static napi_value nativeUpdateCustomAccessibilityActions(
-      napi_env env,
-      napi_callback_info info);
   static napi_value nativeAccessibilityStateChange(napi_env env,
                                                    napi_callback_info info);
-  static napi_value nativeAnnounce(napi_env env, napi_callback_info info);
+  static napi_value nativeAccessibilityAnnounce(napi_env env,
+                                                napi_callback_info info);
+  static napi_value nativeAccessibilityOnTap(napi_env env,
+                                             napi_callback_info info);
+  static napi_value nativeAccessibilityOnLongPress(napi_env env,
+                                                   napi_callback_info info);
+  static napi_value nativeAccessibilityOnTooltip(napi_env env,
+                                                 napi_callback_info info);
   static napi_value nativeSetSemanticsEnabled(napi_env env,
                                               napi_callback_info info);
   static napi_value nativeSetFlutterNavigationAction(napi_env env,
@@ -265,6 +262,9 @@ class PlatformViewOHOSNapi {
 
   static napi_value nativeSetFontWeightScale(napi_env env,
                                              napi_callback_info info);
+
+  static napi_value nativeUpdateCurrentXComponentId(napi_env env,
+                                                    napi_callback_info info);
 
  private:
   static napi_env env_;
