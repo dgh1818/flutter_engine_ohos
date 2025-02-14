@@ -17,8 +17,10 @@
 #define FLUTTER_SHELL_PLATFORM_OHOS_PLATFORM_VIEW_OHOS_H_
 
 #include <memory>
+#include <queue>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include <multimedia/image_framework/image_mdk.h>
@@ -27,13 +29,11 @@
 #include "flutter/fml/memory/weak_ptr.h"
 #include "flutter/lib/ui/window/platform_message.h"
 #include "flutter/shell/common/platform_view.h"
-#include "flutter/shell/platform/ohos/accessibility/native_accessibility_channel.h"
-#include "flutter/shell/platform/ohos/accessibility/ohos_accessibility_bridge.h"
+#include "flutter/shell/platform/ohos/accessibility/ohos_semantics_bridge.h"
 #include "flutter/shell/platform/ohos/context/ohos_context.h"
 #include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
 #include "flutter/shell/platform/ohos/ohos_external_texture_gl.h"
 #include "flutter/shell/platform/ohos/platform_message_handler_ohos.h"
-#include "flutter/shell/platform/ohos/platform_view_ohos_delegate.h"
 #include "flutter/shell/platform/ohos/surface/ohos_native_window.h"
 #include "flutter/shell/platform/ohos/surface/ohos_snapshot_surface_producer.h"
 #include "flutter/shell/platform/ohos/surface/ohos_surface.h"
@@ -105,11 +105,6 @@ class PlatformViewOHOS final : public PlatformView {
 
   void DispatchEmptyPlatformMessage(std::string name, int reponseId);
 
-  void DispatchSemanticsAction(int id,
-                               int action,
-                               void* actionData,
-                               int actionDataLenth);
-
   std::shared_ptr<OHOSExternalTexture> CreateExternalTexture(
       int64_t texture_id);
 
@@ -168,12 +163,21 @@ class PlatformViewOHOS final : public PlatformView {
 
   void RunTask(OhosThreadType type, const fml::closure& task);
 
+  void SetSemanticsBridge(std::shared_ptr<SemanticsBridge> bridge,
+                          std::shared_ptr<std::mutex> mutex);
+  void AccessibilityAnnounce(std::unique_ptr<char[]>& message);
+  void AccessibilityOnTap(int32_t nodeId);
+  void AccessibilityOnLongPress(int32_t nodeId);
+  void AccessibilityOnTooltip(std::unique_ptr<char[]>& message);
+  void OnAccessibilityStateChange(bool state);
+  void SetAccessibleNavigation(bool isAccessibleNavigation);
+  void SetBoldText(double fontWeightScale);
+
+  void SimulateTouchEvent(SemanticsNodeExtend* node);
+
  private:
   const std::shared_ptr<PlatformViewOHOSNapi> napi_facade_;
   std::shared_ptr<OHOSContext> ohos_context_;
-
-  std::shared_ptr<PlatformViewOHOSDelegate> platform_view_ohos_delegate_;
-  NativeAccessibilityChannel nativeAccessibilityChannel_;
 
   std::shared_ptr<OHOSSurface> ohos_surface_;
   std::shared_ptr<PlatformMessageHandlerOHOS> platform_message_handler_;
@@ -190,6 +194,16 @@ class PlatformViewOHOS final : public PlatformView {
   ViewportMetrics viewport_metrics_;
 
   bool window_is_preload_ = false;
+
+  // accessibility
+  std::queue<std::pair<flutter::SemanticsNodeUpdates,
+                       flutter::CustomAccessibilityActionUpdates>>
+      semantics_queue_;
+
+  std::shared_ptr<SemanticsBridge> bridge_;
+  std::shared_ptr<std::mutex> bridge_mutex_;
+  int32_t accessibility_feature_flags_ = 0;
+  bool is_accessibility_navigation_ = false;
 
   // |PlatformView|
   void UpdateSemantics(

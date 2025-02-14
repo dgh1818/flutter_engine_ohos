@@ -714,11 +714,11 @@ export default class FlutterNapi {
     }
   }
 
-  setFlutterNavigationAction(isNavigate: boolean): void {
+  setFlutterNavigationAction(shellHolderId: number, isNavigate: boolean): void {
     this.ensureRunningOnMainThread();
     if (this.isAttached()) {
       Log.i(TAG, "setFlutterNavigationAction: " + isNavigate);
-      flutter.nativeSetFlutterNavigationAction(isNavigate);
+      flutter.nativeSetFlutterNavigationAction(shellHolderId, isNavigate);
     } else {
       Log.w(TAG, "setFlutterNavigationAction is detached !");
     }
@@ -726,9 +726,5 @@ export default class FlutterNapi {
 }
 
 export interface AccessibilityDelegate {
-  updateCustomAccessibilityActions(buffer: ByteBuffer, strings: string[]): void;
-
-  updateSemantics(buffer: ByteBuffer, strings: string[], stringAttributeArgs: ByteBuffer[]): void;
-
   accessibilityStateChange(state: Boolean): void;
 }

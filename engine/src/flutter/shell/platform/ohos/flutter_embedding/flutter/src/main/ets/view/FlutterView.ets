@@ -401,6 +401,9 @@ export class FlutterView {
     this.flutterEngine?.getFlutterNapi()?.updateSize(this.displayInfo!.width, this.displayInfo!.height)
     this.flutterEngine?.getFlutterNapi()?.updateDensity(this.displayInfo!.densityPixels)
     this.flutterEngine?.getFlutterNapi().enableFrameCache(this.frameCache);
+    if (accessibility.isOpenAccessibilitySync()) {
+      this.flutterEngine?.getFlutterNapi()?.accessibilityStateChange(true);
+    }
     flutterEngine.getPlatformViewsController()?.attachToView(this);
 
     let newArea: Area | null = {
