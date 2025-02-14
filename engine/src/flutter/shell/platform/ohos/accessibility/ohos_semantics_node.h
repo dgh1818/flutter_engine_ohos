@@ -87,7 +87,6 @@ struct SemanticsNodeExtend : flutter::SemanticsNode {
 
   bool performScrollAction = false;
   bool performSelectAction = false;
-  bool focusableInSubtree = false;
   bool isAccessibilityFocued = false;
   int32_t previousFlags = 0;
   int32_t previousActions = 0;
@@ -96,6 +95,8 @@ struct SemanticsNodeExtend : flutter::SemanticsNode {
   SemanticsNodeExtend* parentNode = nullptr;
   SemanticsNodeExtend* previousNode = nullptr;
   SemanticsNodeExtend* nextNode = nullptr;
+  SemanticsNodeExtend* previousFocusableNode = nullptr;
+  SemanticsNodeExtend* nextFocusableNode = nullptr;
   std::vector<SemanticsNodeExtend*> childrenInTraversalOrderList;
   std::vector<int64_t> existChildrenInTraversalOrder;
 
@@ -136,6 +137,7 @@ struct SemanticsNodeExtend : flutter::SemanticsNode {
 
   void UpdateWithNode(flutter::SemanticsNode& node);
   void UpdateSelfRecursively(std::unordered_set<int32_t>& visitorId,
+                             std::vector<int32_t>& visitorOrder,
                              SkM44& fatherTransform,
                              bool needUpdat);
 

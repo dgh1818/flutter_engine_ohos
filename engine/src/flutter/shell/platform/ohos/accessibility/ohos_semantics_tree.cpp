@@ -86,12 +86,16 @@ std::vector<SemanticsNodeExtend*> SemanticsTree::UpdateWithNodes(
   }
 
   std::unordered_set<int32_t> visitorId;
+  std::vector<int32_t> visitorOrder;
   SkM44 transform;
   if (root_node_) {
-    root_node_->UpdateSelfRecursively(visitorId, transform, false);
+    root_node_->UpdateSelfRecursively(visitorId, visitorOrder, transform,
+                                      false);
     root_node_->UpdateSelfElementInfo();
     assert(!root_node_->IsFocusable());
   }
+
+  UpdateFocusableNodesInfo(visitorOrder);
 
   std::unordered_set<int32_t> need_remove_ids;
   for (auto& item : all_semantics_nodes_) {
@@ -274,6 +278,7 @@ SemanticsNodeExtend* SemanticsTree::FindFocusNode(
 // Only nodes configured with the action
 // ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SCROLL_FORWARD/BACKWARD will
 // calling the current function.
+// If no next focusable node is found, return the search node.
 SemanticsNodeExtend* SemanticsTree::FindNextFocusNode(
     int32_t id,
     ArkUI_AccessibilityFocusMoveDirection direction) {
@@ -315,26 +320,18 @@ SemanticsNodeExtend* SemanticsTree::FindNextFocusNode(
         break;
       }
       case ARKUI_ACCESSIBILITY_NATIVE_DIRECTION_BACKWARD: {
-        if (currentNode->previousNode != nullptr) {
-          returnNode = currentNode->previousNode;
-        } else if (currentNode->parentNode != nullptr) {
-          returnNode = currentNode->parentNode;
+        if (currentNode->previousFocusableNode != nullptr) {
+          returnNode = currentNode->previousFocusableNode;
+        } else {
+          return startNode;
         }
         break;
       }
       case ARKUI_ACCESSIBILITY_NATIVE_DIRECTION_FORWARD: {
-        SemanticsNodeExtend* candidateNode = nullptr;
-        for (auto childNode : currentNode->childrenInTraversalOrderList) {
-          if (childNode && childNode->isExist &&
-              childNode->focusableInSubtree) {
-            candidateNode = childNode;
-            break;
-          }
-        }
-        if (candidateNode) {
-          returnNode = candidateNode;
-        } else if (currentNode->nextNode != nullptr) {
-          returnNode = currentNode->nextNode;
+        if (currentNode->nextFocusableNode) {
+          returnNode = currentNode->nextFocusableNode;
+        } else {
+          return startNode;
         }
         break;
       }
@@ -460,6 +457,82 @@ bool SemanticsTree::FillNodesWithSearch(
   }
   // FML_DLOG(DEBUG) << "FillNodesWithSearch " << id;
   return retValue;
+}
+
+void SemanticsTree::UpdateFocusableNodesInfo(
+    std::vector<int32_t>& visitorOrder) {
+  SemanticsNodeExtend* lastFocusableNode = nullptr;
+  SemanticsNodeExtend* firstFocusableNode = nullptr;
+  int firstFocusableIndex = -1;
+  int lastFocusableIndex = -1;
+
+  // Forward pass: fill previousFocusableNode and track focusable indices
+  for (size_t i = 0; i < visitorOrder.size(); ++i) {
+    auto id = visitorOrder[i];
+    auto node = FindNodeById(id);
+    if (!node) {
+      continue;
+    }
+
+    if (node->IsFocusable()) {
+      if (!firstFocusableNode) {
+        firstFocusableNode = node;
+        firstFocusableIndex = i;  // First focusable node index
+      }
+
+      node->previousFocusableNode = lastFocusableNode;
+
+      if (lastFocusableNode) {
+        lastFocusableNode->nextFocusableNode = node;
+      }
+
+      lastFocusableNode = node;
+      lastFocusableIndex = i;  // Last focusable node index
+    } else {
+      node->previousFocusableNode = lastFocusableNode;
+      node->nextFocusableNode = nullptr;
+    }
+  }
+
+  if (!firstFocusableNode) {
+    return;
+  }
+
+  // Backward pass: fill nextFocusableNode
+  for (auto it = visitorOrder.rbegin(); it != visitorOrder.rend(); ++it) {
+    auto node = FindNodeById(*it);
+    if (!node) {
+      continue;
+    }
+
+    if (node->IsFocusable()) {
+      if (!node->nextFocusableNode) {
+        // Link to the first focusable node
+        node->nextFocusableNode = firstFocusableNode;
+      }
+      firstFocusableNode = node;
+    }
+  }
+
+  // Handle trailing nodes without nextFocusableNode
+  if (lastFocusableIndex >= 0) {
+    for (size_t i = lastFocusableIndex + 1; i < visitorOrder.size(); ++i) {
+      auto node = FindNodeById(visitorOrder[i]);
+      if (node) {
+        node->nextFocusableNode = firstFocusableNode;
+      }
+    }
+  }
+
+  // Handle leading nodes without previousFocusableNode
+  if (firstFocusableIndex >= 0) {
+    for (int i = firstFocusableIndex - 1; i >= 0; --i) {
+      auto node = FindNodeById(visitorOrder[i]);
+      if (node) {
+        node->previousFocusableNode = lastFocusableNode;
+      }
+    }
+  }
 }
 
 SemanticsNodeExtend* SemanticsTree::FindNodeById(int32_t id) {

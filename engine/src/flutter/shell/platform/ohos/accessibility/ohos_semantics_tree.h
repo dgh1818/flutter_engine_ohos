@@ -74,6 +74,7 @@ class SemanticsTree {
                           ArkUI_AccessibilityElementInfoList* list);
   bool FillNodeInfo(SemanticsNodeExtend* node,
                     ArkUI_AccessibilityElementInfoList* list);
+  void UpdateFocusableNodesInfo(std::vector<int32_t>& visitorOrder);
 };
 
 }  // namespace flutter

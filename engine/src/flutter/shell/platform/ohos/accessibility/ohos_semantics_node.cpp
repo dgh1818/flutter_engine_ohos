@@ -330,10 +330,12 @@ void SemanticsNodeExtend::OHOSActionsUpdate() {
 
 void SemanticsNodeExtend::UpdateSelfRecursively(
     std::unordered_set<int32_t>& visitorId,
+    std::vector<int32_t>& visitorOrder,
     SkM44& fatherTransform,
     bool needUpdate) {
   assert(visitorId.find(id) == visitorId.end());
   visitorId.insert(id);
+  visitorOrder.push_back(id);
   if (rectChanged) {
     needUpdate = true;
   }
@@ -361,7 +363,6 @@ void SemanticsNodeExtend::UpdateSelfRecursively(
 
   SemanticsNodeExtend* prevNode = nullptr;
   int visible_num = 0;
-  focusableInSubtree = IsFocusable();
   int last_visible_index = 0;
   int child_index = 0;
 
@@ -394,10 +395,9 @@ void SemanticsNodeExtend::UpdateSelfRecursively(
     prevNode = childNode;
 
     exist_children.push_back(childNode->id);
-    childNode->UpdateSelfRecursively(visitorId, absoluteTransform, needUpdate);
+    childNode->UpdateSelfRecursively(visitorId, visitorOrder, absoluteTransform,
+                                     needUpdate);
     childNode->UpdateSelfElementInfo();
-
-    focusableInSubtree = focusableInSubtree || childNode->focusableInSubtree;
   }
 
   if (exist_children != existChildrenInTraversalOrder) {
