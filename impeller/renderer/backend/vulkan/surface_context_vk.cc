@@ -101,6 +101,10 @@ void SurfaceContextVK::UpdateSurfaceSize(const ISize& size) const {
   swapchain_->UpdateSurfaceSize(size);
 }
 
+void SurfaceContextVK::UpdateSurfaceHdr(int hdr) const {
+  swapchain_->UpdateSurfaceHdr(hdr);
+}
+
 #ifdef FML_OS_ANDROID
 
 vk::UniqueSurfaceKHR SurfaceContextVK::CreateAndroidSurface(

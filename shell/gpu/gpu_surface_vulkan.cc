@@ -144,6 +144,8 @@ SkColorType GPUSurfaceVulkan::ColorTypeFromFormat(const VkFormat format) {
     case VK_FORMAT_B8G8R8A8_UNORM:
     case VK_FORMAT_B8G8R8A8_SRGB:
       return SkColorType::kBGRA_8888_SkColorType;
+    case VK_FORMAT_A2B10G10R10_UNORM_PACK32:
+      return SkColorType::kRGBA_1010102_SkColorType;
     default:
       return SkColorType::kUnknown_SkColorType;
   }

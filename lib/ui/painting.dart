@@ -1649,6 +1649,7 @@ enum PixelFormat {
   /// component, followed by: green, blue and alpha. Premultiplied alpha isn't
   /// used, matching [ImageByteFormat.rawExtendedRgba128].
   rgbaFloat32,
+  rgba1010102,
 }
 
 /// Signature for [Image] lifecycle events.
@@ -1926,7 +1927,7 @@ base class _Image extends NativeFieldWrapperClass1 {
   @Native<Int32 Function(Pointer<Void>)>(symbol: 'Image::height', isLeaf: true)
   external int get height;
 
-  Future<ByteData?> toByteData({ImageByteFormat format = ImageByteFormat.rawRgba}) {
+  Future<ByteData?> toByteData({ImageByteFormat format = ImageByteFormat.rawUnmodified}) {
     return _futurizeWithError((_CallbackWithError<ByteData?> callback) {
       return _toByteData(format.index, (Uint8List? encoded, String? error) {
         if (error == null && encoded != null) {

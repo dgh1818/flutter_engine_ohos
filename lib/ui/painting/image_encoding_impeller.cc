@@ -25,6 +25,8 @@ std::optional<SkColorType> ToSkColorType(impeller::PixelFormat format) {
       return SkColorType::kBGRA_8888_SkColorType;
     case impeller::PixelFormat::kB10G10R10XR:
       return SkColorType::kBGR_101010x_XR_SkColorType;
+    case impeller::PixelFormat::kR10G10B10A2:
+      return SkColorType::kRGBA_1010102_SkColorType;
     default:
       return std::nullopt;
   }
@@ -224,6 +226,7 @@ int ImageEncodingImpeller::GetColorSpace(
     const std::shared_ptr<impeller::Texture>& texture) {
   const impeller::TextureDescriptor& desc = texture->GetTextureDescriptor();
   switch (desc.format) {
+
     case impeller::PixelFormat::kB10G10R10XR:  // intentional_fallthrough
     case impeller::PixelFormat::kR16G16B16A16Float:
       return ColorSpace::kExtendedSRGB;

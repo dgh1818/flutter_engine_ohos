@@ -42,6 +42,10 @@ void KHRSwapchainVK::UpdateSurfaceSize(const ISize& size) {
   size_ = size;
 }
 
+void KHRSwapchainVK::UpdateSurfaceHdr(int hdr){
+  hdr_ = hdr;
+}
+
 std::unique_ptr<Surface> KHRSwapchainVK::AcquireNextDrawable() {
   if (!IsValid()) {
     return nullptr;
@@ -49,10 +53,13 @@ std::unique_ptr<Surface> KHRSwapchainVK::AcquireNextDrawable() {
 
   TRACE_EVENT0("impeller", __FUNCTION__);
 
+  hdr_ = impeller::Context::hdr_;
   auto result = impl_->AcquireNextDrawable();
-  if (!result.out_of_date && size_ == impl_->GetSize()) {
+  if (!result.out_of_date && size_ == impl_->GetSize() && hdr_ == impl_->GetHdr()) {
     return std::move(result.surface);
   }
+  
+  FML_DLOG(INFO) << "SWAPCHAIN Recreate-" <<"HDR is:" << hdr_;
 
   TRACE_EVENT0("impeller", "RecreateSwapchain");
 

@@ -39,6 +39,10 @@ class OHOSNativeWindow : public fml::RefCountedThreadSafe<OHOSNativeWindow> {
 
   void SetSize(int width, int height);
 
+  void SetHdr(bool hdr);
+
+  int GetHdr() const;
+
   Handle handle() const;
 
   /// Returns true when this HarmonyOS NativeWindow is not backed by a real

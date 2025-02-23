@@ -6,6 +6,8 @@
 
 #include "impeller/core/capture.h"
 
+int impeller::Context::hdr_;
+
 namespace impeller {
 
 Context::~Context() = default;

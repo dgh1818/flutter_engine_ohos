@@ -189,6 +189,8 @@ std::optional<impeller::PixelFormat> ToPixelFormat(SkColorType type) {
       return impeller::PixelFormat::kR16G16B16A16Float;
     case kBGR_101010x_XR_SkColorType:
       return impeller::PixelFormat::kB10G10R10XR;
+    case kRGBA_1010102_SkColorType:
+      return impeller::PixelFormat::kR10G10B10A2;
     default:
       return std::nullopt;
   }

@@ -227,7 +227,8 @@ void PlatformViewOHOS::NotifySurfaceWindowChanged(
         task_runners_.GetRasterTaskRunner(),
         [&latch, width = display_width_, height = display_height_,
          surface = ohos_surface_.get(),
-         native_window = std::move(native_window)]() {
+         native_window = std::move(native_window), 
+         hdr = std::move(impeller::Context::hdr_)]() {
           if (native_window) {
             // Reset the window size here to prevent the window size from being
             // unsynchronized when the XComponent size changes.
@@ -237,6 +238,7 @@ void PlatformViewOHOS::NotifySurfaceWindowChanged(
             // causing the window size to revert to its original value during
             // the process.
             native_window->SetSize(width, height);
+            native_window->SetHdr(hdr);
             surface->SetDisplayWindow(native_window);
           }
           latch.Signal();
@@ -268,6 +270,12 @@ void PlatformViewOHOS::UpdateDisplaySize(int width, int height) {
     // compression, which can occur if the physical size of the viewport differs
     // from the window size.
     SetViewportMetrics(kFlutterImplicitViewId, viewport_metrics_);
+  }
+}
+
+void PlatformViewOHOS::UpdateDisplayHdr(int hdr) {
+  if (display_hdr_ != hdr) {
+    display_hdr_ = hdr;
   }
 }
 

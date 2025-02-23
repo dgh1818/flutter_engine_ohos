@@ -62,6 +62,8 @@ class KHRSwapchainImplVK final
   std::pair<vk::UniqueSurfaceKHR, vk::UniqueSwapchainKHR> DestroySwapchain();
 
   const ISize& GetSize() const;
+  int GetHdr() const;
+  void SetHdr(int hdr);
 
  private:
   std::weak_ptr<Context> context_;
@@ -74,6 +76,7 @@ class KHRSwapchainImplVK final
   ISize size_;
   bool enable_msaa_ = true;
   bool is_valid_ = false;
+  int hdr_ = -1;
 
   KHRSwapchainImplVK(const std::shared_ptr<Context>& context,
                      vk::UniqueSurfaceKHR surface,

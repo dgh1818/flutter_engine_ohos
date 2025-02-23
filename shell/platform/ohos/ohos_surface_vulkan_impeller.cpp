@@ -84,6 +84,11 @@ bool OHOSSurfaceVulkanImpeller::OnScreenSurfaceResize(const SkISize& size) {
   return true;
 }
 
+bool OHOSSurfaceVulkanImpeller::OnScreenSurfaceHdrUpdate(const int hdr) {
+  surface_context_vk_->UpdateSurfaceHdr(hdr);
+  return true;
+}
+
 // |OHOSSurface|
 bool OHOSSurfaceVulkanImpeller::ResourceContextMakeCurrent() {
   // do nothing (it is not opengl)

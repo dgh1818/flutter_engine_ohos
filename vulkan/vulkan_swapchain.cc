@@ -30,6 +30,19 @@ struct FormatInfo {
 }  // namespace
 
 static std::vector<FormatInfo> DesiredFormatInfos() {
+
+  const skcms_Matrix3x3 dci_p3_matrix = {{
+      { 0.4866f, 0.2657f, 0.1982f }, 
+      { 0.2290f, 0.6917f, 0.0793f },
+      { 0.000f, 0.0451f, 1.0430f }
+    }};
+
+  const skcms_Matrix3x3 rec2020_matrix = {{
+    { 0.636958f, 0.144617f, 0.168881f }, 
+    { 0.262700f, 0.677998f, 0.059302f },
+    { 0.000000f, 0.028073f, 1.060985f }
+  }};
+
   return {{VK_FORMAT_R8G8B8A8_SRGB, kRGBA_8888_SkColorType,
            SkColorSpace::MakeSRGB()},
           {VK_FORMAT_B8G8R8A8_SRGB, kRGBA_8888_SkColorType,
@@ -39,7 +52,9 @@ static std::vector<FormatInfo> DesiredFormatInfos() {
           {VK_FORMAT_R8G8B8A8_UNORM, kRGBA_8888_SkColorType,
            SkColorSpace::MakeSRGB()},
           {VK_FORMAT_B8G8R8A8_UNORM, kRGBA_8888_SkColorType,
-           SkColorSpace::MakeSRGB()}};
+           SkColorSpace::MakeSRGB()},
+          {VK_FORMAT_A2B10G10R10_UNORM_PACK32, kRGBA_1010102_SkColorType,
+           SkColorSpace::MakeRGB(SkNamedTransferFn::kHLG, rec2020_matrix)}};
 }
 
 VulkanSwapchain::VulkanSwapchain(const VulkanProcTable& p_vk,

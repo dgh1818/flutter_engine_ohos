@@ -91,6 +91,7 @@ class PlatformViewOHOS final : public PlatformView {
    * @param height
    */
   void UpdateDisplaySize(int width, int height);
+  void UpdateDisplayHdr(int hdr);
 
   // |PlatformView|
   void NotifyDestroyed() override;
@@ -186,6 +187,7 @@ class PlatformViewOHOS final : public PlatformView {
   // viewport will use this size
   int display_width_ = 0;
   int display_height_ = 0;
+  int display_hdr_ = -1;
 
   ViewportMetrics viewport_metrics_;
 

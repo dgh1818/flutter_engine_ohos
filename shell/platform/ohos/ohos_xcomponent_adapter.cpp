@@ -165,6 +165,7 @@ static int32_t SetNativeWindowOpt(OHNativeWindow* nativeWindow,
   // Set the format of the native window buffer.
   code = SET_FORMAT;
   int32_t format = kPixelFmtRgba8888;
+  //int32_t format = kPixelFmtRgba1010102;
 
   ret = OH_NativeWindow_NativeWindowHandleOpt(nativeWindow, code, format);
   if (ret) {
@@ -173,6 +174,14 @@ static int32_t SetNativeWindowOpt(OHNativeWindow* nativeWindow,
         ",w:%{public}d x %{public}d:%{public}d",
         nativeWindow, width, height, ret);
   }
+
+  // code = SET_COLOR_GAMUT;
+  // format = kColorGamutBt2100Hlg;
+  // ret = OH_NativeWindow_NativeWindowHandleOpt(nativeWindow, code, format);
+  // if (ret) {
+  //   LOGE(
+  //       "Set NativeWindow kColorGamutBt2100Hlg failed");
+  // }
   return ret;
 }
 

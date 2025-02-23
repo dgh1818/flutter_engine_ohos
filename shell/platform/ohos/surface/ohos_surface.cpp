@@ -47,7 +47,7 @@ bool OHOSSurface::PrepareOffscreenWindow(int32_t width, int32_t height) {
   TRACE_EVENT0("flutter", "OHOSSurface-PrepareContext");
 
   if (offscreen_native_image_ != nullptr && offscreen_height_ == height &&
-      offscreen_width_ == width) {
+      offscreen_width_ == width && offscreen_hdr_ == impeller::Context::hdr_) {
     return true;
   }
 
@@ -55,6 +55,7 @@ bool OHOSSurface::PrepareOffscreenWindow(int32_t width, int32_t height) {
 
   offscreen_height_ = height;
   offscreen_width_ = width;
+  offscreen_hdr_ = impeller::Context::hdr_;
 
   offscreen_nativewindow_ =
       OH_NativeImage_AcquireNativeWindow(offscreen_native_image_);
@@ -62,6 +63,34 @@ bool OHOSSurface::PrepareOffscreenWindow(int32_t width, int32_t height) {
     FML_LOG(ERROR) << "offscreen OH_NativeImage_AcquireNativeWindow get null";
     return false;
   }
+
+  if (offscreen_hdr_ == 1){
+    int ret_color_gamut = OH_NativeWindow_NativeWindowHandleOpt(
+      offscreen_nativewindow_, SET_COLOR_GAMUT, NATIVEBUFFER_COLOR_GAMUT_BT2100_HLG);
+    int ret_color_format = OH_NativeWindow_NativeWindowHandleOpt(
+      offscreen_nativewindow_, SET_FORMAT, 34);
+    if (ret_color_gamut != 0 ||ret_color_format!=0) {
+      FML_LOG(ERROR) << "offscreen OH_NativeWindow_NativeWindowHandleOpt "
+                      "set_buffer_size err:"
+                   << ret_color_gamut;
+      return false;
+    }
+    FML_DLOG(INFO) << "set offscreen window format hdr" << offscreen_nativewindow_;
+  }else if(offscreen_hdr_ == 0){
+    int ret_color_gamut = OH_NativeWindow_NativeWindowHandleOpt(
+      offscreen_nativewindow_, SET_COLOR_GAMUT, NATIVEBUFFER_COLOR_GAMUT_NATIVE);
+    int ret_color_format = OH_NativeWindow_NativeWindowHandleOpt(
+      offscreen_nativewindow_, SET_FORMAT, 12);
+    if (ret_color_gamut != 0 ||ret_color_format!=0) {
+      FML_LOG(ERROR) << "offscreen OH_NativeWindow_NativeWindowHandleOpt "
+                      "set_buffer_size err:"
+                   << ret_color_gamut;
+      return false;
+    }
+    FML_DLOG(INFO) << "set offscreen window format sdr" << offscreen_nativewindow_;
+  }
+  
+  
 
   int ret = OH_NativeWindow_NativeWindowHandleOpt(
       offscreen_nativewindow_, SET_BUFFER_GEOMETRY, width, height);
@@ -126,6 +155,11 @@ bool OHOSSurface::SetDisplayWindow(fml::RefPtr<OHOSNativeWindow> window) {
   SkISize size = window->GetSize();
   SkISize old_size = window_size_;
   window_size_ = size;
+  
+  int hdr = window->GetHdr();
+  int old_hdr = window_hdr_;
+  window_hdr_ = hdr;
+
   need_schedule_frame_ = false;
   FML_LOG(INFO) << "SetDisplayWindow " << window->Gethandle();
 
@@ -133,8 +167,8 @@ bool OHOSSurface::SetDisplayWindow(fml::RefPtr<OHOSNativeWindow> window) {
       window->Gethandle() == native_window_->Gethandle()) {
     // window is same, we just set surface resize.
     FML_LOG(INFO) << "window size change: (" << old_size.width() << ","
-                  << old_size.height() << ")=>(" << size.width() << ","
-                  << size.height() << ")";
+                  << old_size.height() << "hdr=" << old_hdr << ")=>(" << size.width() << ","
+                  << size.height() << " hdr=" << hdr << ")";
     // Note: In vulkan mode, creating a swapchain with the same window can cause
     // the process to hang (stuck on requestBuffer). Therefore, SurfaceResize is
     // called here instead of directly calling SetNativeWindow. We should invoke
@@ -143,11 +177,12 @@ bool OHOSSurface::SetDisplayWindow(fml::RefPtr<OHOSNativeWindow> window) {
     // TeardownOnScreenContext. In vulkan mode, nothing will happen after
     // TeardownOnScreenContext so swapchain can be reused.
     OnScreenSurfaceResize(size);
+    OnScreenSurfaceHdrUpdate(hdr);
     return true;
   }
 
   if (offscreen_nativewindow_ == nullptr || size.width() != offscreen_width_ ||
-      size.height() != offscreen_height_) {
+      size.height() != offscreen_height_ || hdr != offscreen_hdr_) {
     // The old swapchain must be destroyed before releasing the window to
     // prevent application crashes in Vulkan.
     bool ret = SetNativeWindow(window);
