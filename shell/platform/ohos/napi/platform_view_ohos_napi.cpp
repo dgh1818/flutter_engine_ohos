@@ -1771,7 +1771,8 @@ void PlatformViewOHOSNapi::SurfaceCreated(int64_t shell_holder,
   auto native_window = fml::MakeRefCounted<OHOSNativeWindow>(
       static_cast<OHNativeWindow*>(window));
   OHOS_SHELL_HOLDER->GetPlatformView()->UpdateDisplaySize(width, height);
-  OHOS_SHELL_HOLDER->GetPlatformView()->UpdateDisplayHdr(impeller::Context::hdr_);
+  OHOS_SHELL_HOLDER->GetPlatformView()->UpdateDisplayHdr(
+      impeller::Context::hdr_);
   OHOS_SHELL_HOLDER->GetPlatformView()->NotifyCreate(std::move(native_window));
 }
 
@@ -1779,7 +1780,8 @@ void PlatformViewOHOSNapi::SurfacePreload(int64_t shell_holder,
                                           int width,
                                           int height) {
   OHOS_SHELL_HOLDER->GetPlatformView()->UpdateDisplaySize(width, height);
-  OHOS_SHELL_HOLDER->GetPlatformView()->UpdateDisplayHdr(impeller::Context::hdr_);
+  OHOS_SHELL_HOLDER->GetPlatformView()->UpdateDisplayHdr(
+      impeller::Context::hdr_);
   OHOS_SHELL_HOLDER->GetPlatformView()->Preload(width, height);
 }
 
@@ -1791,7 +1793,8 @@ void PlatformViewOHOSNapi::SurfaceChanged(int64_t shell_holder,
   auto native_window = fml::MakeRefCounted<OHOSNativeWindow>(
       static_cast<OHNativeWindow*>(window));
   OHOS_SHELL_HOLDER->GetPlatformView()->UpdateDisplaySize(width, height);
-  OHOS_SHELL_HOLDER->GetPlatformView()->UpdateDisplayHdr(impeller::Context::hdr_);
+  OHOS_SHELL_HOLDER->GetPlatformView()->UpdateDisplayHdr(
+      impeller::Context::hdr_);
   OHOS_SHELL_HOLDER->GetPlatformView()->NotifySurfaceWindowChanged(
       native_window);
 }

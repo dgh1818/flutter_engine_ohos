@@ -65,17 +65,17 @@ void OHOSNativeWindow::SetSize(int width, int height) {
 int OHOSNativeWindow::GetHdr() const {
   if (window_ != nullptr) {
     int32_t color_gamut;
-    int ret = OH_NativeWindow_NativeWindowHandleOpt(
-        window_, GET_COLOR_GAMUT, &color_gamut);
+    int ret = OH_NativeWindow_NativeWindowHandleOpt(window_, GET_COLOR_GAMUT,
+                                                    &color_gamut);
     if (ret != 0) {
       FML_LOG(ERROR) << "OH_NativeWindow_NativeWindowHandleOpt GetSize err:"
                      << ret;
       return -1;
     }
 
-    if(color_gamut == 9){
+    if (color_gamut == 9) {
       return 1;
-    }else{
+    } else {
       return 0;
     }
   }
@@ -86,22 +86,18 @@ void OHOSNativeWindow::SetHdr(bool hdr) {
   if (window_ != nullptr) {
     int ret = -1;
 
-    if(hdr==1){
+    if (hdr == 1) {
       // ret = OH_NativeWindow_NativeWindowHandleOpt(
       //   window_, SET_COLOR_GAMUT, NATIVEBUFFER_COLOR_GAMUT_BT2100_HLG);
-      ret = OH_NativeWindow_NativeWindowHandleOpt(
-        window_, SET_COLOR_GAMUT, 9);
-      ret = OH_NativeWindow_NativeWindowHandleOpt(
-        window_, SET_FORMAT, 34);
-    }else if(hdr==0){
-      ret = OH_NativeWindow_NativeWindowHandleOpt(
-        window_, SET_COLOR_GAMUT, 0);
-      ret = OH_NativeWindow_NativeWindowHandleOpt(
-        window_, SET_FORMAT, 12);
+      ret = OH_NativeWindow_NativeWindowHandleOpt(window_, SET_COLOR_GAMUT, 9);
+      ret = OH_NativeWindow_NativeWindowHandleOpt(window_, SET_FORMAT, 34);
+    } else if (hdr == 0) {
+      ret = OH_NativeWindow_NativeWindowHandleOpt(window_, SET_COLOR_GAMUT, 0);
+      ret = OH_NativeWindow_NativeWindowHandleOpt(window_, SET_FORMAT, 12);
     }
 
     FML_DLOG(INFO) << "OHOSNativeWindow setHdr" << hdr;
-    
+
     if (ret != 0) {
       FML_LOG(ERROR) << "OHOSNativeWindow setHdr failed:" << ret;
     }

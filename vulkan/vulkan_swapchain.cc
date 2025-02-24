@@ -30,18 +30,13 @@ struct FormatInfo {
 }  // namespace
 
 static std::vector<FormatInfo> DesiredFormatInfos() {
+  const skcms_Matrix3x3 dci_p3_matrix = {{{0.4866f, 0.2657f, 0.1982f},
+                                          {0.2290f, 0.6917f, 0.0793f},
+                                          {0.000f, 0.0451f, 1.0430f}}};
 
-  const skcms_Matrix3x3 dci_p3_matrix = {{
-      { 0.4866f, 0.2657f, 0.1982f }, 
-      { 0.2290f, 0.6917f, 0.0793f },
-      { 0.000f, 0.0451f, 1.0430f }
-    }};
-
-  const skcms_Matrix3x3 rec2020_matrix = {{
-    { 0.636958f, 0.144617f, 0.168881f }, 
-    { 0.262700f, 0.677998f, 0.059302f },
-    { 0.000000f, 0.028073f, 1.060985f }
-  }};
+  const skcms_Matrix3x3 rec2020_matrix = {{{0.636958f, 0.144617f, 0.168881f},
+                                           {0.262700f, 0.677998f, 0.059302f},
+                                           {0.000000f, 0.028073f, 1.060985f}}};
 
   return {{VK_FORMAT_R8G8B8A8_SRGB, kRGBA_8888_SkColorType,
            SkColorSpace::MakeSRGB()},

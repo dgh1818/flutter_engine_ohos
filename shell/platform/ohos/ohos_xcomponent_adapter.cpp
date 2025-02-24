@@ -165,7 +165,7 @@ static int32_t SetNativeWindowOpt(OHNativeWindow* nativeWindow,
   // Set the format of the native window buffer.
   code = SET_FORMAT;
   int32_t format = kPixelFmtRgba8888;
-  //int32_t format = kPixelFmtRgba1010102;
+  // int32_t format = kPixelFmtRgba1010102;
 
   ret = OH_NativeWindow_NativeWindowHandleOpt(nativeWindow, code, format);
   if (ret) {

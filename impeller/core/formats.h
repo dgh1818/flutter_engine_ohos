@@ -173,7 +173,7 @@ constexpr const char* PixelFormatToString(PixelFormat format) {
       return "D24UnormS8Uint";
     case PixelFormat::kD32FloatS8UInt:
       return "D32FloatS8UInt";
-     case PixelFormat::kR10G10B10A2:
+    case PixelFormat::kR10G10B10A2:
       return "R10G10B10A2";
   }
   FML_UNREACHABLE();

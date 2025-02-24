@@ -251,14 +251,14 @@ OHBTextureSourceVK::OHBTextureSourceVK(
   FML_LOG(INFO) << "onb_format  " << int(onb_format.format) << " external "
                 << int(onb_format.externalFormat) << " allocSize "
                 << onb_props.get().allocationSize;
-  
-  if(onb_format.format == vk::Format::eA2B10G10R10UnormPack32){
+
+  if (onb_format.format == vk::Format::eA2B10G10R10UnormPack32) {
     context->SetContextHdr(1);
     FML_DLOG(INFO) << "ohb_format is hdr";
-  }
-  else{
+  } else {
     context->SetContextHdr(0);
-    FML_DLOG(INFO) << "ohb_format is sdr" << "   format is " << to_string(onb_format.format);
+    FML_DLOG(INFO) << "ohb_format is sdr" << "   format is "
+                   << to_string(onb_format.format);
   }
 
   auto image = CreateVkImage(device, native_buffer, onb_format);

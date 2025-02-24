@@ -101,10 +101,10 @@ static constexpr float kSrgbGamutArea = 0.0982f;
 // https://source.chromium.org/chromium/_/skia/skia.git/+/393fb1ec80f41d8ad7d104921b6920e69749fda1:src/codec/SkAndroidCodec.cpp;l=67;drc=46572b4d445f41943059d0e377afc6d6748cd5ca;bpv=1;bpt=0
 bool IsWideGamut(const SkColorSpace* color_space) {
   if (!color_space) {
-    FML_DLOG(INFO) << "not wide gamut" ;
+    FML_DLOG(INFO) << "not wide gamut";
     return false;
   }
-  FML_DLOG(INFO) << "is wide gamut" ;
+  FML_DLOG(INFO) << "is wide gamut";
   skcms_Matrix3x3 xyzd50;
   color_space->toXYZD50(&xyzd50);
   SkPoint rgb[3];
@@ -183,30 +183,29 @@ DecompressResult ImageDecoderImpeller::DecompressTexture(
   SkAlphaType alpha_type =
       ChooseCompatibleAlphaType(base_image_info.alphaType());
   SkImageInfo image_info;
-  if (is_wide_gamut || base_image_info.colorType()==kRGBA_1010102_SkColorType) {
+  if (is_wide_gamut ||
+      base_image_info.colorType() == kRGBA_1010102_SkColorType) {
     SkColorType color_type = alpha_type == SkAlphaType::kPremul_SkAlphaType
                                  ? kRGBA_1010102_SkColorType
                                  : kRGBA_1010102_SkColorType;
-   
-    const skcms_Matrix3x3 dcip3_matrix = {{
-    { 1.2249f, -0.2247f, 0.000f }, 
-    { -0.0420f, 1.0419f, 0.000f },
-    { -0.0197f, -0.0786f, 1.0979f }
-  }};
 
-   const skcms_Matrix3x3 rec2020_matrix = {{
-    { 0.636958f, 0.144617f, 0.168881f }, 
-    { 0.262700f, 0.677998f, 0.059302f },
-    { 0.000000f, 0.028073f, 1.060985f }
-  }};
+    const skcms_Matrix3x3 dcip3_matrix = {{{1.2249f, -0.2247f, 0.000f},
+                                           {-0.0420f, 1.0419f, 0.000f},
+                                           {-0.0197f, -0.0786f, 1.0979f}}};
+
+    const skcms_Matrix3x3 rec2020_matrix = {
+        {{0.636958f, 0.144617f, 0.168881f},
+         {0.262700f, 0.677998f, 0.059302f},
+         {0.000000f, 0.028073f, 1.060985f}}};
 
     image_info =
         base_image_info.makeWH(decode_size.width(), decode_size.height())
             .makeColorType(color_type)
             .makeAlphaType(alpha_type)
-            .makeColorSpace(SkColorSpace::MakeRGB(SkNamedTransferFn::kHLG, rec2020_matrix));
+            .makeColorSpace(
+                SkColorSpace::MakeRGB(SkNamedTransferFn::kHLG, rec2020_matrix));
 
-    FML_DLOG(INFO) << "is wide gamut" ;
+    FML_DLOG(INFO) << "is wide gamut";
     impeller::Context::hdr_ = 1;
   } else {
     image_info =
@@ -215,7 +214,7 @@ DecompressResult ImageDecoderImpeller::DecompressTexture(
                 ChooseCompatibleColorType(base_image_info.colorType()))
             .makeAlphaType(alpha_type);
 
-    FML_DLOG(INFO) << "not wide gamut" ;
+    FML_DLOG(INFO) << "not wide gamut";
     impeller::Context::hdr_ = 0;
   }
 

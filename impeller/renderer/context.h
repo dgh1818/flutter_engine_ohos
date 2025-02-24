@@ -203,13 +203,9 @@ class Context {
   /// operation completes in order to clear the cache.
   virtual void DisposeThreadLocalCachedResources() {}
 
-  int GetContextHdr() const{
-    return hdr_;
-  }
+  int GetContextHdr() const { return hdr_; }
 
-  void SetContextHdr(int hdr) {
-    hdr_ = hdr;
-  }
+  void SetContextHdr(int hdr) { hdr_ = hdr; }
 
  protected:
   Context();

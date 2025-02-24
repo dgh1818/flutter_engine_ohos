@@ -226,9 +226,9 @@ int ImageEncodingImpeller::GetColorSpace(
     const std::shared_ptr<impeller::Texture>& texture) {
   const impeller::TextureDescriptor& desc = texture->GetTextureDescriptor();
   switch (desc.format) {
-
     case impeller::PixelFormat::kB10G10R10XR:  // intentional_fallthrough
     case impeller::PixelFormat::kR16G16B16A16Float:
+    case impeller::PixelFormat::kR10G10B10A2:
       return ColorSpace::kExtendedSRGB;
     default:
       return ColorSpace::kSRGB;
