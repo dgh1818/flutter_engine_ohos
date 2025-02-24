@@ -509,10 +509,10 @@ class PlatformMethodCallback implements MethodCallHandler {
     let activityType = this.platform.getScrollActivityFromValue(scrollActivity);
     switch(activityType) {
       case ScrollActivity.START:
-        hiTraceMeter.startTrace('flutter::APP_LIST_FING', 0);
+        hiTraceMeter.startTrace('flutter::APP_LIST_FLING', 0);
         break;
       case ScrollActivity.END:
-        hiTraceMeter.finishTrace('flutter::APP_LIST_FING', 0);
+        hiTraceMeter.finishTrace('flutter::APP_LIST_FLING', 0);
         break;
     }
   }
