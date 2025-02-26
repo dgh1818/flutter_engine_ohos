@@ -54,6 +54,7 @@ bool SemanticsTree::SetAccessibilityFocusNode(int32_t id) {
   if (node) {
     focused_node_ = node;
     focused_node_->isAccessibilityFocued = true;
+    in_request_progress_ = false;
     return true;
   } else {
     return false;
@@ -126,16 +127,31 @@ bool SemanticsTree::UpdateNextFocusWhenDisappear(
   // If the focused node disappears, we need to shift focus to a new node;
   // otherwise, the accessibility focus green border will not update.
 
-  bool focused_node_is_disappear = false;
   if (focused_node_ && (need_remove_ids.count(focused_node_->id) != 0 ||
                         !focused_node_->IsVisible())) {
-    focused_node_is_disappear = true;
+    // in_request_progress_ will only be set to false when a node is
+    // successfully focused; otherwise, it will keep searching for the next
+    // focusable node.
+    in_request_progress_ = true;
   }
-  bool request_focused_node_need_update =
-      !need_request_focused_node_ || !need_request_focused_node_->IsVisible();
 
-  if ((focused_node_is_disappear || need_find_focus_node_again_) &&
-      request_focused_node_need_update) {
+  // Only update the new focus node when the current node does not exist or is
+  // about to disappear.
+  // The visible check is not added because the process of searching for the
+  // next focus node may be interrupted:
+  // A node:      +++++++--------------
+  // B node:             ++++++++++++---
+  // request:    A      B          [1]
+  // focued event:           A            B[2]
+  // clear focus event:           A
+  // +:visible -:invisible
+  // [1]: No need to refocus when there is no current focus node.
+  // [2]: Failed to find node B, so focus fails.
+  bool request_focused_node_need_update =
+      !need_request_focused_node_ ||
+      need_remove_ids.count(need_request_focused_node_->id) != 0;
+
+  if (in_request_progress_ && request_focused_node_need_update) {
     // if focused_node is not null, focused_node cannot be root and must have
     // parent.
     if (focused_node_) {
@@ -145,12 +161,20 @@ bool SemanticsTree::UpdateNextFocusWhenDisappear(
 
     SemanticsNodeExtend* find_node = nullptr;
 
-    if (focused_node_ &&
-        need_remove_ids.count(focused_node_->parentNode->id) == 0) {
+    // Prioritize searching from need_request_focused_node_ downward, as
+    // focused_node_ may have already disappeared, while
+    // need_request_focused_node_ is about to disappear.
+    auto start_find_node = need_request_focused_node_;
+    if (!start_find_node) {
+      start_find_node = focused_node_;
+    }
+
+    if (start_find_node &&
+        need_remove_ids.count(start_find_node->parentNode->id) == 0) {
       // father is exsit
       // first find brother
-      if (focused_node_->nextNode) {
-        find_node = focused_node_->nextNode;
+      if (start_find_node->nextNode) {
+        find_node = start_find_node->nextNode;
         while (find_node != nullptr) {
           if (find_node->isExist && find_node->IsFocusable() &&
               find_node->IsVisible() &&
@@ -161,8 +185,8 @@ bool SemanticsTree::UpdateNextFocusWhenDisappear(
         }
       }
 
-      if (!find_node && focused_node_->previousNode) {
-        find_node = focused_node_->previousNode;
+      if (!find_node && start_find_node->previousNode) {
+        find_node = start_find_node->previousNode;
         while (find_node != nullptr) {
           if (find_node->isExist && find_node->IsFocusable() &&
               find_node->IsVisible() &&
@@ -176,7 +200,7 @@ bool SemanticsTree::UpdateNextFocusWhenDisappear(
       // second find parent's other children
       if (!find_node) {
         for (auto child :
-             focused_node_->parentNode->childrenInTraversalOrderList) {
+             start_find_node->parentNode->childrenInTraversalOrderList) {
           if (child->isExist && child->IsFocusable() && child->IsVisible() &&
               need_remove_ids.count(child->id) == 0) {
             find_node = child;
@@ -187,8 +211,8 @@ bool SemanticsTree::UpdateNextFocusWhenDisappear(
     }
 
     // last go ancestor
-    if (!find_node && focused_node_) {
-      find_node = focused_node_->parentNode;
+    if (!find_node && start_find_node) {
+      find_node = start_find_node->parentNode;
       while (find_node != nullptr && find_node->id != 0) {
         if (find_node->IsFocusable() && find_node->IsVisible() &&
             need_remove_ids.count(find_node->id) == 0) {
@@ -207,11 +231,9 @@ bool SemanticsTree::UpdateNextFocusWhenDisappear(
       if (find_node->id != 0) {
         need_request_focused_node_ = find_node;
         focus_request_has_send_ = false;
-        need_find_focus_node_again_ = false;
         return true;
       } else {
         // find root again--means it don't have a focusable node, request again.
-        need_find_focus_node_again_ = true;
         return false;
       }
     } else {
@@ -376,7 +398,7 @@ bool SemanticsTree::FillNodesRecursive(
   while (!q.empty()) {
     auto currentNode = q.front();
     q.pop();
-    if (currentNode) {
+    if (currentNode && currentNode->isExist) {
       // In the SearchText process, we should precisely match the string of
       // SetContent.
       if (!withText || cppStringText == currentNode->contentString) {
@@ -498,7 +520,7 @@ void SemanticsTree::ClearSemanticsTree() {
   focused_node_ = nullptr;
   need_request_focused_node_ = nullptr;
   focus_request_has_send_ = false;
-  need_find_focus_node_again_ = false;
+  in_request_progress_ = false;
   input_focused_node_ = nullptr;
   last_input_focused_node_ = nullptr;
 }

@@ -57,9 +57,10 @@ class SemanticsTree {
   // This flag is set after the event is sent, indicating the event has been
   // dispatched, but the focus node has not updated yet.
   bool focus_request_has_send_ = false;
-  // This flag indicates that the current focus node needs to be updated, but no
-  // focusable node has been found yet, requiring a retry later.
-  bool need_find_focus_node_again_ = false;
+  // This flag indicates that a request for need_request_focused_node_ is needed
+  // later. The request may occur multiple times (as the previously requested
+  // node may disappear) until a node is successfully focused.
+  bool in_request_progress_ = false;
   SemanticsNodeExtend* need_request_focused_node_ = nullptr;
   SemanticsNodeExtend* focused_node_ = nullptr;
 
