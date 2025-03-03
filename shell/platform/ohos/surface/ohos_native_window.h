@@ -39,9 +39,9 @@ class OHOSNativeWindow : public fml::RefCountedThreadSafe<OHOSNativeWindow> {
 
   void SetSize(int width, int height);
 
-  void SetHdr(bool hdr);
+  // void SetHdr(bool hdr);
 
-  int GetHdr() const;
+  // int GetHdr() const;
 
   Handle handle() const;
 

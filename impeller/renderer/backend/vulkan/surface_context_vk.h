@@ -86,7 +86,7 @@ class SurfaceContextVK : public Context,
   /// @brief Mark the current swapchain configuration as dirty, forcing it to be
   ///        recreated on the next frame.
   void UpdateSurfaceSize(const ISize& size) const;
-  void UpdateSurfaceHdr(int hdr) const;
+  // void UpdateSurfaceHdr(int hdr) const;
 
   // |Context|
   void InitializeCommonlyUsedShadersIfNeeded() const override;

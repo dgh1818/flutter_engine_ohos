@@ -11,6 +11,7 @@
 
 #include "impeller/geometry/size.h"
 #include "impeller/renderer/backend/vulkan/vk.h"
+#include "impeller/renderer/context.h"
 #include "vulkan/vulkan_enums.hpp"
 
 namespace impeller {

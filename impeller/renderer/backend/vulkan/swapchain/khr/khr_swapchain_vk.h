@@ -41,7 +41,7 @@ class KHRSwapchainVK {
   /// @brief Mark the current swapchain configuration as dirty, forcing it to be
   ///        recreated on the next frame.
   void UpdateSurfaceSize(const ISize& size);
-  void UpdateSurfaceHdr(int hdr);
+  // void UpdateSurfaceHdr(int hdr);
 
  private:
   std::shared_ptr<KHRSwapchainImplVK> impl_;

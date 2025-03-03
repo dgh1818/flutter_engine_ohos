@@ -32,6 +32,11 @@ static PixelFormat ToPixelFormat(int32_t format) {
       return PixelFormat::kB8G8R8A8UNormInt;
     case OH_NativeBuffer_Format::NATIVEBUFFER_PIXEL_FMT_RGBA_1010102:
       return PixelFormat::kR10G10B10A2;
+    case OH_NativeBuffer_Format::NATIVEBUFFER_PIXEL_FMT_YCBCR_420_SP:
+      return PixelFormat::kR10G10B10A2;
+    case OH_NativeBuffer_Format::NATIVEBUFFER_PIXEL_FMT_YCBCR_P010:
+      return PixelFormat::kR10G10B10A2;
+    
     default:
       // Not understood by the rest of Impeller. Use a placeholder but create
       // the native image and image views using the right external format.
@@ -53,6 +58,23 @@ static TextureDescriptor CreateTextureDescriptorFromNativeWindowBuffer(
     return descriptor;
   }
   OH_NativeBuffer_GetConfig(native_buffer, &nativebuffer_config);
+  OH_NativeBuffer_ColorSpace color_space;
+  OH_NativeBuffer_GetColorSpace(native_buffer,&color_space);
+
+  if(nativebuffer_config.format == NATIVEBUFFER_PIXEL_FMT_YCBCR_P010) {
+    FML_DLOG(ERROR) << "ENTER HDR";
+    if(color_space == OH_COLORSPACE_DISPLAY_BT2020_PQ ) {
+      impeller::Context::hdr_ = 2;
+      FML_DLOG(ERROR) << "ENTER HDR 2";
+    } else if (color_space == OH_COLORSPACE_BT2020_HLG_LIMIT) {
+      impeller::Context::hdr_ = 1;
+      FML_DLOG(ERROR) << "ENTER HDR 1";
+    } 
+  } else {
+      impeller::Context::hdr_ = 0;
+      FML_DLOG(ERROR) << "ENTER HDR 0";
+    }
+ 
   descriptor.format = ToPixelFormat(nativebuffer_config.format);
   descriptor.size =
       ISize{nativebuffer_config.width, nativebuffer_config.height};
@@ -251,15 +273,6 @@ OHBTextureSourceVK::OHBTextureSourceVK(
   FML_LOG(INFO) << "onb_format  " << int(onb_format.format) << " external "
                 << int(onb_format.externalFormat) << " allocSize "
                 << onb_props.get().allocationSize;
-
-  if (onb_format.format == vk::Format::eA2B10G10R10UnormPack32) {
-    context->SetContextHdr(1);
-    FML_DLOG(INFO) << "ohb_format is hdr";
-  } else {
-    context->SetContextHdr(0);
-    FML_DLOG(INFO) << "ohb_format is sdr" << "   format is "
-                   << to_string(onb_format.format);
-  }
 
   auto image = CreateVkImage(device, native_buffer, onb_format);
   if (!image) {

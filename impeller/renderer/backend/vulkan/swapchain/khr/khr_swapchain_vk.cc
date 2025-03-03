@@ -42,9 +42,9 @@ void KHRSwapchainVK::UpdateSurfaceSize(const ISize& size) {
   size_ = size;
 }
 
-void KHRSwapchainVK::UpdateSurfaceHdr(int hdr) {
-  hdr_ = hdr;
-}
+// void KHRSwapchainVK::UpdateSurfaceHdr(int hdr) {
+//   hdr_ = hdr;
+// }
 
 std::unique_ptr<Surface> KHRSwapchainVK::AcquireNextDrawable() {
   if (!IsValid()) {

@@ -323,7 +323,7 @@ export default class PlatformViewsController implements PlatformViewsHandler {
     viewWrapper.addDvModel(dvModel);
     this.viewWrappers.set(request.viewId, viewWrapper);
     this.flutterView?.getDVModel().children.push(viewWrapper.getDvModel())
-    platformView.onFlutterViewAttached(this.flutterView?.getDVModel());
+    platformView.onFlutterViewAttached(this.flutterView!.getDVModel());
     Log.i(TAG, "Create platform view success");
     return textureId;
   }
@@ -473,7 +473,7 @@ export default class PlatformViewsController implements PlatformViewsHandler {
     viewWrapper.addDvModel(dvModel);
     this.viewWrappers.set(surfaceId, viewWrapper);
     this.flutterView?.getDVModel().children.push(viewWrapper.getDvModel());
-    platformView.onFlutterViewAttached(this.flutterView?.getDVModel());
+    platformView.onFlutterViewAttached(this.flutterView!.getDVModel());
     this.platformViews.set(surfaceId, platformView!);
   }
 }

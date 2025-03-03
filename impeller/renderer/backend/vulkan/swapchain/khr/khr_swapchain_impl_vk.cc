@@ -80,6 +80,15 @@ static bool ContainsFormat(const std::vector<vk::SurfaceFormatKHR>& formats,
 static std::optional<vk::SurfaceFormatKHR> ChooseSurfaceFormat(
     const std::vector<vk::SurfaceFormatKHR>& formats,
     PixelFormat preference) {
+
+  if(impeller::Context::hdr_ == 2) {     // video PQ
+    const auto colorspace = vk::ColorSpaceKHR::eHdr10St2084EXT;
+    const auto vk_preference =
+        vk::SurfaceFormatKHR{vk::Format::eA2B10G10R10UnormPack32, colorspace};
+    FML_DLOG(WARNING) << "enter eHdr10St2084EXT!";
+    return vk_preference;
+  }
+
   if (ToVKImageFormat(preference) == vk::Format::eA2B10G10R10UnormPack32) {
     const auto colorspace = vk::ColorSpaceKHR::eHdr10HlgEXT;
     const auto vk_preference =
@@ -165,16 +174,13 @@ KHRSwapchainImplVK::KHRSwapchainImplVK(const std::shared_ptr<Context>& context,
 
   auto format = ChooseSurfaceFormat(
       formats, vk_context.GetCapabilities()->GetDefaultColorFormat());
-  hdr_ = 0;
+  hdr_ = vk_context.GetContextHdr();
 
-  if (vk_context.GetContextHdr() == 1) {
+  if (vk_context.GetContextHdr() > 0) {
     format = ChooseSurfaceFormat(formats, PixelFormat::kR10G10B10A2);
-    hdr_ = 1;
     FML_DLOG(INFO) << "impl choose hdr";
   } else {
-    // format = ChooseSurfaceFormat(
-    //   formats, vk_context.GetCapabilities()->GetDefaultColorFormat());
-    // hdr_ = 0;
+    format = ChooseSurfaceFormat(formats, PixelFormat::kR8G8B8A8UNormInt);
     FML_DLOG(INFO) << "impl not choose hdr";
   }
 
