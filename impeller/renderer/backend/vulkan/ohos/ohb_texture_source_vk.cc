@@ -36,7 +36,6 @@ static PixelFormat ToPixelFormat(int32_t format) {
       return PixelFormat::kR10G10B10A2;
     case OH_NativeBuffer_Format::NATIVEBUFFER_PIXEL_FMT_YCBCR_P010:
       return PixelFormat::kR10G10B10A2;
-    
     default:
       // Not understood by the rest of Impeller. Use a placeholder but create
       // the native image and image views using the right external format.
@@ -59,22 +58,22 @@ static TextureDescriptor CreateTextureDescriptorFromNativeWindowBuffer(
   }
   OH_NativeBuffer_GetConfig(native_buffer, &nativebuffer_config);
   OH_NativeBuffer_ColorSpace color_space;
-  OH_NativeBuffer_GetColorSpace(native_buffer,&color_space);
+  OH_NativeBuffer_GetColorSpace(native_buffer, &color_space);
 
-  if(nativebuffer_config.format == NATIVEBUFFER_PIXEL_FMT_YCBCR_P010) {
+  if (nativebuffer_config.format == NATIVEBUFFER_PIXEL_FMT_YCBCR_P010) {
     FML_DLOG(ERROR) << "ENTER HDR";
-    if(color_space == OH_COLORSPACE_DISPLAY_BT2020_PQ ) {
+    if (color_space == OH_COLORSPACE_DISPLAY_BT2020_PQ) {
       impeller::Context::hdr_ = 2;
       FML_DLOG(ERROR) << "ENTER HDR 2";
     } else if (color_space == OH_COLORSPACE_BT2020_HLG_LIMIT) {
       impeller::Context::hdr_ = 1;
       FML_DLOG(ERROR) << "ENTER HDR 1";
-    } 
-  } else {
-      impeller::Context::hdr_ = 0;
-      FML_DLOG(ERROR) << "ENTER HDR 0";
     }
- 
+  } else {
+    impeller::Context::hdr_ = 0;
+    FML_DLOG(ERROR) << "ENTER HDR 0";
+  }
+
   descriptor.format = ToPixelFormat(nativebuffer_config.format);
   descriptor.size =
       ISize{nativebuffer_config.width, nativebuffer_config.height};

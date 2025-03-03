@@ -228,7 +228,6 @@ void PlatformViewOHOS::NotifySurfaceWindowChanged(
         [&latch, width = display_width_, height = display_height_,
          surface = ohos_surface_.get(),
          native_window = std::move(native_window)]() {
-         //hdr = std::move(impeller::Context::hdr_)]() {
           if (native_window) {
             // Reset the window size here to prevent the window size from being
             // unsynchronized when the XComponent size changes.
@@ -238,7 +237,6 @@ void PlatformViewOHOS::NotifySurfaceWindowChanged(
             // causing the window size to revert to its original value during
             // the process.
             native_window->SetSize(width, height);
-            //native_window->SetHdr(hdr);
             surface->SetDisplayWindow(native_window);
           }
           latch.Signal();

@@ -46,8 +46,6 @@ std::shared_ptr<impeller::Context> OHOSSurface::GetImpellerContext() {
 bool OHOSSurface::PrepareOffscreenWindow(int32_t width, int32_t height) {
   TRACE_EVENT0("flutter", "OHOSSurface-PrepareContext");
 
-  // if (offscreen_native_image_ != nullptr && offscreen_height_ == height &&
-  //     offscreen_width_ == width && offscreen_hdr_ == impeller::Context::hdr_) {
   if (offscreen_native_image_ != nullptr && offscreen_height_ == height &&
       offscreen_width_ == width) {
     return true;
@@ -57,7 +55,6 @@ bool OHOSSurface::PrepareOffscreenWindow(int32_t width, int32_t height) {
 
   offscreen_height_ = height;
   offscreen_width_ = width;
-  //offscreen_hdr_ = impeller::Context::hdr_;
 
   offscreen_nativewindow_ =
       OH_NativeImage_AcquireNativeWindow(offscreen_native_image_);
@@ -170,14 +167,10 @@ bool OHOSSurface::SetDisplayWindow(fml::RefPtr<OHOSNativeWindow> window) {
   if (native_window_ && native_window_->IsValid() &&
       window->Gethandle() == native_window_->Gethandle()) {
     // window is same, we just set surface resize.
-    // FML_LOG(INFO) << "window size change: (" << old_size.width() << ","
-    //               << old_size.height() << "hdr=" << old_hdr << ")=>("
-    //               << size.width() << "," << size.height() << " hdr=" << hdr
-    //               << ")";
-     FML_LOG(INFO) << "window size change: (" << old_size.width() << ","
-                  << old_size.height() <<  ")=>("
-                  << size.width() << "," << size.height() 
-                  << ")";
+
+    FML_LOG(INFO) << "window size change: (" << old_size.width() << ","
+                  << old_size.height() <<  ")=>(" << size.width() << ","
+                  << size.height() << ")";
     // Note: In vulkan mode, creating a swapchain with the same window can cause
     // the process to hang (stuck on requestBuffer). Therefore, SurfaceResize is
     // called here instead of directly calling SetNativeWindow. We should invoke
@@ -186,14 +179,11 @@ bool OHOSSurface::SetDisplayWindow(fml::RefPtr<OHOSNativeWindow> window) {
     // TeardownOnScreenContext. In vulkan mode, nothing will happen after
     // TeardownOnScreenContext so swapchain can be reused.
     OnScreenSurfaceResize(size);
-    //OnScreenSurfaceHdrUpdate(hdr);
     return true;
   }
 
-  // if (offscreen_nativewindow_ == nullptr || size.width() != offscreen_width_ ||
-  //     size.height() != offscreen_height_ || hdr != offscreen_hdr_) {
   if (offscreen_nativewindow_ == nullptr || size.width() != offscreen_width_ ||
-      size.height() != offscreen_height_ ) {
+      size.height() != offscreen_height_) {
     // The old swapchain must be destroyed before releasing the window to
     // prevent application crashes in Vulkan.
     bool ret = SetNativeWindow(window);
