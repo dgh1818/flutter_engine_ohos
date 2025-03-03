@@ -80,7 +80,7 @@ static bool ContainsFormat(const std::vector<vk::SurfaceFormatKHR>& formats,
 static std::optional<vk::SurfaceFormatKHR> ChooseSurfaceFormat(
     const std::vector<vk::SurfaceFormatKHR>& formats,
     PixelFormat preference) {
-  if (impeller::Context::hdr_ == 2) {     // video PQ
+  if (impeller::Context::hdr_ == 2) {  // video PQ
     const auto colorspace = vk::ColorSpaceKHR::eHdr10St2084EXT;
     const auto vk_preference =
         vk::SurfaceFormatKHR{vk::Format::eA2B10G10R10UnormPack32, colorspace};

@@ -169,7 +169,7 @@ bool OHOSSurface::SetDisplayWindow(fml::RefPtr<OHOSNativeWindow> window) {
     // window is same, we just set surface resize.
 
     FML_LOG(INFO) << "window size change: (" << old_size.width() << ","
-                  << old_size.height() <<  ")=>(" << size.width() << ","
+                  << old_size.height() << ")=>(" << size.width() << ","
                   << size.height() << ")";
     // Note: In vulkan mode, creating a swapchain with the same window can cause
     // the process to hang (stuck on requestBuffer). Therefore, SurfaceResize is
