@@ -47,6 +47,7 @@ class XComponentBase {
   void OnDispatchTouchEvent(OH_NativeXComponent* component, void* window);
   void OnDispatchMouseEvent(OH_NativeXComponent* component, void* window);
   void OnDispatchMouseWheelEvent(mouseWheelEvent event);
+  void OnDispatchMouseLeaveEvent(OH_NativeXComponent* component);
 
   // Accessibility callback
   int32_t FindAccessibilityNodeInfosById(
