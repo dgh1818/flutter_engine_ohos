@@ -29,7 +29,7 @@ import I18n from '@ohos.i18n'
 import { PlatformBrightness } from '../engine/systemchannels/SettingsChannel';
 import ConfigurationConstant from '@ohos.app.ability.ConfigurationConstant';
 import { Configuration } from '@ohos.app.ability.Configuration';
-
+import { deviceInfo } from '@kit.BasicServicesKit';
 import ExclusiveAppComponent from './ExclusiveAppComponent';
 import errorManager from '@ohos.app.ability.errorManager';
 import appRecovery from '@ohos.app.ability.appRecovery';
@@ -58,6 +58,14 @@ export class FlutterAbility extends UIAbility implements Host {
 
   pagePath(): string {
     return "pages/Index"
+  }
+
+  /**
+   * 可重写该方法，自定义FlutterAbility是否全屏；
+   * 默认值，根据设备类型，判断是否需要全屏
+   */
+  isDefaultFullScreen(): boolean {
+    return deviceInfo.deviceType != '2in1';
   }
 
   /**
@@ -151,7 +159,9 @@ export class FlutterAbility extends UIAbility implements Host {
 
         Log.i(TAG, 'Succeeded in loading the content. Data: %{public}s', JSON.stringify(data) ?? '');
       });
-      FlutterManager.getInstance().setUseFullScreen(true, this.context);
+      if (this.isDefaultFullScreen()) {
+        FlutterManager.getInstance().setUseFullScreen(true, this.context);
+      }
     } catch (exception) {
       Log.e(TAG, 'Failed to enable the listener for window stage event changes. Cause:' + JSON.stringify(exception));
     }
