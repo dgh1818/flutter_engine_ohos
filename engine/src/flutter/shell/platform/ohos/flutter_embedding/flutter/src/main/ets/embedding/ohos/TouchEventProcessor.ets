@@ -260,7 +260,7 @@ export default class TouchEventProcessor {
           let nodeController = params['nodeController'] as EmbeddingNodeController;
           // 保证platformviewcontroller.ets的onTouch的down属性正常结束
           if (touchEvent.type === TouchType.Up) {
-            params['down'] === false;
+            params['down'] = false;
           }
           nodeController.postEvent(touchEvent)
         } else {
