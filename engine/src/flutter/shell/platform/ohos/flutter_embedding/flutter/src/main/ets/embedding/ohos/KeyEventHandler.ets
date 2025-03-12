@@ -21,127 +21,115 @@ import { KeyCode } from '@kit.InputKit';
 
 const TAG = "KeyEventHandler";
 
+class KeyText {
+  public normalCase: string;
+  public shiftCase: string;
+
+  constructor(normalCase: string, shiftCase: string) {
+    this.normalCase = normalCase;
+    this.shiftCase = shiftCase;
+  }
+};
+
+/*
+ * In the emulator/hdc tool input scenario, all keyevents will be passed to the onKeyEvent callback, so we need
+ * insert the text to textInputPlugin ourselves. In the other scenarios like phone/pc/ets, the input method will be
+ * responsible for inserting the text to textInputPlugin, consuming 'down' events and let 'up' events go which will
+ * be captured by onKeyEvent.
+ * There is no need to process the status of the capslock button. Because in the scenario of the emulator/hdc tool,
+ * if capslock is pressed, os will send a 'shift' keyevent before the keyevent of the input key and we will insert
+ * uppercase characters correctly.
+ */
 export class KeyEventHandler {
+  // 组合键
+  private static combinationKeys: Set<KeyCode> = new Set<KeyCode>([
+    KeyCode.KEYCODE_CTRL_LEFT,
+    KeyCode.KEYCODE_CTRL_RIGHT,
+    KeyCode.KEYCODE_ALT_LEFT,
+    KeyCode.KEYCODE_ALT_RIGHT,
+  ]);
+  private static shiftKeys: Set<KeyCode> = new Set<KeyCode>([
+    KeyCode.KEYCODE_SHIFT_LEFT,
+    KeyCode.KEYCODE_SHIFT_RIGHT,
+  ]);
+  private static keyTextMap: Map<KeyCode, KeyText> = new Map([
+    [KeyCode.KEYCODE_0, new KeyText('0', ')')],
+    [KeyCode.KEYCODE_1, new KeyText('1', '!')],
+    [KeyCode.KEYCODE_2, new KeyText('2', '@')],
+    [KeyCode.KEYCODE_3, new KeyText('3', '#')],
+    [KeyCode.KEYCODE_4, new KeyText('4', '$')],
+    [KeyCode.KEYCODE_5, new KeyText('5', '%')],
+    [KeyCode.KEYCODE_6, new KeyText('6', '^')],
+    [KeyCode.KEYCODE_7, new KeyText('7', '&')],
+    [KeyCode.KEYCODE_8, new KeyText('8', '*')],
+    [KeyCode.KEYCODE_9, new KeyText('9', '(')],
+
+    [KeyCode.KEYCODE_A, new KeyText('a', 'A')],
+    [KeyCode.KEYCODE_B, new KeyText('b', 'B')],
+    [KeyCode.KEYCODE_C, new KeyText('c', 'C')],
+    [KeyCode.KEYCODE_D, new KeyText('d', 'D')],
+    [KeyCode.KEYCODE_E, new KeyText('e', 'E')],
+    [KeyCode.KEYCODE_F, new KeyText('f', 'F')],
+    [KeyCode.KEYCODE_G, new KeyText('g', 'G')],
+    [KeyCode.KEYCODE_H, new KeyText('h', 'H')],
+    [KeyCode.KEYCODE_I, new KeyText('i', 'I')],
+    [KeyCode.KEYCODE_J, new KeyText('j', 'J')],
+    [KeyCode.KEYCODE_K, new KeyText('k', 'K')],
+    [KeyCode.KEYCODE_L, new KeyText('l', 'L')],
+    [KeyCode.KEYCODE_M, new KeyText('m', 'M')],
+    [KeyCode.KEYCODE_N, new KeyText('n', 'N')],
+    [KeyCode.KEYCODE_O, new KeyText('o', 'O')],
+    [KeyCode.KEYCODE_P, new KeyText('p', 'P')],
+    [KeyCode.KEYCODE_Q, new KeyText('q', 'Q')],
+    [KeyCode.KEYCODE_R, new KeyText('r', 'R')],
+    [KeyCode.KEYCODE_S, new KeyText('s', 'S')],
+    [KeyCode.KEYCODE_T, new KeyText('t', 'T')],
+    [KeyCode.KEYCODE_U, new KeyText('u', 'U')],
+    [KeyCode.KEYCODE_V, new KeyText('v', 'V')],
+    [KeyCode.KEYCODE_W, new KeyText('w', 'W')],
+    [KeyCode.KEYCODE_X, new KeyText('x', 'X')],
+    [KeyCode.KEYCODE_Y, new KeyText('y', 'Y')],
+    [KeyCode.KEYCODE_Z, new KeyText('z', 'Z')],
+
+    [KeyCode.KEYCODE_GRAVE, new KeyText('`', '~')],
+    [KeyCode.KEYCODE_MINUS, new KeyText('-', '_')],
+    [KeyCode.KEYCODE_EQUALS, new KeyText('=', '+')],
+    [KeyCode.KEYCODE_LEFT_BRACKET, new KeyText('[', '{')],
+    [KeyCode.KEYCODE_RIGHT_BRACKET, new KeyText(']', '}')],
+    [KeyCode.KEYCODE_BACKSLASH, new KeyText('\\', '|')],
+    [KeyCode.KEYCODE_SEMICOLON, new KeyText(';', ':')],
+    [KeyCode.KEYCODE_APOSTROPHE, new KeyText('\'', '"')],
+    [KeyCode.KEYCODE_COMMA, new KeyText(',', '<')],
+    [KeyCode.KEYCODE_PERIOD, new KeyText('.', '>')],
+    [KeyCode.KEYCODE_SLASH, new KeyText('/', '?')],
+    [KeyCode.KEYCODE_SPACE, new KeyText(' ', ' ')],
+
+    [KeyCode.KEYCODE_NUMPAD_0, new KeyText('0', '')],
+    [KeyCode.KEYCODE_NUMPAD_1, new KeyText('1', '')],
+    [KeyCode.KEYCODE_NUMPAD_2, new KeyText('2', '')],
+    [KeyCode.KEYCODE_NUMPAD_3, new KeyText('3', '')],
+    [KeyCode.KEYCODE_NUMPAD_4, new KeyText('4', '')],
+    [KeyCode.KEYCODE_NUMPAD_5, new KeyText('5', '')],
+    [KeyCode.KEYCODE_NUMPAD_6, new KeyText('6', '')],
+    [KeyCode.KEYCODE_NUMPAD_7, new KeyText('7', '')],
+    [KeyCode.KEYCODE_NUMPAD_8, new KeyText('8', '')],
+    [KeyCode.KEYCODE_NUMPAD_9, new KeyText('9', '')],
+  ]);
+
   private textInputPlugin?: TextInputPlugin;
-  private charMap : HashMap<number, string> = new HashMap();
-  private shiftMap : HashMap<number, string> = new HashMap();
   private isShiftMode: boolean = false;
+  private isCombinationMode: boolean = false;
 
   constructor(textInputPlugin?: TextInputPlugin) {
     this.textInputPlugin = textInputPlugin;
-    this.initCharMap();
-    this.initShiftMap();
   }
 
-  private initCharMap() {
-    this.charMap.set(KeyCode.KEYCODE_0, '0')
-    this.charMap.set(KeyCode.KEYCODE_1, '1')
-    this.charMap.set(KeyCode.KEYCODE_2, '2')
-    this.charMap.set(KeyCode.KEYCODE_3, '3')
-    this.charMap.set(KeyCode.KEYCODE_4, '4')
-    this.charMap.set(KeyCode.KEYCODE_5, '5')
-    this.charMap.set(KeyCode.KEYCODE_6, '6')
-    this.charMap.set(KeyCode.KEYCODE_7, '7')
-    this.charMap.set(KeyCode.KEYCODE_8, '8')
-    this.charMap.set(KeyCode.KEYCODE_9, '9')
-    this.charMap.set(KeyCode.KEYCODE_A, 'a')
-    this.charMap.set(KeyCode.KEYCODE_B, 'b')
-    this.charMap.set(KeyCode.KEYCODE_C, 'c')
-    this.charMap.set(KeyCode.KEYCODE_D, 'd')
-    this.charMap.set(KeyCode.KEYCODE_E, 'e')
-    this.charMap.set(KeyCode.KEYCODE_F, 'f')
-    this.charMap.set(KeyCode.KEYCODE_G, 'g')
-    this.charMap.set(KeyCode.KEYCODE_H, 'h')
-    this.charMap.set(KeyCode.KEYCODE_I, 'i')
-    this.charMap.set(KeyCode.KEYCODE_J, 'j')
-    this.charMap.set(KeyCode.KEYCODE_K, 'k')
-    this.charMap.set(KeyCode.KEYCODE_L, 'l')
-    this.charMap.set(KeyCode.KEYCODE_M, 'm')
-    this.charMap.set(KeyCode.KEYCODE_N, 'n')
-    this.charMap.set(KeyCode.KEYCODE_O, 'o')
-    this.charMap.set(KeyCode.KEYCODE_P, 'p')
-    this.charMap.set(KeyCode.KEYCODE_Q, 'q')
-    this.charMap.set(KeyCode.KEYCODE_R, 'r')
-    this.charMap.set(KeyCode.KEYCODE_S, 's')
-    this.charMap.set(KeyCode.KEYCODE_T, 't')
-    this.charMap.set(KeyCode.KEYCODE_U, 'u')
-    this.charMap.set(KeyCode.KEYCODE_V, 'v')
-    this.charMap.set(KeyCode.KEYCODE_W, 'w')
-    this.charMap.set(KeyCode.KEYCODE_X, 'x')
-    this.charMap.set(KeyCode.KEYCODE_Y, 'y')
-    this.charMap.set(KeyCode.KEYCODE_Z, 'z')
-    this.charMap.set(KeyCode.KEYCODE_GRAVE, '`')
-    this.charMap.set(KeyCode.KEYCODE_MINUS, '-')
-    this.charMap.set(KeyCode.KEYCODE_EQUALS, '=')
-    this.charMap.set(KeyCode.KEYCODE_LEFT_BRACKET, '[')
-    this.charMap.set(KeyCode.KEYCODE_RIGHT_BRACKET, ']')
-    this.charMap.set(KeyCode.KEYCODE_BACKSLASH, '\\')
-    this.charMap.set(KeyCode.KEYCODE_SEMICOLON, ';')
-    this.charMap.set(KeyCode.KEYCODE_APOSTROPHE, '\'')
-    this.charMap.set(KeyCode.KEYCODE_COMMA, ',')
-    this.charMap.set(KeyCode.KEYCODE_PERIOD, '.')
-    this.charMap.set(KeyCode.KEYCODE_SLASH, '/')
-    this.charMap.set(KeyCode.KEYCODE_SPACE, ' ')
-  }
-
-  private initShiftMap() {
-    this.shiftMap.set(KeyCode.KEYCODE_0, ')')
-    this.shiftMap.set(KeyCode.KEYCODE_1, '!')
-    this.shiftMap.set(KeyCode.KEYCODE_2, '@')
-    this.shiftMap.set(KeyCode.KEYCODE_3, '#')
-    this.shiftMap.set(KeyCode.KEYCODE_4, '$')
-    this.shiftMap.set(KeyCode.KEYCODE_5, '%')
-    this.shiftMap.set(KeyCode.KEYCODE_6, '^')
-    this.shiftMap.set(KeyCode.KEYCODE_7, '&')
-    this.shiftMap.set(KeyCode.KEYCODE_8, '*')
-    this.shiftMap.set(KeyCode.KEYCODE_9, '(')
-    this.shiftMap.set(KeyCode.KEYCODE_A, 'A')
-    this.shiftMap.set(KeyCode.KEYCODE_B, 'B')
-    this.shiftMap.set(KeyCode.KEYCODE_C, 'C')
-    this.shiftMap.set(KeyCode.KEYCODE_D, 'D')
-    this.shiftMap.set(KeyCode.KEYCODE_E, 'E')
-    this.shiftMap.set(KeyCode.KEYCODE_F, 'F')
-    this.shiftMap.set(KeyCode.KEYCODE_G, 'G')
-    this.shiftMap.set(KeyCode.KEYCODE_H, 'H')
-    this.shiftMap.set(KeyCode.KEYCODE_I, 'I')
-    this.shiftMap.set(KeyCode.KEYCODE_J, 'J')
-    this.shiftMap.set(KeyCode.KEYCODE_K, 'K')
-    this.shiftMap.set(KeyCode.KEYCODE_L, 'L')
-    this.shiftMap.set(KeyCode.KEYCODE_M, 'M')
-    this.shiftMap.set(KeyCode.KEYCODE_N, 'N')
-    this.shiftMap.set(KeyCode.KEYCODE_O, 'O')
-    this.shiftMap.set(KeyCode.KEYCODE_P, 'P')
-    this.shiftMap.set(KeyCode.KEYCODE_Q, 'Q')
-    this.shiftMap.set(KeyCode.KEYCODE_R, 'R')
-    this.shiftMap.set(KeyCode.KEYCODE_S, 'S')
-    this.shiftMap.set(KeyCode.KEYCODE_T, 'T')
-    this.shiftMap.set(KeyCode.KEYCODE_U, 'U')
-    this.shiftMap.set(KeyCode.KEYCODE_V, 'V')
-    this.shiftMap.set(KeyCode.KEYCODE_W, 'W')
-    this.shiftMap.set(KeyCode.KEYCODE_X, 'X')
-    this.shiftMap.set(KeyCode.KEYCODE_Y, 'Y')
-    this.shiftMap.set(KeyCode.KEYCODE_Z, 'Z')
-    this.shiftMap.set(KeyCode.KEYCODE_GRAVE, '~')
-    this.shiftMap.set(KeyCode.KEYCODE_MINUS, '_')
-    this.shiftMap.set(KeyCode.KEYCODE_EQUALS, '+')
-    this.shiftMap.set(KeyCode.KEYCODE_LEFT_BRACKET, '{')
-    this.shiftMap.set(KeyCode.KEYCODE_RIGHT_BRACKET, '}')
-    this.shiftMap.set(KeyCode.KEYCODE_BACKSLASH, '|')
-    this.shiftMap.set(KeyCode.KEYCODE_SEMICOLON, ':')
-    this.shiftMap.set(KeyCode.KEYCODE_APOSTROPHE, '"')
-    this.shiftMap.set(KeyCode.KEYCODE_COMMA, '<')
-    this.shiftMap.set(KeyCode.KEYCODE_PERIOD, '>')
-    this.shiftMap.set(KeyCode.KEYCODE_SLASH, '?')
-    this.shiftMap.set(KeyCode.KEYCODE_SPACE, ' ')
-  }
-
-  getCharByEvent(event: KeyEvent) : string {
-    let key = event.keyCode;
-    if (this.isShiftMode) {
-      return this.shiftMap.hasKey(key) ? this.shiftMap.get(key) : ''
-    } else {
-      return this.charMap.hasKey(key) ? this.charMap.get(key) : ''
+  getKeyText(event: KeyEvent) : string {
+    let keyText = KeyEventHandler.keyTextMap.get(event.keyCode);
+    if (keyText != undefined) {
+      return this.isShiftMode ? keyText.shiftCase : keyText.normalCase;
     }
+    return '';
   }
 
   handleKeyEvent(event: KeyEvent) {
@@ -149,18 +137,23 @@ export class KeyEventHandler {
       "name": "handleKeyEvent",
       "event": event
     }));
-    if (event.type == KeyType.Up) {
-      // 处理字符按键相关逻辑
-      if (this.charMap.hasKey(event.keyCode)) {
-        this.textInputPlugin?.getEditingState().handleInsertTextEvent(this.getCharByEvent(event))
+    if (event.type == KeyType.Down) {
+      if (KeyEventHandler.combinationKeys.has(event.keyCode)) {
+        this.isCombinationMode = true;
+      } else if (KeyEventHandler.shiftKeys.has(event.keyCode)) {
+        this.isShiftMode = true;
+      } else {
+        // Ctrl/Alt 键按下的状态，不输入字符（字母/数字/符号）
+        if (!this.isCombinationMode) {
+          this.textInputPlugin?.getEditingState().handleInsertTextEvent(this.getKeyText(event));
+        }
       }
-      // 处理非字符按键
-      if (event.keyCode == KeyCode.KEYCODE_DEL) {
-        this.textInputPlugin?.getEditingState().handleDeleteEvent(false, 1)
-      } else if (event.keyCode == KeyCode.KEYCODE_FORWARD_DEL) {
-        this.textInputPlugin?.getEditingState().handleDeleteEvent(true, 1)
+    } else if (event.type == KeyType.Up) {
+      if (KeyEventHandler.combinationKeys.has(event.keyCode)) {
+        this.isCombinationMode = false;
+      } else if (KeyEventHandler.shiftKeys.has(event.keyCode)) {
+        this.isShiftMode = false;
       }
     }
-    this.isShiftMode = (event.keyCode == KeyCode.KEYCODE_SHIFT_LEFT || event.keyCode == KeyCode.KEYCODE_SHIFT_RIGHT)
   }
 }
