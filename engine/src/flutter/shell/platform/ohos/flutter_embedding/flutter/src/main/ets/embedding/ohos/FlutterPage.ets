@@ -51,7 +51,7 @@ export struct FlutterPage {
   }
 
   defaultFocusOnTouch = false;
-  @Builder doNothingBuilder() {}
+  
   @BuilderParam splashScreenView: () => void = this.doNothingBuilder;
 
   @Builder
