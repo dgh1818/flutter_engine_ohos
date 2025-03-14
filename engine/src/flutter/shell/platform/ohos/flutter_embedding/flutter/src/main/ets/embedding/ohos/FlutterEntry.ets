@@ -134,15 +134,27 @@ export default class FlutterEntry implements Host {
   }
 
   shouldAttachEngineToAbility(): boolean {
-    return this.parameters![FlutterEntry.ARG_SHOULD_ATTACH_ENGINE_TO_ABILITY] as boolean
+    let param = this.parameters![FlutterEntry.ARG_SHOULD_ATTACH_ENGINE_TO_ABILITY];
+    if (!param) {
+      return true;
+    }
+    return param as boolean
   }
 
   getCachedEngineId(): string {
-    return this.parameters![FlutterAbilityLaunchConfigs.EXTRA_CACHED_ENGINE_ID] as string
+    let param = this.parameters![FlutterAbilityLaunchConfigs.EXTRA_CACHED_ENGINE_ID];
+    if (!param) {
+      return "";
+    }
+    return param as string
   }
 
   getCachedEngineGroupId(): string | null {
-    return this.parameters![FlutterAbilityLaunchConfigs.EXTRA_CACHED_ENGINE_GROUP_ID] as string
+    let param = this.parameters![FlutterAbilityLaunchConfigs.EXTRA_CACHED_ENGINE_GROUP_ID];
+    if (!param) {
+      return null;
+    }
+    return param as string
   }
 
   shouldDestroyEngineWithHost(): boolean {

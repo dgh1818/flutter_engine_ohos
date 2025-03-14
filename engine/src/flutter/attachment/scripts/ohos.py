@@ -281,7 +281,7 @@ def zipFiles(buildInfo, useZip2=False, args=any):
   prefixInZip = os.path.join("src", "out", outputName)
   excludes = ["obj", "exe.unstripped", "so.unstripped"]
   if IS_WINDOWS:
-    excludes.extend([".*\.ilk", ".*\.pdb"])
+    excludes.extend([r".*\.ilk", r".*\.pdb"])
   zipFileDir(fileIn, fileName, prefixInZip, excludes=excludes, useZip2=useZip2)
 
 
