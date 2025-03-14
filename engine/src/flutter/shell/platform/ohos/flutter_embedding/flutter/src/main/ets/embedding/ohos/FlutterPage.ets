@@ -28,6 +28,8 @@ const TAG = "FlutterPage";
  */
 @Component
 export struct FlutterPage {
+  @Prop safeAreaEdges: SafeAreaEdge[] | undefined = [];
+  @Prop safeAreaTypes: SafeAreaType[] | undefined = [];
   @Prop viewId: string = ""
   @Prop xComponentType: XComponentType = XComponentType.SURFACE
   /**
@@ -48,6 +50,8 @@ export struct FlutterPage {
   doNothingBuilder() {
   }
 
+  defaultFocusOnTouch = false;
+  @Builder doNothingBuilder() {}
   @BuilderParam splashScreenView: () => void = this.doNothingBuilder;
 
   @Builder
@@ -68,6 +72,7 @@ export struct FlutterPage {
       XComponent({ id: this.viewId, type: this.xComponentType, libraryname: 'flutter' })
         .id(this.viewId)
         .focusable(true)
+        .focusOnTouch(this.defaultFocusOnTouch)
         .onLoad((context) => {
           this.flutterView?.onSurfaceCreated();
           // Callback is triggered when the xcomponent window is partially visible or completely hidden.
@@ -90,7 +95,7 @@ export struct FlutterPage {
         .renderFit(this.xComponentRenderFit)
         .backgroundColor(this.firstFrameDisplayed && this.xComponentRenderFit == RenderFit.RESIZE_FILL ?
         this.xComponentColor : Color.Transparent)
-
+        .expandSafeArea(this.safeAreaTypes, this.safeAreaEdges)
       if (this.showSplashScreen) {
         this.splashScreenView();
       }
@@ -146,6 +151,7 @@ export struct FlutterPage {
       XComponent({ id: this.viewId, type: this.xComponentType, libraryname: 'flutter' })
         .id(this.viewId)
         .focusable(true)
+        .focusOnTouch(this.defaultFocusOnTouch)
         .onLoad((context) => {
           this.flutterView?.onSurfaceCreated();
           // Callback is triggered when the xcomponent window is partially visible or completely hidden.
@@ -168,6 +174,7 @@ export struct FlutterPage {
         .renderFit(this.xComponentRenderFit)
         .backgroundColor(this.firstFrameDisplayed && this.xComponentRenderFit == RenderFit.RESIZE_FILL ?
         this.xComponentColor : Color.Transparent)
+        .expandSafeArea(this.safeAreaTypes, this.safeAreaEdges)
 
       if (this.showSplashScreen) {
         this.splashScreenView();
