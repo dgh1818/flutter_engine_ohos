@@ -98,7 +98,6 @@ source_set("flutter_ohos_sources") {
              "image_lru.h",
              "types.h",
              "ohos_logging.h",
-             "./utils/ohos_utils.h",
              "./accessibility/ohos_semantics_node.h",
              "./accessibility/ohos_semantics_tree.h",
              "./accessibility/ohos_semantics_bridge.h",
@@ -121,7 +120,6 @@ source_set("flutter_ohos_sources") {
     "./accessibility/ohos_semantics_bridge.cpp",
     "./accessibility/ohos_semantics_node.cpp",
     "./accessibility/ohos_semantics_tree.cpp",
-    "./utils/ohos_utils.cpp",
     "image_lru.cpp",
     "ohos_context_gl_skia.cpp",
     "ohos_display.cpp",
@@ -159,6 +157,8 @@ source_set("flutter_ohos_sources") {
   deps = [
     "//flutter/shell/platform/common:common_cpp_input",
     "//flutter/shell/platform/common:common_cpp_switches",
+    "//flutter/shell/platform/common/client_wrapper:client_wrapper",
+    "//flutter/shell/platform/common/client_wrapper:client_wrapper_library_stubs",
     "//flutter/shell/platform/embedder:embedder_headers",
     "//flutter/third_party/rapidjson",
   ]

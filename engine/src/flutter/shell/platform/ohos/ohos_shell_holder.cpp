@@ -22,10 +22,9 @@
 
 #include "flutter/shell/platform/ohos/ohos_logging.h"
 #include "fml/trace_event.h"
-
+#include "shell/platform/common/client_wrapper/include/flutter/standard_message_codec.h"
 #include "third_party/skia/src/ports/skia_ohos/SkFontMgr_ohos.h"
 #include "txt/platform.h"
-#include "utils/ohos_utils.h"
 
 #include <qos/qos.h>
 #include <sys/resource.h>
@@ -530,20 +529,22 @@ static ACTIONS_ ArkuiActionsToFlutterActions(
 
     case ArkUI_Accessibility_ActionType::
         ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SET_TEXT:
-      return ACTIONS_::kSetText;
+      return ACTIONS_::kPaste;
 
+    case ArkUI_Accessibility_ActionType::
+        ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SET_CURSOR_POSITION:
+      return ACTIONS_::kSetSelection;
     default:
       // might not match to the valid action in arkui
       return ACTIONS_::kCustomAction;
   }
 }
 
-static const char* ARKUI_ACTION_ARG_SET_TEXT = "setText";
 static const char* ARKUI_ACTION_ARG_SELECT_TEXT_START = "selectTextBegin";
 static const char* ARKUI_ACTION_ARG_SELECT_TEXT_END = "selectTextEnd";
-static const char* ACTION_ARGU_SET_OFFSET = "offset";
+static const char* ARKUI_ACTION_ARG_SET_OFFSET = "offset";
 
-static std::vector<uint8_t> GetAccessibilitySelectText(
+static EncodableValue GetAccessibilitySelectText(
     ArkUI_AccessibilityActionArguments* args,
     SemanticsNodeExtend* node) {
   char* textSelectBase = nullptr;
@@ -551,7 +552,7 @@ static std::vector<uint8_t> GetAccessibilitySelectText(
       args, ARKUI_ACTION_ARG_SELECT_TEXT_START, &textSelectBase);
   if (textSelectBase == nullptr) {
     LOGE("PerformSelectText -> textSelectBase get null value");
-    return {};
+    return EncodableValue();
   }
 
   char* textSelectExtent = nullptr;
@@ -559,49 +560,38 @@ static std::vector<uint8_t> GetAccessibilitySelectText(
       args, ARKUI_ACTION_ARG_SELECT_TEXT_END, &textSelectExtent);
   if (textSelectExtent == nullptr) {
     LOGE("PerformSelectText -> textSelectExtent get null value");
-    return {};
+    return EncodableValue();
   }
 
-  std::map<std::string, int32_t> selectionMap;
   bool hasSelected = args != nullptr && textSelectBase != nullptr &&
                      textSelectExtent != nullptr;
   if (hasSelected) {
-    int32_t base;
-    int32_t extent;
-    OHOSUtils::CharArrayToInt32(textSelectBase, base);
-    OHOSUtils::CharArrayToInt32(textSelectExtent, extent);
-    selectionMap.insert({"base", base});
-    selectionMap.insert({"extent", extent});
-    node->textSelectionBase = base;
-    node->textSelectionExtent = extent;
-  } else {
-    selectionMap.insert(
-        {ARKUI_ACTION_ARG_SELECT_TEXT_START, node->textSelectionBase});
-    selectionMap.insert(
-        {ARKUI_ACTION_ARG_SELECT_TEXT_END, node->textSelectionExtent});
+    node->textSelectionBase = std::stoi(textSelectBase);
+    node->textSelectionExtent = std::stoi(textSelectExtent);
   }
-
-  // serialize map<string, int32_t> to byte vector
-  std::vector<uint8_t> encodedData =
-      OHOSUtils::SerializeStringIntMap(selectionMap);
-  return encodedData;
+  return EncodableValue(EncodableMap{
+      {EncodableValue("base"), EncodableValue(node->textSelectionBase)},
+      {EncodableValue("extent"), EncodableValue(node->textSelectionExtent)}});
 }
 
-static std::vector<uint8_t> GetAccessibilitySetText(
+static EncodableValue GetAccessibilitySetCursorPosition(
     ArkUI_AccessibilityActionArguments* args,
     SemanticsNodeExtend* node) {
-  char* newText = nullptr;
-  OH_ArkUI_FindAccessibilityActionArgumentByKey(args, ARKUI_ACTION_ARG_SET_TEXT,
-                                                &newText);
-  if (newText == nullptr) {
+  char* setCursorOffset = nullptr;
+  OH_ArkUI_FindAccessibilityActionArgumentByKey(
+      args, ARKUI_ACTION_ARG_SET_OFFSET, &setCursorOffset);
+  if (setCursorOffset == nullptr) {
     LOGE(
-        "PerformSetText -> OH_ArkUI_FindAccessibilityActionArgumentByKey get "
+        "PerformSetCursorPosition -> "
+        "OH_ArkUI_FindAccessibilityActionArgumentByKey get "
         "null value");
-    return {};
+    return EncodableValue();
   }
-  node->value = newText;
-  node->valueAttributes = {};
-  return std::vector<uint8_t>(newText, newText + strlen(newText));
+  node->textSelectionBase = std::stoi(setCursorOffset);
+  node->textSelectionExtent = node->textSelectionBase;
+  return EncodableValue(EncodableMap{
+      {EncodableValue("base"), EncodableValue(node->textSelectionBase)},
+      {EncodableValue("extent"), EncodableValue(node->textSelectionExtent)}});
 }
 
 void OHOSShellHolder::SetAccessibilityProvider(
@@ -666,19 +656,19 @@ int32_t OHOSShellHolder::ExecuteAction(
       "id-" + std::to_string(elementId) + "-action-" + std::to_string(action);
   TRACE_EVENT1("flutter", "ExecuteAction", "action", trace_str.c_str());
 
-  std::vector<uint8_t> flutter_args;
+  EncodableValue args;
   if (action == ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SELECT_TEXT) {
-    flutter_args = GetAccessibilitySelectText(actionArguments, node);
-  } else if (action == ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SET_TEXT) {
-    flutter_args = GetAccessibilitySetText(actionArguments, node);
+    args = GetAccessibilitySelectText(actionArguments, node);
+  } else if (action ==
+             ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SET_CURSOR_POSITION) {
+    args = GetAccessibilitySetCursorPosition(actionArguments, node);
   }
 
   auto flutter_action = ArkuiActionsToFlutterActions(action, node);
 
   fml::TaskRunner::RunNowOrPostTask(
       shell_->GetTaskRunners().GetPlatformTaskRunner(),
-      [this, id = elementId, flutter_action, action,
-       args = std::move(flutter_args)]() {
+      [this, id = elementId, flutter_action, action, args]() {
         // this ptr is valid because the shell is running.
 
         std::lock_guard<std::mutex> lock(*bridge_mutex_);
@@ -713,25 +703,25 @@ int32_t OHOSShellHolder::ExecuteAction(
           case ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_CUT:
           case ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SET_TEXT:
           case ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SELECT_TEXT:
-            if (args.size()) {
+          case ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SET_CURSOR_POSITION:
+            if (!args.IsNull()) {
+              auto encoded_message =
+                  StandardMessageCodec::GetInstance().EncodeMessage(args);
+
               platform_view_->DispatchSemanticsAction(
                   id, flutter_action,
-                  fml::MallocMapping::Copy(args.data(),
-                                           args.size() * sizeof(uint8_t)));
+                  fml::MallocMapping::Copy(encoded_message->data(),
+                                           encoded_message->size()));
             } else {
               platform_view_->DispatchSemanticsAction(id, flutter_action, {});
             }
             break;
-
           case ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_GAIN_ACCESSIBILITY_FOCUS:
             bridge_->GainAccessibilityFocus(id);
             break;
           case ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_CLEAR_ACCESSIBILITY_FOCUS:
             bridge_->ClearAccessibilityFocus(id);
             break;
-
-          case ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SET_CURSOR_POSITION:
-          // @todo flutter don't support this setting.
           default:
             break;
         }

@@ -221,7 +221,7 @@ struct SemanticsNodeExtend : flutter::SemanticsNode {
     return result;
   }
 
-  std::string GetContents() {
+  std::string GetAccessibilityText() {
     std::string result = GetHintText();
     if (value.length() != 0) {
       if (result.length() != 0) {
