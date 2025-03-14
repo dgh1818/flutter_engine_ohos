@@ -240,7 +240,8 @@ void OhosTouchProcessor::HandleMouseEvent(
     int64_t shell_holderID,
     OH_NativeXComponent* component,
     OH_NativeXComponent_MouseEvent mouseEvent,
-    double offsetY) {
+    double offsetY,
+    bool isLeave) {
   const int numTouchPoints = 1;
   std::unique_ptr<flutter::PointerDataPacket> packet =
       std::make_unique<flutter::PointerDataPacket>(numTouchPoints);
@@ -249,8 +250,9 @@ void OhosTouchProcessor::HandleMouseEvent(
   pointerData.embedder_id = mouseEvent.button;
   pointerData.time_stamp = mouseEvent.timestamp / MSEC_PER_SECOND;
   pointerData.change = getPointerChangeForMouseAction(mouseEvent.action);
-  pointerData.physical_y = mouseEvent.y;
-  pointerData.physical_x = mouseEvent.x;
+  // If this is a leave event, dispath a point event that leaves the area.
+  pointerData.physical_y = isLeave ? -1 :mouseEvent.y;
+  pointerData.physical_x = isLeave ? -1 : mouseEvent.x;
   // Delta will be generated in pointer_data_packet_converter.cc.
   pointerData.physical_delta_x = 0.0;
   pointerData.physical_delta_y = 0.0;
