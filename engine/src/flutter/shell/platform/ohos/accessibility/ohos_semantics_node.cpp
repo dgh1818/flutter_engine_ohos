@@ -110,7 +110,8 @@ void SemanticsNodeExtend::FillElementInfoWithProperty(
   OH_ArkUI_AccessibilityElementInfoSetOperationActions(info, ohActions.size(),
                                                        ohActions.data());
   /* Make sure the focusable node can be recognized */
-  OH_ArkUI_AccessibilityElementInfoSetAccessibilityLevel(info, IsFocusable() ? "yes" : "auto");
+  OH_ArkUI_AccessibilityElementInfoSetAccessibilityLevel(
+      info, IsFocusable() ? "yes" : "auto");
 }
 
 void SemanticsNodeExtend::FillElementInfoWithContent(

@@ -266,23 +266,24 @@ void DispatchMouseEventCB(OH_NativeXComponent* component, void* window) {
 void DispatchHoverEventCB(OH_NativeXComponent* component, bool isHover) {
   LOGD("XComponentManger::DispatchHoverEventCB");
   if (!isHover) {
-    for (auto it: XComponentAdapter::GetInstance()->xcomponetMap_) {
+    for (auto it : XComponentAdapter::GetInstance()->xcomponetMap_) {
       if (it.second->nativeXComponent_ == component) {
-          it.second->OnDispatchMouseLeaveEvent(component);
+        it.second->OnDispatchMouseLeaveEvent(component);
       }
     }
   }
 }
 
-void XComponentBase::OnDispatchMouseLeaveEvent(OH_NativeXComponent* component)
-{
+void XComponentBase::OnDispatchMouseLeaveEvent(OH_NativeXComponent* component) {
   if (window_ != nullptr) {
     OH_NativeXComponent_MouseEvent mouseEvent;
-    int32_t ret = OH_NativeXComponent_GetMouseEvent(component, window_, &mouseEvent);
+    int32_t ret =
+        OH_NativeXComponent_GetMouseEvent(component, window_, &mouseEvent);
     if (ret == OH_NATIVEXCOMPONENT_RESULT_SUCCESS && is_engine_attached_) {
       LOGD("XComponentManger::OnDispatchMouseLeaveEvent()");
       // the leave mouseEvent data，is the same of last point on the area.
-      ohosTouchProcessor_.HandleMouseEvent(std::stoll(shellholderId_), component, mouseEvent, 0.0, true);
+      ohosTouchProcessor_.HandleMouseEvent(std::stoll(shellholderId_),
+                                           component, mouseEvent, 0.0, true);
     }
   } else {
     LOGE("OnSurfaceCreated XComponentBase is not attached");
