@@ -295,6 +295,7 @@ export class FlutterView {
       this.needSetViewport = true;
       this.onAreaChange(null);
     }
+    this.flutterEngine?.getFlutterNapi()?.updateRefreshRate(this.displayInfo?.refreshRate);
   }
   private keyboardHeightChangeCallback = (data: number) => {
     Log.i(TAG, "keyboardHeightChangeCallback " + data);
