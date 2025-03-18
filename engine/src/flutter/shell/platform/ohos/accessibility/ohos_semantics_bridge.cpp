@@ -131,7 +131,7 @@ void SemanticsBridge::SendSemanticsEvent(SemanticsNodeExtend* node,
     OH_ArkUI_SendAccessibilityAsyncEvent(provider_ohos_, event, callback);
     FML_DLOG(INFO) << "SendSemanticsEvent type " << (int64_t)type
                    << " node:" << (node ? node->id : -1) << " visible "
-                   << node->IsVisible()
+                   << (node ? node->IsVisible() : false)
                    << " message:" << (message ? message : "");
   }
 
