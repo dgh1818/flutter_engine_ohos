@@ -612,7 +612,9 @@ bool RenderPassVK::BindResource(ShaderStage stage,
 
   vk::DescriptorImageInfo image_info;
   image_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-  image_info.sampler = sampler_vk.GetSampler();
+  if (!immutable_sampler_) {
+    image_info.sampler = sampler_vk.GetSampler();
+  }
   image_info.imageView = texture_vk.GetImageView();
   image_workspace_[bound_image_offset_++] = image_info;
 
