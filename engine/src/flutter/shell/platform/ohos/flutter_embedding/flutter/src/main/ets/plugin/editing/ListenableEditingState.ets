@@ -106,6 +106,13 @@ export class ListenableEditingState {
     return this.mStringCache;
   }
 
+  getSelectionString(): string {
+    if (this.mSelectionStartCache < 0 || this.mSelectionEndCache > this.mStringCache.length) {
+      return "";
+    }
+    return this.mStringCache.substring(this.mSelectionStartCache, this.mSelectionEndCache);
+  }
+
   setSelectionStart(newSelectionStart: number): void {
     this.mSelectionStartCache = newSelectionStart;
   }
@@ -365,6 +372,20 @@ export class ListenableEditingState {
 
   handleSelectByRange(range: inputMethod.Range): void {
     Log.d(TAG, "handleSelectByRange start: " + range.start + " end: " + range.end);
+  }
+
+  // only for move cursor Left after insert text like "()" "[]" ...
+  handleMoveCursor(direction: inputMethod.Direction): void {
+    Log.d(TAG, "handleMoveCursor direction: " + direction);
+    if (direction === inputMethod.Direction.CURSOR_LEFT) {
+      let start = this.getSelectionStart();
+      let end = this.getSelectionEnd();
+      if (start === end && start > 0) {
+        this.setSelectionStart(start - 1);
+        this.setSelectionEnd(end - 1);
+        this.notifyListenersIfNeeded(false, true, false);
+      }
+    }
   }
 }
 
