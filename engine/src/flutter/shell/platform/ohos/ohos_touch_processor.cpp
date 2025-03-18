@@ -251,7 +251,7 @@ void OhosTouchProcessor::HandleMouseEvent(
   pointerData.time_stamp = mouseEvent.timestamp / MSEC_PER_SECOND;
   pointerData.change = getPointerChangeForMouseAction(mouseEvent.action);
   // If this is a leave event, dispath a point event that leaves the area.
-  pointerData.physical_y = isLeave ? -1 :mouseEvent.y;
+  pointerData.physical_y = isLeave ? -1 : mouseEvent.y;
   pointerData.physical_x = isLeave ? -1 : mouseEvent.x;
   // Delta will be generated in pointer_data_packet_converter.cc.
   pointerData.physical_delta_x = 0.0;
