@@ -219,6 +219,7 @@ class PlatformViewOHOSNapi {
   static int64_t display_width;
   static int64_t display_height;
   static int64_t display_refresh_rate;
+  static std::shared_ptr<std::set<int>> all_refresh_rates;
   static double display_density_pixels;
   static napi_value nativeXComponentDispatchMouseWheel(napi_env env,
                                                        napi_callback_info info);

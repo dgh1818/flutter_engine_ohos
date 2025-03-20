@@ -15,6 +15,7 @@
 
 #include "flutter/shell/platform/ohos/vsync_waiter_ohos.h"
 #include <qos/qos.h>
+#include <atomic>
 #include "fml/trace_event.h"
 #include "napi_common.h"
 #include "ohos_logging.h"
@@ -28,31 +29,67 @@ thread_local bool VsyncWaiterOHOS::firstCall = true;
 VsyncWaiterOHOS::VsyncWaiterOHOS(const flutter::TaskRunners& task_runners,
                                  std::shared_ptr<bool>& enable_frame_cache)
     : VsyncWaiter(task_runners), enable_frame_cache_(enable_frame_cache) {
-  vsyncHandle =
+  vsync_handle_ =
       OH_NativeVSync_Create("flutterSyncName", strlen(flutterSyncName));
 }
 
 VsyncWaiterOHOS::~VsyncWaiterOHOS() {
-  OH_NativeVSync_Destroy(vsyncHandle);
-  vsyncHandle = nullptr;
+  OH_NativeVSync_Destroy(vsync_handle_);
+  vsync_handle_ = nullptr;
+}
+
+void VsyncWaiterOHOS::UpdateDisplayRefreshRate(int64_t period) {
+  if (period != 0) {
+    int refresh_rate = 1000000000 / period;
+    auto rates = std::atomic_load(&PlatformViewOHOSNapi::all_refresh_rates);
+    if (!rates) {
+      return;
+    }
+    auto big_it = rates->upper_bound(refresh_rate);
+    auto small_it =
+        (big_it == rates->begin()) ? rates->end() : std::prev(big_it);
+
+    int big_rate = 1000000000;
+    int small_rate = 1;
+    if (big_it != rates->end()) {
+      big_rate = *big_it;
+    }
+    if (small_it != rates->end()) {
+      small_rate = *small_it;
+    }
+    if (refresh_rate >= (small_rate + big_rate) / 2) {
+      refresh_rate = big_rate;
+    } else {
+      refresh_rate = small_rate;
+    }
+
+    if (PlatformViewOHOSNapi::display_refresh_rate != refresh_rate) {
+      TRACE_EVENT0("flutter", "ChangeRefreshRate");
+      FML_DLOG(INFO) << "refresh_rate change:"
+                     << PlatformViewOHOSNapi::display_refresh_rate << "->"
+                     << refresh_rate;
+      PlatformViewOHOSNapi::display_refresh_rate = refresh_rate;
+    }
+  }
 }
 
 int64_t VsyncWaiterOHOS::GetVsyncPeriod() {
   long long period = 0;
-  if (vsyncHandle) {
-    OH_NativeVSync_GetPeriod(vsyncHandle, &period);
+  if (vsync_handle_) {
+    OH_NativeVSync_GetPeriod(vsync_handle_, &period);
+    UpdateDisplayRefreshRate(period);
   }
   return period;
 }
 
 void VsyncWaiterOHOS::AwaitVSync() {
   TRACE_EVENT0("flutter", "VsyncWaiterOHOS::AwaitVSync");
-  if (vsyncHandle == nullptr) {
-    LOGE("AwaitVSync vsyncHandle is nullptr");
+  if (vsync_handle_ == nullptr) {
+    LOGE("AwaitVSync vsync_handle_ is nullptr");
     return;
   }
   auto* weak_this = new std::weak_ptr<VsyncWaiter>(shared_from_this());
-  OH_NativeVSync* handle = vsyncHandle;
+  OH_NativeVSync* handle = vsync_handle_;
 
   fml::TaskRunner::RunNowOrPostTask(
       task_runners_.GetUITaskRunner(), [weak_this, handle]() {

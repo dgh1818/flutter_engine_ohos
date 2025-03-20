@@ -42,6 +42,9 @@ namespace flutter {
 int64_t PlatformViewOHOSNapi::display_width = 0;
 int64_t PlatformViewOHOSNapi::display_height = 0;
 int64_t PlatformViewOHOSNapi::display_refresh_rate = 60;
+// std::set<int> all_refresh_rates = {60, 90, 120};
+std::shared_ptr<std::set<int>> PlatformViewOHOSNapi::all_refresh_rates =
+    std::make_shared<std::set<int>>(std::initializer_list<int>{60});
 double PlatformViewOHOSNapi::display_density_pixels = 1.0;
 
 napi_env PlatformViewOHOSNapi::env_;
@@ -1043,6 +1046,12 @@ napi_value PlatformViewOHOSNapi::nativeUpdateRefreshRate(
        refreshRate);
   FML_DCHECK(refreshRate > 0);
   display_refresh_rate = refreshRate;
+  if (all_refresh_rates->find(refreshRate) == all_refresh_rates->end()) {
+    auto newSet = std::make_shared<std::set<int>>(*all_refresh_rates);
+    newSet->insert(refreshRate);
+    std::atomic_store(&all_refresh_rates, newSet);
+    LOGI("PlatformViewOHOSNapi: Add new refresh rate %{public}ld", refreshRate);
+  }
   return nullptr;
 }
 
