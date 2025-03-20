@@ -186,7 +186,6 @@ export class FlutterView {
     this.displayInfo = display.getDefaultDisplaySync();
     this.viewportMetrics.devicePixelRatio = this.displayInfo?.densityPixels;
     this.buildDisplayFeatures(display.getFoldStatus());
-    this.viewportMetrics.physicalTouchSlop = 1.0 * this.displayInfo?.densityPixels;
 
     this.mainWindow = FlutterManager.getInstance()
       .getWindowStage(FlutterManager.getInstance().getUIAbility(context))
@@ -286,12 +285,9 @@ export class FlutterView {
     this.displayInfo = display.getDefaultDisplaySync();
     this.flutterEngine?.getTextInputChannel()?.setDevicePixelRatio(this.displayInfo.densityPixels);
     let devicePixelRatio: number = this.displayInfo?.densityPixels;
-    let physicalTouchSlop: number = 1.0 * this.displayInfo?.densityPixels;
     Log.i(TAG, "Display on: " + JSON.stringify(this.displayInfo) + ". Display id:" + JSON.stringify(data))
-    if (devicePixelRatio != this.viewportMetrics.devicePixelRatio ||
-      this.viewportMetrics.physicalTouchSlop != physicalTouchSlop) {
+    if (devicePixelRatio != this.viewportMetrics.devicePixelRatio) {
       this.viewportMetrics.devicePixelRatio = devicePixelRatio;
-      this.viewportMetrics.physicalTouchSlop = physicalTouchSlop
       this.needSetViewport = true;
       this.onAreaChange(null);
     }
