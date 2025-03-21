@@ -184,12 +184,23 @@ KHRSwapchainImplVK::KHRSwapchainImplVK(const std::shared_ptr<Context>& context,
                  surface_caps.maxImageExtent.height),
   };
   swapchain_info.minImageCount =
+#ifdef OHOS_PLATFORM
+      // OHOS's RenderService will hold one buffer, and the hardware composer
+      // will always hold two buffers.
+      std::clamp(surface_caps.minImageCount + 3u,  // preferred image count
+                 surface_caps.minImageCount,       // min count cannot be zero
+                 surface_caps.maxImageCount == 0u
+                     ? surface_caps.minImageCount + 3u
+                     : surface_caps.maxImageCount  // max zero means no limit
+      );
+#else
       std::clamp(surface_caps.minImageCount + 1u,  // preferred image count
                  surface_caps.minImageCount,       // min count cannot be zero
                  surface_caps.maxImageCount == 0u
                      ? surface_caps.minImageCount + 1u
                      : surface_caps.maxImageCount  // max zero means no limit
       );
+#endif
   swapchain_info.imageArrayLayers = 1u;
   // Swapchain images are primarily used as color attachments (via resolve),
   // blit targets, or input attachments.
