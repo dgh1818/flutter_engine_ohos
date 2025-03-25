@@ -2,6 +2,7 @@
   "darwin-arm64": {
     "src/out/host_release/gen/flutter/build/archives/LICENSE.artifacts.md": "LICENSE.artifacts.md",
     "src/flutter/lib/gpu/": "flutter_gpu",
+    "src/out/host_release/flutter_tester": "flutter_tester",
     "src/out/host_release/frontend_server.dart.snapshot": "frontend_server.dart.snapshot",
     "src/out/host_release/gen_snapshot": "gen_snapshot",
     "src/out/host_release/icudtl.dat": "icudtl.dat",
