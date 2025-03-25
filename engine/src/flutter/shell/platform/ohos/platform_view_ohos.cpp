@@ -833,7 +833,7 @@ void PlatformViewOHOS::SetBoldText(double fontWeightScale) {
                    << accessibility_feature_flags_;
   } else {
     accessibility_feature_flags_ &=
-        static_cast<int32_t>(AccessibilityFeatureFlag::kBoldText);
+        ~static_cast<int32_t>(AccessibilityFeatureFlag::kBoldText);
   }
   SetAccessibilityFeatures(accessibility_feature_flags_);
 }
