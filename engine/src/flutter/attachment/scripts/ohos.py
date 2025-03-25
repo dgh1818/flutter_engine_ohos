@@ -380,7 +380,8 @@ def buildByNameAndType(args):
         zipFiles(buildInfo, True)
       else:
         logging.warning("Other name=%s" % buildName)
-    buildLocalEngine(buildType, args.gn_extra_param)
+    if buildNames or args.branch == '':
+      buildLocalEngine(buildType, args.gn_extra_param)
 
     if "upload" in buildNames:
       uploadFiles()
