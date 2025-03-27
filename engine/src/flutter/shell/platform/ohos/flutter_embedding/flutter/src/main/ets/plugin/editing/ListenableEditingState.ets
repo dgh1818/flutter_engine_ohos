@@ -20,12 +20,21 @@ import ArrayList from '@ohos.util.ArrayList';
 import { TextEditingDelta } from './TextEditingDelta';
 import TextInputChannel from '../../embedding/engine/systemchannels/TextInputChannel';
 import { FlutterTextUtils } from './TextUtils';
+import { KeyCode } from '@kit.InputKit';
 
 const TAG = "ListenableEditingState";
+
+enum DeleteStates {
+  START,
+  MOVING,
+  END
+}
 
 export class ListenableEditingState {
   private TextInputChannel: TextInputChannel | null = null;
   private client: number = 0
+  private leftDeleteState: DeleteStates = DeleteStates.END
+  private rightDeleteState: DeleteStates = DeleteStates.END
   //Cache used to storage software keyboard input action
   private mStringCache: string;
   private mSelectionStartCache: number = 0;
@@ -171,6 +180,12 @@ export class ListenableEditingState {
   }
 
   updateTextInputState(state: TextEditState): void {
+    if (this.leftDeleteState === DeleteStates.START) {
+      this.leftDeleteState = DeleteStates.MOVING;
+    }
+    if (this.rightDeleteState === DeleteStates.START) {
+      this.rightDeleteState = DeleteStates.MOVING;
+    }
     this.beginBatchEdit();
     this.setStringCache(state.text);
     if (state.hasSelection()) {
@@ -249,6 +264,22 @@ export class ListenableEditingState {
     }
   }
 
+  startDeleting(code: number) {
+    if (code === KeyCode.KEYCODE_FORWARD_DEL) {
+      this.rightDeleteState = DeleteStates.START
+    } else {
+      this.leftDeleteState = DeleteStates.START
+    }
+  }
+
+  endDeletion(code: number) {
+    if (code === KeyCode.KEYCODE_FORWARD_DEL) {
+      this.rightDeleteState = DeleteStates.END
+    } else {
+      this.leftDeleteState = DeleteStates.END
+    }
+  }
+
   handleDeleteEvent(leftOrRight: boolean, length: number): void {
     if (length === 0) {
       return;
@@ -258,7 +289,7 @@ export class ListenableEditingState {
       this.mSelectionStartCache < this.mSelectionEndCache ? this.mSelectionStartCache : this.mSelectionEndCache;
     let end = this.mSelectionStartCache > this.mSelectionEndCache ? this.mSelectionStartCache : this.mSelectionEndCache;
 
-    if (leftOrRight == false) {
+    if (leftOrRight == false && this.leftDeleteState !== DeleteStates.MOVING) {
       //delete left
       if (start == 0 && end == 0) {
         return;
@@ -278,7 +309,7 @@ export class ListenableEditingState {
       let tempStr: string = this.mStringCache.slice(0, unicodeStart) + this.mStringCache.slice(end);
       this.mStringCache = tempStr;
       this.mSelectionEndCache = this.mSelectionStartCache;
-    } else if (leftOrRight == true) {
+    } else if (leftOrRight == true && this.rightDeleteState !== DeleteStates.MOVING) {
       //delete right
       if (start == this.mStringCache.length) {
         return;

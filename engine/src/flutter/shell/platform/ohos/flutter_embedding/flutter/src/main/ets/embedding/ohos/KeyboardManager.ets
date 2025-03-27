@@ -20,6 +20,7 @@ import KeyEmbedderResponder from './KeyEmbedderResponder';
 import { BinaryMessenger } from '../../plugin/common/BinaryMessenger';
 import { KeyEventHandler } from './KeyEventHandler';
 import HashSet from '@ohos.util.HashSet';
+import { KeyCode } from '@kit.InputKit';
 
 export default class KeyboardManager {
   private keyEventChannel: KeyEventChannel | null = null;
@@ -43,6 +44,13 @@ export default class KeyboardManager {
 
       }
     })
+
+    //del物理按键会触发输入法的delete回调，一定时序下会导致多次删除
+    if(event.type == KeyType.Down && (event.keyCode == KeyCode.KEYCODE_DEL || event.keyCode == KeyCode.KEYCODE_FORWARD_DEL)){
+      this.keyEventHandler.startDeleting(event.keyCode)
+    } else if (event.type == KeyType.Up && (event.keyCode == KeyCode.KEYCODE_DEL || event.keyCode == KeyCode.KEYCODE_FORWARD_DEL)) {
+      this.keyEventHandler.endDeletion(event.keyCode)
+    }
     return false;
   }
 
