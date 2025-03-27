@@ -152,11 +152,14 @@ void OHOSExternalTexture::Paint(PaintContext& context,
     );
     context.canvas->Flush();
   } else {
-    // ready for fix black background issue when external texture is not ready.
+    // set background color if user set it when external texture is not ready.
     // note: it may be incorrect because the background color should be set in
-    // dart DlAutoCanvasRestore auto_restore(context.canvas, true); DlPaint
-    // paint; paint.setColor(DlColor::kWhite());
-    // context.canvas->DrawRect(bounds, paint);
+    // dart
+    if (background_color_enable_) {
+      DlAutoCanvasRestore auto_restore(context.canvas, true);
+      DlPaint paint; paint.setColor(DlColor(background_color_));
+      context.canvas->DrawRect(bounds, paint);
+    }
     FML_LOG(INFO) << "No DlImage available for ImageExternalTexture to paint.";
   }
 }
@@ -355,6 +358,12 @@ bool OHOSExternalTexture::SetPixelMapAsProducer(
   }
 
   return end_ret;
+}
+
+void OHOSExternalTexture::SetBackGroundColor(uint32_t color) {
+  TRACE_EVENT0("flutter", "SetExternalTextureBackGroundColor");
+  background_color_enable_ = true;
+  background_color_ = color;
 }
 
 void OHOSExternalTexture::ReleaseWindowBuffer(OH_NativeImage* native_image,
@@ -641,6 +650,8 @@ uint64_t OHOSExternalTexture::Reset(bool need_surfaceId) {
 
   OnTextureUnregistered();
   DestroyNativeImageSource();
+  DestroyPixelMapBuffer();
+  background_color_enable_ = false;
   if (need_surfaceId) {
     native_image_source_ = OH_NativeImage_Create(0, GL_TEXTURE_EXTERNAL_OES);
     if (native_image_source_ == nullptr) {
