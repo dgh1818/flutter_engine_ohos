@@ -85,7 +85,6 @@ struct SemanticsNodeExtend : flutter::SemanticsNode {
   bool idChanged = false;
   bool isExist = false;
 
-  bool performScrollAction = false;
   bool performSelectAction = false;
   bool isAccessibilityFocued = false;
   int32_t previousFlags = 0;
