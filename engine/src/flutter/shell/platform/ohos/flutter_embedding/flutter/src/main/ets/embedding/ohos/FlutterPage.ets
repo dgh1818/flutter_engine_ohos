@@ -241,9 +241,10 @@ export struct FlutterPage {
   @State checkGesture: boolean = true;
   @State checkMouseWheel: boolean = true;
   @State checkAiBar: boolean = true;
-
+  @Prop @Watch("onPaddingChange")paddingTop?: number = undefined;
   @StorageLink('nodeWidth') storageLinkWidth: number = 0;
   @StorageLink('nodeHeight') storageLinkHeight: number = 0;
+
 
   @State rootDvModel: DVModelChildren | undefined = undefined
 
@@ -258,6 +259,7 @@ export struct FlutterPage {
     this.flutterView?.setCheckFullScreen(this.checkFullScreen)
     this.flutterView?.setCheckKeyboard(this.checkKeyboard)
     this.flutterView?.setCheckGesture(this.checkGesture)
+    this.flutterView?.setPaddingTop(this.paddingTop)
     this.flutterView?.setCheckAiBar(this.checkAiBar)
     this.flutterView?.enableFrameCache(this.enableFrameCacheForSmooth);
 
@@ -275,6 +277,10 @@ export struct FlutterPage {
   }
 
   onFirstPreloadFrame() {
+  }
+
+  onPaddingChange() {
+    this.flutterView?.setPaddingTop(this.paddingTop);
   }
 
   build() {

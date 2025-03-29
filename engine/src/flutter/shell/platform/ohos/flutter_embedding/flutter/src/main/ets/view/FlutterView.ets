@@ -22,6 +22,7 @@ import KeyboardManager from '../embedding/ohos/KeyboardManager';
 import MouseCursorPlugin from '../plugin/mouse/MouseCursorPlugin';
 import Settings from '../embedding/ohos/Settings';
 import ArrayList from '@ohos.util.ArrayList';
+import { EmbeddingNodeController } from '../embedding/ohos/EmbeddingNodeController';
 import PlatformView, { Params } from '../plugin/platform/PlatformView';
 import hiTraceMeter from '@ohos.hiTraceMeter'
 import { JSON } from '@kit.ArkTS';
@@ -149,6 +150,29 @@ export enum DisplayFoldStatus {
   FOLD_STATUS_HALF_FOLDED = 3
 }
 
+/**
+  * @deprecated since 3.7
+*/
+export class PlatformViewParas {
+  width: number = 0.0;
+  height: number = 0.0;
+  top: number = 0.0;
+  left: number = 0.0;
+  direction: Direction = Direction.Auto;
+
+  setValue(width: number, height: number, top: number, left: number): void {
+    this.width = width;
+    this.height = height;
+    this.top = top;
+    this.left = left;
+  }
+
+  setOffset(top: number, left: number): void {
+    this.top = top;
+    this.left = left;
+  }
+}
+
 export class FlutterView {
   private flutterEngine: FlutterEngine | null = null
   private id: string = ""
@@ -171,11 +195,14 @@ export class FlutterView {
   private isFlutterUiDisplayed: boolean = false;
   private isFlutterUiPreload: boolean = false;
   private surfaceId: string = "0";
+  private nodeController: EmbeddingNodeController = new EmbeddingNodeController();
+  private platformViewSize: PlatformViewParas = new PlatformViewParas();
   private checkFullScreen: boolean = true;
   private checkKeyboard: boolean = true;
   private checkGesture: boolean = true;
   private checkAiBar: boolean = true;
   private frameCache: boolean = true;
+  private paddingTop?: number;
   private systemAvoidArea: window.AvoidArea;
   private navigationAvoidArea: window.AvoidArea;
   private gestureAvoidArea: window.AvoidArea;
@@ -326,6 +353,13 @@ export class FlutterView {
   getSurfaceId(): string {
     return this.surfaceId;
   }
+  
+  /**
+  * @deprecated since 3.7
+  */
+  getEmbeddingNodeController(): EmbeddingNodeController {
+    return this.nodeController;
+  }
 
   setWrappedBuilder(wrappedBuilder: WrappedBuilder<[Params]>) {
     this.wrapBuilder = wrappedBuilder;
@@ -341,6 +375,13 @@ export class FlutterView {
 
   getPlatformView(): PlatformView | undefined {
     return this.platformView;
+  }
+
+  /**
+  * @deprecated since 3.7
+  */
+  getPlatformViewSize(): PlatformViewParas {
+    return this.platformViewSize;
   }
 
   getDVModel() {
@@ -502,12 +543,16 @@ export class FlutterView {
     if (this.checkFullScreen &&
       (setFullScreen || FlutterManager.getInstance().getFullScreenListener().useFullScreen())) { // 全屏显示
       fullScreen = true
-      this.viewportMetrics.physicalViewPaddingTop =
-        this.systemAvoidArea?.topRect.height ?? this.viewportMetrics.physicalViewPaddingTop;
+      if (this.paddingTop != undefined) {
+        this.viewportMetrics.physicalViewPaddingTop = this.paddingTop;
+      } else {
+        this.viewportMetrics.physicalViewPaddingTop =
+          this.systemAvoidArea?.topRect.height ?? this.viewportMetrics.physicalViewPaddingTop;
+      }
       this.viewportMetrics.physicalViewPaddingBottom =
         this.systemAvoidArea?.bottomRect.height ?? this.viewportMetrics.physicalViewPaddingBottom;
     } else { // 非全屏显示
-      this.viewportMetrics.physicalViewPaddingTop = 0;
+      this.viewportMetrics.physicalViewPaddingTop = this.paddingTop ?? 0;
       this.viewportMetrics.physicalViewPaddingBottom = 0;
     }
 
@@ -688,6 +733,11 @@ export class FlutterView {
 
   setCheckAiBar(check: boolean) {
     this.checkAiBar = check
+  }
+
+  setPaddingTop(paddingTop?: number) {
+    this.paddingTop = paddingTop;
+    this.onAreaChange(null);
   }
 
   enableFrameCache(cacheEnable: boolean) {
