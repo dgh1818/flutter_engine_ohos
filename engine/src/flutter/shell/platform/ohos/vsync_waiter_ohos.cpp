@@ -16,13 +16,17 @@
 #include "flutter/shell/platform/ohos/vsync_waiter_ohos.h"
 #include <qos/qos.h>
 #include <atomic>
+#include <dlfcn.h>
 #include "fml/trace_event.h"
 #include "napi_common.h"
 #include "ohos_logging.h"
 
 namespace flutter {
 
+static constexpr int32_t SUPPORT_API_VERSION = 14;
 const char* flutterSyncName = "flutter_connect";
+const char* NATIVE_DVSYNC_SO = "libnative_vsync.so";
+
 
 thread_local bool VsyncWaiterOHOS::firstCall = true;
 
@@ -154,6 +158,34 @@ void VsyncWaiterOHOS::ConsumePendingCallback(
   if (shared_this) {
     shared_this->FireCallback(frame_start_time, frame_target_time);
   }
+}
+
+void VsyncWaiterOHOS::SetDvsyncSwitch(bool enableDvsync) {
+  if (apiVersion_ == 0) {
+    apiVersion_ = OH_GetSdkApiVersion();
+  }
+  if (apiVersion_ < SUPPORT_API_VERSION) {
+    LOGI("current api version not support native dvsync!");
+    return;
+  }
+  if (!handle_) {
+    handle_ = dlopen(NATIVE_DVSYNC_SO, RTLD_NOW);
+  }
+  if (!handle_) {
+    LOGE("SetDvsyncSwitch load %{public}s failed!", NATIVE_DVSYNC_SO);
+    return;
+  }
+
+  if (!nativeDvsyncFunc_) {
+    nativeDvsyncFunc_ = reinterpret_cast<NativeDvsyncFunc>(dlsym(handle_, "OH_NativeVSync_DVSyncSwitch"));
+  }
+  if (!nativeDvsyncFunc_) {
+    LOGE("SetDvsyncSwitch load OH_NativeVSync_DVSyncSwitch failed!");
+    dlclose(handle_);
+    handle_ = nullptr;
+    return;
+  }
+  nativeDvsyncFunc_(vsync_handle_, enableDvsync);
 }
 
 }  // namespace flutter

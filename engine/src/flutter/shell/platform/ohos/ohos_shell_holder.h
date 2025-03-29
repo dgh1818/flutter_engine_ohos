@@ -69,6 +69,10 @@ class OHOSShellHolder {
     return shell_->GetPlatformMessageHandler();
   }
 
+  const std::weak_ptr<VsyncWaiter> GetVsyncWaiter() const {
+    return shell_->GetVsyncWaiter();
+  }
+
   static void InitializeSystemFont();
 
   void ReloadSystemFonts();

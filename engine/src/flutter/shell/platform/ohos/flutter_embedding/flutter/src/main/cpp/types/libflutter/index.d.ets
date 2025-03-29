@@ -183,4 +183,6 @@ export const nativeSetFontWeightScale: (nativeShellHolderId: number, fontWeightS
 
 export const nativeSetFlutterNavigationAction: (nativeShellHolderId: number, isNavigate: boolean) => void;
 
+export const nativeSetDVsyncSwitch: (nativeShellHolderId: number, isEnable: boolean) => void;
+
 export const nativeUpdateCurrentXComponentId: (xcomponent_id: string) => void;
