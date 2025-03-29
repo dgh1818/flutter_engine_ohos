@@ -276,6 +276,7 @@ shared_library("flutter_shell_native") {
   #ldflags += ["-L{$OHOS_NDK_LIB}","-lnative_window"]
   ldflags += [ "-lnative_window" ]
   ldflags += [ "-lnative_vsync" ]
+  ldflags += [ "-ldeviceinfo_ndk.z" ]
   ldflags += [ "-lace_napi.z" ]
   ldflags += [ "-lace_ndk.z" ]
   ldflags += [ "-lhilog_ndk.z" ]

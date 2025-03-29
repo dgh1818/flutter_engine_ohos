@@ -723,6 +723,10 @@ export default class FlutterNapi {
       Log.w(TAG, "setFlutterNavigationAction is detached !");
     }
   }
+
+  SetDVsyncSwitch(isEnable: boolean): void {
+    flutter.nativeSetDVsyncSwitch(this.nativeShellHolderId!, isEnable);
+  }
 }
 
 export interface AccessibilityDelegate {
