@@ -117,6 +117,7 @@ export default class PlatformViewsController implements PlatformViewsHandler {
       Log.e(TAG, "Disposing unknown platform view with id: " + viewId);
       return;
     }
+    this.clearFocus(viewId);
     this.platformViews.delete(viewId);
     let textureId = this.viewIdWithTextureId.get(viewId);
 
@@ -241,7 +242,7 @@ export default class PlatformViewsController implements PlatformViewsHandler {
       return;
     }
     // Make the Xcomponent gain focus.
-    focusControl.requestFocus(this.flutterView?.getId());
+    focusControl.requestFocus("unfocus-xcomponent-node");
   }
 
   synchronizeToNativeViewHierarchy(yes: boolean): void {
