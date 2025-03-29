@@ -53,7 +53,7 @@ class SemanticsBridge {
                               ArkUI_AccessibilityElementInfoList* list);
 
   int32_t ClearAccessibilityFocus(int32_t id);
-  int32_t GainAccessibilityFocus(int32_t id);
+  int32_t GainAccessibilityFocus(int32_t id, bool* needShowOnScreen);
 
   int32_t GetAccessibilityNodeCursorPosition(int64_t elementId, int32_t* index);
 
