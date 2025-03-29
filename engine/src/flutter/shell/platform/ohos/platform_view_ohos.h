@@ -120,6 +120,8 @@ class PlatformViewOHOS final : public PlatformView {
       NativePixelMap* pixelMap,
       OH_NativeBuffer* pixelMap_native_buffer);
 
+  void SetExternalTextureBackGroundColor(int64_t texture_id, uint32_t color);
+
   void SetTextureBufferSize(int64_t texture_id, int32_t width, int32_t height);
 
   void NotifyTextureResizing(int64_t texture_id, int32_t width, int32_t height);

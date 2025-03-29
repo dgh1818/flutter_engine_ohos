@@ -675,6 +675,16 @@ void PlatformViewOHOS::SetExternalTextureBackGroundPixelMap(
   }
 }
 
+void PlatformViewOHOS::SetExternalTextureBackGroundColor(
+    int64_t texture_id,
+    uint32_t color) {
+    if (all_external_texture_.find(texture_id) != all_external_texture_.end()) {
+      auto external_texture = all_external_texture_[texture_id];
+      FML_LOG(INFO) << "SetExternalTextureBackGroundColor " << texture_id << " color " << color;
+      external_texture->SetBackGroundColor(color);
+    }
+}
+
 void PlatformViewOHOS::SetTextureBufferSize(int64_t texture_id,
                                             int32_t width,
                                             int32_t height) {

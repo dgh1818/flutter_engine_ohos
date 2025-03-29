@@ -1757,6 +1757,24 @@ napi_value PlatformViewOHOSNapi::nativeSetTextureBackGroundPixelMap(
   return nullptr;
 }
 
+napi_value PlatformViewOHOSNapi::nativeSetTextureBackGroundColor(
+    napi_env env,
+    napi_callback_info info) {
+  FML_DLOG(INFO) << "PlatformViewOHOSNapi::nativeSetTextureBackGroundColor";
+  size_t argc = 3;
+  napi_value args[3] = {nullptr};
+  int64_t shell_holder;
+  int64_t textureId;
+  uint32_t color;
+  NAPI_CALL(env, napi_get_cb_info(env, info, &argc, args, nullptr, nullptr));
+  NAPI_CALL(env, napi_get_value_int64(env, args[0], &shell_holder));
+  NAPI_CALL(env, napi_get_value_int64(env, args[1], &textureId));
+  NAPI_CALL(env, napi_get_value_uint32(env, args[2], &color));
+  OHOS_SHELL_HOLDER->GetPlatformView()->SetExternalTextureBackGroundColor(
+      textureId, color);
+  return nullptr;
+}
+
 napi_value PlatformViewOHOSNapi::nativeEnableFrameCache(
     napi_env env,
     napi_callback_info info) {

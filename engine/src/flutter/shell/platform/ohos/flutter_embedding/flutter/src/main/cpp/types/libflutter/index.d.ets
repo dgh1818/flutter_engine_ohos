@@ -130,6 +130,8 @@ export const nativeRegisterPixelMap: (nativeShellHolderId: number, textureId: nu
 
 export const nativeSetTextureBackGroundPixelMap: (nativeShellHolderId: number, textureId: number, pixelMap: PixelMap) => void;
 
+export const nativeSetTextureBackGroundColor: (nativeShellHolderId: number, textureId: number, color: number) => void;
+
 export const nativeRegisterTexture: (nativeShellHolderId: number, textureId: number) => number;
 
 export const nativeGetTextureWindowId: (nativeShellHolderId: number, textureId: number) => number;

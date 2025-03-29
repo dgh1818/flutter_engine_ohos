@@ -57,6 +57,8 @@ class OHOSExternalTexture : public flutter::Texture {
   bool SetPixelMapAsProducer(NativePixelMap* pixelMap,
                              OH_NativeBuffer* pixelMap_native_buffer);
 
+  void SetBackGroundColor(uint32_t color);
+
   bool SetProducerWindowSize(int width, int height);
 
   void NotifyResizing(int width, int height);
@@ -138,6 +140,8 @@ class OHOSExternalTexture : public flutter::Texture {
   OHNativeWindow* producer_nativewindow_ = nullptr;
   OHNativeWindowBuffer* pixelmap_buffer_ = nullptr;
   OH_NativeBuffer* pixelmap_native_buffer_ = nullptr;
+  bool background_color_enable_ = false;
+  uint32_t background_color_;
 
   OHNativeWindowBuffer* last_native_window_buffer_ = nullptr;
   int last_fence_fd_ = -1;
