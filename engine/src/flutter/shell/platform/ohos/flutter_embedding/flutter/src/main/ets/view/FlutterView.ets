@@ -29,6 +29,7 @@ import TextInputPlugin from '../plugin/editing/TextInputPlugin';
 import { accessibility } from '@kit.AccessibilityKit';
 
 const TAG = "FlutterViewTag";
+const EVENT_BACK_PRESS = 'EVENT_BACK_PRESS';
 
 export class ViewportMetrics {
   devicePixelRatio: number = 1.0;
@@ -163,6 +164,7 @@ export class FlutterView {
   private mouseCursorPlugin?: MouseCursorPlugin;
   private textInputPlugin?: TextInputPlugin;
   private uiContext?: UIContext | undefined;
+  private context: Context;
   private settings?: Settings;
   private mFirstFrameListeners: ArrayList<FirstFrameListener>;
   private mFirstPreloadFrameListeners: ArrayList<FirstPreloadFrameListener>;
@@ -182,7 +184,8 @@ export class FlutterView {
   private windowPosition: window.Rect | null = null;
 
   constructor(viewId: string, context: Context) {
-    this.id = viewId
+    this.id = viewId;
+    this.context = context;
     this.displayInfo = display.getDefaultDisplaySync();
     this.viewportMetrics.devicePixelRatio = this.displayInfo?.densityPixels;
     this.buildDisplayFeatures(display.getFoldStatus());
@@ -406,6 +409,14 @@ export class FlutterView {
     }
     this.onAreaChange(newArea, true);
 
+    this.context.eventHub.on(EVENT_BACK_PRESS, () => {
+      if (this?.getKeyboardHeight() == 0) {
+        this.flutterEngine?.getNavigationChannel()?.popRoute();
+      } else {
+        this.flutterEngine?.getTextInputChannel()?.textInputMethodHandler?.hide();
+      }
+    });
+
     let windowId = this.mainWindow?.getWindowProperties()?.id ?? 0
     this.mouseCursorPlugin = new MouseCursorPlugin(windowId, this.flutterEngine?.getMouseCursorChannel()!);
     this.textInputPlugin = new TextInputPlugin(this.flutterEngine?.getTextInputChannel()!, this.id);
@@ -449,6 +460,7 @@ export class FlutterView {
     this.flutterEngine = null;
     this.keyboardManager = null;
     this.textInputPlugin?.destroy();
+    this.context?.eventHub.off(EVENT_BACK_PRESS);
   }
 
   onWindowCreated() {
