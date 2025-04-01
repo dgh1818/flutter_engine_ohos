@@ -1,4 +1,9 @@
-#include "ohos_external_texture_vulkan.h"
+/*
+ * Copyright (c) 2023 Hunan OpenValley Digital Industry Development Co., Ltd. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE_KHZG file.
+ */
+ #include "ohos_external_texture_vulkan.h"
 #include <fcntl.h>
 #include <native_buffer/native_buffer.h>
 #include <native_window/external_window.h>
