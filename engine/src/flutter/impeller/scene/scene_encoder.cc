@@ -55,7 +55,7 @@ std::shared_ptr<CommandBuffer> SceneEncoder::BuildSceneCommandBuffer(
     ds_texture.format = PixelFormat::kD32FloatS8UInt;
     ds_texture.size = render_target.GetRenderTargetSize();
     ds_texture.usage = TextureUsage::kRenderTarget;
-#ifdef OHOS_PLATFORM
+#ifdef __OHOS__
     ds_texture.sample_count = SampleCount::kCount2;
 #else
     ds_texture.sample_count = SampleCount::kCount4;

@@ -257,7 +257,7 @@ class CapabilitiesVK final : public Capabilities,
       required_android_device_extensions_;
   std::set<RequiredOHOSDeviceExtensionVK> required_ohos_device_extensions_;
   std::set<OptionalDeviceExtensionVK> optional_device_extensions_;
-#ifdef OHOS_PLATFORM
+#ifdef __OHOS__
   // This format is set during swapchain initialization and is used for creating
   // offscreen textures. On OHOS, offscreen textures are created before the
   // swapchain is initialized due to pipeline preloading. In such cases, the

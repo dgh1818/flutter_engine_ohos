@@ -12,7 +12,7 @@
 
 namespace impeller {
 
-#ifdef OHOS_PLATFORM
+#ifdef __OHOS__
 namespace vk {
 class Semaphore;
 }

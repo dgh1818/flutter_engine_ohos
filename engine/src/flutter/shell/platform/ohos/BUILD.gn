@@ -150,7 +150,6 @@ source_set("flutter_ohos_sources") {
   defines = [
     "FLUTTER_LINUX_COMPILATION",
     "FLUTTER_ENGINE_NO_PROTOTYPES",
-    "OHOS_PLATFORM",
     "__MUSL__",
   ]
 

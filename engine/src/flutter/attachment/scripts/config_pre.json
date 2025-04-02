@@ -83,6 +83,12 @@
         "file_path": "../flutter/attachment/repos/build-3.22.patch2"
     },
     {
+        "name": "build3",
+        "target": "./src/build",
+        "type": "patch",
+        "file_path": "../flutter/attachment/repos/build-3.22.patch3"
+    },
+    {
         "name": "zlib",
         "target": "./src/third_party/zlib",
         "type": "patch",

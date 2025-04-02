@@ -184,7 +184,7 @@ KHRSwapchainImplVK::KHRSwapchainImplVK(const std::shared_ptr<Context>& context,
                  surface_caps.maxImageExtent.height),
   };
   swapchain_info.minImageCount =
-#ifdef OHOS_PLATFORM
+#ifdef __OHOS__
       // OHOS's RenderService will hold one buffer, and the hardware composer
       // will always hold two buffers.
       std::clamp(surface_caps.minImageCount + 3u,  // preferred image count
@@ -245,7 +245,7 @@ KHRSwapchainImplVK::KHRSwapchainImplVK(const std::shared_ptr<Context>& context,
   TextureDescriptor msaa_desc;
   msaa_desc.storage_mode = StorageMode::kDeviceTransient;
   msaa_desc.type = TextureType::kTexture2DMultisample;
-#ifdef OHOS_PLATFORM
+#ifdef __OHOS__
   msaa_desc.sample_count = SampleCount::kCount2;
 #else
   msaa_desc.sample_count = SampleCount::kCount4;
@@ -261,7 +261,7 @@ KHRSwapchainImplVK::KHRSwapchainImplVK(const std::shared_ptr<Context>& context,
   depth_stencil_desc.storage_mode = StorageMode::kDeviceTransient;
   if (enable_msaa) {
     depth_stencil_desc.type = TextureType::kTexture2DMultisample;
-#ifdef OHOS_PLATFORM
+#ifdef __OHOS__
     depth_stencil_desc.sample_count = SampleCount::kCount2;
 #else
     depth_stencil_desc.sample_count = SampleCount::kCount4;
