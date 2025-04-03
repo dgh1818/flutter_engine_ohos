@@ -24,6 +24,11 @@ export interface TextureRegistry {
 
   setTextureBackGroundPixelMap(textureId: number, pixelMap: PixelMap): void;
 
+  /**
+   * @deprecated since 3.7
+   */
+  setTextureBackGroundColor(textureId: number, color: number): void;
+
   setTextureBufferSize(textureId: number, width: number, height: number): void;
 
   notifyTextureResizing(textureId: number, width: number, height: number): void;
