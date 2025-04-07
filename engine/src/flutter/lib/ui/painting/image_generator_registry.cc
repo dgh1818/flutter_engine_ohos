@@ -23,7 +23,7 @@ ImageGeneratorRegistry::ImageGeneratorRegistry() : weak_factory_(this) {
       [](sk_sp<SkData> buffer) {
         return APNGImageGenerator::MakeFromData(std::move(buffer));
       },
-#ifdef OHOS_PLATFORM
+#ifdef __OHOS__
       // OHOS's PixelMap currently does not support APNG decoding. Direct
       // decoding will result in the image being decoded as PNG.
       2);

@@ -239,7 +239,7 @@ static std::unique_ptr<PipelineT> CreateDefaultPipeline(
   const auto default_color_format =
       context.GetCapabilities()->GetDefaultColorFormat();
   ContentContextOptions{
-#ifdef OHOS_PLATFORM
+#ifdef __OHOS__
       .sample_count = SampleCount::kCount2,
 #else
       .sample_count = SampleCount::kCount4,
@@ -272,7 +272,7 @@ ContentContext::ContentContext(
   }
 
   auto options = ContentContextOptions{
-#ifdef OHOS_PLATFORM
+#ifdef __OHOS__
       .sample_count = SampleCount::kCount2,
 #else
       .sample_count = SampleCount::kCount4,
@@ -280,7 +280,7 @@ ContentContext::ContentContext(
       .color_attachment_pixel_format =
           context_->GetCapabilities()->GetDefaultColorFormat()};
   auto options_trianglestrip = ContentContextOptions{
-#ifdef OHOS_PLATFORM
+#ifdef __OHOS__
       .sample_count = SampleCount::kCount2,
 #else
       .sample_count = SampleCount::kCount4,
@@ -463,7 +463,7 @@ ContentContext::ContentContext(
     return;
   }
   ContentContextOptions{
-#ifdef OHOS_PLATFORM
+#ifdef __OHOS__
       .sample_count = SampleCount::kCount2,
 #else
       .sample_count = SampleCount::kCount4,
@@ -631,7 +631,7 @@ void ContentContext::InitializeCommonlyUsedShadersIfNeeded() const {
   // triangle-strip geometry, and also have fairly agressive srcOver to src
   // blend mode conversions.
   auto options = ContentContextOptions{
-#ifdef OHOS_PLATFORM
+#ifdef __OHOS__
       .sample_count = SampleCount::kCount2,
 #else
       .sample_count = SampleCount::kCount4,
