@@ -58,6 +58,13 @@ export class FlutterRenderer implements TextureRegistry {
     this.flutterNapi.setTextureBackGroundPixelMap(textureId, pixelMap);
   }
 
+  /**
+   * @deprecated since 3.7
+   */
+  setTextureBackGroundColor(textureId: number, color: number): void {
+    this.flutterNapi.setTextureBackGroundColor(textureId, color);
+  }
+
   setTextureBufferSize(textureId: number, width: number, height: number): void {
     this.flutterNapi.setTextureBufferSize(textureId, width, height);
   }
