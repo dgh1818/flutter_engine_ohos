@@ -559,8 +559,6 @@ def to_gn_args(args):
     gn_args['target_os'] = args.target_os
     gn_args['target_cpu'] = get_target_cpu(args)
     gn_args['dart_target_arch'] = gn_args['target_cpu']
-    if (args.target_os == 'ohos'):
-      gn_args['host_cpu'] = get_host_cpu()
 
   print("ARGS.target_os:%s-%s" % (args.target_os, gn_args['target_os']))
   if not args.build_engine_artifacts:
