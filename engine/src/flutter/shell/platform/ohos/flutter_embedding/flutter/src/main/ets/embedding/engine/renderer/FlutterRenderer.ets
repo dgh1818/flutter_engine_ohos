@@ -30,6 +30,14 @@ export class FlutterRenderer implements TextureRegistry {
     this.flutterNapi = flutterNapi;
   }
 
+  /**
+   * @deprecated since 3.7
+   */
+  createSurfaceTexture(): SurfaceTextureEntry {
+    let receiver: image.ImageReceiver = this.getImageReceiver();
+    return this.registerSurfaceTexture(receiver);
+  }
+
   getTextureId(): number {
     let nextTextureId: number = FlutterRenderer.globalTextureId + 1;
     FlutterRenderer.globalTextureId = FlutterRenderer.globalTextureId + 1;
@@ -47,6 +55,15 @@ export class FlutterRenderer implements TextureRegistry {
     return surfaceTextureRegistryEntry;
   }
 
+  /**
+   * @deprecated since 3.7
+   */
+  registerSurfaceTexture(receiver: image.ImageReceiver): SurfaceTextureEntry {
+    let nextTextureId: number = FlutterRenderer.globalTextureId + 1;
+    FlutterRenderer.globalTextureId = FlutterRenderer.globalTextureId + 1;
+    let surfaceTextureRegistryEntry = new SurfaceTextureRegistryEntry(nextTextureId);
+    return surfaceTextureRegistryEntry;
+  }
 
   registerPixelMap(pixelMap: PixelMap): number {
     let nextTextureId: number = this.getTextureId();
@@ -88,6 +105,23 @@ export class FlutterRenderer implements TextureRegistry {
   onTrimMemory(level: number) {
     throw new Error('Method not implemented.');
   }
+
+  /**
+   * @deprecated since 3.7
+   */
+  private getImageReceiver(): image.ImageReceiver {
+    let receiver: image.ImageReceiver = image.createImageReceiver(640, 480, 4, 8);
+    if (receiver !== undefined) {
+      Log.i(TAG, '[camera test] ImageReceiver is ok');
+    } else {
+      Log.i(TAG, '[camera test] ImageReceiver is not ok');
+    }
+    receiver?.on('imageArrival', () => {
+      receiver.readNextImage().then(() => { receiver.release() })
+    })
+    return receiver;
+  }
+
 }
 
 export class SurfaceTextureRegistryEntry implements SurfaceTextureEntry {
