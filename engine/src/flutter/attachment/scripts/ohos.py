@@ -19,6 +19,12 @@ from datetime import datetime
 
 SUPPORT_BUILD_NAMES = ("clean", "config", "har", "compile", "zip", "zip2", "upload")
 SUPPORT_BUILD_TYPES = ("debug", "profile", "release")
+SUPPORT_ABIS = {
+    "x86": "x86",
+    "x64": "x86_64",
+    "arm": "armeabi-v7a",
+    "arm64": "arm64-v8a",
+}
 DIR_ROOT = os.path.abspath(os.path.join(sys.argv[0], os.pardir))
 OS_NAME = platform.system().lower()
 IS_WINDOWS = OS_NAME.startswith("win")
@@ -49,14 +55,12 @@ class BuildInfo:
       buildType="release",
       targetOS="ohos",
       targetArch="arm64",
-      targetTriple="arm64-%s-ohos" % OS_NAME,
-      abi="arm64-v8a",
   ):
     self.buildType = buildType
     self.targetOS = targetOS
     self.targetArch = targetArch
-    self.targetTriple = targetTriple
-    self.abi = abi
+    self.targetTriple = "%s-%s-%s" % (targetArch, OS_NAME, targetOS)
+    self.abi = SUPPORT_ABIS[targetArch]
 
   def __repr__(self):
     return "BuildInfo(buildType=%s)" % (self.buildType)
@@ -307,7 +311,7 @@ def addParseParam(parser):
   )
   parser.add_argument("--ohos_api_int", type=int, default=13, help="Ohos api int. Deprecated.")
   parser.add_argument("--har-unstripped", action="store_true", help="Use so.unstripped or not.")
-
+  parser.add_argument("--ohos-cpu", type=str, choices=['x64', 'x86', 'arm64', 'arm'], default="arm64")
 
 def updateCode(args):
   if args.branch:
@@ -353,7 +357,7 @@ def buildByNameAndType(args):
   for buildType in SUPPORT_BUILD_TYPES:
     if not buildType in buildTypes:
       continue
-    buildInfo = BuildInfo(buildType=buildType)
+    buildInfo = BuildInfo(buildType=buildType, targetArch=args.ohos_cpu)
     for buildName in SUPPORT_BUILD_NAMES:
       if not buildName in buildNames:
         continue
