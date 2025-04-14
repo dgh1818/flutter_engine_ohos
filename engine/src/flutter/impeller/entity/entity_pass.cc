@@ -934,7 +934,11 @@ bool EntityPass::OnRender(
                                     // Backdrop filters act as a entity before
                                     // everything and disrupt the optimization.
                                     !backdrop_filter_proc_;
-  for (const auto& element : elements_) {
+  // Reset the start index once used
+  int now_start_index = start_paint_element_index_;
+  start_paint_element_index_ = 0;
+  for (int i = now_start_index; i < (int)elements_.size(); i++) {
+    const auto& element = elements_[i];
     // Skip elements that are incorporated into the clear color.
     if (is_collapsing_clear_colors) {
       auto [entity_color, _] =
@@ -1190,8 +1194,24 @@ std::optional<Color> EntityPass::GetClearColor(ISize target_size) const {
     return std::nullopt;
   }
 
+  // Remove fully covered layers to enable simple occlusion culling.
+  start_paint_element_index_ = 0;
+  for (int i = elements_.size() - 1; i >= 0; i--) {
+    const auto& element = elements_[i];
+    auto [entity_color, blend_mode] =
+        ElementAsBackgroundColor(element, target_size);
+    // BlendMode kSource/kClear replace the destination, effectively clearing
+    // the buffer.
+    if (entity_color.has_value() &&
+        (blend_mode == BlendMode::kSource || blend_mode == BlendMode::kClear)) {
+      start_paint_element_index_ = i;
+      break;
+    }
+  }
+
   std::optional<Color> result = std::nullopt;
-  for (const Element& element : elements_) {
+  for (int i = start_paint_element_index_; i < (int)elements_.size(); i++) {
+    const auto& element = elements_[i];
     auto [entity_color, blend_mode] =
         ElementAsBackgroundColor(element, target_size);
     if (!entity_color.has_value()) {
