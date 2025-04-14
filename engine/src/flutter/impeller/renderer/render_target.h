@@ -87,6 +87,10 @@ class RenderTarget final {
           RenderTarget::kDefaultStencilAttachmentConfig,
       const std::shared_ptr<Texture>& depth_stencil_texture = nullptr);
 
+  void SetRenderArea(IRect area) const;
+
+  const std::optional<IRect> GetRenderArea() const;
+
   SampleCount GetSampleCount() const;
 
   bool HasColorAttachment(size_t index) const;
@@ -135,6 +139,7 @@ class RenderTarget final {
   std::map<size_t, ColorAttachment> colors_;
   std::optional<DepthAttachment> depth_;
   std::optional<StencilAttachment> stencil_;
+  mutable std::optional<IRect> render_area_;
 };
 
 /// @brief a wrapper around the impeller [Allocator] instance that can be used

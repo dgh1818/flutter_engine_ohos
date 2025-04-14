@@ -204,9 +204,22 @@ RenderPassVK::RenderPassVK(const std::shared_ptr<const Context>& context,
   vk::RenderPassBeginInfo pass_info;
   pass_info.renderPass = *render_pass_;
   pass_info.framebuffer = *framebuffer;
-  pass_info.renderArea.extent.width = static_cast<uint32_t>(target_size.width);
-  pass_info.renderArea.extent.height =
-      static_cast<uint32_t>(target_size.height);
+  auto render_area = render_target_.GetRenderArea();
+  if (render_area.has_value()) {
+    pass_info.renderArea.offset.x =
+        static_cast<uint32_t>(render_area.value().GetX());
+    pass_info.renderArea.offset.y =
+        static_cast<uint32_t>(render_area.value().GetY());
+    pass_info.renderArea.extent.width =
+        static_cast<uint32_t>(render_area.value().GetWidth());
+    pass_info.renderArea.extent.height =
+        static_cast<uint32_t>(render_area.value().GetHeight());
+  } else {
+    pass_info.renderArea.extent.width =
+        static_cast<uint32_t>(target_size.width);
+    pass_info.renderArea.extent.height =
+        static_cast<uint32_t>(target_size.height);
+  }
   pass_info.setClearValues(clear_values);
 
   command_buffer_vk_.beginRenderPass(pass_info, vk::SubpassContents::eInline);
@@ -222,7 +235,10 @@ RenderPassVK::RenderPassVK(const std::shared_ptr<const Context>& context,
   command_buffer_vk_.setViewport(0, 1, &viewport);
 
   // Set the initial scissor.
-  const auto sc = IRect::MakeSize(target_size);
+  auto sc = IRect::MakeSize(target_size);
+  if (render_area.has_value()) {
+    sc = render_area.value();
+  }
   vk::Rect2D scissor =
       vk::Rect2D()
           .setOffset(vk::Offset2D(sc.GetX(), sc.GetY()))

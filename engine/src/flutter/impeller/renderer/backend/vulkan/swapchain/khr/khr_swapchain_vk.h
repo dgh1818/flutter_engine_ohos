@@ -42,6 +42,8 @@ class KHRSwapchainVK {
   ///        recreated on the next frame.
   void UpdateSurfaceSize(const ISize& size);
 
+  int GetCurrentImageIndex();
+
  private:
   std::shared_ptr<KHRSwapchainImplVK> impl_;
   ISize size_;

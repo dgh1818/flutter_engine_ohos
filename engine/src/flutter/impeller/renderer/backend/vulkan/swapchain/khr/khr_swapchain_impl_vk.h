@@ -63,11 +63,14 @@ class KHRSwapchainImplVK final
 
   const ISize& GetSize() const;
 
+  uint32_t GetCurrentImageIndex() { return current_image_index_; };
+
  private:
   std::weak_ptr<Context> context_;
   vk::UniqueSurfaceKHR surface_;
   vk::Format surface_format_ = vk::Format::eUndefined;
   vk::UniqueSwapchainKHR swapchain_;
+  uint32_t current_image_index_ = 0;
   std::vector<std::shared_ptr<KHRSwapchainImageVK>> images_;
   std::vector<std::unique_ptr<KHRFrameSynchronizerVK>> synchronizers_;
   size_t current_frame_ = 0u;

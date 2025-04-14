@@ -42,6 +42,13 @@ void KHRSwapchainVK::UpdateSurfaceSize(const ISize& size) {
   size_ = size;
 }
 
+int KHRSwapchainVK::GetCurrentImageIndex() {
+  if (!IsValid()) {
+    return -1;
+  }
+  return impl_->GetCurrentImageIndex();
+}
+
 std::unique_ptr<Surface> KHRSwapchainVK::AcquireNextDrawable() {
   if (!IsValid()) {
     return nullptr;

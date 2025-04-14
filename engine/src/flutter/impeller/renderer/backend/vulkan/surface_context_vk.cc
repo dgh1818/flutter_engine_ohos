@@ -97,6 +97,13 @@ std::unique_ptr<Surface> SurfaceContextVK::AcquireNextSurface() {
   return surface;
 }
 
+int SurfaceContextVK::GetCurrentImageIndex() {
+  if (swapchain_) {
+    return swapchain_->GetCurrentImageIndex();
+  }
+  return -1;
+}
+
 void SurfaceContextVK::UpdateSurfaceSize(const ISize& size) const {
   swapchain_->UpdateSurfaceSize(size);
 }

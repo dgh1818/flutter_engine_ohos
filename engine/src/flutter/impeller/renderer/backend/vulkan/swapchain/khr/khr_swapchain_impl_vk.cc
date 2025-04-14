@@ -422,6 +422,7 @@ KHRSwapchainImplVK::AcquireResult KHRSwapchainImplVK::AcquireNextDrawable() {
   context.GetGPUTracer()->MarkFrameStart();
 
   auto image = images_[index % images_.size()];
+  current_image_index_ = index % images_.size();
 
   /// The GPU's write operations to the image must wait for the
   /// sync->render_ready semaphore (i.e., wait for the GPU or hardware composer

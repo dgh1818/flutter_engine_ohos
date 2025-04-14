@@ -83,6 +83,8 @@ class SurfaceContextVK : public Context,
 
   std::unique_ptr<Surface> AcquireNextSurface();
 
+  int GetCurrentImageIndex();
+
   /// @brief Mark the current swapchain configuration as dirty, forcing it to be
   ///        recreated on the next frame.
   void UpdateSurfaceSize(const ISize& size) const;
