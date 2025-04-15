@@ -547,13 +547,9 @@ config("runtime_library") {
       ldflags += [ "-nostdlib++" ]
     }
     include_dirs = [
+      "//third_party/libcxx/include",
       "//third_party/libcxxabi/include",
     ]
-    if (custom_toolchain != "") {
-      include_dirs += [ "$custom_toolchain/include/c++/v1" ]
-    } else {
-      include_dirs += [ "//third_party/libcxx/include" ]
-    }
   }
 
   # Android standard library setup.
