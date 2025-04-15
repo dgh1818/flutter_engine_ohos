@@ -134,9 +134,6 @@ static std::string CheckFontSource() {
     return "";
   }
   path = path.append(fileName);
-  if (OHOSLastFontPath.empty()) {
-    OHOSLastFontPath = path;
-  }
   return path;
 }
 
@@ -404,6 +401,9 @@ void OHOSShellHolder::InitializeSystemFont() {
   if (path.empty()) {
     LOGE("system font file not found");
     return;
+  }
+  if (OHOSLastFontPath.empty()) {
+    OHOSLastFontPath = path;
   }
   mgr->InitializeSystemFont(path);
 }
