@@ -166,6 +166,10 @@ bool OHOSSurfaceVulkanImpeller::SetPresentInfo(
       present_info.presentation_time) {
     uint64_t present_time =
         present_info.presentation_time->ToEpochDelta().ToNanoseconds();
+    // [-1ms] is to avoid this situation:
+    // ui_timestamp(xxx8.334ms) > now_time(xxx8.332ms) => skip this frame
+    // update [-2ms]: vsync may get a perid of 7.1 ms when 120hz.
+    present_time -= fml::TimeDelta::FromMilliseconds(2).ToNanoseconds();
     OH_NativeWindow_NativeWindowHandleOpt(
         (OHNativeWindow*)native_window_->Gethandle(),
         SET_DESIRED_PRESENT_TIMESTAMP, present_time);
