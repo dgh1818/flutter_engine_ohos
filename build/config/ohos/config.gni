@@ -5,7 +5,26 @@
 # This file contains common system config stuff for the Ohos build.
 
 if (is_ohos) {
-  if (current_cpu == "arm64") {
+  # Defines host_os
+  if (host_os == "linux") {
+    ohos_host_os = "linux"
+  } else if (host_os == "mac") {
+    ohos_host_os = "darwin"
+  } else if (host_os == "win") {
+    ohos_host_os = "win"
+  } else {
+    assert(false, "Need Ohos toolchain support for your build OS.")
+  }
+
+
+  # ABI ------------------------------------------------------------------------
+  if (current_cpu == "x86") {
+    ohos_app_abi = "x86"
+  } else if (current_cpu == "x64") {
+    ohos_app_abi = "x86_64"
+  } else if (current_cpu == "arm") {
+    ohos_app_abi = "armeabi-v7a"
+  } else if (current_cpu == "arm64") {
     ohos_app_abi = "arm64-v8a"
   } else {
     assert(false, "Unknown Ohos ABI: " + current_cpu)

@@ -364,7 +364,19 @@ config("compiler") {
     cflags += [ "-pthread" ]
     ldflags += [ "-pthread" ]
 
-    if (current_cpu == "arm64") {
+    if (current_cpu == "x86") {
+      cflags += [ "--target=x86-linux-ohos" ]
+      ldflags += [ "--target=x86-linux-ohos" ]
+      cflags += [ "-DBORINGSSL_CLANG_SUPPORTS_DOT_ARCH" ]
+    } else if (current_cpu == "x64") {
+      cflags += [ "--target=x86_64-linux-ohos" ]
+      ldflags += [ "--target=x86_64-linux-ohos" ]
+      cflags += [ "-DBORINGSSL_CLANG_SUPPORTS_DOT_ARCH" ]
+    } else if (current_cpu == "arm") {
+      cflags += [ "--target=aarch-linux-ohos" ]
+      ldflags += [ "--target=aarch-linux-ohos" ]
+      cflags += [ "-DBORINGSSL_CLANG_SUPPORTS_DOT_ARCH" ]
+    } else if (current_cpu == "arm64") {
       cflags += [ "--target=aarch64-linux-ohos" ]
       ldflags += [ "--target=aarch64-linux-ohos" ]
       cflags += [ "-DBORINGSSL_CLANG_SUPPORTS_DOT_ARCH" ]
