@@ -369,6 +369,8 @@ config("compiler") {
       ldflags += [ "--target=aarch64-linux-ohos" ]
       cflags += [ "-DBORINGSSL_CLANG_SUPPORTS_DOT_ARCH" ]
     }
+
+    defines += [ "__OHOS__" ]
   } else if (is_linux) {
     cflags += [ "-pthread" ]
     ldflags += [ "-pthread" ]
