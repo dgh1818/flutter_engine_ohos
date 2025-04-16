@@ -107,6 +107,7 @@ class OHOSShellHolder {
   std::shared_ptr<ThreadHost> thread_host_;
   std::unique_ptr<Shell> shell_;
   uint64_t next_pointer_flow_id_ = 0;
+  std::string local_font_path_;
 
   std::unique_ptr<OHOSAssetProvider> asset_provider_;
 
