@@ -108,6 +108,7 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceVulkanImpeller::AcquireFrame(
           damage_[image_key] = SkIRect::MakeEmpty();
         }
 
+        auto& context_vk = impeller::SurfaceContextVK::Cast(*impeller_context_);
         if (!disable_partial_repaint_ &&
             surface_frame.submit_info().buffer_damage.has_value()) {
           auto buffer_damage = surface_frame.submit_info().buffer_damage;
@@ -118,6 +119,10 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceVulkanImpeller::AcquireFrame(
               buffer_damage->x(), buffer_damage->y(), buffer_damage->width(),
               buffer_damage->height());
           surface->GetTargetRenderPassDescriptor().SetRenderArea(render_rect);
+          context_vk.SetRenderArea(render_rect);
+        } else {
+          surface->GetTargetRenderPassDescriptor().SetRenderArea(std::nullopt);
+          context_vk.SetRenderArea(std::nullopt);
         }
 
         auto cull_rect =

@@ -318,6 +318,16 @@ KHRSwapchainImplVK::KHRSwapchainImplVK(const std::shared_ptr<Context>& context,
   }
   FML_DCHECK(!synchronizers.empty());
 
+  if (CapabilitiesVK::Cast(*vk_context.GetCapabilities())
+          .HasExtension(OptionalDeviceExtensionVK::kVKKHRIncrementalPresent)) {
+    support_present_damage_ = true;
+  }
+
+#ifdef __OHOS__
+  // OHOS support this capability but does not declare it explicitly
+  support_present_damage_ = true;
+#endif
+
   context_ = context;
   surface_ = std::move(surface);
   surface_format_ = swapchain_info.imageFormat;
@@ -556,6 +566,22 @@ bool KHRSwapchainImplVK::Present(
   present_info.setSwapchains(*swapchain_);
   present_info.setImageIndices(indices);
   present_info.setWaitSemaphores(*sync->present_ready);
+
+  vk::RectLayerKHR damage_rect;
+  vk::PresentRegionKHR present_region;
+  vk::PresentRegionsKHR present_regions;
+
+  if (support_present_damage_ && render_area_.has_value()) {
+    damage_rect.setOffset(
+        {(int)render_area_->GetX(), (int)render_area_->GetY()});
+    damage_rect.setExtent({(uint32_t)render_area_->GetWidth(),
+                           (uint32_t)render_area_->GetHeight()});
+
+    present_region.setRectangles(damage_rect);
+    present_regions.setRegions(present_region);
+
+    present_info.setPNext(&present_regions);
+  }
 
   auto result = context.GetGraphicsQueue()->Present(present_info);
 

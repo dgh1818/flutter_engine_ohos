@@ -104,6 +104,12 @@ int SurfaceContextVK::GetCurrentImageIndex() {
   return -1;
 }
 
+void SurfaceContextVK::SetRenderArea(std::optional<IRect> area) {
+  if (swapchain_) {
+    swapchain_->SetRenderArea(area);
+  }
+}
+
 void SurfaceContextVK::UpdateSurfaceSize(const ISize& size) const {
   swapchain_->UpdateSurfaceSize(size);
 }

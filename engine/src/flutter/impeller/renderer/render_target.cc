@@ -465,7 +465,7 @@ void RenderTarget::SetupDepthStencilAttachments(
   SetStencilAttachment(std::move(stencil0));
 }
 
-void RenderTarget::SetRenderArea(IRect area) const {
+void RenderTarget::SetRenderArea(std::optional<IRect> area) const {
   render_area_ = area;
 }
 

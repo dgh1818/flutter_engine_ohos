@@ -44,6 +44,8 @@ class KHRSwapchainVK {
 
   int GetCurrentImageIndex();
 
+  void SetRenderArea(std::optional<IRect> area);
+
  private:
   std::shared_ptr<KHRSwapchainImplVK> impl_;
   ISize size_;

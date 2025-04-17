@@ -9,6 +9,7 @@
 #include <memory>
 #include <variant>
 
+#include "impeller/geometry/rect.h"
 #include "impeller/geometry/size.h"
 #include "impeller/renderer/backend/vulkan/vk.h"
 #include "vulkan/vulkan_enums.hpp"
@@ -65,6 +66,8 @@ class KHRSwapchainImplVK final
 
   uint32_t GetCurrentImageIndex() { return current_image_index_; };
 
+  void SetRenderArea(std::optional<IRect> area) { render_area_ = area; };
+
  private:
   std::weak_ptr<Context> context_;
   vk::UniqueSurfaceKHR surface_;
@@ -75,6 +78,8 @@ class KHRSwapchainImplVK final
   std::vector<std::unique_ptr<KHRFrameSynchronizerVK>> synchronizers_;
   size_t current_frame_ = 0u;
   ISize size_;
+  std::optional<IRect> render_area_;
+  bool support_present_damage_ = false;
   bool enable_msaa_ = true;
   bool is_valid_ = false;
 

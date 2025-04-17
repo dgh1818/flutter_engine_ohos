@@ -85,6 +85,8 @@ class SurfaceContextVK : public Context,
 
   int GetCurrentImageIndex();
 
+  void SetRenderArea(std::optional<IRect> area);
+
   /// @brief Mark the current swapchain configuration as dirty, forcing it to be
   ///        recreated on the next frame.
   void UpdateSurfaceSize(const ISize& size) const;

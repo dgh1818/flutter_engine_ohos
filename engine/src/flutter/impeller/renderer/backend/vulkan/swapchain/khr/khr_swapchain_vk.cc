@@ -49,6 +49,12 @@ int KHRSwapchainVK::GetCurrentImageIndex() {
   return impl_->GetCurrentImageIndex();
 }
 
+void KHRSwapchainVK::SetRenderArea(std::optional<IRect> area) {
+  if (IsValid()) {
+    impl_->SetRenderArea(area);
+  }
+}
+
 std::unique_ptr<Surface> KHRSwapchainVK::AcquireNextDrawable() {
   if (!IsValid()) {
     return nullptr;
