@@ -261,6 +261,7 @@ OHOSShellHolder::OHOSShellHolder(
   bridge_ = std::make_shared<SemanticsBridge>();
   bridge_mutex_ = std::make_shared<std::mutex>();
   platform_view_->SetSemanticsBridge(bridge_, bridge_mutex_);
+  local_font_path_ = OHOSLastFontPath;
   FML_DCHECK(platform_view_);
 }
 
@@ -285,6 +286,7 @@ OHOSShellHolder::OHOSShellHolder(
   bridge_ = std::make_shared<SemanticsBridge>();
   bridge_mutex_ = std::make_shared<std::mutex>();
   platform_view_->SetSemanticsBridge(bridge_, bridge_mutex_);
+  local_font_path_ = OHOSLastFontPath;
 }
 
 OHOSShellHolder::~OHOSShellHolder() {
@@ -413,6 +415,9 @@ void OHOSShellHolder::ReloadSystemFonts() {
   if (IsFontChanged(currentPath)) {
     SkFontMgr_OHOS* mgr = (SkFontMgr_OHOS*)(txt::GetDefaultFontManager().get());
     mgr->AddSystemFont(currentPath);
+  }
+  if (local_font_path_ != OHOSLastFontPath) {
+    local_font_path_ = OHOSLastFontPath;
     shell_->ReloadSystemFonts();
   }
 }
