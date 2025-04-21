@@ -144,6 +144,7 @@ export default class TextInputChannel {
   onConnectionClosed(inputClientId: number): void {
     Log.d(TAG, "Sending 'onConnectionClosed' message.");
     this.channel.invokeMethod("TextInputClient.onConnectionClosed", [inputClientId]);
+    this.textInputMethodHandler?.hide();
   }
 
   performPrivateCommand(inputClientId: number, action: string, data: Any) {
