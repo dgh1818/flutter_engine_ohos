@@ -763,6 +763,9 @@ def to_gn_args(args):
   if args.asan:
     gn_args['is_asan'] = True
 
+  if args.hwasan:
+    gn_args['is_hwasan'] = True
+
   if args.tsan:
     gn_args['is_tsan'] = True
 
@@ -1287,6 +1290,7 @@ def parse_args(args):
 
   # Sanitizers.
   parser.add_argument('--asan', default=False, action='store_true')
+  parser.add_argument('--hwasan', default=False, action='store_true')
   parser.add_argument('--lsan', default=False, action='store_true')
   parser.add_argument('--msan', default=False, action='store_true')
   parser.add_argument('--tsan', default=False, action='store_true')
