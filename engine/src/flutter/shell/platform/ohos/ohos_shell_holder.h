@@ -94,6 +94,8 @@ class OHOSShellHolder {
 
   int32_t GetAccessibilityNodeCursorPosition(int64_t elementId, int32_t* index);
 
+  std::shared_ptr<PlatformViewOHOSNapi> GetNapiFacade();
+
  private:
   std::optional<RunConfiguration> BuildRunConfiguration(
       const std::string& entrypoint,
