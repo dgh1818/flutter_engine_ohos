@@ -211,7 +211,7 @@ export class FlutterView {
 
     this.mainWindow = FlutterManager.getInstance()
       .getWindowStage(FlutterManager.getInstance().getUIAbility(context))
-      .getMainWindowSync();
+      ?.getMainWindowSync();
     this.mFirstFrameListeners = new ArrayList<FirstFrameListener>();
     this.mFirstPreloadFrameListeners = new ArrayList<FirstPreloadFrameListener>();
 
@@ -403,6 +403,7 @@ export class FlutterView {
     } catch (e) {
       Log.e(TAG, "displayInfo off error" + JSON.stringify(e));
     }
+    FlutterManager.getInstance().deleteFlutterView(this.id, this);
   }
 
   attachToFlutterEngine(flutterEngine: FlutterEngine): void {

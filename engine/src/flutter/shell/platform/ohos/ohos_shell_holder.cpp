@@ -293,6 +293,7 @@ OHOSShellHolder::~OHOSShellHolder() {
   FML_LOG(INFO) << "MHN enter ~OHOSShellHolder()";
   shell_.reset();
   thread_host_.reset();
+  napi_facade_.reset();
   shell_ = nullptr;
 }
 
@@ -738,6 +739,10 @@ int32_t OHOSShellHolder::GetAccessibilityNodeCursorPosition(int64_t elementId,
                                                             int32_t* index) {
   std::lock_guard<std::mutex> lock(*bridge_mutex_);
   return bridge_->GetAccessibilityNodeCursorPosition(elementId, index);
+}
+
+std::shared_ptr<PlatformViewOHOSNapi> OHOSShellHolder::GetNapiFacade() {
+  return napi_facade_;
 }
 
 }  // namespace flutter

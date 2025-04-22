@@ -183,6 +183,12 @@ export default class FlutterManager {
   useFullScreen(): boolean {
     return this.mFullScreenListener.useFullScreen();
   }
+
+  deleteFlutterView(viewId: string, flutterView?: FlutterView): void {
+    if (flutterView != null) {
+      this.flutterViewList.delete(viewId);
+    }
+  }
 }
 
 export interface DragDropCallback {
