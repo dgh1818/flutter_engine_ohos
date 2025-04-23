@@ -133,6 +133,7 @@ sk_sp<flutter::DlImage> OHOSExternalTextureGL::CreateDlImage(
     PaintContext& context,
     const SkRect& bounds,
     NativeBufferKey key,
+    OH_NativeBuffer_Config& config,
     OHNativeWindowBuffer* nw_buffer) {
   GLuint texture_name = 0;
   glGenTextures(1, &texture_name);
@@ -163,8 +164,14 @@ sk_sp<flutter::DlImage> OHOSExternalTextureGL::CreateDlImage(
 
   // lru: oldest resource need earse
   now_key_ = key;
-  gl_resources_.erase(image_lru_.AddImage(dl_image, key));
+  DeleteBufferGPUResource(image_lru_.AddImage(dl_image, config, key));
   return dl_image;
+}
+
+void OHOSExternalTextureGL::DeleteBufferGPUResource(NativeBufferKey key) {
+  if (key != 0) {
+    gl_resources_.erase(key);
+  }
 }
 
 OHOSUniqueEGLImageKHR OHOSExternalTextureGL::CreateEGLImage(

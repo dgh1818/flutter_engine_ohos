@@ -43,11 +43,13 @@ class OHOSExternalTextureGL : public OHOSExternalTexture {
   void SetGPUFence(OHNativeWindowBuffer* window_buffer, int* fence_fd) override;
   void WaitGPUFence(int fence_fd) override;
   void GPUResourceDestroy() override;
+  void DeleteBufferGPUResource(NativeBufferKey key) override;
 
   sk_sp<flutter::DlImage> CreateDlImage(
       PaintContext& context,
       const SkRect& bounds,
       NativeBufferKey key,
+      OH_NativeBuffer_Config& config,
       OHNativeWindowBuffer* nw_buffer) override;
 
  private:
