@@ -465,4 +465,12 @@ void RenderTarget::SetupDepthStencilAttachments(
   SetStencilAttachment(std::move(stencil0));
 }
 
+void RenderTarget::SetRenderArea(std::optional<IRect> area) const {
+  render_area_ = area;
+}
+
+const std::optional<IRect> RenderTarget::GetRenderArea() const {
+  return render_area_;
+}
+
 }  // namespace impeller

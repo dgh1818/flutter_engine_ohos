@@ -149,7 +149,13 @@ RasterStatus CompositorContext::ScopedFrame::Raster(
   }
 
   if (aiks_context_) {
-    PaintLayerTreeImpeller(layer_tree, clip_rect, ignore_raster_cache);
+    if (aiks_context_->IsValid() &&
+        aiks_context_->GetContext()->GetBackendType() ==
+            impeller::Context::BackendType::kVulkan) {
+      PaintLayerTreeImpeller(layer_tree, std::nullopt, ignore_raster_cache);
+    } else {
+      PaintLayerTreeImpeller(layer_tree, clip_rect, ignore_raster_cache);
+    }
   } else {
     PaintLayerTreeSkia(layer_tree, clip_rect, needs_save_layer,
                        ignore_raster_cache);
@@ -205,7 +211,13 @@ void CompositorContext::ScopedFrame::PaintLayerTreeImpeller(
 ///        determine what this value should be. From looking at the Flutter
 ///        Gallery, we noticed that there are occassionally small partial
 ///        repaints which shave off trivial numbers of pixels.
+#ifdef __OHOS__
+// In Vulkan mode, Impeller can direct use the swapchain image as the resolve
+// texture, so it has no overhead.
+constexpr float kImpellerRepaintRatio = 1.0f;
+#else
 constexpr float kImpellerRepaintRatio = 0.7f;
+#endif
 
 bool CompositorContext::ShouldPerformPartialRepaint(
     std::optional<SkRect> damage_rect,

@@ -35,6 +35,15 @@ class GPUSurfaceVulkanImpeller final : public Surface {
   std::shared_ptr<impeller::AiksContext> aiks_context_;
   bool is_valid_ = false;
 
+#ifdef __OHOS__
+  bool disable_partial_repaint_ = false;
+#else
+  bool disable_partial_repaint_ = true;
+#endif
+  // Accumulated damage for each framebuffer; Key is address of underlying
+  // MTLTexture for each drawable
+  std::map<int, SkIRect> damage_;
+
   GPUSurfaceVulkanDelegate* delegate_ = nullptr;
 
   // |Surface|

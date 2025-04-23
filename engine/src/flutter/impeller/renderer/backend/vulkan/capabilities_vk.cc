@@ -212,6 +212,8 @@ static const char* GetExtensionName(OptionalDeviceExtensionVK ext) {
       return VK_EXT_PIPELINE_CREATION_FEEDBACK_EXTENSION_NAME;
     case OptionalDeviceExtensionVK::kVKKHRPortabilitySubset:
       return "VK_KHR_portability_subset";
+    case OptionalDeviceExtensionVK::kVKKHRIncrementalPresent:
+      return VK_KHR_INCREMENTAL_PRESENT_EXTENSION_NAME;
     case OptionalDeviceExtensionVK::kLast:
       return "Unknown";
   }

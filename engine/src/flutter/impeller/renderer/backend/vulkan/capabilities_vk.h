@@ -158,6 +158,15 @@ enum class OptionalDeviceExtensionVK : uint32_t {
   ///
   kVKKHRPortabilitySubset,
 
+  //----------------------------------------------------------------------------
+  /// To enable incremental presentation, allowing the application to specify
+  /// the regions of a surface that have changed.
+  /// This can improve presentation efficiency by avoiding full-surface updates.
+  ///
+  /// https://registry.khronos.org/vulkan/specs/latest/man/html/VK_KHR_incremental_present.html
+  ///
+  kVKKHRIncrementalPresent,
+
   kLast,
 };
 
