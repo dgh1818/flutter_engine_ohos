@@ -70,7 +70,7 @@ export default class TextInputPlugin implements EditingStateWatcher {
   }
 
   destroy() {
-    // Since the Dart side no longer listens to the lifecycle, 
+    // Since the Dart side no longer listens to the lifecycle,
     // the keyboard must be explicitly hidden before the engine is destroyed.
     this.mTextInputHandler.hide();
     this.textInputChannel.setTextInputMethodHandler(null);
@@ -163,6 +163,8 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
         + editingState.selectionEnd + " composingStart:" + editingState.composingStart + " composingEnd" +
       editingState.composingEnd);
     this.mEditable.updateTextInputState(editingState);
+    this.inputMethodController.changeSelection(this.mEditable.getSelectionString(), this.mEditable.getSelectionStart(),
+      this.mEditable.getSelectionEnd());
   }
 
   clearClient(): void {
@@ -320,6 +322,15 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
       this.cancelListenKeyBoardEvent();
       return;
     }
+
+    try {
+      this.inputMethodController.on('moveCursor', this.moveCursorCallback)
+    } catch (err) {
+      Log.e(TextInputMethodHandlerImpl.TAG, "Failed to subscribe moveCursor:" + JSON.stringify(err));
+      this.cancelListenKeyBoardEvent();
+      return;
+    }
+
     Log.d(TextInputMethodHandlerImpl.TAG, "listenKeyBoardEvent success");
     this.imcFlag = true;
   }
@@ -327,6 +338,8 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   private insertTextCallback = (text: string) => {
     Log.d(TextInputMethodHandlerImpl.TAG, "insertText: " + text);
     this.mEditable.handleInsertTextEvent(text);
+    this.inputMethodController.changeSelection(this.mEditable.getSelectionString(), this.mEditable.getSelectionStart(),
+      this.mEditable.getSelectionEnd());
   }
 
   private deleteLeftCallback = (length: number) => {
@@ -356,6 +369,10 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     this.mEditable.handleSelectByRange(range);
   }
 
+  private moveCursorCallback = (direction: inputMethod.Direction) => {
+    this.mEditable.handleMoveCursor(direction);
+  }
+
   cancelListenKeyBoardEvent(): void {
     this.inputMethodController?.off('insertText', this.insertTextCallback);
     this.inputMethodController?.off('deleteLeft', this.deleteLeftCallback);
@@ -363,6 +380,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     this.inputMethodController?.off('sendFunctionKey', this.sendFunctionKeyCallback);
     this.inputMethodController?.off('sendKeyboardStatus', this.sendKeyboardStatusCallback);
     this.inputMethodController?.off('selectByRange', this.selectByRangeCallback);
+    this.inputMethodController?.off('moveCursor', this.moveCursorCallback);
     this.imcFlag = false;
   }
 
