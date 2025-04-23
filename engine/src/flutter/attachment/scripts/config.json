@@ -47,6 +47,12 @@
         "file_path": "../../flutter/attachment/repos/dart.patch7"
     },
     {
+        "name": "dart8",
+        "target": "./src/third_party/dart",
+        "type": "patch",
+        "file_path": "../../flutter/attachment/repos/dart.patch8"
+    },
+    {
         "name": "skia",
         "target": "./src/flutter/third_party/skia",
         "type": "patch",
@@ -105,6 +111,12 @@
         "target": "./src/build",
         "type": "patch",
         "file_path": "../flutter/attachment/repos/build-3.22.patch4"
+    },
+    {
+        "name": "build5",
+        "target": "./src/build",
+        "type": "patch",
+        "file_path": "../flutter/attachment/repos/build-3.22.patch5"
     },
     {
         "name": "zlib",
