@@ -46,6 +46,9 @@ config("feature_flags") {
   if (is_asan) {
     defines += [ "ADDRESS_SANITIZER" ]
   }
+  if (is_hwasan) {
+    defines += [ "HWADDRESS_SANITIZER" ]
+  }
   if (is_lsan) {
     defines += [ "LEAK_SANITIZER" ]
   }
