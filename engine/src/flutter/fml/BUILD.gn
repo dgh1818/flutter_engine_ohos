@@ -220,11 +220,14 @@ source_set("fml") {
       "platform/ohos/paths_ohos.h",
       "platform/ohos/timerfd.cc",
       "platform/ohos/timerfd.h",
+      "platform/ohos/dynamic_library_loader.cpp",
+      "platform/ohos/dynamic_library_loader.h",
     ]
     libs += [ "hilog_ndk.z" ]
     libs += [ "ace_napi.z" ]
     libs += [ "uv" ]
     libs += [ "hitrace_ndk.z" ]
+    libs += [ "deviceinfo_ndk.z" ]
   } else if (is_linux) {
     sources += [
       "platform/linux/message_loop_linux.cc",
