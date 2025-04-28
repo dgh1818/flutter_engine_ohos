@@ -9,7 +9,7 @@
 
 * 构建环境：
 1. 目前支持在Linux与MacOS中构建，Windows环境中支持构建gen_snapshot;
-2. 请确保当前构建环境可以访问 `DEPS` 配置文件中 `allowed_hosts` 字段的URL列表。
+2. 请确保当前构建环境可以访问 `DEPS_ohos` 配置文件中 `allowed_hosts` 字段的URL列表。
 
 * 构建步骤：
 1. 构建基础环境：可参照[官网](https://github.com/flutter/flutter/wiki/Setting-up-the-Engine-development-environment)；
@@ -53,9 +53,9 @@
       {
         "managed": False,
         "name": "src/flutter",
-        "url": "git@gitee.com:harmonycommando_flutter/flutter_engine.git@oh-3.22.0",
+        "url": "git@gitcode.com:openharmony-sig/flutter_engine.git@oh-3.22.0",
         "custom_deps": {},
-        "deps_file": "DEPS",
+        "deps_file": "DEPS_ohos",
         "safesync_url": "",
       },
     ]
@@ -82,19 +82,14 @@
    
 6. 更新代码：在 `engine` 目录，执行`./ohos -b master`
 
-- 手动更新代码方法(至少经过一次完整gclient sync之后)：
-   * 直接进入engine/src/flutter目录，在确保当前更新代码未涉及patch后，可以自由编辑或切换代码分支，然后执行编译命令，如若涉及patch修改，可手动apply相关patch或参考FAQ.7 批量reverse后重新apply patch
-
 ## FAQ
-1. 运行项目工程报 `Member notfound:'isOhos'` 的错误：请确保src/third_party/dart目录下应用了所有的dart patch（补丁位于src/flutter/attachment/repos目录，可使用git apply应用patch）应用patch后重新编译engine
+1. 提示`Permission denied:` 执行 `chmod +x <脚本文件>` 添加执行权限
 
-2. 提示`Permission denied:` 执行 `chmod +x <脚本文件>` 添加执行权限
+2. 单独编译 `debug/release/profile` 模式的engine：`./ohos -t debug|release|profile`
 
-3. 单独编译 `debug/release/profile` 模式的engine：`./ohos -t debug|release|profile`
+3. 查看帮助：`./ohos -h`
 
-4. 查看帮助：`./ohos -h`
-
-5. 由于Windows和MacOS、Linux对换行符处理方式不同，在应用dart补丁时会造成dart vm snapshot hash结果不同，可通过以下方法获取当前snapshot hash值
+4. 由于Windows和MacOS、Linux对换行符处理方式不同，在应用dart补丁时会造成dart vm snapshot hash结果不同，可通过以下方法获取当前snapshot hash值
 
    ```shell
    python engine/src/third_party/dart/tools/make_version.py --format='{{SNAPSHOT_HASH}}'
@@ -102,16 +97,9 @@
 
    如果获取到的值不是“8af474944053df1f0a3be6e6165fa7cf”那么就需要检查 `engine/src/third_party/dart/runtime/vm/dart.cc` 文件和 `engine/src/third_party/dart/runtime/vm/image_snapshot.cc` 文件中全部行的结尾是不是以LF结尾的，Windows可以使用notepad++查看，其它系统具体方法请自行查询
 
-6. 修改了embedding层代码，运行./ohos没有生效，需要将任意cpp层文件修改一下时间戳，编译系统才可以识别(例如任意cpp文件添加空格保存后再删除空格后保存)，重新执行则可以触发embedding层重新打包
+5. 修改了embedding层代码，运行./ohos没有生效，需要将任意cpp层文件修改一下时间戳，编译系统才可以识别(例如任意cpp文件添加空格保存后再删除空格后保存)，重新执行则可以触发embedding层重新打包
 
-7. 手动重新应用patch的方法：
-
-   ```shell
-   python engine/src/flutter/attachment/scripts/ohos_reverse_patch.py
-   python engine/src/flutter/attachment/scripts/ohos_setup.py
-   ```
-
-8. 配置代码自动跳转
+6. 配置代码自动跳转
 
    推荐使用vscode+clangd(与C/C++ IntelliSense有冲突)插件
    可参考配置：
@@ -124,7 +112,7 @@
     "C_Cpp.intelliSenseEngine": "disabled",
    ```
 
-9. Windows下gclient sync报错
+7. Windows下gclient sync报错
 
    关键报错信息'A required privilege is not held by the client'
 
