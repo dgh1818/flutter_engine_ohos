@@ -363,7 +363,10 @@ bool OHOSExternalTexture::SetPixelMapAsProducer(
 void OHOSExternalTexture::SetBackGroundColor(uint32_t color) {
   TRACE_EVENT0("flutter", "SetExternalTextureBackGroundColor");
   background_color_enable_ = true;
-  background_color_ = color;
+  // ABGR to ARGB. In hexadecimal, each two bits corresponds to a color channel
+  background_color_ = (color & 0xFF00FF00) |          // keep A and G channel
+                      ((color & 0x00FF0000) >> 16) |  // shift B to forth channel
+                      ((color & 0x000000FF) << 16);   // shift R to second channel
 }
 
 void OHOSExternalTexture::ReleaseWindowBuffer(OH_NativeImage* native_image,
