@@ -41,7 +41,7 @@ class VsyncWaiterOHOS final : public VsyncWaiter {
   OH_NativeVSync* vsync_handle_;
   NativeDvsyncFunc nativeDvsyncFunc_ = nullptr;
   std::shared_ptr<bool> enable_frame_cache_;
-  void *handle_ = nullptr;
+  void* handle_ = nullptr;
   int32_t apiVersion_ = 0;
   FML_DISALLOW_COPY_AND_ASSIGN(VsyncWaiterOHOS);
 };

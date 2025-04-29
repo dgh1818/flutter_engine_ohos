@@ -4,7 +4,6 @@
  * found in the LICENSE_HW file.
  */
 
-
 #include "ohos_semantics_tree.h"
 #include <arkui/native_interface_accessibility.h>
 #include <cassert>
