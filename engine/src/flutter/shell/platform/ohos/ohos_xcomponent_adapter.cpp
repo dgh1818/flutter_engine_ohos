@@ -1,7 +1,7 @@
 /*
- * Copyright (c) 2023 Hunan OpenValley Digital Industry Development Co., Ltd. All rights reserved.
- * Use of this source code is governed by a BSD-style license that can be
- * found in the LICENSE_KHZG file.
+ * Copyright (c) 2023 Hunan OpenValley Digital Industry Development Co., Ltd.
+ * All rights reserved. Use of this source code is governed by a BSD-style
+ * license that can be found in the LICENSE_KHZG file.
  */
 
 #include "ohos_xcomponent_adapter.h"
@@ -537,6 +537,9 @@ void XComponentBase::OnSurfaceCreated(OH_NativeXComponent* component,
       window, component);
   TRACE_EVENT1("flutter", "OnSurfaceCreated", "ShellID",
                shellholderId_.c_str());
+  if (window_ != nullptr) {
+    LOGE("OnSurfaceCreated with not null window %{public}p!", window_);
+  }
   window_ = window;
   int32_t ret = OH_NativeXComponent_GetXComponentSize(component, window,
                                                       &width_, &height_);
@@ -545,6 +548,10 @@ void XComponentBase::OnSurfaceCreated(OH_NativeXComponent* component,
          static_cast<int>(width_), static_cast<int>(height_));
   } else {
     LOGE("GetXComponentSize result:%{public}d", ret);
+  }
+  ret = OH_NativeWindow_NativeObjectReference(window_);
+  if (ret) {
+    LOGE("NativeObjectReference failed:%{public}d", ret);
   }
 
   // This setting ensures that the soft keyboard does not automatically dismiss
@@ -564,10 +571,6 @@ void XComponentBase::OnSurfaceCreated(OH_NativeXComponent* component,
 
   provider_ = GetArkUIAccessibilityServiceProvider(nativeXComponent_);
   if (is_engine_attached_) {
-    ret = OH_NativeWindow_NativeObjectReference(window);
-    if (ret) {
-      LOGE("NativeObjectReference failed:%{public}d", ret);
-    }
     if (provider_ != nullptr && shellholder_ptr_) {
       shellholder_ptr_->SetAccessibilityProvider(provider_);
     } else {
@@ -601,16 +604,24 @@ void XComponentBase::OnSurfaceChanged(OH_NativeXComponent* component,
 
 void XComponentBase::OnSurfaceDestroyed(OH_NativeXComponent* component,
                                         void* window) {
+  if (window_ != window) {
+    LOGE("OnSurfaceDestroyed with different window: %{public}p=>%{public}p",
+         window_, window);
+  }
+  if (window_) {
+    int32_t ret = OH_NativeWindow_NativeObjectUnreference(window_);
+    if (ret) {
+      LOGE("NativeObjectReference failed:%{public}d", ret);
+    }
+  } else {
+    LOGE("OnSurfaceDestroyed with null window!");
+  }
   window_ = nullptr;
   LOGD("XComponentManger::OnSurfaceDestroyed");
   if (is_engine_attached_) {
     is_surface_present_ = false;
     is_surface_preloaded_ = false;
     PlatformViewOHOSNapi::SurfaceDestroyed(std::stoll(shellholderId_));
-    int32_t ret = OH_NativeWindow_NativeObjectUnreference(window);
-    if (ret) {
-      LOGE("NativeObjectReference failed:%{public}d", ret);
-    }
 
     if (provider_ != nullptr && shellholder_ptr_) {
       shellholder_ptr_->SetAccessibilityProvider(nullptr);
