@@ -328,7 +328,6 @@ class EntityPass {
   /// The list of renderable items in the scene. Each of these items is
   /// evaluated and recorded to an `EntityPassTarget` by the `OnRender` method.
   std::vector<Element> elements_;
-  mutable int start_paint_element_index_ = 0;
 
   /// The stack of currently active clips (during Aiks recording time). Each
   /// entry is an index into the `elements_` list. The depth value of a clip is
