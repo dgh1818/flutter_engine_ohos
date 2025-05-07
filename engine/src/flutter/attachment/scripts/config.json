@@ -53,6 +53,12 @@
         "file_path": "../../flutter/attachment/repos/dart.patch8"
     },
     {
+        "name": "dart9",
+        "target": "./src/third_party/dart",
+        "type": "patch",
+        "file_path": "../../flutter/attachment/repos/dart.patch9"
+    },
+    {
         "name": "skia",
         "target": "./src/flutter/third_party/skia",
         "type": "patch",
