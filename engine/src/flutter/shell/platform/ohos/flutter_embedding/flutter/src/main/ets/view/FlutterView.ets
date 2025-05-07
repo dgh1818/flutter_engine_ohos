@@ -20,6 +20,8 @@ import hiTraceMeter from '@ohos.hiTraceMeter'
 import { JSON } from '@kit.ArkTS';
 import TextInputPlugin from '../plugin/editing/TextInputPlugin';
 import { accessibility } from '@kit.AccessibilityKit';
+import { uiObserver } from '@kit.ArkUI';
+import { common } from '@kit.AbilityKit';
 
 const TAG = "FlutterViewTag";
 const EVENT_BACK_PRESS = 'EVENT_BACK_PRESS';
@@ -231,6 +233,13 @@ export class FlutterView {
     // 监听折叠状态的改变
     display?.on('foldStatusChange', this.foldStatusChangeCallback);
 
+    // 监听路由跳转（Flutter跳转鸿蒙原生），软键盘处理
+    uiObserver.on('routerPageUpdate', context as common.UIAbilityContext, (info: uiObserver.RouterPageInfo) => {
+      if (this.getKeyboardHeight() !== 0 && info.state === uiObserver.RouterPageState.ON_PAGE_SHOW) {
+        this.flutterEngine?.getTextInputChannel()?.textInputMethodHandler?.hide();
+      }
+    })
+
     // Subscribes to display changes. Example: event that the display size is changed.
     try {
       display.on("change", this.displayChangeCallback);
@@ -386,6 +395,7 @@ export class FlutterView {
 
   onDestroy() {
     try {
+      uiObserver.off('routerPageUpdate', this.uiContext!);
       this.mainWindow?.off('windowSizeChange', this.windowSizeChangeCallback);
       this.mainWindow?.off('avoidAreaChange', this.avoidAreaChangeCallback);
       this.mainWindow?.off('windowStatusChange', this.windowStatusChangeCallback);
