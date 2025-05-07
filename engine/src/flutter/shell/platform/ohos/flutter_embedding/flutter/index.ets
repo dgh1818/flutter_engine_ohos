@@ -58,7 +58,7 @@ export { default as PlatformPlugin } from './src/main/ets/plugin/PlatformPlugin'
 export { default as BasicMessageChannel, Reply } from './src/main/ets/plugin/common/BasicMessageChannel';
 export { default as BinaryCodec } from './src/main/ets/plugin/common/BinaryCodec';
 export * from './src/main/ets/plugin/common/BinaryMessenger';
-export { default as EventChannel } from './src/main/ets/plugin/common/EventChannel';
+export { default as EventChannel, StreamHandler, EventSink } from './src/main/ets/plugin/common/EventChannel';
 export { default as FlutterException } from './src/main/ets/plugin/common/FlutterException';
 export { default as JSONMessageCodec } from './src/main/ets/plugin/common/JSONMessageCodec';
 export { default as JSONMethodCodec } from './src/main/ets/plugin/common/JSONMethodCodec';
