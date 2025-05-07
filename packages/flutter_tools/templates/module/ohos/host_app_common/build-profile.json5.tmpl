@@ -1,5 +1,3 @@
-
-
 {
   "app": {
     "signingConfigs": [],
@@ -10,24 +8,23 @@
         "compatibleSdkVersion": "5.0.0(12)",
         "runtimeOS": "HarmonyOS",
       }
+    ],
+    "buildModeSet": [
+      {
+        "name": "debug"
+      },
+      {
+        "name": "profile"
+      },
+      {
+        "name": "release"
+      }
     ]
   },
   "modules": [
     {
       "name": "entry",
       "srcPath": "./entry",
-      "targets": [
-        {
-          "name": "default",
-          "applyToProducts": [
-            "default"
-          ]
-        }
-      ]
-    },
-    {
-      "name": "flutter_module",
-      "srcPath": "./flutter_module",
       "targets": [
         {
           "name": "default",

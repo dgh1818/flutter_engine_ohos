@@ -131,8 +131,7 @@ class OhosDevice extends Device {
 
     _logger.printStatus('installing hap. bundleName: ${app.id} ');
     const String targetPath = 'data/local/tmp/flutterInstallTemp';
-    final List<List<String>> hspCmds = app.ohosBuildData.moduleInfo.moduleList
-        .where((OhosModule module) => module.type == OhosModuleType.shared)
+    final List<List<String>> hspCmds = app.ohosBuildData.hspModules
         .map((OhosModule module) => OhosProject.getSignedFile(
               modulePath: module.srcPath,
               moduleName: module.name,

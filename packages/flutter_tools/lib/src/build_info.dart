@@ -364,7 +364,7 @@ class OhosBuildInfo {
       OhosArch.arm64_v8a,
       OhosArch.x86_64,
     ],
-    this.enableImpellerFlag = null,
+    this.enableImpellerFlag,
   });
 
   // The build info containing the mode and flavor.
@@ -1082,6 +1082,12 @@ const String kDarwinArchs = 'DarwinArchs';
 ///
 /// This is expected to be a space-delimited list of architectures.
 const String kAndroidArchs = 'AndroidArchs';
+
+/// The define to control what OHOS architectures are built for.
+///
+/// This is expected to be a space-delimited list of architectures. If not
+/// provided, defaults to arm64.
+const String kOhosArchs = 'OhosArchs';
 
 /// The define to control what min Android SDK version is built for.
 ///

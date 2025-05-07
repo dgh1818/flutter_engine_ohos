@@ -214,29 +214,14 @@ class FlutterManifest {
     return null;
   }
 
-  /// Returns the OpenHarmony package declared by this manifest in its
-  /// module or plugin descriptor. Returns null, if there is no
+  /// Returns the OpenHarmony bundle name declared by this manifest in its
+  /// module descriptor. Returns null, if there is no
   /// such declaration.
-  String? get ohosPackage {
+  String? get ohosBundleName {
      if (isModule) {
       final Object? module = _flutterDescriptor['module'];
       if (module is YamlMap) {
-        return module['ohosPackage'] as String?;
-      }
-    }
-    final Map<String, Object?>? platforms = supportedPlatforms;
-    if (platforms == null) {
-      // Pre-multi-platform plugin format
-      if (isPlugin) {
-        final YamlMap? plugin = _flutterDescriptor['plugin'] as YamlMap?;
-        return plugin?['ohosPackage'] as String?;
-      }
-      return null;
-    }
-    if (platforms.containsKey('ohos')) {
-      final Object? ohos = platforms['ohos'];
-      if (ohos is YamlMap) {
-        return ohos['package'] as String?;
+        return module['ohosBundleName'] as String?;
       }
     }
     return null;
