@@ -430,11 +430,11 @@ class OhosHvigorBuilder implements OhosBuilder {
       "overrides" {
         "@ohos/flutter_ohos": "file:path/to/flutter.har",
         "@ohos/flutter_module": "file:path/to/flutter_module.har",
-        "plugin_a": "file:path/to/plugin_a.har",
+        "plugin_x": "file:path/to/plugin_x.har",
         ...
       }
 
-    3. Open ${globals.fs.path.join('<host project>/entry', 'oh-package.json5')}
+    3. Open ${globals.fs.path.join('<host project>', 'entry', 'oh-package.json5')}
     4. Add flutter and flutter_module to the dependencies list:
 
       "dependencies": {

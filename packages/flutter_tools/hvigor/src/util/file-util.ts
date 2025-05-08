@@ -3,10 +3,10 @@ import path from 'path'
 
 export function relativePath(basePath: string, filePath: string): string {
   let p = path.relative(basePath, filePath)
-  if (!p.startsWith('.')) {
+  if (!path.isAbsolute(p) && !p.startsWith('.')) {
     p = './' + p
   }
-  return p
+  return p.replaceAll('\\', '/')
 }
 
 export function copyDirectory(sourceDir: string, destDir: string): void {
