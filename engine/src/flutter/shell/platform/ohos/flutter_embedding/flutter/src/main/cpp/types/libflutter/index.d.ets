@@ -130,13 +130,28 @@ export const nativeRegisterPixelMap: (nativeShellHolderId: number, textureId: nu
 
 export const nativeSetTextureBackGroundPixelMap: (nativeShellHolderId: number, textureId: number, pixelMap: PixelMap) => void;
 
+/**
+ * @deprecated since 3.7
+ */
 export const nativeSetTextureBackGroundColor: (nativeShellHolderId: number, textureId: number, color: number) => void;
 
 export const nativeRegisterTexture: (nativeShellHolderId: number, textureId: number) => number;
 
+/**
+ * @deprecated since 3.22
+ * @useinstead nativeGetTextureWindowPtr
+ */
 export const nativeGetTextureWindowId: (nativeShellHolderId: number, textureId: number) => number;
 
+export const nativeGetTextureWindowPtr: (nativeShellHolderId: number, textureId: number) => bigint;
+
+/**
+ * @deprecated since 3.22
+ * @useinstead nativeSetExternalNativeImagePtr
+ */
 export const nativeSetExternalNativeImage: (nativeShellHolderId: number, textureId: number, native_image: number) => number;
+
+export const nativeSetExternalNativeImagePtr: (nativeShellHolderId: number, textureId: number, native_image_ptr: bigint) => number;
 
 export const nativeResetExternalTexture: (nativeShellHolderId: number, textureId: number, need_surfaceId: boolean) => number;
 

@@ -43,6 +43,8 @@ export class FlutterRenderer implements TextureRegistry {
     surfaceTextureRegistryEntry.setSurfaceId(surfaceId);
     let nativeWindowId = this.flutterNapi.getTextureNativeWindowId(textureId);
     surfaceTextureRegistryEntry.setNativeWindowId(nativeWindowId);
+    let nativeWindowPtr = this.flutterNapi.getTextureNativeWindowPtr(textureId);
+    surfaceTextureRegistryEntry.setNativeWindowPtr(nativeWindowPtr);
     return surfaceTextureRegistryEntry;
   }
 
@@ -81,8 +83,16 @@ export class FlutterRenderer implements TextureRegistry {
     this.flutterNapi.notifyTextureResizing(textureId, width, height);
   }
 
+  /**
+   * @deprecated since 3.22
+   * @useinstead FlutterRenderer#setExternalNativeImagePtr
+   */
   setExternalNativeImage(textureId: number, native_image: number): boolean {
     return this.flutterNapi.setExternalNativeImage(textureId, native_image);
+  }
+
+  setExternalNativeImagePtr(textureId: number, native_image_ptr: bigint): boolean {
+    return this.flutterNapi.setExternalNativeImagePtr(textureId, native_image_ptr);
   }
 
   resetExternalTexture(textureId: number, need_surfaceId: boolean): number {
@@ -119,6 +129,7 @@ export class SurfaceTextureRegistryEntry implements SurfaceTextureEntry {
   private textureId: number = 0;
   private surfaceId: number = 0;
   private nativeWindowId: number = 0;
+  private nativeWindowPtr: bigint = BigInt("0");
   private released: boolean = false;
 
   constructor(id: number) {
@@ -133,16 +144,32 @@ export class SurfaceTextureRegistryEntry implements SurfaceTextureEntry {
     return this.surfaceId;
   }
 
+  /**
+   * @deprecated since 3.22
+   * @useinstead SurfaceTextureRegistryEntry#getNativeWindowPtr
+   */
   getNativeWindowId(): number {
     return this.nativeWindowId;
+  }
+
+  getNativeWindowPtr(): bigint {
+    return this.nativeWindowPtr;
   }
 
   setSurfaceId(surfaceId: number): void {
     this.surfaceId = surfaceId;
   }
 
+  /**
+   * @deprecated since 3.22
+   * @useinstead SurfaceTextureRegistryEntry#setNativeWindowPtr
+   */
   setNativeWindowId(nativeWindowId: number): void {
     this.nativeWindowId = nativeWindowId;
+  }
+
+  setNativeWindowPtr(nativeWindowPtr: bigint): void {
+    this.nativeWindowPtr = nativeWindowPtr;
   }
 
   release() {

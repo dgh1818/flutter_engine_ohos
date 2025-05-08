@@ -125,8 +125,14 @@ static napi_value Init(napi_env env, napi_value exports) {
           "nativeGetTextureWindowId",
           flutter::PlatformViewOHOSNapi::nativeGetTextureWindowId),
       DECLARE_NAPI_FUNCTION(
+          "nativeGetTextureWindowPtr",
+          flutter::PlatformViewOHOSNapi::nativeGetTextureWindowPtr),
+      DECLARE_NAPI_FUNCTION(
           "nativeSetExternalNativeImage",
           flutter::PlatformViewOHOSNapi::nativeSetExternalNativeImage),
+      DECLARE_NAPI_FUNCTION(
+          "nativeSetExternalNativeImagePtr",
+          flutter::PlatformViewOHOSNapi::nativeSetExternalNativeImagePtr),
       DECLARE_NAPI_FUNCTION(
           "nativeResetExternalTexture",
           flutter::PlatformViewOHOSNapi::nativeResetExternalTexture),
