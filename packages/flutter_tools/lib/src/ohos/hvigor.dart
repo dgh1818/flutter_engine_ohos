@@ -625,14 +625,21 @@ void _appendCommands(List<String> command, OhosBuildInfo ohosBuildInfo,
       '-p',
       'FLUTTER_ENGINE=${globals.fs.path.dirname(localEngineInfo.targetOutPath)}'
     ]);
-    command.addAll(
-        <String>['-p', 'LOCAL_ENGINE=${localEngineInfo.localTargetName}']);
-    command.addAll(
-        <String>['-p', 'LOCAL_ENGINE_HOST=${localEngineInfo.localHostName}']);
-  }
-  final Iterable<String> targetArchs = ohosBuildInfo.targetArchs
-      .map((OhosArch arch) => getPlatformNameForOhosArch(arch));
-  if (targetArchs.isNotEmpty) {
+    command.addAll(<String>[
+      '-p',
+      'LOCAL_ENGINE=${localEngineInfo.localTargetName}',
+    ]);
+    command.addAll(<String>[
+      '-p',
+      'LOCAL_ENGINE_HOST=${localEngineInfo.localHostName}',
+    ]);
+    command.addAll(<String>[
+      '-p',
+      'TARGET_PLATFORM=${_getTargetPlatformByLocalEnginePath(localEngineInfo.targetOutPath)}',
+    ]);
+  } else if (ohosBuildInfo.targetArchs.isNotEmpty) {
+    final Iterable<String> targetArchs = ohosBuildInfo.targetArchs
+        .map((OhosArch arch) => getPlatformNameForOhosArch(arch));
     command.addAll(<String>['-p', 'TARGET_PLATFORM=${targetArchs.join(',')}']);
   }
   final Map<String, String> envConfig =
@@ -640,4 +647,14 @@ void _appendCommands(List<String> command, OhosBuildInfo ohosBuildInfo,
   for (final MapEntry<String, String> config in envConfig.entries) {
     command.addAll(<String>['-p', '${config.key}=${config.value}']);
   }
+}
+
+String _getTargetPlatformByLocalEnginePath(String engineOutPath) {
+  String result = 'ohos-arm';
+  if (engineOutPath.contains('x64')) {
+    result = 'ohos-x64';
+  } else if (engineOutPath.contains('arm64')) {
+    result = 'ohos-arm64';
+  }
+  return result;
 }
