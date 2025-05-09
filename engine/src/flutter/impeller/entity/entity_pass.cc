@@ -1198,6 +1198,13 @@ std::optional<Color> EntityPass::GetClearColor(ISize target_size) const {
   start_paint_element_index_ = 0;
   for (int i = elements_.size() - 1; i >= 0; i--) {
     const auto& element = elements_[i];
+    // Only consider background entities that are not affected by clips
+    // This ensures that the background is not occluded or altered
+    // by previous clip operations
+    const Entity* entity = std::get_if<Entity>(&element);
+    if (!(entity && (entity->GetClipDepth() == 0))) {
+      continue;
+    }
     auto [entity_color, blend_mode] =
         ElementAsBackgroundColor(element, target_size);
     // BlendMode kSource/kClear replace the destination, effectively clearing
