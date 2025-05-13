@@ -8,24 +8,24 @@
 #define FLUTTER_FML_PLATFORM_OHOS_MESSAGE_LOOP_OHOS_H_
 
 #include <uv.h>
+#include <atomic>
+#include <thread>
 #include "flutter/fml/macros.h"
 #include "flutter/fml/message_loop_impl.h"
 #include "flutter/fml/unique_fd.h"
-#include <thread>
-#include <atomic>
 
 namespace fml {
 
 class MessageLoopOhos : public MessageLoopImpl {
  private:
   uv_async_t async_handle_;
-	uv_poll_t poll_handle_;
+  uv_poll_t poll_handle_;
   uv_loop_t loop_;
-	fml::UniqueFD epoll_fd_;
+  fml::UniqueFD epoll_fd_;
   fml::UniqueFD timer_fd_;
   std::atomic<bool> running_;
   std::thread timerhandle_thread_;
-	bool is_platform_loop_;
+  bool is_platform_loop_;
 
   explicit MessageLoopOhos(void* platform_loop);
 
@@ -53,7 +53,7 @@ class MessageLoopOhos : public MessageLoopImpl {
  public:
   static void OnAsyncCallback(uv_async_t* handle);
   static void OnAsyncHandleClose(uv_handle_t* handle);
-	static void OnPollCallback(uv_poll_t* handle, int status, int events);
+  static void OnPollCallback(uv_poll_t* handle, int status, int events);
 };
 
 }  // namespace fml

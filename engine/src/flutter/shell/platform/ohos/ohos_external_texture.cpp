@@ -1,7 +1,7 @@
 /*
- * Copyright (c) 2023 Hunan OpenValley Digital Industry Development Co., Ltd. All rights reserved.
- * Use of this source code is governed by a BSD-style license that can be
- * found in the LICENSE_KHZG file.
+ * Copyright (c) 2023 Hunan OpenValley Digital Industry Development Co., Ltd.
+ * All rights reserved. Use of this source code is governed by a BSD-style
+ * license that can be found in the LICENSE_KHZG file.
  */
 #include "ohos_external_texture.h"
 
@@ -162,7 +162,8 @@ void OHOSExternalTexture::Paint(PaintContext& context,
     // dart
     if (background_color_enable_) {
       DlAutoCanvasRestore auto_restore(context.canvas, true);
-      DlPaint paint; paint.setColor(DlColor(background_color_));
+      DlPaint paint;
+      paint.setColor(DlColor(background_color_));
       context.canvas->DrawRect(bounds, paint);
     }
     FML_LOG(INFO) << "No DlImage available for ImageExternalTexture to paint.";
@@ -369,9 +370,10 @@ void OHOSExternalTexture::SetBackGroundColor(uint32_t color) {
   TRACE_EVENT0("flutter", "SetExternalTextureBackGroundColor");
   background_color_enable_ = true;
   // ABGR to ARGB. In hexadecimal, each two bits corresponds to a color channel
-  background_color_ = (color & 0xFF00FF00) |          // keep A and G channel
-                      ((color & 0x00FF0000) >> 16) |  // shift B to forth channel
-                      ((color & 0x000000FF) << 16);   // shift R to second channel
+  background_color_ =
+      (color & 0xFF00FF00) |          // keep A and G channel
+      ((color & 0x00FF0000) >> 16) |  // shift B to forth channel
+      ((color & 0x000000FF) << 16);   // shift R to second channel
 }
 
 void OHOSExternalTexture::ReleaseWindowBuffer(OH_NativeImage* native_image,

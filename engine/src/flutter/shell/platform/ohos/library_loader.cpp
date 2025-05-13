@@ -1,7 +1,7 @@
 /*
- * Copyright (c) 2023 Hunan OpenValley Digital Industry Development Co., Ltd. All rights reserved.
- * Use of this source code is governed by a BSD-style license that can be
- * found in the LICENSE_KHZG file.
+ * Copyright (c) 2023 Hunan OpenValley Digital Industry Development Co., Ltd.
+ * All rights reserved. Use of this source code is governed by a BSD-style
+ * license that can be found in the LICENSE_KHZG file.
  */
 
 #include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
@@ -200,7 +200,7 @@ static napi_value Init(napi_env env, napi_value exports) {
           flutter::PlatformViewOHOSNapi::nativeUpdateCurrentXComponentId),
       DECLARE_NAPI_FUNCTION(
           "nativeSetDVsyncSwitch",
-        flutter::PlatformViewOHOSNapi::nativeSetDVsyncSwitch),
+          flutter::PlatformViewOHOSNapi::nativeSetDVsyncSwitch),
   };
 
   FML_DLOG(INFO) << "Init NAPI size=" << sizeof(desc) / sizeof(desc[0]);

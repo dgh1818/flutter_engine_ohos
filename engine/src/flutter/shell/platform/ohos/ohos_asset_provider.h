@@ -13,11 +13,12 @@
 namespace flutter {
 
 class OHOSAssetProviderInternal {
-  public:
-    virtual std::unique_ptr<fml::Mapping> GetAsMapping(
+ public:
+  virtual std::unique_ptr<fml::Mapping> GetAsMapping(
       const std::string& asset_name) const = 0;
-  protected:
-    virtual ~OHOSAssetProviderInternal() = default;
+
+ protected:
+  virtual ~OHOSAssetProviderInternal() = default;
 };
 
 // ohos平台的文件管理 ，必须通过NativeResourceManager* 指针对它进行初始化
@@ -26,7 +27,8 @@ class OHOSAssetProvider final : public AssetResolver {
   explicit OHOSAssetProvider(void* assetHandle,
                              const std::string& dir = "flutter_assets");
 
-  explicit OHOSAssetProvider(std::shared_ptr<OHOSAssetProviderInternal> assetHandle);
+  explicit OHOSAssetProvider(
+      std::shared_ptr<OHOSAssetProviderInternal> assetHandle);
 
   ~OHOSAssetProvider() = default;
 
