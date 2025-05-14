@@ -16,7 +16,6 @@ import { TextEditingDelta } from './TextEditingDelta';
 import TextInputChannel from '../../embedding/engine/systemchannels/TextInputChannel';
 import { FlutterTextUtils } from './TextUtils';
 import { KeyCode } from '@kit.InputKit';
-import { BusinessError } from '@kit.BasicServicesKit';
 
 const TAG = "ListenableEditingState";
 
@@ -57,6 +56,7 @@ export class ListenableEditingState {
   private mLeftIdxOfPreviewTextRange: number = 0;
   private mRightIdxOfPreviewTextRange: number = 0;
   private mIsCursorIdxOutOfPreviewTextRange: boolean = false;
+  private mIsEnglishPreviewMode: boolean = false;
 
   constructor(TextInputChannel:TextInputChannel | null,client:number) {
     this.TextInputChannel = TextInputChannel;
@@ -218,6 +218,10 @@ export class ListenableEditingState {
   }
 
   handleInsertPreviewTextEvent(text: string, range: inputMethod.Range): void {
+    // Determine whether it is in English preview input mode
+    if (range.start != -1 && range.end != -1 && text.indexOf("'") == -1) {
+      this.mIsEnglishPreviewMode = true;
+    }
     // preview text callback with complete text contents，like a, a'b, a'b'c
     // its text char do not appear one by one
     this.setPreviewText(text);
@@ -247,6 +251,12 @@ export class ListenableEditingState {
       (this.getLeftIdxOfPreviewTextRange() != this.getRightIdxOfPreviewTextRange())) {
       this.mSelectionStartCache = this.getLeftIdxOfPreviewTextRange();
       this.mSelectionEndCache = this.getRightIdxOfPreviewTextRange();
+    } else if (this.mIsEnglishPreviewMode) {
+      // To comply with the specifications of Xiaoyi-InputMethod, change the
+      // range of inserted English chars and add a space at the backend
+      this.mSelectionStartCache = this.getPreviewTextStart();
+      this.mSelectionEndCache = this.getPreviewTextEnd();
+      text += " ";
     }
 
     let start =
@@ -273,8 +283,11 @@ export class ListenableEditingState {
       return;
     }
     this.notifyListenersIfNeeded(true, true, false);
-    // when preview text did insert, reset the left and right index
+    // when preview text did insert, reset the params
     this.updatePreviewTextRange(0, 0);
+    this.setPreviewTextStart(-1);
+    this.setPreviewTextEnd(-1);
+    this.mIsEnglishPreviewMode = false;
   }
 
   updateTextInputState(state: TextEditState): void {

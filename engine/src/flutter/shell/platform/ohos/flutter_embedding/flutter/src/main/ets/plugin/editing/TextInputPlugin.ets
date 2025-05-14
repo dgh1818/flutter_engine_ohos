@@ -68,6 +68,9 @@ export default class TextInputPlugin implements EditingStateWatcher {
     this.textInputChannel.updateEditingState(inputTarget.id, finalStringCache,
       newSelectionStart, newSelectionEnd,
       editable.getComposingStart(), editable.getComposingEnd())
+    // notify current cursor index to the InputMethodFramework
+    this.mTextInputHandler.inputMethodController.changeSelection(finalStringCache,
+      newSelectionStart, newSelectionEnd);
   }
 
   didChangeEditingState(textChanged: boolean, selectionChanged: boolean, composingRegionChanged: boolean): void {
@@ -209,8 +212,9 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     this.mEditable.setPreviewText("");
     this.mEditable.setIsCursorIdxOutOfPreviewTextRange(false);
     this.mEditable.updateTextInputState(editingState);
-    this.inputMethodController.changeSelection(editingState.text, editingState.selectionStart,
-      editingState.selectionEnd);
+    // notify current cursor index or selection range to the InputMethodFramework
+    this.inputMethodController.changeSelection(editingState.text,
+      editingState.selectionStart, editingState.selectionEnd);
     if (sdkApiVersion >= PREIVEW_TEXT_SUPPORT_API) {
       this.previewTextChangeSelection(editingState);
     }
@@ -229,23 +233,19 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     // if user move the current cursor index out of editing preview text range,
     // immediately inserting the first candidate word into the editing widget
     if (isCursorIdxOutOfPreviewTextRange) {
-      try {
-        // change selection async callback
-        this.inputMethodController.changeSelection(editingState.text, leftIdxOfPreviewText, rightIdxOfPreviewText)
-          .then(() => {
-            // force the cursor position at the end of editing preview text
-            editingState.selectionStart = rightIdxOfPreviewText;
-            editingState.selectionEnd = rightIdxOfPreviewText;
-            // update TextInputState and reset the preview text state
-            this.mEditable.updateTextInputState(editingState);
-            this.mEditable.setPreviewText("");
-          })
-          .catch((err: BusinessError) => {
-            console.error(`Failed to previewTextChangeSelection: ${JSON.stringify(err)}`);
-          })
-      } catch (err) {
-        console.error(`Failed to previewTextChangeSelection: ${JSON.stringify(err)}`);
-      }
+      // change selection async callback
+      this.inputMethodController.changeSelection(editingState.text, leftIdxOfPreviewText, rightIdxOfPreviewText)
+        .then(() => {
+          // force the cursor position at the end of editing preview text
+          editingState.selectionStart = rightIdxOfPreviewText;
+          editingState.selectionEnd = rightIdxOfPreviewText;
+          // update TextInputState and reset the preview text state
+          this.mEditable.updateTextInputState(editingState);
+          this.mEditable.setPreviewText("");
+        })
+        .catch((err: BusinessError) => {
+          console.error(`Failed to previewTextChangeSelection: ${JSON.stringify(err)}`);
+        })
     }
   }
 
@@ -473,29 +473,36 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   }
 
   private setPreviewTextCallback = (text: string, range: inputMethod.Range) => {
-    Log.d(TextInputMethodHandlerImpl.TAG, "setPreviewTextCallback: PreviewText=" + text + " start=" + range.start + " end=" + range.end)
+    Log.i(TextInputMethodHandlerImpl.TAG,
+      "setPreviewTextCallback: text = " + text + " range = " + JSON.stringify(range));
     this.mEditable.handleInsertPreviewTextEvent(text, range);
   }
 
   private finishPreviewTextCallback = () => {
+    Log.i(TextInputMethodHandlerImpl.TAG, "finishPreviewTextCallback");
+    // When editing preview text, meanwhile switch the app to the background and
+    // the preview text will automatically insert into the string cache of TextField
+    this.mEditable.handleInsertTextEvent(this.mEditable.getPreviewText());
     this.mEditable.clearPreviewTextContents();
-    Log.d(TextInputMethodHandlerImpl.TAG, "finishPreviewTextCallback");
   }
 
   private insertTextCallback = (text: string) => {
     this.mEditable.handleInsertTextEvent(text);
+    // notify the current cursor index to InputMethodFramework for preview mode
     this.inputMethodController.changeSelection(this.mEditable.getStringCache(), this.mEditable.getSelectionStart(),
       this.mEditable.getSelectionEnd());
   }
 
   private deleteLeftCallback = (length: number) => {
     this.mEditable.handleDeleteEvent(false, length);
+    // notify the current cursor index to InputMethodFramework for preview mode
     this.inputMethodController.changeSelection(this.mEditable.getStringCache(), this.mEditable.getSelectionStart(),
       this.mEditable.getSelectionEnd());
   }
 
   private deleteRightCallback = (length: number) => {
     this.mEditable.handleDeleteEvent(true, length);
+    // notify the current cursor index to InputMethodFramework for preview mode
     this.inputMethodController.changeSelection(this.mEditable.getStringCache(), this.mEditable.getSelectionStart(),
       this.mEditable.getSelectionEnd());
   }
