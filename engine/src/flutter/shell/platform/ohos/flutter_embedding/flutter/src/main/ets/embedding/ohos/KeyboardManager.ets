@@ -32,24 +32,16 @@ export default class KeyboardManager {
   }
 
   onKeyPreIme(event: KeyEvent) : boolean {
-    this.keyEmbedderResponder.handleKeyEvent(event);
-
-    this.keyEventChannel?.sendFlutterKeyEvent(new FlutterKeyEvent(event), event.type == KeyType.Up, {
-      onFrameworkResponse: (isEventHandled: boolean): void => {
-
-      }
-    })
-
-    //del物理按键会触发输入法的delete回调，一定时序下会导致多次删除
-    if(event.type == KeyType.Down && (event.keyCode == KeyCode.KEYCODE_DEL || event.keyCode == KeyCode.KEYCODE_FORWARD_DEL)){
-      this.keyEventHandler.startDeleting(event.keyCode)
-    } else if (event.type == KeyType.Up && (event.keyCode == KeyCode.KEYCODE_DEL || event.keyCode == KeyCode.KEYCODE_FORWARD_DEL)) {
-      this.keyEventHandler.endDeletion(event.keyCode)
-    }
     return false;
   }
 
   onKeyEvent(event: KeyEvent) : boolean {
+    this.keyEmbedderResponder.handleKeyEvent(event);
+
+    this.keyEventChannel?.sendFlutterKeyEvent(new FlutterKeyEvent(event), event.type == KeyType.Up, {
+      onFrameworkResponse: (isEventHandled: boolean): void => {
+      }
+    })
     this.keyEventHandler.handleKeyEvent(event);
     return false;
   }
