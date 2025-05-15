@@ -166,6 +166,9 @@ class PlatformViewOHOSNapi {
 
   static napi_value nativeGetTextureWindowId(napi_env env,
                                              napi_callback_info info);
+  static napi_value nativeGetTextureWindowPtr(napi_env env,
+                                              napi_callback_info info);
+
   static napi_value nativeSetTextureBackGroundPixelMap(napi_env env,
                                                        napi_callback_info info);
   static napi_value nativeSetTextureBackGroundColor(napi_env env,
@@ -179,6 +182,9 @@ class PlatformViewOHOSNapi {
 
   static napi_value nativeSetExternalNativeImage(napi_env env,
                                                  napi_callback_info info);
+
+  static napi_value nativeSetExternalNativeImagePtr(napi_env env,
+                                                    napi_callback_info info);
 
   static napi_value nativeResetExternalTexture(napi_env env,
                                                napi_callback_info info);

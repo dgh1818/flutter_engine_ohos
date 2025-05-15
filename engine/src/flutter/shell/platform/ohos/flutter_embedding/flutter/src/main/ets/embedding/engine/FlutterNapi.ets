@@ -613,6 +613,10 @@ export default class FlutterNapi {
     return flutter.nativeRegisterTexture(this.nativeShellHolderId!, textureId);
   }
 
+  /**
+   * @deprecated since 3.22
+   * @useinstead FlutterNapi#getTextureNativeWindowPtr
+   */
   getTextureNativeWindowId(textureId: number): number {
     Log.d(TAG, "called getTextureNativeWindowId ");
     if (this.isAttached()) {
@@ -626,6 +630,23 @@ export default class FlutterNapi {
     }
   }
 
+  getTextureNativeWindowPtr(textureId: number): bigint {
+    Log.d(TAG, "called getTextureNativeWindowPtr");
+    if (this.isAttached()) {
+      if (!this.nativeShellHolderId) {
+        Log.e(TAG, "this.nativeShellHolderId = " + this.nativeShellHolderId)
+        return BigInt("0");
+      }
+      return flutter.nativeGetTextureWindowPtr(this.nativeShellHolderId!, textureId);
+    } else {
+      return BigInt("0");
+    }
+  }
+
+  /**
+   * @deprecated since 3.22
+   * @useinstead FlutterNapi#setExternalNativeImagePtr
+   */
   setExternalNativeImage(textureId: number, native_image: number): boolean {
     Log.d(TAG, "called setExternalNativeImage ");
     if (this.isAttached()) {
@@ -634,6 +655,19 @@ export default class FlutterNapi {
         return false;
       }
       return Boolean(flutter.nativeSetExternalNativeImage(this.nativeShellHolderId!, textureId, native_image));
+    } else {
+      return false;
+    }
+  }
+
+  setExternalNativeImagePtr(textureId: number, native_image_ptr: bigint): boolean {
+    Log.d(TAG, "called setExternalNativeImagePtr");
+    if (this.isAttached()) {
+      if (!this.nativeShellHolderId) {
+        Log.e(TAG, "this.nativeShellHolderId = " + this.nativeShellHolderId)
+        return false;
+      }
+      return Boolean(flutter.nativeSetExternalNativeImagePtr(this.nativeShellHolderId!, textureId, native_image_ptr));
     } else {
       return false;
     }
