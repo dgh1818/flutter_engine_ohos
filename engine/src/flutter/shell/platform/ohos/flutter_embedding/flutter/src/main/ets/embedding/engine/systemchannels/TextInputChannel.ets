@@ -160,6 +160,11 @@ export default class TextInputChannel {
   public setDevicePixelRatio(devicePixelRatio: number) {
     this.TextInputCallback?.setDevicePixelRatio(devicePixelRatio);
   }
+
+  getKeyboardFocusState() {
+    return this.textInputMethodHandler?.getKeyboardFocusState();
+  }
+  
 }
 
 interface EditingState {
@@ -200,6 +205,8 @@ export interface TextInputMethodHandler {
   clearClient(): void;
 
   handleChangeFocus(focusState: boolean): void;
+
+  getKeyboardFocusState(): boolean;
 
 }
 
