@@ -181,6 +181,31 @@ DecompressResult ImageDecoderImpeller::DecompressTexture(
   SkAlphaType alpha_type =
       ChooseCompatibleAlphaType(base_image_info.alphaType());
   SkImageInfo image_info;
+#ifdef __OHOS__
+  if (is_wide_gamut ||
+      base_image_info.colorType() == kRGBA_1010102_SkColorType) {
+    SkColorType color_type = alpha_type == SkAlphaType::kPremul_SkAlphaType
+                                 ? kRGBA_1010102_SkColorType
+                                 : kRGBA_1010102_SkColorType;
+
+    image_info =
+        base_image_info.makeWH(decode_size.width(), decode_size.height())
+            .makeColorType(color_type)
+            .makeAlphaType(alpha_type)
+            .makeColorSpace(
+                SkColorSpace::MakeRGB(SkNamedTransferFn::kHLG, rec2020_matrix));
+
+    FML_DLOG(INFO) << "is wide gamut";
+  } else {
+    image_info =
+        base_image_info.makeWH(decode_size.width(), decode_size.height())
+            .makeColorType(
+                ChooseCompatibleColorType(base_image_info.colorType()))
+            .makeAlphaType(alpha_type);
+
+    FML_DLOG(INFO) << "not wide gamut";
+  }
+#else
   if (is_wide_gamut) {
     SkColorType color_type = alpha_type == SkAlphaType::kOpaque_SkAlphaType
                                  ? kBGR_101010x_XR_SkColorType
@@ -197,7 +222,7 @@ DecompressResult ImageDecoderImpeller::DecompressTexture(
                 ChooseCompatibleColorType(base_image_info.colorType()))
             .makeAlphaType(alpha_type);
   }
-
+#endif
   const auto pixel_format =
       impeller::skia_conversions::ToPixelFormat(image_info.colorType());
   if (!pixel_format.has_value()) {

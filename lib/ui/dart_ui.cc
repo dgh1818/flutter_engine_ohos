@@ -30,6 +30,7 @@
 #include "flutter/lib/ui/painting/path_measure.h"
 #include "flutter/lib/ui/painting/picture.h"
 #include "flutter/lib/ui/painting/picture_recorder.h"
+#include "flutter/lib/ui/painting/set_hdr.h"
 #include "flutter/lib/ui/painting/vertices.h"
 #include "flutter/lib/ui/semantics/semantics_update.h"
 #include "flutter/lib/ui/semantics/semantics_update_builder.h"
@@ -85,6 +86,9 @@ typedef CanvasPath Path;
   V(PictureRecorder::Create)                                       \
   V(SceneBuilder::Create)                                          \
   V(SemanticsUpdateBuilder::Create)                                \
+  V(SetHdr::Create)                                                \
+  V(SetHdr::initSetHdr)                                            \
+  V(SetHdr::enableHdr)                                             \
   /* Other */                                                      \
   V(FontCollection::LoadFontFromList)                              \
   V(ImageDescriptor::initEncoded)                                  \

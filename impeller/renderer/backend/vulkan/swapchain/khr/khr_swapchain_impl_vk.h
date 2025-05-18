@@ -12,6 +12,7 @@
 #include "impeller/geometry/rect.h"
 #include "impeller/geometry/size.h"
 #include "impeller/renderer/backend/vulkan/vk.h"
+#include "impeller/renderer/context.h"
 #include "vulkan/vulkan_enums.hpp"
 
 namespace impeller {
@@ -63,6 +64,8 @@ class KHRSwapchainImplVK final
   std::pair<vk::UniqueSurfaceKHR, vk::UniqueSwapchainKHR> DestroySwapchain();
 
   const ISize& GetSize() const;
+  int GetHdr() const;
+  void SetHdr(int hdr);
 
   uint32_t GetCurrentImageIndex() { return current_image_index_; };
 
@@ -82,6 +85,7 @@ class KHRSwapchainImplVK final
   bool support_present_damage_ = false;
   bool enable_msaa_ = true;
   bool is_valid_ = false;
+  int hdr_ = 0;
 
   KHRSwapchainImplVK(const std::shared_ptr<Context>& context,
                      vk::UniqueSurfaceKHR surface,
@@ -98,6 +102,10 @@ class KHRSwapchainImplVK final
 
   KHRSwapchainImplVK& operator=(const KHRSwapchainImplVK&) = delete;
 };
+
+static constexpr int kHDRPQ = 2;
+static constexpr int kHDRHLG = 1;
+static constexpr int kSDR = 0;
 
 }  // namespace impeller
 

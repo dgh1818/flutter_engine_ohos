@@ -23,6 +23,7 @@ dart_ui_files = [
   "//flutter/lib/ui/text.dart",
   "//flutter/lib/ui/ui.dart",
   "//flutter/lib/ui/window.dart",
+  "//flutter/lib/ui/set_hdr.dart",
 ]
 
 dart_ui_path = "//flutter/lib/ui/ui.dart"

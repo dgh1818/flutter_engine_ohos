@@ -104,6 +104,15 @@ class ImageDecoderImpeller final : public ImageDecoder {
   const bool supports_wide_gamut_;
   std::shared_ptr<fml::SyncSwitch> gpu_disabled_switch_;
 
+  constexpr static const skcms_Matrix3x3 dcip3_matrix = {
+      {{1.2249f, -0.2247f, 0.000f},
+       {-0.0420f, 1.0419f, 0.000f},
+       {-0.0197f, -0.0786f, 1.0979f}}};
+  constexpr static const skcms_Matrix3x3 rec2020_matrix = {
+      {{0.636958f, 0.144617f, 0.168881f},
+       {0.262700f, 0.677998f, 0.059302f},
+       {0.000000f, 0.028073f, 1.060985f}}};
+
   FML_DISALLOW_COPY_AND_ASSIGN(ImageDecoderImpeller);
 };
 

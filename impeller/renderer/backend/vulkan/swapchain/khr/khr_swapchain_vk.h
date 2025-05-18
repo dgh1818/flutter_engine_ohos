@@ -49,6 +49,7 @@ class KHRSwapchainVK {
  private:
   std::shared_ptr<KHRSwapchainImplVK> impl_;
   ISize size_;
+  int hdr_;
   const bool enable_msaa_;
 
   KHRSwapchainVK(std::shared_ptr<KHRSwapchainImplVK> impl,
