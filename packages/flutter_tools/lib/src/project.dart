@@ -1236,7 +1236,7 @@ class OhosProject extends FlutterProjectPlatform {
       }
     }
     hvigor.updateLocalProperties(project: parent);
-    hvigor.installHvigorPlugin(ohosRoot.path);
+    hvigor.installHvigorPlugin(parent.ohos);
   }
 
   Future<void> _regenerateLibrary() async {
