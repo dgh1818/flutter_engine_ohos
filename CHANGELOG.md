@@ -12,6 +12,7 @@
 - 分支同步外接纹理LRU缓存策略优化 (3.7:[37b61a9a](https://gitcode.com/openharmony-sig/flutter_engine/commit/37b61a9a93dbfafc04e5706a991ecd632436e68b?ref=lru&prId=791), 3.22:[a1700852](https://gitcode.com/openharmony-sig/flutter_engine/commit/a1700852477189eb4ea5f803b14308432640c0a5?ref=code-better-lru&prId=683))
 - 路由跳转软键盘状态异常处理 (3.7:[ea4535da](https://gitcode.com/openharmony-sig/flutter_engine/commit/ea4535da5ec422c546e64785145be76a483213b3?ref=dev&prId=799), 3.22:[ed9aee2e](https://gitcode.com/openharmony-sig/flutter_engine/commit/ed9aee2ef22cc45117060acf6767782157ba02cc?ref=oh-3.22.0&prId=803))
 - 增加导出接口EventSink, StreamHandler (3.7:[4a976c5e](https://gitcode.com/openharmony-sig/flutter_engine/commit/4a976c5e68a422db60bda964d634751d3a72608f?ref=dev&prId=787), 3.22:[aa58c13b](https://gitcode.com/openharmony-sig/flutter_engine/commit/aa58c13b9e8177433b8a3e70cd0c34b66ec1fb90?ref=oh-3.22.0&prId=788))
+- 修复3.22版本谷歌社区存在的RangeError问题 (3.22：[be8b22ce](https://gitcode.com/openharmony-tpc/flutter_engine/commit/be8b22ce6a6bfab7163f1e443fdd0cfd4816e5ec?ref=oh-3.22.0&prId=800))
 
 
 ## 5.1.0.403

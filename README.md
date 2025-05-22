@@ -128,6 +128,7 @@ Flutter SDK 仓库
    ```
 
 ## 版本说明
+ - [3.22.0-ohos-1.0.1 Release](/release-notes/Flutter%203.22.0-ohos%201.0.1%20ReleaseNote.md)
  - [3.22.0-ohos-1.0.0 Release](/release-notes/Flutter%203.22.0-ohos%201.0.0%20ReleaseNote.md)
  - [3.22.0-ohos-0.1.2 Beta](/release-notes/Flutter%203.22.0-ohos%200.1.2%20ReleaseNote.md)
  - [3.22.0-ohos-0.1.1 Beta](/release-notes/Flutter%203.22.0-ohos%200.1.1%20ReleaseNote.md)
