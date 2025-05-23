@@ -62,6 +62,8 @@ class OHOSImageGenerator : public ImageGenerator {
  private:
   OH_ImageSourceNative* image_source_;
   SkImageInfo origin_image_info_;
+  float rotate_degree_ = 0.f;
+  bool need_flip_ = false;
   uint32_t frame_count_ = 0;
   bool is_hdr_ = false;
   std::vector<int32_t> frame_time_duration_;

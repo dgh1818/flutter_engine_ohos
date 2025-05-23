@@ -23,6 +23,47 @@
 
 namespace flutter {
 
+static void ResolveEncodedOrigin(char* data,
+                                 int size,
+                                 float* rotate,
+                                 bool* need_flip) {
+  if (size == sizeof("Top-left") - 1 && memcmp("Top-left", data, size) == 0) {
+    *rotate = 0.f;
+    *need_flip = false;
+  } else if (size == sizeof("Top-right") - 1 &&
+             memcmp("Top-right", data, size) == 0) {
+    *rotate = 0.f;
+    *need_flip = true;
+  } else if (size == sizeof("Bottom-right") - 1 &&
+             memcmp("Bottom-right", data, size) == 0) {
+    *rotate = 180.f;
+    *need_flip = false;
+  } else if (size == sizeof("Bottom-left") - 1 &&
+             memcmp("Bottom-left", data, size) == 0) {
+    *rotate = 180.f;
+    *need_flip = true;
+  } else if (size == sizeof("Left-top") - 1 &&
+             memcmp("Left-top", data, size) == 0) {
+    *rotate = 90.f;
+    *need_flip = true;
+  } else if (size == sizeof("Right-top") - 1 &&
+             memcmp("Right-top", data, size) == 0) {
+    *rotate = 90.f;
+    *need_flip = false;
+  } else if (size == sizeof("Right-bottom") - 1 &&
+             memcmp("Right-bottom", data, size) == 0) {
+    *rotate = 270.f;
+    *need_flip = true;
+  } else if (size == sizeof("Left-bottom") - 1 &&
+             memcmp("Left-bottom", data, size) == 0) {
+    *rotate = 270.f;
+    *need_flip = false;
+  } else {
+    *rotate = 0.f;
+    *need_flip = false;
+  }
+}
+
 OHOSImageGenerator::OHOSImageGenerator(OH_ImageSourceNative* image_source)
     : image_source_(image_source) {
   OH_ImageSource_Info* info = nullptr;
@@ -30,14 +71,33 @@ OHOSImageGenerator::OHOSImageGenerator(OH_ImageSourceNative* image_source)
   if (info == nullptr) {
     return;
   }
+
+  Image_String key;
+  key.data = (char*)OHOS_IMAGE_PROPERTY_ORIENTATION;
+  key.size = strlen(OHOS_IMAGE_PROPERTY_ORIENTATION);
+  Image_String value = {nullptr, 0};
+  int err = OH_ImageSourceNative_GetImageProperty(image_source, &key, &value);
+  if (err != IMAGE_SUCCESS) {
+    FML_LOG(ERROR) << "cannot get pixelmap orientation:" << err;
+  }
+  if (value.data != nullptr) {
+    ResolveEncodedOrigin(value.data, value.size, &rotate_degree_, &need_flip_);
+    free(value.data);
+  }
+
   uint32_t width = 0, height = 0;
   OH_ImageSourceNative_GetImageInfo(image_source, 0, info);
   OH_ImageSourceInfo_GetWidth(info, &width);
   OH_ImageSourceInfo_GetHeight(info, &height);
   OH_ImageSourceInfo_GetDynamicRange(info, &is_hdr_);
   OH_ImageSourceInfo_Release(info);
-  origin_image_info_ = SkImageInfo::Make(width, height, kRGBA_8888_SkColorType,
-                                         kOpaque_SkAlphaType);
+  if (rotate_degree_ == 90.f || rotate_degree_ == 270.f) {
+    origin_image_info_ = SkImageInfo::Make(
+        height, width, kRGBA_8888_SkColorType, kOpaque_SkAlphaType);
+  } else {
+    origin_image_info_ = SkImageInfo::Make(
+        width, height, kRGBA_8888_SkColorType, kOpaque_SkAlphaType);
+  }
 
   // this is used for gif.
   OH_ImageSourceNative_GetFrameCount(image_source, &frame_count_);
@@ -201,6 +261,7 @@ OHOSImageGenerator::CreatePixelMap(int width, int height, int frame_index) {
   Image_Size size = {(uint32_t)width, (uint32_t)height};
   OH_DecodingOptions_SetDesiredSize(opts, &size);
   OH_DecodingOptions_SetPixelFormat(opts, PIXEL_FORMAT_RGBA_8888);
+  OH_DecodingOptions_SetRotate(opts, rotate_degree_);
 
   // HDR requires the RGBA1010102 format and will need future support.
   OH_DecodingOptions_SetDesiredDynamicRange(opts, IMAGE_DYNAMIC_RANGE_SDR);
@@ -211,6 +272,9 @@ OHOSImageGenerator::CreatePixelMap(int width, int height, int frame_index) {
   err_code =
       OH_ImageSourceNative_CreatePixelmap(image_source_, opts, &pixelmap);
   if (pixelmap && err_code == IMAGE_SUCCESS) {
+    if (need_flip_) {
+      OH_PixelmapNative_Flip(pixelmap, need_flip_, false);
+    }
     auto image_pixelmap = std::make_shared<PixelMapOHOS>(pixelmap);
     FML_LOG(INFO) << "Create Pixelmap size:"
                   << std::to_string(image_pixelmap->width_) << "*"
