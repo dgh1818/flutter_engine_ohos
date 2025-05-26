@@ -70,7 +70,7 @@ class RawKeyEventDataOhos extends RawKeyEventData {
   // 按键键值
   final String _character;
 
-  bool get _isKeyDown => _type == KeyType.keydown.toString();
+  bool get _isKeyDown => _type == KeyType.keydown.name;
 
   @override
   KeyboardSide? getModifierSide(ModifierKey key) {

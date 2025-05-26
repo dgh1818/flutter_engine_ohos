@@ -407,7 +407,7 @@ abstract class RawKeyEvent with Diagnosticable {
       switch (keymap) {
         case 'ohos':
           data = RawKeyEventDataOhos(
-            message['type'] as String? ?? KeyType.keydown.toString(),
+            message['type'] as String? ?? KeyType.keydown.name,
             message['keyCode'] as int? ?? 0,
             message['deviceId'] as int? ?? 0,
             message['character'] as String? ?? '',
