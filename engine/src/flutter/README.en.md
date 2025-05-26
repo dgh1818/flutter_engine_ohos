@@ -10,7 +10,7 @@ This repository is an extension of the Flutter engine repository. It enables Flu
 
 * Build environment:
 1. Linux or macOS that support Flutter engine; Windows that supports **gen_snapshot**.
-2. Access to the **allowed_hosts** field in the DEPS file.
+2. Access to the **allowed_hosts** field in the DEPS_ohos file.
 
 * Build steps:
 1. Set up a basic environment. For details, see the [official document](https://github.com/flutter/flutter/wiki/Setting-up-the-Engine-development-environment).
@@ -35,9 +35,9 @@ This repository is an extension of the Flutter engine repository. It enables Flu
    {
       "managed": False,
       "name": "src/flutter",
-      "url": "git@gitee.com:harmonycommando_flutter/flutter_engine.git@oh-3.22.0",
+      "url": "git@gitcode.com:openharmony-sig/flutter_engine.git@oh-3.22.0",
       "custom_deps": {},
-      "deps_file": "DEPS",
+      "deps_file": "DEPS_ohos",
       "safesync_url": "",
    },
    ]
@@ -65,20 +65,14 @@ Starting from version 3.22.0, the engine compilation will by default compile bot
 
 6. Update the code. In the **engine** directory, execute `./ohos -b master`.
 
-- Manual code update method (after completing at least one full `gclient sync`):
-   * Navigate directly to the `engine/src/flutter` directory. After ensuring that the current code update does not involve any patches, you may freely edit or switch code branches, and then execute the build command. If patches are involved, you can manually apply the relevant patches or refer to FAQ.7 to batch reverse and reapply patches.
-
-
 ## FAQs
-1. The message `Member notfound:'isOhos'` is reported during project running.<br>Install all dart patches in the **src/third_party/dart** directory. (The patches are located in the **src/flutter/attachment/repos** directory, and you can use **git apply** to apply the patches). Recompile the engine after installing the patches.
+1. The message `Permission denied` is reported.<br>Execute `chmod +x < script file >` to add the execution permission.
 
-2. The message `Permission denied` is reported.<br>Execute `chmod +x < script file >` to add the execution permission.
+2. To compile the engine in debug, release, or profile mode, execute `./ohos -t debug`, `./ohos -t release`, or `./ohos -t profile`, respectively.
 
-3. To compile the engine in debug, release, or profile mode, execute `./ohos -t debug`, `./ohos -t release`, or `./ohos -t profile`, respectively.
+3. To find the help, execute `./ohos -h`.
 
-4. To find the help, execute `./ohos -h`.
-
-5. Different ways for handling newline characters by Windows, macOS, and Linux will cause different results of **dart vm snapshot hash** when installing the dart patches. You can obtain the value of **snapshot hash** through the following method:
+4. Different ways for handling newline characters by Windows, macOS, and Linux will cause different results of **dart vm snapshot hash** when installing the dart patches. You can obtain the value of **snapshot hash** through the following method:
 
    ```shell
    python xxx/src/third_party/dart/tools/make_version.py --format='{{SNAPSHOT_HASH}}'
@@ -88,16 +82,9 @@ Starting from version 3.22.0, the engine compilation will by default compile bot
 
    If the obtained value is not **8af474944053df1f0a3be6e6165fa7cf**, check whether all lines of the **xxx/src/third_party/dart/runtime/vm/dart.cc** file and the **xxx/src/third_party/dart/runtime/vm/image_snapshot.cc** file end with **LF**. For Windows, you can use **Notepad++** to check; for other systems, consult specific methods on your own.
 
-6. After modifying the embedding layer code, running `./ohos` does not take effect. You need to modify the timestamp of any file in the C++ layer for the build system to recognize it (e.g., add a space in any C++ file, save it, then remove the space and save again). Re-run the build to trigger the embedding layer to be repackaged.
+5. After modifying the embedding layer code, running `./ohos` does not take effect. You need to modify the timestamp of any file in the C++ layer for the build system to recognize it (e.g., add a space in any C++ file, save it, then remove the space and save again). Re-run the build to trigger the embedding layer to be repackaged.
 
-7. Method to manually reapply patches:
-
-   ```shell
-   python engine/src/flutter/attachment/scripts/ohos_reverse_patch.py
-   python engine/src/flutter/attachment/scripts/ohos_setup.py
-   ```
-
-8. Configure automatic code navigation
+6. Configure automatic code navigation
 
    It is recommended to use the `vscode+clangd` plugin (note: it conflicts with C/C++ IntelliSense).
    Example configuration:
@@ -110,7 +97,7 @@ Starting from version 3.22.0, the engine compilation will by default compile bot
     "C_Cpp.intelliSenseEngine": "disabled",
    ```
 
-9. `gclient sync` error on Windows
+7. `gclient sync` error on Windows
 
    Key error message: `'A required privilege is not held by the client'`
 

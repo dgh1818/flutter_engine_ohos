@@ -167,6 +167,7 @@ used to filter file path.
 
                 <filteritem type="filename" name=".pylintrc" desc="开源库代码（或原库代码文件）,不做侵入式修改" />
                 <filteritem type="filename" name="DEPS" desc="开源库代码（或原库代码文件）,不做侵入式修改" />
+                <filteritem type="filename" name="DEPS_ohos" desc="依赖仓库描述，仿照开源DEPS文件格式，不需要添加版权头和许可证头" />
 
                 <filteritem type="filename" name="*.json5" desc="hvigor配置文件，DevEco Studio自动生成，不手动修改"/>
                 <filteritem type="filename" name="LICENSE" desc="LICENSE说明，不需要添加版权头"/>
