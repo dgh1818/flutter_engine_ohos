@@ -110,13 +110,6 @@ export class ListenableEditingState {
     return this.mStringCache;
   }
 
-  getSelectionString(): string {
-    if (this.mSelectionStartCache < 0 || this.mSelectionEndCache > this.mStringCache.length) {
-      return "";
-    }
-    return this.mStringCache.substring(this.mSelectionStartCache, this.mSelectionEndCache);
-  }
-
   setSelectionStart(newSelectionStart: number): void {
     this.mSelectionStartCache = newSelectionStart;
   }
