@@ -1,4 +1,12 @@
 # Changelog
+## 5.1.0.502
+- 无障碍支持xcomponent多实例/多引擎场景(3.7:[12247ac6](https://gitcode.com/openharmony-tpc/flutter_engine/commit/12247ac613a9e446bd806bc4bc8c1d7fd512401c?ref=dev), 3.22[e7a98130](https://gitcode.com/openharmony-tpc/flutter_engine/commit/e7a98130f574f0b0cff0ff73776c085c5a583d43?ref=oh-3.22.0))
+- 修复输入法文本光标位置更新和文本错误替换de问题 （3.7:[8fcb9342](https://gitcode.com/openharmony-tpc/flutter_engine/commit/8fcb93420b80727fde29571fbd3c22d570b5fcc2?ref=fix-input-changeselection-3.7&prId=846), 3.22:[4729b57d](https://gitcode.com/openharmony-tpc/flutter_engine/commit/4729b57dec567a345180582670af05fea8624867?ref=fix-input-changeselection_3.22&prId=847)）
+- 修复外接物理键盘时,用中文输入法输入内容后按删除键,导致额外删除输入框中的字符的问题 (3.7:[89d3ce09](https://gitcode.com/openharmony-tpc/flutter_engine/commit/89d3ce097aa21bc79b75db3d85b2975beb93269b?ref=feature-keyevent-3.7&prId=839), 3.22:[0fa997df](https://gitcode.com/openharmony-tpc/flutter_engine/commit/0fa997dfa9b6767bdebc6726284845dbbabdf21c?ref=feature-keyevent-3.22&prId=840))
+- 修改engine编译依赖的仓库管理方式 (3.22:[681fd1f2](https://gitcode.com/openharmony-tpc/flutter_engine/commit/681fd1f2ec188aeadfe9981472379919e0d31522?ref=multi-repos&prId=790))
+- 修复输入框导致的闪动的问题 (3.7:[945678e6](https://gitcode.com/openharmony-tpc/flutter_engine/commit/945678e632034583ea226f93b2880025a98645e1?ref=dev&prId=826), 3.22:[33144cd9](https://gitcode.com/openharmony-tpc/flutter_engine/commit/33144cd9b8f738aa43238635cd16e22df40b9b79?ref=oh-3.22.0&prId=830))
+- 同步3.22外接纹理改动,主动调用ScheduleFrame触发更新 (3.7:[b5c03b92](https://gitcode.com/openharmony-tpc/flutter_engine/commit/b5c03b92f1ae279bd2ee79fc337b781bb5450ed9?ref=feature-texture&prId=825))
+- 使用bigint来表示native image和native window的指针 (3.22:[2ae04939](https://gitcode.com/openharmony-tpc/flutter_engine/commit/2ae04939365f0b682ec638a91bfd9aacf7723081?ref=new_interface&prId=805))
 ## 5.1.0.403SP1
 - Window内存泄露修复 (3.7:[4942fe4f](https://gitcode.com/openharmony-sig/flutter_engine/commit/4942fe4f8214c1139c4c839c4e78d9e52c613759?ref=xcomponent&prId=817), 3.22:[15e9ff7f](https://gitcode.com/openharmony-sig/flutter_engine/commit/15e9ff7faaac99db25014d9a7b3d15a0050ef1ac?ref=fix_window_leak&prId=796))
 - 修改外接纹理的内容时重新调度一帧 (3.22:[1d86f339](https://gitcode.com/openharmony-sig/flutter_engine/commit/1d86f33900d8690d5f2802d09b9a161ad2459e4f?ref=oh-3.22.0))
