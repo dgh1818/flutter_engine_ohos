@@ -21,7 +21,7 @@ OpenHarmony API16
 - Flutter SDK: 3.22.0-ohos-1.0.1
 
 ## Changelog
-- [5.1.0.403SP1](/CHANGELOG.md)
+- [5.1.0.403SP1](../CHANGELOG.md)
 
 ## 赋能文档
 - [文档链接](https://gitcode.com/openharmony-sig/flutter_samples/tree/master/ohos/docs)

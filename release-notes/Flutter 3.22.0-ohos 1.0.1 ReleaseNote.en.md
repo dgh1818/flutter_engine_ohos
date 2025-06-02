@@ -21,7 +21,7 @@ May 21, 2025
 - Flutter SDK: 3.22.0-ohos-1.0.1
 
 ## Changelog
-- [5.1.0.403SP1](/CHANGELOG.md)
+- [5.1.0.403SP1](../CHANGELOG.md)
 
 ## Enablement Documents
 - [Document Link](https://gitcode.com/openharmony-sig/flutter_samples/tree/master/ohos/docs)
