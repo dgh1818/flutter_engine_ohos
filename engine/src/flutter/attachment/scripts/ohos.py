@@ -17,7 +17,7 @@ import sys
 import zipfile
 from datetime import datetime
 
-SUPPORT_BUILD_NAMES = ("clean", "config", "har", "compile", "zip", "zip2", "upload")
+SUPPORT_BUILD_NAMES = ("clean", "config", "har", "compile", "zip", "zip2", "upload", "host")
 SUPPORT_BUILD_TYPES = ("debug", "profile", "release")
 SUPPORT_ABIS = {
     "x86": "x86",
@@ -124,6 +124,7 @@ def getNdkHome():
     dirs = []
     findFile(os.getenv("OHOS_SDK_HOME"), "native", dirs)
     findFile(os.getenv("HOS_SDK_HOME"), "native", dirs)
+    findFile(os.getenv("DEVECO_SDK_HOME"), "native", dirs)
     dirs.sort(reverse=True)
     for dir in dirs:
       if isNdkValid(dir):
@@ -133,7 +134,7 @@ def getNdkHome():
   if not isNdkValid(OHOS_NDK_HOME):
     logging.error(
         """
-    Please set the environment variables for HarmonyOS SDK to "HOS_SDK_HOME" or "OHOS_SDK_HOME".
+    Please set the environment variables for HarmonyOS SDK to "DEVECO_SDK_HOME".
     We will use both native/llvm and native/sysroot.
     Please ensure that the file "native/llvm/bin/clang" exists and is executable."""
     )
@@ -314,6 +315,7 @@ def addParseParam(parser):
   parser.add_argument(
       "--ohos-cpu", type=str, choices=['x64', 'x86', 'arm64', 'arm'], default="arm64"
   )
+  parser.add_argument("--host-cpu", type=str, choices=['x64', 'arm64'], default="x64")
 
 
 def updateCode(args):
@@ -336,18 +338,23 @@ def checkEnvironment():
     exit(1)
 
 
-def buildLocalEngine(buildType, extraParam):
+def buildLocalEngine(buildType, args):
   OPT = "--unoptimized --no-lto " if buildType == "debug" else ""
+  extraParam = args.gn_extra_param
+  osName = platform.system().lower()
+  hostAppend = f"--mac-cpu {args.host_cpu} " if osName == "darwin" else ""
   runCommand(
       "%s " % os.path.join("src", "flutter", "tools", "gn") + "--runtime-mode %s " % buildType +
       OPT + "--no-goma " + "--no-prebuilt-dart-sdk " + "--full-dart-sdk " +
       "--disable-desktop-embeddings " + "--no-build-embedder-examples " + "--verbose " +
-      extraParam.replace("\\", ""),
+      hostAppend + extraParam.replace("\\", ""),
       checkCode=False,
       timeout=600,
   )
-  outputName = "host_%s%s" % (buildType, "_unopt" if buildType == "debug" else "")
-  runCommand("ninja -C %s" % os.path.join("src", "out", outputName))
+  append1 = "_unopt" if buildType == "debug" else ""
+  append2 = "_arm64" if args.host_cpu == "arm64" else ""
+  outputName = f"host_{buildType}{append1}{append2}"
+  runCommand(f"ninja -C src/out/{outputName}")
 
 
 def uploadFiles():
@@ -355,7 +362,7 @@ def uploadFiles():
 
 
 def buildByNameAndType(args):
-  buildNames = args.name if args.branch or args.name else ["config", "compile"]
+  buildNames = args.name if args.branch or args.name else ["config", "compile", "host"]
   buildTypes = args.type
   for buildType in SUPPORT_BUILD_TYPES:
     if not buildType in buildTypes:
@@ -369,17 +376,17 @@ def buildByNameAndType(args):
       elif "config" == buildName:
         engineConfig(buildInfo, args)
       elif "har" == buildName:
-        harBuild(buildInfo)
+        harBuild(buildInfo, args)
       elif "compile" == buildName:
         engineCompile(buildInfo)
       elif "zip" == buildName:
-        zipFiles(buildInfo)
+        zipFiles(buildInfo, False, args)
       elif "zip2" == buildName:
-        zipFiles(buildInfo, True)
+        zipFiles(buildInfo, True, args)
+      elif "host" == buildName:
+        buildLocalEngine(buildType, args)
       else:
         logging.warning("Other name=%s" % buildName)
-    if buildNames or args.branch == '':
-      buildLocalEngine(buildType, args.gn_extra_param)
 
     if "upload" in buildNames:
       uploadFiles()
