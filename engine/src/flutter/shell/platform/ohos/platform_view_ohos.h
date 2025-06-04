@@ -163,6 +163,7 @@ class PlatformViewOHOS final : public PlatformView {
   void AccessibilityOnLongPress(int32_t nodeId);
   void AccessibilityOnTooltip(std::unique_ptr<char[]>& message);
   void OnAccessibilityStateChange(bool state);
+  void SetNavigation(bool isNavigation);
   void SetAccessibleNavigation(bool isAccessibleNavigation);
   void SetBoldText(double fontWeightScale);
 

@@ -2559,7 +2559,7 @@ napi_value PlatformViewOHOSNapi::nativeSetFlutterNavigationAction(
   NAPI_CALL(env, napi_get_value_int64(env, args[0], &shell_holder));
   NAPI_CALL(env, napi_get_value_bool(env, args[1], &isNavigate));
 
-  OHOS_SHELL_HOLDER->GetPlatformView()->SetAccessibleNavigation(isNavigate);
+  OHOS_SHELL_HOLDER->GetPlatformView()->SetNavigation(isNavigate);
   FML_DLOG(INFO) << "PlatformViewOHOSNapi::nativeSetFlutterNavigationAction -> "
                  << isNavigate;
   return nullptr;
