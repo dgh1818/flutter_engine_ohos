@@ -51,6 +51,7 @@ enum PixelFormat {
   s8UInt,
   d24UnormS8Uint,
   d32FloatS8UInt,
+  r10g10b10a2,
 }
 
 enum TextureCoordinateSystem {

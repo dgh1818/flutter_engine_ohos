@@ -139,6 +139,8 @@ constexpr vk::Format ToVKImageFormat(PixelFormat format) {
     case PixelFormat::kB10G10R10A10XR:
     case PixelFormat::kB10G10R10XRSRGB:
       return vk::Format::eUndefined;
+    case PixelFormat::kR10G10B10A2:
+      return vk::Format::eA2B10G10R10UnormPack32;
     case PixelFormat::kA8UNormInt:
       // TODO(csg): This is incorrect. Don't depend on swizzle support for GLES.
       return vk::Format::eR8Unorm;
@@ -195,6 +197,8 @@ constexpr PixelFormat ToPixelFormat(vk::Format format) {
       return PixelFormat::kR8UNormInt;
     case vk::Format::eR8G8Unorm:
       return PixelFormat::kR8G8UNormInt;
+    case vk::Format::eA2B10G10R10UnormPack32:
+      return PixelFormat::kR10G10B10A2;
     default:
       return PixelFormat::kUnknown;
   }
@@ -412,6 +416,7 @@ constexpr bool PixelFormatIsDepthStencil(PixelFormat format) {
     case PixelFormat::kB10G10R10XR:
     case PixelFormat::kB10G10R10XRSRGB:
     case PixelFormat::kB10G10R10A10XR:
+    case PixelFormat::kR10G10B10A2:
       return false;
     case PixelFormat::kS8UInt:
     case PixelFormat::kD24UnormS8Uint:
@@ -514,6 +519,7 @@ constexpr vk::ImageAspectFlags ToVKImageAspectFlags(PixelFormat format) {
     case PixelFormat::kB10G10R10XR:
     case PixelFormat::kB10G10R10XRSRGB:
     case PixelFormat::kB10G10R10A10XR:
+    case PixelFormat::kR10G10B10A2:
       return vk::ImageAspectFlagBits::eColor;
     case PixelFormat::kS8UInt:
       return vk::ImageAspectFlagBits::eStencil;
@@ -592,6 +598,7 @@ constexpr vk::ImageAspectFlags ToImageAspectFlags(PixelFormat format) {
     case PixelFormat::kB10G10R10XR:
     case PixelFormat::kB10G10R10XRSRGB:
     case PixelFormat::kB10G10R10A10XR:
+    case PixelFormat::kR10G10B10A2:
       return vk::ImageAspectFlagBits::eColor;
     case PixelFormat::kS8UInt:
       return vk::ImageAspectFlagBits::eStencil;
