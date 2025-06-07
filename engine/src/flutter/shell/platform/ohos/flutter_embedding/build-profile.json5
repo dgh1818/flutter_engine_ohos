@@ -1,5 +1,3 @@
-
-
 {
   "app": {
     "signingConfigs": [],
@@ -27,6 +25,10 @@
     {
       "name": "flutter",
       "srcPath": "./flutter"
+    },
+    {
+      "name": "flutter_native",
+      "srcPath": "./flutter_native",
     }
   ]
 }
