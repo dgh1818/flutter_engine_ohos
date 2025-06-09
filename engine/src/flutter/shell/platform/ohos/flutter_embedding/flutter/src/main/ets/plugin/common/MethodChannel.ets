@@ -194,7 +194,7 @@ export class IncomingMethodCallHandler implements BinaryMessageHandler {
 
         notImplemented: (): void => {
           Log.w(MethodChannel.TAG, "method not implemented");
-          reply.reply(StringUtils.stringToArrayBuffer(""));
+          reply.reply(null);
         }
       });
     } catch (e) {
