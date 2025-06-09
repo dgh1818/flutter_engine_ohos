@@ -745,4 +745,13 @@ std::shared_ptr<PlatformViewOHOSNapi> OHOSShellHolder::GetNapiFacade() {
   return napi_facade_;
 }
 
+void OHOSShellHolder::WaitRasterTasksFinished() {
+  FML_CHECK(shell_);
+  fml::AutoResetWaitableEvent gpu_latch;
+  fml::TaskRunner::RunNowOrPostTask(
+      shell_->GetTaskRunners().GetRasterTaskRunner(),
+      [&gpu_latch] { gpu_latch.Signal(); });
+  gpu_latch.Wait();
+}
+
 }  // namespace flutter

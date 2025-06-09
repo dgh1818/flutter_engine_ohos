@@ -1223,6 +1223,13 @@ napi_value PlatformViewOHOSNapi::nativeDestroy(napi_env env,
 
   LOGD("nativeDestroy shell_holder: %{public}ld", shell_holder);
 
+  /**
+   * When Shell destroying, the rasterizer will be moved in
+   * ~Shell->move(rasterizer_)
+   * There may be concurrency issues if another RasterTask is running,
+   * so need to wait for all RasterTasks being finished before delete Shell.
+   */
+  OHOS_SHELL_HOLDER->WaitRasterTasksFinished();
   delete OHOS_SHELL_HOLDER;
   return nullptr;
 }
