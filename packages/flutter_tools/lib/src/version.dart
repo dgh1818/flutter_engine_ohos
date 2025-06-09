@@ -1048,23 +1048,24 @@ class GitTagVersion {
     );
   }
 
+  /// Parse a version string for ohos.
   static GitTagVersion parseOhosVersion(String version) {
     final RegExp versionPattern = RegExp(
-      r'^(\d+)\.(\d+)\.(\d+)(-ohos(-\d+\.\d+\.\d+)?)?(?:-(\d+)-g([a-f0-9]+))?$');
+      r'^(\d+)\.(\d+)\.(\d+)(-ohos(-\d+\.\d+\.\d+)?(-[a-zA-Z0-9.]+)?)?(?:-(\d+)-g([a-f0-9]+))?$');
     final Match? match = versionPattern.firstMatch(version.trim());
     if (match == null) {
       return const GitTagVersion.unknown();
     }
 
-    final List<String?> matchGroups = match.groups(<int>[1, 2, 3, 4, 5, 6, 7]);
+    final List<String?> matchGroups = match.groups(<int>[1, 2, 3, 4, 5, 6, 7, 8]);
     final int? x = matchGroups[0] == null ? null : int.tryParse(matchGroups[0]!);
     final int? y = matchGroups[1] == null ? null : int.tryParse(matchGroups[1]!);
     final int? z = matchGroups[2] == null ? null : int.tryParse(matchGroups[2]!);
     final String? devString = matchGroups[3];
 
     // count of commits past last tagged version
-    final int? commits = matchGroups[5] == null ? 0 : int.tryParse(matchGroups[5]!);
-    final String hash = matchGroups[6] ?? '';
+    final int? commits = matchGroups[6] == null ? 0 : int.tryParse(matchGroups[6]!);
+    final String hash = matchGroups[7] ?? '';
 
     return GitTagVersion(
       x: x,
@@ -1072,7 +1073,9 @@ class GitTagVersion {
       z: z,
       commits: commits,
       hash: hash,
-      gitTag: '$x.$y.$z${devString ?? ''}', // e.g. 3.7.12-ohos-1.0.0
+      gitTag: '$x.$y.$z${devString ?? ''}', // e.g. 3.22.1-ohos-1.0.0
+      // e.g. 3.22.1-ohos-1.0.0-candidate.1
+      // e.g. 3.22.1-ohos-1.0.0-SP1
     );
   }
 
