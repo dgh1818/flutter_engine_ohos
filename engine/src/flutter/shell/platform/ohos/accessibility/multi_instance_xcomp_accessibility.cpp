@@ -20,7 +20,7 @@ static int32_t FindA11yNodeInfosByIdCallbackWithInstance(
       "a11yProviderCallbackWithInstance_.FindAccessibilityNodeInfosById, "
       "instanceId:%{public}s mode:%{public}d id:%{public}ld",
       instanceId, mode, elementId);
-  std::lock_guard<std::mutex> lock(
+  std::lock_guard<std::recursive_mutex> lock(
       XComponentAdapter::GetInstance()->xcomponentMap_mutex_);
   auto xcomp = XComponentAdapter::GetInstance()->GetXcomponentBase(
       std::string(instanceId));
@@ -41,7 +41,7 @@ int32_t FindA11yNodeInfosByTextCallbackWithInstance(
     int32_t requestId,
     ArkUI_AccessibilityElementInfoList* elementList) {
   LOGD("a11yProviderCallbackWithInstance_.FindAccessibilityNodeInfosByText");
-  std::lock_guard<std::mutex> lock(
+  std::lock_guard<std::recursive_mutex> lock(
       XComponentAdapter::GetInstance()->xcomponentMap_mutex_);
   auto xcomp = XComponentAdapter::GetInstance()->GetXcomponentBase(
       std::string(instanceId));
@@ -62,7 +62,7 @@ int32_t FindFocusedA11yNodeCallbackWithInstance(
     int32_t requestId,
     ArkUI_AccessibilityElementInfo* elementinfo) {
   LOGD("a11yProviderCallbackWithInstance_.FindFocusedAccessibilityNode");
-  std::lock_guard<std::mutex> lock(
+  std::lock_guard<std::recursive_mutex> lock(
       XComponentAdapter::GetInstance()->xcomponentMap_mutex_);
   auto xcomp = XComponentAdapter::GetInstance()->GetXcomponentBase(
       std::string(instanceId));
@@ -83,7 +83,7 @@ int32_t FindNextFocusA11yNodeCallbackWithInstance(
     int32_t requestId,
     ArkUI_AccessibilityElementInfo* elementList) {
   LOGD("a11yProviderCallbackWithInstance_.FindNextFocusAccessibilityNode");
-  std::lock_guard<std::mutex> lock(
+  std::lock_guard<std::recursive_mutex> lock(
       XComponentAdapter::GetInstance()->xcomponentMap_mutex_);
   auto xcomp = XComponentAdapter::GetInstance()->GetXcomponentBase(
       std::string(instanceId));
@@ -106,7 +106,7 @@ int32_t ExecuteA11yActionCallbackWithInstance(
       "a11yProviderCallbackWithInstance_.ExecuteAccessibilityAction, "
       "instanceId:%{public}s action:%{public}d id:%{public}ld",
       instanceId, action, elementId);
-  std::lock_guard<std::mutex> lock(
+  std::lock_guard<std::recursive_mutex> lock(
       XComponentAdapter::GetInstance()->xcomponentMap_mutex_);
   auto xcomp = XComponentAdapter::GetInstance()->GetXcomponentBase(
       std::string(instanceId));
@@ -120,7 +120,7 @@ int32_t ExecuteA11yActionCallbackWithInstance(
 
 /** Clears the focus status of the currently focused node */
 int32_t ClearFocusedFocusA11yNodeCallbackWithInstance(const char* instanceId) {
-  std::lock_guard<std::mutex> lock(
+  std::lock_guard<std::recursive_mutex> lock(
       XComponentAdapter::GetInstance()->xcomponentMap_mutex_);
   auto xcomp = XComponentAdapter::GetInstance()->GetXcomponentBase(
       std::string(instanceId));
@@ -138,7 +138,7 @@ int32_t GetA11yNodeCursorPositionCallbackWithInstance(const char* instanceId,
                                                       int32_t requestId,
                                                       int32_t* index) {
   LOGD("a11yProviderCallbackWithInstance_.GetAccessibilityNodeCursorPosition");
-  std::lock_guard<std::mutex> lock(
+  std::lock_guard<std::recursive_mutex> lock(
       XComponentAdapter::GetInstance()->xcomponentMap_mutex_);
   auto xcomp = XComponentAdapter::GetInstance()->GetXcomponentBase(
       std::string(instanceId));

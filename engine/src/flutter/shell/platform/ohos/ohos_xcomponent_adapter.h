@@ -131,7 +131,7 @@ class XComponentAdapter {
 
  public:
   std::map<std::string, XComponentBase*> xcomponetMap_;
-  std::mutex xcomponentMap_mutex_;
+  std::recursive_mutex xcomponentMap_mutex_;
 
  private:
   std::string current_xcomponent_id_ = "";

@@ -2580,7 +2580,7 @@ napi_value PlatformViewOHOSNapi::nativeUpdateCurrentXComponentId(
     return nullptr;
   }
 
-  std::lock_guard<std::mutex> lock(
+  std::lock_guard<std::recursive_mutex> lock(
       XComponentAdapter::GetInstance()->xcomponentMap_mutex_);
   XComponentAdapter::GetInstance()->SetCurrentXcomponentId(xcomponent_id);
   return nullptr;
