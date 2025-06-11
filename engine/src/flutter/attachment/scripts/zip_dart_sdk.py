@@ -5,22 +5,29 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE_HW file.
 
+import argparse
 import os
 import zipfile
 import platform
 import logging
 from pathlib import Path
-from utils import getArch
 
 log = logging.getLogger(__name__)
 
 
 def genZipFile():
+  parser = argparse.ArgumentParser()
+  parser.add_argument('--arch', type=str, choices=['x64', 'arm64'], default="x64")
+  args = parser.parse_args()
+  osArch = args.arch
+  osName = platform.system().lower()
+  suffix = "_arm64" if osArch == "arm64" else ""
   engine_project_root_dir = Path(os.path.realpath(__file__)).parents[4]
-  dart_sdk_path = engine_project_root_dir.joinpath("src/out/host_release/dart-sdk")
-  host_release_path = engine_project_root_dir.joinpath("src/out/host_release/")
-  arch = getArch()
-  with zipfile.ZipFile(engine_project_root_dir.joinpath(f'dart-sdk-{arch}.zip'), 'w',
+  dart_sdk_path = engine_project_root_dir.joinpath(f"src/out/host_release{suffix}/dart-sdk")
+  host_release_path = engine_project_root_dir.joinpath(f"src/out/host_release{suffix}/")
+
+  print(dart_sdk_path)
+  with zipfile.ZipFile(engine_project_root_dir.joinpath(f'dart-sdk-{osName}-{osArch}.zip'), 'w',
                        zipfile.ZIP_DEFLATED) as zipf:
     for entry in dart_sdk_path.rglob("*"):
       if (entry.is_dir()):
