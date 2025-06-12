@@ -96,6 +96,8 @@ class OHOSShellHolder {
 
   std::shared_ptr<PlatformViewOHOSNapi> GetNapiFacade();
 
+  void WaitRasterTasksFinished();
+
  private:
   std::optional<RunConfiguration> BuildRunConfiguration(
       const std::string& entrypoint,
