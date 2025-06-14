@@ -19,7 +19,6 @@ import Any from '../../plugin/common/Any';
 import FlutterManager from '../ohos/FlutterManager';
 import deviceInfo from '@ohos.deviceInfo';
 import TouchEventProcessor from '../ohos/TouchEventProcessor';
-import { EmbeddingNodeController } from '../ohos/EmbeddingNodeController';
 import BuildProfile from '../../../../../BuildProfile';
 import { Action } from '../engine/systemchannels/AccessibilityChannel';
 

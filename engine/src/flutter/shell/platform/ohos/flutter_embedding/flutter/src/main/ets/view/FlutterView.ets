@@ -419,6 +419,8 @@ export class FlutterView {
       Log.e(TAG, "displayInfo off error" + JSON.stringify(e));
     }
     FlutterManager.getInstance().deleteFlutterView(this.id, this);
+
+    this.nodeController.disposeFrameNode();
   }
 
   attachToFlutterEngine(flutterEngine: FlutterEngine): void {

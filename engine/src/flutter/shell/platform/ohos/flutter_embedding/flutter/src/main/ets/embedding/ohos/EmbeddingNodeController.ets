@@ -78,6 +78,9 @@ export class EmbeddingNodeController extends NodeController {
   disposeFrameNode() {
     this.builderNode?.getFrameNode()?.getRenderNode()?.dispose();
     this.builderNode?.dispose();
+
+    this.builderNode = null;
+    this.wrappedBuilder = null;
   }
 
   postEvent(event: TouchEvent | undefined, isPx: boolean = false): boolean {

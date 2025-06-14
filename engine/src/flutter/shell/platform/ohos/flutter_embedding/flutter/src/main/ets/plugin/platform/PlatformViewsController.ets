@@ -317,6 +317,7 @@ export default class PlatformViewsController implements PlatformViewsHandler {
     let nodeController = new EmbeddingNodeController();
     nodeController.setRenderOption(platformView, surfaceId, NodeRenderType.RENDER_TYPE_TEXTURE, request.direction);
     this.viewIdWithNodeController.set(request.viewId, nodeController);
+
     let dvModel = createDVModelFromJson(new DVModelJson("NodeContainer",
       [],
       {
