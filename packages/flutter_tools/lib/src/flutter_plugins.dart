@@ -22,7 +22,6 @@ import 'dart/language_version.dart';
 import 'dart/package_map.dart';
 import 'features.dart';
 import 'globals.dart' as globals;
-import 'ohos/ohos_plugins_manager.dart';
 import 'platform_plugins.dart';
 import 'plugins.dart';
 import 'project.dart';
@@ -794,7 +793,6 @@ Future<void> _writePluginCmakefile(File destinationFile, Map<String, Object> tem
 
 Future<void> _writeOhosPluginRegistrant(FlutterProject project, List<Plugin> plugins) async{
   /// 检查依赖
-  await checkOhosPluginsDependencies(project);
   final List<Plugin> methodChannelPlugins = _filterMethodChannelPlugins(plugins, OhosPlugin.kConfigKey);
   final List<Map<String, Object?>> ohosMethodChannelPlugins = _extractPlatformMaps(methodChannelPlugins, OhosPlugin.kConfigKey);
   final Map<String, Object> context = <String, Object>{

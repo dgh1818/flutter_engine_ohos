@@ -144,6 +144,7 @@
 
         "templates/app_shared/ohos.tmpl/.gitignore",
         "templates/app_shared/ohos.tmpl/build-profile.json5.tmpl",
+        "templates/app_shared/ohos.tmpl/hvigorconfig.ts.tmpl",
         "templates/app_shared/ohos.tmpl/hvigorfile.ts.tmpl",
         "templates/app_shared/ohos.tmpl/oh-package.json5.tmpl",
         "templates/app_shared/ohos.tmpl/AppScope/app.json5.tmpl",
@@ -296,12 +297,13 @@
         "templates/module/ohos/host_config/AppScope.tmpl/app.json5.tmpl",
 
         "templates/module/ohos/host_config/.gitignore.tmpl",
-        "templates/module/ohos/host_config/build-profile.json5.tmpl",
         "templates/module/ohos/host_config/oh-package.json5.tmpl",
 
         "templates/module/ohos/hvigor_plugin/hvigor/hvigor-config.json5.tmpl",
         "templates/module/ohos/hvigor_plugin/hvigor/hvigor-wrapper.js.tmpl",
+        "templates/module/ohos/hvigor_plugin/hvigorconfig.ts.tmpl",
         "templates/module/ohos/hvigor_plugin/hvigorfile.ts.tmpl",
+        "templates/module/ohos/hvigor_plugin/include_flutter.ts.tmpl",
 
         "templates/module/ohos/module_library/flutter_module.tmpl/src/main/module.json5",
         "templates/module/ohos/module_library/flutter_module.tmpl/.gitignore",
