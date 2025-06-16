@@ -106,15 +106,17 @@ export function flutterHvigorPlugin(flutterProjectPath: string, flutterProjectTy
         // }
         // 以下修改方可生效
         const subNodeName = subNode.getNodeName()
-        if (subNodeName === 'entry' && flutterProjectType === 0) {
+        if (subNodeName === 'entry') {
           subNode.afterNodeEvaluate(node => {
             const hapContext = node.getContext(OhosPluginId.OHOS_HAP_PLUGIN) as OhosHapContext
             if (!hapContext) {
               return
             }
-            hapContext.targets((target: Target) => {
-              registerFlutterTask(node, sdkPath, buildMode, flutterProjectPath, target)
-            })
+            if (flutterProjectType == 0) {
+              hapContext.targets((target: Target) => {
+                registerFlutterTask(node, sdkPath, buildMode, flutterProjectPath, target)
+              })
+            }
             const dependenciesOpt = hapContext.getDependenciesOpt()
             dependenciesOpt['@ohos/flutter_ohos'] = ''
             nativePlugins.forEach(nativePlugin => {
