@@ -28,7 +28,7 @@ HarmonyOS NEXT, API13
 
 ## 赋能文档
 
-- [文档链接](https://gitcode.com/openharmony-sig/flutter_samples/tree/master/ohos/docs)
+- [文档链接](https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs)
 
 ## 三方库列表
 
@@ -36,7 +36,7 @@ HarmonyOS NEXT, API13
 
 - 官方库/三方库：
 
-    [官方库链接](https://gitcode.com/openharmony-sig/flutter_packages)
+    [官方库链接](https://gitcode.com/openharmony-tpc/flutter_packages)
 
 - 三方库：
 

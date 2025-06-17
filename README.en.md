@@ -39,7 +39,7 @@ You can learn more about our adaptation of Flutter for OpenHarmony in the [Flutt
     *The following environment variable configuration is for Unix-like systems (Linux, Mac). You can directly refer to the configuration below. For environment variable configuration under Windows, please set it in ‘Edit System Environment Variables’*
 
    1. Configure the HarmonyOS SDK and environment variables
-    * API12, deveco-studio-5.0 or command-line-tools-5.0 (Recommended to use version 5.0.0 Release or later)
+    * API18, deveco-studio-5.1 or command-line-tools-5.1 (Recommended to use version 5.1.0 Beta1 or later)
     * Configure Java17
     * Configure environment variables (SDK, node, ohpm, hvigor)
 
@@ -76,7 +76,7 @@ You can learn more about our adaptation of Flutter for OpenHarmony in the [Flutt
         export PUB_HOSTED_URL=https://pub.flutter-io.cn
         export FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn
 
-        # The flutter_flutter directory pulled from Gitee
+        # The flutter_flutter directory pulled from Gitcode
         export PATH=/home/<user>/ohos/flutter_flutter/bin:$PATH
 
         # HarmonyOS SDK
@@ -251,7 +251,7 @@ Attachment: [Flutter third-party library adaptation plan](https://docs.qq.com/sh
      #D:\pub_cache\git\flutter_packages-b00939bb44d018f0710d1b080d91dcf4c34ed06\packages\video_player\video_player_ohos\ohossrc\main\module.json5.
      #You need to update the Flutter plugin project structure.
      #See
-     #https://gitee.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs/09_specifications/update_flutter_plugin_structure.md
+     #https://gitcode.com/openharmony-tpc/flutter_samples/blob/master/ohos/docs/09_specifications/update-flutter-plugin-structure.md
     ```
 
 15. An error message indicating path verification occurs when `flutter build hap` is executed。
@@ -324,4 +324,4 @@ Attachment: [Flutter third-party library adaptation plan](https://docs.qq.com/sh
       hvigor ERROR: Build mode 'profile' used in command line is not declared in buildModeSet in /xxx/example/ohos/build-profile.json5.
       ```
 
-[More FAQ](https://gitee.com/openharmony-tpc/flutter_samples/blob/master/ohos/docs/08_FAQ/README.md)
+[More FAQ](https://gitcode.com/openharmony-tpc/flutter_samples/blob/master/ohos/docs/08_FAQ/README.md)
