@@ -21,6 +21,8 @@
 #include "include/core/SkImageInfo.h"
 #include "third_party/skia/include/codec/SkCodecAnimation.h"
 
+std::atomic<size_t> flutter::OHOSImageGenerator::total_cached_bytes_{0};
+
 namespace flutter {
 
 static void ResolveEncodedOrigin(char* data,
@@ -118,6 +120,13 @@ OHOSImageGenerator::~OHOSImageGenerator() {
   if (image_source_) {
     OH_ImageSourceNative_Release(image_source_);
   }
+  for (const auto& kv : cached_pixelmaps_) {
+    if (kv.second) {
+      size_t old_size = kv.second->width_ * kv.second->height_ * RBGA8888_BYTES;
+      total_cached_bytes_.fetch_sub(old_size, std::memory_order_relaxed);
+    }
+  }
+  cached_pixelmaps_.clear();
 }
 
 const SkImageInfo& OHOSImageGenerator::GetInfo() {
@@ -208,9 +217,11 @@ bool OHOSImageGenerator::GetPixels(const SkImageInfo& info,
                      << to_string();
       return false;
     }
-    if (image_pixelmap && frame_count_ > 1) {
+    if (image_pixelmap && frame_count_ > 1 &&
+        total_cached_bytes_ <= kMaxGlobalCacheSize - buffer_size) {
       // Cache animated images to improve performance.
       cached_pixelmaps_[frame_index] = image_pixelmap;
+      total_cached_bytes_.fetch_add(buffer_size, std::memory_order_relaxed);
     }
     return true;
   } else {
