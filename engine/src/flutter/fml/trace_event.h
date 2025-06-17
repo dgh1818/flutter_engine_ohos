@@ -58,6 +58,7 @@
 #include <hitrace/trace.h>
 #include <cstdarg>
 #include <cstdio>
+static const int TRACE_EVENT_ARGUMENT_SIZE = 2;
 
 class OHFlutterTrace {
  public:
@@ -306,6 +307,15 @@ void TraceTimelineEvent(TraceArg category_group,
                         const std::vector<std::string>& values);
 
 #if defined(FML_OS_OHOS)
+void OHOSTraceTimelineEvent(TraceArg category_group,
+                            TraceArg name,
+                            int64_t timestamp_micros,
+                            TraceIDArg id,
+                            Dart_Timeline_Event_Type type,
+                            intptr_t argument_count,
+                            const char** argument_names,
+                            const char** argument_values);
+
 void OHOSTraceTimelineEvent(TraceArg category_group,
                             TraceArg name,
                             TraceIDArg id,

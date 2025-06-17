@@ -26,6 +26,7 @@
 #include "flutter/shell/platform/ohos/surface/ohos_native_window.h"
 #include "flutter/shell/platform/ohos/types.h"
 #include "unicode/uchar.h"
+#include "flutter/fml/platform/ohos/hiappevent/ohos_hiappevent.h"
 
 #define OHOS_SHELL_HOLDER (reinterpret_cast<OHOSShellHolder*>(shell_holder))
 namespace flutter {
@@ -1896,6 +1897,11 @@ void PlatformViewOHOSNapi::SurfaceChanged(int64_t shell_holder,
 
 void PlatformViewOHOSNapi::SurfaceDestroyed(int64_t shell_holder) {
   OHOS_SHELL_HOLDER->GetPlatformView()->NotifyDestroyed();
+
+  OHOS_SHELL_HOLDER->GetPlatformView()->RunTask(
+    OhosThreadType::kIO,
+    []{ fml::hiappevent::OhosHiappEventDDL::GetInstance()->Flush(); }
+  );
 }
 
 void PlatformViewOHOSNapi::SetPlatformTaskRunner(
