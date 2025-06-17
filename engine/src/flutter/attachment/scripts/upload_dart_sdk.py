@@ -8,6 +8,7 @@
 import os
 import logging
 import argparse
+import platform
 from pathlib import Path
 from utils import getArch, getEnginePath, runGitCommand, upload
 
@@ -24,8 +25,11 @@ def main():
   )
   parser.add_argument('-t', '--tag')
   parser.add_argument('-f', '--file')
+  parser.add_argument('--arch', type=str, choices=['x64', 'arm64'], default="x64")
   args = parser.parse_args()
-  file_name = 'dart-sdk-' + getArch() + '.zip'
+  osArch = args.arch
+  osName = platform.system().lower()
+  file_name = f'dart-sdk-{osName}-{osArch}.zip'
   if args.file:
     file_path = args.file
   else:
