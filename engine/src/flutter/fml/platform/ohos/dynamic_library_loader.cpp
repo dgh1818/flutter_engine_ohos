@@ -5,14 +5,13 @@
  */
 
 #include "dynamic_library_loader.h"
-#include "flutter/fml/logging.h"
 #include "deviceinfo.h"
+#include "flutter/fml/logging.h"
 
 namespace flutter {
 
 DynamicLibraryLoader::DynamicLibraryLoader(const char* libName)
     : handle_(nullptr) {
-
   handle_ = dlopen(libName, RTLD_LAZY | RTLD_LOCAL);
   if (!handle_) {
     FML_LOG(ERROR) << "dlopen(" << libName << ") failed: " << dlerror();
@@ -31,8 +30,10 @@ int DynamicLibraryLoader::GetApiVersion() {
   return api_version;
 }
 
-bool DynamicLibraryLoader::LoadSymbols(const std::vector<SymbolInfo>& symbolInfos) {
-  if (!handle_) return false;
+bool DynamicLibraryLoader::LoadSymbols(
+    const std::vector<SymbolInfo>& symbolInfos) {
+  if (!handle_)
+    return false;
 
   bool allLoaded = true;
   int currentApi = GetApiVersion();
@@ -53,7 +54,7 @@ bool DynamicLibraryLoader::LoadSymbols(const std::vector<SymbolInfo>& symbolInfo
       allLoaded = false;
     }
   }
-  
+
   return allLoaded;
 }
 

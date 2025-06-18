@@ -214,15 +214,15 @@ source_set("fml") {
 
       #"platform/ohos/message_loop_ohos_test.cc",
       #"platform/ohos/message_loop_ohos_test.h",
+      "platform/ohos/dynamic_library_loader.cpp",
+      "platform/ohos/dynamic_library_loader.h",
+      "platform/ohos/hiappevent/ohos_hiappevent.cpp",
       "platform/ohos/napi_util.h",
       "platform/ohos/ohos_trace_event.cc",
-      "platform/ohos/hiappevent/ohos_hiappevent.cpp",
       "platform/ohos/paths_ohos.cc",
       "platform/ohos/paths_ohos.h",
       "platform/ohos/timerfd.cc",
       "platform/ohos/timerfd.h",
-      "platform/ohos/dynamic_library_loader.cpp",
-      "platform/ohos/dynamic_library_loader.h",
     ]
     libs += [ "hilog_ndk.z" ]
     libs += [ "ace_napi.z" ]
