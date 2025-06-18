@@ -5,6 +5,8 @@
  */
 
 #include "flutter/shell/platform/ohos/ohos_touch_processor.h"
+#include <arkui/native_type.h>
+#include <dlfcn.h>
 #include "flutter/fml/trace_event.h"
 #include "flutter/lib/ui/window/pointer_data_packet.h"
 #include "flutter/shell/platform/ohos/ohos_shell_holder.h"
@@ -15,6 +17,11 @@ constexpr int MSEC_PER_SECOND = 1000;
 constexpr int PER_POINTER_MEMBER = 10;
 constexpr int CHANGES_POINTER_MEMBER = 10;
 constexpr int TOUCH_EVENT_ADDITIONAL_ATTRIBUTES = 4;
+constexpr int DEFAULT_SCALE_DEVICE_ID = -101;
+constexpr int DEFAULT_SRCOLL_DEVICE_ID = -102;
+constexpr int DEFAULT_PANZOOM_DEVICE_ID = -103;
+constexpr double ZOOM_IN = 10.0 / 8.0;
+constexpr double ZOOM_OUT = 1.0 / ZOOM_IN;
 
 PointerData::Change OhosTouchProcessor::getPointerChangeForAction(
     int maskedAction) {
@@ -199,6 +206,234 @@ void OhosTouchProcessor::HandleTouchEvent(
   };
   ohos_shell_holder->GetPlatformView()->RunTask(OhosThreadType::kUI, task);
   PlatformViewOnTouchEvent(shell_holderID, toolType, component, touchEvent);
+}
+
+OhosTouchProcessor::OhosTouchProcessor()
+    : apiVersion_(0),
+      loader_(std::make_unique<DynamicLibraryLoader>(UI_INPUT_EVENT_LIB_NAME)),
+      dynamicGetDeviceId_(nullptr),
+      dynamicGetAxisAction_(nullptr),
+      dynamicGetModifierKeyStates_(nullptr) {
+  apiVersion_ = DynamicLibraryLoader::GetApiVersion();
+  FML_LOG(INFO) << "Current SDK API Version: " << apiVersion_;
+
+  std::vector<SymbolInfo> symbols = {
+      {"OH_ArkUI_UIInputEvent_GetDeviceId",
+       reinterpret_cast<void**>(&dynamicGetDeviceId_), 14},
+      {"OH_ArkUI_AxisEvent_GetAxisAction",
+       reinterpret_cast<void**>(&dynamicGetAxisAction_), 15},
+      {"OH_ArkUI_UIInputEvent_GetModifierKeyStates",
+       reinterpret_cast<void**>(&dynamicGetModifierKeyStates_), 17},
+  };
+
+  loader_->LoadSymbols(symbols);
+}
+
+OhosTouchProcessor::~OhosTouchProcessor() {}
+
+// 处理轴事件：触控板中的捏合缩放和滚动抛滑手势，鼠标中的滚轮滑动和Ctrl+滚轮缩放
+void OhosTouchProcessor::HandleAxisEvent(int64_t shell_holderID,
+                                         OH_NativeXComponent* component,
+                                         ArkUI_UIInputEvent* event) {
+  if (event == nullptr) {
+    return;
+  }
+
+  if (apiVersion_ < 15) {
+    // API15 前轴事件接口不完善，会走 XComponentBase::OnDispatchMouseWheelEvent
+    // 处理滚动
+    return;
+  }
+
+  // 获取工具类型
+  int32_t toolType = OH_ArkUI_UIInputEvent_GetToolType(event);
+  if (toolType == UI_INPUT_EVENT_TOOL_TYPE_MOUSE) {
+    // 鼠标滚轮事件
+    uint64_t keys = 0;
+    int32_t errorCode = dynamicGetModifierKeyStates_ != nullptr
+                            ? dynamicGetModifierKeyStates_(event, &keys)
+                            : 0;
+    if (errorCode != ARKUI_ERROR_CODE_PARAM_INVALID &&
+        keys & ARKUI_MODIFIER_KEY_CTRL) {
+      // Ctrl+鼠标滚轮
+      HandleScaleEvent(shell_holderID, component, event);
+    } else {
+      // 鼠标滚轮
+      HandleScrollEvent(shell_holderID, component, event);
+    }
+  } else {
+    // 捏合缩放和滚动抛滑
+    HandlePanZooomEvent(shell_holderID, component, event);
+  }
+  return;
+}
+
+// 处理Ctrl+鼠标滚轮缩放
+void OhosTouchProcessor::HandleScaleEvent(int64_t shell_holderID,
+                                          OH_NativeXComponent* component,
+                                          ArkUI_UIInputEvent* event) {
+  if (event == nullptr) {
+    return;
+  }
+
+  const int numTouchPoints = 1;
+  std::unique_ptr<flutter::PointerDataPacket> packet =
+      std::make_unique<flutter::PointerDataPacket>(numTouchPoints);
+  PointerData pointerData;
+  pointerData.Clear();
+
+  // 获取 PointerData 状态类型并处理缩放累计值
+  int32_t axisAction = dynamicGetAxisAction_ != nullptr
+                           ? dynamicGetAxisAction_(event)
+                           : UI_TOUCH_EVENT_ACTION_CANCEL;
+  switch (axisAction) {
+    case UI_TOUCH_EVENT_ACTION_CANCEL:
+      pointerData.change = PointerData::Change::kCancel;
+      break;
+    case UI_TOUCH_EVENT_ACTION_DOWN:
+      pointerData.change = PointerData::Change::kPanZoomStart;
+      // 重置累计值
+      accumulatedScale_ = 1.0;
+      break;
+    case UI_TOUCH_EVENT_ACTION_MOVE:
+      pointerData.change = PointerData::Change::kPanZoomUpdate;
+      // 更新累计值
+      accumulatedScale_ *= OH_ArkUI_AxisEvent_GetVerticalAxisValue(event) < 0
+                               ? ZOOM_IN
+                               : ZOOM_OUT;
+      break;
+    case UI_TOUCH_EVENT_ACTION_UP:
+      pointerData.change = PointerData::Change::kPanZoomEnd;
+      break;
+    default:
+      FML_LOG(ERROR) << "HandleScaleEvent: AxisAction is not defined";
+      pointerData.change = PointerData::Change::kCancel;
+      break;
+  }
+  pointerData.scale = accumulatedScale_;
+
+  pointerData.physical_x = OH_ArkUI_PointerEvent_GetX(event);
+  pointerData.physical_y = OH_ArkUI_PointerEvent_GetY(event);
+  pointerData.time_stamp =
+      OH_ArkUI_UIInputEvent_GetEventTime(event) / MSEC_PER_SECOND;
+  pointerData.device = dynamicGetDeviceId_ != nullptr
+                           ? dynamicGetDeviceId_(event)
+                           : DEFAULT_SCALE_DEVICE_ID;
+  if (pointerData.device == -1) {
+    // 如果 deviceId 为 -1，则设置为默认值
+    pointerData.device = DEFAULT_SCALE_DEVICE_ID;
+  }
+  pointerData.kind = PointerData::DeviceKind::kTrackpad;
+
+  packet->SetPointerData(0, pointerData);
+  auto ohos_shell_holder = reinterpret_cast<OHOSShellHolder*>(shell_holderID);
+  ohos_shell_holder->GetPlatformView()->DispatchPointerDataPacket(
+      std::move(packet));
+  return;
+}
+
+// 处理鼠标滚轮滚动
+void OhosTouchProcessor::HandleScrollEvent(int64_t shell_holderID,
+                                           OH_NativeXComponent* component,
+                                           ArkUI_UIInputEvent* event) {
+  const int numTouchPoints = 1;
+  std::unique_ptr<flutter::PointerDataPacket> packet =
+      std::make_unique<flutter::PointerDataPacket>(numTouchPoints);
+  PointerData pointerData;
+  pointerData.Clear();
+
+  // 处理滚动值
+  pointerData.scroll_delta_x = OH_ArkUI_AxisEvent_GetHorizontalAxisValue(event);
+  pointerData.scroll_delta_y = OH_ArkUI_AxisEvent_GetVerticalAxisValue(event);
+
+  pointerData.physical_x = OH_ArkUI_PointerEvent_GetX(event);
+  pointerData.physical_y = OH_ArkUI_PointerEvent_GetY(event);
+  pointerData.time_stamp =
+      OH_ArkUI_UIInputEvent_GetEventTime(event) / MSEC_PER_SECOND;
+  pointerData.device = dynamicGetDeviceId_ != nullptr
+                           ? dynamicGetDeviceId_(event)
+                           : DEFAULT_SRCOLL_DEVICE_ID;
+  if (pointerData.device == -1) {
+    // 如果 deviceId 为 -1，则设置为默认值
+    pointerData.device = DEFAULT_SRCOLL_DEVICE_ID;
+  }
+  pointerData.kind = PointerData::DeviceKind::kMouse;
+  pointerData.change = PointerData::Change::kHover;
+  pointerData.signal_kind = PointerData::SignalKind::kScroll;
+
+  packet->SetPointerData(0, pointerData);
+  auto ohos_shell_holder = reinterpret_cast<OHOSShellHolder*>(shell_holderID);
+  ohos_shell_holder->GetPlatformView()->DispatchPointerDataPacket(
+      std::move(packet));
+  return;
+}
+
+// 处理触控板双指捏合缩放和双指滚动抛滑
+void OhosTouchProcessor::HandlePanZooomEvent(int64_t shell_holderID,
+                                             OH_NativeXComponent* component,
+                                             ArkUI_UIInputEvent* event) {
+  const int numTouchPoints = 1;
+  std::unique_ptr<flutter::PointerDataPacket> packet =
+      std::make_unique<flutter::PointerDataPacket>(numTouchPoints);
+  PointerData pointerData;
+  pointerData.Clear();
+
+  // 获取 PointerData 状态类型并处理滑动累计值
+  int32_t axisAction = dynamicGetAxisAction_ != nullptr
+                           ? dynamicGetAxisAction_(event)
+                           : UI_TOUCH_EVENT_ACTION_CANCEL;
+  switch (axisAction) {
+    case UI_TOUCH_EVENT_ACTION_CANCEL:
+      pointerData.change = PointerData::Change::kCancel;
+      break;
+    case UI_TOUCH_EVENT_ACTION_DOWN:
+      pointerData.change = PointerData::Change::kPanZoomStart;
+      // 重置累计值
+      accumulatedPanX_ = 0.0;
+      accumulatedPanY_ = 0.0;
+      break;
+    case UI_TOUCH_EVENT_ACTION_MOVE:
+      pointerData.change = PointerData::Change::kPanZoomUpdate;
+      // 更新累计值
+      accumulatedPanX_ += 0 - OH_ArkUI_AxisEvent_GetHorizontalAxisValue(event);
+      accumulatedPanY_ += 0 - OH_ArkUI_AxisEvent_GetVerticalAxisValue(event);
+      break;
+    case UI_TOUCH_EVENT_ACTION_UP:
+      pointerData.change = PointerData::Change::kPanZoomEnd;
+      break;
+    default:
+      FML_LOG(ERROR) << "HandlePanZooomEvent: AxisAction is not defined";
+      pointerData.change = PointerData::Change::kCancel;
+      break;
+  }
+  pointerData.pan_x = accumulatedPanX_;
+  pointerData.pan_y = accumulatedPanY_;
+
+  // 处理缩放值
+  pointerData.scale = OH_ArkUI_AxisEvent_GetPinchAxisScaleValue(event);
+  if (pointerData.scale == 0) {
+    // 如果 scale 为 0，则设置为默认值 1.0
+    pointerData.scale = 1.0;
+  }
+
+  pointerData.physical_x = OH_ArkUI_PointerEvent_GetX(event);
+  pointerData.physical_y = OH_ArkUI_PointerEvent_GetY(event);
+  pointerData.time_stamp =
+      OH_ArkUI_UIInputEvent_GetEventTime(event) / MSEC_PER_SECOND;
+  pointerData.device = dynamicGetDeviceId_ != nullptr
+                           ? dynamicGetDeviceId_(event)
+                           : DEFAULT_PANZOOM_DEVICE_ID;
+  if (pointerData.device == -1) {
+    // 如果 deviceId 为 -1，则设置为默认值
+    pointerData.device = DEFAULT_PANZOOM_DEVICE_ID;
+  }
+  pointerData.kind = PointerData::DeviceKind::kTrackpad;
+
+  packet->SetPointerData(0, pointerData);
+  auto ohos_shell_holder = reinterpret_cast<OHOSShellHolder*>(shell_holderID);
+  ohos_shell_holder->GetPlatformView()->DispatchPointerDataPacket(
+      std::move(packet));
+  return;
 }
 
 void OhosTouchProcessor::PlatformViewOnTouchEvent(
