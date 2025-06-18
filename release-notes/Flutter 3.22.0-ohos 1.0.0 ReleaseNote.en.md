@@ -32,4 +32,4 @@ April 28, 2025
 - [5.1.0.403](../CHANGELOG.md)
 
 ## Enablement Documents
-- [Document Link](https://gitcode.com/openharmony-sig/flutter_samples/tree/master/ohos/docs)
+- [Document Link](https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs)

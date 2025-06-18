@@ -24,4 +24,4 @@ OpenHarmony API16
 - [5.1.0.403SP1](../CHANGELOG.md)
 
 ## 赋能文档
-- [文档链接](https://gitcode.com/openharmony-sig/flutter_samples/tree/master/ohos/docs)
+- [文档链接](https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs)
