@@ -342,7 +342,9 @@ class OhosDartBuilder implements OhosBuilder {
       throwToolExit('assembleHap error! please check log.');
     }
 
-    checkOhosSignedInfo(ohosProject);
+    if (ohosBuildInfo.shouldCodesign!) {
+      checkOhosSignedInfo(ohosProject);
+    }
 
     final BuildInfo buildInfo = ohosBuildInfo.buildInfo;
     final File bundleFile = OhosProject.getSignedFile(
@@ -350,6 +352,7 @@ class OhosDartBuilder implements OhosBuilder {
       moduleName: ohosProject.mainModuleName,
       flavor: getFlavor(ohosProject.getBuildProfileFile(), buildInfo.flavor),
       throwOnMissing: true,
+      shouldCodesign: ohosBuildInfo.shouldCodesign!,
     );
     final String appSize = (buildInfo.mode == BuildMode.debug)
         ? '' // Don't display the size when building a debug variant.
@@ -487,7 +490,9 @@ class OhosDartBuilder implements OhosBuilder {
       throwToolExit('assembleApp error! please check log.');
     }
 
-    checkOhosSignedInfo(ohosProject);
+    if (ohosBuildInfo.shouldCodesign!) {
+      checkOhosSignedInfo(ohosProject);
+    }
 
     final BuildInfo buildInfo = ohosBuildInfo.buildInfo;
     final File bundleFile = OhosProject.getSignedFile(
@@ -496,6 +501,7 @@ class OhosDartBuilder implements OhosBuilder {
       flavor: getFlavor(ohosProject.getBuildProfileFile(), buildInfo.flavor),
       type: OhosFileType.app,
       throwOnMissing: true,
+      shouldCodesign: ohosBuildInfo.shouldCodesign!,
     );
     final String appSize = (buildInfo.mode == BuildMode.debug)
         ? '' // Don't display the size when building a debug variant.
