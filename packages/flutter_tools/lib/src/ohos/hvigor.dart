@@ -404,7 +404,9 @@ class OhosHvigorBuilder implements OhosBuilder {
       throwToolExit('assembleHap error! please check log.');
     }
 
-    checkOhosSignedInfo(ohosProject);
+    if (ohosBuildInfo.shouldCodesign != null) {
+      checkOhosSignedInfo(ohosProject);
+    }
 
     final BuildInfo buildInfo = ohosBuildInfo.buildInfo;
     File bundleFile = OhosProject.getSignedFile(
@@ -412,6 +414,7 @@ class OhosHvigorBuilder implements OhosBuilder {
       moduleName: ohosProject.mainModuleName,
       flavor: getFlavor(ohosProject.getBuildProfileFile(), buildInfo.flavor),
       throwOnMissing: true,
+      shouldCodesign: ohosBuildInfo.shouldCodesign!,
     );
     if (bundleFile.existsSync()) {
       final String outputPath = globals.fs.path.join(
@@ -554,7 +557,9 @@ class OhosHvigorBuilder implements OhosBuilder {
       throwToolExit('assembleHap error! please check log.');
     }
 
-    checkOhosSignedInfo(ohosProject);
+    if (ohosBuildInfo.shouldCodesign!) {
+      checkOhosSignedInfo(ohosProject);
+    }
 
     final BuildInfo buildInfo = ohosBuildInfo.buildInfo;
     File bundleFile = OhosProject.getSignedFile(
@@ -563,6 +568,7 @@ class OhosHvigorBuilder implements OhosBuilder {
       flavor: getFlavor(ohosProject.getBuildProfileFile(), buildInfo.flavor),
       type: OhosFileType.app,
       throwOnMissing: true,
+      shouldCodesign: ohosBuildInfo.shouldCodesign!,
     );
     if (bundleFile.existsSync()) {
       final String outputPath = globals.fs.path.join(

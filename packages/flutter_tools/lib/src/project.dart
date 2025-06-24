@@ -1174,9 +1174,11 @@ class OhosProject extends FlutterProjectPlatform {
     String flavor = 'default',
     OhosFileType type = OhosFileType.hap,
     bool throwOnMissing = false,
+    bool shouldCodesign = true,
   }) {
     final Directory moduleDir = globals.fs.directory(modulePath);
     File targetFile;
+    final String signedSuffix = shouldCodesign ? 'signed' : 'unsigned';
     if (type != OhosFileType.app) {
       // 从模块级 build-profile.json5 中读取输出文件名
       final String? fileName = _readFromModule(
@@ -1188,7 +1190,7 @@ class OhosProject extends FlutterProjectPlatform {
           .childDirectory(flavor)
           .childFile(fileName != null
               ? '$fileName.${type.name}'
-              : '$moduleName-$flavor-signed.${type.name}');
+              : '$moduleName-$flavor-$signedSuffix.${type.name}');
     } else {
       // 从工程级 build-profile.json5 中读取输出文件名
       final String? fileName = _readFromProject(
@@ -1199,7 +1201,7 @@ class OhosProject extends FlutterProjectPlatform {
           .childDirectory(flavor)
           .childFile(fileName != null
               ? '$fileName.${type.name}'
-              : 'ohos-$flavor-signed.${type.name}');
+              : 'ohos-$flavor-$signedSuffix.${type.name}');
     }
 
     if (throwOnMissing && !targetFile.existsSync()) {

@@ -365,6 +365,7 @@ class OhosBuildInfo {
       OhosArch.x86_64,
     ],
     this.enableImpellerFlag,
+    this.shouldCodesign
   });
 
   // The build info containing the mode and flavor.
@@ -375,6 +376,9 @@ class OhosBuildInfo {
 
   // enable impeller option, default is true
   final bool? enableImpellerFlag;
+
+  // Whether check codesign while build hap, default is true
+  final bool? shouldCodesign;
 }
 
 
