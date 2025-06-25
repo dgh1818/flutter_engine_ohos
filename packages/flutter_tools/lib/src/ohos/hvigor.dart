@@ -404,7 +404,7 @@ class OhosHvigorBuilder implements OhosBuilder {
       throwToolExit('assembleHap error! please check log.');
     }
 
-    if (ohosBuildInfo.shouldCodesign != null) {
+    if (ohosBuildInfo.shouldCodesign!) {
       checkOhosSignedInfo(ohosProject);
     }
 
