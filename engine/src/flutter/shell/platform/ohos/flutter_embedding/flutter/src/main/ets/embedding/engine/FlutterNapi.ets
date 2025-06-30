@@ -474,8 +474,12 @@ export default class FlutterNapi {
     if (this.accessibilityDelegate != null) {
       this.accessibilityDelegate.accessibilityStateChange(state);
     }
-    Log.d(TAG, "accessibilityStateChange is called");
-    flutter.nativeAccessibilityStateChange(this.nativeShellHolderId!, state);
+    Log.d(TAG, "accessibilityStateChange: state is " + state ? "on" : "off");
+    if (this.nativeShellHolderId != null) {
+      flutter.nativeAccessibilityStateChange(this.nativeShellHolderId!, state);
+    } else {
+      Log.w(TAG, "accessibilityStateChange, nativeShellHolderId is null")
+    }
   }
 
   setLocalizationPlugin(localizationPlugin: LocalizationPlugin | null): void {
