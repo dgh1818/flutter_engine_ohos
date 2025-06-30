@@ -456,6 +456,7 @@ export class FlutterView {
     if (this.viewportMetrics.physicalWidth != 0 || this.viewportMetrics.physicalHeight != 0) {
       newArea = null;
     }
+    this.needSetViewport = true;
     this.onAreaChange(newArea, true);
 
     this.context.eventHub.on(EVENT_BACK_PRESS, () => {
