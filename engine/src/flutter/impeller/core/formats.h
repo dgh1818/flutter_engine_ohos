@@ -294,6 +294,7 @@ constexpr bool IsMultisampleCapable(TextureType type) {
 
 enum class SampleCount : uint8_t {
   kCount1 = 1,
+  kCount2 = 2,
   kCount4 = 4,
 };
 

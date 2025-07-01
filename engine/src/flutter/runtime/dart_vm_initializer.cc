@@ -7,6 +7,7 @@
 #include <atomic>
 
 #include "flutter/fml/logging.h"
+#include "flutter/fml/synchronization/shared_mutex.h"
 #include "flutter/fml/trace_event.h"
 #include "flutter/lib/ui/ui_dart_state.h"
 #include "flutter/lib/ui/window/platform_configuration.h"
@@ -37,8 +38,8 @@ void LogUnhandledException(Dart_Handle exception_handle,
 
   // Either the exception handler was not set or it could not handle the
   // error, just log the exception.
-  FML_LOG(ERROR) << "Unhandled Exception: " << error << std::endl
-                 << stack_trace;
+  // FML_LOG(ERROR) << "Unhandled Exception: " << error << std::endl
+  //                << stack_trace;
 }
 
 void ReportUnhandledException(Dart_Handle exception_handle,

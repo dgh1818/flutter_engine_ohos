@@ -138,7 +138,7 @@ sk_sp<DlImage> SnapshotControllerSkia::DoMakeRasterSnapshot(
   return DlImage::Make(result);
 }
 
-sk_sp<DlImage> SnapshotControllerSkia::MakeRasterSnapshotSync(
+sk_sp<DlImage> SnapshotControllerSkia::MakeRasterSnapshot(
     sk_sp<DisplayList> display_list,
     SkISize size) {
   return DoMakeRasterSnapshot(size, [display_list](SkCanvas* canvas) {

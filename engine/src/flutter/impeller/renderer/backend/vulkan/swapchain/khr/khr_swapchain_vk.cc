@@ -11,22 +11,25 @@
 
 namespace impeller {
 
-KHRSwapchainVK::KHRSwapchainVK(const std::shared_ptr<Context>& context,
-                               vk::UniqueSurfaceKHR surface,
-                               const ISize& size,
-                               bool enable_msaa)
-    : size_(size), enable_msaa_(enable_msaa) {
-  auto impl = KHRSwapchainImplVK::Create(context,             //
-                                         std::move(surface),  //
-                                         size_,               //
-                                         enable_msaa_         //
-  );
+std::shared_ptr<KHRSwapchainVK> KHRSwapchainVK::Create(
+    const std::shared_ptr<Context>& context,
+    vk::UniqueSurfaceKHR surface,
+    const ISize& size,
+    bool enable_msaa) {
+  auto impl = KHRSwapchainImplVK::Create(context, std::move(surface), size,
+                                         enable_msaa);
   if (!impl || !impl->IsValid()) {
     VALIDATION_LOG << "Failed to create SwapchainVK implementation.";
-    return;
+    return nullptr;
   }
-  impl_ = std::move(impl);
+  return std::shared_ptr<KHRSwapchainVK>(
+      new KHRSwapchainVK(std::move(impl), size, enable_msaa));
 }
+
+KHRSwapchainVK::KHRSwapchainVK(std::shared_ptr<KHRSwapchainImplVK> impl,
+                               const ISize& size,
+                               bool enable_msaa)
+    : impl_(std::move(impl)), size_(size), enable_msaa_(enable_msaa) {}
 
 KHRSwapchainVK::~KHRSwapchainVK() = default;
 
@@ -43,6 +46,19 @@ void KHRSwapchainVK::UpdateSurfaceSize(const ISize& size) {
 void KHRSwapchainVK::AddFinalCommandBuffer(
     std::shared_ptr<CommandBuffer> cmd_buffer) const {
   impl_->AddFinalCommandBuffer(std::move(cmd_buffer));
+}
+
+int KHRSwapchainVK::GetCurrentImageIndex() {
+  if (!IsValid()) {
+    return -1;
+  }
+  return impl_->GetCurrentImageIndex();
+}
+
+void KHRSwapchainVK::SetRenderArea(std::optional<IRect> area) {
+  if (IsValid()) {
+    impl_->SetRenderArea(area);
+  }
 }
 
 std::unique_ptr<Surface> KHRSwapchainVK::AcquireNextDrawable() {

@@ -85,38 +85,55 @@ enum class RequiredAndroidDeviceExtensionVK : uint32_t {
 };
 
 //------------------------------------------------------------------------------
-/// @brief      A device extension available on some Android platforms.
+/// @brief      A device extension available on all OHOS platforms. Without
+///             the presence of these extensions on OHOS, context creation
+///             will fail.
 ///
-///             Platform agnostic code can still check if these Android
+///             Platform agnostic code can still check if these OHOS
 ///             extensions are present.
 ///
-enum class OptionalAndroidDeviceExtensionVK : uint32_t {
+enum class RequiredOHOSDeviceExtensionVK : uint32_t {
   //----------------------------------------------------------------------------
-  /// For exporting file descriptors from fences to interact with platform APIs.
+  /// For importing hardware buffers used in external texture composition.
   ///
-  /// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_external_fence_fd.html
+  /// https://developer.huawei.com/consumer/cn/doc/harmonyos-references-V5/vulkan__ohos_8h-V5
   ///
-  kKHRExternalFenceFd,
+  kOHOSNativeBuffer,
 
   //----------------------------------------------------------------------------
-  /// Dependency of kKHRExternalFenceFd.
+  /// Dependency of kOHOSNativeBuffer.
   ///
-  /// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_external_fence.html
+  /// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_sampler_ycbcr_conversion.html
   ///
-  kKHRExternalFence,
+  kKHRSamplerYcbcrConversion,
 
   //----------------------------------------------------------------------------
-  /// For importing sync file descriptors as semaphores so the GPU can wait for
-  /// semaphore to be signaled.
+  /// Dependency of kOHOSNativeBuffer.
+  ///
+  /// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_external_memory.html
+  ///
+  kOHOSExternalMemory,
+
+  //----------------------------------------------------------------------------
+  /// Dependency of kOHOSNativeBuffer.
+  ///
+  /// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_EXT_queue_family_foreign.html
+  ///
+  kEXTQueueFamilyForeign,
+
+  //----------------------------------------------------------------------------
+  /// Dependency of kOHOSNativeBuffer.
   ///
   /// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_external_semaphore_fd.html
+  ///
   kKHRExternalSemaphoreFd,
 
   //----------------------------------------------------------------------------
-  /// Dependency of kKHRExternalSemaphoreFd
+  /// Dependency of kOHOSNativeBuffer.
   ///
-  /// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_external_semaphore.html
-  kKHRExternalSemaphore,
+  /// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_dedicated_allocation.html
+  ///
+  kKHRDedicatedAllocation,
 
   kLast,
 };
@@ -150,6 +167,13 @@ enum class OptionalDeviceExtensionVK : uint32_t {
   /// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_EXT_image_compression_control.html
   ///
   kEXTImageCompressionControl,
+  /// To enable incremental presentation, allowing the application to specify
+  /// the regions of a surface that have changed.
+  /// This can improve presentation efficiency by avoiding full-surface updates.
+  ///
+  /// https://registry.khronos.org/vulkan/specs/latest/man/html/VK_KHR_incremental_present.html
+  ///
+  kVKKHRIncrementalPresent,
 
   kLast,
 };
@@ -195,6 +219,8 @@ class CapabilitiesVK final : public Capabilities,
   bool HasExtension(RequiredCommonDeviceExtensionVK ext) const;
 
   bool HasExtension(RequiredAndroidDeviceExtensionVK ext) const;
+
+  bool HasExtension(RequiredOHOSDeviceExtensionVK ext) const;
 
   bool HasExtension(OptionalDeviceExtensionVK ext) const;
 
@@ -334,6 +360,18 @@ class CapabilitiesVK final : public Capabilities,
   bool use_embedder_extensions_ = false;
   std::vector<std::string> embedder_instance_extensions_;
   std::vector<std::string> embedder_device_extensions_;
+
+  std::set<RequiredOHOSDeviceExtensionVK> required_ohos_device_extensions_;
+#ifdef __OHOS__
+  // This format is set during swapchain initialization and is used for creating
+  // offscreen textures. On OHOS, offscreen textures are created before the
+  // swapchain is initialized due to pipeline preloading. In such cases, the
+  // texture format is undefined, violating Vulkan specifications. To prevent
+  // this, a default value is assigned.
+  mutable PixelFormat default_color_format_ = PixelFormat::kR8G8B8A8UNormInt;
+#else
+  mutable PixelFormat default_color_format_ = PixelFormat::kUnknown;
+#endif
 
   bool HasExtension(const std::string& ext) const;
 

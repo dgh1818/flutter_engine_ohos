@@ -103,6 +103,24 @@ extern const intptr_t kPlatformStrongDillSize;
 #include "third_party/skia/include/gpu/ganesh/vk/GrVkTypes.h"
 #endif  // SHELL_ENABLE_VULKAN
 
+#ifdef FML_OS_OHOS
+extern "C"{
+  typedef enum {
+	/** Debug level to be used by {@link OH_LOG_DEBUG} */
+	HILOG_LOG_DEBUG = 3,
+	/** Informational level to be used by {@link OH_LOG_INFO} */
+	HILOG_LOG_INFO = 4,
+	/** Warning level to be used by {@link OH_LOG_WARN} */
+	HILOG_LOG_WARN = 5,
+	/** Error level to be used by {@link OH_LOG_ERROR} */
+	HILOG_LOG_ERROR = 6,
+	/** Fatal level to be used by {@link OH_LOG_FATAL} */
+	HILOG_LOG_FATAL = 7,
+} HiLog_LogLevel;
+int OH_LOG_Print(int type, HiLog_LogLevel level, unsigned int domain, const char *tag, const char *fmt, ...) ;
+}
+#endif
+
 const int32_t kFlutterSemanticsNodeIdBatchEnd = -1;
 const int32_t kFlutterSemanticsCustomActionIdBatchEnd = -1;
 
@@ -148,6 +166,15 @@ static FlutterEngineResult LogEmbedderError(FlutterEngineResult code,
            "%s (%d): '%s' returned '%s'. %s", file_base, line, function,
            code_name, reason);
   std::cerr << error << std::endl;
+
+
+#if  defined(FML_OS_OHOS)
+#define OHOS_LOG_TYPE_APP 0
+#define HILOG_LOG_DOMAIN 0
+#define HILOG_LOG_TAG "XcomFlutterEmbedder"
+  HiLog_LogLevel fx_severity = HILOG_LOG_ERROR;
+  (void ) OH_LOG_Print(0,fx_severity,HILOG_LOG_DOMAIN, HILOG_LOG_TAG,"%s",error );
+#endif
   return code;
 }
 
@@ -1086,12 +1113,11 @@ static sk_sp<SkSurface> MakeSkSurfaceFromBackingStore(
   sk_cfp<FlutterMetalTextureHandle> mtl_texture;
   mtl_texture.retain(metal->texture.texture);
   texture_info.fTexture = mtl_texture;
-  GrBackendTexture backend_texture =
-      GrBackendTextures::MakeMtl(config.size.width,      //
-                                 config.size.height,     //
-                                 skgpu::Mipmapped::kNo,  //
-                                 texture_info            //
-      );
+  GrBackendTexture backend_texture(config.size.width,      //
+                                   config.size.height,     //
+                                   skgpu::Mipmapped::kNo,  //
+                                   texture_info            //
+  );
 
   SkSurfaceProps surface_properties(0, kUnknown_SkPixelGeometry);
 
@@ -2087,6 +2113,12 @@ FlutterEngineResult FlutterEngineInitialize(size_t version,
     settings.application_kernel_asset = kApplicationKernelSnapshotFileName;
   }
 
+  settings.task_observer_add = [](intptr_t key, const fml::closure& callback) {
+    fml::MessageLoop::GetCurrent().AddTaskObserver(key, callback);
+  };
+  settings.task_observer_remove = [](intptr_t key) {
+    fml::MessageLoop::GetCurrent().RemoveTaskObserver(key);
+  };
   if (SAFE_ACCESS(args, root_isolate_create_callback, nullptr) != nullptr) {
     VoidCallback callback =
         SAFE_ACCESS(args, root_isolate_create_callback, nullptr);
@@ -2576,7 +2608,7 @@ FlutterEngineResult FlutterEngineRemoveView(FLUTTER_API_SYMBOL(FlutterEngine)
     return LOG_EMBEDDER_ERROR(kInvalidArguments, "Engine handle was invalid.");
   }
 
-  flutter::PlatformView::RemoveViewCallback callback =
+  flutter::Shell::RemoveViewCallback callback =
       [c_callback = info->remove_view_callback,
        user_data = info->user_data](bool removed) {
         FlutterRemoveViewResult result = {};

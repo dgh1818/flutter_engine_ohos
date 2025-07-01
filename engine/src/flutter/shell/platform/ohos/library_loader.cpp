@@ -1,0 +1,238 @@
+/*
+ * Copyright (c) 2023 Hunan OpenValley Digital Industry Development Co., Ltd.
+ * All rights reserved. Use of this source code is governed by a BSD-style
+ * license that can be found in the LICENSE_KHZG file.
+ */
+
+#include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
+#include "flutter/shell/platform/ohos/ohos_main.h"
+#include "napi/native_api.h"
+#include "napi_common.h"
+#include "ohos_logging.h"
+#include "ohos_xcomponent_adapter.h"
+
+// namespace flutter {
+
+EXTERN_C_START
+static napi_value Init(napi_env env, napi_value exports) {
+  FML_DLOG(INFO) << "Init NAPI Start.";
+  napi_property_descriptor desc[] = {
+      DECLARE_NAPI_FUNCTION("nativeInit", flutter::OhosMain::NativeInit),
+      DECLARE_NAPI_FUNCTION(
+          "nativeUpdateRefreshRate",
+          flutter::PlatformViewOHOSNapi::nativeUpdateRefreshRate),
+      DECLARE_NAPI_FUNCTION("nativeUpdateSize",
+                            flutter::PlatformViewOHOSNapi::nativeUpdateSize),
+      DECLARE_NAPI_FUNCTION("nativeUpdateDensity",
+                            flutter::PlatformViewOHOSNapi::nativeUpdateDensity),
+      DECLARE_NAPI_FUNCTION(
+          "nativeRunBundleAndSnapshotFromLibrary",
+          flutter::PlatformViewOHOSNapi::nativeRunBundleAndSnapshotFromLibrary),
+      DECLARE_NAPI_FUNCTION(
+          "nativePrefetchDefaultFontManager",
+          flutter::PlatformViewOHOSNapi::nativePrefetchDefaultFontManager),
+      DECLARE_NAPI_FUNCTION(
+          "nativeCheckAndReloadFont",
+          flutter::PlatformViewOHOSNapi::nativeCheckAndReloadFont),
+      DECLARE_NAPI_FUNCTION(
+          "nativeGetIsSoftwareRenderingEnabled",
+          flutter::PlatformViewOHOSNapi::nativeGetIsSoftwareRenderingEnabled),
+      DECLARE_NAPI_FUNCTION("nativeAttach",
+                            flutter::PlatformViewOHOSNapi::nativeAttach),
+      DECLARE_NAPI_FUNCTION("nativeSpawn",
+                            flutter::PlatformViewOHOSNapi::nativeSpawn),
+      DECLARE_NAPI_FUNCTION("nativeDestroy",
+                            flutter::PlatformViewOHOSNapi::nativeDestroy),
+      DECLARE_NAPI_FUNCTION(
+          "nativeSetViewportMetrics",
+          flutter::PlatformViewOHOSNapi::nativeSetViewportMetrics),
+      DECLARE_NAPI_FUNCTION(
+          "nativeSetAccessibilityFeatures",
+          flutter::PlatformViewOHOSNapi::nativeSetAccessibilityFeatures),
+      DECLARE_NAPI_FUNCTION(
+          "nativeCleanupMessageData",
+          flutter::PlatformViewOHOSNapi::nativeCleanupMessageData),
+      DECLARE_NAPI_FUNCTION(
+          "nativeDispatchEmptyPlatformMessage",
+          flutter::PlatformViewOHOSNapi::nativeDispatchEmptyPlatformMessage),
+      DECLARE_NAPI_FUNCTION(
+          "nativeDispatchPlatformMessage",
+          flutter::PlatformViewOHOSNapi::nativeDispatchPlatformMessage),
+      DECLARE_NAPI_FUNCTION(
+          "nativeInvokePlatformMessageEmptyResponseCallback",
+          flutter::PlatformViewOHOSNapi::
+              nativeInvokePlatformMessageEmptyResponseCallback),
+      DECLARE_NAPI_FUNCTION("nativeInvokePlatformMessageResponseCallback",
+                            flutter::PlatformViewOHOSNapi::
+                                nativeInvokePlatformMessageResponseCallback),
+      DECLARE_NAPI_FUNCTION(
+          "nativeLoadDartDeferredLibrary",
+          flutter::PlatformViewOHOSNapi::nativeLoadDartDeferredLibrary),
+      DECLARE_NAPI_FUNCTION(
+          "nativeUpdateOhosAssetManager",
+          flutter::PlatformViewOHOSNapi::nativeUpdateOhosAssetManager),
+      DECLARE_NAPI_FUNCTION(
+          "nativeDeferredComponentInstallFailure",
+          flutter::PlatformViewOHOSNapi::nativeDeferredComponentInstallFailure),
+      DECLARE_NAPI_FUNCTION("nativeGetPixelMap",
+                            flutter::PlatformViewOHOSNapi::nativeGetPixelMap),
+      DECLARE_NAPI_FUNCTION(
+          "nativeNotifyLowMemoryWarning",
+          flutter::PlatformViewOHOSNapi::nativeNotifyLowMemoryWarning),
+      DECLARE_NAPI_FUNCTION(
+          "nativeFlutterTextUtilsIsEmoji",
+          flutter::PlatformViewOHOSNapi::nativeFlutterTextUtilsIsEmoji),
+      DECLARE_NAPI_FUNCTION(
+          "nativeFlutterTextUtilsIsEmojiModifier",
+          flutter::PlatformViewOHOSNapi::nativeFlutterTextUtilsIsEmojiModifier),
+      DECLARE_NAPI_FUNCTION("nativeFlutterTextUtilsIsEmojiModifierBase",
+                            flutter::PlatformViewOHOSNapi::
+                                nativeFlutterTextUtilsIsEmojiModifierBase),
+      DECLARE_NAPI_FUNCTION("nativeFlutterTextUtilsIsVariationSelector",
+                            flutter::PlatformViewOHOSNapi::
+                                nativeFlutterTextUtilsIsVariationSelector),
+      DECLARE_NAPI_FUNCTION("nativeFlutterTextUtilsIsRegionalIndicator",
+                            flutter::PlatformViewOHOSNapi::
+                                nativeFlutterTextUtilsIsRegionalIndicator),
+      DECLARE_NAPI_FUNCTION(
+          "nativeGetSystemLanguages",
+          flutter::PlatformViewOHOSNapi::nativeGetSystemLanguages),
+      DECLARE_NAPI_FUNCTION(
+          "nativeXComponentAttachFlutterEngine",
+          flutter::PlatformViewOHOSNapi::nativeXComponentAttachFlutterEngine),
+      DECLARE_NAPI_FUNCTION(
+          "nativeXComponentPreDraw",
+          flutter::PlatformViewOHOSNapi::nativeXComponentPreDraw),
+      DECLARE_NAPI_FUNCTION(
+          "nativeXComponentDetachFlutterEngine",
+          flutter::PlatformViewOHOSNapi::nativeXComponentDetachFlutterEngine),
+      DECLARE_NAPI_FUNCTION(
+          "nativeXComponentDispatchMouseWheel",
+          flutter::PlatformViewOHOSNapi::nativeXComponentDispatchMouseWheel),
+      DECLARE_NAPI_FUNCTION(
+          "nativeRegisterTexture",
+          flutter::PlatformViewOHOSNapi::nativeRegisterTexture),
+      DECLARE_NAPI_FUNCTION(
+          "nativeSetTextureBufferSize",
+          flutter::PlatformViewOHOSNapi::nativeSetTextureBufferSize),
+      DECLARE_NAPI_FUNCTION(
+          "nativeNotifyTextureResizing",
+          flutter::PlatformViewOHOSNapi::nativeNotifyTextureResizing),
+      DECLARE_NAPI_FUNCTION(
+          "nativeUnregisterTexture",
+          flutter::PlatformViewOHOSNapi::nativeUnregisterTexture),
+      DECLARE_NAPI_FUNCTION(
+          "nativeGetTextureWindowId",
+          flutter::PlatformViewOHOSNapi::nativeGetTextureWindowId),
+      DECLARE_NAPI_FUNCTION(
+          "nativeGetTextureWindowPtr",
+          flutter::PlatformViewOHOSNapi::nativeGetTextureWindowPtr),
+      DECLARE_NAPI_FUNCTION(
+          "nativeSetExternalNativeImage",
+          flutter::PlatformViewOHOSNapi::nativeSetExternalNativeImage),
+      DECLARE_NAPI_FUNCTION(
+          "nativeSetExternalNativeImagePtr",
+          flutter::PlatformViewOHOSNapi::nativeSetExternalNativeImagePtr),
+      DECLARE_NAPI_FUNCTION(
+          "nativeResetExternalTexture",
+          flutter::PlatformViewOHOSNapi::nativeResetExternalTexture),
+      DECLARE_NAPI_FUNCTION(
+          "nativeMarkTextureFrameAvailable",
+          flutter::PlatformViewOHOSNapi::nativeMarkTextureFrameAvailable),
+      DECLARE_NAPI_FUNCTION(
+          "nativeRegisterPixelMap",
+          flutter::PlatformViewOHOSNapi::nativeRegisterPixelMap),
+      DECLARE_NAPI_FUNCTION("nativeEncodeUtf8",
+                            flutter::PlatformViewOHOSNapi::nativeEncodeUtf8),
+      DECLARE_NAPI_FUNCTION("nativeDecodeUtf8",
+                            flutter::PlatformViewOHOSNapi::nativeDecodeUtf8),
+      DECLARE_NAPI_FUNCTION(
+          "nativeSetTextureBackGroundPixelMap",
+          flutter::PlatformViewOHOSNapi::nativeSetTextureBackGroundPixelMap),
+      DECLARE_NAPI_FUNCTION(
+          "nativeSetTextureBackGroundColor",
+          flutter::PlatformViewOHOSNapi::nativeSetTextureBackGroundColor),
+      DECLARE_NAPI_FUNCTION(
+          "nativeSetFontWeightScale",
+          flutter::PlatformViewOHOSNapi::nativeSetFontWeightScale),
+
+      DECLARE_NAPI_FUNCTION(
+          "nativeLookupCallbackInformation",
+          flutter::PlatformViewOHOSNapi::nativeLookupCallbackInformation),
+      DECLARE_NAPI_FUNCTION(
+          "nativeUnicodeIsEmoji",
+          flutter::PlatformViewOHOSNapi::nativeUnicodeIsEmoji),
+      DECLARE_NAPI_FUNCTION(
+          "nativeUnicodeIsEmojiModifier",
+          flutter::PlatformViewOHOSNapi::nativeUnicodeIsEmojiModifier),
+      DECLARE_NAPI_FUNCTION(
+          "nativeUnicodeIsEmojiModifierBase",
+          flutter::PlatformViewOHOSNapi::nativeUnicodeIsEmojiModifierBase),
+      DECLARE_NAPI_FUNCTION(
+          "nativeUnicodeIsVariationSelector",
+          flutter::PlatformViewOHOSNapi::nativeUnicodeIsVariationSelector),
+      DECLARE_NAPI_FUNCTION("nativeUnicodeIsRegionalIndicatorSymbol",
+                            flutter::PlatformViewOHOSNapi::
+                                nativeUnicodeIsRegionalIndicatorSymbol),
+      DECLARE_NAPI_FUNCTION(
+          "nativeAccessibilityStateChange",
+          flutter::PlatformViewOHOSNapi::nativeAccessibilityStateChange),
+      DECLARE_NAPI_FUNCTION(
+          "nativeAccessibilityAnnounce",
+          flutter::PlatformViewOHOSNapi::nativeAccessibilityAnnounce),
+      DECLARE_NAPI_FUNCTION(
+          "nativeAccessibilityOnTap",
+          flutter::PlatformViewOHOSNapi::nativeAccessibilityOnTap),
+      DECLARE_NAPI_FUNCTION(
+          "nativeAccessibilityOnLongPress",
+          flutter::PlatformViewOHOSNapi::nativeAccessibilityOnLongPress),
+      DECLARE_NAPI_FUNCTION(
+          "nativeAccessibilityOnTooltip",
+          flutter::PlatformViewOHOSNapi::nativeAccessibilityOnTooltip),
+      DECLARE_NAPI_FUNCTION(
+          "nativeSetSemanticsEnabled",
+          flutter::PlatformViewOHOSNapi::nativeSetSemanticsEnabled),
+      DECLARE_NAPI_FUNCTION(
+          "nativeSetFontWeightScale",
+          flutter::PlatformViewOHOSNapi::nativeSetFontWeightScale),
+      DECLARE_NAPI_FUNCTION(
+          "nativeSetFlutterNavigationAction",
+          flutter::PlatformViewOHOSNapi::nativeSetFlutterNavigationAction),
+      DECLARE_NAPI_FUNCTION(
+          "nativeEnableFrameCache",
+          flutter::PlatformViewOHOSNapi::nativeEnableFrameCache),
+      DECLARE_NAPI_FUNCTION(
+          "nativeUpdateCurrentXComponentId",
+          flutter::PlatformViewOHOSNapi::nativeUpdateCurrentXComponentId),
+      DECLARE_NAPI_FUNCTION(
+          "nativeSetDVsyncSwitch",
+          flutter::PlatformViewOHOSNapi::nativeSetDVsyncSwitch),
+  };
+
+  FML_DLOG(INFO) << "Init NAPI size=" << sizeof(desc) / sizeof(desc[0]);
+  napi_define_properties(env, exports, sizeof(desc) / sizeof(desc[0]), desc);
+  bool ret = flutter::XComponentAdapter::GetInstance()->Export(env, exports);
+  if (!ret) {
+    FML_DLOG(ERROR) << "Init NAPI Failed.";
+  } else {
+    FML_DLOG(INFO) << "Init NAPI Succeed.";
+  }
+  return exports;
+}
+EXTERN_C_END
+
+static napi_module flutterModule = {
+    .nm_version = 1,
+    .nm_flags = 0,
+    .nm_filename = nullptr,
+    .nm_register_func = Init,
+    .nm_modname = "flutter",
+    .nm_priv = ((void*)0),
+    .reserved = {0},
+};
+
+extern "C" __attribute__((constructor)) void RegisterEntryModule(void) {
+  napi_module_register(&flutterModule);
+}
+
+//}

@@ -10,6 +10,7 @@
 #include "impeller/renderer/backend/vulkan/context_vk.h"
 #include "impeller/renderer/backend/vulkan/swapchain/khr/khr_swapchain_vk.h"
 #include "impeller/renderer/surface.h"
+#include "vulkan/vulkan_core.h"
 
 namespace impeller {
 
@@ -69,7 +70,17 @@ void SurfaceContextVK::Shutdown() {
 
 bool SurfaceContextVK::SetWindowSurface(vk::UniqueSurfaceKHR surface,
                                         const ISize& size) {
-  return SetSwapchain(SwapchainVK::Create(parent_, std::move(surface), size));
+  auto swapchain = KHRSwapchainVK::Create(parent_, std::move(surface), size);
+  if (!swapchain) {
+    VALIDATION_LOG << "Could not create swapchain.";
+    return false;
+  }
+  if (!swapchain->IsValid()) {
+    VALIDATION_LOG << "Could not create valid swapchain.";
+    return false;
+  }
+  swapchain_ = std::move(swapchain);
+  return true;
 }
 
 void SurfaceContextVK::TeardownSwapchain() {
@@ -88,6 +99,10 @@ bool SurfaceContextVK::SetSwapchain(std::shared_ptr<SwapchainVK> swapchain) {
   return true;
 }
 
+void SurfaceContextVK::ClearSwapchain() {
+  swapchain_ = nullptr;
+}
+
 std::unique_ptr<Surface> SurfaceContextVK::AcquireNextSurface() {
   TRACE_EVENT0("impeller", __FUNCTION__);
   auto surface = swapchain_ ? swapchain_->AcquireNextDrawable() : nullptr;
@@ -103,13 +118,77 @@ void SurfaceContextVK::MarkFrameEnd() {
     impeller::PipelineLibraryVK::Cast(*pipeline_library)
         .DidAcquireSurfaceFrame();
   }
-  parent_->DisposeThreadLocalCachedResources();
+  parent_->GetCommandPoolRecycler()->Dispose();
   parent_->GetResourceAllocator()->DebugTraceMemoryStatistics();
+  return surface;
+}
+
+int SurfaceContextVK::GetCurrentImageIndex() {
+  if (swapchain_) {
+    return swapchain_->GetCurrentImageIndex();
+  }
+  return -1;
+}
+
+void SurfaceContextVK::SetRenderArea(std::optional<IRect> area) {
+  if (swapchain_) {
+    swapchain_->SetRenderArea(area);
+  }
 }
 
 void SurfaceContextVK::UpdateSurfaceSize(const ISize& size) const {
   swapchain_->UpdateSurfaceSize(size);
 }
+
+#ifdef FML_OS_ANDROID
+
+vk::UniqueSurfaceKHR SurfaceContextVK::CreateAndroidSurface(
+    ANativeWindow* window) const {
+  if (!parent_->GetInstance()) {
+    return vk::UniqueSurfaceKHR{VK_NULL_HANDLE};
+  }
+
+  auto create_info = vk::AndroidSurfaceCreateInfoKHR().setWindow(window);
+  auto surface_res =
+      parent_->GetInstance().createAndroidSurfaceKHRUnique(create_info);
+
+  if (surface_res.result != vk::Result::eSuccess) {
+    VALIDATION_LOG << "Could not create Android surface, error: "
+                   << vk::to_string(surface_res.result);
+    return vk::UniqueSurfaceKHR{VK_NULL_HANDLE};
+  }
+
+  return std::move(surface_res.value);
+}
+
+#endif  // FML_OS_ANDROID
+
+#ifdef FML_OS_OHOS
+vk::UniqueSurfaceKHR SurfaceContextVK::CreateOHOSSurface(
+    OHNativeWindow* window) const {
+  if (!parent_->GetInstance()) {
+    VALIDATION_LOG << "createSurface get null instance";
+    return vk::UniqueSurfaceKHR{VK_NULL_HANDLE};
+  }
+  static PFN_vkCreateSurfaceOHOS vkCreateSurfaceOHOS =
+      (PFN_vkCreateSurfaceOHOS)parent_->GetInstance().getProcAddr(
+          "vkCreateSurfaceOHOS");
+  if (!vkCreateSurfaceOHOS) {
+    VALIDATION_LOG << "missing vkCreateSurfaceOHOS extension";
+    return vk::UniqueSurfaceKHR{VK_NULL_HANDLE};
+  }
+  const VkSurfaceCreateInfoOHOS surfaceCreateInfo{
+      (VkStructureType)VK_STRUCTURE_TYPE_SURFACE_CREATE_INFO_OHOS, nullptr, 0,
+      window};
+  VkSurfaceKHR surface = VK_NULL_HANDLE;
+  if (vkCreateSurfaceOHOS(parent_->GetInstance(), &surfaceCreateInfo, nullptr,
+                          &surface) != VK_SUCCESS) {
+    VALIDATION_LOG << "vkCreateSurfaceOHOS get failed";
+    return vk::UniqueSurfaceKHR{VK_NULL_HANDLE};
+  }
+  return vk::UniqueSurfaceKHR(surface, parent_->GetInstance());
+}
+#endif  // FML_OS_OHOS
 
 const vk::Device& SurfaceContextVK::GetDevice() const {
   return parent_->GetDevice();
@@ -117,6 +196,10 @@ const vk::Device& SurfaceContextVK::GetDevice() const {
 
 void SurfaceContextVK::InitializeCommonlyUsedShadersIfNeeded() const {
   parent_->InitializeCommonlyUsedShadersIfNeeded();
+}
+
+const ContextVK& SurfaceContextVK::GetParent() const {
+  return *parent_;
 }
 
 void SurfaceContextVK::DisposeThreadLocalCachedResources() {

@@ -18,6 +18,7 @@ source_set("fml") {
     "base32.h",
     "build_config.h",
     "closure.h",
+    "compiler_specific.h",
     "concurrent_message_loop.cc",
     "concurrent_message_loop.h",
     "container.h",
@@ -71,6 +72,7 @@ source_set("fml") {
     "raster_thread_merger.h",
     "shared_thread_merger.cc",
     "shared_thread_merger.h",
+    "size.h",
     "status.h",
     "status_or.h",
     "synchronization/atomic_object.h",
@@ -105,6 +107,12 @@ source_set("fml") {
     sources += [ "backtrace.cc" ]
   } else {
     sources += [ "backtrace_stub.cc" ]
+  }
+
+  defines = []
+
+  if (flutter_runtime_mode == "release" || flutter_runtime_mode == "profile") {
+    defines += [ "REQUIRE_ERROR_LOG_LEVEL" ]
   }
 
   public_deps = [
@@ -179,7 +187,33 @@ source_set("fml") {
     ]
   }
 
-  if (is_linux) {
+  if (is_ohos) {
+    sources += [
+      "platform/ohos/hisysevent_c.cc",
+      "platform/ohos/hisysevent_c.h",
+      "platform/ohos/message_loop_ohos.cc",
+      "platform/ohos/message_loop_ohos.h",
+      "platform/ohos/napi_util.cc",
+
+      #"platform/ohos/message_loop_ohos_test.cc",
+      #"platform/ohos/message_loop_ohos_test.h",
+      "platform/ohos/dynamic_library_loader.cpp",
+      "platform/ohos/dynamic_library_loader.h",
+      "platform/ohos/hiappevent/ohos_hiappevent.cpp",
+      "platform/ohos/napi_util.h",
+      "platform/ohos/ohos_trace_event.cc",
+      "platform/ohos/paths_ohos.cc",
+      "platform/ohos/paths_ohos.h",
+      "platform/ohos/timerfd.cc",
+      "platform/ohos/timerfd.h",
+    ]
+    libs += [ "hilog_ndk.z" ]
+    libs += [ "ace_napi.z" ]
+    libs += [ "uv" ]
+    libs += [ "hitrace_ndk.z" ]
+    libs += [ "hiappevent_ndk.z" ]
+    libs += [ "deviceinfo_ndk.z" ]
+  } else if (is_linux) {
     sources += [
       "platform/linux/message_loop_linux.cc",
       "platform/linux/message_loop_linux.h",

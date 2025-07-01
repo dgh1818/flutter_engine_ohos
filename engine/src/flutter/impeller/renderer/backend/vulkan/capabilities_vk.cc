@@ -130,6 +130,11 @@ CapabilitiesVK::GetEnabledInstanceExtensions() const {
     has_wsi = true;
   }
 
+  if (HasExtension("VK_OHOS_surface")) {
+    required.push_back("VK_OHOS_surface");
+    has_wsi = true;
+  }
+
   if (HasExtension("VK_KHR_xcb_surface")) {
     required.push_back("VK_KHR_xcb_surface");
     has_wsi = true;
@@ -212,6 +217,27 @@ static const char* GetExtensionName(OptionalAndroidDeviceExtensionVK ext) {
     case OptionalAndroidDeviceExtensionVK::kLast:
       return "Unknown";
   }
+  FML_UNREACHABLE();
+}
+
+static const char* GetExtensionName(RequiredOHOSDeviceExtensionVK ext) {
+  switch (ext) {
+    case RequiredOHOSDeviceExtensionVK::kOHOSNativeBuffer:
+      return "VK_OHOS_native_buffer";
+    case RequiredOHOSDeviceExtensionVK::kKHRSamplerYcbcrConversion:
+      return VK_KHR_SAMPLER_YCBCR_CONVERSION_EXTENSION_NAME;
+    case RequiredOHOSDeviceExtensionVK::kOHOSExternalMemory:
+      return "VK_OHOS_external_memory";
+    case RequiredOHOSDeviceExtensionVK::kEXTQueueFamilyForeign:
+      return VK_EXT_QUEUE_FAMILY_FOREIGN_EXTENSION_NAME;
+    case RequiredOHOSDeviceExtensionVK::kKHRDedicatedAllocation:
+      return VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME;
+    case RequiredOHOSDeviceExtensionVK::kKHRExternalSemaphoreFd:
+      return VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME;
+    case RequiredOHOSDeviceExtensionVK::kLast:
+      return "Unknown";
+  }
+  FML_UNREACHABLE();
 }
 
 static const char* GetExtensionName(OptionalDeviceExtensionVK ext) {
@@ -222,6 +248,8 @@ static const char* GetExtensionName(OptionalDeviceExtensionVK ext) {
       return "VK_KHR_portability_subset";
     case OptionalDeviceExtensionVK::kEXTImageCompressionControl:
       return VK_EXT_IMAGE_COMPRESSION_CONTROL_EXTENSION_NAME;
+    case OptionalDeviceExtensionVK::kVKKHRIncrementalPresent:
+      return VK_KHR_INCREMENTAL_PRESENT_EXTENSION_NAME;
     case OptionalDeviceExtensionVK::kLast:
       return "Unknown";
   }
@@ -309,9 +337,22 @@ CapabilitiesVK::GetEnabledDeviceExtensions(
         return true;
       };
 
+  auto for_each_ohos_extension = [&](RequiredOHOSDeviceExtensionVK ext) {
+#ifdef FML_OS_OHOS
+    auto name = GetExtensionName(ext);
+    if (exts->find(name) == exts->end()) {
+      VALIDATION_LOG << "Device does not support required OHOS extension: "
+                     << name;
+      return false;
+    }
+    enabled.push_back(name);
+#endif  //  FML_OS_ANDROID
+    return true;
+  };
+
   auto for_each_optional_extension = [&](OptionalDeviceExtensionVK ext) {
     auto name = GetExtensionName(ext);
-    if (exts.find(name) != exts.end()) {
+    if (exts->find(name) != exts->end()) {
       enabled.push_back(name);
     }
     return true;
@@ -326,6 +367,9 @@ CapabilitiesVK::GetEnabledDeviceExtensions(
           for_each_optional_extension) &&
       IterateExtensions<OptionalAndroidDeviceExtensionVK>(
           for_each_optional_android_extension);
+      IterateExtensions<RequiredOHOSDeviceExtensionVK>(
+          for_each_ohos_extension) &&
+      IterateExtensions<OptionalDeviceExtensionVK>(for_each_optional_extension);
 
   if (!iterate_extensions) {
     VALIDATION_LOG << "Device not suitable since required extensions are not "
@@ -354,7 +398,7 @@ static bool HasSuitableDepthStencilFormat(const vk::PhysicalDevice& device,
 static bool PhysicalDeviceSupportsRequiredFormats(
     const vk::PhysicalDevice& device) {
   const auto has_color_format =
-      HasSuitableColorFormat(device, vk::Format::eR8G8B8A8Unorm);
+      HasSuitableColorFormat(device, vk::Format::eB8G8R8A8Unorm);
   const auto has_stencil_format =
       HasSuitableDepthStencilFormat(device, vk::Format::eD32SfloatS8Uint) ||
       HasSuitableDepthStencilFormat(device, vk::Format::eD24UnormS8Uint);
@@ -364,7 +408,12 @@ static bool PhysicalDeviceSupportsRequiredFormats(
 static bool HasRequiredProperties(const vk::PhysicalDevice& physical_device) {
   auto properties = physical_device.getProperties();
   if (!(properties.limits.framebufferColorSampleCounts &
+#ifdef __OHOS__
+        (vk::SampleCountFlagBits::e1 | vk::SampleCountFlagBits::e2 |
+         vk::SampleCountFlagBits::e4))) {
+#else
         (vk::SampleCountFlagBits::e1 | vk::SampleCountFlagBits::e4))) {
+#endif
     return false;
   }
   return true;
@@ -584,9 +633,15 @@ bool CapabilitiesVK::SetPhysicalDevice(
                       embedder_device_extensions_.end());
     }
 
+    required_ohos_device_extensions_.clear();
+    optional_device_extensions_.clear();
+    auto exts = GetSupportedDeviceExtensions(device);
+    if (!exts.has_value()) {
+      return false;
+    }
     IterateExtensions<RequiredCommonDeviceExtensionVK>([&](auto ext) -> bool {
       auto ext_name = GetExtensionName(ext);
-      if (exts.find(ext_name) != exts.end()) {
+      if (exts->find(ext_name) != exts->end()) {
         required_common_device_extensions_.insert(ext);
       }
       return true;
@@ -598,9 +653,16 @@ bool CapabilitiesVK::SetPhysicalDevice(
       }
       return true;
     });
+    IterateExtensions<RequiredOHOSDeviceExtensionVK>([&](auto ext) -> bool {
+      auto ext_name = GetExtensionName(ext);
+      if (exts->find(ext_name) != exts->end()) {
+        required_ohos_device_extensions_.insert(ext);
+      }
+      return true;
+    });
     IterateExtensions<OptionalDeviceExtensionVK>([&](auto ext) -> bool {
       auto ext_name = GetExtensionName(ext);
-      if (exts.find(ext_name) != exts.end()) {
+      if (exts->find(ext_name) != exts->end()) {
         optional_device_extensions_.insert(ext);
       }
       return true;
@@ -726,6 +788,11 @@ bool CapabilitiesVK::HasExtension(RequiredCommonDeviceExtensionVK ext) const {
 bool CapabilitiesVK::HasExtension(RequiredAndroidDeviceExtensionVK ext) const {
   return required_android_device_extensions_.find(ext) !=
          required_android_device_extensions_.end();
+}
+
+bool CapabilitiesVK::HasExtension(RequiredOHOSDeviceExtensionVK ext) const {
+  return required_ohos_device_extensions_.find(ext) !=
+         required_ohos_device_extensions_.end();
 }
 
 bool CapabilitiesVK::HasExtension(OptionalDeviceExtensionVK ext) const {

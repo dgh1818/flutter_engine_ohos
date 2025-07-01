@@ -136,7 +136,6 @@ bool EmbedderEngine::NotifyDestroyed() {
   }
 
   shell_->GetPlatformView()->NotifyDestroyed();
-
   return true;
 }
 

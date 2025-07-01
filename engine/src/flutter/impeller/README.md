@@ -202,7 +202,7 @@ add the following to your `AndroidManifest.xml` under the `<application>` tag.
     android:value="false" />
 ```
 
-Where Vulkan is unavailable, Impeller will fallback to Skia. 
+Where Vulkan is unavailable, Impeller will fallback to Skia.
 
 However, Impellers OpenGL backend is well under construction. To try Impeller with OpenGL
 in your application, add the following to your `AndroidManifest.xml` file under the

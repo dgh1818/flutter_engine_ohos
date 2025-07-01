@@ -35,8 +35,14 @@ def get_out_dir(args):
   if args.unoptimized:
     target_dir.append('unopt')
 
+  if args.target_os != 'ios' and args.interpreter:
+    target_dir.append('interpreter')
+
   if args.android_cpu != 'arm':
     target_dir.append(args.android_cpu)
+
+  if args.ios_cpu != 'arm64':
+    target_dir.append(args.ios_cpu)
 
   if args.mac_cpu != 'x64':
     target_dir.append(args.mac_cpu)
@@ -46,6 +52,9 @@ def get_out_dir(args):
 
   if args.linux_cpu is not None:
     target_dir.append(args.linux_cpu)
+
+  # if args.ohos_cpu is not None:
+  # target_dir.append(args.ohos_cpu)
 
   if args.windows_cpu != 'x64':
     target_dir.append(args.windows_cpu)
@@ -98,6 +107,8 @@ def is_host_build(args):
     return True
   # The Mac and host targets are redundant. Again, necessary to disambiguate
   # during cross-compilation.
+  # if args.target_os == 'ohos' and args.ohos_cpu == 'arm64':
+  #   return True
   if args.target_os == 'mac':
     return True
   return False
@@ -118,6 +129,9 @@ def can_use_prebuilt_dart(args):
       prebuilt = 'linux-x64'
   elif args.target_os == 'linux' and args.linux_cpu in ['x64', 'arm64']:
     prebuilt = 'linux-%s' % args.linux_cpu
+  elif args.target_os == 'ohos' and args.ohos_cpu in ['x64', 'arm64']:
+    prebuilt = 'linux-%s' % args.ohos_cpu
+    # prebuilt = 'ohos-%s' % args.ohos_cpu
   elif args.target_os == 'mac' and args.mac_cpu in ['x64', 'arm64']:
     prebuilt = 'macos-%s' % args.mac_cpu
   elif args.target_os == 'win' and args.windows_cpu in ['x64', 'arm64']:
@@ -182,6 +196,8 @@ def get_target_cpu(args):
     return args.mac_cpu
   if args.target_os == 'linux':
     return args.linux_cpu
+  if args.target_os == 'ohos':
+    return args.ohos_cpu
   if args.target_os == 'fuchsia':
     return args.fuchsia_cpu
   if args.target_os == 'wasm':
@@ -447,6 +463,10 @@ def to_gn_args(args):
   gn_args['skia_use_icu'] = True
   gn_args['is_official_build'] = True  # Disable Skia test utilities.
   gn_args['android_full_debug'] = args.target_os == 'android' and args.unoptimized
+
+  if args.target_os == 'ohos' and get_host_os() != 'win':
+    gn_args['ohos_api_int'] = args.ohos_api_int
+
   if args.clang is None:
     gn_args['is_clang'] = True
   else:
@@ -599,7 +619,7 @@ def to_gn_args(args):
   else:
     gn_args['skia_use_gl'] = args.target_os != 'fuchsia'
 
-  if sys.platform == 'darwin' and args.target_os not in ['android', 'fuchsia']:
+  if sys.platform == 'darwin' and args.target_os not in ['android', 'fuchsia', 'ohos']:
     # OpenGL is deprecated on macOS > 10.11.
     # This is not necessarily needed but enabling this until we have a way to
     # build a macOS metal only shell and a gl only shell.
@@ -610,7 +630,7 @@ def to_gn_args(args):
   # Enable Vulkan on all platforms except for iOS. This is just
   # to save on mobile binary size, as there's no reason the Vulkan embedder
   # features can't work on these platforms.
-  if gn_args['target_os'] not in ['ios', 'mac']:
+  if gn_args['target_os'] not in ['ios', 'mac', 'ohos']:
     gn_args['skia_use_vulkan'] = True
     gn_args['skia_use_vma'] = False
     gn_args['shell_enable_vulkan'] = True
@@ -624,7 +644,9 @@ def to_gn_args(args):
   # gn_args['enable_profiling'] = args.runtime_mode != 'release' and args.android_cpu != 'x86'
 
   # Make symbols visible in order to enable symbolization of unit test crash backtraces on Linux
-  gn_args['disable_hidden_visibility'] = args.target_os == 'linux' and args.unoptimized
+  gn_args['disable_hidden_visibility'] = (
+      args.target_os == 'linux' or args.target_os == 'ohos'
+  ) and args.unoptimized
 
   if args.arm_float_abi:
     gn_args['arm_float_abi'] = args.arm_float_abi
@@ -686,6 +708,9 @@ def to_gn_args(args):
 
   if args.asan:
     gn_args['is_asan'] = True
+
+  if args.hwasan:
+    gn_args['is_hwasan'] = True
 
   if args.tsan:
     gn_args['is_tsan'] = True
@@ -809,6 +834,7 @@ def to_gn_wasm_args(args, gn_args):
   gn_args['icu_use_data_file'] = False
   gn_args['skia_use_freetype'] = True
   gn_args['flutter_use_freetype_woff2'] = True
+  gn_args['skia_enable_sksl_tracing'] = False
   gn_args['skia_use_harfbuzz'] = True
   gn_args['skia_use_fontconfig'] = False
   gn_args['skia_use_libheif'] = False
@@ -884,6 +910,7 @@ def parse_args(args):
       choices=['debug', 'profile', 'release', 'jit_release'],
       default='debug'
   )
+  parser.add_argument('--interpreter', default=False, action='store_true')
   parser.add_argument(
       '--dart-debug',
       default=False,
@@ -924,6 +951,7 @@ def parse_args(args):
   parser.add_argument('--mac-cpu', type=str, choices=['x64', 'arm64'], default='x64')
   parser.add_argument('--simulator', action='store_true', default=False)
   parser.add_argument('--linux', dest='target_os', action='store_const', const='linux')
+  parser.add_argument('--ohos', dest='target_os', action='store_const', const='ohos')
   parser.add_argument('--fuchsia', dest='target_os', action='store_const', const='fuchsia')
   parser.add_argument('--wasm', dest='target_os', action='store_const', const='wasm')
   parser.add_argument(
@@ -937,6 +965,9 @@ def parse_args(args):
   parser.add_argument('--windows', dest='target_os', action='store_const', const='win')
 
   parser.add_argument('--linux-cpu', type=str, choices=['x64', 'x86', 'arm64', 'arm'])
+  parser.add_argument('--ohos-cpu', type=str, choices=['x64', 'x86', 'arm64', 'arm'])
+  parser.add_argument('--ohos-api-int', type=int, default=13)
+
   parser.add_argument('--fuchsia-cpu', type=str, choices=['x64', 'arm64'], default='x64')
   parser.add_argument('--windows-cpu', type=str, choices=['x64', 'arm64', 'x86'], default='x64')
   parser.add_argument('--simulator-cpu', type=str, choices=['x64', 'arm64'], default='x64')
@@ -1188,6 +1219,7 @@ def parse_args(args):
 
   # Sanitizers.
   parser.add_argument('--asan', default=False, action='store_true')
+  parser.add_argument('--hwasan', default=False, action='store_true')
   parser.add_argument('--lsan', default=False, action='store_true')
   parser.add_argument('--msan', default=False, action='store_true')
   parser.add_argument('--tsan', default=False, action='store_true')
@@ -1257,6 +1289,16 @@ def main(argv):
       '--check',
       '--export-compile-commands',
   ]
+
+  print('XX ohos_cpu:%s' % args.ohos_cpu)
+  # print('linux_cpu:'+ args.linux_cpu )
+  print('XX target_os:%s' % args.target_os)
+
+  if args.target_os == 'ohos':
+    if args.ohos_cpu is not None:
+      args.linux_cpu = args.ohos_cpu
+    elif args.linux_cpu is not None:
+      args.ohos_cpu = args.linux_cpu
 
   if not args.web:
     if args.ide != '':

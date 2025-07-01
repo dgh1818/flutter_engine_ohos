@@ -87,6 +87,10 @@ class RenderTarget final {
           RenderTarget::kDefaultStencilAttachmentConfig,
       const std::shared_ptr<Texture>& depth_stencil_texture = nullptr);
 
+  void SetRenderArea(std::optional<IRect> area) const;
+
+  const std::optional<IRect> GetRenderArea() const;
+
   SampleCount GetSampleCount() const;
 
   bool HasColorAttachment(size_t index) const;

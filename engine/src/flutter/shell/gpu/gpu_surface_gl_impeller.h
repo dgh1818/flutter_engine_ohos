@@ -31,6 +31,7 @@ class GPUSurfaceGLImpeller final : public Surface {
   GPUSurfaceGLDelegate* delegate_ = nullptr;
   std::shared_ptr<impeller::Context> impeller_context_;
   bool render_to_surface_ = true;
+  std::shared_ptr<impeller::Renderer> impeller_renderer_;
   std::shared_ptr<impeller::AiksContext> aiks_context_;
   bool is_valid_ = false;
   fml::TaskRunnerAffineWeakPtrFactory<GPUSurfaceGLImpeller> weak_factory_;

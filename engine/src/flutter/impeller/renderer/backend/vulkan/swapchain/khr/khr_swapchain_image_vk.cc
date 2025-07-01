@@ -35,6 +35,31 @@ bool KHRSwapchainImageVK::IsValid() const {
   return is_valid_;
 }
 
+std::shared_ptr<Texture> KHRSwapchainImageVK::GetMSAATexture() const {
+  return msaa_texture_;
+}
+
+std::shared_ptr<Texture> KHRSwapchainImageVK::GetDepthStencilTexture() const {
+  return depth_stencil_texture_;
+}
+
+void KHRSwapchainImageVK::SetMSAATexture(std::shared_ptr<Texture> texture) {
+  msaa_texture_ = std::move(texture);
+}
+
+void KHRSwapchainImageVK::SetDepthStencilTexture(
+    std::shared_ptr<Texture> texture) {
+  depth_stencil_texture_ = std::move(texture);
+}
+
+PixelFormat KHRSwapchainImageVK::GetPixelFormat() const {
+  return desc_.format;
+}
+
+ISize KHRSwapchainImageVK::GetSize() const {
+  return desc_.size;
+}
+
 // |TextureSourceVK|
 vk::Image KHRSwapchainImageVK::GetImage() const {
   return image_;

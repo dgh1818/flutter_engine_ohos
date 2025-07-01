@@ -15,6 +15,7 @@
 #include "flutter/fml/delayed_task.h"
 #include "flutter/fml/macros.h"
 #include "flutter/fml/memory/ref_counted.h"
+#include "flutter/fml/synchronization/shared_mutex.h"
 #include "flutter/fml/task_queue_id.h"
 #include "flutter/fml/task_source.h"
 #include "flutter/fml/wakeable.h"

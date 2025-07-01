@@ -204,8 +204,6 @@ RenderPassVK::RenderPassVK(const std::shared_ptr<const Context>& context,
   vk::RenderPassBeginInfo pass_info;
   pass_info.renderPass = *render_pass_;
   pass_info.framebuffer = *framebuffer;
-  pass_info.renderArea.extent.width = static_cast<uint32_t>(target_size.width);
-  pass_info.renderArea.extent.height =
       static_cast<uint32_t>(target_size.height);
   pass_info.setPClearValues(clears.data());
   pass_info.setClearValueCount(clear_count);
@@ -223,6 +221,26 @@ RenderPassVK::RenderPassVK(const std::shared_ptr<const Context>& context,
         .SetLayoutWithoutEncoding(vk::ImageLayout::eGeneral);
   }
 
+  auto render_area = render_target_.GetRenderArea();
+  if (render_area.has_value()) {
+    pass_info.renderArea.offset.x =
+        static_cast<uint32_t>(render_area.value().GetX());
+    pass_info.renderArea.offset.y =
+        static_cast<uint32_t>(render_area.value().GetY());
+    pass_info.renderArea.extent.width =
+        static_cast<uint32_t>(render_area.value().GetWidth());
+    pass_info.renderArea.extent.height =
+        static_cast<uint32_t>(render_area.value().GetHeight());
+  } else {
+    pass_info.renderArea.extent.width =
+        static_cast<uint32_t>(target_size.width);
+    pass_info.renderArea.extent.height =
+        static_cast<uint32_t>(target_size.height);
+  }
+  pass_info.setClearValues(clear_values);
+
+  command_buffer_vk_.beginRenderPass(pass_info, vk::SubpassContents::eInline);
+
   // Set the initial viewport.
   const auto vp = Viewport{.rect = Rect::MakeSize(target_size)};
   vk::Viewport viewport = vk::Viewport()
@@ -234,7 +252,10 @@ RenderPassVK::RenderPassVK(const std::shared_ptr<const Context>& context,
   command_buffer_vk_.setViewport(0, 1, &viewport);
 
   // Set the initial scissor.
-  const auto sc = IRect::MakeSize(target_size);
+  auto sc = IRect::MakeSize(target_size);
+  if (render_area.has_value()) {
+    sc = render_area.value();
+  }
   vk::Rect2D scissor =
       vk::Rect2D()
           .setOffset(vk::Offset2D(sc.GetX(), sc.GetY()))
@@ -659,7 +680,9 @@ bool RenderPassVK::BindResource(ShaderStage stage,
 
   vk::DescriptorImageInfo image_info;
   image_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-  image_info.sampler = sampler_vk.GetSampler();
+  if (!immutable_sampler_) {
+    image_info.sampler = sampler_vk.GetSampler();
+  }
   image_info.imageView = texture_vk.GetImageView();
   image_workspace_[bound_image_offset_++] = image_info;
 
@@ -675,6 +698,29 @@ bool RenderPassVK::BindResource(ShaderStage stage,
 
 bool RenderPassVK::OnEncodeCommands(const Context& context) const {
   command_buffer_->GetCommandBuffer().endRenderPass();
+
+  // If this render target will be consumed by a subsequent render pass,
+  // perform a layout transition to a shader read state.
+  const std::shared_ptr<Texture>& result_texture =
+      resolve_image_vk_ ? resolve_image_vk_ : color_image_vk_;
+  if (result_texture->GetTextureDescriptor().usage &
+      TextureUsage::kShaderRead) {
+    BarrierVK barrier;
+    barrier.cmd_buffer = command_buffer_vk_;
+    barrier.src_access = vk::AccessFlagBits::eColorAttachmentWrite |
+                         vk::AccessFlagBits::eTransferWrite;
+    barrier.src_stage = vk::PipelineStageFlagBits::eColorAttachmentOutput |
+                        vk::PipelineStageFlagBits::eTransfer;
+    barrier.dst_access = vk::AccessFlagBits::eShaderRead;
+    barrier.dst_stage = vk::PipelineStageFlagBits::eFragmentShader;
+
+    barrier.new_layout = vk::ImageLayout::eShaderReadOnlyOptimal;
+
+    if (!TextureVK::Cast(*result_texture).SetLayout(barrier)) {
+      return false;
+    }
+  }
+
   return true;
 }
 

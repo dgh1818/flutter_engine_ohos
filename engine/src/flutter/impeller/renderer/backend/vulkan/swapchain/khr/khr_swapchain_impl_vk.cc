@@ -8,6 +8,7 @@
 #include "impeller/base/validation.h"
 #include "impeller/core/formats.h"
 #include "impeller/renderer/backend/vulkan/command_buffer_vk.h"
+#include "impeller/renderer/backend/vulkan/command_encoder_vk.h"
 #include "impeller/renderer/backend/vulkan/context_vk.h"
 #include "impeller/renderer/backend/vulkan/formats_vk.h"
 #include "impeller/renderer/backend/vulkan/gpu_tracer_vk.h"
@@ -15,16 +16,23 @@
 #include "impeller/renderer/backend/vulkan/swapchain/surface_vk.h"
 #include "impeller/renderer/backend/vulkan/texture_vk.h"
 #include "impeller/renderer/context.h"
+#include "vulkan/vulkan_structs.hpp"
 
 namespace impeller {
 
 static constexpr size_t kMaxFramesInFlight = 2u;
+
+// Number of frames to poll for orientation changes. For example `1u` means
+// that the orientation will be polled every frame, while `2u` means that the
+// orientation will be polled every other frame.
+static constexpr size_t kPollFramesForOrientation = 1u;
 
 struct KHRFrameSynchronizerVK {
   vk::UniqueFence acquire;
   vk::UniqueSemaphore render_ready;
   vk::UniqueSemaphore present_ready;
   std::shared_ptr<CommandBuffer> final_cmd_buffer;
+  std::shared_ptr<CommandBuffer> ready_cmd_buffer;
   bool is_valid = false;
   // Whether the renderer attached an onscreen command buffer to render to.
   bool has_onscreen = false;
@@ -179,16 +187,28 @@ KHRSwapchainImplVK::KHRSwapchainImplVK(const std::shared_ptr<Context>& context,
                  surface_caps.maxImageExtent.height),
   };
   swapchain_info.minImageCount =
+#ifdef __OHOS__
+      // OHOS's RenderService will hold one buffer, and the hardware composer
+      // will always hold two buffers.
+      std::clamp(surface_caps.minImageCount + 3u,  // preferred image count
+                 surface_caps.minImageCount,       // min count cannot be zero
+                 surface_caps.maxImageCount == 0u
+                     ? surface_caps.minImageCount + 3u
+                     : surface_caps.maxImageCount  // max zero means no limit
+      );
+#else
       std::clamp(surface_caps.minImageCount + 1u,  // preferred image count
                  surface_caps.minImageCount,       // min count cannot be zero
                  surface_caps.maxImageCount == 0u
                      ? surface_caps.minImageCount + 1u
                      : surface_caps.maxImageCount  // max zero means no limit
       );
+#endif
   swapchain_info.imageArrayLayers = 1u;
-  // Swapchain images are primarily used as color attachments (via resolve) or
-  // input attachments.
+  // Swapchain images are primarily used as color attachments (via resolve),
+  // blit targets, or input attachments.
   swapchain_info.imageUsage = vk::ImageUsageFlagBits::eColorAttachment |
+                              vk::ImageUsageFlagBits::eTransferDst |
                               vk::ImageUsageFlagBits::eInputAttachment;
   swapchain_info.preTransform = vk::SurfaceTransformFlagBitsKHR::eIdentity;
   swapchain_info.compositeAlpha = composite.value();
@@ -223,6 +243,48 @@ KHRSwapchainImplVK::KHRSwapchainImplVK(const std::shared_ptr<Context>& context,
   texture_desc.size = ISize::MakeWH(swapchain_info.imageExtent.width,
                                     swapchain_info.imageExtent.height);
 
+  // Allocate a single onscreen MSAA texture and Depth+Stencil Texture to
+  // be shared by all swapchain images.
+  TextureDescriptor msaa_desc;
+  msaa_desc.storage_mode = StorageMode::kDeviceTransient;
+  msaa_desc.type = TextureType::kTexture2DMultisample;
+#ifdef __OHOS__
+  msaa_desc.sample_count = SampleCount::kCount2;
+#else
+  msaa_desc.sample_count = SampleCount::kCount4;
+#endif
+  msaa_desc.format = texture_desc.format;
+  msaa_desc.size = texture_desc.size;
+  msaa_desc.usage = TextureUsage::kRenderTarget;
+
+  // The depth+stencil configuration matches the configuration used by
+  // RenderTarget::SetupDepthStencilAttachments and matching the swapchain
+  // image dimensions and sample count.
+  TextureDescriptor depth_stencil_desc;
+  depth_stencil_desc.storage_mode = StorageMode::kDeviceTransient;
+  if (enable_msaa) {
+    depth_stencil_desc.type = TextureType::kTexture2DMultisample;
+#ifdef __OHOS__
+    depth_stencil_desc.sample_count = SampleCount::kCount2;
+#else
+    depth_stencil_desc.sample_count = SampleCount::kCount4;
+#endif
+  } else {
+    depth_stencil_desc.type = TextureType::kTexture2D;
+    depth_stencil_desc.sample_count = SampleCount::kCount1;
+  }
+  depth_stencil_desc.format =
+      context->GetCapabilities()->GetDefaultDepthStencilFormat();
+  depth_stencil_desc.size = texture_desc.size;
+  depth_stencil_desc.usage = TextureUsage::kRenderTarget;
+
+  std::shared_ptr<Texture> msaa_texture;
+  if (enable_msaa) {
+    msaa_texture = context->GetResourceAllocator()->CreateTexture(msaa_desc);
+  }
+  std::shared_ptr<Texture> depth_stencil_texture =
+      context->GetResourceAllocator()->CreateTexture(depth_stencil_desc);
+
   std::vector<std::shared_ptr<KHRSwapchainImageVK>> swapchain_images;
   for (const auto& image : images) {
     auto swapchain_image = std::make_shared<KHRSwapchainImageVK>(
@@ -234,6 +296,9 @@ KHRSwapchainImplVK::KHRSwapchainImplVK(const std::shared_ptr<Context>& context,
       VALIDATION_LOG << "Could not create swapchain image.";
       return;
     }
+    swapchain_image->SetMSAATexture(msaa_texture);
+    swapchain_image->SetDepthStencilTexture(depth_stencil_texture);
+
     ContextVK::SetDebugName(
         vk_context.GetDevice(), swapchain_image->GetImage(),
         "SwapchainImage" + std::to_string(swapchain_images.size()));
@@ -256,12 +321,20 @@ KHRSwapchainImplVK::KHRSwapchainImplVK(const std::shared_ptr<Context>& context,
   }
   FML_DCHECK(!synchronizers.empty());
 
+  if (CapabilitiesVK::Cast(*vk_context.GetCapabilities())
+          .HasExtension(OptionalDeviceExtensionVK::kVKKHRIncrementalPresent)) {
+    support_present_damage_ = true;
+  }
+
+#ifdef __OHOS__
+  // OHOS support this capability but does not declare it explicitly
+  support_present_damage_ = true;
+#endif
+
   context_ = context;
   surface_ = std::move(surface);
   surface_format_ = swapchain_info.imageFormat;
   swapchain_ = std::move(swapchain);
-  transients_ = std::make_shared<SwapchainTransientsVK>(context, texture_desc,
-                                                        enable_msaa);
   images_ = std::move(swapchain_images);
   synchronizers_ = std::move(synchronizers);
   current_frame_ = synchronizers_.size() - 1u;
@@ -316,8 +389,8 @@ bool KHRSwapchainImplVK::IsValid() const {
 
 void KHRSwapchainImplVK::WaitIdle() const {
   if (auto context = context_.lock()) {
-    [[maybe_unused]] auto result =
-        ContextVK::Cast(*context).GetDevice().waitIdle();
+    // vkDeviceWaitIdle is equivalent to calling vkQueueWaitIdle on all queues.
+    ContextVK::Cast(*context).WaitIdle();
   }
 }
 
@@ -398,10 +471,59 @@ KHRSwapchainImplVK::AcquireResult KHRSwapchainImplVK::AcquireNextDrawable() {
   context.GetGPUTracer()->MarkFrameStart();
 
   auto image = images_[index % images_.size()];
+  current_image_index_ = index % images_.size();
+
+  /// The GPU's write operations to the image must wait for the
+  /// sync->render_ready semaphore (i.e., wait for the GPU or hardware composer
+  /// to complete reading the image);
+  /// otherwise, screen tearing or other visual artifacts may occur.
+  /// However, the current function does not provide the render_ready semaphore
+  /// upon return, meaning subsequent write operations to the image will not
+  /// wait for the semaphore to signal, potentially leading to visual anomalies.
+
+  /// To address this issue, a write barrier is added here for the image,
+  /// along with a wait for the corresponding semaphore,
+  /// ensuring correct rendering.
+  /// Note: vkWaitSemaphores might not function correctly when the semaphore is
+  /// imported from a sync FD.
+  sync->ready_cmd_buffer = context.CreateCommandBuffer();
+  if (sync->ready_cmd_buffer) {
+    auto vk_cmd_buffer = CommandBufferVK::Cast(*sync->ready_cmd_buffer)
+                             .GetEncoder()
+                             ->GetCommandBuffer();
+    BarrierVK barrier;
+    barrier.new_layout = vk::ImageLayout::eColorAttachmentOptimal;
+    barrier.cmd_buffer = vk_cmd_buffer;
+    barrier.src_access = {};
+    barrier.src_stage = vk::PipelineStageFlagBits::eTopOfPipe;
+    barrier.dst_access = vk::AccessFlagBits::eColorAttachmentWrite;
+    barrier.dst_stage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+    image->SetLayout(barrier);
+
+    auto end_ret = vk_cmd_buffer.end();
+    if (end_ret == vk::Result::eSuccess) {
+      vk::SubmitInfo submit_info;
+      vk::PipelineStageFlags wait_stage =
+          vk::PipelineStageFlagBits::eColorAttachmentOutput;
+      submit_info.setWaitDstStageMask(wait_stage);
+      submit_info.setWaitSemaphores(*sync->render_ready);
+      submit_info.setCommandBuffers(vk_cmd_buffer);
+      auto result = context.GetGraphicsQueue()->Submit(submit_info, nullptr);
+      if (result != vk::Result::eSuccess) {
+        VALIDATION_LOG << "Submit Swapchain Image Write Barrier Failed: "
+                       << vk::to_string(result);
+      }
+    } else {
+      VALIDATION_LOG << "Command Buffer End Failed: " << vk::to_string(end_ret);
+    }
+  } else {
+    VALIDATION_LOG << "Create Command Buffer Failed";
+  }
+
   uint32_t image_index = index;
-  return AcquireResult{SurfaceVK::WrapSwapchainImage(
-      transients_,  // transients
-      image,        // swapchain image
+  return AcquireResult{KHRSurfaceVK::WrapSwapchainImage(
+      context_strong,  // context
+      image,           // swapchain image
       [weak_swapchain = weak_from_this(), image, image_index]() -> bool {
         auto swapchain = weak_swapchain.lock();
         if (!swapchain) {
@@ -491,6 +613,22 @@ bool KHRSwapchainImplVK::Present(
   present_info.setSwapchains(*swapchain_);
   present_info.setImageIndices(indices);
   present_info.setWaitSemaphores(*sync->present_ready);
+
+  vk::RectLayerKHR damage_rect;
+  vk::PresentRegionKHR present_region;
+  vk::PresentRegionsKHR present_regions;
+
+  if (support_present_damage_ && render_area_.has_value()) {
+    damage_rect.setOffset(
+        {(int)render_area_->GetX(), (int)render_area_->GetY()});
+    damage_rect.setExtent({(uint32_t)render_area_->GetWidth(),
+                           (uint32_t)render_area_->GetHeight()});
+
+    present_region.setRectangles(damage_rect);
+    present_regions.setRegions(present_region);
+
+    present_info.setPNext(&present_regions);
+  }
 
   auto result = context.GetGraphicsQueue()->Present(present_info);
 

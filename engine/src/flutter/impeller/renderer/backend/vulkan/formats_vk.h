@@ -9,6 +9,8 @@
 #include <ostream>
 
 #include "fml/logging.h"
+#include "flutter/fml/hash_combine.h"
+#include "flutter/fml/macros.h"
 #include "impeller/base/validation.h"
 #include "impeller/core/formats.h"
 #include "impeller/core/shader_types.h"
@@ -33,6 +35,8 @@ constexpr vk::SampleCountFlagBits ToVKSampleCountFlagBits(SampleCount count) {
   switch (count) {
     case SampleCount::kCount1:
       return vk::SampleCountFlagBits::e1;
+    case SampleCount::kCount2:
+      return vk::SampleCountFlagBits::e2;
     case SampleCount::kCount4:
       return vk::SampleCountFlagBits::e4;
   }
@@ -215,6 +219,8 @@ constexpr vk::SampleCountFlagBits ToVKSampleCount(SampleCount sample_count) {
   switch (sample_count) {
     case SampleCount::kCount1:
       return vk::SampleCountFlagBits::e1;
+    case SampleCount::kCount2:
+      return vk::SampleCountFlagBits::e2;
     case SampleCount::kCount4:
       return vk::SampleCountFlagBits::e4;
   }
@@ -365,6 +371,7 @@ constexpr vk::IndexType ToVKIndexType(IndexType index_type) {
   }
 
   FML_UNREACHABLE();
+  return vk::IndexType::eUint16;
 }
 
 constexpr vk::PolygonMode ToVKPolygonMode(PolygonMode mode) {
@@ -375,6 +382,7 @@ constexpr vk::PolygonMode ToVKPolygonMode(PolygonMode mode) {
       return vk::PolygonMode::eLine;
   }
   FML_UNREACHABLE();
+  return vk::PolygonMode::eFill;
 }
 
 constexpr bool PrimitiveTopologySupportsPrimitiveRestart(
@@ -407,8 +415,8 @@ constexpr vk::PrimitiveTopology ToVKPrimitiveTopology(PrimitiveType primitive) {
     case PrimitiveType::kTriangleFan:
       return vk::PrimitiveTopology::eTriangleFan;
   }
-
   FML_UNREACHABLE();
+  return vk::PrimitiveTopology::eTriangleList;
 }
 
 constexpr bool PixelFormatIsDepthStencil(PixelFormat format) {
@@ -448,6 +456,7 @@ constexpr vk::CullModeFlags ToVKCullModeFlags(CullMode mode) {
       return vk::CullModeFlagBits::eBack;
   }
   FML_UNREACHABLE();
+  return vk::CullModeFlagBits::eNone;
 }
 
 constexpr vk::CompareOp ToVKCompareOp(CompareFunction op) {
@@ -470,6 +479,7 @@ constexpr vk::CompareOp ToVKCompareOp(CompareFunction op) {
       return vk::CompareOp::eGreaterOrEqual;
   }
   FML_UNREACHABLE();
+  return vk::CompareOp::eNever;
 }
 
 constexpr vk::StencilOp ToVKStencilOp(StencilOperation op) {
@@ -493,6 +503,7 @@ constexpr vk::StencilOp ToVKStencilOp(StencilOperation op) {
       break;
   }
   FML_UNREACHABLE();
+  return vk::StencilOp::eKeep;
 }
 
 constexpr vk::StencilOpState ToVKStencilOpState(
@@ -534,6 +545,7 @@ constexpr vk::ImageAspectFlags ToVKImageAspectFlags(PixelFormat format) {
              vk::ImageAspectFlagBits::eStencil;
   }
   FML_UNREACHABLE();
+  return vk::ImageAspectFlagBits::eColor;
 }
 
 constexpr uint32_t ToArrayLayerCount(TextureType type) {
@@ -548,6 +560,7 @@ constexpr uint32_t ToArrayLayerCount(TextureType type) {
           << "kTextureExternalOES can not be used with the Vulkan backend.";
   }
   FML_UNREACHABLE();
+  return 1u;
 }
 
 constexpr vk::ImageViewType ToVKImageViewType(TextureType type) {
@@ -562,6 +575,7 @@ constexpr vk::ImageViewType ToVKImageViewType(TextureType type) {
           << "kTextureExternalOES can not be used with the Vulkan backend.";
   }
   FML_UNREACHABLE();
+  return vk::ImageViewType::e2D;
 }
 
 constexpr vk::ImageCreateFlags ToVKImageCreateFlags(TextureType type) {
@@ -576,6 +590,7 @@ constexpr vk::ImageCreateFlags ToVKImageCreateFlags(TextureType type) {
           << "kTextureExternalOES can not be used with the Vulkan backend.";
   }
   FML_UNREACHABLE();
+  return {};
 }
 
 vk::PipelineDepthStencilStateCreateInfo ToVKPipelineDepthStencilStateCreateInfo(
@@ -608,6 +623,7 @@ constexpr vk::ImageAspectFlags ToImageAspectFlags(PixelFormat format) {
              vk::ImageAspectFlagBits::eStencil;
   }
   FML_UNREACHABLE();
+  return {};
 }
 
 }  // namespace impeller
