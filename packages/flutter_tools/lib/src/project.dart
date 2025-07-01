@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'dart:io' as io;
+import 'package:json5/json5.dart';
 import 'package:meta/meta.dart';
 import 'package:xml/xml.dart';
 import 'package:yaml/yaml.dart';
@@ -9,6 +11,9 @@ import 'package:yaml/yaml.dart';
 import '../src/convert.dart';
 import 'android/android_builder.dart';
 import 'android/gradle_utils.dart' as gradle;
+import 'base/io.dart';
+import 'ohos/application_package.dart';
+import 'ohos/hvigor_utils.dart' as hvigor;
 import 'base/common.dart';
 import 'base/error_handling_io.dart';
 import 'base/file_system.dart';
@@ -33,6 +38,7 @@ export 'xcode_project.dart';
 
 /// Enum for each officially supported platform.
 enum SupportedPlatform {
+  ohos(name: 'ohos'),
   android(name: 'android'),
   ios(name: 'ios'),
   linux(name: 'linux'),
@@ -102,7 +108,8 @@ class FlutterProject {
 
   /// Create a [FlutterProject] and bypass the project caching.
   @visibleForTesting
-  static FlutterProject fromDirectoryTest(Directory directory, [Logger? logger]) {
+  static FlutterProject fromDirectoryTest(Directory directory,
+      [Logger? logger]) {
     final FileSystem fileSystem = directory.fileSystem;
     logger ??= BufferLogger.test();
     final FlutterManifest manifest = FlutterProject._readManifest(
@@ -152,7 +159,8 @@ class FlutterProject {
       // used during create as best-effort, use the
       // default target bundle identifier.
       try {
-        final String? bundleIdentifier = await ios.productBundleIdentifier(null);
+        final String? bundleIdentifier =
+            await ios.productBundleIdentifier(null);
         if (bundleIdentifier != null) {
           candidates.add(bundleIdentifier);
         }
@@ -178,7 +186,8 @@ class FlutterProject {
       }
     }
     if (example.ios.existsSync()) {
-      final String? bundleIdentifier = await example.ios.productBundleIdentifier(null);
+      final String? bundleIdentifier =
+          await example.ios.productBundleIdentifier(null);
       if (bundleIdentifier != null) {
         candidates.add(bundleIdentifier);
       }
@@ -216,8 +225,21 @@ class FlutterProject {
   /// The Fuchsia sub project of this project.
   late final FuchsiaProject fuchsia = FuchsiaProject._(this);
 
+  /// The Ohos sub project of this project.
+  late final OhosProject ohos = OhosProject._(this);
+
   /// The `pubspec.yaml` file of this project.
   File get pubspecFile => directory.childFile('pubspec.yaml');
+
+  /// The `.packages` file of this project.
+  File get packagesFile => directory.childFile('.packages');
+
+  /// The `package_config.json` file of the project.
+  ///
+  /// This is the replacement for .packages which contains language
+  /// version information.
+  File get packageConfigFile =>
+      directory.childDirectory('.dart_tool').childFile('package_config.json');
 
   /// The `.metadata` file of this project.
   File get metadataFile => directory.childFile('.metadata');
@@ -227,7 +249,8 @@ class FlutterProject {
 
   /// The `.flutter-plugins-dependencies` file of this project,
   /// which contains the dependencies each plugin depends on.
-  File get flutterPluginsDependenciesFile => directory.childFile('.flutter-plugins-dependencies');
+  File get flutterPluginsDependenciesFile =>
+      directory.childFile('.flutter-plugins-dependencies');
 
   /// The `.gitignore` file of this project.
   File get gitignoreFile => directory.childFile('.gitignore');
@@ -254,10 +277,10 @@ class FlutterProject {
 
   /// The example sub-project of this project.
   FlutterProject get example => FlutterProject(
-    _exampleDirectory(directory),
-    _exampleManifest,
-    FlutterManifest.empty(logger: globals.logger),
-  );
+        _exampleDirectory(directory),
+        _exampleManifest,
+        FlutterManifest.empty(logger: globals.logger),
+      );
 
   /// The generated scaffolding project for hosting widget previews from this
   /// project.
@@ -288,11 +311,13 @@ class FlutterProject {
       if (linux.existsSync()) SupportedPlatform.linux,
       if (windows.existsSync()) SupportedPlatform.windows,
       if (fuchsia.existsSync()) SupportedPlatform.fuchsia,
+      if (ohos.existsSync()) SupportedPlatform.ohos,
     ];
   }
 
   /// The directory that will contain the example if an example exists.
-  static Directory _exampleDirectory(Directory directory) => directory.childDirectory('example');
+  static Directory _exampleDirectory(Directory directory) =>
+      directory.childDirectory('example');
 
   /// Reads and validates the `pubspec.yaml` file at [path], asynchronously
   /// returning a [FlutterManifest] representation of the contents.
@@ -311,10 +336,12 @@ class FlutterProject {
       logger.printStatus('Error detected in pubspec.yaml:', emphasis: true);
       logger.printError('$e');
     } on FormatException catch (e) {
-      logger.printError('Error detected while parsing pubspec.yaml:', emphasis: true);
+      logger.printError('Error detected while parsing pubspec.yaml:',
+          emphasis: true);
       logger.printError('$e');
     } on FileSystemException catch (e) {
-      logger.printError('Error detected while reading pubspec.yaml:', emphasis: true);
+      logger.printError('Error detected while reading pubspec.yaml:',
+          emphasis: true);
       logger.printError('$e');
     }
     if (manifest == null) {
@@ -352,6 +379,7 @@ class FlutterProject {
       macOSPlatform: featureFlags.isMacOSEnabled && macos.existsSync(),
       windowsPlatform: featureFlags.isWindowsEnabled && windows.existsSync(),
       webPlatform: featureFlags.isWebEnabled && web.existsSync(),
+      ohosPlatform: featureFlags.isOhosEnabled && ohos.existsSync(),
       deprecationBehavior: deprecationBehavior,
       releaseMode: releaseMode,
     );
@@ -371,14 +399,17 @@ class FlutterProject {
     bool macOSPlatform = false,
     bool windowsPlatform = false,
     bool webPlatform = false,
+    bool ohosPlatform = false,
     DeprecationBehavior deprecationBehavior = DeprecationBehavior.none,
   }) async {
     if (!directory.existsSync() || isPlugin) {
       return;
     }
-    await refreshPluginsList(this, iosPlatform: iosPlatform, macOSPlatform: macOSPlatform);
+    await refreshPluginsList(this,
+        iosPlatform: iosPlatform, macOSPlatform: macOSPlatform);
     if (androidPlatform) {
-      await android.ensureReadyForPlatformSpecificTooling(deprecationBehavior: deprecationBehavior);
+      await android.ensureReadyForPlatformSpecificTooling(
+          deprecationBehavior: deprecationBehavior);
     }
     if (iosPlatform) {
       await ios.ensureReadyForPlatformSpecificTooling();
@@ -395,6 +426,9 @@ class FlutterProject {
     if (webPlatform) {
       await web.ensureReadyForPlatformSpecificTooling();
     }
+    if (ohosPlatform) {
+      await ohos.ensureReadyForPlatformSpecificTooling();
+    }
     await injectPlugins(
       this,
       androidPlatform: androidPlatform,
@@ -402,11 +436,13 @@ class FlutterProject {
       linuxPlatform: linuxPlatform,
       macOSPlatform: macOSPlatform,
       windowsPlatform: windowsPlatform,
+      ohosPlatfrom: ohosPlatform,
       releaseMode: releaseMode,
     );
   }
 
-  void checkForDeprecation({DeprecationBehavior deprecationBehavior = DeprecationBehavior.none}) {
+  void checkForDeprecation(
+      {DeprecationBehavior deprecationBehavior = DeprecationBehavior.none}) {
     if (android.existsSync() && pubspecFile.existsSync()) {
       android.checkForDeprecation(deprecationBehavior: deprecationBehavior);
     }
@@ -506,10 +542,14 @@ class AndroidProject extends FlutterProjectPlatform {
   /// The Gradle root directory of the Android wrapping of Flutter and plugins.
   /// This is the same as [hostAppGradleRoot] except when the project is
   /// a Flutter module with an editable host app.
-  Directory get _flutterLibGradleRoot => isModule ? ephemeralDirectory : _editableHostAppDirectory;
+  Directory get _flutterLibGradleRoot =>
+      isModule ? ephemeralDirectory : _editableHostAppDirectory;
 
-  Directory get ephemeralDirectory => parent.directory.childDirectory('.android');
-  Directory get _editableHostAppDirectory => parent.directory.childDirectory('android');
+  Directory get ephemeralDirectory =>
+      parent.directory.childDirectory('.android');
+
+  Directory get _editableHostAppDirectory =>
+      parent.directory.childDirectory('android');
 
   /// True if the parent Flutter project is a module.
   bool get isModule => parent.isModule;
@@ -807,7 +847,8 @@ $javaGradleCompatUrl
         globals.cache.isOlderThanToolsStamp(ephemeralDirectory);
   }
 
-  File get localPropertiesFile => _flutterLibGradleRoot.childFile('local.properties');
+  File get localPropertiesFile =>
+      _flutterLibGradleRoot.childFile('local.properties');
 
   Directory get pluginRegistrantHost =>
       _flutterLibGradleRoot.childDirectory(isModule ? 'Flutter' : 'app');
@@ -851,7 +892,8 @@ $javaGradleCompatUrl
     }, printStatusWhenWriting: false);
   }
 
-  void checkForDeprecation({DeprecationBehavior deprecationBehavior = DeprecationBehavior.none}) {
+  void checkForDeprecation(
+      {DeprecationBehavior deprecationBehavior = DeprecationBehavior.none}) {
     if (deprecationBehavior == DeprecationBehavior.none) {
       return;
     }
@@ -876,14 +918,16 @@ $javaGradleCompatUrl
     if (isModule) {
       // A module type's Android project is used in add-to-app scenarios and
       // only supports the V2 embedding.
-      return AndroidEmbeddingVersionResult(AndroidEmbeddingVersion.v2, 'Is add-to-app module');
+      return AndroidEmbeddingVersionResult(
+          AndroidEmbeddingVersion.v2, 'Is add-to-app module');
     }
     if (isPlugin) {
       // Plugins do not use an appManifest, so we stop here.
       //
       // TODO(garyq): This method does not currently check for code references to
       // the v1 embedding, we should check for this once removal is further along.
-      return AndroidEmbeddingVersionResult(AndroidEmbeddingVersion.v2, 'Is plugin');
+      return AndroidEmbeddingVersionResult(
+          AndroidEmbeddingVersion.v2, 'Is plugin');
     }
     if (!appManifestFile.existsSync()) {
       return AndroidEmbeddingVersionResult(
@@ -905,7 +949,8 @@ $javaGradleCompatUrl
         'Please ensure that you have read permission to this file and try again.',
       );
     }
-    for (final XmlElement application in document.findAllElements('application')) {
+    for (final XmlElement application
+        in document.findAllElements('application')) {
       final String? applicationName = application.getAttribute('android:name');
       if (applicationName == 'io.flutter.app.FlutterApplication') {
         return AndroidEmbeddingVersionResult(
@@ -919,7 +964,8 @@ $javaGradleCompatUrl
       // External code checks for this string to identify flutter android apps.
       // See cl/667760684 as an example.
       if (name == 'flutterEmbedding') {
-        final String? embeddingVersionString = metaData.getAttribute('android:value');
+        final String? embeddingVersionString =
+            metaData.getAttribute('android:value');
         if (embeddingVersionString == '1') {
           return AndroidEmbeddingVersionResult(
             AndroidEmbeddingVersion.v1,
@@ -1053,6 +1099,7 @@ class FuchsiaProject {
   final FlutterProject project;
 
   Directory? _editableHostAppDirectory;
+
   Directory get editableHostAppDirectory =>
       _editableHostAppDirectory ??= project.directory.childDirectory('fuchsia');
 
@@ -1078,4 +1125,302 @@ String? versionToParsableString(Version? version) {
   }
 
   return '${version.major}.${version.minor}.${version.patch}';
+}
+
+/// The Ohos sub project.
+class OhosProject extends FlutterProjectPlatform {
+  OhosProject._(this.parent);
+
+  OhosBuildData get _initOhosBuildData {
+    _ohosBuildDataIns = OhosBuildData.parseOhosBuildData(this, globals.logger);
+    return _ohosBuildDataIns!;
+  }
+
+  static const String kBuildProfileName = 'build-profile.json5';
+  static const String kFlutterModuleName = 'flutter_module';
+
+  final FlutterProject parent;
+
+  OhosBuildData? _ohosBuildDataIns;
+
+  OhosBuildData get ohosBuildData => _ohosBuildDataIns ?? _initOhosBuildData;
+
+  /// True if the parent Flutter project is a module.
+  bool get isModule => parent.isModule;
+
+  /// True if the parent Flutter project is a plugin.
+  bool get isPlugin => parent.isPlugin;
+
+  /// The directory in the project that is managed by Flutter. As much as
+  /// possible, files that are edited by Flutter tooling after initial project
+  /// creation should live here.
+  Directory get managedDirectory =>
+      flutterModuleDirectory.childDirectory('src/main/ets/plugins');
+
+  /// Whether this flutter project has a ohos sub-project.
+  @override
+  bool existsSync() {
+    return parent.isModule || editableHostAppDirectory.existsSync();
+  }
+
+  @override
+  String get pluginConfigKey => OhosPlugin.kConfigKey;
+
+  Directory get ohosRoot {
+    if (!isModule || editableHostAppDirectory.existsSync()) {
+      return editableHostAppDirectory;
+    }
+    return ephemeralDirectory;
+  }
+
+  Directory get ephemeralDirectory => parent.directory.childDirectory('.ohos');
+
+  Directory get editableHostAppDirectory =>
+      parent.directory.childDirectory('ohos');
+
+  /// flutter资源和运行环境，生成和打包的module
+  String get flutterModuleName =>
+      isModule ? kFlutterModuleName : mainModuleName;
+
+  /// 主module，entry存在的话，是entryModuleName，否则是其他module
+  String get mainModuleName => ohosBuildData.moduleInfo.mainModuleName;
+
+  Directory get flutterModuleDirectory {
+    if (isModule) {
+      return ephemeralDirectory.childDirectory(kFlutterModuleName);
+    }
+    return editableHostAppDirectory.childDirectory(mainModuleName);
+  }
+
+  Directory get mainModuleDirectory {
+    return globals.fs.directory(globals.fs.path
+        .join(ohosRoot.path, ohosBuildData.moduleInfo.mainModuleSrcPath));
+  }
+
+  List<Directory> get moduleDirectorys {
+    final List<Directory> list = ohosBuildData.moduleInfo.moduleList
+        .map((OhosModule e) => globals.fs.path.join(ohosRoot.path, e.srcPath))
+        .map((String path) => globals.fs.directory(path))
+        .toList();
+    return list;
+  }
+
+  List<Directory> get ohModulesCacheDirectorys {
+    const String OH_MODULES_NAME = 'oh_modules';
+    // 先删除build，再删除oh_modules
+    final List<Directory> list = moduleDirectorys
+        .map((Directory e) => e.childDirectory('build'))
+        .toList();
+    list.add(ohosRoot.childDirectory('build'));
+    list.addAll(moduleDirectorys
+        .map((Directory e) => e.childDirectory(OH_MODULES_NAME)));
+    list.add(ohosRoot.childDirectory(OH_MODULES_NAME));
+    return list;
+  }
+
+  /// 删除ohModules文件夹缓存
+  Future<void> deleteOhModulesCache() async {
+    for (final Directory element in ohModulesCacheDirectorys) {
+      await deleteDirectory(element);
+    }
+  }
+
+  Future<void> deleteDirectory(Directory dir) async {
+    if (dir.existsSync()) {
+      if (globals.platform.isWindows) {
+        final Process process =
+            await Process.start('cmd', <String>['rmdir', '/s/q', dir.path]);
+        if (await process.exitCode != 0) {
+          throwToolExit('Unable to remove directory ${dir.path}', exitCode: 1);
+        }
+      } else {
+        dir.deleteSync(recursive: true);
+      }
+    }
+  }
+
+  File getAppJsonFile() =>
+      ohosRoot.childDirectory('AppScope').childFile('app.json5');
+
+  File getBuildProfileFile() => ohosRoot.childFile(kBuildProfileName);
+
+  // entry/src/main/module.json5 配置，主要获取启动ability名
+  File getModuleJsonFile() => mainModuleDirectory
+      .childDirectory('src')
+      .childDirectory('main')
+      .childFile('module.json5');
+
+  // macos: entry/build/{flavor}/outputs/{flavor}/entry-{flavor}-signed.hap
+  // windows: entry/build/default/outputs/{flavor}/entry-{flavor}-signed.hap
+  File getSignedHapFile(String flavor) {
+    return OhosProject.getSignedFile(
+      modulePath: mainModuleDirectory.path,
+      moduleName: mainModuleName,
+      flavor: flavor,
+    );
+  }
+
+  static File getSignedFile({
+    required String modulePath,
+    String moduleName = 'entry',
+    String flavor = 'default',
+    OhosFileType type = OhosFileType.hap,
+    bool throwOnMissing = false,
+    bool shouldCodesign = true,
+  }) {
+    final Directory moduleDir = globals.fs.directory(modulePath);
+    File targetFile;
+    final String signedSuffix = shouldCodesign ? 'signed' : 'unsigned';
+    if (type != OhosFileType.app) {
+      // 从模块级 build-profile.json5 中读取输出文件名
+      final String? fileName = _readFromModule(
+          moduleDir.childFile(kBuildProfileName), flavor);
+      targetFile = moduleDir
+          .childDirectory('build')
+          .childDirectory(flavor)
+          .childDirectory('outputs')
+          .childDirectory(flavor)
+          .childFile(fileName != null
+              ? '$fileName.${type.name}'
+              : '$moduleName-$flavor-$signedSuffix.${type.name}');
+    } else {
+      // 从工程级 build-profile.json5 中读取输出文件名
+      final String? fileName = _readFromProject(
+          moduleDir.parent.childFile(kBuildProfileName), flavor);
+      targetFile = moduleDir.parent
+          .childDirectory('build')
+          .childDirectory('outputs')
+          .childDirectory(flavor)
+          .childFile(fileName != null
+              ? '$fileName.${type.name}'
+              : 'ohos-$flavor-$signedSuffix.${type.name}');
+    }
+
+    if (throwOnMissing && !targetFile.existsSync()) {
+      throwToolExit('Hvigor build failed to produce an ${type.name} file. '
+        "It's likely that this file was generated under $modulePath, "
+        "but the tool couldn't find it: $targetFile");
+    }
+    return targetFile;
+  }
+
+  File get localPropertiesFile => ohosRoot.childFile('local.properties');
+
+  File get ephemeralLocalPropertiesFile =>
+      ephemeralDirectory.childFile('local.properties');
+
+  SettingsFile get settings => isModule
+      ? (ephemeralLocalPropertiesFile.existsSync()
+          ? SettingsFile.parseFromFile(ephemeralLocalPropertiesFile)
+          : SettingsFile())
+      : (localPropertiesFile.existsSync()
+          ? SettingsFile.parseFromFile(localPropertiesFile)
+          : SettingsFile());
+
+  Future<void> ensureReadyForPlatformSpecificTooling(
+      {DeprecationBehavior deprecationBehavior =
+          DeprecationBehavior.none}) async {
+    if (isModule && _shouldRegenerateFromTemplate()) {
+      await _regenerateLibrary();
+      // Add ephemeral host app, if an editable host app does not already exist.
+      if (!editableHostAppDirectory.existsSync()) {
+        await _overwriteFromTemplate(
+            globals.fs.path.join('module', 'ohos', 'host_app_common'),
+            ephemeralDirectory);
+      }
+    }
+    hvigor.updateLocalProperties(project: parent);
+    hvigor.installHvigorPlugin(parent.ohos);
+  }
+
+  Future<void> _regenerateLibrary() async {
+    ErrorHandlingFileSystem.deleteIfExists(ephemeralDirectory, recursive: true);
+    await _overwriteFromTemplate(
+        globals.fs.path.join('module', 'ohos', 'module_library'),
+        ephemeralDirectory);
+    await _overwriteFromTemplate(
+        globals.fs.path.join('module', 'ohos', 'hvigor_plugin'),
+        ephemeralDirectory);
+    await _overwriteFromTemplate(
+        globals.fs.path.join('module', 'ohos', 'host_config'),
+        ephemeralDirectory);
+  }
+
+  bool _shouldRegenerateFromTemplate() {
+    // Do not re-generate .ohos when it already exists and is a symbolic link.
+    if (ephemeralDirectory.existsSync() &&
+        io.FileSystemEntity.isLinkSync(ephemeralDirectory.path)) {
+      return false;
+    }
+
+    return globals.fsUtils.isOlderThanReference(
+          entity: ephemeralDirectory,
+          referenceFile: parent.pubspecFile,
+        ) ||
+        globals.cache.isOlderThanToolsStamp(ephemeralDirectory);
+  }
+
+  Future<void> _overwriteFromTemplate(String path, Directory target) async {
+    final Template template = await Template.fromName(
+      path,
+      fileSystem: globals.fs,
+      templateManifest: null,
+      logger: globals.logger,
+      templateRenderer: globals.templateRenderer,
+    );
+    final String ohosIdentifier =
+        parent.manifest.ohosBundleName ?? 'com.example.${parent.manifest.appName}';
+    template.render(
+      target,
+      <String, Object>{
+        'ohosIdentifier': ohosIdentifier,
+        'projectName': parent.manifest.appName,
+        'ohosSdk': ohosIdentifier,
+      },
+      printStatusWhenWriting: false,
+    );
+  }
+
+  static String? _readFromProject(File buildProfileFile, String flavor) {
+    // app.products[].output.artifactName
+    if (!buildProfileFile.existsSync()) {
+      return null;
+    }
+    final Map<String, dynamic> buildProfile = JSON5
+        .parse(buildProfileFile.readAsStringSync()) as Map<String, dynamic>;
+    final Map<String, dynamic> app =
+        buildProfile['app'] as Map<String, dynamic>;
+    final List<dynamic>? products = app['products'] as List<dynamic>?;
+    final Map<String, dynamic>? target = products?.firstWhere((dynamic item) {
+      final Map<String, dynamic> module = item as Map<String, dynamic>;
+      return module['name'] as String == flavor;
+    }, orElse: () => null) as Map<String, dynamic>?;
+    final Map<String, dynamic>? output =
+        target?['output'] as Map<String, dynamic>?;
+    return output?['artifactName'] as String?;
+  }
+
+  static String? _readFromModule(File buildProfileFile, String flavor) {
+    // targets[].output.artifactName
+    if (!buildProfileFile.existsSync()) {
+      return null;
+    }
+    final Map<String, dynamic> buildProfile = JSON5
+        .parse(buildProfileFile.readAsStringSync()) as Map<String, dynamic>;
+    final List<dynamic>? products = buildProfile['targets'] as List<dynamic>?;
+    final Map<String, dynamic>? target = products?.firstWhere((dynamic item) {
+      final Map<String, dynamic> module = item as Map<String, dynamic>;
+      return module['name'] as String == flavor;
+    }, orElse: () => null) as Map<String, dynamic>?;
+    final Map<String, dynamic>? output =
+        target?['output'] as Map<String, dynamic>?;
+    return output?['artifactName'] as String?;
+  }
+}
+
+enum OhosFileType {
+  app,
+  hap,
+  har,
+  hsp,
 }

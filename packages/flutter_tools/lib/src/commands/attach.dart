@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:unified_analytics/unified_analytics.dart';
 import 'package:vm_service/vm_service.dart';
 
+import '../ohos/ohos_device.dart';
 import '../android/android_device.dart';
 import '../base/common.dart';
 import '../base/file_system.dart';
@@ -333,8 +334,27 @@ known, it can be explicitly provided to attach via the command-line, e.g.
       // Stop the timer once we receive the first uri.
       vmServiceUri = vmServiceUri.map((Uri uri) {
         discoveryStatus.stop();
-        return uri;
-      });
+
+        vmServiceUri = foundUrl == null
+          ? null
+          : Stream<Uri>.value(foundUrl).asBroadcastStream();
+      }
+      // If MDNS discovery fails or we're not on iOS, fallback to ProtocolDiscovery.
+      if (vmServiceUri == null) {
+        final ProtocolDiscovery vmServiceDiscovery =
+          ProtocolDiscovery.vmService(
+            // If it's an Android device, attaching relies on past log searching
+            // to find the service protocol.
+            await device.getLogReader(includePastLogs: device is AndroidDevice || device is OhosDevice),
+            portForwarder: device.portForwarder,
+            ipv6: ipv6!,
+            devicePort: deviceVmservicePort,
+            hostPort: hostVmservicePort,
+            logger: _logger,
+          );
+        _logger.printStatus('Waiting for a connection from Flutter on ${device.name}...');
+        vmServiceUri = vmServiceDiscovery.uris;
+      }
     } else {
       vmServiceUri =
           Stream<Uri>.fromFuture(

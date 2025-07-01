@@ -581,6 +581,7 @@ class _ExpansionTileState extends State<ExpansionTile> {
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
       case TargetPlatform.windows:
+      case TargetPlatform.ohos:
         break;
     }
 

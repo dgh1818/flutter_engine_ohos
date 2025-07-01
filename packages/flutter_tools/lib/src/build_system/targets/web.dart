@@ -419,6 +419,10 @@ class WebReleaseBundle extends Target {
   Iterable<String> get buildPatternStems =>
       compileTargets.expand((Dart2WebTarget target) => target.buildPatternStems);
 
+  Iterable<String> get buildPatternStems => compileTargets.expand(
+    (Dart2WebTarget target) => target.buildPatternStems,
+  );
+
   @override
   List<Source> get inputs => <Source>[
     const Source.pattern('{PROJECT_DIR}/pubspec.yaml'),

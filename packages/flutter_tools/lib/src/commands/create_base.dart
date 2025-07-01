@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'dart:io';
+
 import 'package:meta/meta.dart';
 import 'package:uuid/uuid.dart';
 import 'package:yaml/yaml.dart';
@@ -30,6 +32,7 @@ const List<String> _kAvailablePlatforms = <String>[
   'linux',
   'macos',
   'web',
+  'ohos',
 ];
 
 /// A list of all possible create platforms, even those that may not be enabled
@@ -41,6 +44,7 @@ const List<String> kAllCreatePlatforms = <String>[
   'linux',
   'macos',
   'web',
+  'ohos',
 ];
 
 const String _kDefaultPlatformArgumentHelp =
@@ -336,6 +340,7 @@ mixin CreateBase on FlutterCommand {
     bool linux = false,
     bool macos = false,
     bool windows = false,
+    bool ohos = false,
     bool implementationTests = false,
   }) {
     final String pluginDartClass = _createPluginClassName(projectName);
@@ -352,6 +357,13 @@ mixin CreateBase on FlutterCommand {
     // https://developer.gnome.org/gio/stable/GApplication.html#g-application-id-is-valid
     final String linuxIdentifier = androidIdentifier;
 
+    // Ohos uses the same scheme as the Android identifier.
+    final String ohosIdentifier = androidIdentifier;
+    // locating ohos sdk from environment
+    final String? ohosSdkHome = globals.ohosSdk?.sdkPath;
+    final String? hosSdkHome = globals.hmosSdk?.sdkPath;
+    final String? nodeHome = Platform.environment['NODE_HOME'];
+
     return <String, Object?>{
       'organization': organization,
       'projectName': projectName,
@@ -361,6 +373,10 @@ mixin CreateBase on FlutterCommand {
       'macosIdentifier': appleIdentifier,
       'linuxIdentifier': linuxIdentifier,
       'windowsIdentifier': windowsIdentifier,
+      'ohosIdentifier':ohosIdentifier,
+      'ohosSdkHome':ohosSdkHome,
+      'hosSdkHome':hosSdkHome,
+      'nodeHome':nodeHome,
       'description': projectDescription,
       'dartSdk': '$flutterRoot/bin/cache/dart-sdk',
       'androidMinApiLevel': android_common.minApiLevel,
@@ -390,6 +406,7 @@ mixin CreateBase on FlutterCommand {
       'linux': linux,
       'macos': macos,
       'windows': windows,
+      'ohos': ohos,
       'year': DateTime.now().year,
       'dartSdkVersionBounds': dartSdkVersionBounds,
       'implementationTests': implementationTests,
@@ -493,6 +510,7 @@ mixin CreateBase on FlutterCommand {
     final bool macOSPlatform = templateContext['macos'] as bool? ?? false;
     final bool windowsPlatform = templateContext['windows'] as bool? ?? false;
     final bool webPlatform = templateContext['web'] as bool? ?? false;
+    final bool ohosPlatform = templateContext['ohos'] as bool ? ?? false;
 
     if (shouldCallPubGet) {
       final Environment environment = Environment(
@@ -540,6 +558,9 @@ mixin CreateBase on FlutterCommand {
     }
     if (windowsPlatform) {
       platformsForMigrateConfig.add(SupportedPlatform.windows);
+    }
+    if (ohosPlatform) {
+      platformsForMigrateConfig.add(SupportedPlatform.ohos);
     }
     if (templateContext['fuchsia'] == true) {
       platformsForMigrateConfig.add(SupportedPlatform.fuchsia);

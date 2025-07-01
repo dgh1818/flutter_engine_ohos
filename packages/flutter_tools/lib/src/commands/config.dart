@@ -61,6 +61,11 @@ class ConfigCommand extends FlutterCommand {
       help: 'The relative path to override a projects build directory.',
       valueHelp: 'out/',
     );
+    argParser.addOption('ohos-sdk', help: 'The OpenHarmony SDK directory.');
+    argParser.addOption('ohpm-home', help: 'The ohpm tool directory.');
+    argParser.addOption('signTool-home', help: 'The sign tool directory.');
+    argParser.addOption('build-dir', help: 'The relative path to override a projects build directory.',
+        valueHelp: 'out/');
     argParser.addFlag(
       'machine',
       negatable: false,
@@ -178,6 +183,18 @@ class ConfigCommand extends FlutterCommand {
       );
 
       await settings.selectSettings();
+    }
+
+    if (argResults!.wasParsed('ohos-sdk')) {
+      _updateConfig('ohos-sdk', stringArg('ohos-sdk')!);
+    }
+
+    if (argResults!.wasParsed('ohpm-home')) {
+      _updateConfig('ohpm-home', stringArg('ohpm-home')!);
+    }
+
+    if (argResults!.wasParsed('signTool-home')) {
+      _updateConfig('signTool-home', stringArg('signTool-home')!);
     }
 
     if (argResults!.wasParsed('build-dir')) {

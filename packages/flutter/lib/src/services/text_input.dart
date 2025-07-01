@@ -703,6 +703,7 @@ class TextInputConfiguration {
     List<String>? allowedMimeTypes,
     AutofillConfiguration? autofillConfiguration,
     bool? enableDeltaModel,
+    PointerDeviceKind? deviceKind,
   }) {
     return TextInputConfiguration(
       viewId: viewId ?? this.viewId,
@@ -723,6 +724,7 @@ class TextInputConfiguration {
       allowedMimeTypes: allowedMimeTypes ?? this.allowedMimeTypes,
       autofillConfiguration: autofillConfiguration ?? this.autofillConfiguration,
       enableDeltaModel: enableDeltaModel ?? this.enableDeltaModel,
+      deviceKind: deviceKind ?? this.deviceKind,
     );
   }
 
@@ -750,6 +752,9 @@ class TextInputConfiguration {
   ///
   /// Defaults to false.
   final bool enableDeltaModel;
+
+  /// Defaults to PointerDeviceKind.unknown. Cannot be null.
+  final PointerDeviceKind deviceKind;
 
   /// Returns a representation of this object as a JSON object.
   Map<String, dynamic> toJson() {

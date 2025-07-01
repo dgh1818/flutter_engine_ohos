@@ -810,6 +810,7 @@ class TextSelectionOverlay {
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
       case TargetPlatform.windows:
+      case TargetPlatform.ohos:
         newSelection = TextSelection(
           baseOffset: _selection.baseOffset,
           extentOffset: position.offset,
@@ -924,6 +925,7 @@ class TextSelectionOverlay {
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
       case TargetPlatform.windows:
+      case TargetPlatform.ohos:
         newSelection = TextSelection(
           baseOffset: position.offset,
           extentOffset: _selection.extentOffset,
@@ -1310,6 +1312,7 @@ class SelectionOverlay {
           case TargetPlatform.linux:
           case TargetPlatform.macOS:
           case TargetPlatform.windows:
+          case TargetPlatform.ohos:
             break;
         }
       }
@@ -2057,6 +2060,7 @@ class TextSelectionGestureDetectorBuilder {
       case TargetPlatform.linux:
       case TargetPlatform.macOS:
       case TargetPlatform.windows:
+      case TargetPlatform.ohos:
     }
   }
 
@@ -2070,6 +2074,7 @@ class TextSelectionGestureDetectorBuilder {
       case TargetPlatform.linux:
       case TargetPlatform.macOS:
       case TargetPlatform.windows:
+      case TargetPlatform.ohos:
     }
   }
 
@@ -2301,6 +2306,7 @@ class TextSelectionGestureDetectorBuilder {
         }
       case TargetPlatform.fuchsia:
       case TargetPlatform.iOS:
+      case TargetPlatform.ohos:
         // On mobile platforms the selection is set on tap up.
         break;
       case TargetPlatform.macOS:
@@ -2424,6 +2430,7 @@ class TextSelectionGestureDetectorBuilder {
       case TargetPlatform.windows:
         break;
       // On desktop platforms the selection is set on tap down.
+      case TargetPlatform.ohos:
       case TargetPlatform.android:
         editableText.hideToolbar(false);
         if (isShiftPressedValid) {
@@ -2539,8 +2546,44 @@ class TextSelectionGestureDetectorBuilder {
   ///    this callback.
   @protected
   void onSingleLongTapStart(LongPressStartDetails details) {
-    if (!delegate.selectionEnabled) {
-      return;
+    if (delegate.selectionEnabled) {
+      switch (defaultTargetPlatform) {
+        case TargetPlatform.iOS:
+        case TargetPlatform.macOS:
+          if (!renderEditable.hasFocus) {
+            _longPressStartedWithoutFocus = true;
+            renderEditable.selectWord(cause: SelectionChangedCause.longPress);
+          } else {
+            renderEditable.selectPositionAt(
+              from: details.globalPosition,
+              cause: SelectionChangedCause.longPress,
+            );
+            // Show the floating cursor.
+            final RawFloatingCursorPoint cursorPoint = RawFloatingCursorPoint(
+              state: FloatingCursorDragState.Start,
+              startLocation: (
+                renderEditable.globalToLocal(details.globalPosition),
+                TextPosition(
+                  offset: editableText.textEditingValue.selection.baseOffset,
+                  affinity: editableText.textEditingValue.selection.affinity,
+                ),
+              ),
+              offset: Offset.zero,
+            );
+            editableText.updateFloatingCursor(cursorPoint);
+          }
+        case TargetPlatform.android:
+        case TargetPlatform.fuchsia:
+        case TargetPlatform.linux:
+        case TargetPlatform.ohos:
+        case TargetPlatform.windows:
+          renderEditable.selectWord(cause: SelectionChangedCause.longPress);
+      }
+
+      _showMagnifierIfSupportedByPlatform(details.globalPosition);
+
+      _dragStartViewportOffset = renderEditable.offset.pixels;
+      _dragStartScrollOffset = _scrollPosition;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.iOS:
@@ -2626,7 +2669,7 @@ class TextSelectionGestureDetectorBuilder {
             to: details.globalPosition,
             cause: SelectionChangedCause.longPress,
           );
-        } else {
+        } else {x
           renderEditable.selectPositionAt(
             from: details.globalPosition,
             cause: SelectionChangedCause.longPress,
@@ -2642,6 +2685,7 @@ class TextSelectionGestureDetectorBuilder {
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
       case TargetPlatform.windows:
+      case TargetPlatform.ohos:
         renderEditable.selectWordsInRange(
           from:
               details.globalPosition - details.offsetFromOrigin - editableOffset - scrollableOffset,
@@ -2702,6 +2746,7 @@ class TextSelectionGestureDetectorBuilder {
       case TargetPlatform.android:
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
+      case TargetPlatform.ohos:
       case TargetPlatform.windows:
         if (!renderEditable.hasFocus) {
           renderEditable.selectPosition(cause: SelectionChangedCause.tap);
@@ -2838,6 +2883,7 @@ class TextSelectionGestureDetectorBuilder {
         case TargetPlatform.iOS:
         case TargetPlatform.macOS:
         case TargetPlatform.windows:
+        case TargetPlatform.ohos:
           _selectParagraphsInRange(from: details.globalPosition, cause: SelectionChangedCause.tap);
         case TargetPlatform.linux:
           _selectLinesInRange(from: details.globalPosition, cause: SelectionChangedCause.tap);
@@ -2886,6 +2932,7 @@ class TextSelectionGestureDetectorBuilder {
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
         case TargetPlatform.windows:
+        case TargetPlatform.ohos:
           _extendSelection(details.globalPosition, SelectionChangedCause.drag);
       }
     } else {
@@ -2906,6 +2953,7 @@ class TextSelectionGestureDetectorBuilder {
           }
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
+        case TargetPlatform.ohos:
           switch (details.kind) {
             case PointerDeviceKind.mouse:
             case PointerDeviceKind.trackpad:
@@ -3001,6 +3049,7 @@ class TextSelectionGestureDetectorBuilder {
           case TargetPlatform.android:
           case TargetPlatform.fuchsia:
           case TargetPlatform.iOS:
+          case TargetPlatform.ohos:
             switch (details.kind) {
               case PointerDeviceKind.mouse:
               case PointerDeviceKind.trackpad:
@@ -3059,6 +3108,7 @@ class TextSelectionGestureDetectorBuilder {
           return;
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
+        case TargetPlatform.ohos:
           // With a precise pointer device, such as a mouse, trackpad, or stylus,
           // the drag will select the text spanning the origin of the drag to the end of the drag.
           // With a touch device, the cursor should move with the drag.
@@ -3351,6 +3401,7 @@ class _TextSelectionGestureDetectorState extends State<TextSelectionGestureDetec
       case TargetPlatform.android:
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
+      case TargetPlatform.ohos:
         // From observation, these platform's reset their tap count to 0 when
         // the number of consecutive taps exceeds 3. For example on Debian Linux
         // with GTK, when going past a triple click, on the fourth click the
@@ -3489,6 +3540,7 @@ class _TextSelectionGestureDetectorState extends State<TextSelectionGestureDetec
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
         case TargetPlatform.iOS:
+        case TargetPlatform.ohos:
           gestures[TapAndHorizontalDragGestureRecognizer] =
               GestureRecognizerFactoryWithHandlers<TapAndHorizontalDragGestureRecognizer>(
                 () => TapAndHorizontalDragGestureRecognizer(debugOwner: this),

@@ -184,6 +184,7 @@ void main() {
           case TargetPlatform.linux:
           case TargetPlatform.macOS:
           case TargetPlatform.windows:
+          case TargetPlatform.ohos:
             expect(controller.hasClients, isFalse);
         }
 
@@ -203,6 +204,7 @@ void main() {
           case TargetPlatform.linux:
           case TargetPlatform.macOS:
           case TargetPlatform.windows:
+          case TargetPlatform.ohos:
             expect(controller.hasClients, isTrue);
             expect(controller.position.axis, Axis.horizontal);
         }
@@ -223,6 +225,7 @@ void main() {
           case TargetPlatform.linux:
           case TargetPlatform.macOS:
           case TargetPlatform.windows:
+          case TargetPlatform.ohos:
             expect(controller.hasClients, isFalse);
         }
 
@@ -238,6 +241,7 @@ void main() {
           case TargetPlatform.android:
           case TargetPlatform.fuchsia:
           case TargetPlatform.iOS:
+          case TargetPlatform.ohos:
             expect(controller.hasClients, isTrue);
             expect(controller.position.axis, Axis.vertical);
           case TargetPlatform.linux:
@@ -260,6 +264,7 @@ void main() {
           case TargetPlatform.linux:
           case TargetPlatform.macOS:
           case TargetPlatform.windows:
+          case TargetPlatform.ohos:
             expect(controller.hasClients, isTrue);
             expect(controller.position.axis, Axis.vertical);
         }
@@ -278,6 +283,7 @@ void main() {
           case TargetPlatform.linux:
           case TargetPlatform.macOS:
           case TargetPlatform.windows:
+          case TargetPlatform.ohos:
             expect(controller.hasClients, isFalse);
         }
 

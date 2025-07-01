@@ -358,6 +358,7 @@ class _CupertinoRadioState<T> extends State<CupertinoRadio<T>>
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
       case TargetPlatform.windows:
+      case TargetPlatform.ohos:
         accessibilitySelected = null;
       case TargetPlatform.iOS:
       case TargetPlatform.macOS:

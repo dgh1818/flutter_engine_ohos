@@ -2303,8 +2303,15 @@ targets:
   - name: Linux_android_emu android_defines_test
     recipe: devicelab/devicelab_drone
     timeout: 60
+    dimensions: {
+      kvm: "1",
+      cores: "8",
+      machine_type: "n1-standard-8"
+    }
     properties:
+      device_type: "none"
       tags: >
+        ["devicelab", "linux"]
         ["devicelab", "linux"]
       task_name: android_defines_test
       presubmit_max_attempts: "2"

@@ -802,6 +802,7 @@ class _SliderState extends State<Slider> with TickerProviderStateMixin {
           final ThemeData theme = Theme.of(context);
           switch (theme.platform) {
             case TargetPlatform.android:
+            case TargetPlatform.ohos:
             case TargetPlatform.fuchsia:
             case TargetPlatform.linux:
             case TargetPlatform.windows:
@@ -934,6 +935,7 @@ class _SliderState extends State<Slider> with TickerProviderStateMixin {
       case TargetPlatform.iOS:
       case TargetPlatform.linux:
       case TargetPlatform.macOS:
+      case TargetPlatform.ohos:
         break;
       case TargetPlatform.windows:
         handleDidGainAccessibilityFocus = () {
@@ -1491,6 +1493,7 @@ class _RenderSlider extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
         return 0.1;
       case TargetPlatform.android:
       case TargetPlatform.fuchsia:
+      case TargetPlatform.ohos:
       case TargetPlatform.linux:
       case TargetPlatform.windows:
         // Matches Android implementation of material slider.

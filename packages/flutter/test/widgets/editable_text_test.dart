@@ -6534,6 +6534,7 @@ void main() {
 
     switch (defaultTargetPlatform) {
       // These platforms extend by line.
+      case TargetPlatform.ohos:
       case TargetPlatform.android:
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
@@ -6650,6 +6651,7 @@ void main() {
 
     switch (defaultTargetPlatform) {
       // Extend selection.
+      case TargetPlatform.ohos:
       case TargetPlatform.android:
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
@@ -7274,6 +7276,7 @@ void main() {
 
       switch (defaultTargetPlatform) {
         // These platforms don't move the selection with home/end at all.
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.iOS:
         case TargetPlatform.fuchsia:
@@ -7302,6 +7305,7 @@ void main() {
 
       switch (defaultTargetPlatform) {
         // These platforms don't move the selection with home/end at all.
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.iOS:
         case TargetPlatform.fuchsia:
@@ -7390,6 +7394,7 @@ void main() {
 
       switch (defaultTargetPlatform) {
         // These platforms don't move the selection with home/end at all.
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.iOS:
         case TargetPlatform.fuchsia:
@@ -7418,6 +7423,7 @@ void main() {
 
       switch (defaultTargetPlatform) {
         // These platforms don't move the selection with home/end at all still.
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.iOS:
         case TargetPlatform.fuchsia:
@@ -7512,6 +7518,7 @@ void main() {
 
       switch (defaultTargetPlatform) {
         // These platforms don't move the selection with home/end at all.
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.iOS:
         case TargetPlatform.fuchsia:
@@ -7539,6 +7546,7 @@ void main() {
 
       switch (defaultTargetPlatform) {
         // These platforms don't move the selection with home/end at all still.
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.iOS:
         case TargetPlatform.fuchsia:
@@ -7651,6 +7659,7 @@ void main() {
 
       switch (defaultTargetPlatform) {
         // These platforms don't handle shift + home/end at all.
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
           expect(
@@ -7927,6 +7936,7 @@ void main() {
 
       switch (defaultTargetPlatform) {
         // These platforms don't move the selection with shift + home/end at all.
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
           expect(
@@ -7965,6 +7975,7 @@ void main() {
 
       switch (defaultTargetPlatform) {
         // These platforms don't move the selection with home/end at all still.
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
           expect(
@@ -8069,6 +8080,7 @@ void main() {
 
       switch (defaultTargetPlatform) {
         // These platforms don't move the selection with home/end at all.
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
           expect(
@@ -8112,6 +8124,7 @@ void main() {
 
       switch (defaultTargetPlatform) {
         // These platforms don't move the selection with home/end at all still.
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
           expect(
@@ -11533,6 +11546,7 @@ void main() {
       expect(controller.selection.isCollapsed, false);
       switch (defaultTargetPlatform) {
         // These platforms extend by line.
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
@@ -13476,7 +13490,7 @@ void main() {
 
         // On web, these keyboard shortcuts are handled by the browser.
       },
-      variant: TargetPlatformVariant.all(excluding: <TargetPlatform>{TargetPlatform.android}),
+      variant: TargetPlatformVariant.all(excluding: <TargetPlatform>{TargetPlatform.android, TargetPlatform.ohos}),
       skip: kIsWeb, // [intended]
     );
 
@@ -13725,6 +13739,7 @@ void main() {
         await sendUndo(tester);
         switch (defaultTargetPlatform) {
           // Android includes composing changes.
+          case TargetPlatform.ohos:
           case TargetPlatform.android:
             expect(
               controller.value,
@@ -13771,6 +13786,7 @@ void main() {
         await sendRedo(tester);
         switch (defaultTargetPlatform) {
           // Android includes composing changes.
+          case TargetPlatform.ohos:
           case TargetPlatform.android:
             expect(
               controller.value,

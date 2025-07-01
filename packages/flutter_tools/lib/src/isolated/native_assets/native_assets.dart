@@ -683,23 +683,29 @@ List<Architecture> _architecturesForOS(
 
 Architecture _getNativeArchitecture(TargetPlatform targetPlatform) {
   switch (targetPlatform) {
-    case TargetPlatform.linux_x64:
-    case TargetPlatform.windows_x64:
-      return Architecture.x64;
-    case TargetPlatform.linux_arm64:
-    case TargetPlatform.windows_arm64:
-      return Architecture.arm64;
-    case TargetPlatform.android:
-    case TargetPlatform.ios:
-    case TargetPlatform.darwin:
-    case TargetPlatform.fuchsia_arm64:
-    case TargetPlatform.fuchsia_x64:
-    case TargetPlatform.tester:
-    case TargetPlatform.web_javascript:
-    case TargetPlatform.android_arm:
-    case TargetPlatform.android_arm64:
-    case TargetPlatform.android_x64:
-    case TargetPlatform.android_x86:
+    case build_info.TargetPlatform.linux_x64:
+      return Target.linuxX64;
+    case build_info.TargetPlatform.linux_arm64:
+      return Target.linuxArm64;
+    case build_info.TargetPlatform.windows_x64:
+      return Target.windowsX64;
+    case build_info.TargetPlatform.windows_arm64:
+      return Target.windowsArm64;
+    case build_info.TargetPlatform.android:
+    case build_info.TargetPlatform.ios:
+    case build_info.TargetPlatform.darwin:
+    case build_info.TargetPlatform.fuchsia_arm64:
+    case build_info.TargetPlatform.fuchsia_x64:
+    case build_info.TargetPlatform.tester:
+    case build_info.TargetPlatform.web_javascript:
+    case build_info.TargetPlatform.android_arm:
+    case build_info.TargetPlatform.android_arm64:
+    case build_info.TargetPlatform.android_x64:
+    case build_info.TargetPlatform.android_x86:
+    case build_info.TargetPlatform.ohos:
+    case build_info.TargetPlatform.ohos_arm:
+    case build_info.TargetPlatform.ohos_arm64:
+    case build_info.TargetPlatform.ohos_x64:
       throw Exception('Unknown targetPlatform: $targetPlatform.');
   }
 }

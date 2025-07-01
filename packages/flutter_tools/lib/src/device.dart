@@ -50,7 +50,9 @@ enum PlatformType {
   macos,
   windows,
   fuchsia,
-  custom;
+  ohos,
+  custom,
+  windowsPreview;
 
   @override
   String toString() => name;

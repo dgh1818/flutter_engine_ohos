@@ -2724,6 +2724,7 @@ void main() {
       Text mnemonic3 = tester.widget(findMnemonic(TestMenu.subSubMenu113.label));
 
       switch (defaultTargetPlatform) {
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
@@ -2833,6 +2834,7 @@ void main() {
       final Text mnemonic2 = tester.widget(findMnemonic(TestMenu.subSubMenu112.label));
 
       switch (defaultTargetPlatform) {
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
@@ -3943,6 +3945,7 @@ void main() {
         String expectedSeparator;
         String expectedShift;
         switch (defaultTargetPlatform) {
+          case TargetPlatform.ohos:
           case TargetPlatform.android:
           case TargetPlatform.fuchsia:
           case TargetPlatform.linux:
@@ -3970,6 +3973,7 @@ void main() {
         );
         late String allExpected;
         switch (defaultTargetPlatform) {
+          case TargetPlatform.ohos:
           case TargetPlatform.android:
           case TargetPlatform.fuchsia:
           case TargetPlatform.linux:
