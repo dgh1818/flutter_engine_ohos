@@ -171,7 +171,9 @@ function setFlutterHarInOverrides(
     // Set flutter_native_${arch} overrides for each target platform
     targetPlatforms?.forEach(platform => {
       const arch = PLATFORM_ARCH_MAP[platform].replace('-', '_')
-      const platformHarPath = path.join(cacheHarDir, `${arch}_${buildMode}.har`)
+      const cacheDir = path.join(sdkPath, 'bin', 'cache', 'artifacts', 'engine',
+        `${platform}${buildModeSuffix}`)
+      const platformHarPath = path.join(cacheDir, `${arch}_${buildMode}.har`)
       overrides[`flutter_native_${arch}`] = `file:${realFilePath(platformHarPath)}`
     })
   }
