@@ -35,7 +35,7 @@ This repository is an extension of the Flutter engine repository. It enables Flu
    {
       "managed": False,
       "name": "src/flutter",
-      "url": "git@gitcode.com:openharmony-sig/flutter_engine.git@oh-3.22.0",
+      "url": "git@gitcode.com:openharmony-tpc/flutter_engine.git@oh-3.22.0",
       "custom_deps": {},
       "deps_file": "DEPS_ohos",
       "safesync_url": "",
