@@ -425,6 +425,12 @@ class OhosDartBuilder implements OhosBuilder {
 
     await flutterBuildPre(project, ohosBuildInfo, target);
     status.stop();
+    final String harOutput = globals.fs.path.join(ohosRootPath, 'har');
+    _logger.printStatus(
+      '${_logger.terminal.successMark} '
+      'Built ${_fileSystem.path.relative(harOutput)}',
+      color: TerminalColor.green,
+    );
     printHowToConsumeHar(logger: _logger);
   }
 

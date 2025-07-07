@@ -257,24 +257,47 @@ void copyFlutterRuntime(
 ) {
   logger?.printTrace('copy flutter runtime to project start');
   final BuildMode buildMode = ohosBuildInfo.buildInfo.mode;
-  final String localEngineHarPath = globals.artifacts!.getArtifactPath(
-    Artifact.flutterEngineHar,
-    platform: getTargetPlatformForName(
-        getPlatformNameForOhosArch(ohosBuildInfo.targetArchs.first)),
-    mode: buildMode,
-  );
-  final String desHarPath = globals.fs.path.join(
+  final String desHarDir = globals.fs.path.join(
     ohosProject.parent.buildDirectory.path,
     'ohos',
     'har',
     buildMode.name,
-    HAR_FILE_NAME,
   );
-  ensureParentExists(desHarPath);
-  final File originHarFile = globals.localFileSystem.file(localEngineHarPath);
-  originHarFile.copySync(desHarPath);
-  logger?.printTrace('copy from "$localEngineHarPath" to "$desHarPath"');
+
+  final List<OhosArch> targetArchs =
+      List<OhosArch>.of(ohosBuildInfo.targetArchs);
+  for (int i = 0; i < targetArchs.length; i++) {
+    final OhosArch arch = targetArchs[i];
+    final String flutterHarPath = globals.artifacts!.getArtifactPath(
+      Artifact.flutterEngineHar,
+      platform: getTargetPlatformForName(getPlatformNameForOhosArch(arch)),
+      mode: buildMode,
+    );
+    final String originHarDir = globals.fs.file(flutterHarPath).parent.path;
+    if (i == 0) {
+      // Copy flutter_embedding_${buildMode.name}.har file
+      final String embeddingHarName = 'flutter_embedding_${buildMode.name}.har';
+      _copyFile(originHarDir, desHarDir, embeddingHarName);
+    }
+
+    // Copy ${arch}_${buildMode.name}.har file
+    final String harName = '${arch.name}_${buildMode.name}.har';
+    _copyFile(originHarDir, desHarDir, harName);
+  }
   logger?.printTrace('copy flutter runtime to project end');
+}
+
+void _copyFile(String srcPath, String desPath, String fileName) {
+  final File srcFile = globals.fs.directory(srcPath).childFile(fileName);
+  final String desFilePath = globals.fs.path.join(desPath, fileName);
+  final Logger logger = globals.logger;
+  if (srcFile.existsSync()) {
+    ensureParentExists(desFilePath);
+    srcFile.copySync(desFilePath);
+    logger.printTrace('Copy from "$srcPath" to "$desPath"');
+  } else {
+    throwToolExit('Failed to find har file: $fileName in "$srcPath"');
+  }
 }
 
 void ensureParentExists(String path) {
@@ -480,12 +503,18 @@ class OhosHvigorBuilder implements OhosBuilder {
     await assembleHsps(_processUtils, project, ohosBuildInfo, _logger, target);
 
     status.stop();
-    printHowToConsumeHar(logger: _logger);
+    _logger.printStatus(
+      '${_logger.terminal.successMark} '
+      'Built ${_fileSystem.path.relative(harOutput)}',
+      color: TerminalColor.green,
+    );
+    printHowToConsumeHar(logger: _logger, mode: ohosBuildInfo.buildInfo.mode);
   }
 
   /// Prints how to consume the har from a host app.
   void printHowToConsumeHar({
     Logger? logger,
+    BuildMode mode = BuildMode.release,
   }) {
     logger?.printStatus('\nConsuming the Module', emphasis: true);
     logger?.printStatus('''
@@ -493,7 +522,10 @@ class OhosHvigorBuilder implements OhosBuilder {
     2. Override flutter, flutter_module and plugins dependencies:
 
       "overrides" {
-        "@ohos/flutter_ohos": "file:path/to/flutter.har",
+        "@ohos/flutter_ohos": "file:path/to/flutter_embedding_${mode.name}.har",
+        "flutter_native_arm64_v8a": "file:path/to/arm64_v8a_${mode.name}.har",
+        // Optional, only if you need x86_64 support.
+        "flutter_native_x86_64": "file:path/to/x86_64_${mode.name}.har",
         "@ohos/flutter_module": "file:path/to/flutter_module.har",
         "plugin_x": "file:path/to/plugin_x.har",
         ...
@@ -504,6 +536,9 @@ class OhosHvigorBuilder implements OhosBuilder {
 
       "dependencies": {
         "@ohos/flutter_ohos": "",
+        "flutter_native_arm64_v8a": "",
+        // Optional, only if you need x86_64 support.
+        "flutter_native_x86_64": "",
         "@ohos/flutter_module": "",
       }
   ''');

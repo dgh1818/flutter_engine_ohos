@@ -143,12 +143,10 @@ export function flutterHvigorPlugin(flutterProjectPath: string, flutterProjectTy
 
 function setFlutterHarInDependencies(dependenciesOpt: any, targetPlatforms: string[] | undefined) {
   dependenciesOpt['@ohos/flutter_ohos'] = ''
-  if (!localEngineSrcPath || !localEngine) {
-    targetPlatforms?.map(platform => PLATFORM_ARCH_MAP[platform].replace('-', '_'))
-      .forEach(arch => {
-        dependenciesOpt[`flutter_native_${arch}`] = ''
-      })
-  }
+  targetPlatforms?.map(platform => PLATFORM_ARCH_MAP[platform].replace('-', '_'))
+    .forEach(arch => {
+      dependenciesOpt[`flutter_native_${arch}`] = ''
+    })
 }
 
 function setFlutterHarInOverrides(
@@ -156,27 +154,22 @@ function setFlutterHarInOverrides(
   targetPlatforms: string[],
   sdkPath: string,
   buildMode: string) {
-  if (localEngineSrcPath && localEngine) {
-    const flutterHarPath = path.join(localEngineSrcPath, "out", localEngine,
-      'flutter.har')
-    overrides['@ohos/flutter_ohos'] = `file:${realFilePath(flutterHarPath)}`
-  } else {
-    const buildModeSuffix = buildMode !== 'debug' ? `-${buildMode}` : ''
-    const cacheHarDir = path.join(sdkPath, 'bin', 'cache', 'artifacts', 'engine',
-      `${targetPlatforms[0]}${buildModeSuffix}`)
-    const flutterHarPath = path.join(cacheHarDir,
-      `flutter_embedding_${buildMode}.har`)
-    overrides['@ohos/flutter_ohos'] = `file:${realFilePath(flutterHarPath)}`
+  const buildModeSuffix = buildMode !== 'debug' ? `-${buildMode}` : ''
+  targetPlatforms?.forEach((platform, index: number) => {
+    const arch = PLATFORM_ARCH_MAP[platform].replace('-', '_')
+    const cacheDir = localEngineSrcPath && localEngine
+      ? path.join(localEngineSrcPath, "out", localEngine)
+      : path.join(sdkPath, 'bin', 'cache', 'artifacts', 'engine', `${platform}${buildModeSuffix}`)
 
+    if (index == 0) {
+      // Set flutter_embedding_${buildMode} override for the first target platform
+      const flutterHarPath = path.join(cacheDir, `flutter_embedding_${buildMode}.har`)
+      overrides['@ohos/flutter_ohos'] = `file:${realFilePath(flutterHarPath)}`
+    }
     // Set flutter_native_${arch} overrides for each target platform
-    targetPlatforms?.forEach(platform => {
-      const arch = PLATFORM_ARCH_MAP[platform].replace('-', '_')
-      const cacheDir = path.join(sdkPath, 'bin', 'cache', 'artifacts', 'engine',
-        `${platform}${buildModeSuffix}`)
-      const platformHarPath = path.join(cacheDir, `${arch}_${buildMode}.har`)
-      overrides[`flutter_native_${arch}`] = `file:${realFilePath(platformHarPath)}`
-    })
-  }
+    const platformHarPath = path.join(cacheDir, `${arch}_${buildMode}.har`)
+    overrides[`flutter_native_${arch}`] = `file:${realFilePath(platformHarPath)}`
+  })
 }
 
 export function injectNativeModules(nativeProjectPath: string, flutterProjectPath: string,
