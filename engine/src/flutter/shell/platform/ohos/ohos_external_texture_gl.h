@@ -55,6 +55,7 @@ class OHOSExternalTextureGL : public OHOSExternalTexture {
  private:
   std::unordered_map<NativeBufferKey, GlResource> gl_resources_;
   NativeBufferKey now_key_;
+  bool is_emulator_ = false;
 
   // void UpdateTransform();
   OHOSUniqueEGLImageKHR CreateEGLImage(OHNativeWindowBuffer* nw_buffer);
