@@ -22,8 +22,6 @@ import { BusinessError } from '@kit.BasicServicesKit';
 import { PointerDeviceKind } from '../../embedding/ohos/OhosTouchProcessor';
 import deviceInfo from '@ohos.deviceInfo';
 
-/// 临时规避缺少newline对应枚举问题
-const NEWLINE_KEY_TYPE: number = 8;
 const INPUT_SUPPORT_API = 15;
 const PREIVEW_TEXT_SUPPORT_API = 17;
 const sdkApiVersion: number = deviceInfo.sdkApiVersion;
@@ -516,22 +514,20 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   }
 
   private deleteLeftCallback = (length: number) => {
-    this.mEditable.handleDeleteEvent(false, length);
-    // notify the current cursor index to InputMethodFramework for preview mode
+    this.mEditable.handleDeleteEvent(false, length, this.configuration?.enableDeltaModel);
     this.inputMethodController.changeSelection(this.mEditable.getStringCache(), this.mEditable.getSelectionStart(),
       this.mEditable.getSelectionEnd());
   }
 
   private deleteRightCallback = (length: number) => {
-    this.mEditable.handleDeleteEvent(true, length);
-    // notify the current cursor index to InputMethodFramework for preview mode
+    this.mEditable.handleDeleteEvent(true, length, this.configuration?.enableDeltaModel);
     this.inputMethodController.changeSelection(this.mEditable.getStringCache(), this.mEditable.getSelectionStart(),
       this.mEditable.getSelectionEnd());
   }
 
   private sendFunctionKeyCallback = (functionKey: inputMethod.FunctionKey) => {
-    /// 临时规避缺少newline对应枚举类型问题
-    if (functionKey.enterKeyType == NEWLINE_KEY_TYPE) {
+    if (functionKey.enterKeyType == inputMethod.EnterKeyType.NEWLINE) {
+      // insertText回调不会通知换行事件，需要在这里进行处理
       this.mEditable.handleNewlineEvent();
     }
     this.mEditable.handleFunctionKey(functionKey);

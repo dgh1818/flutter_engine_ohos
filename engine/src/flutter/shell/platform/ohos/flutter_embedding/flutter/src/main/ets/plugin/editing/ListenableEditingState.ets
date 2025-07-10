@@ -391,13 +391,17 @@ export class ListenableEditingState {
     }
   }
 
-  handleDeleteEvent(leftOrRight: boolean, length: number): void {
+  handleDeleteEvent(leftOrRight: boolean, length: number, enableDeltaModel: boolean | undefined): void {
     if (length === 0) {
       return;
     }
     // clear preview text cache
     if (this.getPreviewText().length != 0) {
       this.setPreviewText("");
+    }
+
+    if (enableDeltaModel && (this.mSelectionStartCache > 0)) {
+      this.setSelectionStart(this.mSelectionStartCache - length);
     }
 
     let start =
@@ -456,6 +460,7 @@ export class ListenableEditingState {
     // 当光标移动前位置大于移动后的位置时，获取光标移动前位置;反之获取移动后位置
     let end = this.mSelectionStartCache > this.mSelectionEndCache ? this.mSelectionStartCache : this.mSelectionEndCache;
 
+    this.replace(start, end, '\n', 0, 1);
     // 对光标位置和字符串长度进行对比，决定光标位置的计算方法
     if (this.mStringCache.length == this.mSelectionStartCache) {
       //Insert newline one by one
@@ -488,7 +493,7 @@ export class ListenableEditingState {
       case inputMethod.EnterKeyType.UNSPECIFIED:
         this.TextInputChannel.unspecifiedAction(this.client);
         break;
-      case inputMethod.EnterKeyType.NONE:
+      case inputMethod.EnterKeyType.NEWLINE:
         this.TextInputChannel.newline(this.client);
         break;
       case inputMethod.EnterKeyType.GO:
