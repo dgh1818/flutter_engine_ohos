@@ -20,7 +20,8 @@ class KeyText {
     this.normalCase = normalCase;
     this.shiftCase = shiftCase;
   }
-};
+}
+;
 
 /*
  * In the emulator/hdc tool input scenario, all keyevents will be passed to the onKeyEvent callback, so we need
@@ -32,17 +33,7 @@ class KeyText {
  * uppercase characters correctly.
  */
 export class KeyEventHandler {
-  // 组合键
-  private static combinationKeys: Set<KeyCode> = new Set<KeyCode>([
-    KeyCode.KEYCODE_CTRL_LEFT,
-    KeyCode.KEYCODE_CTRL_RIGHT,
-    KeyCode.KEYCODE_ALT_LEFT,
-    KeyCode.KEYCODE_ALT_RIGHT,
-  ]);
-  private static shiftKeys: Set<KeyCode> = new Set<KeyCode>([
-    KeyCode.KEYCODE_SHIFT_LEFT,
-    KeyCode.KEYCODE_SHIFT_RIGHT,
-  ]);
+
   private static keyTextMap: Map<KeyCode, KeyText> = new Map([
     [KeyCode.KEYCODE_0, new KeyText('0', ')')],
     [KeyCode.KEYCODE_1, new KeyText('1', '!')],
@@ -54,7 +45,6 @@ export class KeyEventHandler {
     [KeyCode.KEYCODE_7, new KeyText('7', '&')],
     [KeyCode.KEYCODE_8, new KeyText('8', '*')],
     [KeyCode.KEYCODE_9, new KeyText('9', '(')],
-
     [KeyCode.KEYCODE_A, new KeyText('a', 'A')],
     [KeyCode.KEYCODE_B, new KeyText('b', 'B')],
     [KeyCode.KEYCODE_C, new KeyText('c', 'C')],
@@ -106,19 +96,17 @@ export class KeyEventHandler {
     [KeyCode.KEYCODE_NUMPAD_8, new KeyText('8', '')],
     [KeyCode.KEYCODE_NUMPAD_9, new KeyText('9', '')],
   ]);
-
   private textInputPlugin?: TextInputPlugin;
-  private isShiftMode: boolean = false;
-  private isCombinationMode: boolean = false;
 
   constructor(textInputPlugin?: TextInputPlugin) {
     this.textInputPlugin = textInputPlugin;
   }
 
-  getKeyText(event: KeyEvent) : string {
+  getKeyText(event: KeyEvent): string {
     let keyText = KeyEventHandler.keyTextMap.get(event.keyCode);
+    const isShiftMode = event.getModifierKeyState && event.getModifierKeyState(['Shift']);
     if (keyText != undefined) {
-      return this.isShiftMode ? keyText.shiftCase : keyText.normalCase;
+      return isShiftMode ? keyText.shiftCase : keyText.normalCase;
     }
     return '';
   }
@@ -136,22 +124,16 @@ export class KeyEventHandler {
       "name": "handleKeyEvent",
       "event": event
     }));
+
+    const isCtrlPressed = event.getModifierKeyState && event.getModifierKeyState(['Ctrl']);
+    const isAltPressed = event.getModifierKeyState && event.getModifierKeyState(['Alt']);
+    const isCombinationMode = isCtrlPressed || isAltPressed;
+
     if (event.type == KeyType.Down) {
-      if (KeyEventHandler.combinationKeys.has(event.keyCode)) {
-        this.isCombinationMode = true;
-      } else if (KeyEventHandler.shiftKeys.has(event.keyCode)) {
-        this.isShiftMode = true;
-      } else {
-        // Ctrl/Alt 键按下状态或数据为空时，不输入字符（字母/数字/符号）
-        if (!this.isCombinationMode && this.getKeyText(event)) {
-          this.textInputPlugin?.getEditingState().handleInsertTextEvent(this.getKeyText(event));
-        }
-      }
-    } else if (event.type == KeyType.Up) {
-      if (KeyEventHandler.combinationKeys.has(event.keyCode)) {
-        this.isCombinationMode = false;
-      } else if (KeyEventHandler.shiftKeys.has(event.keyCode)) {
-        this.isShiftMode = false;
+      // Ctrl/Alt 键按下状态或数据为空时，不输入字符（字母/数字/符号）
+      const obtainedKeyText: string = this.getKeyText(event);
+      if (!isCombinationMode && obtainedKeyText) {
+        this.textInputPlugin?.getEditingState().handleInsertTextEvent(obtainedKeyText);
       }
     }
   }
