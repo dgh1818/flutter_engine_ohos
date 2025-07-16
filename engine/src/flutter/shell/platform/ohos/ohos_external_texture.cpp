@@ -60,6 +60,22 @@ static bool IsPixelMapYUVFormat(PIXEL_FORMAT format) {
          format == PIXEL_FORMAT_YCBCR_P010 || format == PIXEL_FORMAT_YCRCB_P010;
 }
 
+static void SetNativeWindowFrameworkType(OHNativeWindow* window) {
+  int ret;
+  char* framework_type = nullptr;
+
+  ret = OH_NativeWindow_NativeWindowHandleOpt(window, GET_APP_FRAMEWORK_TYPE,
+                                              &framework_type);
+  if (ret == 0 && framework_type != nullptr && framework_type[0] == '\0') {
+    ret = OH_NativeWindow_NativeWindowHandleOpt(window, SET_APP_FRAMEWORK_TYPE,
+                                                "Flutter-Input");
+    if (ret != 0) {
+      FML_LOG(INFO) << "Failed to set framework type of external texture: "
+                    << ret;
+    }
+  }
+}
+
 OHOSExternalTexture::OHOSExternalTexture(int64_t id,
                                          OH_OnFrameAvailableListener listener)
     : Texture(id), transform_(SkMatrix::I()), frame_listener_(listener) {
@@ -73,6 +89,7 @@ OHOSExternalTexture::OHOSExternalTexture(int64_t id,
       OH_NativeImage_AcquireNativeWindow(native_image_source_);
   FML_LOG(INFO) << "OH_NativeImage_AcquireNativeWindow "
                 << producer_nativewindow_;
+  SetNativeWindowFrameworkType(producer_nativewindow_);
 
   if (!SetNativeWindowCPUAccess(producer_nativewindow_, false)) {
     FML_LOG(ERROR) << "Error with SetNativeWindowCPUAccess";
@@ -650,6 +667,8 @@ bool OHOSExternalTexture::SetExternalNativeImage(OH_NativeImage* native_image) {
   native_image_source_ = native_image;
   producer_nativewindow_ =
       OH_NativeImage_AcquireNativeWindow(native_image_source_);
+  SetNativeWindowFrameworkType(producer_nativewindow_);
+
   source_is_external_ = true;
   now_paint_frame_seq_num_ = 0;
   now_new_frame_seq_num_ = 0;
@@ -679,6 +698,7 @@ uint64_t OHOSExternalTexture::Reset(bool need_surfaceId) {
       native_image_source_ = nullptr;
       return 0;
     }
+    SetNativeWindowFrameworkType(producer_nativewindow_);
 
     int ret = OH_NativeImage_SetOnFrameAvailableListener(native_image_source_,
                                                          frame_listener_);
