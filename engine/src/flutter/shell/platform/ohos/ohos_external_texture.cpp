@@ -188,7 +188,17 @@ void OHOSExternalTexture::MarkNewFrameAvailable() {
     }
     // Here we release the buffers in the buffer_queue to ensure there is always
     // space in the queue, preventing the producer side from stalling.
-    int max_jank_frame = buffer_queue_size * 2 / 3;
+    // There is one buffer hold by last_native_window_buffer_, so we should
+    // begin to release buffer once the alloced buffer is equal to
+    // (buffer_queue_size - 1) For some scene like video, the buffer_queue_size
+    // is usually bigger than 5, and the producer may acquire several buffer
+    // simultaneously, in which case we should reserve more buffer.
+    int max_jank_frame;
+    if (buffer_queue_size <= 5) {
+      max_jank_frame = buffer_queue_size - 1;
+    } else {
+      max_jank_frame = buffer_queue_size * 2 / 3;
+    }
     while (max_jank_frame > 1 &&
            now_new_frame_seq_num_ - now_paint_frame_seq_num_ >=
                max_jank_frame) {
