@@ -23,6 +23,11 @@ constexpr int DEFAULT_PANZOOM_DEVICE_ID = -103;
 constexpr double ZOOM_IN = 10.0 / 8.0;
 constexpr double ZOOM_OUT = 1.0 / ZOOM_IN;
 
+//OH_NativeXComponent_MouseEvent对象没有deviceId成员变量或获取deviceId的接口
+//，该常量(DEFAULT_MOUSE_DEVICE_ID)是用于对pointerData.device进行赋值
+//，防止使用鼠标点击事件时产生多个deviceId，导致被识别为多个鼠标设备接入，触发多个hover异常
+constexpr int DEFAULT_MOUSE_DEVICE_ID = -104;
+
 PointerData::Change OhosTouchProcessor::getPointerChangeForAction(
     int maskedAction) {
   switch (maskedAction) {
@@ -481,7 +486,7 @@ void OhosTouchProcessor::HandleMouseEvent(
   // Delta will be generated in pointer_data_packet_converter.cc.
   pointerData.physical_delta_x = 0.0;
   pointerData.physical_delta_y = 0.0;
-  pointerData.device = mouseEvent.button;
+  pointerData.device = DEFAULT_MOUSE_DEVICE_ID;
   // Pointer identifier will be generated in pointer_data_packet_converter.cc.
   pointerData.pointer_identifier = 0;
   // XComponent not support Scroll
