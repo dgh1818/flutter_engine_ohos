@@ -113,6 +113,26 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
 
   /// 通过判断是否是TextInputType.none来决定是否弹出键盘
   show(): void {
+    try {
+      let isPhysicalKeyboard = false;
+      inputDevice.getDeviceList((Error: Error, ids: Array<number>) => {
+        for (let i = 0; i < ids.length; i++) {
+          const type = inputDevice.getKeyboardTypeSync(ids[i]);
+          if (type === inputDevice.KeyboardType.ALPHABETIC_KEYBOARD ||
+            type === inputDevice.KeyboardType.DIGITAL_KEYBOARD) {
+            isPhysicalKeyboard = true;
+            break;
+          }
+        }
+        // 适配api20，在外接键盘状态下，阻止软键盘重复拉起
+        if (isPhysicalKeyboard) {
+          this.keyboardStatus = inputMethod.KeyboardStatus.SHOW;
+        }
+      })
+    } catch (error) {
+      Log.e(TextInputMethodHandlerImpl.TAG,
+        `Show function failed to query device. Code is ${error.code}, message is ${error.message}`)
+    }
     if (this.canShowTextInput()) {
       // Ensure the Xcomponent gains focus before the soft keyboard is displayed.
       focusControl.requestFocus(this.focusViewId);
@@ -412,9 +432,26 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   }
 
   private sendKeyboardStatusCallback = (state: inputMethod.KeyboardStatus) => {
-    this.keyboardStatus = state;
-    if (state == inputMethod.KeyboardStatus.HIDE) {
-      this.plugin.textInputChannel.onConnectionClosed(this.inputTarget.id);
+    // api20开始，外接键盘状态下，点击输入框会拉起软键盘，此时要阻止onConnectionClosed，否则输入框会无法输入
+    try {
+      let isPhysicalKeyboard = false;
+      inputDevice.getDeviceList((Error: Error, ids: Array<number>) => {
+        for (let i = 0; i < ids.length; i++) {
+          const type = inputDevice.getKeyboardTypeSync(ids[i]);
+          if (type === inputDevice.KeyboardType.ALPHABETIC_KEYBOARD ||
+            type === inputDevice.KeyboardType.DIGITAL_KEYBOARD) {
+            isPhysicalKeyboard = true;
+            return;
+          }
+        }
+        this.keyboardStatus = state;
+        if (state === inputMethod.KeyboardStatus.HIDE) {
+          this.plugin.textInputChannel.onConnectionClosed(this.inputTarget.id);
+        }
+      })
+    } catch (error) {
+      Log.e(TextInputMethodHandlerImpl.TAG,
+        `SendKeyboardStatusCallback function failed to query device. Code is ${error.code}, message is ${error.message}`)
     }
   }
 
