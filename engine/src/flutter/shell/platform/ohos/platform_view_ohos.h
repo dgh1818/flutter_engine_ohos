@@ -56,8 +56,7 @@ class PlatformViewOHOS final : public PlatformView {
   PlatformViewOHOS(PlatformView::Delegate& delegate,
                    const flutter::TaskRunners& task_runners,
                    const std::shared_ptr<PlatformViewOHOSNapi>& napi_facade,
-                   bool use_software_rendering,
-                   uint8_t msaa_samples);
+                   bool use_software_rendering);
 
   PlatformViewOHOS(PlatformView::Delegate& delegate,
                    const flutter::TaskRunners& task_runners,
@@ -201,6 +200,7 @@ class PlatformViewOHOS final : public PlatformView {
 
   // |PlatformView|
   void UpdateSemantics(
+      int64_t view_id,
       flutter::SemanticsNodeUpdates update,
       flutter::CustomAccessibilityActionUpdates actions) override;
 

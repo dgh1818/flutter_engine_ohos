@@ -24,7 +24,7 @@ namespace impeller {
 
 class ContextVK;
 class Surface;
-class KHRSwapchainVK;
+class SwapchainVK;
 
 /// For Vulkan, there is both a ContextVK that implements Context and a
 /// SurfaceContextVK that also implements Context and takes a ContextVK as its
@@ -89,20 +89,21 @@ class SurfaceContextVK : public Context,
   [[nodiscard]] bool SetWindowSurface(vk::UniqueSurfaceKHR surface,
                                       const ISize& size);
 
+  void ClearSwapchain();
+
   [[nodiscard]] bool SetSwapchain(std::shared_ptr<SwapchainVK> swapchain);
 
   std::unique_ptr<Surface> AcquireNextSurface();
+
+  int GetCurrentImageIndex();
+
+  void SetRenderArea(std::optional<IRect> area);
 
   /// @brief Performs frame incrementing processes like AcquireNextSurface but
   ///        without the surface.
   ///
   /// Used by the embedder.h implementations.
   void MarkFrameEnd();
-  void ClearSwapchain();
-
-  int GetCurrentImageIndex();
-
-  void SetRenderArea(std::optional<IRect> area);
 
   /// @brief Mark the current swapchain configuration as dirty, forcing it to be
   ///        recreated on the next frame.
@@ -113,10 +114,6 @@ class SurfaceContextVK : public Context,
 
   // |Context|
   void InitializeCommonlyUsedShadersIfNeeded() const override;
-
-#ifdef FML_OS_ANDROID
-  vk::UniqueSurfaceKHR CreateAndroidSurface(ANativeWindow* window) const;
-#endif  // FML_OS_ANDROID
 
 #ifdef FML_OS_OHOS
   vk::UniqueSurfaceKHR CreateOHOSSurface(OHNativeWindow* window) const;
@@ -134,11 +131,9 @@ class SurfaceContextVK : public Context,
 
   bool FlushCommandBuffers() override;
 
-  const ContextVK& GetParent() const;
-
  private:
   std::shared_ptr<ContextVK> parent_;
-  std::shared_ptr<KHRSwapchainVK> swapchain_;
+  std::shared_ptr<SwapchainVK> swapchain_;
 };
 
 }  // namespace impeller

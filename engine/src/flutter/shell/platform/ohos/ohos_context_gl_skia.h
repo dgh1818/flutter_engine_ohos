@@ -31,8 +31,7 @@ class OhosEGLSurface;
 class OhosContextGLSkia : public OHOSContext {
  public:
   OhosContextGLSkia(OHOSRenderingAPI rendering_api,
-                    const TaskRunners& taskRunners,
-                    uint8_t msaa_samples);
+                    const TaskRunners& taskRunners);
 
   ~OhosContextGLSkia();
 

@@ -29,7 +29,7 @@ class OHOSExternalTexture : public flutter::Texture {
   ~OHOSExternalTexture() override;
 
   void Paint(PaintContext& context,
-             const SkRect& bounds,
+             const DlRect& bounds,
              bool freeze,
              DlImageSampling sampling) override;
 

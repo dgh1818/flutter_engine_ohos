@@ -46,6 +46,9 @@ config("feature_flags") {
   if (is_asan) {
     defines += [ "ADDRESS_SANITIZER" ]
   }
+  if (is_hwasan) {
+    defines += [ "HWADDRESS_SANITIZER" ]
+  }
   if (is_lsan) {
     defines += [ "LEAK_SANITIZER" ]
   }
@@ -146,6 +149,8 @@ config("default_libs") {
       "dl",
       "m",
     ]
+  } else if (is_ohos) {
+    libs = [ "dl","hilog_ndk.z" ]
   } else if (is_linux) {
     libs = [ "dl" ]
   }

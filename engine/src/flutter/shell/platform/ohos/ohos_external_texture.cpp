@@ -97,21 +97,22 @@ OHOSExternalTexture::~OHOSExternalTexture() {
 }
 
 void OHOSExternalTexture::Paint(PaintContext& context,
-                                const SkRect& bounds,
+                                const DlRect& bounds,
                                 bool freeze,
                                 DlImageSampling sampling) {
-  SkRect new_bounds = bounds;
+  SkRect sk_bounds = ToSkRect(bounds);
+  SkRect new_bounds = sk_bounds;
   sk_sp<flutter::DlImage> draw_dl_image;
 
-  if (bounds != old_draw_bounds_) {
+  if (sk_bounds != old_draw_bounds_) {
     draw_size_has_changed_ = true;
   } else {
     draw_size_has_changed_ = false;
   }
 
   if (freeze ||
-      (draw_dl_image = GetNextDrawImage(context, bounds)) == nullptr) {
-    draw_dl_image = GetOldDlImage(context, bounds);
+      (draw_dl_image = GetNextDrawImage(context, sk_bounds)) == nullptr) {
+    draw_dl_image = GetOldDlImage(context, sk_bounds);
   } else {
     SetOldDlImage(draw_dl_image);
   }
@@ -123,7 +124,7 @@ void OHOSExternalTexture::Paint(PaintContext& context,
     // previous draw size should be used for rendering.
     new_bounds = old_draw_bounds_;
   } else {
-    old_draw_bounds_ = bounds;
+    old_draw_bounds_ = sk_bounds;
   }
 
   if (size_is_changing_) {
@@ -146,14 +147,14 @@ void OHOSExternalTexture::Paint(PaintContext& context,
     DlAutoCanvasRestore auto_restore(context.canvas, true);
     SkM44 new_transform;
     GetNewTransformBound(new_transform, new_bounds);
-    context.canvas->Transform(new_transform);
+    context.canvas->Transform(ToDlMatrix(new_transform));
     context.canvas->DrawImageRect(
-        draw_dl_image,                                 // image
-        SkRect::Make(draw_dl_image->bounds()),         // source rect
-        new_bounds,                                    // destination rect
-        sampling,                                      // sampling
-        context.paint,                                 // paint
-        flutter::DlCanvas::SrcRectConstraint::kStrict  // enforce edges
+        draw_dl_image,                                    // image
+        ToDlRect(SkRect::Make(draw_dl_image->bounds())),  // source rect
+        ToDlRect(new_bounds),                             // destination rect
+        sampling,                                         // sampling
+        context.paint,                                    // paint
+        flutter::DlSrcRectConstraint::kStrict             // enforce edges
     );
     context.canvas->Flush();
   } else {
@@ -691,7 +692,6 @@ uint64_t OHOSExternalTexture::Reset(bool need_surfaceId) {
 bool OHOSExternalTexture::CreatePixelMapBuffer(int width,
                                                int height,
                                                int pixel_format) {
-  int fence_fd = -1;
   DestroyPixelMapBuffer();
 
   int window_format = PixelMapToWindowFormat((PIXEL_FORMAT)pixel_format);

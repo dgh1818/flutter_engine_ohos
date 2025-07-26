@@ -15,7 +15,6 @@
 #include "flutter/fml/paths.h"
 #include "flutter/fml/platform/ohos/napi_util.h"
 #include "flutter/fml/platform/ohos/paths_ohos.h"
-#include "flutter/fml/size.h"
 #include "flutter/lib/ui/plugins/callback_cache.h"
 #include "flutter/runtime/dart_vm.h"
 #include "flutter/runtime/ptrace_check.h"

@@ -11,7 +11,7 @@
 #include "common/settings.h"
 #include "flutter/fml/macros.h"
 #include "flutter/impeller/renderer/context.h"
-#include "third_party/skia/include/gpu/GrDirectContext.h"
+#include "third_party/skia/include/gpu/ganesh/GrDirectContext.h"
 
 namespace flutter {
 

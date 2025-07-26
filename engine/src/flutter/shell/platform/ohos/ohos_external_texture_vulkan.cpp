@@ -1,9 +1,9 @@
 /*
- * Copyright (c) 2023 Hunan OpenValley Digital Industry Development Co., Ltd. All rights reserved.
- * Use of this source code is governed by a BSD-style license that can be
- * found in the LICENSE_KHZG file.
+ * Copyright (c) 2023 Hunan OpenValley Digital Industry Development Co., Ltd.
+ * All rights reserved. Use of this source code is governed by a BSD-style
+ * license that can be found in the LICENSE_KHZG file.
  */
- #include "ohos_external_texture_vulkan.h"
+#include "ohos_external_texture_vulkan.h"
 #include <fcntl.h>
 #include <native_buffer/native_buffer.h>
 #include <native_window/external_window.h>
@@ -16,7 +16,6 @@
 #include "flutter/impeller/core/texture_descriptor.h"
 #include "flutter/impeller/display_list/dl_image_impeller.h"
 #include "flutter/impeller/renderer/backend/vulkan/command_buffer_vk.h"
-#include "flutter/impeller/renderer/backend/vulkan/command_encoder_vk.h"
 #include "flutter/impeller/renderer/backend/vulkan/ohos/ohb_texture_source_vk.h"
 #include "flutter/impeller/renderer/backend/vulkan/texture_vk.h"
 #include "fml/logging.h"
@@ -179,9 +178,8 @@ void OHOSExternalTextureVulkan::WaitGPUFence(int fence_fd) {
     // Transition the layout to shader read.
     impeller::CommandBufferVK& buffer_vk =
         impeller::CommandBufferVK::Cast(*cmd_buffer);
-    auto encoder = buffer_vk.GetEncoder();
 
-    barrier.cmd_buffer = encoder->GetCommandBuffer();
+    barrier.cmd_buffer = buffer_vk.GetCommandBuffer();
     barrier.src_access = impeller::vk::AccessFlagBits::eColorAttachmentWrite |
                          impeller::vk::AccessFlagBits::eTransferWrite;
     barrier.src_stage =
@@ -197,7 +195,7 @@ void OHOSExternalTextureVulkan::WaitGPUFence(int fence_fd) {
       return;
     }
 
-    if (!encoder->EndCommandBuffer()) {
+    if (!buffer_vk.EndCommandBuffer()) {
       FML_LOG(ERROR) << "Failed to end command buffer";
       return;
     }

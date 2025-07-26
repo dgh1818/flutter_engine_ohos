@@ -11,7 +11,6 @@
 
 #include "flutter/fml/native_library.h"
 #include "flutter/fml/paths.h"
-#include "flutter/fml/size.h"
 #include "flutter/shell/version/version.h"
 
 // Include once for the default enum definition.
@@ -62,8 +61,6 @@ static const std::string kAllowedDartFlags[] = {
     "--trace-reload",
     "--trace-reload-verbose",
     "--write-service-info",
-    "--null_assertions",
-    "--strict_null_safety_checks",
     "--max_subtype_cache_entries",
     "--enable-asserts",
 };

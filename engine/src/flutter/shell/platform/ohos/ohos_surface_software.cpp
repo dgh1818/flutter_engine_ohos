@@ -9,6 +9,7 @@
 #include <sys/mman.h>
 #include "napi_common.h"
 #include "ohos_logging.h"
+#include "third_party/skia/include/core/SkColorSpace.h"
 #include "third_party/skia/include/core/SkImage.h"
 #include "third_party/skia/include/core/SkSurface.h"
 #include "types.h"

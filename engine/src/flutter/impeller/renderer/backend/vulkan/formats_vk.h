@@ -9,8 +9,6 @@
 #include <ostream>
 
 #include "fml/logging.h"
-#include "flutter/fml/hash_combine.h"
-#include "flutter/fml/macros.h"
 #include "impeller/base/validation.h"
 #include "impeller/core/formats.h"
 #include "impeller/core/shader_types.h"

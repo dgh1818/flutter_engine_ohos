@@ -72,8 +72,11 @@ TEST_P(TextureGLESTest, Binds2DTexture) {
   desc.size = {100, 100};
   desc.format = PixelFormat::kR8G8B8A8UNormInt;
   desc.type = TextureType::kTexture2DMultisample;
+#ifdef __OHOS__
+  desc.sample_count = SampleCount::kCount2;
+#else
   desc.sample_count = SampleCount::kCount4;
-
+#endif
   auto texture = GetContext()->GetResourceAllocator()->CreateTexture(desc);
 
   ASSERT_TRUE(texture);

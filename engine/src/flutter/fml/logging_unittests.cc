@@ -55,11 +55,13 @@ static MakeSureFmlLogDoesNotSegfaultWhenStaticallyCalled fml_log_static_check_;
 int UnreachableScopeWithoutReturnDoesNotMakeCompilerMad() {
   KillProcess();
   // return 0; <--- Missing but compiler is fine.
+  return 0;
 }
 
 int UnreachableScopeWithMacroWithoutReturnDoesNotMakeCompilerMad() {
   FML_UNREACHABLE();
   // return 0; <--- Missing but compiler is fine.
+  return 0;
 }
 
 TEST(LoggingTest, UnreachableKillProcess) {

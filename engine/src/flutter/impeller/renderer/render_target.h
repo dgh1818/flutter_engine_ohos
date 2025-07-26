@@ -146,6 +146,7 @@ class RenderTarget final {
   // to avoid heap allocations for the commonly created render target formats
   // in Flutter.
   std::map<size_t, ColorAttachment> colors_;
+  mutable std::optional<IRect> render_area_;
 };
 
 /// @brief a wrapper around the impeller [Allocator] instance that can be used

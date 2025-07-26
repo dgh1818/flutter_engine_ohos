@@ -25,6 +25,7 @@
 namespace flutter {
 
 std::string OHOSLastFontPath = "";
+static constexpr int64_t kImplicitViewId = 0;
 
 static void OHOSPlatformThreadConfigSetter(
     const fml::Thread::ThreadConfig& config) {
@@ -155,8 +156,10 @@ OHOSShellHolder::OHOSShellHolder(
   static size_t thread_host_count = 1;
   auto thread_label = std::to_string(thread_host_count++);
   TRACE_EVENT0("OHOSShellHolder", "Create");
-  auto mask =
-      ThreadHost::Type::kUi | ThreadHost::Type::kRaster | ThreadHost::Type::kIo;
+  auto mask = ThreadHost::Type::kRaster | ThreadHost::Type::kIo;
+  if (!settings.merged_platform_ui_thread) {
+    mask |= ThreadHost::Type::kUi;
+  }
 
   flutter::ThreadHost::ThreadHostConfig host_config(
       thread_label, mask, OHOSPlatformThreadConfigSetter);
@@ -186,8 +189,7 @@ OHOSShellHolder::OHOSShellHolder(
             shell.GetTaskRunners(),  // task runners
             napi_facade,             // napi interop
             shell.GetSettings()
-                .enable_software_rendering,   // use software rendering
-            shell.GetSettings().msaa_samples  // msaa sample count
+                .enable_software_rendering  // use software rendering
         );
         LOGI("on_create_platform_view LOGI");
         FML_LOG(INFO) << "on_create_platform_view end";
@@ -218,7 +220,11 @@ OHOSShellHolder::OHOSShellHolder(
   fml::RefPtr<fml::TaskRunner> platform_runner =
       fml::MessageLoop::GetCurrent().GetTaskRunner();
   raster_runner = thread_host_->raster_thread->GetTaskRunner();
-  ui_runner = thread_host_->ui_thread->GetTaskRunner();
+  if (settings.merged_platform_ui_thread) {
+    ui_runner = platform_runner;
+  } else {
+    ui_runner = thread_host_->ui_thread->GetTaskRunner();
+  }
   io_runner = thread_host_->io_thread->GetTaskRunner();
 
   flutter::TaskRunners task_runners(thread_label,     // label
@@ -705,18 +711,19 @@ int32_t OHOSShellHolder::ExecuteAction(
                   StandardMessageCodec::GetInstance().EncodeMessage(args);
 
               platform_view_->DispatchSemanticsAction(
-                  id, flutter_action,
+                  kImplicitViewId, id, flutter_action,
                   fml::MallocMapping::Copy(encoded_message->data(),
                                            encoded_message->size()));
             } else {
-              platform_view_->DispatchSemanticsAction(id, flutter_action, {});
+              platform_view_->DispatchSemanticsAction(kImplicitViewId, id,
+                                                      flutter_action, {});
             }
             break;
           case ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_GAIN_ACCESSIBILITY_FOCUS:
             bridge_->GainAccessibilityFocus(id, &needShowOnScreen);
             if (needShowOnScreen) {
               platform_view_->DispatchSemanticsAction(
-                  id, ACTIONS_::kShowOnScreen, {});
+                  kImplicitViewId, id, ACTIONS_::kShowOnScreen, {});
             }
             break;
           case ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_CLEAR_ACCESSIBILITY_FOCUS:

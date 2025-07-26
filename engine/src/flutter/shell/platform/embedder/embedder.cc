@@ -104,20 +104,25 @@ extern const intptr_t kPlatformStrongDillSize;
 #endif  // SHELL_ENABLE_VULKAN
 
 #ifdef FML_OS_OHOS
-extern "C"{
-  typedef enum {
-	/** Debug level to be used by {@link OH_LOG_DEBUG} */
-	HILOG_LOG_DEBUG = 3,
-	/** Informational level to be used by {@link OH_LOG_INFO} */
-	HILOG_LOG_INFO = 4,
-	/** Warning level to be used by {@link OH_LOG_WARN} */
-	HILOG_LOG_WARN = 5,
-	/** Error level to be used by {@link OH_LOG_ERROR} */
-	HILOG_LOG_ERROR = 6,
-	/** Fatal level to be used by {@link OH_LOG_FATAL} */
-	HILOG_LOG_FATAL = 7,
+extern "C" {
+typedef enum {
+  /** Debug level to be used by {@link OH_LOG_DEBUG} */
+  HILOG_LOG_DEBUG = 3,
+  /** Informational level to be used by {@link OH_LOG_INFO} */
+  HILOG_LOG_INFO = 4,
+  /** Warning level to be used by {@link OH_LOG_WARN} */
+  HILOG_LOG_WARN = 5,
+  /** Error level to be used by {@link OH_LOG_ERROR} */
+  HILOG_LOG_ERROR = 6,
+  /** Fatal level to be used by {@link OH_LOG_FATAL} */
+  HILOG_LOG_FATAL = 7,
 } HiLog_LogLevel;
-int OH_LOG_Print(int type, HiLog_LogLevel level, unsigned int domain, const char *tag, const char *fmt, ...) ;
+int OH_LOG_Print(int type,
+                 HiLog_LogLevel level,
+                 unsigned int domain,
+                 const char* tag,
+                 const char* fmt,
+                 ...);
 }
 #endif
 
@@ -167,13 +172,13 @@ static FlutterEngineResult LogEmbedderError(FlutterEngineResult code,
            code_name, reason);
   std::cerr << error << std::endl;
 
-
-#if  defined(FML_OS_OHOS)
+#if defined(FML_OS_OHOS)
 #define OHOS_LOG_TYPE_APP 0
 #define HILOG_LOG_DOMAIN 0
 #define HILOG_LOG_TAG "XcomFlutterEmbedder"
   HiLog_LogLevel fx_severity = HILOG_LOG_ERROR;
-  (void ) OH_LOG_Print(0,fx_severity,HILOG_LOG_DOMAIN, HILOG_LOG_TAG,"%s",error );
+  (void)OH_LOG_Print(0, fx_severity, HILOG_LOG_DOMAIN, HILOG_LOG_TAG, "%s",
+                     error);
 #endif
   return code;
 }
@@ -1113,11 +1118,12 @@ static sk_sp<SkSurface> MakeSkSurfaceFromBackingStore(
   sk_cfp<FlutterMetalTextureHandle> mtl_texture;
   mtl_texture.retain(metal->texture.texture);
   texture_info.fTexture = mtl_texture;
-  GrBackendTexture backend_texture(config.size.width,      //
-                                   config.size.height,     //
-                                   skgpu::Mipmapped::kNo,  //
-                                   texture_info            //
-  );
+  GrBackendTexture backend_texture =
+      GrBackendTextures::MakeMtl(config.size.width,      //
+                                 config.size.height,     //
+                                 skgpu::Mipmapped::kNo,  //
+                                 texture_info            //
+      );
 
   SkSurfaceProps surface_properties(0, kUnknown_SkPixelGeometry);
 
@@ -1185,7 +1191,11 @@ MakeRenderTargetFromBackingStoreImpeller(
   impeller::TextureDescriptor color0_tex;
   if (implicit_msaa) {
     color0_tex.type = impeller::TextureType::kTexture2DMultisample;
+#ifdef __OHOS__
+    color0_tex.sample_count = impeller::SampleCount::kCount2;
+#else
     color0_tex.sample_count = impeller::SampleCount::kCount4;
+#endif
   } else {
     color0_tex.type = impeller::TextureType::kTexture2D;
     color0_tex.sample_count = impeller::SampleCount::kCount1;
@@ -1216,7 +1226,11 @@ MakeRenderTargetFromBackingStoreImpeller(
   if (implicit_msaa) {
     depth_stencil_texture_desc.type =
         impeller::TextureType::kTexture2DMultisample;
+#ifdef __OHOS__
+    depth_stencil_texture_desc.sample_count = impeller::SampleCount::kCount2;
+#else
     depth_stencil_texture_desc.sample_count = impeller::SampleCount::kCount4;
+#endif
   } else {
     depth_stencil_texture_desc.type = impeller::TextureType::kTexture2D;
     depth_stencil_texture_desc.sample_count = impeller::SampleCount::kCount1;
@@ -1291,7 +1305,11 @@ MakeRenderTargetFromBackingStoreImpeller(
   impeller::TextureDescriptor msaa_tex_desc;
   msaa_tex_desc.storage_mode = impeller::StorageMode::kDeviceTransient;
   msaa_tex_desc.type = impeller::TextureType::kTexture2DMultisample;
+#ifdef __OHOS__
+  msaa_tex_desc.sample_count = impeller::SampleCount::kCount2;
+#else
   msaa_tex_desc.sample_count = impeller::SampleCount::kCount4;
+#endif
   msaa_tex_desc.format = resolve_tex->GetTextureDescriptor().format;
   msaa_tex_desc.size = size;
   msaa_tex_desc.usage = impeller::TextureUsage::kRenderTarget;

@@ -4,7 +4,6 @@
  * found in the LICENSE_HW file.
  */
 
-
 #include "ohos_semantics_node.h"
 #include <arkui/native_interface_accessibility.h>
 #include <cassert>
@@ -214,7 +213,6 @@ void SemanticsNodeExtend::OHOSComponentTypeUpdate() {
 
 void SemanticsNodeExtend::OHOSActionsUpdate() {
   ohActions.clear();
-  int32_t actionTypeNum = 0;
   if (HasAction(ACTIONS_::kTap)) {
     ohActions.push_back({ArkUI_Accessibility_ActionType::
                              ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_CLICK,

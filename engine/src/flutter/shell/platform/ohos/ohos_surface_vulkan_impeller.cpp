@@ -45,17 +45,17 @@ std::unique_ptr<Surface> OHOSSurfaceVulkanImpeller::CreateGPUSurface(
   std::lock_guard<std::mutex> lock(surface_preload_mutex_);
 
   if (preload_gpu_surface_ && preload_gpu_surface_->IsValid()) {
-    preload_gpu_surface_->SetDelegate(this);
+    preload_gpu_surface_->SetOhosDelegate(this);
     return std::move(preload_gpu_surface_);
   }
 
   std::unique_ptr<GPUSurfaceVulkanImpeller> gpu_surface =
-      std::make_unique<GPUSurfaceVulkanImpeller>(surface_context_vk_);
+      std::make_unique<GPUSurfaceVulkanImpeller>(nullptr, surface_context_vk_);
 
   if (!gpu_surface->IsValid()) {
     return nullptr;
   }
-  gpu_surface->SetDelegate(this);
+  gpu_surface->SetOhosDelegate(this);
   return gpu_surface;
 }
 
@@ -135,8 +135,8 @@ bool OHOSSurfaceVulkanImpeller::PrepareOffscreenWindow(int32_t width,
   std::lock_guard<std::mutex> lock(surface_preload_mutex_);
   if (!preload_gpu_surface_ && !is_surface_preload_) {
     is_surface_preload_ = true;
-    preload_gpu_surface_ =
-        std::make_unique<GPUSurfaceVulkanImpeller>(surface_context_vk_);
+    preload_gpu_surface_ = std::make_unique<GPUSurfaceVulkanImpeller>(
+        nullptr, surface_context_vk_);
   }
   // return false means that it will not invoke PlatformView::NotifyCreated().
   // return false;
@@ -150,8 +150,8 @@ void OHOSSurfaceVulkanImpeller::PrepareGpuSurface() {
   std::lock_guard<std::mutex> lock(surface_preload_mutex_);
   if (!preload_gpu_surface_ && !is_surface_preload_) {
     is_surface_preload_ = true;
-    preload_gpu_surface_ =
-        std::make_unique<GPUSurfaceVulkanImpeller>(surface_context_vk_);
+    preload_gpu_surface_ = std::make_unique<GPUSurfaceVulkanImpeller>(
+        nullptr, surface_context_vk_);
   }
 }
 

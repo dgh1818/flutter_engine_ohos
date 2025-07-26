@@ -1,6 +1,9 @@
 // Copyright 2013 The Flutter Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+#ifdef __clang__
+#pragma clang diagnostic ignored "-Wreturn-type"
+#endif
 
 #include "impeller/renderer/backend/vulkan/render_pass_vk.h"
 
@@ -204,23 +207,6 @@ RenderPassVK::RenderPassVK(const std::shared_ptr<const Context>& context,
   vk::RenderPassBeginInfo pass_info;
   pass_info.renderPass = *render_pass_;
   pass_info.framebuffer = *framebuffer;
-      static_cast<uint32_t>(target_size.height);
-  pass_info.setPClearValues(clears.data());
-  pass_info.setClearValueCount(clear_count);
-
-  command_buffer_vk_.beginRenderPass(pass_info, vk::SubpassContents::eInline);
-
-  if (resolve_image_vk_) {
-    TextureVK::Cast(*resolve_image_vk_)
-        .SetLayoutWithoutEncoding(
-            is_swapchain ? vk::ImageLayout::eGeneral
-                         : vk::ImageLayout::eShaderReadOnlyOptimal);
-  }
-  if (color_image_vk_) {
-    TextureVK::Cast(*color_image_vk_)
-        .SetLayoutWithoutEncoding(vk::ImageLayout::eGeneral);
-  }
-
   auto render_area = render_target_.GetRenderArea();
   if (render_area.has_value()) {
     pass_info.renderArea.offset.x =
@@ -237,9 +223,21 @@ RenderPassVK::RenderPassVK(const std::shared_ptr<const Context>& context,
     pass_info.renderArea.extent.height =
         static_cast<uint32_t>(target_size.height);
   }
-  pass_info.setClearValues(clear_values);
+  pass_info.setPClearValues(clears.data());
+  pass_info.setClearValueCount(clear_count);
 
   command_buffer_vk_.beginRenderPass(pass_info, vk::SubpassContents::eInline);
+
+  if (resolve_image_vk_) {
+    TextureVK::Cast(*resolve_image_vk_)
+        .SetLayoutWithoutEncoding(
+            is_swapchain ? vk::ImageLayout::eGeneral
+                         : vk::ImageLayout::eShaderReadOnlyOptimal);
+  }
+  if (color_image_vk_) {
+    TextureVK::Cast(*color_image_vk_)
+        .SetLayoutWithoutEncoding(vk::ImageLayout::eGeneral);
+  }
 
   // Set the initial viewport.
   const auto vp = Viewport{.rect = Rect::MakeSize(target_size)};
@@ -698,29 +696,6 @@ bool RenderPassVK::BindResource(ShaderStage stage,
 
 bool RenderPassVK::OnEncodeCommands(const Context& context) const {
   command_buffer_->GetCommandBuffer().endRenderPass();
-
-  // If this render target will be consumed by a subsequent render pass,
-  // perform a layout transition to a shader read state.
-  const std::shared_ptr<Texture>& result_texture =
-      resolve_image_vk_ ? resolve_image_vk_ : color_image_vk_;
-  if (result_texture->GetTextureDescriptor().usage &
-      TextureUsage::kShaderRead) {
-    BarrierVK barrier;
-    barrier.cmd_buffer = command_buffer_vk_;
-    barrier.src_access = vk::AccessFlagBits::eColorAttachmentWrite |
-                         vk::AccessFlagBits::eTransferWrite;
-    barrier.src_stage = vk::PipelineStageFlagBits::eColorAttachmentOutput |
-                        vk::PipelineStageFlagBits::eTransfer;
-    barrier.dst_access = vk::AccessFlagBits::eShaderRead;
-    barrier.dst_stage = vk::PipelineStageFlagBits::eFragmentShader;
-
-    barrier.new_layout = vk::ImageLayout::eShaderReadOnlyOptimal;
-
-    if (!TextureVK::Cast(*result_texture).SetLayout(barrier)) {
-      return false;
-    }
-  }
-
   return true;
 }
 

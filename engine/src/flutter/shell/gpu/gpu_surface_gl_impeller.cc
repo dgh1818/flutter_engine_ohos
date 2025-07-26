@@ -8,7 +8,6 @@
 #include "flutter/fml/make_copyable.h"
 #include "impeller/display_list/dl_dispatcher.h"
 #include "impeller/renderer/backend/gles/surface_gles.h"
-#include "impeller/renderer/renderer.h"
 #include "impeller/typographer/backends/skia/typographer_context_skia.h"
 
 namespace flutter {
@@ -26,11 +25,6 @@ GPUSurfaceGLImpeller::GPUSurfaceGLImpeller(
     return;
   }
 
-  auto renderer = std::make_shared<impeller::Renderer>(context);
-  if (!renderer->IsValid()) {
-    return;
-  }
-
   auto aiks_context = std::make_shared<impeller::AiksContext>(
       context, impeller::TypographerContextSkia::Make());
 
@@ -41,7 +35,6 @@ GPUSurfaceGLImpeller::GPUSurfaceGLImpeller(
   delegate_ = delegate;
   impeller_context_ = std::move(context);
   render_to_surface_ = render_to_surface;
-  impeller_renderer_ = std::move(renderer);
   aiks_context_ = std::move(aiks_context);
   is_valid_ = true;
 }

@@ -121,6 +121,7 @@ Future<void> testIsolateStartupFailure() async {
   // test in an isolate.
   Isolate.spawn(mainTest, null);
 }
+
 @pragma('vm:external-name', 'MakeNextIsolateSpawnFail')
 external void makeNextIsolateSpawnFail();
 

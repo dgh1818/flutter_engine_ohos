@@ -7,12 +7,10 @@
 
 #include <cstdint>
 #include <memory>
-#include <variant>
 
-#include "impeller/geometry/rect.h"
 #include "impeller/geometry/size.h"
+#include "impeller/renderer/backend/vulkan/swapchain/swapchain_transients_vk.h"
 #include "impeller/renderer/backend/vulkan/vk.h"
-#include "vulkan/vulkan_enums.hpp"
 
 namespace impeller {
 
@@ -78,6 +76,7 @@ class KHRSwapchainImplVK final
   vk::Format surface_format_ = vk::Format::eUndefined;
   vk::UniqueSwapchainKHR swapchain_;
   uint32_t current_image_index_ = 0;
+  std::shared_ptr<SwapchainTransientsVK> transients_;
   std::vector<std::shared_ptr<KHRSwapchainImageVK>> images_;
   std::vector<std::unique_ptr<KHRFrameSynchronizerVK>> synchronizers_;
   size_t current_frame_ = 0u;

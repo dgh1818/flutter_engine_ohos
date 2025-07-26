@@ -187,7 +187,7 @@ TEST(CapabilitiesVKTest, ContextInitializesWithNoStencilFormat) {
           .SetPhysicalDeviceFormatPropertiesCallback(
               [](VkPhysicalDevice physicalDevice, VkFormat format,
                  VkFormatProperties* pFormatProperties) {
-                if (format == VK_FORMAT_B8G8R8A8_UNORM) {
+                if (format == VK_FORMAT_R8G8B8A8_UNORM) {
                   pFormatProperties->optimalTilingFeatures =
                       static_cast<VkFormatFeatureFlags>(
                           vk::FormatFeatureFlagBits::eColorAttachment);
@@ -220,7 +220,7 @@ TEST(CapabilitiesVKTest,
           .SetPhysicalDeviceFormatPropertiesCallback(
               [](VkPhysicalDevice physicalDevice, VkFormat format,
                  VkFormatProperties* pFormatProperties) {
-                if (format == VK_FORMAT_B8G8R8A8_UNORM) {
+                if (format == VK_FORMAT_R8G8B8A8_UNORM) {
                   pFormatProperties->optimalTilingFeatures =
                       static_cast<VkFormatFeatureFlags>(
                           vk::FormatFeatureFlagBits::eColorAttachment);

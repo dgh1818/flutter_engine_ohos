@@ -10,11 +10,9 @@
 #include <vector>
 
 #include "flutter/common/settings.h"
-#include "flutter/fml/compiler_specific.h"
 #include "flutter/fml/cpu_affinity.h"
 #include "flutter/fml/logging.h"
 #include "flutter/fml/mapping.h"
-#include "flutter/fml/size.h"
 #include "flutter/fml/time/time_delta.h"
 #include "flutter/fml/trace_event.h"
 #include "flutter/lib/ui/dart_ui.h"
@@ -357,7 +355,7 @@ DartVM::DartVM(const std::shared_ptr<const DartVMData>& vm_data,
   // Debug mode uses the JIT, disable code page write protection to avoid
   // memory page protection changes before and after every compilation.
   PushBackAll(&args, kDartWriteProtectCodeArgs,
-              fml::size(kDartWriteProtectCodeArgs));
+              std::size(kDartWriteProtectCodeArgs));
 #else
   const bool tracing_result = EnableTracingIfNecessary(settings_);
   // This check should only trip if the embedding made no attempts to enable

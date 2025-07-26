@@ -10,17 +10,12 @@
 #include <utility>
 #include <vector>
 
+#include "flutter/assets/native_assets.h"
 #include "flutter/common/settings.h"
-#include "flutter/fml/make_copyable.h"
 #include "flutter/fml/trace_event.h"
-#include "flutter/lib/snapshot/snapshot.h"
 #include "flutter/lib/ui/text/font_collection.h"
 #include "flutter/shell/common/animator.h"
-#include "flutter/shell/common/platform_view.h"
-#include "flutter/shell/common/shell.h"
-#include "impeller/runtime_stage/runtime_stage.h"
 #include "rapidjson/document.h"
-#include "third_party/dart/runtime/include/dart_tools_api.h"
 
 namespace flutter {
 
@@ -74,7 +69,6 @@ Engine::Engine(Delegate& delegate,
                fml::WeakPtr<IOManager> io_manager,
                const fml::RefPtr<SkiaUnrefQueue>& unref_queue,
                fml::TaskRunnerAffineWeakPtr<SnapshotDelegate> snapshot_delegate,
-               std::shared_ptr<VolatilePathTracker> volatile_path_tracker,
                const std::shared_ptr<fml::SyncSwitch>& gpu_disabled_switch,
                impeller::RuntimeStageBackend runtime_stage_type)
     : Engine(delegate,
@@ -309,8 +303,10 @@ tonic::DartErrorHandleType Engine::GetUIIsolateLastError() {
   return runtime_controller_->GetLastError();
 }
 
-void Engine::AddView(int64_t view_id, const ViewportMetrics& view_metrics) {
-  runtime_controller_->AddView(view_id, view_metrics);
+void Engine::AddView(int64_t view_id,
+                     const ViewportMetrics& view_metrics,
+                     std::function<void(bool added)> callback) {
+  runtime_controller_->AddView(view_id, view_metrics, std::move(callback));
 }
 
 bool Engine::RemoveView(int64_t view_id) {
@@ -493,12 +489,12 @@ void Engine::Render(int64_t view_id,
     return;
   }
 
-  if (layer_tree->frame_size().isEmpty()) {
+  if (layer_tree->frame_size().IsEmpty()) {
     FML_DLOG(INFO) << "engin Render frame_size is empty";
   }
 
   // Ensure frame dimensions are sane.
-  if (layer_tree->frame_size().isEmpty() || device_pixel_ratio <= 0.0f) {
+  if (layer_tree->frame_size().IsEmpty() || device_pixel_ratio <= 0.0f) {
     FML_DLOG(INFO) << "engin Render device_pixel_ratio <= 0";
     return;
   }

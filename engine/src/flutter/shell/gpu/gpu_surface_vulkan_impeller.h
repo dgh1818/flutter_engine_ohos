@@ -27,14 +27,14 @@ class GPUSurfaceVulkanImpeller final : public Surface {
   // |Surface|
   bool IsValid() override;
 
-  void SetDelegate(GPUSurfaceVulkanDelegate* delegate) {
-    this->delegate_ = delegate;
+  void SetOhosDelegate(GPUSurfaceVulkanDelegate* ohos_delegate) {
+    this->ohos_delegate_ = ohos_delegate;
   };
 
  private:
   GPUSurfaceVulkanDelegate* delegate_;
+  GPUSurfaceVulkanDelegate* ohos_delegate_;
   std::shared_ptr<impeller::Context> impeller_context_;
-  std::shared_ptr<impeller::Renderer> impeller_renderer_;
   std::shared_ptr<impeller::AiksContext> aiks_context_;
   std::shared_ptr<impeller::SwapchainTransientsVK> transients_;
   bool is_valid_ = false;
@@ -47,8 +47,6 @@ class GPUSurfaceVulkanImpeller final : public Surface {
   // Accumulated damage for each framebuffer; Key is address of underlying
   // MTLTexture for each drawable
   std::map<int, SkIRect> damage_;
-
-  GPUSurfaceVulkanDelegate* delegate_ = nullptr;
 
   // |Surface|
   std::unique_ptr<SurfaceFrame> AcquireFrame(const SkISize& size) override;

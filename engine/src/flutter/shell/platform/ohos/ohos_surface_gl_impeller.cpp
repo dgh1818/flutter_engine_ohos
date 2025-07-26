@@ -14,6 +14,7 @@
 #include "flutter/impeller/toolkit/egl/context.h"
 #include "flutter/impeller/toolkit/egl/surface.h"
 #include "flutter/shell/gpu/gpu_surface_gl_impeller.h"
+// #include "flutter/impeller/base/flags.h"
 
 namespace flutter {
 
@@ -66,8 +67,9 @@ static std::shared_ptr<impeller::Context> CreateImpellerContext(
           impeller_entity_shaders_gles_length),
   };
 
-  auto context = impeller::ContextGLES::Create(
-      std::move(proc_table), shader_mappings, enable_gpu_tracing);
+  auto context =
+      impeller::ContextGLES::Create(impeller::Flags{}, std::move(proc_table),
+                                    shader_mappings, enable_gpu_tracing);
   if (!context) {
     FML_LOG(ERROR) << "Could not create OpenGLES Impeller Context.";
     return nullptr;

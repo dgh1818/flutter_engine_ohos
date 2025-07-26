@@ -340,19 +340,19 @@ CapabilitiesVK::GetEnabledDeviceExtensions(
   auto for_each_ohos_extension = [&](RequiredOHOSDeviceExtensionVK ext) {
 #ifdef FML_OS_OHOS
     auto name = GetExtensionName(ext);
-    if (exts->find(name) == exts->end()) {
+    if (exts.find(name) == exts.end()) {
       VALIDATION_LOG << "Device does not support required OHOS extension: "
                      << name;
       return false;
     }
     enabled.push_back(name);
-#endif  //  FML_OS_ANDROID
+#endif  //  FML_OS_OHOS
     return true;
   };
 
   auto for_each_optional_extension = [&](OptionalDeviceExtensionVK ext) {
     auto name = GetExtensionName(ext);
-    if (exts->find(name) != exts->end()) {
+    if (exts.find(name) != exts.end()) {
       enabled.push_back(name);
     }
     return true;
@@ -365,11 +365,10 @@ CapabilitiesVK::GetEnabledDeviceExtensions(
           for_each_android_extension) &&
       IterateExtensions<OptionalDeviceExtensionVK>(
           for_each_optional_extension) &&
-      IterateExtensions<OptionalAndroidDeviceExtensionVK>(
-          for_each_optional_android_extension);
       IterateExtensions<RequiredOHOSDeviceExtensionVK>(
           for_each_ohos_extension) &&
-      IterateExtensions<OptionalDeviceExtensionVK>(for_each_optional_extension);
+      IterateExtensions<OptionalAndroidDeviceExtensionVK>(
+          for_each_optional_android_extension);
 
   if (!iterate_extensions) {
     VALIDATION_LOG << "Device not suitable since required extensions are not "
@@ -620,6 +619,7 @@ bool CapabilitiesVK::SetPhysicalDevice(
     required_android_device_extensions_.clear();
     optional_device_extensions_.clear();
     optional_android_device_extensions_.clear();
+    required_ohos_device_extensions_.clear();
 
     std::set<std::string> exts;
     if (!use_embedder_extensions_) {
@@ -633,15 +633,9 @@ bool CapabilitiesVK::SetPhysicalDevice(
                       embedder_device_extensions_.end());
     }
 
-    required_ohos_device_extensions_.clear();
-    optional_device_extensions_.clear();
-    auto exts = GetSupportedDeviceExtensions(device);
-    if (!exts.has_value()) {
-      return false;
-    }
     IterateExtensions<RequiredCommonDeviceExtensionVK>([&](auto ext) -> bool {
       auto ext_name = GetExtensionName(ext);
-      if (exts->find(ext_name) != exts->end()) {
+      if (exts.find(ext_name) != exts.end()) {
         required_common_device_extensions_.insert(ext);
       }
       return true;
@@ -655,14 +649,14 @@ bool CapabilitiesVK::SetPhysicalDevice(
     });
     IterateExtensions<RequiredOHOSDeviceExtensionVK>([&](auto ext) -> bool {
       auto ext_name = GetExtensionName(ext);
-      if (exts->find(ext_name) != exts->end()) {
+      if (exts.find(ext_name) != exts.end()) {
         required_ohos_device_extensions_.insert(ext);
       }
       return true;
     });
     IterateExtensions<OptionalDeviceExtensionVK>([&](auto ext) -> bool {
       auto ext_name = GetExtensionName(ext);
-      if (exts->find(ext_name) != exts->end()) {
+      if (exts.find(ext_name) != exts.end()) {
         optional_device_extensions_.insert(ext);
       }
       return true;

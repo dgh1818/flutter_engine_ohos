@@ -237,29 +237,29 @@ LogMessage::~LogMessage() {
     }
     buffer.FlushRecord();
 #elif defined(FML_OS_OHOS)
-  HiLog_LogLevel fx_severity;
+    HiLog_LogLevel fx_severity;
 
-  switch (severity_) {
-    case LOG_INFO:
-      fx_severity = HILOG_LOG_INFO;
-      break;
-    case LOG_WARNING:
-      fx_severity = HILOG_LOG_WARN;
-      break;
-    case LOG_ERROR:
-      fx_severity = HILOG_LOG_ERROR;
-      break;
-    case LOG_FATAL:
-      fx_severity = HILOG_LOG_FATAL;
-      break;
-    default:
-      fx_severity = HILOG_LOG_INFO;
-  }  // end switch
-  HILOG_LOG(fx_severity, "Thread:%{public}lu  %{public}s", pthread_self(),
-            stream_.str().c_str());
+    switch (severity_) {
+      case LOG_INFO:
+        fx_severity = HILOG_LOG_INFO;
+        break;
+      case LOG_WARNING:
+        fx_severity = HILOG_LOG_WARN;
+        break;
+      case LOG_ERROR:
+        fx_severity = HILOG_LOG_ERROR;
+        break;
+      case LOG_FATAL:
+        fx_severity = HILOG_LOG_FATAL;
+        break;
+      default:
+        fx_severity = HILOG_LOG_INFO;
+    }  // end switch
+    HILOG_LOG(fx_severity, "Thread:%{public}lu  %{public}s", pthread_self(),
+              stream_.str().c_str());
 
-  std::cerr << stream_.str();
-  std::cerr.flush();
+    std::cerr << stream_.str();
+    std::cerr.flush();
 
 #else
     // Don't use std::cerr here, because it may not be initialized properly yet.

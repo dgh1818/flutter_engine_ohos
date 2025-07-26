@@ -66,6 +66,10 @@ class SwapchainVK {
   ///        recreated on the next frame.
   virtual void UpdateSurfaceSize(const ISize& size) = 0;
 
+  virtual int GetCurrentImageIndex() = 0;
+
+  virtual void SetRenderArea(std::optional<IRect> area) = 0;
+
  protected:
   SwapchainVK();
 };

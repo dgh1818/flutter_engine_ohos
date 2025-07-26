@@ -22,14 +22,6 @@
 namespace flutter {
 
 // The combination of targeted graphics API and Impeller support.
-enum class AndroidRenderingAPI {
-  kSoftware,
-  kImpellerOpenGLES,
-  kImpellerVulkan,
-  kSkiaOpenGLES
-};
-
-// The combination of targeted graphics API and Impeller support.
 enum class OHOSRenderingAPI {
   kSoftware,
   kOpenGLES,
@@ -252,11 +244,7 @@ struct Settings {
   // Log a warning during shell initialization if Impeller is not enabled.
   bool warn_on_impeller_opt_out = false;
 
-  // The selected Android rendering API.
-  AndroidRenderingAPI android_rendering_api =
-      AndroidRenderingAPI::kSkiaOpenGLES;
-
-  // The selected Android rendering API.
+  // The selected OHOS rendering API.
   OHOSRenderingAPI ohos_rendering_api = OHOSRenderingAPI::kOpenGLES;
 
   // Requests a specific rendering backend.

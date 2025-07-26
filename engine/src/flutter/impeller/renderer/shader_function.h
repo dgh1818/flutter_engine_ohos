@@ -6,6 +6,7 @@
 #define FLUTTER_IMPELLER_RENDERER_SHADER_FUNCTION_H_
 
 #include <string>
+
 #include "impeller/base/comparable.h"
 #include "impeller/core/shader_types.h"
 

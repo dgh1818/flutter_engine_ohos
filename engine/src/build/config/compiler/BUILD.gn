@@ -125,6 +125,10 @@ config("compiler") {
       cflags += [ "-fsanitize=address" ]
       ldflags += [ "-fsanitize=address" ]
     }
+    if (is_hwasan) {
+      cflags += [ "-fsanitize=hwaddress", "-fno-emulated-tls", "-mllvm", "-hwasan-globals=0", "-fno-omit-frame-pointer" ]
+      ldflags += [ "-fsanitize=hwaddress", "-fno-emulated-tls", "-mllvm", "-hwasan-globals=0", "-fno-omit-frame-pointer" ]
+    }
     if (is_lsan) {
       cflags += [ "-fsanitize=leak" ]
       ldflags += [ "-fsanitize=leak" ]
@@ -199,10 +203,16 @@ config("compiler") {
     # CPU architecture. We may or may not be doing a cross compile now, so for
     # simplicity we always explicitly set the architecture.
     if (current_cpu == "x64") {
-      cflags += [
-        "-m64",
-        "-march=x86-64",
-      ]
+      if (is_ohos) {
+        cflags += [
+          "-m64",
+        ]
+      } else {
+        cflags += [
+          "-m64",
+          "-march=x86-64",
+        ]
+      }
       ldflags += [ "-m64" ]
     } else if (current_cpu == "x86") {
       cflags += [ "-m32" ]
@@ -335,7 +345,7 @@ config("compiler") {
 
   # Linux/Android common flags setup.
   # ---------------------------------
-  if (is_linux || is_android) {
+  if (is_linux || is_android || is_ohos) {
     cflags += [
       "-fPIC",
       "-pipe",  # Use pipes for communicating between sub-processes. Faster.
@@ -354,7 +364,30 @@ config("compiler") {
 
   # Linux-specific compiler flags setup.
   # ------------------------------------
-  if (is_linux) {
+  if (is_ohos) {
+    cflags += [ "-pthread" ]
+    ldflags += [ "-pthread" ]
+
+    if (current_cpu == "x86") {
+      cflags += [ "--target=x86-linux-ohos" ]
+      ldflags += [ "--target=x86-linux-ohos" ]
+      cflags += [ "-DBORINGSSL_CLANG_SUPPORTS_DOT_ARCH" ]
+    } else if (current_cpu == "x64") {
+      cflags += [ "--target=x86_64-linux-ohos" ]
+      ldflags += [ "--target=x86_64-linux-ohos" ]
+      cflags += [ "-DBORINGSSL_CLANG_SUPPORTS_DOT_ARCH" ]
+    } else if (current_cpu == "arm") {
+      cflags += [ "--target=aarch-linux-ohos" ]
+      ldflags += [ "--target=aarch-linux-ohos" ]
+      cflags += [ "-DBORINGSSL_CLANG_SUPPORTS_DOT_ARCH" ]
+    } else if (current_cpu == "arm64") {
+      cflags += [ "--target=aarch64-linux-ohos" ]
+      ldflags += [ "--target=aarch64-linux-ohos" ]
+      cflags += [ "-DBORINGSSL_CLANG_SUPPORTS_DOT_ARCH" ]
+    }
+
+    defines += [ "__OHOS__" ]
+  } else if (is_linux) {
     cflags += [ "-pthread" ]
     ldflags += [ "-pthread" ]
 
@@ -667,7 +700,7 @@ if (is_win) {
     "-Wno-psabi",
   ]
 
-  if (!is_android) {
+  if (!is_android && !is_ohos) {
     default_warning_flags += [
       # Needed for nlohmann/json.
       "-Wno-deprecated-literal-operator",

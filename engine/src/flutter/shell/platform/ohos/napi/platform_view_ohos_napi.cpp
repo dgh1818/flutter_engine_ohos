@@ -17,6 +17,7 @@
 
 #include "flutter/common/constants.h"
 #include "flutter/fml/make_copyable.h"
+#include "flutter/fml/platform/ohos/hiappevent/ohos_hiappevent.h"
 #include "flutter/fml/platform/ohos/napi_util.h"
 #include "flutter/lib/ui/plugins/callback_cache.h"
 #include "flutter/shell/platform/ohos/ohos_logging.h"
@@ -26,7 +27,6 @@
 #include "flutter/shell/platform/ohos/surface/ohos_native_window.h"
 #include "flutter/shell/platform/ohos/types.h"
 #include "unicode/uchar.h"
-#include "flutter/fml/platform/ohos/hiappevent/ohos_hiappevent.h"
 
 #define OHOS_SHELL_HOLDER (reinterpret_cast<OHOSShellHolder*>(shell_holder))
 namespace flutter {
@@ -1898,10 +1898,9 @@ void PlatformViewOHOSNapi::SurfaceChanged(int64_t shell_holder,
 void PlatformViewOHOSNapi::SurfaceDestroyed(int64_t shell_holder) {
   OHOS_SHELL_HOLDER->GetPlatformView()->NotifyDestroyed();
 
-  OHOS_SHELL_HOLDER->GetPlatformView()->RunTask(
-    OhosThreadType::kIO,
-    []{ fml::hiappevent::OhosHiappEventDDL::GetInstance()->Flush(); }
-  );
+  OHOS_SHELL_HOLDER->GetPlatformView()->RunTask(OhosThreadType::kIO, [] {
+    fml::hiappevent::OhosHiappEventDDL::GetInstance()->Flush();
+  });
 }
 
 void PlatformViewOHOSNapi::SetPlatformTaskRunner(
@@ -2581,7 +2580,6 @@ napi_value PlatformViewOHOSNapi::nativeSetFlutterNavigationAction(
 napi_value PlatformViewOHOSNapi::nativeUpdateCurrentXComponentId(
     napi_env env,
     napi_callback_info info) {
-  napi_status ret;
   size_t argc = 1;
   napi_value args[1] = {nullptr};
   napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);

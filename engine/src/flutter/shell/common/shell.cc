@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "fml/task_runner.h"
 #include <type_traits>
+#include "fml/task_runner.h"
 #define RAPIDJSON_HAS_STDSTRING 1
 #include "flutter/shell/common/shell.h"
 
@@ -30,7 +30,6 @@
 #include "flutter/shell/common/skia_event_tracer_impl.h"
 #include "flutter/shell/common/switches.h"
 #include "flutter/shell/common/vsync_waiter.h"
-#include "impeller/runtime_stage/runtime_stage.h"
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
 #include "third_party/dart/runtime/include/dart_tools_api.h"
@@ -66,22 +65,20 @@ std::unique_ptr<Engine> CreateEngine(
     const fml::WeakPtr<IOManager>& io_manager,
     const fml::RefPtr<SkiaUnrefQueue>& unref_queue,
     const fml::TaskRunnerAffineWeakPtr<SnapshotDelegate>& snapshot_delegate,
-    const std::shared_ptr<VolatilePathTracker>& volatile_path_tracker,
     const std::shared_ptr<fml::SyncSwitch>& gpu_disabled_switch,
     impeller::RuntimeStageBackend runtime_stage_backend) {
-  return std::make_unique<Engine>(delegate,               //
-                                  dispatcher_maker,       //
-                                  vm,                     //
-                                  isolate_snapshot,       //
-                                  task_runners,           //
-                                  platform_data,          //
-                                  settings,               //
-                                  std::move(animator),    //
-                                  io_manager,             //
-                                  unref_queue,            //
-                                  snapshot_delegate,      //
-                                  volatile_path_tracker,  //
-                                  gpu_disabled_switch,    //
+  return std::make_unique<Engine>(delegate,             //
+                                  dispatcher_maker,     //
+                                  vm,                   //
+                                  isolate_snapshot,     //
+                                  task_runners,         //
+                                  platform_data,        //
+                                  settings,             //
+                                  std::move(animator),  //
+                                  io_manager,           //
+                                  unref_queue,          //
+                                  snapshot_delegate,    //
+                                  gpu_disabled_switch,  //
                                   runtime_stage_backend);
 }
 
@@ -112,6 +109,7 @@ void PerformInitializationTasks(Settings& settings) {
         settings.verbose_logging ? fml::kLogInfo : fml::kLogWarning;
     fml::SetLogSettings(log_settings);
   }
+
   static std::once_flag gShellSettingsInitialization = {};
   std::call_once(gShellSettingsInitialization, [&settings] {
     tonic::SetLogHandler(
@@ -143,7 +141,9 @@ void PerformInitializationTasks(Settings& settings) {
     }
   });
 
+#if !SLIMPELLER
   PersistentCache::SetCacheSkSL(settings.cache_sksl);
+#endif  //  !SLIMPELLER
 }
 
 }  // namespace
@@ -225,11 +225,7 @@ std::unique_ptr<Shell> Shell::CreateShellOnPlatformThread(
 
   auto shell = std::unique_ptr<Shell>(
       new Shell(std::move(vm), task_runners, std::move(parent_merger),
-                resource_cache_limit_calculator, settings,
-                std::make_shared<VolatilePathTracker>(
-                    task_runners.GetUITaskRunner(),
-                    !settings.skia_deterministic_rendering_on_cpu),
-                is_gpu_disabled));
+                resource_cache_limit_calculator, settings, is_gpu_disabled));
 
   // Create the platform view on the platform thread (this thread).
   auto platform_view = on_create_platform_view(*shell.get());
@@ -348,7 +344,6 @@ std::unique_ptr<Shell> Shell::CreateShellOnPlatformThread(
             weak_io_manager_future.get(),         //
             unref_queue_future.get(),             //
             snapshot_delegate_future.get(),       //
-            shell->volatile_path_tracker_,        //
             shell->is_gpu_disabled_sync_switch_,  //
             runtime_stage_backend                 //
             ));
@@ -434,7 +429,6 @@ Shell::Shell(DartVMRef vm,
              const std::shared_ptr<ResourceCacheLimitCalculator>&
                  resource_cache_limit_calculator,
              const Settings& settings,
-             std::shared_ptr<VolatilePathTracker> volatile_path_tracker,
              bool is_gpu_disabled)
     : task_runners_(task_runners),
       parent_raster_thread_merger_(std::move(parent_merger)),
@@ -442,7 +436,6 @@ Shell::Shell(DartVMRef vm,
       settings_(settings),
       vm_(std::move(vm)),
       is_gpu_disabled_sync_switch_(new fml::SyncSwitch(is_gpu_disabled)),
-      volatile_path_tracker_(std::move(volatile_path_tracker)),
       weak_factory_gpu_(nullptr),
       weak_factory_(this) {
   FML_CHECK(!settings.enable_software_rendering || !settings.enable_impeller)
@@ -510,11 +503,6 @@ Shell::Shell(DartVMRef vm,
           task_runners_.GetRasterTaskRunner(),
           std::bind(&Shell::OnServiceProtocolEstimateRasterCacheMemory, this,
                     std::placeholders::_1, std::placeholders::_2)};
-  service_protocol_handlers_
-      [ServiceProtocol::kRenderFrameWithRasterStatsExtensionName] = {
-          task_runners_.GetRasterTaskRunner(),
-          std::bind(&Shell::OnServiceProtocolRenderFrameWithRasterStats, this,
-                    std::placeholders::_1, std::placeholders::_2)};
   service_protocol_handlers_[ServiceProtocol::kReloadAssetFonts] = {
       task_runners_.GetPlatformTaskRunner(),
       std::bind(&Shell::OnServiceProtocolReloadAssetFonts, this,
@@ -522,8 +510,10 @@ Shell::Shell(DartVMRef vm,
 }
 
 Shell::~Shell() {
+#if !SLIMPELLER
   PersistentCache::GetCacheForProcess()->RemoveWorkerTaskRunner(
       task_runners_.GetIOTaskRunner());
+#endif  //  !SLIMPELLER
 
   vm_->GetServiceProtocol()->RemoveHandler(this);
 
@@ -609,7 +599,6 @@ std::unique_ptr<Shell> Shell::Spawn(
           const fml::WeakPtr<IOManager>& io_manager,
           const fml::RefPtr<SkiaUnrefQueue>& unref_queue,
           fml::TaskRunnerAffineWeakPtr<SnapshotDelegate> snapshot_delegate,
-          const std::shared_ptr<VolatilePathTracker>& volatile_path_tracker,
           const std::shared_ptr<fml::SyncSwitch>& is_gpu_disabled_sync_switch,
           impeller::RuntimeStageBackend runtime_stage_backend) {
         return engine->Spawn(
@@ -793,6 +782,7 @@ bool Shell::Setup(std::unique_ptr<PlatformView> platform_view,
 
   is_set_up_ = true;
 
+#if !SLIMPELLER
   PersistentCache::GetCacheForProcess()->AddWorkerTaskRunner(
       task_runners_.GetIOTaskRunner());
 
@@ -802,6 +792,7 @@ bool Shell::Setup(std::unique_ptr<PlatformView> platform_view,
   if (settings_.purge_persistent_cache) {
     PersistentCache::GetCacheForProcess()->Purge();
   }
+#endif  //  !SLIMPELLER
 
   return true;
 }
@@ -1109,6 +1100,7 @@ void Shell::OnPlatformViewDispatchPointerDataPacket(
   TRACE_FLOW_BEGIN("flutter", "PointerEvent", next_pointer_flow_id_);
   FML_DCHECK(is_set_up_);
   FML_DCHECK(task_runners_.GetPlatformTaskRunner()->RunsTasksOnCurrentThread());
+
   task_runners_.GetUITaskRunner()->PostTask(
       fml::MakeCopyable([engine = weak_engine_, packet = std::move(packet),
                          flow_id = next_pointer_flow_id_]() mutable {
@@ -1272,7 +1264,6 @@ void Shell::OnAnimatorNotifyIdle(fml::TimeDelta deadline) {
 
   if (engine_) {
     engine_->NotifyIdle(deadline);
-    volatile_path_tracker_->OnFrame();
   }
 }
 
@@ -1933,6 +1924,7 @@ bool Shell::OnServiceProtocolGetSkSLs(
   response->AddMember("type", "GetSkSLs", response->GetAllocator());
 
   rapidjson::Value shaders_json(rapidjson::kObjectType);
+#if !SLIMPELLER
   PersistentCache* persistent_cache = PersistentCache::GetCacheForProcess();
   std::vector<PersistentCache::SkSLCache> sksls = persistent_cache->LoadSkSLs();
   for (const auto& sksl : sksls) {
@@ -1951,6 +1943,7 @@ bool Shell::OnServiceProtocolGetSkSLs(
     rapidjson::Value shader_key(encode_result.second, response->GetAllocator());
     shaders_json.AddMember(shader_key, shader_value, response->GetAllocator());
   }
+#endif  //  !SLIMPELLER
   response->AddMember("SkSLs", shaders_json, response->GetAllocator());
   return true;
 }
@@ -1963,9 +1956,11 @@ bool Shell::OnServiceProtocolEstimateRasterCacheMemory(
   uint64_t layer_cache_byte_size = 0u;
   uint64_t picture_cache_byte_size = 0u;
 
+#if !SLIMPELLER
   const auto& raster_cache = rasterizer_->compositor_context()->raster_cache();
   layer_cache_byte_size = raster_cache.EstimateLayerCacheByteSize();
   picture_cache_byte_size = raster_cache.EstimatePictureCacheByteSize();
+#endif  //  !SLIMPELLER
 
   response->SetObject();
   response->AddMember("type", "EstimateRasterCacheMemory",
@@ -2030,101 +2025,6 @@ bool Shell::OnServiceProtocolSetAssetBundlePath(
 
   FML_DCHECK(false);
   return false;
-}
-
-static rapidjson::Value SerializeLayerSnapshot(
-    double device_pixel_ratio,
-    const LayerSnapshotData& snapshot,
-    rapidjson::Document* response) {
-  auto& allocator = response->GetAllocator();
-  rapidjson::Value result;
-  result.SetObject();
-  result.AddMember("layer_unique_id", snapshot.GetLayerUniqueId(), allocator);
-  result.AddMember("duration_micros", snapshot.GetDuration().ToMicroseconds(),
-                   allocator);
-
-  const SkRect bounds = snapshot.GetBounds();
-  result.AddMember("top", bounds.top(), allocator);
-  result.AddMember("left", bounds.left(), allocator);
-  result.AddMember("width", bounds.width(), allocator);
-  result.AddMember("height", bounds.height(), allocator);
-
-  sk_sp<SkData> snapshot_bytes = snapshot.GetSnapshot();
-  if (snapshot_bytes) {
-    rapidjson::Value image;
-    image.SetArray();
-    const uint8_t* data =
-        reinterpret_cast<const uint8_t*>(snapshot_bytes->data());
-    for (size_t i = 0; i < snapshot_bytes->size(); i++) {
-      image.PushBack(data[i], allocator);
-    }
-    result.AddMember("snapshot", image, allocator);
-  }
-  return result;
-}
-
-bool Shell::OnServiceProtocolRenderFrameWithRasterStats(
-    const ServiceProtocol::Handler::ServiceProtocolMap& params,
-    rapidjson::Document* response) {
-  FML_DCHECK(task_runners_.GetRasterTaskRunner()->RunsTasksOnCurrentThread());
-
-  // Impeller does not support this protocol method.
-  if (io_manager_->GetImpellerContext()) {
-    const char* error = "Raster status not supported on Impeller backend.";
-    ServiceProtocolFailureError(response, error);
-    return false;
-  }
-
-  // TODO(dkwingsmt): This method only handles view #0, including the snapshot
-  // and the frame size. We need to adapt this method to multi-view.
-  // https://github.com/flutter/flutter/issues/131892
-  int64_t view_id = kFlutterImplicitViewId;
-  if (auto last_layer_tree = rasterizer_->GetLastLayerTree(view_id)) {
-    auto& allocator = response->GetAllocator();
-    response->SetObject();
-    response->AddMember("type", "RenderFrameWithRasterStats", allocator);
-
-    // When rendering the last layer tree, we do not need to build a frame,
-    // invariants in FrameTimingRecorder enforce that raster timings can not be
-    // set before build-end.
-    auto frame_timings_recorder = std::make_unique<FrameTimingsRecorder>();
-    const auto now = fml::TimePoint::Now();
-    frame_timings_recorder->RecordVsync(now, now);
-    frame_timings_recorder->RecordBuildStart(now);
-    frame_timings_recorder->RecordBuildEnd(now);
-
-    last_layer_tree->enable_leaf_layer_tracing(true);
-    rasterizer_->DrawLastLayerTrees(std::move(frame_timings_recorder));
-    last_layer_tree->enable_leaf_layer_tracing(false);
-
-    rapidjson::Value snapshots;
-    snapshots.SetArray();
-
-    LayerSnapshotStore& store =
-        rasterizer_->compositor_context()->snapshot_store();
-    for (const LayerSnapshotData& data : store) {
-      snapshots.PushBack(
-          SerializeLayerSnapshot(device_pixel_ratio_, data, response),
-          allocator);
-    }
-
-    response->AddMember("snapshots", snapshots, allocator);
-
-    const auto& frame_size = ExpectedFrameSize(view_id);
-    response->AddMember("frame_width", frame_size.width(), allocator);
-    response->AddMember("frame_height", frame_size.height(), allocator);
-
-    return true;
-  } else {
-    const char* error =
-        "Failed to render the last frame with raster stats."
-        " Rasterizer does not hold a valid last layer tree."
-        " This could happen if this method was invoked before a frame was "
-        "rendered";
-    FML_DLOG(ERROR) << error;
-    ServiceProtocolFailureError(response, error);
-    return false;
-  }
 }
 
 void Shell::SendFontChangeNotification() {

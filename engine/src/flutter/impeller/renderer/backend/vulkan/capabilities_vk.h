@@ -139,6 +139,43 @@ enum class RequiredOHOSDeviceExtensionVK : uint32_t {
 };
 
 //------------------------------------------------------------------------------
+/// @brief      A device extension available on some Android platforms.
+///
+///             Platform agnostic code can still check if these Android
+///             extensions are present.
+///
+enum class OptionalAndroidDeviceExtensionVK : uint32_t {
+  //----------------------------------------------------------------------------
+  /// For exporting file descriptors from fences to interact with platform APIs.
+  ///
+  /// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_external_fence_fd.html
+  ///
+  kKHRExternalFenceFd,
+
+  //----------------------------------------------------------------------------
+  /// Dependency of kKHRExternalFenceFd.
+  ///
+  /// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_external_fence.html
+  ///
+  kKHRExternalFence,
+
+  //----------------------------------------------------------------------------
+  /// For importing sync file descriptors as semaphores so the GPU can wait for
+  /// semaphore to be signaled.
+  ///
+  /// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_external_semaphore_fd.html
+  kKHRExternalSemaphoreFd,
+
+  //----------------------------------------------------------------------------
+  /// Dependency of kKHRExternalSemaphoreFd
+  ///
+  /// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_external_semaphore.html
+  kKHRExternalSemaphore,
+
+  kLast,
+};
+
+//------------------------------------------------------------------------------
 /// @brief      A device extension enabled if available. Subsystems cannot
 ///             assume availability and must check if these extensions are
 ///             available.
@@ -167,6 +204,8 @@ enum class OptionalDeviceExtensionVK : uint32_t {
   /// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_EXT_image_compression_control.html
   ///
   kEXTImageCompressionControl,
+
+  //----------------------------------------------------------------------------
   /// To enable incremental presentation, allowing the application to specify
   /// the regions of a surface that have changed.
   /// This can improve presentation efficiency by avoiding full-surface updates.
@@ -340,7 +379,6 @@ class CapabilitiesVK final : public Capabilities,
   std::set<OptionalAndroidDeviceExtensionVK>
       optional_android_device_extensions_;
   std::set<OptionalDeviceExtensionVK> optional_device_extensions_;
-  mutable PixelFormat default_color_format_ = PixelFormat::kUnknown;
   PixelFormat default_stencil_format_ = PixelFormat::kUnknown;
   PixelFormat default_depth_stencil_format_ = PixelFormat::kUnknown;
   vk::PhysicalDevice physical_device_;

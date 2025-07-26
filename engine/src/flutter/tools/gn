@@ -35,14 +35,8 @@ def get_out_dir(args):
   if args.unoptimized:
     target_dir.append('unopt')
 
-  if args.target_os != 'ios' and args.interpreter:
-    target_dir.append('interpreter')
-
   if args.android_cpu != 'arm':
     target_dir.append(args.android_cpu)
-
-  if args.ios_cpu != 'arm64':
-    target_dir.append(args.ios_cpu)
 
   if args.mac_cpu != 'x64':
     target_dir.append(args.mac_cpu)
@@ -105,10 +99,10 @@ def is_host_build(args):
   # target_os='linux' and linux-cpu='arm64'
   if args.target_os == 'linux' and args.linux_cpu == 'arm64':
     return True
-  # The Mac and host targets are redundant. Again, necessary to disambiguate
-  # during cross-compilation.
   # if args.target_os == 'ohos' and args.ohos_cpu == 'arm64':
   #   return True
+  # The Mac and host targets are redundant. Again, necessary to disambiguate
+  # during cross-compilation.
   if args.target_os == 'mac':
     return True
   return False
@@ -414,6 +408,7 @@ def to_gn_args(args):
   if args.slimpeller and args.target_os != 'ios':
     raise Exception('--slimpeller is only supported for iOS.')
 
+  print('args.target_os:%s' % args.target_os)
   runtime_mode = args.runtime_mode
 
   gn_args = {}
@@ -501,6 +496,7 @@ def to_gn_args(args):
 
   # Set OS, CPU arch for host or target build.
   if is_host_build(args):
+    print('is host build ')
     gn_args['host_os'] = get_host_os()
     gn_args['host_cpu'] = get_host_cpu()
     gn_args['target_os'] = gn_args['host_os']
@@ -511,6 +507,7 @@ def to_gn_args(args):
     gn_args['target_cpu'] = get_target_cpu(args)
     gn_args['dart_target_arch'] = gn_args['target_cpu']
 
+  print("ARGS.target_os:%s-%s" % (args.target_os, gn_args['target_os']))
   if not args.build_engine_artifacts:
     gn_args['flutter_build_engine_artifacts'] = False
 
@@ -834,7 +831,6 @@ def to_gn_wasm_args(args, gn_args):
   gn_args['icu_use_data_file'] = False
   gn_args['skia_use_freetype'] = True
   gn_args['flutter_use_freetype_woff2'] = True
-  gn_args['skia_enable_sksl_tracing'] = False
   gn_args['skia_use_harfbuzz'] = True
   gn_args['skia_use_fontconfig'] = False
   gn_args['skia_use_libheif'] = False
@@ -910,7 +906,6 @@ def parse_args(args):
       choices=['debug', 'profile', 'release', 'jit_release'],
       default='debug'
   )
-  parser.add_argument('--interpreter', default=False, action='store_true')
   parser.add_argument(
       '--dart-debug',
       default=False,
@@ -1321,6 +1316,8 @@ def main(argv):
   command.append(out_dir)
   command.append('--args=%s' % ' '.join(gn_args))
   command.append('--tracelog=%s/gn_trace.json' % out_dir)
+
+  print('gn ARGS : %s' % ' '.join(gn_args))
 
   if args.verbose:
     command.append('-v')
