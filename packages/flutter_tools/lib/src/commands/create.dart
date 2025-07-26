@@ -370,7 +370,7 @@ class CreateCommand extends FlutterCommand with CreateBase {
     final bool includeWindows;
     final bool includeOhos;
     if (template == FlutterTemplateType.module) {
-      // The module template only supports iOS and Android.
+      // The module template only supports iOS 、Android And OpenHarmony
       includeIos = true;
       includeAndroid = true;
       includeWeb = false;
@@ -743,7 +743,6 @@ Your $application code is in $relativeAppMain.
       hvigor.updateLocalProperties(project: project);
     }
 
-    final String? projectName = templateContext['projectName'] as String?;
     final String organization = templateContext['organization']! as String; // Required to make the context.
     final String? androidPluginIdentifier = templateContext['androidIdentifier'] as String?;
     final String exampleProjectName = '${projectName}_example';

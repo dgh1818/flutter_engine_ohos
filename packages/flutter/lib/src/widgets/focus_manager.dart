@@ -1677,7 +1677,7 @@ class FocusManager with DiagnosticableTreeMixin, ChangeNotifier {
   bool get _respondToLifecycleChange =>
       kIsWeb ||
       switch (defaultTargetPlatform) {
-        TargetPlatform.android || TargetPlatform.iOS => false,
+        TargetPlatform.android || TargetPlatform.iOS || TargetPlatform.ohos => false,
         TargetPlatform.fuchsia || TargetPlatform.linux => true,
         TargetPlatform.windows || TargetPlatform.macOS => true,
       };

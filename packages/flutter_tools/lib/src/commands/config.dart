@@ -64,8 +64,6 @@ class ConfigCommand extends FlutterCommand {
     argParser.addOption('ohos-sdk', help: 'The OpenHarmony SDK directory.');
     argParser.addOption('ohpm-home', help: 'The ohpm tool directory.');
     argParser.addOption('signTool-home', help: 'The sign tool directory.');
-    argParser.addOption('build-dir', help: 'The relative path to override a projects build directory.',
-        valueHelp: 'out/');
     argParser.addFlag(
       'machine',
       negatable: false,

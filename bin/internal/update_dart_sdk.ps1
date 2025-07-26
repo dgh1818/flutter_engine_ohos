@@ -23,6 +23,8 @@ $engineStamp = "$cachePath\engine-dart-sdk.stamp"
 $engineVersion = (Get-Content "$flutterRoot\bin\cache\engine.stamp")
 $engineRealm = (Get-Content "$flutterRoot\bin\cache\engine.realm")
 
+$engineOhosVersion = (Get-Content "$flutterRoot\bin\cache\engine.ohos.stamp")
+$engineOhosRealm = (Get-Content "$flutterRoot\bin\cache\engine.ohos.realm")
 $oldDartSdkPrefix = "dart-sdk.old"
 
 # Make sure that PowerShell has expected version.
@@ -36,7 +38,7 @@ if ($psMajorVersionLocal -lt $psMajorVersionRequired) {
     exit 2
 }
 
-if ((Test-Path $engineStamp) -and ($engineVersion -eq (Get-Content $engineStamp))) {
+if ((Test-Path $engineStamp) -and ($engineOhosVersion -eq (Get-Content $engineStamp))) {
     return
 }
 
@@ -44,8 +46,8 @@ $dartSdkBaseUrl = $Env:FLUTTER_OHOS_STORAGE_BASE_URL
 if (-not $dartSdkBaseUrl) {
     $dartSdkBaseUrl = "https://flutter-ohos.obs.cn-south-1.myhuaweicloud.com"
 }
-if ($engineRealm) {
-    $dartSdkBaseUrl = "$dartSdkBaseUrl/$engineRealm"
+if ($engineOhosRealm) {
+    $dartSdkBaseUrl = "$dartSdkBaseUrl/$engineOhosRealm"
 }
 if($Env:FLUTTER_OHOS_STORAGE_BASE_URL) {
     $dartSdkBaseUrl = $Env:FLUTTER_OHOS_STORAGE_BASE_URL
@@ -56,7 +58,7 @@ $dartZipNameX64 = "dart-sdk-windows-x64.zip"
 $dartZipNameArm64 = "dart-sdk-windows-arm64.zip"
 $dartZipName = $dartZipNameX64
 if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") {
-    $dartSdkArm64Url = "$dartSdkBaseUrl/flutter_infra_release/flutter/$engineVersion/$dartZipNameArm64"
+    $dartSdkArm64Url = "$dartSdkBaseUrl/flutter_infra_release/flutter/$engineOhosVersion/$dartZipNameArm64"
     Try {
         Invoke-WebRequest -Uri $dartSdkArm64Url -UseBasicParsing -Method Head | Out-Null
         $dartZipName = $dartZipNameArm64
@@ -65,7 +67,7 @@ if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") {
         Write-Host "The current channel's Dart SDK does not support Windows Arm64, falling back to Windows x64..."
     }
 }
-$dartSdkUrl = "$dartSdkBaseUrl/flutter_infra_release/flutter/$engineVersion/$dartZipName"
+$dartSdkUrl = "$dartSdkBaseUrl/flutter_infra_release/flutter/$engineOhosVersion/$dartZipName"
 Write-Host "dart-sdk-url: $dartSdkUrl"
 if ((Test-Path $dartSdkPath) -or (Test-Path $dartSdkLicense)) {
     # Move old SDK to a new location instead of deleting it in case it is still in use (e.g. by IntelliJ).
@@ -124,7 +126,7 @@ If (Get-Command 7z -errorAction SilentlyContinue) {
 }
 
 Remove-Item $dartSdkZip
-$engineVersion | Out-File $engineStamp -Encoding ASCII
+$engineOhosVersion | Out-File $engineStamp -Encoding ASCII
 
 # Try to delete all old SDKs and license files.
 Get-ChildItem -Path $cachePath | Where {$_.BaseName.StartsWith($oldDartSdkPrefix)} | Remove-Item -Recurse -ErrorAction SilentlyContinue

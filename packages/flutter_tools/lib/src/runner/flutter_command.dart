@@ -2084,6 +2084,16 @@ mixin DeviceBasedDevelopmentArtifacts on FlutterCommand {
       if (developmentArtifact != null) {
         artifacts.add(developmentArtifact);
       }
+      switch (targetPlatform) {
+        case TargetPlatform.ohos:
+        case TargetPlatform.ohos_arm:
+        case TargetPlatform.ohos_arm64:
+        case TargetPlatform.ohos_x64:
+          artifacts.add(DevelopmentArtifact.ohosInternalBuild);
+          break;
+        default:
+          break;
+      }
     }
     return artifacts;
   }

@@ -771,6 +771,7 @@ class SelectableRegionState extends State<SelectableRegion>
           case TargetPlatform.macOS:
           case TargetPlatform.linux:
           case TargetPlatform.windows:
+          case TargetPlatform.ohos:
             _selectWordAt(offset: details.globalPosition);
             _selectionStatusNotifier.value = SelectableRegionSelectionStatus.changing;
         }
@@ -779,6 +780,7 @@ class SelectableRegionState extends State<SelectableRegion>
           case TargetPlatform.android:
           case TargetPlatform.fuchsia:
           case TargetPlatform.iOS:
+          case TargetPlatform.ohos:
             if (details.kind != null && _isPrecisePointerDevice(details.kind!)) {
               // Triple tap on static text is only supported on mobile
               // platforms using a precise pointer device.
@@ -821,6 +823,7 @@ class SelectableRegionState extends State<SelectableRegion>
         switch (defaultTargetPlatform) {
           case TargetPlatform.android:
           case TargetPlatform.fuchsia:
+          case TargetPlatform.ohos:
             // Double tap + drag is only supported on Android when using a precise
             // pointer device or when not on the web.
             if (!kIsWeb || details.kind != null && _isPrecisePointerDevice(details.kind!)) {
@@ -865,6 +868,7 @@ class SelectableRegionState extends State<SelectableRegion>
           case TargetPlatform.android:
           case TargetPlatform.fuchsia:
           case TargetPlatform.iOS:
+          case TargetPlatform.ohos:
             // Triple tap + drag is only supported on mobile devices when using
             // a precise pointer device.
             if (details.kind != null && _isPrecisePointerDevice(details.kind!)) {
@@ -900,6 +904,7 @@ class SelectableRegionState extends State<SelectableRegion>
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
       case TargetPlatform.fuchsia:
+      case TargetPlatform.ohos:
         if (shouldShowSelectionOverlayOnMobile) {
           _showHandles();
           _showToolbar();
@@ -952,6 +957,7 @@ class SelectableRegionState extends State<SelectableRegion>
         switch (defaultTargetPlatform) {
           case TargetPlatform.android:
           case TargetPlatform.fuchsia:
+          case TargetPlatform.ohos:
             if (!isPointerPrecise) {
               // On Android, a double tap will only show the selection overlay after
               // the following tap up when the pointer device kind is not precise.

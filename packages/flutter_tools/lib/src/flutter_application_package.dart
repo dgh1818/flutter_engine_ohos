@@ -83,8 +83,7 @@ class FlutterApplicationPackageFactory extends ApplicationPackageFactory {
         );
       case TargetPlatform.ios:
         return applicationBinary == null
-            ? await IOSApp.fromIosProject(
-                FlutterProject.current().ios, buildInfo)
+            ? await IOSApp.fromIosProject(FlutterProject.current().ios, buildInfo)
             : IOSApp.fromPrebuiltApp(applicationBinary);
       case TargetPlatform.tester:
         return FlutterTesterApp.fromCurrentDirectory(globals.fs);
@@ -107,11 +106,6 @@ class FlutterApplicationPackageFactory extends ApplicationPackageFactory {
         return applicationBinary == null
             ? WindowsApp.fromWindowsProject(FlutterProject.current().windows)
             : WindowsApp.fromPrebuiltApp(applicationBinary);
-      case TargetPlatform.fuchsia_arm64:
-      case TargetPlatform.fuchsia_x64:
-        return applicationBinary == null
-            ? FuchsiaApp.fromFuchsiaProject(FlutterProject.current().fuchsia)
-            : FuchsiaApp.fromPrebuiltApp(applicationBinary);
       case TargetPlatform.ohos:
       case TargetPlatform.ohos_arm64:
       case TargetPlatform.ohos_arm:
@@ -136,6 +130,10 @@ class FlutterApplicationPackageFactory extends ApplicationPackageFactory {
           userMessages: _userMessages,
           processUtils: _processUtils,
         );
+      case TargetPlatform.fuchsia_arm64:
+      case TargetPlatform.fuchsia_x64:
+        // Unsupported yet.
+        throw UnimplementedError();
     }
   }
 }

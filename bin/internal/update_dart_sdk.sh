@@ -16,19 +16,18 @@ set -e
 
 FLUTTER_ROOT="$(dirname "$(dirname "$(dirname "${BASH_SOURCE[0]}")")")"
 
-ENGINE_VERSION_FILE="engine.ohos.version"
-FLUTTER_OHOS_STORAGE_BASE_URL=${FLUTTER_OHOS_STORAGE_BASE_URL:-https://flutter-ohos.obs.cn-south-1.myhuaweicloud.com}
-
 DART_SDK_PATH="$FLUTTER_ROOT/bin/cache/dart-sdk"
 DART_SDK_PATH_OLD="$DART_SDK_PATH.old"
 ENGINE_STAMP="$FLUTTER_ROOT/bin/cache/engine-dart-sdk.stamp"
-ENGINE_VERSION=$(cat "$FLUTTER_ROOT/bin/internal/$ENGINE_VERSION_FILE")
 OS="$(uname -s)"
 
 ENGINE_VERSION=$(cat "$FLUTTER_ROOT/bin/cache/engine.stamp")
 ENGINE_REALM=$(cat "$FLUTTER_ROOT/bin/cache/engine.realm" | tr -d '[:space:]')
 
-if [ ! -f "$ENGINE_STAMP" ] || [ "$ENGINE_VERSION" != `cat "$ENGINE_STAMP"` ]; then
+ENGINE_OHOS_VERSION=$(cat "$FLUTTER_ROOT/bin/cache/engine.ohos.stamp")
+ENGINE_OHOS_REALM=$(cat "$FLUTTER_ROOT/bin/cache/engine.ohos.realm" | tr -d '[:space:]')
+
+if [ ! -f "$ENGINE_STAMP" ] || [ "$ENGINE_OHOS_VERSION" != `cat "$ENGINE_STAMP"` ]; then
   command -v curl > /dev/null 2>&1 || {
     >&2 echo
     >&2 echo 'Missing "curl" tool. Unable to download Dart SDK.'
@@ -118,7 +117,7 @@ if [ ! -f "$ENGINE_STAMP" ] || [ "$ENGINE_VERSION" != `cat "$ENGINE_STAMP"` ]; t
       ;;
   esac
 
-  >&2 echo "Downloading $OS $ARCH Dart SDK from Flutter engine $ENGINE_VERSION..."
+  >&2 echo "Downloading $OS $ARCH Dart SDK from Flutter engine $ENGINE_OHOS_VERSION..."
 
   # Use the default find if possible.
   if [ -e /usr/bin/find ]; then
@@ -127,8 +126,8 @@ if [ ! -f "$ENGINE_STAMP" ] || [ "$ENGINE_VERSION" != `cat "$ENGINE_STAMP"` ]; t
     FIND=find
   fi
 
-  DART_SDK_BASE_URL="${FLUTTER_OHOS_STORAGE_BASE_URL}${ENGINE_REALM:+/$ENGINE_REALM}"
-  DART_SDK_URL="$DART_SDK_BASE_URL/flutter_infra_release/flutter/$ENGINE_VERSION/$DART_ZIP_NAME"
+  DART_SDK_BASE_URL="${FLUTTER_OHOS_STORAGE_BASE_URL:-https://flutter-ohos.obs.cn-south-1.myhuaweicloud.com}${ENGINE_OHOS_REALM:+/$ENGINE_OHOS_REALM}"
+  DART_SDK_URL="$DART_SDK_BASE_URL/flutter_infra_release/flutter/$ENGINE_OHOS_VERSION/$DART_ZIP_NAME"
 
   echo 'dart-sdk-url:' $DART_SDK_URL
   # if the sdk path exists, copy it to a temporary location
@@ -184,7 +183,7 @@ if [ ! -f "$ENGINE_STAMP" ] || [ "$ENGINE_VERSION" != `cat "$ENGINE_STAMP"` ]; t
   rm -f -- "$DART_SDK_ZIP"
   $FIND "$DART_SDK_PATH" -type d -exec chmod 755 {} \;
   $FIND "$DART_SDK_PATH" -type f $IS_USER_EXECUTABLE -exec chmod a+x,a+r {} \;
-  echo "$ENGINE_VERSION" > "$ENGINE_STAMP"
+  echo "$ENGINE_OHOS_VERSION" > "$ENGINE_STAMP"
 
   # delete any temporary sdk path
   if [ -d "$DART_SDK_PATH_OLD" ]; then

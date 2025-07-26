@@ -1040,6 +1040,7 @@ class DefaultTextEditingShortcuts extends StatelessWidget {
         case TargetPlatform.windows:
         case TargetPlatform.iOS:
         case TargetPlatform.macOS:
+        case TargetPlatform.ohos:
           return _webDisablingTextShortcuts;
       }
     }

@@ -731,15 +731,8 @@ enum OhosArch {
   x86_64,
 }
 
-
-bool isOhosPlatform(TargetPlatform? targetPlatform) {
-  if (targetPlatform == TargetPlatform.ohos ||
-      targetPlatform == TargetPlatform.ohos_arm ||
-      targetPlatform == TargetPlatform.ohos_arm64 ||
-      targetPlatform == TargetPlatform.ohos_x64) {
-    return true;
-  }
-  return false;
+bool isOhosArtifact(Artifact artifact) {
+  return artifact == Artifact.flutterEngineHar;
 }
 
 /// The default set of iOS device architectures to build for.
@@ -800,52 +793,29 @@ DarwinArch getDarwinArchForName(String arch) {
 }
 
 String getNameForTargetPlatform(TargetPlatform platform, {DarwinArch? darwinArch}) {
-  switch (platform) {
-    case TargetPlatform.android_arm:
-      return 'android-arm';
-    case TargetPlatform.android_arm64:
-      return 'android-arm64';
-    case TargetPlatform.android_x64:
-      return 'android-x64';
-    case TargetPlatform.android_x86:
-      return 'android-x86';
-    case TargetPlatform.ios:
-      if (darwinArch != null) {
-        return 'ios-${darwinArch.name}';
-      }
-      return 'ios';
-    case TargetPlatform.darwin:
-      if (darwinArch != null) {
-        return 'darwin-${darwinArch.name}';
-      }
-      return 'darwin';
-    case TargetPlatform.linux_x64:
-      return 'linux-x64';
-    case TargetPlatform.linux_arm64:
-      return 'linux-arm64';
-    case TargetPlatform.windows_x64:
-      return 'windows-x64';
-    case TargetPlatform.windows_arm64:
-      return 'windows-arm64';
-    case TargetPlatform.fuchsia_arm64:
-      return 'fuchsia-arm64';
-    case TargetPlatform.fuchsia_x64:
-      return 'fuchsia-x64';
-    case TargetPlatform.tester:
-      return 'flutter-tester';
-    case TargetPlatform.web_javascript:
-      return 'web-javascript';
-    case TargetPlatform.android:
-      return 'android';
-    case TargetPlatform.ohos:
-      return 'ohos';
-    case TargetPlatform.ohos_arm:
-      return 'ohos-arm';
-    case TargetPlatform.ohos_arm64:
-      return 'ohos-arm64';
-    case TargetPlatform.ohos_x64:
-      return 'ohos-x64';
-  }
+  return switch (platform) {
+    TargetPlatform.ios when darwinArch != null => 'ios-${darwinArch.name}',
+    TargetPlatform.darwin when darwinArch != null => 'darwin-${darwinArch.name}',
+    TargetPlatform.ios => 'ios',
+    TargetPlatform.darwin => 'darwin',
+    TargetPlatform.android_arm => 'android-arm',
+    TargetPlatform.android_arm64 => 'android-arm64',
+    TargetPlatform.android_x64 => 'android-x64',
+    TargetPlatform.android_x86 => 'android-x86',
+    TargetPlatform.linux_x64 => 'linux-x64',
+    TargetPlatform.linux_arm64 => 'linux-arm64',
+    TargetPlatform.windows_x64 => 'windows-x64',
+    TargetPlatform.windows_arm64 => 'windows-arm64',
+    TargetPlatform.fuchsia_arm64 => 'fuchsia-arm64',
+    TargetPlatform.fuchsia_x64 => 'fuchsia-x64',
+    TargetPlatform.tester => 'flutter-tester',
+    TargetPlatform.web_javascript => 'web-javascript',
+    TargetPlatform.android => 'android',
+    TargetPlatform.ohos => 'ohos',
+    TargetPlatform.ohos_arm => 'ohos-arm',
+    TargetPlatform.ohos_arm64 => 'ohos-arm64',
+    TargetPlatform.ohos_x64 => 'ohos-x64',
+  };
 }
 
 TargetPlatform getTargetPlatformForName(String platform) {
@@ -860,31 +830,19 @@ TargetPlatform getTargetPlatformForName(String platform) {
     'ios' => TargetPlatform.ios,
     // For backward-compatibility and also for Tester, where it must match
     // host platform name (HostPlatform.darwin_x64)
-    case 'darwin-x64':
-    case 'darwin-arm64':
-      return TargetPlatform.darwin;
-    case 'linux-x64':
-      return TargetPlatform.linux_x64;
-    case 'linux-arm64':
-      return TargetPlatform.linux_arm64;
-    case 'windows-x64':
-      return TargetPlatform.windows_x64;
-    case 'windows-arm64':
-      return TargetPlatform.windows_arm64;
-    case 'web-javascript':
-      return TargetPlatform.web_javascript;
-    case 'ohos':
-      return TargetPlatform.ohos;
-    case 'ohos-arm':
-      return TargetPlatform.ohos_arm;
-    case 'ohos-arm64':
-      return TargetPlatform.ohos_arm64;
-    case 'ohos-x64':
-      return TargetPlatform.ohos_x64;
-    case 'flutter-tester':
-      return TargetPlatform.tester;
-  }
-  throw Exception('Unsupported platform name "$platform"');
+    'darwin' || 'darwin-x64' || 'darwin-arm64' => TargetPlatform.darwin,
+    'linux-x64' => TargetPlatform.linux_x64,
+    'linux-arm64' => TargetPlatform.linux_arm64,
+    'windows-x64' => TargetPlatform.windows_x64,
+    'windows-arm64' => TargetPlatform.windows_arm64,
+    'web-javascript' => TargetPlatform.web_javascript,
+    'flutter-tester' => TargetPlatform.tester,
+    'ohos' => TargetPlatform.ohos,
+    'ohos-arm' => TargetPlatform.ohos_arm,
+    'ohos-arm64' => TargetPlatform.ohos_arm64,
+    'ohos-x64' => TargetPlatform.ohos_x64,
+    _ => throw Exception('Unsupported platform name "$platform"'),
+  };
 }
 
 AndroidArch getAndroidArchForName(String platform) {
@@ -914,7 +872,17 @@ HostPlatform getCurrentHostPlatform() {
       DarwinArch.armv7 => throw Exception('Unsupported macOS arch "amv7"'),
     };
   }
-  throw Exception('Unsupported Ohos arch name "$platform"');
+  if (globals.platform.isLinux) {
+    // support x64 and arm64 architecture.
+    return globals.os.hostPlatform;
+  }
+  if (globals.platform.isWindows) {
+    return HostPlatform.windows_x64;
+  }
+
+  globals.printWarning('Unsupported host platform, defaulting to Linux');
+
+  return HostPlatform.linux_x64;
 }
 
 OhosArch getOhosArchForName(String platform) {
@@ -949,20 +917,6 @@ String getPlatformNameForOhosArch(OhosArch arch) {
     case OhosArch.x86_64:
       return 'ohos-x64';
   }
-}
-
-HostPlatform getCurrentHostPlatform() {
-  if (globals.platform.isLinux || globals.platform.isMacOS) {
-    // support x64 and arm64 architecture.
-    return globals.os.hostPlatform;
-  }
-  if (globals.platform.isWindows) {
-    return HostPlatform.windows_x64;
-  }
-
-  globals.printWarning('Unsupported host platform, defaulting to Linux');
-
-  return HostPlatform.linux_x64;
 }
 
 /// Returns the top-level build output directory.

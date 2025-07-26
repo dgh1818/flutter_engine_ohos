@@ -51,8 +51,7 @@ enum PlatformType {
   windows,
   fuchsia,
   ohos,
-  custom,
-  windowsPreview;
+  custom;
 
   @override
   String toString() => name;

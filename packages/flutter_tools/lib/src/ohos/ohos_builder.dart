@@ -191,6 +191,7 @@ class OhosDartBuilder implements OhosBuilder {
           target,
           Environment(
             projectDir: globals.fs.currentDirectory,
+            packageConfigPath: '.dart_tool/package_config.json',
             outputDir: globals.fs.directory(output),
             buildDir: flutterProject.directory
                 .childDirectory('.dart_tool')
@@ -208,9 +209,8 @@ class OhosDartBuilder implements OhosBuilder {
             processManager: globals.processManager,
             analytics: globals.analytics,
             platform: globals.platform,
-            usage: globals.flutterUsage,
             cacheDir: globals.cache.getRoot(),
-            engineVersion: globals.artifacts!.isLocalEngine
+            engineVersion: globals.artifacts!.usesLocalArtifacts
                 ? null
                 : globals.flutterVersion.engineRevision,
             flutterRootDir: globals.fs.directory(Cache.flutterRoot),

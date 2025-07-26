@@ -86,6 +86,7 @@ enum Artifact {
 
   /// the flutter engine runtime
   flutterEngineHar,
+
   /// The location of file generators.
   flutterToolsFileGenerators,
 }
@@ -598,6 +599,7 @@ class CachedArtifacts implements Artifacts {
       case Artifact.windowsCppClientWrapper:
       case Artifact.windowsDesktopPath:
       case Artifact.flutterToolsFileGenerators:
+      case Artifact.flutterEngineHar:
         return _getHostArtifactPath(artifact, platform, mode);
     }
   }
@@ -700,7 +702,6 @@ class CachedArtifacts implements Artifacts {
       case Artifact.windowsCppClientWrapper:
       case Artifact.windowsDesktopPath:
       case Artifact.flutterToolsFileGenerators:
-      case Artifact.flutterPreviewDevice:
       case Artifact.flutterEngineHar:
         return _getHostArtifactPath(artifact, platform, mode);
     }
@@ -756,7 +757,6 @@ class CachedArtifacts implements Artifacts {
       case Artifact.windowsCppClientWrapper:
       case Artifact.windowsDesktopPath:
       case Artifact.flutterToolsFileGenerators:
-      case Artifact.flutterPreviewDevice:
       case Artifact.flutterEngineHar:
         return _getHostArtifactPath(artifact, platform, mode);
     }
@@ -1154,10 +1154,8 @@ class CachedLocalEngineArtifacts implements Artifacts {
   }
 
   @override
-  FileSystemEntity getHostArtifact(
-    HostArtifact artifact,
-  ) {
-    if(isOhosLocalEngine() && hostArtifactList.contains(artifact)){
+  FileSystemEntity getHostArtifact(HostArtifact artifact) {
+    if (isOhosLocalEngine() && hostArtifactList.contains(artifact)){
       return _backupCache.getHostArtifact(artifact);
     }
     switch (artifact) {
@@ -1424,7 +1422,7 @@ class CachedLocalEngineArtifacts implements Artifacts {
 
   String _genSnapshotPath(Artifact artifact) {
     late List<String> clangDirs;
-    if (isOhosPlatform(platform)) {
+    if (isOhosArtifact(artifact)) {
       // on ohos platform, clang_x64 has compatibility first
       clangDirs = <String>['clang_x64', 'clang_arm64', '.', 'clang_x86', 'clang_i386'];
     } else {
@@ -1445,10 +1443,14 @@ class CachedLocalEngineArtifacts implements Artifacts {
   }
 
   String _flutterTesterPath(TargetPlatform platform) {
-    return _fileSystem.path.join(
-      localEngineInfo.hostOutPath,
-      _artifactToFileName(Artifact.flutterTester, _platform),
-    );
+    if (_platform.isLinux) {
+      return _fileSystem.path.join(localEngineInfo.targetOutPath, _artifactToFileName(Artifact.flutterTester, _platform));
+    } else if (_platform.isMacOS) {
+      return _fileSystem.path.join(localEngineInfo.targetOutPath, 'flutter_tester');
+    } else if (_platform.isWindows) {
+      return _fileSystem.path.join(localEngineInfo.targetOutPath, 'flutter_tester.exe');
+    }
+    throw Exception('Unsupported platform $platform.');
   }
 
   @override
@@ -1525,7 +1527,6 @@ class CachedLocalWebSdkArtifacts implements Artifacts {
         case Artifact.fontSubset:
         case Artifact.constFinder:
         case Artifact.flutterToolsFileGenerators:
-        case Artifact.flutterPreviewDevice:
         case Artifact.flutterEngineHar:
           break;
       }

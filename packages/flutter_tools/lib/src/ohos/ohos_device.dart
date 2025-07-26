@@ -24,6 +24,7 @@ import '../device_port_forwarder.dart';
 import '../globals.dart' as globals;
 import '../project.dart';
 import '../protocol_discovery.dart';
+import '../vmservice.dart';
 import 'application_package.dart';
 import 'hdc_server.dart';
 import 'ohos_builder.dart';
@@ -51,6 +52,7 @@ class OhosDevice extends Device {
           category: Category.mobile,
           platformType: PlatformType.ohos,
           ephemeral: true,
+          logger: logger,
         );
 
   final Logger _logger;
@@ -175,7 +177,7 @@ class OhosDevice extends Device {
       } else if (cmdResult.contains('error: failed to get information')) {
         return false;
       } else {
-        throw ToolExit('unknown result for bm dump.');
+        throwToolExit('unknown result for bm dump.');
       }
     }
     return false;
@@ -781,4 +783,7 @@ class HdcLogReader extends DeviceLogReader {
   void dispose() {
     _stop();
   }
+
+  @override
+  Future<void> provideVmService(FlutterVmService connectedVmService) async {}
 }

@@ -2619,6 +2619,7 @@ class TextSelectionGestureDetectorBuilder {
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
       case TargetPlatform.windows:
+      case TargetPlatform.ohos:
         renderEditable.selectWord(cause: SelectionChangedCause.longPress);
         if (editableText.context.mounted) {
           Feedback.forLongPress(editableText.context);
@@ -2669,7 +2670,7 @@ class TextSelectionGestureDetectorBuilder {
             to: details.globalPosition,
             cause: SelectionChangedCause.longPress,
           );
-        } else {x
+        } else {
           renderEditable.selectPositionAt(
             from: details.globalPosition,
             cause: SelectionChangedCause.longPress,

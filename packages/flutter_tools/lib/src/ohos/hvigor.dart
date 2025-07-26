@@ -387,6 +387,7 @@ class OhosHvigorBuilder implements OhosBuilder {
       await setImpellerEnableFlag(ohosProject, ohosBuildInfo);
     }
 
+    await assembleHsps(_processUtils, project, ohosBuildInfo, _logger, target);
     final String hvigorwPath = getHvigorwPath(ohosRootPath, checkMod: true);
 
     /// invoke hvigow task generate hap file.
@@ -540,6 +541,7 @@ class OhosHvigorBuilder implements OhosBuilder {
       await setImpellerEnableFlag(ohosProject, ohosBuildInfo);
     }
 
+    await assembleHsps(_processUtils, project, ohosBuildInfo, _logger, target);
     final String hvigorwPath = getHvigorwPath(ohosRootPath, checkMod: true);
 
     /// invoke hvigow task generate hap file.
@@ -683,7 +685,7 @@ void _appendCommands(List<String> command, OhosBuildInfo ohosBuildInfo,
   if (localEngineInfo != null) {
     command.addAll(<String>[
       '-p',
-      'FLUTTER_ENGINE=${globals.fs.path.dirname(localEngineInfo.targetOutPath)}'
+      'FLUTTER_ENGINE=${globals.fs.path.dirname(globals.fs.path.dirname(localEngineInfo.targetOutPath))}'
     ]);
     command.addAll(<String>[
       '-p',

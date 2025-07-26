@@ -27,10 +27,10 @@ class BuildHspCommand extends BuildSubCommand {
     addDartObfuscationOption();
     usesDartDefineOption();
     usesExtraDartFlagOptions(verboseHelp: verboseHelp);
-    addBundleSkSLPathOption(hide: !verboseHelp);
+    // addBundleSkSLPathOption(hide: !verboseHelp);
     addEnableExperimentation(hide: !verboseHelp);
     addBuildPerformanceFile(hide: !verboseHelp);
-    addNullSafetyModeOptions(hide: !verboseHelp);
+    // addNullSafetyModeOptions(hide: !verboseHelp);
     usesAnalyzeSizeFlag();
     addIgnoreDeprecationOption();
     usesTrackWidgetCreation(verboseHelp: verboseHelp);

@@ -4,7 +4,7 @@ import { platform } from 'process'
 import { execSync } from 'child_process'
 import { OhosAppContext, OhosHapContext, OhosHarContext, OhosPluginId, Target } from '@ohos/hvigor-ohos-plugin'
 import { hvigor, HvigorNode, HvigorPlugin } from '@ohos/hvigor'
-import { relativePath, copyDirectory, listFiles } from '../util/file-util'
+import { relativePath, copyDirectory, listFiles, realFilePath } from '../util/file-util'
 import { getParameter, getParameters } from '../util/parameter-util'
 import { loadProperties } from '../util/properties-util'
 import { toCamelCase } from '../util/string-util'
@@ -29,11 +29,14 @@ const PLATFORM_ARCH_MAP: Record<string, string> = {
 /** When split is enabled, multiple APKs are generated per each ABI. */
 const DEFAULT_PLATFORMS = [
   PLATFORM_ARM64,
+  PLATFORM_X86_64
 ]
 
 const TARGET_PLATFORM = 'TARGET_PLATFORM'
-const FLUTTER_ENGINE = 'FLUTTER_ENGINE'
-const LOCAL_ENGINE = 'LOCAL_ENGINE'
+
+const localEngineHost = getParameter('LOCAL_ENGINE_HOST') // /xxx/engine/src/out/host_debug_unopt
+const localEngineSrcPath = getParameter('FLUTTER_ENGINE') // /xxx/engine/src
+const localEngine = getParameter('LOCAL_ENGINE') // /xxx/engine/src/out/ohos_debug_unopt_arm64
 
 const FLUTTER_ASSETS_PATH = 'flutter_assets'
 
@@ -54,31 +57,6 @@ export function flutterHvigorPlugin(flutterProjectPath: string, flutterProjectTy
       const productName = appContext.getCurrentProduct().getProductName()
       const targetPlatforms = getParameters(TARGET_PLATFORM, DEFAULT_PLATFORMS)
       const buildMode = appContext.getBuildMode()
-      let flutterHarPath: string
-      const localEngineSrcPath = getParameter(FLUTTER_ENGINE)
-      const localEngine = getParameter(LOCAL_ENGINE)
-      if (localEngineSrcPath && localEngine) {
-        flutterHarPath = path.join(
-          localEngineSrcPath,
-          localEngine,
-          'flutter.har'
-        )
-      } else {
-        let buildModelSuffix = ''
-        if (buildMode !== 'debug') {
-          buildModelSuffix = `-${buildMode}`
-        }
-        let targetPlatform = targetPlatforms[0]
-        flutterHarPath = path.join(
-          sdkPath,
-          'bin',
-          'cache',
-          'artifacts',
-          'engine',
-          `${targetPlatform}${buildModelSuffix}`,
-          'flutter.har'
-        )
-      }
       rootNode.afterNodeEvaluate(node => {
         // app.json5
         if (flutterProjectType === 0) {
@@ -87,8 +65,9 @@ export function flutterHvigorPlugin(flutterProjectPath: string, flutterProjectTy
           appJsonOpt['app']['versionName'] = properties['flutter.versionName'] ?? '1.0'
           appContext.setAppJsonOpt(appJsonOpt)
         }
+        // build-profile.json5
         const overrides = appContext.getOverrides() ?? {}
-        overrides['@ohos/flutter_ohos'] = `file:${flutterHarPath}`
+        setFlutterHarInOverrides(overrides, targetPlatforms!, sdkPath, buildMode)
         nativePlugins.forEach(nativePlugin => {
           overrides[nativePlugin.name] =
             `file:${path.join(nativePlugin.path, 'ohos')}`
@@ -118,7 +97,7 @@ export function flutterHvigorPlugin(flutterProjectPath: string, flutterProjectTy
               })
             }
             const dependenciesOpt = hapContext.getDependenciesOpt()
-            dependenciesOpt['@ohos/flutter_ohos'] = ''
+            setFlutterHarInDependencies(dependenciesOpt, targetPlatforms)
             nativePlugins.forEach(nativePlugin => {
               dependenciesOpt[nativePlugin.name] = ''
             })
@@ -134,7 +113,7 @@ export function flutterHvigorPlugin(flutterProjectPath: string, flutterProjectTy
               registerFlutterTask(node, sdkPath, buildMode, flutterProjectPath, target)
             })
             const dependenciesOpt = harContext.getDependenciesOpt()
-            dependenciesOpt['@ohos/flutter_ohos'] = ''
+            setFlutterHarInDependencies(dependenciesOpt, targetPlatforms)
             nativePlugins.forEach(nativePlugin => {
               dependenciesOpt[nativePlugin.name] = ''
             })
@@ -153,12 +132,48 @@ export function flutterHvigorPlugin(flutterProjectPath: string, flutterProjectTy
               return
             }
             const dependenciesOpt = harContext.getDependenciesOpt()
-            dependenciesOpt['@ohos/flutter_ohos'] = ''
+            setFlutterHarInDependencies(dependenciesOpt, targetPlatforms)
             harContext.setDependenciesOpt(dependenciesOpt)
           })
         }
       })
     }
+  }
+}
+
+function setFlutterHarInDependencies(dependenciesOpt: any, targetPlatforms: string[] | undefined) {
+  dependenciesOpt['@ohos/flutter_ohos'] = ''
+  if (!localEngineSrcPath || !localEngine) {
+    targetPlatforms?.map(platform => PLATFORM_ARCH_MAP[platform].replace('-', '_'))
+      .forEach(arch => {
+        dependenciesOpt[`flutter_native_${arch}`] = ''
+      })
+  }
+}
+
+function setFlutterHarInOverrides(
+  overrides: Record<string, string>,
+  targetPlatforms: string[],
+  sdkPath: string,
+  buildMode: string) {
+  if (localEngineSrcPath && localEngine) {
+    const flutterHarPath = path.join(localEngineSrcPath, "out", localEngine,
+      'flutter.har')
+    overrides['@ohos/flutter_ohos'] = `file:${realFilePath(flutterHarPath)}`
+  } else {
+    const buildModeSuffix = buildMode !== 'debug' ? `-${buildMode}` : ''
+    const cacheHarDir = path.join(sdkPath, 'bin', 'cache', 'artifacts', 'engine',
+      `${targetPlatforms[0]}${buildModeSuffix}`)
+    const flutterHarPath = path.join(cacheHarDir,
+      `flutter_embedding_${buildMode}.har`)
+    overrides['@ohos/flutter_ohos'] = `file:${realFilePath(flutterHarPath)}`
+
+    // Set flutter_native_${arch} overrides for each target platform
+    targetPlatforms?.forEach(platform => {
+      const arch = PLATFORM_ARCH_MAP[platform].replace('-', '_')
+      const platformHarPath = path.join(cacheHarDir, `${arch}_${buildMode}.har`)
+      overrides[`flutter_native_${arch}`] = `file:${realFilePath(platformHarPath)}`
+    })
   }
 }
 
@@ -213,15 +228,12 @@ function registerFlutterTask(node: HvigorNode, sdkPath: string, buildMode: strin
       }
       const flutterArgs: string[] = []
       flutterArgs.push(flutterExecutablePath)
-      const localEngineSrcPath = getParameter(FLUTTER_ENGINE)
       if (localEngineSrcPath) {
         flutterArgs.push('--local-engine-src-path', localEngineSrcPath)
       }
-      const localEngine = getParameter(LOCAL_ENGINE)
       if (localEngine) {
         flutterArgs.push('--local-engine', localEngine)
       }
-      const localEngineHost = getParameter('LOCAL_ENGINE_HOST')
       if (localEngineHost) {
         flutterArgs.push('--local-engine-host', localEngineHost)
       }
@@ -313,14 +325,6 @@ function registerFlutterTask(node: HvigorNode, sdkPath: string, buildMode: strin
         'rawfile',
         FLUTTER_ASSETS_PATH
       )
-      // const destFlutterAssetsDir = path.join(
-      //   nativeIntermediateDir,
-      //   'res',
-      //   targetName,
-      //   'resources',
-      //   'rawfile',
-      //   FLUTTER_ASSETS_PATH
-      // )
       if (fs.existsSync(destFlutterAssetsDir)) {
         fs.rmSync(destFlutterAssetsDir, { recursive: true })
       }
@@ -332,17 +336,7 @@ function registerFlutterTask(node: HvigorNode, sdkPath: string, buildMode: strin
       )
       copyDirectory(srcFlutterAssetsDir, destFlutterAssetsDir)
       // 3.copy app.so
-      const arch = PLATFORM_ARCH_MAP[targetPlatforms[0]]
-      const destAppSoPath = path.join(
-        nodePath,
-        'libs',
-        arch,
-        'libapp.so'
-      )
-      const libsDir = path.join(
-        nodePath,
-        'libs'
-      )
+      const libsDir = path.join(nodePath, 'libs')
       if (fs.existsSync(libsDir)) {
         const files = listFiles(libsDir)
         for (const file of files) {
@@ -352,16 +346,24 @@ function registerFlutterTask(node: HvigorNode, sdkPath: string, buildMode: strin
         }
       }
       if (buildMode !== 'debug') {
-        const srcAppSoPath = path.join(
-          flutterProjectPath,
-          intermediateDir,
-          arch,
-          'app.so'
-        )
-        if (!fs.existsSync(path.dirname(destAppSoPath))) {
-          fs.mkdirSync(path.dirname(destAppSoPath), { recursive: true })
-        }
-        fs.copyFileSync(srcAppSoPath, destAppSoPath)
+        targetPlatforms?.map(platform => PLATFORM_ARCH_MAP[platform]).forEach(arch => {
+          const destAppSoPath = path.join(
+            nodePath,
+            'libs',
+            arch,
+            'libapp.so'
+          )
+          const srcAppSoPath = path.join(
+            flutterProjectPath,
+            intermediateDir,
+            arch,
+            'app.so'
+          )
+          if (!fs.existsSync(path.dirname(destAppSoPath))) {
+            fs.mkdirSync(path.dirname(destAppSoPath), { recursive: true })
+          }
+          fs.copyFileSync(srcAppSoPath, destAppSoPath)
+        })
       }
       console.log('copy flutter assets to project end')
     },

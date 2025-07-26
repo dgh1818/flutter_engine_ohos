@@ -38,3 +38,11 @@ export function listFiles(dirPath: string): string[] {
   }
   return files
 }
+
+export function realFilePath(filePath: string): string {
+  try {
+    return fs.realpathSync(filePath)
+  } catch (error) {
+    return filePath
+  }
+}

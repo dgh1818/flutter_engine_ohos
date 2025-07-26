@@ -4649,7 +4649,7 @@ class EditableTextState extends State<EditableText>
   TextSelection? _adjustedSelectionWhenFocused() {
     TextSelection? selection;
     final bool isDesktop = switch (defaultTargetPlatform) {
-      TargetPlatform.android || TargetPlatform.iOS || TargetPlatform.fuchsia => false,
+      TargetPlatform.android || TargetPlatform.iOS || TargetPlatform.fuchsia || TargetPlatform.ohos => false,
       TargetPlatform.macOS || TargetPlatform.linux || TargetPlatform.windows => true,
     };
     final bool shouldSelectAll =
@@ -6845,6 +6845,7 @@ class _EditableTextTapOutsideAction extends ContextAction<EditableTextTapOutside
       case TargetPlatform.android:
       case TargetPlatform.iOS:
       case TargetPlatform.fuchsia:
+      case TargetPlatform.ohos:
         // On mobile platforms, we don't unfocus on touch events unless they're
         // in the web browser, but we do unfocus for all other kinds of events.
         switch (intent.pointerDownEvent.kind) {

@@ -150,4 +150,9 @@ class OhosValidator extends DoctorValidator {
     final String firstLine = (result.stdout as String).split('\n').first.trim();
     return _VersionInfo(firstLine);
   }
+
+  @override
+  Future<ValidationResult> validateImpl() async {
+    return super.validate();
+  }
 }

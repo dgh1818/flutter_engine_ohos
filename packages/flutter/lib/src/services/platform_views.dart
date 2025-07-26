@@ -832,13 +832,6 @@ class OhosMotionEvent {
   }
 }
 
-enum _AndroidViewState {
-  waitingForSize,
-  creating,
-  created,
-  disposed,
-}
-
 enum _OhosViewState {
   waitingForSize,
   creating,
@@ -1734,6 +1727,49 @@ class _HybridAndroidViewControllerInternals extends _AndroidViewControllerIntern
   @override
   Future<void> sendDisposeMessage({required int viewId}) {
     return SystemChannels.platform_views.invokeMethod<void>('dispose', <String, dynamic>{
+      'id': viewId,
+      'hybrid': true,
+    });
+  }
+}
+
+// The HCPP platform view controller.
+//
+// This is only supported via an opt in on Impeller Android.
+class _Hybrid2AndroidViewControllerInternals extends _AndroidViewControllerInternals {
+  // Determine if HCPP can be used.
+  static Future<bool> checkIfSurfaceControlEnabled() async {
+    return (await SystemChannels.platform_views_2.invokeMethod<bool>(
+      'isSurfaceControlEnabled',
+      <String, Object?>{},
+    ))!;
+  }
+
+  @override
+  int get textureId {
+    throw UnimplementedError('Not supported for hybrid composition.');
+  }
+
+  @override
+  bool get requiresViewComposition => true;
+
+  @override
+  Future<Size> setSize(Size size, {required int viewId, required _AndroidViewState viewState}) {
+    throw UnimplementedError('Not supported for hybrid composition.');
+  }
+
+  @override
+  Future<void> setOffset(
+    Offset offset, {
+    required int viewId,
+    required _AndroidViewState viewState,
+  }) {
+    throw UnimplementedError('Not supported for hybrid composition.');
+  }
+
+  @override
+  Future<void> sendDisposeMessage({required int viewId}) {
+    return SystemChannels.platform_views_2.invokeMethod<void>('dispose', <String, dynamic>{
       'id': viewId,
       'hybrid': true,
     });

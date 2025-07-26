@@ -291,7 +291,8 @@ class CupertinoButton extends StatefulWidget {
     return switch (defaultTargetPlatform) {
       TargetPlatform.iOS ||
       TargetPlatform.android ||
-      TargetPlatform.fuchsia => kCupertinoButtonTapMoveSlop,
+      TargetPlatform.fuchsia ||
+      TargetPlatform.ohos => kCupertinoButtonTapMoveSlop,
       TargetPlatform.macOS || TargetPlatform.linux || TargetPlatform.windows => 0.0,
     };
   }
