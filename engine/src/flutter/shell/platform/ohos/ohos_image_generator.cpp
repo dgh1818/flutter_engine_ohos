@@ -20,10 +20,60 @@
 #include "include/core/SkColorType.h"
 #include "include/core/SkImageInfo.h"
 #include "third_party/skia/include/codec/SkCodecAnimation.h"
+#include "flutter/fml/platform/ohos/dynamic_library_loader.h"
 
 std::atomic<size_t> flutter::OHOSImageGenerator::total_cached_bytes_{0};
 
 namespace flutter {
+
+class OhosImageSourceLoader {
+  using CreateFromDataWithUserBufferFunc = Image_ErrorCode (*)(
+    uint8_t *data, size_t datalength, OH_ImageSourceNative **imageSource);
+
+ public:
+  OhosImageSourceLoader(void);
+  ~OhosImageSourceLoader() = default;
+  static std::shared_ptr<OhosImageSourceLoader> GetInstance(void);
+  Image_ErrorCode CreateFromDataWithUserBuffer(uint8_t *data, size_t datalength, OH_ImageSourceNative **imageSource);
+
+  private:
+    static constexpr char IMAGE_SOURCE_LIB_NAME[] = "libimage_source.so";
+    bool isValid_ = false;
+    std::unique_ptr<flutter::DynamicLibraryLoader> loader_;
+    CreateFromDataWithUserBufferFunc createFromDataWithUserBufferFunc_ = nullptr;
+};
+
+static std::shared_ptr<OhosImageSourceLoader> OhosImageSourceLoderInstance = nullptr;
+static std::once_flag OhosImageSourceLoderInitFlag;
+
+std::shared_ptr<OhosImageSourceLoader> OhosImageSourceLoader::GetInstance() {
+  std::call_once(OhosImageSourceLoderInitFlag, [&] {
+    OhosImageSourceLoderInstance = std::shared_ptr<OhosImageSourceLoader>(new OhosImageSourceLoader());
+  });
+  return OhosImageSourceLoderInstance;
+}
+
+OhosImageSourceLoader::OhosImageSourceLoader(void)
+    : loader_(std::make_unique<flutter::DynamicLibraryLoader>(IMAGE_SOURCE_LIB_NAME)) {
+
+  std::vector<flutter::SymbolInfo> symbols = {
+      {"OH_ImageSourceNative_CreateFromDataWithUserBuffer",
+       reinterpret_cast<void**>(&createFromDataWithUserBufferFunc_), 20},
+  };
+
+  isValid_ = loader_->LoadSymbols(symbols);
+
+  return;
+}
+
+Image_ErrorCode OhosImageSourceLoader::CreateFromDataWithUserBuffer(
+  uint8_t *data, size_t datalength, OH_ImageSourceNative **imageSource) {
+  if (!isValid_ || createFromDataWithUserBufferFunc_ == nullptr) {
+    return IMAGE_BAD_PARAMETER;
+  }
+
+  return createFromDataWithUserBufferFunc_(data, datalength, imageSource);
+}
 
 static void ResolveEncodedOrigin(char* data,
                                  int size,
@@ -239,14 +289,23 @@ std::shared_ptr<ImageGenerator> OHOSImageGenerator::MakeFromData(
                std::to_string(data->size()).c_str());
 
   OH_ImageSourceNative* image_source = nullptr;
-  // The data will be coyied to ImageSourceNative.
-  // No modifications will be made to origin data.
-  Image_ErrorCode err_code = OH_ImageSourceNative_CreateFromData(
+
+  Image_ErrorCode err_code = IMAGE_BAD_PARAMETER;
+  std::shared_ptr<OhosImageSourceLoader> ohosImageSourceLoader = OhosImageSourceLoader::GetInstance();
+  if (ohosImageSourceLoader != nullptr) {
+    err_code = ohosImageSourceLoader->CreateFromDataWithUserBuffer(
       (uint8_t*)data->bytes(), data->size(), &image_source);
+  }
 
   if (err_code != IMAGE_SUCCESS || image_source == nullptr) {
-    FML_LOG(ERROR) << "Create ImageSource failed: " << err_code;
-    return nullptr;
+    // The data will be coyied to ImageSourceNative.
+    // No modifications will be made to origin data.
+    err_code = OH_ImageSourceNative_CreateFromData(
+        (uint8_t*)data->bytes(), data->size(), &image_source);
+    if (err_code != IMAGE_SUCCESS || image_source == nullptr) {
+      FML_LOG(ERROR) << "Create ImageSource failed: " << err_code;
+      return nullptr;
+    }
   }
 
   std::shared_ptr<OHOSImageGenerator> generator(
