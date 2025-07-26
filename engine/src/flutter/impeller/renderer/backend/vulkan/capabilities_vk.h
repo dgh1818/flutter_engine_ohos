@@ -340,35 +340,7 @@ class CapabilitiesVK final : public Capabilities,
   // |Capabilities|
   PixelFormat GetDefaultGlyphAtlasFormat() const override;
 
-  // |Capabilities|
   ISize GetMaximumRenderPassAttachmentSize() const override;
-
-  //----------------------------------------------------------------------------
-  /// @return     If fixed-rate compression for non-onscreen surfaces is
-  ///             supported.
-  ///
-  bool SupportsTextureFixedRateCompression() const;
-
-  /// Whether the external fence and semaphore extensions used for AHB support
-  /// are available.
-  bool SupportsExternalSemaphoreExtensions() const;
-
-  //----------------------------------------------------------------------------
-  /// @brief      Get the fixed compression rate supported by the context for
-  ///             the given format and usage.
-  ///
-  /// @param[in]  compression_type  The compression type.
-  /// @param[in]  desc              The format and usage of the image.
-  ///
-  /// @return     The supported fixed compression rate.
-  ///
-  std::optional<vk::ImageCompressionFixedRateFlagBitsEXT> GetSupportedFRCRate(
-      CompressionType compression_type,
-      const FRCFormatDescriptor& desc) const;
-
-  //----------------------------------------------------------------------------
-  /// @brief      Update capabilities for the given set of workarounds.
-  void ApplyWorkarounds(const WorkaroundsVK& workarounds);
 
  private:
   bool validations_enabled_ = false;
@@ -410,6 +382,13 @@ class CapabilitiesVK final : public Capabilities,
 #else
   mutable PixelFormat default_color_format_ = PixelFormat::kUnknown;
 #endif
+  PixelFormat default_stencil_format_ = PixelFormat::kUnknown;
+  PixelFormat default_depth_stencil_format_ = PixelFormat::kUnknown;
+  vk::PhysicalDeviceProperties device_properties_;
+  bool supports_compute_subgroups_ = false;
+  bool supports_device_transient_textures_ = false;
+  bool is_valid_ = false;
+  ISize max_render_pass_attachment_size_ = ISize{0, 0};
 
   bool HasExtension(const std::string& ext) const;
 

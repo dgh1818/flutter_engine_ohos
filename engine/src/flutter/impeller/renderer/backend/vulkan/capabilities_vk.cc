@@ -695,7 +695,9 @@ bool CapabilitiesVK::SetPhysicalDevice(
       HasExtension(OptionalAndroidDeviceExtensionVK::kKHRExternalSemaphoreFd)) {
     supports_external_fence_and_semaphore_ = true;
   }
-
+  max_render_pass_attachment_size_ =
+      ISize{device_properties_.limits.maxFramebufferWidth,
+            device_properties_.limits.maxFramebufferHeight};
   return true;
 }
 
@@ -794,87 +796,8 @@ bool CapabilitiesVK::HasExtension(OptionalDeviceExtensionVK ext) const {
          optional_device_extensions_.end();
 }
 
-bool CapabilitiesVK::HasExtension(OptionalAndroidDeviceExtensionVK ext) const {
-  return optional_android_device_extensions_.find(ext) !=
-         optional_android_device_extensions_.end();
-}
-
-bool CapabilitiesVK::SupportsTextureFixedRateCompression() const {
-  return supports_texture_fixed_rate_compression_;
-}
-
-std::optional<vk::ImageCompressionFixedRateFlagBitsEXT>
-CapabilitiesVK::GetSupportedFRCRate(CompressionType compression_type,
-                                    const FRCFormatDescriptor& desc) const {
-  if (compression_type != CompressionType::kLossy) {
-    return std::nullopt;
-  }
-  if (!supports_texture_fixed_rate_compression_) {
-    return std::nullopt;
-  }
-  // There are opportunities to hash and cache the FRCFormatDescriptor if
-  // needed.
-  vk::StructureChain<vk::PhysicalDeviceImageFormatInfo2,
-                     vk::ImageCompressionControlEXT>
-      format_chain;
-
-  auto& format_info = format_chain.get();
-
-  format_info.format = desc.format;
-  format_info.type = desc.type;
-  format_info.tiling = desc.tiling;
-  format_info.usage = desc.usage;
-  format_info.flags = desc.flags;
-
-  const auto kIdealFRCRate = vk::ImageCompressionFixedRateFlagBitsEXT::e4Bpc;
-
-  std::array<vk::ImageCompressionFixedRateFlagsEXT, 1u> rates = {kIdealFRCRate};
-
-  auto& compression = format_chain.get<vk::ImageCompressionControlEXT>();
-  compression.flags = vk::ImageCompressionFlagBitsEXT::eFixedRateExplicit;
-  compression.compressionControlPlaneCount = rates.size();
-  compression.pFixedRateFlags = rates.data();
-
-  const auto [result, supported] = physical_device_.getImageFormatProperties2<
-      vk::ImageFormatProperties2, vk::ImageCompressionPropertiesEXT>(
-      format_chain.get());
-
-  if (result != vk::Result::eSuccess ||
-      !supported.isLinked<vk::ImageCompressionPropertiesEXT>()) {
-    return std::nullopt;
-  }
-
-  const auto& compression_props =
-      supported.get<vk::ImageCompressionPropertiesEXT>();
-
-  if ((compression_props.imageCompressionFlags &
-       vk::ImageCompressionFlagBitsEXT::eFixedRateExplicit) &&
-      (compression_props.imageCompressionFixedRateFlags & kIdealFRCRate)) {
-    return kIdealFRCRate;
-  }
-
-  return std::nullopt;
-}
-
-bool CapabilitiesVK::SupportsTriangleFan() const {
-  return has_triangle_fans_;
-}
-
 ISize CapabilitiesVK::GetMaximumRenderPassAttachmentSize() const {
   return max_render_pass_attachment_size_;
-}
-
-void CapabilitiesVK::ApplyWorkarounds(const WorkaroundsVK& workarounds) {
-  has_primitive_restart_ = !workarounds.slow_primitive_restart_performance;
-  has_framebuffer_fetch_ = !workarounds.input_attachment_self_dependency_broken;
-}
-
-bool CapabilitiesVK::SupportsExternalSemaphoreExtensions() const {
-  return supports_external_fence_and_semaphore_;
-}
-
-bool CapabilitiesVK::SupportsExtendedRangeFormats() const {
-  return false;
 }
 
 }  // namespace impeller
