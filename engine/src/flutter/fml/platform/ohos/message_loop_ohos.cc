@@ -15,7 +15,7 @@ namespace fml {
 static constexpr int kClockType = CLOCK_MONOTONIC;
 
 void MessageLoopOhos::OnAsyncCallback(uv_async_t* handle) {
-  reinterpret_cast<MessageLoopOhos*>(handle->data)->OnEventFired();
+  reinterpret_cast<MessageLoopOhos*>(handle->data)->RunExpiredTasksNow();
 }
 
 void MessageLoopOhos::OnAsyncHandleClose(uv_handle_t* handle) {}
@@ -28,8 +28,10 @@ void MessageLoopOhos::OnPollCallback(uv_poll_t* handle,
     return;
   }
 
-  if (events & UV_READABLE) {
-    reinterpret_cast<MessageLoopOhos*>(handle->data)->OnEventFired();
+  if ((events & UV_READABLE) &&
+      TimerDrain(
+          reinterpret_cast<MessageLoopOhos*>(handle->data)->timer_fd_.get())) {
+    reinterpret_cast<MessageLoopOhos*>(handle->data)->RunExpiredTasksNow();
   }
 }
 
@@ -98,12 +100,6 @@ void MessageLoopOhos::WakeUp(fml::TimePoint time_point) {
   FML_DCHECK(result);
 }
 
-void MessageLoopOhos::OnEventFired() {
-  if (TimerDrain(timer_fd_.get())) {
-    RunExpiredTasksNow();
-  }
-}
-
 void MessageLoopOhos::TimerFdWatcher() {
   while (running_) {
     struct epoll_event event = {};
@@ -124,7 +120,7 @@ void MessageLoopOhos::TimerFdWatcher() {
       continue;
     }
 
-    if (event.data.fd == timer_fd_.get()) {
+    if (event.data.fd == timer_fd_.get() && TimerDrain(timer_fd_.get())) {
       uv_async_send(&async_handle_);
     }
   }
