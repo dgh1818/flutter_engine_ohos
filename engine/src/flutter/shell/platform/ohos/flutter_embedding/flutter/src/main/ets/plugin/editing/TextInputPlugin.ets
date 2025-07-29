@@ -275,6 +275,8 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
 
   private async showTextInput(): Promise<void> {
     if (this.keyboardStatus == inputMethod.KeyboardStatus.SHOW) {
+      // 增加键盘拉起状态时也调用attach，参数false则attach不会拉起键盘
+      await this.attach(false);
       if (this.lastKind != this.configuration?.deviceKind) {
         if (deviceInfo.sdkApiVersion >= INPUT_SUPPORT_API) {
           await this.inputMethodController.showTextInput(this.getRequestReason());
