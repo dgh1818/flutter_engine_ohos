@@ -14,8 +14,8 @@ vars = {
   'flutter_git': 'https://flutter.googlesource.com',
   'skia_git': 'https://skia.googlesource.com',
   'llvm_git': 'https://llvm.googlesource.com',
-  'ohos_git': 'https://gitcode.com/liujiake',
-  'skia_revision': 'd20352d0567ee9707c31b2e2d5dd90dd1800c736',
+  'ohos_git': 'https://gitcode.com/openharmony-sig',
+  'skia_revision': '45597b93eb5915f8b78dc3fda82f8123b3984afb',
 
   # WARNING: DO NOT EDIT canvaskit_cipd_instance MANUALLY
   # See `lib/web_ui/README.md` for how to roll CanvasKit to a new version.
@@ -248,10 +248,10 @@ deps = {
    Var('flutter_git') + '/third_party/harfbuzz' + '@' + 'ea6a172f84f2cbcfed803b5ae71064c7afb6b5c2',
 
   'engine/src/flutter/third_party/libcxx':
-   Var('llvm_git') + '/llvm-project/libcxx' + '@' + 'bd557f6f764d1e40b62528a13b124ce740624f8f',
+   Var('ohos_git') + '/fluttertpc_libcxx' + '@' + 'd75ca8a5c209744f6084af43be905abe60c8c0cf',
 
   'engine/src/flutter/third_party/libcxxabi':
-   Var('llvm_git') + '/llvm-project/libcxxabi' + '@' + 'a4dda1589d37a7e4b4f7a81ebad01b1083f2e726',
+   Var('ohos_git') + '/fluttertpc_libcxxabi' + '@' + '0f87c1cbc8bb0cc7e0e21796fec356f99e3dbab4',
 
   'engine/src/flutter/third_party/llvm_libc':
    Var('llvm_git') + '/llvm-project/libc' + '@' + '5af39a19a1ad51ce93972cdab206dcd3ff9b6afa',
@@ -263,7 +263,7 @@ deps = {
    Var('chromium_git') + '/external/github.com/google/shaderc' + '@' + '37e25539ce199ecaf19fb7f7d27818716d36686d',
 
   'engine/src/flutter/third_party/vulkan-deps':
-   Var('ohos_git') + '/fluttertpc_vulkan-deps' + '@' + '67aa734445551f51be910f83ddcb452a80a0a55b',
+   Var('ohos_git') + '/fluttertpc_vulkan-deps' + '@' + '2574d91583d278220bcb092f7b7d09eaa996fd54',
 
   'engine/src/flutter/third_party/flatbuffers':
    Var('chromium_git') + '/external/github.com/google/flatbuffers' + '@' + '0a80646371179f8a7a5c1f42c31ee1d44dcf6709',
@@ -301,7 +301,7 @@ deps = {
   #  Var('flutter_git') + '/third_party/protobuf-gn' + '@' + Var('dart_protobuf_gn_rev'),
 
   'engine/src/flutter/third_party/dart':
-   Var('ohos_git') + '/fluttertpc_dart_sdk.git' + '@' + '9f4f1ba7ae1a9e14ca49311358ed58d645aa31af',
+   Var('ohos_git') + '/fluttertpc_dart_sdk.git' + '@' + 'c69ebf0edf7413a635388a3ce3a190202c43bb30',
 
   # WARNING: Unused Dart dependencies in the list below till "WARNING:" marker are removed automatically - see create_updated_flutter_deps.py.
 
@@ -333,7 +333,7 @@ deps = {
    Var('dart_git') + '/leak_tracker.git@f5620600a5ce1c44f65ddaa02001e200b096e14c',
 
   'engine/src/flutter/third_party/dart/third_party/pkg/native':
-   Var('ohos_git') + '/fluttertpc_dart_native.git@8e588ef18012ab734447bc2f62610326aee22809',
+   Var('ohos_git') + '/fluttertpc_dart_native.git@11dcdee1c7935a082f141a853f9d04b189d3fa5b',
 
   'engine/src/flutter/third_party/dart/third_party/pkg/protobuf':
    Var('dart_git') + '/protobuf.git' + '@' + Var('dart_protobuf_rev'),
@@ -523,7 +523,7 @@ deps = {
    Var('flutter_git') + '/third_party/pyyaml.git' + '@' + '03c67afd452cdff45b41bfe65e19a2fb5b80a0e8',
 
   'engine/src/flutter/third_party/swiftshader':
-  Var('ohos_git') + '/fluttertpc_swiftshader.git' + '@' + '484f0627c47bd8cf2bed09ff53601f6da38361ea',
+  Var('ohos_git') + '/fluttertpc_swiftshader.git' + '@' + '10623c351c58d1ff497ef73203b70605d1b713df',
 
   'engine/src/flutter/third_party/angle':
   Var('ohos_git') + '/fluttertpc_angle.git' + '@' + '55b272d34b7d8208e5eebc92e179833fd7f5864e',

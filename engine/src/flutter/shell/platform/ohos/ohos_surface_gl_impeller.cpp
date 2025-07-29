@@ -14,7 +14,6 @@
 #include "flutter/impeller/toolkit/egl/context.h"
 #include "flutter/impeller/toolkit/egl/surface.h"
 #include "flutter/shell/gpu/gpu_surface_gl_impeller.h"
-// #include "flutter/impeller/base/flags.h"
 
 namespace flutter {
 
