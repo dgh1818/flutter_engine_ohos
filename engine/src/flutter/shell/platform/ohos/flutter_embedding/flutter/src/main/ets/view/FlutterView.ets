@@ -653,8 +653,8 @@ export class FlutterView {
         let singleFeatureBound = displayFeatures[i].getBound();
         displayFeatureBound[4 * i] = singleFeatureBound.left;
         displayFeatureBound[4 * i + 1] = singleFeatureBound.top
-        displayFeatureBound[4 * i + 2] = singleFeatureBound.width;
-        displayFeatureBound[4 * i + 3] = singleFeatureBound.height;
+        displayFeatureBound[4 * i + 2] = singleFeatureBound.left + singleFeatureBound.width;
+        displayFeatureBound[4 * i + 3] = singleFeatureBound.top + singleFeatureBound.height;
         displayFeatureType[i] = displayFeatures[i].getType();
         displayFeatureStatus[i] = displayFeatures[i].getState();
       }
