@@ -57,6 +57,34 @@ export default class KeyEventChannel {
     message.set("intentionCode", keyEvent.event.intentionCode);
     return message;
   }
+
+  // simulate the hardware key event in soft-keyboard text-editing function of the inputMethod
+  simulateSendFlutterKeyEvent(keyEvent: SimulateKeyEvent,
+    isKeyUp: boolean,
+    responseHandler: EventResponseHandler): void {
+    this.channel.send(this.encodeSimulatedKeyEvent(keyEvent, isKeyUp),
+      (message: Map<String, Object>) => {
+        let isEventHandled = false;
+        try {
+          if (message !== null) {
+            isEventHandled = message.get("handled") as boolean;
+          }
+        } catch (e) {
+          Log.e(KeyEventChannel.TAG, "Unable to unpack JSON message: " + e);
+        }
+        responseHandler.onFrameworkResponse(isEventHandled);
+      }
+    );
+  }
+
+  private encodeSimulatedKeyEvent(keyEvent: SimulateKeyEvent, isKeyUp: boolean): Map<String, Object> {
+    let message: Map<String, Object> = new Map();
+    message.set("type", isKeyUp ? "keyup" : "keydown");
+    message.set("keymap", "ohos");
+    message.set("keyCode", keyEvent.keyCode);
+    message.set("flags", keyEvent.keyText);
+    return message;
+  }
 }
 
 export interface EventResponseHandler {
@@ -152,3 +180,12 @@ export class FlutterKeyEvent {
   }
 }
 
+// simulated keyevent applied in soft-keyboard
+export class SimulateKeyEvent {
+  keyCode: number;
+  keyText: string;
+  constructor(keyCode: number, keyText: string) {
+    this.keyCode = keyCode;
+    this.keyText = keyText;
+  }
+}

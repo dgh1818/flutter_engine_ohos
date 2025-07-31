@@ -16,6 +16,8 @@ import { TextEditingDelta } from './TextEditingDelta';
 import TextInputChannel from '../../embedding/engine/systemchannels/TextInputChannel';
 import { FlutterTextUtils } from './TextUtils';
 import { KeyCode } from '@kit.InputKit';
+import KeyEventChannel, { SimulateKeyEvent } from '../../embedding/engine/systemchannels/KeyEventChannel';
+import { PasteboardUtils } from '../../util/PasteboardUtils';
 
 const TAG = "ListenableEditingState";
 
@@ -27,6 +29,7 @@ enum DeleteStates {
 
 export class ListenableEditingState {
   private TextInputChannel: TextInputChannel | null = null;
+  private keyEventChannel: KeyEventChannel | undefined;
   private client: number = 0
   private leftDeleteState: DeleteStates = DeleteStates.END
   private rightDeleteState: DeleteStates = DeleteStates.END
@@ -50,7 +53,7 @@ export class ListenableEditingState {
   private mComposingEndWhenBeginBatchEdit: number = 0;
 
   // preview text
-  private mPreviewText: string;
+  private mPreviewText: string = "";
   private mPreviewTextStart: number = 0;
   private mPreviewTextEnd: number = 0;
   private mLeftIdxOfPreviewTextRange: number = 0;
@@ -58,8 +61,9 @@ export class ListenableEditingState {
   private mIsCursorIdxOutOfPreviewTextRange: boolean = false;
   private mIsEnglishPreviewMode: boolean = false;
 
-  constructor(TextInputChannel:TextInputChannel | null,client:number) {
+  constructor(TextInputChannel:TextInputChannel | null,client:number, keyEventChannel?: KeyEventChannel) {
     this.TextInputChannel = TextInputChannel;
+    this.keyEventChannel = keyEventChannel;
     this.client = client
     this.mStringCache = "";
     this.mTextWhenBeginBatchEdit = "";
@@ -514,22 +518,203 @@ export class ListenableEditingState {
     }
   }
 
-  handleSelectByRange(range: inputMethod.Range): void {
-    Log.d(TAG, "handleSelectByRange start: " + range.start + " end: " + range.end);
+  handleSelectByRangeEvent(range: inputMethod.Range): void {
+    if (range.start === 0) { // cursor index updated at the start pos of text
+      this.setSelectionStart(0);
+      this.setSelectionEnd(0);
+    } else { // cursor index updated at the end pos of text
+      this.setSelectionStart(this.getStringCache().length);
+      this.setSelectionEnd(this.getStringCache().length);
+    }
+    this.notifyListenersIfNeeded(false, true, false);
   }
 
-  // only for move cursor Left after insert text like "()" "[]" ...
-  handleMoveCursor(direction: inputMethod.Direction): void {
-    Log.d(TAG, "handleMoveCursor direction: " + direction);
-    if (direction === inputMethod.Direction.CURSOR_LEFT) {
-      let start = this.getSelectionStart();
-      let end = this.getSelectionEnd();
-      if (start === end && start > 0) {
-        this.setSelectionStart(start - 1);
-        this.setSelectionEnd(end - 1);
-        this.notifyListenersIfNeeded(false, true, false);
-      }
+  /**
+   * cursor moved at 2D-text with 4 directions
+   *  aaaaaa                   aaaaaa|
+   *  bbbbbbb|b -(cursor_up)-> bbbbbbbb
+   *  cccc                     cccc
+   *
+   *  aaaaaa                     aaaaaa
+   *  bbbbbbb|b -(cursor_down)-> bbbbbbbb
+   *  cccc                       cccc|
+   *
+   *  aaaaaa                      aaaaaa
+   *  bbbbbbb|b -(cursor_right)-> bbbbbbbb|
+   *  cccc                        cccc
+   *
+   *  aaaaaa                     aaaaaa
+   *  bbbbbbb|b -(cursor_left)-> bbbbbb|bb
+   *  cccc                       cccc
+   */
+  handleMoveCursorEvent(direction: inputMethod.Direction): void {
+    switch (direction) {
+      case inputMethod.Direction.CURSOR_LEFT:
+      case inputMethod.Direction.CURSOR_RIGHT:
+      case inputMethod.Direction.CURSOR_UP:
+      case inputMethod.Direction.CURSOR_DOWN:
+        // simulate the hardware-keyboard arrow-key pressed with any directions,
+        // and the cursor index in text cache will be moved
+        this.simulateHardwareCursorMovement(direction, false);
+        break;
+      default:
+        Log.w(TAG, `"Unknown cursor movement direction: ${direction}"`);
+        break;
     }
+  }
+
+  /**
+   * text-selection changed with cursor moving at 2D-text
+   * (...) -> denotes the selection range of text
+   *  aaaaaa                   aaaa(aa
+   *  bbbb|bbbb -(cursor_up)-> bbbb)bbbb
+   *  cccc                     cccc
+   *
+   *  aaaaaa                     aaaaaa
+   *  bbbbbbb|b -(cursor_down)-> bbbbbbb(b
+   *  cccc                       cccc)
+   *
+   *  aaaaaa                      aaaaaa
+   *  bb|bbbbbb -(cursor_right)-> bb(b)bbbbb
+   *  cccc                        cccc
+   *
+   *  aaaaaa                     aaaaaa
+   *  bbbbbbb|b -(cursor_left)-> bbbbbb(b)b
+   *  cccc                       cccc
+   */
+  handleSelectByMovementEvent(movement: inputMethod.Movement) : void {
+    switch (movement.direction) {
+      case inputMethod.Direction.CURSOR_LEFT:
+      case inputMethod.Direction.CURSOR_RIGHT:
+      case inputMethod.Direction.CURSOR_UP:
+      case inputMethod.Direction.CURSOR_DOWN:
+        // simulate the hardware-keyboard shift-key combined with arrow-key simultaneously pressed,
+        // and the text selection changed with cursor movement
+        this.simulateHardwareCursorMovement(movement.direction, true);
+        break;
+      default:
+        Log.w(TAG, `"Unknown cursor movement direction: ${movement.direction}"`);
+        break;
+    }
+  }
+
+  getLeftTextOfCursor(length: number) : string {
+    if (length <= 0) {
+      return "";
+    }
+    const strCacheLen = this.getStringCache().length;
+    if (!strCacheLen) {
+      return "";
+    }
+    const cursorIdx = this.getSelectionStart();
+    let startIdx = cursorIdx - length;
+    if (startIdx < 0) {
+      startIdx = 0;
+    }
+    return this.getStringCache().substring(startIdx, cursorIdx);
+  }
+
+  getRightTextOfCursor(length: number) : string {
+    if (length <= 0) {
+      return "";
+    }
+    const strCacheLen = this.getStringCache().length;
+    if (!strCacheLen) {
+      return "";
+    }
+    const cursorIdx = this.getSelectionEnd();
+    let endIdx = cursorIdx + length;
+    if (endIdx >= strCacheLen) {
+      endIdx = strCacheLen;
+    }
+    return this.getStringCache().substring(cursorIdx, endIdx);
+  }
+
+  handleExtendActionEvent(action: inputMethod.ExtendAction) : void {
+    switch (action) {
+      case inputMethod.ExtendAction.SELECT_ALL:
+        // select all text from the start to end, and notify cursor state updating
+        this.setSelectionStart(0);
+        this.setSelectionEnd(this.getStringCache().length);
+        this.notifyListenersIfNeeded(false, true, false);
+        break;
+      case inputMethod.ExtendAction.CUT:
+        // based on the text selection length (endIdx - startIdx) for cutting
+        this.handleDeleteEvent(false, this.getSelectionEnd() - this.getSelectionStart(), false);
+        break;
+      case inputMethod.ExtendAction.COPY:
+        // obtain the current selection range of text cache as the copy text
+        const copyText = this.getStringCache().substring(this.getSelectionStart(), this.getSelectionEnd());
+        PasteboardUtils.setCopyData(copyText);
+        break;
+      case inputMethod.ExtendAction.PASTE:
+        // there exists a situation that first paste operation is invoked after this sync method,
+        // so try paste twice, the paste text will be inserted into the editing box.
+        PasteboardUtils.getPasteData();
+        let pasteText: string | undefined = AppStorage.get<string>('pasteText');
+        if (pasteText != undefined) { // insert the paste text into the editing widget
+          this.handleInsertTextEvent(pasteText);
+        }
+        break;
+      default:
+        Log.w(TAG, `"Unknown ExtendAction: ${action}"`);
+        break;
+    }
+  }
+
+  /**
+   * This method is used to simulate the hard-keyboard key event in soft-keyboard mode,
+   * Case 1: cursor moving is simulated by sending arrow-key event to flutter SDK (Dart-side),
+   * hence the cursor will move up/down/left/right in editing box.
+   * Case 2: text-selection changed with cursor moving is simulated by sending shift-key combined with arrow-key events
+   * to flutter SDK, hence the text-selection range will be updated by moving cursor up/down/left/right in editing box.
+   * @param direction: cursor move direction from IMC callback
+   * @param isShiftPressed: determine whether shift-key is pressed
+   */
+  private simulateHardwareCursorMovement(direction: inputMethod.Direction, isShiftPressed: boolean) : void {
+    // Here, '选择' button in '文本编辑' function of soft-keyboard inputMethod apps is a simulation for hardware shift-key.
+    // Therefore, when '选择' button is pressed in soft-keyboard equals to shift-key pressed in hard-keyboard
+    enum SimulatedKeyText {
+      KEY_SHIFT = 'KEYCODE_SHIFT_LEFT',
+      KEY_ARROW_UP = 'KEYCODE_DPAD_UP',
+      KEY_ARROW_DOWN = 'KEYCODE_DPAD_DOWN',
+      KEY_ARROW_LEFT = 'KEYCODE_DPAD_LEFT',
+      KEY_ARROW_RIGHT = 'KEYCODE_DPAD_RIGHT',
+      KEY_UNKNOWN = 'KEYCODE_UNKNOWN'
+    }
+    if (isShiftPressed) { // simulate shift-key down
+      this.sendSimulatedKeyEvent(new SimulateKeyEvent(KeyCode.KEYCODE_SHIFT_LEFT, SimulatedKeyText.KEY_SHIFT), false);
+    }
+    let arrowEvent: SimulateKeyEvent;
+    switch (direction) {
+      case inputMethod.Direction.CURSOR_UP: // simulate hardware arrow-up key event
+        arrowEvent = new SimulateKeyEvent(KeyCode.KEYCODE_DPAD_UP, SimulatedKeyText.KEY_ARROW_UP);
+        break;
+      case inputMethod.Direction.CURSOR_DOWN: // simulate hardware arrow-down key event
+        arrowEvent = new SimulateKeyEvent(KeyCode.KEYCODE_DPAD_DOWN, SimulatedKeyText.KEY_ARROW_DOWN);
+        break;
+      case inputMethod.Direction.CURSOR_LEFT: // simulate hardware arrow-left key event
+        arrowEvent = new SimulateKeyEvent(KeyCode.KEYCODE_DPAD_LEFT, SimulatedKeyText.KEY_ARROW_LEFT);
+        break;
+      case inputMethod.Direction.CURSOR_RIGHT: // simulate hardware arrow-right key event
+        arrowEvent = new SimulateKeyEvent(KeyCode.KEYCODE_DPAD_RIGHT, SimulatedKeyText.KEY_ARROW_RIGHT);
+        break;
+      default:
+        arrowEvent = new SimulateKeyEvent(KeyCode.KEYCODE_UNKNOWN, SimulatedKeyText.KEY_UNKNOWN);
+        break;
+    }
+    this.sendSimulatedKeyEvent(arrowEvent, false); // simulate arrow-key down
+    this.sendSimulatedKeyEvent(arrowEvent, true);  // simulate arrow-key up
+    if (isShiftPressed) { // simulate shift-key up
+      this.sendSimulatedKeyEvent(new SimulateKeyEvent(KeyCode.KEYCODE_SHIFT_LEFT, SimulatedKeyText.KEY_SHIFT), true);
+    }
+  }
+
+  private sendSimulatedKeyEvent(event: SimulateKeyEvent, isKeyUp: boolean) : void {
+    this.keyEventChannel?.simulateSendFlutterKeyEvent(
+      event, isKeyUp, {
+      onFrameworkResponse: (isEventHandled: boolean): void => {}
+    });
   }
 }
 

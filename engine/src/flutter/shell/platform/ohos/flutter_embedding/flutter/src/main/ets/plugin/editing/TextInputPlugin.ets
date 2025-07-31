@@ -21,6 +21,7 @@ import { inputDevice } from '@kit.InputKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { PointerDeviceKind } from '../../embedding/ohos/OhosTouchProcessor';
 import deviceInfo from '@ohos.deviceInfo';
+import KeyEventChannel from '../../embedding/engine/systemchannels/KeyEventChannel';
 
 const INPUT_SUPPORT_API = 15;
 const PREIVEW_TEXT_SUPPORT_API = 17;
@@ -29,10 +30,12 @@ const sdkApiVersion: number = deviceInfo.sdkApiVersion;
 export default class TextInputPlugin implements EditingStateWatcher {
   private static TAG = "TextInputPlugin";
   private textInputChannel: TextInputChannel;
+  private keyEventChannel: KeyEventChannel | undefined;
   private mTextInputHandler: TextInputMethodHandlerImpl;
 
-  constructor(textInputChannel: TextInputChannel, viewId: string) {
+  constructor(textInputChannel: TextInputChannel, viewId: string, keyEventChannel?: KeyEventChannel) {
     this.textInputChannel = textInputChannel;
+    this.keyEventChannel = keyEventChannel;
     // viewId is used for requestFocus
     this.mTextInputHandler = new TextInputMethodHandlerImpl(this, viewId);
     this.textInputChannel.setTextInputMethodHandler(this.mTextInputHandler);
@@ -391,7 +394,8 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     }
     this.mEditable.removeEditingStateListener(this.plugin);
 
-    this.mEditable = new ListenableEditingState(this.plugin.textInputChannel, this.inputTarget.id);
+    this.mEditable = new ListenableEditingState(
+      this.plugin.textInputChannel, this.inputTarget.id, this.plugin.keyEventChannel);
 
     this.mRestartInputPending = true;
     this.mEditable.addEditingStateListener(this.plugin);
@@ -488,6 +492,42 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
       return;
     }
 
+    try {
+      this.inputMethodController.on('handleExtendAction', this.handleExtendActionCallback)
+    } catch (err) {
+      Log.e(TextInputMethodHandlerImpl.TAG, "Failed to subscribe handleExtendAction:" + JSON.stringify(err));
+      this.cancelListenKeyBoardEvent();
+      return;
+    }
+    try {
+      this.inputMethodController.on('selectByMovement', this.selectByMovementCallback)
+    } catch (err) {
+      Log.e(TextInputMethodHandlerImpl.TAG, "Failed to subscribe selectByMovement:" + JSON.stringify(err));
+      this.cancelListenKeyBoardEvent();
+      return;
+    }
+    try {
+      this.inputMethodController.on('getLeftTextOfCursor', this.getLeftTextOfCursorCallback)
+    } catch (err) {
+      Log.e(TextInputMethodHandlerImpl.TAG, "Failed to subscribe getLeftTextOfCursor:" + JSON.stringify(err));
+      this.cancelListenKeyBoardEvent();
+      return;
+    }
+    try {
+      this.inputMethodController.on('getRightTextOfCursor', this.getRightTextOfCursorCallback)
+    } catch (err) {
+      Log.e(TextInputMethodHandlerImpl.TAG, "Failed to subscribe getRightTextOfCursor:" + JSON.stringify(err));
+      this.cancelListenKeyBoardEvent();
+      return;
+    }
+    try {
+      this.inputMethodController.on('getTextIndexAtCursor', this.getTextIndexAtCursorCallback)
+    } catch (err) {
+      Log.e(TextInputMethodHandlerImpl.TAG, "Failed to subscribe getTextIndexAtCursor:" + JSON.stringify(err));
+      this.cancelListenKeyBoardEvent();
+      return;
+    }
+
     Log.d(TextInputMethodHandlerImpl.TAG, "listenKeyBoardEvent success");
     this.imcFlag = true;
   }
@@ -557,12 +597,53 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     }
   }
 
+  // obtain the range to update cursor idx to start/end of text cache
   private selectByRangeCallback = (range: inputMethod.Range) => {
-    this.mEditable.handleSelectByRange(range);
+    this.mEditable.handleSelectByRangeEvent(range);
+    this.inputMethodController.changeSelection(this.mEditable.getStringCache(), this.mEditable.getSelectionStart(),
+      this.mEditable.getSelectionEnd());
   }
 
+  // move cursor postion with left, right, up and down in editing widget
   private moveCursorCallback = (direction: inputMethod.Direction) => {
-    this.mEditable.handleMoveCursor(direction);
+    this.mEditable.handleMoveCursorEvent(direction);
+    this.inputMethodController.changeSelection(this.mEditable.getStringCache(), this.mEditable.getSelectionStart(),
+      this.mEditable.getSelectionEnd());
+  }
+
+  // handle extend clipboard actions, like 'select all', 'cut', 'copy' and 'paste'
+  private handleExtendActionCallback = (action: inputMethod.ExtendAction) => {
+    this.mEditable.handleExtendActionEvent(action);
+    this.inputMethodController.changeSelection(this.mEditable.getStringCache(), this.mEditable.getSelectionStart(),
+      this.mEditable.getSelectionEnd());
+  }
+
+  // text selection range changed with cursor direction movement
+  private selectByMovementCallback = (movement: inputMethod.Movement) => {
+    this.mEditable.handleSelectByMovementEvent(movement);
+    this.inputMethodController.changeSelection(this.mEditable.getStringCache(), this.mEditable.getSelectionStart(),
+      this.mEditable.getSelectionEnd());
+  }
+
+  // return the left-side text string of current cursor index ("abc|345" -> return "abc")
+  private getLeftTextOfCursorCallback = (length: number) : string => {
+    const retText = this.mEditable.getLeftTextOfCursor(length);
+    Log.i(TextInputMethodHandlerImpl.TAG, "getLeftTextOfCursor: " + retText);
+    return retText;
+  }
+
+  // return the right-side text string of current cursor index ("abc|345" -> return "345")
+  private getRightTextOfCursorCallback = (length: number) : string => {
+    const retText = this.mEditable.getRightTextOfCursor(length);
+    Log.i(TextInputMethodHandlerImpl.TAG, "getRightTextOfCursor: " + retText);
+    return retText;
+  }
+
+  // return the current cursor index of editing text
+  private getTextIndexAtCursorCallback = () => {
+    const cursorIdx = this.mEditable.getSelectionStart();
+    Log.i(TextInputMethodHandlerImpl.TAG, "getTextIndexAtCursor: " + cursorIdx);
+    return cursorIdx;
   }
 
   cancelListenKeyBoardEvent(): void {
@@ -573,6 +654,11 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     this.inputMethodController?.off('sendKeyboardStatus', this.sendKeyboardStatusCallback);
     this.inputMethodController?.off('selectByRange', this.selectByRangeCallback);
     this.inputMethodController?.off('moveCursor', this.moveCursorCallback);
+    this.inputMethodController?.off('handleExtendAction', this.handleExtendActionCallback);
+    this.inputMethodController?.off('selectByMovement', this.selectByMovementCallback);
+    this.inputMethodController?.off('getLeftTextOfCursor', this.getLeftTextOfCursorCallback);
+    this.inputMethodController?.off('getRightTextOfCursor', this.getRightTextOfCursorCallback);
+    this.inputMethodController?.off('getTextIndexAtCursor', this.getTextIndexAtCursorCallback);
     this.imcFlag = false;
   }
 
