@@ -570,10 +570,17 @@ config("runtime_library") {
     if (!is_linux) {
       ldflags += [ "-nostdlib++" ]
     }
-    include_dirs = [
-      "//flutter/third_party/libcxx/include",
-      "//flutter/third_party/libcxxabi/include",
-    ]
+    if (is_ohos) {
+      include_dirs = [
+        "//flutter/third_party/libcxx_ohos/include",
+        "//flutter/third_party/libcxxabi/include",
+      ]
+    } else {
+      include_dirs = [
+        "//flutter/third_party/libcxx/include",
+        "//flutter/third_party/libcxxabi/include",
+      ]
+    }
   }
 
   # Android standard library setup.
