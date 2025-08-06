@@ -59,6 +59,10 @@ class OHBTextureSourceVK final : public TextureSourceVK {
   OHBTextureSourceVK& operator=(const OHBTextureSourceVK&) = delete;
 };
 
+static constexpr int kHDRPQ = 2;
+static constexpr int kHDRHLG = 1;
+static constexpr int kSDR = 0;
+
 }  // namespace impeller
 
 #endif  // FLUTTER_IMPELLER_RENDERER_BACKEND_VULKAN_OHOS_OHB_TEXTURE_SOURCE_VK_H_

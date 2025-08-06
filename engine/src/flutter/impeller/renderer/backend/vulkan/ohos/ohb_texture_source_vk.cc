@@ -7,6 +7,7 @@
 #include "impeller/renderer/backend/vulkan/allocator_vk.h"
 #include "impeller/renderer/backend/vulkan/context_vk.h"
 #include "impeller/renderer/backend/vulkan/yuv_conversion_library_vk.h"
+#include "impeller/renderer/context.h"
 
 #include <native_buffer/native_buffer.h>
 
@@ -30,6 +31,8 @@ static PixelFormat ToPixelFormat(int32_t format) {
       return PixelFormat::kR8G8B8A8UNormInt;
     case OH_NativeBuffer_Format::NATIVEBUFFER_PIXEL_FMT_BGRA_8888:
       return PixelFormat::kB8G8R8A8UNormInt;
+    case OH_NativeBuffer_Format::NATIVEBUFFER_PIXEL_FMT_RGBA_1010102:
+      return PixelFormat::kR10G10B10A2;
     default:
       // Not understood by the rest of Impeller. Use a placeholder but create
       // the native image and image views using the right external format.
@@ -51,7 +54,32 @@ static TextureDescriptor CreateTextureDescriptorFromNativeWindowBuffer(
     return descriptor;
   }
   OH_NativeBuffer_GetConfig(native_buffer, &nativebuffer_config);
+  OH_NativeBuffer_ColorSpace color_space;
+  OH_NativeBuffer_GetColorSpace(native_buffer, &color_space);
+
+  if (!impeller::Context::is_image_) {
+    if (color_space == OH_COLORSPACE_DISPLAY_BT2020_PQ &&
+        impeller::Context::enable_hdr_) {
+      FML_DLOG(ERROR) << "color_space = OH_COLORSPACE_DISPLAY_BT2020_PQ";
+      impeller::Context::hdr_ = kHDRPQ;
+    } else if (color_space == OH_COLORSPACE_BT2020_HLG_LIMIT &&
+               impeller::Context::enable_hdr_) {
+      FML_DLOG(ERROR) << "color_space = OH_COLORSPACE_BT2020_HLG_LIMIT";
+      impeller::Context::hdr_ = kHDRHLG;
+    } else if (color_space == OH_COLORSPACE_DISPLAY_BT2020_HLG &&
+               impeller::Context::enable_hdr_) {
+      FML_DLOG(ERROR) << "color_space = OH_COLORSPACE_BT2020_HLG_LIMIT";
+      impeller::Context::hdr_ = kHDRHLG;
+    } else {
+      FML_DLOG(ERROR) << "default color_space = OH_COLORSPACE_BT709";
+      impeller::Context::hdr_ = kSDR;
+    }
+  }
+
   descriptor.format = ToPixelFormat(nativebuffer_config.format);
+    if (impeller::Context::hdr_ > 0) {
+    descriptor.format = PixelFormat::kR10G10B10A2;
+  }
   descriptor.size =
       ISize{nativebuffer_config.width, nativebuffer_config.height};
   descriptor.storage_mode = StorageMode::kDevicePrivate;

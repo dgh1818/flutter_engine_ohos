@@ -58,9 +58,19 @@ std::unique_ptr<Surface> KHRSwapchainVK::AcquireNextDrawable(
   TRACE_EVENT0("impeller", __FUNCTION__);
 
   auto result = impl_->AcquireNextDrawable();
+  
+#ifdef __OHOS__
+  hdr_ = impeller::Context::hdr_;
+  if (!result.out_of_date && size_ == impl_->GetSize() &&
+      hdr_ == impl_->GetHdr()) {
+    return std::move(result.surface);
+  }
+  FML_DLOG(INFO) << "SWAPCHAIN Recreate-" << "HDR is:" << hdr_;
+#else
   if (!result.out_of_date && size_ == impl_->GetSize()) {
     return std::move(result.surface);
   }
+#endif
 
 // When the swapchain says its out-of-date, we attempt to read the underlying
 // surface size and re-create the swapchain at that size automatically (subject

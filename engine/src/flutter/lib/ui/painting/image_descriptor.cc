@@ -93,6 +93,9 @@ void ImageDescriptor::initRaw(Dart_Handle descriptor_handle,
     case PixelFormat::kBGRA8888:
       color_type = kBGRA_8888_SkColorType;
       break;
+    case PixelFormat::kRGBA1010102:
+      color_type = kRGBA_1010102_SkColorType;
+      break;
     case PixelFormat::kRGBAFloat32:
       // `PixelFormat.rgbaFloat32` is documented to not use premultiplied alpha.
       color_type = kRGBA_F32_SkColorType;
