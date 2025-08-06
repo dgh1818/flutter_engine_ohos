@@ -73,7 +73,6 @@ class OHOSImageGenerator : public ImageGenerator {
        {-0.0420f, 1.0419f, 0.000f},
        {-0.0197f, -0.0786f, 1.0979f}}};
 
-
   constexpr static const skcms_Matrix3x3 rec2020_matrix = {
       {{0.636958f, 0.144617f, 0.168881f},
        {0.262700f, 0.677998f, 0.059302f},

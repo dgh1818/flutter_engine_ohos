@@ -58,7 +58,7 @@ std::unique_ptr<Surface> KHRSwapchainVK::AcquireNextDrawable(
   TRACE_EVENT0("impeller", __FUNCTION__);
 
   auto result = impl_->AcquireNextDrawable();
-  
+
 #ifdef __OHOS__
   hdr_ = impeller::Context::hdr_;
   if (!result.out_of_date && size_ == impl_->GetSize() &&

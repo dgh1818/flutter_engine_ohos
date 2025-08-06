@@ -16,7 +16,6 @@ bool Context::UpdateOffscreenLayerPixelFormat(PixelFormat format) {
   return false;
 }
 
-
 int Context::hdr_ = 0;
 bool Context::is_image_ = true;
 bool Context::enable_hdr_ = false;

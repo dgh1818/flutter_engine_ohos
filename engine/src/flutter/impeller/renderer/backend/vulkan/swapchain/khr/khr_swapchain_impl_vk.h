@@ -107,7 +107,6 @@ class KHRSwapchainImplVK final
   KHRSwapchainImplVK& operator=(const KHRSwapchainImplVK&) = delete;
 };
 
-
 static constexpr int kHDRPQ = 2;
 static constexpr int kHDRHLG = 1;
 static constexpr int kSDR = 0;

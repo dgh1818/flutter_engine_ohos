@@ -114,8 +114,6 @@ OHOSImageGenerator::OHOSImageGenerator(OH_ImageSourceNative* image_source)
           width, height, kRGBA_8888_SkColorType, kOpaque_SkAlphaType);
     }
   }
-  
-
   // this is used for gif.
   OH_ImageSourceNative_GetFrameCount(image_source, &frame_count_);
   if (frame_count_ > 1) {
@@ -184,7 +182,7 @@ bool OHOSImageGenerator::GetPixels(const SkImageInfo& info,
   if (frame_index == 0) {
     FML_DLOG(INFO) << trace_str;
   }
-    if (image_source_ == nullptr ||
+  if (image_source_ == nullptr ||
       (info.colorType() != kRGBA_8888_SkColorType &&
        info.colorType() != kRGBA_1010102_SkColorType)) {
     FML_LOG(ERROR) << "invailed color type:" << std::to_string(info.colorType())
@@ -302,10 +300,10 @@ OHOSImageGenerator::CreatePixelMap(int width, int height, int frame_index) {
     }
     auto image_pixelmap = std::make_shared<PixelMapOHOS>(pixelmap);
     FML_DLOG(INFO) << "Create Pixelmap size:"
-                  << std::to_string(image_pixelmap->width_) << "*"
-                  << std::to_string(image_pixelmap->height_) << " stride "
-                  << std::to_string(image_pixelmap->row_stride_) << " format "
-                  << std::to_string(image_pixelmap->pixel_format_);
+                   << std::to_string(image_pixelmap->width_) << "*"
+                   << std::to_string(image_pixelmap->height_) << " stride "
+                   << std::to_string(image_pixelmap->row_stride_) << " format "
+                   << std::to_string(image_pixelmap->pixel_format_);
     return image_pixelmap;
   } else {
     FML_LOG(ERROR) << "Create Pixelmap from Image source failed:" << err_code

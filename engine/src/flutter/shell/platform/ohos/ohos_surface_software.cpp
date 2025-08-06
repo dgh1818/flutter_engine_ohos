@@ -27,7 +27,7 @@ bool GetSkColorType(int32_t buffer_format,
     case kPixelFmtRgba1010102:  // kPixelFmtRgba1010102
       *color_type = kRGBA_1010102_SkColorType;
       *alpha_type = kPremul_SkAlphaType;
-      return true;  
+      return true;
     default:
       return false;
   }

@@ -47,7 +47,7 @@ static std::vector<FormatInfo> DesiredFormatInfos() {
           {VK_FORMAT_R8G8B8A8_UNORM, kRGBA_8888_SkColorType,
            SkColorSpace::MakeSRGB()},
           {VK_FORMAT_B8G8R8A8_UNORM, kRGBA_8888_SkColorType,
-             SkColorSpace::MakeSRGB()},
+           SkColorSpace::MakeSRGB()},
           {VK_FORMAT_A2B10G10R10_UNORM_PACK32, kRGBA_1010102_SkColorType,
            SkColorSpace::MakeRGB(SkNamedTransferFn::kHLG, rec2020_matrix)}};
 }

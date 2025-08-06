@@ -77,7 +77,7 @@ static TextureDescriptor CreateTextureDescriptorFromNativeWindowBuffer(
   }
 
   descriptor.format = ToPixelFormat(nativebuffer_config.format);
-    if (impeller::Context::hdr_ > 0) {
+  if (impeller::Context::hdr_ > 0) {
     descriptor.format = PixelFormat::kR10G10B10A2;
   }
   descriptor.size =
