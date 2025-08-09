@@ -80,7 +80,7 @@ OHOSImageGenerator::OHOSImageGenerator(OH_ImageSourceNative* image_source)
   Image_String value = {nullptr, 0};
   int err = OH_ImageSourceNative_GetImageProperty(image_source, &key, &value);
   if (err != IMAGE_SUCCESS) {
-    FML_LOG(ERROR) << "cannot get pixelmap orientation:" << err;
+    FML_DLOG(ERROR) << "cannot get pixelmap orientation:" << err;
   }
   if (value.data != nullptr) {
     ResolveEncodedOrigin(value.data, value.size, &rotate_degree_, &need_flip_);
