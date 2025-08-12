@@ -240,6 +240,7 @@ void PlatformViewOHOS::NotifySurfaceWindowChanged(
             // previously configured size before raster reaches this point,
             // causing the window size to revert to its original value during
             // the process.
+            surface->TeardownOnScreenContext();
             native_window->SetSize(width, height);
             surface->SetDisplayWindow(native_window);
           }
