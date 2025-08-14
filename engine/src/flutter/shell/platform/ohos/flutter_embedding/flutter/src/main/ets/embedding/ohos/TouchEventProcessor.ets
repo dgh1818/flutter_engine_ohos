@@ -237,6 +237,51 @@ export default class TouchEventProcessor {
     return customTouchEvent;
   }
 
+  // 鼠标坐标通过postInputEvent传入到节点
+  public postInputEvent(strings: Array<string>) {
+    FlutterManager.getInstance().getFlutterViewList().forEach((value) => {
+      let length = value.getDVModel().children.length
+      for (let index = length - 1; index >= 0; index--) {
+        const dvModel = value.getDVModel().children[index]
+        const params = dvModel.getLayoutParams() as Record<string, ESObject>;
+        const left = params['left'] as number ?? 0;
+        const top = params['top'] as number ?? 0;
+        const densityPixels: number = display.getDefaultDisplaySync().densityPixels;
+
+        let offset: number = 0;
+        const x: number = vp2px((parseInt(strings[offset++])) / densityPixels - left);
+        const y: number = vp2px((parseInt(strings[offset++])) / densityPixels - top);
+        const screenX: number = vp2px(parseFloat(strings[offset++]) / densityPixels);
+        const screenY: number = vp2px(parseFloat(strings[offset++]) / densityPixels);
+        const timestamp: number = parseFloat(strings[offset++]);
+        const action: number = parseFloat(strings[offset++]);
+        const button: number = parseFloat(strings[offset++]);
+
+        // 构造MouseEvent数据
+        const mouseEvent: MouseEvent = {
+          button: button,
+          action: action,
+          displayX: x,
+          displayY: y,
+          windowX: x,
+          windowY: y,
+          screenX: screenX,
+          screenY: screenY,
+          x: x,
+          y: y,
+          stopPropagation: () => {},
+          timestamp: timestamp,
+          pressure: 0,
+          tiltX: x,
+          tiltY: y,
+        } as MouseEvent;
+
+        let nodeController = params['nodeController'] as EmbeddingNodeController;
+        nodeController.postInputEvent(mouseEvent)
+      }
+    });
+  }
+  
   public postTouchEvent(strings: Array<string>) {
     FlutterManager.getInstance().getFlutterViewList().forEach((value) => {
       let length = value.getDVModel().children.length

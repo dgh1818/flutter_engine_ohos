@@ -153,6 +153,8 @@ class PlatformViewOHOS final : public PlatformView {
 
   void OnTouchEvent(std::shared_ptr<std::string[]> touchPacketString, int size);
 
+  void OnMouseEvent(const std::shared_ptr<std::string[]>& mousePacketString, const int& size);
+
   void RunTask(OhosThreadType type, const fml::closure& task);
 
   void SetSemanticsBridge(std::shared_ptr<SemanticsBridge> bridge,

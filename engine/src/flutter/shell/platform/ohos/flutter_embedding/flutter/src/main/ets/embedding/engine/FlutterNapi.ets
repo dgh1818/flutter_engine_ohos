@@ -721,6 +721,12 @@ export default class FlutterNapi {
     }
   }
 
+  onMouseEvent(strings: Array<string>): void {
+    if (this.isAttached()) {
+      TouchEventProcessor.getInstance().postInputEvent(strings);
+    }
+  }
+
   static unicodeIsEmoji(code: number): boolean {
     return Boolean(flutter.nativeUnicodeIsEmoji(code));
   }

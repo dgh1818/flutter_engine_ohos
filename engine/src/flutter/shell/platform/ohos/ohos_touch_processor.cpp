@@ -520,6 +520,28 @@ void OhosTouchProcessor::HandleMouseEvent(
   auto ohos_shell_holder = reinterpret_cast<OHOSShellHolder*>(shell_holderID);
   ohos_shell_holder->GetPlatformView()->DispatchPointerDataPacket(
       std::move(packet));
+
+  if(apiVersion_ < 20){
+    //由于接口原因，api20以上才支持
+    return;
+  }
+  int offset = 0;
+  std::vector<std::string> tempStrings;
+  tempStrings.push_back(std::to_string(mouseEvent.x));
+  tempStrings.push_back(std::to_string(mouseEvent.y));
+  tempStrings.push_back(std::to_string(mouseEvent.screenX));
+  tempStrings.push_back(std::to_string(mouseEvent.screenY));
+  tempStrings.push_back(std::to_string(mouseEvent.timestamp));
+  tempStrings.push_back(std::to_string(mouseEvent.action));
+  tempStrings.push_back(std::to_string(mouseEvent.button));
+
+  size_t length = tempStrings.size();
+  std::shared_ptr<std::string[]> package(new std::string[length]);
+  for(size_t i = 0; i < length; i++){
+    package[offset++] = tempStrings[i];
+  }
+
+  ohos_shell_holder->GetPlatformView()->OnMouseEvent(package, length);
   return;
 }
 
@@ -527,6 +549,11 @@ void OhosTouchProcessor::HandleVirtualTouchEvent(
     int64_t shell_holderID,
     OH_NativeXComponent* component,
     OH_NativeXComponent_TouchEvent* touchEvent) {
+  if (apiVersion_ >= 20) {
+    // API20以上可以直接处理鼠标事件，不需要转为虚拟触摸事件
+    // 参考：https://developer.huawei.com/consumer/cn/doc/harmonyos-references/js-apis-arkui-buildernode#postinputevent20
+    return;
+  }
   int numPoints = touchEvent->numPoints;
   float tiltX = 0.0;
   float tiltY = 0.0;

@@ -470,6 +470,33 @@ void PlatformViewOHOSNapi::FlutterViewOnTouchEvent(
   napi_close_handle_scope(env_, scope);
 }
 
+void PlatformViewOHOSNapi::FlutterViewOnMouseEvent(
+    const std::shared_ptr<std::string[]>& mousePacketString,
+    const int& size){
+
+    if (mousePacketString == nullptr) {
+      FML_LOG(ERROR) << "Input parameter error";
+      return;
+    }
+    napi_value arrayString;
+    napi_create_array(env_, &arrayString);
+
+    for (int i = 0; i < size; ++i) {
+      napi_value stringItem;
+      napi_create_string_utf8(env_, mousePacketString[i].c_str(), -1,
+                              &stringItem);
+      napi_set_element(env_, arrayString, i, stringItem);
+    }
+    napi_handle_scope scope;
+    napi_open_handle_scope(env_, &scope);
+    napi_status status = fml::napi::InvokeJsMethod(
+        env_, ref_napi_obj_, "onMouseEvent", 1, &arrayString);
+    napi_close_handle_scope(env_, scope);
+    if (status != napi_ok) {
+      FML_LOG(ERROR) << "InvokeJsMethod onMouseEvent fail";
+    }
+}
+
 /**
  *   attach flutterNapi实例给到 native
  * engine，这个支持rkts到flutter平台的无关引擎之间的通信 attach只需要执行一次
