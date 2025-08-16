@@ -234,6 +234,10 @@ OHOSShellHolder::OHOSShellHolder(
                                     io_runner         // io
   );
 
+  fml::TaskRunner::RunNowOrPostTask(io_runner, [this, &ui_runner]() {
+    watchdogPair_ = fml::OhosWatchdog::MakeWatchdog(ui_runner);
+  });
+
   napi_facade_->SetPlatformTaskRunner(platform_runner);
   FML_DLOG(INFO) << "before shell create";
   shell_ =
@@ -297,6 +301,11 @@ OHOSShellHolder::OHOSShellHolder(
 
 OHOSShellHolder::~OHOSShellHolder() {
   FML_LOG(INFO) << "MHN enter ~OHOSShellHolder()";
+  std::function<void(size_t)> watchdogResetFunc = watchdogPair_.second;
+  size_t watchdogIndex = watchdogPair_.first;
+  if (watchdogIndex != 0 && watchdogResetFunc) {
+    watchdogResetFunc(watchdogIndex - 1);
+  }
   shell_.reset();
   thread_host_.reset();
   napi_facade_.reset();

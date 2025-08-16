@@ -181,6 +181,7 @@ source_set("fml") {
 
   if (is_ohos) {
     sources += [
+      "platform/ohos/watchdog/ohos_watchdog.cpp",
       "platform/ohos/hisysevent_c.cc",
       "platform/ohos/hisysevent_c.h",
       "platform/ohos/message_loop_ohos.cc",
@@ -199,6 +200,7 @@ source_set("fml") {
       "platform/ohos/timerfd.cc",
       "platform/ohos/timerfd.h",
     ]
+    libs += [ "ohhicollie" ]
     libs += [ "hilog_ndk.z" ]
     libs += [ "ace_napi.z" ]
     libs += [ "uv" ]
