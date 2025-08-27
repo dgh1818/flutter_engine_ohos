@@ -32,6 +32,7 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceSoftware::AcquireFrame(
   SurfaceFrame::FramebufferInfo framebuffer_info;
   framebuffer_info.supports_readback = true;
 
+  FML_DLOG(INFO) <<"AcquireFrame" ;
   // TODO(38466): Refactor GPU surface APIs take into account the fact that an
   // external view embedder may want to render to the root surface.
   if (!render_to_surface_) {
@@ -51,11 +52,14 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceSoftware::AcquireFrame(
 
   sk_sp<SkSurface> backing_store = delegate_->AcquireBackingStore(size);
 
+FML_DLOG(INFO) << "AcquireFrame";
   if (backing_store == nullptr) {
+    FML_DLOG(INFO) <<"AcquireFrame ... backing_store is null" ;
     return nullptr;
   }
 
   if (size != SkISize::Make(backing_store->width(), backing_store->height())) {
+    FML_DLOG(INFO) <<"AcquireFrame ... backing_store size not matched" ;
     return nullptr;
   }
 
@@ -86,6 +90,7 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceSoftware::AcquireFrame(
             surface_frame.SkiaSurface());
       };
 
+FML_DLOG(INFO) << "return  SurfaceFrame";
   return std::make_unique<SurfaceFrame>(backing_store, framebuffer_info,
                                         encode_callback, submit_callback,
                                         logical_size);

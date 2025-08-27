@@ -68,7 +68,7 @@ constexpr bool ShouldCreateLogMessageConstexpr(LogSeverity severity,
   return false;
 }
 
-[[noreturn]] void KillProcess();
+void KillProcess();
 
 [[noreturn]] constexpr void KillProcessConstexpr(bool true_arg) {
   if (true_arg) {

@@ -52,6 +52,12 @@ import 'macos/macos_workflow.dart';
 import 'macos/xcdevice.dart';
 import 'macos/xcode.dart';
 import 'mdns_discovery.dart';
+import 'ohos/hvigor.dart';
+import 'ohos/hvigor_utils.dart';
+import 'ohos/ohos_builder.dart';
+import 'ohos/ohos_doctor.dart';
+import 'ohos/ohos_sdk.dart';
+import 'ohos/ohos_workflow.dart';
 import 'persistent_tool_state.dart';
 import 'reporting/crash_reporting.dart';
 import 'reporting/first_run.dart';
@@ -113,6 +119,18 @@ Future<T> runInContext<T>(FutureOr<T> Function() runner, {Map<Type, Generator>? 
             stdio: globals.stdio,
           ),
       AndroidSdk: AndroidSdk.locateAndroidSdk,
+      OhosSdk: OhosSdk.localOhosSdk,
+      HmosSdk: HmosSdk.localHmosSdk,
+      HarmonySdk: HarmonySdk.locateHarmonySdk,
+      OhosBuilder:()=> OhosHvigorBuilder(
+        logger: globals.logger,
+        processManager: globals.processManager,
+        fileSystem: globals.fs,
+        artifacts: globals.artifacts!,
+        usage: globals.flutterUsage,
+        hvigorUtils: globals.hvigorUtils!,
+        platform: globals.platform,
+      ),
       AndroidStudio: AndroidStudio.latestValid,
       AndroidValidator:
           () => AndroidValidator(
@@ -122,6 +140,17 @@ Future<T> runInContext<T>(FutureOr<T> Function() runner, {Map<Type, Generator>? 
             platform: globals.platform,
             userMessages: globals.userMessages,
           ),
+      OhosValidator: () => OhosValidator(
+          ohosSdk: globals.harmonySdk,
+          fileSystem: globals.fs,
+          logger: globals.logger,
+          platform: globals.platform,
+          processManager: globals.processManager,
+          userMessages: globals.userMessages),
+      OhosWorkflow: () => OhosWorkflow(
+        ohosSdk: globals.harmonySdk,
+        featureFlags: featureFlags,
+      ),
       AndroidWorkflow:
           () => AndroidWorkflow(androidSdk: globals.androidSdk, featureFlags: featureFlags),
       ApplicationPackageFactory:
@@ -131,6 +160,7 @@ Future<T> runInContext<T>(FutureOr<T> Function() runner, {Map<Type, Generator>? 
             logger: globals.logger,
             fileSystem: globals.fs,
             androidSdk: globals.androidSdk,
+            ohosSdk: globals.harmonySdk,
           ),
       Artifacts:
           () => CachedArtifacts(
@@ -192,25 +222,27 @@ Future<T> runInContext<T>(FutureOr<T> Function() runner, {Map<Type, Generator>? 
       DevFSConfig: () => DevFSConfig(),
       DeviceManager:
           () => FlutterDeviceManager(
-            logger: globals.logger,
-            processManager: globals.processManager,
-            platform: globals.platform,
-            androidSdk: globals.androidSdk,
-            iosSimulatorUtils: globals.iosSimulatorUtils!,
-            featureFlags: featureFlags,
-            fileSystem: globals.fs,
-            iosWorkflow: globals.iosWorkflow!,
-            artifacts: globals.artifacts!,
-            flutterVersion: globals.flutterVersion,
-            androidWorkflow: androidWorkflow!,
-            xcDevice: globals.xcdevice!,
-            userMessages: globals.userMessages,
-            windowsWorkflow: windowsWorkflow!,
-            macOSWorkflow: MacOSWorkflow(platform: globals.platform, featureFlags: featureFlags),
-            operatingSystemUtils: globals.os,
-            customDevicesConfig: globals.customDevicesConfig,
-            nativeAssetsBuilder: globals.nativeAssetsBuilder,
-          ),
+        logger: globals.logger,
+        processManager: globals.processManager,
+        platform: globals.platform,
+        androidSdk: globals.androidSdk,
+        ohosSdk: globals.harmonySdk,
+        iosSimulatorUtils: globals.iosSimulatorUtils!,
+        featureFlags: featureFlags,
+        fileSystem: globals.fs,
+        iosWorkflow: globals.iosWorkflow!,
+        artifacts: globals.artifacts!,
+        flutterVersion: globals.flutterVersion,
+        ohosWorkflow: ohosWorkflow!,
+        androidWorkflow: androidWorkflow!,
+        xcDevice: globals.xcdevice!,
+        userMessages: globals.userMessages,
+        windowsWorkflow: windowsWorkflow!,
+        macOSWorkflow: MacOSWorkflow(platform: globals.platform, featureFlags: featureFlags),
+        operatingSystemUtils: globals.os,
+        customDevicesConfig: globals.customDevicesConfig,
+        nativeAssetsBuilder: globals.nativeAssetsBuilder,
+      ),
       DevtoolsLauncher:
           () => DevtoolsServerLauncher(
             processManager: globals.processManager,
@@ -243,6 +275,7 @@ Future<T> runInContext<T>(FutureOr<T> Function() runner, {Map<Type, Generator>? 
             platform: globals.platform,
             cache: globals.cache,
           ),
+      HvigorUtils:() => HvigorUtils(),
       HotRunnerConfig: () => HotRunnerConfig(),
       IOSSimulatorUtils:
           () => IOSSimulatorUtils(

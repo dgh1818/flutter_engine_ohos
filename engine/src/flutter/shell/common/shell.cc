@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <type_traits>
 #include "fml/task_runner.h"
 #define RAPIDJSON_HAS_STDSTRING 1
 #include "flutter/shell/common/shell.h"
@@ -105,7 +106,7 @@ void PerformInitializationTasks(Settings& settings) {
   {
     fml::LogSettings log_settings;
     log_settings.min_log_level =
-        settings.verbose_logging ? fml::kLogInfo : fml::kLogError;
+        settings.verbose_logging ? fml::kLogInfo : fml::kLogWarning;
     fml::SetLogSettings(log_settings);
   }
 
@@ -220,6 +221,7 @@ std::unique_ptr<Shell> Shell::CreateShellOnPlatformThread(
     FML_LOG(ERROR) << "Task runners to run the shell were invalid.";
     return nullptr;
   }
+  FML_LOG(INFO) << "CreateShellOnPlatformThread";
 
   auto shell = std::unique_ptr<Shell>(
       new Shell(std::move(vm), task_runners, std::move(parent_merger),
@@ -346,12 +348,14 @@ std::unique_ptr<Shell> Shell::CreateShellOnPlatformThread(
             runtime_stage_backend                 //
             ));
       }));
+  FML_LOG(INFO) << "CreateShellOnPlatformThread Setup";
 
   if (!shell->Setup(std::move(platform_view),  //
                     engine_future.get(),       //
                     rasterizer_future.get(),   //
                     io_manager_future.get())   //
   ) {
+    FML_LOG(ERROR) << "CreateShellOnPlatformThread Setup nullptr";
     return nullptr;
   }
 

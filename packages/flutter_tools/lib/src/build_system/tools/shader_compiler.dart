@@ -115,6 +115,10 @@ class ShaderCompiler {
       case TargetPlatform.linux_arm64:
       case TargetPlatform.windows_x64:
       case TargetPlatform.windows_arm64:
+      case TargetPlatform.ohos:
+      case TargetPlatform.ohos_arm:
+      case TargetPlatform.ohos_arm64:
+      case TargetPlatform.ohos_x64:
         return <String>[
           '--sksl',
           '--runtime-stage-gles',
@@ -179,6 +183,7 @@ class ShaderCompiler {
       '--spirv=$outputPath.spirv',
       '--input=${input.path}',
       '--input-type=frag',
+      '--remap-samplers',
       '--include=${input.parent.path}',
       '--include=$shaderLibPath',
     ];

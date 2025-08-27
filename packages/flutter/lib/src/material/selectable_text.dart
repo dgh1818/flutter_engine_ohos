@@ -632,6 +632,7 @@ class _SelectableTextState extends State<SelectableText>
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
       case TargetPlatform.windows:
+      case TargetPlatform.ohos:
       // Do nothing.
     }
   }
@@ -725,6 +726,7 @@ class _SelectableTextState extends State<SelectableText>
         cursorOffset = Offset(iOSHorizontalOffset / MediaQuery.devicePixelRatioOf(context), 0);
 
       case TargetPlatform.android:
+      case TargetPlatform.ohos:
       case TargetPlatform.fuchsia:
         forcePressEnabled = false;
         textSelectionControls ??= materialTextSelectionHandleControls;

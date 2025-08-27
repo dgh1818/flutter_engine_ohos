@@ -1163,6 +1163,7 @@ void main() {
         case TargetPlatform.linux:
         case TargetPlatform.macOS:
         case TargetPlatform.windows:
+        case TargetPlatform.ohos:
           expect(find.byType(CupertinoScrollbar), findsNothing);
         case TargetPlatform.iOS:
           expect(find.byType(CupertinoScrollbar), findsOneWidget);

@@ -3,7 +3,7 @@
 # found in the LICENSE file.
 
 declare_args() {
-  shell_enable_gl = !is_fuchsia && !is_mac
+  shell_enable_gl = !is_fuchsia && !is_mac && !is_ohos
 
   # The logic for enabling Vulkan and Metal is in tools/gn.
   shell_enable_metal = false
@@ -17,6 +17,6 @@ declare_args() {
   test_enable_metal = shell_enable_metal
 
   # The Vulkan unittests are combined with the GL unittests.
-  test_enable_vulkan = is_fuchsia || shell_enable_gl
+  test_enable_vulkan = is_fuchsia || shell_enable_vulkan
   test_enable_software = shell_enable_software
 }

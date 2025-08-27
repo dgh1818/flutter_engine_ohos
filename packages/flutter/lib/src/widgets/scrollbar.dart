@@ -1575,6 +1575,64 @@ class RawScrollbarState<T extends RawScrollbar> extends State<T> with TickerProv
     }
   }
 
+  void _updateScrollPosition(Offset updatedOffset) {
+    assert(_cachedController != null);
+    assert(_startDragScrollbarAxisOffset != null);
+    assert(_lastDragUpdateOffset != null);
+    assert(_startDragThumbOffset != null);
+
+    final ScrollPosition position = _cachedController!.position;
+    late double primaryDeltaFromDragStart;
+    late double primaryDeltaFromLastDragUpdate;
+    switch (position.axisDirection) {
+      case AxisDirection.up:
+        primaryDeltaFromDragStart = _startDragScrollbarAxisOffset!.dy - updatedOffset.dy;
+        primaryDeltaFromLastDragUpdate = _lastDragUpdateOffset!.dy - updatedOffset.dy;
+      case AxisDirection.right:
+        primaryDeltaFromDragStart = updatedOffset.dx -_startDragScrollbarAxisOffset!.dx;
+        primaryDeltaFromLastDragUpdate = updatedOffset.dx -_lastDragUpdateOffset!.dx;
+      case AxisDirection.down:
+        primaryDeltaFromDragStart = updatedOffset.dy -_startDragScrollbarAxisOffset!.dy;
+        primaryDeltaFromLastDragUpdate = updatedOffset.dy -_lastDragUpdateOffset!.dy;
+      case AxisDirection.left:
+        primaryDeltaFromDragStart = _startDragScrollbarAxisOffset!.dx - updatedOffset.dx;
+        primaryDeltaFromLastDragUpdate = _lastDragUpdateOffset!.dx - updatedOffset.dx;
+    }
+
+    // Convert primaryDelta, the amount that the scrollbar moved since the last
+    // time when drag started or last updated, into the coordinate space of the scroll
+    // position, and jump to that position.
+    double scrollOffsetGlobal = scrollbarPainter.getTrackToScroll(primaryDeltaFromDragStart + _startDragThumbOffset!);
+    if (primaryDeltaFromDragStart > 0 && scrollOffsetGlobal < position.pixels
+        || primaryDeltaFromDragStart < 0 && scrollOffsetGlobal > position.pixels) {
+      // Adjust the position value if the scrolling direction conflicts with
+      // the dragging direction due to scroll metrics shrink.
+      scrollOffsetGlobal = position.pixels + scrollbarPainter.getTrackToScroll(primaryDeltaFromLastDragUpdate);
+    }
+    if (scrollOffsetGlobal != position.pixels) {
+      // Ensure we don't drag into overscroll if the physics do not allow it.
+      final double physicsAdjustment = position.physics.applyBoundaryConditions(position, scrollOffsetGlobal);
+      double newPosition = scrollOffsetGlobal - physicsAdjustment;
+
+      // The physics may allow overscroll when actually *scrolling*, but
+      // dragging on the scrollbar does not always allow us to enter overscroll.
+      switch (ScrollConfiguration.of(context).getPlatform(context)) {
+        case TargetPlatform.fuchsia:
+        case TargetPlatform.linux:
+        case TargetPlatform.macOS:
+        case TargetPlatform.windows:
+          newPosition = clampDouble(newPosition, position.minScrollExtent, position.maxScrollExtent);
+        case TargetPlatform.iOS:
+        case TargetPlatform.android:
+        case TargetPlatform.ohos:
+          // We can only drag the scrollbar into overscroll on mobile
+          // platforms, and only then if the physics allow it.
+          break;
+      }
+      position.jumpTo(newPosition);
+    }
+  }
+
   void _maybeStartFadeoutTimer() {
     if (!showScrollbar) {
       _fadeoutTimer?.cancel();
@@ -1662,6 +1720,7 @@ class RawScrollbarState<T extends RawScrollbar> extends State<T> with TickerProv
           );
         case TargetPlatform.iOS:
         case TargetPlatform.android:
+        case TargetPlatform.ohos:
         // We can only drag the scrollbar into overscroll on mobile
         // platforms, and only then if the physics allow it.
       }

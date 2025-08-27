@@ -21,6 +21,13 @@
 
 namespace flutter {
 
+// The combination of targeted graphics API and Impeller support.
+enum class OHOSRenderingAPI {
+  kSoftware,
+  kOpenGLES,
+  kImpellerVulkan,
+};
+
 class FrameTiming {
  public:
   enum Phase {
@@ -236,6 +243,9 @@ struct Settings {
 
   // Log a warning during shell initialization if Impeller is not enabled.
   bool warn_on_impeller_opt_out = false;
+
+  // The selected OHOS rendering API.
+  OHOSRenderingAPI ohos_rendering_api = OHOSRenderingAPI::kOpenGLES;
 
   // Requests a specific rendering backend.
   std::optional<std::string> requested_rendering_backend;

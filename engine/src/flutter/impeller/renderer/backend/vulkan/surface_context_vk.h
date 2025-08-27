@@ -13,6 +13,13 @@
 #include "impeller/renderer/command_queue.h"
 #include "impeller/renderer/context.h"
 
+#ifdef FML_OS_OHOS
+#include <native_window/external_window.h>
+#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_ohos.h>
+#define VK_STRUCTURE_TYPE_SURFACE_CREATE_INFO_OHOS 1000451000
+#endif
+
 namespace impeller {
 
 class ContextVK;
@@ -82,9 +89,15 @@ class SurfaceContextVK : public Context,
   [[nodiscard]] bool SetWindowSurface(vk::UniqueSurfaceKHR surface,
                                       const ISize& size);
 
+  void ClearSwapchain();
+
   [[nodiscard]] bool SetSwapchain(std::shared_ptr<SwapchainVK> swapchain);
 
   std::unique_ptr<Surface> AcquireNextSurface();
+
+  int GetCurrentImageIndex();
+
+  void SetRenderArea(std::optional<IRect> area);
 
   /// @brief Performs frame incrementing processes like AcquireNextSurface but
   ///        without the surface.
@@ -101,6 +114,10 @@ class SurfaceContextVK : public Context,
 
   // |Context|
   void InitializeCommonlyUsedShadersIfNeeded() const override;
+
+#ifdef FML_OS_OHOS
+  vk::UniqueSurfaceKHR CreateOHOSSurface(OHNativeWindow* window) const;
+#endif  // FML_OS_OHOS
 
   // |Context|
   void DisposeThreadLocalCachedResources() override;

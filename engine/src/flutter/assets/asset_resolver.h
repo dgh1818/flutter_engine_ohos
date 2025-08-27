@@ -17,6 +17,7 @@ namespace flutter {
 class AssetManager;
 class APKAssetProvider;
 class DirectoryAssetBundle;
+class OHOSAssetProvider;
 
 class AssetResolver {
  public:
@@ -38,6 +39,9 @@ class AssetResolver {
     return nullptr;
   }
   virtual const DirectoryAssetBundle* as_directory_asset_bundle() const {
+    return nullptr;
+  }
+  virtual const OHOSAssetProvider* as_ohos_asset_provider() const {
     return nullptr;
   }
 

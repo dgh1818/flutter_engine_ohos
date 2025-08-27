@@ -88,6 +88,10 @@ bool SurfaceContextVK::SetSwapchain(std::shared_ptr<SwapchainVK> swapchain) {
   return true;
 }
 
+void SurfaceContextVK::ClearSwapchain() {
+  swapchain_ = nullptr;
+}
+
 std::unique_ptr<Surface> SurfaceContextVK::AcquireNextSurface() {
   TRACE_EVENT0("impeller", __FUNCTION__);
   auto surface = swapchain_ ? swapchain_->AcquireNextDrawable() : nullptr;
@@ -107,9 +111,49 @@ void SurfaceContextVK::MarkFrameEnd() {
   parent_->GetResourceAllocator()->DebugTraceMemoryStatistics();
 }
 
+int SurfaceContextVK::GetCurrentImageIndex() {
+  if (swapchain_) {
+    return swapchain_->GetCurrentImageIndex();
+  }
+  return -1;
+}
+
+void SurfaceContextVK::SetRenderArea(std::optional<IRect> area) {
+  if (swapchain_) {
+    swapchain_->SetRenderArea(area);
+  }
+}
+
 void SurfaceContextVK::UpdateSurfaceSize(const ISize& size) const {
   swapchain_->UpdateSurfaceSize(size);
 }
+
+#ifdef FML_OS_OHOS
+vk::UniqueSurfaceKHR SurfaceContextVK::CreateOHOSSurface(
+    OHNativeWindow* window) const {
+  if (!parent_->GetInstance()) {
+    VALIDATION_LOG << "createSurface get null instance";
+    return vk::UniqueSurfaceKHR{VK_NULL_HANDLE};
+  }
+  static PFN_vkCreateSurfaceOHOS vkCreateSurfaceOHOS =
+      (PFN_vkCreateSurfaceOHOS)parent_->GetInstance().getProcAddr(
+          "vkCreateSurfaceOHOS");
+  if (!vkCreateSurfaceOHOS) {
+    VALIDATION_LOG << "missing vkCreateSurfaceOHOS extension";
+    return vk::UniqueSurfaceKHR{VK_NULL_HANDLE};
+  }
+  const VkSurfaceCreateInfoOHOS surfaceCreateInfo{
+      (VkStructureType)VK_STRUCTURE_TYPE_SURFACE_CREATE_INFO_OHOS, nullptr, 0,
+      window};
+  VkSurfaceKHR surface = VK_NULL_HANDLE;
+  if (vkCreateSurfaceOHOS(parent_->GetInstance(), &surfaceCreateInfo, nullptr,
+                          &surface) != VK_SUCCESS) {
+    VALIDATION_LOG << "vkCreateSurfaceOHOS get failed";
+    return vk::UniqueSurfaceKHR{VK_NULL_HANDLE};
+  }
+  return vk::UniqueSurfaceKHR(surface, parent_->GetInstance());
+}
+#endif  // FML_OS_OHOS
 
 const vk::Device& SurfaceContextVK::GetDevice() const {
   return parent_->GetDevice();

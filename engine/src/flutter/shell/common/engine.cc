@@ -485,11 +485,17 @@ void Engine::Render(int64_t view_id,
                     std::unique_ptr<flutter::LayerTree> layer_tree,
                     float device_pixel_ratio) {
   if (!layer_tree) {
+    FML_DLOG(ERROR) << "Render layer_tree IS NULL";
     return;
+  }
+
+  if (layer_tree->frame_size().IsEmpty()) {
+    FML_DLOG(INFO) << "engin Render frame_size is empty";
   }
 
   // Ensure frame dimensions are sane.
   if (layer_tree->frame_size().IsEmpty() || device_pixel_ratio <= 0.0f) {
+    FML_DLOG(INFO) << "engin Render device_pixel_ratio <= 0";
     return;
   }
 

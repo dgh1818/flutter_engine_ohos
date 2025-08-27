@@ -289,8 +289,12 @@ class TargetPlatformVariant extends TestVariant<TargetPlatform> {
 
   /// Creates a [TargetPlatformVariant] that includes platforms that are
   /// considered mobile platforms.
-  TargetPlatformVariant.mobile()
-    : values = <TargetPlatform>{TargetPlatform.android, TargetPlatform.iOS, TargetPlatform.fuchsia};
+  TargetPlatformVariant.mobile() : values = <TargetPlatform>{
+    TargetPlatform.android,
+    TargetPlatform.iOS,
+    TargetPlatform.fuchsia,
+    TargetPlatform.ohos,
+  };
 
   /// Creates a [TargetPlatformVariant] that tests only the given value of
   /// [TargetPlatform].

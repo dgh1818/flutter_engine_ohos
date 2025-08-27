@@ -754,6 +754,7 @@ class Rasterizer final : public SnapshotDelegate,
   static bool ShouldResubmitFrame(const DoDrawResult& result);
   static DrawStatus ToDrawStatus(DoDrawStatus status);
 
+  bool use_last_layer_tree_ = false;
   bool is_torn_down_ = false;
   Delegate& delegate_;
   [[maybe_unused]] MakeGpuImageBehavior gpu_image_behavior_;

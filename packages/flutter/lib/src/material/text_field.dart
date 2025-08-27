@@ -69,6 +69,30 @@ class _TextFieldSelectionGestureDetectorBuilder extends TextSelectionGestureDete
   void onUserTap() {
     _state.widget.onTap?.call();
   }
+
+  @override
+  void onSingleTapUp(TapDragUpDetails details) {
+    _state._deviceKind = details.kind;
+    super.onSingleTapUp(details);
+  }
+
+  @override
+  void onSingleLongTapStart(LongPressStartDetails details) {
+    super.onSingleLongTapStart(details);
+    if (delegate.selectionEnabled) {
+      switch (Theme.of(_state.context).platform) {
+        case TargetPlatform.iOS:
+        case TargetPlatform.macOS:
+          break;
+        case TargetPlatform.android:
+        case TargetPlatform.fuchsia:
+        case TargetPlatform.linux:
+        case TargetPlatform.windows:
+        case TargetPlatform.ohos:
+          Feedback.forLongPress(_state.context);
+      }
+    }
+  }
 }
 
 /// A Material Design text field.
@@ -901,6 +925,7 @@ class TextField extends StatefulWidget {
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
       case TargetPlatform.windows:
+      case TargetPlatform.ohos:
         return SpellCheckSuggestionsToolbar.editableText(editableTextState: editableTextState);
     }
   }
@@ -1321,7 +1346,10 @@ class _TextFieldState extends State<TextField>
 
   EditableTextState? get _editableText => editableTextKey.currentState;
 
-  void _requestKeyboard() {
+  PointerDeviceKind _deviceKind = PointerDeviceKind.unknown;
+
+  void _requestKeyboard({PointerDeviceKind kind = PointerDeviceKind.unknown}) {
+    _deviceKind = kind;
     _editableText?.requestKeyboard();
   }
 
@@ -1379,7 +1407,9 @@ class _TextFieldState extends State<TextField>
       case TargetPlatform.windows:
       case TargetPlatform.fuchsia:
       case TargetPlatform.android:
-        if (cause == SelectionChangedCause.longPress) {
+      case TargetPlatform.ohos:
+        if (cause == SelectionChangedCause.longPress
+            || cause == SelectionChangedCause.drag) {
           _editableText?.bringIntoView(selection.extent);
         }
     }
@@ -1388,6 +1418,7 @@ class _TextFieldState extends State<TextField>
       case TargetPlatform.iOS:
       case TargetPlatform.fuchsia:
       case TargetPlatform.android:
+      case TargetPlatform.ohos:
         break;
       case TargetPlatform.macOS:
       case TargetPlatform.linux:
@@ -1519,6 +1550,7 @@ class _TextFieldState extends State<TextField>
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
       case TargetPlatform.windows:
+      case TargetPlatform.ohos:
         spellCheckConfiguration = TextField.inferAndroidSpellCheckConfiguration(
           widget.spellCheckConfiguration,
         );
@@ -1578,6 +1610,7 @@ class _TextFieldState extends State<TextField>
 
       case TargetPlatform.android:
       case TargetPlatform.fuchsia:
+      case TargetPlatform.ohos:
         forcePressEnabled = false;
         textSelectionControls ??= materialTextSelectionHandleControls;
         paintCursorAboveText = false;

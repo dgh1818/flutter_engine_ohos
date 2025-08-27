@@ -58,6 +58,34 @@ source_set("glfw") {
     libs = [ "Gdi32.lib" ]
 
     defines = [ "_GLFW_WIN32" ]
+  } else if (is_ohos) {
+    sources += [
+      "$_checkout_dir/src/glx_context.c",
+      "$_checkout_dir/src/glx_context.h",
+      "$_checkout_dir/src/posix_time.c",
+      "$_checkout_dir/src/posix_time.h",
+      "$_checkout_dir/src/posix_thread.c",
+      "$_checkout_dir/src/posix_thread.h",
+      "$_checkout_dir/src/x11_init.c",
+      "$_checkout_dir/src/x11_monitor.c",
+      "$_checkout_dir/src/x11_platform.h",
+      "$_checkout_dir/src/x11_window.c",
+      "$_checkout_dir/src/xkb_unicode.c",
+      "$_checkout_dir/src/xkb_unicode.h",
+    ]
+
+    defines = [
+      "_GLFW_X11",
+      "_GLFW_HAS_XF86VM",
+    ]
+
+    libs = [
+      "X11",
+      "Xcursor",
+      "Xinerama",
+      "Xrandr",
+      "Xxf86vm",
+    ]
   } else if (is_linux) {
     sources += [
       "$_checkout_dir/src/glx_context.c",

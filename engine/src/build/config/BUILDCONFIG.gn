@@ -143,6 +143,9 @@ declare_args() {
   # Compile for Address Sanitizer to find memory bugs.
   is_asan = false
 
+  # Compile for Hardware Address Sanitizer to find memory bugs.
+  is_hwasan = false
+
   # Compile for Leak Sanitizer to find leaks.
   is_lsan = false
 
@@ -194,6 +197,7 @@ if (current_os == "win") {
   is_fuchsia_host = false
   is_ios = false
   is_linux = false
+  is_ohos = false
   is_mac = false
   is_posix = false
   is_win = true
@@ -202,6 +206,7 @@ if (current_os == "win") {
   is_android = false
   is_chromeos = false
   is_fuchsia = false
+  is_ohos = false
   is_fuchsia_host = false
   is_ios = false
   is_linux = false
@@ -216,6 +221,7 @@ if (current_os == "win") {
   is_fuchsia_host = false
   is_ios = false
   is_linux = false
+  is_ohos = false
   is_mac = false
   is_posix = true
   is_win = false
@@ -227,6 +233,7 @@ if (current_os == "win") {
   is_fuchsia_host = false
   is_ios = false
   is_linux = true
+  is_ohos = false
   is_mac = false
   is_posix = true
   is_win = false
@@ -241,6 +248,7 @@ if (current_os == "win") {
   is_fuchsia_host = false
   is_ios = false
   is_linux = false
+  is_ohos = false
   is_mac = false
   is_posix = true
   is_win = false
@@ -252,6 +260,31 @@ if (current_os == "win") {
   is_fuchsia_host = false
   is_ios = true
   is_linux = false
+  is_ohos = false
+  is_mac = false
+  is_posix = true
+  is_win = false
+  is_wasm = false
+} else if (current_os == "ohos") {
+  is_android = false
+  is_chromeos = false
+  is_fuchsia = false
+  is_fuchsia_host = false
+  is_ios = false
+  is_linux = false
+  is_ohos  = true
+  is_mac = false
+  is_posix = true
+  is_win = false
+  is_wasm = false
+} else if (current_os == "ohos") {
+  is_android = false
+  is_chromeos = false
+  is_fuchsia = false
+  is_fuchsia_host = false
+  is_ios = false
+  is_linux = false
+  is_ohos  = true
   is_mac = false
   is_posix = true
   is_win = false
@@ -263,6 +296,7 @@ if (current_os == "win") {
   is_fuchsia_host = false
   is_ios = false
   is_linux = true
+  is_ohos = false
   is_mac = false
   is_posix = true
   is_win = false
@@ -274,6 +308,7 @@ if (current_os == "win") {
   is_fuchsia_host = false
   is_ios = false
   is_linux = false
+  is_ohos = false
   is_mac = false
   is_posix = true
   is_win = false
@@ -285,6 +320,7 @@ if (current_os == "win") {
   is_fuchsia_host = false
   is_ios = false
   is_linux = false
+  is_ohos = false
   is_mac = false
   is_posix = false
   is_win = false
@@ -317,14 +353,17 @@ default_library_type = "static_library"
 # BUILD OPTIONS
 # =============================================================================
 
+if (is_hwasan && current_os != "ohos") {
+  is_hwasan = false
+}
 # These Sanitizers all imply using the Clang compiler. On Windows they either
 # don't work or work differently.
-using_sanitizer = !is_win && (is_asan || is_lsan || is_tsan || is_msan)
+using_sanitizer = !is_win && (is_asan || is_hwasan || is_lsan || is_tsan || is_msan)
 if (!is_clang && using_sanitizer) {
   is_clang = true
 }
 
-use_flutter_cxx = is_clang && (is_linux || is_android || is_mac || is_ios)
+use_flutter_cxx = is_clang && (is_linux || is_android || is_mac || is_ios || is_ohos )
 
 if (is_msan && !is_linux) {
   assert(false, "Memory sanitizer is only available on Linux.")
@@ -351,12 +390,18 @@ _native_compiler_configs = [
   "//build/config/compiler:no_rtti",
   "//build/config/compiler:runtime_library",
 ]
-
 if (use_flutter_cxx) {
-  _native_compiler_configs += [
-    "//flutter/third_party/libcxxabi:libcxxabi_config",
-    "//flutter/third_party/libcxx:libcxx_config",
-  ]
+  if (is_ohos) {
+    _native_compiler_configs += [
+      "//flutter/third_party/libcxxabi_ohos:libcxxabi_config",
+      "//flutter/third_party/libcxx_ohos:libcxx_config",
+    ]
+  } else {
+    _native_compiler_configs += [
+      "//flutter/third_party/libcxxabi:libcxxabi_config",
+      "//flutter/third_party/libcxx:libcxx_config",
+    ]
+  }
 }
 
 if (is_win) {
@@ -377,7 +422,9 @@ if (is_posix) {
   ]
 }
 
-if (is_linux) {
+if (is_ohos || (is_linux && host_os == "mac")) {
+  _native_compiler_configs += [ "//build/config/ohos:sdk" ]
+} else if (is_linux) {
   _native_compiler_configs += [ "//build/config/linux:sdk" ]
 } else if (is_mac) {
   _native_compiler_configs += [ "//build/config/mac:sdk" ]
@@ -524,8 +571,18 @@ shlib_toolchain = false
 if (custom_toolchain != "") {
   assert(custom_sysroot != "")
   assert(custom_target_triple != "")
-  host_toolchain = "//build/toolchain/linux:clang_$host_cpu"
   set_default_toolchain("//build/toolchain/custom")
+  if (host_os == "linux") {
+    if (is_clang) {
+      host_toolchain = "//build/toolchain/linux:clang_$host_cpu"
+    } else {
+      host_toolchain = "//build/toolchain/linux:$host_cpu"
+    }
+  } else if (host_os == "mac") {
+    host_toolchain = "//build/toolchain/mac:clang_$host_cpu"
+  } else {
+    assert(false, "Unknown host for ohos cross compile")
+  }
 } else if (is_win) {
   assert(is_clang)
   host_toolchain = "//build/toolchain/win:clang_$host_cpu"
@@ -550,6 +607,19 @@ if (custom_toolchain != "") {
     set_default_toolchain("//build/toolchain/android:clang_$current_cpu")
   } else {
     set_default_toolchain("//build/toolchain/android:$current_cpu")
+  }
+} else if (is_ohos) {
+  set_default_toolchain("//build/toolchain/custom")
+  if (host_os == "linux") {
+    if (is_clang) {
+      host_toolchain = "//build/toolchain/linux:clang_$host_cpu"
+    } else {
+      host_toolchain = "//build/toolchain/linux:$host_cpu"
+    }
+  } else if (host_os == "mac") {
+    host_toolchain = "//build/toolchain/mac:clang_$host_cpu"
+  } else {
+    assert(false, "Unknown host for ohos cross compile")
   }
 } else if (is_linux) {
   if (is_clang) {
@@ -616,7 +686,11 @@ if (use_flutter_cxx) {
           deps = []
         }
         if (!defined(invoker.no_default_deps) || !invoker.no_default_deps) {
-          deps += [ "//flutter/third_party/libcxx" ]
+          if (is_ohos) {
+            deps += [ "//flutter/third_party/libcxx_ohos" ]
+          } else {
+            deps += [ "//flutter/third_party/libcxx" ]
+          }
         }
       }
     }

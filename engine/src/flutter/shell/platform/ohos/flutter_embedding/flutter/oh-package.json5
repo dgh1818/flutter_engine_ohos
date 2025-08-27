@@ -1,0 +1,14 @@
+
+
+{
+  "license": "Apache-2.0",
+  "author": "",
+  "name": "@ohos/flutter_ohos",
+  "description": "The embedder of flutter in ohos.",
+  "main": "index.ets",
+  "version": "1.0.0",
+  "dependencies": {},
+  "devDependencies": {
+    "@types/libflutter.so": "file:./src/main/cpp/types/libflutter"
+  }
+}

@@ -372,6 +372,33 @@ class AndroidBuildInfo {
   final bool fastStart;
 }
 
+/// Information about an Ohos build to be performed or used.
+class OhosBuildInfo {
+  const OhosBuildInfo(
+    this.buildInfo, {
+    this.targetArchs = const <OhosArch>[
+      OhosArch.armeabi_v7a,
+      OhosArch.arm64_v8a,
+      OhosArch.x86_64,
+    ],
+    this.enableImpellerFlag,
+    this.shouldCodesign
+  });
+
+  // The build info containing the mode and flavor.
+  final BuildInfo buildInfo;
+
+  /// The target platforms for the build.
+  final Iterable<OhosArch> targetArchs;
+
+  // enable impeller option, default is true
+  final bool? enableImpellerFlag;
+
+  // Whether check codesign while build hap, default is true
+  final bool? shouldCodesign;
+}
+
+
 /// A summary of the compilation strategy used for Dart.
 enum BuildMode {
   /// Built in JIT mode with no optimizations, enabled asserts, and a VM service.
@@ -464,6 +491,24 @@ String? validatedBuildNumberForPlatform(
     }
     return tmpBuildNumberStr;
   }
+  if (targetPlatform == TargetPlatform.ohos ||
+      targetPlatform == TargetPlatform.ohos_arm ||
+      targetPlatform == TargetPlatform.ohos_arm64 ||
+      targetPlatform == TargetPlatform.ohos_x64) {
+    final RegExp disallowed = RegExp(r'[^\d]');
+    String tmpBuildNumberStr = buildNumber.replaceAll(disallowed, '');
+    int tmpBuildNumberInt = int.tryParse(tmpBuildNumberStr) ?? 0;
+    if (tmpBuildNumberInt < 1) {
+      tmpBuildNumberInt = 1;
+    }
+    tmpBuildNumberStr = tmpBuildNumberInt.toString();
+    if (tmpBuildNumberStr != buildNumber) {
+      logger.printTrace(
+          'Invalid build-number: $buildNumber for Ohos, overridden by $tmpBuildNumberStr.\n'
+          'See versionCode at https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/app-configuration-file-V5');
+    }
+    return tmpBuildNumberStr;
+  }
   return buildNumber;
 }
 
@@ -504,6 +549,29 @@ String? validatedBuildNameForPlatform(
     // See versionName at https://developer.android.com/studio/publish/versioning
     return buildName;
   }
+  if (targetPlatform == TargetPlatform.ohos ||
+      targetPlatform == TargetPlatform.ohos_arm ||
+      targetPlatform == TargetPlatform.ohos_arm64 ||
+      targetPlatform == TargetPlatform.ohos_x64) {
+    final RegExp disallowed = RegExp(r'[^\d\.]');
+    String tmpBuildName = buildName.replaceAll(disallowed, '');
+    if (tmpBuildName.isEmpty) {
+      return null;
+    }
+    final List<String> segments = tmpBuildName
+        .split('.')
+        .where((String segment) => segment.isNotEmpty)
+        .toList();
+    while (segments.length < 3) {
+      segments.add('0');
+    }
+    tmpBuildName = segments.join('.');
+    if (tmpBuildName != buildName) {
+      logger.printTrace('Invalid build-name: $buildName for Ohos, overridden by $tmpBuildName.\n'
+          'See versionName at https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/app-configuration-file-V5');
+    }
+    return tmpBuildName;
+  }
   return buildName;
 }
 
@@ -540,7 +608,12 @@ enum TargetPlatform {
   android_arm,
   android_arm64,
   android_x64,
-  android_x86;
+  android_x86,
+  //ohos platform
+  ohos,
+  ohos_arm,
+  ohos_arm64,
+  ohos_x64;
 
   String get fuchsiaArchForTargetPlatform {
     switch (this) {
@@ -561,6 +634,10 @@ enum TargetPlatform {
       case TargetPlatform.web_javascript:
       case TargetPlatform.windows_x64:
       case TargetPlatform.windows_arm64:
+      case TargetPlatform.ohos:
+      case TargetPlatform.ohos_arm:
+      case TargetPlatform.ohos_arm64:
+      case TargetPlatform.ohos_x64:
         throw UnsupportedError('Unexpected Fuchsia platform $this');
     }
   }
@@ -584,8 +661,22 @@ enum TargetPlatform {
       case TargetPlatform.ios:
       case TargetPlatform.tester:
       case TargetPlatform.web_javascript:
+      case TargetPlatform.ohos:
+      case TargetPlatform.ohos_arm:
+      case TargetPlatform.ohos_arm64:
+      case TargetPlatform.ohos_x64:
         throw UnsupportedError('Unexpected target platform $this');
     }
+  }
+
+  bool get isOhos {
+    if (this == TargetPlatform.ohos ||
+        this == TargetPlatform.ohos_arm ||
+        this == TargetPlatform.ohos_arm64 ||
+        this == TargetPlatform.ohos_x64) {
+      return true;
+    }
+    return false;
   }
 }
 
@@ -632,6 +723,16 @@ enum AndroidArch {
     AndroidArch.x86_64 => 'android-x64',
     AndroidArch.x86 => 'android-x86',
   };
+}
+
+enum OhosArch {
+  armeabi_v7a,
+  arm64_v8a,
+  x86_64,
+}
+
+bool isOhosArtifact(Artifact artifact) {
+  return artifact == Artifact.flutterEngineHar;
 }
 
 /// The default set of iOS device architectures to build for.
@@ -710,6 +811,10 @@ String getNameForTargetPlatform(TargetPlatform platform, {DarwinArch? darwinArch
     TargetPlatform.tester => 'flutter-tester',
     TargetPlatform.web_javascript => 'web-javascript',
     TargetPlatform.android => 'android',
+    TargetPlatform.ohos => 'ohos',
+    TargetPlatform.ohos_arm => 'ohos-arm',
+    TargetPlatform.ohos_arm64 => 'ohos-arm64',
+    TargetPlatform.ohos_x64 => 'ohos-x64',
   };
 }
 
@@ -732,6 +837,10 @@ TargetPlatform getTargetPlatformForName(String platform) {
     'windows-arm64' => TargetPlatform.windows_arm64,
     'web-javascript' => TargetPlatform.web_javascript,
     'flutter-tester' => TargetPlatform.tester,
+    'ohos' => TargetPlatform.ohos,
+    'ohos-arm' => TargetPlatform.ohos_arm,
+    'ohos-arm64' => TargetPlatform.ohos_arm64,
+    'ohos-x64' => TargetPlatform.ohos_x64,
     _ => throw Exception('Unsupported platform name "$platform"'),
   };
 }
@@ -774,6 +883,40 @@ HostPlatform getCurrentHostPlatform() {
   globals.printWarning('Unsupported host platform, defaulting to Linux');
 
   return HostPlatform.linux_x64;
+}
+
+OhosArch getOhosArchForName(String platform) {
+  switch (platform) {
+    case 'ohos-arm':
+      return OhosArch.armeabi_v7a;
+    case 'ohos-arm64':
+      return OhosArch.arm64_v8a;
+    case 'ohos-x64':
+      return OhosArch.x86_64;
+  }
+  throw Exception('Unsupported Ohos arch name "$platform"');
+}
+
+String getNameForOhosArch(OhosArch arch) {
+  switch (arch) {
+    case OhosArch.armeabi_v7a:
+      return 'armeabi-v7a';
+    case OhosArch.arm64_v8a:
+      return 'arm64-v8a';
+    case OhosArch.x86_64:
+      return 'x86_64';
+  }
+}
+
+String getPlatformNameForOhosArch(OhosArch arch) {
+  switch (arch) {
+    case OhosArch.armeabi_v7a:
+      return 'ohos-arm';
+    case OhosArch.arm64_v8a:
+      return 'ohos-arm64';
+    case OhosArch.x86_64:
+      return 'ohos-x64';
+  }
 }
 
 /// Returns the top-level build output directory.
@@ -823,6 +966,11 @@ String getMacOSBuildDirectory() {
 /// Returns the web build output directory.
 String getWebBuildDirectory() {
   return globals.fs.path.join(getBuildDirectory(), 'web');
+}
+
+/// Returns the ohos build output directory.
+String getOhosBuildDirectory(){
+  return globals.fs.path.join(getBuildDirectory(), 'ohos');
 }
 
 /// Returns the Linux build output directory.
@@ -910,6 +1058,12 @@ const String kDarwinArchs = 'DarwinArchs';
 ///
 /// This is expected to be a space-delimited list of architectures.
 const String kAndroidArchs = 'AndroidArchs';
+
+/// The define to control what OHOS architectures are built for.
+///
+/// This is expected to be a space-delimited list of architectures. If not
+/// provided, defaults to arm64.
+const String kOhosArchs = 'OhosArchs';
 
 /// The define to control what min Android SDK version is built for.
 ///

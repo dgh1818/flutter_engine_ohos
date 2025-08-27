@@ -1418,7 +1418,12 @@ class PerfTest {
           if (needsFullTimeline) '--trace-startup', // Enables "endless" timeline event buffering.
           '-t', testTarget,
           if (testDriver != null) ...<String>['--driver', testDriver!],
-          if (existingApp != null) ...<String>['--use-existing-app', existingApp],
+          if (existingApp != null) ...<String>[
+            '--use-existing-app',
+            existingApp
+          ],
+          if (writeSkslFileName != null) ...<String>['--write-sksl-on-exit', writeSkslFileName],
+          if (cacheSkSL) '--cache-sksl',
           if (dartDefine.isNotEmpty) ...<String>['--dart-define', dartDefine],
           if (enableImpeller != null && enableImpeller!) '--enable-impeller',
           if (enableImpeller != null && !enableImpeller!) '--no-enable-impeller',

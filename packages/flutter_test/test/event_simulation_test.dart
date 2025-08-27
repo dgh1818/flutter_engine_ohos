@@ -579,17 +579,15 @@ void main() {
 
     await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
     expect(events.length, 1);
-    final Type expectedType =
-        isBrowser
-            ? RawKeyEventDataWeb
-            : switch (defaultTargetPlatform) {
-              TargetPlatform.android => RawKeyEventDataAndroid,
-              TargetPlatform.fuchsia => RawKeyEventDataFuchsia,
-              TargetPlatform.iOS => RawKeyEventDataIos,
-              TargetPlatform.linux => RawKeyEventDataLinux,
-              TargetPlatform.macOS => RawKeyEventDataMacOs,
-              TargetPlatform.windows => RawKeyEventDataWindows,
-            };
+    final Type expectedType = isBrowser ? RawKeyEventDataWeb : switch (defaultTargetPlatform) {
+      TargetPlatform.android => RawKeyEventDataAndroid,
+      TargetPlatform.fuchsia => RawKeyEventDataFuchsia,
+      TargetPlatform.iOS => RawKeyEventDataIos,
+      TargetPlatform.linux => RawKeyEventDataLinux,
+      TargetPlatform.macOS => RawKeyEventDataMacOs,
+      TargetPlatform.windows => RawKeyEventDataWindows,
+      TargetPlatform.ohos => RawKeyEventDataOhos,
+    };
     expect(events.first.data.runtimeType, expectedType);
   }, variant: TargetPlatformVariant.all());
 }
