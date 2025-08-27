@@ -764,6 +764,12 @@ void PlatformViewOHOS::OnMouseEvent(
   return napi_facade_->FlutterViewOnMouseEvent(mousePacketString, size);
 }
 
+void PlatformViewOHOS::OnAxisEvent(
+    const std::shared_ptr<std::string[]>& axisPacketString,
+    const int& size) {
+  return napi_facade_->FlutterViewOnAxisEvent(axisPacketString, size);
+}
+
 void PlatformViewOHOS::RunTask(OhosThreadType type, const fml::closure& task) {
   fml::RefPtr<fml::TaskRunner> TaskRunnerPtr = nullptr;
   switch (type) {

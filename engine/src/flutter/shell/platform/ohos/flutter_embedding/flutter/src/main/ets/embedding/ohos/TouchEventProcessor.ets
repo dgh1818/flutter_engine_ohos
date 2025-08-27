@@ -238,7 +238,7 @@ export default class TouchEventProcessor {
   }
 
   // 鼠标坐标通过postInputEvent传入到节点
-  public postInputEvent(strings: Array<string>) {
+  public postMouseEvent(strings: Array<string>) {
     FlutterManager.getInstance().getFlutterViewList().forEach((value) => {
       let length = value.getDVModel().children.length
       for (let index = length - 1; index >= 0; index--) {
@@ -277,7 +277,47 @@ export default class TouchEventProcessor {
         } as MouseEvent;
 
         let nodeController = params['nodeController'] as EmbeddingNodeController;
-        nodeController.postInputEvent(mouseEvent)
+        nodeController.postMouseEvent(mouseEvent)
+      }
+    });
+  }
+
+  // 轴/滚轮坐标通过postAxisEvent传入到节点
+  public postAxisEvent(strings: Array<string>) {
+    FlutterManager.getInstance().getFlutterViewList().forEach((value) => {
+      let length = value.getDVModel().children.length
+      for (let index = length - 1; index >= 0; index--) {
+        const dvModel = value.getDVModel().children[index]
+        const params = dvModel.getLayoutParams() as Record<string, ESObject>;
+        const left = params['left'] as number ?? 0;
+        const top = params['top'] as number ?? 0;
+        const densityPixels: number = display.getDefaultDisplaySync().densityPixels;
+
+        let offset: number = 0;
+        const action: number = parseFloat(strings[offset++]);
+        const x: number = vp2px((parseInt(strings[offset++])) / densityPixels - left);
+        const y: number = vp2px((parseInt(strings[offset++])) / densityPixels - top);
+        const windowX: number = vp2px(parseFloat(strings[offset++]) / densityPixels);
+        const windowY: number = vp2px(parseFloat(strings[offset++]) / densityPixels);
+        const displayX: number = vp2px(parseFloat(strings[offset++]) / densityPixels);
+        const displayY: number = vp2px(parseFloat(strings[offset++]) / densityPixels);
+        const scroll: number = parseFloat(strings[offset++]);
+
+        // 构造AxisEvent数据
+        const axisEvent: AxisEvent = {
+          action: action,
+          x: x,
+          y: y,
+          windowX: x,
+          windowY: y,
+          displayX: displayX,
+          displayY: displayY,
+          scrollStep: scroll,
+          axisVertical: scroll
+        } as AxisEvent;
+
+        let nodeController = params['nodeController'] as EmbeddingNodeController;
+        nodeController.postAxisEvent(axisEvent)
       }
     });
   }

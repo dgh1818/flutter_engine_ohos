@@ -472,29 +472,53 @@ void PlatformViewOHOSNapi::FlutterViewOnTouchEvent(
 
 void PlatformViewOHOSNapi::FlutterViewOnMouseEvent(
     const std::shared_ptr<std::string[]>& mousePacketString,
-    const int& size){
+    const int& size) {
+  if (mousePacketString == nullptr) {
+    FML_LOG(ERROR) << "Input parameter error";
+    return;
+  }
+  napi_value arrayString;
+  napi_create_array(env_, &arrayString);
 
-    if (mousePacketString == nullptr) {
-      FML_LOG(ERROR) << "Input parameter error";
-      return;
-    }
-    napi_value arrayString;
-    napi_create_array(env_, &arrayString);
+  for (int i = 0; i < size; ++i) {
+    napi_value stringItem;
+    napi_create_string_utf8(env_, mousePacketString[i].c_str(), -1,
+                            &stringItem);
+    napi_set_element(env_, arrayString, i, stringItem);
+  }
+  napi_handle_scope scope;
+  napi_open_handle_scope(env_, &scope);
+  napi_status status = fml::napi::InvokeJsMethod(
+      env_, ref_napi_obj_, "onMouseEvent", 1, &arrayString);
+  napi_close_handle_scope(env_, scope);
+  if (status != napi_ok) {
+    FML_LOG(ERROR) << "InvokeJsMethod onMouseEvent fail";
+  }
+}
 
-    for (int i = 0; i < size; ++i) {
-      napi_value stringItem;
-      napi_create_string_utf8(env_, mousePacketString[i].c_str(), -1,
-                              &stringItem);
-      napi_set_element(env_, arrayString, i, stringItem);
-    }
-    napi_handle_scope scope;
-    napi_open_handle_scope(env_, &scope);
-    napi_status status = fml::napi::InvokeJsMethod(
-        env_, ref_napi_obj_, "onMouseEvent", 1, &arrayString);
-    napi_close_handle_scope(env_, scope);
-    if (status != napi_ok) {
-      FML_LOG(ERROR) << "InvokeJsMethod onMouseEvent fail";
-    }
+void PlatformViewOHOSNapi::FlutterViewOnAxisEvent(
+    const std::shared_ptr<std::string[]>& axisPacketString,
+    const int& size) {
+  if (axisPacketString == nullptr) {
+    FML_LOG(ERROR) << "Input parameter error";
+    return;
+  }
+  napi_value arrayString;
+  napi_create_array(env_, &arrayString);
+
+  for (int i = 0; i < size; ++i) {
+    napi_value stringItem;
+    napi_create_string_utf8(env_, axisPacketString[i].c_str(), -1, &stringItem);
+    napi_set_element(env_, arrayString, i, stringItem);
+  }
+  napi_handle_scope scope;
+  napi_open_handle_scope(env_, &scope);
+  napi_status status = fml::napi::InvokeJsMethod(
+      env_, ref_napi_obj_, "onAxisEvent", 1, &arrayString);
+  napi_close_handle_scope(env_, scope);
+  if (status != napi_ok) {
+    FML_LOG(ERROR) << "InvokeJsMethod onAxisEvent fail";
+  }
 }
 
 /**

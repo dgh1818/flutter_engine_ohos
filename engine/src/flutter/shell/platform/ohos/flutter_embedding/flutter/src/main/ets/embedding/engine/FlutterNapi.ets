@@ -723,7 +723,13 @@ export default class FlutterNapi {
 
   onMouseEvent(strings: Array<string>): void {
     if (this.isAttached()) {
-      TouchEventProcessor.getInstance().postInputEvent(strings);
+       TouchEventProcessor.getInstance().postMouseEvent(strings);
+    }
+  }
+
+  onAxisEvent(strings: Array<string>): void {
+    if (this.isAttached()) {
+      TouchEventProcessor.getInstance().postAxisEvent(strings);
     }
   }
 

@@ -23,9 +23,9 @@ constexpr int DEFAULT_PANZOOM_DEVICE_ID = -103;
 constexpr double ZOOM_IN = 10.0 / 8.0;
 constexpr double ZOOM_OUT = 1.0 / ZOOM_IN;
 
-//OH_NativeXComponent_MouseEvent对象没有deviceId成员变量或获取deviceId的接口
-//，该常量(DEFAULT_MOUSE_DEVICE_ID)是用于对pointerData.device进行赋值
-//，防止使用鼠标点击事件时产生多个deviceId，导致被识别为多个鼠标设备接入，触发多个hover异常
+// OH_NativeXComponent_MouseEvent对象没有deviceId成员变量或获取deviceId的接口
+// ，该常量(DEFAULT_MOUSE_DEVICE_ID)是用于对pointerData.device进行赋值
+// ，防止使用鼠标点击事件时产生多个deviceId，导致被识别为多个鼠标设备接入，触发多个hover异常
 constexpr int DEFAULT_MOUSE_DEVICE_ID = -104;
 
 PointerData::Change OhosTouchProcessor::getPointerChangeForAction(
@@ -334,6 +334,30 @@ void OhosTouchProcessor::HandleScaleEvent(int64_t shell_holderID,
   auto ohos_shell_holder = reinterpret_cast<OHOSShellHolder*>(shell_holderID);
   ohos_shell_holder->GetPlatformView()->DispatchPointerDataPacket(
       std::move(packet));
+
+  if (apiVersion_ < 20) {
+    // 由于接口原因，api20以上才支持
+    return;
+  }
+  int offset = 0;
+  std::vector<std::string> tempStrings = {
+      std::to_string(dynamicGetAxisAction_ != nullptr
+                         ? dynamicGetAxisAction_(event)
+                         : UI_TOUCH_EVENT_ACTION_CANCEL),
+      std::to_string(OH_ArkUI_PointerEvent_GetX(event)),
+      std::to_string(OH_ArkUI_PointerEvent_GetY(event)),
+      std::to_string(OH_ArkUI_PointerEvent_GetWindowX(event)),
+      std::to_string(OH_ArkUI_PointerEvent_GetWindowY(event)),
+      std::to_string(OH_ArkUI_PointerEvent_GetDisplayX(event)),
+      std::to_string(OH_ArkUI_PointerEvent_GetDisplayY(event)),
+      std::to_string(OH_ArkUI_AxisEvent_GetVerticalAxisValue(event))};
+
+  size_t length = tempStrings.size();
+  std::shared_ptr<std::string[]> package(new std::string[length]);
+  for (size_t i = 0; i < length; i++) {
+    package[offset++] = tempStrings[i];
+  }
+  ohos_shell_holder->GetPlatformView()->OnAxisEvent(package, length);
   return;
 }
 
@@ -370,6 +394,30 @@ void OhosTouchProcessor::HandleScrollEvent(int64_t shell_holderID,
   auto ohos_shell_holder = reinterpret_cast<OHOSShellHolder*>(shell_holderID);
   ohos_shell_holder->GetPlatformView()->DispatchPointerDataPacket(
       std::move(packet));
+
+  if (apiVersion_ < 20) {
+    // 由于接口原因，api20以上才支持
+    return;
+  }
+  int offset = 0;
+  std::vector<std::string> tempStrings = {
+      std::to_string(dynamicGetAxisAction_ != nullptr
+                         ? dynamicGetAxisAction_(event)
+                         : UI_TOUCH_EVENT_ACTION_CANCEL),
+      std::to_string(OH_ArkUI_PointerEvent_GetX(event)),
+      std::to_string(OH_ArkUI_PointerEvent_GetY(event)),
+      std::to_string(OH_ArkUI_PointerEvent_GetWindowX(event)),
+      std::to_string(OH_ArkUI_PointerEvent_GetWindowY(event)),
+      std::to_string(OH_ArkUI_PointerEvent_GetDisplayX(event)),
+      std::to_string(OH_ArkUI_PointerEvent_GetDisplayY(event)),
+      std::to_string(OH_ArkUI_AxisEvent_GetVerticalAxisValue(event))};
+
+  size_t length = tempStrings.size();
+  std::shared_ptr<std::string[]> package(new std::string[length]);
+  for (size_t i = 0; i < length; i++) {
+    package[offset++] = tempStrings[i];
+  }
+  ohos_shell_holder->GetPlatformView()->OnAxisEvent(package, length);
   return;
 }
 
@@ -438,6 +486,30 @@ void OhosTouchProcessor::HandlePanZooomEvent(int64_t shell_holderID,
   auto ohos_shell_holder = reinterpret_cast<OHOSShellHolder*>(shell_holderID);
   ohos_shell_holder->GetPlatformView()->DispatchPointerDataPacket(
       std::move(packet));
+
+  if (apiVersion_ < 20) {
+    // 由于接口原因，api20以上才支持
+    return;
+  }
+  int offset = 0;
+  std::vector<std::string> tempStrings = {
+      std::to_string(dynamicGetAxisAction_ != nullptr
+                         ? dynamicGetAxisAction_(event)
+                         : UI_TOUCH_EVENT_ACTION_CANCEL),
+      std::to_string(OH_ArkUI_PointerEvent_GetX(event)),
+      std::to_string(OH_ArkUI_PointerEvent_GetY(event)),
+      std::to_string(OH_ArkUI_PointerEvent_GetWindowX(event)),
+      std::to_string(OH_ArkUI_PointerEvent_GetWindowY(event)),
+      std::to_string(OH_ArkUI_PointerEvent_GetDisplayX(event)),
+      std::to_string(OH_ArkUI_PointerEvent_GetDisplayY(event)),
+      std::to_string(OH_ArkUI_AxisEvent_GetVerticalAxisValue(event))};
+
+  size_t length = tempStrings.size();
+  std::shared_ptr<std::string[]> package(new std::string[length]);
+  for (size_t i = 0; i < length; i++) {
+    package[offset++] = tempStrings[i];
+  }
+  ohos_shell_holder->GetPlatformView()->OnAxisEvent(package, length);
   return;
 }
 
@@ -521,23 +593,20 @@ void OhosTouchProcessor::HandleMouseEvent(
   ohos_shell_holder->GetPlatformView()->DispatchPointerDataPacket(
       std::move(packet));
 
-  if(apiVersion_ < 20){
-    //由于接口原因，api20以上才支持
+  if (apiVersion_ < 20) {
+    // 由于接口原因，api20以上才支持
     return;
   }
   int offset = 0;
-  std::vector<std::string> tempStrings;
-  tempStrings.push_back(std::to_string(mouseEvent.x));
-  tempStrings.push_back(std::to_string(mouseEvent.y));
-  tempStrings.push_back(std::to_string(mouseEvent.screenX));
-  tempStrings.push_back(std::to_string(mouseEvent.screenY));
-  tempStrings.push_back(std::to_string(mouseEvent.timestamp));
-  tempStrings.push_back(std::to_string(mouseEvent.action));
-  tempStrings.push_back(std::to_string(mouseEvent.button));
+  std::vector<std::string> tempStrings = {
+      std::to_string(mouseEvent.x),         std::to_string(mouseEvent.y),
+      std::to_string(mouseEvent.screenX),   std::to_string(mouseEvent.screenY),
+      std::to_string(mouseEvent.timestamp), std::to_string(mouseEvent.action),
+      std::to_string(mouseEvent.button)};
 
   size_t length = tempStrings.size();
   std::shared_ptr<std::string[]> package(new std::string[length]);
-  for(size_t i = 0; i < length; i++){
+  for (size_t i = 0; i < length; i++) {
     package[offset++] = tempStrings[i];
   }
 

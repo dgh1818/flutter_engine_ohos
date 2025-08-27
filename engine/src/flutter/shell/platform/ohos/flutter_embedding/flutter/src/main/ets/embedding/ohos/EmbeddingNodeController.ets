@@ -82,8 +82,15 @@ export class EmbeddingNodeController extends NodeController {
     this.builderNode = null;
     this.wrappedBuilder = null;
   }
+  
+  postMouseEvent(event: MouseEvent) {
+    // 避免编译报错，postInputEvent属于API20的接口
+    if (typeof (this.builderNode as ESObject)?.postInputEvent == 'function') {
+      (this.builderNode as ESObject)?.postInputEvent(event);
+    }
+  }
 
-  postInputEvent(event: MouseEvent) {
+  postAxisEvent(event: AxisEvent) {
     // 避免编译报错，postInputEvent属于API20的接口
     if (typeof (this.builderNode as ESObject)?.postInputEvent == 'function') {
       (this.builderNode as ESObject)?.postInputEvent(event);
