@@ -32,6 +32,56 @@
 
 namespace flutter {
 
+class MallocDeviceBuffer : public impeller::DeviceBuffer {
+ public:
+  explicit MallocDeviceBuffer(impeller::DeviceBufferDescriptor desc)
+      : impeller::DeviceBuffer(desc) {
+    data_ = static_cast<uint8_t*>(malloc(desc.size));
+  }
+
+  ~MallocDeviceBuffer() override { free(data_); }
+
+  bool SetLabel(const std::string& label) override { return true; }
+
+  bool SetLabel(const std::string& label, impeller::Range range) override {
+    return true;
+  }
+
+  uint8_t* OnGetContents() const override { return data_; }
+
+  bool OnCopyHostBuffer(const uint8_t* source,
+                        impeller::Range source_range,
+                        size_t offset) override {
+    memcpy(data_ + offset, source + source_range.offset, source_range.length);
+    return true;
+  }
+
+ private:
+  uint8_t* data_;
+
+  FML_DISALLOW_COPY_AND_ASSIGN(MallocDeviceBuffer);
+};
+
+#ifdef FML_OS_ANDROID
+static constexpr bool kShouldUseMallocDeviceBuffer = true;
+#else
+static constexpr bool kShouldUseMallocDeviceBuffer = false;
+#endif  // FML_OS_ANDROID
+
+#ifdef FML_OS_OHOS
+// [an optimization method]
+// By default, Android uses Skia rendering and OHOS platform uses Impeller rendering.
+// Whether on Android or OHOS platforms, in debug mode, rendering overrized images
+// by Impeller will take a long time.
+// But in release mode, the time for rendering on Android is short.
+// Anyway, it is an optimization method that OHOS platform can
+// use the pixelmap interface of the SDK
+// to scale overrized images and accelerate rendering.
+static constexpr bool kNotScalePixels = true;
+#else
+static constexpr bool kNotScalePixels = false;
+#endif  // FML_OS_OHOS
+
 namespace {
 /**
  *  Loads the gamut as a set of three points (triangle).
@@ -139,14 +189,23 @@ DecompressResult ImageDecoderImpeller::DecompressTexture(
     return DecompressResult{.decode_error = decode_error};
   }
 
+
+  // [target_size] will be output as the size of [ui.FrameInfo.Image]
   target_size.set(std::min(static_cast<int32_t>(max_texture_size.width),
-                           target_size.width()),
+                          target_size.width()),
                   std::min(static_cast<int32_t>(max_texture_size.height),
-                           target_size.height()));
+                          target_size.height()));
 
   const SkISize source_size = descriptor->image_info().dimensions();
   auto decode_size = source_size;
-  if (descriptor->is_compressed()) {
+  // Normally, [target_size] is equal to [source_size]
+  if (kNotScalePixels) {
+    decode_size =
+        SkISize::Make(std::min(static_cast<int32_t>(max_texture_size.width),
+                               decode_size.width()),
+                      std::min(static_cast<int32_t>(max_texture_size.height),
+                               decode_size.height()));
+  } else if (descriptor->is_compressed()) {
     decode_size = descriptor->get_scaled_dimensions(std::max(
         static_cast<float>(target_size.width()) / source_size.width(),
         static_cast<float>(target_size.height()) / source_size.height()));
