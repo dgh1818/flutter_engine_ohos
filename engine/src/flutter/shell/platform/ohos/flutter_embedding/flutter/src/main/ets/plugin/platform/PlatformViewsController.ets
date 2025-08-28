@@ -184,6 +184,19 @@ export default class PlatformViewsController implements PlatformViewsHandler {
     }
   }
 
+  hover(viewId: number) {
+    for (let key of this.viewWrappers.keys()) {
+      let viewWrapper: undefined | PlatformViewWrapper = this.viewWrappers.get(key);
+      let dvModel = viewWrapper?.getDvModel();
+      let params = dvModel?.getLayoutParams() as Record<string, Any>;
+      if (key == viewId) {
+        params["hover"] = true;
+      } else {
+        params["hover"] = false;
+      }
+    }
+  }
+
   onTouch(touch: PlatformViewTouch): void {
     let viewWrapper: undefined | PlatformViewWrapper = this.viewWrappers.get(touch.viewId)
     if (viewWrapper != undefined) {
@@ -202,6 +215,17 @@ export default class PlatformViewsController implements PlatformViewsHandler {
           }
           //首次执行完之后，将列表数据置空
           params['touchEvent'] = undefined
+        }
+
+        //首次收到鼠标点击类型为 OH_NATIVEXCOMPONENT_MOUSE_PRESS ，则将存到列表中的事件分发出去
+        let mouseEventArray: Array<MouseEvent> | undefined = params['mouseEvent'] as Array<MouseEvent>
+        if (mouseEventArray !== undefined) {
+          let nodeController = params['nodeController'] as EmbeddingNodeController;
+          for (let it of mouseEventArray) {
+            nodeController.postMouseEvent(it)
+          }
+          //首次执行完之后，将列表数据置空
+          params['mouseEvent'] = undefined
         }
         //当前接收的事件类型为up的时候
       } else if (touch.action === TouchEventType.ACTION_UP || touch.action === TouchEventType.ACTION_CANCEL) {

@@ -234,6 +234,17 @@ export default class PlatformViewsChannel {
       result.error("error", err, null);
     }
   }
+
+  hover(call: MethodCall, result: MethodResult) {
+    const viewId: number = call.args;
+    try {
+      this.handler?.hover(viewId);
+      result.success(null);
+    } catch (err) {
+      Log.e(TAG, "hover failed", err);
+      result.error("error", err, null);
+    }
+  }
 }
 
 /**
@@ -316,6 +327,8 @@ export interface PlatformViewsHandler {
    * to true.
    */
   synchronizeToNativeViewHierarchy(yes: boolean): void;
+
+  hover(viewId: number): void;
 }
 
 /** Platform view display modes that can be requested at creation time. */
@@ -500,6 +513,10 @@ class ParsingCallback implements MethodCallHandler {
       }
       case "synchronizeToNativeViewHierarchy": {
         this.platformChannel?.synchronizeToNativeViewHierarchy(call, result);
+        break;
+      }
+      case "hover": {
+        this.platformChannel?.hover(call, result);
         break;
       }
       default:

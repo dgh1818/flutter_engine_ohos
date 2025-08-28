@@ -112,6 +112,35 @@ class TouchPacket {
   }
 }
 
+class MousePacket {
+  offset: number;
+  x: number;
+  y: number;
+  screenX: number;
+  screenY: number;
+  timestamp: number;
+  action: number;
+  button: number;
+
+  constructor(  offset: number,
+    x: number,
+    y: number,
+    screenX: number,
+    screenY: number,
+    timestamp: number,
+    action: number,
+    button: number) {
+    this.offset = offset;
+    this.x = x;
+    this.y = y;
+    this.screenX = screenX;
+    this.screenY = screenY;
+    this.timestamp = timestamp;
+    this.action = action;
+    this.button = button;
+  }
+}
+
 export default class TouchEventProcessor {
   private static instance: TouchEventProcessor;
 
@@ -237,51 +266,6 @@ export default class TouchEventProcessor {
     return customTouchEvent;
   }
 
-  // 鼠标坐标通过postInputEvent传入到节点
-  public postMouseEvent(strings: Array<string>) {
-    FlutterManager.getInstance().getFlutterViewList().forEach((value) => {
-      let length = value.getDVModel().children.length
-      for (let index = length - 1; index >= 0; index--) {
-        const dvModel = value.getDVModel().children[index]
-        const params = dvModel.getLayoutParams() as Record<string, ESObject>;
-        const left = params['left'] as number ?? 0;
-        const top = params['top'] as number ?? 0;
-        const densityPixels: number = display.getDefaultDisplaySync().densityPixels;
-
-        let offset: number = 0;
-        const x: number = vp2px((parseInt(strings[offset++])) / densityPixels - left);
-        const y: number = vp2px((parseInt(strings[offset++])) / densityPixels - top);
-        const screenX: number = vp2px(parseFloat(strings[offset++]) / densityPixels);
-        const screenY: number = vp2px(parseFloat(strings[offset++]) / densityPixels);
-        const timestamp: number = parseFloat(strings[offset++]);
-        const action: number = parseFloat(strings[offset++]);
-        const button: number = parseFloat(strings[offset++]);
-
-        // 构造MouseEvent数据
-        const mouseEvent: MouseEvent = {
-          button: button,
-          action: action,
-          displayX: x,
-          displayY: y,
-          windowX: x,
-          windowY: y,
-          screenX: screenX,
-          screenY: screenY,
-          x: x,
-          y: y,
-          stopPropagation: () => {},
-          timestamp: timestamp,
-          pressure: 0,
-          tiltX: x,
-          tiltY: y,
-        } as MouseEvent;
-
-        let nodeController = params['nodeController'] as EmbeddingNodeController;
-        nodeController.postMouseEvent(mouseEvent)
-      }
-    });
-  }
-
   // 轴/滚轮坐标通过postAxisEvent传入到节点
   public postAxisEvent(strings: Array<string>) {
     FlutterManager.getInstance().getFlutterViewList().forEach((value) => {
@@ -350,6 +334,100 @@ export default class TouchEventProcessor {
             params['touchEvent'] = array
           }
           array.push(touchEvent)
+        }
+      }
+    });
+  }
+
+  private decodeMousePacket(strings: Array<string>, densityPixels: number, top: number, left: number): MousePacket {
+    let offset: number = 0;
+    let x: number = vp2px((parseInt(strings[offset++])) / densityPixels - left);
+    let y: number = vp2px((parseInt(strings[offset++])) / densityPixels - top);
+    let screenX: number = vp2px(parseFloat(strings[offset++]) / densityPixels);
+    let screenY: number = vp2px(parseFloat(strings[offset++]) / densityPixels);
+    let timestamp: number = parseFloat(strings[offset++]);
+    let action: number = parseFloat(strings[offset++]);
+    let button: number = parseFloat(strings[offset++]);
+
+    const mouseEventPacket: MousePacket = new MousePacket(
+      offset,
+      x,
+      y,
+      screenX,
+      screenY,
+      timestamp,
+      action,
+      button
+    );
+    return mouseEventPacket;
+  }
+
+  private constructMouseEventImpl(mousePacket: MousePacket): MouseEvent {
+    // 构造MouseEvent数据
+    const mouseEvent: MouseEvent = {
+      button: mousePacket.button,
+      action: mousePacket.action,
+      displayX: mousePacket.x,
+      displayY: mousePacket.y,
+      windowX: mousePacket.x,
+      windowY: mousePacket.y,
+      screenX: mousePacket.screenX,
+      screenY: mousePacket.screenY,
+      x: mousePacket.x,
+      y: mousePacket.y,
+      stopPropagation: () => {},
+      timestamp: mousePacket.timestamp,
+      pressure: 0,
+      tiltX: mousePacket.x,
+      tiltY: mousePacket.y,
+    } as MouseEvent;
+
+    return mouseEvent;
+  }
+
+  /** Construct the MouseEvent and return. */
+  public constructMouseEvent(strings: Array<string>, top: number, left: number): MouseEvent {
+    let densityPixels: number = display.getDefaultDisplaySync().densityPixels;
+
+    let mousePacket: MousePacket = this.decodeMousePacket(strings, densityPixels, top, left);
+    let mouseEvent: MouseEvent = this.constructMouseEventImpl(mousePacket);
+    return mouseEvent;
+  }
+
+  // 鼠标坐标通过postInputEvent传入到节点
+  public postMouseEvent(strings: Array<string>) {
+    FlutterManager.getInstance().getFlutterViewList().forEach((value) => {
+      let length = value.getDVModel().children.length
+      for (let index = length - 1; index >= 0; index--) {
+        const dvModel = value.getDVModel().children[index]
+        const params = dvModel.getLayoutParams() as Record<string, ESObject>;
+        const left = params['left'] as number ?? 0;
+        const top = params['top'] as number ?? 0;
+        let down = params['down'] as boolean ?? false;
+        let mouseEvent: MouseEvent = TouchEventProcessor.getInstance().constructMouseEvent(strings, top, left);
+
+        if (mouseEvent.action != MouseAction.Press && mouseEvent.action != MouseAction.Release && params["hover"]) {
+          // 如果鼠标事件不是OH_NATIVEXCOMPONENT_MOUSE_PRESS类型或OH_NATIVEXCOMPONENT_MOUSE_RELEASE类型，则
+          // 直接分发出去
+          let nodeController = params['nodeController'] as EmbeddingNodeController;
+          nodeController.postMouseEvent(mouseEvent)
+        } else if (down) {
+          // 如果flutter端判断当前platformView是可点击的，则将事件分发出去,并结束分发
+          let nodeController = params['nodeController'] as EmbeddingNodeController;
+          nodeController.postMouseEvent(mouseEvent)
+          break;
+        } else {
+          // 如果鼠标事件为OH_NATIVEXCOMPONENT_MOUSE_PRESS，说明是下一次点击了，这时候需要清空上一次的数据
+          if (strings[5] == '1') {
+            params['mouseEvent'] = undefined
+          }
+          // 如果鼠标事件为OH_NATIVEXCOMPONENT_MOUSE_PRESS类型，且在flutter端还没判断当前view是否处于点击区域内，则将点击事件存储在list列表中。
+          let array: Array<MouseEvent> | undefined = params['mouseEvent'] as Array<MouseEvent>
+          if (array == undefined) {
+            array = []
+            params['mouseEvent'] = array
+          }
+          array.push(mouseEvent)
         }
       }
     });
