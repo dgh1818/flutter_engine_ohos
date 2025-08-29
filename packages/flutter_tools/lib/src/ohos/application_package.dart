@@ -259,6 +259,9 @@ class OhosModule {
     // build-profile.json5:modules
     final File buildProfileFile =
         ohosProject.ohosRoot.childFile('build-profile.json5');
+    if(!buildProfileFile.existsSync()){
+      return [];
+    }
     final Map<String, dynamic> buildProfile = JSON5
         .parse(buildProfileFile.readAsStringSync()) as Map<String, dynamic>;
     for (final dynamic e in buildProfile['modules'] as List<dynamic>) {
