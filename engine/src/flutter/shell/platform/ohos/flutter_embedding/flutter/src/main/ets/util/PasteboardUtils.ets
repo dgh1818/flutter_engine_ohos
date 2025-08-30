@@ -16,55 +16,56 @@ export class PasteboardUtils {
     }
   }
 
-  static getPasteData(): void { // paste data from the ohos pasteboard
-    let atManager = abilityAccessCtrl.createAtManager();
-    // request the ohos paste operation authority
-    atManager.requestPermissionsFromUser(FlutterManager.getInstance().getUIAbility().context,
-      ['ohos.permission.READ_PASTEBOARD']).then((data) => {
-      enum AuthResultStatus {
-        NOT_CONFIGURED = -1,
-        GRANTED = 0,
-        INVALID_REQ = 2
-      }
+  static getPasteDataAsync(): Promise<string> { // paste data from the ohos pasteboard
+    return new Promise((resolve) => {
+      let atManager = abilityAccessCtrl.createAtManager();
+      // request the ohos paste operation authority
+      atManager.requestPermissionsFromUser(FlutterManager.getInstance().getUIAbility().context,
+        ['ohos.permission.READ_PASTEBOARD']).then((data) => {
+        enum AuthResultStatus {
+          NOT_CONFIGURED = -1,
+          GRANTED = 0,
+          INVALID_REQ = 2
+        }
 
-      const authResult: number = data.authResults[0];
-      switch (authResult) {
-        case AuthResultStatus.GRANTED: {
-          let systemPasteboard: pasteboard.SystemPasteboard = pasteboard.getSystemPasteboard();
-          systemPasteboard.getData().then(async (pasteData: pasteboard.PasteData) => {
-            let pasteText: string = '';
-            const recordCount: number = pasteData.getRecordCount();
-            for (let i = 0; i < recordCount; i++) {
-              const record = pasteData.getRecord(i);
-              if (record.mimeType != pasteboard.MIMETYPE_TEXT_PLAIN
-                && record.mimeType != pasteboard.MIMETYPE_TEXT_HTML) {
-                continue;
+        const authResult: number = data.authResults[0];
+        switch (authResult) {
+          case AuthResultStatus.GRANTED: {
+            let systemPasteboard: pasteboard.SystemPasteboard = pasteboard.getSystemPasteboard();
+            systemPasteboard.getData().then(async (pasteData: pasteboard.PasteData) => {
+              let pasteText: string = '';
+              const recordCount: number = pasteData.getRecordCount();
+              for (let i = 0; i < recordCount; i++) {
+                const record = pasteData.getRecord(i);
+                if (record.mimeType != pasteboard.MIMETYPE_TEXT_PLAIN
+                  && record.mimeType != pasteboard.MIMETYPE_TEXT_HTML) {
+                  continue;
+                }
+                let text: string = '';
+                if (record.mimeType == pasteboard.MIMETYPE_TEXT_PLAIN) {
+                  text = record.plainText;
+                } else if (record.mimeType == pasteboard.MIMETYPE_TEXT_HTML) {
+                  const htmlText: StyledString = await StyledString.fromHtml(record.htmlText);
+                  text = htmlText.getString();
+                }
+                pasteText += text;
               }
-              let text: string = '';
-              if (record.mimeType == pasteboard.MIMETYPE_TEXT_PLAIN) {
-                text = record.plainText;
-              } else if (record.mimeType == pasteboard.MIMETYPE_TEXT_HTML) {
-                const htmlText: StyledString = await StyledString.fromHtml(record.htmlText);
-                text = htmlText.getString();
-              }
-              pasteText += text;
-            }
-            // storage the paste text in app-level lifecycle
-            AppStorage.setOrCreate('pasteText', pasteText);
-          }).catch((err: BusinessError) => {
-            Log.e(PasteboardUtils.TAG, "Failed to get PasteData. Cause: " + JSON.stringify(err));
-          });
-          break;
+              resolve(pasteText); 
+            }).catch((err: BusinessError) => {
+              Log.e(PasteboardUtils.TAG, "Failed to get PasteData. Cause: " + JSON.stringify(err));
+            });
+            break;
+          }
+          case AuthResultStatus.NOT_CONFIGURED:
+          case AuthResultStatus.INVALID_REQ:
+          default: {
+            Log.e(PasteboardUtils.TAG, "error code: " + authResult);
+            break;
+          }
         }
-        case AuthResultStatus.NOT_CONFIGURED:
-        case AuthResultStatus.INVALID_REQ:
-        default: {
-          Log.e(PasteboardUtils.TAG, "error code: " + authResult);
-          break;
-        }
-      }
-    }).catch((err: BusinessError) => {
-      Log.e(PasteboardUtils.TAG, "Failed to request permissions from user. Cause: " + JSON.stringify(err));
-    })
+      }).catch((err: BusinessError) => {
+        Log.e(PasteboardUtils.TAG, "Failed to request permissions from user. Cause: " + JSON.stringify(err));
+      })
+    });
   }
 }

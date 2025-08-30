@@ -648,13 +648,19 @@ export class ListenableEditingState {
         PasteboardUtils.setCopyData(copyText);
         break;
       case inputMethod.ExtendAction.PASTE:
-        // there exists a situation that first paste operation is invoked after this sync method,
-        // so try paste twice, the paste text will be inserted into the editing box.
-        PasteboardUtils.getPasteData();
-        let pasteText: string | undefined = AppStorage.get<string>('pasteText');
-        if (pasteText != undefined) { // insert the paste text into the editing widget
-          this.handleInsertTextEvent(pasteText);
-        }
+        // PasteboardUtils.getPasteDataAsync() is a async function, so must await the async paste operatopn 
+        // in sync func, otherwise there can be a problem of timing inconsistency in the insertion of pasted text here.
+        const handlePasteDataAsync = async () => {
+          try {
+            const pasteText = await PasteboardUtils.getPasteDataAsync(); 
+            if (pasteText) { // insert the paste text into the editing box
+              this.handleInsertTextEvent(pasteText);
+            }
+          } catch (err) {
+            Log.e(TAG, "get PasteData error: " + err);
+          }
+        };
+        handlePasteDataAsync();
         break;
       default:
         Log.w(TAG, `"Unknown ExtendAction: ${action}"`);
