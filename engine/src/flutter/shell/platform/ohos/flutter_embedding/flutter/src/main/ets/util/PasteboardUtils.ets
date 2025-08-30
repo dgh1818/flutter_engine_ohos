@@ -37,14 +37,14 @@ export class PasteboardUtils {
               const recordCount: number = pasteData.getRecordCount();
               for (let i = 0; i < recordCount; i++) {
                 const record = pasteData.getRecord(i);
-                if (record.mimeType != pasteboard.MIMETYPE_TEXT_PLAIN
-                  && record.mimeType != pasteboard.MIMETYPE_TEXT_HTML) {
+                if (record.mimeType !== pasteboard.MIMETYPE_TEXT_PLAIN
+                  && record.mimeType !== pasteboard.MIMETYPE_TEXT_HTML) {
                   continue;
                 }
                 let text: string = '';
-                if (record.mimeType == pasteboard.MIMETYPE_TEXT_PLAIN) {
+                if (record.mimeType === pasteboard.MIMETYPE_TEXT_PLAIN) {
                   text = record.plainText;
-                } else if (record.mimeType == pasteboard.MIMETYPE_TEXT_HTML) {
+                } else if (record.mimeType === pasteboard.MIMETYPE_TEXT_HTML) {
                   const htmlText: StyledString = await StyledString.fromHtml(record.htmlText);
                   text = htmlText.getString();
                 }
