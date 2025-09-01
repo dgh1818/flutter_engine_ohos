@@ -332,7 +332,9 @@ export class FlutterView {
   }
   private keyboardHeightChangeCallback = (data: number) => {
     Log.i(TAG, "keyboardHeightChangeCallback " + data);
-    this.keyboardAvoidArea.bottomRect.height = data;
+    if (this.keyboardAvoidArea) {
+      this.keyboardAvoidArea.bottomRect.height = data;
+    }
     this.onAreaChange(null);
   };
   private windowRectChangeCallback = (data: window.RectChangeOptions) => {
@@ -396,7 +398,7 @@ export class FlutterView {
   }
 
   getKeyboardHeight() {
-    return this.keyboardAvoidArea.bottomRect.height
+    return this.keyboardAvoidArea?.bottomRect.height
   }
 
   onDestroy() {
@@ -591,7 +593,7 @@ export class FlutterView {
   private onAiBarAreaChange(fullScreen: boolean = false) {
     if (this.checkAiBar && this.navigationAvoidArea != null && fullScreen) {
       this.viewportMetrics.physicalViewPaddingBottom =
-        Math.max(this.navigationAvoidArea.bottomRect.height, this.viewportMetrics.physicalViewPaddingBottom)
+        Math.max(this.navigationAvoidArea?.bottomRect.height, this.viewportMetrics.physicalViewPaddingBottom)
     }
   }
 
@@ -620,7 +622,7 @@ export class FlutterView {
       this.viewportMetrics.systemGestureInsetLeft =
         this.gestureAvoidArea?.leftRect.width ?? this.viewportMetrics.systemGestureInsetLeft
       this.viewportMetrics.systemGestureInsetBottom =
-        Math.max(this.navigationAvoidArea.bottomRect.height, this.gestureAvoidArea!.bottomRect.height)
+        Math.max(this.navigationAvoidArea?.bottomRect.height, this.gestureAvoidArea!.bottomRect.height)
       this.viewportMetrics.systemGestureInsetRight =
         this.gestureAvoidArea?.rightRect.width ?? this.viewportMetrics.systemGestureInsetRight
     } else {
