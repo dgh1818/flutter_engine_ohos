@@ -146,6 +146,8 @@ export enum DisplayFoldStatus {
   FOLD_STATUS_HALF_FOLDED = 3
 }
 
+type callbackNumber = () => number
+
 /**
   * @deprecated since 3.7
 */
@@ -205,6 +207,8 @@ export class FlutterView {
   private keyboardAvoidArea: window.AvoidArea;
   private needSetViewport: boolean = false;
   private windowPosition: window.Rect | null = null;
+  // 默认值5，参考：https://developer.huawei.com/consumer/cn/doc/harmonyos-references/ts-basic-gestures-pangesture
+  private callbackValue: callbackNumber = () => 5;
 
   constructor(viewId: string, context: Context) {
     this.id = viewId;
@@ -245,6 +249,10 @@ export class FlutterView {
       Log.e(TAG, "displayInfo error" + JSON.stringify(e));
     }
 
+  }
+
+  setTouchSlopCallbackValue(callback: callbackNumber) {
+    this.callbackValue = callback;
   }
 
   private async buildDisplayFeatures(foldStatus: display.FoldStatus) {
@@ -663,6 +671,7 @@ export class FlutterView {
         displayFeatureStatus[i] = displayFeatures[i].getState();
       }
 
+      this.viewportMetrics.physicalTouchSlop = this.callbackValue();
       this?.flutterEngine?.getFlutterNapi()?.setViewportMetrics(this.viewportMetrics.devicePixelRatio,
         this.viewportMetrics.physicalWidth,
         this.viewportMetrics.physicalHeight,
