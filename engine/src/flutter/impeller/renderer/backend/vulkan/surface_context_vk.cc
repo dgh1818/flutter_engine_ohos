@@ -84,11 +84,13 @@ bool SurfaceContextVK::SetSwapchain(std::shared_ptr<SwapchainVK> swapchain) {
     VALIDATION_LOG << "Invalid swapchain.";
     return false;
   }
+  swapchain_changed_ = true;
   swapchain_ = std::move(swapchain);
   return true;
 }
 
 void SurfaceContextVK::ClearSwapchain() {
+  swapchain_changed_ = true;
   swapchain_ = nullptr;
 }
 
@@ -125,6 +127,7 @@ void SurfaceContextVK::SetRenderArea(std::optional<IRect> area) {
 }
 
 void SurfaceContextVK::UpdateSurfaceSize(const ISize& size) const {
+  swapchain_changed_ = true;
   swapchain_->UpdateSurfaceSize(size);
 }
 
