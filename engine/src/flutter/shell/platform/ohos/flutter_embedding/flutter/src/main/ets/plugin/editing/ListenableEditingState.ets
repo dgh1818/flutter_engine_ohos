@@ -404,8 +404,17 @@ export class ListenableEditingState {
       this.setPreviewText("");
     }
 
-    if (enableDeltaModel && (this.mSelectionStartCache > 0)) {
-      this.setSelectionStart(this.mSelectionStartCache - length);
+    if (enableDeltaModel) {
+      let selectionStart = this.getSelectionStart();
+      let selectionEnd = this.getSelectionEnd();
+      if(selectionStart === 0 && selectionEnd === 0){
+        // [selectionStart]和[selectionEnd]都为0时，删除文本范围为空
+        return;
+      }
+      if (selectionStart === selectionEnd) {
+        // [selectionStart]和[selectionEnd]一致时为普通删除操作，需要修改偏移量
+        this.setSelectionStart(this.mSelectionStartCache - length);
+      }
     }
 
     let start =
