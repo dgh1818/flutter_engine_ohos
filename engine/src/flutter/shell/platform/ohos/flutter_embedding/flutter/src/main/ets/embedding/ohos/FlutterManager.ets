@@ -11,6 +11,7 @@ import window from '@ohos.window';
 import Log from '../../util/Log';
 import HashMap from '@ohos.util.HashMap';
 import List from '@ohos.util.List';
+import { deviceInfo } from '@kit.BasicServicesKit';
 
 const TAG = "FlutterManager"
 
@@ -216,9 +217,15 @@ export class DefaultFullScreenListener implements FullScreenListener {
     this.skipCheck = true;
 
     context = context??getContext(this);
-    let window = FlutterManager.getInstance()
+    const currentWindow = FlutterManager.getInstance()
       .getWindowStage(FlutterManager.getInstance().getUIAbility(context));
-    window.getMainWindowSync().setWindowLayoutFullScreen(useFullScreen);
+
+    currentWindow.getMainWindowSync().setWindowLayoutFullScreen(useFullScreen);
+
+    if (deviceInfo.deviceType === '2in1' && deviceInfo.sdkApiVersion >= 14 && useFullScreen) {
+      currentWindow.getMainWindowSync().maximize(window.MaximizePresentation.ENTER_IMMERSIVE);
+    }
+       
     Log.i(TAG, "WindowLayoutFullScreen is on")
   }
 
