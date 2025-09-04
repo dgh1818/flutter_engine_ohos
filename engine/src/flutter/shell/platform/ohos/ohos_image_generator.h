@@ -28,7 +28,8 @@ namespace flutter {
 
 class OHOSImageGenerator : public ImageGenerator {
  private:
-  explicit OHOSImageGenerator(OH_ImageSourceNative* image_source);
+  explicit OHOSImageGenerator(OH_ImageSourceNative* image_source,
+                              const sk_sp<SkData>& data);
 
  public:
   ~OHOSImageGenerator();
@@ -64,6 +65,8 @@ class OHOSImageGenerator : public ImageGenerator {
 
  private:
   OH_ImageSourceNative* image_source_;
+  const sk_sp<SkData> data_;
+
   SkImageInfo origin_image_info_;
   float rotate_degree_ = 0.f;
   bool need_flip_ = false;

@@ -116,8 +116,10 @@ static void ResolveEncodedOrigin(char* data,
   }
 }
 
-OHOSImageGenerator::OHOSImageGenerator(OH_ImageSourceNative* image_source)
-    : image_source_(image_source) {
+OHOSImageGenerator::OHOSImageGenerator(OH_ImageSourceNative* image_source,
+                                       const sk_sp<SkData>& data)
+    : image_source_(image_source),
+      data_(data) {
   OH_ImageSource_Info* info = nullptr;
   OH_ImageSourceInfo_Create(&info);
   if (info == nullptr) {
@@ -225,7 +227,13 @@ bool OHOSImageGenerator::GetPixels(const SkImageInfo& info,
   if (frame_index == 0) {
     FML_DLOG(INFO) << trace_str;
   }
-  if (image_source_ == nullptr || info.colorType() != kRGBA_8888_SkColorType) {
+
+  if (image_source_ == nullptr) {
+    FML_LOG(ERROR) << "image_source is nullptr";
+    return false;
+  }
+
+  if (info.colorType() != kRGBA_8888_SkColorType) {
     FML_LOG(ERROR) << "invailed color type:" << std::to_string(info.colorType())
                    << " " << to_string();
     return false;
@@ -290,6 +298,7 @@ std::shared_ptr<ImageGenerator> OHOSImageGenerator::MakeFromData(
 
   OH_ImageSourceNative* image_source = nullptr;
 
+  bool isHeldSkData = true;
   Image_ErrorCode err_code = IMAGE_BAD_PARAMETER;
   std::shared_ptr<OhosImageSourceLoader> ohosImageSourceLoader = OhosImageSourceLoader::GetInstance();
   if (ohosImageSourceLoader != nullptr) {
@@ -306,10 +315,12 @@ std::shared_ptr<ImageGenerator> OHOSImageGenerator::MakeFromData(
       FML_LOG(ERROR) << "Create ImageSource failed: " << err_code;
       return nullptr;
     }
+    isHeldSkData = false;
   }
 
-  std::shared_ptr<OHOSImageGenerator> generator(
-      new OHOSImageGenerator(image_source));
+  // Preventing data from being released by the system
+  std::shared_ptr<OHOSImageGenerator> generator(new OHOSImageGenerator(
+      image_source, isHeldSkData ? data : sk_sp<SkData>()));
 
   if (generator->IsValidImageData()) {
     return generator;
