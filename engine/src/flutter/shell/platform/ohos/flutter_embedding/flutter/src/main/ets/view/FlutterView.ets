@@ -630,7 +630,7 @@ export class FlutterView {
       this.viewportMetrics.systemGestureInsetLeft =
         this.gestureAvoidArea?.leftRect.width ?? this.viewportMetrics.systemGestureInsetLeft
       this.viewportMetrics.systemGestureInsetBottom =
-        Math.max(this.navigationAvoidArea?.bottomRect.height, this.gestureAvoidArea!.bottomRect.height)
+        Math.max(this.navigationAvoidArea?.bottomRect.height, this.gestureAvoidArea?.bottomRect.height)
       this.viewportMetrics.systemGestureInsetRight =
         this.gestureAvoidArea?.rightRect.width ?? this.viewportMetrics.systemGestureInsetRight
     } else {
