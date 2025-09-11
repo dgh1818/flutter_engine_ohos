@@ -1239,23 +1239,11 @@ class OhosProject extends FlutterProjectPlatform {
     return list;
   }
 
-  /// 删除ohModules文件夹缓存
+  /// 删除build和ohModules文件夹缓存
   Future<void> deleteOhModulesCache() async {
     for (final Directory element in ohModulesCacheDirectorys) {
-      await deleteDirectory(element);
-    }
-  }
-
-  Future<void> deleteDirectory(Directory dir) async {
-    if (dir.existsSync()) {
-      if (globals.platform.isWindows) {
-        final Process process =
-            await Process.start('cmd', <String>['rmdir', '/s/q', dir.path]);
-        if (await process.exitCode != 0) {
-          throwToolExit('Unable to remove directory ${dir.path}', exitCode: 1);
-        }
-      } else {
-        dir.deleteSync(recursive: true);
+      if(element.existsSync()) {
+        element.deleteSync(recursive: true);
       }
     }
   }
