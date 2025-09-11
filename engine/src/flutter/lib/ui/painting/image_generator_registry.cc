@@ -29,6 +29,7 @@ ImageGeneratorRegistry::ImageGeneratorRegistry() : weak_factory_(this) {
       2);
 #else
       0);
+#endif
 
   AddFactory(
       [](sk_sp<SkData> buffer) {
