@@ -151,11 +151,41 @@ std::shared_ptr<std::string[]> OhosTouchProcessor::packagePacketData(
   return package;
 }
 
+// Due to current issues in the HarmonyOS system, when the user operates with
+// multiple fingers simultaneously, the application may continuously receive
+// multiple down or up events with the same ID. For the Flutter framework, this
+// will lead to unexpected behaviors. Therefore, such behaviors need to be
+// filtered in advance, and the unexpected down and up events should be
+// discarded to avoid gesture confusion. Additionally, in this scenario, move
+// events with the same ID from different fingers may also be received. This
+// situation cannot be filtered or avoided for the time being and may cause some
+// unexpected sliding gestures.
+bool OhosTouchProcessor::shouldDropTouchEvent(
+    OH_NativeXComponent_TouchEvent* touchEvent) {
+  if (touchEvent->type == OH_NATIVEXCOMPONENT_DOWN) {
+    if (activeFingerIds_.find(touchEvent->id) != activeFingerIds_.end()) {
+      FML_LOG(INFO) << "Receive duplicate down events, drop it";
+      return true;
+    } else {
+      activeFingerIds_.insert(touchEvent->id);
+    }
+  }
+  if (touchEvent->type == OH_NATIVEXCOMPONENT_UP) {
+    if (activeFingerIds_.find(touchEvent->id) == activeFingerIds_.end()) {
+      FML_LOG(INFO) << "Receive duplicate up events, drop it";
+      return true;
+    } else {
+      activeFingerIds_.erase(touchEvent->id);
+    }
+  }
+  return false;
+}
+
 void OhosTouchProcessor::HandleTouchEvent(
     int64_t shell_holderID,
     OH_NativeXComponent* component,
     OH_NativeXComponent_TouchEvent* touchEvent) {
-  if (touchEvent == nullptr) {
+  if (touchEvent == nullptr || shouldDropTouchEvent(touchEvent)) {
     return;
   }
   FML_TRACE_EVENT("flutter", "HandleTouchEvent", "timeStamp",
