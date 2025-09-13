@@ -41,9 +41,9 @@ class MallocDeviceBuffer : public impeller::DeviceBuffer {
 
   ~MallocDeviceBuffer() override { free(data_); }
 
-  bool SetLabel(const std::string& label) override { return true; }
+  bool SetLabel(std::string_view label) override { return true; }
 
-  bool SetLabel(const std::string& label, impeller::Range range) override {
+  bool SetLabel(std::string_view label, impeller::Range range) override {
     return true;
   }
 

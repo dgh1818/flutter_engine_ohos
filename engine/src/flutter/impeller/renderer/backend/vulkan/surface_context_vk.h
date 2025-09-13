@@ -139,7 +139,7 @@ class SurfaceContextVK : public Context,
 
  private:
   std::shared_ptr<ContextVK> parent_;
-  std::shared_ptr<KHRSwapchainVK> swapchain_;
+  std::shared_ptr<SwapchainVK> swapchain_;
   mutable bool swapchain_changed_ = true;
 };
 
