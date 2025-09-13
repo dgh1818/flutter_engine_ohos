@@ -83,10 +83,6 @@ class StandardCapabilities final : public Capabilities {
     return default_glyph_atlas_format_;
   }
 
-  ISize GetMaximumRenderPassAttachmentSize() const override {
-    return default_maximum_render_pass_attachment_size_;
-  }
-
   // |Capabilities|
   ISize GetMaximumRenderPassAttachmentSize() const override {
     return default_maximum_render_pass_attachment_size_;
@@ -153,7 +149,7 @@ class StandardCapabilities final : public Capabilities {
   PixelFormat default_stencil_format_ = PixelFormat::kUnknown;
   PixelFormat default_depth_stencil_format_ = PixelFormat::kUnknown;
   PixelFormat default_glyph_atlas_format_ = PixelFormat::kUnknown;
-  ISize default_maximum_render_pass_attachment_size_ = ISize(1,1);
+  ISize default_maximum_render_pass_attachment_size_ = ISize(1, 1);
 
   StandardCapabilities(const StandardCapabilities&) = delete;
 
@@ -239,9 +235,20 @@ CapabilitiesBuilder& CapabilitiesBuilder::SetDefaultGlyphAtlasFormat(
   return *this;
 }
 
+CapabilitiesBuilder& CapabilitiesBuilder::SetSupportsTriangleFan(bool value) {
+  supports_triangle_fan_ = value;
+  return *this;
+}
+
 CapabilitiesBuilder& CapabilitiesBuilder::SetMaximumRenderPassAttachmentSize(
     ISize size) {
   default_maximum_render_pass_attachment_size_ = size;
+  return *this;
+}
+
+CapabilitiesBuilder& CapabilitiesBuilder::SetSupportsExtendedRangeFormats(
+    bool value) {
+  supports_extended_range_formats_ = value;
   return *this;
 }
 
