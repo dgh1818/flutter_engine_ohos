@@ -683,7 +683,11 @@ void Canvas::DrawCircle(const Point& center,
     AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint);
   } else {
     CircleGeometry geom(center, radius);
-    AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint);
+    #ifdef FML_OS_OHOS
+      AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint, false, true);
+    #else
+      AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint);
+    #endif
   }
 }
 
