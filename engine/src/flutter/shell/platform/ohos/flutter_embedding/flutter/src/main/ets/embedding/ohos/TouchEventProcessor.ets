@@ -273,6 +273,9 @@ export default class TouchEventProcessor {
       for (let index = length - 1; index >= 0; index--) {
         const dvModel = value.getDVModel().children[index]
         const params = dvModel.getLayoutParams() as Record<string, ESObject>;
+        if (!params["hover"]) {
+          continue;
+        }
         const left = params['left'] as number ?? 0;
         const top = params['top'] as number ?? 0;
         const densityPixels: number = display.getDefaultDisplaySync().densityPixels;
