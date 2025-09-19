@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2021-2024 Huawei Device Co., Ltd. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE_HW file.
+ */
 import { BusinessError, pasteboard } from "@kit.BasicServicesKit";
 import { abilityAccessCtrl } from "@kit.AbilityKit";
 import FlutterManager from "../embedding/ohos/FlutterManager";
@@ -50,7 +55,7 @@ export class PasteboardUtils {
                 }
                 pasteText += text;
               }
-              resolve(pasteText); 
+              resolve(pasteText);
             }).catch((err: BusinessError) => {
               Log.e(PasteboardUtils.TAG, "Failed to get PasteData. Cause: " + JSON.stringify(err));
             });
