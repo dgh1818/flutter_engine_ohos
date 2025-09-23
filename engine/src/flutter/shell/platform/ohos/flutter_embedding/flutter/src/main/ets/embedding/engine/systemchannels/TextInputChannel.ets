@@ -93,8 +93,10 @@ export default class TextInputChannel {
 
   updateEditingStateWithDeltas(inputClientId: number, batchDeltas: ArrayList<TextEditingDelta>): void {
     Log.d(TAG, "updateEditingStateWithDeltas:" + "batchDeltas length: " + batchDeltas.length);
-    const state: Any = this.createEditingDeltaJSON(batchDeltas);
-    this.channel.invokeMethod('TextInputClient.updateEditingStateWithDeltas', [inputClientId, state]);
+    if(batchDeltas.length > 0){
+      const state: Any = this.createEditingDeltaJSON(batchDeltas);
+      this.channel.invokeMethod('TextInputClient.updateEditingStateWithDeltas', [inputClientId, state]);
+    }
   }
 
   newline(inputClientId: number): void {

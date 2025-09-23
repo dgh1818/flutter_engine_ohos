@@ -602,3 +602,23 @@ export default class KeyboardMap {
     )
   ];
 }
+
+// Due to the lack of ability of metaState in Ohos, and to maintain consistency
+// in metaState with other platforms. Hence, flutter-ohos defines these modifier
+// key meta values to check whether the following keys are pressed
+export class ModifierKeyMetaInfo {
+  private constructor() {}
+  static readonly NONE: number = 0; // no modifier keys are pressed
+  static readonly ALT: number = 0x02;
+  static readonly ALT_LEFT: number = 0x10;
+  static readonly ALT_RIGHT: number = 0x20;
+  static readonly SHIFT: number = 0x01;
+  static readonly SHIFT_LEFT: number = 0x40;
+  static readonly SHIFT_RIGHT: number = 0x80;
+  static readonly CTRL: number = 0x1000;
+  static readonly CTRL_LEFT: number = 0x2000;
+  static readonly CTRL_RIGHT: number = 0x4000;
+  static readonly META: number = 0x10000;
+  static readonly META_LEFT: number = 0x20000;
+  static readonly META_RIGHT: number = 0x40000;
+}

@@ -19,7 +19,6 @@ import Any from '../../plugin/common/Any';
 import FlutterManager from '../ohos/FlutterManager';
 import deviceInfo from '@ohos.deviceInfo';
 import TouchEventProcessor from '../ohos/TouchEventProcessor';
-import { EmbeddingNodeController } from '../ohos/EmbeddingNodeController';
 import BuildProfile from '../../../../../BuildProfile';
 import { Action } from '../engine/systemchannels/AccessibilityChannel';
 
@@ -475,8 +474,12 @@ export default class FlutterNapi {
     if (this.accessibilityDelegate != null) {
       this.accessibilityDelegate.accessibilityStateChange(state);
     }
-    Log.d(TAG, "accessibilityStateChange is called");
-    flutter.nativeAccessibilityStateChange(this.nativeShellHolderId!, state);
+    Log.d(TAG, "accessibilityStateChange: state is " + state ? "on" : "off");
+    if (this.nativeShellHolderId != null) {
+      flutter.nativeAccessibilityStateChange(this.nativeShellHolderId!, state);
+    } else {
+      Log.w(TAG, "accessibilityStateChange, nativeShellHolderId is null")
+    }
   }
 
   setLocalizationPlugin(localizationPlugin: LocalizationPlugin | null): void {
@@ -715,6 +718,18 @@ export default class FlutterNapi {
   onTouchEvent(strings: Array<string>): void {
     if (this.isAttached()) {
       TouchEventProcessor.getInstance().postTouchEvent(strings);
+    }
+  }
+
+  onMouseEvent(strings: Array<string>): void {
+    if (this.isAttached()) {
+       TouchEventProcessor.getInstance().postMouseEvent(strings);
+    }
+  }
+
+  onAxisEvent(strings: Array<string>): void {
+    if (this.isAttached()) {
+      TouchEventProcessor.getInstance().postAxisEvent(strings);
     }
   }
 

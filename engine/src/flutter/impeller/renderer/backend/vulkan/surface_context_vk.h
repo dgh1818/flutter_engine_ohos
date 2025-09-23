@@ -131,9 +131,16 @@ class SurfaceContextVK : public Context,
 
   bool FlushCommandBuffers() override;
 
+  bool GetAndResetChangedFlag() const {
+    bool ret = swapchain_changed_;
+    swapchain_changed_ = false;
+    return ret;
+  }
+
  private:
   std::shared_ptr<ContextVK> parent_;
   std::shared_ptr<SwapchainVK> swapchain_;
+  mutable bool swapchain_changed_ = true;
 };
 
 }  // namespace impeller

@@ -19,7 +19,6 @@
 #include "fml/trace_event.h"
 #include "include/core/SkM44.h"
 #include "include/core/SkMatrix.h"
-#include "ohos_main.h"
 
 namespace flutter {
 
@@ -61,6 +60,22 @@ static bool IsPixelMapYUVFormat(PIXEL_FORMAT format) {
          format == PIXEL_FORMAT_YCBCR_P010 || format == PIXEL_FORMAT_YCRCB_P010;
 }
 
+static void SetNativeWindowFrameworkType(OHNativeWindow* window) {
+  int ret;
+  char* framework_type = nullptr;
+
+  ret = OH_NativeWindow_NativeWindowHandleOpt(window, GET_APP_FRAMEWORK_TYPE,
+                                              &framework_type);
+  if (ret == 0 && framework_type != nullptr && framework_type[0] == '\0') {
+    ret = OH_NativeWindow_NativeWindowHandleOpt(window, SET_APP_FRAMEWORK_TYPE,
+                                                "Flutter-Input");
+    if (ret != 0) {
+      FML_LOG(INFO) << "Failed to set framework type of external texture: "
+                    << ret;
+    }
+  }
+}
+
 OHOSExternalTexture::OHOSExternalTexture(int64_t id,
                                          OH_OnFrameAvailableListener listener)
     : Texture(id), transform_(SkMatrix::I()), frame_listener_(listener) {
@@ -74,6 +89,7 @@ OHOSExternalTexture::OHOSExternalTexture(int64_t id,
       OH_NativeImage_AcquireNativeWindow(native_image_source_);
   FML_LOG(INFO) << "OH_NativeImage_AcquireNativeWindow "
                 << producer_nativewindow_;
+  SetNativeWindowFrameworkType(producer_nativewindow_);
 
   if (!SetNativeWindowCPUAccess(producer_nativewindow_, false)) {
     FML_LOG(ERROR) << "Error with SetNativeWindowCPUAccess";
@@ -85,8 +101,6 @@ OHOSExternalTexture::OHOSExternalTexture(int64_t id,
     FML_LOG(ERROR) << "Error with OH_NativeImage_SetOnFrameAvailableListener "
                    << ret;
   }
-
-  is_emulator_ = OhosMain::IsEmulator();
 }
 
 OHOSExternalTexture::~OHOSExternalTexture() {
@@ -191,7 +205,17 @@ void OHOSExternalTexture::MarkNewFrameAvailable() {
     }
     // Here we release the buffers in the buffer_queue to ensure there is always
     // space in the queue, preventing the producer side from stalling.
-    int max_jank_frame = buffer_queue_size * 2 / 3;
+    // There is one buffer hold by last_native_window_buffer_, so we should
+    // begin to release buffer once the alloced buffer is equal to
+    // (buffer_queue_size - 1) For some scene like video, the buffer_queue_size
+    // is usually bigger than 5, and the producer may acquire several buffer
+    // simultaneously, in which case we should reserve more buffer.
+    int max_jank_frame;
+    if (buffer_queue_size <= 5) {
+      max_jank_frame = buffer_queue_size - 1;
+    } else {
+      max_jank_frame = buffer_queue_size * 2 / 3;
+    }
     while (max_jank_frame > 1 &&
            now_new_frame_seq_num_ - now_paint_frame_seq_num_ >=
                max_jank_frame) {
@@ -643,6 +667,8 @@ bool OHOSExternalTexture::SetExternalNativeImage(OH_NativeImage* native_image) {
   native_image_source_ = native_image;
   producer_nativewindow_ =
       OH_NativeImage_AcquireNativeWindow(native_image_source_);
+  SetNativeWindowFrameworkType(producer_nativewindow_);
+
   source_is_external_ = true;
   now_paint_frame_seq_num_ = 0;
   now_new_frame_seq_num_ = 0;
@@ -672,6 +698,7 @@ uint64_t OHOSExternalTexture::Reset(bool need_surfaceId) {
       native_image_source_ = nullptr;
       return 0;
     }
+    SetNativeWindowFrameworkType(producer_nativewindow_);
 
     int ret = OH_NativeImage_SetOnFrameAvailableListener(native_image_source_,
                                                          frame_listener_);
@@ -933,11 +960,6 @@ void OHOSExternalTexture::GetNewTransformBound(SkM44& transform,
                                                SkRect& bounds) {
   if (pixelmap_buffer_ != nullptr || native_image_source_ == nullptr) {
     transform.setIdentity();
-    if (is_emulator_) {
-      // do a flip-V if we are in emulator.
-      transform = transform.preConcat(
-          SkM44(1, 0, 0, 0, 0, -1, 0, bounds.height(), 0, 0, 1, 0, 0, 0, 0, 1));
-    }
     return;
   }
 
@@ -956,12 +978,6 @@ void OHOSExternalTexture::GetNewTransformBound(SkM44& transform,
   // }
 
   SkM44 transform_origin = SkM44::ColMajor(matrix);
-
-  if (is_emulator_) {
-    // do a flip-V if we are in emulator.
-    transform_origin = transform_origin.preConcat(
-        SkM44(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1));
-  }
 
   // Note that SkM44's constructor parameters are in row-major order.
   // This operate is to do a flip-V and translate it to origin

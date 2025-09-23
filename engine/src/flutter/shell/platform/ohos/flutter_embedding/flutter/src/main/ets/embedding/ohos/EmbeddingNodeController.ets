@@ -78,6 +78,23 @@ export class EmbeddingNodeController extends NodeController {
   disposeFrameNode() {
     this.builderNode?.getFrameNode()?.getRenderNode()?.dispose();
     this.builderNode?.dispose();
+
+    this.builderNode = null;
+    this.wrappedBuilder = null;
+  }
+  
+  postMouseEvent(event: MouseEvent) {
+    // 避免编译报错，postInputEvent属于API20的接口
+    if (typeof (this.builderNode as ESObject)?.postInputEvent == 'function') {
+      (this.builderNode as ESObject)?.postInputEvent(event);
+    }
+  }
+
+  postAxisEvent(event: AxisEvent) {
+    // 避免编译报错，postInputEvent属于API20的接口
+    if (typeof (this.builderNode as ESObject)?.postInputEvent == 'function') {
+      (this.builderNode as ESObject)?.postInputEvent(event);
+    }
   }
 
   postEvent(event: TouchEvent | undefined, isPx: boolean = false): boolean {

@@ -21,11 +21,15 @@
 
 #define RBGA8888_BYTES 4
 
+// 定义最大缓存大小为1GB
+const int IMAGE_MAX_CACHE_SIZE = 1024 * 1024 * 1024;  // 1GB
+
 namespace flutter {
 
 class OHOSImageGenerator : public ImageGenerator {
  private:
-  explicit OHOSImageGenerator(OH_ImageSourceNative* image_source);
+  explicit OHOSImageGenerator(OH_ImageSourceNative* image_source,
+                              const sk_sp<SkData>& data);
 
  public:
   ~OHOSImageGenerator();
@@ -61,12 +65,19 @@ class OHOSImageGenerator : public ImageGenerator {
 
  private:
   OH_ImageSourceNative* image_source_;
+  const sk_sp<SkData> data_;
+
   SkImageInfo origin_image_info_;
   float rotate_degree_ = 0.f;
   bool need_flip_ = false;
   uint32_t frame_count_ = 0;
   bool is_hdr_ = false;
   std::vector<int32_t> frame_time_duration_;
+
+  // 静态缓存计数和最大缓存限制声明
+  static std::atomic<size_t> total_cached_bytes_;
+  // 最大全局缓存大小
+  static constexpr size_t kMaxGlobalCacheSize = IMAGE_MAX_CACHE_SIZE;
 
   struct PixelMapOHOS {
     OH_PixelmapNative* pixelmap_ = nullptr;

@@ -8,6 +8,7 @@
 #define FLUTTER_SHELL_PLATFORM_OHOS_OHOS_TOUCH_PROCESSOR_H_
 #include <ace/xcomponent/native_interface_xcomponent.h>
 #include <arkui/ui_input_event.h>
+#include <set>
 #include <string>
 #include <vector>
 #include "flutter/fml/platform/ohos/dynamic_library_loader.h"
@@ -87,6 +88,9 @@ class OhosTouchProcessor {
                                 OH_NativeXComponent_TouchPointToolType toolType,
                                 OH_NativeXComponent* component,
                                 OH_NativeXComponent_TouchEvent* touchEvent);
+
+  bool shouldDropTouchEvent(OH_NativeXComponent_TouchEvent* touchEvent);
+  std::set<int32_t> activeFingerIds_;
 };
 }  // namespace flutter
 #endif  // FLUTTER_SHELL_PLATFORM_OHOS_OHOS_TOUCH_PROCESSOR_H_
