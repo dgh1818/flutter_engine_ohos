@@ -33,10 +33,10 @@ IS_MAC = OS_NAME.startswith("darwin")
 engine_project_root_dir = Path(os.path.realpath(__file__)).parents[4]
 FLUTTER_ENGINE_PATH = os.path.join(engine_project_root_dir.__str__(), 'src', 'flutter')
 OHOS_ENGINE_TYPE_OUT = {
-    'ohos-arm64': 'ohos_debug_unopt_arm64',
+    'ohos-arm64': 'ohos_debug_arm64',
     'ohos-arm64-profile': 'ohos_profile_arm64',
     'ohos-arm64-release': 'ohos_release_arm64',
-    'ohos-x64': 'ohos_debug_unopt_x64',
+    'ohos-x64': 'ohos_debug_x64',
     'ohos-x64-profile': 'ohos_profile_x64',
     'ohos-x64-release': 'ohos_release_x64',
 }
