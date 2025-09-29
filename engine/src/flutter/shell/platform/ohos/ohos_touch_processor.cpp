@@ -383,7 +383,8 @@ void OhosTouchProcessor::HandleScaleEvent(int64_t shell_holderID,
       std::to_string(OH_ArkUI_AxisEvent_GetVerticalAxisValue(event))};
 
   size_t length = tempStrings.size();
-  std::shared_ptr<std::string[]> package(new std::string[length]);
+  auto unique_package = std::make_unique<std::string[]>(length);
+  std::shared_ptr<std::string[]> package = std::move(unique_package);
   for (size_t i = 0; i < length; i++) {
     package[offset++] = tempStrings[i];
   }
@@ -443,7 +444,8 @@ void OhosTouchProcessor::HandleScrollEvent(int64_t shell_holderID,
       std::to_string(OH_ArkUI_AxisEvent_GetVerticalAxisValue(event))};
 
   size_t length = tempStrings.size();
-  std::shared_ptr<std::string[]> package(new std::string[length]);
+  auto unique_package = std::make_unique<std::string[]>(length);
+  std::shared_ptr<std::string[]> package = std::move(unique_package);
   for (size_t i = 0; i < length; i++) {
     package[offset++] = tempStrings[i];
   }
@@ -535,7 +537,8 @@ void OhosTouchProcessor::HandlePanZooomEvent(int64_t shell_holderID,
       std::to_string(OH_ArkUI_AxisEvent_GetVerticalAxisValue(event))};
 
   size_t length = tempStrings.size();
-  std::shared_ptr<std::string[]> package(new std::string[length]);
+  auto unique_package = std::make_unique<std::string[]>(length);
+  std::shared_ptr<std::string[]> package = std::move(unique_package);
   for (size_t i = 0; i < length; i++) {
     package[offset++] = tempStrings[i];
   }
@@ -635,7 +638,8 @@ void OhosTouchProcessor::HandleMouseEvent(
       std::to_string(mouseEvent.button)};
 
   size_t length = tempStrings.size();
-  std::shared_ptr<std::string[]> package(new std::string[length]);
+  auto unique_package = std::make_unique<std::string[]>(length);
+  std::shared_ptr<std::string[]> package = std::move(unique_package);
   for (size_t i = 0; i < length; i++) {
     package[offset++] = tempStrings[i];
   }

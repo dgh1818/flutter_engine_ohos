@@ -48,7 +48,7 @@ static std::once_flag OhosImageSourceLoderInitFlag;
 
 std::shared_ptr<OhosImageSourceLoader> OhosImageSourceLoader::GetInstance() {
   std::call_once(OhosImageSourceLoderInitFlag, [&] {
-    OhosImageSourceLoderInstance = std::shared_ptr<OhosImageSourceLoader>(new OhosImageSourceLoader());
+    OhosImageSourceLoderInstance = std::make_shared<OhosImageSourceLoader>();
   });
   return OhosImageSourceLoderInstance;
 }
