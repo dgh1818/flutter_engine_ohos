@@ -92,6 +92,13 @@ static std::optional<vk::SurfaceFormatKHR> ChooseSurfaceFormat(
       FML_DLOG(WARNING) << "enter eHdr10HlgEXT!";
       return vk_preference;
     }
+    if (ToVKImageFormat(preference) == vk::Format::eR8G8B8A8Unorm) {
+      const auto colorspace = vk::ColorSpaceKHR::eDisplayP3NonlinearEXT;
+      const auto vk_preference =
+          vk::SurfaceFormatKHR{vk::Format::eR8G8B8A8Unorm, colorspace};
+      FML_DLOG(WARNING) << "enter eHdr10HlgEXT!";
+      return vk_preference;
+    }
   }
 #endif
   const auto colorspace = vk::ColorSpaceKHR::eSrgbNonlinear;
