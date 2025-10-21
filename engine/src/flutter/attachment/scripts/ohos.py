@@ -55,12 +55,14 @@ class BuildInfo:
       buildType="release",
       targetOS="ohos",
       targetArch="arm64",
+      unoptimized=False,
   ):
     self.buildType = buildType
     self.targetOS = targetOS
     self.targetArch = targetArch
     self.targetTriple = "%s-%s-%s" % (targetArch, OS_NAME, targetOS)
     self.abi = SUPPORT_ABIS[targetArch]
+    self.unoptimized = unoptimized
 
   def __repr__(self):
     return "BuildInfo(buildType=%s)" % (self.buildType)
@@ -84,7 +86,7 @@ def getOutput(buildInfo):
   outputName = "%s_%s%s_%s" % (
       buildInfo.targetOS,
       buildType,
-      "_unopt" if buildType == "debug" else "",
+      "_unopt" if buildInfo.unoptimized else "",
       buildInfo.targetArch,
   )
   return outputName
@@ -175,11 +177,12 @@ def engineConfig(buildInfo, args):
         "--target-toolchain %s " % os.path.join(OHOS_NDK_HOME, "llvm") +
         "--target-triple %s " % buildInfo.targetTriple
     )
-  OPT = "--unoptimized --no-lto " if buildInfo.buildType == "debug" else ""
+  OPT = "--unoptimized " if buildInfo.unoptimized else ""
+  LTO = "--no-lto " if buildInfo.buildType == "debug" else ""
   runCommand(
       "%s " % os.path.join("src", "flutter", "tools", "gn") + "--ohos " +
       "--ohos-cpu %s " % buildInfo.targetArch + "--runtime-mode %s " % buildInfo.buildType + OPT +
-      unixCommand + "--no-goma " + "--no-prebuilt-dart-sdk " + "--full-dart-sdk " +
+      LTO + unixCommand + "--no-goma " + "--no-prebuilt-dart-sdk " + "--full-dart-sdk " +
       "--embedder-for-target " + "--disable-desktop-embeddings " + "--no-build-embedder-examples " +
       "--ohos-api-int %s " % args.ohos_api_int + "--verbose " +
       args.gn_extra_param.replace("\\", ""),
@@ -316,6 +319,7 @@ def addParseParam(parser):
       "--ohos-cpu", type=str, choices=['x64', 'x86', 'arm64', 'arm'], default="arm64"
   )
   parser.add_argument("--host-cpu", type=str, choices=['x64', 'arm64'], default="x64")
+  parser.add_argument("--unoptimized", action="store_true", help="Build unoptimized version.")
 
 
 def updateCode(args):
@@ -339,19 +343,20 @@ def checkEnvironment():
 
 
 def buildLocalEngine(buildType, args):
-  OPT = "--unoptimized --no-lto " if buildType == "debug" else ""
+  OPT = "--unoptimized " if args.unoptimized else ""
+  LTO = "--no-lto " if buildType == "debug" else ""
   extraParam = args.gn_extra_param
   osName = platform.system().lower()
   hostAppend = f"--mac-cpu {args.host_cpu} " if osName == "darwin" else ""
   runCommand(
       "%s " % os.path.join("src", "flutter", "tools", "gn") + "--runtime-mode %s " % buildType +
-      OPT + "--no-goma " + "--no-prebuilt-dart-sdk " + "--full-dart-sdk " +
+      OPT + LTO + "--no-goma " + "--no-prebuilt-dart-sdk " + "--full-dart-sdk " +
       "--disable-desktop-embeddings " + "--no-build-embedder-examples " + "--verbose " +
       hostAppend + extraParam.replace("\\", ""),
       checkCode=False,
       timeout=600,
   )
-  append1 = "_unopt" if buildType == "debug" else ""
+  append1 = "_unopt" if args.unoptimized else ""
   append2 = "_arm64" if args.host_cpu == "arm64" else ""
   outputName = f"host_{buildType}{append1}{append2}"
   runCommand(f"ninja -C src/out/{outputName}")
@@ -367,7 +372,9 @@ def buildByNameAndType(args):
   for buildType in SUPPORT_BUILD_TYPES:
     if not buildType in buildTypes:
       continue
-    buildInfo = BuildInfo(buildType=buildType, targetArch=args.ohos_cpu)
+    buildInfo = BuildInfo(
+        buildType=buildType, targetArch=args.ohos_cpu, unoptimized=args.unoptimized
+    )
     for buildName in SUPPORT_BUILD_NAMES:
       if not buildName in buildNames:
         continue

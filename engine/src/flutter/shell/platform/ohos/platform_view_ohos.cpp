@@ -240,6 +240,7 @@ void PlatformViewOHOS::NotifySurfaceWindowChanged(
             // previously configured size before raster reaches this point,
             // causing the window size to revert to its original value during
             // the process.
+            surface->TeardownOnScreenContext();
             native_window->SetSize(width, height);
             surface->SetDisplayWindow(native_window);
           }
@@ -755,6 +756,18 @@ void PlatformViewOHOS::OnTouchEvent(
     const std::shared_ptr<std::string[]> touchPacketString,
     int size) {
   return napi_facade_->FlutterViewOnTouchEvent(touchPacketString, size);
+}
+
+void PlatformViewOHOS::OnMouseEvent(
+    const std::shared_ptr<std::string[]>& mousePacketString,
+    const int& size){
+  return napi_facade_->FlutterViewOnMouseEvent(mousePacketString, size);
+}
+
+void PlatformViewOHOS::OnAxisEvent(
+    const std::shared_ptr<std::string[]>& axisPacketString,
+    const int& size) {
+  return napi_facade_->FlutterViewOnAxisEvent(axisPacketString, size);
 }
 
 void PlatformViewOHOS::RunTask(OhosThreadType type, const fml::closure& task) {

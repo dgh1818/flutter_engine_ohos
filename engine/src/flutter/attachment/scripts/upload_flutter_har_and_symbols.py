@@ -152,7 +152,7 @@ def checkRemoteBranchUpdates(repoPath, remoteName='origin', branch='dev'):
 
 # 获取编译产物
 def getCompileFiles(buildType):
-  zipfiles = ['artifacts.zip', 'linux-x64.zip', 'windows-x64.zip', 'darwin-x64.zip', 'symbols.zip']
+  zipfiles = ['artifacts.zip', 'symbols.zip']
 
   files = []
   for fileName in zipfiles:
@@ -251,7 +251,6 @@ def main():
           continue
         uploadServer(version, buildType, filePath)
 
-    uploadExtraFiles(version)
     log('上传完成')
 
   else:

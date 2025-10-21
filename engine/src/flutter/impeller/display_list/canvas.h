@@ -350,9 +350,10 @@ class Canvas {
   void AddRenderEntityWithFiltersToCurrentPass(Entity& entity,
                                                const Geometry* geometry,
                                                const Paint& paint,
-                                               bool reuse_depth = false);
+                                               bool reuse_depth = false,
+                                               bool is_draw_rect = false);
 
-  void AddRenderEntityToCurrentPass(Entity& entity, bool reuse_depth = false);
+  void AddRenderEntityToCurrentPass(Entity& entity, bool reuse_depth = false,bool is_draw_rect = false);
 
   bool AttemptDrawBlurredRRect(const Rect& rect,
                                Size corner_radii,

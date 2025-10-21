@@ -15,6 +15,7 @@
 #include <utility>
 
 #include "impeller/toolkit/egl/image.h"
+#include "ohos_main.h"
 #include "third_party/skia/include/core/SkAlphaType.h"
 #include "third_party/skia/include/core/SkColorSpace.h"
 #include "third_party/skia/include/core/SkColorType.h"
@@ -41,6 +42,7 @@ OHOSExternalTextureGL::OHOSExternalTextureGL(
     OH_OnFrameAvailableListener listener)
     : OHOSExternalTexture(id, listener) {
   InitEGLFunPtr();
+  is_emulator_ = OhosMain::IsEmulator();
 }
 
 OHOSExternalTextureGL::~OHOSExternalTextureGL() {}
@@ -157,9 +159,12 @@ sk_sp<flutter::DlImage> OHOSExternalTextureGL::CreateDlImage(
   gl_resources_[key] = GlResource{std::move(unique_eglimage),
                                   std::move(unique_texture), UniqueEGLSync()};
 
+  GrSurfaceOrigin grOrigin = is_emulator_
+                                 ? GrSurfaceOrigin::kBottomLeft_GrSurfaceOrigin
+                                 : GrSurfaceOrigin::kTopLeft_GrSurfaceOrigin;
   sk_sp<SkImage> image = SkImages::BorrowTextureFrom(
-      context.gr_context, backendTexture, kTopLeft_GrSurfaceOrigin,
-      kRGBA_8888_SkColorType, kPremul_SkAlphaType, nullptr);
+      context.gr_context, backendTexture, grOrigin, kRGBA_8888_SkColorType,
+      kPremul_SkAlphaType, nullptr);
   sk_sp<flutter::DlImage> dl_image = DlImage::Make(image);
 
   // lru: oldest resource need earse

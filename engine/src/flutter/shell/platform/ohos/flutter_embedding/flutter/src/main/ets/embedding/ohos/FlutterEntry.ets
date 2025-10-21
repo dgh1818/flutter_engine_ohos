@@ -18,6 +18,11 @@ import FlutterManager from './FlutterManager';
 import window from '@ohos.window';
 import FlutterEngineConfigurator from './FlutterEngineConfigurator';
 import { FlutterPlugin } from '../engine/plugins/FlutterPlugin';
+import { BusinessError } from '@ohos.base';
+import { PlatformBrightness } from '../engine/systemchannels/SettingsChannel';
+import ConfigurationConstant from '@ohos.app.ability.ConfigurationConstant';
+import I18n from '@ohos.i18n'
+import { EnvironmentCallback } from '@kit.AbilityKit';
 
 const TAG = "FlutterEntry";
 
@@ -31,6 +36,7 @@ export default class FlutterEntry implements Host {
   private parameters: Record<string, Object> = {};
   protected engineConfigurator: FlutterEngineConfigurator | null = null
   protected hasInit: boolean = false;
+  protected callbackId: number | undefined = undefined;
 
   constructor(context: Context, params: Record<string, Object> = {}) {
     this.context = context;
@@ -59,6 +65,56 @@ export default class FlutterEntry implements Host {
       this.windowStage?.on('windowStageEvent', this.windowStageEventCallback);
       this.hasInit = true;
       this.delegate?.initWindow();
+      this.registerEnvironmentCallback();
+    }
+  }
+
+  registerEnvironmentCallback() {
+    let environmentCallback: EnvironmentCallback = {
+      onConfigurationUpdated: (config) => {
+        Log.i(TAG, 'onConfigurationUpdate config: ' + JSON.stringify(config));
+        this?.delegate?.flutterEngine?.getSettingsChannel()?.startMessage()
+          .setNativeSpellCheckServiceDefined(false)
+          .setBrieflyShowPassword(false)
+          .setAlwaysUse24HourFormat(I18n.System.is24HourClock())
+          .setPlatformBrightness(config.colorMode != ConfigurationConstant.ColorMode.COLOR_MODE_DARK
+            ? PlatformBrightness.LIGHT : PlatformBrightness.DARK)
+          .setTextScaleFactor(config.fontSizeScale == undefined ? 1.0 : config.fontSizeScale)
+          .send(); //热启动生命周期内，实时监听系统设置环境改变并实时发送相应信息
+
+        //实时获取系统字体加粗系数
+        this.delegate?.getFlutterNapi()?.setFontWeightScale(config.fontWeightScale == undefined ? 0 :
+        config.fontWeightScale);
+        Log.i(TAG, 'fontWeightScale: ' + JSON.stringify(config.fontWeightScale));
+
+        if (config.language != '') {
+          this.delegate?.flutterEngine?.getLocalizationPlugin()?.sendLocaleToFlutter();
+        }
+        this?.delegate?.onCheckAndReloadFont();
+
+      },
+      onMemoryLevel: (level) => {}
+    };
+    let applicationContext = this.uiAbility?.context.getApplicationContext();
+    try {
+      this.callbackId = applicationContext?.on('environment', environmentCallback);
+    } catch (paramError) {
+      Log.e(TAG, 'registerEnvironmentCallback error: ' + (paramError as BusinessError).code + ' message: '
+                 + (paramError as BusinessError).message);
+    }
+  }
+
+  unregisterEnvironmentCallback() {
+    let applicationContext = this.uiAbility?.context.getApplicationContext();
+    try {
+      applicationContext?.off('environment', this.callbackId, (error, data) => {
+        if (error && error.code !== 0) {
+          Log.e(TAG, 'unregisterEnvironmentCallback fail, error: ' + JSON.stringify(error));
+        }
+      });
+    } catch (paramError) {
+      Log.e(TAG, 'error: ' + (paramError as BusinessError).code + ' message: '
+                           + (paramError as BusinessError).message);
     }
   }
 
@@ -76,6 +132,7 @@ export default class FlutterEntry implements Host {
 
   aboutToDisappear() {
     Log.d(TAG, "FlutterEntry aboutToDisappear");
+    this.unregisterEnvironmentCallback();
     try {
       this.windowStage?.off('windowStageEvent', this.windowStageEventCallback);
     } catch (err) {

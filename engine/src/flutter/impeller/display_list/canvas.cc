@@ -577,7 +577,11 @@ void Canvas::DrawRect(const Rect& rect, const Paint& paint) {
   entity.SetBlendMode(paint.blend_mode);
 
   RectGeometry geom(rect);
-  AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint);
+  #ifdef FML_OS_OHOS
+    AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint, false, true);
+  #else
+    AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint);
+  #endif
 }
 
 void Canvas::DrawOval(const Rect& rect, const Paint& paint) {
@@ -679,7 +683,11 @@ void Canvas::DrawCircle(const Point& center,
     AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint);
   } else {
     CircleGeometry geom(center, radius);
-    AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint);
+    #ifdef FML_OS_OHOS
+      AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint, false, true);
+    #else
+      AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint);
+    #endif
   }
 }
 
@@ -1566,13 +1574,15 @@ void Canvas::DrawTextFrame(const std::shared_ptr<TextFrame>& text_frame,
 void Canvas::AddRenderEntityWithFiltersToCurrentPass(Entity& entity,
                                                      const Geometry* geometry,
                                                      const Paint& paint,
-                                                     bool reuse_depth) {
+                                                     bool reuse_depth,
+                                                     bool is_draw_rect
+                                                    ) {
   std::shared_ptr<ColorSourceContents> contents = paint.CreateContents();
   if (!paint.color_filter && !paint.invert_colors && !paint.image_filter &&
       !paint.mask_blur_descriptor.has_value()) {
     contents->SetGeometry(geometry);
     entity.SetContents(std::move(contents));
-    AddRenderEntityToCurrentPass(entity, reuse_depth);
+    AddRenderEntityToCurrentPass(entity, reuse_depth, is_draw_rect);
     return;
   }
 
@@ -1641,7 +1651,7 @@ void Canvas::AddRenderEntityWithFiltersToCurrentPass(Entity& entity,
   AddRenderEntityToCurrentPass(entity, reuse_depth);
 }
 
-void Canvas::AddRenderEntityToCurrentPass(Entity& entity, bool reuse_depth) {
+void Canvas::AddRenderEntityToCurrentPass(Entity& entity, bool reuse_depth, bool is_draw_rect) {
   if (IsSkipping()) {
     return;
   }
@@ -1651,7 +1661,7 @@ void Canvas::AddRenderEntityToCurrentPass(Entity& entity, bool reuse_depth) {
       entity.GetTransform());
   entity.SetInheritedOpacity(transform_stack_.back().distributed_opacity);
   if (entity.GetBlendMode() == BlendMode::kSrcOver &&
-      entity.GetContents()->IsOpaque(entity.GetTransform())) {
+      entity.GetContents()->IsOpaque(entity.GetTransform()) && !is_draw_rect) {
     entity.SetBlendMode(BlendMode::kSrc);
   }
 

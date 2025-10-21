@@ -167,8 +167,6 @@ class OHOSExternalTexture : public flutter::Texture {
 
   OH_OnFrameAvailableListener frame_listener_;
 
-  bool is_emulator_ = false;
-
   FML_DISALLOW_COPY_AND_ASSIGN(OHOSExternalTexture);
 };
 }  // namespace flutter

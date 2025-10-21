@@ -35,7 +35,7 @@ This repository is an extension of the Flutter engine repository. It enables Flu
    {
       "managed": False,
       "name": "src/flutter",
-      "url": "git@gitcode.com:openharmony-sig/flutter_engine.git@oh-3.22.0",
+      "url": "git@gitcode.com:openharmony-tpc/flutter_engine.git@oh-3.22.0",
       "custom_deps": {},
       "deps_file": "DEPS_ohos",
       "safesync_url": "",
@@ -63,7 +63,8 @@ Starting from version 3.22.0, the engine compilation will by default compile bot
    flutter build hap --target-platform ohos-arm64 --release --local-engine=<DIR>/engine/src/out/ohos_release_arm64/ --local-engine-host=<DIR>/engine/src/out/host_release
    ```
 
-6. Update the code. In the **engine** directory, execute `./ohos -b master`.
+6. Update code: In the engine directory, run `./ohos -b target-branch-name`.
+For example, to build the engine code from the oh-3.22.0 branch, execute `./ohos -b oh-3.22.0.`
 
 ## FAQs
 1. The message `Permission denied` is reported.<br>Execute `chmod +x < script file >` to add the execution permission.

@@ -48,6 +48,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
   private isHost: boolean = false;
   private flutterView?: FlutterView;
   private inputMethodController: inputMethod.InputMethodController = inputMethod.getController();
+  private isPageShow: boolean = false;
 
   constructor(host?: Host) {
     this.host = host;
@@ -357,6 +358,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
 
   onShow() {
     this.ensureAlive();
+    this.isPageShow = true;
     if (this.shouldDispatchAppLifecycleState()) {
       this.flutterEngine?.getLifecycleChannel()?.appIsResumed();
     }
@@ -376,6 +378,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
 
   onHide() {
     if (this.shouldDispatchAppLifecycleState()) {
+      this.isPageShow = false;
       this.flutterEngine?.getLifecycleChannel()?.appIsPaused();
     }
   }
@@ -393,6 +396,9 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
       return this.isAttached;
     }
     if (this.host == null) {
+      return false;
+    }
+    if (!this.isPageShow) {
       return false;
     }
     return this.host.shouldDispatchAppLifecycleState() && this.isAttached;

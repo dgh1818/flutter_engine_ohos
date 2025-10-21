@@ -20,7 +20,7 @@ def genZipFile(is_product):
     zip_file_name = 'flutter_patched_sdk_product.zip'
   else:
     product_suffix = ''
-    sdk_rel_path = 'src/out/ohos_debug_unopt_arm64/flutter_patched_sdk/'
+    sdk_rel_path = 'src/out/ohos_debug_arm64/flutter_patched_sdk/'
     zip_file_name = 'flutter_patched_sdk.zip'
   print(f'zipping {zip_file_name}...')
   engine_project_root_path = Path(os.path.realpath(__file__)).parents[4]

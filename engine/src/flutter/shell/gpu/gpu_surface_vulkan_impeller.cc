@@ -91,6 +91,9 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceVulkanImpeller::AcquireFrame(
     std::unique_ptr<impeller::Surface> surface =
         context_vk.AcquireNextSurface();
     int image_key = context_vk.GetCurrentImageIndex();
+    if (context_vk.GetAndResetChangedFlag()) {
+      damage_.clear();
+    }
 
     if (!surface) {
       FML_LOG(ERROR) << "No surface available.";
