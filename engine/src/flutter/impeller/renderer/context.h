@@ -101,6 +101,10 @@ class Context {
   ///
   virtual bool IsValid() const = 0;
 
+  static int hdr_;
+  static bool is_image_;
+  static bool enable_hdr_;
+
   //----------------------------------------------------------------------------
   /// @brief      Get the capabilities of Impeller context. All optionally
   ///             supported feature of the platform, client-rendering API, and
@@ -203,6 +207,9 @@ class Context {
   /// executing a rendering operation.  This API can be called after the
   /// operation completes in order to clear the cache.
   virtual void DisposeThreadLocalCachedResources() {}
+
+  int GetContextHdr() const { return hdr_; }
+  void SetContextHdr(int hdr) { hdr_ = hdr; }
 
   /// @brief Enqueue command_buffer for submission by the end of the frame.
   ///

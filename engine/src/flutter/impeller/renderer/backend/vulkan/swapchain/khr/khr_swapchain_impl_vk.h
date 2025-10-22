@@ -11,6 +11,7 @@
 #include "impeller/geometry/size.h"
 #include "impeller/renderer/backend/vulkan/swapchain/swapchain_transients_vk.h"
 #include "impeller/renderer/backend/vulkan/vk.h"
+#include "impeller/renderer/context.h"
 
 namespace impeller {
 
@@ -61,6 +62,8 @@ class KHRSwapchainImplVK final
   std::pair<vk::UniqueSurfaceKHR, vk::UniqueSwapchainKHR> DestroySwapchain();
 
   const ISize& GetSize() const;
+  int GetHdr() const;
+  void SetHdr(int hdr);
 
   void AddFinalCommandBuffer(std::shared_ptr<CommandBuffer> cmd_buffer);
 
@@ -86,6 +89,8 @@ class KHRSwapchainImplVK final
   bool enable_msaa_ = true;
   bool is_valid_ = false;
 
+  int hdr_ = 0;
+
   KHRSwapchainImplVK(const std::shared_ptr<Context>& context,
                      vk::UniqueSurfaceKHR surface,
                      const ISize& size,
@@ -101,6 +106,10 @@ class KHRSwapchainImplVK final
 
   KHRSwapchainImplVK& operator=(const KHRSwapchainImplVK&) = delete;
 };
+
+static constexpr int kHDRPQ = 2;
+static constexpr int kHDRHLG = 1;
+static constexpr int kSDR = 0;
 
 }  // namespace impeller
 

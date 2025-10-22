@@ -14,6 +14,7 @@
 #include <string>
 
 #include <multimedia/image_framework/image_pixel_map_napi.h>
+#include "flutter/impeller/renderer/context.h"
 #include "fml/logging.h"
 #include "fml/trace_event.h"
 #include "include/core/SkAlphaType.h"
@@ -23,6 +24,7 @@
 #include "flutter/fml/platform/ohos/dynamic_library_loader.h"
 
 std::atomic<size_t> flutter::OHOSImageGenerator::total_cached_bytes_{0};
+#include "third_party/skia/include/core/SkColorSpace.h"
 
 namespace flutter {
 
@@ -132,7 +134,7 @@ OHOSImageGenerator::OHOSImageGenerator(OH_ImageSourceNative* image_source,
   Image_String value = {nullptr, 0};
   int err = OH_ImageSourceNative_GetImageProperty(image_source, &key, &value);
   if (err != IMAGE_SUCCESS) {
-    FML_LOG(ERROR) << "cannot get pixelmap orientation:" << err;
+    FML_DLOG(ERROR) << "cannot get pixelmap orientation:" << err;
   }
   if (value.data != nullptr) {
     ResolveEncodedOrigin(value.data, value.size, &rotate_degree_, &need_flip_);
@@ -145,14 +147,27 @@ OHOSImageGenerator::OHOSImageGenerator(OH_ImageSourceNative* image_source,
   OH_ImageSourceInfo_GetHeight(info, &height);
   OH_ImageSourceInfo_GetDynamicRange(info, &is_hdr_);
   OH_ImageSourceInfo_Release(info);
-  if (rotate_degree_ == 90.f || rotate_degree_ == 270.f) {
-    origin_image_info_ = SkImageInfo::Make(
-        height, width, kRGBA_8888_SkColorType, kOpaque_SkAlphaType);
+  if (is_hdr_ && impeller::Context::enable_hdr_) {
+    if (rotate_degree_ == 90.f || rotate_degree_ == 270.f) {
+      origin_image_info_ = SkImageInfo::Make(
+          height, width, kRGBA_1010102_SkColorType, kOpaque_SkAlphaType);
+      origin_image_info_.makeColorSpace(
+          SkColorSpace::MakeRGB(SkNamedTransferFn::kHLG, rec2020_matrix));
+    } else {
+      origin_image_info_ = SkImageInfo::Make(
+          width, height, kRGBA_1010102_SkColorType, kOpaque_SkAlphaType);
+      origin_image_info_.makeColorSpace(
+          SkColorSpace::MakeRGB(SkNamedTransferFn::kHLG, rec2020_matrix));
+    }
   } else {
-    origin_image_info_ = SkImageInfo::Make(
-        width, height, kRGBA_8888_SkColorType, kOpaque_SkAlphaType);
+    if (rotate_degree_ == 90.f || rotate_degree_ == 270.f) {
+      origin_image_info_ = SkImageInfo::Make(
+          height, width, kRGBA_8888_SkColorType, kOpaque_SkAlphaType);
+    } else {
+      origin_image_info_ = SkImageInfo::Make(
+          width, height, kRGBA_8888_SkColorType, kOpaque_SkAlphaType);
+    }
   }
-
   // this is used for gif.
   OH_ImageSourceNative_GetFrameCount(image_source, &frame_count_);
   if (frame_count_ > 1) {
@@ -222,7 +237,8 @@ bool OHOSImageGenerator::GetPixels(const SkImageInfo& info,
                                    std::optional<unsigned int> prior_frame) {
   std::string trace_str = to_string() + "->" + std::to_string(info.width()) +
                           "*" + std::to_string(info.height()) +
-                          "-index:" + std::to_string(frame_index);
+                          "-index:" + std::to_string(frame_index) +
+                          "-hdr:" + std::to_string(is_hdr_);
   TRACE_EVENT1("flutter", "Image", "GetPixelsOHOS", trace_str.c_str());
   if (frame_index == 0) {
     FML_DLOG(INFO) << trace_str;
@@ -233,7 +249,9 @@ bool OHOSImageGenerator::GetPixels(const SkImageInfo& info,
     return false;
   }
 
-  if (info.colorType() != kRGBA_8888_SkColorType) {
+  if (image_source_ == nullptr ||
+      (info.colorType() != kRGBA_8888_SkColorType &&
+       info.colorType() != kRGBA_1010102_SkColorType)) {
     FML_LOG(ERROR) << "invailed color type:" << std::to_string(info.colorType())
                    << " " << to_string();
     return false;
@@ -341,11 +359,16 @@ OHOSImageGenerator::CreatePixelMap(int width, int height, int frame_index) {
 
   Image_Size size = {(uint32_t)width, (uint32_t)height};
   OH_DecodingOptions_SetDesiredSize(opts, &size);
-  OH_DecodingOptions_SetPixelFormat(opts, PIXEL_FORMAT_RGBA_8888);
+
+  if (!impeller::Context::enable_hdr_) {
+    OH_DecodingOptions_SetPixelFormat(opts, PIXEL_FORMAT_RGBA_8888);
+    OH_DecodingOptions_SetDesiredDynamicRange(opts, IMAGE_DYNAMIC_RANGE_SDR);
+  } else {
+    OH_DecodingOptions_SetDesiredDynamicRange(opts, IMAGE_DYNAMIC_RANGE_AUTO);
+  }
   OH_DecodingOptions_SetRotate(opts, rotate_degree_);
 
   // HDR requires the RGBA1010102 format and will need future support.
-  OH_DecodingOptions_SetDesiredDynamicRange(opts, IMAGE_DYNAMIC_RANGE_SDR);
   OH_DecodingOptions_SetIndex(opts, frame_index);
 
   OH_PixelmapNative* pixelmap = nullptr;
@@ -357,11 +380,11 @@ OHOSImageGenerator::CreatePixelMap(int width, int height, int frame_index) {
       OH_PixelmapNative_Flip(pixelmap, need_flip_, false);
     }
     auto image_pixelmap = std::make_shared<PixelMapOHOS>(pixelmap);
-    FML_LOG(INFO) << "Create Pixelmap size:"
-                  << std::to_string(image_pixelmap->width_) << "*"
-                  << std::to_string(image_pixelmap->height_) << " stride "
-                  << std::to_string(image_pixelmap->row_stride_) << " format "
-                  << std::to_string(image_pixelmap->pixel_format_);
+    FML_DLOG(INFO) << "Create Pixelmap size:"
+                   << std::to_string(image_pixelmap->width_) << "*"
+                   << std::to_string(image_pixelmap->height_) << " stride "
+                   << std::to_string(image_pixelmap->row_stride_) << " format "
+                   << std::to_string(image_pixelmap->pixel_format_);
     return image_pixelmap;
   } else {
     FML_LOG(ERROR) << "Create Pixelmap from Image source failed:" << err_code
