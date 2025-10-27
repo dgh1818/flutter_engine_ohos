@@ -278,8 +278,8 @@ bool OHOSImageGenerator::GetPixels(const SkImageInfo& info,
   }
 
   if (image_pixelmap) {
-    uint32_t buffer_size =
-        image_pixelmap->width_ * image_pixelmap->height_ * RBGA8888_BYTES;
+    uint32_t buffer_size = image_pixelmap->row_stride_ * image_pixelmap->height_;
+        //image_pixelmap->width_ * image_pixelmap->height_ * RBGA8888_BYTES;
     std::string trace_str = "size:" + std::to_string(buffer_size) +
                             "-stride:" + std::to_string(row_bytes);
     TRACE_EVENT1("flutter", "Image", "ReadPixels", trace_str.c_str());
@@ -360,11 +360,12 @@ OHOSImageGenerator::CreatePixelMap(int width, int height, int frame_index) {
   Image_Size size = {(uint32_t)width, (uint32_t)height};
   OH_DecodingOptions_SetDesiredSize(opts, &size);
 
-  if (!impeller::Context::enable_hdr_) {
+  if (!impeller::Context::enable_hdr_ || !is_hdr_) {
     OH_DecodingOptions_SetPixelFormat(opts, PIXEL_FORMAT_RGBA_8888);
     OH_DecodingOptions_SetDesiredDynamicRange(opts, IMAGE_DYNAMIC_RANGE_SDR);
-  } else {
-    OH_DecodingOptions_SetDesiredDynamicRange(opts, IMAGE_DYNAMIC_RANGE_AUTO);
+  } else if (impeller::Context::enable_hdr_ && is_hdr_) {
+    OH_DecodingOptions_SetDesiredDynamicRange(opts, IMAGE_DYNAMIC_RANGE_HDR);
+    OH_DecodingOptions_SetPixelFormat(opts, PIXEL_FORMAT_RGBA_1010102);
   }
   OH_DecodingOptions_SetRotate(opts, rotate_degree_);
 
