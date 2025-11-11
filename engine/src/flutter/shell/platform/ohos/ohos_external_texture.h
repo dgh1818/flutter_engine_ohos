@@ -134,6 +134,7 @@ class OHOSExternalTexture : public flutter::Texture {
   uint64_t producer_surface_id_ = 0;
 
   bool producer_has_frame_ = false;
+  bool need_120_fps_ = false;
   int producer_nativewindow_width_ = 0;
   int producer_nativewindow_height_ = 0;
   OHNativeWindow* producer_nativewindow_ = nullptr;

@@ -959,6 +959,20 @@ class AnimationController extends Animation<double>
               : AnimationStatus.dismissed;
       stop(canceled: false);
     }
+
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.ohos:
+        SchedulerBinding.instance.sendTranslateVelocity(velocity);
+        break;
+      case TargetPlatform.android:
+      case TargetPlatform.iOS:
+      case TargetPlatform.macOS:
+      case TargetPlatform.fuchsia:
+      case TargetPlatform.linux:
+      case TargetPlatform.windows:
+        break;
+    }
+
     notifyListeners();
     _checkStatusChanged();
   }

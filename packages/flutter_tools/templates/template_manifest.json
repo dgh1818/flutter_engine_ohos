@@ -165,6 +165,7 @@
     "templates/app/ohos.tmpl/entry/src/main/resources/base/media/icon.png",
     "templates/app/ohos.tmpl/entry/src/main/resources/base/profile/main_pages.json",
     "templates/app/ohos.tmpl/entry/src/main/resources/base/profile/buildinfo.json5",
+    "templates/app/ohos.tmpl/entry/src/main/resources/base/profile/framesconfig.json5",
     "templates/app/ohos.tmpl/entry/src/main/resources/en_US/element/string.json.tmpl",
     "templates/app/ohos.tmpl/entry/src/main/resources/zh_CN/element/string.json.tmpl",
     "templates/app/ohos.tmpl/entry/src/ohosTest/module.json5.tmpl",
