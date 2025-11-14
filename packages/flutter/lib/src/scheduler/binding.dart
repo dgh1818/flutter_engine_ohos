@@ -24,6 +24,7 @@ import 'dart:ui'
 
 import 'package:collection/collection.dart' show HeapPriorityQueue, PriorityQueue;
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 import 'debug.dart';
 import 'priority.dart';
@@ -32,6 +33,17 @@ import 'service_extensions.dart';
 export 'dart:ui' show AppLifecycleState, FrameTiming, TimingsCallback;
 
 export 'priority.dart' show Priority;
+
+enum _LTPOSwitchStatus {
+  // ltpo功能未开启
+  ltpoOff,
+
+  // ltpo功能开启
+  ltpoOn,
+
+  // ltpo功能未初始化
+  ltpoNotInit,
+}
 
 /// Slows down animations by this factor to help in development.
 double get timeDilation => _timeDilation;
@@ -1463,6 +1475,59 @@ mixin SchedulerBinding on BindingBase {
       _FrameCallbackEntry.debugCurrentCallbackStack = null;
       return true;
     }());
+  }
+
+  static const int countdownNumber = 60; // 循环计数60次
+  int _countdown = 1; // 装载初值为1，从60倒计数到1
+  int _lastTranslateVelocity = -1; // 上一次发送的速率值
+  _LTPOSwitchStatus _ltpoSwitchStatus = _LTPOSwitchStatus.ltpoNotInit;
+
+  Future<int> _checkLTPOSwitchStatus() async {
+    return await SystemChannels.nativeVsync
+        .invokeMethod<int>('checkLTPOSwtichState') as int;
+  }
+
+  // 一帧时间内可被调用多次
+  void sendTranslateVelocity(double velocity) {
+    if (_ltpoSwitchStatus == _LTPOSwitchStatus.ltpoNotInit) {
+      _checkLTPOSwitchStatus().then((switchStatus) {
+        _ltpoSwitchStatus = _LTPOSwitchStatus.values[switchStatus];
+      });
+    }
+
+    if (_ltpoSwitchStatus != _LTPOSwitchStatus.ltpoOn) {
+      return;
+    }
+
+    // 动画结束，需要立刻通知到引擎层
+    if (velocity == 0.0) {
+      SystemChannels.nativeVsync.invokeMethod(
+          'sendVelocity', {'type': 'translate', 'velocity': velocity});
+      _lastTranslateVelocity = -1;
+      _countdown = countdownNumber;
+      return;
+    }
+
+    // 动画运行中，剔除相似速率值
+    int velocityInt = velocity.truncate(); // 向下取整数，过滤相似值
+    if (!velocity.isInfinite && _lastTranslateVelocity != velocityInt) {
+      SystemChannels.nativeVsync.invokeMethod(
+          'sendVelocity', {'type': 'translate', 'velocity': velocity});
+      _lastTranslateVelocity = velocityInt;
+      _countdown = countdownNumber;
+      return;
+    }
+
+    // 动画运行中，速率值相似时，周期性发送帧率
+    if (_countdown == 1) {
+      SystemChannels.nativeVsync.invokeMethod(
+          'sendVelocity', {'type': 'translate', 'velocity': velocity});
+      _lastTranslateVelocity = velocityInt;
+      _countdown = countdownNumber;
+    } else {
+      _countdown--;
+    }
+    return;
   }
 }
 

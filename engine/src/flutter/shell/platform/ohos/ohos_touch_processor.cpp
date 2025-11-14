@@ -10,6 +10,7 @@
 #include "flutter/fml/trace_event.h"
 #include "flutter/lib/ui/window/pointer_data_packet.h"
 #include "flutter/shell/platform/ohos/ohos_shell_holder.h"
+#include "flutter/shell/platform/ohos/ohos_vsync_voting_mgr.h"
 
 namespace flutter {
 
@@ -20,6 +21,7 @@ constexpr int TOUCH_EVENT_ADDITIONAL_ATTRIBUTES = 4;
 constexpr int DEFAULT_SCALE_DEVICE_ID = -101;
 constexpr int DEFAULT_SRCOLL_DEVICE_ID = -102;
 constexpr int DEFAULT_PANZOOM_DEVICE_ID = -103;
+constexpr int TOUCH_UP_PERFORMANCE_SECTION = 3000;
 constexpr double ZOOM_IN = 10.0 / 8.0;
 constexpr double ZOOM_OUT = 1.0 / ZOOM_IN;
 
@@ -235,6 +237,7 @@ void OhosTouchProcessor::HandleTouchEvent(
   ohos_shell_holder->GetPlatformView()->DispatchPointerDataPacket(
       std::move(packet));
 
+  VsyncVotingTouchValue(shell_holderID, touchEvent->type);
   // For DFX
   fml::closure task = [timeStampDFX = touchEvent->timeStamp](void) {
     FML_TRACE_EVENT("flutter", "HandleTouchEventUI", "timeStamp", timeStampDFX);
@@ -569,6 +572,55 @@ void OhosTouchProcessor::PlatformViewOnTouchEvent(
              TOUCH_EVENT_ADDITIONAL_ATTRIBUTES;
   auto ohos_shell_holder = reinterpret_cast<OHOSShellHolder*>(shellHolderID);
   ohos_shell_holder->GetPlatformView()->OnTouchEvent(touchPacketString, size);
+}
+
+void OhosTouchProcessor::VsyncVotingTouchValue(int64_t shellHolderID,
+                                               int touchType) {
+  if (touchType == OH_NATIVEXCOMPONENT_UP) {
+    VsyncVotingTouchUp(shellHolderID);
+  } else if (touchType == OH_NATIVEXCOMPONENT_DOWN) {
+    VsyncVotingTouchDown(shellHolderID);
+  }
+  return;
+}
+
+void OhosTouchProcessor::VsyncVotingTouchUp(int64_t shellHolderID) {
+  int64_t upTimestamp = fml::TimePoint::Now().ToEpochDelta().ToMilliseconds();
+  fml::closure task_voting_touch_up = [timestamp = upTimestamp](void) {
+    std::shared_ptr<OhosVsyncVotingMgr> votingMgr =
+        OhosVsyncVotingMgr::GetInstance();
+    if (votingMgr != nullptr) {
+      votingMgr->VoteTouchValue(VVMTouchType::TOUCH_TYPE_UP, timestamp);
+    }
+  };
+
+  fml::closure task_voting_touch_up_3s_later = [timestamp = upTimestamp](void) {
+    std::shared_ptr<OhosVsyncVotingMgr> votingMgr =
+        OhosVsyncVotingMgr::GetInstance();
+    if (votingMgr != nullptr) {
+      votingMgr->VoteTouchValue(VVMTouchType::TOUCH_TYPE_UP_3_SEC_AFTER,
+                                timestamp + TOUCH_UP_PERFORMANCE_SECTION);
+    }
+  };
+  auto ohos_shell_holder = reinterpret_cast<OHOSShellHolder*>(shellHolderID);
+  ohos_shell_holder->GetPlatformView()->RunTask(OhosThreadType::kIO,
+                                                task_voting_touch_up);
+  ohos_shell_holder->GetPlatformView()->RunTask(OhosThreadType::kIO,
+                                                task_voting_touch_up_3s_later,
+                                                TOUCH_UP_PERFORMANCE_SECTION);
+}
+
+void OhosTouchProcessor::VsyncVotingTouchDown(int64_t shellHolderID) {
+  fml::closure task = [](void) {
+    std::shared_ptr<OhosVsyncVotingMgr> votingMgr =
+        OhosVsyncVotingMgr::GetInstance();
+    if (votingMgr != nullptr) {
+      votingMgr->VoteTouchValue(VVMTouchType::TOUCH_TYPE_DOWN, 0);
+    }
+  };
+
+  auto ohos_shell_holder = reinterpret_cast<OHOSShellHolder*>(shellHolderID);
+  ohos_shell_holder->GetPlatformView()->RunTask(OhosThreadType::kIO, task);
 }
 
 void OhosTouchProcessor::HandleMouseEvent(

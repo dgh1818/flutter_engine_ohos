@@ -283,6 +283,14 @@ export default class FlutterEngine implements EngineLifecycleListener {
   getPlatformViewsController(): PlatformViewsController | null {
     return this.platformViewsController;
   }
+
+  getNativeVsyncChannel(): NativeVsyncChannel | null {
+    return this.nativeVsyncChannel;
+  }
+
+  async prefetchFramesCfg(): Promise<void> {
+    FlutterNapi.prefetchFramesCfg();
+  }
 }
 
 export interface EngineLifecycleListener {

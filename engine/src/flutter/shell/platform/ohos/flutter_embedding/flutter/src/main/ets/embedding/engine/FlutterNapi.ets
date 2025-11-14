@@ -776,6 +776,37 @@ export default class FlutterNapi {
   SetDVsyncSwitch(isEnable: boolean): void {
     flutter.nativeSetDVsyncSwitch(this.nativeShellHolderId!, isEnable);
   }
+
+  /*
+  * 发送屏幕滑动速度
+  * @param velocity: 当前屏幕滑动速度
+  */
+  static animationVoting(type: number, velocity: number): void {
+    flutter.nativeAnimationVoting(type, velocity);
+  }
+
+  /*
+  * 发送视频帧数
+  * @param seconds: 秒数
+  * @param frameCount: 一定时间内的帧数
+  */
+  static videoVoting(seconds: number, frameCount: number): void {
+    flutter.nativeVideoVoting(seconds, frameCount);
+  }
+
+  /*
+  * 预加载帧率配置文件
+  */
+  static prefetchFramesCfg(): void {
+    flutter.nativePrefetchFramesCfg();
+  }
+
+  /*
+  * 查询ltpo功能开启状态
+  */
+  static checkLTPOSwitchState(): number {
+    return flutter.nativeCheckLTPOSwitchState();
+  }
 }
 
 export interface AccessibilityDelegate {
