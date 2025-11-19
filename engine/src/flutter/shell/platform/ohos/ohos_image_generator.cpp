@@ -147,10 +147,10 @@ OHOSImageGenerator::OHOSImageGenerator(OH_ImageSourceNative* image_source,
   OH_ImageSourceInfo_Release(info);
   if (rotate_degree_ == 90.f || rotate_degree_ == 270.f) {
     origin_image_info_ = SkImageInfo::Make(
-        height, width, kRGBA_8888_SkColorType, kOpaque_SkAlphaType);
+        height, width, kRGBA_8888_SkColorType, kPremul_SkAlphaType);
   } else {
     origin_image_info_ = SkImageInfo::Make(
-        width, height, kRGBA_8888_SkColorType, kOpaque_SkAlphaType);
+        width, height, kRGBA_8888_SkColorType, kPremul_SkAlphaType);
   }
 
   // this is used for gif.
