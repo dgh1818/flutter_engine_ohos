@@ -219,6 +219,9 @@ static napi_value Init(napi_env env, napi_value exports) {
       DECLARE_NAPI_FUNCTION(
           "nativeCheckLTPOSwitchState",
           flutter::PlatformViewOHOSNapi::nativeCheckLTPOSwitchState),
+      DECLARE_NAPI_FUNCTION(
+          "nativeSetQosOnLowMemory",
+          flutter::PlatformViewOHOSNapi::nativeSetQosOnLowMemory),
   };
 
   FML_DLOG(INFO) << "Init NAPI size=" << sizeof(desc) / sizeof(desc[0]);
