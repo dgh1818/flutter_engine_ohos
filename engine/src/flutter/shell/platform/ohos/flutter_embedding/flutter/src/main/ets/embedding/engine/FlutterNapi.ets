@@ -82,7 +82,7 @@ export default class FlutterNapi {
       Log.e(TAG, "the engine has init");
       return;
     }
-    Log.d(TAG, "HAR_VERSION=" + BuildProfile.HAR_VERSION);
+    Log.w(TAG, "HAR_VERSION=" + BuildProfile.HAR_VERSION);
     Log.d(TAG, JSON.stringify({
       "name": "init, initTimeMillis=" + initTimeMillis,
       "bundlePath": bundlePath,
