@@ -209,3 +209,5 @@ export const nativeVideoVoting: (seconds: number, frameCount: number) => void;
 export const nativePrefetchFramesCfg: () => void;
 
 export const nativeCheckLTPOSwitchState: () => number;
+
+export const nativeSetQosOnLowMemory: (nativeShellHolderId: number, lowMemoryLevel: number) => void;

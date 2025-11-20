@@ -348,6 +348,7 @@ export class FlutterAbility extends UIAbility implements Host {
     if (level === AbilityConstant.MemoryLevel.MEMORY_LEVEL_CRITICAL) {
       this?.delegate?.onLowMemory();
     }
+    this.delegate?.getFlutterNapi()?.SetQosOnLowMemory(level as number);
   }
 
   onConfigurationUpdate(config: Configuration) {

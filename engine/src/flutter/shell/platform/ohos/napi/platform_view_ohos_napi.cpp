@@ -15,6 +15,10 @@
 #include <rawfile/raw_file_manager.h>
 #include <string>
 
+#include "flutter/impeller/renderer/backend/vulkan/context_vk.h"
+#include "impeller/renderer/backend/vulkan/fence_waiter_vk.h"
+#include "impeller/renderer/backend/vulkan/resource_manager_vk.h"
+#include "flutter/shell/platform/ohos/context/ohos_context.h"
 #include "flutter/common/constants.h"
 #include "flutter/fml/make_copyable.h"
 #include "flutter/fml/platform/ohos/hiappevent/ohos_hiappevent.h"
@@ -2801,6 +2805,49 @@ napi_value PlatformViewOHOSNapi::nativeCheckLTPOSwitchState(
   napi_value napiVotingSwitchState;
   napi_create_uint32(env, static_cast<uint32_t>(votingSwitchState), &napiVotingSwitchState);
   return napiVotingSwitchState;
+}
+
+napi_value PlatformViewOHOSNapi::nativeSetQosOnLowMemory(
+    napi_env env,
+    napi_callback_info info) {
+  size_t argc = 2;
+  napi_value result;
+  napi_value args[2] = {nullptr};
+  int64_t shell_holder, lowMemoryLevel;
+
+  NAPI_CALL(env, napi_get_cb_info(env, info, &argc, args, nullptr, nullptr));
+  NAPI_CALL(env, napi_get_value_int64(env, args[0], &shell_holder));
+  NAPI_CALL(env, napi_get_value_int64(env, args[1], &lowMemoryLevel));
+
+  std::shared_ptr<OHOSContext> ohos_context = OHOS_SHELL_HOLDER
+                                                  ->GetPlatformView()
+                                                  ->GetOHOSContext();
+  if(ohos_context == nullptr) {
+    FML_LOG(ERROR) << "nativeSetQosOnLowMemory ohos_context is nullptr";
+    return nullptr;
+  }
+  if(ohos_context->RenderingApi() != OHOSRenderingAPI::kImpellerVulkan) {
+    return nullptr;
+  }
+
+  std::shared_ptr<impeller::ContextVK> impeller_context_vk =
+      std::static_pointer_cast<impeller::ContextVK>(
+          ohos_context->GetImpellerContext());
+  if (impeller_context_vk != nullptr) {
+    auto fenceWaiter = impeller_context_vk->GetFenceWaiter();
+    if (fenceWaiter == nullptr) {
+      FML_LOG(ERROR) << "nativeSetQosOnLowMemory fenceWaiter is nullptr";
+    } else {
+      fenceWaiter->setQosOnLowMemory(lowMemoryLevel);
+    }
+    auto resourceManager = impeller_context_vk->GetResourceManager();
+    if (resourceManager == nullptr) {
+      FML_LOG(ERROR) << "nativeSetQosOnLowMemory resourceManager is nullptr";
+    } else {
+      resourceManager->setQosOnLowMemory(lowMemoryLevel);
+    }
+  }
+  return nullptr;
 }
 
 }  // namespace flutter

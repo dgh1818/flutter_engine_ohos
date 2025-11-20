@@ -807,6 +807,10 @@ export default class FlutterNapi {
   static checkLTPOSwitchState(): number {
     return flutter.nativeCheckLTPOSwitchState();
   }
+
+  SetQosOnLowMemory(lowMemoryLevel: number): void {
+    flutter.nativeSetQosOnLowMemory(this.nativeShellHolderId!, lowMemoryLevel);
+  }
 }
 
 export interface AccessibilityDelegate {
