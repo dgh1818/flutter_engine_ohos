@@ -18,7 +18,7 @@ import inputMethod from '@ohos.inputMethod';
 import ArrayList from '@ohos.util.ArrayList';
 import { TextEditingDelta, TextEditingDeltaJson } from '../../../plugin/editing/TextEditingDelta';
 import Any from '../../../plugin/common/Any';
-import { display } from '@kit.ArkUI'
+import { display, componentUtils } from '@kit.ArkUI'
 import { window } from '@kit.ArkUI';
 import { BusinessError, print } from '@kit.BasicServicesKit';
 import { PointerDeviceKind } from '../../ohos/OhosTouchProcessor';
@@ -31,7 +31,7 @@ export default class TextInputChannel {
   private static CHANNEL_NAME = "flutter/textinput";
   public channel: MethodChannel;
   textInputMethodHandler: TextInputMethodHandler | null = null;
-  private TextInputCallback: TextInputCallback | null = null;
+  textInputCallback: TextInputCallback | null = null;
 
   constructor(dartExecutor: DartExecutor) {
     this.channel = new MethodChannel(dartExecutor, TextInputChannel.CHANNEL_NAME, JSONMethodCodec.INSTANCE);
@@ -39,9 +39,9 @@ export default class TextInputChannel {
 
   setTextInputMethodHandler(textInputMethodHandler: TextInputMethodHandler | null): void {
     this.textInputMethodHandler = textInputMethodHandler;
-    this.TextInputCallback = this.textInputMethodHandler == null
+    this.textInputCallback = this.textInputMethodHandler == null
       ? null : new TextInputCallback(this.textInputMethodHandler);
-    this.channel.setMethodCallHandler(this.TextInputCallback);
+    this.channel.setMethodCallHandler(this.textInputCallback);
   }
 
   requestExistingInputState(): void {
@@ -154,13 +154,8 @@ export default class TextInputChannel {
 
   }
 
-  public setWindowPosition(windowPosition: window.Rect) {
-    this.TextInputCallback?.setWindowPosition(windowPosition);
-    this.TextInputCallback?.setCursorPosition();
-  }
-
   public setDevicePixelRatio(devicePixelRatio: number) {
-    this.TextInputCallback?.setDevicePixelRatio(devicePixelRatio);
+    this.textInputCallback?.setDevicePixelRatio(devicePixelRatio);
   }
 
   getKeyboardFocusState() {
@@ -473,7 +468,6 @@ export class TextEditState {
 
 class TextInputCallback implements MethodCallHandler {
   textInputMethodHandler: TextInputMethodHandler;
-  windowPosition: window.Rect | null = null;
   cursorPosition: window.Rect = {
     left: 0,
     top: 0,
@@ -481,19 +475,22 @@ class TextInputCallback implements MethodCallHandler {
     height: 0,
   }
   devicePixelRatio = display.getDefaultDisplaySync()?.densityPixels as number;
-  inputPosition: window.Rect = {
+  // 编辑框坐标，不是输入框
+  editInputPosition: ESObject = {
     left: 0,
     top: 0,
-    width: 0,
-    height: 0,
-  }
+    right: 0,
+    bottom: 0,
+  };
+  // XComponent组件的ID
+  viewId: string = '';
 
   constructor(handler: TextInputMethodHandler) {
     this.textInputMethodHandler = handler;
   }
 
-  setWindowPosition(windowPosition: window.Rect) {
-    this.windowPosition = windowPosition;
+  setViewId(viewId: string) {
+    this.viewId = viewId;
   }
 
   setDevicePixelRatio(devicePixelRatio: number) {
@@ -501,13 +498,14 @@ class TextInputCallback implements MethodCallHandler {
   }
 
   setCursorPosition() {
-    const left = (this.windowPosition?.left ?? 0 as number) + (this.cursorPosition.left + this.inputPosition.left) * this.devicePixelRatio;
-    const top = (this.windowPosition?.top ?? 0 as number) + (this.cursorPosition.top + this.inputPosition.top) * this.devicePixelRatio;
+    const XComponentPosition = componentUtils.getRectangleById(this.viewId);
+    const screenOffsetX = XComponentPosition.screenOffset.x;
+    const screenOffsetY = XComponentPosition.screenOffset.y;
     this.textInputMethodHandler.setCursorSizeAndPosition({
-      left: left,
-      top: top,
-      width: 100,
-      height: 50,
+      left: screenOffsetX + (this.cursorPosition.left + this.editInputPosition.left) * this.devicePixelRatio,
+      top: screenOffsetY + (this.cursorPosition.top + this.editInputPosition.top) * this.devicePixelRatio,
+      width: this.cursorPosition.width * this.devicePixelRatio,
+      height: this.cursorPosition.height * this.devicePixelRatio,
     })
   }
 
@@ -562,8 +560,7 @@ class TextInputCallback implements MethodCallHandler {
         this.setCursorPosition();
         break;
       case "TextInput.setEditableSizeAndTransform":
-        this.inputPosition.left = args.get('transform')[12];
-        this.inputPosition.top = args.get('transform')[13];
+        this.saveEditableSizeAndTransform(args.get('width'),args.get('height'),args.get('transform'));
         this.setCursorPosition();
         break;
       case "TextInput.clearClient":
@@ -581,6 +578,43 @@ class TextInputCallback implements MethodCallHandler {
       default:
         result.notImplemented();
         break;
+    }
+  }
+
+  // https://github.com/flutter/flutter/commit/1afb95d156f7f8a087b0adeefb8d21db1b8933fd
+  saveEditableSizeAndTransform(width: number, height: number, transform: Array<number>) {
+    const matrix: Array<number> = transform;
+
+    const minMax: Array<number>  = []; // minX, maxX, minY, maxY.
+    const isAffine = matrix[3] == 0 && matrix[7] == 0 && matrix[15] == 1;
+    minMax[0] = minMax[1] = matrix[12] / matrix[15]; // minX and maxX.
+    minMax[2] = minMax[3] = matrix[13] / matrix[15]; // minY and maxY.
+
+    const temArr: Array<ESObject> = [{x: width, y: 0}, {x:width, y:height}, {x: width, y:height}]
+
+    for (let i = 0 ; i < temArr.length ; i++) {
+      const w = isAffine ? 1 : 1 / (matrix[3] * temArr[i].x + matrix[7] * temArr[i].y + matrix[15]);
+      const tx = (matrix[0] * temArr[i].x + matrix[4] * temArr[i].y + matrix[12]) * w;
+      const ty = (matrix[1] * temArr[i].x + matrix[5] * temArr[i].y + matrix[13]) * w;
+
+      if (tx < minMax[0]) {
+        minMax[0] = tx;
+      } else if (tx > minMax[1]) {
+        minMax[1] = tx;
+      }
+
+      if (ty < minMax[2]) {
+        minMax[2] = ty;
+      } else if (ty > minMax[3]) {
+        minMax[3] = ty;
+      }
+    }
+
+    this.editInputPosition = {
+      left: minMax[0],
+      top: minMax[2],
+      right: minMax[1],
+      bottom: minMax[3]
     }
   }
 }
