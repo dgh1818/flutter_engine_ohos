@@ -113,7 +113,7 @@ void ResourceManagerVK::setQosOnLowMemory(int64_t lowMemoryLevel) {
 }
 
 void ResourceManagerVK::processQosLevel() {
-  if (lowMemoryLevel_ == OHOS_MEMORY_LEVEL_CRITICAL || lowMemoryLevel_ == OHOS_MEMORY_LEVEL_LOW) {
+  if (lowMemoryLevel_ == OHOS_MEMORY_LEVEL_CRITICAL) {
     if (OH_QoS_SetThreadQoS(QoS_Level::QOS_USER_INTERACTIVE) != 0) {
       FML_LOG(ERROR)
           << "Failed to set qos level QOS_USER_INTERACTIVE in IplrVkResMgr thread.";
