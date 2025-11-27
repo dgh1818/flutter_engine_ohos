@@ -19,10 +19,14 @@ thread_local int64_t touchTimestamp = 0;
 static std::shared_ptr<OhosVsyncVotingMgr> instance = nullptr;
 static std::once_flag instanceFlag;
 
-// 标准DPI = 160
+// default is 160 DPI
 static constexpr int32_t PHYSICAL_PIXEL_DENSITY = 160;
 // 1 inch equals 25.4 millimeters
 static constexpr double INCH_2_MILL = 25.4;
+
+static constexpr int32_t TOUCH_MILLIS_TIME_OUT = 3000;
+
+static constexpr int32_t HIGH_FPS_MAINTAINED_TIMES = 3;
 
 static constexpr int32_t FPS_120 = 120;
 static constexpr int32_t FPS_90 = 90;
@@ -56,6 +60,7 @@ std::shared_ptr<OhosVsyncVotingMgr> OhosVsyncVotingMgr::GetInstance(void) {
 OhosVsyncVotingMgr::OhosVsyncVotingMgr()
     : asset_provider_(nullptr), libHandle_(nullptr) {
   switchStatus_ = LTPOSwitchState::LTPO_SWITCH_NOT_INIT;
+  animationVotingVsyncTimes_ = HIGH_FPS_MAINTAINED_TIMES;
   libHandle_ = dlopen(LIB_NATIVE_VSYNC_NAME, RTLD_LAZY | RTLD_LOCAL);
   if (libHandle_ == nullptr) {
     FML_LOG(ERROR) << "Failed to dlopen libnative_vsync.so";
@@ -82,7 +87,6 @@ OhosVsyncVotingMgr::~OhosVsyncVotingMgr() {
 void OhosVsyncVotingMgr::VoteAnimationValue(AnimationType ANType,
                                             double devicePixelRatio,
                                             double velocity) {
-  // 接口不存在或ltpo未使能
   if (libHandle_ == nullptr || switchStatus_ != LTPOSwitchState::LTPO_SWITCH_ON) {
     return;
   }
@@ -107,12 +111,9 @@ void OhosVsyncVotingMgr::VoteAnimationValue(AnimationType ANType,
 }
 
 void OhosVsyncVotingMgr::VoteTouchValue(VVMTouchType type, int64_t timestamp) {
-  // 接口不存在或ltpo未使能
   if (libHandle_ == nullptr || switchStatus_ != LTPOSwitchState::LTPO_SWITCH_ON) {
     return;
   }
-
-  const int TouchTimeOut_ = 3000;
 
   switch (type) {
     case VVMTouchType::TOUCH_TYPE_DOWN:
@@ -127,12 +128,11 @@ void OhosVsyncVotingMgr::VoteTouchValue(VVMTouchType type, int64_t timestamp) {
       VotingBySelf();
       break;
     case VVMTouchType::TOUCH_TYPE_UP_3_SEC_AFTER:
-      // 避免连续抛滑出现touch失效
+      // During the continuous swiping process, maintain a stable frame rate(FPS).
       if (isTouchDown_) {
         break;
       }
-      // 取最后一次手指抬起后的时间
-      if (timestamp - touchTimestamp >= TouchTimeOut_) {
+      if (timestamp - touchTimestamp >= TOUCH_MILLIS_TIME_OUT) {
         touchVoting_.store(0);
         VotingBySelf();
       }
@@ -144,7 +144,6 @@ void OhosVsyncVotingMgr::VoteTouchValue(VVMTouchType type, int64_t timestamp) {
 }
 
 void OhosVsyncVotingMgr::VoteVideoValue(int second, int frameCount) {
-  // 接口不存在或ltpo未使能
   if (libHandle_ == nullptr || switchStatus_ != LTPOSwitchState::LTPO_SWITCH_ON) {
     return;
   }
@@ -163,14 +162,14 @@ void OhosVsyncVotingMgr::VoteVideoValue(int second, int frameCount) {
 }
 
 void OhosVsyncVotingMgr::VoteANTranslate(double velocity) {
-  // 一个vsync周期内取动画速率最大值进行帧率投票
+  // Determine the maximum velocity withthin one vsync. 
   if (velocity < curAnimationTranslateVelocity_) {
     return;
   }
 
   curAnimationTranslateVelocity_ = velocity;
 
-  // 认为帧率60是静置的，当速率为0或其他速率范围时，默认60刷新率
+  // default frame rate is 60
   int expectedRateTmp = FPS_60;
   size_t framesSetSize = framesSet.size();
   for (std::vector<std::map<string, int>>::iterator it = framesSet.begin();
@@ -181,16 +180,11 @@ void OhosVsyncVotingMgr::VoteANTranslate(double velocity) {
     }
   }
 
-  if (expectedRateTmp == PlatformViewOHOSNapi::display_refresh_rate) {
-    return;
-  }
-
-  animationVoting_.store(expectedRateTmp);
+  animationVotingTemp_.store(expectedRateTmp);
 }
 
 void OhosVsyncVotingMgr::AttachNativeVsync(string handleName,
                                            OH_NativeVSync* handle) {
-  // 接口不存在
   if (libHandle_ == nullptr) {
     FML_LOG(ERROR) << "libHandle is null, or ltpo is not enabled";
     return;
@@ -211,7 +205,6 @@ void OhosVsyncVotingMgr::DettachNativeVsync(string handleName) {
 }
 
 void OhosVsyncVotingMgr::VotingByNativeVsync(OH_NativeVSync* handle) {
-  // 接口不存在或ltpo未使能
   if (libHandle_ == nullptr || switchStatus_ != LTPOSwitchState::LTPO_SWITCH_ON ||
       setExpectedFrameRateRangeFunc_ == nullptr) {
     return;
@@ -221,6 +214,23 @@ void OhosVsyncVotingMgr::VotingByNativeVsync(OH_NativeVSync* handle) {
     return;
   }
 
+  // The high frame rate transitions to low frame rate
+  // using a slowly decreasing method.
+  // HIGH_FPS_MAINTAINED_TIMES represents the number of vsync during
+  // the high frame rate transitions to low frame rate.
+  int animationVotingTemp = animationVotingTemp_.load();
+  if (animationVotingTemp < animationVoting_.load()) {
+    animationVotingVsyncTimes_--;
+  } else {
+    animationVotingVsyncTimes_ = HIGH_FPS_MAINTAINED_TIMES;
+    animationVoting_.store(animationVotingTemp);
+  }
+
+  if (animationVotingVsyncTimes_ <= 0) {
+    animationVotingVsyncTimes_ = HIGH_FPS_MAINTAINED_TIMES;
+    animationVoting_.store(animationVotingTemp);
+  }
+
   int resultFrameRate = 0;
 
   if (animationVoting_.load() != 0 && !isTouchDown_) {
@@ -230,29 +240,30 @@ void OhosVsyncVotingMgr::VotingByNativeVsync(OH_NativeVSync* handle) {
   } else if (videoVoting_.load() != 0) {
     resultFrameRate = videoVoting_.load();
   }
-
-  // 清空缓存
   curAnimationTranslateVelocity_ = 0.0;
 
-  // ltpo投票的情况下，判断platformview是否存在，需要在此清除isPlatformViewExist_存在的标识
+  // When PlatformView exists, either do not vote on the frame rate
+  // or only vote for a frame rate of 120.
+  // The flag isPlatformViewExist_ should be reset by NativeVsync.
   if (isPlatformViewExist_.load()) {
-    // 存在则强制拉高到120帧率
     if (resultFrameRate != 0) {
       resultFrameRate = FPS_120;
     }
-    // 只在每个vsync信号期间，去清除isPlatformViewExist_标识
     isPlatformViewExist_.store(false);
   }
 
+  // When there is no touch event on the screen for 3 seconds,
+  // the frame rate changes to 60.
+  if (touchVoting_.load() == 0) {
+    resultFrameRate = FPS_60;
+  }
   if (resultFrameRate == 0 && resultFrameRate == localFrameRate_) {
     return;
   }
-
   if (resultFrameRate == PlatformViewOHOSNapi::display_refresh_rate &&
       resultFrameRate == localFrameRate_) {
     return;
   }
-
   localFrameRate_ = resultFrameRate;
 
   int min = 0;
@@ -261,37 +272,30 @@ void OhosVsyncVotingMgr::VotingByNativeVsync(OH_NativeVSync* handle) {
     min = FPS_30;
     max = FPS_120;
   }
-
   std::ostringstream oss;
   oss << "{" << min << "," << max << "," << resultFrameRate << "}";
   std::string rangeStr = oss.str();
   FML_DLOG(INFO) << "SetExpectedFrameRateRange : " << rangeStr.c_str();
   TRACE_EVENT1("flutter", "SetExpectedFrameRateRange", "range",
                rangeStr.c_str());
-
   OH_NativeVSync_ExpectedRateRange range = {min, max, resultFrameRate};
 
   int ret = setExpectedFrameRateRangeFunc_(handle, &range);
   if (ret != 0) {
     FML_LOG(ERROR) << "SetExpectedFrameRateRange failed, ret = " << ret;
   }
-
   return;
 }
 
 void OhosVsyncVotingMgr::VotingBySelf() {
-  // 接口不存在或ltpo未使能
   if (libHandle_ == nullptr || switchStatus_ != LTPOSwitchState::LTPO_SWITCH_ON ||
       setExpectedFrameRateRangeFunc_ == nullptr) {
     return;
   }
-
   if (nativeVsyncMap_.size() == 0) {
     return;
   }
-
   int resultFrameRate = 0;
-
   if (animationVoting_.load() != 0 && !isTouchDown_) {
     resultFrameRate = animationVoting_.load();
   } else if (touchVoting_.load() != 0) {
@@ -299,29 +303,29 @@ void OhosVsyncVotingMgr::VotingBySelf() {
   } else if (videoVoting_.load() != 0) {
     resultFrameRate = videoVoting_.load();
   }
-
-  // 清空缓存
   curAnimationTranslateVelocity_ = 0.0;
-  if (touchVoting_.load() == 0) {
-    // 触摸事件触发时，需要判断是否需要清空动画的帧率投票
-    animationVoting_.store(0);
-  }
 
-  // ltpo投票的情况下，判断platformview是否存在
+  // When PlatformView exists, either do not vote on the frame rate
+  // or only vote for a frame rate of 120.
+  // The flag isPlatformViewExist_ should be reset by NativeVsync.
   if (resultFrameRate != 0 && isPlatformViewExist_.load()) {
-    // 存在则强制拉高到120帧率
-    resultFrameRate = 120;
+    resultFrameRate = FPS_120;
   }
-
+  if (touchVoting_.load() == 0) {
+    // After the voting event triggered by a touch event ends,
+    // the voting event for the animation event should be canceled.
+    animationVoting_.store(0);
+    // When there is no touch event on the screen for 3 seconds,
+    // the frame rate changes to 60.
+    resultFrameRate = FPS_60;
+  }
   if (resultFrameRate == 0 && resultFrameRate == localFrameRate_) {
     return;
   }
-
   if (resultFrameRate == PlatformViewOHOSNapi::display_refresh_rate &&
       resultFrameRate == localFrameRate_) {
     return;
   }
-
   localFrameRate_ = resultFrameRate;
 
   int min = 0;
@@ -330,14 +334,12 @@ void OhosVsyncVotingMgr::VotingBySelf() {
     min = FPS_30;
     max = FPS_120;
   }
-
   std::ostringstream oss;
   oss << "{" << min << "," << max << "," << resultFrameRate << "}";
   std::string rangeStr = oss.str();
   FML_LOG(INFO) << "BySelf SetExpectedFrameRateRange : " << rangeStr.c_str();
   TRACE_EVENT1("flutter", "BySelf SetExpectedFrameRateRange", "range",
                rangeStr.c_str());
-
   OH_NativeVSync_ExpectedRateRange range = {min, max, resultFrameRate};
 
   int ret = 0;
@@ -389,7 +391,6 @@ void OhosVsyncVotingMgr::ParseTranslate(const Json::Value& arr) {
 }
 
 void OhosVsyncVotingMgr::ParseFramesCfg(void) {
-  // 接口不存在
   if (libHandle_ == nullptr) {
     FML_LOG(ERROR) << "libHandle is null";
     switchStatus_ = LTPOSwitchState::LTPO_SWITCH_OFF;
@@ -450,7 +451,8 @@ int OhosVsyncVotingMgr::ParseFramesCfgImpl(void) {
   if (root.isMember(SWITCH_KEY)) {
     if (root[SWITCH_KEY].isNumeric()) {
       switchValue = root[SWITCH_KEY].asUInt();
-      FML_LOG(INFO) << "vsync_voting_mgr switchValue = " << switchValue;
+      // for DFX
+      FML_LOG(WARNING) << "vsync_voting_mgr switchValue = " << switchValue;
     } else {
       FML_LOG(ERROR) << "Failed to parse key of SWITCH";
       return RET_FAILED;
@@ -485,7 +487,7 @@ void OhosVsyncVotingMgr::SetAssetProvider(
   }
 
   if (asset_provider_ != nullptr) {
-    FML_LOG(ERROR) << "asset_provider is not null";
+    FML_LOG(WARNING) << "asset_provider already init";
     return;
   }
 
@@ -501,6 +503,10 @@ void OhosVsyncVotingMgr::SetPlatformViewExist(bool isExist) {
 }
 
 LTPOSwitchState OhosVsyncVotingMgr::CheckVotingSwitchState(void) {
+  // for DFX
+  if (switchStatus_ == LTPOSwitchState::LTPO_SWITCH_ON) {
+    FML_LOG(WARNING) << "VotingSwitchState is on.";
+  }
   return switchStatus_;
 }
 }  // namespace flutter

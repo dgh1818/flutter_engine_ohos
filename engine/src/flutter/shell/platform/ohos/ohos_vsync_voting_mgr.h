@@ -86,10 +86,17 @@ class OhosVsyncVotingMgr {
   void ParseTranslate(const Json::Value& arr);
 
  private:
+  // The expected voting frame rate from animation.
   atomic<int> animationVoting_ = 0;
 
+  // The temporary voting frame rate from animation.
+  // Needed to further decide on the final frame rate of the animation.
+  atomic<int> animationVotingTemp_ = 0;
+
+  // The expected voting frame rate from touch event.
   atomic<int> touchVoting_ = 0;
 
+  // The expected voting frame rate from video.
   atomic<int> videoVoting_ = 0;
 
   atomic<bool> isPlatformViewExist_ = false;
@@ -110,8 +117,12 @@ class OhosVsyncVotingMgr {
 
   vector<map<string, int>> framesSet;
 
+  int animationVotingVsyncTimes_ = 0;
+
+  // pointing to the lib of OH_NativeVSync_SetExpectedFrameRateRange
   void* libHandle_;
 
+  // call the OH_NativeVSync_SetExpectedFrameRateRange function
   SetExpectedFrameRateRangeFunc_ setExpectedFrameRateRangeFunc_ = nullptr;
 };  // class OhosVsyncVotingMgr
 
