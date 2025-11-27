@@ -234,8 +234,15 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     this.mEditable.setIsCursorIdxOutOfPreviewTextRange(false);
     this.mEditable.updateTextInputState(editingState);
     // notify current cursor index or selection range to the InputMethodFramework
-    this.inputMethodController.changeSelection(editingState.text,
-      editingState.selectionStart, editingState.selectionEnd);
+    this.inputMethodController.changeSelection("",
+      -1, -1, (err: BusinessError) => {
+        if (err) {
+          Log.e(TextInputMethodHandlerImpl.TAG, `Failed to changeSelection, code: ${err.code}, message: ${err.message}`);
+          return;
+        }
+        this.inputMethodController.changeSelection(editingState.text,
+          editingState.selectionStart, editingState.selectionEnd);
+      });
     if (sdkApiVersion >= PREIVEW_TEXT_SUPPORT_API) {
       this.previewTextChangeSelection(editingState);
     }
