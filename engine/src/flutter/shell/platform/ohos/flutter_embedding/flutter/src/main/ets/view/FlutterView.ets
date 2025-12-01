@@ -298,17 +298,27 @@ export class FlutterView {
   }
 
   private avoidAreaChangeCallback = (data: window.AvoidAreaOptions) => {
-    Log.i(TAG, "avoidAreaChangeCallback type:" + data.type);
-    if (data.type == window.AvoidAreaType.TYPE_SYSTEM) { //0
-      this.systemAvoidArea = data.area;
-    } else if (data.type == window.AvoidAreaType.TYPE_SYSTEM_GESTURE) { //2
-      this.gestureAvoidArea = data.area;
-    } else if (data.type == window.AvoidAreaType.TYPE_KEYBOARD) { //3
-      if (this.flutterEngine?.getTextInputChannel()?.getKeyboardFocusState()) {
-        this.keyboardAvoidArea = data.area;
-      }
-    } else if (data.type == window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR) { //4
-      this.navigationAvoidArea = data.area;
+    Log.i(TAG, "avoidAreaChangeCallback, type=" + data.type + ", area=" + JSON.stringify(data.area));
+
+    switch (data.type) {
+      case window.AvoidAreaType.TYPE_SYSTEM:
+        this.systemAvoidArea = data.area;
+        break;
+      case window.AvoidAreaType.TYPE_SYSTEM_GESTURE:
+        this.gestureAvoidArea = data.area;
+        break;
+      case window.AvoidAreaType.TYPE_KEYBOARD:
+        if (this.flutterEngine?.getTextInputChannel()?.getKeyboardFocusState()) {
+          this.keyboardAvoidArea = data.area;
+        } else {
+          this.keyboardAvoidArea.bottomRect = { left: 0, top: 0, width: 0, height: 0 };
+        }
+        break;
+      case window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR:
+        this.navigationAvoidArea = data.area;
+        break;
+      default:
+        break;
     }
     if (this.isAttachedToFlutterEngine()) {
       this.onAreaChange(null);
