@@ -362,7 +362,14 @@ export class FlutterView {
   getId(): string {
     return this.id;
   }
+  
+  setActive(value: boolean): void {
+    this.isActive = value;
+  }
 
+  getActive(): boolean {
+    return this.isActive;
+  }
   setSurfaceId(surfaceId: string): void {
     this.surfaceId = surfaceId;
   }
