@@ -56,6 +56,14 @@ class PrecacheCommand extends FlutterCommand {
       hide: !verboseHelp,
     );
     argParser.addFlag('ios', help: 'Precache artifacts for iOS development.');
+    argParser.addFlag('ohos',
+        help: 'Precache artifacts for ohos development.');
+    argParser.addFlag('ohos_gen_snapshot',
+        help: 'Precache gen_snapshot for ohos development.',
+        hide: !verboseHelp);
+    argParser.addFlag('ohos_internal_build',
+        help: 'Precache dependencies for internal ohos development.',
+        hide: !verboseHelp);
     argParser.addFlag('web', help: 'Precache artifacts for web development.');
     argParser.addFlag('linux', help: 'Precache artifacts for Linux desktop development.');
     argParser.addFlag('windows', help: 'Precache artifacts for Windows desktop development.');
@@ -108,6 +116,7 @@ class PrecacheCommand extends FlutterCommand {
   /// Some flags are umbrella names that expand to include multiple artifacts.
   static const _expandedArtifacts = <String, List<String>>{
     'android': <String>['android_gen_snapshot', 'android_maven', 'android_internal_build'],
+    'ohos': <String>['ohos_gen_snapshot', 'ohos_internal_build'],
   };
 
   /// Returns a reverse mapping of _expandedArtifacts, from child artifact name

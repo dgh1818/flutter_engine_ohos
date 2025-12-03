@@ -66,16 +66,23 @@ class KHRSwapchainImplVK final
 
   std::optional<ISize> GetCurrentUnderlyingSurfaceSize() const;
 
+  uint32_t GetCurrentImageIndex() { return current_image_index_; };
+
+  void SetRenderArea(std::optional<IRect> area) { render_area_ = area; };
+
  private:
   std::weak_ptr<Context> context_;
   vk::UniqueSurfaceKHR surface_;
   vk::Format surface_format_ = vk::Format::eUndefined;
   vk::UniqueSwapchainKHR swapchain_;
+  uint32_t current_image_index_ = 0;
   std::shared_ptr<SwapchainTransientsVK> transients_;
   std::vector<std::shared_ptr<KHRSwapchainImageVK>> images_;
   std::vector<std::unique_ptr<KHRFrameSynchronizerVK>> synchronizers_;
   size_t current_frame_ = 0u;
   ISize size_;
+  std::optional<IRect> render_area_;
+  bool support_present_damage_ = false;
   bool enable_msaa_ = true;
   bool is_valid_ = false;
 

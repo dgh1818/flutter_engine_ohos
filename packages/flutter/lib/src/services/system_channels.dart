@@ -594,4 +594,8 @@ abstract final class SystemChannels {
   ///  * `isSupported`: Returns whether or not setting content sensitivity levels is supported on the
   ///     device.
   static const MethodChannel sensitiveContent = OptionalMethodChannel('flutter/sensitivecontent');
+
+  static const MethodChannel nativeVsync = MethodChannel(
+    'flutter/nativevsync'
+  );
 }

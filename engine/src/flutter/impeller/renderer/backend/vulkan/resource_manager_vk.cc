@@ -8,6 +8,10 @@
 #include "flutter/fml/thread.h"
 #include "flutter/fml/trace_event.h"
 #include "fml/logging.h"
+#ifdef FML_OS_OHOS
+#include <qos/qos.h>
+#include <sys/resource.h>
+#endif
 
 namespace impeller {
 
@@ -45,6 +49,14 @@ void ResourceManagerVK::Start() {
 
   bool should_exit = false;
   while (!should_exit) {
+
+#ifdef FML_OS_OHOS
+  if (lowMemoryEventNum_ > 0) {
+    processQosLevel();
+    lowMemoryEventNum_--;
+  }
+#endif
+
     std::unique_lock lock(reclaimables_mutex_);
 
     // Wait until there are reclaimable resource or if the manager should be
@@ -93,5 +105,27 @@ void ResourceManagerVK::Terminate() {
   }
   reclaimables_cv_.notify_one();
 }
+
+#ifdef FML_OS_OHOS
+void ResourceManagerVK::setQosOnLowMemory(int64_t lowMemoryLevel) {
+  lowMemoryLevel_ = lowMemoryLevel;
+  lowMemoryEventNum_++;
+}
+
+void ResourceManagerVK::processQosLevel() {
+  if (lowMemoryLevel_ == OHOS_MEMORY_LEVEL_CRITICAL) {
+    if (OH_QoS_SetThreadQoS(QoS_Level::QOS_USER_INTERACTIVE) != 0) {
+      FML_LOG(ERROR)
+          << "Failed to set qos level QOS_USER_INTERACTIVE in IplrVkResMgr thread.";
+    }
+  } else {
+    if (OH_QoS_SetThreadQoS(QoS_Level::QOS_DEADLINE_REQUEST) != 0 ||
+        ::setpriority(PRIO_PROCESS, gettid(), -20) != 0) { // -20实际代表线程默认优先级
+      FML_LOG(ERROR)
+          << "Failed to set qos level QOS_DEADLINE_REQUEST in IplrVkResMgr thread.";
+    }
+  }
+}
+#endif
 
 }  // namespace impeller

@@ -99,6 +99,7 @@ class _ActionIcon extends StatelessWidget {
       case TargetPlatform.windows:
       case TargetPlatform.iOS:
       case TargetPlatform.macOS:
+      case TargetPlatform.ohos:
         semanticsLabel = null;
     }
 
@@ -139,6 +140,7 @@ class BackButtonIcon extends StatelessWidget {
           case TargetPlatform.fuchsia:
           case TargetPlatform.linux:
           case TargetPlatform.windows:
+          case TargetPlatform.ohos:
             return Icons.arrow_back;
           case TargetPlatform.iOS:
           case TargetPlatform.macOS:

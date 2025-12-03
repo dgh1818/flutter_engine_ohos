@@ -307,7 +307,8 @@ class SelectableRegion extends StatefulWidget {
       TargetPlatform.macOS ||
       TargetPlatform.fuchsia ||
       TargetPlatform.linux ||
-      TargetPlatform.windows => false,
+      TargetPlatform.windows ||
+      TargetPlatform.ohos => false,
       // TODO(bleroux): the share button should be shown on iOS but the share
       // functionality requires some changes on the engine side because, on iPad,
       // it needs an anchor for the popup.
@@ -462,6 +463,7 @@ class SelectableRegionState extends State<SelectableRegion>
       case TargetPlatform.android:
       case TargetPlatform.iOS:
         break;
+      case TargetPlatform.ohos:
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
       case TargetPlatform.macOS:
@@ -608,6 +610,7 @@ class SelectableRegionState extends State<SelectableRegion>
                   ? maxConsecutiveTap
                   : rawCount % maxConsecutiveTap);
       case TargetPlatform.linux:
+      case TargetPlatform.ohos:
         // From observation, these platforms reset their tap count to 0 when
         // the number of consecutive taps exceeds the max consecutive tap supported.
         // For example on Debian Linux with GTK, when going past a triple click,
@@ -724,6 +727,7 @@ class SelectableRegionState extends State<SelectableRegion>
           case TargetPlatform.android:
           case TargetPlatform.fuchsia:
           case TargetPlatform.iOS:
+          case TargetPlatform.ohos:
             // On mobile platforms the selection is set on tap up for the first
             // tap.
             break;
@@ -764,6 +768,7 @@ class SelectableRegionState extends State<SelectableRegion>
           case TargetPlatform.macOS:
           case TargetPlatform.linux:
           case TargetPlatform.windows:
+          case TargetPlatform.ohos:
             _selectWordAt(offset: details.globalPosition);
             _selectionStatusNotifier.value = SelectableRegionSelectionStatus.changing;
         }
@@ -772,6 +777,7 @@ class SelectableRegionState extends State<SelectableRegion>
           case TargetPlatform.android:
           case TargetPlatform.fuchsia:
           case TargetPlatform.iOS:
+          case TargetPlatform.ohos:
             if (details.kind != null && _isPrecisePointerDevice(details.kind!)) {
               // Triple tap on static text is only supported on mobile
               // platforms using a precise pointer device.
@@ -814,6 +820,7 @@ class SelectableRegionState extends State<SelectableRegion>
         switch (defaultTargetPlatform) {
           case TargetPlatform.android:
           case TargetPlatform.fuchsia:
+          case TargetPlatform.ohos:
             // Double tap + drag is only supported on Android when using a precise
             // pointer device or when not on the web.
             if (!kIsWeb || details.kind != null && _isPrecisePointerDevice(details.kind!)) {
@@ -858,6 +865,7 @@ class SelectableRegionState extends State<SelectableRegion>
           case TargetPlatform.android:
           case TargetPlatform.fuchsia:
           case TargetPlatform.iOS:
+          case TargetPlatform.ohos:
             // Triple tap + drag is only supported on mobile devices when using
             // a precise pointer device.
             if (details.kind != null && _isPrecisePointerDevice(details.kind!)) {
@@ -893,6 +901,7 @@ class SelectableRegionState extends State<SelectableRegion>
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
       case TargetPlatform.fuchsia:
+      case TargetPlatform.ohos:
         if (shouldShowSelectionOverlayOnMobile) {
           _showHandles();
           _showToolbar();
@@ -931,6 +940,7 @@ class SelectableRegionState extends State<SelectableRegion>
           case TargetPlatform.android:
           case TargetPlatform.fuchsia:
           case TargetPlatform.iOS:
+          case TargetPlatform.ohos:
             hideToolbar();
             _collapseSelectionAt(offset: details.globalPosition);
             _selectionStatusNotifier.value = SelectableRegionSelectionStatus.changing;
@@ -944,6 +954,7 @@ class SelectableRegionState extends State<SelectableRegion>
         switch (defaultTargetPlatform) {
           case TargetPlatform.android:
           case TargetPlatform.fuchsia:
+          case TargetPlatform.ohos:
             if (!isPointerPrecise) {
               // On Android, a double tap will only show the selection overlay after
               // the following tap up when the pointer device kind is not precise.
@@ -1033,6 +1044,7 @@ class SelectableRegionState extends State<SelectableRegion>
       case TargetPlatform.android:
       case TargetPlatform.fuchsia:
       case TargetPlatform.windows:
+      case TargetPlatform.ohos:
         // If _lastSecondaryTapDownPosition is within the current selection then
         // keep the current selection, if not then collapse it.
         final bool lastSecondaryTapDownPositionWasOnActiveSelection = _positionIsOnActiveSelection(
@@ -1701,9 +1713,9 @@ class SelectableRegionState extends State<SelectableRegion>
         switch (defaultTargetPlatform) {
           case TargetPlatform.android:
           case TargetPlatform.fuchsia:
+          case TargetPlatform.ohos:
             clearSelection();
             _selectionStatusNotifier.value = SelectableRegionSelectionStatus.changing;
-            _finalizeSelectableRegionStatus();
           case TargetPlatform.iOS:
             hideToolbar(false);
           case TargetPlatform.linux:
@@ -1717,6 +1729,7 @@ class SelectableRegionState extends State<SelectableRegion>
           case TargetPlatform.android:
           case TargetPlatform.iOS:
           case TargetPlatform.fuchsia:
+          case TargetPlatform.ohos:
             selectAll(SelectionChangedCause.toolbar);
           case TargetPlatform.linux:
           case TargetPlatform.macOS:
@@ -1732,6 +1745,7 @@ class SelectableRegionState extends State<SelectableRegion>
         switch (defaultTargetPlatform) {
           case TargetPlatform.android:
           case TargetPlatform.fuchsia:
+          case TargetPlatform.ohos:
             clearSelection();
             _selectionStatusNotifier.value = SelectableRegionSelectionStatus.changing;
             _finalizeSelectableRegionStatus();

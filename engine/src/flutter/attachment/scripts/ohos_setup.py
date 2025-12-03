@@ -1,0 +1,58 @@
+# Copyright (c) 2023 Hunan OpenValley Digital Industry Development Co., Ltd. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE_KHZG file.
+
+#!/usr/bin/python
+import sys
+import json
+import file_util
+import sub_process_with_timeout
+import os
+"""
+在gclient中hook中配置执行
+职责如下：
+1.解析config.json
+2.拷贝repos下文件，覆盖执行路径目录
+3.修改DEPS,忽视dart、angle、skia的同步
+"""
+
+ROOT = './src/flutter/attachment'
+REPOS_ROOT = ROOT + '/repos'
+
+
+def stashChanges(task, log):
+  if task['type'] != 'patch':
+    return
+  target_path = task['target']
+  sub_process_with_timeout.excuteArr(['git', 'add', '-A'], target_path, log)
+  sub_process_with_timeout.excuteArr(['git', 'stash', 'save', 'Auto stash by ohos_setup.py'],
+                                     target_path, log)
+
+
+def doTask(task, log=False):
+  sourceFile = "{}/repos/{}".format(ROOT, task['name'])
+  targetFile = task['target']
+  if (task['type'] == 'dir'):
+    file_util.copy_dir(sourceFile, targetFile, log)
+  elif (task['type'] == 'files'):
+    file_util.copy_files(sourceFile, targetFile, log)
+  elif (task['type'] == 'file'):
+    file_util.copy_file(sourceFile, targetFile, log)
+
+
+def parse_config(config_file="{}/scripts/config.json".format(ROOT), useStash=True):
+  log = False
+  if (len(sys.argv) > 1):
+    if (sys.argv[1] == '-v'):
+      log = True
+  with open(config_file) as json_file:
+    data = json.load(json_file)
+    if useStash:
+      for task in data:
+        stashChanges(task, log)
+    for task in data:
+      doTask(task, log)
+
+
+if __name__ == "__main__":
+  parse_config()

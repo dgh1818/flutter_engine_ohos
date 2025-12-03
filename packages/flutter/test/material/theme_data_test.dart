@@ -131,6 +131,7 @@ void main() {
     (WidgetTester tester) async {
       final ThemeData themeData = ThemeData(platform: defaultTargetPlatform);
       switch (defaultTargetPlatform) {
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
         case TargetPlatform.iOS:
@@ -980,6 +981,7 @@ void main() {
       final ThemeData theme = ThemeData(useMaterial3: false);
 
       switch (debugDefaultTargetPlatformOverride!) {
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.iOS:
         case TargetPlatform.fuchsia:
@@ -996,6 +998,7 @@ void main() {
     'VisualDensity.adaptivePlatformDensity returns adaptive values',
     (WidgetTester tester) async {
       switch (debugDefaultTargetPlatformOverride!) {
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.iOS:
         case TargetPlatform.fuchsia:
@@ -1037,6 +1040,7 @@ void main() {
     (WidgetTester tester) async {
       final ThemeData themeData = ThemeData();
       switch (debugDefaultTargetPlatformOverride!) {
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.iOS:
         case TargetPlatform.fuchsia:

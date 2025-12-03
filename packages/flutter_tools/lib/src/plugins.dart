@@ -164,6 +164,15 @@ class Plugin {
       );
     }
 
+    if (_providesImplementationForPlatform(platformsYaml, OhosPlugin.kConfigKey)) {
+      platforms[OhosPlugin.kConfigKey] = OhosPlugin.fromYaml(
+        name,
+        platformsYaml[OhosPlugin.kConfigKey] as YamlMap,
+        path,
+        fileSystem,
+      );
+    }
+
     // TODO(stuartmorgan): Consider merging web into this common handling; the
     //  fact that its implementation of Dart-only plugins and default packages
     //  are separate is legacy.
@@ -173,6 +182,7 @@ class Plugin {
       LinuxPlugin.kConfigKey,
       MacOSPlugin.kConfigKey,
       WindowsPlugin.kConfigKey,
+      OhosPlugin.kConfigKey,
     ];
     final defaultPackages = <String, String>{};
     final dartPluginClasses = <String, DartPluginClassAndFilePair>{};
@@ -344,6 +354,8 @@ class Plugin {
       if (isInvalid(MacOSPlugin.kConfigKey, MacOSPlugin.validate))
         'Invalid "macos" plugin specification.',
       if (isInvalid(WindowsPlugin.kConfigKey, WindowsPlugin.validate))
+        'Invalid "windows" plugin specification.',
+      if (isInvalid(OhosPlugin.kConfigKey, OhosPlugin.validate))
         'Invalid "windows" plugin specification.',
     ];
   }

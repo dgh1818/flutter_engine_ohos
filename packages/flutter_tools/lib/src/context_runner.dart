@@ -54,6 +54,12 @@ import 'macos/macos_workflow.dart';
 import 'macos/xcdevice.dart';
 import 'macos/xcode.dart';
 import 'mdns_discovery.dart';
+import 'ohos/hvigor.dart';
+import 'ohos/hvigor_utils.dart';
+import 'ohos/ohos_builder.dart';
+import 'ohos/ohos_doctor.dart';
+import 'ohos/ohos_sdk.dart';
+import 'ohos/ohos_workflow.dart';
 import 'persistent_tool_state.dart';
 import 'reporting/crash_reporting.dart';
 import 'reporting/first_run.dart';
@@ -112,6 +118,18 @@ Future<T> runInContext<T>(FutureOr<T> Function() runner, {Map<Type, Generator>? 
         stdio: globals.stdio,
       ),
       AndroidSdk: AndroidSdk.locateAndroidSdk,
+      OhosSdk: OhosSdk.localOhosSdk,
+      HmosSdk: HmosSdk.localHmosSdk,
+      HarmonySdk: HarmonySdk.locateHarmonySdk,
+      OhosBuilder:()=> OhosHvigorBuilder(
+        logger: globals.logger,
+        processManager: globals.processManager,
+        fileSystem: globals.fs,
+        artifacts: globals.artifacts!,
+        usage: globals.flutterUsage,
+        hvigorUtils: globals.hvigorUtils!,
+        platform: globals.platform,
+      ),
       AndroidStudio: AndroidStudio.latestValid,
       AndroidValidator: () => AndroidValidator(
         java: globals.java,
@@ -135,6 +153,17 @@ Future<T> runInContext<T>(FutureOr<T> Function() runner, {Map<Type, Generator>? 
         cache: globals.cache,
         platform: globals.platform,
         operatingSystemUtils: globals.os,
+      ),
+      OhosValidator: () => OhosValidator(
+          ohosSdk: globals.harmonySdk,
+          fileSystem: globals.fs,
+          logger: globals.logger,
+          platform: globals.platform,
+          processManager: globals.processManager,
+          userMessages: globals.userMessages),
+      OhosWorkflow: () => OhosWorkflow(
+        ohosSdk: globals.harmonySdk,
+        featureFlags: featureFlags,
       ),
       AssetBundleFactory: () {
         return AssetBundleFactory.defaultInstance(
@@ -186,12 +215,14 @@ Future<T> runInContext<T>(FutureOr<T> Function() runner, {Map<Type, Generator>? 
         processManager: globals.processManager,
         platform: globals.platform,
         androidSdk: globals.androidSdk,
+        ohosSdk: globals.harmonySdk,
         iosSimulatorUtils: globals.iosSimulatorUtils!,
         featureFlags: featureFlags,
         fileSystem: globals.fs,
         iosWorkflow: globals.iosWorkflow!,
         artifacts: globals.artifacts!,
         flutterVersion: globals.flutterVersion,
+        ohosWorkflow: ohosWorkflow!,
         androidWorkflow: androidWorkflow!,
         xcDevice: globals.xcdevice!,
         userMessages: globals.userMessages,
@@ -237,6 +268,7 @@ Future<T> runInContext<T>(FutureOr<T> Function() runner, {Map<Type, Generator>? 
         platform: globals.platform,
         cache: globals.cache,
       ),
+      HvigorUtils:() => HvigorUtils(),
       HotRunnerConfig: () => HotRunnerConfig(),
       IOSSimulatorUtils: () => IOSSimulatorUtils(
         logger: globals.logger,

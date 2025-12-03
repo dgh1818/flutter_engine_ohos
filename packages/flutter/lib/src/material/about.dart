@@ -526,6 +526,7 @@ class _AdaptiveAboutDialog extends AboutDialog {
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
       case TargetPlatform.windows:
+      case TargetPlatform.ohos:
         return <Widget>[
           TextButton(
             child: Text(

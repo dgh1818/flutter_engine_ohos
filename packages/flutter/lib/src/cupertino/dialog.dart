@@ -1556,6 +1556,7 @@ class _ActionSheetButtonBackgroundState extends State<_ActionSheetButtonBackgrou
     switch (defaultTargetPlatform) {
       case TargetPlatform.iOS:
       case TargetPlatform.android:
+      case TargetPlatform.ohos:
         HapticFeedback.selectionClick();
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
@@ -2054,6 +2055,7 @@ class _AlertDialogButtonBackgroundState extends State<_AlertDialogButtonBackgrou
     switch (defaultTargetPlatform) {
       case TargetPlatform.iOS:
       case TargetPlatform.android:
+      case TargetPlatform.ohos:
         HapticFeedback.selectionClick();
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:

@@ -92,7 +92,7 @@ impeller_component("gles") {
     "unique_handle_gles.h",
   ]
 
-  if (!is_android && !is_fuchsia) {
+  if (!is_android && !is_fuchsia && !is_ohos) {
     public_configs = [ ":gles_config" ]
     sources += [
       "//flutter/third_party/angle/include/GLES2/gl2ext.h",

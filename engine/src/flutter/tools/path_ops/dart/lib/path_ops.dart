@@ -287,7 +287,7 @@ final ffi.DynamicLibrary _dylib = () {
     return ffi.DynamicLibrary.open('path_ops.dll');
   } else if (Platform.isIOS || Platform.isMacOS) {
     return ffi.DynamicLibrary.open('libpath_ops.dylib');
-  } else if (Platform.isAndroid || Platform.isLinux) {
+  } else if (Platform.isAndroid || Platform.isLinux || Platform.isOhos) {
     return ffi.DynamicLibrary.open('libpath_ops.so');
   }
   throw UnsupportedError('Unknown platform: ${Platform.operatingSystem}');
@@ -367,9 +367,8 @@ final _PathDataType _dataFn = _dylib.lookupFunction<_path_data_type, _PathDataTy
 typedef _DestroyDataType = void Function(ffi.Pointer<_PathData>);
 typedef _destroy_data_type = ffi.Void Function(ffi.Pointer<_PathData>);
 
-final _DestroyDataType _destroyDataFn = _dylib.lookupFunction<_destroy_data_type, _DestroyDataType>(
-  'DestroyData',
-);
+final _DestroyDataType _destroyDataFn =
+    _dylib.lookupFunction<_destroy_data_type, _DestroyDataType>('DestroyData');
 
 typedef _GetFillTypeType = int Function(ffi.Pointer<_SkPath>);
 typedef _get_fill_type_type = ffi.Int32 Function(ffi.Pointer<_SkPath>);

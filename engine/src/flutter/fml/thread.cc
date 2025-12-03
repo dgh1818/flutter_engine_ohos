@@ -13,6 +13,7 @@
 #include "flutter/fml/build_config.h"
 #include "flutter/fml/message_loop.h"
 #include "flutter/fml/synchronization/waitable_event.h"
+#include "flutter/fml/logging.h"
 
 #if defined(FML_OS_WIN)
 #include <windows.h>
@@ -107,12 +108,13 @@ void SetThreadName(const std::string& name) {
   }
 #if defined(FML_OS_MACOSX)
   pthread_setname_np(name.c_str());
-#elif defined(FML_OS_LINUX) || defined(FML_OS_ANDROID)
+#elif defined(FML_OS_LINUX) || defined(FML_OS_ANDROID) || defined(FML_OS_OHOS)
   // Linux thread names are limited to 16 characters including the terminating
   // null.
   constexpr std::string::size_type kLinuxMaxThreadNameLen = 15;
   pthread_setname_np(pthread_self(),
                      name.substr(0, kLinuxMaxThreadNameLen).c_str());
+  FML_DLOG(INFO) << "set the thread name to '" << name;
 #elif defined(FML_OS_WIN)
   THREADNAME_INFO info;
   info.dwType = 0x1000;

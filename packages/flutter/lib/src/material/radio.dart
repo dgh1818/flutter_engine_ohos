@@ -512,6 +512,7 @@ class _RadioState<T> extends State<Radio<T>> {
           case TargetPlatform.fuchsia:
           case TargetPlatform.linux:
           case TargetPlatform.windows:
+          case TargetPlatform.ohos:
             break;
           case TargetPlatform.iOS:
           case TargetPlatform.macOS:

@@ -3805,6 +3805,70 @@ class _WidgetInspectorButtonGroupState extends State<_WidgetInspectorButtonGroup
 
   bool get _tooltipVisible => _tooltipMessage != null;
 
+  ValueNotifier<bool> get _selectionOnTapEnabled =>
+      WidgetsBinding.instance.debugWidgetInspectorSelectionOnTapEnabled;
+
+  Widget? get _moveExitWidgetSelectionButton {
+    final MoveExitWidgetSelectionButtonBuilder? buttonBuilder =
+        widget.moveExitWidgetSelectionButtonBuilder;
+    if (buttonBuilder == null) {
+      return null;
+    }
+
+    final String buttonLabel = 'Move to the ${_leftAligned ? 'right' : 'left'}';
+    return _WidgetInspectorButton(
+      button: buttonBuilder(
+        context,
+        onPressed: () {
+          _changeButtonGroupAlignment();
+          _onTooltipHidden();
+        },
+        semanticLabel: buttonLabel,
+        isLeftAligned: _leftAligned,
+      ),
+      onTooltipVisible: () {
+        _changeTooltipMessage(buttonLabel);
+      },
+      onTooltipHidden: _onTooltipHidden,
+    );
+  }
+
+  Widget get _exitWidgetSelectionButton {
+    const String buttonLabel = 'Exit Select Widget mode';
+    return _WidgetInspectorButton(
+      button: widget.exitWidgetSelectionButtonBuilder(
+        context,
+        onPressed: _exitWidgetSelectionMode,
+        semanticLabel: buttonLabel,
+        key: _exitWidgetSelectionButtonKey,
+      ),
+      onTooltipVisible: () {
+        _changeTooltipMessage(buttonLabel);
+      },
+      onTooltipHidden: _onTooltipHidden,
+    );
+  }
+
+  Widget? get _tapBehaviorButton {
+    final TapBehaviorButtonBuilder? buttonBuilder = widget.tapBehaviorButtonBuilder;
+    if (buttonBuilder == null) {
+      return null;
+    }
+
+    return _WidgetInspectorButton(
+      button: buttonBuilder(
+        context,
+        onPressed: _changeSelectionOnTapMode,
+        semanticLabel: 'Change widget selection mode for taps',
+        selectionOnTapEnabled: _selectionOnTapEnabled.value,
+      ),
+      onTooltipVisible: _changeSelectionOnTapTooltip,
+      onTooltipHidden: _onTooltipHidden,
+    );
+  }
+
+  bool get _tooltipVisible => _tooltipMessage != null;
+
   @override
   Widget build(BuildContext context) {
     final Widget selectionModeButtons = Column(

@@ -17,7 +17,7 @@ import 'base/utils.dart';
 import 'globals.dart' as globals;
 import 'plugins.dart';
 
-const _kValidPluginPlatforms = <String>{'android', 'ios', 'web', 'windows', 'linux', 'macos'};
+const _kValidPluginPlatforms = <String>{'android', 'ios', 'web', 'windows', 'linux', 'macos', 'ohos'};
 
 /// A wrapper around the `flutter` section in the `pubspec.yaml` file.
 class FlutterManifest {
@@ -268,6 +268,19 @@ class FlutterManifest {
   /// Returns the MD5 hash of the manifest contents.
   String computeMD5Hash() {
     return md5.convert(toYaml().toString().codeUnits).toString();
+  }
+
+  /// Returns the OpenHarmony bundle name declared by this manifest in its
+  /// module descriptor. Returns null, if there is no
+  /// such declaration.
+  String? get ohosBundleName {
+     if (isModule) {
+      final Object? module = _flutterDescriptor['module'];
+      if (module is YamlMap) {
+        return module['ohosBundleName'] as String?;
+      }
+    }
+    return null;
   }
 
   /// Returns the deferred components configuration if declared. Returns

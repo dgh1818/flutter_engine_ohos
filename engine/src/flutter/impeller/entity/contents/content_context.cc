@@ -534,7 +534,12 @@ static std::unique_ptr<PipelineT> CreateDefaultPipeline(
   // Apply default ContentContextOptions to the descriptor.
   const auto default_color_format =
       context.GetCapabilities()->GetDefaultColorFormat();
-  ContentContextOptions{.sample_count = SampleCount::kCount4,
+  ContentContextOptions{
+#ifdef __OHOS__
+      .sample_count = SampleCount::kCount2,
+#else
+      .sample_count = SampleCount::kCount4,
+#endif
                         .primitive_type = PrimitiveType::kTriangleStrip,
                         .color_attachment_pixel_format = default_color_format}
       .ApplyToPipelineDescriptor(*desc);
@@ -587,11 +592,19 @@ ContentContext::ContentContext(
   }
 
   auto options = ContentContextOptions{
+#ifdef __OHOS__
+      .sample_count = SampleCount::kCount2,
+#else
       .sample_count = SampleCount::kCount4,
+#endif
       .color_attachment_pixel_format =
           context_->GetCapabilities()->GetDefaultColorFormat()};
   auto options_trianglestrip = ContentContextOptions{
+#ifdef __OHOS__
+      .sample_count = SampleCount::kCount2,
+#else
       .sample_count = SampleCount::kCount4,
+#endif
       .primitive_type = PrimitiveType::kTriangleStrip,
       .color_attachment_pixel_format =
           context_->GetCapabilities()->GetDefaultColorFormat()};
@@ -663,7 +676,11 @@ ContentContext::ContentContext(
       return;
     }
     ContentContextOptions{
-        .sample_count = SampleCount::kCount4,
+#ifdef __OHOS__
+      .sample_count = SampleCount::kCount2,
+#else
+      .sample_count = SampleCount::kCount4,
+#endif
         .color_attachment_pixel_format =
             context_->GetCapabilities()->GetDefaultColorFormat()}
         .ApplyToPipelineDescriptor(*clip_pipeline_descriptor);

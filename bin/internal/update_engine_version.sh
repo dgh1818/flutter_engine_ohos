@@ -79,3 +79,15 @@ if [ -n "${FLUTTER_REALM}" ]; then
 else
   echo "" >"$FLUTTER_ROOT/bin/cache/engine.realm"
 fi
+
+# ohos
+if [ -n "$(git -C "$FLUTTER_ROOT" ls-files bin/internal/engine.ohos.version)" ]; then
+  ENGINE_OHOS_VERSION="$(cat "$FLUTTER_ROOT/bin/internal/engine.ohos.version")"
+fi
+echo $ENGINE_OHOS_VERSION >"$FLUTTER_ROOT/bin/cache/engine.ohos.stamp"
+
+if [ -n "${FLUTTER_REALM}" ]; then
+  echo $FLUTTER_REALM >"$FLUTTER_ROOT/bin/cache/engine.ohos.realm"
+else
+  echo "" >"$FLUTTER_ROOT/bin/cache/engine.ohos.realm"
+fi
