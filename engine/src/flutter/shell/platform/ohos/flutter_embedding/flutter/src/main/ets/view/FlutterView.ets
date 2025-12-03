@@ -174,6 +174,7 @@ export class PlatformViewParas {
 export class FlutterView {
   private flutterEngine: FlutterEngine | null = null
   private id: string = ""
+  private isActive: boolean = true
   private dVModel: DVModel =
     new DVModel("Stack", new DVModelParameters(), new DVModelEvents(), new DVModelChildren(), null);
   private wrapBuilder: WrappedBuilder<[Params]> | undefined = undefined;

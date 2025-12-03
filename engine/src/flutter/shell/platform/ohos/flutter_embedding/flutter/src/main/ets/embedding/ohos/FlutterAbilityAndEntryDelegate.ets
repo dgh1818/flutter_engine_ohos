@@ -359,7 +359,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
   onShow() {
     this.ensureAlive();
     this.isPageShow = true;
-    this.flutterView.setActive(true);
+    this.flutterView?.setActive(true);
     if (this.shouldDispatchAppLifecycleState()) {
       this.flutterEngine?.getLifecycleChannel()?.appIsResumed();
     }
@@ -380,7 +380,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
   onHide() {
     if (this.shouldDispatchAppLifecycleState()) {
       this.isPageShow = false;
-      this.flutterView.setActive(false);
+      this.flutterView?.setActive(false);
       this.flutterEngine?.getLifecycleChannel()?.appIsPaused();
     }
   }
