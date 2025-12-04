@@ -19,6 +19,7 @@
 #include "fml/trace_event.h"
 #include "include/core/SkM44.h"
 #include "include/core/SkMatrix.h"
+#include "flutter/display_list/geometry/dl_geometry_conversions.h"
 #include "flutter/shell/platform/ohos/ohos_vsync_voting_mgr.h"
 
 namespace flutter {
@@ -182,7 +183,7 @@ void OHOSExternalTexture::Paint(PaintContext& context,
     context.canvas->Transform(ToDlMatrix(new_transform));
     context.canvas->DrawImageRect(
         draw_dl_image,                                    // image
-        ToDlRect(SkRect::Make(draw_dl_image->bounds())),  // source rect
+        ToDlRect(ToSkIRect(draw_dl_image->GetBounds())),  // source rect
         ToDlRect(new_bounds),                             // destination rect
         sampling,                                         // sampling
         context.paint,                                    // paint

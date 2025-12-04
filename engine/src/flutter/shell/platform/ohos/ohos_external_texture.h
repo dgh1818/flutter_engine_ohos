@@ -17,6 +17,7 @@
 #include "flutter/common/graphics/texture.h"
 
 #include "image_lru.h"
+#include "include/core/SkM44.h"
 #include "include/core/SkRect.h"
 
 namespace flutter {

@@ -261,7 +261,7 @@ deps = {
    Var('chromium_git') + '/external/github.com/google/shaderc' + '@' + '37e25539ce199ecaf19fb7f7d27818716d36686d',
 
   'engine/src/flutter/third_party/vulkan-deps':
-   Var('ohos_git') + '/fluttertpc_vulkan-deps' + '@' + 'd4b4437fdc615421f5ef590e67884718d3e1ce42',
+   Var('ohos_git') + '/fluttertpc_vulkan-deps' + '@' + '65015d8d3a2016a56f32b980bf7dd39c964938bd',
 
   'engine/src/flutter/third_party/flatbuffers':
    Var('chromium_git') + '/external/github.com/google/flatbuffers' + '@' + '0a80646371179f8a7a5c1f42c31ee1d44dcf6709',
@@ -302,7 +302,7 @@ deps = {
   #  Var('flutter_git') + '/third_party/protobuf-gn' + '@' + Var('dart_protobuf_gn_rev'),
 
   'engine/src/flutter/third_party/dart':
-   Var('ohos_git') + '/fluttertpc_dart_sdk.git' + '@' + '36685594e3f5ff972f1e275342b1e0d1427ae2fa',
+   Var('ohos_git') + '/fluttertpc_dart_sdk.git' + '@' + 'b25c68175cf8012102d3ddc0514b6419b8149207',
 
   # WARNING: Unused Dart dependencies in the list below till "WARNING:" marker are removed automatically - see create_updated_flutter_deps.py.
 

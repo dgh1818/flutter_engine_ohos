@@ -176,33 +176,33 @@ void SemanticsNodeExtend::FillElementInfoWithSelect(
 void SemanticsNodeExtend::OHOSComponentTypeUpdate() {
   if (id == 0) {
     componentType = OHWidgetName::kRootWidgetName;
-  } else if (HasFlag(FLAGS_::kIsButton)) {
+  } else if (flags.isButton) {
     componentType = OHWidgetName::kButtonWidgetName;
-  } else if (HasFlag(FLAGS_::kIsTextField)) {
+  } else if (flags.isTextField) {
     componentType = OHWidgetName::kEditTextWidgetName;
-  } else if (HasFlag(FLAGS_::kIsMultiline)) {
+  } else if (flags.isMultiline) {
     componentType = OHWidgetName::kEditMultilineTextWidgetName;
-  } else if (HasFlag(FLAGS_::kIsLink)) {
+  } else if (flags.isLink) {
     componentType = OHWidgetName::kLinkWidgetName;
-  } else if (HasFlag(FLAGS_::kIsSlider) || HasAction(ACTIONS_::kIncrease) ||
+  } else if (flags.isSlider || HasAction(ACTIONS_::kIncrease) ||
              HasAction(ACTIONS_::kDecrease)) {
     componentType = OHWidgetName::kSliderWidgetName;
-  } else if (HasFlag(FLAGS_::kIsHeader)) {
+  } else if (flags.isHeader) {
     componentType = OHWidgetName::kHeaderWidgetName;
-  } else if (HasFlag(FLAGS_::kIsImage)) {
+  } else if (flags.isImage) {
     componentType = OHWidgetName::kImageWidgetName;
-  } else if (HasFlag(FLAGS_::kHasCheckedState)) {
-    if (HasFlag(FLAGS_::kIsInMutuallyExclusiveGroup)) {
+  } else if (flags.hasCheckedState) {
+    if (flags.isInMutuallyExclusiveGroup) {
       // arkui没有RadioButton，这里透传为RadioButton
       componentType = OHWidgetName::kRadioButtonWidgetName;
     } else {
       componentType = OHWidgetName::kCheckBoxWidgetName;
     }
-  } else if (HasFlag(FLAGS_::kHasToggledState)) {
+  } else if (flags.hasToggledState) {
     componentType = OHWidgetName::kSwitchWidgetName;
   } else if (HasAction(ACTIONS_::kIncrease) || HasAction(ACTIONS_::kDecrease)) {
     componentType = OHWidgetName::kSeekbarWidgetName;
-  } else if (HasFlag(FLAGS_::kHasImplicitScrolling)) {
+  } else if (flags.hasImplicitScrolling) {
     componentType = OHWidgetName::kScrollWidgetName;
   } else if ((!label.empty() || !tooltip.empty() || !hint.empty())) {
     componentType = OHWidgetName::kTextWidgetName;
@@ -223,29 +223,25 @@ void SemanticsNodeExtend::OHOSActionsUpdate() {
                              ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_LONG_CLICK,
                          "长按操作"});
   }
-  if (HasFlag(SemanticsFlags::kHasImplicitScrolling) &&
-      HasAction(ACTIONS_::kScrollLeft)) {
+  if (flags.hasImplicitScrolling && HasAction(ACTIONS_::kScrollLeft)) {
     ohActions.push_back(
         {ArkUI_Accessibility_ActionType::
              ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SCROLL_FORWARD,
          "向左滑动"});
   }
-  if (HasFlag(SemanticsFlags::kHasImplicitScrolling) &&
-      HasAction(ACTIONS_::kScrollRight)) {
+  if (flags.hasImplicitScrolling && HasAction(ACTIONS_::kScrollRight)) {
     ohActions.push_back(
         {ArkUI_Accessibility_ActionType::
              ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SCROLL_BACKWARD,
          "向右滑动"});
   }
-  if (HasFlag(SemanticsFlags::kHasImplicitScrolling) &&
-      HasAction(ACTIONS_::kScrollUp)) {
+  if (flags.hasImplicitScrolling && HasAction(ACTIONS_::kScrollUp)) {
     ohActions.push_back(
         {ArkUI_Accessibility_ActionType::
              ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SCROLL_FORWARD,
          "向上滑动"});
   }
-  if (HasFlag(SemanticsFlags::kHasImplicitScrolling) &&
-      HasAction(ACTIONS_::kScrollDown)) {
+  if (flags.hasImplicitScrolling && HasAction(ACTIONS_::kScrollDown)) {
     ohActions.push_back(
         {ArkUI_Accessibility_ActionType::
              ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_SCROLL_BACKWARD,
@@ -449,8 +445,72 @@ void SemanticsNodeExtend::UpdateWithNode(flutter::SemanticsNode& node) {
     contentChanged = true;
   }
 
+  // Check if any flag has changed by comparing each field
+  bool flagsChanged = (previousFlags.hasCheckedState != flags.hasCheckedState ||
+                       previousFlags.isChecked != flags.isChecked ||
+                       previousFlags.isSelected != flags.isSelected ||
+                       previousFlags.isButton != flags.isButton ||
+                       previousFlags.isTextField != flags.isTextField ||
+                       previousFlags.isFocused != flags.isFocused ||
+                       previousFlags.hasEnabledState != flags.hasEnabledState ||
+                       previousFlags.isEnabled != flags.isEnabled ||
+                       previousFlags.isInMutuallyExclusiveGroup != flags.isInMutuallyExclusiveGroup ||
+                       previousFlags.isHeader != flags.isHeader ||
+                       previousFlags.isObscured != flags.isObscured ||
+                       previousFlags.scopesRoute != flags.scopesRoute ||
+                       previousFlags.namesRoute != flags.namesRoute ||
+                       previousFlags.isHidden != flags.isHidden ||
+                       previousFlags.isImage != flags.isImage ||
+                       previousFlags.isLiveRegion != flags.isLiveRegion ||
+                       previousFlags.hasToggledState != flags.hasToggledState ||
+                       previousFlags.isToggled != flags.isToggled ||
+                       previousFlags.hasImplicitScrolling != flags.hasImplicitScrolling ||
+                       previousFlags.isMultiline != flags.isMultiline ||
+                       previousFlags.isReadOnly != flags.isReadOnly ||
+                       previousFlags.isFocusable != flags.isFocusable ||
+                       previousFlags.isLink != flags.isLink ||
+                       previousFlags.isSlider != flags.isSlider ||
+                       previousFlags.isKeyboardKey != flags.isKeyboardKey ||
+                       previousFlags.isCheckStateMixed != flags.isCheckStateMixed ||
+                       previousFlags.hasExpandedState != flags.hasExpandedState ||
+                       previousFlags.isExpanded != flags.isExpanded ||
+                       previousFlags.hasSelectedState != flags.hasSelectedState ||
+                       previousFlags.hasRequiredState != flags.hasRequiredState ||
+                       previousFlags.isRequired != flags.isRequired);
+  
   previousFlags = flags;
-  if (flags != node.flags) {
+  if (flagsChanged || 
+      flags.hasCheckedState != node.flags.hasCheckedState ||
+      flags.isChecked != node.flags.isChecked ||
+      flags.isSelected != node.flags.isSelected ||
+      flags.isButton != node.flags.isButton ||
+      flags.isTextField != node.flags.isTextField ||
+      flags.isFocused != node.flags.isFocused ||
+      flags.hasEnabledState != node.flags.hasEnabledState ||
+      flags.isEnabled != node.flags.isEnabled ||
+      flags.isInMutuallyExclusiveGroup != node.flags.isInMutuallyExclusiveGroup ||
+      flags.isHeader != node.flags.isHeader ||
+      flags.isObscured != node.flags.isObscured ||
+      flags.scopesRoute != node.flags.scopesRoute ||
+      flags.namesRoute != node.flags.namesRoute ||
+      flags.isHidden != node.flags.isHidden ||
+      flags.isImage != node.flags.isImage ||
+      flags.isLiveRegion != node.flags.isLiveRegion ||
+      flags.hasToggledState != node.flags.hasToggledState ||
+      flags.isToggled != node.flags.isToggled ||
+      flags.hasImplicitScrolling != node.flags.hasImplicitScrolling ||
+      flags.isMultiline != node.flags.isMultiline ||
+      flags.isReadOnly != node.flags.isReadOnly ||
+      flags.isFocusable != node.flags.isFocusable ||
+      flags.isLink != node.flags.isLink ||
+      flags.isSlider != node.flags.isSlider ||
+      flags.isKeyboardKey != node.flags.isKeyboardKey ||
+      flags.isCheckStateMixed != node.flags.isCheckStateMixed ||
+      flags.hasExpandedState != node.flags.hasExpandedState ||
+      flags.isExpanded != node.flags.isExpanded ||
+      flags.hasSelectedState != node.flags.hasSelectedState ||
+      flags.hasRequiredState != node.flags.hasRequiredState ||
+      flags.isRequired != node.flags.isRequired) {
     flags = node.flags;
     flagChanged = true;
   }
@@ -501,8 +561,6 @@ void SemanticsNodeExtend::UpdateWithNode(flutter::SemanticsNode& node) {
   maxValueLength = node.maxValueLength;
   currentValueLength = node.currentValueLength;
   platformViewId = node.platformViewId;
-  elevation = node.elevation;
-  thickness = node.thickness;
 
   valueAttributes = std::move(node.valueAttributes);
   labelAttributes = std::move(node.labelAttributes);

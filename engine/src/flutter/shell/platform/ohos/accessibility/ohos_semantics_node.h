@@ -39,21 +39,6 @@ class OHWidgetName {
 };
 
 struct SemanticsNodeExtend : flutter::SemanticsNode {
-  static constexpr int32_t kFocusableFlags =
-      static_cast<int32_t>(FLAGS_::kHasCheckedState) |
-      static_cast<int32_t>(FLAGS_::kIsChecked) |
-      static_cast<int32_t>(FLAGS_::kIsSelected) |
-      static_cast<int32_t>(FLAGS_::kIsTextField) |
-      static_cast<int32_t>(FLAGS_::kIsFocused) |
-      static_cast<int32_t>(FLAGS_::kHasEnabledState) |
-      static_cast<int32_t>(FLAGS_::kIsEnabled) |
-      static_cast<int32_t>(FLAGS_::kIsInMutuallyExclusiveGroup) |
-      static_cast<int32_t>(FLAGS_::kHasToggledState) |
-      static_cast<int32_t>(FLAGS_::kIsToggled) |
-      static_cast<int32_t>(FLAGS_::kHasToggledState) |
-      static_cast<int32_t>(FLAGS_::kIsFocusable) |
-      static_cast<int32_t>(FLAGS_::kIsSlider);
-
   static constexpr int32_t kScrollableAction =
       static_cast<int32_t>(ACTIONS_::kScrollLeft) |
       static_cast<int32_t>(ACTIONS_::kScrollRight) |
@@ -79,7 +64,7 @@ struct SemanticsNodeExtend : flutter::SemanticsNode {
 
   bool performSelectAction = false;
   bool isAccessibilityFocued = false;
-  int32_t previousFlags = 0;
+  SemanticsFlags previousFlags;
   int32_t previousActions = 0;
   double previousScrollPosition = std::nan("");
   std::string previousLabel;
@@ -135,9 +120,6 @@ struct SemanticsNodeExtend : flutter::SemanticsNode {
   bool HasPrevAction(SemanticsAction action) const {
     return (previousActions & this->actions) != 0;
   }
-  bool HasPrevFlag(SemanticsFlags flag) const {
-    return (previousFlags & this->flags) != 0;
-  }
 
   void setAbsoluteRect(float left, float top, float right, float bottom) {
     absoluteRect.fLeft = left;
@@ -146,23 +128,22 @@ struct SemanticsNodeExtend : flutter::SemanticsNode {
     absoluteRect.fBottom = bottom;
   }
 
-  bool IsTextField() { return HasFlag(FLAGS_::kIsTextField); }
-  bool IsEditable() { return IsTextField() && !HasFlag(FLAGS_::kIsReadOnly); }
-  bool IsSlider() { return HasFlag(FLAGS_::kIsSlider); }
-  bool IsVisible() { return !HasFlag(FLAGS_::kIsHidden); }
+  bool IsTextField() { return flags.isTextField; }
+  bool IsEditable() { return IsTextField() && !flags.isReadOnly; }
+  bool IsSlider() { return flags.isSlider; }
+  bool IsVisible() { return !flags.isHidden; }
   bool IsCheckable() {
-    return HasFlag(FLAGS_::kHasCheckedState) ||
-           HasFlag(FLAGS_::kHasToggledState);
+    return flags.hasCheckedState || flags.hasToggledState;
   }
   bool IsChecked() {
-    return HasFlag(FLAGS_::kIsChecked) || HasFlag(FLAGS_::kIsToggled);
+    return flags.isChecked || flags.isToggled;
   }
-  bool IsSelected() { return HasFlag(FLAGS_::kIsSelected); }
+  bool IsSelected() { return flags.isSelected; }
   bool IsPassword() {
-    return HasFlag(FLAGS_::kIsTextField) && HasFlag(FLAGS_::kIsObscured);
+    return flags.isTextField && flags.isObscured;
   }
   bool IsEnabled() {
-    return !HasFlag(FLAGS_::kHasEnabledState) || HasFlag(FLAGS_::kIsEnabled);
+    return !flags.hasEnabledState || flags.isEnabled;
   }
   bool IsClickable() { return HasAction(ACTIONS_::kTap); }
   bool IsHasLongPress() { return HasAction(ACTIONS_::kLongPress); }
@@ -178,16 +159,20 @@ struct SemanticsNodeExtend : flutter::SemanticsNode {
     return label.empty() || previousLabel.empty() || label != previousLabel;
   }
   bool IsFocusable() {
-    if (HasFlag(FLAGS_::kScopesRoute)) {
+    if (flags.scopesRoute) {
       return false;
     }
-    if (HasFlag(FLAGS_::kIsFocusable)) {
+    if (flags.isFocusable) {
       return true;
     }
     if (IsPlatformViewNode()) {
       return true;
     }
-    if ((flags & kFocusableFlags) != 0) {
+    // Check if any focusable flags are set
+    if (flags.hasCheckedState || flags.isChecked || flags.isSelected ||
+        flags.isTextField || flags.isFocused || flags.hasEnabledState ||
+        flags.isEnabled || flags.isInMutuallyExclusiveGroup ||
+        flags.hasToggledState || flags.isToggled || flags.isSlider) {
       return true;
     }
     if ((actions & ~kScrollableAction) != 0) {
@@ -195,7 +180,7 @@ struct SemanticsNodeExtend : flutter::SemanticsNode {
     }
     return !label.empty() || !value.empty() || !hint.empty();
   }
-  bool IsFocused() { return HasFlag(FLAGS_::kIsFocused); }
+  bool IsFocused() { return flags.isFocused; }
   bool IsScrollable() {
     return HasAction(ACTIONS_::kScrollLeft) ||
            HasAction(ACTIONS_::kScrollRight) ||

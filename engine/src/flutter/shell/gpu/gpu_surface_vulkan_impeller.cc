@@ -157,7 +157,7 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceVulkanImpeller::AcquireFrame(
         context_vk.SetRenderArea(std::nullopt);
       }
 
-      SkIRect sk_cull_rect = SkIRect::MakeWH(cull_rect.width, cull_rect.height);
+      SkIRect sk_cull_rect = SkIRect::MakeWH(cull_rect.GetWidth(), cull_rect.GetHeight());
       return impeller::RenderToTarget(
           aiks_context->GetContentContext(),                                //
           render_target,                                                    //

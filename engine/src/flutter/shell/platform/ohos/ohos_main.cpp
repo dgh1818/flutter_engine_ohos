@@ -126,13 +126,18 @@ napi_value OhosMain::Init(napi_env env, napi_callback_info info) {
     }
   }
 
-  settings.task_observer_add = [](intptr_t key, const fml::closure& callback) {
+  settings.task_observer_add =
+      [](intptr_t key, const fml::closure& callback) -> fml::TaskQueueId {
     FML_DLOG(INFO) << "task_observer_add:" << (int64_t)key;
-    fml::MessageLoop::GetCurrent().AddTaskObserver(key, callback);
+    fml::TaskQueueId queue_id = fml::MessageLoop::GetCurrentTaskQueueId();
+    fml::MessageLoopTaskQueues::GetInstance()->AddTaskObserver(queue_id, key,
+                                                               callback);
+    return queue_id;
   };
-  settings.task_observer_remove = [](intptr_t key) {
+  settings.task_observer_remove = [](fml::TaskQueueId queue_id, intptr_t key) {
     FML_DLOG(INFO) << "task_observer_remove:" << (int64_t)key;
-    fml::MessageLoop::GetCurrent().RemoveTaskObserver(key);
+    fml::MessageLoopTaskQueues::GetInstance()->RemoveTaskObserver(queue_id,
+                                                                  key);
   };
   settings.log_message_callback = [](const std::string& tag,
                                      const std::string& message) {

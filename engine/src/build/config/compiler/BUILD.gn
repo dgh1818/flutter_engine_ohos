@@ -604,8 +604,13 @@ config("runtime_library") {
     # Add libcxx[abi]/include via cflags_cc, cflags_objcc to apply to
     # C++/Obj-C++ only. Adding them via include_dirs is problematic for Swift,
     # whose core libraries expect the Apple SDK C++ headers, module.modulemap.
-    _libcxx_include = rebase_path("//flutter/third_party/libcxx/include", root_build_dir)
-    _libcxxabi_include = rebase_path("//flutter/third_party/libcxxabi/include", root_build_dir)
+    if (is_ohos) {
+      _libcxx_include = rebase_path("//flutter/third_party/libcxx_ohos/include", root_build_dir)
+      _libcxxabi_include = rebase_path("//flutter/third_party/libcxxabi_ohos/include", root_build_dir)
+    } else {
+      _libcxx_include = rebase_path("//flutter/third_party/libcxx/include", root_build_dir)
+      _libcxxabi_include = rebase_path("//flutter/third_party/libcxxabi/include", root_build_dir)
+    }
     cflags_cc += [
       "-nostdinc++",
       "-I" + _libcxx_include,
@@ -620,17 +625,6 @@ config("runtime_library") {
     # Unwind seemes to be in these libraries in Linux.
     if (!is_linux) {
       ldflags += [ "-nostdlib++" ]
-    }
-    if (is_ohos) {
-      include_dirs = [
-        "//flutter/third_party/libcxx_ohos/include",
-        "//flutter/third_party/libcxxabi/include",
-      ]
-    } else {
-      include_dirs = [
-        "//flutter/third_party/libcxx/include",
-        "//flutter/third_party/libcxxabi/include",
-      ]
     }
   }
 
