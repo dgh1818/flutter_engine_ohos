@@ -359,7 +359,7 @@ export class FlutterView {
   private windowRectChangeCallback = (data: window.RectChangeOptions) => {
     Log.i(TAG, "windowRectChangeCallback " + data);
     this.windowPosition = data.rect as window.Rect;
-    this.flutterEngine?.getTextInputChannel()?.setWindowPosition(this.windowPosition);
+    this.flutterEngine?.getTextInputChannel()?.textInputCallback?.setCursorPosition();
   }
   private accessibilityStateChangeCallback = (data: boolean) => {
     Log.i(TAG, `subscribe accessibility state change, result: ${JSON.stringify(data)}`);
@@ -501,6 +501,7 @@ export class FlutterView {
     this.mouseCursorPlugin = new MouseCursorPlugin(windowId, this.flutterEngine?.getMouseCursorChannel()!);
     this.textInputPlugin = new TextInputPlugin(this.flutterEngine?.getTextInputChannel()!, this.id,
       new KeyEventChannel(this.flutterEngine.dartExecutor));
+    this.flutterEngine?.getTextInputChannel()?.textInputCallback?.setViewId(this.id);
     this.keyboardManager = new KeyboardManager(flutterEngine, this.textInputPlugin!);
     this.settings = new Settings(this.flutterEngine.getSettingsChannel()!);
     this.sendSettings();
