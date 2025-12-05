@@ -77,7 +77,7 @@ abstract class FeatureFlags {
 
   /// All current Flutter feature flags.
   List<Feature> get allFeatures => const <Feature>[
-    flutterOhosFeature
+    flutterOhosFeature,
     flutterWebFeature,
     flutterLinuxDesktopFeature,
     flutterMacOSDesktopFeature,
