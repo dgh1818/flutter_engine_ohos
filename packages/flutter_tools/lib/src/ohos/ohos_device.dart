@@ -194,7 +194,7 @@ class OhosDevice extends Device {
   }();
 
   @override
-  bool isSupported() {
+  Future<bool> isSupported() async {
     return true;
   }
 
@@ -271,8 +271,8 @@ class OhosDevice extends Device {
       case TargetPlatform.android_arm:
       case TargetPlatform.android_arm64:
       case TargetPlatform.android_x64:
-      case TargetPlatform.android_x86:
       case TargetPlatform.windows_arm64:
+      case TargetPlatform.unsupported:
         _logger.printError('Ohos platforms are only supported.');
         return LaunchResult.failed();
     }
@@ -364,7 +364,7 @@ class OhosDevice extends Device {
           return LaunchResult.failed();
         }
       }
-      return LaunchResult.succeeded(observatoryUri: observatoryUri);
+      return LaunchResult.succeeded(vmServiceUri: observatoryUri);
     } on Exception catch (error) {
       _logger.printError('Error waiting for a debug connection: $error');
       return LaunchResult.failed();

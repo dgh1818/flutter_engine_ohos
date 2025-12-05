@@ -2095,6 +2095,7 @@ class EditableText extends StatefulWidget {
     }
     return switch (defaultTargetPlatform) {
       TargetPlatform.android => false,
+      TargetPlatform.ohos => false,
       TargetPlatform.iOS => false,
       TargetPlatform.fuchsia => false,
       TargetPlatform.linux => true,
@@ -2197,6 +2198,7 @@ class EditableText extends StatefulWidget {
         }
       case TargetPlatform.macOS:
       case TargetPlatform.android:
+      case TargetPlatform.ohos:
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
       case TargetPlatform.windows:
