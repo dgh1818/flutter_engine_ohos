@@ -91,6 +91,11 @@ class OhosTouchProcessor {
 
   bool shouldDropTouchEvent(OH_NativeXComponent_TouchEvent* touchEvent);
   std::set<int32_t> activeFingerIds_;
+  void VsyncVotingTouchValue(int64_t shellHolderID, int touchType);
+
+  void VsyncVotingTouchUp(int64_t shellHolderID);
+
+  void VsyncVotingTouchDown(int64_t shellHolderID);
 };
 }  // namespace flutter
 #endif  // FLUTTER_SHELL_PLATFORM_OHOS_OHOS_TOUCH_PROCESSOR_H_

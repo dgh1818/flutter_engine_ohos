@@ -201,3 +201,13 @@ export const nativeSetFlutterNavigationAction: (nativeShellHolderId: number, isN
 export const nativeSetDVsyncSwitch: (nativeShellHolderId: number, isEnable: boolean) => void;
 
 export const nativeUpdateCurrentXComponentId: (xcomponent_id: string) => void;
+
+export const nativeAnimationVoting: (type: number, velocity: number) => void;
+
+export const nativeVideoVoting: (seconds: number, frameCount: number) => void;
+
+export const nativePrefetchFramesCfg: () => void;
+
+export const nativeCheckLTPOSwitchState: () => number;
+
+export const nativeSetQosOnLowMemory: (nativeShellHolderId: number, lowMemoryLevel: number) => void;

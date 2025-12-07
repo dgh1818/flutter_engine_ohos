@@ -225,7 +225,7 @@ class PlatformViewOHOSNapi {
 
   static int64_t display_width;
   static int64_t display_height;
-  static int64_t display_refresh_rate;
+  static int32_t display_refresh_rate;
   static std::shared_ptr<std::set<int>> all_refresh_rates;
   static double display_density_pixels;
   static napi_value nativeXComponentDispatchMouseWheel(napi_env env,
@@ -276,6 +276,18 @@ class PlatformViewOHOSNapi {
   static napi_value nativeSetDVsyncSwitch(napi_env env,
                                           napi_callback_info info);
 
+  static napi_value nativeAnimationVoting(napi_env env,
+                                          napi_callback_info info);
+
+  static napi_value nativeVideoVoting(napi_env env, napi_callback_info info);
+
+  static napi_value nativePrefetchFramesCfg(napi_env env,
+                                            napi_callback_info info);
+
+  static napi_value nativeCheckLTPOSwitchState(napi_env env,
+                                               napi_callback_info info);
+  static napi_value nativeSetQosOnLowMemory(napi_env env,
+                                            napi_callback_info info);
  private:
   static napi_env env_;
   napi_ref ref_napi_obj_ = nullptr;

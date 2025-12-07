@@ -162,35 +162,39 @@ export default class FlutterLoader {
       if (!fs.accessSync(filePath)) {
         fs.mkdirSync(filePath)
       }
+      try {
+        let kernelBuffer =
+          this.context.resourceManager.getRawFileContentSync(this.flutterApplicationInfo!.flutterAssetsDir +
+            FILE_SEPARATOR + DEFAULT_KERNEL_BLOB)
+        let kernelFile =
+          fs.openSync(filePath + FILE_SEPARATOR + DEFAULT_KERNEL_BLOB, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE)
+        fs.writeSync(kernelFile.fd, kernelBuffer.buffer)
 
-      let kernelBuffer =
-        this.context.resourceManager.getRawFileContentSync(this.flutterApplicationInfo!.flutterAssetsDir +
-          FILE_SEPARATOR + DEFAULT_KERNEL_BLOB)
-      let kernelFile =
-        fs.openSync(filePath + FILE_SEPARATOR + DEFAULT_KERNEL_BLOB, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE)
-      fs.writeSync(kernelFile.fd, kernelBuffer.buffer)
+        let vmBuffer =
+          this.context.resourceManager.getRawFileContentSync(this.flutterApplicationInfo!.flutterAssetsDir +
+            FILE_SEPARATOR + this.flutterApplicationInfo!.vmSnapshotData)
+        let vmFile = fs.openSync(filePath + FILE_SEPARATOR + this.flutterApplicationInfo!.vmSnapshotData,
+          fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE)
+        fs.writeSync(vmFile.fd, vmBuffer.buffer)
 
-      let vmBuffer =
-        this.context.resourceManager.getRawFileContentSync(this.flutterApplicationInfo!.flutterAssetsDir +
-          FILE_SEPARATOR + this.flutterApplicationInfo!.vmSnapshotData)
-      let vmFile = fs.openSync(filePath + FILE_SEPARATOR + this.flutterApplicationInfo!.vmSnapshotData,
-        fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE)
-      fs.writeSync(vmFile.fd, vmBuffer.buffer)
+        let isolateBuffer =
+          this.context.resourceManager.getRawFileContentSync(this.flutterApplicationInfo!.flutterAssetsDir +
+            FILE_SEPARATOR + this.flutterApplicationInfo!.isolateSnapshotData)
+        let isolateFile = fs.openSync(filePath + FILE_SEPARATOR + this.flutterApplicationInfo!.isolateSnapshotData,
+          fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE)
+        fs.writeSync(isolateFile.fd, isolateBuffer.buffer)
 
-      let isolateBuffer =
-        this.context.resourceManager.getRawFileContentSync(this.flutterApplicationInfo!.flutterAssetsDir +
-          FILE_SEPARATOR + this.flutterApplicationInfo!.isolateSnapshotData)
-      let isolateFile = fs.openSync(filePath + FILE_SEPARATOR + this.flutterApplicationInfo!.isolateSnapshotData,
-        fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE)
-      fs.writeSync(isolateFile.fd, isolateBuffer.buffer)
-
-      if (timestamp != null) {
-        fs.closeSync(fs.openSync(filePath + FILE_SEPARATOR + timestamp, fs.OpenMode.READ_ONLY | fs.OpenMode.CREATE))
+        if (timestamp != null) {
+          fs.closeSync(fs.openSync(filePath + FILE_SEPARATOR + timestamp, fs.OpenMode.READ_ONLY | fs.OpenMode.CREATE))
+        }
+        fs.closeSync(kernelFile)
+        fs.closeSync(vmFile)
+        fs.closeSync(isolateFile)
+        Log.d(TAG, "copyResource end")
+      } catch(error) {
+        Log.e(TAG, "copyResource failed, error code: " + error.code + " message: " + error.message);
+        Log.e(TAG, error.topstack);
       }
-      fs.closeSync(kernelFile)
-      fs.closeSync(vmFile)
-      fs.closeSync(isolateFile)
-      Log.d(TAG, "copyResource end")
     } else {
       Log.d(TAG, "no copyResource")
     }

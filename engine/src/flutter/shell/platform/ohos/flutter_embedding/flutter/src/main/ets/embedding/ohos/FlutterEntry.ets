@@ -22,7 +22,7 @@ import { BusinessError } from '@ohos.base';
 import { PlatformBrightness } from '../engine/systemchannels/SettingsChannel';
 import ConfigurationConstant from '@ohos.app.ability.ConfigurationConstant';
 import I18n from '@ohos.i18n'
-import { EnvironmentCallback } from '@kit.AbilityKit';
+import { AbilityConstant, EnvironmentCallback } from '@kit.AbilityKit';
 
 const TAG = "FlutterEntry";
 
@@ -93,7 +93,9 @@ export default class FlutterEntry implements Host {
         this?.delegate?.onCheckAndReloadFont();
 
       },
-      onMemoryLevel: (level) => {}
+      onMemoryLevel: (level: AbilityConstant.MemoryLevel) => {
+        this.delegate?.getFlutterNapi()?.SetQosOnLowMemory(level as number);
+      }
     };
     let applicationContext = this.uiAbility?.context.getApplicationContext();
     try {

@@ -269,6 +269,9 @@ export default class TouchEventProcessor {
   // 轴/滚轮坐标通过postAxisEvent传入到节点
   public postAxisEvent(strings: Array<string>) {
     FlutterManager.getInstance().getFlutterViewList().forEach((value) => {
+      if (!value.getActive()) {
+        return
+      }
       let length = value.getDVModel().children.length
       for (let index = length - 1; index >= 0; index--) {
         const dvModel = value.getDVModel().children[index]
@@ -305,12 +308,15 @@ export default class TouchEventProcessor {
 
         let nodeController = params['nodeController'] as EmbeddingNodeController;
         nodeController.postAxisEvent(axisEvent)
-      }
+      }      
     });
   }
   
   public postTouchEvent(strings: Array<string>) {
     FlutterManager.getInstance().getFlutterViewList().forEach((value) => {
+      if (!value.getActive()) {
+        return
+      }
       let length = value.getDVModel().children.length
       for (let index = length - 1; index >= 0; index--) {
         let dvModel = value.getDVModel().children[index]
@@ -400,6 +406,9 @@ export default class TouchEventProcessor {
   // 鼠标坐标通过postInputEvent传入到节点
   public postMouseEvent(strings: Array<string>) {
     FlutterManager.getInstance().getFlutterViewList().forEach((value) => {
+      if (!value.getActive()) {
+        return
+      }
       let length = value.getDVModel().children.length
       for (let index = length - 1; index >= 0; index--) {
         const dvModel = value.getDVModel().children[index]

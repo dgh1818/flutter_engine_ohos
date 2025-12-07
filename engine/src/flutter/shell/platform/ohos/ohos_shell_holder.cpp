@@ -11,6 +11,7 @@
 #include "flutter/shell/common/run_configuration.h"
 #include "flutter/shell/common/thread_host.h"
 #include "flutter/shell/platform/ohos/ohos_display.h"
+#include "flutter/shell/platform/ohos/ohos_vsync_voting_mgr.h"
 
 #include "flutter/shell/platform/ohos/ohos_logging.h"
 #include "fml/trace_event.h"
@@ -459,6 +460,12 @@ std::optional<RunConfiguration> OHOSShellHolder::BuildRunConfiguration(
     FML_LOG(INFO) << "CreateForKernel.";
     isolate_configuration =
         IsolateConfiguration::CreateForKernel(std::move(kernel_blob));
+  }
+
+  std::shared_ptr<OhosVsyncVotingMgr> votingMgr =
+      OhosVsyncVotingMgr::GetInstance();
+  if (votingMgr != nullptr) {
+    votingMgr->SetAssetProvider(asset_provider_->Clone());
   }
 
   RunConfiguration config(std::move(isolate_configuration));

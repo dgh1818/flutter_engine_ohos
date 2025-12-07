@@ -40,6 +40,7 @@ export { default as SettingsChannel } from './src/main/ets/embedding/engine/syst
 export { default as SystemChannel } from './src/main/ets/embedding/engine/systemchannels/SystemChannel';
 export { default as TestChannel } from './src/main/ets/embedding/engine/systemchannels/TestChannel';
 export { default as TextInputChannel } from './src/main/ets/embedding/engine/systemchannels/TextInputChannel';
+export { default as NativeVsyncChannel } from './src/main/ets/embedding/engine/systemchannels/NativeVsyncChannel';
 export { default as ExclusiveAppComponent } from './src/main/ets/embedding/ohos/ExclusiveAppComponent';
 export * from './src/main/ets/embedding/ohos/FlutterAbility';
 export * from './src/main/ets/embedding/ohos/FlutterAbilityAndEntryDelegate';

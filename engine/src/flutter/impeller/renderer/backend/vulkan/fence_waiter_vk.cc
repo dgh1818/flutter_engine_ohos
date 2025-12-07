@@ -7,6 +7,11 @@
 #include <algorithm>
 #include <chrono>
 #include <utility>
+#ifdef FML_OS_OHOS
+#include <qos/qos.h>
+#include <sys/resource.h>
+#endif
+
 
 #include "flutter/fml/cpu_affinity.h"
 #include "flutter/fml/thread.h"
@@ -98,6 +103,13 @@ void FenceWaiterVK::Main() {
   while (true) {
     // We'll read the terminate_ flag within the lock below.
     bool terminate = false;
+
+#ifdef FML_OS_OHOS
+    if (lowMemoryEventNum_ > 0) {
+      processQosLevel();
+      lowMemoryEventNum_--;
+    }
+#endif
 
     {
       std::unique_lock lock(wait_set_mutex_);
@@ -211,5 +223,27 @@ void FenceWaiterVK::Terminate() {
   }
   wait_set_cv_.notify_one();
 }
+
+#ifdef FML_OS_OHOS
+void FenceWaiterVK::setQosOnLowMemory(int64_t lowMemoryLevel) {
+  lowMemoryLevel_ = lowMemoryLevel;
+  lowMemoryEventNum_++;
+}
+
+void FenceWaiterVK::processQosLevel() {
+  if (lowMemoryLevel_ == OHOS_MEMORY_LEVEL_CRITICAL) {
+    if (OH_QoS_SetThreadQoS(QoS_Level::QOS_USER_INTERACTIVE) != 0) {
+      FML_LOG(ERROR)
+          << "Failed to set qos level QOS_USER_INTERACTIVE in IplrVkFenceWait thread.";
+    }
+  } else {
+    if (OH_QoS_SetThreadQoS(QoS_Level::QOS_DEADLINE_REQUEST) != 0 ||
+        ::setpriority(PRIO_PROCESS, gettid(), -20) != 0) { // -20实际代表线程默认优先级
+      FML_LOG(ERROR)
+          << "Failed to set qos level QOS_DEADLINE_REQUEST in IplrVkFenceWait thread.";
+    }
+  }
+}
+#endif
 
 }  // namespace impeller

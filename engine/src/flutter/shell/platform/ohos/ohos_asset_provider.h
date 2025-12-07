@@ -38,6 +38,9 @@ class OHOSAssetProvider final : public AssetResolver {
 
   bool operator==(const AssetResolver& other) const override;
 
+  std::unique_ptr<fml::Mapping> GetAsMapping(
+      const std::string& asset_name) const override;
+
  private:
   void* asset_handle_;
   std::string dir_;
@@ -47,9 +50,6 @@ class OHOSAssetProvider final : public AssetResolver {
   bool IsValidAfterAssetManagerChange() const override;
 
   AssetResolver::AssetResolverType GetType() const override;
-
-  std::unique_ptr<fml::Mapping> GetAsMapping(
-      const std::string& asset_name) const override;
 
   // |AssetResolver|
   const OHOSAssetProvider* as_ohos_asset_provider() const override {

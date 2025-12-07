@@ -174,6 +174,7 @@ export class PlatformViewParas {
 export class FlutterView {
   private flutterEngine: FlutterEngine | null = null
   private id: string = ""
+  private isActive: boolean = true
   private dVModel: DVModel =
     new DVModel("Stack", new DVModelParameters(), new DVModelEvents(), new DVModelChildren(), null);
   private wrapBuilder: WrappedBuilder<[Params]> | undefined = undefined;
@@ -298,17 +299,27 @@ export class FlutterView {
   }
 
   private avoidAreaChangeCallback = (data: window.AvoidAreaOptions) => {
-    Log.i(TAG, "avoidAreaChangeCallback type:" + data.type);
-    if (data.type == window.AvoidAreaType.TYPE_SYSTEM) { //0
-      this.systemAvoidArea = data.area;
-    } else if (data.type == window.AvoidAreaType.TYPE_SYSTEM_GESTURE) { //2
-      this.gestureAvoidArea = data.area;
-    } else if (data.type == window.AvoidAreaType.TYPE_KEYBOARD) { //3
-      if (this.flutterEngine?.getTextInputChannel()?.getKeyboardFocusState()) {
-        this.keyboardAvoidArea = data.area;
-      }
-    } else if (data.type == window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR) { //4
-      this.navigationAvoidArea = data.area;
+    Log.i(TAG, "avoidAreaChangeCallback, type=" + data.type + ", area=" + JSON.stringify(data.area));
+
+    switch (data.type) {
+      case window.AvoidAreaType.TYPE_SYSTEM:
+        this.systemAvoidArea = data.area;
+        break;
+      case window.AvoidAreaType.TYPE_SYSTEM_GESTURE:
+        this.gestureAvoidArea = data.area;
+        break;
+      case window.AvoidAreaType.TYPE_KEYBOARD:
+        if (this.flutterEngine?.getTextInputChannel()?.getKeyboardFocusState()) {
+          this.keyboardAvoidArea = data.area;
+        } else {
+          this.keyboardAvoidArea.bottomRect = { left: 0, top: 0, width: 0, height: 0 };
+        }
+        break;
+      case window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR:
+        this.navigationAvoidArea = data.area;
+        break;
+      default:
+        break;
     }
     if (this.isAttachedToFlutterEngine()) {
       this.onAreaChange(null);
@@ -348,7 +359,7 @@ export class FlutterView {
   private windowRectChangeCallback = (data: window.RectChangeOptions) => {
     Log.i(TAG, "windowRectChangeCallback " + data);
     this.windowPosition = data.rect as window.Rect;
-    this.flutterEngine?.getTextInputChannel()?.setWindowPosition(this.windowPosition);
+    this.flutterEngine?.getTextInputChannel()?.textInputCallback?.setCursorPosition();
   }
   private accessibilityStateChangeCallback = (data: boolean) => {
     Log.i(TAG, `subscribe accessibility state change, result: ${JSON.stringify(data)}`);
@@ -362,7 +373,14 @@ export class FlutterView {
   getId(): string {
     return this.id;
   }
+  
+  setActive(value: boolean): void {
+    this.isActive = value;
+  }
 
+  getActive(): boolean {
+    return this.isActive;
+  }
   setSurfaceId(surfaceId: string): void {
     this.surfaceId = surfaceId;
   }
@@ -483,6 +501,7 @@ export class FlutterView {
     this.mouseCursorPlugin = new MouseCursorPlugin(windowId, this.flutterEngine?.getMouseCursorChannel()!);
     this.textInputPlugin = new TextInputPlugin(this.flutterEngine?.getTextInputChannel()!, this.id,
       new KeyEventChannel(this.flutterEngine.dartExecutor));
+    this.flutterEngine?.getTextInputChannel()?.textInputCallback?.setViewId(this.id);
     this.keyboardManager = new KeyboardManager(flutterEngine, this.textInputPlugin!);
     this.settings = new Settings(this.flutterEngine.getSettingsChannel()!);
     this.sendSettings();
