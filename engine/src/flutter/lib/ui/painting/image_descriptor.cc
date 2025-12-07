@@ -10,6 +10,7 @@
 #include "flutter/lib/ui/painting/multi_frame_codec.h"
 #include "flutter/lib/ui/painting/single_frame_codec.h"
 #include "flutter/lib/ui/ui_dart_state.h"
+#include "include/core/SkColorSpace.h"
 #include "third_party/tonic/dart_binding_macros.h"
 #include "third_party/tonic/logging/dart_invoke.h"
 
@@ -104,6 +105,15 @@ void ImageDescriptor::initRaw(Dart_Handle descriptor_handle,
   }
   FML_DCHECK(color_type != kUnknown_SkColorType);
   auto image_info = SkImageInfo::Make(width, height, color_type, alpha_type);
+
+  constexpr static const skcms_Matrix3x3 rec2020_matrix = {
+    {{0.636958f, 0.144617f, 0.168881f},
+      {0.262700f, 0.677998f, 0.059302f},
+      {0.000000f, 0.028073f, 1.060985f}}};
+  if(pixel_format == PixelFormat::kRGBA1010102) {
+    image_info.makeColorSpace(SkColorSpace::MakeRGB(SkNamedTransferFn::kHLG,rec2020_matrix));
+  }
+  
   auto descriptor = fml::MakeRefCounted<ImageDescriptor>(
       data->data(), std::move(image_info),
       row_bytes == -1 ? std::nullopt : std::optional<size_t>(row_bytes));
