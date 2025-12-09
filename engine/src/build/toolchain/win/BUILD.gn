@@ -117,6 +117,10 @@ template("msvc_toolchain") {
       description = "CC {{output}}"
       outputs = [ "{{source_out_dir}}/{{target_output_name}}.{{source_name_part}}.obj" ]
 
+      # Use response file to avoid command line length limits on Windows
+      rspfile = "{{output}}.rsp"
+      rspfile_content = "$sys_include_flags{{defines}} {{include_dirs}} {{cflags}} {{cflags_c}}"
+
       # Label names may have spaces in them so the pdbname must be quoted. The
       # source and output don't need to be quoted because GN knows they're a
       # full file name and will quote automatically when necessary.
@@ -139,6 +143,10 @@ template("msvc_toolchain") {
       depsformat = "msvc"
       description = "CXX {{output}}"
       outputs = [ "{{source_out_dir}}/{{target_output_name}}.{{source_name_part}}.obj" ]
+
+      # Use response file to avoid command line length limits on Windows
+      rspfile = "{{output}}.rsp"
+      rspfile_content = "$sys_include_flags{{defines}} {{include_dirs}} {{cflags}} {{cflags_cc}}"
 
       # See comment in CC tool about quoting.
       command = "$env_wrapper$cl /c {{source}} /Fo{{output}} $flags /nologo /showIncludes:user $sys_include_flags{{defines}} {{include_dirs}} {{cflags}} {{cflags_cc}} /Fd\"$pdbname\""
