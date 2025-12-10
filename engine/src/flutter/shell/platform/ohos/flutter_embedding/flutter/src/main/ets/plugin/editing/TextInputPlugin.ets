@@ -128,6 +128,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   private focusViewId: string = "";
   private isInputMethodAttached: boolean = false;
   private cacheFuncIsNotAttached: Array<ESObject> = [];
+  private lastCursorPosition: inputMethod.CursorInfo | null = null; // cache cursorInfo for focus change
 
   constructor(plugin: TextInputPlugin | Any, viewId: string) {
     this.textConfig = {
@@ -215,6 +216,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   }
 
   setCursorSizeAndPosition(cursorInfo: inputMethod.CursorInfo) {
+    this.lastCursorPosition = cursorInfo; // cache cursorInfo
     if (this.isInputMethodAttached) {
       try {
         this.inputMethodController.updateCursor(cursorInfo, (err: BusinessError) => {
@@ -382,6 +384,10 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
       // When the app loses focus, the system automatically detaches the input method.
       // Upon regaining focus, if the input method should be displayed, it must be reattached.
       this.show();
+      // Cache cursorInfo for focus change, so that it can be set after reattach
+      if (this.lastCursorPosition){
+        this.cacheFuncIsNotAttached.push({key: "setCursorSizeAndPosition", value: this.lastCursorPosition});
+      }
     }
     try {
       inputDevice.getDeviceList((Error: Error, ids: Array<number>) => {
