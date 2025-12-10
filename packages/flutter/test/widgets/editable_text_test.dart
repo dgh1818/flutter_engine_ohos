@@ -7404,11 +7404,6 @@ void main() {
 
       switch (defaultTargetPlatform) {
         // These platforms don't move the selection with home/end at all.
-<<<<<<< HEAD
-=======
-        case TargetPlatform.ohos:
-        case TargetPlatform.android:
->>>>>>> oh
         case TargetPlatform.iOS:
         case TargetPlatform.macOS:
           expect(
@@ -7419,6 +7414,7 @@ void main() {
 
         // These platforms go to the line start/end.
         case TargetPlatform.android:
+        case TargetPlatform.ohos:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
         case TargetPlatform.windows:
