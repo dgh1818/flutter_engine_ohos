@@ -211,3 +211,5 @@ export const nativePrefetchFramesCfg: () => void;
 export const nativeCheckLTPOSwitchState: () => number;
 
 export const nativeSetQosOnLowMemory: (nativeShellHolderId: number, lowMemoryLevel: number) => void;
+
+export const nativeSetAnimationStatus: (nativeShellHolderId: number, animationStatus: number) => void;

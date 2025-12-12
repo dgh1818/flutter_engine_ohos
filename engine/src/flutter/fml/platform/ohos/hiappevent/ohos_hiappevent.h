@@ -4,8 +4,8 @@
  * found in the LICENSE_HW file.
  */
 
-#ifndef OHOS_HIAPPEVENT_H
-#define OHOS_HIAPPEVENT_H
+#ifndef FLUTTER_FML_PLATFORM_OHOS_HIAPPEVENT_OHOS_HIAPPEVENT_H_
+#define FLUTTER_FML_PLATFORM_OHOS_HIAPPEVENT_OHOS_HIAPPEVENT_H_
 
 #include <hiappevent/hiappevent.h>
 #include <vector>
@@ -39,6 +39,12 @@ typedef struct MissedFrameInfo {
   int missedFrame;
 } MissedFrameInfo;
 
+enum class OhosHiappEventFlag {
+  kSingleFlag,
+  kStaticFlag,
+  kScrolledFlag,
+};
+
 class OhosHiappEventDDL {
  public:
   OhosHiappEventDDL(void);
@@ -52,9 +58,15 @@ class OhosHiappEventDDL {
                        const char** argumentValues,
                        int argumentCount);
 
+  void ReportScrollJANKEvent(int64_t endTimeMicros,
+                              const char** argumentValues,
+                              int argumentCount);
+
   void Flush(void);
 
-  void FlushAllIn(int type);
+  void FlushScroll(void);
+
+  void FlushAllIn(OhosHiappEventFlag type);
 
   std::unique_ptr<flutter::DynamicLibraryLoader> loader_;
 
@@ -62,6 +74,8 @@ class OhosHiappEventDDL {
   int WriteSingleFrame(void);
 
   int WriteStatisticFrame(void);
+
+  int WriteScrolledFrame(void);
 
   CreateProcessorFunc createProcessorFunc_ = nullptr;
   SetReportRouteFunc setReportRouteFunc_ = nullptr;
@@ -77,9 +91,11 @@ class OhosHiappEventDDL {
   bool isInit_ = false;
 
   std::vector<MissedFrameInfo> MissedFrameInfos;
+
+ std::vector<MissedFrameInfo> MissedFrameInfosScroll;
 };
 
 };  // namespace hiappevent
 };  // namespace fml
 
-#endif
+#endif // FLUTTER_FML_PLATFORM_OHOS_HIAPPEVENT_OHOS_HIAPPEVENT_H_
