@@ -14,14 +14,15 @@ import Log from '../../../util/Log';
 import JSONMessageCodec from '../../../plugin/common/JSONMessageCodec';
 import { KeyCode } from '@kit.InputKit';
 import { ModifierKeyMetaInfo } from '../../ohos/KeyboardMap'
+import Any from '../../../plugin/common/Any';
 
 export default class KeyEventChannel {
   private static TAG = "KeyEventChannel";
   private static CHANNEL_NAME = "flutter/keyevent";
-  private channel: BasicMessageChannel<Map<String, Object>>;
+  private channel: BasicMessageChannel<Object>;
 
   constructor(binaryMessenger: BinaryMessenger) {
-    this.channel = new BasicMessageChannel<Map<String, Object>>(binaryMessenger, KeyEventChannel.CHANNEL_NAME,
+    this.channel = new BasicMessageChannel<Object>(binaryMessenger, KeyEventChannel.CHANNEL_NAME,
       JSONMessageCodec.INSTANCE);
   }
 
@@ -29,11 +30,12 @@ export default class KeyEventChannel {
     isKeyUp: boolean,
     responseHandler: EventResponseHandler): void {
     this.channel.send(this.encodeKeyEvent(keyEvent, isKeyUp),
-      (message: Map<String, Object>) => {
+      (message: Object) => {
         let isEventHandled = false;
         try {
           if (message != null) {
-            isEventHandled = message.get("handled") as boolean;
+            const tmp: Record<string, Any> = message as Record<string, Any>;
+            isEventHandled = tmp["handled"] || false;
           }
         } catch (e) {
           Log.e(KeyEventChannel.TAG, "Unable to unpack JSON message: " + e);
@@ -63,11 +65,12 @@ export default class KeyEventChannel {
     isKeyUp: boolean,
     responseHandler: EventResponseHandler): void {
     this.channel.send(this.encodeSimulatedKeyEvent(keyEvent, isKeyUp),
-      (message: Map<String, Object>) => {
+      (message: Object) => {
         let isEventHandled = false;
         try {
           if (message !== null) {
-            isEventHandled = message.get("handled") as boolean;
+            const tmp: Record<string, Any> = message as Record<string, Any>;
+            isEventHandled = tmp["handled"] || false;
           }
         } catch (e) {
           Log.e(KeyEventChannel.TAG, "Unable to unpack JSON message: " + e);
