@@ -129,6 +129,8 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   private isInputMethodAttached: boolean = false;
   private cacheFuncIsNotAttached: Array<ESObject> = [];
   private lastCursorPosition: inputMethod.CursorInfo | null = null; // cache cursorInfo for focus change
+  // Record the type of soft keyboard that was triggered last time
+  private lastInputType?: inputMethod.TextInputType;
 
   constructor(plugin: TextInputPlugin | Any, viewId: string) {
     this.textConfig = {
@@ -293,18 +295,24 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   }
 
   private async showTextInput(): Promise<void> {
+    if (!this.lastInputType) {
+      this.setLastInputType(this.configuration?.inputType?.type);
+    }
     if (this.keyboardStatus == inputMethod.KeyboardStatus.SHOW) {
       // 增加键盘拉起状态时也调用attach，参数false则attach不会拉起键盘
       await this.attach(false);
-      if (this.lastKind != this.configuration?.deviceKind) {
+      if (this.lastKind != this.configuration?.deviceKind ||
+        this.hasSecureKeyboardInSwitch()) {
         if (deviceInfo.sdkApiVersion >= INPUT_SUPPORT_API) {
           await this.inputMethodController.showTextInput(this.getRequestReason());
         } else {
           await this.inputMethodController.showTextInput();
         }
       }
+      this.setLastInputType(this.configuration?.inputType?.type);
       return;
     }
+    this.setLastInputType(this.configuration?.inputType?.type);
     await this.attach(true);
     if (!this.imcFlag) {
       this.listenKeyBoardEvent();
@@ -449,6 +457,18 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     this.inputAttribute = this.textConfig.inputAttribute;
 
     this.updateAttribute();
+  }
+
+  setLastInputType(inputType?: inputMethod.TextInputType): void {
+    this.lastInputType = inputType;
+  }
+
+  // It is used to determine whether there is a safe keyboard for the keyboard type
+  // awakened by the two input boxes when a soft keyboard is already suspended
+  // and switching input boxes
+  hasSecureKeyboardInSwitch(): boolean {
+    return this.lastInputType === inputMethod.TextInputType.VISIBLE_PASSWORD ||
+    this.configuration?.inputType?.type === inputMethod.TextInputType.VISIBLE_PASSWORD;
   }
 
   canShowTextInput(): boolean {
