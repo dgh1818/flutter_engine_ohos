@@ -42,6 +42,9 @@ enum OperatingSystem {
   /// MacOs: <https://www.apple.com/macos/>
   macOs,
 
+  /// Ohos
+  ohos,
+
   /// We were unable to detect the current operating system.
   unknown,
 }

@@ -57,6 +57,7 @@
         "custom_deps": {},
         "deps_file": "DEPS_ohos",
         "safesync_url": "",
+        "custom_vars": {"download_emsdk": True},
       },
     ]
    ```

@@ -39,6 +39,7 @@ This repository is an extension of the Flutter engine repository. It enables Flu
       "custom_deps": {},
       "deps_file": "DEPS_ohos",
       "safesync_url": "",
+      "custom_vars": {"download_emsdk": True},
    },
    ]
    ```

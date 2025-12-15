@@ -240,6 +240,7 @@ class KeyboardConverter {
       ui_web.OperatingSystem.windows => locale_keymap.LocaleKeymap.win(),
       ui_web.OperatingSystem.android ||
       ui_web.OperatingSystem.linux ||
+      ui_web.OperatingSystem.ohos ||
       ui_web.OperatingSystem.unknown => locale_keymap.LocaleKeymap.linux(),
     };
   }
