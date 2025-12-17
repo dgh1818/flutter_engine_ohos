@@ -55,16 +55,17 @@ export default class TextInputPlugin implements EditingStateWatcher {
 
   // do preview the text in the editing widget
   didChangePreviewTextEditingState(inputTarget: InputTarget, editable: ListenableEditingState): void {
+    // stringCache contains no preview text
     let stringCache: string = editable.getStringCache();
-    // obtain the start index of editing preview text
-    let startIdx: number = editable.getLeftIdxOfPreviewTextRange();
-    let leftStringCache  = stringCache.substring(0, startIdx);
-    let rightStringCache = stringCache.substring(startIdx, stringCache.length);
+    // obtain the inserting index of editing preview text
+    let insertIdx: number = editable.getLeftIdxOfPreviewTextRange();
+    let leftStringCache  = stringCache.substring(0, insertIdx);
+    let rightStringCache = stringCache.substring(insertIdx, stringCache.length);
     // concat the string cache and preview text and show on the TextField
     let finalStringCache = leftStringCache + editable.getPreviewText() + rightStringCache;
     // update the selection range
-    let newSelectionStart: number = startIdx + editable.getPreviewText().length;
-    let newSelectionEnd: number = startIdx + editable.getPreviewText().length;
+    let newSelectionStart: number = insertIdx + editable.getPreviewText().length;
+    let newSelectionEnd: number = insertIdx + editable.getPreviewText().length;
 
     this.textInputChannel.updateEditingState(inputTarget.id, finalStringCache,
       newSelectionStart, newSelectionEnd,
@@ -131,6 +132,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   private lastCursorPosition: inputMethod.CursorInfo | null = null; // cache cursorInfo for focus change
   // Record the type of soft keyboard that was triggered last time
   private lastInputType?: inputMethod.TextInputType;
+  private cachedInputTargetId: number = -1;
 
   constructor(plugin: TextInputPlugin | Any, viewId: string) {
     this.textConfig = {
@@ -240,19 +242,24 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
       "text:" + editingState.text + " selectionStart:" + editingState.selectionStart + " selectionEnd:"
         + editingState.selectionEnd + " composingStart:" + editingState.composingStart + " composingEnd" +
       editingState.composingEnd);
-    this.mEditable.setPreviewText("");
     this.mEditable.setIsCursorIdxOutOfPreviewTextRange(false);
     this.mEditable.updateTextInputState(editingState);
     // notify current cursor index or selection range to the InputMethodFramework
     if (this.isInputMethodAttached) {
-      this.inputMethodController.changeSelection("", -1, -1, (err: BusinessError) => {
-        if (err) {
-          Log.e(TextInputMethodHandlerImpl.TAG, `Failed to changeSelection, code: ${err.code}, message: ${err.message}`);
-          return;
-        }
+      if (this.cachedInputTargetId !== this.inputTarget.id) {
+        this.inputMethodController.changeSelection("", -1, -1, (err: BusinessError) => {
+          if (err) {
+            Log.e(TextInputMethodHandlerImpl.TAG, `Failed to changeSelection, code: ${err.code}, message: ${err.message}`);
+            return;
+          }
+          this.inputMethodController.changeSelection(editingState.text, editingState.selectionStart,
+            editingState.selectionEnd);
+        });
+        this.cachedInputTargetId = this.inputTarget.id;
+      } else {
         this.inputMethodController.changeSelection(editingState.text, editingState.selectionStart,
           editingState.selectionEnd);
-      });
+      }
     } else {
       this.cacheFuncIsNotAttached.push({key: "setEditingState", value: editingState});
     }

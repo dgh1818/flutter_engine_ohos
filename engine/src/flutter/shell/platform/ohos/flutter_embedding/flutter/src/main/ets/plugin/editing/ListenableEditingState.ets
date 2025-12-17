@@ -53,7 +53,7 @@ export class ListenableEditingState {
   private mComposingEndWhenBeginBatchEdit: number = 0;
 
   // preview text
-  private mPreviewText: string = "";
+  private mPreviewText: string;
   private mPreviewTextStart: number = 0;
   private mPreviewTextEnd: number = 0;
   private mLeftIdxOfPreviewTextRange: number = 0;
@@ -228,14 +228,25 @@ export class ListenableEditingState {
     }
     // preview text callback with complete text contents，like a, a'b, a'b'c
     // its text char do not appear one by one
-    this.setPreviewText(text);
     this.setPreviewTextStart(range.start);
     this.setPreviewTextEnd(range.end);
 
     // update preview text start idx and end idx
-    let leftIdxOfPreviewText: number = this.getSelectionStart();
-    let rightIdxOfPreviewText: number = this.getSelectionStart() + text.length;
-    this.updatePreviewTextRange(leftIdxOfPreviewText, rightIdxOfPreviewText)
+    let leftIdxOfPreviewText: number = this.getPreviewText() == ""
+      ? this.getSelectionStart()
+      : this.getLeftIdxOfPreviewTextRange();
+    let rightIdxOfPreviewText: number = leftIdxOfPreviewText + text.length;
+    if (text.length == 0) {
+      // When preview text is cleared, cursor should return to the start position of preview text
+      const cursorPosition = leftIdxOfPreviewText;
+      leftIdxOfPreviewText = 0;
+      rightIdxOfPreviewText = 0;
+      // Set cursor position to the start position of preview text
+      this.mSelectionStartCache = cursorPosition;
+      this.mSelectionEndCache = cursorPosition;
+    }
+    this.updatePreviewTextRange(leftIdxOfPreviewText, rightIdxOfPreviewText);
+    this.setPreviewText(text);
 
     if (this.mListeners == null) {
       Log.e(TAG, "handleInsertPreviewTextEvent, mListeners is null");
@@ -245,10 +256,6 @@ export class ListenableEditingState {
   }
 
   handleInsertTextEvent(text: string): void {
-    // clear preview text cache before insert the final texts
-    if (this.getPreviewText().length != 0) {
-      this.setPreviewText("");
-    }
     // When previewTextChangeSelection async callback has been invoked, covering the previous preview text.
     // But if that callback did not work, then manually insert the candidate word, covering the previous preview text.
     if (this.getLeftIdxOfPreviewTextRange() < this.mSelectionStartCache &&
@@ -257,10 +264,9 @@ export class ListenableEditingState {
       this.mSelectionEndCache = this.getRightIdxOfPreviewTextRange();
     } else if (this.mIsEnglishPreviewMode) {
       // To comply with the specifications of Xiaoyi-InputMethod, change the
-      // range of inserted English chars and add a space at the backend
+      // range of inserted English chars
       this.mSelectionStartCache = this.getPreviewTextStart();
       this.mSelectionEndCache = this.getPreviewTextEnd();
-      text += " ";
     }
 
     let start =
@@ -275,12 +281,14 @@ export class ListenableEditingState {
       this.mStringCache = tempStr;
       this.setSelectionStart(this.mStringCache.length);
       this.setSelectionEnd(this.mStringCache.length);
+      this.setPreviewText("");
     } else if (this.mStringCache.length > this.mSelectionStartCache) {
       //Insert text in the middle of string
       let tempStr: string = this.mStringCache.substring(0, start) + text + this.mStringCache.substring(end);
       this.mStringCache = tempStr;
       this.mSelectionStartCache = start + text.length;
       this.mSelectionEndCache = this.mSelectionStartCache;
+      this.setPreviewText("");
     }
     if (this.mListeners == null) {
       Log.e(TAG, "mListeners is null");
@@ -302,7 +310,14 @@ export class ListenableEditingState {
       this.rightDeleteState = DeleteStates.MOVING;
     }
     this.beginBatchEdit();
-    this.setStringCache(state.text);
+
+    // Only update stringCache when there's no preview text
+    // When preview text exists, stringCache should keep the base text unchanged
+    const hasPreviewText = this.getPreviewText() != "" 
+      && this.getLeftIdxOfPreviewTextRange() < this.getRightIdxOfPreviewTextRange();
+    if (!hasPreviewText) {
+      this.setStringCache(state.text);
+    }
     if (state.hasSelection()) {
       this.setSelectionStart(state.selectionStart);
       this.setSelectionEnd(state.selectionEnd);
@@ -404,17 +419,8 @@ export class ListenableEditingState {
       this.setPreviewText("");
     }
 
-    if (enableDeltaModel) {
-      let selectionStart = this.getSelectionStart();
-      let selectionEnd = this.getSelectionEnd();
-      if(selectionStart === 0 && selectionEnd === 0){
-        // [selectionStart]和[selectionEnd]都为0时，删除文本范围为空
-        return;
-      }
-      if (selectionStart === selectionEnd) {
-        // [selectionStart]和[selectionEnd]一致时为普通删除操作，需要修改偏移量
-        this.setSelectionStart(this.mSelectionStartCache - length);
-      }
+    if (enableDeltaModel && (this.mSelectionStartCache > 0)) {
+      this.setSelectionStart(this.mSelectionStartCache - length);
     }
 
     let start =
