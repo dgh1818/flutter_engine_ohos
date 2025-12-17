@@ -232,11 +232,11 @@ export class ListenableEditingState {
     this.setPreviewTextEnd(range.end);
 
     // update preview text start idx and end idx
-    let leftIdxOfPreviewText: number = this.getPreviewText() == ""
+    let leftIdxOfPreviewText: number = this.getPreviewText() === ""
       ? this.getSelectionStart()
       : this.getLeftIdxOfPreviewTextRange();
     let rightIdxOfPreviewText: number = leftIdxOfPreviewText + text.length;
-    if (text.length == 0) {
+    if (text.length === 0) {
       // When preview text is cleared, cursor should return to the start position of preview text
       const cursorPosition = leftIdxOfPreviewText;
       leftIdxOfPreviewText = 0;
@@ -313,7 +313,7 @@ export class ListenableEditingState {
 
     // Only update stringCache when there's no preview text
     // When preview text exists, stringCache should keep the base text unchanged
-    const hasPreviewText = this.getPreviewText() != "" 
+    const hasPreviewText = this.getPreviewText() !== "" 
       && this.getLeftIdxOfPreviewTextRange() < this.getRightIdxOfPreviewTextRange();
     if (!hasPreviewText) {
       this.setStringCache(state.text);
