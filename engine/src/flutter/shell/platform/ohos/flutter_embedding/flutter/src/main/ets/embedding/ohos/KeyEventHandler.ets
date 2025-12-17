@@ -95,6 +95,7 @@ export class KeyEventHandler {
     [KeyCode.KEYCODE_NUMPAD_7, new KeyText('7', '')],
     [KeyCode.KEYCODE_NUMPAD_8, new KeyText('8', '')],
     [KeyCode.KEYCODE_NUMPAD_9, new KeyText('9', '')],
+    [KeyCode.KEYCODE_NUMPAD_DOT, new KeyText('.', '')],
   ]);
   private textInputPlugin?: TextInputPlugin;
 
