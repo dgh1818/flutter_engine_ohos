@@ -545,6 +545,20 @@ Rasterizer::DoDrawResult Rasterizer::DoDraw(
         "vsync_transitions_missed",   // arg_key_3
         vsync_transitions_missed      // arg_val_3
     );
+
+
+#ifdef FML_OS_OHOS
+// TODO: 获取帧号
+// 唯一标识 取 latest_frame_target_time
+// latest_frame_target_time
+
+// 帧号
+// recorder->GetFrameNumberTraceArg()
+
+// 使用接口
+// fml::tracing::TraceEventSetAnimationStatus(type);
+#endif
+
   }
 #endif
 
