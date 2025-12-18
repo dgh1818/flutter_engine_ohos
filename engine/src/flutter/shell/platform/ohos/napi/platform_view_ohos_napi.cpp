@@ -35,6 +35,8 @@
 
 #include "flutter/fml/platform/ohos/ohos_trace_event.h"
 
+#include "flutter/fml/platform/ohos/ohos_trace_event.h"
+
 #define OHOS_SHELL_HOLDER (reinterpret_cast<OHOSShellHolder*>(shell_holder))
 namespace flutter {
 
@@ -2880,12 +2882,13 @@ napi_value PlatformViewOHOSNapi::nativeSetAnimationStatus(napi_env env, napi_cal
     return nullptr;
   }
 
-  FML_LOG(ERROR) << "kemin nativeSetAnimationStatus type = " << type;
-  switch (type) {
-    case 0:
+  FML_LOG(ERROR) << "nativeSetAnimationStatus type = " << type;
+  auto status = static_cast<ScrollingStatus>(type);
+  switch (status) {
+    case ScrollingStatus::kScrollStart:
       fml::tracing::TraceEventSetAnimationStatus(type);
       break;
-    case 1:
+    case ScrollingStatus::kScrollEnd:
       fml::tracing::TraceEventSetAnimationStatus(type);
         OHOS_SHELL_HOLDER->GetPlatformView()->RunTask(
           OhosThreadType::kIO,

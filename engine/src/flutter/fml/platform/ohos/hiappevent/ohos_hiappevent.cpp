@@ -87,11 +87,11 @@ void OhosHiappEventDDL::ReportScrollJANKEvent(int64_t endTimeMicros,
                                         const char** argumentValues,
                                         int argumentCount) {
   if (argumentCount < ARGUMENT_SIZE) {
-    FML_LOG(ERROR) << "Array data overflow";
+    FML_LOG(ERROR) << "Too many parameters";
     return;
   }
 
-  FML_LOG(ERROR) << "kemin ReportJANKEvent, endTimeMicros = " << endTimeMicros;
+  FML_LOG(INFO) << "ReportJANKEvent, endTimeMicros = " << endTimeMicros;
 
   /*  argumentValues
       [0]:frame_target_time
@@ -162,27 +162,14 @@ void OhosHiappEventDDL::ReportJANKEvent(int64_t endTimeMicros,
 }
 
 int OhosHiappEventDDL::WriteSingleFrame(void) {
-  // if (MissedFrameInfos.size() == 0) {
-  //   return -1;
-  // }
-
-  // int64_t endTimeMicros = MissedFrameInfos.front().endTimeMicros;
-  // int64_t targetTime = MissedFrameInfos.front().targetTime / 1000;
-  // int64_t lastestTargetTime = MissedFrameInfos.front().lastestTargetTime / 1000;
-  // int missedFrame = MissedFrameInfos.front().missedFrame;
-
-  // kemin
-  FML_LOG(ERROR) << "kemin WriteSingleFrame entry";
-  if (MissedFrameInfosScroll.size() == 0) {
+  if (MissedFrameInfos.size() == 0) {
     return -1;
   }
 
-  int64_t endTimeMicros = MissedFrameInfosScroll.front().endTimeMicros;
-  int64_t targetTime = MissedFrameInfosScroll.front().targetTime / 1000;
-  int64_t lastestTargetTime = MissedFrameInfosScroll.front().lastestTargetTime / 1000;
-  int missedFrame = MissedFrameInfosScroll.front().missedFrame;
-
-  FML_LOG(ERROR) << "kemin WriteSingleFrame entry";
+  int64_t endTimeMicros = MissedFrameInfos.front().endTimeMicros;
+  int64_t targetTime = MissedFrameInfos.front().targetTime / 1000;
+  int64_t lastestTargetTime = MissedFrameInfos.front().lastestTargetTime / 1000;
+  int missedFrame = MissedFrameInfos.front().missedFrame;
 
   if (endTimeMicros < targetTime) {
     FML_LOG(ERROR) << "report error, endTime is less than targetTime";
@@ -362,7 +349,7 @@ int OhosHiappEventDDL::WriteScrolledFrame(void) {
   // 总丢帧个数
   OH_HiAppEvent_AddInt32Param(list, "totalMissedFrames", totalMissedFrames);
   // 总帧数
-  OH_HiAppEvent_AddInt32Param(list, "totalFrames", 1); // kemin 漏了，后面补充
+  OH_HiAppEvent_AddInt32Param(list, "totalFrames", 1); // TODO: 后面补充
   // 距离上次上报的滑动次数
   OH_HiAppEvent_AddInt32Param(list, "recentScrollCount", recentScrollCount);
   // 进程ID
