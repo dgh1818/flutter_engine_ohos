@@ -7,22 +7,21 @@ Original warehouse source: https://github.com/flutter/flutter
 1. This repository is a compatible extension of Flutter SDK for the OpenHarmony platform, and can support IDE or terminal use of Flutter Tools instructions to compile and build OpenHarmony applications.
 2. This repository is built based on the Flutter official community version 3.22.0
    * [sdk base version](https://github.com/flutter/flutter/commit/5dcb86f68f239346676ceb1ed1ea385bd215fba1)
-   * [engine base version](https://github.com/flutter/engine/commit/f6344b75dcf861d8bf1f1322780b8811f982e31a)
 
 ## Flutter OH version evolution planning and branching strategy
 You can learn more about our adaptation of Flutter for OpenHarmony in the [Flutter OH version evolution planning and branching strategy](https://gitcode.com/openharmony-tpc/flutter_flutter/wiki/Flutter-OH%E7%89%88%E6%9C%AC%E6%BC%94%E8%BF%9B%E8%A7%84%E5%88%92%E5%92%8C%E5%88%86%E6%94%AF%E7%AD%96%E7%95%A5.md).
 
 ## Upgrade Guide
-1. If your project is upgrading from HarmonyOS version 3.7.12 to version 3.22.0:
+1. If your project is upgrading from HarmonyOS version 3.7.12 to version 3.35.7:
    * Environment dependencies: Configuration remains consistent between the two versions, no additional modifications required.
-   * For new features and changes from 3.7.12 to 3.22.0, please refer to the [Release Notes](https://docs.flutter.dev/release/release-notes).
+   * For new features and changes from 3.7.12 to 3.35.7, please refer to the [Release Notes](https://docs.flutter.dev/release/release-notes).
    * For official compatibility changes, please refer to the [Upgrade Guide](https://docs.flutter.dev/release/breaking-changes).
-   * For the changelog from 3.7 to 3.22, please refer to the [Changelog](/release-notes/changelog/Flutter3.7_to_3.22_Breaking-changes.en.md)
+   * For the changelog from 3.7 to 3.35, please refer to the [Changelog](/release-notes/changelog/Flutter3.7_to_3.35_Breaking-changes.en.md)
    * Rendering Engine: Added impeller-vulkan mode (default, can be switched to skia-gl).
    * Third-party libraries:
-      - Pure Dart libraries should be upgraded to the specified version to support 3.22.0.
-      - The packages in [openharmony-tpc/flutter_packages](https://gitcode.com/openharmony-tpc/flutter_packages/blob/master/README.md) have undergone a basic usability test for version 3.22.0. If you encounter any issues during use, please create an issue for tracking.
-2. If your project is migrating from Android or iOS to the HarmonyOS adaptation for version 3.22.0, please refer to the remaining guide documents.
+      - Pure Dart libraries should be upgraded to the specified version to support 3.35.7.
+      - The packages in [openharmony-tpc/flutter_packages](https://gitcode.com/openharmony-tpc/flutter_packages/blob/master/README.md) have undergone a basic usability test for version 3.35.7. If you encounter any issues during use, please create an issue for tracking.
+2. If your project is migrating from Android or iOS to the HarmonyOS adaptation for version 3.35.7, please refer to the remaining guide documents.
 
 ## Development document
 [Docs](https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs)
@@ -51,7 +50,7 @@ You can learn more about our adaptation of Flutter for OpenHarmony in the [Flutt
         export PATH=$TOOL_HOME/tools/node/bin:$PATH # command-line-tools/tool/node/bin
        ```
 
-   2. Download the current warehouse code `git clone https://gitcode.com/openharmony-tpc/flutter_flutter.git` Specify the oh-3.22.0 branch and configure the environment
+   2. Download the current warehouse code `git clone https://gitcode.com/openharmony-tpc/flutter_flutter.git` Specify the oh-3.35.7 branch and configure the environment
 
       ```sh
        export PATH=<flutter_flutter path>/bin:$PATH
