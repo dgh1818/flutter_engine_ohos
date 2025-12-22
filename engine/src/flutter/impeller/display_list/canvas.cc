@@ -357,7 +357,8 @@ bool Canvas::AttemptColorFilterOptimization(
     const Paint& paint,
     const SamplerDescriptor& sampler,
     SourceRectConstraint src_rect_constraint) {
-  if (!paint.color_filter ||                     //
+  if (src_rect_constraint == SourceRectConstraint::kStrict ||
+      !paint.color_filter ||                     //
       paint.image_filter != nullptr ||           //
       paint.invert_colors ||                     //
       paint.mask_blur_descriptor.has_value() ||  //
