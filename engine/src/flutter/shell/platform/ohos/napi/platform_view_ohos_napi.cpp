@@ -1950,11 +1950,11 @@ void PlatformViewOHOSNapi::SurfaceChanged(int64_t shell_holder,
 }
 
 void PlatformViewOHOSNapi::SurfaceDestroyed(int64_t shell_holder) {
-  OHOS_SHELL_HOLDER->GetPlatformView()->NotifyDestroyed();
-
   OHOS_SHELL_HOLDER->GetPlatformView()->RunTask(OhosThreadType::kIO, [] {
     fml::hiappevent::OhosHiappEventDDL::GetInstance()->Flush();
   });
+
+  OHOS_SHELL_HOLDER->GetPlatformView()->NotifyDestroyed();
 }
 
 void PlatformViewOHOSNapi::SetPlatformTaskRunner(
