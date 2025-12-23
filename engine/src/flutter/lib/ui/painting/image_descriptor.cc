@@ -111,7 +111,7 @@ void ImageDescriptor::initRaw(Dart_Handle descriptor_handle,
       {0.262700f, 0.677998f, 0.059302f},
       {0.000000f, 0.028073f, 1.060985f}}};
   if(pixel_format == PixelFormat::kRGBA1010102) {
-    image_info.makeColorSpace(SkColorSpace::MakeRGB(SkNamedTransferFn::kHLG,rec2020_matrix));
+    image_info = image_info.makeColorSpace(SkColorSpace::MakeRGB(SkNamedTransferFn::kHLG,rec2020_matrix));
   }
   
   auto descriptor = fml::MakeRefCounted<ImageDescriptor>(
