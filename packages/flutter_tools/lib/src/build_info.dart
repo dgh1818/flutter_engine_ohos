@@ -784,6 +784,16 @@ enum OhosArch {
   x86_64,
 }
 
+bool isOhosPlatform(TargetPlatform? targetPlatform) {
+  if (targetPlatform == TargetPlatform.ohos ||
+      targetPlatform == TargetPlatform.ohos_arm ||
+      targetPlatform == TargetPlatform.ohos_arm64 ||
+      targetPlatform == TargetPlatform.ohos_x64) {
+    return true;
+  }
+  return false;
+}
+
 bool isOhosArtifact(Artifact artifact) {
   return artifact == Artifact.flutterEngineHar;
 }
