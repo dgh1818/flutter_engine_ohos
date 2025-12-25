@@ -277,6 +277,8 @@ void PlatformViewOHOSNapi::FlutterViewHandlePlatformMessageResponse(
     int reponse_id,
     std::unique_ptr<fml::Mapping> data) {
   FML_DLOG(INFO) << "FlutterViewHandlePlatformMessageResponse";
+  napi_handle_scope scope;
+  napi_open_handle_scope(env_, &scope);
   napi_status status;
   napi_value callbackParam[2];
   status = napi_create_int64(env_, reponse_id, callbackParam);
@@ -291,8 +293,6 @@ void PlatformViewOHOSNapi::FlutterViewHandlePlatformMessageResponse(
         env_, (void*)data->GetMapping(), data->GetSize());
   }
 
-  napi_handle_scope scope;
-  napi_open_handle_scope(env_, &scope);
   status = fml::napi::InvokeJsMethod(
       env_, ref_napi_obj_, "handlePlatformMessageResponse", 2, callbackParam);
   if (status != napi_ok) {
@@ -306,7 +306,8 @@ void PlatformViewOHOSNapi::FlutterViewHandlePlatformMessage(
     std::unique_ptr<flutter::PlatformMessage> message) {
   FML_DLOG(INFO) << "FlutterViewHandlePlatformMessage message channal "
                  << message->channel().c_str();
-
+  napi_handle_scope scope;
+  napi_open_handle_scope(env_, &scope);
   napi_value callbackParam[4];
   napi_status status;
 
@@ -314,6 +315,7 @@ void PlatformViewOHOSNapi::FlutterViewHandlePlatformMessage(
                                    message->channel().size(), callbackParam);
   if (status != napi_ok) {
     FML_DLOG(ERROR) << "napi_create_string_utf8 err " << status;
+    napi_close_handle_scope(env_, scope);
     return;
   }
 
@@ -323,6 +325,7 @@ void PlatformViewOHOSNapi::FlutterViewHandlePlatformMessage(
   status = napi_create_int64(env_, reponse_id, &callbackParam[2]);
   if (status != napi_ok) {
     FML_DLOG(ERROR) << "napi_create_int64 err " << status;
+    napi_close_handle_scope(env_, scope);
     return;
   }
   if (message->hasData()) {
@@ -333,6 +336,10 @@ void PlatformViewOHOSNapi::FlutterViewHandlePlatformMessage(
                                      &callbackParam[3]);
     if (status != napi_ok) {
       FML_DLOG(ERROR) << "napi_create_string_utf8 err " << status;
+      if (mapData) {
+        delete mapData;
+      }
+      napi_close_handle_scope(env_, scope);
       return;
     }
     if (mapData) {
@@ -342,8 +349,6 @@ void PlatformViewOHOSNapi::FlutterViewHandlePlatformMessage(
     callbackParam[3] = nullptr;
   }
 
-  napi_handle_scope scope;
-  napi_open_handle_scope(env_, &scope);
   status = fml::napi::InvokeJsMethod(env_, ref_napi_obj_,
                                      "handlePlatformMessage", 4, callbackParam);
   if (status != napi_ok) {
