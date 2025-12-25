@@ -8,6 +8,7 @@
 #include <functional>
 #include <mutex>
 
+#include "flutter/fml/make_copyable.h"
 #include "flutter/fml/memory/weak_ptr.h"
 #include "flutter/fml/logging.h"
 #include "flutter/fml/trace_event.h"
@@ -19,7 +20,7 @@ namespace OhosWatchdog {
 constexpr int resetRatio = 2;
 constexpr std::chrono::seconds checkIntervalTime{3};
 
-class FlutterWatchdog {
+class FlutterWatchdog : public std::enable_shared_from_this<FlutterWatchdog> {
  public:
   explicit FlutterWatchdog(fml::RefPtr<fml::TaskRunner> ui);
 
@@ -34,18 +35,15 @@ class FlutterWatchdog {
 
   std::chrono::steady_clock::time_point m_lastWatchTime;
   fml::RefPtr<fml::TaskRunner> m_ui;
-  fml::WeakPtrFactory<FlutterWatchdog> weak_factory_;
 };
 
 FlutterWatchdog::FlutterWatchdog(fml::RefPtr<fml::TaskRunner> ui)
-    : m_ui(std::move(ui)), weak_factory_(this) {
+    : m_ui(std::move(ui)) {
   FML_DLOG(INFO) << "FlutterWatchdog::FlutterWatchdog Thread Id = " <<m_ui->GetTaskQueueId();
 }
 
 void FlutterWatchdog::handleFlutterUiThreadAliveNotification() {
-  FML_DLOG(INFO)
-      << "FlutterWatchdog::handleFlutterUiThreadAliveNotification entry";
-  TRACE_EVENT_INSTANT0("flutter", "handleFlutterUiThreadAliveNotification");
+  TRACE_EVENT_INSTANT0("flutter", "feedFlutterWatchdog");
   m_flutter_ui_thread_is_alive = true;
   m_need_report = true;
   m_is_six_second_event = false;
@@ -65,12 +63,13 @@ void FlutterWatchdog::runHiCollieStuckDetectionTask() {
   }
 
   fml::TaskRunner::RunNowOrPostTask(
-      m_ui, [self = weak_factory_.GetWeakPtr()]() {
-        if (!self) {
+      m_ui, fml::MakeCopyable([weak_this = weak_from_this()]() {
+        auto flutterWatchdog = weak_this.lock();
+        if (!flutterWatchdog) {
           return;
         }
-        self->handleFlutterUiThreadAliveNotification();
-      });
+        flutterWatchdog->handleFlutterUiThreadAliveNotification();
+      }));
 
   auto now = std::chrono::steady_clock::now();
   if ((now - m_lastWatchTime) >= (checkIntervalTime / resetRatio)) {
