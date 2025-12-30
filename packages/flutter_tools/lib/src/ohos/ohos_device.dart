@@ -364,6 +364,23 @@ class OhosDevice extends Device {
           return LaunchResult.failed();
         }
       }
+
+      if (debuggingOptions.buildInfo.isDebug) {
+        try {
+          final List<String> attachCmd = <String>[
+            'shell',
+            'aa',
+            'attach',
+            '-b',
+            builtPackage.ohosBuildData.appInfo!.bundleName,
+          ];
+          await runHdcCheckedAsync(attachCmd);
+          _logger.printStatus('Execute attach command for bundle: ${builtPackage.ohosBuildData.appInfo!.bundleName}');
+        } catch (e) {
+          _logger.printWarning('Failed to execute attach command: $e');
+        }
+      }
+
       return LaunchResult.succeeded(observatoryUri: observatoryUri);
     } on Exception catch (error) {
       _logger.printError('Error waiting for a debug connection: $error');
@@ -404,6 +421,9 @@ class OhosDevice extends Device {
     if (app == null) {
       return false;
     }
+
+    await runHdcCheckedAsync(<String>['shell', 'aa', 'detach', '-b', app.id]);
+
     final RunResult result = _processUtils.runSync(
       hdcCommandForDevice(<String>['shell', 'aa', 'force-stop', app.id]),
     );
