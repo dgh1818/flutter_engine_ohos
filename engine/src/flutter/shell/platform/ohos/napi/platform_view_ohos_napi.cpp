@@ -33,6 +33,8 @@
 #include "flutter/shell/platform/ohos/types.h"
 #include "unicode/uchar.h"
 
+#include "flutter/fml/platform/ohos/ohos_trace_event.h"
+
 #define OHOS_SHELL_HOLDER (reinterpret_cast<OHOSShellHolder*>(shell_holder))
 namespace flutter {
 
@@ -2847,6 +2849,66 @@ napi_value PlatformViewOHOSNapi::nativeSetQosOnLowMemory(
       resourceManager->setQosOnLowMemory(lowMemoryLevel);
     }
   }
+  return nullptr;
+}
+
+napi_value PlatformViewOHOSNapi::nativeSetAnimationStatus(napi_env env, napi_callback_info info)
+{
+  size_t argc = 2;
+  napi_value args[2] = {nullptr};
+
+  napi_status ret = napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+  if (ret != napi_ok) {
+    FML_LOG(ERROR) << "nativeSetAnimationStatus napi_get_cb_info error, " << ret;
+    return nullptr;
+  }
+
+  int64_t shell_holder;
+  ret = napi_get_value_int64(env, args[0], &shell_holder);
+  if (ret != napi_ok) {
+    FML_DLOG(ERROR) << "PlatformViewOHOSNapi::nativeSetSemanticsEnabled "
+                       "napi_get_value_int64 error:"
+                    << ret;
+    return nullptr;
+  }
+
+  int32_t type;
+  ret = napi_get_value_int32(env, args[1], &type);
+  if (ret != napi_ok) {
+    FML_LOG(ERROR) << "nativeSetAnimationStatus type "
+                      "napi_get_value_int32 error, " << ret;
+    return nullptr;
+  }
+
+  FML_LOG(ERROR) << "nativeSetAnimationStatus type = " << type;
+  auto status = static_cast<ScrollingStatus>(type);
+  switch (status) {
+    case ScrollingStatus::kScrollStart:
+      fml::tracing::TraceEventSetAnimationStatus(type);
+      break;
+    case ScrollingStatus::kScrollEnd:
+      fml::tracing::TraceEventSetAnimationStatus(type);
+        OHOS_SHELL_HOLDER->GetPlatformView()->RunTask(
+          OhosThreadType::kIO,
+          []{ fml::hiappevent::OhosHiappEventDDL::GetInstance()->FlushScroll(); }
+        );
+      break;
+    default:
+      break;
+  }
+  // std::shared_ptr<OhosVsyncVotingMgr> votingMgr = OhosVsyncVotingMgr::GetInstance();
+  // if (votingMgr == nullptr) {
+  //   return nullptr;
+  // }
+
+  // switch (type) {
+  //   case static_cast<int>(AnimationType::AN_TYPE_TRANSLATE):
+  //     votingMgr->VoteAnimationValue(AnimationType::AN_TYPE_TRANSLATE,
+  //       PlatformViewOHOSNapi::display_density_pixels, velocity);
+  //     break;
+  //   default:
+  //     break;
+  // }
   return nullptr;
 }
 

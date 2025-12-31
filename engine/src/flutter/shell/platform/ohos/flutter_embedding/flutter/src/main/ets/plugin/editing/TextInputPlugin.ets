@@ -55,16 +55,17 @@ export default class TextInputPlugin implements EditingStateWatcher {
 
   // do preview the text in the editing widget
   didChangePreviewTextEditingState(inputTarget: InputTarget, editable: ListenableEditingState): void {
+    // stringCache contains no preview text
     let stringCache: string = editable.getStringCache();
-    // obtain the start index of editing preview text
-    let startIdx: number = editable.getLeftIdxOfPreviewTextRange();
-    let leftStringCache  = stringCache.substring(0, startIdx);
-    let rightStringCache = stringCache.substring(startIdx, stringCache.length);
+    // obtain the inserting index of editing preview text
+    let insertIdx: number = editable.getLeftIdxOfPreviewTextRange();
+    let leftStringCache  = stringCache.substring(0, insertIdx);
+    let rightStringCache = stringCache.substring(insertIdx, stringCache.length);
     // concat the string cache and preview text and show on the TextField
     let finalStringCache = leftStringCache + editable.getPreviewText() + rightStringCache;
     // update the selection range
-    let newSelectionStart: number = startIdx + editable.getPreviewText().length;
-    let newSelectionEnd: number = startIdx + editable.getPreviewText().length;
+    let newSelectionStart: number = insertIdx + editable.getPreviewText().length;
+    let newSelectionEnd: number = insertIdx + editable.getPreviewText().length;
 
     this.textInputChannel.updateEditingState(inputTarget.id, finalStringCache,
       newSelectionStart, newSelectionEnd,
@@ -126,6 +127,12 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     { textInputType: inputMethod.TextInputType.TEXT, enterKeyType: inputMethod.EnterKeyType.NONE };
   private keyboardFocusState: boolean = false;
   private focusViewId: string = "";
+  private isInputMethodAttached: boolean = false;
+  private cacheFuncIsNotAttached: Array<ESObject> = [];
+  private lastCursorPosition: inputMethod.CursorInfo | null = null; // cache cursorInfo for focus change
+  // Record the type of soft keyboard that was triggered last time
+  private lastInputType?: inputMethod.TextInputType;
+  private cachedInputTargetId: number = -1;
 
   constructor(plugin: TextInputPlugin | Any, viewId: string) {
     this.textConfig = {
@@ -213,15 +220,20 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   }
 
   setCursorSizeAndPosition(cursorInfo: inputMethod.CursorInfo) {
-    try {
-      this.inputMethodController.updateCursor(cursorInfo, (err: BusinessError) => {
-        if (err) {
-          Log.e(TextInputMethodHandlerImpl.TAG, "Failed to updateCursor:" + JSON.stringify(err));
-          return;
-        }
-      })
-    } catch (err) {
-      Log.e(TextInputMethodHandlerImpl.TAG, "Failed to updateCursor:" + JSON.stringify(err));
+    this.lastCursorPosition = cursorInfo; // cache cursorInfo
+    if (this.isInputMethodAttached) {
+      try {
+        this.inputMethodController.updateCursor(cursorInfo, (err: BusinessError) => {
+          if (err) {
+            Log.e(TextInputMethodHandlerImpl.TAG, "Failed to updateCursor:" + JSON.stringify(err));
+            return;
+          }
+        })
+      } catch (err) {
+        Log.e(TextInputMethodHandlerImpl.TAG, "Failed to updateCursor:" + JSON.stringify(err));
+      }
+    } else {
+      this.cacheFuncIsNotAttached.push({key: "setCursorSizeAndPosition", value: cursorInfo});
     }
   }
 
@@ -230,19 +242,27 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
       "text:" + editingState.text + " selectionStart:" + editingState.selectionStart + " selectionEnd:"
         + editingState.selectionEnd + " composingStart:" + editingState.composingStart + " composingEnd" +
       editingState.composingEnd);
-    this.mEditable.setPreviewText("");
     this.mEditable.setIsCursorIdxOutOfPreviewTextRange(false);
     this.mEditable.updateTextInputState(editingState);
     // notify current cursor index or selection range to the InputMethodFramework
-    this.inputMethodController.changeSelection("",
-      -1, -1, (err: BusinessError) => {
-        if (err) {
-          Log.e(TextInputMethodHandlerImpl.TAG, `Failed to changeSelection, code: ${err.code}, message: ${err.message}`);
-          return;
-        }
-        this.inputMethodController.changeSelection(editingState.text,
-          editingState.selectionStart, editingState.selectionEnd);
-      });
+    if (this.isInputMethodAttached) {
+      if (this.cachedInputTargetId !== this.inputTarget.id) {
+        this.inputMethodController.changeSelection("", -1, -1, (err: BusinessError) => {
+          if (err) {
+            Log.e(TextInputMethodHandlerImpl.TAG, `Failed to changeSelection, code: ${err.code}, message: ${err.message}`);
+            return;
+          }
+          this.inputMethodController.changeSelection(editingState.text, editingState.selectionStart,
+            editingState.selectionEnd);
+        });
+        this.cachedInputTargetId = this.inputTarget.id;
+      } else {
+        this.inputMethodController.changeSelection(editingState.text, editingState.selectionStart,
+          editingState.selectionEnd);
+      }
+    } else {
+      this.cacheFuncIsNotAttached.push({key: "setEditingState", value: editingState});
+    }
     if (sdkApiVersion >= PREIVEW_TEXT_SUPPORT_API) {
       this.previewTextChangeSelection(editingState);
     }
@@ -282,18 +302,24 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   }
 
   private async showTextInput(): Promise<void> {
+    if (!this.lastInputType) {
+      this.setLastInputType(this.configuration?.inputType?.type);
+    }
     if (this.keyboardStatus == inputMethod.KeyboardStatus.SHOW) {
       // 增加键盘拉起状态时也调用attach，参数false则attach不会拉起键盘
       await this.attach(false);
-      if (this.lastKind != this.configuration?.deviceKind) {
+      if (this.lastKind != this.configuration?.deviceKind ||
+        this.hasSecureKeyboardInSwitch()) {
         if (deviceInfo.sdkApiVersion >= INPUT_SUPPORT_API) {
           await this.inputMethodController.showTextInput(this.getRequestReason());
         } else {
           await this.inputMethodController.showTextInput();
         }
       }
+      this.setLastInputType(this.configuration?.inputType?.type);
       return;
     }
+    this.setLastInputType(this.configuration?.inputType?.type);
     await this.attach(true);
     if (!this.imcFlag) {
       this.listenKeyBoardEvent();
@@ -302,6 +328,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
 
   private async hideTextInput(): Promise<void> {
     await this.inputMethodController.detach().then(() => {
+      this.isInputMethodAttached = false;
       this.keyboardStatus = inputMethod.KeyboardStatus.HIDE;
       this.cancelListenKeyBoardEvent();
     }).catch((err: BusinessError) => {
@@ -316,10 +343,16 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
       if (sdkApiVersion >= PREIVEW_TEXT_SUPPORT_API) {
         this.registerPreviewTextCallbacks();
       }
-      if (deviceInfo.sdkApiVersion >= INPUT_SUPPORT_API) {
-        await this.inputMethodController.attach(showKeyboard, this.textConfig, this.getRequestReason());
+      if (deviceInfo.sdkApiVersion >= INPUT_SUPPORT_API) { 
+        await this.inputMethodController.attach(showKeyboard, this.textConfig, this.getRequestReason()).then(()=>{
+          this.isInputMethodAttached = true;
+          this.cacheMethodCall();
+        });
       } else {
-        await this.inputMethodController.attach(showKeyboard, this.textConfig);
+        await this.inputMethodController.attach(showKeyboard, this.textConfig).then(()=>{
+          this.isInputMethodAttached = true;
+          this.cacheMethodCall();
+        });
       }
       this.keyboardStatus = inputMethod.KeyboardStatus.SHOW;
     } catch (err) {
@@ -345,11 +378,31 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     }
   }
 
+  cacheMethodCall() {
+    this.cacheFuncIsNotAttached.forEach((item: ESObject) => {
+      switch(item.key) {
+        case "setCursorSizeAndPosition":
+          this.setCursorSizeAndPosition(item.value);
+          break;
+        case "setEditingState":
+          this.setEditingState(item.value);
+          break;
+        default:
+          break;
+      }
+    })
+    this.cacheFuncIsNotAttached.length = 0;
+  }
+
   handleChangeFocus(focusState: boolean) {
     if (focusState && this.keyboardFocusState) {
       // When the app loses focus, the system automatically detaches the input method.
       // Upon regaining focus, if the input method should be displayed, it must be reattached.
       this.show();
+      // Cache cursorInfo for focus change, so that it can be set after reattach
+      if (this.lastCursorPosition){
+        this.cacheFuncIsNotAttached.push({key: "setCursorSizeAndPosition", value: this.lastCursorPosition});
+      }
     }
     try {
       inputDevice.getDeviceList((Error: Error, ids: Array<number>) => {
@@ -365,6 +418,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
         if(focusState && isPhysicalKeyboard && this.keyboardFocusState) {
           this.cancelListenKeyBoardEvent();
           this.inputMethodController.detach().then(async () =>{
+            this.isInputMethodAttached = false;
             await this.attach(true);
             this.listenKeyBoardEvent();
           })
@@ -410,6 +464,18 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     this.inputAttribute = this.textConfig.inputAttribute;
 
     this.updateAttribute();
+  }
+
+  setLastInputType(inputType?: inputMethod.TextInputType): void {
+    this.lastInputType = inputType;
+  }
+
+  // It is used to determine whether there is a safe keyboard for the keyboard type
+  // awakened by the two input boxes when a soft keyboard is already suspended
+  // and switching input boxes
+  hasSecureKeyboardInSwitch(): boolean {
+    return this.lastInputType === inputMethod.TextInputType.VISIBLE_PASSWORD ||
+    this.configuration?.inputType?.type === inputMethod.TextInputType.VISIBLE_PASSWORD;
   }
 
   canShowTextInput(): boolean {

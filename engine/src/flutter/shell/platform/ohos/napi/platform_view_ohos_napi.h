@@ -32,6 +32,11 @@ struct mouseWheelEvent {
   int64_t timestamp;
 };
 
+enum class ScrollingStatus : int32_t {
+  kScrollStart = 0,
+  kScrollEnd   = 1,
+};
+
 class PlatformViewOHOSNapi {
  public:
   static napi_value nativeDispatchEmptyPlatformMessage(
@@ -288,6 +293,9 @@ class PlatformViewOHOSNapi {
                                                napi_callback_info info);
   static napi_value nativeSetQosOnLowMemory(napi_env env,
                                             napi_callback_info info);
+  static napi_value nativeSetAnimationStatus(napi_env env,
+                                             napi_callback_info info);
+
  private:
   static napi_env env_;
   napi_ref ref_napi_obj_ = nullptr;

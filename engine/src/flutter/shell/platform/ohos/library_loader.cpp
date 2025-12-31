@@ -222,6 +222,9 @@ static napi_value Init(napi_env env, napi_value exports) {
       DECLARE_NAPI_FUNCTION(
           "nativeSetQosOnLowMemory",
           flutter::PlatformViewOHOSNapi::nativeSetQosOnLowMemory),
+      DECLARE_NAPI_FUNCTION(
+          "nativeSetAnimationStatus",
+        flutter::PlatformViewOHOSNapi::nativeSetAnimationStatus),
   };
 
   FML_DLOG(INFO) << "Init NAPI size=" << sizeof(desc) / sizeof(desc[0]);

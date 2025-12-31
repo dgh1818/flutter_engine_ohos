@@ -577,11 +577,11 @@ void Canvas::DrawRect(const Rect& rect, const Paint& paint) {
   entity.SetBlendMode(paint.blend_mode);
 
   RectGeometry geom(rect);
-  #ifdef FML_OS_OHOS
-    AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint, false, true);
-  #else
-    AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint);
-  #endif
+#ifdef FML_OS_OHOS
+  AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint, false, true);
+#else
+  AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint);
+#endif
 }
 
 void Canvas::DrawOval(const Rect& rect, const Paint& paint) {
@@ -683,11 +683,11 @@ void Canvas::DrawCircle(const Point& center,
     AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint);
   } else {
     CircleGeometry geom(center, radius);
-    #ifdef FML_OS_OHOS
-      AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint, false, true);
-    #else
-      AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint);
-    #endif
+#ifdef FML_OS_OHOS
+    AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint, false, true);
+#else
+    AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint);
+#endif
   }
 }
 
@@ -1575,8 +1575,7 @@ void Canvas::AddRenderEntityWithFiltersToCurrentPass(Entity& entity,
                                                      const Geometry* geometry,
                                                      const Paint& paint,
                                                      bool reuse_depth,
-                                                     bool is_draw_rect
-                                                    ) {
+                                                     bool is_draw_rect) {
   std::shared_ptr<ColorSourceContents> contents = paint.CreateContents();
   if (!paint.color_filter && !paint.invert_colors && !paint.image_filter &&
       !paint.mask_blur_descriptor.has_value()) {
@@ -1651,7 +1650,9 @@ void Canvas::AddRenderEntityWithFiltersToCurrentPass(Entity& entity,
   AddRenderEntityToCurrentPass(entity, reuse_depth);
 }
 
-void Canvas::AddRenderEntityToCurrentPass(Entity& entity, bool reuse_depth, bool is_draw_rect) {
+void Canvas::AddRenderEntityToCurrentPass(Entity& entity,
+                                          bool reuse_depth,
+                                          bool is_draw_rect) {
   if (IsSkipping()) {
     return;
   }
@@ -1666,12 +1667,14 @@ void Canvas::AddRenderEntityToCurrentPass(Entity& entity, bool reuse_depth, bool
   }
 
   // If the entity covers the current render target and is a solid color, then
-  // conditionally update the backdrop color to its solid color value blended
-  // with the current backdrop.
-  if (render_passes_.back().IsApplyingClearColor()) {
-    std::optional<Color> maybe_color = entity.AsBackgroundColor(
-        render_passes_.back().inline_pass_context->GetTexture()->GetSize());
-    if (maybe_color.has_value()) {
+  // 1. renderpass is inactive: conditionally update the backdrop color to its
+  // solid color value blended with the current backdrop.
+  // 2. renderpass is active: drop the command recorded before and render the
+  // solid color to replace it - occlusion culling.
+  std::optional<Color> maybe_color = entity.AsBackgroundColor(
+      render_passes_.back().inline_pass_context->GetTexture()->GetSize());
+  if (maybe_color.has_value()) {
+    if (render_passes_.back().IsApplyingClearColor()) {
       Color color = maybe_color.value();
       RenderTarget& render_target = render_passes_.back()
                                         .inline_pass_context->GetPassTarget()
@@ -1684,6 +1687,31 @@ void Canvas::AddRenderEntityToCurrentPass(Entity& entity, bool reuse_depth, bool
                                    .Premultiply();
       render_target.SetColorAttachment(attachment, 0u);
       return;
+    } else {
+      // If there was a previous cropping effect, the actual render area may b
+      // smaller than the entity size, so skip the occlusion culling.
+      if (GetClipHeight() == 0 &&
+          (entity.GetBlendMode() == BlendMode::kSrc ||
+           entity.GetBlendMode() == BlendMode::kClear ||
+           (entity.GetBlendMode() == BlendMode::kSrcOver &&
+            maybe_color.value().IsOpaque()))) {
+        LazyRenderingConfig rendering_config = std::move(render_passes_.back());
+        render_passes_.pop_back();
+        // drop the pass_ to prevent the pass_ being submit when
+        // ~InlinePassContext is called.
+        rendering_config.inline_pass_context->Deactive();
+        ColorAttachment attachment =
+            rendering_config.entity_pass_target->GetRenderTarget()
+                .GetColorAttachment(0);
+        attachment.clear_color = entity.GetBlendMode() == BlendMode::kClear
+                                     ? Color::BlackTransparent()
+                                     : maybe_color.value();
+        rendering_config.entity_pass_target->GetRenderTarget()
+            .SetColorAttachment(attachment, 0u);
+        render_passes_.push_back(LazyRenderingConfig(
+            renderer_, std::move(rendering_config.entity_pass_target)));
+        return;
+      }
     }
   }
 
