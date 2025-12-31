@@ -654,6 +654,9 @@ export class ListenableEditingState {
         this.notifyListenersIfNeeded(false, true, false);
         break;
       case inputMethod.ExtendAction.CUT:
+        // set to copy text before cutting
+        const cutText = this.getStringCache().substring(this.getSelectionStart(), this.getSelectionEnd());
+        PasteboardUtils.setCopyData(cutText);
         // based on the text selection length (endIdx - startIdx) for cutting
         this.handleDeleteEvent(false, this.getSelectionEnd() - this.getSelectionStart(), false);
         break;

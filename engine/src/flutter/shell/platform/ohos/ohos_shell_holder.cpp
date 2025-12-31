@@ -235,9 +235,11 @@ OHOSShellHolder::OHOSShellHolder(
                                     io_runner         // io
   );
 
+#if (FLUTTER_RUNTIME_MODE != FLUTTER_RUNTIME_MODE_DEBUG)
   fml::TaskRunner::RunNowOrPostTask(io_runner, [this, &ui_runner]() {
     watchdogPair_ = fml::OhosWatchdog::MakeWatchdog(ui_runner);
   });
+#endif
 
   napi_facade_->SetPlatformTaskRunner(platform_runner);
   FML_DLOG(INFO) << "before shell create";

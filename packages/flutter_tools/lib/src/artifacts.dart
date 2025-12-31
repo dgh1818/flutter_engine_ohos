@@ -1246,7 +1246,7 @@ class CachedLocalEngineArtifacts implements Artifacts {
       case Artifact.genSnapshot:
       case Artifact.genSnapshotArm64:
       case Artifact.genSnapshotX64:
-        return _genSnapshotPath(artifact);
+        return _genSnapshotPath(artifact, platform);
       case Artifact.flutterTester:
         return _flutterTesterPath(platform!);
       case Artifact.isolateSnapshotData:
@@ -1420,9 +1420,9 @@ class CachedLocalEngineArtifacts implements Artifacts {
     return _fileSystem.path.join(localEngineInfo.targetOutPath, 'flutter_web_sdk');
   }
 
-  String _genSnapshotPath(Artifact artifact) {
+  String _genSnapshotPath(Artifact artifact, TargetPlatform? platform) {
     late List<String> clangDirs;
-    if (isOhosArtifact(artifact)) {
+    if (isOhosPlatform(platform)) {
       // on ohos platform, clang_x64 has compatibility first
       clangDirs = <String>['clang_x64', 'clang_arm64', '.', 'clang_x86', 'clang_i386'];
     } else {
