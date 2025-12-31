@@ -50,7 +50,7 @@ static TextureGLES::Type GetTextureTypeFromDescriptor(
     const std::shared_ptr<const CapabilitiesGLES>& capabilities) {
   const auto usage = static_cast<TextureUsageMask>(desc.usage);
   const auto render_target = TextureUsage::kRenderTarget;
-  const auto is_msaa = desc.sample_count == SampleCount::kCount4;
+  const auto is_msaa = desc.sample_count != SampleCount::kCount1;
   if (usage == render_target && IsDepthStencilFormat(desc.format)) {
     return is_msaa ? TextureGLES::Type::kRenderBufferMultisampled
                    : TextureGLES::Type::kRenderBuffer;

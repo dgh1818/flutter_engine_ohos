@@ -980,6 +980,88 @@ name: my_app
     },
   );
 
+  // Regression test for https://github.com/flutter/flutter/issues/167887.
+  testUsingContext(
+    'WASM builds report analysis without crashing',
+    () async {
+      final BufferLogger logger = BufferLogger.test();
+      final ResidentRunner residentWebRunner = setUpResidentRunner(
+        flutterDevice,
+        logger: logger,
+        systemClock: SystemClock.fixed(DateTime(2001)),
+        debuggingOptions: DebuggingOptions.enabled(
+          const BuildInfo(
+            BuildMode.debug,
+            null,
+            trackWidgetCreation: true,
+            treeShakeIcons: false,
+            packageConfigPath: '.dart_tool/package_config.json',
+            // Hot reload only supported with these flags for now.
+            extraFrontEndOptions: kDdcLibraryBundleFlags,
+          ),
+          webUseWasm: true,
+        ),
+      );
+      fakeVmServiceHost = FakeVmServiceHost(
+        requests: <VmServiceExpectation>[
+          ...kAttachExpectations,
+          const FakeVmServiceRequest(
+            method: kReloadSourcesServiceName,
+            args: <String, Object>{'isolateId': ''},
+            jsonResponse: <String, Object>{'type': 'ReloadReport', 'success': true},
+          ),
+          const FakeVmServiceRequest(
+            method: 'ext.flutter.reassemble',
+            jsonResponse: <String, Object>{'type': 'ReloadReport', 'success': true},
+          ),
+          const FakeVmServiceRequest(
+            method: 'streamListen',
+            args: <String, Object>{'streamId': 'Isolate'},
+          ),
+        ],
+      );
+      setupMocks();
+      final TestChromiumLauncher chromiumLauncher = TestChromiumLauncher();
+      final FakeProcess process = FakeProcess();
+      final Chromium chrome = Chromium(
+        1,
+        chromeConnection,
+        chromiumLauncher: chromiumLauncher,
+        process: process,
+        logger: logger,
+      );
+      chromiumLauncher.setInstance(chrome);
+
+      flutterDevice.device = GoogleChromeDevice(
+        fileSystem: fileSystem,
+        chromiumLauncher: chromiumLauncher,
+        logger: BufferLogger.test(),
+        platform: FakePlatform(),
+        processManager: FakeProcessManager.any(),
+      );
+      webDevFS.report = UpdateFSReport(success: true);
+
+      final Completer<DebugConnectionInfo> connectionInfoCompleter =
+          Completer<DebugConnectionInfo>();
+      unawaited(residentWebRunner.run(connectionInfoCompleter: connectionInfoCompleter));
+      final DebugConnectionInfo debugConnectionInfo = await connectionInfoCompleter.future;
+
+      expect(debugConnectionInfo, isNotNull);
+
+      final OperationResult result = await residentWebRunner.restart();
+      expect(logger.statusText, contains('Reloaded application in'));
+      expect(result.code, 0);
+    },
+    overrides: <Type, Generator>{
+      Analytics: () => fakeAnalytics,
+      BuildSystem: () => TestBuildSystem.all(BuildResult(success: true)),
+      FileSystem: () => fileSystem,
+      ProcessManager: () => processManager,
+      FeatureFlags: enableExplicitPackageDependencies,
+      Pub: FakePubWithPrimedDeps.new,
+    },
+  );
+
   // Hot restart is available with and without the DDC library bundle format.
   // Test one extra config where `fullRestart` is false without the DDC library
   // bundle format - we should do a hot restart in this case because hot reload

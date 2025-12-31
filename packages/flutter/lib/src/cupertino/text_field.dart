@@ -123,6 +123,7 @@ class _CupertinoTextFieldSelectionGestureDetectorBuilder
       }
     }
     super.onSingleTapUp(details);
+    _state._requestKeyboard(kind: details.kind);
     _state.widget.onTap?.call();
   }
 
@@ -1045,6 +1046,7 @@ class CupertinoTextField extends StatefulWidget {
           switch (defaultTargetPlatform) {
             case TargetPlatform.android:
             case TargetPlatform.iOS:
+            case TargetPlatform.ohos:
               return CupertinoTextMagnifier(controller: controller, magnifierInfo: magnifierInfo);
             case TargetPlatform.fuchsia:
             case TargetPlatform.linux:
@@ -1173,7 +1175,10 @@ class _CupertinoTextFieldState extends State<CupertinoTextField>
 
   EditableTextState get _editableText => editableTextKey.currentState!;
 
-  void _requestKeyboard() {
+  PointerDeviceKind _deviceKind = PointerDeviceKind.unknown;
+
+  void _requestKeyboard({PointerDeviceKind kind = PointerDeviceKind.unknown}) {
+    _deviceKind = kind;
     _editableText.requestKeyboard();
   }
 
@@ -1227,7 +1232,9 @@ class _CupertinoTextFieldState extends State<CupertinoTextField>
       case TargetPlatform.windows:
       case TargetPlatform.fuchsia:
       case TargetPlatform.android:
-        if (cause == SelectionChangedCause.longPress) {
+      case TargetPlatform.ohos:
+        if (cause == SelectionChangedCause.longPress
+            || cause == SelectionChangedCause.drag) {
           _editableText.bringIntoView(selection.extent);
         }
     }
@@ -1236,6 +1243,7 @@ class _CupertinoTextFieldState extends State<CupertinoTextField>
       case TargetPlatform.iOS:
       case TargetPlatform.fuchsia:
       case TargetPlatform.android:
+      case TargetPlatform.ohos:
         break;
       case TargetPlatform.macOS:
       case TargetPlatform.linux:
@@ -1424,8 +1432,7 @@ class _CupertinoTextFieldState extends State<CupertinoTextField>
         : AutofillConfiguration.disabled;
 
     return _editableText.textInputConfiguration.copyWith(
-      autofillConfiguration: autofillConfiguration,
-    );
+        autofillConfiguration: autofillConfiguration, deviceKind: _deviceKind);
   }
   // AutofillClient implementation end.
 
@@ -1442,6 +1449,8 @@ class _CupertinoTextFieldState extends State<CupertinoTextField>
       case TargetPlatform.iOS:
       case TargetPlatform.android:
       case TargetPlatform.fuchsia:
+      case TargetPlatform.linux:
+      case TargetPlatform.ohos:
         textSelectionControls ??= cupertinoTextSelectionHandleControls;
       case TargetPlatform.linux:
       case TargetPlatform.macOS:

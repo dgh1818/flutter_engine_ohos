@@ -50,6 +50,14 @@ executable("testing") {
     "//flutter/third_party/tonic",
   ]
 
+  ldflags = []
+
+  if (is_ohos) {
+    deps += [ "//flutter/shell/platform/ohos:icudtl_asm" ]
+    sources += [ "$root_build_dir/gen/flutter/shell/platform/ohos/flutter/third_party/icu/flutter/icudtl.dat.S" ]
+    ldflags += [ "-lnative_drawing" ]
+  }
+
   if (impeller_supports_rendering) {
     deps += [
       ":tester_gpu_configuration",

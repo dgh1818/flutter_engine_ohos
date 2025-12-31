@@ -35,6 +35,7 @@ void main() {
         expect(find.byType(CupertinoTextSelectionToolbarButton), findsAtLeastNWidgets(1));
       case TargetPlatform.android:
       case TargetPlatform.fuchsia:
+      case TargetPlatform.ohos:
         expect(find.byType(TextSelectionToolbarTextButton), findsAtLeastNWidgets(1));
       case TargetPlatform.linux:
       case TargetPlatform.windows:

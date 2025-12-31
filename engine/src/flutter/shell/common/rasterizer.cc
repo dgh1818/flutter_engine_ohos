@@ -44,6 +44,8 @@
 #include "impeller/display_list/dl_dispatcher.h"  // nogncheck
 #endif
 
+#include "flutter/fml/logging.h"
+#include "flutter/fml/platform/ohos/hisysevent_c.h"
 namespace flutter {
 
 // The rasterizer will tell Skia to purge cached resources that have not been
@@ -230,10 +232,10 @@ void Rasterizer::DrawLastLayerTrees(
   if (tasks.empty()) {
     return;
   }
-
+  use_last_layer_tree_ = true;
   DoDrawResult result =
       DrawToSurfaces(*frame_timings_recorder, std::move(tasks));
-
+  use_last_layer_tree_ = false;
   // EndFrame should perform cleanups for the external_view_embedder.
   if (external_view_embedder_ && external_view_embedder_->GetUsedThisFrame()) {
     bool should_resubmit_frame = ShouldResubmitFrame(result);
@@ -244,6 +246,7 @@ void Rasterizer::DrawLastLayerTrees(
 }
 
 DrawStatus Rasterizer::Draw(const std::shared_ptr<FramePipeline>& pipeline) {
+  // HISYSEVENT_WRITE_DURATION("flutter rasterize frame time");
   TRACE_EVENT0("flutter", "GPURasterizer::Draw");
   if (raster_thread_merger_ &&
       !raster_thread_merger_->IsOnRasterizingThread()) {
@@ -757,7 +760,15 @@ DrawSurfaceStatus Rasterizer::DrawToSurfaceUnsafe(
       damage = std::make_unique<FrameDamage>();
       auto existing_damage = frame->framebuffer_info().existing_damage;
       if (existing_damage.has_value() && !force_full_repaint) {
+#ifdef __OHOS__
+        if (use_last_layer_tree_) {
+          damage->SetPreviousLayerTree(&layer_tree);
+        } else {
+          damage->SetPreviousLayerTree(GetLastLayerTree(view_id));
+        }
+#else
         damage->SetPreviousLayerTree(GetLastLayerTree(view_id));
+#endif
         damage->AddAdditionalDamage(ToDlIRect(existing_damage.value()));
         damage->SetClipAlignment(
             frame->framebuffer_info().horizontal_clip_alignment,

@@ -194,6 +194,7 @@ class _RawRadioState<T> extends State<RawRadio<T>>
     final bool? accessibilitySelected;
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
+      case TargetPlatform.ohos:
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
       case TargetPlatform.windows:

@@ -31,8 +31,10 @@ import 'base/os.dart' show OperatingSystemUtils;
 import 'base/platform.dart';
 import 'base/terminal.dart';
 import 'base/user_messages.dart';
+import 'build_info.dart';
 import 'convert.dart';
 import 'features.dart';
+import 'globals.dart';
 
 const kFlutterRootEnvironmentVariableName =
     'FLUTTER_ROOT'; // should point to //flutter/ (root of flutter/flutter repo)
@@ -74,6 +76,10 @@ class DevelopmentArtifact {
   /// Artifacts required for iOS development.
   static const iOS = DevelopmentArtifact._('ios', feature: flutterIOSFeature);
 
+  /// Artifacts required for OpenHarmony development.
+  static const DevelopmentArtifact ohosGenSnapshot = DevelopmentArtifact._('ohos_gen_snapshot', feature: flutterOhosFeature);
+  static const DevelopmentArtifact ohosInternalBuild = DevelopmentArtifact._('ohos_internal_build', feature: flutterOhosFeature);
+
   /// Artifacts required for web development.
   static const web = DevelopmentArtifact._('web', feature: flutterWebFeature);
 
@@ -110,6 +116,8 @@ class DevelopmentArtifact {
     androidMaven,
     androidInternalBuild,
     iOS,
+    ohosGenSnapshot,
+    ohosInternalBuild,
     web,
     macOS,
     windows,
@@ -227,7 +235,11 @@ class Cache {
       tempStorage: getDownloadDir(),
       platform: _platform,
       httpClient: HttpClient(),
-      allowedBaseUrls: <String>[storageBaseUrl, realmlessStorageBaseUrl, cipdBaseUrl],
+      allowedBaseUrls: <String>[
+        storageBaseUrl,
+        ohosStorageBaseUrl,
+        cipdBaseUrl,
+      ],
     );
   }
 
@@ -545,6 +557,32 @@ class Cache {
 
   String get realmlessStorageBaseUrl {
     return storageRealm.isEmpty ? storageBaseUrl : storageBaseUrl.replaceAll('/$storageRealm', '');
+  }
+
+  /// The base for URLs that store Flutter engine ohos artifacts that are fetched
+  /// during the installation of the Flutter SDK.
+  ///
+  /// By default the base URL is https://flutter-ohos.obs.cn-south-1.myhuaweicloud.com. However, if
+  /// `FLUTTER_OHOS_STORAGE_BASE_URL` environment variable is provided, the
+  /// environment variable value is returned instead.
+  ///
+  /// See also:
+  ///
+  ///  * [cipdBaseUrl], which determines how CIPD artifacts are fetched.
+  ///  * [Cache] class-level dartdocs that explain how artifact mirrors work.
+  String get ohosStorageBaseUrl {
+    final String? overrideUrl = _platform.environment['FLUTTER_OHOS_STORAGE_BASE_URL'];
+    if (overrideUrl == null) {
+      return 'https://flutter-ohos.obs.cn-south-1.myhuaweicloud.com';
+    }
+    // verify that this is a valid URI.
+    try {
+      Uri.parse(overrideUrl);
+    } on FormatException catch (err) {
+      throwToolExit('"FLUTTER_OHOS_STORAGE_BASE_URL" contains an invalid URI:\n$err');
+    }
+    _maybeWarnAboutStorageOverride(overrideUrl);
+    return overrideUrl;
   }
 
   /// The base for URLs that store Flutter engine artifacts in CIPD.
@@ -939,6 +977,9 @@ abstract class EngineCachedArtifact extends CachedArtifact {
   /// A list of the dart package directories to download.
   List<String> getPackageDirs();
 
+  String get storageBaseUrl => cache.storageBaseUrl;
+  String get ohosStorageBaseUrl => cache.ohosStorageBaseUrl;
+
   @override
   bool isUpToDateInner(FileSystem fileSystem) {
     final Directory pkgDir = cache.getCacheDir('pkg');
@@ -971,30 +1012,31 @@ abstract class EngineCachedArtifact extends CachedArtifact {
     FileSystem fileSystem,
     OperatingSystemUtils operatingSystemUtils,
   ) async {
-    final url = '${cache.storageBaseUrl}/flutter_infra_release/flutter/$version/';
-
+    final String url = '$storageBaseUrl/flutter_infra_release/flutter/$version/';
+    final String ohosEngineVersion = cache.getVersionFor('engine.ohos')!;
+    // New platform Ohos is supported, so flutter needs to download
+    // sky_engine.zip, flutter_patched_sdk.zip and flutter_patched_sdk_product.zip from ohos URL
+    final String ohosUrl = '$ohosStorageBaseUrl/flutter_infra_release/flutter/$ohosEngineVersion/';
     final Directory pkgDir = cache.getCacheDir('pkg');
     for (final String pkgName in getPackageDirs()) {
-      await artifactUpdater.downloadZipArchive(
-        'Downloading package $pkgName...',
-        Uri.parse('$url$pkgName.zip'),
-        pkgDir,
-      );
+      if (pkgName == 'sky_engine') {
+        await artifactUpdater.downloadZipArchive('Downloading package $pkgName...', Uri.parse('$ohosUrl$pkgName.zip'), pkgDir);
+      } else {
+        await artifactUpdater.downloadZipArchive('Downloading package $pkgName...', Uri.parse('$url$pkgName.zip'), pkgDir);
+      }
     }
 
     for (final List<String> toolsDir in getBinaryDirs()) {
       final String cacheDir = toolsDir[0];
       final String urlPath = toolsDir[1];
       final Directory dir = fileSystem.directory(fileSystem.path.join(location.path, cacheDir));
-
       // Avoid printing things like 'Downloading linux-x64 tools...' multiple times.
       final String friendlyName = urlPath.replaceAll('/artifacts.zip', '').replaceAll('.zip', '');
-      await artifactUpdater.downloadZipArchive(
-        'Downloading $friendlyName tools...',
-        Uri.parse(url + urlPath),
-        dir,
-      );
-
+      if (urlPath.startsWith('flutter_patched_sdk')) {
+        await artifactUpdater.downloadZipArchive('Downloading $friendlyName tools...', Uri.parse(ohosUrl + urlPath), dir);
+      } else {
+        await artifactUpdater.downloadZipArchive('Downloading $friendlyName tools...', Uri.parse(url + urlPath), dir);
+      }
       _makeFilesExecutable(dir, operatingSystemUtils);
     }
 

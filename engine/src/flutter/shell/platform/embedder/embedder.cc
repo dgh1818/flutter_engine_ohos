@@ -104,6 +104,29 @@ extern const intptr_t kPlatformStrongDillSize;
 #include "third_party/skia/include/gpu/ganesh/vk/GrVkTypes.h"
 #endif  // SHELL_ENABLE_VULKAN
 
+#ifdef FML_OS_OHOS
+extern "C" {
+typedef enum {
+  /** Debug level to be used by {@link OH_LOG_DEBUG} */
+  HILOG_LOG_DEBUG = 3,
+  /** Informational level to be used by {@link OH_LOG_INFO} */
+  HILOG_LOG_INFO = 4,
+  /** Warning level to be used by {@link OH_LOG_WARN} */
+  HILOG_LOG_WARN = 5,
+  /** Error level to be used by {@link OH_LOG_ERROR} */
+  HILOG_LOG_ERROR = 6,
+  /** Fatal level to be used by {@link OH_LOG_FATAL} */
+  HILOG_LOG_FATAL = 7,
+} HiLog_LogLevel;
+int OH_LOG_Print(int type,
+                 HiLog_LogLevel level,
+                 unsigned int domain,
+                 const char* tag,
+                 const char* fmt,
+                 ...);
+}
+#endif
+
 const int32_t kFlutterSemanticsNodeIdBatchEnd = -1;
 const int32_t kFlutterSemanticsCustomActionIdBatchEnd = -1;
 
@@ -149,6 +172,15 @@ static FlutterEngineResult LogEmbedderError(FlutterEngineResult code,
            "%s (%d): '%s' returned '%s'. %s", file_base, line, function,
            code_name, reason);
   std::cerr << error << std::endl;
+
+#if defined(FML_OS_OHOS)
+#define OHOS_LOG_TYPE_APP 0
+#define HILOG_LOG_DOMAIN 0
+#define HILOG_LOG_TAG "XcomFlutterEmbedder"
+  HiLog_LogLevel fx_severity = HILOG_LOG_ERROR;
+  (void)OH_LOG_Print(0, fx_severity, HILOG_LOG_DOMAIN, HILOG_LOG_TAG, "%s",
+                     error);
+#endif
   return code;
 }
 
@@ -1160,7 +1192,11 @@ MakeRenderTargetFromBackingStoreImpeller(
   impeller::TextureDescriptor color0_tex;
   if (implicit_msaa) {
     color0_tex.type = impeller::TextureType::kTexture2DMultisample;
+#ifdef __OHOS__
+    color0_tex.sample_count = impeller::SampleCount::kCount2;
+#else
     color0_tex.sample_count = impeller::SampleCount::kCount4;
+#endif
   } else {
     color0_tex.type = impeller::TextureType::kTexture2D;
     color0_tex.sample_count = impeller::SampleCount::kCount1;
@@ -1191,7 +1227,11 @@ MakeRenderTargetFromBackingStoreImpeller(
   if (implicit_msaa) {
     depth_stencil_texture_desc.type =
         impeller::TextureType::kTexture2DMultisample;
+#ifdef __OHOS__
+    depth_stencil_texture_desc.sample_count = impeller::SampleCount::kCount2;
+#else
     depth_stencil_texture_desc.sample_count = impeller::SampleCount::kCount4;
+#endif
   } else {
     depth_stencil_texture_desc.type = impeller::TextureType::kTexture2D;
     depth_stencil_texture_desc.sample_count = impeller::SampleCount::kCount1;
@@ -1266,7 +1306,11 @@ MakeRenderTargetFromBackingStoreImpeller(
   impeller::TextureDescriptor msaa_tex_desc;
   msaa_tex_desc.storage_mode = impeller::StorageMode::kDeviceTransient;
   msaa_tex_desc.type = impeller::TextureType::kTexture2DMultisample;
+#ifdef __OHOS__
+  msaa_tex_desc.sample_count = impeller::SampleCount::kCount2;
+#else
   msaa_tex_desc.sample_count = impeller::SampleCount::kCount4;
+#endif
   msaa_tex_desc.format = resolve_tex->GetTextureDescriptor().format;
   msaa_tex_desc.size = size;
   msaa_tex_desc.usage = impeller::TextureUsage::kRenderTarget;
@@ -2089,6 +2133,16 @@ FlutterEngineResult FlutterEngineInitialize(size_t version,
     settings.application_kernel_asset = kApplicationKernelSnapshotFileName;
   }
 
+  settings.task_observer_add = [](intptr_t key, const fml::closure& callback) {
+    fml::TaskQueueId queue_id = fml::MessageLoop::GetCurrentTaskQueueId();
+    fml::MessageLoopTaskQueues::GetInstance()->AddTaskObserver(queue_id, key,
+                                                               callback);
+    return queue_id;
+  };
+  settings.task_observer_remove = [](fml::TaskQueueId queue_id, intptr_t key) {
+    fml::MessageLoopTaskQueues::GetInstance()->RemoveTaskObserver(queue_id,
+                                                                  key);
+  };
   if (SAFE_ACCESS(args, root_isolate_create_callback, nullptr) != nullptr) {
     VoidCallback callback =
         SAFE_ACCESS(args, root_isolate_create_callback, nullptr);
@@ -2582,7 +2636,7 @@ FlutterEngineResult FlutterEngineRemoveView(FLUTTER_API_SYMBOL(FlutterEngine)
     return LOG_EMBEDDER_ERROR(kInvalidArguments, "Engine handle was invalid.");
   }
 
-  flutter::PlatformView::RemoveViewCallback callback =
+  flutter::Shell::RemoveViewCallback callback =
       [c_callback = info->remove_view_callback,
        user_data = info->user_data](bool removed) {
         FlutterRemoveViewResult result = {};

@@ -33,6 +33,8 @@ namespace flutter {
 #define kTargetOperatingSystemName "macos"
 #elif defined(FML_OS_WIN)
 #define kTargetOperatingSystemName "windows"
+#elif defined(FML_OS_OHOS)
+#define kTargetOperatingSystemName "ohos"
 #else
 #error Target operating system detection failed.
 #endif

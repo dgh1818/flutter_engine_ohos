@@ -481,11 +481,11 @@ std::shared_ptr<Texture> AllocatorVK::OnCreateTexture(
     return nullptr;
   }
   auto source = std::make_shared<AllocatedTextureSourceVK>(
-      ContextVK::Cast(*context),     //
-      desc,                          //
-      allocator_.get(),              //
-      device_holder->GetDevice(),    //
-      supports_memoryless_textures_  //
+      ContextVK::Cast(*context),                       //
+      desc,                                            //
+      allocator_.get(),                                //
+      device_holder->GetDevice(),                      //
+      supports_memoryless_textures_                    //
   );
   if (!source->IsValid()) {
     return nullptr;

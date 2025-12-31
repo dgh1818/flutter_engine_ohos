@@ -22,6 +22,45 @@
 #include "flutter/fml/platform/fuchsia/log_state.h"
 #endif
 
+#ifdef FML_OS_OHOS
+#include <pthread.h>
+
+extern "C" {
+#define OHOS_LOG_TYPE_APP 0
+#define HILOG_LOG_DOMAIN 0
+#define HILOG_LOG_TAG "XComFlutterEngine"
+typedef enum {
+  /** Debug level to be used by {@link OH_LOG_DEBUG} */
+  HILOG_LOG_DEBUG = 3,
+  /** Informational level to be used by {@link OH_LOG_INFO} */
+  HILOG_LOG_INFO = 4,
+  /** Warning level to be used by {@link OH_LOG_WARN} */
+  HILOG_LOG_WARN = 5,
+  /** Error level to be used by {@link OH_LOG_ERROR} */
+  HILOG_LOG_ERROR = 6,
+  /** Fatal level to be used by {@link OH_LOG_FATAL} */
+  HILOG_LOG_FATAL = 7,
+} HiLog_LogLevel;
+int OH_LOG_Print(int type,
+                 HiLog_LogLevel level,
+                 unsigned int domain,
+                 const char* tag,
+                 const char* fmt,
+                 ...);
+#define HILOG_LOG(level, ...)                                       \
+  ((void)OH_LOG_Print(OHOS_LOG_TYPE_APP, (level), HILOG_LOG_DOMAIN, \
+                      HILOG_LOG_TAG, __VA_ARGS__))
+#define HILOG_DEBUG(...)                                                    \
+  ((void)OH_LOG_Print(OHOS_LOG_TYPE_APP, HILOG_LOG_DEBUG, HILOG_LOG_DOMAIN, \
+                      HILOG_LOG_TAG, __VA_ARGS__))
+#define HILOG_ERROR(...)                                                    \
+  ((void)OH_LOG_Print(OHOS_LOG_TYPE_APP, HILOG_LOG_ERROR, HILOG_LOG_DOMAIN, \
+                      HILOG_LOG_TAG, __VA_ARGS__))
+#define HILOG_INFO(...)                                                    \
+  ((void)OH_LOG_Print(OHOS_LOG_TYPE_APP, HILOG_LOG_INFO, HILOG_LOG_DOMAIN, \
+                      HILOG_LOG_TAG, __VA_ARGS__))
+}
+#endif
 namespace fml {
 
 namespace {
@@ -197,6 +236,31 @@ LogMessage::~LogMessage() {
       }
     }
     buffer.FlushRecord();
+#elif defined(FML_OS_OHOS)
+    HiLog_LogLevel fx_severity;
+
+    switch (severity_) {
+      case LOG_INFO:
+        fx_severity = HILOG_LOG_INFO;
+        break;
+      case LOG_WARNING:
+        fx_severity = HILOG_LOG_WARN;
+        break;
+      case LOG_ERROR:
+        fx_severity = HILOG_LOG_ERROR;
+        break;
+      case LOG_FATAL:
+        fx_severity = HILOG_LOG_FATAL;
+        break;
+      default:
+        fx_severity = HILOG_LOG_INFO;
+    }  // end switch
+    HILOG_LOG(fx_severity, "Thread:%{public}lu  %{public}s", pthread_self(),
+              stream_.str().c_str());
+
+    std::cerr << stream_.str();
+    std::cerr.flush();
+
 #else
     // Don't use std::cerr here, because it may not be initialized properly yet.
     fprintf(stderr, "%s", stream_.str().c_str());
@@ -218,7 +282,11 @@ bool ShouldCreateLogMessage(LogSeverity severity) {
 }
 
 void KillProcess() {
+#ifdef FML_OS_OHOS
+  HILOG_ERROR("FML KILL PROCESS");
+#else
   abort();
+#endif
 }
 
 }  // namespace fml

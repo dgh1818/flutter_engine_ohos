@@ -1,0 +1,7 @@
+[
+    {
+        "name": "bootstrap",
+        "target": "./",
+        "type": "files"
+    }
+]

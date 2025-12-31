@@ -359,6 +359,7 @@ void main() {
       case TargetPlatform.windows:
       case TargetPlatform.android:
       case TargetPlatform.fuchsia:
+      case TargetPlatform.ohos:
         expect(value, equals(0.70));
     }
   }, variant: TargetPlatformVariant.all());

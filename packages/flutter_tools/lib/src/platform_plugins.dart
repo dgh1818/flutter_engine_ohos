@@ -685,6 +685,91 @@ class WebPlugin extends PluginPlatform {
   }
 }
 
+class OhosPlugin extends PluginPlatform implements NativeOrDartPlugin {
+  OhosPlugin({
+    required this.name,
+    required this.pluginPath,
+    this.package,
+    this.pluginClass,
+    this.dartPluginClass,
+    bool? ffiPlugin,
+    this.defaultPackage,
+    required FileSystem fileSystem,
+  })  : _fileSystem = fileSystem,
+        ffiPlugin = ffiPlugin ?? false;
+
+  factory OhosPlugin.fromYaml(
+      String name, YamlMap yaml, String pluginPath, FileSystem fileSystem) {
+    assert(validate(yaml));
+    return OhosPlugin(
+      name: name,
+      package: yaml['package'] as String?,
+      pluginClass: yaml[kPluginClass] as String?,
+      dartPluginClass: yaml[kDartPluginClass] as String?,
+      ffiPlugin: yaml[kFfiPlugin] as bool?,
+      defaultPackage: yaml[kDefaultPackage] as String?,
+      pluginPath: pluginPath,
+      fileSystem: fileSystem,
+    );
+  }
+
+  final FileSystem _fileSystem;
+
+  @override
+  bool hasMethodChannel() => pluginClass != null;
+
+  @override
+  bool hasFfi() => ffiPlugin;
+
+  @override
+  bool hasDart() => dartPluginClass != null;
+
+  static bool validate(YamlMap yaml) {
+    if (yaml == null) {
+      return false;
+    }
+    return yaml[kPluginClass] is String ||
+        yaml[kDartPluginClass] is String ||
+        yaml[kFfiPlugin] == true ||
+        yaml[kDefaultPackage] is String;
+  }
+
+  static const String kConfigKey = 'ohos';
+
+  /// The plugin name defined in pubspec.yaml.
+  final String name;
+
+  /// The plugin package name defined in pubspec.yaml.
+  final String? package;
+
+  /// The native plugin main class defined in pubspec.yaml, if any.
+  final String? pluginClass;
+
+  /// The Dart plugin main class defined in pubspec.yaml, if any.
+  final String? dartPluginClass;
+
+  /// Is FFI plugin defined in pubspec.yaml.
+  final bool ffiPlugin;
+
+  /// The default implementation package defined in pubspec.yaml, if any.
+  final String? defaultPackage;
+
+  /// The absolute path to the plugin in the pub cache.
+  final String pluginPath;
+
+ @override
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{
+      'name': name,
+      if (package != null) 'package': package,
+      if (pluginClass != null) 'class': pluginClass,
+      if (dartPluginClass != null) kDartPluginClass: dartPluginClass,
+      if (ffiPlugin) kFfiPlugin: true,
+      if (defaultPackage != null) kDefaultPackage: defaultPackage,
+    };
+  }
+}
+
 final _internalCapitalLetterRegex = RegExp(r'(?=(?!^)[A-Z])');
 String _filenameForCppClass(String className) {
   return className.splitMapJoin(

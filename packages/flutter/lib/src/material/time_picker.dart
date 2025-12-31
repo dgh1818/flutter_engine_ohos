@@ -2812,6 +2812,7 @@ class _TimePickerState extends State<_TimePicker> with RestorationMixin {
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
       case TargetPlatform.windows:
+      case TargetPlatform.ohos:
         _vibrateTimer?.cancel();
         _vibrateTimer = Timer(_kVibrateCommitDelay, () {
           HapticFeedback.vibrate();

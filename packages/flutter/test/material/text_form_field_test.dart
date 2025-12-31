@@ -1218,6 +1218,7 @@ void main() {
           expect(find.text('Copy'), findsOneWidget);
           expect(find.text('Paste'), findsOneWidget);
 
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
@@ -1243,6 +1244,7 @@ void main() {
           expect(find.text('Copy'), findsOneWidget);
           expect(find.text('Paste'), findsOneWidget);
 
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:

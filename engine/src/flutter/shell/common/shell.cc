@@ -11,6 +11,7 @@
 
 #include <memory>
 #include <sstream>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -109,7 +110,7 @@ void PerformInitializationTasks(Settings& settings) {
   {
     fml::LogSettings log_settings;
     log_settings.min_log_level =
-        settings.verbose_logging ? fml::kLogInfo : fml::kLogError;
+        settings.verbose_logging ? fml::kLogInfo : fml::kLogWarning;
     fml::SetLogSettings(log_settings);
   }
 
@@ -216,6 +217,7 @@ std::unique_ptr<Shell> Shell::CreateShellOnPlatformThread(
     FML_LOG(ERROR) << "Task runners to run the shell were invalid.";
     return nullptr;
   }
+  FML_LOG(INFO) << "CreateShellOnPlatformThread";
 
   auto shell = std::unique_ptr<Shell>(
       new Shell(std::move(vm), task_runners, std::move(parent_merger),
@@ -382,12 +384,14 @@ std::unique_ptr<Shell> Shell::CreateShellOnPlatformThread(
                              shell->is_gpu_disabled_sync_switch_,  //
                              runtime_stage_future));
       }));
+  FML_LOG(INFO) << "CreateShellOnPlatformThread Setup";
 
   if (!shell->Setup(std::move(platform_view),  //
                     engine_future.get(),       //
                     rasterizer_future.get(),   //
                     io_manager_future.get())   //
   ) {
+    FML_LOG(ERROR) << "CreateShellOnPlatformThread Setup nullptr";
     return nullptr;
   }
 

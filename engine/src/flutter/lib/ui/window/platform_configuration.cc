@@ -7,6 +7,7 @@
 #include <cstring>
 
 #include "flutter/common/constants.h"
+#include "flutter/fml/trace_event.h"
 #include "flutter/lib/ui/compositing/scene.h"
 #include "flutter/lib/ui/ui_dart_state.h"
 #include "flutter/lib/ui/window/platform_message.h"
@@ -19,6 +20,8 @@
 #include "third_party/tonic/dart_microtask_queue.h"
 #include "third_party/tonic/logging/dart_invoke.h"
 #include "third_party/tonic/typed_data/dart_byte_data.h"
+
+#include "flutter/fml/platform/ohos/hisysevent_c.h"
 
 namespace flutter {
 namespace {
@@ -432,7 +435,7 @@ void PlatformConfiguration::BeginFrame(fml::TimePoint frameTime,
     microseconds = last_microseconds_;
   }
   last_microseconds_ = microseconds;
-
+  TRACE_EVENT0("flutter", "PlatformConfiguration::begin_frame_");
   tonic::CheckAndHandleError(
       tonic::DartInvoke(begin_frame_.Get(), {
                                                 Dart_NewInteger(microseconds),
@@ -441,6 +444,7 @@ void PlatformConfiguration::BeginFrame(fml::TimePoint frameTime,
 
   UIDartState::Current()->FlushMicrotasksNow();
 
+  TRACE_EVENT0("flutter", "PlatformConfiguration::draw_frame_");
   tonic::CheckAndHandleError(tonic::DartInvokeVoid(draw_frame_.Get()));
 }
 

@@ -34,6 +34,7 @@ import 'device.dart';
 import 'globals.dart' as globals;
 import 'ios/application_package.dart';
 import 'ios/devices.dart';
+import 'ohos/hdc_server.dart';
 import 'project.dart';
 import 'resident_devtools_handler.dart';
 import 'run_cold.dart';
@@ -1553,6 +1554,10 @@ Future<String?> getMissingPackageHintForPlatform(TargetPlatform platform) async 
     case TargetPlatform.web_javascript:
     case TargetPlatform.windows_x64:
     case TargetPlatform.windows_arm64:
+    case TargetPlatform.ohos:
+    case TargetPlatform.ohos_arm:
+    case TargetPlatform.ohos_arm64:
+    case TargetPlatform.ohos_x64:
       return null;
     case TargetPlatform.unsupported:
       TargetPlatform.throwUnsupportedTarget();

@@ -194,7 +194,8 @@ class _FlexibleSpaceBarState extends State<FlexibleSpaceBar> {
           TargetPlatform.android ||
           TargetPlatform.fuchsia ||
           TargetPlatform.linux ||
-          TargetPlatform.windows => false,
+          TargetPlatform.windows ||
+          TargetPlatform.ohos => false,
           TargetPlatform.iOS || TargetPlatform.macOS => true,
         };
   }
@@ -302,6 +303,7 @@ class _FlexibleSpaceBarState extends State<FlexibleSpaceBar> {
             case TargetPlatform.fuchsia:
             case TargetPlatform.linux:
             case TargetPlatform.windows:
+            case TargetPlatform.ohos:
               title = Semantics(namesRoute: true, child: widget.title);
           }
 

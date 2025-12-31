@@ -78,3 +78,16 @@ if ($Env:FLUTTER_REALM) {
 } else {
     [System.IO.File]::WriteAllText("$flutterRoot/bin/cache/engine.realm", "", $utf8NoBom)
 }
+
+# ohos
+if (git -C "$flutterRoot" ls-files bin/internal/engine.ohos.version) {
+  $engineOhosVersion = Get-Content -Path "$flutterRoot/bin/internal/engine.ohos.version"
+}
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText("$flutterRoot/bin/cache/engine.ohos.stamp", $engineOhosVersion, $utf8NoBom)
+
+if ($Env:FLUTTER_REALM) {
+    [System.IO.File]::WriteAllText("$flutterRoot/bin/cache/engine.ohos.realm", $Env:FLUTTER_REALM, $utf8NoBom)
+} else {
+    [System.IO.File]::WriteAllText("$flutterRoot/bin/cache/engine.ohos.realm", "", $utf8NoBom)
+}
