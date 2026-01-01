@@ -16,6 +16,7 @@
 #include <memory>
 #include <sstream>
 #include <vector>
+#include "flutter/shell/platform/ohos/mpf_decoder.h"
 #include "flutter/lib/ui/painting/image_generator.h"
 #include "include/core/SkRefCnt.h"
 
@@ -66,6 +67,14 @@ class OHOSImageGenerator : public ImageGenerator {
  private:
   OH_ImageSourceNative* image_source_;
   const sk_sp<SkData> data_;
+  
+  OH_ImageSourceNative* mpf_gainmap_image_source_ = nullptr;
+  std::vector<uint8_t> gainmap_data_;
+  bool has_mpf_gainmap_ = false;  // True when gainmap is initialized and usable.
+  bool has_mpf_info_ = false;  // True when MPF metadata is detected in the file.
+  MpfGainmapInfo mpf_info_;
+  float gainmap_headroom_ = kDefaultGainmapHeadroom;
+  
 
   SkImageInfo origin_image_info_;
   float rotate_degree_ = 0.f;
@@ -124,7 +133,19 @@ class OHOSImageGenerator : public ImageGenerator {
 
   bool IsValidImageData();
 
+  bool TryComposeMpfGainmapInternal(const SkImageInfo& info,
+                            void* pixels,
+                            size_t row_bytes);
+  bool TryComposeMpfGainmap(const SkImageInfo& info,
+                            void* pixels,
+                            size_t row_bytes,
+                            unsigned int frame_index);
+
+  void InitMpfInfo();
+  void InitMpfGainmap(const sk_sp<SkData>& data);
+
   FML_DISALLOW_COPY_ASSIGN_AND_MOVE(OHOSImageGenerator);
 };
 }  // namespace flutter
 #endif  // FLUTTER_SHELL_PLATFORM_OHOS_OHOS_IMAGE_GENERATOR_H_
+
