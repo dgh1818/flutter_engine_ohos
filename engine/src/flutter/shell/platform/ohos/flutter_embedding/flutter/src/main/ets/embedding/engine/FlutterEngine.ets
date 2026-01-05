@@ -27,6 +27,7 @@ import TextInputPlugin from '../../plugin/editing/TextInputPlugin';
 import PlatformChannel from './systemchannels/PlatformChannel';
 import SystemChannel from './systemchannels/SystemChannel';
 import MouseCursorChannel from './systemchannels/MouseCursorChannel';
+import DisplayMetricsChannel from './systemchannels/DisplayMetricsChannel';
 import RestorationChannel from './systemchannels/RestorationChannel';
 import LocalizationChannel from './systemchannels/LocalizationChannel';
 import AccessibilityChannel from './systemchannels/AccessibilityChannel';
@@ -54,6 +55,7 @@ export default class FlutterEngine implements EngineLifecycleListener {
   private platformChannel: PlatformChannel | null = null;
   private systemChannel: SystemChannel | null = null;
   private mouseCursorChannel: MouseCursorChannel | null = null;
+  private displayMetricsChannel: DisplayMetricsChannel | null = null;
   private restorationChannel: RestorationChannel | null = null;
   private accessibilityChannel: AccessibilityChannel | null = null;
   private localeChannel: LocalizationChannel | null = null;
@@ -114,6 +116,7 @@ export default class FlutterEngine implements EngineLifecycleListener {
     this.platformChannel = new PlatformChannel(this.dartExecutor);
     this.systemChannel = new SystemChannel(this.dartExecutor);
     this.mouseCursorChannel = new MouseCursorChannel(this.dartExecutor);
+    this.displayMetricsChannel = new DisplayMetricsChannel(this.dartExecutor, context);
     this.restorationChannel = new RestorationChannel(this.dartExecutor, waitForRestorationData);
     this.settingsChannel = new SettingsChannel(this.dartExecutor);
     this.localeChannel = new LocalizationChannel(this.dartExecutor);
@@ -207,6 +210,10 @@ export default class FlutterEngine implements EngineLifecycleListener {
 
   getMouseCursorChannel(): MouseCursorChannel | null {
     return this.mouseCursorChannel;
+  }
+
+  getDisplayMetricsChannel(): DisplayMetricsChannel | null {
+    return this.displayMetricsChannel;
   }
 
   getFlutterNapi(): FlutterNapi {

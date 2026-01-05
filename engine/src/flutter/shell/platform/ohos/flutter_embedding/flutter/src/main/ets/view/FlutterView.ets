@@ -27,6 +27,7 @@ import KeyEventChannel from '../embedding/engine/systemchannels/KeyEventChannel'
 
 const TAG = "FlutterViewTag";
 const EVENT_BACK_PRESS = 'EVENT_BACK_PRESS';
+const DPI_SCALE_RESET: number = -1;
 
 export class ViewportMetrics {
   devicePixelRatio: number = 1.0;
@@ -210,6 +211,9 @@ export class FlutterView {
   private windowPosition: window.Rect | null = null;
   // 默认值5，参考：https://developer.huawei.com/consumer/cn/doc/harmonyos-references/ts-basic-gestures-pangesture
   private callbackValue: callbackNumber = () => 5;
+  // DPI update flag to distinguish between system DPI updates and custom DPI updates
+  private isDevicePixelRatioAdaptive: boolean = false;
+  private lastHeight: number = 0;
 
   constructor(viewId: string, context: Context) {
     this.id = viewId;
@@ -249,9 +253,45 @@ export class FlutterView {
     } catch (e) {
       Log.e(TAG, "displayInfo error" + JSON.stringify(e));
     }
-
+    this.context.eventHub.on('changeDevicePixelRatio', this.onDevicePixelRatioChange);
   }
 
+  onDevicePixelRatioChange = (dpiScaleFactor: number) => {
+    try {
+      // Get display information
+      this.displayInfo = display.getDefaultDisplaySync();
+
+      // Set DPI for text input channel
+      this.flutterEngine?.getTextInputChannel()?.setDevicePixelRatio(this.displayInfo.densityPixels);
+
+      // Calculate device pixel ratio
+      // When dpiScaleFactor is DPI_SCALE_RESET, reset DPI to system default
+      let newDevicePixelRatio: number;
+      if (dpiScaleFactor === DPI_SCALE_RESET) {
+        newDevicePixelRatio = this.displayInfo.densityPixels;
+        Log.d(TAG, "Resetting device pixel ratio to system default: " + newDevicePixelRatio);
+        // When resetting DPI, set the flag to false
+        this.isDevicePixelRatioAdaptive = false;
+      } else {
+        newDevicePixelRatio = this.displayInfo.densityPixels * dpiScaleFactor;
+        Log.d(TAG, "Scaling device pixel ratio by factor " + dpiScaleFactor + ": " + newDevicePixelRatio);
+        // When customizing DPI, set the flag to true
+        this.isDevicePixelRatioAdaptive = true;
+      }
+
+      // Only update when DPI actually changes
+      if (newDevicePixelRatio !== this.viewportMetrics.devicePixelRatio) {
+        this.viewportMetrics.devicePixelRatio = newDevicePixelRatio;
+        Log.i(TAG, "Device pixel ratio updated: " + newDevicePixelRatio +
+          " (scale factor: " + dpiScaleFactor + ", system DPI: " + this.displayInfo.densityPixels + ")");
+        this.needSetViewport = true;
+        this.onAreaChange(null);
+      }
+    } catch (e) {
+      Log.e(TAG, "Error updating device pixel ratio: " + JSON.stringify(e));
+    }
+  }
+  
   setTouchSlopCallbackValue(callback: callbackNumber) {
     this.callbackValue = callback;
   }
@@ -326,7 +366,32 @@ export class FlutterView {
     }
   }
   private windowSizeChangeCallback = (data: window.Size) => {
-    Log.i(TAG, "windowSizeChangeCallback w:" + data.width + ", h:" + data.height);
+    Log.i(TAG, `windowSizeChangeCallback: width=${data.width}, height=${data.height}, lastHeight=${this.lastHeight}`);
+    
+    // Only handle when height changes
+    if (this.lastHeight !== data.height) {
+      try {
+        // If DPI has been customized, do not process system DPI changes
+          this.displayInfo = display.getDefaultDisplaySync();
+          this.flutterEngine?.getTextInputChannel()?.setDevicePixelRatio(this.displayInfo.densityPixels);
+          
+          let devicePixelRatio: number = this.displayInfo.densityPixels;
+          Log.i(TAG, `windowSizeChangeCallback devicePixelRatio: ${devicePixelRatio}, viewportMetrics.devicePixelRatio: ${this.viewportMetrics.devicePixelRatio}`);
+          
+          if (devicePixelRatio !== this.viewportMetrics.devicePixelRatio) {
+            this.viewportMetrics.devicePixelRatio = devicePixelRatio;
+            Log.i(TAG, `windowSizeChangeCallback: Updated devicePixelRatio to ${devicePixelRatio}`);
+            this.needSetViewport = true;
+          }
+      } catch (e) {
+        Log.e(TAG, `windowSizeChangeCallback error: ${JSON.stringify(e)}`);
+      }
+    }
+    
+    // Update lastHeight
+    this.lastHeight = data.height;
+    
+    // Notify area change, this method handles all necessary view updates
     if (this.isAttachedToFlutterEngine()) {
       this.onAreaChange(null);
     }
@@ -338,6 +403,12 @@ export class FlutterView {
     }
   };
   private displayChangeCallback = (data: number) => {
+    // If DPI has been customized, do not process system DPI changes
+    if (this.isDevicePixelRatioAdaptive) {
+      Log.d(TAG, "Skipping display change callback due to custom DPI setting");
+      return;
+    }
+    
     this.displayInfo = display.getDefaultDisplaySync();
     this.flutterEngine?.getTextInputChannel()?.setDevicePixelRatio(this.displayInfo.densityPixels);
     let devicePixelRatio: number = this.displayInfo?.densityPixels;
@@ -437,6 +508,7 @@ export class FlutterView {
       this.mainWindow?.off('windowRectChange', this.windowRectChangeCallback);
       accessibility.off('accessibilityStateChange', this.accessibilityStateChangeCallback);
       display.off('foldStatusChange', this.foldStatusChangeCallback);
+      this.context.eventHub.off('changeDevicePixelRatio', this.onDevicePixelRatioChange);
     } catch (e) {
       Log.e(TAG, "mainWindow off error: " + JSON.stringify(e));
     }

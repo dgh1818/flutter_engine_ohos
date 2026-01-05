@@ -14,6 +14,7 @@ import 'debug_overflow_indicator.dart';
 import 'layer.dart';
 import 'layout_helper.dart';
 import 'object.dart';
+import 'flex_overflow_strategy.dart';
 
 // A 2D vector that uses a [RenderFlex]'s main axis and cross axis as its first and second coordinate axes.
 // It represents the same vector as (double mainAxisExtent, double crossAxisExtent).
@@ -83,6 +84,7 @@ class _LayoutSizes {
     required this.baselineOffset,
     required this.mainAxisFreeSpace,
     required this.spacePerFlex,
+    required this.allocatedSize,
   }) : assert(spacePerFlex?.isFinite ?? true);
 
   // The final constrained _AxisSize of the RenderFlex.
@@ -99,6 +101,9 @@ class _LayoutSizes {
 
   // The allocated space for flex children.
   final double? spacePerFlex;
+
+  // The allocated main axis size (accumulatedSize.mainAxisExtent)
+  final double allocatedSize;
 }
 
 /// How the child is inscribed into the available space.
@@ -429,6 +434,7 @@ class RenderFlex extends RenderBox
     TextBaseline? textBaseline,
     Clip clipBehavior = Clip.none,
     double spacing = 0.0,
+    FlexOverflowStrategy? overflowStrategy,
   }) : _direction = direction,
        _mainAxisAlignment = mainAxisAlignment,
        _mainAxisSize = mainAxisSize,
@@ -438,6 +444,7 @@ class RenderFlex extends RenderBox
        _textBaseline = textBaseline,
        _clipBehavior = clipBehavior,
        _spacing = spacing,
+       _overflowStrategy = overflowStrategy ?? createDefaultOverflowStrategy(direction),
        assert(spacing >= 0.0) {
     addAll(children);
   }
@@ -700,6 +707,20 @@ class RenderFlex extends RenderBox
     _spacing = value;
     markNeedsLayout();
   }
+
+  /// Strategy for handling overflow in this flex layout
+  FlexOverflowStrategy get overflowStrategy => _overflowStrategy;
+  FlexOverflowStrategy _overflowStrategy;
+  set overflowStrategy(FlexOverflowStrategy value) {
+    if (_overflowStrategy != value) {
+      _overflowStrategy.dispose();
+      _overflowStrategy = value;
+      markNeedsLayout();
+    }
+  }
+
+  /// Checks if the flex has overflow (public method for strategy use)
+  bool get hasOverflow => _overflow > precisionErrorTolerance;
 
   @override
   void setupParentData(RenderBox child) {
@@ -1237,6 +1258,7 @@ class RenderFlex extends RenderBox
       mainAxisFreeSpace: constrainedSize.mainAxisExtent - accumulatedSize.mainAxisExtent,
       baselineOffset: accumulatedAscentDescent.baselineOffset,
       spacePerFlex: firstFlexChild == null ? null : spacePerFlex,
+      allocatedSize: accumulatedSize.mainAxisExtent,
     );
   }
 
@@ -1304,6 +1326,7 @@ class RenderFlex extends RenderBox
       };
       childMainPosition += _getMainSize(child.size) + betweenSpace;
     }
+    _overflowStrategy.handleOverflow(this, sizes.axisSize.mainAxisExtent, sizes.allocatedSize);
   }
 
   @override
@@ -1377,6 +1400,7 @@ class RenderFlex extends RenderBox
   @override
   void dispose() {
     _clipRectLayer.layer = null;
+    _overflowStrategy.dispose();
     super.dispose();
   }
 

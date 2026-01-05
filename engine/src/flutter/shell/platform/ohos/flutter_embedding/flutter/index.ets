@@ -32,6 +32,7 @@ export { default as KeyEventChannel } from './src/main/ets/embedding/engine/syst
 export { default as LifecycleChannel } from './src/main/ets/embedding/engine/systemchannels/LifecycleChannel';
 export { default as LocalizationChannel } from './src/main/ets/embedding/engine/systemchannels/LocalizationChannel';
 export { default as MouseCursorChannel } from './src/main/ets/embedding/engine/systemchannels/MouseCursorChannel';
+export { default as DisplayMetricsChannel } from './src/main/ets/embedding/engine/systemchannels/DisplayMetricsChannel';
 export { default as NavigationChannel } from './src/main/ets/embedding/engine/systemchannels/NavigationChannel';
 export { default as PlatformChannel } from './src/main/ets/embedding/engine/systemchannels/PlatformChannel';
 export { default as PlatformViewsChannel } from './src/main/ets/embedding/engine/systemchannels/PlatformViewsChannel';
