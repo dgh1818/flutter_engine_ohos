@@ -76,6 +76,31 @@ static bool ContainsFormat(const std::vector<vk::SurfaceFormatKHR>& formats,
 static std::optional<vk::SurfaceFormatKHR> ChooseSurfaceFormat(
     const std::vector<vk::SurfaceFormatKHR>& formats,
     PixelFormat preference) {
+#ifdef __OHOS__
+  if (impeller::Context::enable_hdr_) {
+    if (impeller::Context::hdr_ == kHDRPQ) {  // video PQ
+      const auto colorspace = vk::ColorSpaceKHR::eHdr10St2084EXT;
+      const auto vk_preference =
+          vk::SurfaceFormatKHR{vk::Format::eA2B10G10R10UnormPack32, colorspace};
+      FML_DLOG(WARNING) << "enter eHdr10St2084EXT!";
+      return vk_preference;
+    }
+    if (ToVKImageFormat(preference) == vk::Format::eA2B10G10R10UnormPack32) {
+      const auto colorspace = vk::ColorSpaceKHR::eHdr10HlgEXT;
+      const auto vk_preference =
+          vk::SurfaceFormatKHR{vk::Format::eA2B10G10R10UnormPack32, colorspace};
+      FML_DLOG(WARNING) << "enter eHdr10HlgEXT!";
+      return vk_preference;
+    }
+    if (ToVKImageFormat(preference) == vk::Format::eR8G8B8A8Unorm) {
+      const auto colorspace = vk::ColorSpaceKHR::eDisplayP3NonlinearEXT;
+      const auto vk_preference =
+          vk::SurfaceFormatKHR{vk::Format::eR8G8B8A8Unorm, colorspace};
+      FML_DLOG(WARNING) << "enter eHdr10HlgEXT!";
+      return vk_preference;
+    }
+  }
+#endif
   const auto colorspace = vk::ColorSpaceKHR::eSrgbNonlinear;
   const auto vk_preference =
       vk::SurfaceFormatKHR{ToVKImageFormat(preference), colorspace};
@@ -151,8 +176,20 @@ KHRSwapchainImplVK::KHRSwapchainImplVK(const std::shared_ptr<Context>& context,
     return;
   }
 
-  const auto format = ChooseSurfaceFormat(
+  auto format = ChooseSurfaceFormat(
       formats, vk_context.GetCapabilities()->GetDefaultColorFormat());
+#ifdef __OHOS__
+  hdr_ = vk_context.GetContextHdr();
+  if (vk_context.GetContextHdr() > 0 && impeller::Context::enable_hdr_) {
+    format = ChooseSurfaceFormat(formats, PixelFormat::kR10G10B10A2);
+    FML_DLOG(INFO) << "impl choose hdr";
+  } else {
+    format = ChooseSurfaceFormat(formats, PixelFormat::kR8G8B8A8UNormInt);
+    FML_DLOG(INFO) << "impl not choose hdr";
+  }
+
+#endif
+
   if (!format.has_value()) {
     VALIDATION_LOG << "Swapchain has no supported formats.";
     return;
@@ -298,6 +335,14 @@ KHRSwapchainImplVK::~KHRSwapchainImplVK() {
 
 const ISize& KHRSwapchainImplVK::GetSize() const {
   return size_;
+}
+
+int KHRSwapchainImplVK::GetHdr() const {
+  return hdr_;
+}
+
+void KHRSwapchainImplVK::SetHdr(int hdr) {
+  hdr_ = hdr;
 }
 
 std::optional<ISize> KHRSwapchainImplVK::GetCurrentUnderlyingSurfaceSize()

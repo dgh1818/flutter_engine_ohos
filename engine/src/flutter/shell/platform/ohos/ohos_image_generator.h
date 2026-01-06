@@ -16,6 +16,7 @@
 #include <memory>
 #include <sstream>
 #include <vector>
+#include "flutter/shell/platform/ohos/mpf_decoder.h"
 #include "flutter/lib/ui/painting/image_generator.h"
 #include "include/core/SkRefCnt.h"
 
@@ -66,6 +67,14 @@ class OHOSImageGenerator : public ImageGenerator {
  private:
   OH_ImageSourceNative* image_source_;
   const sk_sp<SkData> data_;
+  
+  OH_ImageSourceNative* mpf_gainmap_image_source_ = nullptr;
+  std::vector<uint8_t> gainmap_data_;
+  bool has_mpf_gainmap_ = false;  // True when gainmap is initialized and usable.
+  bool has_mpf_info_ = false;  // True when MPF metadata is detected in the file.
+  MpfGainmapInfo mpf_info_;
+  float gainmap_headroom_ = kDefaultGainmapHeadroom;
+  
 
   SkImageInfo origin_image_info_;
   float rotate_degree_ = 0.f;
@@ -78,6 +87,16 @@ class OHOSImageGenerator : public ImageGenerator {
   static std::atomic<size_t> total_cached_bytes_;
   // 最大全局缓存大小
   static constexpr size_t kMaxGlobalCacheSize = IMAGE_MAX_CACHE_SIZE;
+
+  constexpr static const skcms_Matrix3x3 dcip3_matrix = {
+      {{1.2249f, -0.2247f, 0.000f},
+       {-0.0420f, 1.0419f, 0.000f},
+       {-0.0197f, -0.0786f, 1.0979f}}};
+
+  constexpr static const skcms_Matrix3x3 rec2020_matrix = {
+      {{0.636958f, 0.144617f, 0.168881f},
+       {0.262700f, 0.677998f, 0.059302f},
+       {0.000000f, 0.028073f, 1.060985f}}};
 
   struct PixelMapOHOS {
     OH_PixelmapNative* pixelmap_ = nullptr;
@@ -113,6 +132,17 @@ class OHOSImageGenerator : public ImageGenerator {
                                                int frame_index);
 
   bool IsValidImageData();
+
+  bool TryComposeMpfGainmapInternal(const SkImageInfo& info,
+                            void* pixels,
+                            size_t row_bytes);
+  bool TryComposeMpfGainmap(const SkImageInfo& info,
+                            void* pixels,
+                            size_t row_bytes,
+                            unsigned int frame_index);
+
+  void InitMpfInfo();
+  void InitMpfGainmap(const sk_sp<SkData>& data);
 
   FML_DISALLOW_COPY_ASSIGN_AND_MOVE(OHOSImageGenerator);
 };

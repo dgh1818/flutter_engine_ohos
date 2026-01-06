@@ -14,6 +14,7 @@
 #include <string>
 
 #include <multimedia/image_framework/image_pixel_map_napi.h>
+#include "flutter/impeller/renderer/context.h"
 #include "fml/logging.h"
 #include "fml/trace_event.h"
 #include "include/core/SkAlphaType.h"
@@ -23,6 +24,12 @@
 #include "flutter/fml/platform/ohos/dynamic_library_loader.h"
 
 std::atomic<size_t> flutter::OHOSImageGenerator::total_cached_bytes_{0};
+#include "third_party/skia/include/core/SkColorSpace.h"
+#include <cstring>
+#include <mutex>
+#include <utility>
+#include <vector>
+#include "flutter/shell/platform/ohos/mpf_decoder.h"
 
 namespace flutter {
 
@@ -144,15 +151,31 @@ OHOSImageGenerator::OHOSImageGenerator(OH_ImageSourceNative* image_source,
   OH_ImageSourceInfo_GetWidth(info, &width);
   OH_ImageSourceInfo_GetHeight(info, &height);
   OH_ImageSourceInfo_GetDynamicRange(info, &is_hdr_);
-  OH_ImageSourceInfo_Release(info);
-  if (rotate_degree_ == 90.f || rotate_degree_ == 270.f) {
-    origin_image_info_ = SkImageInfo::Make(
-        height, width, kRGBA_8888_SkColorType, kPremul_SkAlphaType);
-  } else {
-    origin_image_info_ = SkImageInfo::Make(
-        width, height, kRGBA_8888_SkColorType, kPremul_SkAlphaType);
+  if (!is_hdr_) {
+    InitMpfInfo();
   }
-
+  OH_ImageSourceInfo_Release(info);
+  if (is_hdr_ && impeller::Context::enable_hdr_) {
+    if (rotate_degree_ == 90.f || rotate_degree_ == 270.f) {
+      origin_image_info_ = SkImageInfo::Make(
+          height, width, kRGBA_1010102_SkColorType, kOpaque_SkAlphaType);
+      origin_image_info_ = origin_image_info_.makeColorSpace(
+          SkColorSpace::MakeRGB(SkNamedTransferFn::kHLG, rec2020_matrix));
+    } else {
+      origin_image_info_ = SkImageInfo::Make(
+          width, height, kRGBA_1010102_SkColorType, kOpaque_SkAlphaType);
+      origin_image_info_ = origin_image_info_.makeColorSpace(
+          SkColorSpace::MakeRGB(SkNamedTransferFn::kHLG, rec2020_matrix));
+    }
+  } else {
+    if (rotate_degree_ == 90.f || rotate_degree_ == 270.f) {
+      origin_image_info_ = SkImageInfo::Make(
+          height, width, kRGBA_8888_SkColorType, kPremul_SkAlphaType);
+    } else {
+      origin_image_info_ = SkImageInfo::Make(
+          width, height, kRGBA_8888_SkColorType, kPremul_SkAlphaType);
+    }
+  }
   // this is used for gif.
   OH_ImageSourceNative_GetFrameCount(image_source, &frame_count_);
   if (frame_count_ > 1) {
@@ -171,6 +194,10 @@ OHOSImageGenerator::OHOSImageGenerator(OH_ImageSourceNative* image_source,
 OHOSImageGenerator::~OHOSImageGenerator() {
   if (image_source_) {
     OH_ImageSourceNative_Release(image_source_);
+  }
+  if (mpf_gainmap_image_source_) {
+    OH_ImageSourceNative_Release(mpf_gainmap_image_source_);
+    mpf_gainmap_image_source_ = nullptr;
   }
   for (const auto& kv : cached_pixelmaps_) {
     if (kv.second) {
@@ -222,7 +249,8 @@ bool OHOSImageGenerator::GetPixels(const SkImageInfo& info,
                                    std::optional<unsigned int> prior_frame) {
   std::string trace_str = to_string() + "->" + std::to_string(info.width()) +
                           "*" + std::to_string(info.height()) +
-                          "-index:" + std::to_string(frame_index);
+                          "-index:" + std::to_string(frame_index) +
+                          "-hdr:" + std::to_string(is_hdr_);
   TRACE_EVENT1("flutter", "Image", "GetPixelsOHOS", trace_str.c_str());
   if (frame_index == 0) {
     FML_DLOG(INFO) << trace_str;
@@ -233,7 +261,9 @@ bool OHOSImageGenerator::GetPixels(const SkImageInfo& info,
     return false;
   }
 
-  if (info.colorType() != kRGBA_8888_SkColorType) {
+  if (image_source_ == nullptr ||
+      (info.colorType() != kRGBA_8888_SkColorType &&
+       info.colorType() != kRGBA_1010102_SkColorType)) {
     FML_LOG(ERROR) << "invailed color type:" << std::to_string(info.colorType())
                    << " " << to_string();
     return false;
@@ -256,12 +286,17 @@ bool OHOSImageGenerator::GetPixels(const SkImageInfo& info,
   }
 
   if (image_pixelmap == nullptr) {
+    if (has_mpf_gainmap_) {
+      if (TryComposeMpfGainmap(info, pixels, row_bytes, frame_index)) {
+        return true;
+      }
+    }
     image_pixelmap = CreatePixelMap(info.width(), info.height(), frame_index);
   }
 
   if (image_pixelmap) {
-    uint32_t buffer_size =
-        image_pixelmap->width_ * image_pixelmap->height_ * RBGA8888_BYTES;
+    uint32_t buffer_size = image_pixelmap->row_stride_ * image_pixelmap->height_;
+        //image_pixelmap->width_ * image_pixelmap->height_ * RBGA8888_BYTES;
     std::string trace_str = "size:" + std::to_string(buffer_size) +
                             "-stride:" + std::to_string(row_bytes);
     TRACE_EVENT1("flutter", "Image", "ReadPixels", trace_str.c_str());
@@ -322,6 +357,11 @@ std::shared_ptr<ImageGenerator> OHOSImageGenerator::MakeFromData(
   std::shared_ptr<OHOSImageGenerator> generator(new OHOSImageGenerator(
       image_source, isHeldSkData ? data : sk_sp<SkData>()));
 
+  if (!generator->has_mpf_gainmap_) {
+    // Initialize MPF gainmap state from the image data.
+    generator->InitMpfGainmap(data);
+  }
+
   if (generator->IsValidImageData()) {
     return generator;
   } else {
@@ -341,11 +381,17 @@ OHOSImageGenerator::CreatePixelMap(int width, int height, int frame_index) {
 
   Image_Size size = {(uint32_t)width, (uint32_t)height};
   OH_DecodingOptions_SetDesiredSize(opts, &size);
-  OH_DecodingOptions_SetPixelFormat(opts, PIXEL_FORMAT_RGBA_8888);
+
+  if (!impeller::Context::enable_hdr_ || !is_hdr_) {
+    OH_DecodingOptions_SetPixelFormat(opts, PIXEL_FORMAT_RGBA_8888);
+    OH_DecodingOptions_SetDesiredDynamicRange(opts, IMAGE_DYNAMIC_RANGE_SDR);
+  } else if (impeller::Context::enable_hdr_ && is_hdr_) {
+    OH_DecodingOptions_SetDesiredDynamicRange(opts, IMAGE_DYNAMIC_RANGE_HDR);
+    OH_DecodingOptions_SetPixelFormat(opts, PIXEL_FORMAT_RGBA_1010102);
+  }
   OH_DecodingOptions_SetRotate(opts, rotate_degree_);
 
   // HDR requires the RGBA1010102 format and will need future support.
-  OH_DecodingOptions_SetDesiredDynamicRange(opts, IMAGE_DYNAMIC_RANGE_SDR);
   OH_DecodingOptions_SetIndex(opts, frame_index);
 
   OH_PixelmapNative* pixelmap = nullptr;
@@ -357,11 +403,11 @@ OHOSImageGenerator::CreatePixelMap(int width, int height, int frame_index) {
       OH_PixelmapNative_Flip(pixelmap, need_flip_, false);
     }
     auto image_pixelmap = std::make_shared<PixelMapOHOS>(pixelmap);
-    FML_LOG(INFO) << "Create Pixelmap size:"
-                  << std::to_string(image_pixelmap->width_) << "*"
-                  << std::to_string(image_pixelmap->height_) << " stride "
-                  << std::to_string(image_pixelmap->row_stride_) << " format "
-                  << std::to_string(image_pixelmap->pixel_format_);
+    FML_DLOG(INFO) << "Create Pixelmap size:"
+                   << std::to_string(image_pixelmap->width_) << "*"
+                   << std::to_string(image_pixelmap->height_) << " stride "
+                   << std::to_string(image_pixelmap->row_stride_) << " format "
+                   << std::to_string(image_pixelmap->pixel_format_);
     return image_pixelmap;
   } else {
     FML_LOG(ERROR) << "Create Pixelmap from Image source failed:" << err_code
@@ -424,6 +470,135 @@ Image_ErrorCode OHOSImageGenerator::PixelMapOHOS::ReadPixels(
     delete[] temp_dst_buffer;
   }
   return ret_code;
+}
+
+void OHOSImageGenerator::InitMpfInfo() {
+  if (data_ && data_->data() && data_->size() > 0) {
+    MpfGainmapInfo mpf_info;
+    if (ParseMpfGainmapInfo(
+            static_cast<const uint8_t*>(data_->data()), data_->size(),
+            &mpf_info)) {
+      is_hdr_ = true;
+      has_mpf_info_ = true;
+      mpf_info_ = mpf_info;
+    }
+  }
+}
+
+bool OHOSImageGenerator::TryComposeMpfGainmapInternal(const SkImageInfo& info,
+                                              void* pixels,
+                                              size_t row_bytes) {
+  MpfGainmapComposeInput compose_input = {
+      image_source_,
+      mpf_gainmap_image_source_,
+      info.width(),
+      info.height(),
+      rotate_degree_,
+      need_flip_,
+      gainmap_headroom_,
+      pixels,
+      row_bytes,
+  };
+  MpfGainmapComposeResult compose_result = {};
+  if (ComposeMpfGainmap(compose_input, &compose_result) &&
+      compose_result.success) {
+    if (!compose_result.used_vpe) {
+      return true;
+    }
+    std::shared_ptr<PixelMapOHOS> hdr_wrapper =
+        std::make_shared<PixelMapOHOS>(compose_result.hdr_pixelmap);
+    if (!hdr_wrapper->IsValid()) {
+      FML_LOG(ERROR) << "[MPF] HDR Pixelmap invalid";
+    } else {
+      uint32_t buffer_size = hdr_wrapper->row_stride_ * hdr_wrapper->height_;
+      Image_ErrorCode read_err = hdr_wrapper->ReadPixels(
+          static_cast<uint8_t*>(pixels), buffer_size, row_bytes);
+      if (read_err == IMAGE_SUCCESS) {
+        if (frame_count_ > 1 &&
+            total_cached_bytes_ <= kMaxGlobalCacheSize - buffer_size) {
+          cached_pixelmaps_[0] = hdr_wrapper;
+          total_cached_bytes_.fetch_add(buffer_size,
+                                        std::memory_order_relaxed);
+        }
+        return true;
+      }
+      FML_LOG(ERROR) << "[MPF] HDR Pixelmap ReadPixels failed:" << read_err;
+    }
+  }
+  FML_LOG(ERROR) << "[MPF] compose failed; fallback to base decode.";
+  has_mpf_gainmap_ = false;
+  is_hdr_ = false;
+  origin_image_info_ =
+      SkImageInfo::Make(origin_image_info_.width(),
+                        origin_image_info_.height(),
+                        kRGBA_8888_SkColorType, kPremul_SkAlphaType);
+  return false;
+}
+
+bool OHOSImageGenerator::TryComposeMpfGainmap(
+    const SkImageInfo& info,
+    void* pixels,
+    size_t row_bytes,
+    unsigned int frame_index) {
+  if (has_mpf_gainmap_) {
+    if (frame_index != 0) {
+      FML_LOG(ERROR) << "[MPF] gainmap only supports frame 0";
+      return false;
+    }
+    if (TryComposeMpfGainmapInternal(info, pixels, row_bytes)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Initialize MPF gainmap state from the image data.
+void OHOSImageGenerator::InitMpfGainmap(const sk_sp<SkData>& data) {
+  MpfGainmapInfo mpf_info;
+  bool has_mpf_gainmap = false;
+  if (has_mpf_info_) {
+    mpf_info = mpf_info_;
+    has_mpf_gainmap = true;
+  } else if (!is_hdr_) {
+    has_mpf_gainmap =
+        ParseMpfGainmapInfo(static_cast<const uint8_t*>(data->data()),
+                            data->size(), &mpf_info);
+  }
+  if (has_mpf_gainmap) {
+    MpfGainmapInitResult init_result;
+    if (!InitMpfGainmapFromData(
+            static_cast<const uint8_t*>(data->data()), data->size(),
+            mpf_info.offset, mpf_info.size, &init_result)) {
+      FML_LOG(ERROR) << "[MPF] gainmap init failed; decoding base only.";
+      is_hdr_ = false;
+      origin_image_info_ =
+          SkImageInfo::Make(origin_image_info_.width(),
+                            origin_image_info_.height(),
+                            kRGBA_8888_SkColorType, kPremul_SkAlphaType);
+    } else {
+      if (mpf_gainmap_image_source_) {
+        OH_ImageSourceNative_Release(mpf_gainmap_image_source_);
+        mpf_gainmap_image_source_ = nullptr;
+      }
+      mpf_gainmap_image_source_ = init_result.gainmap_image_source;
+      gainmap_data_ = std::move(init_result.gainmap_data);
+      gainmap_headroom_ = init_result.headroom;
+      has_mpf_gainmap_ = true;
+      is_hdr_ = true;
+      origin_image_info_ =
+          SkImageInfo::Make(origin_image_info_.width(),
+                            origin_image_info_.height(),
+                            kRGBA_1010102_SkColorType, kOpaque_SkAlphaType);
+      origin_image_info_ =
+          origin_image_info_.makeColorSpace(
+              SkColorSpace::MakeRGB(SkNamedTransferFn::kHLG,
+                                    rec2020_matrix));
+      if (!impeller::Context::enable_hdr_) {
+        FML_LOG(ERROR)
+            << "[MPF] HDR composition requested but HDR is disabled.";
+      }
+    }
+  }
 }
 
 }  // namespace flutter
