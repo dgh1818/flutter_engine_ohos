@@ -61,7 +61,6 @@ dependencies:
   graphs: 2.3.2
   hooks_runner: 0.21.0
   hooks: 0.19.5
-  code_assets: 0.19.4
 
   # We depend on very specific internal implementation details of the
   # 'test' package, which change between versions, so when upgrading
@@ -129,3 +128,10 @@ dartdoc:
   # Exclude this package from the hosted API docs.
   nodoc: true
 # PUBSPEC CHECKSUM: 62uco7
+
+dependency_overrides:
+  code_assets:
+    git:
+      url: https://gitcode.com/openharmony-sig/fluttertpc_dart_native
+      path: pkgs/code_assets
+      ref: flutter_3.35.7_deps
