@@ -47,6 +47,12 @@ import 'widget_inspector.dart';
 
 export 'dart:ui' show AppLifecycleState, Locale;
 
+enum _LTPOSwitchStatus {
+  ltpoOff,
+  ltpoOn,
+  ltpoNotInit,
+}
+
 // Examples can assume:
 // late FlutterView myFlutterView;
 // class MyApp extends StatelessWidget { const MyApp({super.key}); @override Widget build(BuildContext context) => const Placeholder(); }
@@ -459,6 +465,10 @@ mixin WidgetsBinding
       return true;
     }());
     platformMenuDelegate = DefaultPlatformMenuDelegate();
+
+    // Upload the translate velocity only once per frame.
+ 	  // Adjust the current framerate based on speed.
+    addPersistentFrameCallback(_sendAllTranslateVelocity);
   }
 
   /// The current [WidgetsBinding], if one has been created.
@@ -1075,6 +1085,60 @@ mixin WidgetsBinding
     for (final WidgetsBindingObserver observer in List<WidgetsBindingObserver>.of(_observers)) {
       observer.didHaveMemoryPressure();
     }
+  }
+  _LTPOSwitchStatus _ltpoSwitchStatus = _LTPOSwitchStatus.ltpoNotInit;
+  bool _shouldSendTranslateVelocity = false;
+  double _maxTranslateVelocity = 0.0;
+
+  // Adjust the current framerate based on speed.
+  void _sendAllTranslateVelocity(Duration timeStamp) {
+    if (!_shouldSendTranslateVelocity) {
+      return;
+    }
+
+    if (_ltpoSwitchStatus != _LTPOSwitchStatus.ltpoOn) {
+      return;
+    }
+
+    SystemChannels.nativeVsync.invokeMethod(
+      'sendVelocity', {'type': 'translate', 'velocity': _maxTranslateVelocity}
+    );
+    _shouldSendTranslateVelocity = false;
+    _maxTranslateVelocity = 0.0;
+  }
+
+  // Check the current status of LTPO being on.
+  Future<int> _checkLTPOSwitchStatus() async {
+    return await SystemChannels.nativeVsync.invokeMethod<int>('checkLTPOSwtichState') as int;
+  }
+
+  // Record the speed value that needs to be sent for Ohos.
+  void recordTranslateVelocity(double velocity, bool isIntervalRatio) {
+    if (_ltpoSwitchStatus  == _LTPOSwitchStatus.ltpoNotInit) {
+      _checkLTPOSwitchStatus().then((switchStatus) {
+        _ltpoSwitchStatus = _LTPOSwitchStatus.values[switchStatus];
+      });
+    }
+
+    if (_ltpoSwitchStatus != _LTPOSwitchStatus.ltpoOn) {
+      return;
+    }
+
+    double physicalVelocity = velocity.abs();
+    if (isIntervalRatio) {
+      // Recalculate the velocity, taking into account the width and height of the View.
+      double physicalSizeMean =
+        platformDispatcher.implicitView!.physicalSize.width + platformDispatcher.implicitView!.physicalSize.height;
+      physicalSizeMean = physicalSizeMean / 2;
+      physicalVelocity = physicalVelocity * physicalSizeMean;
+    }
+    _shouldSendTranslateVelocity = true;
+
+    // Record maximum value
+    if (physicalVelocity > _maxTranslateVelocity) {
+      _maxTranslateVelocity = physicalVelocity;
+    }
+    return;
   }
 
   bool _needToReportFirstFrame = true;

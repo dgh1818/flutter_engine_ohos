@@ -40,6 +40,11 @@ const String BUILD_INFO_JSON_PATH =
 const String BUILD_INFO_JSON_DES_PATH =
     'src/main/resources/rawfile/buildinfo.json5';
 
+const String FRAMES_CFG_JSON_PATH =
+    'src/main/resources/base/profile/framesconfig.json';
+const String FRAMES_CFG_JSON_DES_PATH =
+    'src/main/resources/rawfile/framesconfig.json';
+
 final bool isWindows = globals.platform.isWindows;
 
 String getHvigorwFile() => isWindows ? 'hvigorw.bat' : 'hvigorw';

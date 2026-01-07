@@ -156,6 +156,34 @@ class OhosDartBuilder implements OhosBuilder {
     await sourceFile.delete();
   }
 
+  Future<void> copyFramesCfgFile(OhosProject ohosProject, Logger? logger) async {
+    final String rawfilePath = globals.fs.path.join(ohosProject.flutterModuleDirectory.path,
+      'src/main/resources/rawfile');
+    final Directory rawfileDirectory = globals.localFileSystem.directory(rawfilePath);
+    if (!await rawfileDirectory.exists()) {
+      rawfileDirectory.createSync();
+    }
+
+    final String framesCfgFilePath = globals.fs.path.join(ohosProject.flutterModuleDirectory.path,
+      FRAMES_CFG_JSON_PATH);
+    final File sourceFile = globals.localFileSystem.file(framesCfgFilePath);
+    final String fileName = globals.fs.path.basename(framesCfgFilePath);
+    final String destinationFilePath = globals.fs.path.join(rawfilePath, fileName);
+    final File destinationFile = globals.localFileSystem.file(destinationFilePath);
+
+    if (!await sourceFile.exists()) {
+      return;
+    }
+
+    if (!await destinationFile.exists()) {
+      await sourceFile.copy(destinationFilePath);
+    } else {
+      return;
+    }
+    // delete sourceFile
+    await sourceFile.delete();
+  }
+
   /// flutter构建
   Future<String> flutterAssemble(FlutterProject flutterProject,
       OhosBuildInfo ohosBuildInfo, String targetFile) async {
@@ -255,6 +283,7 @@ class OhosDartBuilder implements OhosBuilder {
     copyFlutterAssets(globals.fs.path.join(output, FLUTTER_ASSETS_PATH),
         desFlutterAssetsPath, logger);
     await copyFlutterBuildInfoFile(ohosProject);
+    await copyFramesCfgFile(ohosProject, logger);
 
     if (ohosBuildInfo.enableImpellerFlag != null) {
       await setImpellerEnableFlag(ohosProject, ohosBuildInfo);

@@ -27,18 +27,18 @@ VsyncWaiterOHOS::VsyncWaiterOHOS(const flutter::TaskRunners& task_runners,
     : VsyncWaiter(task_runners), enable_frame_cache_(enable_frame_cache) {
   vsync_handle_ =
       OH_NativeVSync_Create("flutterSyncName", strlen(flutterSyncName));
-  std::shared_ptr<OhosVsyncVotingMgr> votingMgr =
+  std::shared_ptr<OhosVsyncVotingMgr> vsync_voting_manager =
       OhosVsyncVotingMgr::GetInstance();
-  if (votingMgr != nullptr) {
-    votingMgr->AttachNativeVsync(std::string("VsyncWaiterOHOS"), vsync_handle_);
+  if (vsync_voting_manager != nullptr) {
+    vsync_voting_manager->AttachNativeVsync(std::string("VsyncWaiterOHOS"), vsync_handle_);
   }
 }
 
 VsyncWaiterOHOS::~VsyncWaiterOHOS() {
-  std::shared_ptr<OhosVsyncVotingMgr> votingMgr =
+  std::shared_ptr<OhosVsyncVotingMgr> vsync_voting_manager =
       OhosVsyncVotingMgr::GetInstance();
-  if (votingMgr != nullptr) {
-    votingMgr->DettachNativeVsync(std::string("VsyncWaiterOHOS"));
+  if (vsync_voting_manager != nullptr) {
+    vsync_voting_manager->DetachNativeVsync(std::string("VsyncWaiterOHOS"));
   }
 
   OH_NativeVSync_Destroy(vsync_handle_);
@@ -97,16 +97,14 @@ void VsyncWaiterOHOS::AwaitVSync() {
     LOGE("AwaitVSync vsync_handle_ is nullptr");
     return;
   }
+
+  VSyncVotingFrameRate();
+
   auto* weak_this = new std::weak_ptr<VsyncWaiter>(shared_from_this());
   OH_NativeVSync* handle = vsync_handle_;
 
   fml::TaskRunner::RunNowOrPostTask(
       task_runners_.GetUITaskRunner(), [weak_this, handle]() {
-        std::shared_ptr<OhosVsyncVotingMgr> votingMgr =
-            OhosVsyncVotingMgr::GetInstance();
-        if (votingMgr != nullptr) {
-          votingMgr->VotingByNativeVsync(handle);
-        }
         int32_t ret = 0;
         if (0 != (ret = OH_NativeVSync_RequestFrameWithMultiCallback(
                       handle, &OnVsyncFromOHOS, weak_this))) {
@@ -191,6 +189,19 @@ void VsyncWaiterOHOS::SetDvsyncSwitch(bool enableDvsync) {
     return;
   }
   nativeDvsyncFunc_(vsync_handle_, enableDvsync);
+}
+
+void VsyncWaiterOHOS::VSyncVotingFrameRate() {
+  OH_NativeVSync* handle = vsync_handle_;
+
+  fml::TaskRunner::RunNowOrPostTask(
+    task_runners_.GetIOTaskRunner(), [handle]() {
+      std::shared_ptr<OhosVsyncVotingMgr> vsync_voting_manager = OhosVsyncVotingMgr::GetInstance();
+      if (vsync_voting_manager != nullptr) {
+        vsync_voting_manager->VotingByNativeVsync(handle);
+      }
+    }
+  );
 }
 
 }  // namespace flutter
