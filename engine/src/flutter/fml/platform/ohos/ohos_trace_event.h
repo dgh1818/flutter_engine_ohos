@@ -11,8 +11,6 @@
 namespace fml {
 namespace tracing {
 
-void TraceEventSetAnimationStatus(int animationStatus);
-
 }  // namespace tracing
 }  // namespace fml
 #endif // FLUTTER_FML_PLATFORM_OHOS_OHOS_TRACE_EVENT_H_

@@ -35,8 +35,6 @@
 
 #include "flutter/fml/platform/ohos/ohos_trace_event.h"
 
-#include "flutter/fml/platform/ohos/ohos_trace_event.h"
-
 #define OHOS_SHELL_HOLDER (reinterpret_cast<OHOSShellHolder*>(shell_holder))
 namespace flutter {
 
@@ -2882,14 +2880,14 @@ napi_value PlatformViewOHOSNapi::nativeSetAnimationStatus(napi_env env, napi_cal
     return nullptr;
   }
 
-  FML_LOG(ERROR) << "nativeSetAnimationStatus type = " << type;
-  auto status = static_cast<ScrollingStatus>(type);
+  FML_LOG(INFO) << "nativeSetAnimationStatus type = " << type;
+  auto status = static_cast<fml::hiappevent::ScrollingStatus>(type);
   switch (status) {
-    case ScrollingStatus::kScrollStart:
-      fml::tracing::TraceEventSetAnimationStatus(type);
+    case fml::hiappevent::ScrollingStatus::kScrollStart:
+      fml::hiappevent::OhosHiappEventDDL::GetInstance()->RecordScrollStatus(type);
       break;
-    case ScrollingStatus::kScrollEnd:
-      fml::tracing::TraceEventSetAnimationStatus(type);
+    case fml::hiappevent::ScrollingStatus::kScrollEnd:
+      fml::hiappevent::OhosHiappEventDDL::GetInstance()->RecordScrollStatus(type);
         OHOS_SHELL_HOLDER->GetPlatformView()->RunTask(
           OhosThreadType::kIO,
           []{ fml::hiappevent::OhosHiappEventDDL::GetInstance()->FlushScroll(); }
@@ -2898,19 +2896,7 @@ napi_value PlatformViewOHOSNapi::nativeSetAnimationStatus(napi_env env, napi_cal
     default:
       break;
   }
-  // std::shared_ptr<OhosVsyncVotingMgr> votingMgr = OhosVsyncVotingMgr::GetInstance();
-  // if (votingMgr == nullptr) {
-  //   return nullptr;
-  // }
 
-  // switch (type) {
-  //   case static_cast<int>(AnimationType::AN_TYPE_TRANSLATE):
-  //     votingMgr->VoteAnimationValue(AnimationType::AN_TYPE_TRANSLATE,
-  //       PlatformViewOHOSNapi::display_density_pixels, velocity);
-  //     break;
-  //   default:
-  //     break;
-  // }
   return nullptr;
 }
 

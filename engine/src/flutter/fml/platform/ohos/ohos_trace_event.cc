@@ -20,9 +20,9 @@ static constexpr char OHOS_SCOPE[] = "::";
 static constexpr char OHOS_WHITESPACE[] = " ";
 static constexpr char OHOS_FILTER_NAME_SCENE[] = "SceneDisplayLag"; // SceneDisplayLag→和掉帧/Jank强相关
 static constexpr char OHOS_FILTER_NAME_POINTER[] = "PointerEvent";
-static const int Argument_Size = 3;
-static const int vsync_transitions_missed_Size = 2;
-static std::atomic<int> TraceScrollingStatus = -1; // A scrolling status flag visible across threads
+// static const int Argument_Size = 3;
+// static const int vsync_transitions_missed_Size = 2;
+// static std::atomic<int> TraceScrollingStatus = -1; // A scrolling status flag visible across threads
 
 void OHOSTraceTimelineEvent(TraceArg category_group,
                             TraceArg name,
@@ -47,21 +47,7 @@ void OHOSTraceTimelineEvent(TraceArg category_group,
     int realNumber = argument_count;
     if (type != Dart_Timeline_Event_Begin && strcmp(name, OHOS_FILTER_NAME_SCENE) == 0) {
         // Trace 'SceneDisplayLag' have inconsistent parameters. It's not good to watch.
-        realNumber = 0; // SceneDisplayLag：只记事件名，不记参数到 HiTrace
-        if ((type == Dart_Timeline_Event_Async_Begin) && (argument_count >= Argument_Size)) {
-            int vsync_transitions_missed = std::stoi(argument_values[2]);
-
-            // 另起一个数据类型去存储滑动
-            if (TraceScrollingStatus.load() == 0) { // 如果当前处在滑动状态→把这次SceneDisplayLag记为scroll jank候选
-                fml::hiappevent::OhosHiappEventDDL::GetInstance()->ReportScrollJANKEvent(
-                    timestamp_micros, argument_values, argument_count);
-            }
-
-            if (vsync_transitions_missed >= vsync_transitions_missed_Size) { 
-                fml::hiappevent::OhosHiappEventDDL::GetInstance()->ReportJANKEvent(
-                    timestamp_micros, argument_values, argument_count);
-            }
-        }
+        realNumber = 0; 
     }
 
     std::string TraceName(category_group);
@@ -149,13 +135,6 @@ void OHOSTraceTimelineEvent(TraceArg category_group,
 
 void OHOSTraceEventEnd(void) {
     OH_HiTrace_FinishTrace();
-}
-
-void TraceEventSetAnimationStatus(int animationStatus) { // 0: 滑动 1: 非滑动
-    if (animationStatus != TraceScrollingStatus.load()) {
-        TraceScrollingStatus.store(animationStatus);
-    }
-    return;
 }
 
 } // namespace tracing

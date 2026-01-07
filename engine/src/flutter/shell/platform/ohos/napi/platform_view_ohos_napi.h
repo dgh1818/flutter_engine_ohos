@@ -32,11 +32,6 @@ struct mouseWheelEvent {
   int64_t timestamp;
 };
 
-enum class ScrollingStatus : int32_t {
-  kScrollStart = 0,
-  kScrollEnd   = 1,
-};
-
 class PlatformViewOHOSNapi {
  public:
   static napi_value nativeDispatchEmptyPlatformMessage(

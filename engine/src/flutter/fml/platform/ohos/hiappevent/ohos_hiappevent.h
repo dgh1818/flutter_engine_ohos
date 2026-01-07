@@ -9,6 +9,7 @@
 
 #include <hiappevent/hiappevent.h>
 #include <vector>
+#include <atomic>
 #include "flutter/fml/platform/ohos/dynamic_library_loader.h"
 
 namespace fml {
@@ -33,17 +34,31 @@ using AddFunc = int64_t (*)(HiAppEvent_Processor* processor);
 using DestroyProcessor = void (*)(HiAppEvent_Processor* processor);
 
 typedef struct MissedFrameInfo {
-  int64_t endTimeMicros;      // unit: us
-  int64_t targetTime;         // unit: ns
-  int64_t lastestTargetTime;  // unit: ns
-  int missedFrame;
-} MissedFrameInfo;
+  int64_t UTCTimeStampMillis;
+  int64_t vsyncStartTimeMicros;
+  int64_t vsyncTargetTimeMicros;
+  int64_t latestVsyncTargetTimeMicros;
+  int64_t frameDurationMicros;
+  int64_t rasterFinishTimeMicros;
+  int64_t frameBudgetTimeMicros;
+  uint64_t frameNumber;
+  int vsyncTransitionsMissed;
+ } MissedFrameInfo;
 
 enum class OhosHiappEventFlag {
   kSingleFlag,
   kStaticFlag,
   kScrolledFlag,
 };
+
+// ===== Scroll semantic =====
+enum class ScrollingStatus : int32_t {
+  kScrollStart = 0,
+  kScrollEnd   = 1,
+};
+
+// Cross-thread visible scroll state
+extern std::atomic<int> ScrollStatus;
 
 class OhosHiappEventDDL {
  public:
@@ -54,13 +69,9 @@ class OhosHiappEventDDL {
 
   static std::shared_ptr<OhosHiappEventDDL> GetInstance(void);
 
-  void ReportJANKEvent(int64_t endTimeMicros,
-                       const char** argumentValues,
-                       int argumentCount);
+  void ReportJANKEvent(const MissedFrameInfo& missedFrameInfo);
 
-  void ReportScrollJANKEvent(int64_t endTimeMicros,
-                              const char** argumentValues,
-                              int argumentCount);
+  void ReportScrollJANKEvent(const MissedFrameInfo& missedFrameInfo);
 
   void Flush(void);
 
@@ -69,6 +80,8 @@ class OhosHiappEventDDL {
   void FlushAllIn(OhosHiappEventFlag type);
 
   std::unique_ptr<flutter::DynamicLibraryLoader> loader_;
+
+  void RecordScrollStatus(int type);
 
  private:
   int WriteSingleFrame(void);
@@ -92,7 +105,8 @@ class OhosHiappEventDDL {
 
   std::vector<MissedFrameInfo> MissedFrameInfos;
 
- std::vector<MissedFrameInfo> MissedFrameInfosScroll;
+  std::vector<MissedFrameInfo> MissedFrameInfosScroll;
+
 };
 
 };  // namespace hiappevent
