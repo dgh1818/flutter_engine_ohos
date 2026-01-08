@@ -24,6 +24,7 @@ constexpr int DEFAULT_PANZOOM_DEVICE_ID = -103;
 constexpr int TOUCH_UP_PERFORMANCE_SECTION = 3000;
 constexpr double ZOOM_IN = 10.0 / 8.0;
 constexpr double ZOOM_OUT = 1.0 / ZOOM_IN;
+constexpr double MOUSE_BOUNDARY_OFFSET = 0.1;
 
 // OH_NativeXComponent_MouseEvent对象没有deviceId成员变量或获取deviceId的接口
 // ，该常量(DEFAULT_MOUSE_DEVICE_ID)是用于对pointerData.device进行赋值
@@ -623,12 +624,79 @@ void OhosTouchProcessor::VsyncVotingTouchDown(int64_t shellHolderID) {
   ohos_shell_holder->GetPlatformView()->RunTask(OhosThreadType::kIO, task);
 }
 
+void OhosTouchProcessor::SendFinalMoveEventBeforeLeave(
+    int64_t shell_holderID,
+    OH_NativeXComponent* component,
+    OH_NativeXComponent_MouseEvent mouseEvent,
+    double windowWidth,
+    double windowHeight) {
+  // Before sending the leave event, send a final move event with boundary coordinates
+  // This allows MouseTracker to correctly compare states and trigger exit events
+  if (lastMouseX_ >= 0 && lastMouseY_ >= 0) {
+    // Create a copy of the last move event
+    OH_NativeXComponent_MouseEvent lastMoveEvent = mouseEvent;
+    lastMoveEvent.action = OH_NATIVEXCOMPONENT_MOUSE_MOVE;
+    lastMoveEvent.timestamp = lastMouseTimestamp_;
+    
+    // Adjust coordinates to be outside the nearest boundary to ensure hit-test
+    // won't hit MouseRegions inside the application
+    // Determine the nearest boundary based on the last position
+    if (windowWidth > 0 && windowHeight > 0) {
+      // Calculate distances to each boundary
+      double distToLeft = lastMouseX_;
+      double distToRight = windowWidth - lastMouseX_;
+      double distToTop = lastMouseY_;
+      double distToBottom = windowHeight - lastMouseY_;
+      
+      // Find the nearest boundary
+      double minDist = std::min({distToLeft, distToRight, distToTop, distToBottom});
+      
+      // Adjust coordinates to be outside the boundary (slightly beyond to ensure
+      // hit-test won't hit MouseRegions inside the application)
+      if (minDist == distToLeft) {
+        // Outside left boundary
+        lastMoveEvent.x = -MOUSE_BOUNDARY_OFFSET;
+        lastMoveEvent.y = lastMouseY_;
+      } else if (minDist == distToRight) {
+        // Outside right boundary
+        lastMoveEvent.x = windowWidth + MOUSE_BOUNDARY_OFFSET;
+        lastMoveEvent.y = lastMouseY_;
+      } else if (minDist == distToTop) {
+        // Outside top boundary
+        lastMoveEvent.x = lastMouseX_;
+        lastMoveEvent.y = -MOUSE_BOUNDARY_OFFSET;
+      } else {
+        // Outside bottom boundary
+        lastMoveEvent.x = lastMouseX_;
+        lastMoveEvent.y = windowHeight + MOUSE_BOUNDARY_OFFSET;
+      }
+    } else {
+      // If window size information is not available, use original coordinates
+      lastMoveEvent.x = lastMouseX_;
+      lastMoveEvent.y = lastMouseY_;
+    }
+    
+    // Send the final move event
+    HandleMouseEvent(shell_holderID, component, lastMoveEvent, 0.0, false, windowWidth, windowHeight);
+  }
+}
+
 void OhosTouchProcessor::HandleMouseEvent(
     int64_t shell_holderID,
     OH_NativeXComponent* component,
     OH_NativeXComponent_MouseEvent mouseEvent,
     double offsetY,
-    bool isLeave) {
+    bool isLeave,
+    double windowWidth,
+    double windowHeight) {
+  if (isLeave) {
+    SendFinalMoveEventBeforeLeave(shell_holderID, component, mouseEvent, windowWidth, windowHeight);
+  } else {
+    // Store the last mouse position (for non-leave events)
+    lastMouseX_ = mouseEvent.x;
+    lastMouseY_ = mouseEvent.y;
+    lastMouseTimestamp_ = mouseEvent.timestamp;
+  }
   const int numTouchPoints = 1;
   std::unique_ptr<flutter::PointerDataPacket> packet =
       std::make_unique<flutter::PointerDataPacket>(numTouchPoints);

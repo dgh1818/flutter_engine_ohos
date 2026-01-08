@@ -300,7 +300,9 @@ void XComponentBase::OnDispatchMouseLeaveEvent(OH_NativeXComponent* component) {
       LOGD("XComponentManger::OnDispatchMouseLeaveEvent()");
       // the leave mouseEvent data，is the same of last point on the area.
       ohosTouchProcessor_.HandleMouseEvent(std::stoll(shellholderId_),
-                                           component, mouseEvent, 0.0, true);
+                                           component, mouseEvent, 0.0, true,
+                                           static_cast<double>(width_),
+                                           static_cast<double>(height_));
     }
   } else {
     LOGE("OnSurfaceCreated XComponentBase is not attached");
@@ -768,7 +770,9 @@ void XComponentBase::OnDispatchMouseEvent(OH_NativeXComponent* component,
       }
     }
     ohosTouchProcessor_.HandleMouseEvent(std::stoll(shellholderId_), component,
-                                         mouseEvent, 0.0);
+                                         mouseEvent, 0.0, false,
+                                         static_cast<double>(width_),
+                                         static_cast<double>(height_));
     return;
   }
   LOGE("XComponentManger::DispatchMouseEvent XComponentBase is not attached");
@@ -796,7 +800,9 @@ void XComponentBase::OnDispatchMouseWheelEvent(mouseWheelEvent event) {
       mouseEvent.action = OH_NATIVEXCOMPONENT_MOUSE_NONE;
       mouseEvent.timestamp = event.timestamp;
       ohosTouchProcessor_.HandleMouseEvent(std::stoll(shellholderId_), nullptr,
-                                           mouseEvent, scrollY);
+                                           mouseEvent, scrollY, false,
+                                           static_cast<double>(width_),
+                                           static_cast<double>(height_));
     } else {
       g_scrollDistance = 0.0;
     }
