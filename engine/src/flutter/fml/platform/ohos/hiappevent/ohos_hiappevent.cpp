@@ -3,11 +3,6 @@
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE_HW file.
  */
-#define STATISTICTYPE "OTHER_JANK_STAT"
-#define SINGLETYPE "OTHER_JANK"
-#define STATISICFLAG 3
-#define SINLEFLAG 2
-
 
 #include "ohos_hiappevent.h"
 
@@ -16,8 +11,13 @@
 #include <unistd.h>
 #include <map>
 #include <thread>
+#include <typeinfo>
 #include "flutter/fml/logging.h"
 #include "flutter/fml/platform/ohos/dynamic_library_loader.h"
+
+// Header files related to UTC time conversion
+#include <ctime>
+#include <chrono>
 
 namespace fml {
 
@@ -27,10 +27,20 @@ static std::shared_ptr<OhosHiappEventDDL> instance_ = nullptr;
 static std::once_flag instanceFlag_;
 
 static constexpr char HIAPPEVENT_LIB_NAME[] = "libhiappevent_ndk.z.so";
+
+static constexpr char HIAPPEVENT_OTHER_JANK[] = "OTHER_JANK";
+static constexpr char HIAPPEVENT_OTHER_JANK_STAT[] = "OTHER_JANK_STAT";
+static constexpr char HIAPPEVENT_OTHER_JANK_SCROLL[] = "OTHER_JANK_SCROLL";
+static constexpr int64_t kScrollJankThresholdUs = 50 * 1000; // 丢帧超过50ms才上报
+static constexpr int64_t SECOND_TO_MICROS_UNIT = 1 * 1000 * 1000; // Unit conversion: second to microsecond
+static constexpr int64_t MICROS_TO_MILLIS_UNIT = 1 * 1000; // Unit conversion: microsecond to millisecond 
+
 static const int MISSED_FRAME_INFOS_SIZE = 10;
 static const int REQUIRED_API_VERSION = 18;
-static const int ARGUMENT_SIZE = 3;
-static const int VSYNC_TRANSITIONS_MISSED_SIZE = 2;
+
+static int recentScrollCount = 0; // New member: number of scrolls since last scrolled frame jank report
+
+std::atomic<int> ScrollStatus{-1}; // Cross-thread visible scroll state
 
 std::shared_ptr<OhosHiappEventDDL> OhosHiappEventDDL::GetInstance() {
   std::call_once(instanceFlag_, [&] {
@@ -79,63 +89,71 @@ void OhosHiappEventDDL::Init(void) {
   return;
 }
 
-void OhosHiappEventDDL::ReportJANKEvent(int64_t endTimeMicros,
-                                        const char** argumentValues,
-                                        int argumentCount) {
-  if (argumentCount < ARGUMENT_SIZE) {
-    FML_LOG(ERROR) << "Array data overflow";
-    return;
-  }
+//  Record scroll jank event based on MissedFrameInfo struct
+void OhosHiappEventDDL::ReportScrollJANKEvent(const MissedFrameInfo& missedFrameInfo) {
+  // 50ms threshold
+  if (missedFrameInfo.frameDurationMicros < kScrollJankThresholdUs) {
+     FML_LOG(INFO)
+         << "Ignore scroll jank: frameCost="
+         << missedFrameInfo.frameDurationMicros << "us (<50ms)";
+     return;
+   }
 
+  FML_LOG(INFO)
+      << "MissedFrameInfosScroll pushes back.";
+  MissedFrameInfosScroll.push_back(missedFrameInfo);
+}
+
+// Record jank event based on MissedFrameInfo struct
+void OhosHiappEventDDL::ReportJANKEvent(const MissedFrameInfo& missedFrameInfo) {
   if (MissedFrameInfos.size() == MISSED_FRAME_INFOS_SIZE) {
     // MissedFrameInfos is full.
-    FML_LOG(INFO) << "vector stop push_back";
+    FML_LOG(INFO) << "Vector stops push_back";
     return;
   } else if (MissedFrameInfos.size() > MISSED_FRAME_INFOS_SIZE) {
     return;
   }
 
-  /*  argumentValues
-      [0]:frame_target_time
-      [1]:current_frame_target_time
-      [2]:vsync_transitions_missed
-   */
-  MissedFrameInfo info;
-  info.endTimeMicros = endTimeMicros;
-  info.targetTime = std::stoll(argumentValues[0]);
-  info.lastestTargetTime = std::stoll(argumentValues[1]);
-  info.missedFrame = std::stoi(argumentValues[VSYNC_TRANSITIONS_MISSED_SIZE]);
-  MissedFrameInfos.push_back(info);
+  FML_LOG(INFO)
+      << "MissedFrameInfos pushes back.";
+  MissedFrameInfos.push_back(missedFrameInfo); 
 }
 
+// Report single jank event to HiAppEvent
 int OhosHiappEventDDL::WriteSingleFrame(void) {
   if (MissedFrameInfos.size() == 0) {
+    FML_LOG(INFO) << "Size of MissedFrameInfos is zero";
     return -1;
   }
 
-  int64_t endTimeMicros = MissedFrameInfos.front().endTimeMicros;
-  int64_t targetTime = MissedFrameInfos.front().targetTime / 1000;
-  int64_t lastestTargetTime = MissedFrameInfos.front().lastestTargetTime / 1000;
-  int missedFrame = MissedFrameInfos.front().missedFrame;
-
-  if (endTimeMicros < targetTime) {
-    FML_LOG(ERROR) << "report error, endTime is less than targetTime";
-    return -1;
-  }
-
-  int64_t budgetTime = (lastestTargetTime - targetTime) / missedFrame;
-  int64_t vsyncStartTime = targetTime - budgetTime;
   ParamList list = OH_HiAppEvent_CreateParamList();
   if (list == nullptr) {
     FML_LOG(ERROR) << "CreateParamList error";
     return -1;
   }
 
+  int missedFrame = MissedFrameInfos.front().vsyncTransitionsMissed;
+
+  // The first missed frame vsync start time
+  int64_t vsyncStartTime = MissedFrameInfos.front().vsyncStartTimeMicros;
+  // Convert to UTC time
+  int64_t frontRasterFinishTimeMicros = MissedFrameInfos.front().rasterFinishTimeMicros;
+  int64_t diff = (frontRasterFinishTimeMicros - vsyncStartTime) / MICROS_TO_MILLIS_UNIT;
+  int64_t vsyncStartTimeUTC = MissedFrameInfos.front().UTCTimeStampMillis - diff;
+
+  // The last missed frame's end time (converted to UTC)
+  int64_t endTimeUTC = MissedFrameInfos.front().UTCTimeStampMillis;
+
+  if (endTimeUTC < vsyncStartTimeUTC) {
+    FML_LOG(ERROR) << "report error, endTime is less than targetTime";
+    return -1;
+  }
+
   OH_HiAppEvent_AddStringParam(list, "frameworkName", "FLUTTER");
   OH_HiAppEvent_AddInt32Param(list, "versionCode", 0);
   OH_HiAppEvent_AddInt32Param(list, "missedFrames", missedFrame);
-  OH_HiAppEvent_AddInt64Param(list, "startTime", vsyncStartTime);
-  OH_HiAppEvent_AddInt64Param(list, "endTime", endTimeMicros);
+  OH_HiAppEvent_AddInt64Param(list, "startTime", vsyncStartTimeUTC);
+  OH_HiAppEvent_AddInt64Param(list, "endTime", endTimeUTC);
   OH_HiAppEvent_AddInt64Param(list, "pid", getpid());
 
   int ret = OH_HiAppEvent_Write("PERFORMANCE", "OTHER_JANK", BEHAVIOR, list);
@@ -147,9 +165,10 @@ int OhosHiappEventDDL::WriteSingleFrame(void) {
   return ret;
 }
 
+// Report statistic jank event to HiAppEvent
 int OhosHiappEventDDL::WriteStatisticFrame(void) {
   if (MissedFrameInfos.size() == 0) {
-    FML_LOG(ERROR) << "size of MissedFrameInfos is zero";
+    FML_LOG(INFO) << "Size of MissedFrameInfos is zero";
     return -1;
   }
 
@@ -160,49 +179,47 @@ int OhosHiappEventDDL::WriteStatisticFrame(void) {
   }
 
   int totalMissedFrames = 0;
-  int maxMissedFrame = 0;
+  // The maximum dropped frame time and its corresponding index
+  int64_t maxDiffTime = 0;
   int targetIndex = 0;
   int index = 0;
   for (auto it = MissedFrameInfos.begin(); it != MissedFrameInfos.end(); it++) {
-    totalMissedFrames += (*it).missedFrame;
-
-    if ((*it).missedFrame > maxMissedFrame) {
-      maxMissedFrame = (*it).missedFrame;
+    totalMissedFrames += (*it).vsyncTransitionsMissed;
+    int frameDurationMicros = (*it).frameDurationMicros;
+    if (frameDurationMicros > maxDiffTime) {
+      maxDiffTime = frameDurationMicros;
       targetIndex = index;
     }
     index++;
   }
-  // 丢帧最大值
-  int64_t maxEndTimeMicros = MissedFrameInfos.at(targetIndex).endTimeMicros;
-  int64_t maxTargetTime = MissedFrameInfos.at(targetIndex).targetTime / 1000;
-  int64_t maxLastestTargetTime =
-      MissedFrameInfos.at(targetIndex).lastestTargetTime / 1000;
+  // The maximum dropped frame time corresponding frame rate
+  int maxFPS = 0;
+  if (maxDiffTime > 0) {
+    maxFPS = static_cast<int>(SECOND_TO_MICROS_UNIT / maxDiffTime);
+  }
 
-  int64_t maxBudget = (maxLastestTargetTime - maxTargetTime) / maxMissedFrame;
-  int64_t maxVsyncStartTime = maxTargetTime - maxBudget;
-  int64_t maxDiffTime = maxEndTimeMicros - maxVsyncStartTime;
-  int maxFPS = 1000000 / maxBudget;
+  // The first missed frame vsync start time
+  int64_t vsyncStartTime = MissedFrameInfos.front().vsyncStartTimeMicros;
+  // Convert to UTC time
+  int64_t frontRasterFinishTimeMicros = MissedFrameInfos.front().rasterFinishTimeMicros;
+  int64_t diff = (frontRasterFinishTimeMicros - vsyncStartTime) / MICROS_TO_MILLIS_UNIT;
+  int64_t vsyncStartTimeUTC = MissedFrameInfos.front().UTCTimeStampMillis - diff;
 
-  // 开始时间 第一次丢帧vsync开始时间
-  int64_t frontTargetTime = MissedFrameInfos.front().targetTime / 1000;
-  int64_t frontLastestTargetTime =
-      MissedFrameInfos.front().lastestTargetTime / 1000;
-  int64_t frontbudgetTime = (frontLastestTargetTime - frontTargetTime) /
-                            MissedFrameInfos.front().missedFrame;
-  int64_t vsyncStartTime = frontTargetTime - frontbudgetTime;
-
-  // 结束时间 最后一次丢帧vsync结束时间
-  int64_t backLastestTargetTime =
-      MissedFrameInfos.back().lastestTargetTime / 1000;
+  // The last missed frame's expected vsync time
+  int64_t backLastestTargetTime = MissedFrameInfos.back().latestVsyncTargetTimeMicros;
+  // Convert to UTC time
+  int64_t backRasterFinishTimeMicros = MissedFrameInfos.back().rasterFinishTimeMicros;
+  diff = (backLastestTargetTime - backRasterFinishTimeMicros) / MICROS_TO_MILLIS_UNIT;
+  int64_t backLastestTargetTimeUTC = MissedFrameInfos.back().UTCTimeStampMillis + diff;
 
   OH_HiAppEvent_AddStringParam(list, "frameworkName", "FLUTTER");
   OH_HiAppEvent_AddInt32Param(list, "versionCode", 0);
 
   OH_HiAppEvent_AddInt32Param(list, "maxMissedFrameRate", maxFPS);
   OH_HiAppEvent_AddInt32Param(list, "totalMissedFrames", totalMissedFrames);
-  OH_HiAppEvent_AddInt64Param(list, "maxFrameTime", maxDiffTime);
-  OH_HiAppEvent_AddInt64Param(list, "startTime", vsyncStartTime);
-  OH_HiAppEvent_AddInt64Param(list, "endTime", backLastestTargetTime);
+  OH_HiAppEvent_AddInt64Param(list, "maxFrameTime", maxDiffTime / MICROS_TO_MILLIS_UNIT);
+  OH_HiAppEvent_AddInt64Param(list, "startTime", vsyncStartTimeUTC);
+  OH_HiAppEvent_AddInt64Param(list, "endTime", backLastestTargetTimeUTC);
   OH_HiAppEvent_AddInt64Param(list, "pid", getpid());
 
   int ret =
@@ -215,27 +232,131 @@ int OhosHiappEventDDL::WriteStatisticFrame(void) {
   return ret;
 }
 
+// Report scrolled frame jank event to HiAppEvent
+int OhosHiappEventDDL::WriteScrolledFrame(void) {
+  if (MissedFrameInfosScroll.size() == 0) {
+    FML_LOG(INFO) << "Size of MissedFrameInfosScroll is zero";
+    return -1;
+  }
+
+  ParamList list = OH_HiAppEvent_CreateParamList(); // Create a pointer to the parameter list
+  if (list == nullptr) {
+    FML_LOG(ERROR) << "CreateParamList error";
+    return -1;
+  }
+  // Total missed frames
+  int totalMissedFrames = 0;
+  // The maximum dropped frame time and its corresponding index
+  int64_t maxDiffTime = 0;
+  int targetIndex = 0;
+  int index = 0;
+  for (auto it = MissedFrameInfosScroll.begin(); it != MissedFrameInfosScroll.end(); it++) {
+    totalMissedFrames += (*it).vsyncTransitionsMissed; // Calculate total missed frames
+
+    int frameDurationMicros = (*it).frameDurationMicros;
+    if (frameDurationMicros > maxDiffTime) {
+      maxDiffTime = frameDurationMicros;
+      targetIndex = index;
+    }
+    index++;
+  }
+  
+  // The frame rate corresponding to the longest frame loss time
+  int maxFPS = 0;
+  if (maxDiffTime > 0) {
+    maxFPS = static_cast<int>(SECOND_TO_MICROS_UNIT / maxDiffTime);
+  }
+
+  // TODO: The frame number corresponding to the longest frame loss time
+
+  // The first missed frame vsync start time
+  int64_t vsyncStartTime = MissedFrameInfosScroll.front().vsyncStartTimeMicros;
+  // Convert to UTC time
+  int64_t frontRasterFinishTimeMicros = MissedFrameInfosScroll.front().rasterFinishTimeMicros;
+  int64_t diff = (frontRasterFinishTimeMicros - vsyncStartTime) / MICROS_TO_MILLIS_UNIT;
+  int64_t vsyncStartTimeUTC = MissedFrameInfosScroll.front().UTCTimeStampMillis - diff;
+
+  // The last missed frame's expected vsync time
+  int64_t backLastestTargetTime = MissedFrameInfosScroll.back().latestVsyncTargetTimeMicros;
+  // Convert to UTC time
+  int64_t backRasterFinishTimeMicros = MissedFrameInfosScroll.back().rasterFinishTimeMicros;
+  diff = (backLastestTargetTime - backRasterFinishTimeMicros) / MICROS_TO_MILLIS_UNIT;
+  int64_t backLastestTargetTimeUTC = MissedFrameInfosScroll.back().UTCTimeStampMillis + diff;
+
+  // The total number of frames during the scrolled frame jank reporting process
+  int totalFrames = MissedFrameInfosScroll.back().frameNumber - MissedFrameInfosScroll.front().frameNumber + 1;
+
+  OH_HiAppEvent_AddStringParam(list, "frameworkName", "FLUTTER");
+  OH_HiAppEvent_AddInt32Param(list, "versionCode", 0);
+
+  // Start time (unit: ms)
+  OH_HiAppEvent_AddInt64Param(list, "startTime", vsyncStartTimeUTC);
+  // End time (unit: ms)
+  OH_HiAppEvent_AddInt64Param(list, "endTime", backLastestTargetTimeUTC);
+  // Maximum dropped frame duration (unit: ms)
+  OH_HiAppEvent_AddInt64Param(list, "maxFrameTime", maxDiffTime / MICROS_TO_MILLIS_UNIT);
+  // TODO: The frame number corresponding to the longest frame loss time
+
+  // The frame rate corresponding to the longest frame loss time
+  OH_HiAppEvent_AddInt32Param(list, "maxMissedFrameRate", maxFPS);
+  // Total missed frames
+  OH_HiAppEvent_AddInt32Param(list, "totalMissedFrames", totalMissedFrames);
+  // Total frames
+  OH_HiAppEvent_AddInt32Param(list, "totalFrames", totalFrames);
+  // Number of scrolls since last scrolled frame jank report
+  OH_HiAppEvent_AddInt32Param(list, "recentScrollCount", recentScrollCount);
+  // Process ID
+  OH_HiAppEvent_AddInt64Param(list, "pid", getpid());
+
+  int ret = // Event tracking
+      OH_HiAppEvent_Write("PERFORMANCE", "OTHER_JANK_SCROLL", BEHAVIOR, list);
+  if (ret != 0) {
+    FML_LOG(ERROR) << "HiAppEvent_Write error, ret = " << ret;
+  }
+
+  OH_HiAppEvent_DestroyParamList(list);
+  return ret;
+}
+
 void OhosHiappEventDDL::Flush(void) {
   Init();
 
-  FlushAllIn(SINLEFLAG);
-  FlushAllIn(STATISICFLAG);
+  FlushAllIn(OhosHiappEventFlag::kSingleFlag);
+  FlushAllIn(OhosHiappEventFlag::kStaticFlag);
 
   MissedFrameInfos.clear();
 }
 
-void OhosHiappEventDDL::FlushAllIn(int type) {
+void OhosHiappEventDDL::FlushScroll(void) {
+  Init();
+
+  // Check if there were any frames lost during scrolling.
+  // If there were, increment the scroll count.
+  if (MissedFrameInfosScroll.size() != 0) {
+    recentScrollCount++;
+  } 
+
+  FlushAllIn(OhosHiappEventFlag::kScrolledFlag);
+
+ // Scrolled frame jank report completed, reset
+  recentScrollCount = 0;
+  MissedFrameInfosScroll.clear();
+}
+
+void OhosHiappEventDDL::FlushAllIn(OhosHiappEventFlag type) {
   if (!isValid_) {
     FML_LOG(ERROR) << "flush isValid_ false";
     return;
   }
 
-  if (MissedFrameInfos.size() == 0) {
-    return;
-  }
-
-  if (type != STATISICFLAG && type != SINLEFLAG) {
-    return;
+  if (type == OhosHiappEventFlag::kScrolledFlag) {
+    if (MissedFrameInfosScroll.empty()) {
+      return;
+    }
+  } else {
+    if (MissedFrameInfos.empty()) {
+      return;
+    }
   }
 
   HiAppEvent_Processor* processor = reinterpret_cast<HiAppEvent_Processor*>(
@@ -246,10 +367,19 @@ void OhosHiappEventDDL::FlushAllIn(int type) {
   }
 
   setReportPoliceFunc_(processor, 1, 1, true, true);
-  if (type == SINLEFLAG) {
-    setReportEventFunc_(processor, "PERFORMANCE", SINGLETYPE, true);
-  } else {
-    setReportEventFunc_(processor, "PERFORMANCE", STATISTICTYPE, true);
+
+  switch (type) {
+    case OhosHiappEventFlag::kSingleFlag:
+      setReportEventFunc_(processor, "PERFORMANCE", HIAPPEVENT_OTHER_JANK, true);
+      break;
+    case OhosHiappEventFlag::kStaticFlag:
+      setReportEventFunc_(processor, "PERFORMANCE", HIAPPEVENT_OTHER_JANK_STAT, true);
+      break;
+    case OhosHiappEventFlag::kScrolledFlag:
+      setReportEventFunc_(processor, "PERFORMANCE", HIAPPEVENT_OTHER_JANK_SCROLL, true);
+      break;
+    default:
+      break;
   }
 
   int64_t processorId = addFunc_(processor);
@@ -261,11 +391,14 @@ void OhosHiappEventDDL::FlushAllIn(int type) {
 
   int ret = -1;
   switch (type) {
-    case SINLEFLAG:
+    case OhosHiappEventFlag::kSingleFlag:
       ret = WriteSingleFrame();
       break;
-    case STATISICFLAG:
+    case OhosHiappEventFlag::kStaticFlag:
       ret = WriteStatisticFrame();
+      break;
+    case OhosHiappEventFlag::kScrolledFlag:
+      ret = WriteScrolledFrame();
       break;
     default:
       break;
@@ -273,7 +406,14 @@ void OhosHiappEventDDL::FlushAllIn(int type) {
 
   destroyProcessor_(processor);
   if (ret != 0) {
-    FML_LOG(ERROR) << "flush error: type = " << type;
+    FML_LOG(ERROR) << "flush error: type = " << static_cast<int32_t>(type);
+  }
+  return;
+}
+
+void OhosHiappEventDDL::RecordScrollStatus(int scrollStatus) {
+  if (scrollStatus != ScrollStatus.load()) {
+      ScrollStatus.store(scrollStatus);
   }
   return;
 }

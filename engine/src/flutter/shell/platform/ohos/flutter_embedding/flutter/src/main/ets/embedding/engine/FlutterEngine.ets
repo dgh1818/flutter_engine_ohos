@@ -113,7 +113,7 @@ export default class FlutterEngine implements EngineLifecycleListener {
     this.navigationChannel = new NavigationChannel(this.dartExecutor);
     this.textInputChannel = new TextInputChannel(this.dartExecutor);
     this.testChannel = new TestChannel(this.dartExecutor);
-    this.platformChannel = new PlatformChannel(this.dartExecutor);
+    this.platformChannel = new PlatformChannel(this.dartExecutor, this.flutterNapi);
     this.systemChannel = new SystemChannel(this.dartExecutor);
     this.mouseCursorChannel = new MouseCursorChannel(this.dartExecutor);
     this.displayMetricsChannel = new DisplayMetricsChannel(this.dartExecutor, context);

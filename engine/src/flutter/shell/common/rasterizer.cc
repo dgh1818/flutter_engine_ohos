@@ -45,7 +45,12 @@
 #endif
 
 #include "flutter/fml/logging.h"
+
+#ifdef FML_OS_OHOS
 #include "flutter/fml/platform/ohos/hisysevent_c.h"
+#include "flutter/fml/platform/ohos/hiappevent/ohos_hiappevent.h"
+#endif
+
 namespace flutter {
 
 // The rasterizer will tell Skia to purge cached resources that have not been
@@ -546,6 +551,102 @@ Rasterizer::DoDrawResult Rasterizer::DoDraw(
         "vsync_transitions_missed",   // arg_key_3
         vsync_transitions_missed      // arg_val_3
     );
+
+
+#ifdef FML_OS_OHOS
+{
+  auto now = std::chrono::system_clock::now(); // 获取当前UTC时间
+  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch());
+
+  FML_LOG(INFO) << "cur UTC timestamp:" << duration.count();
+}
+
+  // 当前时间，UTC时间
+  auto now = std::chrono::system_clock::now(); // 获取当前UTC时间
+  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()); // 距离 1970-01-01 UTC 的时长(毫秒表示)
+  const int64_t now_ms_int64 = static_cast<int64_t>(duration.count());
+
+  FML_LOG(INFO) << "Scroll hiappevent start, UTC: " << now_ms_int64;
+
+  // 帧开始时间，绝对时间，wall time
+  const fml::TimePoint vsync_start_time =
+    frame_timings_recorder->GetVsyncStartTime();
+  const int64_t vsync_start_time_micros =
+    vsync_start_time.ToEpochDelta().ToMicroseconds();
+
+  // 帧期望时间，绝对时间，wall time
+  const fml::TimePoint vsync_target_time =
+      frame_timings_recorder->GetVsyncTargetTime();
+  const int64_t vsync_target_time_micros =
+    vsync_target_time.ToEpochDelta().ToMicroseconds();
+
+  // 最后一次的帧期望时间，绝对时间，wall time
+  const int64_t latest_frame_target_time_micros =
+    latest_frame_target_time.ToEpochDelta().ToMicroseconds();
+
+  // 丢帧时长，绝对时间，wall time
+  const int64_t frame_duration_micros =
+    latest_frame_target_time_micros - vsync_start_time_micros;
+
+  // 当前帧完成的时间，绝对时间，wall time
+  const int64_t raster_finish_time_micros =
+    raster_finish_time.ToEpochDelta().ToMicroseconds();
+
+  // 当前帧间隔
+  const int64_t frame_budget_time_micros =
+    fml::TimeDelta::FromMillisecondsF(frame_budget_millis).ToMicroseconds();
+
+  fml::hiappevent::MissedFrameInfo missedFrameInfo;
+  missedFrameInfo.UTCTimeStampMillis = now_ms_int64; // 事件发生时间(UTC ms)，可近似认为是raster完成时间
+  missedFrameInfo.vsyncStartTimeMicros = vsync_start_time_micros; // 本次丢帧开始时间(epoch us)
+  missedFrameInfo.vsyncTargetTimeMicros = vsync_target_time_micros; // 本次丢帧期望时间(epoch us)
+  missedFrameInfo.latestVsyncTargetTimeMicros = latest_frame_target_time_micros; // 本次丢帧最终完成期望时间(epoch us)
+  missedFrameInfo.frameDurationMicros = frame_duration_micros; // 本次丢帧时长(duration us)
+  missedFrameInfo.rasterFinishTimeMicros = raster_finish_time_micros; // 本次丢帧实际完成时间(epoch us)
+  missedFrameInfo.frameBudgetTimeMicros = frame_budget_time_micros; // 帧间隔(duration us)
+  missedFrameInfo.frameNumber = frame_timings_recorder->GetFrameNumber(); // 帧号
+  missedFrameInfo.vsyncTransitionsMissed = vsync_transitions_missed; // 丢帧周期
+
+  FML_LOG(INFO) << "Scroll hiappevent ends.";
+
+  // 判断上报丢帧事件类型
+  const int scroll_status =
+    fml::hiappevent::ScrollStatus.load();
+
+  // 当前是否在滑动
+  const bool is_scrolling =
+    scroll_status == static_cast<int>(fml::hiappevent::ScrollingStatus::kScrollStart);
+
+  auto io_runner = delegate_.GetTaskRunners().GetIOTaskRunner();
+
+  if (is_scrolling) {
+    FML_LOG(INFO) << "Scroll hiappevent ReportScrollJANKEvent PostTask to IO thread";
+    fml::TaskRunner::RunNowOrPostTask(
+        io_runner,
+        [missedFrameInfo] {
+          FML_LOG(INFO) << "Hiappevent ReportScrollJANKEvent";
+          fml::hiappevent::OhosHiappEventDDL::GetInstance()
+              ->ReportScrollJANKEvent(missedFrameInfo);
+        });
+  } else {
+    FML_LOG(INFO) << "General hiappevent ReportJANKEvent PostTask to IO thread";
+    fml::TaskRunner::RunNowOrPostTask(
+        io_runner,
+        [missedFrameInfo] {
+          FML_LOG(INFO) << "Hiappevent ReportJANKEvent";
+          fml::hiappevent::OhosHiappEventDDL::GetInstance()
+              ->ReportJANKEvent(missedFrameInfo);
+        });
+  }
+
+  auto now_2 = std::chrono::system_clock::now();
+  auto duration_2 = std::chrono::duration_cast<std::chrono::milliseconds>(now_2.time_since_epoch());
+  const int64_t now_ms_int64_2 = static_cast<int64_t>(duration_2.count());
+
+  FML_LOG(INFO) << "Hiappevent end, UTC: " << now_ms_int64_2;
+  FML_LOG(INFO) << "Hiappevent diff time = " << (now_ms_int64_2 - now_ms_int64) << " ms";
+#endif
+
   }
 #endif
 

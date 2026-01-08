@@ -33,6 +33,8 @@
 #include "flutter/shell/platform/ohos/types.h"
 #include "unicode/uchar.h"
 
+#include "flutter/fml/platform/ohos/ohos_trace_event.h"
+
 #define OHOS_SHELL_HOLDER (reinterpret_cast<OHOSShellHolder*>(shell_holder))
 namespace flutter {
 
@@ -2847,6 +2849,54 @@ napi_value PlatformViewOHOSNapi::nativeSetQosOnLowMemory(
       resourceManager->setQosOnLowMemory(lowMemoryLevel);
     }
   }
+  return nullptr;
+}
+
+napi_value PlatformViewOHOSNapi::nativeSetAnimationStatus(napi_env env, napi_callback_info info)
+{
+  size_t argc = 2;
+  napi_value args[2] = {nullptr};
+
+  napi_status ret = napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+  if (ret != napi_ok) {
+    FML_LOG(ERROR) << "nativeSetAnimationStatus napi_get_cb_info error, " << ret;
+    return nullptr;
+  }
+
+  int64_t shell_holder;
+  ret = napi_get_value_int64(env, args[0], &shell_holder);
+  if (ret != napi_ok) {
+    FML_DLOG(ERROR) << "PlatformViewOHOSNapi::nativeSetSemanticsEnabled "
+                       "napi_get_value_int64 error:"
+                    << ret;
+    return nullptr;
+  }
+
+  int32_t type;
+  ret = napi_get_value_int32(env, args[1], &type);
+  if (ret != napi_ok) {
+    FML_LOG(ERROR) << "nativeSetAnimationStatus type "
+                      "napi_get_value_int32 error, " << ret;
+    return nullptr;
+  }
+
+  FML_LOG(INFO) << "nativeSetAnimationStatus type = " << type;
+  auto status = static_cast<fml::hiappevent::ScrollingStatus>(type);
+  switch (status) {
+    case fml::hiappevent::ScrollingStatus::kScrollStart:
+      fml::hiappevent::OhosHiappEventDDL::GetInstance()->RecordScrollStatus(type);
+      break;
+    case fml::hiappevent::ScrollingStatus::kScrollEnd:
+      fml::hiappevent::OhosHiappEventDDL::GetInstance()->RecordScrollStatus(type);
+        OHOS_SHELL_HOLDER->GetPlatformView()->RunTask(
+          OhosThreadType::kIO,
+          []{ fml::hiappevent::OhosHiappEventDDL::GetInstance()->FlushScroll(); }
+        );
+      break;
+    default:
+      break;
+  }
+
   return nullptr;
 }
 
