@@ -15,13 +15,18 @@ const TAG = "FlutterPage";
 
 
 /**
- * 基础page组件，承载XComponent组件
+ * Basic page component that hosts XComponent for Flutter rendering.
+ * This component handles the display of Flutter content within an OpenHarmony page.
  */
 @Component
 export struct FlutterPage {
+  /** Safe area edges to expand, or undefined for default. */
   @Prop safeAreaEdges: SafeAreaEdge[] | undefined = [];
+  /** Safe area types to expand, or undefined for default. */
   @Prop safeAreaTypes: SafeAreaType[] | undefined = [];
+  /** The unique identifier for the XComponent view. */
   @Prop viewId: string = ""
+  /** The XComponent type for rendering. */
   @Prop xComponentType: XComponentType = XComponentType.SURFACE
   /**
    * renderFit under XComponent has a default setting of RESIZE_FILL.
@@ -37,6 +42,9 @@ export struct FlutterPage {
    */
   @Prop enableFrameCacheForSmooth: boolean = true;
 
+  /**
+   * Empty builder function used as default.
+   */
   @Builder
   doNothingBuilder() {
   }
@@ -45,6 +53,9 @@ export struct FlutterPage {
   
   @BuilderParam splashScreenView: () => void = this.doNothingBuilder;
 
+  /**
+   * Default page builder that displays Flutter content with XComponent.
+   */
   @Builder
   defaultPage() {
     Stack() {
@@ -126,6 +137,9 @@ export struct FlutterPage {
     })
   }
 
+  /**
+   * Page builder that supports mouse wheel gestures.
+   */
   @Builder
   mouseWheelPage() {
     Stack() {
@@ -220,6 +234,7 @@ export struct FlutterPage {
     )
   }
 
+  /** Whether to show the splash screen. */
   @State showSplashScreen: boolean = true;
   /**
    * To address the black(or other color set by usr) flashing frame when switching between ArkUI and Flutter pages,
@@ -229,23 +244,36 @@ export struct FlutterPage {
    * Therefore, we cannot automatically change the relevant properties through state variables at this time.
    */
   @State firstFrameDisplayed: boolean = false;
+  /** Background color for the XComponent. */
   @State xComponentColor: Color = Color.Black
 
+  /** Whether to check for full screen mode. */
   @State checkFullScreen: boolean = true;
+  /** Whether to check for keyboard visibility. */
   @State checkKeyboard: boolean = true;
+  /** Whether to check for gesture navigation. */
   @State checkGesture: boolean = true;
+  /** Whether to enable mouse wheel gesture support. */
   @State checkMouseWheel: boolean = true;
+  /** Whether to check for AI bar. */
   @State checkAiBar: boolean = true;
+  /** Top padding value, or undefined if not set. */
   @Prop @Watch("onPaddingChange")paddingTop?: number = undefined;
+  /** Storage link for node width. */
   @StorageLink('nodeWidth') storageLinkWidth: number = 0;
+  /** Storage link for node height. */
   @StorageLink('nodeHeight') storageLinkHeight: number = 0;
 
-
+  /** Root dynamic view model children, or undefined if not set. */
   @State rootDvModel: DVModelChildren | undefined = undefined
 
   private flutterView?: FlutterView | null
   private panOption: PanGestureOptions = new PanGestureOptions({ direction: PanDirection.Up | PanDirection.Down });
 
+  /**
+   * Called when the page is about to appear.
+   * Initializes the FlutterView and sets up listeners and callbacks.
+   */
   aboutToAppear() {
     this.flutterView = FlutterManager.getInstance().getFlutterView(this.viewId);
     this.flutterView?.addFirstFrameListener(this)
@@ -268,23 +296,42 @@ export struct FlutterPage {
     this.rootDvModel = this.flutterView!!.getDVModel().children
   }
 
+  /**
+   * Called when the page is about to disappear.
+   * Removes frame listeners to clean up resources.
+   */
   aboutToDisappear() {
     this.flutterView?.removeFirstFrameListener(this);
     this.flutterView?.removeFirstPreloadFrameListener(this)
   }
 
+  /**
+   * Called when the first frame is displayed.
+   * Hides the splash screen and marks the first frame as displayed.
+   */
   onFirstFrame() {
     this.showSplashScreen = false;
     this.firstFrameDisplayed = true;
   }
 
+  /**
+   * Called when the first preload frame is displayed.
+   */
   onFirstPreloadFrame() {
   }
 
+  /**
+   * Called when padding changes.
+   * Updates the FlutterView's padding.
+   */
   onPaddingChange() {
     this.flutterView?.setPaddingTop(this.paddingTop);
   }
 
+  /**
+   * Builds the page UI.
+   * Selects between mouse wheel page and default page based on configuration.
+   */
   build() {
     if (this.checkMouseWheel) {
       this.mouseWheelPage();

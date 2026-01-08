@@ -21,12 +21,22 @@ import { PasteboardUtils } from '../../util/PasteboardUtils';
 
 const TAG = "ListenableEditingState";
 
+/**
+ * Enumeration of delete operation states.
+ */
 enum DeleteStates {
+  /** Delete operation has started */
   START,
+  /** Delete operation is in progress */
   MOVING,
+  /** Delete operation has ended */
   END
 }
 
+/**
+ * Manages the editable text state and notifies listeners of changes.
+ * This class tracks text content, selection, composing regions, and preview text.
+ */
 export class ListenableEditingState {
   private TextInputChannel: TextInputChannel | null = null;
   private keyEventChannel: KeyEventChannel | undefined;
@@ -61,6 +71,12 @@ export class ListenableEditingState {
   private mIsCursorIdxOutOfPreviewTextRange: boolean = false;
   private mIsEnglishPreviewMode: boolean = false;
 
+  /**
+   * Constructs a new ListenableEditingState instance.
+   * @param TextInputChannel - The TextInputChannel for communication, possibly null
+   * @param client - The client ID
+   * @param keyEventChannel - Optional KeyEventChannel for key event handling
+   */
   constructor(TextInputChannel:TextInputChannel | null,client:number, keyEventChannel?: KeyEventChannel) {
     this.TextInputChannel = TextInputChannel;
     this.keyEventChannel = keyEventChannel;
@@ -74,6 +90,10 @@ export class ListenableEditingState {
     this.mPreviewText = "";
   }
 
+  /**
+   * Extracts and clears the batch of text editing deltas.
+   * @returns A list of TextEditingDelta objects representing the changes
+   */
   extractBatchTextEditingDeltas(): ArrayList<TextEditingDelta> {
     let currentBatchDeltas = new ArrayList<TextEditingDelta>();
     this.mBatchTextEditingDeltas.forEach((data) => {
@@ -83,10 +103,21 @@ export class ListenableEditingState {
     return currentBatchDeltas;
   }
 
+  /**
+   * Clears all batched text editing deltas.
+   */
   clearBatchDeltas(): void {
     this.mBatchTextEditingDeltas.clear();
   }
 
+  /**
+   * Replaces a range of text with new text.
+   * @param start - The start position of the range to replace
+   * @param end - The end position of the range to replace
+   * @param tb - The replacement text
+   * @param tbStart - The start position within the replacement text
+   * @param tbEnd - The end position within the replacement text
+   */
   replace(start: number, end: number, tb: String, tbStart: number, tbEnd: number): void {
     const placeIndex =
       this.mSelectionStartCache < this.mSelectionEndCache ? this.mSelectionStartCache : this.mSelectionEndCache;
@@ -104,26 +135,50 @@ export class ListenableEditingState {
       ));
   }
 
+  /**
+   * Gets the current selection start position.
+   * @returns The selection start position
+   */
   getSelectionStart(): number {
     return this.mSelectionStartCache;
   }
 
+  /**
+   * Gets the current selection end position.
+   * @returns The selection end position
+   */
   getSelectionEnd(): number {
     return this.mSelectionEndCache;
   }
 
+  /**
+   * Gets the current composing region start position.
+   * @returns The composing start position, or -1 if no composing region
+   */
   getComposingStart(): number {
     return this.mComposingStartCache;
   }
 
+  /**
+   * Gets the current composing region end position.
+   * @returns The composing end position, or -1 if no composing region
+   */
   getComposingEnd(): number {
     return this.mComposingEndCache;
   }
 
+  /**
+   * Gets the current text content.
+   * @returns The text string
+   */
   getStringCache(): string {
     return this.mStringCache;
   }
 
+  /**
+   * Gets the currently selected text.
+   * @returns The selected text, or empty string if selection is invalid
+   */
   getSelectionString(): string {
     if (this.mSelectionStartCache < 0 || this.mSelectionEndCache > this.mStringCache.length) {
       return "";
@@ -131,43 +186,83 @@ export class ListenableEditingState {
     return this.mStringCache.substring(this.mSelectionStartCache, this.mSelectionEndCache);
   }
 
+  /**
+   * Gets the current preview text from the input method.
+   * @returns The preview text
+   */
   getPreviewText(): string {
     return this.mPreviewText;
   }
 
+  /**
+   * Gets the start position of the preview text in the original text.
+   * @returns The preview text start position
+   */
   getPreviewTextStart(): number {
     return this.mPreviewTextStart;
   }
 
+  /**
+   * Gets the end position of the preview text in the original text.
+   * @returns The preview text end position
+   */
   getPreviewTextEnd(): number {
     return this.mPreviewTextEnd;
   }
 
+  /**
+   * Gets the right index of the preview text range in the string cache.
+   * @returns The right index of the preview text range
+   */
   getRightIdxOfPreviewTextRange() : number {
     return this.mRightIdxOfPreviewTextRange;
   }
 
+  /**
+   * Gets the left index of the preview text range in the string cache.
+   * @returns The left index of the preview text range
+   */
   getLeftIdxOfPreviewTextRange() : number {
     return this.mLeftIdxOfPreviewTextRange;
   }
 
+  /**
+   * Sets the preview text.
+   * @param previewText - The preview text to set
+   */
   setPreviewText(previewText: string): void {
     this.mPreviewText = previewText;
   }
 
+  /**
+   * Sets the start position of the preview text.
+   * @param previewTextStart - The start position
+   */
   setPreviewTextStart(previewTextStart: number): void {
     this.mPreviewTextStart = previewTextStart;
   }
 
+  /**
+   * Sets the end position of the preview text.
+   * @param previewTextEnd - The end position
+   */
   setPreviewTextEnd(previewTextEnd: number): void {
     this.mPreviewTextEnd = previewTextEnd;
   }
 
+  /**
+   * Updates the preview text range indices.
+   * @param leftIdx - The left index in the string cache
+   * @param rightIdx - The right index in the string cache
+   */
   updatePreviewTextRange(leftIdx: number, rightIdx: number): void {
     this.mLeftIdxOfPreviewTextRange = leftIdx;
     this.mRightIdxOfPreviewTextRange = rightIdx;
   }
 
+  /**
+   * Clears all preview text contents and resets related indices.
+   */
   clearPreviewTextContents() : void {
     this.mPreviewText = "";
     this.mPreviewTextStart = 0;
@@ -176,34 +271,69 @@ export class ListenableEditingState {
     this.mRightIdxOfPreviewTextRange = 0;
   }
 
+  /**
+   * Sets whether the cursor index is out of the preview text range.
+   * @param hasChanged - True if the cursor is out of range, false otherwise
+   */
   setIsCursorIdxOutOfPreviewTextRange(hasChanged: boolean): void {
     this.mIsCursorIdxOutOfPreviewTextRange = hasChanged;
   }
 
+  /**
+   * Gets whether the cursor index is out of the preview text range.
+   * @returns True if the cursor is out of range, false otherwise
+   */
   getIsCursorIdxOutOfPreviewTextRange(): boolean {
     return this.mIsCursorIdxOutOfPreviewTextRange;
   }
 
+  /**
+   * Sets the selection start position.
+   * @param newSelectionStart - The new selection start position
+   */
   setSelectionStart(newSelectionStart: number): void {
     this.mSelectionStartCache = newSelectionStart;
   }
 
+  /**
+   * Sets the selection end position.
+   * @param newSelectionEnd - The new selection end position
+   */
   setSelectionEnd(newSelectionEnd: number): void {
     this.mSelectionEndCache = newSelectionEnd;
   }
 
+  /**
+   * Sets the composing region start position.
+   * @param newComposingStart - The new composing start position, or -1 to clear
+   */
   setComposingStart(newComposingStart: number): void {
     this.mComposingStartCache = newComposingStart;
   }
 
+  /**
+   * Sets the composing region end position.
+   * @param newComposingEnd - The new composing end position, or -1 to clear
+   */
   setComposingEnd(newComposingEnd: number): void {
     this.mComposingEndCache = newComposingEnd;
   }
 
+  /**
+   * Sets the text content.
+   * @param newStringCache - The new text content
+   */
   setStringCache(newStringCache: string): void {
     this.mStringCache = newStringCache;
   }
 
+  /**
+   * Notifies a single listener of editing state changes.
+   * @param listener - The listener to notify
+   * @param textChanged - Whether the text has changed
+   * @param selectionChanged - Whether the selection has changed
+   * @param composingChanged - Whether the composing region has changed
+   */
   notifyListener(listener: EditingStateWatcher,
     textChanged: boolean,
     selectionChanged: boolean,
@@ -213,6 +343,12 @@ export class ListenableEditingState {
     this.mChangeNotificationDepth--;
   }
 
+  /**
+   * Notifies all listeners if any changes have occurred.
+   * @param textChanged - Whether the text has changed
+   * @param selectionChanged - Whether the selection has changed
+   * @param composingChanged - Whether the composing region has changed
+   */
   notifyListenersIfNeeded(textChanged: boolean, selectionChanged: boolean, composingChanged: boolean) {
     if (textChanged || selectionChanged || composingChanged) {
       for (const listener of this.mListeners) {
@@ -221,6 +357,11 @@ export class ListenableEditingState {
     }
   }
 
+  /**
+   * Handles insertion of preview text from the input method.
+   * @param text - The preview text to insert
+   * @param range - The range in the original text where preview text applies
+   */
   handleInsertPreviewTextEvent(text: string, range: inputMethod.Range): void {
     // Determine whether it is in English preview input mode
     if (range.start != -1 && range.end != -1 && text.indexOf("'") == -1) {
@@ -244,6 +385,10 @@ export class ListenableEditingState {
     this.notifyListenersIfNeeded(true, true, false);
   }
 
+  /**
+   * Handles insertion of final text from the input method.
+   * @param text - The text to insert
+   */
   handleInsertTextEvent(text: string): void {
     // clear preview text cache before insert the final texts
     if (this.getPreviewText().length != 0) {
@@ -294,6 +439,10 @@ export class ListenableEditingState {
     this.mIsEnglishPreviewMode = false;
   }
 
+  /**
+   * Updates the text input state from Flutter.
+   * @param state - The new text edit state
+   */
   updateTextInputState(state: TextEditState): void {
     if (this.leftDeleteState === DeleteStates.START) {
       this.leftDeleteState = DeleteStates.MOVING;
@@ -313,6 +462,10 @@ export class ListenableEditingState {
     this.endBatchEdit();
   }
 
+  /**
+   * Begins a batch edit operation.
+   * Multiple edits can be batched together to reduce notifications.
+   */
   beginBatchEdit(): void {
     this.mBatchEditNestDepth++;
     if (this.mChangeNotificationDepth > 0) {
@@ -327,6 +480,9 @@ export class ListenableEditingState {
     }
   }
 
+  /**
+   * Ends a batch edit operation and notifies listeners of all changes.
+   */
   endBatchEdit(): void {
     if (this.mBatchEditNestDepth == 0) {
       Log.e(TAG, "endBatchEdit called without a matching beginBatchEdit");
@@ -357,6 +513,10 @@ export class ListenableEditingState {
     this.mBatchEditNestDepth--;
   }
 
+  /**
+   * Adds a listener to be notified of editing state changes.
+   * @param listener - The listener to add
+   */
   addEditingStateListener(listener: EditingStateWatcher): void {
     if (this.mChangeNotificationDepth > 0) {
       Log.e(TAG, "adding a listener " + JSON.stringify(listener) + " in a listener callback");
@@ -369,6 +529,10 @@ export class ListenableEditingState {
     }
   }
 
+  /**
+   * Removes an editing state listener.
+   * @param listener - The listener to remove
+   */
   removeEditingStateListener(listener: EditingStateWatcher): void {
     if (this.mChangeNotificationDepth > 0) {
       Log.e(TAG, "removing a listener " + JSON.stringify(listener) + " in a listener callback");
@@ -379,6 +543,10 @@ export class ListenableEditingState {
     }
   }
 
+  /**
+   * Marks the start of a deletion operation.
+   * @param code - The key code that triggered the deletion
+   */
   startDeleting(code: number) {
     if (code === KeyCode.KEYCODE_FORWARD_DEL) {
       this.rightDeleteState = DeleteStates.START
@@ -387,6 +555,10 @@ export class ListenableEditingState {
     }
   }
 
+  /**
+   * Marks the end of a deletion operation.
+   * @param code - The key code that triggered the deletion
+   */
   endDeletion(code: number) {
     if (code === KeyCode.KEYCODE_FORWARD_DEL) {
       this.rightDeleteState = DeleteStates.END
@@ -395,6 +567,12 @@ export class ListenableEditingState {
     }
   }
 
+  /**
+   * Handles a delete event from the input method.
+   * @param leftOrRight - True for delete right (forward delete), false for delete left (backspace)
+   * @param length - The number of characters to delete
+   * @param enableDeltaModel - Whether delta model is enabled
+   */
   handleDeleteEvent(leftOrRight: boolean, length: number, enableDeltaModel: boolean | undefined): void {
     if (length === 0) {
       return;
@@ -465,6 +643,9 @@ export class ListenableEditingState {
     this.notifyListenersIfNeeded(true, true, false);
   }
 
+  /**
+   * Handles a newline event from the input method.
+   */
   handleNewlineEvent(): void {
     // 获取光标所在位置;
     // 当光标移动前位置小于移动后的位置时，获取光标移动前位置;反之获取移动后位置
@@ -495,6 +676,10 @@ export class ListenableEditingState {
     this.notifyListenersIfNeeded(true, true, false);
   }
 
+  /**
+   * Handles a function key event from the input method.
+   * @param functionKey - The function key that was pressed
+   */
   handleFunctionKey(functionKey: inputMethod.FunctionKey): void {
     if (!this.TextInputChannel) {
       return
@@ -527,6 +712,10 @@ export class ListenableEditingState {
     }
   }
 
+  /**
+   * Handles a text selection by range event.
+   * @param range - The range to select
+   */
   handleSelectByRangeEvent(range: inputMethod.Range): void {
     if (range.start === 0) { // cursor index updated at the start pos of text
       this.setSelectionStart(0);
@@ -555,6 +744,10 @@ export class ListenableEditingState {
    *  aaaaaa                     aaaaaa
    *  bbbbbbb|b -(cursor_left)-> bbbbbb|bb
    *  cccc                       cccc
+   */
+  /**
+   * Handles cursor movement events in 2D text.
+   * @param direction - The direction to move the cursor
    */
   handleMoveCursorEvent(direction: inputMethod.Direction): void {
     switch (direction) {
@@ -591,6 +784,10 @@ export class ListenableEditingState {
    *  bbbbbbb|b -(cursor_left)-> bbbbbb(b)b
    *  cccc                       cccc
    */
+  /**
+   * Handles text selection changes with cursor movement.
+   * @param movement - The movement that triggers the selection change
+   */
   handleSelectByMovementEvent(movement: inputMethod.Movement) : void {
     switch (movement.direction) {
       case inputMethod.Direction.CURSOR_LEFT:
@@ -607,6 +804,11 @@ export class ListenableEditingState {
     }
   }
 
+  /**
+   * Gets the text to the left of the cursor.
+   * @param length - The maximum number of characters to return
+   * @returns The text to the left of the cursor
+   */
   getLeftTextOfCursor(length: number) : string {
     if (length <= 0) {
       return "";
@@ -623,6 +825,11 @@ export class ListenableEditingState {
     return this.getStringCache().substring(startIdx, cursorIdx);
   }
 
+  /**
+   * Gets the text to the right of the cursor.
+   * @param length - The maximum number of characters to return
+   * @returns The text to the right of the cursor
+   */
   getRightTextOfCursor(length: number) : string {
     if (length <= 0) {
       return "";
@@ -639,6 +846,10 @@ export class ListenableEditingState {
     return this.getStringCache().substring(cursorIdx, endIdx);
   }
 
+  /**
+   * Handles extended actions like select all, cut, copy, and paste.
+   * @param action - The action to perform
+   */
   handleExtendActionEvent(action: inputMethod.ExtendAction) : void {
     switch (action) {
       case inputMethod.ExtendAction.SELECT_ALL:
@@ -689,6 +900,12 @@ export class ListenableEditingState {
    * @param direction: cursor move direction from IMC callback
    * @param isShiftPressed: determine whether shift-key is pressed
    */
+  /**
+   * Simulates hardware keyboard cursor movement by sending key events to Flutter.
+   * @param direction - The direction to move the cursor
+   * @param isShiftPressed - Whether shift key is pressed (for text selection)
+   * @private
+   */
   private simulateHardwareCursorMovement(direction: inputMethod.Direction, isShiftPressed: boolean) : void {
     // Here, '选择' button in '文本编辑' function of soft-keyboard inputMethod apps is a simulation for hardware shift-key.
     // Therefore, when '选择' button is pressed in soft-keyboard equals to shift-key pressed in hard-keyboard
@@ -728,6 +945,12 @@ export class ListenableEditingState {
     }
   }
 
+  /**
+   * Sends a simulated key event to Flutter.
+   * @param event - The key event to simulate
+   * @param isKeyUp - True for key up event, false for key down event
+   * @private
+   */
   private sendSimulatedKeyEvent(event: SimulateKeyEvent, isKeyUp: boolean) : void {
     this.keyEventChannel?.simulateSendFlutterKeyEvent(
       event, isKeyUp, {
@@ -736,8 +959,16 @@ export class ListenableEditingState {
   }
 }
 
+/**
+ * Interface for objects that watch for editing state changes.
+ * Changing the editing state in a didChangeEditingState callback may cause unexpected behavior.
+ */
 export interface EditingStateWatcher {
-  // Changing the editing state in a didChangeEditingState callback may cause unexpected
-  // behavior.
+  /**
+   * Called when the editing state changes.
+   * @param textChanged - Whether the text has changed
+   * @param selectionChanged - Whether the selection has changed
+   * @param composingRegionChanged - Whether the composing region has changed
+   */
   didChangeEditingState(textChanged: boolean, selectionChanged: boolean, composingRegionChanged: boolean): void;
 }

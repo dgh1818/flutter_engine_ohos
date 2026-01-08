@@ -11,7 +11,9 @@
 import Want from '@ohos.app.ability.Want';
 
 /**
- * 封装flutter shell的参数
+ * Encapsulates arguments for the Flutter shell.
+ * This class provides methods to parse and manage command-line arguments
+ * that are passed to the Flutter engine during initialization.
  */
 export default class FlutterShellArgs {
   static ARG_KEY_TRACE_STARTUP = "trace-startup";
@@ -56,8 +58,9 @@ export default class FlutterShellArgs {
   static ARG_MSAA_SAMPLES = "--msaa-samples=";
 
   /**
-   * 从意图中解析参数，创建shellArgs
-   * @returns
+   * Parses arguments from a Want object and creates a FlutterShellArgs instance.
+   * @param want - The Want object containing the parameters
+   * @returns A FlutterShellArgs instance with parsed arguments
    */
   static fromWant(want: Want): FlutterShellArgs {
     let flutterShellArgs: FlutterShellArgs = new FlutterShellArgs();
@@ -114,6 +117,13 @@ export default class FlutterShellArgs {
     return flutterShellArgs;
   }
 
+  /**
+   * Checks if an argument exists in the Want parameters and adds it to FlutterShellArgs if present.
+   * @param argKey - The key to look for in the Want parameters
+   * @param argFlag - The command-line flag to add if the argument is present
+   * @param want - The Want object containing the parameters
+   * @param flutterShellArgs - The FlutterShellArgs instance to add the flag to
+   */
   static checkArg(argKey: string, argFlag: string, want: Want, flutterShellArgs: FlutterShellArgs) {
     if (want.parameters == undefined) {
       return;
@@ -124,17 +134,29 @@ export default class FlutterShellArgs {
     }
   }
 
-  //参数
+  /** Command-line arguments for the Flutter shell. */
   args: Set<string> = new Set();
 
+  /**
+   * Adds an argument to the set of shell arguments.
+   * @param arg - The argument string to add
+   */
   add(arg: string) {
     this.args.add(arg);
   }
 
+  /**
+   * Removes an argument from the set of shell arguments.
+   * @param arg - The argument string to remove
+   */
   remove(arg: string) {
     this.args.delete(arg);
   }
 
+  /**
+   * Converts the set of arguments to an array.
+   * @returns An array containing all shell arguments
+   */
   toArray(): Array<string> {
     return Array.from(this.args);
   }

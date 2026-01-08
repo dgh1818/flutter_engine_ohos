@@ -22,6 +22,10 @@ declare class nodeControllerParams {
 
 const TAG = 'EmbeddingNodeController'
 
+/**
+ * Node controller for embedding platform views in Flutter.
+ * This class manages the lifecycle and rendering of platform views using BuilderNode.
+ */
 export class EmbeddingNodeController extends NodeController {
   private builderNode: BuilderNode<[Params]> | undefined | null = null;
   private wrappedBuilder: WrappedBuilder<[Params]> | null = null;
@@ -32,6 +36,13 @@ export class EmbeddingNodeController extends NodeController {
   private direction: Direction = Direction.Auto;
   private isDestroy: boolean = false;
 
+  /**
+   * Sets the render options for the platform view.
+   * @param platformView - The platform view instance
+   * @param surfaceId - The surface ID
+   * @param renderType - The render type
+   * @param direction - The layout direction
+   */
   setRenderOption(platformView: PlatformView, surfaceId: string, renderType: NodeRenderType, direction: Direction) {
     if (platformView == undefined) {
       Log.e(TAG, "platformView undefined");
@@ -44,6 +55,11 @@ export class EmbeddingNodeController extends NodeController {
     this.direction = direction;
   }
 
+  /**
+   * Creates a FrameNode for the platform view.
+   * @param uiContext - The UI context
+   * @returns The created FrameNode, or null if creation fails
+   */
   makeNode(uiContext: UIContext): FrameNode | null {
     this.builderNode = new BuilderNode(uiContext, { surfaceId: this.surfaceId, type: this.renderType });
     if (this.platformView) {
@@ -52,22 +68,42 @@ export class EmbeddingNodeController extends NodeController {
     return this.builderNode.getFrameNode();
   }
 
+  /**
+   * Sets the builder node.
+   * @param builderNode - The BuilderNode instance, or null
+   */
   setBuilderNode(builderNode: BuilderNode<Params[]> | null): void {
     this.builderNode = builderNode;
   }
 
+  /**
+   * Gets the builder node.
+   * @returns The BuilderNode instance, or null if not set
+   */
   getBuilderNode(): BuilderNode<[Params]> | undefined | null {
     return this.builderNode;
   }
 
+  /**
+   * Updates the node with new arguments.
+   * @param arg - The update arguments
+   */
   updateNode(arg: Object): void {
     this.builderNode?.update(arg);
   }
 
+  /**
+   * Gets the embed ID.
+   * @returns The embed ID string
+   */
   getEmbedId(): string {
     return this.embedId;
   }
 
+  /**
+   * Sets the destroy state and disposes the builder node if needed.
+   * @param isDestroy - Whether the controller is being destroyed
+   */
   setDestroy(isDestroy: boolean): void {
     this.isDestroy = isDestroy;
     if (this.isDestroy) {
@@ -75,6 +111,9 @@ export class EmbeddingNodeController extends NodeController {
     }
   }
 
+  /**
+   * Disposes the frame node and cleans up resources.
+   */
   disposeFrameNode() {
     this.builderNode?.getFrameNode()?.getRenderNode()?.dispose();
     this.builderNode?.dispose();
@@ -83,20 +122,36 @@ export class EmbeddingNodeController extends NodeController {
     this.wrappedBuilder = null;
   }
   
+  /**
+   * Posts a mouse event to the builder node.
+   * Note: postInputEvent is an API20 interface, so we check for its existence to avoid compilation errors.
+   * @param event - The mouse event to post
+   */
   postMouseEvent(event: MouseEvent) {
-    // 避免编译报错，postInputEvent属于API20的接口
+    // Avoid compilation errors: postInputEvent is an API20 interface
     if (typeof (this.builderNode as ESObject)?.postInputEvent == 'function') {
       (this.builderNode as ESObject)?.postInputEvent(event);
     }
   }
 
+  /**
+   * Posts an axis event to the builder node.
+   * Note: postInputEvent is an API20 interface, so we check for its existence to avoid compilation errors.
+   * @param event - The axis event to post
+   */
   postAxisEvent(event: AxisEvent) {
-    // 避免编译报错，postInputEvent属于API20的接口
+    // Avoid compilation errors: postInputEvent is an API20 interface
     if (typeof (this.builderNode as ESObject)?.postInputEvent == 'function') {
       (this.builderNode as ESObject)?.postInputEvent(event);
     }
   }
 
+  /**
+   * Posts a touch event to the builder node.
+   * @param event - The touch event to post, or undefined
+   * @param isPx - Whether the coordinates are already in pixels (default: false, will convert from vp to px)
+   * @returns Whether the event was successfully posted
+   */
   postEvent(event: TouchEvent | undefined, isPx: boolean = false): boolean {
     if (event == undefined) {
       return false;

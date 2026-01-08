@@ -34,13 +34,16 @@ const PLUGINS_RESTORATION_BUNDLE_KEY = "plugins";
 const FRAMEWORK_RESTORATION_BUNDLE_KEY = "framework";
 
 /**
- * 主要职责：
- * 1、初始化engine
- * 2、处理ability生命周期回调
+ * Delegate for managing FlutterAbility and FlutterEntry lifecycle.
+ * Main responsibilities:
+ * 1. Initializes the Flutter engine
+ * 2. Handles ability lifecycle callbacks
  */
 class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility> {
   protected host?: Host | null;
+  /** The FlutterEngine instance, or null if not created. */
   flutterEngine?: FlutterEngine | null;
+  /** The PlatformPlugin instance, or undefined if not set. */
   platformPlugin?: PlatformPlugin;
   protected context?: common.Context;
   protected isFlutterEngineFromHostOrCache: boolean = false;
@@ -50,6 +53,10 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
   private inputMethodController: inputMethod.InputMethodController = inputMethod.getController();
   private isPageShow: boolean = false;
 
+  /**
+   * Constructs a new FlutterAbilityAndEntryDelegate instance.
+   * @param host - The Host instance, optional
+   */
   constructor(host?: Host) {
     this.host = host;
     if (this.host) {
@@ -58,10 +65,14 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
   }
 
   /**
-   * 是否还attach在ability上
+   * Whether the delegate is still attached to the ability.
    */
   isAttached = false;
 
+  /**
+   * Called when the delegate is attached to a context.
+   * @param context - The application context
+   */
   onAttach(context: common.Context) {
     this.context = context;
     this.ensureAlive();
@@ -91,9 +102,6 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     }
   }
 
-  /**
-   * 加载app.so资源或者snapshot
-   */
   private doInitialFlutterViewRun(): void {
     let initialRoute = this.host?.getInitialRoute();
     if (initialRoute == null && this.host != null) {
@@ -130,8 +138,8 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
   }
 
   /**
-   * 通过参数，配置flutterEngine
-   * @param want
+   * Configures the FlutterEngine through parameters.
+   * @param want - The Want object containing restoration data
    */
   onRestoreInstanceState(want: Want) {
     let frameworkState: Uint8Array = this.getRestorationData(want.parameters as Record<string, Object>);
@@ -163,7 +171,8 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
   }
 
   /**
-   * 初始化flutterEngine
+   * Initializes the FlutterEngine.
+   * Checks for cached engines, engine groups, or creates a new engine.
    */
   setupFlutterEngine() {
     // First, check if the host wants to use a cached FlutterEngine.
@@ -231,6 +240,11 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     this.isFlutterEngineFromHostOrCache = false;
   }
 
+  /**
+   * Adds entrypoint options to the engine options.
+   * @param options - The Options instance to configure
+   * @returns The configured Options instance
+   */
   addEntrypointOptions(options: Options): Options {
     let appBundlePathOverride = this.host?.getAppBundlePath();
     if (appBundlePathOverride == null || appBundlePathOverride.length == 0) {
@@ -253,6 +267,11 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
       .setDartEntrypointArgs(this.host?.getDartEntrypointArgs() ?? []);
   }
 
+  /**
+   * Creates a FlutterView instance.
+   * @param context - The context for creating the view
+   * @returns A new FlutterView instance
+   */
   createView(context: Context): FlutterView {
     this.flutterView = FlutterManager.getInstance().createFlutterView(context)
     if (this.flutterEngine && this.host?.attachToEngineAutomatically()) {
@@ -262,7 +281,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
   }
 
   /**
-   * 释放所有持有对象
+   * Releases all held objects.
    */
   release() {
     this.host = null;
@@ -270,6 +289,10 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     this.platformPlugin = undefined;
   }
 
+  /**
+   * Called when the delegate is detached from the ability.
+   * Cleans up resources and optionally destroys the engine.
+   */
   onDetach() {
     if (this.host?.shouldAttachEngineToAbility()) {
       // Notify plugins that they are no longer attached to an Ability.
@@ -299,24 +322,35 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     this.isAttached = false;
   }
 
+  /**
+   * Called when the system is running low on memory.
+   * Notifies Flutter about the memory pressure.
+   */
   onLowMemory(): void {
     this.getFlutterNapi()?.notifyLowMemoryWarning();
     this.flutterEngine?.getSystemChannel()?.sendMemoryPressureWarning();
   }
 
   /**
-   * 生命周期回调
+   * Called when the window stage is created.
+   * Runs the initial Flutter view.
    */
-
   onWindowStageCreate() {
     this.ensureAlive();
     this.doInitialFlutterViewRun();
   }
 
+  /**
+   * Called when the window stage is destroyed.
+   */
   onWindowStageDestroy() {
 
   }
 
+  /**
+   * Called when the window stage state changes.
+   * @param stageEventType - The window stage event type
+   */
   onWindowStageChanged(stageEventType: window.WindowStageEventType) {
     switch (stageEventType) {
       case window.WindowStageEventType.SHOWN:
@@ -345,6 +379,10 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     }
   }
 
+  /**
+   * Called when window focus changes.
+   * @param hasFocus - Whether the window has focus
+   */
   onWindowFocusChanged(hasFocus: boolean): void {
     if (this.shouldDispatchAppLifecycleState()) {
       this.flutterEngine?.getAbilityControlSurface()?.onWindowFocusChanged(hasFocus);
@@ -356,6 +394,10 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     }
   }
 
+  /**
+   * Called when the ability is shown.
+   * Notifies Flutter that the app is resumed.
+   */
   onShow() {
     this.ensureAlive();
     this.isPageShow = true;
@@ -365,18 +407,30 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     }
   }
 
+  /**
+   * Called when the ability is paused.
+   * Notifies Flutter that the app is inactive.
+   */
   onPaused() {
     if (this.shouldDispatchAppLifecycleState()) {
       this.flutterEngine?.getLifecycleChannel()?.appIsInactive();
     }
   }
 
+  /**
+   * Called when the ability is resumed.
+   * Notifies Flutter that the app is resumed.
+   */
   onResumed() {
     if (this.shouldDispatchAppLifecycleState()) {
       this.flutterEngine?.getLifecycleChannel()?.appIsResumed();
     }
   }
 
+  /**
+   * Called when the ability is hidden.
+   * Notifies Flutter that the app is paused.
+   */
   onHide() {
     if (this.shouldDispatchAppLifecycleState()) {
       this.isPageShow = false;
@@ -385,14 +439,17 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     }
   }
 
+  /**
+   * Checks and reloads fonts if needed.
+   */
   onCheckAndReloadFont() {
     this.getFlutterNapi()?.checkAndReloadFont();
   }
 
   /**
-   * 生命周期回调结束
+   * Determines whether to dispatch app lifecycle state changes.
+   * @returns True to dispatch lifecycle state, false otherwise
    */
-
   shouldDispatchAppLifecycleState(): boolean {
     if (!this.isHost) {
       return this.isAttached;
@@ -406,20 +463,36 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     return this.host.shouldDispatchAppLifecycleState() && this.isAttached;
   }
 
+  /**
+   * Ensures the delegate is still alive.
+   * @throws Error if the delegate has been destroyed
+   */
   ensureAlive() {
     if (this.isHost && this.host == null) {
       throw new Error("Cannot execute method on a destroyed FlutterAbilityDelegate.");
     }
   }
 
+  /**
+   * Gets the FlutterNapi instance.
+   * @returns The FlutterNapi instance, or null if not available
+   */
   getFlutterNapi(): FlutterNapi | null {
     return this.flutterEngine?.getFlutterNapi() ?? null
   }
 
+  /**
+   * Gets the FlutterEngine instance.
+   * @returns The FlutterEngine instance, or null if not available
+   */
   getFlutterEngine(): FlutterEngine | null {
     return this.flutterEngine ?? null;
   }
 
+  /**
+   * Detaches from the Flutter engine.
+   * @throws Error if the engine should not be detached
+   */
   detachFromFlutterEngine() {
     if (this.host?.shouldDestroyEngineWithHost()) {
       // The host owns the engine and should never have its engine taken by another exclusive
@@ -437,6 +510,11 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     this.host?.detachFromFlutterEngine();
   }
 
+  /**
+   * Gets the app component (UIAbility).
+   * @returns The UIAbility instance
+   * @throws Error if the ability is null
+   */
   getAppComponent(): UIAbility {
     const ability = this.host?.getAbility();
     if (ability == null) {
@@ -447,6 +525,11 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     return ability;
   }
 
+  /**
+   * Called when a new Want is received.
+   * @param want - The new Want object
+   * @param launchParams - The launch parameters
+   */
   onNewWant(want: Want, launchParams: AbilityConstant.LaunchParam): void {
     this.ensureAlive()
     if (this.flutterEngine != null) {
@@ -461,6 +544,12 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     }
   }
 
+  /**
+   * Called to save the ability state.
+   * @param reason - The reason for saving state
+   * @param wantParam - The parameters to save state to
+   * @returns The save result
+   */
   onSaveState(reason: AbilityConstant.StateType, wantParam: Record<string, Object>): AbilityConstant.OnSaveResult {
     Log.i(TAG, "onSaveInstanceState. Giving framework and plugins an opportunity to save state.");
     this.ensureAlive();
@@ -476,18 +565,33 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     return AbilityConstant.OnSaveResult.ALL_REJECT
   }
 
+  /**
+   * Adds a Flutter plugin.
+   * @param plugin - The FlutterPlugin to add
+   */
   addPlugin(plugin: FlutterPlugin): void {
     this.flutterEngine?.getPlugins()?.add(plugin)
   }
 
+  /**
+   * Removes a Flutter plugin.
+   * @param plugin - The FlutterPlugin to remove
+   */
   removePlugin(plugin: FlutterPlugin): void {
     this.flutterEngine?.getPlugins()?.remove(plugin.getUniqueClassName())
   }
 
+  /**
+   * Checks if the FlutterEngine was provided by the host or cache.
+   * @returns True if from host or cache, false if created by delegate
+   */
   isFlutterEngineFromHost(): boolean {
     return this.isFlutterEngineFromHostOrCache;
   }
 
+  /**
+   * Initializes the window.
+   */
   initWindow() {
     if (this.flutterEngine && this.isAttached) {
       this.platformPlugin?.initWindow()
@@ -496,7 +600,8 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
 }
 
 /**
- * FlutterAbility句柄
+ * Interface for FlutterAbility host.
+ * This interface extends FlutterEngineProvider, FlutterEngineConfigurator, and PlatformPluginDelegate.
  */
 interface Host extends FlutterEngineProvider, FlutterEngineConfigurator, PlatformPluginDelegate {
 
@@ -535,8 +640,7 @@ interface Host extends FlutterEngineProvider, FlutterEngineConfigurator, Platfor
   getAppBundlePath(): string;
 
   /**
-   * Returns the Dart entrypoint that should run when a new {@link
-   * io.flutter.embedding.engine.FlutterEngine} is created.
+   * Returns the Dart entrypoint that should run when a new {@link io.flutter.embedding.engine.FlutterEngine} is created.
    */
   getDartEntrypointFunctionName(): string;
 
@@ -554,12 +658,12 @@ interface Host extends FlutterEngineProvider, FlutterEngineConfigurator, Platfor
   /**
    * Whether to automatically attach the {@link FlutterView} to the engine.
    *
-   * <p>In the add-to-app scenario where multiple {@link FlutterView} share the same {@link
-   * FlutterEngine}, the host application desires to determine the timing of attaching the {@link
-   * FlutterView} to the engine, for example, during the {@code onResume} instead of the {@code
-   * onCreateView}.
+   * In the add-to-app scenario where multiple {@link FlutterView} share the same {@link FlutterEngine},
+   * the host application desires to determine the timing of attaching the {@link FlutterView}
+   * to the engine, for example, during the {@code onResume} instead of the {@code onCreateView}.
+
    *
-   * <p>Defaults to {@code true}.
+   * Defaults to {@code true}.
    */
   attachToEngineAutomatically(): boolean;
 }

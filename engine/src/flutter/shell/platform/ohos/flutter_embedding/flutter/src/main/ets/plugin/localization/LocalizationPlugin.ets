@@ -18,10 +18,20 @@ import i18n from '@ohos.i18n';
 
 const TAG = "LocalizationPlugin";
 
+/**
+ * Plugin for handling localization in Flutter applications.
+ * This class manages the interaction between Flutter's localization system
+ * and the OpenHarmony resource management system.
+ */
 export default class LocalizationPlugin {
   private localizationChannel: LocalizationChannel;
   private context: common.Context;
 
+  /**
+   * Converts a locale string to an intl.Locale object.
+   * @param localeString - The locale string (e.g., "en_US" or "zh-CN")
+   * @returns The corresponding intl.Locale object
+   */
   localeFromString(localeString: string): intl.Locale {
     localeString = localeString.replace('_', '-');
     let parts: string[] = localeString.split('-', -1);
@@ -69,12 +79,20 @@ export default class LocalizationPlugin {
       return stringToReturn;
     })
 
+  /**
+   * Constructs a new LocalizationPlugin instance.
+   * @param context - The application context
+   * @param localizationChannel - The LocalizationChannel for communication with Flutter
+   */
   constructor(context: common.Context, localizationChannel: LocalizationChannel) {
     this.context = context;
     this.localizationChannel = localizationChannel;
     this.localizationChannel.setLocalizationMessageHandler(this.localizationMessageHandler);
   }
 
+  /**
+   * Sends the system locale to Flutter.
+   */
   sendLocaleToFlutter(): void {
     let systemLocale: string = i18n.System.getSystemLocale();
     let data: Array<string> = [];
@@ -83,9 +101,22 @@ export default class LocalizationPlugin {
   }
 }
 
+/**
+ * Implementation of LocalizationMessageHandler for getting string resources.
+ */
 class enterGetStringResource {
+  /**
+   * The function to get string resources.
+   * @param key - The resource key
+   * @param localeString - The locale string, or null to use the default locale
+   * @returns The localized string, or null if not found
+   */
   getStringResource: (key: string, localeString: string | null) => string | null
 
+  /**
+   * Constructs a new enterGetStringResource instance.
+   * @param getStringResource - The function to get string resources
+   */
   constructor(getStringResource: (key: string, localeString: string | null) => string | null) {
     this.getStringResource = getStringResource
   }
