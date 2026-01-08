@@ -23,6 +23,9 @@ import MethodChannel, { MethodCallHandler, MethodResult } from '../../../plugin/
 import MethodCall from '../../../plugin/common/MethodCall';
 import StandardMethodCodec from '../../../plugin/common/StandardMethodCodec';
 
+/**
+ * Types of animation voting.
+ */
 enum AnimationVotingType {
   TRANSLATE = 0,
   SCALE,
@@ -30,25 +33,32 @@ enum AnimationVotingType {
 }
 
 /**
-* nativeVsync功能channel
-*/
+ * Channel for handling native VSync functionality.
+ * This channel manages VSync switching, animation velocity voting, and LTPO switch state checking.
+ */
 export default class NativeVsyncChannel implements MethodCallHandler {
     private static TAG = "NativeVsyncChannel";
     private static CHANNEL_NAME = "flutter/nativevsync";
+    /** The MethodChannel for native VSync communication with Flutter. */
     public channel: MethodChannel;
     private flutterNapi: FlutterNapi;
 
+    /**
+     * Handles method calls from Dart.
+     * @param call - The method call from Dart
+     * @param result - The result callback to send a response
+     */
     onMethodCall(call: MethodCall, result: MethodResult): void {
         let method: string = call.method;
         try {
             switch (method) {
                 case "isEnable":
-                    // 是否开启DVsync
+                    // Whether to enable DVsync
                     let isEnable: boolean = call.argument('isEnable');
                     this.flutterNapi.SetDVsyncSwitch(isEnable);
                     break;
                 case "sendVelocity":
-                    // 发送动画的速率
+                    // Send animation velocity
                     let type: string = call.argument('type');
                     let velocity: number = call.argument('velocity');
                     if (type == "translate") {
@@ -56,7 +66,7 @@ export default class NativeVsyncChannel implements MethodCallHandler {
                     }
                     break;
                 case "checkLTPOSwtichState":
-                    // 查询ltpo功能开启状态
+                    // Check LTPO switch state
                     result.success(FlutterNapi.checkLTPOSwitchState());
                     break;
                 default:
@@ -67,6 +77,11 @@ export default class NativeVsyncChannel implements MethodCallHandler {
         }
     }
 
+    /**
+     * Constructs a new NativeVsyncChannel instance.
+     * @param dartExecutor - The DartExecutor for sending messages to Dart
+     * @param flutterNapi - The FlutterNapi instance for native communication
+     */
     constructor(dartExecutor: DartExecutor, flutterNapi: FlutterNapi) {
         this.channel = new MethodChannel(dartExecutor, NativeVsyncChannel.CHANNEL_NAME, StandardMethodCodec.INSTANCE);
         this.channel.setMethodCallHandler(this);

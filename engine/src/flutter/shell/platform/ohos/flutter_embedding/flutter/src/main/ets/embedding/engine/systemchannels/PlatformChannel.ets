@@ -22,13 +22,23 @@ import { BusinessError } from '@kit.BasicServicesKit';
 import FlutterNapi from '../FlutterNapi';
 import flutter from 'libflutter.so';
 
+/**
+ * Channel for handling platform-level communication between Flutter and OpenHarmony.
+ * This channel manages system UI, clipboard, haptic feedback, orientation, and other platform services.
+ */
 export default class PlatformChannel {
   private static TAG = "PlatformChannel";
   private static CHANNEL_NAME = "flutter/platform";
   flutterNapi: FlutterNapi;
+  /** The MethodChannel for platform-level communication with Flutter. */
   channel: MethodChannel;
+  /** The platform message handler for processing platform requests, or null if not set. */
   platformMessageHandler: PlatformMessageHandler | null = null;
 
+  /**
+   * Constructs a new PlatformChannel instance.
+   * @param dartExecutor - The DartExecutor for sending messages to Dart
+   */
   constructor(dartExecutor: DartExecutor, flutterNapi: FlutterNapi) {
     this.channel = new MethodChannel(dartExecutor, PlatformChannel.CHANNEL_NAME, JSONMethodCodec.INSTANCE);
     let callback = new PlatformMethodCallback(this);
@@ -36,15 +46,28 @@ export default class PlatformChannel {
     this.flutterNapi = flutterNapi;
   }
 
+  /**
+   * Sets the platform message handler for processing platform requests.
+   * @param platformMessageHandler - The PlatformMessageHandler instance, or null to remove
+   */
   setPlatformMessageHandler(platformMessageHandler: PlatformMessageHandler | null): void {
     this.platformMessageHandler = platformMessageHandler;
   }
 
+  /**
+   * Notifies Flutter that system chrome overlays have changed.
+   * @param areOverlaysVisible - Whether system overlays are visible
+   */
   systemChromeChanged(areOverlaysVisible: boolean): void {
     Log.d(PlatformChannel.TAG, "Sending 'systemUIChange' message.");
     this.channel.invokeMethod("SystemChrome.systemUIChange", [areOverlaysVisible]);
   }
 
+  /**
+   * Decodes orientation strings into OpenHarmony orientation values.
+   * @param encodedOrientations - Array of encoded orientation strings
+   * @returns The decoded orientation value
+   */
   decodeOrientations(encodedOrientations: string[]): number {
     let requestedOrientation = 0x00;
     let firstRequestedOrientation = 0x00;
@@ -111,6 +134,11 @@ export default class PlatformChannel {
     return bundleManager.DisplayOrientation.PORTRAIT;
   }
 
+  /**
+   * Gets a HapticFeedbackType from an encoded name.
+   * @param encodedName - The encoded feedback type name
+   * @returns The HapticFeedbackType, or STANDARD if not found
+   */
   getFeedbackTypeFromValue(encodedName: string): HapticFeedbackType {
     if (encodedName == null) {
       return HapticFeedbackType.STANDARD;
@@ -130,6 +158,11 @@ export default class PlatformChannel {
     }
   }
 
+  /**
+   * Gets a ClipboardContentFormat from an encoded name.
+   * @param encodedName - The encoded format name
+   * @returns The ClipboardContentFormat, or PLAIN_TEXT if not found
+   */
   getClipboardContentFormatFromValue(encodedName: string): ClipboardContentFormat {
     let clipboardFormats: string[] = [ClipboardContentFormat.PLAIN_TEXT];
     if (clipboardFormats.includes(encodedName as ClipboardContentFormat)) {
@@ -138,6 +171,12 @@ export default class PlatformChannel {
     return ClipboardContentFormat.PLAIN_TEXT;
   }
 
+  /**
+   * Gets a SystemUiOverlay from an encoded name.
+   * @param encodedName - The encoded overlay name
+   * @returns The SystemUiOverlay
+   * @throws Error if the overlay name is not recognized
+   */
   getSystemUiOverlayFromValue(encodedName: string): SystemUiOverlay {
     let systemUiOverlays: string[] = [SystemUiOverlay.TOP_OVERLAYS, SystemUiOverlay.BOTTOM_OVERLAYS];
     if (systemUiOverlays.includes(encodedName as SystemUiOverlay)) {
@@ -146,6 +185,12 @@ export default class PlatformChannel {
     throw new Error("No such SystemUiOverlay: " + encodedName);
   }
 
+  /**
+   * Gets a SystemUiMode from an encoded name.
+   * @param encodedName - The encoded mode name
+   * @returns The SystemUiMode
+   * @throws Error if the mode name is not recognized
+   */
   getSystemUiModeFromValue(encodedName: string): SystemUiMode {
     let systemUiModes: string[] = [
       SystemUiMode.LEAN_BACK, SystemUiMode.IMMERSIVE,
@@ -157,6 +202,12 @@ export default class PlatformChannel {
     throw new Error("No such SystemUiOverlay: " + encodedName);
   }
 
+  /**
+   * Gets a Brightness from an encoded name.
+   * @param encodedName - The encoded brightness name
+   * @returns The Brightness
+   * @throws Error if the brightness name is not recognized
+   */
   getBrightnessFromValue(encodedName: string): Brightness {
     let brightnesses: string[] = [Brightness.LIGHT, Brightness.DARK];
     if (brightnesses.includes(encodedName as Brightness)) {
@@ -165,6 +216,12 @@ export default class PlatformChannel {
     throw new Error("No such Brightness: " + encodedName);
   }
 
+  /**
+   * Gets a DeviceOrientation from an encoded name.
+   * @param encodedName - The encoded orientation name
+   * @returns The DeviceOrientation
+   * @throws Error if the orientation name is not recognized
+   */
   getDeviceOrientationFromValue(encodedName: string): DeviceOrientation {
     let deviceOrientations: DeviceOrientation[] = [
       DeviceOrientation.PORTRAIT_UP, DeviceOrientation.PORTRAIT_DOWN,
@@ -176,6 +233,12 @@ export default class PlatformChannel {
     throw new Error("No such DeviceOrientation: " + encodedName);
   }
 
+  /**
+   * Gets a ScrollActivity from an encoded activity string.
+   * @param activity - The encoded activity string
+   * @returns The ScrollActivity
+   * @throws Error if the activity string is not recognized
+   */
   getScrollActivityFromValue(activity: string): ScrollActivity {
     let activityTypes: string[] = [
       ScrollActivity.START,
@@ -189,6 +252,9 @@ export default class PlatformChannel {
 
 }
 
+/**
+ * Types of haptic feedback.
+ */
 export enum HapticFeedbackType {
   STANDARD = "STANDARD",
   LIGHT_IMPACT = "HapticFeedbackType.lightImpact",
@@ -197,6 +263,9 @@ export enum HapticFeedbackType {
   SELECTION_CLICK = "HapticFeedbackType.selectionClick"
 }
 
+/**
+ * Interface for handling platform message requests from Flutter.
+ */
 export interface PlatformMessageHandler {
   playSystemSound(soundType: SoundType): void;
 
@@ -225,30 +294,52 @@ export interface PlatformMessageHandler {
   clipboardHasStrings(): boolean;
 }
 
+/**
+ * Clipboard content formats.
+ */
 export enum ClipboardContentFormat {
   PLAIN_TEXT = "text/plain",
 }
 
+/**
+ * System sound types.
+ */
 export enum SoundType {
   CLICK = "SystemSoundType.click",
   ALERT = "SystemSoundType.alert",
 }
 
+/**
+ * Description for the app switcher.
+ */
 export class AppSwitcherDescription {
+  /** The color value for the app switcher. */
   public readonly color: number;
+  /** The label text for the app switcher. */
   public readonly label: string;
 
+  /**
+   * Constructs a new AppSwitcherDescription instance.
+   * @param color - The color value
+   * @param label - The label text
+   */
   constructor(color: number, label: string) {
     this.color = color;
     this.label = label;
   }
 }
 
+/**
+ * System UI overlay positions.
+ */
 export enum SystemUiOverlay {
   TOP_OVERLAYS = "SystemUiOverlay.top",
   BOTTOM_OVERLAYS = "SystemUiOverlay.bottom",
 }
 
+/**
+ * System UI display modes.
+ */
 export enum SystemUiMode {
   LEAN_BACK = "SystemUiMode.leanBack",
   IMMERSIVE = "SystemUiMode.immersive",
@@ -261,15 +352,35 @@ export enum Brightness {
   DARK = "Brightness.dark",
 }
 
+/**
+ * Style configuration for system chrome (status bar and navigation bar).
+ */
 export class SystemChromeStyle {
+  /** The status bar color, or null if not set. */
   public readonly statusBarColor: number | null;
+  /** The status bar icon brightness, or null if not set. */
   public readonly statusBarIconBrightness: Brightness | null;
+  /** Whether status bar contrast is enforced, or null if not set. */
   public readonly systemStatusBarContrastEnforced: boolean | null;
+  /** The navigation bar color, or null if not set. */
   public readonly systemNavigationBarColor: number | null;
+  /** The navigation bar icon brightness, or null if not set. */
   public readonly systemNavigationBarIconBrightness: Brightness | null;
+  /** The navigation bar divider color, or null if not set. */
   public readonly systemNavigationBarDividerColor: number | null;
+  /** Whether navigation bar contrast is enforced, or null if not set. */
   public readonly systemNavigationBarContrastEnforced: boolean | null;
 
+  /**
+   * Constructs a new SystemChromeStyle instance.
+   * @param statusBarColor - The status bar color
+   * @param statusBarIconBrightness - The status bar icon brightness
+   * @param systemStatusBarContrastEnforced - Whether status bar contrast is enforced
+   * @param systemNavigationBarColor - The navigation bar color
+   * @param systemNavigationBarIconBrightness - The navigation bar icon brightness
+   * @param systemNavigationBarDividerColor - The navigation bar divider color
+   * @param systemNavigationBarContrastEnforced - Whether navigation bar contrast is enforced
+   */
   constructor(statusBarColor: number | null,
     statusBarIconBrightness: Brightness | null,
     systemStatusBarContrastEnforced: boolean | null,
@@ -287,6 +398,9 @@ export class SystemChromeStyle {
   }
 }
 
+/**
+ * Device orientation types.
+ */
 export enum DeviceOrientation {
   PORTRAIT_UP = "DeviceOrientation.portraitUp",
   PORTRAIT_DOWN = "DeviceOrientation.portraitDown",
@@ -294,6 +408,9 @@ export enum DeviceOrientation {
   LANDSCAPE_RIGHT = "DeviceOrientation.landscapeRight",
 }
 
+/**
+ * Scroll activity types.
+ */
 export enum ScrollActivity {
   START = "start",
   END = "end",
@@ -304,14 +421,26 @@ enum AnimationStatus {
   SCROLL_END = 1,
 }
 
+/**
+ * Method call handler for platform channel requests.
+ */
 class PlatformMethodCallback implements MethodCallHandler {
   private static TAG = "PlatformMethodCallback"
   platform: PlatformChannel;
 
+  /**
+   * Constructs a new PlatformMethodCallback instance.
+   * @param platform - The PlatformChannel instance
+   */
   constructor(platform: PlatformChannel) {
     this.platform = platform;
   }
 
+  /**
+   * Handles method calls from Dart.
+   * @param call - The method call from Dart
+   * @param result - The result callback to send a response
+   */
   onMethodCall(call: MethodCall, result: MethodResult) {
     if (this.platform.platformMessageHandler == null) {
       Log.w(PlatformMethodCallback.TAG, "platformMessageHandler is null");

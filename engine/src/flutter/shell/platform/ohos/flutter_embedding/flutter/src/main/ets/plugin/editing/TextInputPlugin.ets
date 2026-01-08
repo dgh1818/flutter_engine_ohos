@@ -27,12 +27,23 @@ const INPUT_SUPPORT_API = 15;
 const PREIVEW_TEXT_SUPPORT_API = 17;
 const sdkApiVersion: number = deviceInfo.sdkApiVersion;
 
+/**
+ * Plugin for handling text input in Flutter applications.
+ * This class manages the interaction between Flutter's text input system
+ * and the OpenHarmony input method framework.
+ */
 export default class TextInputPlugin implements EditingStateWatcher {
   private static TAG = "TextInputPlugin";
   private textInputChannel: TextInputChannel;
   private keyEventChannel: KeyEventChannel | undefined;
   private mTextInputHandler: TextInputMethodHandlerImpl;
 
+  /**
+   * Constructs a new TextInputPlugin instance.
+   * @param textInputChannel - The TextInputChannel for communication with Flutter
+   * @param viewId - The view ID for focus management
+   * @param keyEventChannel - Optional KeyEventChannel for key event handling
+   */
   constructor(textInputChannel: TextInputChannel, viewId: string, keyEventChannel?: KeyEventChannel) {
     this.textInputChannel = textInputChannel;
     this.keyEventChannel = keyEventChannel;
@@ -41,19 +52,35 @@ export default class TextInputPlugin implements EditingStateWatcher {
     this.textInputChannel.setTextInputMethodHandler(this.mTextInputHandler);
   }
 
+  /**
+   * Clears the current text input client.
+   */
   public clearTextInputClient() {
     this.textInputChannel.textInputMethodHandler?.clearClient();
   }
 
+  /**
+   * Sets the text input editing state.
+   * @param state - The new editing state
+   */
   setTextInputEditingState(state: TextEditState) {
 
   }
 
+  /**
+   * Gets the current editing state.
+   * @returns The current ListenableEditingState instance
+   */
   getEditingState() {
     return this.mTextInputHandler.mEditable;
   }
 
-  // do preview the text in the editing widget
+  /**
+   * Handles changes to preview text editing state.
+   * This method updates the editing widget with preview text from the input method.
+   * @param inputTarget - The input target
+   * @param editable - The editable state containing preview text
+   */
   didChangePreviewTextEditingState(inputTarget: InputTarget, editable: ListenableEditingState): void {
     let stringCache: string = editable.getStringCache();
     // obtain the start index of editing preview text
@@ -74,6 +101,12 @@ export default class TextInputPlugin implements EditingStateWatcher {
       newSelectionStart, newSelectionEnd);
   }
 
+  /**
+   * Called when the editing state changes.
+   * @param textChanged - Whether the text has changed
+   * @param selectionChanged - Whether the selection has changed
+   * @param composingRegionChanged - Whether the composing region has changed
+   */
   didChangeEditingState(textChanged: boolean, selectionChanged: boolean, composingRegionChanged: boolean): void {
     let editable = this.mTextInputHandler.mEditable;
     let inputTarget = this.mTextInputHandler.inputTarget;
@@ -91,6 +124,9 @@ export default class TextInputPlugin implements EditingStateWatcher {
     }
   }
 
+  /**
+   * Detaches the text input plugin from the input method framework.
+   */
   detach(): void {
     this.mTextInputHandler.inputMethodController.detach((err) => {
       if (err) {
@@ -99,6 +135,9 @@ export default class TextInputPlugin implements EditingStateWatcher {
     })
   }
 
+  /**
+   * Destroys the text input plugin, hiding the keyboard and cleaning up resources.
+   */
   destroy() {
     // Since the Dart side no longer listens to the lifecycle,
     // the keyboard must be explicitly hidden before the engine is destroyed.
@@ -110,13 +149,21 @@ export default class TextInputPlugin implements EditingStateWatcher {
 const INPUT_TYPE_NAME =
   ['NONE', 'TEXT', 'MULTILINE', 'NUMBER', 'PHONE', 'DATETIME', 'EMAIL_ADDRESS', 'URL', 'VISIBLE_PASSWORD']
 
+/**
+ * Implementation of TextInputMethodHandler for OpenHarmony input method framework.
+ * This class handles all interactions with the system input method.
+ */
 class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   private static TAG = "TextInputMethodHandlerImpl";
   private textConfig: inputMethod.TextConfig;
+  /** The input method controller for managing the keyboard. */
   inputMethodController: inputMethod.InputMethodController;
+  /** The current input target. */
   inputTarget: InputTarget;
+  /** The current text input configuration, or null if not set. */
   public configuration: Configuration | null = null;
   private lastKind?: PointerDeviceKind;
+  /** The editable state for text input. */
   mEditable: ListenableEditingState;
   private mRestartInputPending: boolean = false;
   private plugin: EditingStateWatcher | Any;
@@ -127,6 +174,11 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   private keyboardFocusState: boolean = false;
   private focusViewId: string = "";
 
+  /**
+   * Constructs a new TextInputMethodHandlerImpl instance.
+   * @param plugin - The TextInputPlugin instance
+   * @param viewId - The view ID for focus management
+   */
   constructor(plugin: TextInputPlugin | Any, viewId: string) {
     this.textConfig = {
       inputAttribute: this.inputAttribute
@@ -138,7 +190,10 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     this.focusViewId = viewId;
   }
 
-  /// 通过判断是否是TextInputType.none来决定是否弹出键盘
+  /**
+   * Shows the text input keyboard if appropriate.
+   * The keyboard is only shown if the input type is not NONE.
+   */
   show(): void {
     try {
       let isPhysicalKeyboard = false;
@@ -170,6 +225,9 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     }
   }
 
+  /**
+   * Hides the text input keyboard.
+   */
   hide(): void {
     // Ensure the Xcomponent loses focus before the soft keyboard is hided.
     focusControl.requestFocus("unfocus-xcomponent-node");
@@ -177,22 +235,42 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     this.hideTextInput();
   }
 
+  /**
+   * Gets the current keyboard focus state.
+   * @returns True if the keyboard has focus, false otherwise
+   */
   getKeyboardFocusState() {
     return this.keyboardFocusState;
   }
 
+  /**
+   * Requests autofill functionality.
+   */
   requestAutofill(): void {
 
   }
 
+  /**
+   * Finishes the autofill context.
+   * @param shouldSave - Whether to save the autofill data
+   */
   finishAutofillContext(shouldSave: boolean): void {
 
   }
 
+  /**
+   * Sets the text input client.
+   * @param textInputClientId - The client ID
+   * @param configuration - The input configuration
+   */
   setClient(textInputClientId: number, configuration: Configuration | null): void {
     this.setTextInputClient(textInputClientId, configuration);
   }
 
+  /**
+   * Updates the input configuration.
+   * @param configuration - The new input configuration
+   */
   updateConfig(configuration: Configuration | null) {
     if (configuration) {
       this.lastKind = this.configuration?.deviceKind;
@@ -204,14 +282,29 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     }
   }
 
+  /**
+   * Sets the platform view client for text input.
+   * @param id - The platform view ID
+   * @param usesVirtualDisplay - Whether the platform view uses a virtual display
+   */
   setPlatformViewClient(id: number, usesVirtualDisplay: boolean): void {
 
   }
 
+  /**
+   * Sets the editable size and transform.
+   * @param width - The width of the editable area
+   * @param height - The height of the editable area
+   * @param transform - The transformation matrix
+   */
   setEditableSizeAndTransform(width: number, height: number, transform: number[]): void {
 
   }
 
+  /**
+   * Sets the cursor size and position.
+   * @param cursorInfo - The cursor information
+   */
   setCursorSizeAndPosition(cursorInfo: inputMethod.CursorInfo) {
     try {
       this.inputMethodController.updateCursor(cursorInfo, (err: BusinessError) => {
@@ -225,6 +318,10 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     }
   }
 
+  /**
+   * Sets the editing state from Flutter.
+   * @param editingState - The new editing state
+   */
   setEditingState(editingState: TextEditState): void {
     Log.d(TextInputMethodHandlerImpl.TAG,
       "text:" + editingState.text + " selectionStart:" + editingState.selectionStart + " selectionEnd:"
@@ -248,6 +345,11 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     }
   }
 
+  /**
+   * Handles selection changes when preview text is active.
+   * If the cursor moves outside the preview text range, the preview text is inserted.
+   * @param editingState - The current editing state
+   */
   previewTextChangeSelection(editingState: TextEditState): void {
     // if users only modify the cursor index without typing new preview text,
     // clear the current preview text cache for avoiding inserting redundant preview text
@@ -277,6 +379,9 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     }
   }
 
+  /**
+   * Clears the current text input client.
+   */
   clearClient(): void {
     this.clearTextInputClient();
   }
@@ -319,6 +424,11 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     });
   }
 
+  /**
+   * Attaches to the input method controller.
+   * @param showKeyboard - Whether to show the keyboard immediately
+   * @private
+   */
   async attach(showKeyboard: boolean): Promise<void> {
     try {
       // must register previewtext callbacks before attachment
@@ -337,6 +447,10 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     }
   }
 
+  /**
+   * Gets the request reason for showing the keyboard based on the input device kind.
+   * @returns The request reason for keyboard display
+   */
   getRequestReason() : inputMethod.RequestKeyboardReason {
     let deviceKind : PointerDeviceKind = this.configuration?.deviceKind ?? PointerDeviceKind.UNKNOWN
     Log.i(TextInputMethodHandlerImpl.TAG, "getRequestReason: deviceKind=" + deviceKind);
@@ -354,6 +468,10 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     }
   }
 
+  /**
+   * Handles focus state changes.
+   * @param focusState - The new focus state
+   */
   handleChangeFocus(focusState: boolean) {
     if (focusState && this.keyboardFocusState) {
       // When the app loses focus, the system automatically detaches the input method.
@@ -384,6 +502,9 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     }
   }
 
+  /**
+   * Updates the input attribute configuration.
+   */
   async updateAttribute(): Promise<void> {
     if (this.keyboardStatus != inputMethod.KeyboardStatus.SHOW) {
       return;
@@ -395,6 +516,11 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     }
   }
 
+  /**
+   * Sets the text input client with the given configuration.
+   * @param client - The client ID
+   * @param configuration - The input configuration
+   */
   setTextInputClient(client: number, configuration: Configuration | null): void {
     if (configuration) {
       this.lastKind = this.configuration?.deviceKind;
@@ -422,6 +548,10 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     this.updateAttribute();
   }
 
+  /**
+   * Checks if text input can be shown.
+   * @returns True if text input can be shown, false if input type is NONE
+   */
   canShowTextInput(): boolean {
     if (this.configuration == null || this.configuration.inputType == null) {
       return true;
@@ -429,6 +559,9 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     return this.configuration.inputType.type != inputMethod.TextInputType.NONE;
   }
 
+  /**
+   * Registers callbacks for preview text functionality.
+   */
   registerPreviewTextCallbacks(): void {
     try {
       this.inputMethodController.on("setPreviewText", this.setPreviewTextCallback)
@@ -447,11 +580,17 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     }
   }
 
+  /**
+   * Unregisters preview text callbacks.
+   */
   unregisterPreviewTextCallbacks(): void {
     this.inputMethodController?.off("setPreviewText", this.setPreviewTextCallback)
     this.inputMethodController?.off("finishTextPreview", this.finishPreviewTextCallback);
   }
 
+  /**
+   * Registers listeners for keyboard events from the input method framework.
+   */
   listenKeyBoardEvent(): void {
     try {
       this.inputMethodController.on('insertText', this.insertTextCallback);
@@ -663,6 +802,9 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     return cursorIdx;
   }
 
+  /**
+   * Cancels all keyboard event listeners.
+   */
   cancelListenKeyBoardEvent(): void {
     this.inputMethodController?.off('insertText', this.insertTextCallback);
     this.inputMethodController?.off('deleteLeft', this.deleteLeftCallback);
@@ -679,6 +821,9 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     this.imcFlag = false;
   }
 
+  /**
+   * Clears the text input client.
+   */
   public clearTextInputClient(): void {
     if (this.inputTarget.type == Type.VIRTUAL_DISPLAY_PLATFORM_VIEW) {
       return;
@@ -689,20 +834,34 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   }
 }
 
+/**
+ * Enumeration of input target types.
+ */
 enum Type {
+  /** No input target */
   NO_TARGET,
-  // InputConnection is managed by the TextInputPlugin, and events are forwarded to the Flutter
-  // framework.
+  /** InputConnection is managed by the TextInputPlugin, and events are forwarded to the Flutter framework. */
   FRAMEWORK_CLIENT,
-  // InputConnection is managed by a platform view that is presented on a virtual display.
+  /** InputConnection is managed by a platform view that is presented on a virtual display. */
   VIRTUAL_DISPLAY_PLATFORM_VIEW,
+  /** InputConnection is managed by a platform view that is presented on a physical display. */
   PHYSICAL_DISPLAY_PLATFORM_VIEW,
 }
 
+/**
+ * Represents a target for text input operations.
+ */
 export class InputTarget {
+  /** The type of input target. */
   type: Type;
+  /** The unique identifier for this input target. */
   id: number;
 
+  /**
+   * Constructs a new InputTarget instance.
+   * @param type - The type of input target
+   * @param id - The target ID
+   */
   constructor(type: Type, id: number) {
     this.type = type;
     this.id = id;

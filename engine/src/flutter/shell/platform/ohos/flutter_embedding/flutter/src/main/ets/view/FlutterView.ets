@@ -29,25 +29,50 @@ const TAG = "FlutterViewTag";
 const EVENT_BACK_PRESS = 'EVENT_BACK_PRESS';
 const DPI_SCALE_RESET: number = -1;
 
+/**
+ * Metrics describing the viewport dimensions and insets.
+ * This class holds information about the physical dimensions, padding, insets, and display features.
+ */
 export class ViewportMetrics {
+  /** Device pixel ratio for converting logical to physical pixels. */
   devicePixelRatio: number = 1.0;
+  /** Physical width of the viewport in pixels. */
   physicalWidth: number = 0;
+  /** Physical height of the viewport in pixels. */
   physicalHeight: number = 0;
+  /** Top padding of the viewport in physical pixels. */
   physicalViewPaddingTop: number = 0;
+  /** Right padding of the viewport in physical pixels. */
   physicalViewPaddingRight: number = 0;
+  /** Bottom padding of the viewport in physical pixels. */
   physicalViewPaddingBottom: number = 0;
+  /** Left padding of the viewport in physical pixels. */
   physicalViewPaddingLeft: number = 0;
+  /** Top inset of the viewport in physical pixels. */
   physicalViewInsetTop: number = 0;
+  /** Right inset of the viewport in physical pixels. */
   physicalViewInsetRight: number = 0;
+  /** Bottom inset of the viewport in physical pixels. */
   physicalViewInsetBottom: number = 0;
+  /** Left inset of the viewport in physical pixels. */
   physicalViewInsetLeft: number = 0;
+  /** Top system gesture inset in physical pixels. */
   systemGestureInsetTop: number = 0;
+  /** Right system gesture inset in physical pixels. */
   systemGestureInsetRight: number = 0;
+  /** Bottom system gesture inset in physical pixels. */
   systemGestureInsetBottom: number = 0;
+  /** Left system gesture inset in physical pixels. */
   systemGestureInsetLeft: number = 0;
+  /** Physical touch slop value, or -1 if not set. */
   physicalTouchSlop: number = -1;
+  /** List of display features such as folds, hinges, or cutouts. */
   displayFeatures: ArrayList<DisplayFeature> = new ArrayList();
 
+  /**
+   * Creates a deep copy of this ViewportMetrics instance.
+   * @returns A new ViewportMetrics instance with copied values
+   */
   clone(): ViewportMetrics {
     const copy = new ViewportMetrics();
     copy.devicePixelRatio = this.devicePixelRatio;
@@ -70,6 +95,11 @@ export class ViewportMetrics {
     return copy;
   }
 
+  /**
+   * Checks if this ViewportMetrics is equal to another.
+   * @param other - The other ViewportMetrics to compare with
+   * @returns True if all metrics are equal, false otherwise
+   */
   isEqual(other: ViewportMetrics): boolean {
     return this.devicePixelRatio === other.devicePixelRatio &&
       this.physicalWidth === other.physicalWidth &&
@@ -91,74 +121,143 @@ export class ViewportMetrics {
   }
 }
 
+/**
+ * Represents a display feature such as a fold, hinge, or cutout.
+ */
 export class DisplayFeature {
+  /** Bounding rectangle of the display feature. */
   bound: display.Rect;
+  /** Type of the display feature (fold, hinge, cutout, etc.). */
   type: DisplayFeatureType;
+  /** State of the display feature. */
   state: DisplayFeatureState;
 
+  /**
+   * Constructs a new DisplayFeature instance.
+   * @param bound - The bounding rectangle of the feature
+   * @param type - The type of display feature
+   * @param state - The state of the display feature
+   */
   constructor(bound: display.Rect, type: DisplayFeatureType, state: DisplayFeatureState) {
     this.bound = bound;
     this.type = type;
     this.state = state;
   }
 
+  /**
+   * Gets the bounding rectangle of the display feature.
+   * @returns The bounding rectangle
+   */
   getBound(): display.Rect {
     return this.bound;
   }
 
+  /**
+   * Gets the type of the display feature.
+   * @returns The display feature type
+   */
   getType(): DisplayFeatureType {
     return this.type;
   }
 
+  /**
+   * Gets the state of the display feature.
+   * @returns The display feature state
+   */
   getState(): DisplayFeatureState {
     return this.state
   }
 
+  /**
+   * Sets the bounding rectangle of the display feature.
+   * @param bound - The bounding rectangle to set
+   */
   setBound(bound: display.Rect): void {
     this.bound = bound;
   }
 
+  /**
+   * Sets the type of the display feature.
+   * @param type - The display feature type to set
+   */
   setType(type: DisplayFeatureType): void {
     this.type = type;
   }
 
+  /**
+   * Sets the state of the display feature.
+   * @param state - The display feature state to set
+   */
   setState(state: DisplayFeatureState): void {
     this.state = state;
   }
 }
 
+/**
+ * Enumeration of display feature types.
+ */
 export enum DisplayFeatureType {
+  /** Unknown display feature type */
   UNKNOWN = 0,
+  /** Fold display feature */
   FOLD = 1,
+  /** Hinge display feature */
   HINGE = 2,
+  /** Cutout display feature */
   CUTOUT = 3
 }
 
+/**
+ * Enumeration of display feature states.
+ */
 export enum DisplayFeatureState {
+  /** Unknown state */
   UNKNOWN = 0,
+  /** Flat posture */
   POSTURE_FLAT = 1,
+  /** Half-opened posture */
   POSTURE_HALF_OPENED = 2,
 }
 
+/**
+ * Enumeration of display fold status.
+ */
 export enum DisplayFoldStatus {
+  /** Unknown fold status */
   FOLD_STATUS_UNKNOWN = 0,
+  /** Display is expanded */
   FOLD_STATUS_EXPANDED = 1,
+  /** Display is folded */
   FOLD_STATUS_FOLDED = 2,
+  /** Display is half-folded */
   FOLD_STATUS_HALF_FOLDED = 3
 }
 
 type callbackNumber = () => number
 
 /**
-  * @deprecated since 3.7
-*/
+ * Parameters for platform view layout.
+ * @deprecated since 3.7
+ */
 export class PlatformViewParas {
+  /** The width of the platform view. */
   width: number = 0.0;
+  /** The height of the platform view. */
   height: number = 0.0;
+  /** The top position of the platform view. */
   top: number = 0.0;
+  /** The left position of the platform view. */
   left: number = 0.0;
+  /** The layout direction for the platform view. */
   direction: Direction = Direction.Auto;
 
+  /**
+   * Sets the layout values.
+   * @param width - The width
+   * @param height - The height
+   * @param top - The top position
+   * @param left - The left position
+   */
   setValue(width: number, height: number, top: number, left: number): void {
     this.width = width;
     this.height = height;
@@ -166,18 +265,29 @@ export class PlatformViewParas {
     this.left = left;
   }
 
+  /**
+   * Sets the offset position.
+   * @param top - The top offset
+   * @param left - The left offset
+   */
   setOffset(top: number, left: number): void {
     this.top = top;
     this.left = left;
   }
 }
 
+/**
+ * Main view class for rendering Flutter content in OpenHarmony applications.
+ * This class manages the Flutter engine, viewport metrics, keyboard handling,
+ * and all interactions between Flutter and the native platform.
+ */
 export class FlutterView {
   private flutterEngine: FlutterEngine | null = null
   private id: string = ""
   private isActive: boolean = true
   private dVModel: DVModel =
     new DVModel("Stack", new DVModelParameters(), new DVModelEvents(), new DVModelChildren(), null);
+  /** The wrapped builder for creating the view, or undefined if not set. */
   private wrapBuilder: WrappedBuilder<[Params]> | undefined = undefined;
   private platformView: PlatformView | undefined = undefined;
   private isSurfaceAvailableForRendering: boolean = false
@@ -215,6 +325,11 @@ export class FlutterView {
   private isDevicePixelRatioAdaptive: boolean = false;
   private lastHeight: number = 0;
 
+  /**
+   * Constructs a new FlutterView instance.
+   * @param viewId - The unique identifier for this view
+   * @param context - The application context
+   */
   constructor(viewId: string, context: Context) {
     this.id = viewId;
     this.context = context;
@@ -292,6 +407,10 @@ export class FlutterView {
     }
   }
   
+  /**
+   * Sets the callback for getting touch slop value.
+   * @param callback - The callback function that returns the touch slop value
+   */
   setTouchSlopCallbackValue(callback: callbackNumber) {
     this.callbackValue = callback;
   }
@@ -441,63 +560,116 @@ export class FlutterView {
     this.buildDisplayFeatures(data);
   }
 
+  /**
+   * Gets the view ID.
+   * @returns The view ID
+   */
   getId(): string {
     return this.id;
   }
   
+  /**
+   * Sets the active state of the view.
+   * @param value - True to activate, false to deactivate
+   */
   setActive(value: boolean): void {
     this.isActive = value;
   }
 
+  /**
+   * Gets the active state of the view.
+   * @returns True if active, false otherwise
+   */
   getActive(): boolean {
     return this.isActive;
   }
+
+  /**
+   * Sets the surface ID for rendering.
+   * @param surfaceId - The surface ID
+   */
   setSurfaceId(surfaceId: string): void {
     this.surfaceId = surfaceId;
   }
 
+  /**
+   * Gets the surface ID.
+   * @returns The surface ID
+   */
   getSurfaceId(): string {
     return this.surfaceId;
   }
   
   /**
-  * @deprecated since 3.7
-  */
+   * Gets the embedding node controller.
+   * @deprecated since 3.7
+   * @returns The EmbeddingNodeController instance
+   */
   getEmbeddingNodeController(): EmbeddingNodeController {
     return this.nodeController;
   }
 
+  /**
+   * Sets the wrapped builder for platform views.
+   * @param wrappedBuilder - The WrappedBuilder instance
+   */
   setWrappedBuilder(wrappedBuilder: WrappedBuilder<[Params]>) {
     this.wrapBuilder = wrappedBuilder;
   }
 
+  /**
+   * Gets the wrapped builder.
+   * @returns The WrappedBuilder instance, or undefined if not set
+   */
   getWrappedBuilder(): WrappedBuilder<[Params]> | undefined {
     return this.wrapBuilder;
   }
 
+  /**
+   * Sets the platform view.
+   * @param platformView - The PlatformView instance
+   */
   setPlatformView(platformView: PlatformView) {
     this.platformView = platformView;
   }
 
+  /**
+   * Gets the platform view.
+   * @returns The PlatformView instance, or undefined if not set
+   */
   getPlatformView(): PlatformView | undefined {
     return this.platformView;
   }
 
   /**
-  * @deprecated since 3.7
-  */
+   * Gets the platform view size.
+   * @deprecated since 3.7
+   * @returns The PlatformViewParas instance
+   */
   getPlatformViewSize(): PlatformViewParas {
     return this.platformViewSize;
   }
 
+  /**
+   * Gets the DynamicView model.
+   * @returns The DVModel instance
+   */
   getDVModel() {
     return this.dVModel;
   }
 
+  /**
+   * Gets the current keyboard height.
+   * @returns The keyboard height in pixels, or 0 if keyboard is not visible
+   */
   getKeyboardHeight() {
     return this.keyboardAvoidArea?.bottomRect.height
   }
 
+  /**
+   * Called when the view is being destroyed.
+   * Cleans up all event listeners and resources.
+   */
   onDestroy() {
     try {
       uiObserver.off('routerPageUpdate', this.context as common.UIAbilityContext, this.routerPageUpdateCallback);
@@ -524,6 +696,10 @@ export class FlutterView {
     this.nodeController.disposeFrameNode();
   }
 
+  /**
+   * Attaches this view to a Flutter engine.
+   * @param flutterEngine - The FlutterEngine to attach to
+   */
   attachToFlutterEngine(flutterEngine: FlutterEngine): void {
     hiTraceMeter.startTrace("attachToFlutterEngine", 0);
     if (this.isAttachedToFlutterEngine()) {
@@ -590,6 +766,11 @@ export class FlutterView {
     hiTraceMeter.finishTrace("attachToFlutterEngine", 0);
   }
 
+  /**
+   * Called before drawing a frame.
+   * @param width - The width of the drawing area, defaults to display width
+   * @param height - The height of the drawing area, defaults to display height
+   */
   preDraw(width: number = 0, height: number = 0): void {
     if (this.isAttachedToFlutterEngine()) {
       if (width == 0 || height == 0) {
@@ -600,6 +781,10 @@ export class FlutterView {
     }
   }
 
+  /**
+   * Detaches this view from the Flutter engine.
+   * Cleans up all engine-related resources.
+   */
   detachFromFlutterEngine(): void {
     Log.i(TAG, "detachFromFlutterEngine");
     if (!this.isAttachedToFlutterEngine()) {
@@ -616,6 +801,10 @@ export class FlutterView {
     this.context?.eventHub.off(EVENT_BACK_PRESS);
   }
 
+  /**
+   * Called when the window is created.
+   * Initializes the UIContext and sends settings to Flutter.
+   */
   onWindowCreated() {
     Log.d(TAG, "received onwindowCreated.");
     let _UIContext = this.mainWindow?.getUIContext();
@@ -624,6 +813,9 @@ export class FlutterView {
     Log.d(TAG, "uiContext init and sendSettings finished.");
   }
 
+  /**
+   * Sends system settings to Flutter.
+   */
   sendSettings(): void {
     if (this.uiContext != undefined && this.isAttachedToFlutterEngine()) {
       this.settings?.sendSettings(this.uiContext.getMediaQuery());
@@ -632,11 +824,19 @@ export class FlutterView {
     }
   }
 
+  /**
+   * Called when the rendering surface is created.
+   * Marks the surface as available and processes pending messages.
+   */
   onSurfaceCreated() {
     this.isSurfaceAvailableForRendering = true;
     this.flutterEngine?.processPendingMessages();
   }
 
+  /**
+   * Called when the rendering surface is destroyed.
+   * Marks the surface as unavailable and detaches from the engine.
+   */
   onSurfaceDestroyed() {
     this.isSurfaceAvailableForRendering = false;
     if (this.isAttachedToFlutterEngine()) {
@@ -644,6 +844,12 @@ export class FlutterView {
     }
   }
 
+  /**
+   * Called when the view area changes.
+   * Updates viewport metrics based on the new area and avoid areas.
+   * @param newArea - The new area, or null to use current display dimensions
+   * @param setFullScreen - Whether to set fullscreen mode
+   */
   onAreaChange(newArea: Area | null, setFullScreen: boolean = false) {
     const originalMetrics = this.viewportMetrics.clone();
     if (newArea != null) {
@@ -685,9 +891,6 @@ export class FlutterView {
     }
   }
 
-  // At the bottom of the single-frame phone is an AI assistant wake-up bar
-  // The area can lead to confusing gestures in repetitive areas without handled properly
-  // physicalViewPaddingBottom is modified by this function which needs to be called after onKeyboardAreaChange
   private onAiBarAreaChange(fullScreen: boolean = false) {
     if (this.checkAiBar && this.navigationAvoidArea != null && fullScreen) {
       this.viewportMetrics.physicalViewPaddingBottom =
@@ -731,10 +934,19 @@ export class FlutterView {
     }
   }
 
+  /**
+   * Checks if this view is attached to a Flutter engine.
+   * @returns True if attached, false otherwise
+   */
   public isAttachedToFlutterEngine(): boolean {
     return this.flutterEngine != null
   }
 
+  /**
+   * Checks if this view is attached to an engine with the specified shell holder ID.
+   * @param id - The shell holder ID to check
+   * @returns True if attached to an engine with the specified ID, false otherwise
+   */
   public isSameEngineShellHolderId(id: number): boolean {
     if (this.flutterEngine) {
       let flutterNapi = this.flutterEngine.getFlutterNapi();
@@ -786,40 +998,80 @@ export class FlutterView {
     return false
   }
 
+  /**
+   * Handles key events before they reach the input method editor.
+   * @param event - The key event
+   * @returns True if the event was handled, false otherwise
+   */
   onKeyPreIme(event: KeyEvent): boolean {
     return this.keyboardManager?.onKeyPreIme(event) ?? false;
   }
 
+  /**
+   * Handles key events.
+   * @param event - The key event
+   * @returns True if the event was handled, false otherwise
+   */
   onKeyEvent(event: KeyEvent): boolean {
     return this.keyboardManager?.onKeyEvent(event) ?? false;
   }
 
+  /**
+   * Handles mouse wheel events.
+   * @param eventType - The event type
+   * @param event - The pan gesture event
+   */
   onMouseWheel(eventType: string, event: PanGestureEvent) {
     if (deviceInfo.sdkApiVersion < 15) { // API15 及以后通过轴事件处理滚动
       this.flutterEngine?.getFlutterNapi()?.xComponentDisPatchMouseWheel(this.id, eventType, event);
     }
   }
 
+  /**
+   * Adds a listener for the first frame event.
+   * @param listener - The listener to add
+   */
   addFirstFrameListener(listener: FirstFrameListener) {
     this.mFirstFrameListeners.add(listener);
   }
 
+  /**
+   * Removes a first frame listener.
+   * @param listener - The listener to remove
+   */
   removeFirstFrameListener(listener: FirstFrameListener) {
     this.mFirstFrameListeners.remove(listener);
   }
 
+  /**
+   * Adds a listener for the first preload frame event.
+   * @param listener - The listener to add
+   */
   addFirstPreloadFrameListener(listener: FirstPreloadFrameListener) {
     this.mFirstPreloadFrameListeners.add(listener);
   }
 
+  /**
+   * Removes a first preload frame listener.
+   * @param listener - The listener to remove
+   */
   removeFirstPreloadFrameListener(listener: FirstPreloadFrameListener) {
     this.mFirstPreloadFrameListeners.remove(listener);
   }
 
+  /**
+   * Checks if the first frame has been rendered.
+   * @returns True if the first frame has been rendered, false otherwise
+   */
   hasRenderedFirstFrame(): boolean {
     return this.isFlutterUiDisplayed;
   }
 
+  /**
+   * Called when the first frame is rendered.
+   * Notifies all registered listeners.
+   * @param isPreload - 1 for preload frame, 0 for normal first frame
+   */
   onFirstFrame(isPreload: number = 0) {
     if (isPreload) {
       let listeners = this.mFirstPreloadFrameListeners.clone();
@@ -834,27 +1086,51 @@ export class FlutterView {
     }
   }
 
+  /**
+   * Sets whether to check fullscreen mode.
+   * @param check - True to check fullscreen, false otherwise
+   */
   setCheckFullScreen(check: boolean) {
     this.checkFullScreen = check;
   }
 
+  /**
+   * Sets whether to check keyboard area.
+   * @param check - True to check keyboard area, false otherwise
+   */
   setCheckKeyboard(check: boolean) {
     this.checkKeyboard = check
   }
 
+  /**
+   * Sets whether to check gesture area.
+   * @param check - True to check gesture area, false otherwise
+   */
   setCheckGesture(check: boolean) {
     this.checkGesture = check
   }
 
+  /**
+   * Sets whether to check AI bar area.
+   * @param check - True to check AI bar area, false otherwise
+   */
   setCheckAiBar(check: boolean) {
     this.checkAiBar = check
   }
 
+  /**
+   * Sets the top padding value.
+   * @param paddingTop - The top padding value, or undefined to use default
+   */
   setPaddingTop(paddingTop?: number) {
     this.paddingTop = paddingTop;
     this.onAreaChange(null);
   }
 
+  /**
+   * Enables or disables frame caching.
+   * @param cacheEnable - True to enable frame cache, false to disable
+   */
   enableFrameCache(cacheEnable: boolean) {
     this.frameCache = cacheEnable;
     if (this.isAttachedToFlutterEngine()) {
@@ -863,10 +1139,22 @@ export class FlutterView {
   }
 }
 
+/**
+ * Listener interface for first frame events.
+ */
 export interface FirstFrameListener {
+  /**
+   * Called when the first frame is rendered.
+   */
   onFirstFrame(): void;
 }
 
+/**
+ * Listener interface for first preload frame events.
+ */
 export interface FirstPreloadFrameListener {
+  /**
+   * Called when the first preload frame is rendered.
+   */
   onFirstPreloadFrame(): void;
 }

@@ -12,10 +12,20 @@ import { KeyCode } from '@kit.InputKit';
 
 const TAG = "KeyEventHandler";
 
+/**
+ * Represents text for a key in normal and shift cases.
+ */
 class KeyText {
+  /** The text in normal case. */
   public normalCase: string;
+  /** The text in shift case. */
   public shiftCase: string;
 
+  /**
+   * Constructs a new KeyText instance.
+   * @param normalCase - The text in normal case
+   * @param shiftCase - The text in shift case
+   */
   constructor(normalCase: string, shiftCase: string) {
     this.normalCase = normalCase;
     this.shiftCase = shiftCase;
@@ -23,11 +33,14 @@ class KeyText {
 }
 ;
 
-/*
- * In the emulator/hdc tool input scenario, all keyevents will be passed to the onKeyEvent callback, so we need
- * insert the text to textInputPlugin ourselves. In the other scenarios like phone/pc/ets, the input method will be
- * responsible for inserting the text to textInputPlugin, consuming 'down' events and let 'up' events go which will
- * be captured by onKeyEvent.
+/**
+ * Handler for key events in emulator/hdc tool input scenarios.
+ * 
+ * In the emulator/hdc tool input scenario, all keyevents will be passed to the onKeyEvent callback,
+ * so we need to insert the text to textInputPlugin ourselves. In other scenarios like phone/pc/ets,
+ * the input method will be responsible for inserting the text to textInputPlugin, consuming 'down' events
+ * and letting 'up' events go which will be captured by onKeyEvent.
+ * 
  * There is no need to process the status of the capslock button. Because in the scenario of the emulator/hdc tool,
  * if capslock is pressed, os will send a 'shift' keyevent before the keyevent of the input key and we will insert
  * uppercase characters correctly.
@@ -99,10 +112,19 @@ export class KeyEventHandler {
   ]);
   private textInputPlugin?: TextInputPlugin;
 
+  /**
+   * Constructs a new KeyEventHandler instance.
+   * @param textInputPlugin - The TextInputPlugin instance, optional
+   */
   constructor(textInputPlugin?: TextInputPlugin) {
     this.textInputPlugin = textInputPlugin;
   }
 
+  /**
+   * Gets the text representation of a key event.
+   * @param event - The key event
+   * @returns The text string for the key, considering shift state
+   */
   getKeyText(event: KeyEvent): string {
     let keyText = KeyEventHandler.keyTextMap.get(event.keyCode);
     const isShiftMode = event.getModifierKeyState && event.getModifierKeyState(['Shift']);
@@ -112,14 +134,26 @@ export class KeyEventHandler {
     return '';
   }
 
+  /**
+   * Starts a deletion operation.
+   * @param code - The key code for deletion
+   */
   startDeleting(code: number) {
     this.textInputPlugin?.getEditingState().startDeleting(code);
   }
 
+  /**
+   * Ends a deletion operation.
+   * @param code - The key code for deletion
+   */
   endDeletion(code: number) {
     this.textInputPlugin?.getEditingState().endDeletion(code);
   }
 
+  /**
+   * Handles a key event and inserts text if appropriate.
+   * @param event - The key event to handle
+   */
   handleKeyEvent(event: KeyEvent) {
     Log.i(TAG, JSON.stringify({
       "name": "handleKeyEvent",
@@ -131,7 +165,7 @@ export class KeyEventHandler {
     const isCombinationMode = isCtrlPressed || isAltPressed;
 
     if (event.type == KeyType.Down) {
-      // Ctrl/Alt 键按下状态或数据为空时，不输入字符（字母/数字/符号）
+      // When Ctrl/Alt keys are pressed or data is empty, do not input characters (letters/numbers/symbols)
       const obtainedKeyText: string = this.getKeyText(event);
       if (!isCombinationMode && obtainedKeyText) {
         this.textInputPlugin?.getEditingState().handleInsertTextEvent(obtainedKeyText);

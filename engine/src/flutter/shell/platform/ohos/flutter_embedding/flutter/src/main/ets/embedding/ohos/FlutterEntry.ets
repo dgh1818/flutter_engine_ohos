@@ -26,6 +26,10 @@ import { AbilityConstant, EnvironmentCallback } from '@kit.AbilityKit';
 
 const TAG = "FlutterEntry";
 
+/**
+ * Entry point for Flutter content in a page component.
+ * This class manages the lifecycle of FlutterView and FlutterEngine within a page context.
+ */
 export default class FlutterEntry implements Host {
   private static ARG_SHOULD_ATTACH_ENGINE_TO_ABILITY: string = "should_attach_engine_to_ability";
   protected uiAbility: UIAbility | null = null
@@ -38,6 +42,11 @@ export default class FlutterEntry implements Host {
   protected hasInit: boolean = false;
   protected callbackId: number | undefined = undefined;
 
+  /**
+   * Constructs a new FlutterEntry instance.
+   * @param context - The page context
+   * @param params - Optional parameters for configuration
+   */
   constructor(context: Context, params: Record<string, Object> = {}) {
     this.context = context;
     this.uiAbility = FlutterManager.getInstance().getUIAbility(context);
@@ -46,10 +55,18 @@ export default class FlutterEntry implements Host {
     this.hasInit = false;
   }
 
+  /**
+   * Callback for window stage events.
+   * @param data - The window stage event type
+   */
   protected windowStageEventCallback = (data: window.WindowStageEventType) => {
     this.delegate?.onWindowStageChanged(data)
   }
 
+  /**
+   * Called when the page is about to appear.
+   * Initializes the Flutter delegate and view.
+   */
   aboutToAppear() {
     Log.i(TAG, 'aboutToAppear');
     if (this.hasInit == false) {
@@ -69,6 +86,9 @@ export default class FlutterEntry implements Host {
     }
   }
 
+  /**
+   * Registers an environment callback to listen for configuration changes.
+   */
   registerEnvironmentCallback() {
     let environmentCallback: EnvironmentCallback = {
       onConfigurationUpdated: (config) => {
@@ -106,6 +126,9 @@ export default class FlutterEntry implements Host {
     }
   }
 
+  /**
+   * Unregisters the environment callback.
+   */
   unregisterEnvironmentCallback() {
     let applicationContext = this.uiAbility?.context.getApplicationContext();
     try {
@@ -120,18 +143,34 @@ export default class FlutterEntry implements Host {
     }
   }
 
+  /**
+   * Sets the Flutter engine configurator.
+   * @param configurator - The FlutterEngineConfigurator instance
+   */
   setFlutterEngineConfigurator(configurator: FlutterEngineConfigurator) {
     this.engineConfigurator = configurator;
   }
 
+  /**
+   * Gets the FlutterView instance.
+   * @returns The FlutterView instance
+   */
   getFlutterView(): FlutterView {
     return this.flutterView!!
   }
 
+  /**
+   * Gets the FlutterEngine instance.
+   * @returns The FlutterEngine instance, or null if not available
+   */
   getFlutterEngine(): FlutterEngine | null {
     return this.delegate?.flutterEngine!
   }
 
+  /**
+   * Called when the page is about to disappear.
+   * Cleans up resources and detaches from the Flutter engine.
+   */
   aboutToDisappear() {
     Log.d(TAG, "FlutterEntry aboutToDisappear");
     this.unregisterEnvironmentCallback();
@@ -150,39 +189,70 @@ export default class FlutterEntry implements Host {
     }
   }
 
+  /**
+   * Called when the page is shown.
+   * Notifies the delegate that the page is visible.
+   */
   onPageShow() { //生命周期
     Log.d(TAG, "FlutterEntry onPageShow");
     this?.delegate?.onShow();
   }
 
+  /**
+   * Called when the page is hidden.
+   * Notifies the delegate that the page is hidden.
+   */
   onPageHide() { //生命周期
     Log.d(TAG, "FlutterEntry onPageHide");
     this?.delegate?.onHide();
   }
 
+  /**
+   * Called when the back button is pressed.
+   * Pops the current route in Flutter navigation.
+   */
   onBackPress() {
     Log.d(TAG, "FlutterEntry onBackPress");
     this?.delegate?.flutterEngine?.getNavigationChannel()?.popRoute();
   }
 
+  /**
+   * Determines whether to dispatch app lifecycle state changes.
+   * @returns True to dispatch lifecycle state, false otherwise
+   */
   shouldDispatchAppLifecycleState(): boolean {
     return true;
   }
 
+  /**
+   * Detaches from the Flutter engine.
+   */
   detachFromFlutterEngine() {
     if (this?.delegate != null) {
       this?.delegate?.onDetach();
     }
   }
 
+  /**
+   * Gets the associated UIAbility.
+   * @returns The UIAbility instance
+   */
   getAbility(): UIAbility {
     return this.uiAbility!!
   }
 
+  /**
+   * Loads the page content.
+   * This method is called by the framework.
+   */
   loadContent() {
 
   }
 
+  /**
+   * Determines whether to attach the engine to the ability.
+   * @returns True to attach the engine, false otherwise
+   */
   shouldAttachEngineToAbility(): boolean {
     let param = this.parameters![FlutterEntry.ARG_SHOULD_ATTACH_ENGINE_TO_ABILITY];
     if (!param) {
@@ -191,6 +261,10 @@ export default class FlutterEntry implements Host {
     return param as boolean
   }
 
+  /**
+   * Gets the cached engine ID from parameters.
+   * @returns The cached engine ID, or empty string if not set
+   */
   getCachedEngineId(): string {
     let param = this.parameters![FlutterAbilityLaunchConfigs.EXTRA_CACHED_ENGINE_ID];
     if (!param) {
@@ -199,6 +273,10 @@ export default class FlutterEntry implements Host {
     return param as string
   }
 
+  /**
+   * Gets the cached engine group ID from parameters.
+   * @returns The cached engine group ID, or null if not set
+   */
   getCachedEngineGroupId(): string | null {
     let param = this.parameters![FlutterAbilityLaunchConfigs.EXTRA_CACHED_ENGINE_GROUP_ID];
     if (!param) {
@@ -207,6 +285,10 @@ export default class FlutterEntry implements Host {
     return param as string
   }
 
+  /**
+   * Determines whether to destroy the engine when the host is destroyed.
+   * @returns True to destroy the engine, false otherwise
+   */
   shouldDestroyEngineWithHost(): boolean {
     if ((this.getCachedEngineId() != null && this.getCachedEngineId().length > 0) ||
     this.delegate!!.isFlutterEngineFromHost()) {
@@ -216,14 +298,26 @@ export default class FlutterEntry implements Host {
     return true;
   }
 
+  /**
+   * Determines whether to automatically attach to the engine.
+   * @returns True to attach automatically, false otherwise
+   */
   attachToEngineAutomatically(): boolean {
     return true;
   }
 
+  /**
+   * Gets Flutter shell arguments.
+   * @returns A FlutterShellArgs instance
+   */
   getFlutterShellArgs(): FlutterShellArgs {
     return new FlutterShellArgs();
   }
 
+  /**
+   * Gets Dart entrypoint arguments from parameters.
+   * @returns Array of entrypoint arguments
+   */
   getDartEntrypointArgs(): string[] {
     if (this.parameters![FlutterAbilityLaunchConfigs.EXTRA_DART_ENTRYPOINT_ARGS]) {
       return this.parameters![FlutterAbilityLaunchConfigs.EXTRA_DART_ENTRYPOINT_ARGS] as Array<string>;
@@ -231,14 +325,26 @@ export default class FlutterEntry implements Host {
     return new Array<string>()
   }
 
+  /**
+   * Gets the Dart entrypoint library URI.
+   * @returns The library URI string
+   */
   getDartEntrypointLibraryUri(): string {
     return "";
   }
 
+  /**
+   * Gets the app bundle path.
+   * @returns The bundle path string
+   */
   getAppBundlePath(): string {
     return "";
   }
 
+  /**
+   * Gets the Dart entrypoint function name from parameters.
+   * @returns The entrypoint function name, or default if not set
+   */
   getDartEntrypointFunctionName(): string {
     if (this.parameters![FlutterAbilityLaunchConfigs.EXTRA_DART_ENTRYPOINT]) {
       return this.parameters![FlutterAbilityLaunchConfigs.EXTRA_DART_ENTRYPOINT] as string;
@@ -246,6 +352,10 @@ export default class FlutterEntry implements Host {
     return FlutterAbilityLaunchConfigs.DEFAULT_DART_ENTRYPOINT
   }
 
+  /**
+   * Gets the initial route from parameters.
+   * @returns The initial route string, or empty string if not set
+   */
   getInitialRoute(): string {
     if (this.parameters![FlutterAbilityLaunchConfigs.EXTRA_INITIAL_ROUTE]) {
       return this.parameters![FlutterAbilityLaunchConfigs.EXTRA_INITIAL_ROUTE] as string
@@ -253,10 +363,18 @@ export default class FlutterEntry implements Host {
     return "";
   }
 
+  /**
+   * Gets the Want object.
+   * @returns A new Want instance
+   */
   getWant(): Want {
     return new Want();
   }
 
+  /**
+   * Determines whether to restore and save state.
+   * @returns True to restore and save state, false otherwise
+   */
   shouldRestoreAndSaveState(): boolean {
     if (this.parameters![FlutterAbilityLaunchConfigs.EXTRA_CACHED_ENGINE_ID] != undefined) {
       return this.parameters![FlutterAbilityLaunchConfigs.EXTRA_CACHED_ENGINE_ID] as boolean;
@@ -268,38 +386,72 @@ export default class FlutterEntry implements Host {
     return true;
   }
 
+  /**
+   * Gets the exclusive app component.
+   * @returns The ExclusiveAppComponent instance, or null
+   */
   getExclusiveAppComponent(): ExclusiveAppComponent<UIAbility> | null {
     return this.delegate ? this.delegate : null
   }
 
+  /**
+   * Provides a FlutterEngine instance.
+   * @param context - The context
+   * @returns A FlutterEngine instance, or null if not provided
+   */
   provideFlutterEngine(context: Context): FlutterEngine | null {
     return null;
   }
 
+  /**
+   * Provides a PlatformPlugin instance.
+   * @param flutterEngine - The FlutterEngine instance
+   * @returns A PlatformPlugin instance
+   */
   providePlatformPlugin(flutterEngine: FlutterEngine): PlatformPlugin | undefined {
     return new PlatformPlugin(flutterEngine.getPlatformChannel()!, this.context, this);
   }
 
+  /**
+   * Configures the Flutter engine.
+   * @param flutterEngine - The FlutterEngine to configure
+   */
   configureFlutterEngine(flutterEngine: FlutterEngine) {
     if (this.engineConfigurator) {
       this.engineConfigurator.configureFlutterEngine(flutterEngine)
     }
   }
 
+  /**
+   * Cleans up the Flutter engine.
+   * @param flutterEngine - The FlutterEngine to clean up
+   */
   cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
     if (this.engineConfigurator) {
       this.engineConfigurator.cleanUpFlutterEngine(flutterEngine)
     }
   }
 
+  /**
+   * Determines whether to pop the system navigator.
+   * @returns False by default
+   */
   popSystemNavigator(): boolean {
     return false;
   }
 
+  /**
+   * Adds a Flutter plugin.
+   * @param plugin - The FlutterPlugin to add
+   */
   addPlugin(plugin: FlutterPlugin): void {
     this.delegate?.addPlugin(plugin)
   }
 
+  /**
+   * Removes a Flutter plugin.
+   * @param plugin - The FlutterPlugin to remove
+   */
   removePlugin(plugin: FlutterPlugin): void {
     this.delegate?.removePlugin(plugin)
   }
