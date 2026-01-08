@@ -46,7 +46,9 @@ class OhosTouchProcessor {
                         OH_NativeXComponent* component,
                         OH_NativeXComponent_MouseEvent mouseEvent,
                         double offsetY,
-                        bool isLeave = false);
+                        bool isLeave = false,
+                        double windowWidth = 0.0,
+                        double windowHeight = 0.0);
   void HandleVirtualTouchEvent(int64_t shell_holderID,
                                OH_NativeXComponent* component,
                                OH_NativeXComponent_TouchEvent* touchEvent);
@@ -69,6 +71,11 @@ class OhosTouchProcessor {
   float accumulatedPanX_ = 0.0;
   float accumulatedPanY_ = 0.0;
   float accumulatedScale_ = 1.0;
+
+  // Store the last mouse position for sending a final move event before leave event
+  double lastMouseX_ = -1.0;
+  double lastMouseY_ = -1.0;
+  int64_t lastMouseTimestamp_ = 0;
 
  private:
   int apiVersion_;
@@ -96,6 +103,12 @@ class OhosTouchProcessor {
   void VsyncVotingTouchUp(int64_t shellHolderID);
 
   void VsyncVotingTouchDown(int64_t shellHolderID);
+
+  void SendFinalMoveEventBeforeLeave(int64_t shell_holderID,
+                                     OH_NativeXComponent* component,
+                                     OH_NativeXComponent_MouseEvent mouseEvent,
+                                     double windowWidth,
+                                     double windowHeight);
 };
 }  // namespace flutter
 #endif  // FLUTTER_SHELL_PLATFORM_OHOS_OHOS_TOUCH_PROCESSOR_H_
