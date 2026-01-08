@@ -38,6 +38,9 @@ class VsyncWaiterOHOS final : public VsyncWaiter {
                                      fml::TimePoint frame_target_time);
 
   void SetDvsyncSwitch(bool enableDvsync);
+
+  void VSyncVotingFrameRate();
+
   OH_NativeVSync* vsync_handle_;
   NativeDvsyncFunc nativeDvsyncFunc_ = nullptr;
   std::shared_ptr<bool> enable_frame_cache_;
