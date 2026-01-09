@@ -335,6 +335,9 @@ class OhosDevice extends Device {
       '-b',
       builtPackage.ohosBuildData.appInfo!.bundleName,
     ];
+    if (debuggingOptions.debuggingEnabled && debuggingOptions.startPaused) {
+      cmd.addAll(<String>['--pb', 'start-paused', 'true']);
+    }
     final String result = (await runHdcCheckedAsync(cmd)).stdout;
     // This invocation returns 0 even when it fails.
     if (result.toLowerCase().contains('error')) {
