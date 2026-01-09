@@ -2884,14 +2884,20 @@ napi_value PlatformViewOHOSNapi::nativeSetAnimationStatus(napi_env env, napi_cal
   auto status = static_cast<fml::hiappevent::ScrollingStatus>(type);
   switch (status) {
     case fml::hiappevent::ScrollingStatus::kScrollStart:
-      fml::hiappevent::OhosHiappEventDDL::GetInstance()->RecordScrollStatus(type);
+      OHOS_SHELL_HOLDER->GetPlatformView()->RunTask(
+        OhosThreadType::kIO,
+        [] {
+          fml::hiappevent::OhosHiappEventDDL::GetInstance()->OnScrollStart();
+        }
+      );
       break;
     case fml::hiappevent::ScrollingStatus::kScrollEnd:
-      fml::hiappevent::OhosHiappEventDDL::GetInstance()->RecordScrollStatus(type);
-        OHOS_SHELL_HOLDER->GetPlatformView()->RunTask(
-          OhosThreadType::kIO,
-          []{ fml::hiappevent::OhosHiappEventDDL::GetInstance()->FlushScroll(); }
-        );
+      OHOS_SHELL_HOLDER->GetPlatformView()->RunTask(
+        OhosThreadType::kIO,
+        [] {
+          fml::hiappevent::OhosHiappEventDDL::GetInstance()->OnScrollEndAndFlush();
+        }
+      );
       break;
     default:
       break;
