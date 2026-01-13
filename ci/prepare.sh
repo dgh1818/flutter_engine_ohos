@@ -106,6 +106,16 @@ function check_env() {
     mkdir -p $BACKUP_DIR
 }
 
+function patch_cipd() {
+    echo "Patch cipd"
+    echo "$ cd $PROJECT_DIR"
+    cd $PROJECT_DIR
+    echo "$ git clone -b main https://gitcode.com/xiedrsz/cipd.git"
+    git clone -b main https://gitcode.com/xiedrsz/cipd.git
+    echo "$ cd ./cipd && ./patch_cipd.sh"
+    cd ./cipd && ./patch_cipd.sh
+}
+
 # Sync cache
 function sync_cache() {
     echo "Sync cache"
@@ -114,6 +124,7 @@ function sync_cache() {
     find $CIPD_CACHE_DIR -type f -exec touch {} +
     echo "$ rm $CIPD_CACHE_DIR/instances/state.db"
     rm $CIPD_CACHE_DIR/instances/state.db
+    patch_cipd
     # Refresh FLUTTERTPC repositories
     echo "$ cd $REPO_CACHE_DIR"
     cd $REPO_CACHE_DIR
