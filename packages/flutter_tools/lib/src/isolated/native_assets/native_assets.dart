@@ -26,6 +26,7 @@ import 'ios/native_assets.dart';
 import 'linux/native_assets.dart';
 import 'macos/native_assets.dart';
 import 'macos/native_assets_host.dart';
+import 'ohos/native_assets.dart';
 import 'windows/native_assets.dart';
 
 /// The assets produced by a Dart build and the dependencies of those assets.
@@ -491,6 +492,8 @@ Map<FlutterCodeAsset, KernelAsset> assetTargetLocationsForOS(
       return assetTargetLocationsIOS(codeAssets);
     case OS.android:
       return assetTargetLocationsAndroid(codeAssets);
+    case OS.ohos:
+      return assetTargetLocationsOhos(codeAssets);
     default:
       throw UnimplementedError('This should be unreachable.');
   }
@@ -789,8 +792,7 @@ OS getNativeOSFromTargetPlatform(TargetPlatform platform) {
     case TargetPlatform.ohos_arm:
     case TargetPlatform.ohos_arm64:
     case TargetPlatform.ohos_x64:
-      // todo: 修改为 OS.ohos
-      return OS.android;
+      return OS.ohos;
     case TargetPlatform.tester:
       if (const LocalPlatform().isMacOS) {
         return OS.macOS;

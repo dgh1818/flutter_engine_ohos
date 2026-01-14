@@ -18,6 +18,7 @@ import '../exceptions.dart';
 import 'assets.dart';
 import 'common.dart';
 import '../tools/shader_compiler.dart';
+import 'native_assets.dart';
 
 class DebugOhosApplication extends OhosAssetBundle {
   const DebugOhosApplication();
@@ -355,5 +356,6 @@ abstract class OhosAssetBundle extends Target {
   @override
   List<Target> get dependencies => const <Target>[
         KernelSnapshot(),
+        InstallCodeAssets()
       ];
 }
