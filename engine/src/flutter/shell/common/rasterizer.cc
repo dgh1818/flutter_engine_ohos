@@ -527,6 +527,14 @@ Rasterizer::DoDrawResult Rasterizer::DoDraw(
       frame_timings_recorder->GetRasterEndTime();
   fml::TimePoint frame_target_time =
       frame_timings_recorder->GetVsyncTargetTime();
+
+  #ifdef FML_OS_OHOS
+    // Frame number of current frame
+    const uint64_t frame_number = frame_timings_recorder->GetFrameNumber();
+    fml::hiappevent::OhosHiappEventDDL::GetInstance()->UpdateLastFrameNumber(frame_number);
+  #endif
+      
+  // Log SceneDisplayLag trace event if we missed the frame target.    
   if (raster_finish_time > frame_target_time) {
     fml::TimePoint latest_frame_target_time =
         delegate_.GetLatestFrameTargetTime();
@@ -554,21 +562,11 @@ Rasterizer::DoDrawResult Rasterizer::DoDraw(
 
 
 #ifdef FML_OS_OHOS
-{
-  auto now = std::chrono::system_clock::now(); // 获取当前UTC时间
-  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch());
-
-  FML_LOG(INFO) << "cur UTC timestamp:" << duration.count();
-}
-
-  // 当前时间，UTC时间
-  auto now = std::chrono::system_clock::now(); // 获取当前UTC时间
-  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()); // 距离 1970-01-01 UTC 的时长(毫秒表示)
+  auto now = std::chrono::system_clock::now(); // Get the current UTC time
+  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()); // The duration from 1970-01-01 UTC to now(expressed in milliseconds)
   const int64_t now_ms_int64 = static_cast<int64_t>(duration.count());
 
-  FML_LOG(INFO) << "Scroll hiappevent start, UTC: " << now_ms_int64;
-
-  // 帧开始时间，绝对时间，wall time
+  // Frame start time (wall time)
   const fml::TimePoint vsync_start_time =
     frame_timings_recorder->GetVsyncStartTime();
   const int64_t vsync_start_time_micros =
@@ -596,18 +594,17 @@ Rasterizer::DoDrawResult Rasterizer::DoDraw(
   const int64_t frame_budget_time_micros =
     fml::TimeDelta::FromMillisecondsF(frame_budget_millis).ToMicroseconds();
 
-  fml::hiappevent::MissedFrameInfo missedFrameInfo;
-  missedFrameInfo.UTCTimeStampMillis = now_ms_int64; // 事件发生时间(UTC ms)，可近似认为是raster完成时间
-  missedFrameInfo.vsyncStartTimeMicros = vsync_start_time_micros; // 本次丢帧开始时间(epoch us)
-  missedFrameInfo.vsyncTargetTimeMicros = vsync_target_time_micros; // 本次丢帧期望时间(epoch us)
-  missedFrameInfo.latestVsyncTargetTimeMicros = latest_frame_target_time_micros; // 本次丢帧最终完成期望时间(epoch us)
-  missedFrameInfo.frameDurationMicros = frame_duration_micros; // 本次丢帧时长(duration us)
-  missedFrameInfo.rasterFinishTimeMicros = raster_finish_time_micros; // 本次丢帧实际完成时间(epoch us)
-  missedFrameInfo.frameBudgetTimeMicros = frame_budget_time_micros; // 帧间隔(duration us)
-  missedFrameInfo.frameNumber = frame_timings_recorder->GetFrameNumber(); // 帧号
-  missedFrameInfo.vsyncTransitionsMissed = vsync_transitions_missed; // 丢帧周期
-
-  FML_LOG(INFO) << "Scroll hiappevent ends.";
+  fml::hiappevent::MissedFrameInfo missed_frame_info;
+  // The event occurrence time (UTC ms) can be approximately regarded as the raster completion time.
+  missed_frame_info.utc_time_stamp_millis = now_ms_int64; 
+  missed_frame_info.vsync_start_time_micros = vsync_start_time_micros; // Start time of frame jank(epoch us)
+  missed_frame_info.vsync_target_time_micros = vsync_target_time_micros; // Expected time of the frame(epoch us)
+  missed_frame_info.latest_vsync_target_time_micros = latest_frame_target_time_micros; // The final expected time of the frame(epoch us)
+  missed_frame_info.frame_duration_micros = frame_duration_micros; // Duration of frame jank (duration us)
+  missed_frame_info.raster_finish_time_micros = raster_finish_time_micros; // The actual raster time of the frame(epoch us)
+  missed_frame_info.frame_budget_time_micros = frame_budget_time_micros; // Frame interval (duration us)
+  missed_frame_info.frame_number = frame_timings_recorder->GetFrameNumber(); // Frame number
+  missed_frame_info.vsync_transitions_missed = vsync_transitions_missed; 
 
   // 判断上报丢帧事件类型
   const int scroll_status =
@@ -623,28 +620,22 @@ Rasterizer::DoDrawResult Rasterizer::DoDraw(
     FML_LOG(INFO) << "Scroll hiappevent ReportScrollJANKEvent PostTask to IO thread";
     fml::TaskRunner::RunNowOrPostTask(
         io_runner,
-        [missedFrameInfo] {
+        [missed_frame_info] {
           FML_LOG(INFO) << "Hiappevent ReportScrollJANKEvent";
           fml::hiappevent::OhosHiappEventDDL::GetInstance()
-              ->ReportScrollJANKEvent(missedFrameInfo);
+              ->ReportScrollJANKEvent(missed_frame_info);
         });
   } else {
     FML_LOG(INFO) << "General hiappevent ReportJANKEvent PostTask to IO thread";
     fml::TaskRunner::RunNowOrPostTask(
         io_runner,
-        [missedFrameInfo] {
+        [missed_frame_info] {
           FML_LOG(INFO) << "Hiappevent ReportJANKEvent";
           fml::hiappevent::OhosHiappEventDDL::GetInstance()
-              ->ReportJANKEvent(missedFrameInfo);
+              ->ReportJANKEvent(missed_frame_info);
         });
   }
 
-  auto now_2 = std::chrono::system_clock::now();
-  auto duration_2 = std::chrono::duration_cast<std::chrono::milliseconds>(now_2.time_since_epoch());
-  const int64_t now_ms_int64_2 = static_cast<int64_t>(duration_2.count());
-
-  FML_LOG(INFO) << "Hiappevent end, UTC: " << now_ms_int64_2;
-  FML_LOG(INFO) << "Hiappevent diff time = " << (now_ms_int64_2 - now_ms_int64) << " ms";
 #endif
 
   }
