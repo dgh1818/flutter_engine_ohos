@@ -7,10 +7,12 @@
 #ifndef FLUTTER_SHELL_PLATFORM_OHOS_NAPI_PLATFORM_VIEW_OHOS_NAPI_H_
 #define FLUTTER_SHELL_PLATFORM_OHOS_NAPI_PLATFORM_VIEW_OHOS_NAPI_H_
 #include <memory>
+#include <mutex>
 #include "flutter/fml/file.h"
 #include "flutter/fml/mapping.h"
 #include "flutter/fml/task_runner.h"
 #include "flutter/lib/ui/window/platform_message.h"
+#include "flutter/fml/platform/ohos/dynamic_library_loader.h"
 #include "napi/native_api.h"
 
 // class for all c++ to call js function
@@ -290,6 +292,8 @@ class PlatformViewOHOSNapi {
                                             napi_callback_info info);
   static napi_value nativeSetAnimationStatus(napi_env env,
                                              napi_callback_info info);
+  static napi_value nativeNotifyPageChanged(napi_env env,
+                                            napi_callback_info info);
 
  private:
   static napi_env env_;
@@ -297,6 +301,12 @@ class PlatformViewOHOSNapi {
   static std::vector<std::string> system_languages;
   fml::RefPtr<fml::TaskRunner> platform_task_runner_;
   static int64_t napi_shell_holder_id_;
+  // Dynamic library loader for OH_AbilityRuntime_ApplicationContextNotifyPageChanged
+  static std::once_flag notify_page_changed_init_flag_;
+  static std::unique_ptr<DynamicLibraryLoader> ability_runtime_loader_;
+  using NotifyPageChangedFunc = int32_t (*)(const char*, int32_t, int32_t);
+  static NotifyPageChangedFunc notify_page_changed_func_;
+  static void InitNotifyPageChangedLoader();
 };
 
 }  // namespace flutter

@@ -1143,6 +1143,10 @@ export default class FlutterNapi {
   SetAnimationStatus(animationStatus: number): void {
     flutter.nativeSetAnimationStatus(this.nativeShellHolderId!, animationStatus);
   }
+
+  NotifyPageChanged(pageName: string, pageNameLen: number, windowID: number): number {
+    return flutter.nativeNotifyPageChanged(pageName, pageNameLen, windowID);
+  }
 }
 
 /**

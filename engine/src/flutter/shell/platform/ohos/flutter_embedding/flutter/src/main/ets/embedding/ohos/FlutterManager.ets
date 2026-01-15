@@ -12,6 +12,7 @@ import Log from '../../util/Log';
 import HashMap from '@ohos.util.HashMap';
 import List from '@ohos.util.List';
 import { deviceInfo } from '@kit.BasicServicesKit';
+import { common } from '@kit.AbilityKit';
 
 const TAG = "FlutterManager"
 
@@ -328,6 +329,37 @@ export default class FlutterManager {
     if (flutterView != null) {
       this.flutterViewList.delete(viewId);
     }
+  }
+
+  /**
+   * Get window ID for notifyPageChanged.
+   * @param context The context to get UIAbility
+   * @returns The window ID, or 0 if failed
+   */
+  getWindowId(context: common.Context): number {
+    try {
+      const uiAbility = this.getUIAbility(context);
+      if (uiAbility == null) {
+        Log.e(TAG, "getWindowId: uiAbility is null");
+        return 0;
+      }
+      const windowStage = this.getWindowStage(uiAbility);
+      if (windowStage == null) {
+        Log.e(TAG, "getWindowId: windowStage is null");
+        return 0;
+      }
+      const mainWindow = windowStage.getMainWindowSync();
+      if (mainWindow == null) {
+        Log.e(TAG, "getWindowId: mainWindow is null");
+        return 0;
+      }
+      // get windowID for notifyPageChanged.
+      const windowId = mainWindow.getWindowProperties()?.id ?? 0;
+      return windowId;
+    } catch (error) {
+      Log.e(TAG, "getWindowId failed: " + JSON.stringify(error));
+    }
+    return 0;
   }
 }
 
