@@ -15,15 +15,13 @@
 #include <rawfile/raw_file_manager.h>
 #include <string>
 
-#include "flutter/impeller/renderer/backend/vulkan/context_vk.h"
-#include "impeller/renderer/backend/vulkan/fence_waiter_vk.h"
-#include "impeller/renderer/backend/vulkan/resource_manager_vk.h"
-#include "flutter/shell/platform/ohos/context/ohos_context.h"
 #include "flutter/common/constants.h"
 #include "flutter/fml/make_copyable.h"
 #include "flutter/fml/platform/ohos/hiappevent/ohos_hiappevent.h"
 #include "flutter/fml/platform/ohos/napi_util.h"
+#include "flutter/impeller/renderer/backend/vulkan/context_vk.h"
 #include "flutter/lib/ui/plugins/callback_cache.h"
+#include "flutter/shell/platform/ohos/context/ohos_context.h"
 #include "flutter/shell/platform/ohos/ohos_logging.h"
 #include "flutter/shell/platform/ohos/ohos_main.h"
 #include "flutter/shell/platform/ohos/ohos_shell_holder.h"
@@ -31,6 +29,8 @@
 #include "flutter/shell/platform/ohos/ohos_xcomponent_adapter.h"
 #include "flutter/shell/platform/ohos/surface/ohos_native_window.h"
 #include "flutter/shell/platform/ohos/types.h"
+#include "impeller/renderer/backend/vulkan/fence_waiter_vk.h"
+#include "impeller/renderer/backend/vulkan/resource_manager_vk.h"
 #include "unicode/uchar.h"
 
 #include "flutter/fml/platform/ohos/ohos_trace_event.h"
@@ -1844,7 +1844,7 @@ napi_value PlatformViewOHOSNapi::nativeResetExternalTexture(
           textureId, need_surfaceId);
   napi_value res;
   napi_create_int64(env, surface_id, &res);
-  napi_close_handle_scope(env_, scope);  
+  napi_close_handle_scope(env_, scope);
   return res;
 }
 
@@ -2870,7 +2870,8 @@ napi_value PlatformViewOHOSNapi::nativeCheckLTPOSwitchState(
 
   napi_open_handle_scope(env_, nullptr);
   napi_value napiVotingSwitchState;
-  napi_create_uint32(env, static_cast<uint32_t>(votingSwitchState), &napiVotingSwitchState);
+  napi_create_uint32(env, static_cast<uint32_t>(votingSwitchState),
+                     &napiVotingSwitchState);
   napi_close_handle_scope(env_, nullptr);
   return napiVotingSwitchState;
 }
@@ -2887,14 +2888,13 @@ napi_value PlatformViewOHOSNapi::nativeSetQosOnLowMemory(
   NAPI_CALL(env, napi_get_value_int64(env, args[0], &shell_holder));
   NAPI_CALL(env, napi_get_value_int64(env, args[1], &lowMemoryLevel));
 
-  std::shared_ptr<OHOSContext> ohos_context = OHOS_SHELL_HOLDER
-                                                  ->GetPlatformView()
-                                                  ->GetOHOSContext();
-  if(ohos_context == nullptr) {
+  std::shared_ptr<OHOSContext> ohos_context =
+      OHOS_SHELL_HOLDER->GetPlatformView()->GetOHOSContext();
+  if (ohos_context == nullptr) {
     FML_LOG(ERROR) << "nativeSetQosOnLowMemory ohos_context is nullptr";
     return nullptr;
   }
-  if(ohos_context->RenderingApi() != OHOSRenderingAPI::kImpellerVulkan) {
+  if (ohos_context->RenderingApi() != OHOSRenderingAPI::kImpellerVulkan) {
     return nullptr;
   }
 
@@ -2918,14 +2918,16 @@ napi_value PlatformViewOHOSNapi::nativeSetQosOnLowMemory(
   return nullptr;
 }
 
-napi_value PlatformViewOHOSNapi::nativeSetAnimationStatus(napi_env env, napi_callback_info info)
-{
+napi_value PlatformViewOHOSNapi::nativeSetAnimationStatus(
+    napi_env env,
+    napi_callback_info info) {
   size_t argc = 2;
   napi_value args[2] = {nullptr};
 
   napi_status ret = napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
   if (ret != napi_ok) {
-    FML_LOG(ERROR) << "nativeSetAnimationStatus napi_get_cb_info error, " << ret;
+    FML_LOG(ERROR) << "nativeSetAnimationStatus napi_get_cb_info error, "
+                   << ret;
     return nullptr;
   }
 
@@ -2942,7 +2944,8 @@ napi_value PlatformViewOHOSNapi::nativeSetAnimationStatus(napi_env env, napi_cal
   ret = napi_get_value_int32(env, args[1], &type);
   if (ret != napi_ok) {
     FML_LOG(ERROR) << "nativeSetAnimationStatus type "
-                      "napi_get_value_int32 error, " << ret;
+                      "napi_get_value_int32 error, "
+                   << ret;
     return nullptr;
   }
 
@@ -2950,20 +2953,15 @@ napi_value PlatformViewOHOSNapi::nativeSetAnimationStatus(napi_env env, napi_cal
   auto status = static_cast<fml::hiappevent::ScrollingStatus>(type);
   switch (status) {
     case fml::hiappevent::ScrollingStatus::kScrollStart:
-      OHOS_SHELL_HOLDER->GetPlatformView()->RunTask(
-        OhosThreadType::kIO,
-        [] {
-          fml::hiappevent::OhosHiappEventDDL::GetInstance()->OnScrollStart();
-        }
-      );
+      OHOS_SHELL_HOLDER->GetPlatformView()->RunTask(OhosThreadType::kIO, [] {
+        fml::hiappevent::OhosHiappEventDDL::GetInstance()->OnScrollStart();
+      });
       break;
     case fml::hiappevent::ScrollingStatus::kScrollEnd:
-      OHOS_SHELL_HOLDER->GetPlatformView()->RunTask(
-        OhosThreadType::kIO,
-        [] {
-          fml::hiappevent::OhosHiappEventDDL::GetInstance()->OnScrollEndAndFlush();
-        }
-      );
+      OHOS_SHELL_HOLDER->GetPlatformView()->RunTask(OhosThreadType::kIO, [] {
+        fml::hiappevent::OhosHiappEventDDL::GetInstance()
+            ->OnScrollEndAndFlush();
+      });
       break;
     default:
       break;
