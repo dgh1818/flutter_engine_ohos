@@ -116,6 +116,65 @@ function patch_cipd() {
     cd ./cipd && ./patch_cipd.sh
 }
 
+function patch_sdk() {
+    # Daily build SDK  https://ci.openharmony.cn/workbench/cicd/dailybuild/dailylist
+    SDK_URL="https://cidownload.openharmony.cn/version/Daily_Version/OpenHarmony_6.1.0.28/20260115_120141/version-Daily_Version-OpenHarmony_6.1.0.28-20260115_120141-ohos-sdk-public.tar.gz"
+    echo "$ cd /home/tools/command-line-tools/sdk/default/"
+    cd /home/tools/command-line-tools/sdk/default/
+    mkdir download
+    echo "$ rm -r openharmony"
+    rm -r openharmony
+    echo "$ ls -al"
+    ls -al
+    cd download
+    echo "Starting to download daily build SDK"
+    echo "$ curl -sS -f -L -- $SDK_URL > sdk_openharmony.tar.gz"
+    curl -f -L -- "$SDK_URL" >sdk_openharmony.tar.gz
+    if [ $? -ne 0 ]; then
+        echo "[Error]: Download failed!!!"
+        return 1
+    fi
+    echo "[Success]: Download completed!!!"
+
+    echo "Starting to verify SDK"
+    local correct_SHA256="4a6ee8412028fe476d2042173265f8ebdfbc8973b97a5696757cabb5b8e4adb5"
+    local sdk_sum=$(sha256sum sdk_openharmony.tar.gz)
+    sdk_sum=${sdk_sum:0:64}
+    if [ "x$sdk_sum" != "x$correct_SHA256" ]; then
+        echo "tools_sum(no x) is : x$sdk_sum"
+        echo "SHA-256_command-line-tools(no x) is : x$correct_SHA256"
+        echo "Error: please change sdk_openharmony.tar.gz!!!"
+        return 1
+    fi
+    echo "[Success]: SDK verification passed!!!"
+
+    echo "Starting to extract daily build SDK"
+    echo "$ tar -zxvf ./sdk_openharmony.tar.gz"
+    tar -zxvf ./sdk_openharmony.tar.gz
+    echo "$ cd ./linux"
+    cd ./linux
+    if [ $? -ne 0 ]; then
+        echo "[Error]: linux directory not found!!!"
+        return 1
+    fi
+
+    echo "$ for file in ls ./"
+    for file in $(ls ./); do
+        echo "$ unzip -qo $file"
+        unzip -qo "$file"
+        if [ $? -ne 0 ]; then
+            echo "[Error]: Failed to extract $file!!!"
+            return 1
+        fi
+        echo "$ rm -f $file"
+        rm -f "$file"
+        echo "[Success]: $file extraction completed!!!"
+    done
+    echo "[Success]: Daily build SDK extraction completed!!!"
+
+    cd ../../ && mv download/linux openharmony
+}
+
 # Sync cache
 function sync_cache() {
     echo "Sync cache"
@@ -205,6 +264,7 @@ function prepare_tester() {
 
 # Entry
 function prepare() {
+    patch_sdk
     check_env
     sync_cache
     maybe_restore_engine
