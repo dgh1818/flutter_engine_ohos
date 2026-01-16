@@ -183,8 +183,11 @@ napi_value OhosMain::Init(napi_env env, napi_callback_info info) {
   g_flutter_main.reset(new OhosMain(settings));
   // TODO : g_flutter_main->SetupObservatoryUriCallback(env);
   LOGD("OhosMain::Init finished.");
+  napi_handle_scope scope;
+  napi_open_handle_scope(env, &scope);
   napi_value result;
   napi_create_int64(env, 0, &result);
+  napi_close_handle_scope(env, scope);
   return result;
 }
 
