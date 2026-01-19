@@ -311,6 +311,10 @@ class OhosDevice extends Device {
     ProtocolDiscovery? observatoryDiscovery;
 
     if (debuggingOptions.debuggingEnabled) {
+      // Clear hilog buffer before starting the app to ensure ProtocolDiscovery
+      // picks up the NEW VM Service URI, not a stale one from a previous run.
+      clearLogs();
+
       observatoryDiscovery = ProtocolDiscovery.vmService(
         // Avoid using getLogReader, which returns a singleton instance, because the
         // observatory discovery will dipose at the end. creating a new logger here allows
