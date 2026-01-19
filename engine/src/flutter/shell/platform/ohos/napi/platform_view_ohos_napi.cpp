@@ -2994,14 +2994,16 @@ napi_value PlatformViewOHOSNapi::nativeNotifyPageChanged(napi_env env, napi_call
   }
   
   // OH_AbilityRuntime_NotifyPageChanged requires IDE SDK version >= 23
+  // Return value: 0 means success, non-zero means error
   int32_t result = notify_page_changed_func_(pageName.c_str(), pageNameLen, windowId);
   if (result == 0) {
-    FML_LOG(ERROR) << "nativeNotifyPageChanged OH_AbilityRuntime_NotifyPageChanged error";
+    LOGD("nativeNotifyPageChanged success, name: %s, pageNameLen: %d, windowId: %d",
+         pageName.c_str(), pageNameLen, windowId);
     napi_create_int32(env, result, &resultValue);
     return resultValue;
   } else {
-    LOGD("nativeNotifyPageChanged success, name: %s, pageNameLen: %d, windowId: %d",
-         pageName.c_str(), pageNameLen, windowId);
+    FML_LOG(ERROR) << "nativeNotifyPageChanged OH_AbilityRuntime_NotifyPageChanged error, result: " << result
+                   << ", name: " << pageName << ", pageNameLen: " << pageNameLen << ", windowId: " << windowId;
     napi_create_int32(env, result, &resultValue);
     return resultValue;
   }

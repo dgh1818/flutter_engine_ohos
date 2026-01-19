@@ -121,10 +121,11 @@ class NavigationCallback implements MethodCallHandler {
     }
 
     const notifyResult = this.dartExecutor.flutterNapi.NotifyPageChanged(currentUri, currentUriLen, windowId);
+    // Return value: 0 means success, non-zero means error
     if (notifyResult == 0) {
-      Log.e(NavigationCallback.TAG, "NotifyPageChanged failed, uri: " + currentUri + ", windowId: " + windowId);
+      Log.i(NavigationCallback.TAG, "NotifyPageChanged success, uri: " + currentUri + ", windowId: " + windowId);
     } else {
-      Log.i(NavigationCallback.TAG, "NotifyPageChanged success, uri: " + currentUri + ", windowId: " + windowId + ", result: " + notifyResult);
+      Log.e(NavigationCallback.TAG, "NotifyPageChanged failed, uri: " + currentUri + ", windowId: " + windowId + ", result: " + notifyResult);
     }
 
     result.success(null);
