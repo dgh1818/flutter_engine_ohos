@@ -2937,11 +2937,15 @@ napi_value PlatformViewOHOSNapi::nativeSetAnimationStatus(napi_env env, napi_cal
 napi_value PlatformViewOHOSNapi::nativeNotifyPageChanged(napi_env env, napi_callback_info info)
 {
   FML_LOG(INFO) << "PlatformViewOHOSNapi::nativeNotifyPageChanged start";
+  napi_handle_scope scope;
+  napi_open_handle_scope(env, &scope);
+  
   int apiVersion = DynamicLibraryLoader::GetApiVersion();
   if (apiVersion < 23) {
     LOGE("nativeNotifyPageChanged is not supported on this API level");
     napi_value resultValue;
     napi_create_int32(env, 0, &resultValue);
+    napi_close_handle_scope(env, scope);
     return resultValue;
   }
 
@@ -2952,6 +2956,7 @@ napi_value PlatformViewOHOSNapi::nativeNotifyPageChanged(napi_env env, napi_call
     FML_LOG(ERROR) << "OH_AbilityRuntime_ApplicationContextNotifyPageChanged function is not available";
     napi_value resultValue;
     napi_create_int32(env, 0, &resultValue);
+    napi_close_handle_scope(env, scope);
     return resultValue;
   }
 
@@ -2967,29 +2972,34 @@ napi_value PlatformViewOHOSNapi::nativeNotifyPageChanged(napi_env env, napi_call
   ret = napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
   if (ret != napi_ok) {
     FML_LOG(ERROR) << "nativeNotifyPageChanged napi_get_cb_info error:" << ret;
+    napi_close_handle_scope(env, scope);
     return nullptr;
   }
 
   if (argc < 3) {
     FML_LOG(ERROR) << "nativeNotifyPageChanged wrong number of arguments, argc=" << argc;
     napi_throw_type_error(env, nullptr, "Wrong number of arguments");
+    napi_close_handle_scope(env, scope);
     return nullptr;
   }
 
   if (fml::napi::GetString(env, args[0], pageName) != 0) {
     FML_LOG(ERROR) << "nativeNotifyPageChanged pageName GetString error";
+    napi_close_handle_scope(env, scope);
     return nullptr;
   }
 
   ret = napi_get_value_int32(env, args[1], &pageNameLen);
   if (ret != napi_ok) {
     FML_LOG(ERROR) << "nativeNotifyPageChanged pageNameLen napi_get_value_int32 error";
+    napi_close_handle_scope(env, scope);
     return nullptr;
   }
 
   ret = napi_get_value_int32(env, args[2], &windowId);
   if (ret != napi_ok) {
     FML_LOG(ERROR) << "nativeNotifyPageChanged windowId napi_get_value_int32 error";
+    napi_close_handle_scope(env, scope);
     return nullptr;
   }
   
@@ -3000,11 +3010,13 @@ napi_value PlatformViewOHOSNapi::nativeNotifyPageChanged(napi_env env, napi_call
     LOGD("nativeNotifyPageChanged success, name: %s, pageNameLen: %d, windowId: %d",
          pageName.c_str(), pageNameLen, windowId);
     napi_create_int32(env, result, &resultValue);
+    napi_close_handle_scope(env, scope);
     return resultValue;
   } else {
     FML_LOG(ERROR) << "nativeNotifyPageChanged OH_AbilityRuntime_NotifyPageChanged error, result: " << result
                    << ", name: " << pageName << ", pageNameLen: " << pageNameLen << ", windowId: " << windowId;
     napi_create_int32(env, result, &resultValue);
+    napi_close_handle_scope(env, scope);
     return resultValue;
   }
 }
