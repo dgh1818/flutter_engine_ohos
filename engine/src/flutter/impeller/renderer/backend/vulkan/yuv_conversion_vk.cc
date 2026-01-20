@@ -62,6 +62,11 @@ std::size_t YUVConversionDescriptorVKHash::operator()(
   fml::HashCombineSeed(hash, external_format.externalFormat);
 #endif  // FML_OS_ANDROID
 
+#if FML_OS_OHOS
+  const auto external_format = desc.get<vk::ExternalFormatOHOS>();
+  fml::HashCombineSeed(hash, external_format.externalFormat);
+#endif  // FML_OS_OHOS
+
   return hash;
 };
 
@@ -95,9 +100,17 @@ bool YUVConversionDescriptorVKEqual::operator()(
     const auto rhs = rhs_desc.get<vk::ExternalFormatANDROID>();
     return lhs.externalFormat == rhs.externalFormat;
   }
-#else   // FML_OS_ANDROID
+// FML_OS_ANDROID
+#elif FML_OS_OHOS
+  {
+    const auto lhs = lhs_desc.get<vk::ExternalFormatOHOS>();
+    const auto rhs = rhs_desc.get<vk::ExternalFormatOHOS>();
+    return lhs.externalFormat == rhs.externalFormat;
+  }
+// FML_OS_OHOS
+#else
   return true;
-#endif  // FML_OS_ANDROID
+#endif
 }
 
 ImmutableSamplerKeyVK::ImmutableSamplerKeyVK(const SamplerVK& sampler)
