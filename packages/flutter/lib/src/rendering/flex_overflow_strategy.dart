@@ -76,6 +76,7 @@ class OhosFlexOverflowStrategy implements FlexOverflowStrategy {
   // Local state for each strategy instance
   bool _isReportingOverflow = false;
   double _lastScreenHeight = 0.0;
+  double _lastScaleFactor = 1.0;
 
   OhosFlexOverflowStrategy() {
     _initializeState();
@@ -85,6 +86,7 @@ class OhosFlexOverflowStrategy implements FlexOverflowStrategy {
   void _initializeState() {
     _isReportingOverflow = false;
     _lastScreenHeight = 0.0;
+    _lastScaleFactor = 1.0;
   }
 
   /// Checks if overflow handling should be triggered
@@ -109,13 +111,17 @@ class OhosFlexOverflowStrategy implements FlexOverflowStrategy {
     return scale.clamp(_kMinScaleFactor, 1.0);
   }
 
-  /// Determines if overflow should be reported
-  bool _shouldReportOverflow(RenderFlex renderFlex, ScreenInfo screenInfo) {
+/// Determines if overflow should be reported
+  bool _shouldReportOverflow(
+      RenderFlex renderFlex, ScreenInfo screenInfo, double scale) {
     // Only report overflow under the following conditions:
     // 1. There is overflow
     // 2. Never reported before, or screen height has changed
+    // 3. Scale is within valid range and smaller than previous scale
     return _getOverflowStatus(renderFlex) &&
-        (!_isReportingOverflow || screenInfo.isHeightChanged);
+        (!_isReportingOverflow ||
+            screenInfo.isHeightChanged ||
+            (scale >= _kMinScaleFactor && scale < _lastScaleFactor));
   }
 
   /// Gets the overflow status from RenderFlex
@@ -135,12 +141,17 @@ class OhosFlexOverflowStrategy implements FlexOverflowStrategy {
     final ScreenInfo screenInfo = _getScreenInfo();
     final double scale = _calculateScale(screenInfo, actualSize, allocatedSize);
 
-    if (_shouldReportOverflow(renderFlex, screenInfo)) {
-      // Add this instance to the global tracking set
-      _overflowingInstances.add(WeakReference(renderFlex));
+    if (_shouldReportOverflow(renderFlex, screenInfo, scale)) {
+      // Check if this instance is already being tracked
+      bool isAlreadyTracked = _overflowingInstances.any((weakRef) => weakRef.target == renderFlex);
+      if (!isAlreadyTracked) {
+        // Add this instance to the global tracking set
+        _overflowingInstances.add(WeakReference(renderFlex));
+      }
       _isReportingOverflow = true;
       _anyInstanceReportingOverflow = true;
       _reportFlexOverflow(scale);
+      _lastScaleFactor = scale;
     }
 
     _updateScreenState = screenInfo.height;
@@ -184,6 +195,9 @@ class OhosFlexOverflowStrategy implements FlexOverflowStrategy {
   @override
   void handleOverflow(
       RenderFlex renderFlex, double actualSize, double allocatedSize) {
+    if (actualSize <= 0 || allocatedSize <= 0) {
+      return;
+    }
     if (!_shouldHandleOverflow(renderFlex)) {
       return;
     }
