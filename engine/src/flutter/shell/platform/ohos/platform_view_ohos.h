@@ -7,6 +7,7 @@
 #ifndef FLUTTER_SHELL_PLATFORM_OHOS_PLATFORM_VIEW_OHOS_H_
 #define FLUTTER_SHELL_PLATFORM_OHOS_PLATFORM_VIEW_OHOS_H_
 
+#include <atomic>
 #include <memory>
 #include <queue>
 #include <string>
@@ -18,9 +19,12 @@
 #include <multimedia/image_framework/image_pixel_map_mdk.h>
 
 #include "flutter/fml/memory/weak_ptr.h"
+#include "flutter/fml/task_runner.h"
+#include "flutter/fml/time/time_point.h"
 #include "flutter/lib/ui/window/platform_message.h"
 #include "flutter/shell/common/platform_view.h"
 #include "flutter/shell/platform/ohos/accessibility/ohos_semantics_bridge.h"
+#include "flutter/shell/platform/ohos/background_resource_cleanup.h"
 #include "flutter/shell/platform/ohos/context/ohos_context.h"
 #include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
 #include "flutter/shell/platform/ohos/ohos_external_texture_gl.h"
@@ -174,6 +178,24 @@ class PlatformViewOHOS final : public PlatformView {
 
   void SimulateTouchEvent(SemanticsNodeExtend* node);
 
+  //--------------------------------------------------------------------------
+  /// @brief  GPU Resource Reclaim Policy APIs
+  //--------------------------------------------------------------------------
+
+  /// @brief  Called when surface is created.
+  void OnSurfaceCreated();
+
+  /// @brief Called when surface is destroyed.
+  void OnSurfaceDestroyed();
+
+  /// @brief  Returns whether the frame gate is currently enabled.
+  ///         When frame gate is on, MarkTextureFrameAvailable should be
+  ///         blocked.
+  /// Thread-safe: Can be called from any thread.
+  bool IsFrameGateEnabled() const {
+    return frame_gate_enabled_.load(std::memory_order_acquire);
+  }
+
  private:
   const std::shared_ptr<PlatformViewOHOSNapi> napi_facade_;
   std::shared_ptr<OHOSContext> ohos_context_;
@@ -203,6 +225,83 @@ class PlatformViewOHOS final : public PlatformView {
   std::shared_ptr<std::mutex> bridge_mutex_;
   int32_t accessibility_feature_flags_ = 0;
   bool is_accessibility_navigation_ = false;
+
+  //--------------------------------------------------------------------------
+  /// @brief  GPU Resource Reclaim Policy state
+  //--------------------------------------------------------------------------
+
+  /// Current lifecycle state
+  AppLifecycleState lifecycle_state_ = AppLifecycleState::kDetached;
+
+  /// Whether onscreen context is valid (set false after
+  /// TeardownOnScreenContext)
+  std::atomic<bool> onscreen_context_valid_{true};
+
+  /// Cached native window for rebuilding after aggressive teardown
+  fml::RefPtr<OHOSNativeWindow> cached_native_window_;
+
+  /// Current GPU reclaim level
+  GpuReclaimLevel current_reclaim_level_ = GpuReclaimLevel::kRestore;
+
+  /// Frame gate flag - when true, external texture frame updates are blocked
+  /// Thread-safety: Read from callback threads, written from platform thread,
+  /// use atomic.
+  std::atomic<bool> frame_gate_enabled_{false};
+
+  //--------------------------------------------------------------------------
+  /// @brief  GPU Resource Reclaim Policy internal methods
+  /// Architecture:
+  ///   - EvaluateReclaimLevel: Decide action based on state transition
+  ///   - ApplyReclaimLevel:    Execute decision
+  ///   - ExecuteReclaimXxx:    Perform actual GPU resource operations
+  //--------------------------------------------------------------------------
+
+  /// @brief  Main entry point for handling application lifecycle state changes.
+  /// @param  state  The new lifecycle state string from platform layer.
+  void OnApplicationStateChange(const std::string& state);
+
+  /// @brief  Handle lifecycle platform channel messages.
+  /// @param  name  Platform channel name.
+  /// @param  message  Raw message bytes.
+  /// @param  message_length  Message size in bytes.
+  void HandleLifecyclePlatformMessage(const std::string& name,
+                                      const void* message,
+                                      int message_length);
+
+  /// @brief  Evaluates the reclaim decision for a state transition.
+  /// @param  old_state  The previous lifecycle state.
+  /// @param  new_state  The new lifecycle state.
+  /// @return The decision for how to apply reclaim.
+  GpuReclaimDecision EvaluateReclaimLevel(AppLifecycleState old_state,
+                                          AppLifecycleState new_state) const;
+
+  /// @brief  Applies the given reclaim decision.
+  /// @param  decision  The reclaim decision to apply
+  void ApplyReclaimLevel(GpuReclaimDecision decision);
+
+  /// @brief  Executes kRestore level actions (foreground restoration).
+  void ExecuteReclaimRestore();
+
+  /// @brief  Executes kAggressive level actions (aggressive cleanup).
+  void ExecuteReclaimAggressive();
+
+  // ======================== Helper Methods ==================================
+
+  /// @brief  Determines whether the onscreen context needs to be rebuilt.
+  /// @return true if the context should be rebuilt, false if not.
+  bool ShouldRebuildOnscreenContext() const;
+
+  /// @brief  Posts tasks to rebuild the onscreen context and surface.
+  void PostRebuildOnscreenContextTasks();
+
+  /// @brief  Runs a task on the raster thread and waits for its completion.
+  /// @param  task  The closure to run on the raster thread.
+  void RunOnRasterAndWait(fml::closure task);
+
+  /// @brief  Attempts to free Skia GPU resources.
+  static void TryFreeSkiaGpuResources(
+      const std::shared_ptr<OHOSSurface>& surface,
+      const std::shared_ptr<OHOSContext>& context);
 
   // |PlatformView|
   void UpdateSemantics(

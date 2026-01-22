@@ -31,6 +31,7 @@
 #include "shell/common/platform_view.h"
 #include "shell/platform/ohos/accessibility/ohos_semantics_node.h"
 #include "shell/platform/ohos/context/ohos_context.h"
+#include "shell/platform/ohos/background_resource_cleanup.h"
 #include "shell/platform/ohos/ohos_surface_vulkan_impeller.h"
 
 namespace flutter {
@@ -38,6 +39,7 @@ namespace flutter {
 // This global map's key is (texture_id)
 std::map<uint64_t, PlatformViewOHOS*> g_texture_platformview_map;
 std::recursive_mutex g_map_mutex;
+static constexpr char K_FLUTTER_LIFECYCLE[] = "flutter/lifecycle";
 
 OhosSurfaceFactoryImpl::OhosSurfaceFactoryImpl(
     const std::shared_ptr<OHOSContext>& context)
@@ -144,6 +146,10 @@ PlatformViewOHOS::~PlatformViewOHOS() {
 void PlatformViewOHOS::NotifyCreate(
     fml::RefPtr<OHOSNativeWindow> native_window) {
   LOGI("NotifyCreate start");
+
+  // Cache the native window for potential rebuild after aggressive teardown
+  cached_native_window_ = native_window;
+
   if (ohos_surface_) {
     InstallFirstFrameCallback();
     LOGI("NotifyCreate start1");
@@ -165,7 +171,13 @@ void PlatformViewOHOS::NotifyCreate(
         [&, surface = ohos_surface_.get(),
          native_window = std::move(native_window)]() {
           LOGI("NotifyCreate start4");
-          surface->SetDisplayWindow(native_window);
+          bool set_window_result = surface->SetDisplayWindow(native_window);
+          // Mark onscreen context as valid only after successful setup
+          if (set_window_result) {
+            onscreen_context_valid_.store(true, std::memory_order_release);
+          } else {
+            FML_LOG(ERROR) << "NotifyCreate: SetDisplayWindow failed";
+          }
           // Note that NotifyDestroyed will wait raster task, so platformview is
           // not deleted here.
           if (!window_is_preload_) {
@@ -280,6 +292,9 @@ void PlatformViewOHOS::UpdateDisplaySize(int width, int height) {
 void PlatformViewOHOS::NotifyDestroyed() {
   LOGI("PlatformViewOHOS NotifyDestroyed enter");
 
+  // Mark context as invalid to prevent ExecuteReclaimAggressive from running
+  onscreen_context_valid_.store(false, std::memory_order_release);
+
   // Note: NotifyCreate is invoked in raster thread. So we post NotifyDestroyed
   // to raster to avoid latent conflic.
   fml::AutoResetWaitableEvent latch;
@@ -347,6 +362,7 @@ void PlatformViewOHOS::DispatchPlatformMessage(std::string name,
                                                int reponseId) {
   FML_DLOG(INFO) << "DispatchPlatformMessage（" << name << "," << messageLenth
                  << "," << reponseId;
+  HandleLifecyclePlatformMessage(name, message, messageLenth);
   fml::MallocMapping mapMessage =
       fml::MallocMapping::Copy(message, messageLenth);
 
@@ -616,6 +632,14 @@ void PlatformViewOHOS::OnNativeImageFrameAvailable(void* data) {
     return;
   }
 
+  // Frame gate check: block external texture updates when in background
+  if (platform->IsFrameGateEnabled()) {
+    FML_VLOG(1) << "OnNativeImageFrameAvailable: frame gate enabled, "
+                << "skipping MarkTextureFrameAvailable for texture "
+                << ptexture_id;
+    return;
+  }
+
   // Note: PostTask may lead to a deadlock if a render task (which might acquire
   // the buffer) is dispatched earlier and scheduled to run before this task.
   // So we use recursive_mutex to safely invoke OnNativeImageFrameAvailable from
@@ -628,6 +652,10 @@ void PlatformViewOHOS::OnNativeImageFrameAvailable(void* data) {
           return;
         }
         PlatformViewOHOS* platform = g_texture_platformview_map[ptexture_id];
+        // Double-check frame gate in case state changed
+        if (platform->IsFrameGateEnabled()) {
+          return;
+        }
         uint64_t texture_id = ptexture_id;
         platform->MarkTextureFrameAvailable(texture_id);
       });
@@ -760,7 +788,7 @@ void PlatformViewOHOS::OnTouchEvent(
 
 void PlatformViewOHOS::OnMouseEvent(
     const std::shared_ptr<std::string[]>& mousePacketString,
-    const int& size){
+    const int& size) {
   return napi_facade_->FlutterViewOnMouseEvent(mousePacketString, size);
 }
 
@@ -925,6 +953,260 @@ void PlatformViewOHOS::SimulateTouchEvent(SemanticsNodeExtend* node) {
   pointerData.buttons = 0;
   upPacket->SetPointerData(0, pointerData);
   DispatchPointerDataPacket(std::move(upPacket));
+}
+
+//------------------------------------------------------------------------------
+// GPU Resource Reclaim Policy
+// Reclaims GPU resources (DMA buffers, textures) when app enters background
+// to reduce memory footprint, and rebuilds them when returning to foreground.
+//   Event (Lifecycle/Surface) -> EvaluateReclaimLevel -> ApplyReclaimLevel
+//------------------------------------------------------------------------------
+
+void PlatformViewOHOS::HandleLifecyclePlatformMessage(const std::string& name,
+                                                      const void* message,
+                                                      int message_length) {
+  if (name != K_FLUTTER_LIFECYCLE || message_length <= 0 || message == nullptr) {
+    return;
+  }
+  const auto* bytes = static_cast<const char*>(message);
+  std::string state(bytes, static_cast<size_t>(message_length));
+  OnApplicationStateChange(state);
+}
+
+void PlatformViewOHOS::OnSurfaceCreated() {
+  FML_LOG(INFO) << "GpuReclaim: SurfaceCreated, lifecycle="
+                << LifecycleStateToString(lifecycle_state_);
+
+  // Surface created - evaluate and apply appropriate level
+  ApplyReclaimLevel(
+      EvaluateReclaimLevel(lifecycle_state_, lifecycle_state_));
+}
+
+void PlatformViewOHOS::OnSurfaceDestroyed() {
+  FML_LOG(INFO) << "GpuReclaim: SurfaceDestroyed, lifecycle="
+                << LifecycleStateToString(lifecycle_state_);
+  current_reclaim_level_ = GpuReclaimLevel::kAggressive;
+  // Don't trigger aggressive cleanup here - NotifyDestroyed will handle proper
+  // teardown. Just update the state for future reclaim level evaluation.
+}
+
+//==============================================================================
+// Layer 1: Policy Decision
+//==============================================================================
+
+void PlatformViewOHOS::OnApplicationStateChange(const std::string& state) {
+  AppLifecycleState new_state;
+  if (!ParseAppLifecycleState(state, new_state)) {
+    FML_LOG(WARNING) << "GpuReclaim: Unknown lifecycle state: " << state;
+    return;
+  }
+
+  const AppLifecycleState old_state = lifecycle_state_;
+  FML_LOG(INFO) << "GpuReclaim: Lifecycle "
+                << LifecycleStateToString(lifecycle_state_) << " -> "
+                << LifecycleStateToString(new_state);
+  lifecycle_state_ = new_state;
+  ApplyReclaimLevel(EvaluateReclaimLevel(old_state, new_state));
+}
+
+GpuReclaimDecision PlatformViewOHOS::EvaluateReclaimLevel(
+    AppLifecycleState old_state,
+    AppLifecycleState new_state) const {
+  const bool was_in_background = (old_state == AppLifecycleState::kPaused ||
+                                  old_state == AppLifecycleState::kHidden ||
+                                  old_state == AppLifecycleState::kDetached);
+  const bool is_in_background = (new_state == AppLifecycleState::kPaused ||
+                                 new_state == AppLifecycleState::kHidden ||
+                                 new_state == AppLifecycleState::kDetached);
+  const bool entering_background = is_in_background && !was_in_background;
+  const bool returning_to_foreground = (new_state == AppLifecycleState::kResumed);
+  const bool onscreen_valid = onscreen_context_valid_.load(std::memory_order_acquire);
+
+  GpuReclaimLevel target_level = GpuReclaimLevel::kRestore;
+
+  // Rule 0: Onscreen context was torn down - need rebuild when resumed
+  if (!onscreen_valid) {
+    target_level = (new_state == AppLifecycleState::kResumed)
+                       ? GpuReclaimLevel::kRestore
+                       : GpuReclaimLevel::kAggressive;
+  } else if (entering_background || is_in_background) {
+    // Rule 1: Background states -> aggressive cleanup
+    target_level = GpuReclaimLevel::kAggressive;
+  } else if (returning_to_foreground) {
+    // Rule 2: Foreground -> normal operation
+    target_level = GpuReclaimLevel::kRestore;
+  } else if (new_state == AppLifecycleState::kInactive) {
+    // Rule 3: Inactive -> keep foreground resources
+    target_level = GpuReclaimLevel::kRestore;
+  } else {
+    FML_LOG(WARNING) << "GpuReclaim: Unhandled lifecycle transition old="
+                     << LifecycleStateToString(old_state)
+                     << " new=" << LifecycleStateToString(new_state)
+                     << " onscreen_valid=" << (onscreen_valid ? "yes" : "no");
+  }
+
+  if (target_level == current_reclaim_level_) {
+    return GpuReclaimDecision::kNoChange;
+  }
+
+  return (target_level == GpuReclaimLevel::kRestore)
+             ? GpuReclaimDecision::kRestore
+             : GpuReclaimDecision::kAggressive;
+}
+
+//==============================================================================
+// Layer 2: Policy Update
+//==============================================================================
+
+void PlatformViewOHOS::ApplyReclaimLevel(GpuReclaimDecision decision) {
+  if (decision == GpuReclaimDecision::kNoChange) {
+    return;
+  }
+
+  const GpuReclaimLevel level =
+      (decision == GpuReclaimDecision::kRestore)
+          ? GpuReclaimLevel::kRestore
+          : GpuReclaimLevel::kAggressive;
+
+  FML_LOG(INFO) << "GpuReclaim: "
+                << ReclaimLevelToString(current_reclaim_level_) << " -> "
+                << ReclaimLevelToString(level);
+
+  current_reclaim_level_ = level;
+
+  switch (decision) {
+    case GpuReclaimDecision::kRestore:
+      ExecuteReclaimRestore();
+      break;
+    case GpuReclaimDecision::kAggressive:
+      ExecuteReclaimAggressive();
+      break;
+    case GpuReclaimDecision::kNoChange:
+      break;
+    default:
+      FML_DLOG(WARNING) << "GpuReclaim: Unknown reclaim decision";
+      break;
+  }
+}
+
+void PlatformViewOHOS::ExecuteReclaimRestore() {
+  FML_LOG(INFO) << "GpuReclaim: ExecuteRestore - restoring foreground state";
+
+  // 1. Disable frame gate (allow external texture updates)
+  frame_gate_enabled_.store(false, std::memory_order_release);
+
+  // 2. Rebuild onscreen context if it was torn down
+  if (!ShouldRebuildOnscreenContext()) {
+    return;
+  }
+  PostRebuildOnscreenContextTasks();
+}
+
+bool PlatformViewOHOS::ShouldRebuildOnscreenContext() const {
+  return ohos_surface_ && cached_native_window_ && !onscreen_context_valid_.load(std::memory_order_acquire);
+}
+
+void PlatformViewOHOS::PostRebuildOnscreenContextTasks() {
+  FML_LOG(INFO) << "GpuReclaim: Rebuilding onscreen context";
+
+  auto weak_this = GetWeakPtr();
+  auto surface_ptr = ohos_surface_;
+  auto native_window = cached_native_window_;
+  auto task_runners = task_runners_;
+
+  fml::TaskRunner::RunNowOrPostTask(
+      task_runners_.GetRasterTaskRunner(),
+      [weak_this, surface_ptr, native_window, task_runners]() {
+        const bool set_window_result =
+            surface_ptr && surface_ptr->SetDisplayWindow(native_window);
+        if (!set_window_result) {
+          FML_LOG(ERROR)<< "GpuReclaim: [Raster] SetDisplayWindow failed during rebuild";
+          return;
+        }
+        FML_LOG(INFO) << "GpuReclaim: [Raster] Surface REBUILT";
+        fml::TaskRunner::RunNowOrPostTask(
+            task_runners.GetPlatformTaskRunner(),
+            [weak_this]() {
+              auto* ohos_view = static_cast<PlatformViewOHOS*>(weak_this.get());
+              if (!ohos_view) {
+                return;
+              }
+              ohos_view->onscreen_context_valid_.store(
+                  true, std::memory_order_release);
+              ohos_view->ScheduleFrame();
+            });
+      });
+}
+
+void PlatformViewOHOS::ExecuteReclaimAggressive() {
+  // Skip if already torn down (e.g., NotifyDestroyed was called first)
+  if (!onscreen_context_valid_.load(std::memory_order_acquire)) {
+    FML_LOG(INFO) << "GpuReclaim: ExecuteAggressive skipped - context already invalid";
+    return;
+  }
+
+  FML_LOG(INFO) << "GpuReclaim: ExecuteAggressive";
+
+  // 1. Enable frame gate
+  frame_gate_enabled_.store(true, std::memory_order_release);
+
+  // 2. Mark context invalid BEFORE teardown
+  onscreen_context_valid_.store(false, std::memory_order_release);
+
+  // 3. Free GPU resources and teardown onscreen context (on Raster thread,
+  // sync)
+  auto surface_ptr = ohos_surface_;  // shared_ptr copy ensures lifetime
+  if (!surface_ptr) {
+    return;
+  }
+  auto context_ptr = ohos_context_;  // shared_ptr copy ensures lifetime
+  const bool is_skia = (context_ptr && context_ptr->RenderingApi() ==
+                                           OHOSRenderingAPI::kOpenGLES);
+
+  RunOnRasterAndWait([surface_ptr, context_ptr, is_skia]() {
+    if (is_skia) {
+      TryFreeSkiaGpuResources(surface_ptr, context_ptr);
+    }
+    // Always teardown onscreen context to release DMA buffers
+    if (surface_ptr) {
+      surface_ptr->TeardownOnScreenContext();
+      FML_LOG(INFO) << "GpuReclaim: [Raster] Surface torn down";
+    }
+  });
+  FML_LOG(INFO) << "GpuReclaim: ExecuteAggressive completed";
+}
+
+void PlatformViewOHOS::RunOnRasterAndWait(fml::closure task) {
+  fml::AutoResetWaitableEvent latch;
+
+  fml::TaskRunner::RunNowOrPostTask(task_runners_.GetRasterTaskRunner(),
+                                    [&latch, task = std::move(task)]() mutable {
+                                      task();
+                                      latch.Signal();
+                                    });
+
+  latch.Wait();
+}
+
+void PlatformViewOHOS::TryFreeSkiaGpuResources(
+    const std::shared_ptr<OHOSSurface>& surface,
+    const std::shared_ptr<OHOSContext>& context) {
+  if (!surface || !context) {
+    return;
+  }
+
+  auto skia_context = context->GetMainSkiaContext();
+  if (!skia_context) {
+    return;
+  }
+
+  if (surface->ResourceContextMakeCurrent()) {
+    skia_context->freeGpuResources();
+    FML_LOG(INFO) << "GpuReclaim: [Raster] GPU resources freed";
+    return;
+  }
+
+  FML_LOG(WARNING) << "GpuReclaim: [Raster] Make context current fail, skip freeGpuResources";
 }
 
 }  // namespace flutter
