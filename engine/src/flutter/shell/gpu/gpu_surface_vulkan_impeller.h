@@ -66,6 +66,9 @@ class GPUSurfaceVulkanImpeller final : public Surface {
   // |Surface|
   std::shared_ptr<impeller::AiksContext> GetAiksContext() const override;
 
+  // |Surface|
+  Surface::SurfaceDamageData GetSurfaceDamageData() const override;
+
   FML_DISALLOW_COPY_AND_ASSIGN(GPUSurfaceVulkanImpeller);
 };
 

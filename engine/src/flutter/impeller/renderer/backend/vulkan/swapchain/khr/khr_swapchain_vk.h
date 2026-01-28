@@ -45,6 +45,9 @@ class KHRSwapchainVK final : public SwapchainVK {
   int GetCurrentImageIndex() override;
 
   // |SwapchainVK|
+  int GetImagesCount() override;
+
+  // |SwapchainVK|
   void SetRenderArea(std::optional<IRect> area) override;
 
  private:

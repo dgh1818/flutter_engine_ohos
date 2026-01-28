@@ -162,19 +162,36 @@ OHOSSurfaceVulkanImpeller::GetImpellerContext() {
 
 bool OHOSSurfaceVulkanImpeller::SetPresentInfo(
     const VulkanPresentInfo& present_info) {
-  if (native_window_ && native_window_->IsValid() &&
-      present_info.presentation_time) {
-    uint64_t present_time =
-        present_info.presentation_time->ToEpochDelta().ToNanoseconds();
-    // [-1ms] is to avoid this situation:
-    // ui_timestamp(xxx8.334ms) > now_time(xxx8.332ms) => skip this frame
-    // update [-2ms]: vsync may get a perid of 7.1 ms when 120hz.
-    present_time -= fml::TimeDelta::FromMilliseconds(2).ToNanoseconds();
-    OH_NativeWindow_NativeWindowHandleOpt(
-        (OHNativeWindow*)native_window_->Gethandle(),
-        SET_DESIRED_PRESENT_TIMESTAMP, present_time);
-    return true;
+  if (native_window_ && native_window_->IsValid()) {
+    if (present_info.frame_damage.has_value()) {
+      SkIRect damage_rect = present_info.frame_damage.value();
+      std::ostringstream oss;
+      oss << "<" << damage_rect.left() << "," << damage_rect.top() << ","
+          << damage_rect.right() << "," << damage_rect.bottom() << ">";
+      std::string damage_rect_str = oss.str();
+      TRACE_EVENT1("flutter", "OHOSSurfaceVulkanImpeller::SetPresentInfo",
+                   "frame_damage", damage_rect_str.c_str());
+    } else {
+      TRACE_EVENT1("flutter", "OHOSSurfaceVulkanImpeller::SetPresentInfo",
+                   "frame_damage", "no frame_damage");
+    }
+
+    // pts upload
+    if (present_info.presentation_time) {
+      uint64_t present_time =
+          present_info.presentation_time->ToEpochDelta().ToNanoseconds();
+      // [-1ms] is to avoid this situation:
+      // ui_timestamp(xxx8.334ms) > now_time(xxx8.332ms) => skip this frame
+      // update [-2ms]: vsync may get a perid of 7.1 ms when 120hz.
+      present_time -= fml::TimeDelta::FromMilliseconds(2).ToNanoseconds();
+      OH_NativeWindow_NativeWindowHandleOpt(
+          (OHNativeWindow*)native_window_->Gethandle(),
+          SET_DESIRED_PRESENT_TIMESTAMP, present_time);
+      return true;
+    }
   }
+
+  FML_LOG(ERROR) << "Failed to SetPresentInfo";
   return false;
 }
 

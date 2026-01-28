@@ -22,6 +22,10 @@
 
 namespace flutter {
 
+// ohos alignment requirements
+static constexpr int kHorizontalClipAlignment = 32;
+static constexpr int kVerticalClipAlignment = 16;
+
 class WrappedTextureSourceVK : public impeller::TextureSourceVK {
  public:
   explicit WrappedTextureSourceVK(impeller::vk::Image image,
@@ -145,6 +149,13 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceVulkanImpeller::AcquireFrame(
           surface_frame.submit_info().buffer_damage.has_value()) {
         auto buffer_damage = surface_frame.submit_info().buffer_damage;
         if (buffer_damage->width() == 0 || buffer_damage->height() == 0) {
+          // No damage to render. Skip rendering.
+          FML_LOG(INFO) << "No damage to render, skip rendering.";
+          auto render_rect = impeller::IRect::MakeXYWH(
+              buffer_damage->x(), buffer_damage->y(), buffer_damage->width(),
+              buffer_damage->height());
+          render_target.SetRenderArea(render_rect);
+          context_vk.SetRenderArea(render_rect);
           return true;
         }
         auto render_rect = impeller::IRect::MakeXYWH(
@@ -179,8 +190,8 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceVulkanImpeller::AcquireFrame(
       framebuffer_info.supports_partial_repaint = true;
       // At this time, the alignment must be aligned with the DMA buffer block
       // size in ohos.
-      framebuffer_info.horizontal_clip_alignment = 32;
-      framebuffer_info.vertical_clip_alignment = 16;
+      framebuffer_info.horizontal_clip_alignment = kHorizontalClipAlignment;
+      framebuffer_info.vertical_clip_alignment = kVerticalClipAlignment;
 #endif
     }
     return std::make_unique<SurfaceFrame>(
@@ -364,6 +375,35 @@ bool GPUSurfaceVulkanImpeller::EnableRasterCache() const {
 std::shared_ptr<impeller::AiksContext>
 GPUSurfaceVulkanImpeller::GetAiksContext() const {
   return aiks_context_;
+}
+
+// |Surface|
+Surface::SurfaceDamageData GPUSurfaceVulkanImpeller::GetSurfaceDamageData()
+    const {
+  if (!is_valid_ || disable_partial_repaint_) {
+    return {};
+  }
+#ifdef __OHOS__
+  Surface::SurfaceDamageData surface_damage;
+  auto& context_vk = impeller::SurfaceContextVK::Cast(*impeller_context_);
+  surface_damage.supports_partial_repaint = true;
+  surface_damage.horizontal_clip_alignment = kHorizontalClipAlignment;
+  surface_damage.vertical_clip_alignment = kVerticalClipAlignment;
+  if (context_vk.GetImagesCount() != static_cast<int>(damage_.size())) {
+    return surface_damage;
+  }
+  // Iterate through damage_ and check if all dirty regions are zero.
+  for (const auto& entry : damage_) {
+    const SkIRect& rect = entry.second;
+    if (!rect.isEmpty()) {
+      return surface_damage;
+    }
+  }
+  surface_damage.all_damage_rects_empty = true;
+  return surface_damage;
+#else
+  return {};
+#endif
 }
 
 }  // namespace flutter

@@ -85,6 +85,8 @@ enum class DrawSurfaceStatus {
   // Layer tree was discarded because its size does not match the view size.
   // This typically occurs during resizing.
   kDiscarded,
+  // Layer tree was skipped because the damage regions were all empty.
+  kDamageEmptySkip,
 };
 
 // The information to draw to all views of a frame.
@@ -749,6 +751,10 @@ class Rasterizer final : public SnapshotDelegate,
       flutter::LayerTree& layer_tree,
       float device_pixel_ratio,
       std::optional<fml::TimePoint> presentation_time);
+
+  // Skips drawing the layer tree if there is no damage in surface.
+  bool ShouldSkipNoDamageLayerTree(flutter::LayerTree& layer_tree,
+                                   int64_t view_id);
 
   ViewRecord& EnsureViewRecord(int64_t view_id);
 

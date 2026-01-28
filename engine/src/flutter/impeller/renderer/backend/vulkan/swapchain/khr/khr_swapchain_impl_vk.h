@@ -68,6 +68,10 @@ class KHRSwapchainImplVK final
 
   uint32_t GetCurrentImageIndex() { return current_image_index_; };
 
+  uint32_t GetImagesCount() const {
+    return static_cast<uint32_t>(images_.size());
+  };
+
   void SetRenderArea(std::optional<IRect> area) { render_area_ = area; };
 
  private:

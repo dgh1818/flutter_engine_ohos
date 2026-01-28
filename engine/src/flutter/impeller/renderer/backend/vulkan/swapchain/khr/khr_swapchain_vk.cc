@@ -122,6 +122,13 @@ int KHRSwapchainVK::GetCurrentImageIndex() {
   return impl_->GetCurrentImageIndex();
 }
 
+int KHRSwapchainVK::GetImagesCount() {
+  if (!IsValid()) {
+    return -1;
+  }
+  return impl_->GetImagesCount();
+}
+
 void KHRSwapchainVK::SetRenderArea(std::optional<IRect> area) {
   if (IsValid()) {
     impl_->SetRenderArea(area);
