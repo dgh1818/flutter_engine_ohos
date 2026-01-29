@@ -68,6 +68,8 @@ class SwapchainVK {
 
   virtual int GetCurrentImageIndex() = 0;
 
+  virtual int GetImagesCount() = 0;
+
   virtual void SetRenderArea(std::optional<IRect> area) = 0;
 
  protected:

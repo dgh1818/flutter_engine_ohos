@@ -29,6 +29,14 @@ class Surface {
     sk_sp<SkData> data;
   };
 
+  /// Historical surface damage information in OHOS impeller backend.
+  struct SurfaceDamageData {
+    bool supports_partial_repaint = false;
+    bool all_damage_rects_empty = false;
+    int horizontal_clip_alignment = 1;
+    int vertical_clip_alignment = 1;
+  };
+
   Surface();
 
   virtual ~Surface();
@@ -56,6 +64,9 @@ class Surface {
   /// Not guaranteed to work on all setups and not intended to be used in
   /// production. The data field will be null if it was unable to work.
   virtual SurfaceData GetSurfaceData() const;
+
+  /// Capture the `SurfaceDamageData` in the surface.
+  virtual SurfaceDamageData GetSurfaceDamageData() const;
 
  private:
   FML_DISALLOW_COPY_AND_ASSIGN(Surface);

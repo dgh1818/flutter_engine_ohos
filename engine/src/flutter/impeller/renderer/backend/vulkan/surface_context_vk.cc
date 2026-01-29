@@ -120,6 +120,13 @@ int SurfaceContextVK::GetCurrentImageIndex() {
   return -1;
 }
 
+int SurfaceContextVK::GetImagesCount() {
+  if (swapchain_) {
+    return swapchain_->GetImagesCount();
+  }
+  return -1;
+}
+
 void SurfaceContextVK::SetRenderArea(std::optional<IRect> area) {
   if (swapchain_) {
     swapchain_->SetRenderArea(area);

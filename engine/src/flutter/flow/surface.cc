@@ -34,4 +34,8 @@ Surface::SurfaceData Surface::GetSurfaceData() const {
   return {};
 }
 
+Surface::SurfaceDamageData Surface::GetSurfaceDamageData() const {
+  return {};
+}
+
 }  // namespace flutter

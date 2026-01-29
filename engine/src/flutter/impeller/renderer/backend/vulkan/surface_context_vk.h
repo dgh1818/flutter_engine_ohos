@@ -97,6 +97,8 @@ class SurfaceContextVK : public Context,
 
   int GetCurrentImageIndex();
 
+  int GetImagesCount();
+
   void SetRenderArea(std::optional<IRect> area);
 
   /// @brief Performs frame incrementing processes like AcquireNextSurface but

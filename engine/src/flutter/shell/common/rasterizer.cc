@@ -806,6 +806,12 @@ DrawSurfaceStatus Rasterizer::DrawToSurfaceUnsafe(
     embedder_root_canvas = external_view_embedder_->GetRootCanvas();
   }
 
+  if (ShouldSkipNoDamageLayerTree(layer_tree, view_id)) {
+    FML_LOG(INFO) << "Skipping frame rendering: computed dirty region is empty.";
+    TRACE_EVENT0("flutter", "Rasterizer::DrawToSurfaceUnsafe FrameDamageEmpty");
+    return DrawSurfaceStatus::kDamageEmptySkip;
+  }
+
   // On Android, the external view embedder deletes surfaces in `BeginFrame`.
   //
   // Deleting a surface also clears the GL context. Therefore, acquire the
@@ -918,6 +924,39 @@ DrawSurfaceStatus Rasterizer::DrawToSurfaceUnsafe(
   }
 
   return DrawSurfaceStatus::kFailed;
+}
+
+
+// When all historical dirty regions in the surface are 0,
+// the dirty region area of ​​the layer_tree is calculated in advance.
+// If the dirty region is empty after calculation, return true.
+bool Rasterizer::ShouldSkipNoDamageLayerTree(flutter::LayerTree& layer_tree, int64_t view_id) {
+  if (external_view_embedder_ &&
+          (!raster_thread_merger_ || raster_thread_merger_->IsMerged())) {
+    // When external_view_embedder_ SubmitFlutterView is involved, the dirty region calculation is not performed.
+    return false;
+  }
+  auto surface_damage = surface_->GetSurfaceDamageData();
+  if (surface_damage.supports_partial_repaint && surface_damage.all_damage_rects_empty) {
+    FrameDamage frame_damage = FrameDamage();
+#ifdef __OHOS__
+    if (use_last_layer_tree_) {
+      frame_damage.SetPreviousLayerTree(&layer_tree);
+    } else {
+      frame_damage.SetPreviousLayerTree(GetLastLayerTree(view_id));
+    }
+#else
+    frame_damage.SetPreviousLayerTree(GetLastLayerTree(view_id));
+#endif
+    frame_damage.SetClipAlignment(surface_damage.horizontal_clip_alignment, surface_damage.vertical_clip_alignment);
+    auto clip_rect = frame_damage.ComputeClipRect(layer_tree,
+      surface_->EnableRasterCache(), // has_raster_cache
+      !surface_->GetContext()); // impeller_enabled
+    if (clip_rect.has_value() && clip_rect->IsEmpty()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 Rasterizer::ViewRecord& Rasterizer::EnsureViewRecord(int64_t view_id) {
