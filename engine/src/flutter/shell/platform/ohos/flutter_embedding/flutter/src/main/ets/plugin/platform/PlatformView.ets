@@ -21,6 +21,17 @@ export declare class Params {
   platformView: PlatformView
 }
 
+export declare class PlatformViewVisibleAreaEventOptions {
+  enable: boolean // Enable variable area monitoring
+  ratios: Array<number> // Ratio thresholds for visible area changes, e.g., [0.0, 1.0] means 0% to 100% visible
+  expectedUpdateInterval: number // Expected interval for visible area updates in milliseconds
+  onInactiveThreshold: number // Texture continuous production pause operation visible area threshold
+  onActiveThreshold: number // Texture continuous production activation operation visible area threshold
+}
+
+// unit: ms
+const defaultExpectedUpdateInterval: number = 1000;
+
 /** A handle to an DynamicView to be embedded in the Flutter hierarchy. */
 export default abstract class PlatformView {  
 
@@ -93,5 +104,24 @@ export default abstract class PlatformView {
    * connection. This probably doesn't need to be implemented.
    */
   onInputConnectionUnlocked(): void {
+  }
+
+  // Obtain the parameters related to the changes in the visible area of the external texture
+  getPlatformViewVisibleAreaEventOptions(): PlatformViewVisibleAreaEventOptions {
+    return {
+      enable: false,
+      ratios: [0.0, 1.0],
+      expectedUpdateInterval: defaultExpectedUpdateInterval,
+      onInactiveThreshold : 0.0,
+      onActiveThreshold : 1.0
+    } as PlatformViewVisibleAreaEventOptions;
+  }
+
+  // The operation to pause the continuous production of external textures, including animations and videos
+  onInactive(): void {
+  }
+
+  // The operation to resume the continuous production of external textures, including animations and videos
+  onActive(): void {
   }
 }

@@ -6,7 +6,7 @@
 */
 import { BuilderNode, FrameNode, NodeController, NodeRenderType } from '@kit.ArkUI';
 import Any from '../../plugin/common/Any';
-import PlatformView, { Params } from '../../plugin/platform/PlatformView';
+import PlatformView, { Params, PlatformViewVisibleAreaEventOptions } from '../../plugin/platform/PlatformView';
 import Log from '../../util/Log';
 import { DVModel, DVModelChildren, DynamicView } from '../../view/DynamicView/dynamicView';
 
@@ -55,6 +55,42 @@ export class EmbeddingNodeController extends NodeController {
     this.direction = direction;
   }
 
+  // Set up the callback for monitoring changes in the visible area of the external texture
+  setPlatformViewVisibleAreaEventCallback(): void {
+    if (this.platformView == null) {
+      return;
+    }
+
+    const platformViewVisibleAreaEventOptions: PlatformViewVisibleAreaEventOptions = 
+      this.platformView?.getPlatformViewVisibleAreaEventOptions();
+    if (platformViewVisibleAreaEventOptions.enable == false) {
+      return;
+    }
+
+    let node: FrameNode | null | undefined = this.builderNode?.getFrameNode();
+    if (node == null || node == undefined) {
+      return;
+    }
+
+    node?.commonEvent.setOnVisibleAreaApproximateChange(
+      { ratios: platformViewVisibleAreaEventOptions.ratios,
+        expectedUpdateInterval: platformViewVisibleAreaEventOptions.expectedUpdateInterval },
+
+      (isExpanding: boolean, currentRatio: number) =>
+        {
+          if (!isExpanding &&
+            currentRatio <= platformViewVisibleAreaEventOptions.onInactiveThreshold) {
+            // Pause the operation of continuous production of textures
+            this.platformView?.onInactive();
+          } else if (isExpanding &&
+            currentRatio >= platformViewVisibleAreaEventOptions.onActiveThreshold) {
+            // Resume the operation of continuous production of textures
+            this.platformView?.onActive();
+          }
+        }
+    )
+  }
+
   /**
    * Creates a FrameNode for the platform view.
    * @param uiContext - The UI context
@@ -62,8 +98,10 @@ export class EmbeddingNodeController extends NodeController {
    */
   makeNode(uiContext: UIContext): FrameNode | null {
     this.builderNode = new BuilderNode(uiContext, { surfaceId: this.surfaceId, type: this.renderType });
+    
     if (this.platformView) {
       this.builderNode.build(this.wrappedBuilder, { direction: this.direction, platformView: this.platformView });
+      this.setPlatformViewVisibleAreaEventCallback();
     }
     return this.builderNode.getFrameNode();
   }
