@@ -9,6 +9,7 @@ import FlutterEngineConfigurator from './FlutterEngineConfigurator';
 import FlutterEngineProvider from './FlutterEngineProvider';
 import FlutterEngine from '../engine/FlutterEngine';
 import PlatformPlugin, { PlatformPluginDelegate } from '../../plugin/PlatformPlugin';
+import SensitiveContentPlugin from '../../plugin/view/SensitiveContentPlugin';
 import Want from '@ohos.app.ability.Want';
 import FlutterShellArgs from '../engine/FlutterShellArgs';
 import DartExecutor, { DartEntrypoint } from '../engine/dart/DartExecutor';
@@ -45,6 +46,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
   flutterEngine?: FlutterEngine | null;
   /** The PlatformPlugin instance, or undefined if not set. */
   platformPlugin?: PlatformPlugin;
+  sensitiveContentPlugin?:SensitiveContentPlugin;
   protected context?: common.Context;
   protected isFlutterEngineFromHostOrCache: boolean = false;
   private engineGroup?: FlutterEngineGroup;
@@ -88,6 +90,8 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     }
 
     this.platformPlugin = this.host?.providePlatformPlugin(this.flutterEngine!)
+
+    this.sensitiveContentPlugin = this.host?.provideSensitiveContentPlugin(this.flutterEngine!)
 
     this.isAttached = true;
     if (this.flutterEngine) {
@@ -308,6 +312,10 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
 
     if (this.platformPlugin) {
       this.platformPlugin.destroy();
+    }
+
+    if (this.sensitiveContentPlugin) {
+      this.sensitiveContentPlugin.destroy();
     }
 
     // Destroy our FlutterEngine if we're not set to retain it.
@@ -654,6 +662,8 @@ interface Host extends FlutterEngineProvider, FlutterEngineConfigurator, Platfor
   getExclusiveAppComponent(): ExclusiveAppComponent<UIAbility> | null
 
   providePlatformPlugin(flutterEngine: FlutterEngine): PlatformPlugin | undefined
+
+  provideSensitiveContentPlugin(flutterEngine: FlutterEngine): SensitiveContentPlugin | undefined
 
   /**
    * Whether to automatically attach the {@link FlutterView} to the engine.

@@ -33,6 +33,7 @@ import LocalizationChannel from './systemchannels/LocalizationChannel';
 import AccessibilityChannel from './systemchannels/AccessibilityChannel';
 import LocalizationPlugin from '../../plugin/localization/LocalizationPlugin'
 import SettingsChannel from './systemchannels/SettingsChannel';
+import SensitiveContentChannel from './systemchannels/SensitiveContentChannel';
 import PlatformViewsController from '../../plugin/platform/PlatformViewsController';
 import { FlutterRenderer } from './renderer/FlutterRenderer';
 import NativeVsyncChannel from './systemchannels/NativeVsyncChannel';
@@ -76,6 +77,7 @@ export default class FlutterEngine implements EngineLifecycleListener {
   private textInputChannel: TextInputChannel | null = null;
   private testChannel: TestChannel | null = null;
   private platformChannel: PlatformChannel | null = null;
+  private sensitiveContentChannel: SensitiveContentChannel  | null = null;
   private systemChannel: SystemChannel | null = null;
   private mouseCursorChannel: MouseCursorChannel | null = null;
   private displayMetricsChannel: DisplayMetricsChannel | null = null;
@@ -143,6 +145,7 @@ export default class FlutterEngine implements EngineLifecycleListener {
     this.textInputChannel = new TextInputChannel(this.dartExecutor);
     this.testChannel = new TestChannel(this.dartExecutor);
     this.platformChannel = new PlatformChannel(this.dartExecutor, this.flutterNapi);
+    this.sensitiveContentChannel = new SensitiveContentChannel(this.dartExecutor);
     this.systemChannel = new SystemChannel(this.dartExecutor);
     this.mouseCursorChannel = new MouseCursorChannel(this.dartExecutor);
     this.displayMetricsChannel = new DisplayMetricsChannel(this.dartExecutor, context);
@@ -310,6 +313,10 @@ export default class FlutterEngine implements EngineLifecycleListener {
    */
   getDartExecutor(): DartExecutor {
     return this.dartExecutor
+  }
+
+  getSensitiveContentChannel():SensitiveContentChannel |null {
+    return this.sensitiveContentChannel
   }
 
   /**

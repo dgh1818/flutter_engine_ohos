@@ -12,6 +12,7 @@ import UIAbility from '@ohos.app.ability.UIAbility';
 import ExclusiveAppComponent from './ExclusiveAppComponent';
 import { FlutterAbilityAndEntryDelegate, Host } from './FlutterAbilityAndEntryDelegate';
 import FlutterAbilityLaunchConfigs from './FlutterAbilityLaunchConfigs';
+import SensitiveContentPlugin from '../../plugin/view/SensitiveContentPlugin';
 import Log from '../../util/Log';
 import { FlutterView } from '../../view/FlutterView';
 import FlutterManager from './FlutterManager';
@@ -410,6 +411,15 @@ export default class FlutterEntry implements Host {
    */
   providePlatformPlugin(flutterEngine: FlutterEngine): PlatformPlugin | undefined {
     return new PlatformPlugin(flutterEngine.getPlatformChannel()!, this.context, this);
+  }
+
+  /**
+   * Provides a SensitiveContentPlugin instance.
+   * @param flutterEngine - The FlutterEngine instance
+   * @returns A SensitiveContentPlugin instance
+   */
+  provideSensitiveContentPlugin(flutterEngine: FlutterEngine): SensitiveContentPlugin | undefined {
+    return new SensitiveContentPlugin(flutterEngine.getSensitiveContentChannel()!);
   }
 
   /**
