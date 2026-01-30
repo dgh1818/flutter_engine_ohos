@@ -181,9 +181,7 @@ void PlatformViewOHOS::NotifyCreate(
           // Note that NotifyDestroyed will wait raster task, so platformview is
           // not deleted here.
           if (!window_is_preload_) {
-            fml::TaskRunner::RunNowOrPostTask(
-                task_runners_.GetPlatformTaskRunner(),
-                [&] { PlatformView::NotifyCreated(); });
+            PlatformView::NotifyCreated();
           } else if (surface->NeedNewFrame()) {
             PlatformView::ScheduleFrame();
           } else {
