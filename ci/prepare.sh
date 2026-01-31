@@ -6,283 +6,481 @@
 # USE IN CI
 # preCompile：sh ./third_party/flutter_flutter/ci/prepare.sh
 
+set -e  # Exit on error
+set -u  # Exit on undefined variable
+
+# Logging functions
+log_info() {
+    echo "[INFO] $*"
+}
+
+log_warn() {
+    echo "[WARN] $*"
+}
+
+log_error() {
+    echo "[ERROR] $*" >&2
+}
+
+log_step() {
+    echo "\n========================================"
+    echo "$*"
+    echo "========================================\n"
+}
+
+# Command execution wrapper
+run_cmd() {
+    local cmd="$1"
+    echo "$ $cmd"
+    eval "$cmd"
+}
+
 ROOT_DIR=$(pwd)
 # Project directory
 PROJECT_DIR="$ROOT_DIR/third_party"
-# Engine directory
-ENGINE_DIR="$PROJECT_DIR/flutter_flutter/engine"
 # Archive directory
 ARCHIVE_DIR="$ROOT_DIR/Archive/out"
-# Backup directory
-BACKUP_DIR="$ROOT_DIR/Backup"
 # repo cache repository
 REPO_CACHE_DIR="/home/tools/Flutter/repo"
 # fluttertpc repository list
-FLUTTERTPC_REPOS=(
-  fluttertpc_angle
-  fluttertpc_boringssl_gen
-  fluttertpc_buildroot
-  fluttertpc_dart_native
-  fluttertpc_dart_sdk
-  fluttertpc_libcxx
-  fluttertpc_libcxxabi
-  fluttertpc_skia
-  fluttertpc_spirv-headers
-  fluttertpc_swiftshader
-  fluttertpc_vulkan-deps
-  fluttertpc_vulkan-headers
-  fluttertpc_zlib
+readonly FLUTTERTPC_REPOS=(
+    fluttertpc_angle
+    fluttertpc_boringssl_gen
+    fluttertpc_buildroot
+    fluttertpc_dart_native
+    fluttertpc_dart_sdk
+    fluttertpc_libcxx
+    fluttertpc_libcxxabi
+    fluttertpc_skia
+    fluttertpc_spirv-headers
+    fluttertpc_swiftshader
+    fluttertpc_vulkan-deps
+    fluttertpc_vulkan-headers
+    fluttertpc_zlib
 )
 
-# 目标分支
-TARGET_FLUTTER_BRANCH="oh-3.35.7-dev"
-TARGET_TESTER_BRANCH="main"
+# Target branch
+readonly TARGET_FLUTTER_BRANCH="oh-3.35.7-dev"
+readonly TARGET_TESTER_BRANCH="main"
 
-# Check environment
-function check_env() {
-    echo "Check environment"
-    echo "$ uname -a"
-    uname -a
-    echo "$ cat /etc/os-release"
-    cat /etc/os-release
-    echo "$ id -un"
-    id -un
-    # Set environment variables
+function prepare_openharmony_sdk() {
+    local sdk_url="https://cidownload.openharmony.cn/version/Daily_Version/OpenHarmony_6.1.0.28/20260115_120141/version-Daily_Version-OpenHarmony_6.1.0.28-20260115_120141-ohos-sdk-public.tar.gz"
+    local correct_sha256="4a6ee8412028fe476d2042173265f8ebdfbc8973b97a5696757cabb5b8e4adb5"
+    local sdk_dir="/home/tools/command-line-tools/sdk/default"
+
+    log_step "Prepare openharmony SDK"
+    log_info "Target directory: $sdk_dir"
+
+    cd "$sdk_dir" || {
+        log_error "Failed to cd to $sdk_dir"
+        return 1
+    }
+
+    log_info "Cleaning old SDK"
+    rm -rf openharmony download 2>/dev/null
+    mkdir -p download
+
+    log_info "Downloading daily build SDK"
+    log_info "URL: $sdk_url"
+
+    curl -f -L -- "$sdk_url" > download/sdk_openharmony.tar.gz 
+    if [ $? -ne 0 ]; then
+        log_error "Download failed"
+        return 1
+    fi
+    log_info "Download completed successfully"
+
+    log_info "Verifying SDK integrity"
+    local sdk_sum=$(sha256sum "download/sdk_openharmony.tar.gz" | cut -d' ' -f1)
+    if [[ "$sdk_sum" != "$correct_sha256" ]]; then
+        log_error "SHA256 mismatch!"
+        log_error "Expected: $correct_sha256"
+        log_error "Got:      $sdk_sum"
+        return 1
+    fi
+    log_info "SDK verification passed"
+
+    log_info "Extracting SDK"
+    cd download || return 1
+    if ! tar -xzf "sdk_openharmony.tar.gz"; then
+        log_error "Failed to extract SDK tarball"
+        return 1
+    fi
+
+    cd linux || {
+        log_error "linux directory not found in extracted files"
+        return 1
+    }
+
+    log_info "Extracting zip files"
+    local success_count=0
+    local fail_count=0
+    for zipfile in *.zip; do
+        if [[ ! -f "$zipfile" ]]; then
+            continue
+        fi
+
+        if unzip -qo "$zipfile"; then
+            log_info "✓ Extracted: $zipfile"
+            rm -f "$zipfile"
+            ((success_count++))
+        else
+            log_error "✗ Failed to extract: $zipfile"
+            ((fail_count++))
+        fi
+    done
+
+    if [[ $fail_count -gt 0 ]]; then
+        log_error "Failed to extract $fail_count file(s)"
+        return 1
+    fi
+
+    log_info "Successfully extracted $success_count file(s)"
+
+    cd "$sdk_dir" || return 1
+    mv download/linux openharmony || {
+        log_error "Failed to rename download/linux to openharmony"
+        return 1
+    }
+
+    log_info "SDK patch completed successfully"
+}
+
+# Set environment variables
+function setup_env_vars() {
+    log_step "Setting up environment variables"
     # command-line-tools
     export TOOL_HOME=/home/tools/command-line-tools
     export DEVECO_SDK_HOME=$TOOL_HOME/sdk
-    export PATH=$DEVECO_SDK_HOME/default/openharmony/toolchains:$TOOL_HOME/ohpm/bin:$TOOL_HOME/hvigor/bin:$TOOL_HOME/tool/node/bin:$PATH
     # Flutter
     export PUB_CACHE=/home/tools/Flutter/PUB
     export PUB_HOSTED_URL=https://pub.flutter-io.cn
     export FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn
     # Flutter gclient
-    export PATH=/home/tools/depot_tools:$PATH
     export DEPOT_TOOLS_UPDATE=0
     export GCLIENT_SUPPRESS_GIT_VERSION_WARNING=1
     # Flutter cipd
     export CIPD_CACHE_DIR=/home/tools/cipd_cache
     export CIPD_HTTP_USER_AGENT_PREFIX="offline"
     export CIPD_NO_SELF_UPDATE=true
-    # llvm
-    export PATH=$DEVECO_SDK_HOME/default/openharmony/native/llvm/bin:$PATH
-    echo "$ env"
-    env
-    # set
-    echo "Check tools"
-    echo "$ node -v"
-    node -v
-    echo "$ npm -v"
-    npm -v
-    echo "$ ohpm -v"
-    ohpm -v
-    echo "$ hvigorw -v"
-    hvigorw -v
-    echo "$ hdc -v"
-    hdc -v
-    echo "$ git --version"
-    git --version
-    git config --global user.name "Flutter CI"
-    git config --global user.email "flutter_ci@huawei.com"
-    echo "$ git config -l"
-    git config -l
-    echo "$ java -version"
-    java -version
-    echo "$ Check network"
-    echo "$ curl -s -o /dev/null -w \"%{http_code}\n\" -m 5 $PUB_HOSTED_URL"
-    curl -s -o /dev/null -w "%{http_code}\n" -m 5 $PUB_HOSTED_URL
-    echo "$ curl -s -o /dev/null -w \"%{http_code}\n\" -m 5 $FLUTTER_STORAGE_BASE_URL"
-    curl -s -o /dev/null -w "%{http_code}\n" -m 5 $FLUTTER_STORAGE_BASE_URL
-    echo "$ curl -s -o /dev/null -w \"%{http_code}\n\" -m 5 https://chrome-infra-packages.appspot.com/prpc/cipd.Repository/GetInstanceURL"
-    curl -s -o /dev/null -w "%{http_code}\n" -m 5 https://chrome-infra-packages.appspot.com/prpc/cipd.Repository/GetInstanceURL
-    echo "Check project files"
-    echo "$ pwd"
-    pwd
-    echo "$ cd $PROJECT_DIR"
-    cd $PROJECT_DIR
-    echo "$ ls -al"
-    ls -al
-    mkdir -p $ARCHIVE_DIR
-    mkdir -p $BACKUP_DIR
+
+    # Build PATH in correct order
+    local path_components=(
+        "$DEVECO_SDK_HOME/default/openharmony/toolchains"
+        "$TOOL_HOME/ohpm/bin"
+        "$TOOL_HOME/hvigor/bin"
+        "$TOOL_HOME/tool/node/bin"
+        "/home/tools/depot_tools"
+        "$DEVECO_SDK_HOME/default/openharmony/native/llvm/bin"
+        "$PROJECT_DIR/cipd/bin"
+        "$PATH"
+    )
+    export PATH=$(IFS=:; echo "${path_components[*]}")
 }
 
-function patch_cipd() {
-    echo "Patch cipd"
-    echo "$ cd $PROJECT_DIR"
-    cd $PROJECT_DIR
-    echo "$ git clone -b main https://gitcode.com/xiedrsz/cipd.git"
-    git clone -b main https://gitcode.com/xiedrsz/cipd.git
-    echo "$ cd ./cipd && ./patch_cipd.sh"
-    cd ./cipd && ./patch_cipd.sh
+# Check system information
+function check_system_info() {
+    log_step "Checking system information"
+    run_cmd "uname -a"
+    run_cmd "cat /etc/os-release"
+    run_cmd "id -un"
 }
 
-function patch_sdk() {
-    # Daily build SDK  https://ci.openharmony.cn/workbench/cicd/dailybuild/dailylist
-    SDK_URL="https://cidownload.openharmony.cn/version/Daily_Version/OpenHarmony_6.1.0.28/20260115_120141/version-Daily_Version-OpenHarmony_6.1.0.28-20260115_120141-ohos-sdk-public.tar.gz"
-    echo "$ cd /home/tools/command-line-tools/sdk/default/"
-    cd /home/tools/command-line-tools/sdk/default/
-    mkdir download
-    echo "$ rm -r openharmony"
-    rm -r openharmony
-    echo "$ ls -al"
-    ls -al
-    cd download
-    echo "Starting to download daily build SDK"
-    echo "$ curl -sS -f -L -- $SDK_URL > sdk_openharmony.tar.gz"
-    curl -f -L -- "$SDK_URL" >sdk_openharmony.tar.gz
-    if [ $? -ne 0 ]; then
-        echo "[Error]: Download failed!!!"
-        return 1
-    fi
-    echo "[Success]: Download completed!!!"
+# Verify tool versions
+function check_tool_versions() {
+    log_step "Verifying tool versions"
+    local tools=(
+        "node:-v"
+        "npm:-v"
+        "ohpm:-v"
+        "hvigorw:-v"
+        "hdc:-v"
+        "git:--version"
+        "java:-version"
+    )
 
-    echo "Starting to verify SDK"
-    local correct_SHA256="4a6ee8412028fe476d2042173265f8ebdfbc8973b97a5696757cabb5b8e4adb5"
-    local sdk_sum=$(sha256sum sdk_openharmony.tar.gz)
-    sdk_sum=${sdk_sum:0:64}
-    if [ "x$sdk_sum" != "x$correct_SHA256" ]; then
-        echo "tools_sum(no x) is : x$sdk_sum"
-        echo "SHA-256_command-line-tools(no x) is : x$correct_SHA256"
-        echo "Error: please change sdk_openharmony.tar.gz!!!"
-        return 1
-    fi
-    echo "[Success]: SDK verification passed!!!"
-
-    echo "Starting to extract daily build SDK"
-    echo "$ tar -zxvf ./sdk_openharmony.tar.gz"
-    tar -zxvf ./sdk_openharmony.tar.gz
-    echo "$ cd ./linux"
-    cd ./linux
-    if [ $? -ne 0 ]; then
-        echo "[Error]: linux directory not found!!!"
-        return 1
-    fi
-
-    echo "$ for file in ls ./"
-    for file in $(ls ./); do
-        echo "$ unzip -qo $file"
-        unzip -qo "$file"
-        if [ $? -ne 0 ]; then
-            echo "[Error]: Failed to extract $file!!!"
-            return 1
-        fi
-        echo "$ rm -f $file"
-        rm -f "$file"
-        echo "[Success]: $file extraction completed!!!"
+    for tool in "${tools[@]}"; do
+        local name="${tool%:*}"
+        local flag="${tool#*:}"
+        run_cmd "$name $flag"
     done
-    echo "[Success]: Daily build SDK extraction completed!!!"
 
-    cd ../../ && mv download/linux openharmony
+    # Configure git
+    log_info "Configuring git"
+    run_cmd "git config --global user.name \"Flutter CI\""
+    run_cmd "git config --global user.email \"flutter_ci@flutter.com\""
+    run_cmd "git config -l"
+}
+
+# Check network connectivity
+function check_network() {
+    log_step "Checking network connectivity"
+    local urls=(
+        "$PUB_HOSTED_URL"
+        "$FLUTTER_STORAGE_BASE_URL"
+        "https://chrome-infra-packages.appspot.com/prpc/cipd.Repository/GetInstanceURL"
+    )
+
+    for url in "${urls[@]}"; do
+        local status=$(curl -s -o /dev/null -w "%{http_code}" -m 5 "$url" || echo " failed")
+        if [[ "$status" =~ ^[23] ]]; then
+            log_info "✓ $url: $status"
+        else
+            log_warn "✗ $url: $status"
+        fi
+    done
+}
+
+# Check project structure
+function check_project_structure() {
+    log_step "Checking project structure"
+    run_cmd "pwd"
+
+    if [[ ! -d "$PROJECT_DIR" ]]; then
+        log_error "Project directory does not exist: $PROJECT_DIR"
+        exit 1
+    fi
+
+    run_cmd "ls -la $PROJECT_DIR"
+
+    # Create necessary directories
+    run_cmd "mkdir -p $ARCHIVE_DIR/out"
+}
+
+# Check environment
+function check_env() {
+    log_info "Checking Environment"
+    check_system_info
+    setup_env_vars
+    run_cmd "env"
+    check_tool_versions
+    check_network
+    check_project_structure
+}
+
+# Prepare cipd
+function prepare_cipd() {
+    log_step "Preparing CIPD"
+
+    if [[ ! -d "$CIPD_CACHE_DIR" ]]; then
+        log_error "CIPD cache directory does not exist: $CIPD_CACHE_DIR"
+        return 1
+    fi
+
+    if [[ ! -d "$CIPD_CACHE_DIR/instances" ]]; then
+        log_error "instances directory does not exist in $CIPD_CACHE_DIR"
+        return 1
+    fi
+
+    log_info "Refreshing CIPD cache timestamps"
+    run_cmd "find $CIPD_CACHE_DIR -type f -exec touch {} +" "Touch all cache files"
+
+    log_info "Clearing CIPD state database"
+    local state_db="$CIPD_CACHE_DIR/instances/state.db"
+    if [[ -f "$state_db" ]]; then
+        run_cmd "rm $state_db"
+    fi
+
+    if [[ ! -d "$PROJECT_DIR/cipd" ]]; then
+        log_warn "CIPD directory does not exist, skipping"
+        return 0
+    fi
+
+    cd "$PROJECT_DIR/cipd" || {
+        log_error "Failed to cd to cipd directory"
+        return 1
+    }
+
+    run_cmd "git branch -a"
+    run_cmd "git checkout main"
+    run_cmd "git reset --hard origin/main"
+    run_cmd "git pull --rebase"
+    run_cmd "patchcipd"
+
+    log_info "CIPD instances statistics"
+    run_cmd "ls -al $CIPD_CACHE_DIR/instances"
+    local cipd_count=$(ls -1A "$CIPD_CACHE_DIR/instances" | wc -l)
+    log_info "Total CIPD instances: $cipd_count"
+}
+
+# Preparing REPOS
+function prepare_repos() {
+    log_step "Preparing REPOS"
+
+    if [[ ! -d "$REPO_CACHE_DIR" ]]; then
+        log_error "Repo cache directory does not exist: $REPO_CACHE_DIR"
+        return 1
+    fi
+
+    cd "$REPO_CACHE_DIR" || {
+        log_error "Failed to cd to repo cache directory"
+        return 1
+    }
+
+    log_info "Fetching FLUTTERTPC repositories"
+
+    local success_count=0
+    local fail_count=0
+
+    for repo in "${FLUTTERTPC_REPOS[@]}"; do
+        if [[ -d "$repo" ]]; then
+            log_info "Fetching: $repo"
+            if (cd "$repo" && git fetch --all); then
+                ((success_count++))
+            else
+                log_error "Failed to fetch: $repo"
+                ((fail_count++))
+            fi
+        else
+            log_warn "Repository does not exist: $repo"
+            ((fail_count++))
+        fi
+    done
+
+    log_info "Fetch summary: $success_count succeeded, $fail_count failed"
+
+    log_info "Repo cache statistics"
+    run_cmd "ls -al $REPO_CACHE_DIR"
+    local repo_count=$(ls -1A "$REPO_CACHE_DIR" | wc -l)
+    log_info "Total repo cache entries: $repo_count"
 }
 
 # Sync cache
 function sync_cache() {
-    echo "Sync cache"
-    # Refresh CIPD cache time to avoid cache expiration
-    echo "$ find $CIPD_CACHE_DIR -type f -exec touch {} +"
-    find $CIPD_CACHE_DIR -type f -exec touch {} +
-    echo "$ rm $CIPD_CACHE_DIR/instances/state.db"
-    rm $CIPD_CACHE_DIR/instances/state.db
-    patch_cipd
-    # Refresh FLUTTERTPC repositories
-    echo "$ cd $REPO_CACHE_DIR"
-    cd $REPO_CACHE_DIR
-    for repo in "${FLUTTERTPC_REPOS[@]}"; do
-        echo "Fetching in $repo"
-        (cd "$repo" && git fetch --all)
-    done
-    echo "$ Check cache"
-    echo "$ ls -al $REPO_CACHE_DIR"
-    ls -al $REPO_CACHE_DIR
-    echo "$ ls -1A \"$REPO_CACHE_DIR\" | wc -l"
-    ls -1A "$REPO_CACHE_DIR" | wc -l
-    echo "$ ls -al $CIPD_CACHE_DIR/instances"
-    ls -al $CIPD_CACHE_DIR/instances
-    echo "$ ls -1A \"$CIPD_CACHE_DIR/instances\" | wc -l"
-    ls -1A "$CIPD_CACHE_DIR/instances" | wc -l
+    log_info "Syncing Cache"
+    prepare_cipd
+    prepare_repos
 }
 
-# restore engine
-function maybe_restore_engine() {
-    if [ ! -d $ENGINE_DIR/src/flutter ]; then
-        cp -a $BACKUP_DIR/src $ENGINE_DIR
-    fi
+# Write commit ID to version files
+function write_commit_id() {
+    local commit_id="$1"
+    log_info "Writing commit ID: $commit_id"
+
+    run_cmd "echo $commit_id > $ARCHIVE_DIR/engine.ohos.har.version"
+    run_cmd "echo $commit_id > $ARCHIVE_DIR/engine.ohos.version"
 }
 
 # Prepare SDK
 function prepare_flutter() {
-    echo "Prepare project files"
-    echo "Rebase"
-    echo "$ cd $PROJECT_DIR/flutter_flutter"
-    cd $PROJECT_DIR/flutter_flutter
-    echo "$ git fetch --all"
-    git fetch --all
-    echo "$ git branch -a"
-    git branch -a
-    echo "$ git rebase remotes/gitcode/$TARGET_FLUTTER_BRANCH"
-    git rebase remotes/gitcode/$TARGET_FLUTTER_BRANCH
-    if [ $? -ne 0 ]; then
-        echo "rebase failed!!!"
+    log_step "Preparing Flutter Project"
+
+    if [[ ! -d "$PROJECT_DIR/flutter_flutter" ]]; then
+        log_error "Flutter project directory does not exist: $PROJECT_DIR/flutter_flutter"
         return 1
     fi
-    git log -10 --pretty=format:"%h - %s"
-    git status
-    git diff
+
+    cd "$PROJECT_DIR/flutter_flutter" || {
+        log_error "Failed to cd to flutter_flutter directory"
+        return 1
+    }
+
+    log_info "Fetching remote branches"
+    run_cmd "git fetch --all"
+    run_cmd "git branch -a"
+
+    log_info "Rebasing to $TARGET_FLUTTER_BRANCH"
+    if ! run_cmd "git rebase remotes/gitcode/$TARGET_FLUTTER_BRANCH"; then
+        log_error "Rebase failed!"
+        return 1
+    fi
+
+    log_info "Git status after rebase"
+    run_cmd "git log -10 --pretty=format:'%h - %s'"
+    run_cmd "git status"
+    run_cmd "git diff"
 
     # Get commit id
-    COMMIT_ID=$(git rev-parse HEAD)
-    echo "COMMIT_ID: $COMMIT_ID"
-    # Write commit id file
-    echo $COMMIT_ID > $ARCHIVE_DIR/engine.ohos.har.version
-    echo $COMMIT_ID > $ARCHIVE_DIR/engine.ohos.version
+    local commit_id=$(git rev-parse HEAD)
+    log_info "Current commit: $commit_id"
+    write_commit_id "$commit_id"
 
-    # Backup (gclient sync may delete the flutter folder in src or pollute the src folder)
-    echo "$ rm -rf $BACKUP_DIR/src"
-    rm -rf $BACKUP_DIR/src
-    echo "$ cp -a $ENGINE_DIR/src $BACKUP_DIR/src"
-    cp -a $ENGINE_DIR/src $BACKUP_DIR/src
+    log_info "Check if engine exists"
+    if [[ ! -d "engine" ]]; then
+        log_error "engine directory does not exist"
+        return 1
+    fi
 }
 
 # Prepare Tester
 function prepare_tester() {
-    echo "Prepare Tester"
-    echo "$ cd $PROJECT_DIR/flutter_tester"
-    cd $PROJECT_DIR/flutter_tester
-    if [ $? -ne 0 ]; then
-        echo "flutter_tester does not exist"
-        return 1
+    log_step "Preparing Tester"
+
+    if [[ ! -d "$PROJECT_DIR/flutter_tester" ]]; then
+        log_warn "flutter_tester does not exist, skipping"
+        return 0
     fi
-    echo "$ git branch -a"
-    git branch -a
-    echo "$ git checkout $TARGET_TESTER_BRANCH"
-    git checkout $TARGET_TESTER_BRANCH
-    echo "$ git reset --hard"
-    git reset --hard
-    echo "$ git pull --rebase"
-    git pull --rebase
+
+    cd "$PROJECT_DIR/flutter_tester" || {
+        log_error "Failed to cd to flutter_tester directory"
+        return 1
+    }
+
+    run_cmd "git branch -a"
+    run_cmd "git checkout $TARGET_TESTER_BRANCH"
+    run_cmd "git reset --hard origin/$TARGET_TESTER_BRANCH"
+    run_cmd "git pull --rebase"
+
+    log_info "Tester preparation completed"
 }
 
-# Entry
+# Cleanup on error
+function cleanup_on_error() {
+    local exit_code=$?
+    if [[ $exit_code -ne 0 ]]; then
+        log_error "Script failed with exit code: $exit_code"
+    fi
+}
+
+trap cleanup_on_error EXIT
+
+# Main preparation function
 function prepare() {
-    patch_sdk
-    check_env
-    sync_cache
-    maybe_restore_engine
+    local start_time=$(date +%s)
 
-    prepare_flutter
-    if [ $? -ne 0 ]; then
-        echo "Failed to execute: prepare_flutter"
+    log_step "Starting Flutter Preparation Script"
+    log_info "Branch: $TARGET_FLUTTER_BRANCH"
+    log_info "Date: $(date)"
+
+    prepare_openharmony_sdk || {
+        log_error "Prepare openharmony sdk failed"
         return 1
-    fi
+    }
 
-    prepare_tester
-    if [ $? -ne 0 ]; then
-        echo "Failed to execute: prepare_tester"
+    check_env || {
+        log_error "Environment check failed"
         return 1
-    fi
+    }
 
-    echo "Preparation stage completed"
+    sync_cache || {
+        log_error "Cache sync failed"
+        return 1
+    }
+
+    prepare_flutter || {
+        log_error "Flutter preparation failed"
+        return 1
+    }
+
+    prepare_tester || {
+        log_error "Tester preparation failed"
+        return 1
+    }
+
+    local end_time=$(date +%s)
+    local duration=$((end_time - start_time))
+
+    log_step "Preparation Completed Successfully"
+    log_info "Total duration: ${duration}s"
+
+    return 0
 }
 
-prepare $@
-exit $?
+# Main entry point
+main() {
+    prepare "$@"
+    local exit_code=$?
+    exit $exit_code
+}
+
+main "$@"
