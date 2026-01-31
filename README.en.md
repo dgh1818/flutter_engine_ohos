@@ -155,7 +155,7 @@ You can learn more about our adaptation of Flutter for OpenHarmony in the [Flutt
 | clean | Clears the project dependencies.| flutter clean                                                 |
 | cache | Clears global cache data.| flutter pub cache clean                                                  |
 
-Attachment: [Flutter third-party library adaptation plan](https://atomgit.com/openharmony-tpc/flutter_packages)
+Attachment: [Flutter third-party library adaptation plan](https://gitcode.com/openharmony-tpc/flutter_packages)
 
 ## Common Problem
 

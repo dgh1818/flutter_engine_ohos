@@ -150,7 +150,7 @@ Flutter SDK 仓库
 | clean      | 清除项目依赖       | flutter clean                                                |
 | cache      | 清除全局缓存数据   | flutter pub cache clean                                      |
 
-附：[Flutter三方库适配计划](https://atomgit.com/openharmony-tpc/flutter_packages)
+附：[Flutter三方库适配计划](https://gitcode.com/openharmony-tpc/flutter_packages)
 
 
 ## 常见问题
