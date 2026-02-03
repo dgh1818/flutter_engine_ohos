@@ -103,6 +103,7 @@ export default class PlatformViewsController implements PlatformViewsHandler {
   private textInputPlugin: TextInputPlugin | null = null;
   private platformViewsChannel: PlatformViewsChannel | null = null;
   private nextOverlayLayerId: number = 0;
+  private focusViewId: number = -1;
   private platformViews: Map<number, PlatformView>;
   private viewIdWithTextureId: Map<number, number>;
   private viewIdWithNodeController: Map<number, EmbeddingNodeController>;
@@ -146,7 +147,10 @@ export default class PlatformViewsController implements PlatformViewsHandler {
       Log.e(TAG, "Disposing unknown platform view with id: " + viewId);
       return;
     }
-    this.clearFocus(viewId);
+    if (this.focusViewId == viewId) {
+      this.clearFocus(viewId);
+      this.focusViewId = -1;
+    }
     this.platformViews.delete(viewId);
     let textureId = this.viewIdWithTextureId.get(viewId);
 
@@ -264,6 +268,7 @@ export default class PlatformViewsController implements PlatformViewsHandler {
    */
   onTouch(touch: PlatformViewTouch): void {
     let viewWrapper: undefined | PlatformViewWrapper = this.viewWrappers.get(touch.viewId)
+    this.focusViewId = touch.viewId;
     if (viewWrapper != undefined) {
       let dvModel = viewWrapper.getDvModel()
       let params = dvModel.getLayoutParams() as Record<string, Any>;
