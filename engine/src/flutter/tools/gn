@@ -825,6 +825,9 @@ def to_gn_args(args):
   if args.darwin_extension_safe:
     gn_args['darwin_extension_safe'] = True
 
+  if args.unuse_bisheng:
+    gn_args['unuse_bisheng'] = True
+
   return gn_args
 
 
@@ -1251,6 +1254,13 @@ def parse_args(args):
       default=False,
       action='store_true',
       help='Forces glfw to use swiftshader.',
+  )
+
+  parser.add_argument(
+      '--unuse-bisheng',
+      default=False,
+      action='store_true',
+      help='Do not use BiSheng Compiler.',
   )
 
   return parser.parse_args(args)
