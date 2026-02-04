@@ -24,6 +24,8 @@ import { uiObserver } from '@kit.ArkUI';
 import { common } from '@kit.AbilityKit';
 import { deviceInfo } from '@kit.BasicServicesKit';
 import KeyEventChannel from '../embedding/engine/systemchannels/KeyEventChannel';
+import StatusBarClickChannel from '../embedding/engine/systemchannels/StatusBarClickChannel';
+import { commonEventManager, BusinessError } from '@kit.BasicServicesKit';
 
 const TAG = "FlutterViewTag";
 const EVENT_BACK_PRESS = 'EVENT_BACK_PRESS';
@@ -294,6 +296,7 @@ export class FlutterView {
   private viewportMetrics = new ViewportMetrics();
   private displayInfo?: display.Display;
   private keyboardManager: KeyboardManager | null = null;
+  private statusBarClickChannel: StatusBarClickChannel|null = null;
   private mainWindow: window.Window | null = null;
   private mouseCursorPlugin?: MouseCursorPlugin;
   private textInputPlugin?: TextInputPlugin;
@@ -324,6 +327,7 @@ export class FlutterView {
   // DPI update flag to distinguish between system DPI updates and custom DPI updates
   private isDevicePixelRatioAdaptive: boolean = false;
   private lastHeight: number = 0;
+  private statusBarClickSubscriber: commonEventManager.CommonEventSubscriber | null = null;
 
   /**
    * Constructs a new FlutterView instance.
@@ -355,6 +359,8 @@ export class FlutterView {
     this.navigationAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR);
     this.gestureAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM_GESTURE);
     this.keyboardAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_KEYBOARD);
+    commonEventManager.createSubscriber(
+ 	       { events: ["usual.event.CLICK_STATUSBAR"] }, this.onStatusBarClick);
 
     // 监听折叠状态的改变
     display?.on('foldStatusChange', this.foldStatusChangeCallback);
@@ -749,6 +755,7 @@ export class FlutterView {
     this.mouseCursorPlugin = new MouseCursorPlugin(windowId, this.flutterEngine?.getMouseCursorChannel()!);
     this.textInputPlugin = new TextInputPlugin(this.flutterEngine?.getTextInputChannel()!, this.id,
       new KeyEventChannel(this.flutterEngine.dartExecutor));
+    this.statusBarClickChannel = new StatusBarClickChannel(flutterEngine.dartExecutor)
     this.keyboardManager = new KeyboardManager(flutterEngine, this.textInputPlugin!);
     this.settings = new Settings(this.flutterEngine.getSettingsChannel()!);
     this.sendSettings();
@@ -996,6 +1003,15 @@ export class FlutterView {
       return true
     }
     return false
+  }
+
+  onStatusBarClick = (err: BusinessError, subscriber: commonEventManager.CommonEventSubscriber) => {
+    this.statusBarClickSubscriber = subscriber
+    if(subscriber !== null) {
+      commonEventManager.subscribe(subscriber, (err, data) => {
+        this.statusBarClickChannel?.sendClick()
+      })
+    }
   }
 
   /**
