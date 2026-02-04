@@ -1013,6 +1013,33 @@ config("optimize") {
 
   ldflags = common_optimize_on_ldflags + lto_flags
   cflags += lto_flags
+
+  if (is_ohos) {
+    if (enable_lto) {
+      cflags += [ "-flto" ]
+      ldflags += [ "-flto" ]
+    }
+
+    # The compiler-specific optimization options for BiSheng compiler.
+    if (enable_lto && !unuse_bisheng) {
+      # Relies on LTO optimization
+      cflags += [ "-fwhole-program-vtables" ]
+    }
+
+    # The compiler-specific optimization options for BiSheng compiler.
+    if (!unuse_bisheng) {
+      cflags += [
+        "-mllvm","--enable-partial-inlining",
+      ]
+      ldflags += [
+        "-Wl,-mllvm,-wholeprogramdevirt-check=fallback",
+        "-Wl,--Bsymbolic-functions",
+        "-Wl,--aarch64-inline-plt",
+        "-Wl,-mllvm,--enable-partial-inlining",
+        "-Wl,-mllvm,--tail-dup-placement",
+      ]
+    }
+  }
 }
 
 # Turn off optimizations.
