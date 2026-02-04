@@ -314,6 +314,7 @@ int OhosVsyncVotingMgr::VotingExpectedRateRange(
     OH_NativeVSync_ExpectedRateRange* range) {
   if ((result_frameRate == local_framerate_) &&
       (result_frameRate == FPS_NO_VOTING || result_frameRate == PlatformViewOHOSNapi::display_refresh_rate)) {
+    // Vote results match the local frame rate or the display refresh rate.
     return RET_FAILED;
   }
   local_framerate_ = result_frameRate;
@@ -352,7 +353,6 @@ void OhosVsyncVotingMgr::VotingByNativeVsync(OH_NativeVSync* handle) {
   OH_NativeVSync_ExpectedRateRange range = {0, 0, 0};
   int ret = VotingExpectedRateRange(resultFrameRate, &range);
   if (ret != RET_SUCCEED) {
-    FML_LOG(WARNING) << "VotingExpectedRateRange failed, ret = " << ret;
     return;
   }
 
@@ -391,7 +391,6 @@ void OhosVsyncVotingMgr::VotingBySelf() {
   OH_NativeVSync_ExpectedRateRange range = {0, 0, 0};
   int ret = VotingExpectedRateRange(result_framerate, &range);
   if (ret != RET_SUCCEED) {
-    FML_LOG(WARNING) << "VotingExpectedRateRange failed, ret = " << ret;
     return;
   }
 

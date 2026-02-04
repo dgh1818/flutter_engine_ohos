@@ -427,6 +427,7 @@ enum AnimationStatus {
 class PlatformMethodCallback implements MethodCallHandler {
   private static TAG = "PlatformMethodCallback"
   platform: PlatformChannel;
+  private scrollType: string | null = null;
 
   /**
    * Constructs a new PlatformMethodCallback instance.
@@ -547,7 +548,15 @@ class PlatformMethodCallback implements MethodCallHandler {
           })
           break;
         case "Scroll.Activity":
+          /// Report the behavior of scrolling components.
+          /// The optional values for Scroll.Activity include [start] and [end].
           this.recordScrollActivity(args as string);
+          break;
+        case "Scroll.type":
+          /// Report the type of the scrolling component.
+          /// Track scrollable widget names to identify [_PagePosition] instances.
+          let type: string = args.get("type");
+          this.recordTabSwitch(type);
           break;
         default:
           result.notImplemented();
@@ -647,8 +656,19 @@ class PlatformMethodCallback implements MethodCallHandler {
         break;
       case ScrollActivity.END:
         hiTraceMeter.finishTrace('flutter::APP_LIST_FLING', 0);
+        if (this.scrollType !== null) {
+          this.scrollType = null;
+          hiTraceMeter.finishTrace('flutter::TABVIEW_SWITCH', 0);
+        }
         this.platform.flutterNapi.SetAnimationStatus(AnimationStatus.SCROLL_END);
         break;
+    }
+  }
+
+  private recordTabSwitch(type: string) {
+    if (type == '_PagePosition') {
+      hiTraceMeter.startTrace('flutter::TABVIEW_SWITCH', 0);
+      this.scrollType = type;
     }
   }
 }
