@@ -2864,6 +2864,8 @@ class ScaffoldState extends State<Scaffold> with TickerProviderStateMixin, Resto
     _drawerOpened.dispose();
     _endDrawerOpened.dispose();
     _bottomSheetScrimAnimationController.dispose();
+    _subscription?.cancel();
+ 	  _subscription = null;
     super.dispose();
   }
 
@@ -2958,6 +2960,7 @@ class ScaffoldState extends State<Scaffold> with TickerProviderStateMixin, Resto
 
   late AnimationController _bottomSheetScrimAnimationController;
   bool _showBodyScrim = false;
+  StreamSubscription? _subscription;
 
   /// Updates the state of the body scrim.
   ///
@@ -3176,8 +3179,14 @@ class ScaffoldState extends State<Scaffold> with TickerProviderStateMixin, Resto
           removeRightPadding: false,
           removeBottomPadding: true,
         );
-      case TargetPlatform.android:
-      case TargetPlatform.ohos:
+        break;
+ 	    case TargetPlatform.ohos:
+ 	      ChannelMessageHandler.init();
+ 	      _subscription = ChannelMessageHandler.messageStream.listen((message) {
+ 	        _handleStatusBarTap();
+ 	      });
+ 	      break;
+ 	    case TargetPlatform.android:
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
       case TargetPlatform.windows:
