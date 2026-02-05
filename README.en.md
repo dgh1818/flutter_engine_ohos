@@ -155,7 +155,7 @@ You can learn more about our adaptation of Flutter for OpenHarmony in the [Flutt
 | clean | Clears the project dependencies.| flutter clean                                                 |
 | cache | Clears global cache data.| flutter pub cache clean                                                  |
 
-Attachment: [Flutter third-party library adaptation plan](https://docs.qq.com/sheet/DVVJDWWt1V09zUFN2)
+Attachment: [Flutter third-party library adaptation plan](https://gitcode.com/openharmony-tpc/flutter_packages)
 
 ## Common Problem
 
@@ -317,7 +317,7 @@ Attachment: [Flutter third-party library adaptation plan](https://docs.qq.com/sh
     2. Since the emulator does not currently support Vulkan, please try following the steps in section 2.1. Disable Impeller and try again.
 
 20. Compilation or runtime failure in Flutter profile mode
-    1. Please add the `buildModeSet` field in the OHOS project `build_profile.json5`. You can refer to [complex_layout](https://gitee.com/harmonycommando_flutter/flutter/blob/oh-3.22.0/dev/benchmarks/complex_layout/ohos/build-profile.json5).
+    1. Please add the `buildModeSet` field in the OHOS project `build_profile.json5`. You can refer to [complex_layout](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/oh-3.35.7-dev/dev/benchmarks/complex_layout/ohos/build-profile.json5).
     2. Error message:
       ```
       hvigor ERROR: Build mode 'profile' used in command line is not declared in buildModeSet in /xxx/example/ohos/build-profile.json5.

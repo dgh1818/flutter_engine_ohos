@@ -150,7 +150,7 @@ Flutter SDK 仓库
 | clean      | 清除项目依赖       | flutter clean                                                |
 | cache      | 清除全局缓存数据   | flutter pub cache clean                                      |
 
-附：[Flutter三方库适配计划](https://docs.qq.com/sheet/DVVJDWWt1V09zUFN2)
+附：[Flutter三方库适配计划](https://gitcode.com/openharmony-tpc/flutter_packages)
 
 
 ## 常见问题
@@ -313,7 +313,7 @@ Flutter SDK 仓库
     2. 模拟器暂不支持vulkan，请尝试构建步骤2.1，关闭impeller后重试
 
 20. flutter profile模式下编译或运行失败
-    1. 请在ohos项目build_profile.json5中添加buildModeSet字段，可参考[complex_layout](https://gitee.com/harmonycommando_flutter/flutter/blob/oh-3.22.0/dev/benchmarks/complex_layout/ohos/build-profile.json5)
+    1. 请在ohos项目build_profile.json5中添加buildModeSet字段，可参考[complex_layout](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/oh-3.35.7-dev/dev/benchmarks/complex_layout/ohos/build-profile.json5)
     2. 报错信息:
       ```
       hvigor ERROR: Build mode 'profile' used in command line is not declared in buildModeSet in /xxx/example/ohos/build-profile.json5.
