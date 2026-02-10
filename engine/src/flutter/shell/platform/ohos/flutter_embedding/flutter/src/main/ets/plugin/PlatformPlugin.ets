@@ -29,6 +29,7 @@ import common from '@ohos.app.ability.common';
 import { MethodResult } from './common/MethodChannel';
 import Any from './common/Any';
 import router from '@ohos.router';
+import { PasteboardUtils } from '../util/PasteboardUtils';
 
 /**
  * Plugin for handling platform-specific functionality in Flutter applications.
@@ -314,16 +315,15 @@ export class PlatformPluginCallback implements PlatformMessageHandler {
             const recordCount: number = pasteData.getRecordCount();
             for (let i = 0; i < recordCount; i++) {
               const record = pasteData.getRecord(i);
-              if (record.mimeType != pasteboard.MIMETYPE_TEXT_PLAIN
-                && record.mimeType != pasteboard.MIMETYPE_TEXT_HTML) {
-                continue;
-              }
               let text: string = '';
-              if (record.mimeType == pasteboard.MIMETYPE_TEXT_PLAIN){
-                text = record.plainText;
-              } else if (record.mimeType == pasteboard.MIMETYPE_TEXT_HTML) {
+              if (typeof record.getValidTypes === 'function') {
+                // For api14 and above, click here. More formats are supported
+                text = await PasteboardUtils.getTargetTypesData(record);
+              } else if (record.mimeType === pasteboard.MIMETYPE_TEXT_HTML) {
                 const htmlText: StyledString = await StyledString.fromHtml(record.htmlText);
                 text = htmlText.getString();
+              } else if (record.mimeType === pasteboard.MIMETYPE_TEXT_PLAIN) {
+                text = record.plainText;
               }
               pasteText += text;
             }
