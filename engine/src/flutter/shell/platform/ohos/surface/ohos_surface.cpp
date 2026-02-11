@@ -64,8 +64,10 @@ bool OHOSSurface::PrepareOffscreenWindow(int32_t width, int32_t height) {
   }
   FML_LOG(INFO) << "set offscreen window" << offscreen_nativewindow_;
 
-  SetNativeWindow(fml::MakeRefCounted<OHOSNativeWindow>(
-      static_cast<OHNativeWindow*>(offscreen_nativewindow_)));
+  auto ohosNativeWindow = fml::MakeRefCounted<OHOSNativeWindow>(
+      static_cast<OHNativeWindow*>(offscreen_nativewindow_));
+  ohosNativeWindow->setIsPreload(true);
+  SetNativeWindow(ohosNativeWindow);
 
   OH_OnFrameAvailableListener listener;
   std::lock_guard<std::mutex> lock(g_surface_alive_mutex);

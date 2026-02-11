@@ -69,6 +69,7 @@ void SurfaceContextVK::Shutdown() {
 
 bool SurfaceContextVK::SetWindowSurface(vk::UniqueSurfaceKHR surface,
                                         const ISize& size) {
+  parent_->SetIsPreload(is_preload_);
   return SetSwapchain(SwapchainVK::Create(parent_, std::move(surface), size));
 }
 
