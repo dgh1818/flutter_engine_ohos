@@ -48,4 +48,32 @@ vec4 IPOrderedDither8x8(vec4 color, vec2 dest) {
   return color;
 }
 
+/// Fixed The issue where gradient effects on HarmonyOS devices exhibited clipping. 
+/// With mediump enabled by default, IPOrderedDither8x8 uint(dest.x) and uint(dest.y) 
+/// might experience precision loss on some GPU chips.
+vec4 PreciseIPOrderedDither8x8(vec4 color, float dest_x, float dest_y) {
+  // Get the x and y coordinates of the pixel in the 8x8 grid.
+  uint x = uint(dest_x) % 8;
+  uint y = uint(dest_y);
+  y ^= x;
+
+  // Get the dither value from the matrix.
+  uint m = (y & 1) << 5 |  //
+           (x & 1) << 4 |  //
+           (y & 2) << 2 |  //
+           (x & 2) << 1 |  //
+           (y & 4) >> 1 |  //
+           (x & 4) >> 2;   //
+
+  // Scale that dither to [0,1), then (-0.5,+0.5), here using 63/128 = 0.4921875
+  // as 0.5-epsilon. We want to make sure our dither is less than 0.5 in either
+  // direction to keep exact values like 0 and 1 unchanged after rounding.
+  float dither = float(m) * (2.0 / 128.0) - (63.0 / 128.0);
+
+  // Apply the dither to the color.
+  color.rgb += dither * kDitherRate;
+
+  return color;
+}
+
 #endif
