@@ -132,7 +132,8 @@ class SensitiveContentService {
   /// This feature is only supported on Android 35+ currently. Its return value will
   /// not change and thus, is safe to cache.
   Future<bool> isSupported() async {
-    if (defaultTargetPlatform != TargetPlatform.android) {
+    if (defaultTargetPlatform != TargetPlatform.android &&
+        defaultTargetPlatform != TargetPlatform.ohos) {
       return false;
     }
     return (await sensitiveContentChannel.invokeMethod<bool>('SensitiveContent.isSupported'))!;
