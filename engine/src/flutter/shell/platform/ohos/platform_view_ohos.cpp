@@ -632,14 +632,6 @@ void PlatformViewOHOS::OnNativeImageFrameAvailable(void* data) {
     return;
   }
 
-  // Frame gate check: block external texture updates when in background
-  if (platform->IsFrameGateEnabled()) {
-    FML_VLOG(1) << "OnNativeImageFrameAvailable: frame gate enabled, "
-                << "skipping MarkTextureFrameAvailable for texture "
-                << ptexture_id;
-    return;
-  }
-
   // Note: PostTask may lead to a deadlock if a render task (which might acquire
   // the buffer) is dispatched earlier and scheduled to run before this task.
   // So we use recursive_mutex to safely invoke OnNativeImageFrameAvailable from
@@ -652,11 +644,26 @@ void PlatformViewOHOS::OnNativeImageFrameAvailable(void* data) {
           return;
         }
         PlatformViewOHOS* platform = g_texture_platformview_map[ptexture_id];
-        // Double-check frame gate in case state changed
+        int64_t texture_id = static_cast<int64_t>(ptexture_id);
+
+        // Frame gate enabled: keep draining producer queue, but do not schedule
+        // UI frames in background.
         if (platform->IsFrameGateEnabled()) {
+          auto texture_it = platform->all_external_texture_.find(texture_id);
+          if (texture_it == platform->all_external_texture_.end()) {
+            return;
+          }
+          FML_VLOG(1) << "OnNativeImageFrameAvailable: frame gate enabled, "
+                      << "drain-only for texture " << texture_id;
+          auto external_texture = texture_it->second;
+          fml::TaskRunner::RunNowOrPostTask(
+              platform->task_runners_.GetRasterTaskRunner(),
+              [external_texture]() {
+                external_texture->MarkNewFrameAvailable();
+              });
           return;
         }
-        uint64_t texture_id = ptexture_id;
+
         platform->MarkTextureFrameAvailable(texture_id);
       });
 }

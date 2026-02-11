@@ -189,8 +189,8 @@ class PlatformViewOHOS final : public PlatformView {
   void OnSurfaceDestroyed();
 
   /// @brief  Returns whether the frame gate is currently enabled.
-  ///         When frame gate is on, MarkTextureFrameAvailable should be
-  ///         blocked.
+  ///         When frame gate is on, frame scheduling is blocked while
+  ///         producer queue draining is still allowed.
   /// Thread-safe: Can be called from any thread.
   bool IsFrameGateEnabled() const {
     return frame_gate_enabled_.load(std::memory_order_acquire);
