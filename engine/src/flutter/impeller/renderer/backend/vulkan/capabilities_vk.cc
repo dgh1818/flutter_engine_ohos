@@ -873,6 +873,13 @@ ISize CapabilitiesVK::GetMaximumRenderPassAttachmentSize() const {
   return max_render_pass_attachment_size_;
 }
 
+#ifdef __OHOS__
+bool CapabilitiesVK::SupportsFramebufferColorSampleCount2x() const {
+  const auto supported = device_properties_.limits.framebufferColorSampleCounts;
+  return !!(supported & vk::SampleCountFlagBits::e2);
+}
+#endif  // __OHOS__
+
 void CapabilitiesVK::ApplyWorkarounds(const WorkaroundsVK& workarounds) {
   has_primitive_restart_ = !workarounds.slow_primitive_restart_performance;
   has_framebuffer_fetch_ = !workarounds.input_attachment_self_dependency_broken;
