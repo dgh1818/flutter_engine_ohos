@@ -345,6 +345,10 @@ class CapabilitiesVK final : public Capabilities,
 
   // |Capabilities|
   size_t GetMinimumUniformAlignment() const override;
+#ifdef __OHOS__
+  // |Capabilities|
+  bool SupportsFramebufferColorSampleCount2x() const override;
+#endif  // __OHOS__
 
   //----------------------------------------------------------------------------
   /// @return     If fixed-rate compression for non-onscreen surfaces is
