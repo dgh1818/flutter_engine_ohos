@@ -119,6 +119,10 @@ class PlatformViewOHOSNapi {
   static napi_value nativeDestroy(
       napi_env env,
       napi_callback_info info);  // Detaches flutterNapi和engine之间的关联
+
+  static napi_value nativeSpawnAsync(napi_env env, napi_callback_info info);
+  static napi_value nativeDestroyAsync(napi_env env, napi_callback_info info);
+
   static napi_value nativeSetViewportMetrics(
       napi_env env,
       napi_callback_info info);  // 把物理屏幕参数通知到native

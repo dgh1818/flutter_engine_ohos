@@ -228,6 +228,45 @@ export default class FlutterEngine implements EngineLifecycleListener {
     return flutterEngine
   }
 
+  /**
+   * Spawns a new Flutter engine from this engine asynchronously.
+   * The spawned engine shares resources with the parent engine.
+   * @param context - The application context
+   * @param dartEntrypoint - The Dart entrypoint configuration
+   * @param initialRoute - The initial route for navigation
+   * @param dartEntrypointArgs - Arguments for the Dart entrypoint
+   * @param platformViewsController - The platform views controller
+   * @param waitForRestorationData - Whether to wait for restoration data
+   * @returns The spawned FlutterEngine instance
+   * @throws Error if this engine is not fully constructed
+   */
+  spawnAsync(context: common.Context,
+    dartEntrypoint: DartEntrypoint,
+    initialRoute: string,
+    dartEntrypointArgs: Array<string>,
+    platformViewsController: PlatformViewsController,
+    waitForRestorationData: boolean): Promise<FlutterEngine> {
+    if (!this.isAttachedToNapi()) {
+      return Promise.reject(new Error(
+        "Spawn can only be called on a fully constructed FlutterEngine"));
+    }
+
+    return this.flutterNapi.spawnAsync(
+      dartEntrypoint.dartEntrypointFunctionName,
+      dartEntrypoint.dartEntrypointLibrary,
+      initialRoute,
+      dartEntrypointArgs).then(newFlutterNapi => {
+      const flutterEngine = new FlutterEngine(
+        context,
+        null,
+        newFlutterNapi,
+        platformViewsController
+      );
+      flutterEngine.init(context, null, waitForRestorationData);
+      return flutterEngine;
+    });
+  }
+
   private isAttachedToNapi(): boolean {
     return this.flutterNapi.isAttached();
   }
@@ -446,6 +485,23 @@ export default class FlutterEngine implements EngineLifecycleListener {
     this.pluginRegistry?.destroy();
     this.dartExecutor.onDetachedFromNAPI();
     this.flutterNapi.detachFromNativeAndReleaseResources();
+  }
+
+  /**
+   * Destroys the Flutter engine and releases all resources asynchronously.
+   * Notifies listeners, detaches from ability, and cleans up all components.
+   */
+  destroyAsync(): Promise<void> {
+    Log.d(TAG, "Destroying asynchronously.");
+    this.flutterNapi?.setPipVisible(false);
+    PiPVisibilityBridge.getInstance().unregister(this.pipVisibilityListener);
+    this.engineLifecycleListeners.forEach(listener => listener.onEngineWillDestroy())
+    this.flutterNapi.removeEngineLifecycleListener(this);
+    this.pluginRegistry?.detachFromAbility();
+    this.platformViewsController?.onDetachedFromNapi();
+    this.pluginRegistry?.destroy();
+    this.dartExecutor.onDetachedFromNAPI();
+    return this.flutterNapi.detachFromNativeAndReleaseResourcesAsync();
   }
 
   /**

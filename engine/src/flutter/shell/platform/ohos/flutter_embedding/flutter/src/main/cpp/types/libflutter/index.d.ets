@@ -106,6 +106,25 @@ export const nativeSpawn: (
 ) => number;
 
 /**
+ * Spawns a new Flutter shell instance asynchronously.
+ * @param nativeSpawningShellId - The ID of the spawning shell, or null for a new shell
+ * @param entrypointFunctionName - Name of the entrypoint function
+ * @param pathToEntrypointFunction - Path to the entrypoint function
+ * @param initialRoute - Initial route for navigation
+ * @param entrypointArgs - Arguments to pass to the entrypoint function
+ * @param napi - The FlutterNapi instance
+ * @returns Promise of the native shell holder ID of the spawned shell
+ */
+export const nativeSpawnAsync: (
+  nativeSpawningShellId: number | null,
+  entrypointFunctionName: string,
+  pathToEntrypointFunction: string,
+  initialRoute: string,
+  entrypointArgs: Array<string>,
+  napi: FlutterNapi
+) => Promise<number>;
+
+/**
  * Runs a Flutter bundle and snapshot from a library.
  * @param nativeShellHolderId - The ID of the native shell holder
  * @param bundlePath - Path to the Flutter bundle
@@ -248,6 +267,15 @@ export const nativeXComponentDispatchMouseWheel: (nativeShellHolderId: number,
 export const nativeDestroy: (
   nativeShellHolderId: number
 ) => void;
+
+/**
+ * Detaches the association between FlutterNapi and the engine asynchronously.
+ * This method should only be called when FlutterNapi is already associated with the engine.
+ * @param nativeShellHolderId - The ID of the native shell holder to destroy
+ */
+export const nativeDestroyAsync: (
+  nativeShellHolderId: number
+) => Promise<void>;
 
 
 /**

@@ -59,6 +59,13 @@ class OHOSShellHolder {
       const std::string& initial_route,
       const std::vector<std::string>& entrypoint_args) const;
 
+  std::unique_ptr<OHOSShellHolder> SpawnAsync(
+      std::shared_ptr<PlatformViewOHOSNapi> napi_facade,
+      const std::string& entrypoint,
+      const std::string& libraryUrl,
+      const std::string& initial_route,
+      const std::vector<std::string>& entrypoint_args) const;
+
   const std::shared_ptr<PlatformMessageHandler>& GetPlatformMessageHandler()
       const {
     return shell_->GetPlatformMessageHandler();

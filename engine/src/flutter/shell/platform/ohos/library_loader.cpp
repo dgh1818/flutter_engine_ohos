@@ -43,6 +43,10 @@ static napi_value Init(napi_env env, napi_value exports) {
                             flutter::PlatformViewOHOSNapi::nativeSpawn),
       DECLARE_NAPI_FUNCTION("nativeDestroy",
                             flutter::PlatformViewOHOSNapi::nativeDestroy),
+      DECLARE_NAPI_FUNCTION("nativeSpawnAsync",
+                            flutter::PlatformViewOHOSNapi::nativeSpawnAsync),
+      DECLARE_NAPI_FUNCTION("nativeDestroyAsync",
+                            flutter::PlatformViewOHOSNapi::nativeDestroyAsync),
       DECLARE_NAPI_FUNCTION(
           "nativeSetViewportMetrics",
           flutter::PlatformViewOHOSNapi::nativeSetViewportMetrics),

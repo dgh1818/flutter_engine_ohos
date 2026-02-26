@@ -3295,4 +3295,220 @@ napi_value PlatformViewOHOSNapi::nativeLTPODispatchHighFrameRate(
   return nullptr;
 }
 
+static napi_value RejectDeferredWithUndefined(napi_env env,
+                                              napi_deferred deferred,
+                                              napi_value promise) {
+  napi_value undefined;
+  napi_get_undefined(env, &undefined);
+  napi_reject_deferred(env, deferred, undefined);
+  return promise;
+}
+
+struct SpawnAsyncData {
+  napi_env env;
+  napi_deferred deferred;
+  napi_async_work work;
+  std::shared_ptr<PlatformViewOHOSNapi> napi_facade;
+  int64_t shell_holder;
+  std::string entrypoint;
+  std::string libraryUrl;
+  std::string initialRoute;
+  std::vector<std::string> entrypointArgs;
+  int64_t result_shell_holder_id;
+  bool success;
+};
+
+struct DestroyAsyncData {
+  napi_deferred deferred;
+  napi_async_work work;
+  int64_t shell_holder;
+  bool success;
+};
+
+static void SpawnAsyncExecuteWork(napi_env env, void* data) {
+  SpawnAsyncData* async_data = static_cast<SpawnAsyncData*>(data);
+
+  int64_t shell_holder = async_data->shell_holder;
+  auto spawned_shell_holder = OHOS_SHELL_HOLDER->SpawnAsync(
+      async_data->napi_facade, async_data->entrypoint, async_data->libraryUrl,
+      async_data->initialRoute, async_data->entrypointArgs);
+
+  if (spawned_shell_holder != nullptr && spawned_shell_holder->IsValid()) {
+    async_data->result_shell_holder_id =
+        reinterpret_cast<int64_t>(spawned_shell_holder.release());
+    async_data->success = true;
+  } else {
+    async_data->result_shell_holder_id = 0;
+    async_data->success = false;
+  }
+}
+
+static void SpawnAsyncCompleteWork(napi_env env,
+                                   napi_status status,
+                                   void* data) {
+  SpawnAsyncData* async_data = static_cast<SpawnAsyncData*>(data);
+
+  if (async_data->success) {
+    napi_value result;
+    napi_create_int64(env, async_data->result_shell_holder_id, &result);
+    napi_resolve_deferred(env, async_data->deferred, result);
+  } else {
+    LOGE("SpawnAsyncCompleteWork: spawn shell holder failed");
+    napi_value undefined;
+    napi_get_undefined(env, &undefined);
+    napi_reject_deferred(env, async_data->deferred, undefined);
+  }
+
+  napi_delete_async_work(env, async_data->work);
+  delete async_data;
+}
+
+napi_value PlatformViewOHOSNapi::nativeSpawnAsync(napi_env env,
+                                                  napi_callback_info info) {
+  FML_DLOG(INFO) << "PlatformViewOHOSNapi::nativeSpawnAsync";
+
+  napi_value promise = nullptr;
+  napi_deferred deferred = nullptr;
+  napi_create_promise(env, &deferred, &promise);
+
+  napi_status ret;
+  size_t argc = 6;
+  napi_value args[6] = {nullptr};
+  ret = napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+  if (ret != napi_ok) {
+    LOGE("nativeSpawnAsync napi_get_cb_info error");
+    return RejectDeferredWithUndefined(env, deferred, promise);
+  }
+
+  int64_t shell_holder;
+  ret = napi_get_value_int64(env, args[0], &shell_holder);
+  if (ret != napi_ok) {
+    LOGE("nativeSpawnAsync napi_get_value_int64 error");
+    return RejectDeferredWithUndefined(env, deferred, promise);
+  }
+
+  SpawnAsyncData* async_data = new SpawnAsyncData();
+  async_data->env = env;
+  async_data->deferred = deferred;
+  async_data->shell_holder = shell_holder;
+  async_data->success = false;
+  async_data->result_shell_holder_id = 0;
+
+  if (fml::napi::kSuccess !=
+      fml::napi::GetString(env, args[1], async_data->entrypoint)) {
+    LOGE("nativeSpawnAsync GetString entrypoint error");
+    delete async_data;
+    return RejectDeferredWithUndefined(env, deferred, promise);
+  }
+
+  if (fml::napi::kSuccess !=
+      fml::napi::GetString(env, args[2], async_data->libraryUrl)) {
+    LOGE("nativeSpawnAsync GetString libraryUrl error");
+    delete async_data;
+    return RejectDeferredWithUndefined(env, deferred, promise);
+  }
+
+  if (fml::napi::kSuccess !=
+      fml::napi::GetString(env, args[3], async_data->initialRoute)) {
+    LOGE("nativeSpawnAsync GetString initialRoute error");
+    delete async_data;
+    return RejectDeferredWithUndefined(env, deferred, promise);
+  }
+
+  if (fml::napi::kSuccess !=
+      fml::napi::GetArrayString(env, args[4], async_data->entrypointArgs)) {
+    LOGE("nativeSpawnAsync GetArrayString error");
+    delete async_data;
+    return RejectDeferredWithUndefined(env, deferred, promise);
+  }
+
+  auto napi_facade = std::make_shared<PlatformViewOHOSNapi>(env);
+  napi_create_reference(env, args[5], 1, &(napi_facade->ref_napi_obj_));
+  async_data->napi_facade = napi_facade;
+
+  napi_value resource_name;
+  napi_create_string_utf8(env, "nativeSpawnAsync", NAPI_AUTO_LENGTH,
+                          &resource_name);
+
+  napi_create_async_work(env, nullptr, resource_name, SpawnAsyncExecuteWork,
+                         SpawnAsyncCompleteWork, async_data, &async_data->work);
+
+  napi_queue_async_work_with_qos(env, async_data->work,
+                                 napi_qos_user_initiated);
+  return promise;
+}
+
+static void DestroyAsyncExecuteWork(napi_env env, void* data) {
+  DestroyAsyncData* async_data = static_cast<DestroyAsyncData*>(data);
+
+  int64_t shell_holder = async_data->shell_holder;
+  if (shell_holder != 0) {
+    OHOS_SHELL_HOLDER->WaitRasterTasksFinished();
+    delete OHOS_SHELL_HOLDER;
+    async_data->success = true;
+  } else {
+    async_data->success = false;
+  }
+}
+
+static void DestroyAsyncCompleteWork(napi_env env,
+                                     napi_status status,
+                                     void* data) {
+  DestroyAsyncData* async_data = static_cast<DestroyAsyncData*>(data);
+
+  napi_value undefined;
+  napi_get_undefined(env, &undefined);
+  if (async_data->success) {
+    napi_resolve_deferred(env, async_data->deferred, undefined);
+  } else {
+    LOGE("DestroyAsyncCompleteWork: destroy shell holder failed");
+    napi_reject_deferred(env, async_data->deferred, undefined);
+  }
+
+  napi_delete_async_work(env, async_data->work);
+  delete async_data;
+}
+
+napi_value PlatformViewOHOSNapi::nativeDestroyAsync(napi_env env,
+                                                    napi_callback_info info) {
+  LOGD("PlatformViewOHOSNapi::nativeDestroyAsync");
+
+  napi_value promise = nullptr;
+  napi_deferred deferred = nullptr;
+  napi_create_promise(env, &deferred, &promise);
+
+  napi_status ret;
+  size_t argc = 1;
+  napi_value args[1] = {nullptr};
+  ret = napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+  if (ret != napi_ok) {
+    LOGE("nativeDestroyAsync napi_get_cb_info error");
+    return RejectDeferredWithUndefined(env, deferred, promise);
+  }
+
+  int64_t shell_holder;
+  ret = napi_get_value_int64(env, args[0], &shell_holder);
+  if (ret != napi_ok) {
+    LOGE("nativeDestroyAsync napi_get_value_int64 error");
+    return RejectDeferredWithUndefined(env, deferred, promise);
+  }
+
+  DestroyAsyncData* async_data = new DestroyAsyncData();
+  async_data->deferred = deferred;
+  async_data->shell_holder = shell_holder;
+  async_data->success = false;
+
+  napi_value resource_name;
+  napi_create_string_utf8(env, "nativeDestroyAsync", NAPI_AUTO_LENGTH,
+                          &resource_name);
+
+  napi_create_async_work(env, nullptr, resource_name, DestroyAsyncExecuteWork,
+                         DestroyAsyncCompleteWork, async_data,
+                         &async_data->work);
+
+  napi_queue_async_work_with_qos(env, async_data->work,
+                                 napi_qos_user_initiated);
+  return promise;
+}
+
 }  // namespace flutter
