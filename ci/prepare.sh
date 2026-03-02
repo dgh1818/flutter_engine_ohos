@@ -64,8 +64,8 @@ readonly TARGET_FLUTTER_BRANCH="oh-3.35.7-dev"
 readonly TARGET_TESTER_BRANCH="main"
 
 function prepare_openharmony_sdk() {
-    local sdk_url="https://cidownload.openharmony.cn/version/Daily_Version/OpenHarmony_6.1.0.28/20260115_120141/version-Daily_Version-OpenHarmony_6.1.0.28-20260115_120141-ohos-sdk-public.tar.gz"
-    local correct_sha256="4a6ee8412028fe476d2042173265f8ebdfbc8973b97a5696757cabb5b8e4adb5"
+    local sdk_url="https://cidownload.openharmony.cn/version/Daily_Version/OpenHarmony_6.1.1.33/20260301_120440/version-Daily_Version-OpenHarmony_6.1.1.33-20260301_120440-ohos-sdk-full.tar.gz"
+    local correct_sha256="0d17006da67b7207119c250877b646841fc9b79678de038210469552562f67cd"
     local sdk_dir="/home/tools/command-line-tools/sdk/default"
 
     log_step "Prepare openharmony SDK"
