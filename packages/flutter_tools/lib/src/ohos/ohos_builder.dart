@@ -21,6 +21,7 @@ import '../build_info.dart';
 import '../build_system/build_system.dart';
 import '../build_system/targets/ohos.dart';
 import '../cache.dart';
+import '../dart/package_map.dart';
 import '../globals.dart' as globals;
 import '../project.dart';
 import '../reporting/reporting.dart';
@@ -215,11 +216,13 @@ class OhosDartBuilder implements OhosBuilder {
     output = getAbsolutePath(flutterProject, output);
     try {
       final String? flavor = ohosBuildInfo.buildInfo.flavor;
+      final String packageConfigPath = findPackageConfigFileOrDefault(
+        flutterProject.directory).path;
       final BuildResult result = await globals.buildSystem.build(
           target,
           Environment(
             projectDir: globals.fs.currentDirectory,
-            packageConfigPath: '.dart_tool/package_config.json',
+            packageConfigPath: packageConfigPath,
             outputDir: globals.fs.directory(output),
             buildDir: flutterProject.directory
                 .childDirectory('.dart_tool')
