@@ -215,7 +215,7 @@ export default class PlatformViewsController implements PlatformViewsHandler {
 
     let viewWrapper = this.viewWrappers.get(request.viewId)
     let params: DVModelParameters | undefined = viewWrapper?.getDvModel()!.params
-     
+
     this.setParams(params!, "width", physicalWidth);
     this.setParams(params!, "height", physicalHeight);
 
@@ -238,11 +238,33 @@ export default class PlatformViewsController implements PlatformViewsHandler {
     Log.i(TAG, `Offset is id${viewId}, t:${top}, l:${left}`);
 
     let viewWrapper = this.viewWrappers.get(viewId)
-    if (viewWrapper != undefined) {
-      let params: DVModelParameters | undefined = viewWrapper?.getDvModel()!.params
-      this.setParams(params!, "left", left);
-      this.setParams(params!, "top", top);
+    if (viewWrapper === undefined) {
+      return;
     }
+
+    let params: DVModelParameters | undefined = viewWrapper?.getDvModel()!.params;
+    if (!params) {
+      return;
+    }
+    // When the current value is NaN and the previous value is a normal value,
+    // the platformView is considered to have transitioned from visible to invisible.
+    // Use Number.isNaN; the page is considered invisible in the background
+    // only when both top and left values equal NaN.
+    if (Number.isNaN(top) && Number.isNaN(left)) {
+      let leftPre: number | undefined = this.getParams(params!, "left");
+      let topPre: number | undefined = this.getParams(params!, "top");
+      let compType: string | undefined = viewWrapper?.getDvModel().compType;
+      if ((leftPre !== undefined && !Number.isNaN(leftPre)) &&
+        (topPre !== undefined && !Number.isNaN(topPre)) &&
+        (compType === "NodeContainer")) {
+        const nodeController = (params as Record<string, EmbeddingNodeController>)?.nodeController;
+        if (nodeController instanceof EmbeddingNodeController) {
+          nodeController.notifyPlatformViewInvisible();
+        }
+      }
+    }
+    this.setParams(params!, "left", left);
+    this.setParams(params!, "top", top);
   }
 
   /**
@@ -688,7 +710,7 @@ export default class PlatformViewsController implements PlatformViewsHandler {
       return;
     }
   }
-  
+
   /**
    * Renders a platform view with the specified dimensions and position.
    * @param surfaceId - The surface ID
