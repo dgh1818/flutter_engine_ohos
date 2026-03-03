@@ -474,7 +474,7 @@ export class FlutterView {
         this.gestureAvoidArea = data.area;
         break;
       case window.AvoidAreaType.TYPE_KEYBOARD:
-        if (this.flutterEngine?.getTextInputChannel()?.getKeyboardFocusState()) {
+        if (this.getKeyboardHeight() > 0) {
           this.keyboardAvoidArea = data.area;
         } else {
           this.keyboardAvoidArea.bottomRect = { left: 0, top: 0, width: 0, height: 0 };

@@ -165,6 +165,7 @@ void OHOSExternalTexture::Paint(PaintContext& context,
     if ((buffer_size_has_changed_ && draw_size_has_changed_) ||
         size_change_frames_ > MAX_SIZE_CHANGE_FRAMES) {
       size_is_changing_ = false;
+      buffer_size_has_changed_ = false;
       if (size_change_frames_ > MAX_SIZE_CHANGE_FRAMES) {
         FML_LOG(INFO) << "stop size change state: frame > "
                       << MAX_SIZE_CHANGE_FRAMES;
@@ -181,6 +182,7 @@ void OHOSExternalTexture::Paint(PaintContext& context,
     SkM44 new_transform;
     GetNewTransformBound(new_transform, new_bounds);
     context.canvas->Transform(ToDlMatrix(new_transform));
+    context.canvas->ClipRect(bounds);
     context.canvas->DrawImageRect(
         draw_dl_image,                                    // image
         ToDlRect(ToSkIRect(draw_dl_image->GetBounds())),  // source rect
