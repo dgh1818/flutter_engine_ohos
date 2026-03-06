@@ -121,10 +121,7 @@ Future<void> ohpmInstall(
     {required ProcessUtils processUtils,
     required String workingDirectory,
     Logger? logger}) async {
-  final List<String> cleanCmd = <String>['ohpm', 'clean'];
   final List<String> installCmd = <String>['ohpm', 'install', '--all'];
-  processUtils.runSync(cleanCmd,
-      workingDirectory: workingDirectory, throwOnError: true);
   processUtils.runSync(installCmd,
       workingDirectory: workingDirectory, throwOnError: true);
 }
