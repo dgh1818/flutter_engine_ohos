@@ -22,6 +22,7 @@ import { BusinessError } from '@kit.BasicServicesKit';
 import { PointerDeviceKind } from '../../embedding/ohos/OhosTouchProcessor';
 import deviceInfo from '@ohos.deviceInfo';
 import KeyEventChannel from '../../embedding/engine/systemchannels/KeyEventChannel';
+import { appManager, bundleManager } from '@kit.AbilityKit';
 
 const INPUT_SUPPORT_API = 15;
 const PREIVEW_TEXT_SUPPORT_API = 17;
@@ -173,6 +174,9 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     { textInputType: inputMethod.TextInputType.TEXT, enterKeyType: inputMethod.EnterKeyType.NONE };
   private keyboardFocusState: boolean = false;
   private focusViewId: string = "";
+  // Record the type of soft keyboard that was triggered last time
+  private lastInputType?: inputMethod.TextInputType;
+  private isInputMethodAttached: boolean = false;
 
   /**
    * Constructs a new TextInputMethodHandlerImpl instance.
@@ -387,13 +391,17 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   }
 
   private async showTextInput(): Promise<void> {
+    if (!this.lastInputType) {
+      this.setLastInputType(this.configuration?.inputType?.type);
+    }
     if (this.lastKind === undefined && this.configuration?.deviceKind !== undefined) {
       this.lastKind = this.configuration.deviceKind;
     }
     if (this.keyboardStatus == inputMethod.KeyboardStatus.SHOW) {
       // 增加键盘拉起状态时也调用attach，参数false则attach不会拉起键盘
       await this.attach(false);
-      if (this.lastKind != this.configuration?.deviceKind) {
+      if (this.lastKind != this.configuration?.deviceKind ||
+        this.hasSecureKeyboardInSwitch()) {
         if (deviceInfo.sdkApiVersion >= INPUT_SUPPORT_API) {
           await this.inputMethodController.showTextInput(this.getRequestReason());
         } else {
@@ -403,8 +411,10 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
           this.lastKind = this.configuration.deviceKind;
         }
       }
+      this.setLastInputType(this.configuration?.inputType?.type);
       return;
     }
+    this.setLastInputType(this.configuration?.inputType?.type);
     await this.attach(true);
     if (this.configuration?.deviceKind !== undefined) {
       this.lastKind = this.configuration.deviceKind;
@@ -436,15 +446,62 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
         this.registerPreviewTextCallbacks();
       }
       if (deviceInfo.sdkApiVersion >= INPUT_SUPPORT_API) {
-        await this.inputMethodController.attach(showKeyboard, this.textConfig, this.getRequestReason());
+        await this.inputMethodController.attach(showKeyboard, this.textConfig, this.getRequestReason()).then(async () => {
+          await this.handleAttach(showKeyboard);
+        });
       } else {
-        await this.inputMethodController.attach(showKeyboard, this.textConfig);
+        await this.inputMethodController.attach(showKeyboard, this.textConfig).then(async () => {
+          await this.handleAttach(showKeyboard);
+        });
       }
-      this.keyboardStatus = inputMethod.KeyboardStatus.SHOW;
     } catch (err) {
       Log.e(TextInputMethodHandlerImpl.TAG, "Failed to attach:" + JSON.stringify(err));
       this.keyboardStatus = inputMethod.KeyboardStatus.NONE;
     }
+  }
+
+  private async handleAttach(showKeyboard: boolean): Promise<void> {
+    let isDetached = false;
+    if (showKeyboard) {
+      isDetached = await this.detachIfBackground();
+    }
+    if (isDetached) {
+      this.isInputMethodAttached = false;
+      this.keyboardStatus = inputMethod.KeyboardStatus.NONE;
+    } else {
+      this.isInputMethodAttached = true;
+      this.cacheMethodCall();
+      this.keyboardStatus = inputMethod.KeyboardStatus.SHOW;
+    }
+  }
+
+  private async detachIfBackground(): Promise<boolean> {
+    try {
+      const bundleFlags = bundleManager.BundleFlag.GET_BUNDLE_INFO_WITH_APPLICATION;
+      const bundleInfo: bundleManager.BundleInfo  = await bundleManager.getBundleInfoForSelf(bundleFlags);
+      const currentInfo = await appManager.getRunningProcessInformation();
+      const targetBundleName = bundleInfo?.name;
+      const currentProcess = currentInfo.find(info => info.bundleNames?.includes(targetBundleName));
+      //STATE_FOREGROUND 代表进程处于前台，界面获焦并显示时状态为STATE_ACTIVE，参考：https://developer.huawei.com/consumer/cn/doc/harmonyos-references/js-apis-app-ability-appmanager#processstate10
+      if (
+        currentProcess &&
+        (currentProcess.state === appManager.ProcessState.STATE_FOREGROUND ||
+          currentProcess.state === appManager.ProcessState.STATE_BACKGROUND)
+      ) {
+          await this.inputMethodController.hideTextInput();
+          return true;
+      }
+    } catch (err) {
+      Log.e(
+        TextInputMethodHandlerImpl.TAG,
+        `detachIfBackground error: ${JSON.stringify(err)}`,
+      );
+    }
+    return false;
+  }
+
+  cacheMethodCall(): void {
+    // Cache method calls when input method is attached; no-op if not used by this version
   }
 
   /**
@@ -546,6 +603,21 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     this.inputAttribute = this.textConfig.inputAttribute;
 
     this.updateAttribute();
+  }
+
+  setLastInputType(inputType?: inputMethod.TextInputType): void {
+    this.lastInputType = inputType;
+  }
+
+  // It is used to determine whether there is a safe keyboard for the keyboard type
+  // awakened by the two input boxes when a soft keyboard is already suspended
+  // and switching input boxes
+  hasSecureKeyboardInSwitch(): boolean {
+    // Since this method is called in showTextInput to determine whether a secure 
+ 	  // keyboard needs to be pulled up, the parameter must be true
+    this.handleAttach(true);
+    return this.lastInputType === inputMethod.TextInputType.VISIBLE_PASSWORD ||
+    this.configuration?.inputType?.type === inputMethod.TextInputType.VISIBLE_PASSWORD;
   }
 
   /**
