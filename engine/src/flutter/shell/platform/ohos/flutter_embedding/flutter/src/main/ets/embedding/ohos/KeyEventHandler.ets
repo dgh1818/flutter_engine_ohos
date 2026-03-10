@@ -212,25 +212,6 @@ export class KeyEventHandler {
     }));
     if (event.type === KeyType.Down) {
       switch (event.keyCode) {
-        case KeyCode.KEYCODE_MOVE_HOME: {
-          // Handle MOVE_HOME key, move cursor to the beginning of the input field
-          this.withEditingState((editingState) => {
-            // Set selection range and notify listeners via handleSelectByRangeEvent
-            editingState.handleSelectByRangeEvent({ start: 0, end: 0 });
-            Log.i(TAG, `MOVE_HOME: cursor moved to beginning`);
-          });
-          break;
-        }
-        case KeyCode.KEYCODE_MOVE_END: {
-          // Handle MOVE_END key, move cursor to the end of the input field
-          this.withEditingState((editingState) => {
-            // Set selection range and notify listeners via handleSelectByRangeEvent
-            // When start is not 0, it goes to the else branch, moving cursor to the end (using -1 matches test case usage)
-            editingState.handleSelectByRangeEvent({ start: -1, end: -1 });
-            Log.i(TAG, `MOVE_END: cursor moved to end`);
-          });
-          break;
-        }
         case KeyCode.KEYCODE_ENTER:
         case KeyCode.KEYCODE_NUMPAD_ENTER: {
           // Handle Enter key (both regular and numpad), insert newline character
@@ -247,14 +228,14 @@ export class KeyEventHandler {
           const isNumpadDotKey = event.keyCode === KeyCode.KEYCODE_NUMPAD_DOT;
           
           // Use event.isNumLockOn to check NumLock state
-          const isNumLockOn = event.isNumLockOn !== undefined ? event.isNumLockOn : false; // Default to true if not available
+          const isNumLockOn = event.isNumLockOn !== undefined ? event.isNumLockOn : true; // Default to true if not available
           
           // When NumLock is on, block numpad number keys (0-9) and NUMPAD_DOT, allow other special keys to input symbols
-          if ((isNumpadNumberKey || isNumpadDotKey) && isNumLockOn) {
+          if ((isNumpadNumberKey || isNumpadDotKey) && !isNumLockOn) {
             Log.i(TAG, `Numpad key ${event.keyCode} blocked: NumLock is off`);
             return;
           }
-          // Other special keys (NUMPAD_ADD, NUMPAD_SUBTRACT, etc.) can input symbols even when NumLock is on
+          // Other special keys (NUMPAD_ADD, NUMPAD_SUBTRACT, etc.) can input symbols even when NumLock is off
           
           // Use getModifierKeyState to check Ctrl and Alt state
           // Returns true if either Ctrl or Alt (or both) is pressed
