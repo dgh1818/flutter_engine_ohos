@@ -181,8 +181,8 @@ void OHOSExternalTexture::Paint(PaintContext& context,
     DlAutoCanvasRestore auto_restore(context.canvas, true);
     SkM44 new_transform;
     GetNewTransformBound(new_transform, new_bounds);
-    context.canvas->Transform(ToDlMatrix(new_transform));
     context.canvas->ClipRect(bounds);
+    context.canvas->Transform(ToDlMatrix(new_transform));
     context.canvas->DrawImageRect(
         draw_dl_image,                                    // image
         ToDlRect(ToSkIRect(draw_dl_image->GetBounds())),  // source rect
