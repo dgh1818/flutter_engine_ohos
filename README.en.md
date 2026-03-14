@@ -38,7 +38,7 @@ You can learn more about our adaptation of Flutter for OpenHarmony in the [Flutt
     *The following environment variable configuration is for Unix-like systems (Linux, Mac). You can directly refer to the configuration below. For environment variable configuration under Windows, please set it in ‘Edit System Environment Variables’*
 
    1. Configure the HarmonyOS SDK and environment variables
-    * API18, deveco-studio-5.1 or command-line-tools-5.1 (Recommended to use version 5.1.0 Beta1 or later)
+    * API18, deveco-studio-6.0.2 or command-line-tools-6.0.2 (Recommended to use version 6.0.2 Release or later)
     * Configure Java17
     * Configure environment variables (SDK, node, ohpm, hvigor)
 
@@ -50,7 +50,7 @@ You can learn more about our adaptation of Flutter for OpenHarmony in the [Flutt
         export PATH=$TOOL_HOME/tools/node/bin:$PATH # command-line-tools/tool/node/bin
        ```
 
-   2. Download the current warehouse code `git clone https://gitcode.com/openharmony-tpc/flutter_flutter.git` Specify the oh-3.35.7 branch and configure the environment
+   2. Download the current warehouse code `git clone https://gitcode.com/openharmony-tpc/flutter_flutter.git` Specify the oh-3.35.7-dev branch and configure the environment
 
       ```sh
        export PATH=<flutter_flutter path>/bin:$PATH

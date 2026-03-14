@@ -38,7 +38,7 @@ Flutter SDK 仓库
    *下列环境变量配置，类Unix系统（Linux、Mac），下可直接参照配置，Windows下环境变量配置请在‘编辑系统环境变量’中设置*
 
   1. 配置HarmonyOS SDK和环境变量
-   * API18, deveco-studio-5.1 或 command-line-tools-5.1 (推荐使用5.1.0 Beta1或更新版本)
+   * API18, deveco-studio-6.0.2 或 command-line-tools-6.0.2 (推荐使用6.0.2 Release或更新版本)
    * 配置 Java17
    * 配置环境变量 (SDK, node, ohpm, hvigor)
 
@@ -50,7 +50,7 @@ Flutter SDK 仓库
        export PATH=$TOOL_HOME/tools/node/bin:$PATH # command-line-tools/tool/node/bin
       ```
 
-  2. 通过代码工具下载当前仓库代码`git clone https://gitcode.com/openharmony-tpc/flutter_flutter.git`，指定3.35.7-ohos分支，并配置环境
+  2. 通过代码工具下载当前仓库代码`git clone https://gitcode.com/openharmony-tpc/flutter_flutter.git`，指定oh-3.35.7-dev分支，并配置环境
 
      ```sh
       export PUB_CACHE=D:/PUB
