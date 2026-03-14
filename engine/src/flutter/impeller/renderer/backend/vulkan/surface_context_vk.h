@@ -139,10 +139,15 @@ class SurfaceContextVK : public Context,
     return ret;
   }
 
+  bool IsPreload() const { return is_preload_; }
+
+  void SetIsPreload(bool is_preload) { is_preload_ = is_preload; }
+
  private:
   std::shared_ptr<ContextVK> parent_;
   std::shared_ptr<SwapchainVK> swapchain_;
   mutable bool swapchain_changed_ = true;
+  bool is_preload_ = false;
 };
 
 }  // namespace impeller

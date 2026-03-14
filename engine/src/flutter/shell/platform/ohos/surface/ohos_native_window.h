@@ -36,8 +36,13 @@ class OHOSNativeWindow : public fml::RefCountedThreadSafe<OHOSNativeWindow> {
   /// window (used for testing).
   bool IsFakeWindow() const { return is_fake_window_; }
 
+  bool IsPreload() const { return is_preload_; }
+
+  void setIsPreload(bool is_preload) { is_preload_ = is_preload; }
+
  private:
   Handle window_;
+  bool is_preload_ = false;
   const bool is_fake_window_;
 
   explicit OHOSNativeWindow(Handle window);
