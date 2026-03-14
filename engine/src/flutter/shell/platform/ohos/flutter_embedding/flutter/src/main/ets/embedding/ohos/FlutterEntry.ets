@@ -112,7 +112,7 @@ export default class FlutterEntry implements Host {
           this.delegate?.flutterEngine?.getLocalizationPlugin()?.sendLocaleToFlutter();
         }
         this?.delegate?.onCheckAndReloadFont();
-
+        this.delegate?.changeColorMode(config.colorMode);
       },
       onMemoryLevel: (level: AbilityConstant.MemoryLevel) => {
         this.delegate?.getFlutterNapi()?.SetQosOnLowMemory(level as number);
