@@ -59,8 +59,8 @@ Flutter SDK 仓库
       export FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn
      ```
 
-   3. 应用构建依赖flutter engine构建产物与engine host，默认从云端获取。也可以手工指定
-      - 使用示例：`--local-engine=src/out/<engine产物目录> --local-engine-host=src/our/<host产物目录>`
+   3. 应用构建默认从云端获取 flutter engine 产物与 engine host，也可以在调试本地 engine 时手工指定
+      - 使用示例：`--local-engine=src/out/<engine产物目录> --local-engine-host=src/out/<host产物目录>`
       均在 `src/out` 路径下。不同构建类型的产物分别在 `ohos_debug_arm64`、 `ohos_release_arm64` 和 `ohos_profile_arm64` 目录下。engine host 的构建类型也有三种，分别在 `host_debug` 、`host_release` 与 `host_profile` 目录中。构建需要根据不同的构建类型来指定不同的目录。
 
       ```sh
@@ -74,7 +74,7 @@ Flutter SDK 仓库
        # 拉取下来的flutter_flutter/bin目录
        export PATH=/home/<user>/ohos/flutter_flutter/bin:$PATH
 
-       # HamonyOS SDK
+       # SDK 路径
        export TOOL_HOME=/Applications/DevEco-Studio.app/Contents # mac环境
        export DEVECO_SDK_HOME=$TOOL_HOME/sdk # command-line-tools/sdk
        export PATH=$TOOL_HOME/tools/ohpm/bin:$PATH # command-line-tools/ohpm/bin
@@ -84,7 +84,7 @@ Flutter SDK 仓库
 
 ## 构建步骤
 
-1. 运行 `flutter doctor -v` 检查环境变量配置是否正确，**Futter**与**OpenHarmony**应都为ok标识，若两处提示缺少环境，按提示补上相应环境即可。
+1. 运行 `flutter doctor -v` 检查环境变量配置是否正确，**Flutter** 与 **OpenHarmony** 应都为 ok 标识，若两处提示缺少环境，按提示补上相应环境即可。
 
 2. 创建工程与编译命令，编译产物在\<projectName\>/ohos/entry/build/default/outputs/default/entry-default-signed.hap下。
 
@@ -141,8 +141,8 @@ Flutter SDK 仓库
 | devices    | 已连接设备查找     | flutter devices                                              |
 | install    | 应用安装           | flutter install -t \<deviceId\> \<hap文件路径\>              |
 | assemble   | 资源打包           | flutter assemble                                             |
-| build      | 测试应用构建       | flutter build hap --debug [--target-platform ohos-arm64] [--local-engine=\<兼容ohos的debug engine产物路径\>] |
-| build      | 正式应用构建       | flutter build hap --release [--target-platform ohos-arm64] [--local-engine=\<兼容ohos的release engine产物路径\>] |
+| build      | 测试应用构建       | flutter build hap --debug [--target-platform ohos-arm64] [--local-engine=\<本地debug engine产物路径\>] [--local-engine-host=\<本地host产物路径\>] |
+| build      | 正式应用构建       | flutter build hap --release [--target-platform ohos-arm64] [--local-engine=\<本地release engine产物路径\>] [--local-engine-host=\<本地host产物路径\>] |
 | run        | 应用运行           | flutter run [--local-engine=\<兼容ohos的engine产物路径\>]    |
 | attach     | 调试模式           | flutter attach                                               |
 | screenshot | 截屏               | flutter screenshot                                           |
@@ -250,7 +250,7 @@ Flutter SDK 仓库
      #https://gitcode.com/openharmony-tpc/flutter_samples/blob/master/ohos/docs/09_specifications/update-flutter-plugin-structure.md
     ```
 
-15. 执行`flutter build hap` 时遇到路径校验报错。
+15. 执行 `flutter build hap` 时遇到路径校验报错。
     1. 解决方案：
         ·打开 deveco 安装路径 D:\DevEco Studio\tools\hvigor\hvigor-ohos-plugin\res\schemas 下的 ohos-project-build-profile-schema.json文件。
         ·在该文件中找到包含："pattern": "^(\\./|\\.\\./)[\\s\\S]+$"的行,并删除此行。
@@ -258,7 +258,7 @@ Flutter SDK 仓库
     ```
      #hvigor  ERROR: Schema validate failed.
      #        Detail: Please check the following fields.
-     #instancePath: 'modules[1].scrPath',
+     #instancePath: 'modules[1].srcPath',
      #keyword: 'pattern'
      #params: { pattern:'^(\\./|\\.\\./)[\\s\\S]+$' },
      #message: 'must match pattern "^(\\./|\\.\\./)[\\s\\S]+$"',
@@ -312,8 +312,8 @@ Flutter SDK 仓库
     1. 模拟器只支持Mac(arm64), 还不支持Mac(x86)和Windows
     2. 模拟器暂不支持vulkan，请尝试构建步骤2.1，关闭impeller后重试
 
-20. flutter profile模式下编译或运行失败
-    1. 请在ohos项目build_profile.json5中添加buildModeSet字段，可参考[complex_layout](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/oh-3.35.7-dev/dev/benchmarks/complex_layout/ohos/build-profile.json5)
+20. flutter profile 模式下编译或运行失败
+    1. 请在 ohos 项目的 `build-profile.json5` 中添加 `buildModeSet` 字段，可参考 [complex_layout](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/oh-3.35.7-dev/dev/benchmarks/complex_layout/ohos/build-profile.json5)
     2. 报错信息:
       ```
       hvigor ERROR: Build mode 'profile' used in command line is not declared in buildModeSet in /xxx/example/ohos/build-profile.json5.

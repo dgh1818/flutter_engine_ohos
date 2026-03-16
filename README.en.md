@@ -5,8 +5,8 @@ Original warehouse source: https://github.com/flutter/flutter
 
 ## Warehouse description
 1. This repository is a compatible extension of Flutter SDK for the OpenHarmony platform, and can support IDE or terminal use of Flutter Tools instructions to compile and build OpenHarmony applications.
-2. This repository is built based on the Flutter official community version 3.22.0
-   * [sdk base version](https://github.com/flutter/flutter/commit/5dcb86f68f239346676ceb1ed1ea385bd215fba1)
+2. This repository is built based on the Flutter official community version 3.35.7
+   * [sdk base version](https://github.com/flutter/flutter/commit/adc901062556672b4138e18a4dc62a4be8f4b3c2)
 
 ## Flutter OH version evolution planning and branching strategy
 You can learn more about our adaptation of Flutter for OpenHarmony in the [Flutter OH version evolution planning and branching strategy](https://gitcode.com/openharmony-tpc/flutter_flutter/wiki/Flutter-OH%E7%89%88%E6%9C%AC%E6%BC%94%E8%BF%9B%E8%A7%84%E5%88%92%E5%92%8C%E5%88%86%E6%94%AF%E7%AD%96%E7%95%A5.md).
@@ -60,10 +60,10 @@ You can learn more about our adaptation of Flutter for OpenHarmony in the [Flutt
        export FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn
       ```
 
-    3. becomes an optional parameter and may not be passed.
-       - Usage example: `--local-engine=src/out/<engine产物目录\>`
-       - You can download [compiled product](https://docs.qq.com/sheet/DUnljRVBYUWZKZEtF?tab=BB08J2) from this path.
-       - The engine path points to the directory that needs to be accompanied by 'src/out'.
+    3. By default, build artifacts are downloaded from the cloud. Use `--local-engine` and `--local-engine-host` only when testing with a local engine build.
+       - Usage example: `--local-engine=src/out/<engine output dir> --local-engine-host=src/out/<host output dir>`
+       - You can download [compiled artifacts](https://docs.qq.com/sheet/DUnljRVBYUWZKZEtF?tab=BB08J2) from this link.
+       - The engine path should point to a directory under `src/out`.
 
        For the configuration of all the above environment variables (for environment variable configuration under Windows, please set it in 'Edit System Environment Variables'), you can refer to the following example (please replace user and specific code path with the actual path):
 
@@ -88,7 +88,7 @@ You can learn more about our adaptation of Flutter for OpenHarmony in the [Flutt
 
 ## Build steps
 
-1. Run `flutter doctor -v` to check whether the environment variable configuration is correct. **Futter** and **OpenHarmony** should both be ok. If the two prompts indicate that the environment is missing, just follow the prompts to fill in the corresponding environment.
+1. Run `flutter doctor -v` to check whether the environment variable configuration is correct. **Flutter** and **OpenHarmony** should both be ok. If the two prompts indicate that the environment is missing, just follow the prompts to fill in the corresponding environment.
 
 2. Create the project and compile the command. The compiled product is under \<projectName\>/ohos/entry/build/default/outputs/default/entry-default-signed.hap.
 
@@ -127,10 +127,10 @@ You can learn more about our adaptation of Flutter for OpenHarmony in the [Flutt
      flutter run --debug -d <device-id>
     ```
 
-5. Build app package command:
+5. Build app package:
     ```
-    # Example: flutter run --local-engine=<DIR>/src/out/ohos_debug_unopt_arm64 -d <device-id>
-    flutter run  --debug --local-engine=/home/user/engine_make/src/out/ohos_debug_unopt_arm64 -d <device-id> --local-engine-host=src/out/<engine_host>/
+    # Example: flutter build app --release [--local-engine=<DIR>/src/out/ohos_release_arm64] [--local-engine-host=<DIR>/src/out/host_release]
+    flutter build app --release
     ```
 
 ## Compatible command list developed by OpenHarmony
@@ -146,8 +146,8 @@ You can learn more about our adaptation of Flutter for OpenHarmony in the [Flutt
 | devices | Connected device discovery | flutter devices                                                   |
 | install | application installation | flutter install -t \<deviceId\> \<hap file path\>                                                   |
 | assemble | resource packaging | flutter assemble                                                  |
-| build | Test application build | flutter build hap --debug [--target-platform ohos-arm64] [--local-engine=\<debug engine product path compatible with ohos\>]         |
-| build | Formal application build | flutter build hap --release [--target-platform ohos-arm64] [--local-engine=\<release engine product path compatible with ohos\>]         |
+| build | Debug build | flutter build hap --debug [--target-platform ohos-arm64] [--local-engine=\<local debug engine output\>] [--local-engine-host=\<local host output\>] |
+| build | Release build | flutter build hap --release [--target-platform ohos-arm64] [--local-engine=\<local release engine output\>] [--local-engine-host=\<local host output\>] |
 | run | application run | flutter run [--local-engine=\<engine product path compatible with ohos\>]                  |
 | attach | debug mode | flutter attach                                                    |
 | screenshot | screenshot | flutter screenshot                                                 |
@@ -220,7 +220,7 @@ Attachment: [Flutter third-party library adaptation plan](https://gitcode.com/op
     2. Solution: Perform the following actions in sequence
         1. Set environment variables `export FLUTTER_STORAGE_BASE_URL=https://flutter-ohos.obs.cn-south-1.myhuaweicloud.com`
         1. Delete the cache in the<Flutter>/bin/cache directory
-        2. Execute `fluent clean` to clear the project compilation cache
+        2. Execute `flutter clean` to clear the project compilation cache
         3. Execute `flutter run -d $DEVICE --debug`
     3. Additional information: If a similar error occurs while running Android or iOS, you can also try restoring the environment variable FLUTTER_STORAGE_BASE_URL , clearing the cache, and then running again.
 
@@ -253,7 +253,7 @@ Attachment: [Flutter third-party library adaptation plan](https://gitcode.com/op
      #https://gitcode.com/openharmony-tpc/flutter_samples/blob/master/ohos/docs/09_specifications/update-flutter-plugin-structure.md
     ```
 
-15. An error message indicating path verification occurs when `flutter build hap` is executed。
+15. A path validation error occurs when `flutter build hap` is executed.
     1. Solution：
         · Open the ohos-project-build-profile-schema.json file in deveco installation path D:\DevEco Studio\tools\hvigor\hvigor-ohos-plugin\res\schemas。
         · Find the line containing: "pattern": "^(\\./|\\.\\./)[\\s\\S]+$" in the file and delete it。
@@ -261,7 +261,7 @@ Attachment: [Flutter third-party library adaptation plan](https://gitcode.com/op
     ```
      #hvigor  ERROR: Schema validate failed.
      #        Detail: Please check the following fields.
-     #instancePath: 'modules[1].scrPath',
+     #instancePath: 'modules[1].srcPath',
      #keyword: 'pattern'
      #params: { pattern:'^(\\./|\\.\\./)[\\s\\S]+$' },
      #message: 'must match pattern "^(\\./|\\.\\./)[\\s\\S]+$"',
@@ -284,7 +284,7 @@ Attachment: [Flutter third-party library adaptation plan](https://gitcode.com/op
        # hvigor  ERROR:  BUILD FAILED in 2s 556ms.
        #Running Hvigor task assembleHap...
        #Oops; flutter has exited unexpectedly: "ProcessException: The command failed
-       #  <Command: hvigorw --mode module -p module=video_player_ohos@default -p product=default assmbleHar --no-daemon"
+       #  <Command: hvigorw --mode module -p module=video_player_ohos@default -p product=default assembleHar --no-daemon"
        #A crash report has been written to D:\work\videoplayerdemo\video_cannot_stop_at_background\flutter_03.log.
       ```
 
@@ -317,7 +317,7 @@ Attachment: [Flutter third-party library adaptation plan](https://gitcode.com/op
     2. Since the emulator does not currently support Vulkan, please try following the steps in section 2.1. Disable Impeller and try again.
 
 20. Compilation or runtime failure in Flutter profile mode
-    1. Please add the `buildModeSet` field in the OHOS project `build_profile.json5`. You can refer to [complex_layout](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/oh-3.35.7-dev/dev/benchmarks/complex_layout/ohos/build-profile.json5).
+    1. Please add the `buildModeSet` field to the OHOS project's `build-profile.json5`. You can refer to [complex_layout](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/oh-3.35.7-dev/dev/benchmarks/complex_layout/ohos/build-profile.json5).
     2. Error message:
       ```
       hvigor ERROR: Build mode 'profile' used in command line is not declared in buildModeSet in /xxx/example/ohos/build-profile.json5.
