@@ -1,0 +1,148 @@
+# Copyright (c) 2025 Huawei Device Co., Ltd. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE_HW file.
+
+# Configuration for OHOS Flutter CI/CD
+
+# Work directory levels (how many parent directories to go up from root_dir)
+# Default is 2 (go up 2 levels from root_dir)
+work_dir_levels: 2
+
+# Environment variables
+env_vars:
+  TOOL_HOME: /home/tools/command-line-tools
+  DEVECO_SDK_HOME: /home/tools/command-line-tools/sdk
+  PUB_CACHE: /home/tools/Flutter/PUB
+  PUB_HOSTED_URL: https://pub.flutter-io.cn
+  FLUTTER_STORAGE_BASE_URL: https://storage.flutter-io.cn
+  DEPOT_TOOLS_UPDATE: 0
+  GCLIENT_SUPPRESS_GIT_VERSION_WARNING: 1
+  CIPD_CACHE_DIR: /home/tools/cipd_cache
+  CIPD_HTTP_USER_AGENT_PREFIX: offline
+  CIPD_NO_SELF_UPDATE: true
+  # PATH components - appended in order
+  # Note: PATH is handled specially to expand variables and join with colon
+  PATH:
+    - "$WORK_DIR/third_party/flutter_flutter/bin"
+    - "$WORK_DIR/third_party/cipd/bin"
+    - "$DEVECO_SDK_HOME/default/openharmony/toolchains"
+    - "$TOOL_HOME/ohpm/bin"
+    - "$TOOL_HOME/hvigor/bin"
+    - "$TOOL_HOME/tool/node/bin"
+    - "/home/tools/depot_tools"
+    - "$DEVECO_SDK_HOME/default/openharmony/native/llvm/bin"
+    - "$PATH"
+
+# Preparation steps - executed in order
+preparation_steps:
+  - name: Prepare openharmony SDK
+    script: ci/scripts/prepare_openharmony_sdk.sh
+    description: Download openharmony sdk
+    args: 
+      - "https://cidownload.openharmony.cn/version/Daily_Version/OpenHarmony_6.1.1.33/20260301_120440/version-Daily_Version-OpenHarmony_6.1.1.33-20260301_120440-ohos-sdk-full.tar.gz"
+      - "0d17006da67b7207119c250877b646841fc9b79678de038210469552562f67cd"
+    required: true
+
+  - name: Check System Information
+    script: ci/scripts/check_system_info.sh
+    description: Verify system OS and user information
+    required: true
+
+  - name: Check Tool Versions
+    script: ci/scripts/check_tool_versions.sh
+    description: Verify required tools and their versions
+    required: true
+
+  - name: Check Network Connectivity
+    script: ci/scripts/check_network.sh
+    description: Verify network connectivity to required URLs
+    required: true
+
+  - name: Check Project Structure
+    script: ci/scripts/check_project_structure.sh
+    description: Verify project directories exist and create needed folders
+    required: true
+
+  - name: Prepare CIPD
+    script: ci/scripts/prepare_cipd.sh
+    description: Patch required cipd packages
+    required: true
+
+  - name: Prepare Repos
+    script: ci/scripts/prepare_repos.sh
+    description: Prepare repository dependencies
+    required: true
+
+  - name: Prepare Flutter
+    script: ci/scripts/prepare_project.sh
+    description: Prepare Flutter project and sync to target branch
+    args: ["flutter_flutter", "oh-3.35.7-dev"]
+    required: true
+
+  - name: Record Flutter Commit ID
+    script: ci/scripts/record_flutter_commit_id.sh
+    description: Record the current Flutter commit ID
+    args: ["flutter_flutter"]
+    required: true
+
+  - name: Prepare Tester
+    script: ci/scripts/prepare_tester.sh
+    description: Prepare Tester project and sync to target branch
+    args: ["main"]
+    required: true
+
+# Compilation steps - executed in order
+compilation_steps:
+  - name: Pack Flutter
+    script: ci/scripts/pack_flutter.sh
+    description: Pack Flutter SDK
+    args: ["oh-3.35.7-dev"]
+    required: true
+
+  - name: Install dependencies
+    script: ci/scripts/gclient_sync.sh
+    description: Install project dependencies
+    args: ["flutter_flutter"]
+    required: true
+
+  - name: Patch sysroot scripts
+    script: ci/scripts/replace_in_file.sh
+    description: Replacing download URL in sysroot scripts
+    args: ["flutter_flutter/engine/src/build/linux/sysroot_scripts/install-sysroot.py", "s|https://commondatastorage.googleapis.com|file:///home/tools/Flutter/repo/binary|g"]
+    required: true
+
+  - name: Running gclient hooks
+    script: ci/scripts/run_hooks.sh
+    description: Running gclient hooks
+    args: ["flutter_flutter"]
+    required: true
+
+  - name: Skip unittests
+    script: ci/scripts/replace_in_file.sh
+    description: Skip running unit tests
+    args: ["flutter_flutter/engine/src/flutter/testing/testing.gni", "s|enable_unittests = current_toolchain == host_toolchain \\|\\| is_fuchsia \\|\\| is_mac|enable_unittests = false|g"]
+    required: true
+
+  - name: Restoring Engine mTimes
+    script: ci/scripts/restore_engine_mtimes.sh
+    description: Restoring Engine Modification Times
+    args: ["flutter_flutter", "flutter_flutter/engine/src", "oh-3.35.7-dev"]
+    required: true
+
+  - name: Compile Flutter engine
+    script: ci/scripts/compile_engine.sh
+    description: Compile Flutter engine
+    args: ["flutter_flutter/engine"]
+    required: true
+
+  - name: Compile Tester
+    script: ci/scripts/compile_tester.sh
+    description: Compiling Tester
+    args: ["flutter_flutter/engine"]
+    required: true
+
+  - name: Upload to cloud
+    script: ci/scripts/upload_to_cloud.sh
+    description: Upload build artifacts to cloud storage
+    args: ["oh-3.35.7-dev"]
+    required: true
