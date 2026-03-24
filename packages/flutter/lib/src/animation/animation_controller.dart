@@ -13,6 +13,7 @@ import 'package:flutter/physics.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/widgets.dart';
+import 'package:meta/meta.dart';
 
 import 'animation.dart';
 import 'curves.dart';
@@ -327,6 +328,10 @@ class AnimationController extends Animation<double>
   Duration? reverseDuration;
 
   Ticker? _ticker;
+
+  /// Animation usage tag (internal use, only for ohos platform LTPO related)
+  @internal
+  TranslateAnimationSource? translateSource;
 
   /// Recreates the [Ticker] with the new [TickerProvider].
   void resync(TickerProvider vsync) {
@@ -969,17 +974,13 @@ class AnimationController extends Animation<double>
       stop(canceled: false);
     }
 
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.ohos:
-        WidgetsBinding.instance.recordTranslateVelocity(velocity, isIntervalRatio);
-        break;
-      case TargetPlatform.android:
-      case TargetPlatform.iOS:
-      case TargetPlatform.macOS:
-      case TargetPlatform.fuchsia:
-      case TargetPlatform.linux:
-      case TargetPlatform.windows:
-        break;
+    if (defaultTargetPlatform == TargetPlatform.ohos) {
+      final TranslateAnimationSource source = translateSource ?? TranslateAnimationSource.widget;
+      WidgetsBinding.instance.recordTranslateVelocity(
+        velocity: velocity.abs(),
+        source: source,
+        debugInfo: debugLabel,
+      );
     }
 
     notifyListeners();
