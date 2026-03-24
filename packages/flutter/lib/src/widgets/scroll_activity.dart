@@ -19,6 +19,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 
 import 'basic.dart';
+import 'binding.dart' show TranslateAnimationSource;
 import 'framework.dart';
 import 'scroll_metrics.dart';
 import 'scroll_notification.dart';
@@ -598,6 +599,7 @@ class BallisticScrollActivity extends ScrollActivity {
             debugLabel: kDebugMode ? objectRuntimeType(this, 'BallisticScrollActivity') : null,
             vsync: vsync,
           )
+          ..translateSource = TranslateAnimationSource.scroll
           ..addListener(_tick)
           ..animateWith(
             simulation,
@@ -710,6 +712,7 @@ class DrivenScrollActivity extends ScrollActivity {
             debugLabel: objectRuntimeType(this, 'DrivenScrollActivity'),
             vsync: vsync,
           )
+          ..translateSource = TranslateAnimationSource.scroll
           ..addListener(_tick)
           ..animateTo(
             to,
