@@ -460,6 +460,21 @@ export class FlutterView {
     }
   }
 
+  private densityUpdateCallback = (info: uiObserver.DensityInfo) => {
+    try {
+      const sysDensity = display.getDefaultDisplaySync().densityPixels;
+      const customDensity = info.density;
+      if (sysDensity > 0 && customDensity > 0 && Number.isFinite(customDensity)) {
+        const scale = customDensity / sysDensity;
+        Log.i(TAG, "densityUpdateCallback: customDensity=" + customDensity + ", sysDensity=" +
+          sysDensity + ", scale=" + scale);
+        this.onDevicePixelRatioChange(scale);
+      }
+    } catch (e) {
+      Log.e(TAG, "densityUpdateCallback error: " + JSON.stringify(e));
+    }
+  }
+
   private avoidAreaChangeCallback = (data: window.AvoidAreaOptions) => {
     Log.i(TAG, "avoidAreaChangeCallback, type=" + data.type + ", area=" + JSON.stringify(data.area));
 
@@ -676,6 +691,7 @@ export class FlutterView {
   onDestroy() {
     try {
       uiObserver.off('routerPageUpdate', this.uiContext as UIContext, this.routerPageUpdateCallback);
+      uiObserver.off('densityUpdate', this.uiContext as UIContext, this.densityUpdateCallback);
       this.mainWindow?.off('windowSizeChange', this.windowSizeChangeCallback);
       this.mainWindow?.off('avoidAreaChange', this.avoidAreaChangeCallback);
       this.mainWindow?.off('windowStatusChange', this.windowStatusChangeCallback);
@@ -815,6 +831,7 @@ export class FlutterView {
     this.uiContext = _UIContext;
     // Listen to route navigation (Flutter navigating to HarmonyOS native), soft keyboard management
     uiObserver.on('routerPageUpdate', this.uiContext as UIContext, this.routerPageUpdateCallback);
+    uiObserver.on('densityUpdate', this.uiContext as UIContext, this.densityUpdateCallback);
     this.sendSettings();
     Log.d(TAG, "uiContext init and sendSettings finished.");
   }
