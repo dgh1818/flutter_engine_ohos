@@ -9,13 +9,27 @@ import json
 import os
 import zipfile
 import logging
-from utils import getArch
+import platform
 from pathlib import PurePath
 from pathlib import Path
 
 log = logging.getLogger(__name__)
 
 artifact_json = "artifacts_files.json"
+
+
+def getArch():
+  os = platform.system().lower()
+  cpu_arch = platform.machine()
+  if cpu_arch == 'arm64':
+    return f'{os}-{cpu_arch}'
+  elif cpu_arch == 'x86_64':
+    return f'{os}-x64'
+  elif cpu_arch == 'AMD64':
+    return f'{os}-x64'
+  else:
+    log.error(f"Error: {os}-{cpu_arch} unsupported arch")
+    exit(1)
 
 
 def getFileMap():

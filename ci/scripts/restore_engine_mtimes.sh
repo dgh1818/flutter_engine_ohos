@@ -19,9 +19,11 @@ restore_engine_mtimes() {
         exit 0
     fi
 
-    # If it's Friday, skip mtime restoration
-    if [[ "$(date +%u)" -eq 5 ]]; then
-        log_info "Today is Friday, skipping mtime restoration"
+    # If it's Thursday and before 9 AM, skip mtime restoration
+    local day_of_week=$(date +%u)
+    local hour=$(date +%H)
+    if [[ "$day_of_week" -eq 4 && "10#$hour" -lt 9 ]]; then
+        log_info "Today is Thursday and before 9 AM, skipping mtime restoration"
         exit 0
     fi
 
@@ -31,16 +33,24 @@ restore_engine_mtimes() {
     run_cmd "archive init"
 
     log_info "Downloading engine version file"
-    run_cmd "archive cp cloud://$target_branch/engine.ohos.version engine.ohos.version"
+    run_cmd "archive cp cloud://$target_branch/engine.ohos.har.version engine.ohos.har.version"
 
-    if [[ ! -f "engine.ohos.version" ]]; then
+    if [[ ! -f "engine.ohos.har.version" ]]; then
         log_warn "Engine version file not found, skipping mtime restoration"
         exit 0
     fi
 
-    local commit_id=$(cat engine.ohos.version)
+    local commit_id=$(cat engine.ohos.har.version)
     log_info "Last engine commit ID: $commit_id"
 
+    # Check if DEPS or DEPS_ohos file has been modified
+    cd "$PROJECT_DIR/$root_dir"
+    if git diff --name-only "$commit_id" | grep -q "DEPS"; then
+        log_warn "DEPS_ohos file has been modified, skipping mtime restoration"
+        exit 0
+    fi
+
+    cd "$PROJECT_DIR/$src_dir"
     log_info "Setting old file timestamps"
     run_cmd "find . -type f -exec touch -d '10 days ago' {} +"
 
