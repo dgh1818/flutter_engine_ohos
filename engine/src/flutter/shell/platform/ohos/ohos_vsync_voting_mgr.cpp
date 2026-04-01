@@ -359,13 +359,13 @@ void OhosVsyncVotingMgr::VotingByNativeVsync(OH_NativeVSync* handle) {
   std::ostringstream oss;
   oss << "{" << range.min << "," << range.max << "," << range.expected << "}";
   std::string rangeStr = oss.str();
-  FML_DLOG(INFO) << "SetExpectedFrameRateRange : " << rangeStr.c_str();
+  FML_LOG(INFO) << "OH_NativeVSync_SetExpectedFrameRateRange() calling with range: " << rangeStr.c_str();
   TRACE_EVENT1("flutter", "SetExpectedFrameRateRange",
     "range", rangeStr.c_str());
 
   ret = func_SetExpectedFrameRateRange_symbol_handle_(handle, &range);
   if (ret != 0) {
-    FML_LOG(ERROR) << "SetExpectedFrameRateRange failed, ret = " << ret;
+    FML_LOG(ERROR) << "OH_NativeVSync_SetExpectedFrameRateRange() failed, ret = " << ret;
   }
 
   return;
@@ -397,7 +397,7 @@ void OhosVsyncVotingMgr::VotingBySelf() {
   std::ostringstream oss;
   oss << "{" << range.min << "," << range.max << "," << range.expected << "}";
   std::string range_str = oss.str();
-  FML_LOG(INFO) << "BySelf SetExpectedFrameRateRange : " << range_str.c_str();
+  FML_LOG(INFO) << "OH_NativeVSync_SetExpectedFrameRateRange() BySelf calling with range: " << range_str.c_str();
   TRACE_EVENT1("flutter", "BySelf SetExpectedFrameRateRange", "range",
                range_str.c_str());
 
@@ -420,7 +420,7 @@ void OhosVsyncVotingMgr::VotingBySelf() {
     }
     ret = func_SetExpectedFrameRateRange_symbol_handle_(handle, &range);
     if (ret != 0) {
-      FML_LOG(ERROR) << "BySelf SetExpectedFrameRateRange failed, ret = " << ret;
+      FML_LOG(ERROR) << "OH_NativeVSync_SetExpectedFrameRateRange() BySelf failed, ret = " << ret;
     }
   }
 

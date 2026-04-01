@@ -661,6 +661,9 @@ napi_value PlatformViewOHOSNapi::nativeRunBundleAndSnapshotFromLibrary(
 
   NativeResourceManager* ResourceManager =
       OH_ResourceManager_InitNativeResourceManager(env, args[4]);
+  if (ResourceManager == nullptr) {
+    LOGE("OH_ResourceManager_InitNativeResourceManager failed");
+  }
 
   std::vector<std::string> entrypointArgs;
   if (fml::napi::kSuccess !=
@@ -1917,6 +1920,9 @@ napi_value PlatformViewOHOSNapi::nativeRegisterPixelMap(
   NAPI_CALL(env, napi_get_value_int64(env, args[0], &shell_holder));
   NAPI_CALL(env, napi_get_value_int64(env, args[1], &textureId));
   NativePixelMap* nativePixelMap = OH_PixelMap_InitNativePixelMap(env, args[2]);
+  if (nativePixelMap == nullptr) {
+    FML_LOG(ERROR) << "OH_PixelMap_InitNativePixelMap failed";
+  }
   OH_NativeBuffer* native_buffer = GetNativeBufferFromPixelMap(env, args[2]);
 
   OHOS_SHELL_HOLDER->GetPlatformView()->RegisterExternalTextureByPixelMap(
@@ -1936,6 +1942,9 @@ napi_value PlatformViewOHOSNapi::nativeSetTextureBackGroundPixelMap(
   NAPI_CALL(env, napi_get_value_int64(env, args[0], &shell_holder));
   NAPI_CALL(env, napi_get_value_int64(env, args[1], &textureId));
   NativePixelMap* nativePixelMap = OH_PixelMap_InitNativePixelMap(env, args[2]);
+  if (nativePixelMap == nullptr) {
+    FML_LOG(ERROR) << "OH_PixelMap_InitNativePixelMap failed";
+  }
   OH_NativeBuffer* native_buffer = GetNativeBufferFromPixelMap(env, args[2]);
 
   OHOS_SHELL_HOLDER->GetPlatformView()->SetExternalTextureBackGroundPixelMap(

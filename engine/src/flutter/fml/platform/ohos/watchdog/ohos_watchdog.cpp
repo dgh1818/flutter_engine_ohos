@@ -115,9 +115,9 @@ void FlutterWatchdog::reportStuckEvent() {
   // 会将m_is_six_second_event置为true，传入为true时则会进行卡死上报。
   HiCollie_ErrorCode reportRes = OH_HiCollie_Report(&m_is_six_second_event);
   if (reportRes == HICOLLIE_SUCCESS) {
-    FML_LOG(WARNING) << "FlutterWatchdog: after OH_HiCollie_Report(), "
-                      "m_issixsecondevent = "
-                   << m_is_six_second_event;
+    FML_LOG(INFO) << "FlutterWatchdog: OH_HiCollie_Report() success, "
+                  << "m_isSixSecondEvent = "
+                  << m_is_six_second_event;
   } else {
     FML_LOG(ERROR) << "FlutterWatchdog: OH_HiCollie_Report() failed with code "
                    << static_cast<int>(reportRes);
@@ -179,8 +179,8 @@ std::pair<size_t, std::function<void(size_t)>> MakeWatchdog(
       }
       flutterWatchdogVec[curSize].reset();
     });
-    FML_LOG(ERROR) << "OH_HiCollie_Init_stuckDetection() failed with code "
-                   << static_cast<int>(structDetectionInitRes);
+    FML_LOG(ERROR) << "FlutterWatchdog: OH_HiCollie_Init_StuckDetection() failed with code "
+                    << static_cast<int>(structDetectionInitRes);
 
     curSize = 0;
   }
