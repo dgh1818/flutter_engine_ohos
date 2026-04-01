@@ -33,6 +33,54 @@ env_vars:
     - "$DEVECO_SDK_HOME/default/openharmony/native/llvm/bin"
     - "$PATH"
 
+# Publish files
+publish_files:
+  # Incremental
+  incremental:
+    # Array of file objects
+    - file: "artifacts.zip"
+      search_depth: 3
+      search_directory: "out"
+      pub_path: "version/build_type/file"
+    - file: "symbols.zip"
+      search_depth: 3
+      search_directory: "out"
+      pub_path: "version/build_type/file"
+  # Full
+  full:
+    - file: "artifacts.zip"
+      search_depth: 3
+      search_directory: "out"
+      pub_path: "version/build_type/file"
+    - file: "symbols.zip"
+      search_depth: 3
+      search_directory: "out"
+      pub_path: "version/build_type/file"
+    - file: "linux-x64.zip"
+      search_depth: 3
+      search_directory: "out"
+      pub_path: "version/build_type/file"
+    - file: "artifacts.zip"
+      search_depth: 1
+      search_directory: "engine"
+      pub_path: "version/linux-x64/file"
+    - file: "dart-sdk-linux-x64.zip"
+      search_depth: 1
+      search_directory: "engine"
+      pub_path: "version/file"
+    - file: "sky_engine.zip"
+      search_depth: 1
+      search_directory: "engine"
+      pub_path: "version/file"
+    - file: "flutter_patched_sdk.zip"
+      search_depth: 1
+      search_directory: "engine"
+      pub_path: "version/file"
+    - file: "flutter_patched_sdk_product.zip"
+      search_depth: 1
+      search_directory: "engine"
+      pub_path: "version/file"
+
 # Preparation steps - executed in order
 preparation_steps:
   - name: Prepare openharmony SDK
@@ -145,4 +193,10 @@ compilation_steps:
     script: ci/scripts/upload_to_cloud.sh
     description: Upload build artifacts to cloud storage
     args: ["oh-3.35.7-dev"]
+    required: true
+
+  - name: Publish
+    script: ci/scripts/publish.sh
+    description: Publish build artifacts to cloud storage
+    args: ["flutter_flutter", "flutter_flutter/engine", "flutter_flutter"]
     required: true
