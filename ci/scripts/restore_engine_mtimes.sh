@@ -19,6 +19,9 @@ restore_engine_mtimes() {
         exit 0
     fi
 
+    log_info "Initializing archive"
+    run_cmd "archive init"
+
     # If it's Thursday and before 9 AM, skip mtime restoration
     local day_of_week=$(date +%u)
     local hour=$(date +%H)
@@ -28,9 +31,6 @@ restore_engine_mtimes() {
     fi
 
     cd "$PROJECT_DIR/$src_dir"
-
-    log_info "Initializing archive"
-    run_cmd "archive init"
 
     log_info "Downloading engine version file"
     run_cmd "archive cp cloud://$target_branch/engine.ohos.har.version engine.ohos.har.version"

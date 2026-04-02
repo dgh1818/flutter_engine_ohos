@@ -90,6 +90,8 @@ publish() {
         log_error "Publish failed"
         exit 1
     fi
+
+    run_cmd "archive uninstall"
 }
 
 publish "$@"
