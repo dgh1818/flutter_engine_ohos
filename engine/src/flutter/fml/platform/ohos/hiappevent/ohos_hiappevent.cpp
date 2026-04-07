@@ -130,7 +130,7 @@ int OhosHiappEventDDL::WriteSingleFrame(void) {
 
   ParamList list = OH_HiAppEvent_CreateParamList();
   if (list == nullptr) {
-    FML_LOG(ERROR) << "CreateParamList error";
+    FML_LOG(ERROR) << "OH_HiAppEvent_CreateParamList() failed, returned nullptr";
     return -1;
   }
 
@@ -160,7 +160,7 @@ int OhosHiappEventDDL::WriteSingleFrame(void) {
 
   int ret = OH_HiAppEvent_Write("PERFORMANCE", "OTHER_JANK", BEHAVIOR, list);
   if (ret != 0) {
-    FML_LOG(ERROR) << "HiAppEvent_Write error, ret = " << ret;
+    FML_LOG(ERROR) << "OH_HiAppEvent_Write() error, ret = " << ret;
   }
 
   OH_HiAppEvent_DestroyParamList(list);
@@ -176,7 +176,7 @@ int OhosHiappEventDDL::WriteStatisticFrame(void) {
 
   ParamList list = OH_HiAppEvent_CreateParamList();
   if (list == nullptr) {
-    FML_LOG(ERROR) << "CreateParamList error";
+    FML_LOG(ERROR) << "OH_HiAppEvent_CreateParamList() failed, returned nullptr";
     return -1;
   }
 
@@ -226,7 +226,7 @@ int OhosHiappEventDDL::WriteStatisticFrame(void) {
   int ret =
       OH_HiAppEvent_Write("PERFORMANCE", "OTHER_JANK_STAT", STATISTIC, list);
   if (ret != 0) {
-    FML_LOG(ERROR) << "HiAppEvent_Write error, ret = " << ret;
+    FML_LOG(ERROR) << "OH_HiAppEvent_Write() error, ret = " << ret;
   }
 
   OH_HiAppEvent_DestroyParamList(list);
@@ -242,7 +242,7 @@ int OhosHiappEventDDL::WriteScrolledFrame(void) {
 
   ParamList list = OH_HiAppEvent_CreateParamList(); // Create a pointer to the parameter list
   if (list == nullptr) {
-    FML_LOG(ERROR) << "CreateParamList error";
+    FML_LOG(ERROR) << "OH_HiAppEvent_CreateParamList() failed, returned nullptr";
     return -1;
   }
 
@@ -321,7 +321,7 @@ int OhosHiappEventDDL::WriteScrolledFrame(void) {
   int ret = // Event tracking
       OH_HiAppEvent_Write("PERFORMANCE", "OTHER_JANK_SCROLL", BEHAVIOR, list);
   if (ret != 0) {
-    FML_LOG(ERROR) << "HiAppEvent_Write error, ret = " << ret;
+    FML_LOG(ERROR) << "OH_HiAppEvent_Write() error, ret = " << ret;
   }
 
   // Reset scroll start and end frame IDs

@@ -123,6 +123,7 @@ OHOSImageGenerator::OHOSImageGenerator(OH_ImageSourceNative* image_source,
   OH_ImageSource_Info* info = nullptr;
   OH_ImageSourceInfo_Create(&info);
   if (info == nullptr) {
+    FML_LOG(ERROR) << "OH_ImageSourceInfo_Create() failed, returned nullptr";
     return;
   }
 
@@ -145,6 +146,7 @@ OHOSImageGenerator::OHOSImageGenerator(OH_ImageSourceNative* image_source,
   OH_ImageSourceInfo_GetHeight(info, &height);
   OH_ImageSourceInfo_GetDynamicRange(info, &is_hdr_);
   OH_ImageSourceInfo_Release(info);
+  FML_LOG(INFO) << "Image info: width=" << width << ", height=" << height << ", is_hdr=" << is_hdr_;
   if (rotate_degree_ == 90.f || rotate_degree_ == 270.f) {
     origin_image_info_ = SkImageInfo::Make(
         height, width, kRGBA_8888_SkColorType, kPremul_SkAlphaType);
