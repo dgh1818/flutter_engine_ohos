@@ -8,6 +8,7 @@
 #define FLUTTER_FML_PLATFORM_OHOS_HIAPPEVENT_OHOS_HIAPPEVENT_H_
 
 #include <hiappevent/hiappevent.h>
+#include <hitrace/trace.h>
 #include <vector>
 #include <atomic>
 #include "flutter/fml/platform/ohos/dynamic_library_loader.h"
@@ -44,6 +45,11 @@ typedef struct MissedFrameInfo {
   uint64_t frame_number;
   int vsync_transitions_missed;
  } MissedFrameInfo;
+
+enum class OhosDropFrameReason {
+  kCommon,
+  kScroll
+};
 
 enum class OhosHiappEventFlag {
   kSingleFlag,
@@ -102,6 +108,8 @@ class OhosHiappEventDDL {
   int WriteStatisticFrame(void);
 
   int WriteScrolledFrame(void);
+
+  void WriteJANKEventToTrace(const MissedFrameInfo& missed_frame_info, OhosDropFrameReason reason);
 
   CreateProcessorFunc createProcessorFunc_ = nullptr;
   SetReportRouteFunc setReportRouteFunc_ = nullptr;

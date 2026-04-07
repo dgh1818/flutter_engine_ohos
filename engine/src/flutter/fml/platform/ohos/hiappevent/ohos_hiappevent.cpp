@@ -31,6 +31,8 @@ static std::once_flag instanceFlag_;
 
 static constexpr char HIAPPEVENT_LIB_NAME[] = "libhiappevent_ndk.z.so";
 
+static constexpr char COUNTER_FRAME_DROP[] = "Flutter Lost Frames";
+static constexpr char FRAME_DROP_DURATION[] = "Flutter Hitch Time";
 static constexpr char HIAPPEVENT_OTHER_JANK[] = "OTHER_JANK";
 static constexpr char HIAPPEVENT_OTHER_JANK_STAT[] = "OTHER_JANK_STAT";
 static constexpr char HIAPPEVENT_OTHER_JANK_SCROLL[] = "OTHER_JANK_SCROLL";
@@ -42,6 +44,8 @@ static const int MISSED_FRAME_INFOS_SIZE = 10;
 static const int REQUIRED_API_VERSION = 18;
 
 static int recent_scroll_count = 0; // New member: Number of scroll sessions since last scroll-jank report
+
+static constexpr int32_t TRACE_ARGS_BUFFER_SIZE = 128;
 
 std::atomic<int> ScrollStatus{-1}; // Cross-thread visible scroll state
 std::atomic<uint64_t> scroll_start_frame_{0}; // Frame ID at the beginning of scrolling
@@ -99,17 +103,20 @@ void OhosHiappEventDDL::Init(void) {
 void OhosHiappEventDDL::ReportScrollJANKEvent(const MissedFrameInfo& missed_frame_info) {
   // 50ms threshold
   if (missed_frame_info.frame_duration_micros < K_SCROLL_JANK_THRESHOLD_US) {
-     FML_LOG(INFO)
-         << "Ignore scroll jank: frameCost="
-         << missed_frame_info.frame_duration_micros << "us (<50ms)";
-     return;
-   }
+    FML_LOG(INFO)
+        << "Ignore scroll jank: frameCost="
+        << missed_frame_info.frame_duration_micros << "us (<50ms)";
+    return;
+  }
 
+  WriteJANKEventToTrace(missed_frame_info, OhosDropFrameReason::kScroll);
   missed_frame_infos_scroll.push_back(missed_frame_info);
 }
 
 // Record jank event based on MissedFrameInfo struct
 void OhosHiappEventDDL::ReportJANKEvent(const MissedFrameInfo& missed_frame_info) {
+  WriteJANKEventToTrace(missed_frame_info, OhosDropFrameReason::kCommon);
+
   if (missed_frame_infos.size() == MISSED_FRAME_INFOS_SIZE) {
     // missed_frame_infos is full.
     FML_LOG(INFO) << "Vector stops push_back";
@@ -330,6 +337,31 @@ int OhosHiappEventDDL::WriteScrolledFrame(void) {
 
   OH_HiAppEvent_DestroyParamList(list);
   return ret;
+}
+
+void OhosHiappEventDDL::WriteJANKEventToTrace(
+    const MissedFrameInfo& missed_frame_info,
+    OhosDropFrameReason reason) {
+  auto frame_number = missed_frame_info.frame_number;
+  auto vsync_transitions_missed = missed_frame_info.vsync_transitions_missed;
+  auto drop_duration_micros = missed_frame_info.frame_duration_micros;
+  double drop_duration_millis = drop_duration_micros / 1000.0;
+
+  char buffer[TRACE_ARGS_BUFFER_SIZE];
+  const char* reasonStr = (reason == OhosDropFrameReason::kScroll ? "scroll" : "common");
+  int written = std::snprintf(buffer, TRACE_ARGS_BUFFER_SIZE,
+                              "frame_number=%lu,dropped=%d,duration=%.2lfms,reason=%s",
+                              static_cast<unsigned long>(frame_number),
+                              vsync_transitions_missed,
+                              drop_duration_millis,
+                              reasonStr);
+  if (written < 0 || written >= TRACE_ARGS_BUFFER_SIZE) {
+    buffer[TRACE_ARGS_BUFFER_SIZE - 1] = '\0';
+  }
+
+  OH_HiTrace_CountTrace(COUNTER_FRAME_DROP, vsync_transitions_missed);
+  OH_HiTrace_StartAsyncTraceEx(HITRACE_LEVEL_INFO, FRAME_DROP_DURATION, static_cast<int32_t>(frame_number), "", buffer);
+  OH_HiTrace_FinishAsyncTraceEx(HITRACE_LEVEL_INFO, FRAME_DROP_DURATION, static_cast<int32_t>(frame_number));
 }
 
 void OhosHiappEventDDL::Flush(void) {
