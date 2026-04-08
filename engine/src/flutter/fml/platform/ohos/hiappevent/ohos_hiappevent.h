@@ -33,6 +33,14 @@ using SetReportEventFunc = int (*)(HiAppEvent_Processor* processor,
 using AddFunc = int64_t (*)(HiAppEvent_Processor* processor);
 
 using DestroyProcessor = void (*)(HiAppEvent_Processor* processor);
+using StartAsyncTraceExFunc = void (*)(uint64_t level,
+                                       const char* name,
+                                       int32_t taskId,
+                                       const char* customCategory,
+                                       const char* customArgs);
+using FinishAsyncTraceExFunc = void (*)(uint64_t level,
+                                        const char* name,
+                                        int32_t taskId);
 
 typedef struct MissedFrameInfo {
   int64_t utc_time_stamp_millis;
@@ -117,6 +125,8 @@ class OhosHiappEventDDL {
   SetReportEventFunc setReportEventFunc_ = nullptr;
   AddFunc addFunc_ = nullptr;
   DestroyProcessor destroyProcessor_ = nullptr;
+  StartAsyncTraceExFunc startAsyncTraceExFunc_ = nullptr;
+  FinishAsyncTraceExFunc finishAsyncTraceExFunc_ = nullptr;
 
   int apiVersion_ = 0;
 
