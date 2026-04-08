@@ -10,9 +10,9 @@
 #include <mutex>
 #include "flutter/fml/file.h"
 #include "flutter/fml/mapping.h"
+#include "flutter/fml/platform/ohos/dynamic_library_loader.h"
 #include "flutter/fml/task_runner.h"
 #include "flutter/lib/ui/window/platform_message.h"
-#include "flutter/fml/platform/ohos/dynamic_library_loader.h"
 #include "napi/native_api.h"
 
 // class for all c++ to call js function
@@ -70,12 +70,12 @@ class PlatformViewOHOSNapi {
   void FlutterViewOnTouchEvent(std::shared_ptr<std::string[]> touchPacketString,
                                int size);
 
-  void FlutterViewOnMouseEvent(const std::shared_ptr<std::string[]>& mousePacketString,
-                               const int& size);
+  void FlutterViewOnMouseEvent(
+      const std::shared_ptr<std::string[]>& mousePacketString,
+      const int& size);
   void FlutterViewOnAxisEvent(
       const std::shared_ptr<std::string[]>& axisPacketString,
       const int& size);
-
   /**
    * accessibility-relevant interfaces
    */
@@ -200,6 +200,8 @@ class PlatformViewOHOSNapi {
 
   static napi_value nativeEnableFrameCache(napi_env env,
                                            napi_callback_info info);
+
+  static napi_value nativeSetPipVisible(napi_env env, napi_callback_info info);
 
   // Surface相关，XComponent调用
   static void SurfaceCreated(int64_t shell_holder,

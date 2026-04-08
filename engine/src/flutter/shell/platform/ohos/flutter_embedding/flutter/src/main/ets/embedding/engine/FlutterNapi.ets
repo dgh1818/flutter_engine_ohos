@@ -987,6 +987,17 @@ export default class FlutterNapi {
     flutter.nativeEnableFrameCache(this.nativeShellHolderId!, enable);
   }
 
+  setPipVisible(visible: boolean): void {
+    if (!this.nativeShellHolderId) {
+      return;
+    }
+    try {
+      flutter.nativeSetPipVisible(this.nativeShellHolderId!, visible);
+    } catch (error) {
+      Log.w(TAG, "nativeSetPipVisible unavailable: " + JSON.stringify(error));
+    }
+  }
+
   /**
    * Handles touch events from the platform.
    * @param strings - Array of strings containing touch event data

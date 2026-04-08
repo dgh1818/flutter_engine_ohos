@@ -1981,7 +1981,33 @@ napi_value PlatformViewOHOSNapi::nativeEnableFrameCache(
   NAPI_CALL(env, napi_get_value_int64(env, args[0], &shell_holder));
   NAPI_CALL(env, napi_get_value_bool(env, args[1], &enable));
 
-  OHOS_SHELL_HOLDER->GetPlatformView()->EnableFrameCache(enable);
+  auto platform_view = OHOS_SHELL_HOLDER->GetPlatformView();
+  if (!platform_view) {
+    FML_LOG(ERROR) << "nativeEnableFrameCache platform view is null";
+    return nullptr;
+  }
+
+  platform_view->EnableFrameCache(enable);
+  return nullptr;
+}
+
+napi_value PlatformViewOHOSNapi::nativeSetPipVisible(napi_env env,
+                                                     napi_callback_info info) {
+  size_t argc = 2;
+  napi_value args[2] = {nullptr};
+  int64_t shell_holder;
+  bool visible;
+  NAPI_CALL(env, napi_get_cb_info(env, info, &argc, args, nullptr, nullptr));
+  NAPI_CALL(env, napi_get_value_int64(env, args[0], &shell_holder));
+  NAPI_CALL(env, napi_get_value_bool(env, args[1], &visible));
+
+  auto platform_view = OHOS_SHELL_HOLDER->GetPlatformView();
+  if (!platform_view) {
+    FML_LOG(ERROR) << "nativeSetPipVisible platform view is null";
+    return nullptr;
+  }
+
+  platform_view->SetPipVisible(visible);
   return nullptr;
 }
 
@@ -3016,7 +3042,7 @@ napi_value PlatformViewOHOSNapi::nativeNotifyPageChanged(napi_env env, napi_call
   FML_LOG(INFO) << "PlatformViewOHOSNapi::nativeNotifyPageChanged start";
   napi_handle_scope scope;
   napi_open_handle_scope(env, &scope);
-  
+
   int apiVersion = DynamicLibraryLoader::GetApiVersion();
   if (apiVersion < 23) {
     LOGE("nativeNotifyPageChanged is not supported on this API level");
@@ -3068,30 +3094,38 @@ napi_value PlatformViewOHOSNapi::nativeNotifyPageChanged(napi_env env, napi_call
 
   ret = napi_get_value_int32(env, args[1], &pageNameLen);
   if (ret != napi_ok) {
-    FML_LOG(ERROR) << "nativeNotifyPageChanged pageNameLen napi_get_value_int32 error";
+    FML_LOG(ERROR)
+        << "nativeNotifyPageChanged pageNameLen napi_get_value_int32 error";
     napi_close_handle_scope(env, scope);
     return nullptr;
   }
 
   ret = napi_get_value_int32(env, args[2], &windowId);
   if (ret != napi_ok) {
-    FML_LOG(ERROR) << "nativeNotifyPageChanged windowId napi_get_value_int32 error";
+    FML_LOG(ERROR)
+        << "nativeNotifyPageChanged windowId napi_get_value_int32 error";
     napi_close_handle_scope(env, scope);
     return nullptr;
   }
   
   // OH_AbilityRuntime_NotifyPageChanged requires IDE SDK version >= 23
   // Return value: 0 means success, non-zero means error
-  int32_t result = notify_page_changed_func_(pageName.c_str(), pageNameLen, windowId);
+  int32_t result =
+      notify_page_changed_func_(pageName.c_str(), pageNameLen, windowId);
   if (result == 0) {
-    LOGD("nativeNotifyPageChanged success, name: %s, pageNameLen: %d, windowId: %d",
-         pageName.c_str(), pageNameLen, windowId);
+    LOGD(
+        "nativeNotifyPageChanged success, name: %s, pageNameLen: %d, windowId: "
+        "%d",
+        pageName.c_str(), pageNameLen, windowId);
     napi_create_int32(env, result, &resultValue);
     napi_close_handle_scope(env, scope);
     return resultValue;
   } else {
-    FML_LOG(ERROR) << "nativeNotifyPageChanged OH_AbilityRuntime_NotifyPageChanged error, result: " << result
-                   << ", name: " << pageName << ", pageNameLen: " << pageNameLen << ", windowId: " << windowId;
+    FML_LOG(ERROR) << "nativeNotifyPageChanged "
+                      "OH_AbilityRuntime_NotifyPageChanged error, result: "
+                   << result << ", name: " << pageName
+                   << ", pageNameLen: " << pageNameLen
+                   << ", windowId: " << windowId;
     napi_create_int32(env, result, &resultValue);
     napi_close_handle_scope(env, scope);
     return resultValue;

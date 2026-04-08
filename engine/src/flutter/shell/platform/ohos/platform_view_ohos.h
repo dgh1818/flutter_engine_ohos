@@ -188,6 +188,10 @@ class PlatformViewOHOS final : public PlatformView {
   /// @brief Called when surface is destroyed.
   void OnSurfaceDestroyed();
 
+  /// @brief Updates whether the current engine is still visibly rendered in a
+  ///        same-engine PiP window while the app is backgrounded.
+  void SetPipVisible(bool visible);
+
   /// @brief  Returns whether the frame gate is currently enabled.
   ///         When frame gate is on, frame scheduling is blocked while
   ///         producer queue draining is still allowed.
@@ -243,10 +247,18 @@ class PlatformViewOHOS final : public PlatformView {
   /// Current GPU reclaim level
   GpuReclaimLevel current_reclaim_level_ = GpuReclaimLevel::kRestore;
 
+  /// Whether the same engine is still visibly rendered in PiP.
+  std::atomic<bool> pip_visible_{false};
+
   /// Frame gate flag - when true, external texture frame updates are blocked
   /// Thread-safety: Read from callback threads, written from platform thread,
   /// use atomic.
   std::atomic<bool> frame_gate_enabled_{false};
+
+  /// Generation counter for deferred aggressive cleanup tasks.
+  /// Incremented on every non-trivial reclaim decision to invalidate stale
+  /// deferred tasks.
+  uint32_t reclaim_generation_{0};
 
   //--------------------------------------------------------------------------
   /// @brief  GPU Resource Reclaim Policy internal methods
@@ -283,7 +295,13 @@ class PlatformViewOHOS final : public PlatformView {
   void ExecuteReclaimRestore();
 
   /// @brief  Executes kAggressive level actions (aggressive cleanup).
+  ///         Defers actual GPU teardown briefly to allow async PiP detection
+  ///         to set pip_visible_ before resources are destroyed.
   void ExecuteReclaimAggressive();
+
+  /// @brief  Performs the actual GPU resource teardown (called by deferred
+  ///         task after PiP check window has elapsed).
+  void ExecuteReclaimAggressiveCore();
 
   // ======================== Helper Methods ==================================
 
