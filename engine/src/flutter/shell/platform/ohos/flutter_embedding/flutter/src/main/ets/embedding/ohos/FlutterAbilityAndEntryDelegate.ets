@@ -361,7 +361,6 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
    * Called when the window stage is destroyed.
    */
   onWindowStageDestroy() {
-
   }
 
   /**

@@ -93,7 +93,6 @@ export default class FlutterEngine implements EngineLifecycleListener {
   private settingsChannel: SettingsChannel | null = null;
   private platformViewsController: PlatformViewsController;
   private nativeVsyncChannel: NativeVsyncChannel | null = null;
-  private pipContext: common.Context | null = null;
   private readonly pipVisibilityListener = (visible: boolean): void => {
     this.flutterNapi?.setPipVisible(visible);
   };
@@ -173,8 +172,7 @@ export default class FlutterEngine implements EngineLifecycleListener {
     this.pluginRegistry =
       new FlutterEngineConnectionRegistry(context.getApplicationContext(), this, this.flutterLoader);
     this.localizationPlugin.sendLocaleToFlutter();
-    this.pipContext = context;
-    PiPVisibilityBridge.getInstance().register(context, this.pipVisibilityListener);
+    PiPVisibilityBridge.getInstance().register(this.pipVisibilityListener);
     Log.d(TAG, "Call init finished.")
   }
 
@@ -395,11 +393,8 @@ export default class FlutterEngine implements EngineLifecycleListener {
    */
   destroy(): void {
     Log.d(TAG, "Destroying.");
-    if (this.pipContext != null) {
-      this.flutterNapi?.setPipVisible(false);
-      PiPVisibilityBridge.getInstance().unregister(this.pipContext, this.pipVisibilityListener);
-      this.pipContext = null;
-    }
+    this.flutterNapi?.setPipVisible(false);
+    PiPVisibilityBridge.getInstance().unregister(this.pipVisibilityListener);
     this.engineLifecycleListeners.forEach(listener => listener.onEngineWillDestroy())
     this.flutterNapi.removeEngineLifecycleListener(this);
     this.pluginRegistry?.detachFromAbility();

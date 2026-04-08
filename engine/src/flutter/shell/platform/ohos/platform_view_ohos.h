@@ -257,7 +257,7 @@ class PlatformViewOHOS final : public PlatformView {
 
   /// Generation counter for deferred aggressive cleanup tasks.
   /// Incremented on every non-trivial reclaim decision to invalidate stale
-  /// deferred tasks.
+  /// deferred tasks.  Only accessed on the platform thread.
   uint32_t reclaim_generation_{0};
 
   //--------------------------------------------------------------------------

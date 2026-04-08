@@ -206,14 +206,13 @@ export default class FlutterManager {
     if (this.windowStageEventCallbacks.has(uiAbility)) {
       return;
     }
-    const context = uiAbility.context;
     const callback = (event: window.WindowStageEventType): void => {
       if (event === window.WindowStageEventType.HIDDEN) {
         Log.d(TAG, 'PiP: WindowStageEvent HIDDEN, start pip polling');
-        PiPVisibilityBridge.getInstance().updateAbilityShown(context, false);
+        PiPVisibilityBridge.getInstance().updateAbilityShown(false);
       } else if (event === window.WindowStageEventType.SHOWN) {
         Log.d(TAG, 'PiP: WindowStageEvent SHOWN, stop pip polling');
-        PiPVisibilityBridge.getInstance().updateAbilityShown(context, true);
+        PiPVisibilityBridge.getInstance().updateAbilityShown(true);
       }
     };
     windowStage.on('windowStageEvent', callback);

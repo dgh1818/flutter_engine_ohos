@@ -4,11 +4,8 @@
 * found in the LICENSE_KHZG file.
 */
 
-import common from '@ohos.app.ability.common';
-import UIAbility from '@ohos.app.ability.UIAbility';
 import window from '@ohos.window';
 import Log from '../../util/Log';
-import FlutterManager from './FlutterManager';
 
 const TAG = "PiPVisibilityBridge";
 const POLL_INTERVAL_MS = 120;
@@ -16,15 +13,16 @@ const START_GRACE_MS = 2000;
 
 type PiPVisibilityListener = (visible: boolean) => void;
 
-interface AbilityVisibilityState {
-  listeners: Set<PiPVisibilityListener>;
-  isShown: boolean;
-  pipVisible: boolean;
-  lastHiddenAt: number;
-  pollTimerId?: number;
-  refreshInFlight: boolean;
-}
-
+/**
+ * Process-global PiP visibility bridge.
+ *
+ * `window.getGlobalWindowMode()` is a process-level API whose result is
+ * identical regardless of which UIAbility calls it, so a single polling
+ * timer and a single `pipVisible` flag are sufficient.
+ *
+ * Multiple UIAbilities are handled via a `shownCount` reference counter:
+ * polling only runs when *all* abilities are hidden (shownCount == 0).
+ */
 export default class PiPVisibilityBridge {
   private static instance: PiPVisibilityBridge;
 
@@ -35,119 +33,85 @@ export default class PiPVisibilityBridge {
     return PiPVisibilityBridge.instance;
   }
 
-  private states = new Map<UIAbility, AbilityVisibilityState>();
+  private listeners = new Set<PiPVisibilityListener>();
+  private shownCount = 0;
+  private pipVisible = false;
+  private lastHiddenAt = 0;
+  private pollTimerId?: number;
+  private refreshInFlight = false;
 
-  register(context: common.Context | undefined, listener: PiPVisibilityListener): void {
-    const state = this.resolveState(context);
-    if (state == null) {
-      return;
-    }
-
-    state.listeners.add(listener);
-    listener(state.pipVisible);
+  register(listener: PiPVisibilityListener): void {
+    this.listeners.add(listener);
+    listener(this.pipVisible);
   }
 
-  unregister(context: common.Context | undefined, listener: PiPVisibilityListener): void {
-    const uiAbility = this.resolveUIAbility(context);
-    if (uiAbility == null) {
-      return;
-    }
-
-    const state = this.states.get(uiAbility);
-    if (state == null) {
-      return;
-    }
-
-    state.listeners.delete(listener);
-    if (state.listeners.size == 0) {
-      this.stopPolling(state);
-      this.states.delete(uiAbility);
+  unregister(listener: PiPVisibilityListener): void {
+    this.listeners.delete(listener);
+    if (this.listeners.size == 0) {
+      this.stopPolling();
     }
   }
 
-  updateAbilityShown(context: common.Context | undefined, shown: boolean): void {
-    const state = this.resolveState(context);
-    if (state == null) {
-      return;
-    }
-
+  updateAbilityShown(shown: boolean): void {
     if (shown) {
-      state.isShown = true;
-      state.lastHiddenAt = 0;
-      this.stopPolling(state);
-      this.updateVisibility(state, false);
+      this.shownCount++;
+      if (this.shownCount == 1) {
+        this.lastHiddenAt = 0;
+        this.stopPolling();
+        this.updateVisibility(false);
+      }
       return;
     }
 
-    state.isShown = false;
-    state.lastHiddenAt = Date.now();
-    this.stopPolling(state);
-    this.refreshVisibility(state);
+    this.shownCount = Math.max(0, this.shownCount - 1);
+    if (this.shownCount == 0) {
+      this.lastHiddenAt = Date.now();
+      this.stopPolling();
+      this.refreshVisibility();
+    }
   }
 
-  private resolveState(context: common.Context | undefined): AbilityVisibilityState | null {
-    const uiAbility = this.resolveUIAbility(context);
-    if (uiAbility == null) {
-      return null;
-    }
-
-    let state = this.states.get(uiAbility);
-    if (state != null) {
-      return state;
-    }
-
-    state = {
-      listeners: new Set<PiPVisibilityListener>(),
-      isShown: false,
-      pipVisible: false,
-      lastHiddenAt: 0,
-      refreshInFlight: false
-    };
-    this.states.set(uiAbility, state);
-    return state;
-  }
-
-  private scheduleNextPoll(state: AbilityVisibilityState): void {
-    if (state.pollTimerId != null || state.isShown || state.pipVisible ||
-        !this.isWithinStartGraceWindow(state)) {
+  private scheduleNextPoll(): void {
+    if (this.pollTimerId != null || this.shownCount > 0 || this.pipVisible ||
+        !this.isWithinGraceWindow()) {
       return;
     }
-    state.pollTimerId = setTimeout((): void => {
-      state.pollTimerId = undefined;
-      this.refreshVisibility(state);
+    this.pollTimerId = setTimeout((): void => {
+      this.pollTimerId = undefined;
+      this.refreshVisibility();
     }, POLL_INTERVAL_MS) as number;
   }
 
-  private stopPolling(state: AbilityVisibilityState): void {
-    if (state.pollTimerId == null) {
+  private stopPolling(): void {
+    if (this.pollTimerId == null) {
       return;
     }
-    clearTimeout(state.pollTimerId);
-    state.pollTimerId = undefined;
+    clearTimeout(this.pollTimerId);
+    this.pollTimerId = undefined;
   }
 
-  private refreshVisibility(state: AbilityVisibilityState): void {
-    if (state.refreshInFlight) {
-      this.scheduleNextPoll(state);
+  private refreshVisibility(): void {
+    if (this.refreshInFlight) {
+      this.scheduleNextPoll();
       return;
     }
-    state.refreshInFlight = true;
-    this.queryBackgroundVisible(state).then((visible: boolean) => {
-      // Foreground wins over stale async PiP results that arrive late.
-      this.updateVisibility(state, !state.isShown && visible);
-    }).catch((_error: Object) => {
+    this.refreshInFlight = true;
+    this.queryPipMode().then((visible: boolean) => {
+      this.updateVisibility(this.shownCount == 0 && visible);
+    }).catch((error: Object) => {
+      Log.w(TAG, "queryPipMode error: " + JSON.stringify(error));
     }).finally(() => {
-      state.refreshInFlight = false;
-      if (this.shouldStopPolling(state)) {
-        this.stopPolling(state);
+      this.refreshInFlight = false;
+      if (this.shouldStopPolling()) {
+        this.stopPolling();
       } else {
-        this.scheduleNextPoll(state);
+        this.scheduleNextPoll();
       }
     });
   }
 
-  private async queryBackgroundVisible(state: AbilityVisibilityState): Promise<boolean> {
-    if (state.isShown) {
+  private async queryPipMode(): Promise<boolean> {
+    if (this.shownCount > 0) {
       return false;
     }
 
@@ -160,40 +124,23 @@ export default class PiPVisibilityBridge {
     }
   }
 
-  private isWithinStartGraceWindow(state: AbilityVisibilityState): boolean {
-    return state.lastHiddenAt > 0 && (Date.now() - state.lastHiddenAt) <= START_GRACE_MS;
+  private isWithinGraceWindow(): boolean {
+    return this.lastHiddenAt > 0 && (Date.now() - this.lastHiddenAt) <= START_GRACE_MS;
   }
 
-  private shouldStopPolling(state: AbilityVisibilityState): boolean {
-    return state.isShown || state.pipVisible || !this.isWithinStartGraceWindow(state);
+  private shouldStopPolling(): boolean {
+    return this.shownCount > 0 || this.pipVisible || !this.isWithinGraceWindow();
   }
 
-  private updateVisibility(state: AbilityVisibilityState, visible: boolean): void {
-    if (state.pipVisible === visible) {
+  private updateVisibility(visible: boolean): void {
+    if (this.pipVisible === visible) {
       return;
     }
 
-    state.pipVisible = visible;
-    const listeners = Array.from(state.listeners);
-    listeners.forEach((listener: PiPVisibilityListener): void => {
+    this.pipVisible = visible;
+    const snapshot = Array.from(this.listeners);
+    snapshot.forEach((listener: PiPVisibilityListener): void => {
       listener(visible);
     });
-  }
-
-  private resolveUIAbility(context: common.Context | undefined): UIAbility | null {
-    if (context == null) {
-      return null;
-    }
-    const uiAbilityContext = context as common.UIAbilityContext;
-    if (uiAbilityContext.abilityInfo == null) {
-      Log.w(TAG, "resolveUIAbility skipped for non-UIAbility context");
-      return null;
-    }
-    try {
-      return FlutterManager.getInstance().getUIAbility(context);
-    } catch (error) {
-      Log.w(TAG, "resolveUIAbility failed: " + JSON.stringify(error));
-      return null;
-    }
   }
 }
