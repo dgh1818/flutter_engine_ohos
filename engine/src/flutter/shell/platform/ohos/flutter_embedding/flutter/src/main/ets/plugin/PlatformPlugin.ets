@@ -30,6 +30,7 @@ import { MethodResult } from './common/MethodChannel';
 import Any from './common/Any';
 import router from '@ohos.router';
 import { PasteboardUtils } from '../util/PasteboardUtils';
+import { FlutterView } from '../view/FlutterView';
 
 /**
  * Plugin for handling platform-specific functionality in Flutter applications.
@@ -83,6 +84,21 @@ export default class PlatformPlugin {
    */
   updateSystemUiOverlays(): void {
     this.callback.mainWindow?.setWindowSystemBarEnable(this.callback.showBarOrNavigation);
+
+    if (FlutterManager.getInstance().isWindowDecorSafeAreaAvoidSupported(this.callback.context)) {
+      const shouldHideWindowDecor = this.callback.shouldHideWindowDecor();
+      this.callback.mainWindow?.setWindowDecorVisible(!shouldHideWindowDecor);
+
+      // Adjust padding based on window decoration visibility
+      if (shouldHideWindowDecor) {
+        const titleButtonRect = this.callback.mainWindow?.getTitleButtonRect();
+        const paddingHeight = (titleButtonRect && titleButtonRect.height > 0) ? titleButtonRect.height : 0;
+        this.callback.flutterView?.setPaddingTop(vp2px(paddingHeight));
+      } else {
+        this.callback.flutterView?.setPaddingTop(0);
+      }
+    }
+
     if (this.callback.currentTheme != null) {
       this.callback.setSystemChromeSystemUIOverlayStyle(this.callback.currentTheme);
     }
@@ -111,6 +127,14 @@ export default class PlatformPlugin {
         }
       })
     }
+  }
+
+  /**
+   * Binds a FlutterView to this plugin.
+   * @param flutterView - The FlutterView instance
+   */
+  setFlutterView(flutterView: FlutterView): void {
+    this.callback.flutterView = flutterView;
   }
 
   /**
@@ -159,6 +183,8 @@ export class PlatformPluginCallback implements PlatformMessageHandler {
   applicationContext: common.ApplicationContext | null = null;
   /** The current system UI theme style. */
   currentTheme: SystemChromeStyle | null = null;
+  /** The FlutterView instance for padding control. */
+  flutterView: FlutterView | null = null;
 
   /**
    * Plays a system sound.
@@ -505,5 +531,21 @@ export class PlatformPluginCallback implements PlatformMessageHandler {
     }
     this.showBarOrNavigation = uiConfig;
     this.platform?.updateSystemUiOverlays();
+  }
+
+  /**
+   * Determines whether to hide window decoration based on system UI overlay settings.
+   * @returns True to hide window decoration, false to show it
+   */
+  shouldHideWindowDecor(): boolean {
+    const hasStatus = this.showBarOrNavigation.includes('status');
+    const hasNavigation = this.showBarOrNavigation.includes('navigation');
+
+    // Fullscreen: [] → hide
+    // Edge-to-edge: ['status', 'navigation'] → hide
+    // Bottom only: ['navigation'] → hide
+    // Top only: ['status'] → show
+
+    return !hasStatus || hasNavigation;
   }
 }

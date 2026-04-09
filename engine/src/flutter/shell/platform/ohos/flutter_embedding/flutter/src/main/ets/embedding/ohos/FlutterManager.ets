@@ -415,6 +415,64 @@ export default class FlutterManager {
       Log.e(TAG, `setSpecificSystemBarEnabled error: ${JSON.stringify(error)}`);
     }
   }
+
+  /**
+   * Adjusts FlutterView top padding to avoid window decoration overlap.
+   * @param flutterViewId - The FlutterView ID
+   * @param context - Optional context, defaults to first UIAbility
+   */
+  handleWindowDecorSafeArea(flutterViewId: string, context?: Context | null | undefined): void {
+    if (!this.isWindowDecorSafeAreaAvoidSupported(context)) {
+      return;
+    }
+    const flutterView = this.getFlutterView(flutterViewId);
+    if (!flutterView) {
+      return;
+    }
+    const mainWindow = this.getWindowStage(this.getUIAbility(context ?? undefined))?.getMainWindowSync();
+    if (!mainWindow) {
+      return;
+    }
+    // Clear padding if window decoration is visible
+    if (mainWindow.getWindowDecorVisible() ) {
+      flutterView.setPaddingTop(0);
+      return;
+    }
+    // Clear padding if title buttons are hidden
+    const titleButtonRect = mainWindow.getTitleButtonRect();
+    if (!titleButtonRect || titleButtonRect.height <= 0) {
+      flutterView.setPaddingTop(0);
+      return;
+    }
+    // Set padding to match title button height
+    flutterView.setPaddingTop(vp2px(titleButtonRect.height));
+  }
+
+  /**
+   * Checks if window decoration safe area avoidance is supported on the current device.
+   * Returns true only when the device is in freeform multi-window mode and supports window decoration.
+   * @param context - Optional context, defaults to first UIAbility
+   * @returns True if window decoration safe area avoidance is supported, false otherwise
+   */
+  isWindowDecorSafeAreaAvoidSupported(context?: Context | null | undefined): boolean {
+    // API 18+ required for window decoration APIs
+    if (deviceInfo.sdkApiVersion < 18) {
+      return false;
+    }
+    const mainWindow = this.getWindowStage(this.getUIAbility(context ?? undefined))?.getMainWindowSync();
+    if (!mainWindow) {
+      return false;
+    }
+    try {
+      // Avoid compilation errors: getWindowDecorVisible is an API18 interface
+      // Check if getWindowDecorVisible API is available
+      const result = typeof (mainWindow as ESObject)?.getWindowDecorVisible();
+      return result == 'boolean';
+    } catch (exception) {
+      Log.i(TAG, `Failed to check window decor visibility support. Cause code: ${exception.code}, message: ${exception.message}`);
+      return false;
+    }
+  }
 }
 
 /**

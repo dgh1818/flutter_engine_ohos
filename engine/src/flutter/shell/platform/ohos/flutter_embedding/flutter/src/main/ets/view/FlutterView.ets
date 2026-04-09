@@ -578,6 +578,10 @@ export class FlutterView {
     Log.d(TAG, `Fold status change to ${JSON.stringify(data)}`)
     this.buildDisplayFeatures(data);
   }
+  private windowTitleButtonRectChangeCallback = (data: window.TitleButtonRect) => {
+    Log.i(TAG, "windowTitleButtonRectChangeCallback " + JSON.stringify(data));
+    FlutterManager.getInstance().handleWindowDecorSafeArea(this.id, this.context);
+  }
 
   /**
    * Gets the view ID.
@@ -698,6 +702,7 @@ export class FlutterView {
       this.mainWindow?.off('windowStatusChange', this.windowStatusChangeCallback);
       this.mainWindow?.off('keyboardHeightChange', this.keyboardHeightChangeCallback);
       this.mainWindow?.off('windowRectChange', this.windowRectChangeCallback);
+      this.mainWindow?.off('windowTitleButtonRectChange', this.windowTitleButtonRectChangeCallback);
       accessibility.off('accessibilityStateChange', this.accessibilityStateChangeCallback);
       display.off('foldStatusChange', this.foldStatusChangeCallback);
       this.context.eventHub.off('changeDevicePixelRatio', this.onDevicePixelRatioChange);
@@ -834,6 +839,7 @@ export class FlutterView {
     uiObserver.on('routerPageUpdate', this.uiContext as UIContext, this.routerPageUpdateCallback);
     uiObserver.on('densityUpdate', this.uiContext as UIContext, this.densityUpdateCallback);
     this.sendSettings();
+    this.mainWindow?.on('windowTitleButtonRectChange', this.windowTitleButtonRectChangeCallback);
     Log.d(TAG, "uiContext init and sendSettings finished.");
   }
 

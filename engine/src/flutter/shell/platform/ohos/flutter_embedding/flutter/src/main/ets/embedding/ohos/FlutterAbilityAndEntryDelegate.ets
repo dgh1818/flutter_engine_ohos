@@ -289,6 +289,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     if (this.flutterEngine && this.host?.attachToEngineAutomatically()) {
       this.flutterView.attachToFlutterEngine(this.flutterEngine!!);
     }
+    this.platformPlugin?.setFlutterView(this.flutterView);
     return this.flutterView
   }
 
