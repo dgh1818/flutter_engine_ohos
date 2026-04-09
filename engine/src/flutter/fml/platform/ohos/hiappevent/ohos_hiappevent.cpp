@@ -42,6 +42,7 @@ static constexpr int64_t MICROS_TO_MILLIS_UNIT = 1 * 1000; // Unit conversion: m
 
 static const int MISSED_FRAME_INFOS_SIZE = 10;
 static const int REQUIRED_API_VERSION = 18;
+static constexpr int32_t REQUIRED_HITRACE_EX_API_VERSION = 19;
 
 static int recent_scroll_count = 0; // New member: Number of scroll sessions since last scroll-jank report
 
@@ -62,12 +63,10 @@ std::shared_ptr<OhosHiappEventDDL> OhosHiappEventDDL::GetInstance() {
 OhosHiappEventDDL::OhosHiappEventDDL(void)
     : loader_(std::make_unique<flutter::DynamicLibraryLoader>(HIAPPEVENT_LIB_NAME)) {
   apiVersion_ = flutter::DynamicLibraryLoader::GetApiVersion();
-  return;
+  Init();
 }
 
-OhosHiappEventDDL::~OhosHiappEventDDL() {
-
-}
+OhosHiappEventDDL::~OhosHiappEventDDL() {}
 
 void OhosHiappEventDDL::Init(void) {
   if (apiVersion_ < REQUIRED_API_VERSION) {
@@ -94,6 +93,23 @@ void OhosHiappEventDDL::Init(void) {
   };
 
   isValid_ = loader_->LoadSymbols(symbols);
+
+  // Load extended HiTrace functions
+  if (apiVersion_ >= REQUIRED_HITRACE_EX_API_VERSION) {
+    dlerror(); // Clear error
+    startAsyncTraceExFunc_ = reinterpret_cast<StartAsyncTraceExFunc>(
+        dlsym(RTLD_DEFAULT, "OH_HiTrace_StartAsyncTraceEx"));
+    const char* startError = dlerror();
+    
+    dlerror(); // Clear error
+    finishAsyncTraceExFunc_ = reinterpret_cast<FinishAsyncTraceExFunc>(
+        dlsym(RTLD_DEFAULT, "OH_HiTrace_FinishAsyncTraceEx"));
+    const char* finishError = dlerror();
+    
+    if (startError || finishError) {
+      FML_LOG(WARNING) << "OH_HiTrace_StartAsyncTraceEx or OH_HiTrace_FinishAsyncTraceEx not found";
+    }
+  }
 
   isInit_ = true;
   return;
@@ -360,13 +376,13 @@ void OhosHiappEventDDL::WriteJANKEventToTrace(
   }
 
   OH_HiTrace_CountTrace(COUNTER_FRAME_DROP, vsync_transitions_missed);
-  OH_HiTrace_StartAsyncTraceEx(HITRACE_LEVEL_INFO, FRAME_DROP_DURATION, static_cast<int32_t>(frame_number), "", buffer);
-  OH_HiTrace_FinishAsyncTraceEx(HITRACE_LEVEL_INFO, FRAME_DROP_DURATION, static_cast<int32_t>(frame_number));
+  if (startAsyncTraceExFunc_ && finishAsyncTraceExFunc_) {
+    startAsyncTraceExFunc_(HITRACE_LEVEL_INFO, FRAME_DROP_DURATION, static_cast<int32_t>(frame_number), "", buffer);
+    finishAsyncTraceExFunc_(HITRACE_LEVEL_INFO, FRAME_DROP_DURATION, static_cast<int32_t>(frame_number));
+  }
 }
 
 void OhosHiappEventDDL::Flush(void) {
-  Init();
-
   FlushAllIn(OhosHiappEventFlag::kSingleFlag);
   FlushAllIn(OhosHiappEventFlag::kStaticFlag);
 
@@ -374,8 +390,6 @@ void OhosHiappEventDDL::Flush(void) {
 }
 
 void OhosHiappEventDDL::FlushScroll(void) {
-  Init();
-
   recent_scroll_count++;
   if (missed_frame_infos_scroll.size() == 0) {
     return;
