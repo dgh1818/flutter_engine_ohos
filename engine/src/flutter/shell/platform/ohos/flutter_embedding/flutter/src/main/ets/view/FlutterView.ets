@@ -316,6 +316,7 @@ export class FlutterView {
   private checkAiBar: boolean = true;
   private frameCache: boolean = true;
   private paddingTop?: number;
+  private paddingBottom?: number;
   private systemAvoidArea: window.AvoidArea;
   private navigationAvoidArea: window.AvoidArea;
   private gestureAvoidArea: window.AvoidArea;
@@ -890,11 +891,15 @@ export class FlutterView {
         this.viewportMetrics.physicalViewPaddingTop =
           this.systemAvoidArea?.topRect.height ?? this.viewportMetrics.physicalViewPaddingTop;
       }
-      this.viewportMetrics.physicalViewPaddingBottom =
-        this.systemAvoidArea?.bottomRect.height ?? this.viewportMetrics.physicalViewPaddingBottom;
+      if (this.paddingBottom != undefined) {
+        this.viewportMetrics.physicalViewPaddingBottom = this.paddingBottom;
+      } else {
+        this.viewportMetrics.physicalViewPaddingBottom =
+          this.systemAvoidArea?.bottomRect.height ?? this.viewportMetrics.physicalViewPaddingBottom;
+      }
     } else { // 非全屏显示
       this.viewportMetrics.physicalViewPaddingTop = this.paddingTop ?? 0;
-      this.viewportMetrics.physicalViewPaddingBottom = 0;
+      this.viewportMetrics.physicalViewPaddingBottom = this.paddingBottom ?? 0;
     }
 
     this.viewportMetrics.physicalViewPaddingLeft =
@@ -1156,6 +1161,15 @@ export class FlutterView {
    */
   setPaddingTop(paddingTop?: number) {
     this.paddingTop = paddingTop;
+    this.onAreaChange(null);
+  }
+
+  /**
+   * Sets the bottom padding value.
+   * @param paddingBottom - The bottom padding value, or undefined to use default
+   */
+  setPaddingBottom(paddingBottom?: number) {
+    this.paddingBottom = paddingBottom;
     this.onAreaChange(null);
   }
 

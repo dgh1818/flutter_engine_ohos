@@ -361,6 +361,60 @@ export default class FlutterManager {
     }
     return 0;
   }
+
+  /**
+   * Sets the visibility of a specific system bar and applies safe area padding.
+   * When hiding a system bar, automatically applies padding to avoid content being covered.
+   * @param flutterViewId - The ID of the FlutterView to apply padding
+   * @param specificSystemBar - System bar type: 'status' for status bar, 'navigation' for three-key navigation bar, 'navigationIndicator' for gesture navigation bar
+   * @param isVisible - True to show, false to hide
+   * @param enableAnimation - Whether to enable animation effect, optional
+   * @param context - Optional context, uses the first UIAbility if not provided
+   */
+  setSpecificSystemBarEnabled(flutterViewId: string, specificSystemBar: 'status' | 'navigation' | 'navigationIndicator', isVisible: boolean, enableAnimation?: boolean, context?: Context): void {
+    const flutterView: FlutterView | null = this.getFlutterView(flutterViewId);
+    if (!flutterView) {
+      Log.e(TAG, `setSpecificSystemBarEnabled failed: flutterView not found for id ${flutterViewId}`);
+      return;
+    }
+
+    try {
+      const windowStage = this.getWindowStage(this.getUIAbility(context));
+      if (!windowStage) {
+        Log.e(TAG, 'setSpecificSystemBarEnabled failed: windowStage is null');
+        return;
+      }
+
+      const mainWindow = windowStage.getMainWindowSync();
+      if (!mainWindow) {
+        Log.e(TAG, 'setSpecificSystemBarEnabled failed: mainWindow is null');
+        return;
+      }
+      mainWindow.setSpecificSystemBarEnabled(specificSystemBar, isVisible, enableAnimation);
+
+      switch (specificSystemBar) {
+        case 'status':
+          // Apply top padding when hiding status bar to avoid content being covered
+          const statusBarHeight = mainWindow.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM).topRect.height;
+          if (statusBarHeight > 0) {
+            flutterView.setPaddingTop(statusBarHeight);
+          }
+          break;
+        case 'navigation':
+        case 'navigationIndicator':
+          // Apply bottom padding when hiding navigation bar to avoid content being covered
+          const navHeight = mainWindow.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR).bottomRect.height;
+          if (navHeight > 0) {
+            flutterView.setPaddingBottom(navHeight);
+          }
+          break;
+      }
+
+      Log.i(TAG, `setSpecificSystemBarEnabled: ${specificSystemBar} = ${isVisible}, animation = ${enableAnimation} success`);
+    } catch (error) {
+      Log.e(TAG, `setSpecificSystemBarEnabled error: ${JSON.stringify(error)}`);
+    }
+  }
 }
 
 /**
