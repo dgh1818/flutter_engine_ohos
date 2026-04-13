@@ -263,6 +263,10 @@ flutter_flutter/                 # 仓库根目录
 
 > [更多FAQ](https://gitcode.com/openharmony-tpc/flutter_samples/blob/master/ohos/docs/08_FAQ/README.md)
 
+## 贡献指南
+
+如果您想为 Flutter-OH 贡献代码，请参考 [Flutter-OH 代码合入流程](https://gitcode.com/openharmony-tpc/flutter_flutter/wiki/Flutter_OH%E4%BB%93%E5%BA%93%E4%BB%A3%E7%A0%81%E5%90%88%E5%85%A5%E6%B5%81%E7%A8%8B.md) 了解详细的贡献步骤和规范。
+
 ## 问题交流
 
 - 问题反馈：欢迎在 [Flutter框架仓库](https://gitcode.com/openharmony-tpc/flutter_flutter/issues) 以及各个Flutter三方库提交 issue。
