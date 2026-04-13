@@ -768,9 +768,14 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
 
   private finishPreviewTextCallback = () => {
     Log.i(TextInputMethodHandlerImpl.TAG, "finishPreviewTextCallback");
-    // When editing preview text, meanwhile switch the app to the background and
-    // the preview text will automatically insert into the string cache of TextField
-    this.mEditable.handleInsertTextEvent(this.mEditable.getPreviewText());
+    const previewText = this.mEditable.getPreviewText();
+    // Avoid replacing the current selection with an empty string when the input
+    // method finishes preview mode without any pending preview text.
+    if (typeof previewText === 'string' && previewText.length > 0) {
+      // When editing preview text, meanwhile switch the app to the background and
+      // the preview text will automatically insert into the string cache of TextField
+      this.mEditable.handleInsertTextEvent(previewText);
+    }
     this.mEditable.clearPreviewTextContents();
   }
 
