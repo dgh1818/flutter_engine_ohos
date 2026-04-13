@@ -65,9 +65,9 @@ def parse_pub_path(pub_path: str, version: str, build_type: str, filename: str) 
     """Parse pub_path pattern and replace placeholders"""
     # Replace placeholders: version, build_type, file
     result = pub_path
-    result = result.replace('version', version)
-    result = result.replace('build_type', build_type)
-    result = result.replace('file', filename)
+    result = result.replace('$version', version)
+    result = result.replace('$build_type', build_type)
+    result = result.replace('$file', filename)
     return f"pub://{result}"
 
 
@@ -115,7 +115,7 @@ def publish_files(config: Dict, mode: str, engine_dir: str, version: str) -> boo
         filename = file_info.get('file', '')
         search_directory = file_info.get('search_directory', 'out')
         search_depth = file_info.get('search_depth', 3)
-        pub_path_pattern = file_info.get('pub_path', 'version/build_type/file')
+        pub_path_pattern = file_info.get('pub_path', '$version/$build_type/$file')
 
         if not filename:
             Logger.warn("Skipping file config: no filename specified")
