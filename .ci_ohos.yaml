@@ -41,45 +41,45 @@ publish_files:
     - file: "artifacts.zip"
       search_depth: 3
       search_directory: "out"
-      pub_path: "version/build_type/file"
+      pub_path: "$version/$build_type/$file"
     - file: "symbols.zip"
       search_depth: 3
       search_directory: "out"
-      pub_path: "version/build_type/file"
+      pub_path: "$version/$build_type/$file"
   # Full
   full:
     - file: "artifacts.zip"
       search_depth: 3
       search_directory: "out"
-      pub_path: "version/build_type/file"
+      pub_path: "$version/$build_type/$file"
     - file: "symbols.zip"
       search_depth: 3
       search_directory: "out"
-      pub_path: "version/build_type/file"
+      pub_path: "$version/$build_type/$file"
     - file: "linux-x64.zip"
       search_depth: 3
       search_directory: "out"
-      pub_path: "version/build_type/file"
+      pub_path: "$version/$build_type/$file"
     - file: "artifacts.zip"
       search_depth: 1
       search_directory: "engine"
-      pub_path: "version/linux-x64/file"
+      pub_path: "$version/linux-x64/$file"
     - file: "dart-sdk-linux-x64.zip"
       search_depth: 1
       search_directory: "engine"
-      pub_path: "version/file"
+      pub_path: "$version/$file"
     - file: "sky_engine.zip"
       search_depth: 1
       search_directory: "engine"
-      pub_path: "version/file"
+      pub_path: "$version/$file"
     - file: "flutter_patched_sdk.zip"
       search_depth: 1
       search_directory: "engine"
-      pub_path: "version/file"
+      pub_path: "$version/$file"
     - file: "flutter_patched_sdk_product.zip"
       search_depth: 1
       search_directory: "engine"
-      pub_path: "version/file"
+      pub_path: "$version/$file"
 
 # Preparation steps - executed in order
 preparation_steps:
@@ -87,8 +87,8 @@ preparation_steps:
     script: ci/scripts/prepare_openharmony_sdk.sh
     description: Download openharmony sdk
     args: 
-      - "https://cidownload.openharmony.cn/version/Daily_Version/OpenHarmony_6.1.1.33/20260301_120440/version-Daily_Version-OpenHarmony_6.1.1.33-20260301_120440-ohos-sdk-full.tar.gz"
-      - "0d17006da67b7207119c250877b646841fc9b79678de038210469552562f67cd"
+      - "https://cidownload.openharmony.cn/version/Daily_Version/OpenHarmony_7.0.0.20/20260409_180136/version-Daily_Version-OpenHarmony_7.0.0.20-20260409_180136-ohos-sdk-full.tar.gz"
+      - "53074415265213988aeb159448a5343c0b9108c7eb6d5294643f7f73c9eaa783"
     required: true
 
   - name: Check System Information
