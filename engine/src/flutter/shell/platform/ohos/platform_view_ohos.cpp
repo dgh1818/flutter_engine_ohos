@@ -328,6 +328,7 @@ void PlatformViewOHOS::NotifyDestroyed() {
         });
     latch.Wait();
   }
+  cached_native_window_.reset();
   SetSemanticsEnabled(false);
 }
 
@@ -994,11 +995,14 @@ void PlatformViewOHOS::OnSurfaceCreated() {
   //
   // The fix: unconditionally ensure restore mode here. NotifyCreate() already
   // handles the actual surface setup on the raster thread.
+  //
+  // Reset frame gate and reclaim level independently to guarantee both states
+  // are correct even if a prior abnormal path left them inconsistent.
+  frame_gate_enabled_.store(false, std::memory_order_release);
   if (current_reclaim_level_ != GpuReclaimLevel::kRestore) {
     FML_LOG(INFO) << "GpuReclaim: SurfaceCreated forcing restore from "
                   << ReclaimLevelToString(current_reclaim_level_);
     current_reclaim_level_ = GpuReclaimLevel::kRestore;
-    frame_gate_enabled_.store(false, std::memory_order_release);
   }
 }
 
