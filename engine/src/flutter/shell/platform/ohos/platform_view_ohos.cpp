@@ -981,12 +981,11 @@ void PlatformViewOHOS::HandleLifecyclePlatformMessage(const std::string& name,
 
 void PlatformViewOHOS::OnSurfaceCreated() {
   FML_LOG(INFO) << "GpuReclaim: SurfaceCreated, lifecycle="
-                << LifecycleStateToString(lifecycle_state_) << " pip_visible="
-                << (pip_visible_.load(std::memory_order_acquire) ? "yes"
-                                                                 : "no");
+                << LifecycleStateToString(lifecycle_state_);
 
   // Surface created - evaluate and apply appropriate level
-  ApplyReclaimLevel(EvaluateReclaimLevel(lifecycle_state_, lifecycle_state_));
+  ApplyReclaimLevel(
+      EvaluateReclaimLevel(lifecycle_state_, lifecycle_state_));
 }
 
 void PlatformViewOHOS::OnSurfaceDestroyed() {
