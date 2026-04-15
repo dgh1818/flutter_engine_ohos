@@ -118,8 +118,6 @@ class OhosFlexOverflowStrategy implements FlexOverflowStrategy {
   // Root Flexes that are still inside the confirmation window.
   static final Set<WeakReference<RenderFlex>> _pendingOverflowInstances =
       <WeakReference<RenderFlex>>{};
-  // Global flag to track if any instance is reporting overflow
-  static bool _anyInstanceReportingOverflow = false;
   // Local state for each strategy instance
   bool _isReportingOverflow = false;
   double _lastScreenHeight = 0.0;
@@ -137,7 +135,12 @@ class OhosFlexOverflowStrategy implements FlexOverflowStrategy {
 
   /// Initializes the strategy state
   void _initializeState() {
-    _cancelPendingOverflowReport();
+    _suppressedOverflowTimer?.cancel();
+    _suppressedOverflowTimer = null;
+    _suppressedOverflowRenderFlex = null;
+    _pendingOverflowTimer?.cancel();
+    _pendingOverflowTimer = null;
+    _pendingOverflowRenderFlex = null;
     _isReportingOverflow = false;
     _lastScreenHeight = 0.0;
     _lastScaleFactor = 1.0;
@@ -325,26 +328,39 @@ class OhosFlexOverflowStrategy implements FlexOverflowStrategy {
   /// Schedules a one-shot confirmation for the initial overflow report.
   void _scheduleOverflowReport(RenderFlex renderFlex, double scale) {
     _pendingScaleFactor = scale < _pendingScaleFactor ? scale : _pendingScaleFactor;
-    _pendingOverflowRenderFlex ??= WeakReference<RenderFlex>(renderFlex);
+    final RenderFlex? previousPendingRenderFlex = _pendingOverflowRenderFlex?.target;
+    if (previousPendingRenderFlex != null && previousPendingRenderFlex != renderFlex) {
+      _removePendingInstance(previousPendingRenderFlex);
+    }
+    _pendingOverflowRenderFlex = WeakReference<RenderFlex>(renderFlex);
     if (_pendingOverflowTimer != null) {
+      _addPendingInstance(renderFlex);
       return;
     }
 
     _addPendingInstance(renderFlex);
     _pendingOverflowTimer = Timer(_kOverflowReportConfirmation, () {
       _pendingOverflowTimer = null;
-      _removePendingInstance(renderFlex);
+      final RenderFlex? pendingRenderFlex = _pendingOverflowRenderFlex?.target;
       _pendingOverflowRenderFlex = null;
-      if (!renderFlex.attached) {
+      if (pendingRenderFlex == null) {
+        return;
+      }
+      _removePendingInstance(pendingRenderFlex);
+      if (!pendingRenderFlex.attached) {
         return;
       }
 
       final ScreenInfo screenInfo = _getScreenInfo();
+      // The confirmation window intentionally preserves the smallest overflow
+      // ratio observed during the window. This is conservative, but it avoids
+      // dropping a persistent overflow just because the transient checks are
+      // delayed on OHOS release builds.
       final double scale = _pendingScaleFactor;
-      if (!_shouldReportOverflow(renderFlex, screenInfo, scale)) {
+      if (!_shouldReportOverflow(pendingRenderFlex, screenInfo, scale)) {
         return;
       }
-      _commitOverflowReport(renderFlex, screenInfo, scale);
+      _commitOverflowReport(pendingRenderFlex, screenInfo, scale);
     });
   }
 
@@ -358,7 +374,6 @@ class OhosFlexOverflowStrategy implements FlexOverflowStrategy {
       _overflowingInstances.add(WeakReference<RenderFlex>(renderFlex));
     }
     _isReportingOverflow = true;
-    _anyInstanceReportingOverflow = true;
     _reportFlexOverflow(scale);
     _lastScaleFactor = scale;
     _updateScreenState(screenInfo);
@@ -472,8 +487,7 @@ class OhosFlexOverflowStrategy implements FlexOverflowStrategy {
       (WeakReference<RenderFlex> weakRef) =>
           weakRef.target == null || weakRef.target?.attached == false,
     );
-    _anyInstanceReportingOverflow = _overflowingInstances.isNotEmpty;
-    if (!_anyInstanceReportingOverflow && _pendingOverflowInstances.isEmpty) {
+    if (_overflowingInstances.isEmpty && _pendingOverflowInstances.isEmpty) {
       _reportFlexOverflow(_kResetDpiScale);
     }
   }
