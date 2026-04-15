@@ -328,7 +328,7 @@ void PlatformViewOHOS::NotifyDestroyed() {
         });
     latch.Wait();
   }
-  cached_native_window_.reset();
+  cached_native_window_ = nullptr;
   SetSemanticsEnabled(false);
 }
 
