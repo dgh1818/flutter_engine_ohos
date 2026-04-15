@@ -12,7 +12,7 @@ export { default as FlutterEngineGroupCache } from './src/main/ets/embedding/eng
 export { default as FlutterNapi } from './src/main/ets/embedding/engine/FlutterNapi';
 export * from './src/main/ets/embedding/engine/FlutterOverlaySurface';
 export { default as FlutterShellArgs } from './src/main/ets/embedding/engine/FlutterShellArgs';
-export { default as DartExecutor } from './src/main/ets/embedding/engine/dart/DartExecutor';
+export { default as DartExecutor, DartCallback } from './src/main/ets/embedding/engine/dart/DartExecutor';
 export * from './src/main/ets/embedding/engine/dart/DartMessenger';
 export * from './src/main/ets/embedding/engine/dart/PlatformMessageHandler';
 export { default as ApplicationInfoLoader } from './src/main/ets/embedding/engine/loader/ApplicationInfoLoader';
