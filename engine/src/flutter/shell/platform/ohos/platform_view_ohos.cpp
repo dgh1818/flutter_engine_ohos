@@ -328,6 +328,7 @@ void PlatformViewOHOS::NotifyDestroyed() {
         });
     latch.Wait();
   }
+  cached_native_window_ = nullptr;
   SetSemanticsEnabled(false);
 }
 
@@ -983,9 +984,27 @@ void PlatformViewOHOS::OnSurfaceCreated() {
   FML_LOG(INFO) << "GpuReclaim: SurfaceCreated, lifecycle="
                 << LifecycleStateToString(lifecycle_state_);
 
-  // Surface created - evaluate and apply appropriate level
-  ApplyReclaimLevel(
-      EvaluateReclaimLevel(lifecycle_state_, lifecycle_state_));
+  // Surface creation (XComponent onLoad) is inherently a foreground event —
+  // the page is being displayed. It must never trigger aggressive teardown.
+  //
+  // Previously this called EvaluateReclaimLevel(lifecycle_state_,
+  // lifecycle_state_) which would return kAggressive when lifecycle_state_ was
+  // kDetached (either the initial value before onPageShow, or the residual
+  // value from a previous close). That caused a TeardownOnScreenContext that
+  // raced with NotifyCreate's raster task, destroying the surface that was
+  // just being set up.
+  //
+  // The fix: unconditionally ensure restore mode here. NotifyCreate() already
+  // handles the actual surface setup on the raster thread.
+  //
+  // Reset frame gate and reclaim level independently to guarantee both states
+  // are correct even if a prior abnormal path left them inconsistent.
+  frame_gate_enabled_.store(false, std::memory_order_release);
+  if (current_reclaim_level_ != GpuReclaimLevel::kRestore) {
+    FML_LOG(INFO) << "GpuReclaim: SurfaceCreated forcing restore from "
+                  << ReclaimLevelToString(current_reclaim_level_);
+    current_reclaim_level_ = GpuReclaimLevel::kRestore;
+  }
 }
 
 void PlatformViewOHOS::OnSurfaceDestroyed() {
