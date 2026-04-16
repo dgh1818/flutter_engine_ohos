@@ -13,6 +13,7 @@ import HashMap from '@ohos.util.HashMap';
 import List from '@ohos.util.List';
 import { deviceInfo } from '@kit.BasicServicesKit';
 import { common } from '@kit.AbilityKit';
+import PiPVisibilityBridge from './PiPVisibilityBridge';
 
 const TAG = "FlutterManager"
 
@@ -39,6 +40,7 @@ export default class FlutterManager {
   private uiAbilityList = new Array<UIAbility>();
   private windowStageList = new Map<UIAbility, window.WindowStage>();
   private mFullScreenListener: FullScreenListener = new DefaultFullScreenListener();
+  private windowStageEventCallbacks = new Map<UIAbility, (event: window.WindowStageEventType) => void>();
 
   private dragEnterCbId: number = 1;
   private dragMoveCbId: number = 1;
@@ -188,6 +190,7 @@ export default class FlutterManager {
    */
   pushWindowStage(uiAbility: UIAbility, windowStage: window.WindowStage) {
     this.windowStageList.set(uiAbility, windowStage)
+    this.startPipWindowStageListener(uiAbility, windowStage);
   }
 
   /**
@@ -195,7 +198,39 @@ export default class FlutterManager {
    * @param uiAbility - The UIAbility
    */
   popWindowStage(uiAbility: UIAbility) {
+    this.stopPipWindowStageListener(uiAbility);
     this.windowStageList.delete(uiAbility)
+  }
+
+  private startPipWindowStageListener(uiAbility: UIAbility, windowStage: window.WindowStage): void {
+    if (this.windowStageEventCallbacks.has(uiAbility)) {
+      return;
+    }
+    const callback = (event: window.WindowStageEventType): void => {
+      if (event === window.WindowStageEventType.HIDDEN) {
+        Log.d(TAG, 'PiP: WindowStageEvent HIDDEN, start pip polling');
+        PiPVisibilityBridge.getInstance().updateAbilityShown(false);
+      } else if (event === window.WindowStageEventType.SHOWN) {
+        Log.d(TAG, 'PiP: WindowStageEvent SHOWN, stop pip polling');
+        PiPVisibilityBridge.getInstance().updateAbilityShown(true);
+      }
+    };
+    windowStage.on('windowStageEvent', callback);
+    this.windowStageEventCallbacks.set(uiAbility, callback);
+    Log.d(TAG, 'PiP: WindowStageEvent listener registered for ability');
+  }
+
+  private stopPipWindowStageListener(uiAbility: UIAbility): void {
+    const callback = this.windowStageEventCallbacks.get(uiAbility);
+    if (callback == null) {
+      return;
+    }
+    const windowStage = this.windowStageList.get(uiAbility);
+    if (windowStage != null) {
+      windowStage.off('windowStageEvent', callback);
+    }
+    this.windowStageEventCallbacks.delete(uiAbility);
+    Log.d(TAG, 'PiP: WindowStageEvent listener removed for ability');
   }
 
   /**

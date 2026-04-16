@@ -201,6 +201,8 @@ static napi_value Init(napi_env env, napi_value exports) {
       DECLARE_NAPI_FUNCTION(
           "nativeEnableFrameCache",
           flutter::PlatformViewOHOSNapi::nativeEnableFrameCache),
+      DECLARE_NAPI_FUNCTION("nativeSetPipVisible",
+                            flutter::PlatformViewOHOSNapi::nativeSetPipVisible),
       DECLARE_NAPI_FUNCTION(
           "nativeUpdateCurrentXComponentId",
           flutter::PlatformViewOHOSNapi::nativeUpdateCurrentXComponentId),
@@ -210,9 +212,8 @@ static napi_value Init(napi_env env, napi_value exports) {
       DECLARE_NAPI_FUNCTION(
           "nativeAnimationVoting",
           flutter::PlatformViewOHOSNapi::nativeAnimationVoting),
-      DECLARE_NAPI_FUNCTION(
-          "nativeVideoVoting",
-          flutter::PlatformViewOHOSNapi::nativeVideoVoting),
+      DECLARE_NAPI_FUNCTION("nativeVideoVoting",
+                            flutter::PlatformViewOHOSNapi::nativeVideoVoting),
       DECLARE_NAPI_FUNCTION(
           "nativePrefetchFramesCfg",
           flutter::PlatformViewOHOSNapi::nativePrefetchFramesCfg),
@@ -224,7 +225,7 @@ static napi_value Init(napi_env env, napi_value exports) {
           flutter::PlatformViewOHOSNapi::nativeSetQosOnLowMemory),
       DECLARE_NAPI_FUNCTION(
           "nativeSetAnimationStatus",
-        flutter::PlatformViewOHOSNapi::nativeSetAnimationStatus),
+          flutter::PlatformViewOHOSNapi::nativeSetAnimationStatus),
       DECLARE_NAPI_FUNCTION(
           "nativeNotifyPageChanged",
           flutter::PlatformViewOHOSNapi::nativeNotifyPageChanged),
