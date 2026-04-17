@@ -3,6 +3,10 @@
 // found in the LICENSE file.
 
 #include "flutter/display_list/dl_storage.h"
+#ifdef FML_OS_OHOS
+#include "flutter/fml/platform/ohos/restrace.h"
+#endif
+
 
 namespace flutter {
 
@@ -30,8 +34,25 @@ size_t DisplayListStorage::NextPowerOfTwoSize(size_t x) {
   return x + 1;
 }
 
+DisplayListStorage::~DisplayListStorage() {
+  #ifdef FML_OS_OHOS
+  OH_RESTRACE_FREE_REGION(ptr_.get(), allocated_);
+  #endif
+}
+
 void DisplayListStorage::realloc(size_t count) {
-  ptr_.reset(static_cast<uint8_t*>(std::realloc(ptr_.release(), count)));
+  uint8_t* old_ptr = ptr_.release();
+  uint8_t* new_ptr = static_cast<uint8_t*>(std::realloc(old_ptr, count));
+  if (!new_ptr) {
+    ptr_.reset(old_ptr);
+    FML_CHECK(false) << "relloc failed for size" << count;
+    return;
+  }
+  #ifdef FML_OS_OHOS
+  OH_RESTRACE_FREE_REGION(old_ptr, allocated_);
+  OH_RESTRACE(new_ptr, count);
+  #endif
+  ptr_.reset(new_ptr);
   FML_CHECK(ptr_);
   allocated_ = count;
 }
