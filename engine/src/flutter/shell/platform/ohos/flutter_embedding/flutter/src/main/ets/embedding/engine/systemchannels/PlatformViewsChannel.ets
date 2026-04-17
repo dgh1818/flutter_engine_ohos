@@ -244,7 +244,22 @@ export default class PlatformViewsChannel {
   setDirection(call: MethodCall, result: MethodResult): void {
     const setDirectionArgs: Map<string, Any> = call.args;
     const newDirectionViewId: number = setDirectionArgs.get("id");
-    const direction: number = setDirectionArgs.get("direction");
+    const directionValue: number = setDirectionArgs.get("direction");
+    // The framework sends 0/1 for LTR/RTL. Convert them explicitly before
+    // dispatching so the controller always receives a valid Direction enum.
+    let direction: Direction = Direction.Ltr;
+    if (directionValue == 0) {
+      direction = Direction.Ltr;
+    } else if (directionValue == 1) {
+      direction = Direction.Rtl;
+    } else {
+      Log.w(
+        TAG,
+        "Received unsupported direction value " + directionValue +
+        " for platform view " + newDirectionViewId +
+        ". Falling back to Direction.Ltr."
+      );
+    }
 
     try {
       this.handler?.setDirection(newDirectionViewId, direction);

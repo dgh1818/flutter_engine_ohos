@@ -105,6 +105,7 @@ export default class PlatformViewsController implements PlatformViewsHandler {
   private nextOverlayLayerId: number = 0;
   private focusViewId: number = -1;
   private platformViews: Map<number, PlatformView>;
+  private platformViewParentInfo: Map<number, PlatformViewInfo>;
   private viewIdWithTextureId: Map<number, number>;
   private viewIdWithNodeController: Map<number, EmbeddingNodeController>;
   private viewWrappers: Map<number, PlatformViewWrapper>;
@@ -120,6 +121,7 @@ export default class PlatformViewsController implements PlatformViewsHandler {
     this.currentFrameUsedPlatformViewIds = new HashSet();
     this.viewWrappers = new Map();
     this.platformViews = new Map();
+    this.platformViewParentInfo = new Map();
     this.viewIdWithTextureId = new Map();
     this.viewIdWithNodeController = new Map();
   }
@@ -134,6 +136,10 @@ export default class PlatformViewsController implements PlatformViewsHandler {
 
     let platformView: PlatformView = this.createPlatformView(request);
 
+    // OHOS currently relies on the texture composition path for the
+    // multi-PlatformView direction fix below. The platform-view-layer / hybrid
+    // branch remains a stub, so it is intentionally left outside the scope of
+    // this change.
     this.configureForHybridComposition(platformView, request);
   }
 
@@ -152,6 +158,7 @@ export default class PlatformViewsController implements PlatformViewsHandler {
       this.focusViewId = -1;
     }
     this.platformViews.delete(viewId);
+    this.platformViewParentInfo.delete(viewId);
     let textureId = this.viewIdWithTextureId.get(viewId);
 
     if (textureId != undefined) {
@@ -336,8 +343,14 @@ export default class PlatformViewsController implements PlatformViewsHandler {
    */
   setDirection(viewId: number, direction: Direction): void {
     let nodeController = this.viewIdWithNodeController.get(viewId)
-    if (nodeController != undefined) {
-      nodeController?.setRenderOption(this.flutterView!.getPlatformView()!, this.flutterView!.getSurfaceId(),
+    let platformViewInfo = this.platformViewParentInfo.get(viewId);
+    if (nodeController != undefined && platformViewInfo != undefined) {
+      platformViewInfo.direction = direction;
+      // Rebuild the node with the PlatformView and surface that belong to this
+      // specific viewId. Reusing the latest FlutterView-level references can
+      // redirect updates to the wrong native node when multiple PlatformViews
+      // are alive at the same time.
+      nodeController?.setRenderOption(platformViewInfo.platformView, platformViewInfo.surfaceId,
         NodeRenderType.RENDER_TYPE_TEXTURE, direction)
       nodeController?.rebuild()
     }
@@ -452,6 +465,8 @@ export default class PlatformViewsController implements PlatformViewsHandler {
    * @private
    */
   private configureForHybridComposition(platformView: PlatformView, request: PlatformViewCreationRequest): void {
+    // This path is not implemented yet on OHOS. Keep that behavior explicit so
+    // future readers do not assume the texture-path fix also covers hybrid.
     Log.i(TAG, "Using hybrid composition for platform view: " + request.viewId);
   }
 
@@ -482,6 +497,20 @@ export default class PlatformViewsController implements PlatformViewsHandler {
 
     let nodeController = new EmbeddingNodeController();
     nodeController.setRenderOption(platformView, surfaceId, NodeRenderType.RENDER_TYPE_TEXTURE, request.direction);
+    // Persist the native view/surface pair per Flutter viewId so later updates
+    // (for example setDirection) always target the correct embedded node.
+    this.platformViewParentInfo.set(
+      request.viewId,
+      new PlatformViewInfo(
+        platformView,
+        surfaceId,
+        physicalWidth,
+        physicalHeight,
+        request.logicalTop,
+        request.logicalLeft,
+        request.direction
+      )
+    );
     this.viewIdWithNodeController.set(request.viewId, nodeController);
 
     let dvModel = createDVModelFromJson(new DVModelJson("NodeContainer",
