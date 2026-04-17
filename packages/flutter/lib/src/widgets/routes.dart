@@ -184,7 +184,7 @@ abstract class TransitionRoute<T> extends OverlayRoute<T> implements PredictiveB
   // LTPO: Used to calculate page transition animation velocity
   double _lastProgress = 0.0;
   DateTime? _lastFrameTime;
-  double? _maxScreenDimension; // Cached screen dimension to avoid repeated MediaQuery lookups
+  double? _maxScreenDimension; // Cached screen dimension
 
   /// The animation that drives the route's transition and the previous route's
   /// forward transition.
@@ -305,6 +305,10 @@ abstract class TransitionRoute<T> extends OverlayRoute<T> implements PredictiveB
         }
         _performanceModeRequestHandle?.dispose();
         _performanceModeRequestHandle = null;
+        // LTPO: Clear cached screen dimension when transition finishes
+        if (defaultTargetPlatform == TargetPlatform.ohos) {
+          _maxScreenDimension = null;
+        }
       case AnimationStatus.forward:
       case AnimationStatus.reverse:
         if (overlayEntries.isNotEmpty) {
@@ -324,24 +328,40 @@ abstract class TransitionRoute<T> extends OverlayRoute<T> implements PredictiveB
           _performanceModeRequestHandle?.dispose();
           _performanceModeRequestHandle = null;
         }
+        // LTPO: Clear cached screen dimension when transition finishes
+        if (defaultTargetPlatform == TargetPlatform.ohos) {
+          _maxScreenDimension = null;
+        }
     }
   }
 
   // LTPO: Calculate and report page transition animation velocity
   void _reportTransitionVelocity() {
-    if (_animation == null || navigator?.context == null) {
+    if (_animation == null) {
       return;
     }
 
-    // Lazy initialization: if screen dimension wasn't available during install(),
-    // try to get it now. If still unavailable, skip this frame.
+    // Lazy initialization: use PlatformDispatcher to avoid creating an
+    // InheritedWidget dependency on MediaQuery, which would cause the
+    // Navigator to rebuild on every keyboard show/hide.
     if (_maxScreenDimension == null) {
       try {
-        final MediaQueryData mediaQuery = MediaQuery.of(navigator!.context);
-        final Size screenSize = mediaQuery.size;
-        _maxScreenDimension = screenSize.width > screenSize.height ? screenSize.width : screenSize.height;
+        final ui.PlatformDispatcher dispatcher =
+            WidgetsBinding.instance?.platformDispatcher ?? ui.PlatformDispatcher.instance;
+        final ui.FlutterView? view = dispatcher.implicitView ?? dispatcher.views.firstOrNull;
+        if (view != null && view.devicePixelRatio > 0.0) {
+          final Size physicalSize = view.physicalSize;
+          final double dpr = view.devicePixelRatio;
+          final Size logicalSize = Size(
+            physicalSize.width / dpr,
+            physicalSize.height / dpr,
+          );
+          _maxScreenDimension = logicalSize.width > logicalSize.height
+              ? logicalSize.width
+              : logicalSize.height;
+        }
       } catch (_) {
-        // MediaQuery still not available, skip this frame
+        // Platform dispatcher or view not available yet, skip this frame
         return;
       }
     }
@@ -351,16 +371,17 @@ abstract class TransitionRoute<T> extends OverlayRoute<T> implements PredictiveB
 
     if (_lastFrameTime != null) {
       // The unit of the variable dt is seconds
-      final double dt = now.difference(_lastFrameTime!).inMicroseconds.toDouble() / Duration.microsecondsPerSecond;
+      final double dt = now.difference(_lastFrameTime!).inMicroseconds.toDouble()
+        / Duration.microsecondsPerSecond;
       if (dt > 0 && dt < 0.1) {
         // Use cached screen dimension to avoid MediaQuery lookup on every frame.
         // Screen size doesn't change during a transition.
         final double maxScreenDimension = _maxScreenDimension!;
-        
+
         // Calculate progress change rate (percent/second)
         final double progressDelta = (currentProgress - _lastProgress).abs();
         final double progressVelocity = progressDelta / dt; // progress/second
-        
+
         // Estimate pixel velocity: assuming page slides in from outside the screen (horizontally or vertically)
         // Use the maximum of screen width and height as reference.
         //
@@ -372,7 +393,7 @@ abstract class TransitionRoute<T> extends OverlayRoute<T> implements PredictiveB
         // - Some transitions move only partially across the screen
         // Despite these limitations, this provides a reasonable upper-bound estimate for LTPO purposes.
         final double pixelVelocity = progressVelocity * maxScreenDimension;
-        
+
         if (pixelVelocity > 0) {
           // Build route identifier info
           final String routeName = settings.name ?? runtimeType.toString();
@@ -401,17 +422,6 @@ abstract class TransitionRoute<T> extends OverlayRoute<T> implements PredictiveB
     // LTPO: Add animation listener to calculate page transition velocity
     // Note: Must be called after super.install() because navigator is assigned there.
     if (defaultTargetPlatform == TargetPlatform.ohos) {
-      // Try to cache screen dimension to avoid repeated MediaQuery lookups during animation.
-      // If MediaQuery is not available at this point (e.g., widget tree not fully built),
-      // it will be lazily initialized on the first _reportTransitionVelocity call.
-      try {
-        final MediaQueryData mediaQuery = MediaQuery.of(navigator!.context);
-        final Size screenSize = mediaQuery.size;
-        _maxScreenDimension = screenSize.width > screenSize.height ? screenSize.width : screenSize.height;
-      } catch (_) {
-        // MediaQuery not available yet, will retry on first velocity report
-        _maxScreenDimension = null;
-      }
       _animation!.addListener(_reportTransitionVelocity);
     }
     if (_animation!.isCompleted && overlayEntries.isNotEmpty) {
