@@ -358,7 +358,9 @@ function registerFlutterTask(node: HvigorNode, sdkPath: string, buildMode: strin
         ).toString()
         console.log(`flutter assemble: ${result}`)
       } catch (error) {
-        console.error(`flutter assemble: ${error.message}`)
+        const message = error instanceof Error ? error.message : String(error)
+        console.error(`flutter assemble: ${message}`)
+        throw error
       }
       // copy flutter assets && app.so
       console.log('copy flutter assets to project start')
