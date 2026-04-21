@@ -348,20 +348,14 @@ function registerFlutterTask(node: HvigorNode, sdkPath: string, buildMode: strin
       flutterArgs.push(`-dOhosArchs=${targetPlatforms.join(' ')}`)
       flutterArgs.push(...targetNames)
       const command = flutterArgs.join(' ')
-      try {
-        const result = execSync(
-          command,
-          {
-            cwd: flutterProjectPath,
-            encoding: 'utf8',
-          }
-        ).toString()
-        console.log(`flutter assemble: ${result}`)
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
-        console.error(`flutter assemble: ${message}`)
-        throw error
-      }
+      const result = execSync(
+        command,
+        {
+          cwd: flutterProjectPath,
+          encoding: 'utf8',
+        }
+      ).toString()
+      console.log(`flutter assemble: ${result}`)
       // copy flutter assets && app.so
       console.log('copy flutter assets to project start')
       // 1.clean flutter assets
