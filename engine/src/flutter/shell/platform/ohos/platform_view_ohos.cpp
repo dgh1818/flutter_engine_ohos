@@ -11,6 +11,9 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include "rapidjson/document.h"
+#include "rapidjson/stringbuffer.h"
+#include "rapidjson/writer.h"
 #include "flutter/common/constants.h"
 #include "flutter/fml/make_copyable.h"
 #include "flutter/impeller/renderer/backend/vulkan/context_vk.h"
@@ -40,6 +43,7 @@ namespace flutter {
 std::map<uint64_t, PlatformViewOHOS*> g_texture_platformview_map;
 std::recursive_mutex g_map_mutex;
 static constexpr char K_FLUTTER_LIFECYCLE[] = "flutter/lifecycle";
+static constexpr char K_FLUTTER_SYSTEM[] = "flutter/system";
 
 OhosSurfaceFactoryImpl::OhosSurfaceFactoryImpl(
     const std::shared_ptr<OHOSContext>& context)
@@ -1161,6 +1165,10 @@ void PlatformViewOHOS::ApplyReclaimLevel(GpuReclaimDecision decision) {
                 << ReclaimLevelToString(current_reclaim_level_) << " -> "
                 << ReclaimLevelToString(level);
 
+  if (decision == GpuReclaimDecision::kAggressive) {
+    RequestBackgroundImageCacheCleanup();
+  }
+
   current_reclaim_level_ = level;
 
   switch (decision) {
@@ -1176,6 +1184,26 @@ void PlatformViewOHOS::ApplyReclaimLevel(GpuReclaimDecision decision) {
       FML_DLOG(WARNING) << "GpuReclaim: Unknown reclaim decision";
       break;
   }
+}
+
+void PlatformViewOHOS::RequestBackgroundImageCacheCleanup() {
+  rapidjson::Document document;
+  auto& allocator = document.GetAllocator();
+  document.SetObject();
+  document.AddMember("type", "memoryPressure", allocator);
+
+  rapidjson::StringBuffer buffer;
+  rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+  if (!document.Accept(writer) || buffer.GetSize() == 0) {
+    return;
+  }
+
+  PlatformView::DispatchPlatformMessage(
+      std::make_unique<flutter::PlatformMessage>(
+          K_FLUTTER_SYSTEM,
+          fml::MallocMapping::Copy(buffer.GetString(), buffer.GetSize()),
+          nullptr));
+  PlatformView::ScheduleFrame();
 }
 
 void PlatformViewOHOS::ExecuteReclaimRestore() {

@@ -214,7 +214,7 @@ export default class FlutterNapi {
   }
 
   private nativeNotifyLowMemoryWarning(nativeShellHolderId: number): void {
-
+    flutter.nativeNotifyLowMemoryWarning(nativeShellHolderId);
   }
 
   /**
