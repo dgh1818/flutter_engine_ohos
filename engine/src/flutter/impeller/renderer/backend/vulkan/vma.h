@@ -10,6 +10,10 @@
 #include "flutter/fml/unique_object.h"
 #include "impeller/renderer/backend/vulkan/vk.h"
 
+#ifdef FML_OS_OHOS
+#include "flutter/fml/platform/ohos/restrace.h"
+#endif
+
 namespace impeller {
 
 // -----------------------------------------------------------------------------
@@ -90,6 +94,11 @@ struct BufferVMATraits {
 
   static void Free(const BufferVMA& buffer) {
     TRACE_EVENT0("impeller", "DestroyBuffer");
+#ifdef FML_OS_OHOS
+    VmaAllocationInfo alloc_info;
+    vmaGetAllocationInfo(buffer.allocator, buffer.allocation, &alloc_info);
+    OH_RESTRACE_FREE_REGION(buffer.allocation, alloc_info.size);
+#endif
     ::vmaDestroyBuffer(buffer.allocator, static_cast<VkBuffer>(buffer.buffer),
                        buffer.allocation);
   }
@@ -125,6 +134,11 @@ struct ImageVMATraits {
 
   static void Free(const ImageVMA& image) {
     TRACE_EVENT0("impeller", "DestroyImage");
+#ifdef FML_OS_OHOS
+    VmaAllocationInfo alloc_info;
+    vmaGetAllocationInfo(image.allocator, image.allocation, &alloc_info);
+    OH_RESTRACE_FREE_REGION(image.allocation, alloc_info.size);
+#endif
     ::vmaDestroyImage(image.allocator, static_cast<VkImage>(image.image),
                       image.allocation);
   }
