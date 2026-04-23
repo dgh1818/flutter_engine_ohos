@@ -13,9 +13,8 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart' show clampDouble, precisionErrorTolerance;
 import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:flutter/rendering.dart';
-import 'dart:async';
-
 import 'basic.dart';
+import 'binding.dart';
 import 'debug.dart';
 import 'framework.dart';
 import 'notification_listener.dart';
@@ -33,7 +32,6 @@ import 'scroll_view.dart';
 import 'scrollable.dart';
 import 'sliver_fill.dart';
 import 'viewport.dart';
- import 'statusBar.dart';
 
 /// A controller for [PageView].
 ///
@@ -887,12 +885,10 @@ class PageView extends StatefulWidget {
   State<PageView> createState() => _PageViewState();
 }
 
-class _PageViewState extends State<PageView> {
+class _PageViewState extends State<PageView> with WidgetsBindingObserver {
   int _lastReportedPage = 0;
 
   late PageController _controller;
-
-  StreamSubscription? _subscription;
 
   @override
   void initState() {
@@ -900,18 +896,7 @@ class _PageViewState extends State<PageView> {
     _initController();
     _lastReportedPage = _controller.initialPage;
     if (widget.scrollDirection == Axis.vertical) {
-      ChannelMessageHandler.init();
-      _subscription = ChannelMessageHandler.messageStream.listen((message) {
-        try {
-          _controller.animateToPage(
-            0,
-            duration: const Duration(milliseconds: 1000),
-            curve: Curves.easeOutCirc,
-          );
-        } catch(err) {
-          print(err);
-        };
-      });
+      WidgetsBinding.instance.addObserver(this);
     }
   }
 
@@ -920,9 +905,22 @@ class _PageViewState extends State<PageView> {
     if (widget.controller == null) {
       _controller.dispose();
     }
-    _subscription?.cancel();
-    _subscription = null;
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void handleStatusBarTap() {
+    if (widget.scrollDirection != Axis.vertical) return;
+    try {
+      _controller.animateToPage(
+        0,
+        duration: const Duration(milliseconds: 1000),
+        curve: Curves.easeOutCirc,
+      );
+    } catch (err) {
+      debugPrint('$err');
+    }
   }
 
   void _initController() {
