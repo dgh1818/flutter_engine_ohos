@@ -175,17 +175,25 @@ KHRSwapchainImplVK::KHRSwapchainImplVK(const std::shared_ptr<Context>& context,
                  surface_caps.minImageExtent.height,
                  surface_caps.maxImageExtent.height),
   };
-  swapchain_info.minImageCount =
+
 #ifdef __OHOS__
-      // OHOS's RenderService will hold one buffer, and the hardware composer
-      // will always hold two buffers.
-      std::clamp(surface_caps.minImageCount + 3u,  // preferred image count
-                 surface_caps.minImageCount,       // min count cannot be zero
-                 surface_caps.maxImageCount == 0u
-                     ? surface_caps.minImageCount + 3u
-                     : surface_caps.maxImageCount  // max zero means no limit
-      );
+  if (vk_context.IsPreload()) {
+    // Setting it to 1u may cause acquireNextImageKHR execution failure.
+    swapchain_info.minImageCount = 2u;
+  } else {
+    // OHOS's RenderService will hold one buffer, and the hardware composer
+    // will always hold two buffers.
+    uint32_t minCount = std::max(surface_caps.minImageCount, 3u);
+    swapchain_info.minImageCount =
+        std::clamp(minCount + 3u,  // preferred image count
+                   minCount,       // min count cannot be zero
+                   surface_caps.maxImageCount == 0u
+                       ? minCount + 3u
+                       : surface_caps.maxImageCount  // max zero means no limit
+        );
+  }
 #else
+  swapchain_info.minImageCount =
       std::clamp(surface_caps.minImageCount + 1u,  // preferred image count
                  surface_caps.minImageCount,       // min count cannot be zero
                  surface_caps.maxImageCount == 0u

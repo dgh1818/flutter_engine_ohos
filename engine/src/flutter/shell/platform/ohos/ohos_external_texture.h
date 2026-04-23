@@ -66,6 +66,8 @@ class OHOSExternalTexture : public flutter::Texture {
 
   static void DefaultOnFrameAvailable(void* native_image_ptr);
 
+  static void DefaultOnFrameAvailableWithLock(void* native_image_ptr);
+
   static void ReleaseWindowBuffer(OH_NativeImage* native_image,
                                   OHNativeWindowBuffer* buffer,
                                   int* fence_fd);
@@ -131,6 +133,8 @@ class OHOSExternalTexture : public flutter::Texture {
   bool SetNativeWindowCPUAccess(OHNativeWindow* window, bool cpuAccess);
 
   void GetNewTransformBound(SkM44& transform, SkRect& bounds);
+
+  void RemoveFromExternalTextureSet(OH_NativeImage* native_image);
 
   uint64_t producer_surface_id_ = 0;
 

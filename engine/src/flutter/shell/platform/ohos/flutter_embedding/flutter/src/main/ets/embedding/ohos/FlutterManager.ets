@@ -13,6 +13,7 @@ import HashMap from '@ohos.util.HashMap';
 import List from '@ohos.util.List';
 import { deviceInfo } from '@kit.BasicServicesKit';
 import { common } from '@kit.AbilityKit';
+import PiPVisibilityBridge from './PiPVisibilityBridge';
 
 const TAG = "FlutterManager"
 
@@ -39,6 +40,7 @@ export default class FlutterManager {
   private uiAbilityList = new Array<UIAbility>();
   private windowStageList = new Map<UIAbility, window.WindowStage>();
   private mFullScreenListener: FullScreenListener = new DefaultFullScreenListener();
+  private windowStageEventCallbacks = new Map<UIAbility, (event: window.WindowStageEventType) => void>();
 
   private dragEnterCbId: number = 1;
   private dragMoveCbId: number = 1;
@@ -188,6 +190,7 @@ export default class FlutterManager {
    */
   pushWindowStage(uiAbility: UIAbility, windowStage: window.WindowStage) {
     this.windowStageList.set(uiAbility, windowStage)
+    this.startPipWindowStageListener(uiAbility, windowStage);
   }
 
   /**
@@ -195,7 +198,39 @@ export default class FlutterManager {
    * @param uiAbility - The UIAbility
    */
   popWindowStage(uiAbility: UIAbility) {
+    this.stopPipWindowStageListener(uiAbility);
     this.windowStageList.delete(uiAbility)
+  }
+
+  private startPipWindowStageListener(uiAbility: UIAbility, windowStage: window.WindowStage): void {
+    if (this.windowStageEventCallbacks.has(uiAbility)) {
+      return;
+    }
+    const callback = (event: window.WindowStageEventType): void => {
+      if (event === window.WindowStageEventType.HIDDEN) {
+        Log.d(TAG, 'PiP: WindowStageEvent HIDDEN, start pip polling');
+        PiPVisibilityBridge.getInstance().updateAbilityShown(false);
+      } else if (event === window.WindowStageEventType.SHOWN) {
+        Log.d(TAG, 'PiP: WindowStageEvent SHOWN, stop pip polling');
+        PiPVisibilityBridge.getInstance().updateAbilityShown(true);
+      }
+    };
+    windowStage.on('windowStageEvent', callback);
+    this.windowStageEventCallbacks.set(uiAbility, callback);
+    Log.d(TAG, 'PiP: WindowStageEvent listener registered for ability');
+  }
+
+  private stopPipWindowStageListener(uiAbility: UIAbility): void {
+    const callback = this.windowStageEventCallbacks.get(uiAbility);
+    if (callback == null) {
+      return;
+    }
+    const windowStage = this.windowStageList.get(uiAbility);
+    if (windowStage != null) {
+      windowStage.off('windowStageEvent', callback);
+    }
+    this.windowStageEventCallbacks.delete(uiAbility);
+    Log.d(TAG, 'PiP: WindowStageEvent listener removed for ability');
   }
 
   /**
@@ -360,6 +395,118 @@ export default class FlutterManager {
       Log.e(TAG, "getWindowId failed: " + JSON.stringify(error));
     }
     return 0;
+  }
+
+  /**
+   * Sets the visibility of a specific system bar and applies safe area padding.
+   * When hiding a system bar, automatically applies padding to avoid content being covered.
+   * @param flutterViewId - The ID of the FlutterView to apply padding
+   * @param specificSystemBar - System bar type: 'status' for status bar, 'navigation' for three-key navigation bar, 'navigationIndicator' for gesture navigation bar
+   * @param isVisible - True to show, false to hide
+   * @param enableAnimation - Whether to enable animation effect, optional
+   * @param context - Optional context, uses the first UIAbility if not provided
+   */
+  setSpecificSystemBarEnabled(flutterViewId: string, specificSystemBar: 'status' | 'navigation' | 'navigationIndicator', isVisible: boolean, enableAnimation?: boolean, context?: Context): void {
+    const flutterView: FlutterView | null = this.getFlutterView(flutterViewId);
+    if (!flutterView) {
+      Log.e(TAG, `setSpecificSystemBarEnabled failed: flutterView not found for id ${flutterViewId}`);
+      return;
+    }
+
+    try {
+      const windowStage = this.getWindowStage(this.getUIAbility(context));
+      if (!windowStage) {
+        Log.e(TAG, 'setSpecificSystemBarEnabled failed: windowStage is null');
+        return;
+      }
+
+      const mainWindow = windowStage.getMainWindowSync();
+      if (!mainWindow) {
+        Log.e(TAG, 'setSpecificSystemBarEnabled failed: mainWindow is null');
+        return;
+      }
+      mainWindow.setSpecificSystemBarEnabled(specificSystemBar, isVisible, enableAnimation);
+
+      switch (specificSystemBar) {
+        case 'status':
+          // Apply top padding when hiding status bar to avoid content being covered
+          const statusBarHeight = mainWindow.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM).topRect.height;
+          if (statusBarHeight > 0) {
+            flutterView.setPaddingTop(statusBarHeight);
+          }
+          break;
+        case 'navigation':
+        case 'navigationIndicator':
+          // Apply bottom padding when hiding navigation bar to avoid content being covered
+          const navHeight = mainWindow.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR).bottomRect.height;
+          if (navHeight > 0) {
+            flutterView.setPaddingBottom(navHeight);
+          }
+          break;
+      }
+
+      Log.i(TAG, `setSpecificSystemBarEnabled: ${specificSystemBar} = ${isVisible}, animation = ${enableAnimation} success`);
+    } catch (error) {
+      Log.e(TAG, `setSpecificSystemBarEnabled error: ${JSON.stringify(error)}`);
+    }
+  }
+
+  /**
+   * Adjusts FlutterView top padding to avoid window decoration overlap.
+   * @param flutterViewId - The FlutterView ID
+   * @param context - Optional context, defaults to first UIAbility
+   */
+  handleWindowDecorSafeArea(flutterViewId: string, context?: Context | null | undefined): void {
+    if (!this.isWindowDecorSafeAreaAvoidSupported(context)) {
+      return;
+    }
+    const flutterView = this.getFlutterView(flutterViewId);
+    if (!flutterView) {
+      return;
+    }
+    const mainWindow = this.getWindowStage(this.getUIAbility(context ?? undefined))?.getMainWindowSync();
+    if (!mainWindow) {
+      return;
+    }
+    // Clear padding if window decoration is visible
+    if (mainWindow.getWindowDecorVisible() ) {
+      flutterView.setPaddingTop(0);
+      return;
+    }
+    // Clear padding if title buttons are hidden
+    const titleButtonRect = mainWindow.getTitleButtonRect();
+    if (!titleButtonRect || titleButtonRect.height <= 0) {
+      flutterView.setPaddingTop(0);
+      return;
+    }
+    // Set padding to match title button height
+    flutterView.setPaddingTop(vp2px(titleButtonRect.height));
+  }
+
+  /**
+   * Checks if window decoration safe area avoidance is supported on the current device.
+   * Returns true only when the device is in freeform multi-window mode and supports window decoration.
+   * @param context - Optional context, defaults to first UIAbility
+   * @returns True if window decoration safe area avoidance is supported, false otherwise
+   */
+  isWindowDecorSafeAreaAvoidSupported(context?: Context | null | undefined): boolean {
+    // API 18+ required for window decoration APIs
+    if (deviceInfo.sdkApiVersion < 18) {
+      return false;
+    }
+    const mainWindow = this.getWindowStage(this.getUIAbility(context ?? undefined))?.getMainWindowSync();
+    if (!mainWindow) {
+      return false;
+    }
+    try {
+      // Avoid compilation errors: getWindowDecorVisible is an API18 interface
+      // Check if getWindowDecorVisible API is available
+      const result = typeof (mainWindow as ESObject)?.getWindowDecorVisible();
+      return result == 'boolean';
+    } catch (exception) {
+      Log.i(TAG, `Failed to check window decor visibility support. Cause code: ${exception.code}, message: ${exception.message}`);
+      return false;
+    }
   }
 }
 

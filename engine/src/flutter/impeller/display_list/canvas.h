@@ -110,7 +110,7 @@ class LazyRenderingConfig {
 
   InlinePassContext* GetInlinePassContext() const;
 
- private:
+ public:
   std::unique_ptr<EntityPassTarget> entity_pass_target_;
   std::unique_ptr<InlinePassContext> inline_pass_context_;
 };

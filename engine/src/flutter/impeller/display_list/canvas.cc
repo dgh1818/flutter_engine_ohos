@@ -2013,12 +2013,14 @@ void Canvas::AddRenderEntityToCurrentPass(Entity& entity,
   }
 
   // If the entity covers the current render target and is a solid color, then
-  // conditionally update the backdrop color to its solid color value blended
-  // with the current backdrop.
-  if (render_passes_.back().IsApplyingClearColor()) {
-    std::optional<Color> maybe_color = entity.AsBackgroundColor(
-        render_passes_.back().GetInlinePassContext()->GetTexture()->GetSize());
-    if (maybe_color.has_value()) {
+  // 1. renderpass is inactive: conditionally update the backdrop color to its
+  // solid color value blended with the current backdrop.
+  // 2. renderpass is active: drop the command recorded before and render the
+  // solid color to replace it - occlusion culling.
+  std::optional<Color> maybe_color = entity.AsBackgroundColor(
+      render_passes_.back().inline_pass_context_->GetTexture()->GetSize());
+  if (maybe_color.has_value()) {
+    if (render_passes_.back().IsApplyingClearColor()) {
       Color color = maybe_color.value();
       RenderTarget& render_target = render_passes_.back()
                                         .GetInlinePassContext()
@@ -2032,6 +2034,31 @@ void Canvas::AddRenderEntityToCurrentPass(Entity& entity,
                                    .Premultiply();
       render_target.SetColorAttachment(attachment, 0u);
       return;
+    } else {
+      // If there was a previous cropping effect, the actual render area may b
+      // smaller than the entity size, so skip the occlusion culling.
+      if (GetClipHeight() == 0 &&
+          (entity.GetBlendMode() == BlendMode::kSrc ||
+           entity.GetBlendMode() == BlendMode::kClear ||
+           (entity.GetBlendMode() == BlendMode::kSrcOver &&
+            maybe_color.value().IsOpaque()))) {
+        LazyRenderingConfig rendering_config = std::move(render_passes_.back());
+        render_passes_.pop_back();
+        // drop the pass_ to prevent the pass_ being submit when
+        // ~InlinePassContext is called.
+        rendering_config.inline_pass_context_->Deactive();
+        ColorAttachment attachment =
+            rendering_config.entity_pass_target_->GetRenderTarget()
+                .GetColorAttachment(0);
+        attachment.clear_color = entity.GetBlendMode() == BlendMode::kClear
+                                     ? Color::BlackTransparent()
+                                     : maybe_color.value();
+        rendering_config.entity_pass_target_->GetRenderTarget()
+            .SetColorAttachment(attachment, 0u);
+        render_passes_.push_back(LazyRenderingConfig(
+            renderer_, std::move(rendering_config.entity_pass_target_)));
+        return;
+      }
     }
   }
   if (!reuse_depth) {

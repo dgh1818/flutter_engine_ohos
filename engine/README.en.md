@@ -1,28 +1,5 @@
 # Flutter Engine
 
-<!-- If you are reading this, we're terribly sorry. This forces a new engine build to fix https://github.com/flutter/flutter/issues/170536 -->
-
-## Setting up the Engine development environment
-
-See [here](https://github.com/flutter/flutter/blob/master/engine/src/flutter/docs/contributing/Setting-up-the-Engine-development-environment.md#getting-the-source)
-
-## `gclient` bootstrap
-
-Flutter engine uses `gclient` to manage dependencies.
-
-If you've already cloned the flutter repository:
-
-1. Copy one of the `engine/scripts/*.gclient` to the [root](../) folder as `.gclient`:
-    1. Googlers: copy `rbe.gclient` to enable faster builds with [RBE](https://github.com/flutter/flutter/blob/master/engine/src/flutter/docs/rbe/rbe.md)
-    2. Everyone else: copy `standard.gclient`
-    3. For ohos: copy `ohos.gclient`
-2. run `gclient sync` from the [root](../) folder
-
-
-
-Flutter Engine
-==============
-
 Source of the original repository: https://github.com/flutter/engine
 
 ## Repository Description
@@ -50,7 +27,7 @@ This repository is an extension of the Flutter engine repository. It enables Flu
    in the [official document](https://github.com/flutter/flutter/wiki/Compiling-the-engine#compiling-for-windows).
 
 
-2. Configure the engine development environment. Specifically, create the **.gclient** file in **engine** folder, and copy one of the `engine/scripts/*.gclient` to the [flutter_flutter](../) folder as `.gclient`
+2. Configure the engine development environment by copying one of the `engine/scripts/*.gclient` files to the [flutter_flutter](../) root directory as `.gclient`
 
    a) Googlers: copy `rbe.gclient` to enable faster builds with [RBE](https://github.com/flutter/flutter/blob/master/engine/src/flutter/docs/rbe/rbe.md)
 
@@ -58,7 +35,7 @@ This repository is an extension of the Flutter engine repository. It enables Flu
 
    c) For ohos: copy `ohos.gclient`
 
-3. Synchronize the code. In the **flutter_fluttter** directory, execute `gclient sync`. The engine source code and packages repository will be synchronized, and the **ohos_setup** task will be executed.
+3. Synchronize the code. In the **flutter_flutter** directory, execute `gclient sync`. The engine source code and packages repository will be synchronized, and the **ohos_setup** task will be executed.
 
 4. After the synchronization is complete, execute the following python commands in the **flutter_flutter** directory:
 

@@ -18,6 +18,10 @@
 #include "impeller/renderer/backend/vulkan/texture_vk.h"
 #include "vulkan/vulkan_enums.hpp"
 
+#ifdef FML_OS_OHOS
+#include "flutter/fml/platform/ohos/restrace.h"
+#endif
+
 namespace impeller {
 
 static constexpr vk::Flags<vk::MemoryPropertyFlagBits>
@@ -371,6 +375,9 @@ class AllocatedTextureSourceVK final : public TextureSourceVK {
                               alloc_nfo.preferredFlags));
         return;
       }
+#ifdef FML_OS_OHOS
+      OH_RESTRACE(allocation, allocation_info.size);
+#endif
     }
 
     auto image = vk::Image{vk_image};
@@ -539,6 +546,10 @@ std::shared_ptr<DeviceBuffer> AllocatorVK::OnCreateBuffer(
                    << vk::to_string(result);
     return {};
   }
+
+#ifdef FML_OS_OHOS
+  OH_RESTRACE(buffer_allocation, buffer_allocation_info.size);
+#endif
 
   return std::make_shared<DeviceBufferVK>(
       desc,                                            //

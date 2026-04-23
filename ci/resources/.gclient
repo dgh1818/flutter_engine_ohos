@@ -17,7 +17,7 @@ solutions = [
       "engine/src/flutter/third_party/boringssl/src": "/home/tools/Flutter/repo/boringssl@be5be0a4f5ebf00da151a06860deb11a0ffb609f",
       "engine/src/flutter/third_party/brotli": "/home/tools/Flutter/repo/brotli@350100a5bb9d9671aca85213b2ec7a70a361b0cd",
       "engine/src/flutter/third_party/cpu_features/src": "/home/tools/Flutter/repo/cpu_features@936b9ab5515dead115606559502e3864958f7f6e",
-      "engine/src/flutter/third_party/dart": "/home/tools/Flutter/repo/fluttertpc_dart_sdk@fbe3ce7a1bc11b1b3d19d02d98cd3f4054cdb073",
+      "engine/src/flutter/third_party/dart": "/home/tools/Flutter/repo/fluttertpc_dart_sdk@212591d4e97356a07f0c940dfb1530ebd4a674f3",
       "engine/src/flutter/third_party/dart/third_party/binaryen/src": "/home/tools/Flutter/repo/binaryen@8470f1b1f157201d1bc62f3202e474e7043df0ba",
       "engine/src/flutter/third_party/dart/third_party/pkg/ai": "/home/tools/Flutter/repo/ai@64dfa7f138aa4d9bcc06e807858136b7d4d296d3",
       "engine/src/flutter/third_party/dart/third_party/pkg/core": "/home/tools/Flutter/repo/core@b59ecf4ceebe6153e1c0166b7c9a7fdd9458a89d",

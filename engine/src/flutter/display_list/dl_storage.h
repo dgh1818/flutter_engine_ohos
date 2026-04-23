@@ -18,6 +18,7 @@ class DisplayListStorage {
   static const constexpr size_t kDLPageSize = 4096u;
 
   DisplayListStorage() = default;
+  ~DisplayListStorage();
   DisplayListStorage(DisplayListStorage&&);
 
   /// Returns a pointer to the base of the storage.

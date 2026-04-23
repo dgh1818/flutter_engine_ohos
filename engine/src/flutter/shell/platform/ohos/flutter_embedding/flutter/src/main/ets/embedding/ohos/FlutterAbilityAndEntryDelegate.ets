@@ -29,6 +29,9 @@ import FlutterManager from './FlutterManager';
 import Any from '../../plugin/common/Any';
 import inputMethod from '@ohos.inputMethod';
 import window from '@ohos.window';
+import { ConfigurationConstant } from '@kit.AbilityKit';
+import { resourceManager } from '@kit.LocalizationKit';
+import { EmbeddingNodeController } from './EmbeddingNodeController';
 
 const TAG = "FlutterAbilityDelegate";
 const PLUGINS_RESTORATION_BUNDLE_KEY = "plugins";
@@ -54,6 +57,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
   private flutterView?: FlutterView;
   private inputMethodController: inputMethod.InputMethodController = inputMethod.getController();
   private isPageShow: boolean = false;
+  private currentColorMode?: ConfigurationConstant.ColorMode;
 
   /**
    * Constructs a new FlutterAbilityAndEntryDelegate instance.
@@ -96,6 +100,10 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     this.isAttached = true;
     if (this.flutterEngine) {
       this.flutterEngine.getSystemLanguages();
+      const config = this.context.resourceManager.getConfigurationSync();
+      this.currentColorMode =
+        config.colorMode === resourceManager.ColorMode.DARK ? ConfigurationConstant.ColorMode.COLOR_MODE_DARK :
+        ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT;
     }
     if (this.flutterEngine && this.flutterView && this.host?.attachToEngineAutomatically()) {
       this.flutterView.attachToFlutterEngine(this.flutterEngine!!);
@@ -281,6 +289,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     if (this.flutterEngine && this.host?.attachToEngineAutomatically()) {
       this.flutterView.attachToFlutterEngine(this.flutterEngine!!);
     }
+    this.platformPlugin?.setFlutterView(this.flutterView);
     return this.flutterView
   }
 
@@ -352,7 +361,6 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
    * Called when the window stage is destroyed.
    */
   onWindowStageDestroy() {
-
   }
 
   /**
@@ -603,6 +611,21 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
   initWindow() {
     if (this.flutterEngine && this.isAttached) {
       this.platformPlugin?.initWindow()
+    }
+  }
+
+  changeColorMode(colorMode?: ConfigurationConstant.ColorMode) {
+    if (colorMode !== undefined && this.currentColorMode !== colorMode) {
+      this.currentColorMode = colorMode;
+      let length = this.flutterView?.getDVModel()?.children.length ?? 0;
+      for (let index = length - 1; index >= 0; index--) {
+        const dvModel = this.flutterView?.getDVModel()?.children[index];
+        const params = dvModel?.getLayoutParams() as Record<string, ESObject>;
+        const nodeController = params['nodeController'] as EmbeddingNodeController;
+        if (nodeController && nodeController.rebuild) {
+          nodeController.rebuild();
+        }
+      }
     }
   }
 }

@@ -14,6 +14,8 @@
 #include "third_party/skia/include/core/SkSurface.h"
 #include "types.h"
 
+#include "flutter/fml/platform/ohos/restrace.h"
+
 namespace flutter {
 
 bool GetSkColorType(int32_t buffer_format,
@@ -157,7 +159,7 @@ bool OHOSSurfaceSoftware::PresentBackingStore(sk_sp<SkSurface> backing_store) {
       native_window_.get()->Gethandle(), &buffer, &fenceFd);
   if (ret != 0) {
     LOGE(
-        "PresentBackingStore  OH_NativeWindow_NativeWindowRequestBuffer failed "
+        "OH_NativeWindow_NativeWindowRequestBuffer() failed in PresentBackingStore "
         ":%{public}d",
         ret);
     return false;
@@ -167,8 +169,7 @@ bool OHOSSurfaceSoftware::PresentBackingStore(sk_sp<SkSurface> backing_store) {
       OH_NativeWindow_GetBufferHandleFromNative(buffer);
 
   if (bufferHandle == nullptr) {
-    FML_DLOG(ERROR) << "PresentBackingStore  "
-                       "OH_NativeWindow_GetBufferHandleFromNative failed .";
+    LOGE("OH_NativeWindow_GetBufferHandleFromNative() failed in PresentBackingStore");
     OH_NativeWindow_DestroyNativeWindowBuffer(buffer);
     return false;
   }
@@ -186,6 +187,7 @@ bool OHOSSurfaceSoftware::PresentBackingStore(sk_sp<SkSurface> backing_store) {
     OH_NativeWindow_DestroyNativeWindowBuffer(buffer);
     return false;
   }
+  OH_RESTRACE(virAddr, bufferHandle->size);
 
   {
     SkColorType color_type;
@@ -230,11 +232,16 @@ bool OHOSSurfaceSoftware::PresentBackingStore(sk_sp<SkSurface> backing_store) {
   Region region{nullptr, 0};
   if (virAddr != nullptr) {
     munmap(virAddr, bufferHandle->size);
+    OH_RESTRACE_FREE_REGION(virAddr, bufferHandle->size);
   }
   LOGI("OH_NativeWindow_NativeWindowFlushBuffer  ....");
   ret = OH_NativeWindow_NativeWindowFlushBuffer(
       native_window_.get()->Gethandle(), buffer, fenceFd, region);
-  LOGI("PresentBackingStore flush Buffer :%{public}d", ret);
+  if (ret != 0) {
+    LOGE("OH_NativeWindow_NativeWindowFlushBuffer() failed in PresentBackingStore, ret = %{public}d", ret);
+  } else {
+    LOGI("PresentBackingStore flush Buffer :%{public}d", ret);
+  }
   OH_NativeWindow_DestroyNativeWindowBuffer(buffer);
   return ret == 0;
 }

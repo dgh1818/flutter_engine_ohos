@@ -217,7 +217,10 @@ void OhosTouchProcessor::HandleTouchEvent(
   pointerData.pressure_max = 1.0;
   pointerData.pressure_min = 0.0;
   OH_NativeXComponent_TouchPointToolType toolType;
-  OH_NativeXComponent_GetTouchPointToolType(component, 0, &toolType);
+  int32_t ret = OH_NativeXComponent_GetTouchPointToolType(component, 0, &toolType);
+  if (ret != OH_NATIVEXCOMPONENT_RESULT_SUCCESS) {
+    FML_LOG(ERROR) << "OH_NativeXComponent_GetTouchPointToolType failed, ret=" << ret << ", using default kTouch";
+  }
   pointerData.kind = getPointerDeviceTypeForToolType(toolType);
   // 适配PC兼容模式，kind的值可能不是kTouch，需要确保 pointerData.buttons 被赋值
   if (pointerData.change == PointerData::Change::kDown ||
@@ -275,12 +278,18 @@ void OhosTouchProcessor::HandleAxisEvent(int64_t shell_holderID,
                                          OH_NativeXComponent* component,
                                          ArkUI_UIInputEvent* event) {
   if (event == nullptr) {
+    FML_LOG(ERROR) << "HandleAxisEvent: event is nullptr";
     return;
   }
 
   if (apiVersion_ < 15) {
     // API15 前轴事件接口不完善，会走 XComponentBase::OnDispatchMouseWheelEvent
     // 处理滚动
+    static bool warned = false;
+    if (!warned) {
+      FML_LOG(WARNING) << "HandleAxisEvent: API version " << apiVersion_ << " < 15, skipping axis event processing";
+      warned = true;
+    }
     return;
   }
 
@@ -360,6 +369,7 @@ void OhosTouchProcessor::HandleScaleEvent(int64_t shell_holderID,
                            : DEFAULT_SCALE_DEVICE_ID;
   if (pointerData.device == -1) {
     // 如果 deviceId 为 -1，则设置为默认值
+    FML_LOG(ERROR) << "OH_ArkUI_UIInputEvent_GetDeviceId returned -1, using DEFAULT_SCALE_DEVICE_ID";
     pointerData.device = DEFAULT_SCALE_DEVICE_ID;
   }
   pointerData.kind = PointerData::DeviceKind::kTrackpad;
@@ -419,6 +429,7 @@ void OhosTouchProcessor::HandleScrollEvent(int64_t shell_holderID,
                            : DEFAULT_SRCOLL_DEVICE_ID;
   if (pointerData.device == -1) {
     // 如果 deviceId 为 -1，则设置为默认值
+    FML_LOG(ERROR) << "OH_ArkUI_UIInputEvent_GetDeviceId returned -1, using DEFAULT_SRCOLL_DEVICE_ID";
     pointerData.device = DEFAULT_SRCOLL_DEVICE_ID;
   }
   pointerData.kind = PointerData::DeviceKind::kMouse;
@@ -502,6 +513,7 @@ void OhosTouchProcessor::HandlePanZooomEvent(int64_t shell_holderID,
   pointerData.scale = OH_ArkUI_AxisEvent_GetPinchAxisScaleValue(event);
   if (pointerData.scale == 0) {
     // 如果 scale 为 0，则设置为默认值 1.0
+    FML_LOG(WARNING) << "OH_ArkUI_AxisEvent_GetPinchAxisScaleValue returned 0, using default scale 1.0";
     pointerData.scale = 1.0;
   }
 
@@ -514,6 +526,7 @@ void OhosTouchProcessor::HandlePanZooomEvent(int64_t shell_holderID,
                            : DEFAULT_PANZOOM_DEVICE_ID;
   if (pointerData.device == -1) {
     // 如果 deviceId 为 -1，则设置为默认值
+    FML_LOG(ERROR) << "OH_ArkUI_UIInputEvent_GetDeviceId returned -1, using DEFAULT_PANZOOM_DEVICE_ID";
     pointerData.device = DEFAULT_PANZOOM_DEVICE_ID;
   }
   pointerData.kind = PointerData::DeviceKind::kTrackpad;
@@ -558,14 +571,20 @@ void OhosTouchProcessor::PlatformViewOnTouchEvent(
   int numPoints = touchEvent->numPoints;
   float tiltX = 0.0;
   float tiltY = 0.0;
-  OH_NativeXComponent_GetTouchPointTiltX(component, 0, &tiltX);
-  OH_NativeXComponent_GetTouchPointTiltY(component, 0, &tiltY);
+  int32_t ret = OH_NativeXComponent_GetTouchPointTiltX(component, 0, &tiltX);
+  if (ret != OH_NATIVEXCOMPONENT_RESULT_SUCCESS) {
+    FML_LOG(ERROR) << "OH_NativeXComponent_GetTouchPointTiltX failed, ret=" << ret;
+  }
+  ret = OH_NativeXComponent_GetTouchPointTiltY(component, 0, &tiltY);
+  if (ret != OH_NATIVEXCOMPONENT_RESULT_SUCCESS) {
+    FML_LOG(ERROR) << "OH_NativeXComponent_GetTouchPointTiltY failed, ret=" << ret;
+  }
   std::unique_ptr<OhosTouchProcessor::TouchPacket> touchPacket =
       std::make_unique<OhosTouchProcessor::TouchPacket>();
   touchPacket->touchEventInput = touchEvent;
   touchPacket->toolTypeInput = toolType;
   touchPacket->tiltX = tiltX;
-  touchPacket->tiltX = tiltY;
+  touchPacket->tiltY = tiltY;
 
   std::shared_ptr<std::string[]> touchPacketString =
       packagePacketData(std::move(touchPacket));
@@ -782,15 +801,24 @@ void OhosTouchProcessor::HandleVirtualTouchEvent(
   float tiltY = 0.0;
   auto ohos_shell_holder = reinterpret_cast<OHOSShellHolder*>(shell_holderID);
   OH_NativeXComponent_TouchPointToolType toolType;
-  OH_NativeXComponent_GetTouchPointToolType(component, 0, &toolType);
-  OH_NativeXComponent_GetTouchPointTiltX(component, 0, &tiltX);
-  OH_NativeXComponent_GetTouchPointTiltY(component, 0, &tiltY);
+  int32_t ret = OH_NativeXComponent_GetTouchPointToolType(component, 0, &toolType);
+  if (ret != OH_NATIVEXCOMPONENT_RESULT_SUCCESS) {
+    FML_LOG(ERROR) << "OH_NativeXComponent_GetTouchPointToolType (virtual touch) failed, ret=" << ret;
+  }
+  ret = OH_NativeXComponent_GetTouchPointTiltX(component, 0, &tiltX);
+  if (ret != OH_NATIVEXCOMPONENT_RESULT_SUCCESS) {
+    FML_LOG(ERROR) << "OH_NativeXComponent_GetTouchPointTiltX (virtual touch) failed, ret=" << ret;
+  }
+  ret = OH_NativeXComponent_GetTouchPointTiltY(component, 0, &tiltY);
+  if (ret != OH_NATIVEXCOMPONENT_RESULT_SUCCESS) {
+    FML_LOG(ERROR) << "OH_NativeXComponent_GetTouchPointTiltY (virtual touch) failed, ret=" << ret;
+  }
   std::unique_ptr<OhosTouchProcessor::TouchPacket> touchPacket =
       std::make_unique<OhosTouchProcessor::TouchPacket>();
   touchPacket->touchEventInput = touchEvent;
   touchPacket->toolTypeInput = toolType;
   touchPacket->tiltX = tiltX;
-  touchPacket->tiltX = tiltY;
+  touchPacket->tiltY = tiltY;
 
   std::shared_ptr<std::string[]> touchPacketString =
       packagePacketData(std::move(touchPacket));

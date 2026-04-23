@@ -377,6 +377,13 @@ export const nativeNotifyTextureResizing: (nativeShellHolderId: number, textureI
 export const nativeEnableFrameCache: (nativeShellHolderId: number, enable: boolean) => void;
 
 /**
+ * Updates whether the same engine is still visible in a PiP window.
+ * @param nativeShellHolderId - The ID of the native shell holder
+ * @param visible - Whether the PiP window is visible
+ */
+export const nativeSetPipVisible: (nativeShellHolderId: number, visible: boolean) => void;
+
+/**
  * Looks up callback information for a given handler.
  * @param callback - The FlutterCallbackInformation object to populate
  * @param handler - The handler number

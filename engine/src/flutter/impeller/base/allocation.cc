@@ -9,11 +9,20 @@
 
 #include "impeller/base/validation.h"
 
+#ifdef FML_OS_OHOS
+#include "flutter/fml/platform/ohos/restrace.h"
+#endif
+
 namespace impeller {
 
 Allocation::Allocation() = default;
 
 Allocation::~Allocation() {
+#ifdef FML_OS_OHOS
+  if (buffer_ != nullptr) {
+    OH_RESTRACE_FREE_REGION(buffer_, reserved_.GetByteSize());
+  }
+#endif
   ::free(buffer_);
 }
 
@@ -65,6 +74,10 @@ bool Allocation::Reserve(Bytes reserved) {
     return true;
   }
 
+#ifdef FML_OS_OHOS
+  auto old_buffer = buffer_;
+  auto old_reserved = reserved_.GetByteSize();
+#endif
   auto new_allocation = ::realloc(buffer_, reserved.GetByteSize());
   if (!new_allocation) {
     // If new length is zero, a minimum non-zero sized allocation is returned.
@@ -76,6 +89,15 @@ bool Allocation::Reserve(Bytes reserved) {
 
   buffer_ = static_cast<uint8_t*>(new_allocation);
   reserved_ = reserved;
+
+#ifdef FML_OS_OHOS
+  if (old_buffer == nullptr) {
+    OH_RESTRACE(buffer_, reserved.GetByteSize());
+  } else {
+    OH_RESTRACE_FREE_REGION(old_buffer, old_reserved);
+    OH_RESTRACE(buffer_, reserved.GetByteSize());
+  }
+#endif
 
   return true;
 }

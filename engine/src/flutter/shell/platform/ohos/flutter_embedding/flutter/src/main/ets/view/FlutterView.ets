@@ -316,6 +316,7 @@ export class FlutterView {
   private checkAiBar: boolean = true;
   private frameCache: boolean = true;
   private paddingTop?: number;
+  private paddingBottom?: number;
   private systemAvoidArea: window.AvoidArea;
   private navigationAvoidArea: window.AvoidArea;
   private gestureAvoidArea: window.AvoidArea;
@@ -364,9 +365,6 @@ export class FlutterView {
 
     // 监听折叠状态的改变
     display?.on('foldStatusChange', this.foldStatusChangeCallback);
-
-    // 监听路由跳转（Flutter跳转鸿蒙原生），软键盘处理
-    uiObserver.on('routerPageUpdate', context as common.UIAbilityContext, this.routerPageUpdateCallback);
 
     // Subscribes to display changes. Example: event that the display size is changed.
     try {
@@ -460,6 +458,21 @@ export class FlutterView {
   private routerPageUpdateCallback = (info: uiObserver.RouterPageInfo) => {
     if (this.getKeyboardHeight() !== 0 && info.state === uiObserver.RouterPageState.ON_PAGE_SHOW) {
       this.flutterEngine?.getTextInputChannel()?.textInputMethodHandler?.hide();
+    }
+  }
+
+  private densityUpdateCallback = (info: uiObserver.DensityInfo) => {
+    try {
+      const sysDensity = display.getDefaultDisplaySync().densityPixels;
+      const customDensity = info.density;
+      if (sysDensity > 0 && customDensity > 0 && Number.isFinite(customDensity)) {
+        const scale = customDensity / sysDensity;
+        Log.i(TAG, "densityUpdateCallback: customDensity=" + customDensity + ", sysDensity=" +
+          sysDensity + ", scale=" + scale);
+        this.onDevicePixelRatioChange(scale);
+      }
+    } catch (e) {
+      Log.e(TAG, "densityUpdateCallback error: " + JSON.stringify(e));
     }
   }
 
@@ -564,6 +577,10 @@ export class FlutterView {
   private foldStatusChangeCallback = (data: display.FoldStatus) => {
     Log.d(TAG, `Fold status change to ${JSON.stringify(data)}`)
     this.buildDisplayFeatures(data);
+  }
+  private windowTitleButtonRectChangeCallback = (data: window.TitleButtonRect) => {
+    Log.i(TAG, "windowTitleButtonRectChangeCallback " + JSON.stringify(data));
+    FlutterManager.getInstance().handleWindowDecorSafeArea(this.id, this.context);
   }
 
   /**
@@ -678,12 +695,14 @@ export class FlutterView {
    */
   onDestroy() {
     try {
-      uiObserver.off('routerPageUpdate', this.context as common.UIAbilityContext, this.routerPageUpdateCallback);
+      uiObserver.off('routerPageUpdate', this.uiContext as UIContext, this.routerPageUpdateCallback);
+      uiObserver.off('densityUpdate', this.uiContext as UIContext, this.densityUpdateCallback);
       this.mainWindow?.off('windowSizeChange', this.windowSizeChangeCallback);
       this.mainWindow?.off('avoidAreaChange', this.avoidAreaChangeCallback);
       this.mainWindow?.off('windowStatusChange', this.windowStatusChangeCallback);
       this.mainWindow?.off('keyboardHeightChange', this.keyboardHeightChangeCallback);
       this.mainWindow?.off('windowRectChange', this.windowRectChangeCallback);
+      this.mainWindow?.off('windowTitleButtonRectChange', this.windowTitleButtonRectChangeCallback);
       accessibility.off('accessibilityStateChange', this.accessibilityStateChangeCallback);
       display.off('foldStatusChange', this.foldStatusChangeCallback);
       this.context.eventHub.off('changeDevicePixelRatio', this.onDevicePixelRatioChange);
@@ -816,7 +835,11 @@ export class FlutterView {
     Log.d(TAG, "received onwindowCreated.");
     let _UIContext = this.mainWindow?.getUIContext();
     this.uiContext = _UIContext;
+    // Listen to route navigation (Flutter navigating to HarmonyOS native), soft keyboard management
+    uiObserver.on('routerPageUpdate', this.uiContext as UIContext, this.routerPageUpdateCallback);
+    uiObserver.on('densityUpdate', this.uiContext as UIContext, this.densityUpdateCallback);
     this.sendSettings();
+    this.mainWindow?.on('windowTitleButtonRectChange', this.windowTitleButtonRectChangeCallback);
     Log.d(TAG, "uiContext init and sendSettings finished.");
   }
 
@@ -874,11 +897,15 @@ export class FlutterView {
         this.viewportMetrics.physicalViewPaddingTop =
           this.systemAvoidArea?.topRect.height ?? this.viewportMetrics.physicalViewPaddingTop;
       }
-      this.viewportMetrics.physicalViewPaddingBottom =
-        this.systemAvoidArea?.bottomRect.height ?? this.viewportMetrics.physicalViewPaddingBottom;
+      if (this.paddingBottom != undefined) {
+        this.viewportMetrics.physicalViewPaddingBottom = this.paddingBottom;
+      } else {
+        this.viewportMetrics.physicalViewPaddingBottom =
+          this.systemAvoidArea?.bottomRect.height ?? this.viewportMetrics.physicalViewPaddingBottom;
+      }
     } else { // 非全屏显示
       this.viewportMetrics.physicalViewPaddingTop = this.paddingTop ?? 0;
-      this.viewportMetrics.physicalViewPaddingBottom = 0;
+      this.viewportMetrics.physicalViewPaddingBottom = this.paddingBottom ?? 0;
     }
 
     this.viewportMetrics.physicalViewPaddingLeft =
@@ -1140,6 +1167,15 @@ export class FlutterView {
    */
   setPaddingTop(paddingTop?: number) {
     this.paddingTop = paddingTop;
+    this.onAreaChange(null);
+  }
+
+  /**
+   * Sets the bottom padding value.
+   * @param paddingBottom - The bottom padding value, or undefined to use default
+   */
+  setPaddingBottom(paddingBottom?: number) {
+    this.paddingBottom = paddingBottom;
     this.onAreaChange(null);
   }
 

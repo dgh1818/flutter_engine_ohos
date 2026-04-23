@@ -109,6 +109,7 @@ bool OHOSSurfaceVulkanImpeller::SetNativeWindow(
       return false;
     }
     auto size = native_window_->GetSize();
+    surface_context_vk_->SetIsPreload(native_window_->IsPreload());
     return surface_context_vk_->SetWindowSurface(
         std::move(surface), impeller::ISize{size.width, size.height});
   }
