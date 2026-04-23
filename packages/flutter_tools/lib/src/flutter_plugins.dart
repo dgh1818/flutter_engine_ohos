@@ -782,7 +782,7 @@ import 'package:{{pluginName}}/{{dartFileName}}' as {{pluginName}};
 import 'package:{{pluginName}}/{{dartFileName}}' as {{pluginName}};
 {{/windows}}
 {{#ohos}}
-import 'package:{{pluginName}}/{{pluginName}}.dart';
+import 'package:{{pluginName}}/{{dartFileName}}' as {{pluginName}};
 {{/ohos}}
 
 @pragma('vm:entry-point')
@@ -1312,7 +1312,7 @@ Future<void> injectPlugins(
   bool windowsPlatform = false,
   DarwinDependencyManagement? darwinDependencyManagement,
   Iterable<String>? allowedPlugins,
-  bool ohosPlatfrom = false,
+  bool ohosPlatform = false,
 }) async {
   final List<Plugin> plugins = await findPlugins(project);
 
@@ -1345,7 +1345,7 @@ Future<void> injectPlugins(
       globals.templateRenderer,
     );
   }
-  if (ohosPlatfrom) {
+  if (ohosPlatform) {
     await _writeOhosPluginRegistrant(project, plugins);
   }
   if (iosPlatform || macOSPlatform) {
