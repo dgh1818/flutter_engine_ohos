@@ -30,8 +30,8 @@
 #include "ohos_surface_gl_impeller.h"
 #include "shell/common/platform_view.h"
 #include "shell/platform/ohos/accessibility/ohos_semantics_node.h"
-#include "shell/platform/ohos/context/ohos_context.h"
 #include "shell/platform/ohos/background_resource_cleanup.h"
+#include "shell/platform/ohos/context/ohos_context.h"
 #include "shell/platform/ohos/ohos_surface_vulkan_impeller.h"
 
 namespace flutter {
@@ -345,6 +345,10 @@ void PlatformViewOHOS::SetViewportMetrics(int64_t view_id,
     // layer will not take effect.
     metrics.physical_width = display_width_;
     metrics.physical_height = display_height_;
+    metrics.physical_min_width_constraint = display_width_;
+    metrics.physical_max_width_constraint = display_width_;
+    metrics.physical_min_height_constraint = display_height_;
+    metrics.physical_max_height_constraint = display_height_;
   }
   FML_LOG(INFO) << "SetViewportMetrics physical size: "
                 << metrics.physical_width << "," << metrics.physical_height
@@ -805,7 +809,9 @@ void PlatformViewOHOS::OnAxisEvent(
   return napi_facade_->FlutterViewOnAxisEvent(axisPacketString, size);
 }
 
-void PlatformViewOHOS::RunTask(OhosThreadType type, const fml::closure& task, int64_t millis) {
+void PlatformViewOHOS::RunTask(OhosThreadType type,
+                               const fml::closure& task,
+                               int64_t millis) {
   fml::RefPtr<fml::TaskRunner> TaskRunnerPtr = nullptr;
   switch (type) {
     case OhosThreadType::kPlatform:
@@ -972,7 +978,8 @@ void PlatformViewOHOS::SimulateTouchEvent(SemanticsNodeExtend* node) {
 void PlatformViewOHOS::HandleLifecyclePlatformMessage(const std::string& name,
                                                       const void* message,
                                                       int message_length) {
-  if (name != K_FLUTTER_LIFECYCLE || message_length <= 0 || message == nullptr) {
+  if (name != K_FLUTTER_LIFECYCLE || message_length <= 0 ||
+      message == nullptr) {
     return;
   }
   const auto* bytes = static_cast<const char*>(message);
@@ -985,8 +992,7 @@ void PlatformViewOHOS::OnSurfaceCreated() {
                 << LifecycleStateToString(lifecycle_state_);
 
   // Surface created - evaluate and apply appropriate level
-  ApplyReclaimLevel(
-      EvaluateReclaimLevel(lifecycle_state_, lifecycle_state_));
+  ApplyReclaimLevel(EvaluateReclaimLevel(lifecycle_state_, lifecycle_state_));
 }
 
 void PlatformViewOHOS::OnSurfaceDestroyed() {
@@ -1026,8 +1032,10 @@ GpuReclaimDecision PlatformViewOHOS::EvaluateReclaimLevel(
                                  new_state == AppLifecycleState::kHidden ||
                                  new_state == AppLifecycleState::kDetached);
   const bool entering_background = is_in_background && !was_in_background;
-  const bool returning_to_foreground = (new_state == AppLifecycleState::kResumed);
-  const bool onscreen_valid = onscreen_context_valid_.load(std::memory_order_acquire);
+  const bool returning_to_foreground =
+      (new_state == AppLifecycleState::kResumed);
+  const bool onscreen_valid =
+      onscreen_context_valid_.load(std::memory_order_acquire);
 
   GpuReclaimLevel target_level = GpuReclaimLevel::kRestore;
 
@@ -1070,10 +1078,9 @@ void PlatformViewOHOS::ApplyReclaimLevel(GpuReclaimDecision decision) {
     return;
   }
 
-  const GpuReclaimLevel level =
-      (decision == GpuReclaimDecision::kRestore)
-          ? GpuReclaimLevel::kRestore
-          : GpuReclaimLevel::kAggressive;
+  const GpuReclaimLevel level = (decision == GpuReclaimDecision::kRestore)
+                                    ? GpuReclaimLevel::kRestore
+                                    : GpuReclaimLevel::kAggressive;
 
   FML_LOG(INFO) << "GpuReclaim: "
                 << ReclaimLevelToString(current_reclaim_level_) << " -> "
@@ -1110,7 +1117,8 @@ void PlatformViewOHOS::ExecuteReclaimRestore() {
 }
 
 bool PlatformViewOHOS::ShouldRebuildOnscreenContext() const {
-  return ohos_surface_ && cached_native_window_ && !onscreen_context_valid_.load(std::memory_order_acquire);
+  return ohos_surface_ && cached_native_window_ &&
+         !onscreen_context_valid_.load(std::memory_order_acquire);
 }
 
 void PlatformViewOHOS::PostRebuildOnscreenContextTasks() {
@@ -1127,13 +1135,13 @@ void PlatformViewOHOS::PostRebuildOnscreenContextTasks() {
         const bool set_window_result =
             surface_ptr && surface_ptr->SetDisplayWindow(native_window);
         if (!set_window_result) {
-          FML_LOG(ERROR)<< "GpuReclaim: [Raster] SetDisplayWindow failed during rebuild";
+          FML_LOG(ERROR)
+              << "GpuReclaim: [Raster] SetDisplayWindow failed during rebuild";
           return;
         }
         FML_LOG(INFO) << "GpuReclaim: [Raster] Surface REBUILT";
         fml::TaskRunner::RunNowOrPostTask(
-            task_runners.GetPlatformTaskRunner(),
-            [weak_this]() {
+            task_runners.GetPlatformTaskRunner(), [weak_this]() {
               auto* ohos_view = static_cast<PlatformViewOHOS*>(weak_this.get());
               if (!ohos_view) {
                 return;
@@ -1148,7 +1156,8 @@ void PlatformViewOHOS::PostRebuildOnscreenContextTasks() {
 void PlatformViewOHOS::ExecuteReclaimAggressive() {
   // Skip if already torn down (e.g., NotifyDestroyed was called first)
   if (!onscreen_context_valid_.load(std::memory_order_acquire)) {
-    FML_LOG(INFO) << "GpuReclaim: ExecuteAggressive skipped - context already invalid";
+    FML_LOG(INFO)
+        << "GpuReclaim: ExecuteAggressive skipped - context already invalid";
     return;
   }
 
@@ -1213,7 +1222,8 @@ void PlatformViewOHOS::TryFreeSkiaGpuResources(
     return;
   }
 
-  FML_LOG(WARNING) << "GpuReclaim: [Raster] Make context current fail, skip freeGpuResources";
+  FML_LOG(WARNING) << "GpuReclaim: [Raster] Make context current fail, skip "
+                      "freeGpuResources";
 }
 
 }  // namespace flutter
