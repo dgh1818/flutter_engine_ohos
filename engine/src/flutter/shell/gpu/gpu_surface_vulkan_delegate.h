@@ -21,7 +21,7 @@ namespace flutter {
 struct VulkanPresentInfo {
   // The frame damage is a hint to compositor telling it which parts of front
   // buffer need to be updated.
-  const std::optional<SkIRect>& frame_damage;
+  const std::optional<DlIRect>& frame_damage;
 
   // Time at which this frame is scheduled to be presented. This is a hint
   // that can be passed to the platform to drop queued frames.
@@ -29,7 +29,7 @@ struct VulkanPresentInfo {
 
   // The buffer damage refers to the region that needs to be set as damaged
   // within the frame buffer.
-  const std::optional<SkIRect>& buffer_damage;
+  const std::optional<DlIRect>& buffer_damage;
 };
 
 //------------------------------------------------------------------------------

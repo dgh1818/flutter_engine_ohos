@@ -336,8 +336,9 @@ class ConvexTessellatorImpl : public Tessellator::ConvexTessellator {
                                 bool supports_triangle_fan) override {
     if (supports_primitive_restart) {
       // Primitive Restart.
-      const auto [point_count, contour_count] =
-          PathTessellator::CountFillStorage(path, tolerance);
+      const auto counts = PathTessellator::CountFillStorage(path, tolerance);
+      const size_t point_count = counts.first;   
+      const size_t contour_count = counts.second;
       BufferView point_buffer = data_host_buffer.Emplace(
           nullptr, sizeof(Point) * point_count, alignof(Point));
       BufferView index_buffer = indexes_host_buffer.Emplace(

@@ -75,7 +75,7 @@ class PlatformViewOHOS final : public PlatformView {
 
   void NotifySurfaceWindowChanged(fml::RefPtr<OHOSNativeWindow> native_window);
 
-  void NotifyChanged(const SkISize& size);
+  void NotifyChanged(const DlISize& size);
 
   /**
    * @brief Update the size of the current Flutter window. This function will

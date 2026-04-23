@@ -40,7 +40,7 @@ class OHOSSurfaceVulkanImpeller : public GPUSurfaceVulkanDelegate,
   void TeardownOnScreenContext() override;
 
   // |OHOSSurface|
-  bool OnScreenSurfaceResize(const SkISize& size) override;
+  bool OnScreenSurfaceResize(const DlISize& size) override;
 
   // |OHOSSurface|
   bool ResourceContextMakeCurrent() override;
@@ -68,7 +68,7 @@ class OHOSSurfaceVulkanImpeller : public GPUSurfaceVulkanDelegate,
   };
 
   // |GPUSurfaceVulkanDelegate|
-  FlutterVulkanImage AcquireImage(const SkISize& size) override {
+  FlutterVulkanImage AcquireImage(const DlISize& size) override {
     // will never be invoke
     return FlutterVulkanImage();
   };

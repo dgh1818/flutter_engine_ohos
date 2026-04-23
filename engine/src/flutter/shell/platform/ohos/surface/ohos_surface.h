@@ -12,7 +12,6 @@
 #include "flutter/flow/surface.h"
 #include "flutter/shell/platform/ohos/context/ohos_context.h"
 #include "flutter/shell/platform/ohos/surface/ohos_native_window.h"
-#include "third_party/skia/include/core/SkSize.h"
 
 namespace impeller {
 class Context;
@@ -26,7 +25,7 @@ class OHOSSurface {
   virtual bool IsValid() const = 0;
   virtual void TeardownOnScreenContext() = 0;
 
-  virtual bool OnScreenSurfaceResize(const SkISize& size) = 0;
+  virtual bool OnScreenSurfaceResize(const DlISize& size) = 0;
 
   virtual bool ResourceContextMakeCurrent() = 0;
 
@@ -64,7 +63,7 @@ class OHOSSurface {
   explicit OHOSSurface(const std::shared_ptr<OHOSContext>& ohos_context);
   std::shared_ptr<OHOSContext> ohos_context_;
   fml::RefPtr<OHOSNativeWindow> native_window_;
-  SkISize window_size_ = {0, 0};
+  DlISize window_size_ = {0, 0};
 
  private:
   OH_NativeImage* offscreen_native_image_ = nullptr;

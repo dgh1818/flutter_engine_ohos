@@ -37,7 +37,7 @@ class OhosSurfaceGLSkia final : public GPUSurfaceGLDelegate,
   void TeardownOnScreenContext() override;
 
   // |OhosSurface|
-  bool OnScreenSurfaceResize(const SkISize& size) override;
+  bool OnScreenSurfaceResize(const DlISize& size) override;
 
   // |OhosSurface|
   bool ResourceContextMakeCurrent() override;
@@ -61,7 +61,7 @@ class OhosSurfaceGLSkia final : public GPUSurfaceGLDelegate,
   SurfaceFrame::FramebufferInfo GLContextFramebufferInfo() const override;
 
   // |GPUSurfaceGLDelegate|
-  void GLContextSetDamageRegion(const std::optional<SkIRect>& region) override;
+  void GLContextSetDamageRegion(const std::optional<DlIRect>& region) override;
 
   // |GPUSurfaceGLDelegate|
   bool GLContextPresent(const GLPresentInfo& present_info) override;

@@ -262,7 +262,7 @@ void PlatformViewOHOS::NotifySurfaceWindowChanged(
   }
 }
 
-void PlatformViewOHOS::NotifyChanged(const SkISize& size) {
+void PlatformViewOHOS::NotifyChanged(const DlISize& size) {
   LOGI("PlatformViewOHOS NotifyChanged enter");
   if (ohos_surface_) {
     fml::AutoResetWaitableEvent latch;

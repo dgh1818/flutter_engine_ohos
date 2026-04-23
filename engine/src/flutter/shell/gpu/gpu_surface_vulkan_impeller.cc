@@ -136,31 +136,32 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceVulkanImpeller::AcquireFrame(
           if (entry.first != image_key) {
             // Accumulate damage for other framebuffers
             if (surface_frame.submit_info().frame_damage) {
-              entry.second.join(*surface_frame.submit_info().frame_damage);
+                entry.second =
+                  entry.second.Union(*surface_frame.submit_info().frame_damage);
             }
           }
         }
         // Reset accumulated damage for current framebuffer
-        damage_[image_key] = SkIRect::MakeEmpty();
+        damage_[image_key] = DlIRect();
       }
 
       auto& context_vk = impeller::SurfaceContextVK::Cast(*impeller_context_);
       if (!disable_partial_repaint_ &&
           surface_frame.submit_info().buffer_damage.has_value()) {
         auto buffer_damage = surface_frame.submit_info().buffer_damage;
-        if (buffer_damage->width() == 0 || buffer_damage->height() == 0) {
+        if (buffer_damage->GetWidth() == 0 || buffer_damage->GetHeight() == 0) {
           // No damage to render. Skip rendering.
           FML_LOG(INFO) << "No damage to render, skip rendering.";
           auto render_rect = impeller::IRect::MakeXYWH(
-              buffer_damage->x(), buffer_damage->y(), buffer_damage->width(),
-              buffer_damage->height());
+              buffer_damage->GetX(), buffer_damage->GetY(),
+              buffer_damage->GetWidth(), buffer_damage->GetHeight());
           render_target.SetRenderArea(render_rect);
           context_vk.SetRenderArea(render_rect);
           return true;
         }
         auto render_rect = impeller::IRect::MakeXYWH(
-            buffer_damage->x(), buffer_damage->y(), buffer_damage->width(),
-            buffer_damage->height());
+            buffer_damage->GetX(), buffer_damage->GetY(),
+            buffer_damage->GetWidth(), buffer_damage->GetHeight());
         render_target.SetRenderArea(render_rect);
         context_vk.SetRenderArea(render_rect);
       } else {
@@ -168,7 +169,6 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceVulkanImpeller::AcquireFrame(
         context_vk.SetRenderArea(std::nullopt);
       }
 
-      SkIRect sk_cull_rect = SkIRect::MakeWH(cull_rect.GetWidth(), cull_rect.GetHeight());
       return impeller::RenderToTarget(
           aiks_context->GetContentContext(),                                //
           render_target,                                                    //
@@ -394,8 +394,8 @@ Surface::SurfaceDamageData GPUSurfaceVulkanImpeller::GetSurfaceDamageData()
   }
   // Iterate through damage_ and check if all dirty regions are zero.
   for (const auto& entry : damage_) {
-    const SkIRect& rect = entry.second;
-    if (!rect.isEmpty()) {
+    const DlIRect& rect = entry.second;
+    if (!rect.IsEmpty()) {
       return surface_damage;
     }
   }

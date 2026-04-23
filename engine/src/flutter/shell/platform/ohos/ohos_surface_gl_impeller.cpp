@@ -212,7 +212,7 @@ void OHOSSurfaceGLImpeller::TeardownOnScreenContext() {
 }
 
 // OHOSSurface
-bool OHOSSurfaceGLImpeller::OnScreenSurfaceResize(const SkISize& size) {
+bool OHOSSurfaceGLImpeller::OnScreenSurfaceResize(const DlISize& size) {
   // unused function
   return RecreateOnscreenSurfaceAndMakeOnscreenContextCurrent();
 }
@@ -280,7 +280,7 @@ SurfaceFrame::FramebufferInfo OHOSSurfaceGLImpeller::GLContextFramebufferInfo()
 
 // |GPUSurfaceGLDelegate|
 void OHOSSurfaceGLImpeller::GLContextSetDamageRegion(
-    const std::optional<SkIRect>& region) {
+    const std::optional<DlIRect>& region) {
   // 不支持
 }
 

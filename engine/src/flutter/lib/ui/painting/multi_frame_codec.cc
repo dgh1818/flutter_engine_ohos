@@ -4,6 +4,7 @@
 
 #include "flutter/lib/ui/painting/multi_frame_codec.h"
 
+#include <format>
 #include <utility>
 
 #include "display_list/image/dl_image.h"

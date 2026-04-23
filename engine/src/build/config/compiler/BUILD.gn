@@ -825,6 +825,14 @@ if (is_win) {
       # Needed by skia, imgui, swiftshader, and angle
       "-Wno-nontrivial-memcall",
     ]
+    if (is_ohos) {
+        default_warning_flags += [
+          "-Wno-nontrivial-memaccess",
+          "-Wno-deprecated-volatile",
+          "-Wno-ambiguous-reversed-operator",
+        ]
+        default_warning_flags -= ["-Wno-nontrivial-memcall",]
+    }
   }
   if (!is_fuchsia && is_clang) {
     default_warning_flags += [

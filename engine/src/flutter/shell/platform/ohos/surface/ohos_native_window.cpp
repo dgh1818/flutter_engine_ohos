@@ -6,6 +6,8 @@
  */
 
 #include "flutter/shell/platform/ohos/surface/ohos_native_window.h"
+
+#include "flutter/display_list/geometry/dl_geometry_types.h"
 #include "flutter/fml/logging.h"
 
 namespace flutter {
@@ -28,7 +30,7 @@ bool OHOSNativeWindow::IsValid() const {
   return window_ != nullptr;
 }
 
-SkISize OHOSNativeWindow::GetSize() const {
+DlISize OHOSNativeWindow::GetSize() const {
   if (window_ != nullptr) {
     int32_t width, height;
     int ret = OH_NativeWindow_NativeWindowHandleOpt(
@@ -36,11 +38,11 @@ SkISize OHOSNativeWindow::GetSize() const {
     if (ret != 0) {
       FML_LOG(ERROR) << "OH_NativeWindow_NativeWindowHandleOpt GetSize err:"
                      << ret;
-      return SkISize::Make(0, 0);
+      return DlISize(0, 0);
     }
-    return SkISize::Make(width, height);
+    return DlISize(width, height);
   }
-  return SkISize::Make(0, 0);
+  return DlISize(0, 0);
 }
 
 void OHOSNativeWindow::SetSize(int width, int height) {

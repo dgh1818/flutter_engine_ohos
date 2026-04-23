@@ -7,9 +7,9 @@
 #ifndef FLUTTER_SHELL_PLATFORM_OHOS_SURFACE_OHOS_NATIVE_WINDOW_H_
 #define FLUTTER_SHELL_PLATFORM_OHOS_SURFACE_OHOS_NATIVE_WINDOW_H_
 
+#include "flutter/display_list/geometry/dl_geometry_types.h"
 #include "flutter/fml/macros.h"
 #include "flutter/fml/memory/ref_counted.h"
-#include "third_party/skia/include/core/SkSize.h"
 
 #include <native_window/external_window.h>
 
@@ -26,7 +26,7 @@ class OHOSNativeWindow : public fml::RefCountedThreadSafe<OHOSNativeWindow> {
 
   bool IsValid() const;
 
-  SkISize GetSize() const;
+  DlISize GetSize() const;
 
   void SetSize(int width, int height);
 

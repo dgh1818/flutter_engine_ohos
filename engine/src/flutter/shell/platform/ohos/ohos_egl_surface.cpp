@@ -86,7 +86,7 @@ class OhosEGLSurfaceDamage {
 
   void SetDamageRegion(EGLDisplay display,
                        EGLSurface surface,
-                       const std::optional<SkIRect>& region) {
+                       const std::optional<DlIRect>& region) {
     if (partial_redraw_supported_ && set_damage_region_ && region) {
       auto rects = RectToInts(display, surface, *region);
       set_damage_region_(display, surface, rects.data(), 1);
@@ -99,7 +99,7 @@ class OhosEGLSurfaceDamage {
 
   bool SupportsPartialRepaint() const { return partial_redraw_supported_; }
 
-  std::optional<SkIRect> InitialDamage(EGLDisplay display, EGLSurface surface) {
+  std::optional<DlIRect> InitialDamage(EGLDisplay display, EGLSurface surface) {
     if (!partial_redraw_supported_) {
       return std::nullopt;
     }
@@ -112,10 +112,10 @@ class OhosEGLSurfaceDamage {
     } else {
       // join up to (age - 1) last rects from damage history
       --age;
-      auto res = SkIRect::MakeEmpty();
+      auto res = DlIRect();
       for (auto i = damage_history_.rbegin();
            i != damage_history_.rend() && age > 0; ++i, --age) {
-        res.join(*i);
+        res = res.Union(*i);
       }
       return res;
     }
@@ -123,7 +123,7 @@ class OhosEGLSurfaceDamage {
 
   bool SwapBuffersWithDamage(EGLDisplay display,
                              EGLSurface surface,
-                             const std::optional<SkIRect>& damage) {
+                             const std::optional<DlIRect>& damage) {
     if (partial_redraw_supported_ && swap_buffers_with_damage_ && damage) {
       damage_history_.push_back(*damage);
       if (damage_history_.size() > kMaxHistorySize) {
@@ -139,12 +139,12 @@ class OhosEGLSurfaceDamage {
  private:
   std::array<EGLint, 4> static RectToInts(EGLDisplay display,
                                           EGLSurface surface,
-                                          const SkIRect& rect) {
+                                          const DlIRect& rect) {
     EGLint height;
     eglQuerySurface(display, surface, EGL_HEIGHT, &height);
 
-    std::array<EGLint, 4> res{rect.left(), height - rect.bottom(), rect.width(),
-                              rect.height()};
+    std::array<EGLint, 4> res{rect.GetLeft(), height - rect.GetBottom(), rect.GetWidth(),
+                              rect.GetHeight()};
     return res;
   }
 
@@ -153,7 +153,7 @@ class OhosEGLSurfaceDamage {
 
   bool partial_redraw_supported_;
 
-  std::list<SkIRect> damage_history_;
+  std::list<DlIRect> damage_history_;
 };
 
 OhosEGLSurface::OhosEGLSurface(EGLSurface surface,
@@ -215,7 +215,7 @@ OhosEGLSurfaceMakeCurrentStatus OhosEGLSurface::MakeCurrent() const {
 }
 
 void OhosEGLSurface::SetDamageRegion(
-    const std::optional<SkIRect>& buffer_damage) {
+    const std::optional<DlIRect>& buffer_damage) {
   damage_->SetDamageRegion(display_, surface_, buffer_damage);
 }
 
@@ -229,7 +229,7 @@ bool OhosEGLSurface::SetPresentationTime(
   }
 }
 
-bool OhosEGLSurface::SwapBuffers(const std::optional<SkIRect>& surface_damage) {
+bool OhosEGLSurface::SwapBuffers(const std::optional<DlIRect>& surface_damage) {
   TRACE_EVENT0("flutter", "OhosContextGL::SwapBuffers");
   return damage_->SwapBuffersWithDamage(display_, surface_, surface_damage);
 }
@@ -238,11 +238,11 @@ bool OhosEGLSurface::SupportsPartialRepaint() const {
   return damage_->SupportsPartialRepaint();
 }
 
-std::optional<SkIRect> OhosEGLSurface::InitialDamage() {
+std::optional<DlIRect> OhosEGLSurface::InitialDamage() {
   return damage_->InitialDamage(display_, surface_);
 }
 
-SkISize OhosEGLSurface::GetSize() const {
+DlISize OhosEGLSurface::GetSize() const {
   EGLint width = 0;
   EGLint height = 0;
 
@@ -250,9 +250,9 @@ SkISize OhosEGLSurface::GetSize() const {
       !eglQuerySurface(display_, surface_, EGL_HEIGHT, &height)) {
     FML_LOG(ERROR) << "Unable to query EGL surface size";
     LogLastEGLError();
-    return SkISize::Make(0, 0);
+    return DlISize();
   }
-  return SkISize::Make(width, height);
+  return DlISize(width, height);
 }
 
 }  // namespace flutter

@@ -46,7 +46,7 @@ class GPUSurfaceVulkanImpeller final : public Surface {
 #endif
   // Accumulated damage for each framebuffer; Key is address of underlying
   // MTLTexture for each drawable
-  std::map<int, SkIRect> damage_;
+  std::map<int, DlIRect> damage_;
 
   // |Surface|
   std::unique_ptr<SurfaceFrame> AcquireFrame(const DlISize& size) override;

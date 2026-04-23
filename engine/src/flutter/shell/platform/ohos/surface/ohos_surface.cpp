@@ -114,8 +114,8 @@ bool OHOSSurface::SetDisplayWindow(fml::RefPtr<OHOSNativeWindow> window) {
   }
   TRACE_EVENT0("flutter", "surface:SetDisplayWindow");
 
-  SkISize size = window->GetSize();
-  SkISize old_size = window_size_;
+  DlISize size = window->GetSize();
+  DlISize old_size = window_size_;
   window_size_ = size;
   need_schedule_frame_ = false;
   FML_LOG(INFO) << "SetDisplayWindow " << window->Gethandle();
@@ -123,9 +123,9 @@ bool OHOSSurface::SetDisplayWindow(fml::RefPtr<OHOSNativeWindow> window) {
   if (native_window_ && native_window_->IsValid() &&
       window->Gethandle() == native_window_->Gethandle()) {
     // window is same, we just set surface resize.
-    FML_LOG(INFO) << "window size change: (" << old_size.width() << ","
-                  << old_size.height() << ")=>(" << size.width() << ","
-                  << size.height() << ")";
+    FML_LOG(INFO) << "window size change: (" << old_size.width << ","
+                  << old_size.height << ")=>(" << size.width << ","
+                  << size.height << ")";
     // Note: In vulkan mode, creating a swapchain with the same window can cause
     // the process to hang (stuck on requestBuffer). Therefore, SurfaceResize is
     // called here instead of directly calling SetNativeWindow. We should invoke
@@ -137,8 +137,8 @@ bool OHOSSurface::SetDisplayWindow(fml::RefPtr<OHOSNativeWindow> window) {
     return true;
   }
 
-  if (offscreen_nativewindow_ == nullptr || size.width() != offscreen_width_ ||
-      size.height() != offscreen_height_) {
+  if (offscreen_nativewindow_ == nullptr || size.width != offscreen_width_ ||
+      size.height != offscreen_height_) {
     // The old swapchain must be destroyed before releasing the window to
     // prevent application crashes in Vulkan.
     bool ret = SetNativeWindow(window);

@@ -78,7 +78,7 @@ void OHOSSurfaceSoftware::TeardownOnScreenContext() {
 }
 
 // |OHOSSurface|
-bool OHOSSurfaceSoftware::OnScreenSurfaceResize(const SkISize& size) {
+bool OHOSSurfaceSoftware::OnScreenSurfaceResize(const DlISize& size) {
   FML_DLOG(INFO) << "OnScreenSurfaceResize";
   return true;
 }
@@ -98,7 +98,7 @@ bool OHOSSurfaceSoftware::SetNativeWindow(
 }
 
 // |GPUSurfaceSoftwareDelegate|
-sk_sp<SkSurface> OHOSSurfaceSoftware::AcquireBackingStore(const SkISize& size) {
+sk_sp<SkSurface> OHOSSurfaceSoftware::AcquireBackingStore(const DlISize& size) {
   FML_DLOG(INFO) << "AcquireBackingStore...";
   if (!IsValid()) {
     LOGE("AcquireBackingStore the surface is Invalid");
@@ -106,15 +106,16 @@ sk_sp<SkSurface> OHOSSurfaceSoftware::AcquireBackingStore(const SkISize& size) {
   }
 
   if (sk_surface_ != nullptr &&
-      SkISize::Make(sk_surface_->width(), sk_surface_->height()) == size) {
+      sk_surface_->width() == size.width &&
+      sk_surface_->height() == size.height) {
     // The old and new surface sizes are the same. Nothing to do here.
     return sk_surface_;
   }
 
-  LOGE("SkImageInfofWidth=%{public}d, fHeight=%{public}d", size.fWidth,
-       size.fHeight);
+  LOGE("SkImageInfofWidth=%{public}d, fHeight=%{public}d", size.width,
+       size.height);
   SkImageInfo image_info =
-      SkImageInfo::Make(size.fWidth, size.fHeight, target_color_type_,
+      SkImageInfo::Make(size.width, size.height, target_color_type_,
                         target_alpha_type_, SkColorSpace::MakeSRGB());
 
   FML_DLOG(INFO) << "AcquireBackingStore...MakeRaster ";

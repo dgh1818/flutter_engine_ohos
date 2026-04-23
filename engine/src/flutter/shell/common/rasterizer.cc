@@ -879,6 +879,7 @@ DrawSurfaceStatus Rasterizer::DrawToSurfaceUnsafe(
         }
 #else
         damage->SetPreviousLayerTree(GetLastLayerTree(view_id));
+#endif
         damage->AddAdditionalDamage(existing_damage.value());
         damage->SetClipAlignment(
             frame->framebuffer_info().horizontal_clip_alignment,

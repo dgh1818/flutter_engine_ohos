@@ -265,7 +265,7 @@ RenderPassVK::RenderPassVK(const std::shared_ptr<const Context>& context,
   command_buffer_vk_.setViewport(0, 1, &viewport);
 
   // Set the initial scissor.
-  auto sc = IRect32::MakeSize(target_size);
+  auto sc = IRect::MakeSize(target_size);
   if (render_area.has_value()) {
     sc = render_area.value();
   }

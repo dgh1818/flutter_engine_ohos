@@ -36,7 +36,7 @@ class OHOSSurfaceGLImpeller final : public GPUSurfaceGLDelegate,
   void TeardownOnScreenContext() override;
 
   // OHOSSurface
-  bool OnScreenSurfaceResize(const SkISize& size) override;
+  bool OnScreenSurfaceResize(const DlISize& size) override;
 
   // OHOSSurface
   bool ResourceContextMakeCurrent() override;
@@ -63,7 +63,7 @@ class OHOSSurfaceGLImpeller final : public GPUSurfaceGLDelegate,
   SurfaceFrame::FramebufferInfo GLContextFramebufferInfo() const override;
 
   // |GPUSurfaceGLDelegate|
-  void GLContextSetDamageRegion(const std::optional<SkIRect>& region) override;
+  void GLContextSetDamageRegion(const std::optional<DlIRect>& region) override;
 
   // |GPUSurfaceGLDelegate|
   bool GLContextPresent(const GLPresentInfo& present_info) override;

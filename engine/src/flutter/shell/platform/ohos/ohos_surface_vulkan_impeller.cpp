@@ -70,9 +70,9 @@ void OHOSSurfaceVulkanImpeller::TeardownOnScreenContext() {
 }
 
 // |OHOSSurface|
-bool OHOSSurfaceVulkanImpeller::OnScreenSurfaceResize(const SkISize& size) {
+bool OHOSSurfaceVulkanImpeller::OnScreenSurfaceResize(const DlISize& size) {
   surface_context_vk_->UpdateSurfaceSize(
-      impeller::ISize{size.width(), size.height()});
+      impeller::ISize{size.width, size.height});
   return true;
 }
 
@@ -110,7 +110,7 @@ bool OHOSSurfaceVulkanImpeller::SetNativeWindow(
     }
     auto size = native_window_->GetSize();
     return surface_context_vk_->SetWindowSurface(
-        std::move(surface), impeller::ISize{size.width(), size.height()});
+        std::move(surface), impeller::ISize{size.width, size.height});
   }
 
   native_window_ = nullptr;
@@ -164,10 +164,10 @@ bool OHOSSurfaceVulkanImpeller::SetPresentInfo(
     const VulkanPresentInfo& present_info) {
   if (native_window_ && native_window_->IsValid()) {
     if (present_info.frame_damage.has_value()) {
-      SkIRect damage_rect = present_info.frame_damage.value();
+      DlIRect damage_rect = present_info.frame_damage.value();
       std::ostringstream oss;
-      oss << "<" << damage_rect.left() << "," << damage_rect.top() << ","
-          << damage_rect.right() << "," << damage_rect.bottom() << ">";
+      oss << "<" << damage_rect.GetLeft() << "," << damage_rect.GetTop() << ","
+          << damage_rect.GetRight() << "," << damage_rect.GetBottom() << ">";
       std::string damage_rect_str = oss.str();
       TRACE_EVENT1("flutter", "OHOSSurfaceVulkanImpeller::SetPresentInfo",
                    "frame_damage", damage_rect_str.c_str());
