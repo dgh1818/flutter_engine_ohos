@@ -407,6 +407,10 @@ List<AndroidArch> _androidArchs(TargetPlatform targetPlatform, String? androidAr
     case TargetPlatform.web_javascript:
     case TargetPlatform.windows_x64:
     case TargetPlatform.windows_arm64:
+    case TargetPlatform.ohos:
+    case TargetPlatform.ohos_arm:
+    case TargetPlatform.ohos_arm64:
+    case TargetPlatform.ohos_x64:
     case TargetPlatform.unsupported:
       throwToolExit('Unsupported Android target platform: $targetPlatform.');
   }

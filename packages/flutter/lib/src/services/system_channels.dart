@@ -448,6 +448,16 @@ abstract final class SystemChannels {
   ///    device to a system cursor. The parameters are
   ///    integer `device`, and string `kind`.
   static const MethodChannel mouseCursor = OptionalMethodChannel('flutter/mousecursor');
+  /// A [MethodChannel] for handling flex overflow in the UI.
+  ///
+  /// The following outgoing methods are defined for this channel (invoked using
+  /// [OptionalMethodChannel.invokeMethod]):
+  ///
+  ///  * `updateDpiScale`: Request to update the DPI scale factor to handle flex
+  ///    overflow. The parameter is a double `dpiScale` representing the scale factor.
+  static const MethodChannel displayMetrics = OptionalMethodChannel(
+    'flutter/displaymetrics',
+  );
 
   /// A [MethodChannel] for synchronizing restoration data with the engine.
   ///
@@ -614,4 +624,8 @@ abstract final class SystemChannels {
   ///  * `isSupported`: Returns whether or not setting content sensitivity levels is supported on the
   ///     device.
   static const MethodChannel sensitiveContent = OptionalMethodChannel('flutter/sensitivecontent');
+
+  static const MethodChannel nativeVsync = MethodChannel(
+    'flutter/nativevsync'
+  );
 }

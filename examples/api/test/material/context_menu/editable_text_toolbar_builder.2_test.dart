@@ -40,6 +40,7 @@ void main() {
           );
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
+        case TargetPlatform.ohos:
           expect(
             find.byType(TextSelectionToolbarTextButton),
             findsAtLeastNWidgets(1),

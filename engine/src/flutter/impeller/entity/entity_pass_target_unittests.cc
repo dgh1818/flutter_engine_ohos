@@ -62,7 +62,11 @@ TEST_P(EntityPassTargetTest, SwapWithMSAAImplicitResolve) {
     TextureDescriptor color0_tex_desc;
     color0_tex_desc.storage_mode = StorageMode::kDevicePrivate;
     color0_tex_desc.type = TextureType::kTexture2DMultisample;
-    color0_tex_desc.sample_count = SampleCount::kCount4;
+#ifdef __OHOS__
+    color0_tex_desc.sample_count = SampleCount::kCount2,
+#else
+    color0_tex_desc.sample_count = SampleCount::kCount4,
+#endif
     color0_tex_desc.format = pixel_format;
     color0_tex_desc.size = ISize{100, 100};
     color0_tex_desc.usage = TextureUsage::kRenderTarget;

@@ -6694,6 +6694,7 @@ void main() {
 
     switch (defaultTargetPlatform) {
       // These platforms extend by line.
+      case TargetPlatform.ohos:
       case TargetPlatform.android:
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
@@ -6810,6 +6811,7 @@ void main() {
 
     switch (defaultTargetPlatform) {
       // Extend selection.
+      case TargetPlatform.ohos:
       case TargetPlatform.android:
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
@@ -7445,6 +7447,7 @@ void main() {
 
         // These platforms go to the line start/end.
         case TargetPlatform.android:
+        case TargetPlatform.ohos:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
         case TargetPlatform.windows:
@@ -7473,6 +7476,7 @@ void main() {
 
         // These platforms go to the line start/end.
         case TargetPlatform.android:
+        case TargetPlatform.ohos:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
         case TargetPlatform.windows:
@@ -7562,6 +7566,7 @@ void main() {
 
         // These platforms go to the line start/end.
         case TargetPlatform.android:
+        case TargetPlatform.ohos:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
         case TargetPlatform.windows:
@@ -7598,6 +7603,7 @@ void main() {
 
         // Windows, Android, and Fuchsia jump to the previous wordwrapped line.
         case TargetPlatform.android:
+        case TargetPlatform.ohos:
         case TargetPlatform.fuchsia:
         case TargetPlatform.windows:
           expect(
@@ -7685,6 +7691,7 @@ void main() {
 
         // These platforms go to the line start/end.
         case TargetPlatform.android:
+        case TargetPlatform.ohos:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
         case TargetPlatform.windows:
@@ -7720,6 +7727,7 @@ void main() {
 
         // Windows, Android, and Fuchsia jump to the next wordwrapped line.
         case TargetPlatform.android:
+        case TargetPlatform.ohos:
         case TargetPlatform.fuchsia:
         case TargetPlatform.windows:
           expect(
@@ -7834,6 +7842,7 @@ void main() {
           );
 
         // Windows expands to the line start/end.
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
         case TargetPlatform.windows:
@@ -8090,6 +8099,7 @@ void main() {
 
         // These platforms select to the line start.
         case TargetPlatform.android:
+        case TargetPlatform.ohos:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
         case TargetPlatform.windows:
@@ -8129,6 +8139,7 @@ void main() {
 
         // Windows jumps to the previous wordwrapped line.
         case TargetPlatform.android:
+        case TargetPlatform.ohos:
         case TargetPlatform.fuchsia:
         case TargetPlatform.windows:
           expect(
@@ -8219,6 +8230,7 @@ void main() {
 
         // These platforms select to the line end.
         case TargetPlatform.android:
+        case TargetPlatform.ohos:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
         case TargetPlatform.windows:
@@ -8269,6 +8281,7 @@ void main() {
 
         // Windows jumps to the previous wordwrapped line.
         case TargetPlatform.android:
+        case TargetPlatform.ohos:
         case TargetPlatform.fuchsia:
         case TargetPlatform.windows:
           expect(
@@ -11836,6 +11849,7 @@ void main() {
       expect(controller.selection.isCollapsed, false);
       switch (defaultTargetPlatform) {
         // These platforms extend by line.
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
@@ -13777,7 +13791,7 @@ void main() {
 
         // On web, these keyboard shortcuts are handled by the browser.
       },
-      variant: TargetPlatformVariant.all(excluding: <TargetPlatform>{TargetPlatform.android}),
+      variant: TargetPlatformVariant.all(excluding: <TargetPlatform>{TargetPlatform.android, TargetPlatform.ohos}),
       skip: kIsWeb, // [intended]
     );
 
@@ -14026,6 +14040,7 @@ void main() {
         await sendUndo(tester);
         switch (defaultTargetPlatform) {
           // Android includes composing changes.
+          case TargetPlatform.ohos:
           case TargetPlatform.android:
             expect(
               controller.value,
@@ -14072,6 +14087,7 @@ void main() {
         await sendRedo(tester);
         switch (defaultTargetPlatform) {
           // Android includes composing changes.
+          case TargetPlatform.ohos:
           case TargetPlatform.android:
             expect(
               controller.value,

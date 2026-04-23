@@ -41,6 +41,15 @@ class KHRSwapchainVK final : public SwapchainVK {
   void AddFinalCommandBuffer(
       std::shared_ptr<CommandBuffer> cmd_buffer) const override;
 
+  // |SwapchainVK|
+  int GetCurrentImageIndex() override;
+
+  // |SwapchainVK|
+  int GetImagesCount() override;
+
+  // |SwapchainVK|
+  void SetRenderArea(std::optional<IRect> area) override;
+
  private:
   friend class SwapchainVK;
 

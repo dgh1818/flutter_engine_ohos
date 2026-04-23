@@ -2211,8 +2211,15 @@ targets:
   - name: Linux_android_emu android_defines_test
     recipe: devicelab/devicelab_drone
     timeout: 60
+    dimensions: {
+      kvm: "1",
+      cores: "8",
+      machine_type: "n1-standard-8"
+    }
     properties:
+      device_type: "none"
       tags: >
+        ["devicelab", "linux"]
         ["devicelab", "linux"]
       task_name: android_defines_test
       presubmit_max_attempts: "2"
@@ -4922,6 +4929,7 @@ targets:
 
   - name: Mac_ios channels_integration_test_ios
     recipe: devicelab/devicelab_drone
+    bringup: true # TODO(vashworth): Remove once https://github.com/flutter/flutter/issues/174444 is fixed.
     presubmit: false
     timeout: 60
     properties:
@@ -5109,6 +5117,7 @@ targets:
 
   - name: Mac_arm64_ios integration_test_test_ios
     recipe: devicelab/devicelab_drone
+    bringup: true # TODO(vashworth): Remove once https://github.com/flutter/flutter/issues/174444 is fixed.
     presubmit: false
     timeout: 60
     properties:
@@ -5257,6 +5266,7 @@ targets:
 
   - name: Mac_ios native_assets_ios
     recipe: devicelab/devicelab_drone
+    bringup: true # TODO(vashworth): Remove once https://github.com/flutter/flutter/issues/174444 is fixed.
     presubmit: false
     timeout: 60
     properties:
@@ -5392,6 +5402,7 @@ targets:
 
   - name: Mac_ios wide_gamut_ios
     recipe: devicelab/devicelab_drone
+    bringup: true # TODO(vashworth): Remove once https://github.com/flutter/flutter/issues/174444 is fixed.
     presubmit: false
     timeout: 60
     properties:
@@ -5502,6 +5513,7 @@ targets:
 
   - name: Mac_ios spell_check_test
     recipe: devicelab/devicelab_drone
+    bringup: true # TODO(vashworth): Remove once https://github.com/flutter/flutter/issues/174444 is fixed.
     presubmit: false
     timeout: 60
     properties:

@@ -15,11 +15,13 @@ import 'base/common.dart';
 import 'base/file_system.dart';
 import 'base/io.dart';
 import 'base/logger.dart';
+import 'base/os.dart';
 import 'base/platform.dart';
 import 'base/process.dart';
 import 'base/utils.dart';
 import 'build_info.dart';
 import 'convert.dart';
+import 'globals.dart' as globals;
 
 /// Opt-in changes to the dart compilers.
 const kDartCompilerExperiments = <String>[];

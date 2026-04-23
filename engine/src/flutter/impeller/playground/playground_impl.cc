@@ -20,6 +20,10 @@
 #include "impeller/playground/backend/vulkan/playground_impl_vk.h"
 #endif  // IMPELLER_ENABLE_VULKAN
 
+#ifdef __clang__
+#pragma clang diagnostic ignored "-Wreturn-type"
+#endif
+
 namespace impeller {
 
 std::unique_ptr<PlaygroundImpl> PlaygroundImpl::Create(

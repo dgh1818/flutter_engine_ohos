@@ -23,6 +23,9 @@ dev_dependencies:
     sdk: flutter
 
 
+  # integration_test_ohos:
+  #   path: ./ohos
+
 flutter:
   plugin:
     platforms:
@@ -30,6 +33,8 @@ flutter:
         package: dev.flutter.plugins.integration_test
         pluginClass: IntegrationTestPlugin
       ios:
+        pluginClass: IntegrationTestPlugin
+      ohos:
         pluginClass: IntegrationTestPlugin
 
 # PUBSPEC CHECKSUM: 768bse

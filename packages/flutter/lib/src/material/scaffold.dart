@@ -2900,6 +2900,8 @@ class ScaffoldState extends State<Scaffold>
     _drawerOpened.dispose();
     _endDrawerOpened.dispose();
     _bottomSheetScrimAnimationController.dispose();
+    _subscription?.cancel();
+ 	  _subscription = null;
     super.dispose();
   }
 
@@ -2994,6 +2996,7 @@ class ScaffoldState extends State<Scaffold>
 
   late AnimationController _bottomSheetScrimAnimationController;
   bool _showBodyScrim = false;
+  StreamSubscription? _subscription;
 
   /// Updates the state of the body scrim.
   ///
@@ -3197,7 +3200,8 @@ class ScaffoldState extends State<Scaffold>
       TargetPlatform.android ||
       TargetPlatform.fuchsia ||
       TargetPlatform.linux ||
-      TargetPlatform.windows => null,
+      TargetPlatform.windows ||
+      TargetPlatform.ohos => null,
     };
 
     _addIfNonNull(
@@ -3209,6 +3213,14 @@ class ScaffoldState extends State<Scaffold>
       removeRightPadding: false,
       removeBottomPadding: true,
     );
+
+    // OHOS: listen to status bar click channel to scroll to top.
+    if (themeData.platform == TargetPlatform.ohos) {
+      ChannelMessageHandler.init();
+      _subscription = ChannelMessageHandler.messageStream.listen((message) {
+        handleStatusBarTap();
+      });
+    }
 
     if (_endDrawerOpened.value) {
       _buildDrawer(children, textDirection);

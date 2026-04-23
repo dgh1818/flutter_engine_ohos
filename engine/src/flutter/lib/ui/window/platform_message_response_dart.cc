@@ -39,8 +39,9 @@ void PostCompletion(Callback&& callback,
   ui_task_runner->PostTask(fml::MakeCopyable(
       [callback = std::move(callback), platform_message_id,
        result = std::move(result), channel = channel]() mutable {
-        TRACE_EVENT_ASYNC_END0("flutter", "PlatformChannel ScheduleResult",
-                               platform_message_id);
+        // Pair with TRACE_EVENT_ASYNC_BEGIN1
+        TRACE_EVENT_ASYNC_END1("flutter", "PlatformChannel ScheduleResult",
+                               platform_message_id, "channel", channel.c_str());
         std::shared_ptr<tonic::DartState> dart_state =
             callback.dart_state().lock();
         if (!dart_state) {

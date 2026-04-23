@@ -272,6 +272,12 @@ class Template {
         return null;
       }
 
+      //Only build a ohos project if explicitly asked.
+      final bool ohos = (context['ohos'] as bool?) ?? false;
+      if (relativeDestinationPath.startsWith('ohos.tmpl') && !ohos) {
+        return null;
+      }
+
       final projectName = context['projectName'] as String?;
       final androidIdentifier = context['androidIdentifier'] as String?;
       final pluginClass = context['pluginClass'] as String?;

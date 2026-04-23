@@ -115,4 +115,24 @@ vk::Format KHRSwapchainVK::GetSurfaceFormat() const {
   return IsValid() ? impl_->GetSurfaceFormat() : vk::Format::eUndefined;
 }
 
+int KHRSwapchainVK::GetCurrentImageIndex() {
+  if (!IsValid()) {
+    return -1;
+  }
+  return impl_->GetCurrentImageIndex();
+}
+
+int KHRSwapchainVK::GetImagesCount() {
+  if (!IsValid()) {
+    return -1;
+  }
+  return impl_->GetImagesCount();
+}
+
+void KHRSwapchainVK::SetRenderArea(std::optional<IRect> area) {
+  if (IsValid()) {
+    impl_->SetRenderArea(area);
+  }
+}
+
 }  // namespace impeller
