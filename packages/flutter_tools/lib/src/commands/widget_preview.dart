@@ -187,10 +187,6 @@ final class WidgetPreviewStartCommand extends WidgetPreviewSubCommandBase with C
       'Failed to locate browser. Make sure you are using an up-to-date Chrome or Edge. '
       'Otherwise, consider running with --$kWebServer instead.';
 
-  @visibleForTesting
-  static const kBrowserNotFoundErrorMessage =
-      'Failed to locate browser. Make sure you are using an up-to-date Chrome or Edge.';
-
   @override
   Future<Set<DevelopmentArtifact>> get requiredArtifacts async => const <DevelopmentArtifact>{
     // Ensure the Flutter Web SDK is installed.

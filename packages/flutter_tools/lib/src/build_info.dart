@@ -717,6 +717,11 @@ enum TargetPlatform {
         return 'fuchsia';
       case TargetPlatform.ios:
         return 'ios';
+      case TargetPlatform.ohos:
+      case TargetPlatform.ohos_arm:
+      case TargetPlatform.ohos_arm64:
+      case TargetPlatform.ohos_x64:
+        return 'ohos';
       case TargetPlatform.tester:
         return 'flutter-tester';
       case TargetPlatform.web_javascript:

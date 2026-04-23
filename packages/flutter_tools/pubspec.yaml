@@ -135,6 +135,11 @@ dartdoc:
 dependency_overrides:
   code_assets:
     git:
-      url: https://gitcode.com/openharmony-sig/fluttertpc_dart_native
+      url: https://gitcode.com/zhong_ning/fluttertpc_dart_native
       path: pkgs/code_assets
+      ref: flutter_3.41.3_deps
+  hooks_runner:
+    git:
+      url: https://gitcode.com/zhong_ning/fluttertpc_dart_native
+      path: pkgs/hooks_runner
       ref: flutter_3.41.3_deps

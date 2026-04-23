@@ -450,8 +450,7 @@ bool Canvas::AttemptColorFilterOptimization(
     const Paint& paint,
     const SamplerDescriptor& sampler,
     SourceRectConstraint src_rect_constraint) {
-  if (src_rect_constraint == SourceRectConstraint::kStrict ||
-      !paint.color_filter ||                     //
+  if (!paint.color_filter ||                     //
       paint.image_filter != nullptr ||           //
       paint.invert_colors ||                     //
       paint.mask_blur_descriptor.has_value() ||  //
@@ -1022,11 +1021,11 @@ void Canvas::DrawCircle(const Point& center,
     AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint);
   } else {
     CircleGeometry geom(center, radius);
-    #ifdef FML_OS_OHOS
-      AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint, false, true);
-    #else
-      AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint);
-    #endif
+#ifdef FML_OS_OHOS
+    AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint, false, true);
+#else
+    AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint);
+#endif
   }
 }
 
@@ -1922,8 +1921,7 @@ void Canvas::AddRenderEntityWithFiltersToCurrentPass(Entity& entity,
                                                      const Geometry* geometry,
                                                      const Paint& paint,
                                                      bool reuse_depth,
-                                                     bool is_draw_rect
-                                                    ) {
+                                                     bool is_draw_rect) {
   std::shared_ptr<ColorSourceContents> contents = paint.CreateContents();
   if (!paint.color_filter && !paint.invert_colors && !paint.image_filter &&
       !paint.mask_blur_descriptor.has_value()) {
@@ -1998,7 +1996,9 @@ void Canvas::AddRenderEntityWithFiltersToCurrentPass(Entity& entity,
   AddRenderEntityToCurrentPass(entity, reuse_depth);
 }
 
-void Canvas::AddRenderEntityToCurrentPass(Entity& entity, bool reuse_depth, bool is_draw_rect) {
+void Canvas::AddRenderEntityToCurrentPass(Entity& entity,
+                                          bool reuse_depth,
+                                          bool is_draw_rect) {
   if (IsSkipping()) {
     return;
   }

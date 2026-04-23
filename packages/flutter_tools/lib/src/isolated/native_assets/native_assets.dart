@@ -498,6 +498,9 @@ Future<void> _copyNativeCodeAssetsForOS(
     case OS.android:
       assert(codesignIdentity == null);
       await copyNativeCodeAssetsAndroid(buildUri, assetTargetLocations, fileSystem);
+    case OS.ohos:
+      assert(codesignIdentity == null);
+      await copyNativeCodeAssetsOhos(buildUri, assetTargetLocations, fileSystem);
     default:
       throw StateError('This should be unreachable.');
   }
@@ -726,6 +729,11 @@ const _osTargets = <OS, Set<Architecture>>{
     Architecture.x64,
   },
   OS.macOS: <Architecture>{Architecture.arm64, Architecture.x64},
+  OS.ohos: <Architecture>{
+    Architecture.arm,
+    Architecture.arm64,
+    Architecture.x64,
+  },
   OS.windows: <Architecture>{Architecture.arm64, Architecture.ia32, Architecture.x64},
 };
 

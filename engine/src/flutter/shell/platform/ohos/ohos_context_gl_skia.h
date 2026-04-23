@@ -15,7 +15,6 @@
 #include "flutter/shell/platform/ohos/context/ohos_context.h"
 #include "flutter/shell/platform/ohos/ohos_environment_gl.h"
 #include "flutter/shell/platform/ohos/surface/ohos_native_window.h"
-#include "third_party/skia/include/core/SkSize.h"
 
 namespace flutter {
 

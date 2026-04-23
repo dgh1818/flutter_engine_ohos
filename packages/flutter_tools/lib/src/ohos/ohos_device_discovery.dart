@@ -58,7 +58,7 @@ class OhosDevices extends PollingDeviceDiscovery {
   }
 
   @override
-  Future<List<Device>> pollingGetDevices({Duration? timeout}) async {
+  Future<List<Device>> pollingGetDevices({Duration? timeout, bool forWirelessDiscovery = false}) async {
     if (_doesNotHaveHdc()) {
       return <OhosDevice>[];
     }

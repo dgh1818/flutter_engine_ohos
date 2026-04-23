@@ -82,15 +82,16 @@ bool OhosSurfaceGLSkia::OnScreenSurfaceResize(const DlISize& size) {
   // Check if surface/window is valid - may be null after
   // TeardownOnScreenContext
   if (!onscreen_surface_ || !native_window_) {
-    FML_LOG(WARNING) << "OnScreenSurfaceResize: surface or window is null (after teardown?)";
+    FML_LOG(WARNING)
+        << "OnScreenSurfaceResize: surface or window is null (after teardown?)";
     return false;
   }
 
   FML_LOG(INFO) << "OnScreenSurfaceResize update window size:" << size.width
                 << "*" << size.height;
   auto current_size = onscreen_surface_->GetSize();
-  if (onscreen_surface_ && onscreen_surface_->IsValid() &&
-    size.width == current_size.width && size.height == current_size.height) {
+  if (onscreen_surface_->IsValid() && size.width == current_size.width &&
+      size.height == current_size.height) {
     return true;
   }
 
@@ -179,7 +180,8 @@ std::unique_ptr<GLContextResult> OhosSurfaceGLSkia::GLContextMakeCurrent() {
   // Check if onscreen_surface_ is valid - it may be null after
   // TeardownOnScreenContext
   if (!onscreen_surface_) {
-    FML_LOG(WARNING) << "GLContextMakeCurrent: onscreen_surface_ is null (after teardown?)";
+    FML_LOG(WARNING)
+        << "GLContextMakeCurrent: onscreen_surface_ is null (after teardown?)";
     return std::make_unique<GLContextDefaultResult>(false);
   }
   auto status = onscreen_surface_->MakeCurrent();
@@ -239,7 +241,8 @@ bool OhosSurfaceGLSkia::GLContextPresent(const GLPresentInfo& present_info) {
   // Check if onscreen_surface_ is valid - it may be null after
   // TeardownOnScreenContext
   if (!onscreen_surface_) {
-    FML_LOG(WARNING) << "GLContextPresent: onscreen_surface_ is null (after teardown?)";
+    FML_LOG(WARNING)
+        << "GLContextPresent: onscreen_surface_ is null (after teardown?)";
     return false;
   }
   if (native_window_ && native_window_->IsValid() &&
@@ -263,7 +266,8 @@ GLFBOInfo OhosSurfaceGLSkia::GLContextFBO(GLFrameInfo frame_info) const {
   // Check if onscreen_surface_ is valid - it may be null after
   // TeardownOnScreenContext
   if (!onscreen_surface_) {
-    FML_LOG(WARNING) << "GLContextFBO: onscreen_surface_ is null (after teardown?)";
+    FML_LOG(WARNING)
+        << "GLContextFBO: onscreen_surface_ is null (after teardown?)";
     return GLFBOInfo{.fbo_id = 0};
   }
   // The default window bound framebuffer on Ohos.

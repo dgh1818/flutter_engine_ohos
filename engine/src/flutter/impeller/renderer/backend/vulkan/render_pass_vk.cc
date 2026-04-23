@@ -265,9 +265,13 @@ RenderPassVK::RenderPassVK(const std::shared_ptr<const Context>& context,
   command_buffer_vk_.setViewport(0, 1, &viewport);
 
   // Set the initial scissor.
-  auto sc = IRect::MakeSize(target_size);
+  auto sc = IRect32::MakeSize(target_size);
   if (render_area.has_value()) {
-    sc = render_area.value();
+    const auto& ra = render_area.value();
+    sc = IRect32::MakeLTRB(static_cast<int32_t>(ra.GetLeft()),
+                           static_cast<int32_t>(ra.GetTop()),
+                           static_cast<int32_t>(ra.GetRight()),
+                           static_cast<int32_t>(ra.GetBottom()));
   }
   vk::Rect2D scissor =
       vk::Rect2D()

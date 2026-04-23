@@ -13,7 +13,6 @@
 #include "flutter/shell/platform/ohos/ohos_surface_gl_skia.h"
 #include "flutter/shell/platform/ohos/surface/ohos_native_window.h"
 #include "flutter/shell/platform/ohos/surface/ohos_surface.h"
-#include "third_party/skia/include/core/SkSize.h"
 
 namespace flutter {
 
@@ -23,7 +22,7 @@ class OHOSUnifiedSurface : public GPUSurfaceGLDelegate, public OHOSSurface {
   bool IsValid() {}
   void TeardownOnScreenContext() {}
 
-  bool OnScreenSurfaceResize(const SkISize& size) {}
+  bool OnScreenSurfaceResize(const DlISize& size) {}
 
   bool ResourceContextMakeCurrent() {}
 
@@ -42,7 +41,7 @@ class OHOSUnifiedSurface : public GPUSurfaceGLDelegate, public OHOSSurface {
 
   bool GLContextClearCurrent() {}
 
-  void GLContextSetDamageRegion(const std::optional<SkIRect>& region) {}
+  void GLContextSetDamageRegion(const std::optional<DlIRect>& region) {}
 
   bool GLContextPresent(const GLPresentInfo& present_info) {}
 
@@ -52,7 +51,7 @@ class OHOSUnifiedSurface : public GPUSurfaceGLDelegate, public OHOSSurface {
 
   SurfaceFrame::FramebufferInfo GLContextFramebufferInfo() {}
 
-  SkMatrix GLContextSurfaceTransformation() {}
+  DlMatrix GLContextSurfaceTransformation() {}
 
   sk_sp<const GrGLInterface> GetGLInterface() {}
 

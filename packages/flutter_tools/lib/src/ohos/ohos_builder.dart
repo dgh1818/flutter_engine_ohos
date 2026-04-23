@@ -316,6 +316,34 @@ class OhosDartBuilder implements OhosBuilder {
         }
       }
     }
+
+    // Copy native code assets (.so files produced by build hooks)
+    // from {buildDir}/native_assets/ohos/libs/{arch}/ to
+    // flutterModuleDirectory/libs/{arch}/.
+    final String nativeAssetsBase = globals.fs.path.join(
+        globals.fs.directory(output).parent.path,
+        'native_assets', 'ohos', 'libs');
+    for (final OhosArch arch in ohosBuildInfo.targetArchs) {
+      final String archName = getNameForOhosArch(arch);
+      final Directory nativeAssetsArchDir = globals.fs.directory(
+          globals.fs.path.join(nativeAssetsBase, archName));
+      if (!nativeAssetsArchDir.existsSync()) {
+        continue;
+      }
+      final String desLibsArchPath = globals.fs.path.join(
+          ohosProject.flutterModuleDirectory.path, 'libs', archName);
+      for (final FileSystemEntity entity in nativeAssetsArchDir.listSync()) {
+        if (entity is File && entity.path.endsWith('.so')) {
+          final String desPath =
+              globals.fs.path.join(desLibsArchPath, entity.basename);
+          ensureParentExists(desPath);
+          entity.copySync(desPath);
+          logger?.printTrace(
+              'copy native asset "${entity.path}" to "$desPath"');
+        }
+      }
+    }
+
     logger?.printTrace('copy flutter assets to project end');
   }
 

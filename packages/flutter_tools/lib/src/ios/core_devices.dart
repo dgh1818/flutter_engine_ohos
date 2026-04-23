@@ -867,58 +867,6 @@ class IOSCoreDeviceControl {
       final String stringOutput = output.readAsStringSync();
 
       try {
-        final result = IOSCoreDeviceLaunchResult.fromJson(
-          json.decode(stringOutput) as Map<String, Object?>,
-        );
-        if (result.outcome == null) {
-          _logger.printTrace('devicectl returned unexpected JSON response: $stringOutput');
-          return null;
-        }
-        return result;
-      } on FormatException {
-        // We failed to parse the devicectl output, or it returned junk.
-        _logger.printTrace('devicectl returned non-JSON response: $stringOutput');
-        return null;
-      }
-    } on ProcessException catch (err) {
-      _logger.printTrace('Error executing devicectl: $err');
-      return null;
-    } finally {
-      tempDirectory.deleteSync(recursive: true);
-    }
-  }
-
-  /// Terminate the [processId] on the device using `devicectl`.
-  Future<bool> terminateProcess({required String deviceId, required int processId}) async {
-    if (!_xcode.isDevicectlInstalled) {
-      _logger.printTrace('devicectl is not installed.');
-      return false;
-    }
-
-    final Directory tempDirectory = _fileSystem.systemTempDirectory.createTempSync('core_devices.');
-    final File output = tempDirectory.childFile('terminate_results.json');
-    output.createSync();
-
-    final command = <String>[
-      ..._xcode.xcrunCommand(),
-      'devicectl',
-      'device',
-      'process',
-      'terminate',
-      '--device',
-      deviceId,
-      '--pid',
-      processId.toString(),
-      '--kill',
-      '--json-output',
-      output.path,
-    ];
-
-    try {
-      await _processUtils.run(command, throwOnError: true);
-      final String stringOutput = output.readAsStringSync();
-
-      try {
         final Object? decodeResult = (json.decode(stringOutput) as Map<String, Object?>)['info'];
         if (decodeResult is Map<String, Object?> && decodeResult['outcome'] == 'success') {
           return true;

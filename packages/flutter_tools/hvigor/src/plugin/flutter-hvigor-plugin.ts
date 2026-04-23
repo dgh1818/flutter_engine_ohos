@@ -412,6 +412,35 @@ function registerFlutterTask(node: HvigorNode, sdkPath: string, buildMode: strin
           fs.copyFileSync(srcAppSoPath, destAppSoPath)
         })
       }
+
+      // 3.5 Copy native code assets (.so files produced by build hooks)
+      // from build/native_assets/ohos/libs/{arch}/ to module libs/{arch}/.
+      targetPlatforms?.map(platform => PLATFORM_ARCH_MAP[platform]).forEach(arch => {
+        const nativeAssetsDir = path.join(
+          flutterProjectPath,
+          'build',
+          'native_assets',
+          'ohos',
+          'libs',
+          arch
+        )
+        if (fs.existsSync(nativeAssetsDir)) {
+          const destLibsDir = path.join(nodePath, 'libs', arch)
+          if (!fs.existsSync(destLibsDir)) {
+            fs.mkdirSync(destLibsDir, { recursive: true })
+          }
+          const files = fs.readdirSync(nativeAssetsDir)
+          for (const file of files) {
+            if (file.endsWith('.so')) {
+              const srcPath = path.join(nativeAssetsDir, file)
+              const destPath = path.join(destLibsDir, file)
+              fs.copyFileSync(srcPath, destPath)
+              console.log(`copy native asset "${file}" to "${destPath}"`)
+            }
+          }
+        }
+      })
+
       console.log('copy flutter assets to project end')
 
       // 4.Copy configuration files in 'profile' to 'rawfile',
