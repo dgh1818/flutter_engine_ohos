@@ -225,11 +225,14 @@ export default class FlutterManager {
     if (callback == null) {
       return;
     }
-    const windowStage = this.windowStageList.get(uiAbility);
-    if (windowStage != null) {
-      windowStage.off('windowStageEvent', callback);
+    try {
+      const windowStage = this.windowStageList.get(uiAbility);
+      windowStage?.off('windowStageEvent', callback);
+    } catch (err) {
+      Log.w(TAG, 'PiP: windowStageEvent off failed, window may already be destroyed: ' + JSON.stringify(err));
+    } finally {
+      this.windowStageEventCallbacks.delete(uiAbility);
     }
-    this.windowStageEventCallbacks.delete(uiAbility);
     Log.d(TAG, 'PiP: WindowStageEvent listener removed for ability');
   }
 
