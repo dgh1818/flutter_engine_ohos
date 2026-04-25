@@ -286,7 +286,7 @@ class EventSinkImplementation implements EventSink {
       return;
     }
     this.hasEnded = true;
-    this.messenger.send(this.name, new ArrayBuffer(0));
+    this.messenger.send(this.name, null);
   }
 }
 
