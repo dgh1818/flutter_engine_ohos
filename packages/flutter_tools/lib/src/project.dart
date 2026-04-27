@@ -447,7 +447,7 @@ class FlutterProject {
       linuxPlatform: linuxPlatform,
       macOSPlatform: macOSPlatform,
       windowsPlatform: windowsPlatform,
-      ohosPlatfrom: ohosPlatform,
+      ohosPlatform: ohosPlatform,
       releaseMode: releaseMode,
     );
   }
