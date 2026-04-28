@@ -834,7 +834,10 @@ export default class PlatformViewsController implements PlatformViewsHandler {
       return;
     }
 
-    this.ensureFlutterViewAttached("render platform view");
+    if (this.flutterView == null) {
+      Log.w(TAG, "render: FlutterView is detached, skipping render for surfaceId=" + surfaceId);
+      return;
+    }
     this.flutterView!.setSurfaceId(surfaceId.toString());
     let wrappedBuilder: WrappedBuilder<[Params]> = platformView.getView();
     this.flutterView?.setWrappedBuilder(wrappedBuilder);
