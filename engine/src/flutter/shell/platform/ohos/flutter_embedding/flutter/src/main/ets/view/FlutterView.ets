@@ -293,6 +293,7 @@ export class FlutterView {
   private wrapBuilder: WrappedBuilder<[Params]> | undefined = undefined;
   private platformView: PlatformView | undefined = undefined;
   private isSurfaceAvailableForRendering: boolean = false
+  private isXComponentAttachedToEngine: boolean = false
   private viewportMetrics = new ViewportMetrics();
   private displayInfo?: display.Display;
   private keyboardManager: KeyboardManager | null = null;
@@ -307,6 +308,8 @@ export class FlutterView {
   private mFirstPreloadFrameListeners: ArrayList<FirstPreloadFrameListener>;
   private isFlutterUiDisplayed: boolean = false;
   private isFlutterUiPreload: boolean = false;
+  private surfaceLifecycleToken: number = 0;
+  private activeSurfaceLifecycleToken: number = 0;
   private surfaceId: string = "0";
   private nodeController: EmbeddingNodeController = new EmbeddingNodeController();
   private platformViewSize: PlatformViewParas = new PlatformViewParas();
@@ -742,6 +745,7 @@ export class FlutterView {
     Log.i(TAG, "attachToFlutterEngine");
     this.flutterEngine = flutterEngine;
     this.flutterEngine?.getFlutterNapi().xComponentAttachFlutterEngine(this.id)
+    this.isXComponentAttachedToEngine = true;
     this.flutterEngine?.getFlutterNapi()?.updateRefreshRate(this.displayInfo!.refreshRate)
     this.flutterEngine?.getFlutterNapi()?.updateSize(this.displayInfo!.width, this.displayInfo!.height)
     this.flutterEngine?.getFlutterNapi()?.updateDensity(this.displayInfo!.densityPixels)
@@ -817,10 +821,11 @@ export class FlutterView {
       Log.d(TAG, "FlutterView not attached to an engine. Not detaching.");
       return;
     }
-    if (this.isSurfaceAvailableForRendering) {
+    if (this.isXComponentAttachedToEngine) {
       this.flutterEngine!!.getFlutterNapi().xComponentDetachFlutterEngine(this.id)
+      this.isXComponentAttachedToEngine = false;
     }
-    this.flutterEngine?.getPlatformViewsController()?.detachFromView();
+    this.flutterEngine?.getPlatformViewsController()?.detachFromView(this);
     this.flutterEngine = null;
     this.keyboardManager = null;
     this.textInputPlugin?.destroy();
@@ -858,19 +863,40 @@ export class FlutterView {
    * Called when the rendering surface is created.
    * Marks the surface as available and processes pending messages.
    */
-  onSurfaceCreated() {
+  onSurfaceCreated(): number {
+    // XComponent onDestroy can arrive after a replacement XComponent onLoad
+    // during fast ArkUI route changes. Use a generation token so a stale
+    // destroy callback cannot detach the current surface.
+    this.activeSurfaceLifecycleToken = ++this.surfaceLifecycleToken;
+    if (this.isAttachedToFlutterEngine() && !this.isXComponentAttachedToEngine) {
+      this.flutterEngine!!.getFlutterNapi().xComponentAttachFlutterEngine(this.id)
+      this.isXComponentAttachedToEngine = true;
+    }
     this.isSurfaceAvailableForRendering = true;
+    this.flutterEngine?.getPlatformViewsController()?.attachToView(this);
     this.flutterEngine?.processPendingMessages();
+    return this.activeSurfaceLifecycleToken;
   }
 
   /**
    * Called when the rendering surface is destroyed.
    * Marks the surface as unavailable and detaches from the engine.
    */
-  onSurfaceDestroyed() {
+  onSurfaceDestroyed(surfaceLifecycleToken?: number) {
+    if (surfaceLifecycleToken != undefined && surfaceLifecycleToken != this.activeSurfaceLifecycleToken) {
+      return;
+    }
+    if (!this.isSurfaceAvailableForRendering && !this.isXComponentAttachedToEngine) {
+      return;
+    }
     this.isSurfaceAvailableForRendering = false;
-    if (this.isAttachedToFlutterEngine()) {
+    if (this.isAttachedToFlutterEngine() && this.isXComponentAttachedToEngine) {
       this.flutterEngine!!.getFlutterNapi().xComponentDetachFlutterEngine(this.id)
+      this.isXComponentAttachedToEngine = false;
+    }
+    this.flutterEngine?.getPlatformViewsController()?.detachFromView(this);
+    if (surfaceLifecycleToken == this.activeSurfaceLifecycleToken) {
+      this.activeSurfaceLifecycleToken = 0;
     }
   }
 
