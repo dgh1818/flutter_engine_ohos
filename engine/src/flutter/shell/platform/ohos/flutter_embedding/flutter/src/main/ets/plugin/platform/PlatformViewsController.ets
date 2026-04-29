@@ -302,6 +302,14 @@ export default class PlatformViewsController implements PlatformViewsHandler {
       this.clearFocus(viewId);
       this.focusViewId = -1;
     }
+    // Disposal is a terminal teardown path, not a normal focus transition. If
+    // the embedded node's blur callback is missed while the view is being
+    // removed, release the matching physical PlatformView owner here so stale
+    // keyboard/focus state cannot leak into the next client. In the common
+    // path, the native blur callback has already reset ownership before dispose
+    // reaches this point, so this remains a safety net instead of becoming part
+    // of the steady-state focus handoff.
+    this.textInputPlugin?.clearPlatformViewClientForTeardown(viewId);
     this.platformViews.delete(viewId);
     this.platformViewParentInfo.delete(viewId);
     let textureId = this.viewIdWithTextureId.get(viewId);
@@ -561,9 +569,11 @@ export default class PlatformViewsController implements PlatformViewsHandler {
       let params = dvModel.getLayoutParams() as Record<string, Any>;
       // When receiving a DOWN action
       if (touch.action === TouchEventType.ACTION_DOWN) {
+        const shouldHandoffFrameworkFocus = this.textInputPlugin?.isFrameworkTextInputActive() ?? false;
         // Set the current touch state to true
         params['down'] = true
         params[PLATFORM_VIEW_CANCEL_DRAINING] = false;
+        params['shouldHandoffFrameworkFocusOnTouch'] = shouldHandoffFrameworkFocus
         // When first receiving a touch DOWN event, dispatch all events stored in the list
         let touchEventArray: Array<CustomTouchEvent> | undefined = params['touchEvent'] as Array<CustomTouchEvent>
         if (touchEventArray !== undefined) {
@@ -575,6 +585,7 @@ export default class PlatformViewsController implements PlatformViewsHandler {
             TouchEventProcessor.applyAffineTransform(it, affineTransform);
             nodeController.postEvent(it)
             this.rememberPostedTouchEvent(params, it);
+            this.invokeTextInputHandoffOnTouch(touch.viewId, shouldHandoffFrameworkFocus, it.type == TouchType.Down);
           }
           // Clear the list after first dispatch
           params['touchEvent'] = undefined
@@ -599,7 +610,39 @@ export default class PlatformViewsController implements PlatformViewsHandler {
         // the final state returned is also ACTION_UP, so we use the UP state to indicate the user
         // is no longer touching the platform view
         params['down'] = false
+        params['shouldHandoffFrameworkFocusOnTouch'] = false
       }
+    }
+  }
+
+  private invokeTextInputHandoffOnTouch(
+    viewId: number,
+    shouldHandoffFrameworkFocus: boolean,
+    canInvokeViewFocused: boolean,
+  ): void {
+    const platformView = this.platformViews.get(viewId);
+    const shouldTriggerTextInputHandoff =
+      platformView?.shouldTriggerTextInputHandoffOnTouch() ?? false;
+    if (!canInvokeViewFocused) {
+      return;
+    }
+    if (!shouldHandoffFrameworkFocus) {
+      return;
+    }
+    // Query the concrete PlatformView after ArkUI receives each touch event.
+    // Composite views can consume a child-editor touch marker here, while only
+    // DOWN is allowed to invoke viewFocused. This prevents a later container tap
+    // from reusing stale state.
+    if (shouldTriggerTextInputHandoff) {
+      this.platformViewsChannel?.invokeViewFocused(viewId);
+    }
+  }
+
+  private attachTextInputHandoffOnTouch(params: Record<string, Any>, viewId: number): void {
+    params['textInputHandoffOnTouch'] = (canInvokeViewFocused: boolean = true) => {
+      const shouldHandoffFrameworkFocus =
+        (params['shouldHandoffFrameworkFocusOnTouch'] as boolean | undefined) ?? false;
+      this.invokeTextInputHandoffOnTouch(viewId, shouldHandoffFrameworkFocus, canInvokeViewFocused);
     }
   }
 
@@ -647,7 +690,10 @@ export default class PlatformViewsController implements PlatformViewsHandler {
       Log.e(TAG, "Setting direction to a null view with id: " + viewId);
       return;
     }
-    // Make the Xcomponent gain focus.
+    // clearFocus only removes focus from the wrapper/XComponent side. Releasing
+    // the text-input owner is intentionally handled by the embedded node's real
+    // onBlur callback below, so native keyboard teardown follows the actual
+    // editor lifecycle instead of controller bookkeeping.
     focusControl.requestFocus("unfocus-xcomponent-node");
   }
 
@@ -792,6 +838,16 @@ export default class PlatformViewsController implements PlatformViewsHandler {
       },
       {},
       undefined));
+    let params = dvModel.getLayoutParams() as Record<string, Any>;
+    this.attachTextInputHandoffOnTouch(params, request.viewId);
+    let events = dvModel.events as Record<string, Any>;
+    // Release the physical PlatformView owner only when the embedded native
+    // node actually loses focus. This keeps native blur/release aligned with
+    // the real editor lifecycle instead of using controller-level clearFocus as
+    // a broader proxy.
+    events.onBlur = () => {
+      this.textInputPlugin?.clearPlatformViewClient(request.viewId);
+    };
     let viewWrapper: PlatformViewWrapper = new PlatformViewWrapper();
     viewWrapper.addDvModel(dvModel);
     this.viewWrappers.set(request.viewId, viewWrapper);
@@ -882,6 +938,13 @@ export default class PlatformViewsController implements PlatformViewsHandler {
     }
     if (detachingFlutterView != undefined && this.flutterView != detachingFlutterView) {
       return;
+    }
+
+    if (this.focusViewId != -1) {
+      // View detachment happens after the live focus path has had a chance to
+      // clear ownership. Keep this as a final guard only, so page teardown does
+      // not widen the normal Flutter/native handoff behavior.
+      this.textInputPlugin?.clearPlatformViewClientForTeardown(this.focusViewId);
     }
 
     // Mirror Android's FlutterView detach semantics: remove wrapper DVModels
@@ -1127,6 +1190,8 @@ export default class PlatformViewsController implements PlatformViewsHandler {
       },
       {},
       undefined));
+    let params = dvModel.getLayoutParams() as Record<string, Any>;
+    this.attachTextInputHandoffOnTouch(params, surfaceId);
 
     let viewWrapper: PlatformViewWrapper = new PlatformViewWrapper();
     viewWrapper.addDvModel(dvModel);

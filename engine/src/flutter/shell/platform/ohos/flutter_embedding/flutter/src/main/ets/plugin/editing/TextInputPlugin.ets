@@ -94,6 +94,33 @@ export default class TextInputPlugin implements EditingStateWatcher {
   }
 
   /**
+   * Releases the current physical platform view client if it still owns the
+   * input target. This keeps native blur/clearFocus from leaving a stale
+   * platform owner behind.
+   */
+  public clearPlatformViewClient(viewId: number): void {
+    this.mTextInputHandler.clearPlatformViewClient(viewId);
+  }
+
+  /**
+   * Performs terminal cleanup for a physical PlatformView owner during
+   * disposal/teardown. Unlike blur-driven cleanup, this path is allowed to
+   * close the active IME session because the native view is going away.
+   */
+  public clearPlatformViewClientForTeardown(viewId: number): void {
+    this.mTextInputHandler.clearPlatformViewClientForTeardown(viewId);
+  }
+
+  /**
+   * Returns whether the current active input owner is still a Flutter framework
+   * text client. Used to narrow the focus handoff fix to the Flutter->native
+   * path without perturbing native->native switching.
+   */
+  public isFrameworkTextInputActive(): boolean {
+    return this.mTextInputHandler.isFrameworkTextInputActive();
+  }
+
+  /**
    * Gets the current editing state.
    * @returns The current ListenableEditingState instance
    */
@@ -266,6 +293,8 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     { textInputType: inputMethod.TextInputType.TEXT, enterKeyType: inputMethod.EnterKeyType.NONE };
   private keyboardFocusState: boolean = false;
   private focusViewId: string = "";
+  private suppressNextHideForPhysicalPlatformView: boolean = false;
+  private pendingTeardownPlatformViewClientId: number = -1;
   // Record the type of soft keyboard that was triggered last time
   private lastInputType?: inputMethod.TextInputType;
   private isInputMethodAttached: boolean = false;
@@ -552,6 +581,10 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
    */
   hide(): void {
     // Do not notifyViewExited here: keyboard hide must not tear down autofill session.
+    if (this.inputTarget.type == Type.PHYSICAL_DISPLAY_PLATFORM_VIEW && this.suppressNextHideForPhysicalPlatformView) {
+      this.suppressNextHideForPhysicalPlatformView = false;
+      return;
+    }
     // Ensure the Xcomponent loses focus before the soft keyboard is hided.
     focusControl.requestFocus("unfocus-xcomponent-node");
     this.keyboardFocusState = false;
@@ -647,7 +680,30 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
    * @param usesVirtualDisplay - Whether the platform view uses a virtual display
    */
   setPlatformViewClient(id: number, usesVirtualDisplay: boolean): void {
-
+    const shouldSuppressNextHide =
+      !usesVirtualDisplay && this.keyboardStatus == inputMethod.KeyboardStatus.SHOW && this.keyboardFocusState;
+    if (usesVirtualDisplay) {
+      // Virtual-display PlatformViews stay on the original path: they keep
+      // using Flutter-managed focus/requestFocus behavior and never participate
+      // in the physical-display stale-hide suppression below.
+      focusControl.requestFocus(this.focusViewId);
+      this.inputTarget = new InputTarget(Type.VIRTUAL_DISPLAY_PLATFORM_VIEW, id);
+      this.mRestartInputPending = false;
+      this.suppressNextHideForPhysicalPlatformView = false;
+    } else {
+      // Physical-display PlatformViews receive a framework hide immediately
+      // after setPlatformViewClient during a Flutter -> native handoff. Keep
+      // only a one-shot suppress token here so that first-tap handoff does not
+      // collapse the keyboard before the native field finishes taking focus.
+      // This is intentionally scoped to the currently validated texture-backed
+      // physical PlatformView path. Hybrid composition is still stubbed above,
+      // and recent repro logs also confirmed that a non-text native action view
+      // does not enter setPlatformViewClient at all. In other words, the IME
+      // owner logic below is still constrained to native text-input PlatformViews,
+      // so we should only broaden it when a concrete failing log requires that.
+      this.inputTarget = new InputTarget(Type.PHYSICAL_DISPLAY_PLATFORM_VIEW, id);
+      this.suppressNextHideForPhysicalPlatformView = shouldSuppressNextHide;
+    }
   }
 
   /**
@@ -888,6 +944,56 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
    */
   clearClient(): void {
     this.clearTextInputClient();
+  }
+
+  clearPlatformViewClient(viewId: number): void {
+    if (this.inputTarget.type != Type.PHYSICAL_DISPLAY_PLATFORM_VIEW || this.inputTarget.id != viewId) {
+      return;
+    }
+    this.inputTarget = new InputTarget(Type.NO_TARGET, 0);
+    // A physical PlatformView can hide the keyboard entirely on the native side
+    // without sending a framework hide callback back through TextInput. When
+    // Flutter takes focus again, keeping the old SHOW/keyboardFocus state makes
+    // the next framework show incorrectly reuse a keyboard that is already gone.
+    // Keep this path limited to bookkeeping reset only. In the validated focus
+    // handoff chain, the real native blur is the steady-state owner release,
+    // and widening it into an explicit IME teardown would perturb working
+    // native-to-native/native-to-Flutter transitions. Page teardown still has
+    // a dedicated fallback below, but in normal operation the blur path should
+    // have already released ownership before disposal starts.
+    this.keyboardFocusState = false;
+    this.keyboardStatus = inputMethod.KeyboardStatus.HIDE;
+    this.suppressNextHideForPhysicalPlatformView = false;
+    this.pendingTeardownPlatformViewClientId = -1;
+  }
+
+  clearPlatformViewClientForTeardown(viewId: number): void {
+    const teardownClientId = this.inputTarget.id;
+    if (this.inputTarget.type != Type.PHYSICAL_DISPLAY_PLATFORM_VIEW || this.inputTarget.id != viewId) {
+      return;
+    }
+    // This is a terminal fallback for disposal/detach only. The production fix
+    // is intentionally centered on Flutter -> physical PlatformView handoff and
+    // blur-driven release; teardown cleanup exists only so a disappearing view
+    // cannot leave stale IME state behind if its blur callback is missed.
+    // In the common validated shutdown flow, blur/bookkeeping has already
+    // reduced the target back to NO_TARGET before this fallback is reached, so
+    // this path stays dormant and does not perturb the working steady-state
+    // transitions above.
+    this.pendingTeardownPlatformViewClientId = teardownClientId;
+    this.inputTarget = new InputTarget(Type.NO_TARGET, 0);
+    this.keyboardFocusState = false;
+    this.suppressNextHideForPhysicalPlatformView = false;
+    if (this.keyboardStatus == inputMethod.KeyboardStatus.SHOW) {
+      focusControl.requestFocus("unfocus-xcomponent-node");
+      this.hideTextInput();
+      return;
+    }
+    this.keyboardStatus = inputMethod.KeyboardStatus.HIDE;
+  }
+
+  isFrameworkTextInputActive(): boolean {
+    return this.inputTarget.type == Type.FRAMEWORK_CLIENT;
   }
 
   private async showTextInput(): Promise<void> {
@@ -1376,31 +1482,35 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     this.mEditable.handleFunctionKey(functionKey);
   }
 
+  private applyKeyboardStatus(state: inputMethod.KeyboardStatus): void {
+    this.keyboardStatus = state;
+    if (state === inputMethod.KeyboardStatus.HIDE) {
+      const closedClientId =
+        this.pendingTeardownPlatformViewClientId != -1
+          ? this.pendingTeardownPlatformViewClientId
+          : this.inputTarget.id;
+      this.plugin.textInputChannel.onConnectionClosed(closedClientId);
+      this.pendingTeardownPlatformViewClientId = -1;
+    }
+  }
+
   private sendKeyboardStatusCallback = (state: inputMethod.KeyboardStatus) => {
     // Since API 20, tapping the field with physical keyboard can show soft keyboard; avoid onConnectionClosed then or the field stops accepting input.
     try {
-      let isPhysicalKeyboard = false;
       inputDevice.getDeviceList((Error: Error, ids: Array<number>) => {
         for (let i = 0; i < ids.length; i++) {
           const type = inputDevice.getKeyboardTypeSync(ids[i]);
           if (type === inputDevice.KeyboardType.ALPHABETIC_KEYBOARD ||
             type === inputDevice.KeyboardType.DIGITAL_KEYBOARD) {
-            isPhysicalKeyboard = true;
             return;
           }
         }
-        this.keyboardStatus = state;
-        if (state === inputMethod.KeyboardStatus.HIDE) {
-          // Autofill vault UI hides the soft keyboard; must not tear down the connection/session.
-          const isAutofillActive =
-            this.autoFillSessionActive || this.autoFillRequestInFlight || this.autoSaveInFlight;
-          if (isAutofillActive) {
-            return;
-          }
-          this.plugin.textInputChannel.onConnectionClosed(this.inputTarget.id);
-        }
+        this.applyKeyboardStatus(state);
       })
     } catch (error) {
+      // If device querying fails, fall back to the received IME state so
+      // teardown bookkeeping cannot remain stale forever.
+      this.applyKeyboardStatus(state);
       Log.e(TextInputMethodHandlerImpl.TAG,
         `SendKeyboardStatusCallback function failed to query device. Code is ${error.code}, message is ${error.message}`)
     }
@@ -1468,7 +1578,8 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
    * Clears the text input client.
    */
   public clearTextInputClient(): void {
-    if (this.inputTarget.type == Type.VIRTUAL_DISPLAY_PLATFORM_VIEW) {
+    if (this.inputTarget.type == Type.VIRTUAL_DISPLAY_PLATFORM_VIEW
+      || this.inputTarget.type == Type.PHYSICAL_DISPLAY_PLATFORM_VIEW) {
       return;
     }
     if (!this.autoSaveInFlight) {
@@ -1490,6 +1601,8 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     this.autofillSuppressedClientId = -1;
     this.inputTarget = new InputTarget(Type.NO_TARGET, 0);
     this.mLastOutgoingFrameworkState = null;
+    this.suppressNextHideForPhysicalPlatformView = false;
+    this.pendingTeardownPlatformViewClientId = -1;
   }
 
   /**
