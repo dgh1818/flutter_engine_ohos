@@ -316,7 +316,8 @@ class PlatformViewOHOSNapi {
   static std::vector<std::string> system_languages;
   fml::RefPtr<fml::TaskRunner> platform_task_runner_;
   static int64_t napi_shell_holder_id_;
-  // Dynamic library loader for OH_AbilityRuntime_ApplicationContextNotifyPageChanged
+  // Dynamic library loader for
+  // OH_AbilityRuntime_ApplicationContextNotifyPageChanged
   static std::once_flag notify_page_changed_init_flag_;
   static std::unique_ptr<DynamicLibraryLoader> ability_runtime_loader_;
   using NotifyPageChangedFunc = int32_t (*)(const char*, int32_t, int32_t);

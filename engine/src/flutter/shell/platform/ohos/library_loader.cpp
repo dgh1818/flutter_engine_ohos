@@ -165,8 +165,7 @@ static napi_value Init(napi_env env, napi_value exports) {
           flutter::PlatformViewOHOSNapi::nativeLookupCallbackInformation),
       DECLARE_NAPI_FUNCTION(
           "nativeLookupCallbackInformationBigInt",
-          flutter::PlatformViewOHOSNapi::
-              nativeLookupCallbackInformationBigInt),
+          flutter::PlatformViewOHOSNapi::nativeLookupCallbackInformationBigInt),
       DECLARE_NAPI_FUNCTION(
           "nativeUnicodeIsEmoji",
           flutter::PlatformViewOHOSNapi::nativeUnicodeIsEmoji),

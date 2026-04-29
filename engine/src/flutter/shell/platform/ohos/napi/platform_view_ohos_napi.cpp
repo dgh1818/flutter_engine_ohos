@@ -15,8 +15,10 @@
 #include <rawfile/raw_file_manager.h>
 #include <string>
 
+#include "AbilityKit/ability_runtime/application_context.h"
 #include "flutter/common/constants.h"
 #include "flutter/fml/make_copyable.h"
+#include "flutter/fml/platform/ohos/dynamic_library_loader.h"
 #include "flutter/fml/platform/ohos/hiappevent/ohos_hiappevent.h"
 #include "flutter/fml/platform/ohos/napi_util.h"
 #include "flutter/impeller/renderer/backend/vulkan/context_vk.h"
@@ -32,9 +34,6 @@
 #include "impeller/renderer/backend/vulkan/fence_waiter_vk.h"
 #include "impeller/renderer/backend/vulkan/resource_manager_vk.h"
 #include "unicode/uchar.h"
-#include "flutter/fml/platform/ohos/hiappevent/ohos_hiappevent.h"
-#include "flutter/fml/platform/ohos/dynamic_library_loader.h"
-#include "AbilityKit/ability_runtime/application_context.h"
 
 #include "flutter/fml/platform/ohos/ohos_trace_event.h"
 
@@ -49,20 +48,23 @@ std::shared_ptr<std::set<int>> PlatformViewOHOSNapi::all_refresh_rates =
     std::make_shared<std::set<int>>(std::initializer_list<int>{60});
 double PlatformViewOHOSNapi::display_density_pixels = 1.0;
 
-constexpr int TOUCH_UP_PERFORMANCE_SECTION = 3000; // 3s
+constexpr int TOUCH_UP_PERFORMANCE_SECTION = 3000;  // 3s
 
 napi_env PlatformViewOHOSNapi::env_;
 std::vector<std::string> PlatformViewOHOSNapi::system_languages;
 
 // Static members for dynamic library loading
 std::once_flag PlatformViewOHOSNapi::notify_page_changed_init_flag_;
-std::unique_ptr<DynamicLibraryLoader> PlatformViewOHOSNapi::ability_runtime_loader_;
-PlatformViewOHOSNapi::NotifyPageChangedFunc PlatformViewOHOSNapi::notify_page_changed_func_ = nullptr;
+std::unique_ptr<DynamicLibraryLoader>
+    PlatformViewOHOSNapi::ability_runtime_loader_;
+PlatformViewOHOSNapi::NotifyPageChangedFunc
+    PlatformViewOHOSNapi::notify_page_changed_func_ = nullptr;
 
 void PlatformViewOHOSNapi::InitNotifyPageChangedLoader() {
   static constexpr char ABILITY_RUNTIME_LIB_NAME[] = "libability_runtime.so";
-  ability_runtime_loader_ = std::make_unique<DynamicLibraryLoader>(ABILITY_RUNTIME_LIB_NAME);
-  
+  ability_runtime_loader_ =
+      std::make_unique<DynamicLibraryLoader>(ABILITY_RUNTIME_LIB_NAME);
+
   if (!ability_runtime_loader_->IsLoaded()) {
     FML_LOG(ERROR) << "Failed to load " << ABILITY_RUNTIME_LIB_NAME;
     return;
@@ -74,7 +76,9 @@ void PlatformViewOHOSNapi::InitNotifyPageChangedLoader() {
   };
 
   if (!ability_runtime_loader_->LoadSymbols(symbols)) {
-    FML_LOG(ERROR) << "Failed to load OH_AbilityRuntime_ApplicationContextNotifyPageChanged symbol";
+    FML_LOG(ERROR)
+        << "Failed to load "
+           "OH_AbilityRuntime_ApplicationContextNotifyPageChanged symbol";
     notify_page_changed_func_ = nullptr;
   }
 }
@@ -3139,8 +3143,9 @@ napi_value PlatformViewOHOSNapi::nativeSetAnimationStatus(
   return nullptr;
 }
 
-napi_value PlatformViewOHOSNapi::nativeNotifyPageChanged(napi_env env, napi_callback_info info)
-{
+napi_value PlatformViewOHOSNapi::nativeNotifyPageChanged(
+    napi_env env,
+    napi_callback_info info) {
   FML_LOG(INFO) << "PlatformViewOHOSNapi::nativeNotifyPageChanged start";
   napi_handle_scope scope;
   napi_open_handle_scope(env, &scope);
@@ -3158,7 +3163,8 @@ napi_value PlatformViewOHOSNapi::nativeNotifyPageChanged(napi_env env, napi_call
   std::call_once(notify_page_changed_init_flag_, InitNotifyPageChangedLoader);
 
   if (notify_page_changed_func_ == nullptr) {
-    FML_LOG(ERROR) << "OH_AbilityRuntime_ApplicationContextNotifyPageChanged function is not available";
+    FML_LOG(ERROR) << "OH_AbilityRuntime_ApplicationContextNotifyPageChanged "
+                      "function is not available";
     napi_value resultValue;
     napi_create_int32(env, 0, &resultValue);
     napi_close_handle_scope(env, scope);
@@ -3182,7 +3188,8 @@ napi_value PlatformViewOHOSNapi::nativeNotifyPageChanged(napi_env env, napi_call
   }
 
   if (argc < 3) {
-    FML_LOG(ERROR) << "nativeNotifyPageChanged wrong number of arguments, argc=" << argc;
+    FML_LOG(ERROR) << "nativeNotifyPageChanged wrong number of arguments, argc="
+                   << argc;
     napi_throw_type_error(env, nullptr, "Wrong number of arguments");
     napi_close_handle_scope(env, scope);
     return nullptr;
@@ -3209,7 +3216,7 @@ napi_value PlatformViewOHOSNapi::nativeNotifyPageChanged(napi_env env, napi_call
     napi_close_handle_scope(env, scope);
     return nullptr;
   }
-  
+
   // OH_AbilityRuntime_NotifyPageChanged requires IDE SDK version >= 23
   // Return value: 0 means success, non-zero means error
   int32_t result =
@@ -3250,7 +3257,8 @@ napi_value PlatformViewOHOSNapi::nativeLTPODispatchHighFrameRate(
   napi_status ret = napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
   if (ret != napi_ok) {
     FML_LOG(ERROR) << "PlatformViewOHOSNapi::nativeLTPODispatchHighFrameRate "
-                      "napi_get_cb_info error:" << ret;
+                      "napi_get_cb_info error:"
+                   << ret;
     return nullptr;
   }
 
@@ -3258,39 +3266,43 @@ napi_value PlatformViewOHOSNapi::nativeLTPODispatchHighFrameRate(
   ret = napi_get_value_int64(env, args[0], &shell_holder_id);
   if (ret != napi_ok) {
     FML_LOG(ERROR) << "PlatformViewOHOSNapi::nativeLTPODispatchHighFrameRate "
-                      "napi_get_value_int64 error:" << ret;
+                      "napi_get_value_int64 error:"
+                   << ret;
     return nullptr;
   }
 
   int64_t upTimestamp = fml::TimePoint::Now().ToEpochDelta().ToMilliseconds();
   fml::closure task_voting_touch_up = [timestamp = upTimestamp](void) {
-    std::shared_ptr<OhosVsyncVotingMgr> votingMgr = OhosVsyncVotingMgr::GetInstance();
+    std::shared_ptr<OhosVsyncVotingMgr> votingMgr =
+        OhosVsyncVotingMgr::GetInstance();
     if (votingMgr != nullptr) {
       votingMgr->VoteTouchValue(VVMTouchType::TOUCH_TYPE_UP, timestamp);
     }
   };
 
   fml::closure task_voting_touch_up_3s_later = [timestamp = upTimestamp](void) {
-    std::shared_ptr<OhosVsyncVotingMgr> votingMgr = OhosVsyncVotingMgr::GetInstance();
+    std::shared_ptr<OhosVsyncVotingMgr> votingMgr =
+        OhosVsyncVotingMgr::GetInstance();
     if (votingMgr != nullptr) {
-      votingMgr->VoteTouchValue(
-        VVMTouchType::TOUCH_TYPE_UP_3_SEC_AFTER, timestamp + TOUCH_UP_PERFORMANCE_SECTION);
+      votingMgr->VoteTouchValue(VVMTouchType::TOUCH_TYPE_UP_3_SEC_AFTER,
+                                timestamp + TOUCH_UP_PERFORMANCE_SECTION);
     }
   };
   auto ohos_shell_holder = reinterpret_cast<OHOSShellHolder*>(shell_holder_id);
   if (ohos_shell_holder == nullptr) {
-      FML_LOG(ERROR) << "nativeLTPODispatchHighFrameRate: ohos_shell_holder is null";
-      return nullptr;
+    FML_LOG(ERROR)
+        << "nativeLTPODispatchHighFrameRate: ohos_shell_holder is null";
+    return nullptr;
   }
   auto platform_view = ohos_shell_holder->GetPlatformView();
   if (!platform_view) {
-      FML_LOG(ERROR) << "nativeLTPODispatchHighFrameRate: platform_view is null";
-      return nullptr;
+    FML_LOG(ERROR) << "nativeLTPODispatchHighFrameRate: platform_view is null";
+    return nullptr;
   }
 
   platform_view->RunTask(OhosThreadType::kIO, task_voting_touch_up);
   platform_view->RunTask(OhosThreadType::kIO, task_voting_touch_up_3s_later,
-      TOUCH_UP_PERFORMANCE_SECTION);
+                         TOUCH_UP_PERFORMANCE_SECTION);
 
   return nullptr;
 }
