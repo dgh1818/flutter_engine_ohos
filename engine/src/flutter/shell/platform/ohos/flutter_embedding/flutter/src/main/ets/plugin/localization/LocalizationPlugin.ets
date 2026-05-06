@@ -99,6 +99,14 @@ export default class LocalizationPlugin {
     data.push(systemLocale);
     this.localizationChannel.sendLocales(data);
   }
+
+  /**
+   * Called when the application locale is changed via dart:ui setApplicationLocale.
+   * @param locale - The application locale in BCP 47 format
+   */
+  onApplicationLocaleChanged(locale: string): void {
+    Log.i(TAG, "onApplicationLocaleChanged: " + locale);
+  }
 }
 
 /**

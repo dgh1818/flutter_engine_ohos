@@ -67,6 +67,9 @@ class PlatformViewOHOSNapi {
   FlutterViewComputePlatformResolvedLocales(
       const std::vector<std::string>& support_locale_data);
 
+  // Notify the ETS layer of application locale change.
+  void FlutterViewSetApplicationLocale(std::string locale);
+
   void FlutterViewOnTouchEvent(std::shared_ptr<std::string[]> touchPacketString,
                                int size);
 

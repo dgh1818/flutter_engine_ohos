@@ -699,6 +699,15 @@ export default class FlutterNapi {
   }
 
   /**
+   * Called by native when the application locale is changed via dart:ui setApplicationLocale.
+   * @param locale - The application locale in BCP 47 format
+   */
+  onApplicationLocaleChanged(locale: string): void {
+    Log.i(TAG, "onApplicationLocaleChanged: " + locale);
+    this.localizationPlugin?.onApplicationLocaleChanged(locale);
+  }
+
+  /**
    * Gets the system language list from the platform.
    */
   getSystemLanguages() {

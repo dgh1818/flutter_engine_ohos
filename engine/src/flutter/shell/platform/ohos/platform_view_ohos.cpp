@@ -539,6 +539,12 @@ PlatformViewOHOS::ComputePlatformResolvedLocales(
 }
 
 // |PlatformView|
+void PlatformViewOHOS::SetApplicationLocale(std::string locale) {
+  FML_DLOG(INFO) << "SetApplicationLocale: " << locale;
+  napi_facade_->FlutterViewSetApplicationLocale(std::move(locale));
+}
+
+// |PlatformView|
 void PlatformViewOHOS::RequestDartDeferredLibrary(intptr_t loading_unit_id) {
   FML_DLOG(INFO) << "RequestDartDeferredLibrary:" << loading_unit_id;
   return;
