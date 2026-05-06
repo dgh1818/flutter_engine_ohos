@@ -477,6 +477,24 @@ PlatformViewOHOSNapi::FlutterViewComputePlatformResolvedLocales(
   return std::make_unique<std::vector<std::string>>(std::move(result));
 }
 
+void PlatformViewOHOSNapi::FlutterViewSetApplicationLocale(std::string locale) {
+  FML_LOG(INFO) << "FlutterViewSetApplicationLocale: " << locale;
+  napi_handle_scope scope;
+  napi_open_handle_scope(env_, &scope);
+  napi_value callbackParam[1];
+  napi_status status =
+      napi_create_string_utf8(env_, locale.c_str(), locale.size(), callbackParam);
+  if (status != napi_ok) {
+    FML_LOG(ERROR) << "napi_create_string_utf8 locale fail";
+  }
+  status = fml::napi::InvokeJsMethod(env_, ref_napi_obj_, "onApplicationLocaleChanged",
+                                     1, callbackParam);
+  if (status != napi_ok) {
+    FML_LOG(ERROR) << "InvokeJsMethod onApplicationLocaleChanged fail";
+  }
+  napi_close_handle_scope(env_, scope);
+}
+
 void PlatformViewOHOSNapi::FlutterViewOnTouchEvent(
     std::shared_ptr<std::string[]> touchPacketString,
     int size) {
