@@ -364,6 +364,9 @@ class PlatformViewOHOS final : public PlatformView {
   void SetApplicationLocale(std::string locale) override;
 
   // |PlatformView|
+  void SetSemanticsTreeEnabled(bool enabled) override;
+
+  // |PlatformView|
   void RequestDartDeferredLibrary(intptr_t loading_unit_id) override;
 
   void InstallFirstFrameCallback(bool is_preload = false);
