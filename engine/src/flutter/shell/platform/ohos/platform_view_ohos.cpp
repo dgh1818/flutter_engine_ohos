@@ -545,6 +545,15 @@ void PlatformViewOHOS::SetApplicationLocale(std::string locale) {
 }
 
 // |PlatformView|
+void PlatformViewOHOS::SetSemanticsTreeEnabled(bool enabled) {
+  FML_LOG(INFO) << "SetSemanticsTreeEnabled: " << enabled;
+  if (!enabled) {
+    std::lock_guard<std::mutex> lock(*bridge_mutex_);
+    bridge_->tree_.ClearSemanticsTree();
+  }
+}
+
+// |PlatformView|
 void PlatformViewOHOS::RequestDartDeferredLibrary(intptr_t loading_unit_id) {
   FML_DLOG(INFO) << "RequestDartDeferredLibrary:" << loading_unit_id;
   return;
