@@ -15,8 +15,7 @@ vars = {
   'flutter_git': 'https://flutter.googlesource.com',
   'skia_git': 'https://skia.googlesource.com',
   'llvm_git': 'https://llvm.googlesource.com',
-   # 'ohos_git': 'https://gitcode.com/openharmony-sig',
-  'ohos_git': 'https://gitcode.com/zhong_ning',
+  'ohos_git': 'https://gitcode.com/openharmony-sig',
   'skia_revision': '9f8064267afe369e97c9840395dda407a4e1493f',
 
   # WARNING: DO NOT EDIT canvaskit_cipd_instance MANUALLY
