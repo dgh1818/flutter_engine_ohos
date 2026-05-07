@@ -28,6 +28,8 @@ export default class FlutterShellArgs {
   static ARG_USE_TEST_FONTS = "--use-test-fonts";
   static ARG_KEY_ENABLE_DART_PROFILING = "enable-dart-profiling";
   static ARG_ENABLE_DART_PROFILING = "--enable-dart-profiling";
+  static ARG_KEY_PROFILE_STARTUP = "profile-startup";
+  static ARG_PROFILE_STARTUP = "--profile-startup";
   static ARG_KEY_ENABLE_SOFTWARE_RENDERING = "enable-software-rendering";
   static ARG_ENABLE_SOFTWARE_RENDERING = "--enable-software-rendering";
   static ARG_KEY_SKIA_DETERMINISTIC_RENDERING = "skia-deterministic-rendering";
@@ -76,6 +78,8 @@ export default class FlutterShellArgs {
       flutterShellArgs);
     FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_ENABLE_DART_PROFILING,
       FlutterShellArgs.ARG_ENABLE_DART_PROFILING, want, flutterShellArgs);
+    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_PROFILE_STARTUP,
+      FlutterShellArgs.ARG_PROFILE_STARTUP, want, flutterShellArgs);
     FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_ENABLE_SOFTWARE_RENDERING,
       FlutterShellArgs.ARG_ENABLE_SOFTWARE_RENDERING, want, flutterShellArgs);
     FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_SKIA_DETERMINISTIC_RENDERING,
