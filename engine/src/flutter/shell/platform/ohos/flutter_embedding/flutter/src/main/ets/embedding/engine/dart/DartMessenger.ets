@@ -103,7 +103,7 @@ export class DartMessenger implements BinaryMessenger, PlatformMessageHandler {
    * @param message - The message data as an ArrayBuffer, or null for an empty message
    * @param callback - Optional callback to receive the reply from Dart
    */
-  send(channel: String, message: ArrayBuffer, callback?: BinaryReply): void {
+  send(channel: String, message: ArrayBuffer | null, callback?: BinaryReply): void {
     Log.d(TAG, "Sending message over channel '" + channel + "'");
     let traceId: number = TraceSection.begin("DartMessenger#send on " + channel);
     try {

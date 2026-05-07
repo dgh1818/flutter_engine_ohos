@@ -15,6 +15,8 @@ compile_engine() {
 
     if [[ -z "${PR_URL:-}" ]]; then
         log_info "Daily build detected - performing full compilation"
+        # Delete all .har packages before full compilation
+        run_cmd "find ./src/out -name '*.har' -delete"
         if ! run_cmd "./ohos && ./ohos --ohos-cpu x64"; then
             log_error "Full engine compilation failed"
             exit 1

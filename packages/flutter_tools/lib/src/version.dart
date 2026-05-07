@@ -1049,14 +1049,26 @@ class GitTagVersion {
       }
     }
 
-    final RegExp ohosTagPattern = RegExp(r'^\d+\.\d+\.\d+-ohos$');
+    final RegExp ohosTagPattern = RegExp(
+      r'^\d+\.\d+\.\d+-ohos(-\d+\.\d+\.\d+)?(-[a-zA-Z0-9.]+)?$',
+    );
     for (final String tag in tags) {
       if (ohosTagPattern.hasMatch(tag.trim())) {
         return parse(tag);
       }
     }
 
-    // If we don't exist in a tag, use git to find the latest tag.
+    final RunResult describeResult = git.runSync(
+      <String>['describe', '--match', '*.*.*', '--long', '--tags', gitRef],
+      workingDirectory: workingDirectory,
+    );
+    if (describeResult.exitCode == 0 && describeResult.stdout.trim().isNotEmpty) {
+      final GitTagVersion described = parse(describeResult.stdout.trim());
+      if (described != const GitTagVersion.unknown()) {
+        return described;
+      }
+    }
+
     return _useNewestTagAndCommitsPastFallback(
       git: git,
       workingDirectory: workingDirectory,

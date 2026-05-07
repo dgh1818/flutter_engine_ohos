@@ -14,6 +14,62 @@ import flutter from 'libflutter.so';
 const TAG = "FlutterPage";
 
 
+@Component
+struct FlutterSurface {
+  @Prop safeAreaEdges: SafeAreaEdge[] | undefined = [];
+  @Prop safeAreaTypes: SafeAreaType[] | undefined = [];
+  @Prop viewId: string = ""
+  @Prop xComponentType: XComponentType = XComponentType.SURFACE
+  @Prop xComponentRenderFit: RenderFit = RenderFit.RESIZE_FILL;
+  @Prop firstFrameDisplayed: boolean = false;
+  @Prop xComponentColor: Color = Color.Black
+  @Prop defaultFocusOnTouch: boolean = false;
+
+  private surfaceLifecycleToken: number = 0;
+  private flutterView?: FlutterView | null;
+
+  build() {
+    XComponent({ id: this.viewId, type: this.xComponentType, libraryname: 'flutter' })
+      .id(this.viewId)
+      .focusable(true)
+      .focusOnTouch(this.defaultFocusOnTouch)
+      .onLoad((context) => {
+        this.flutterView = FlutterManager.getInstance().getFlutterView(this.viewId);
+        this.surfaceLifecycleToken = this.flutterView?.onSurfaceCreated() ?? 0;
+        // Callback is triggered when the xcomponent window is partially visible or completely hidden.
+        if (deviceInfo.sdkApiVersion < 15) {
+          this.getUIContext()?.getAttachedFrameNodeById(this.viewId)?.commonEvent.setOnVisibleAreaApproximateChange(
+            { ratios: [0.0, 1.0], expectedUpdateInterval: 0 },
+            (isExpanding: boolean, currentRatio: number) => {
+              if (isExpanding) {
+                Log.i(TAG, "setOnVisibleAreaApproximateChange -> xcomponentId: " + this.viewId +
+                  " isExpanding: " + isExpanding + " ratio: " + currentRatio);
+                flutter.nativeUpdateCurrentXComponentId(this.viewId);
+              }
+            }
+          )
+        }
+        Log.d(TAG, "XComponent onLoad ");
+      })
+      .onDestroy(() => {
+        Log.d(TAG, "XComponent onDestroy ");
+        this.flutterView?.onSurfaceDestroyed(this.surfaceLifecycleToken)
+        this.flutterView = null;
+      })
+      .renderFit(this.xComponentRenderFit)
+      .backgroundColor(this.firstFrameDisplayed && this.xComponentRenderFit == RenderFit.RESIZE_FILL ?
+      this.xComponentColor : Color.Transparent)
+      .expandSafeArea(this.safeAreaTypes, this.safeAreaEdges)
+      .onAreaChange((oldValue: Area, newValue: Area) => {
+        // Only handle when Y position changes (window decoration state changed)
+        if (oldValue.globalPosition.y != newValue.globalPosition.y) {
+          FlutterManager.getInstance().handleWindowDecorSafeArea(this.viewId, this.getUIContext().getHostContext());
+        }
+      })
+  }
+}
+
+
 /**
  * Basic page component that hosts XComponent for Flutter rendering.
  * This component handles the display of Flutter content within an OpenHarmony page.
@@ -71,41 +127,16 @@ export struct FlutterPage {
 
       Text("").id("unfocus-xcomponent-node").focusable(true)
 
-      XComponent({ id: this.viewId, type: this.xComponentType, libraryname: 'flutter' })
-        .id(this.viewId)
-        .focusable(true)
-        .focusOnTouch(this.defaultFocusOnTouch)
-        .onLoad((context) => {
-          this.flutterView?.onSurfaceCreated();
-          // Callback is triggered when the xcomponent window is partially visible or completely hidden.
-          if (deviceInfo.sdkApiVersion < 15) {
-            this.getUIContext()?.getAttachedFrameNodeById(this.viewId)?.commonEvent.setOnVisibleAreaApproximateChange(
-              { ratios: [0.0, 1.0], expectedUpdateInterval: 0 },
-              (isExpanding: boolean, currentRatio: number) => {
-                if (isExpanding) {
-                  Log.i(TAG, "setOnVisibleAreaApproximateChange -> xcomponentId: " + this.viewId +
-                    " isExpanding: " + isExpanding + " ratio: " + currentRatio);
-                  flutter.nativeUpdateCurrentXComponentId(this.viewId);
-                }
-              }
-            )
-          }
-          Log.d(TAG, "XComponent onLoad ");
-        })
-        .onDestroy(() => {
-          Log.d(TAG, "XComponent onDestroy ");
-          this.flutterView?.onSurfaceDestroyed()
-        })
-        .renderFit(this.xComponentRenderFit)
-        .backgroundColor(this.firstFrameDisplayed && this.xComponentRenderFit == RenderFit.RESIZE_FILL ?
-        this.xComponentColor : Color.Transparent)
-        .expandSafeArea(this.safeAreaTypes, this.safeAreaEdges)
-        .onAreaChange((oldValue: Area, newValue: Area) => {
-          // Only handle when Y position changes (window decoration state changed)
-          if (oldValue.globalPosition.y != newValue.globalPosition.y) {
-            FlutterManager.getInstance().handleWindowDecorSafeArea(this.viewId, this.getUIContext().getHostContext());
-          }
-        })
+      FlutterSurface({
+        safeAreaEdges: this.safeAreaEdges,
+        safeAreaTypes: this.safeAreaTypes,
+        viewId: this.viewId,
+        xComponentType: this.xComponentType,
+        xComponentRenderFit: this.xComponentRenderFit,
+        firstFrameDisplayed: this.firstFrameDisplayed,
+        xComponentColor: this.xComponentColor,
+        defaultFocusOnTouch: this.defaultFocusOnTouch
+      })
       if (this.showSplashScreen) {
         this.splashScreenView();
       }
@@ -161,41 +192,16 @@ export struct FlutterPage {
 
       Text("").id("unfocus-xcomponent-node").focusable(true)
 
-      XComponent({ id: this.viewId, type: this.xComponentType, libraryname: 'flutter' })
-        .id(this.viewId)
-        .focusable(true)
-        .focusOnTouch(this.defaultFocusOnTouch)
-        .onLoad((context) => {
-          this.flutterView?.onSurfaceCreated();
-          // Callback is triggered when the xcomponent window is partially visible or completely hidden.
-          if (deviceInfo.sdkApiVersion < 15) {
-            this.getUIContext()?.getAttachedFrameNodeById(this.viewId)?.commonEvent.setOnVisibleAreaApproximateChange(
-              { ratios: [0.0, 1.0], expectedUpdateInterval: 0 },
-              (isExpanding: boolean, currentRatio: number) => {
-                if (isExpanding) {
-                  Log.i(TAG, "setOnVisibleAreaApproximateChange -> xcomponentId: " + this.viewId +
-                    " isExpanding: " + isExpanding + " ratio: " + currentRatio);
-                  flutter.nativeUpdateCurrentXComponentId(this.viewId);
-                }
-              }
-            )
-          }
-          Log.d(TAG, "XComponent onLoad ");
-        })
-        .onDestroy(() => {
-          Log.d(TAG, "XComponent onDestroy ");
-          this.flutterView?.onSurfaceDestroyed()
-        })
-        .renderFit(this.xComponentRenderFit)
-        .backgroundColor(this.firstFrameDisplayed && this.xComponentRenderFit == RenderFit.RESIZE_FILL ?
-        this.xComponentColor : Color.Transparent)
-        .expandSafeArea(this.safeAreaTypes, this.safeAreaEdges)
-        .onAreaChange((oldValue: Area, newValue: Area) => {
-          // Only handle when Y position changes (window decoration state changed)
-          if (oldValue.globalPosition.y != newValue.globalPosition.y) {
-            FlutterManager.getInstance().handleWindowDecorSafeArea(this.viewId, this.getUIContext().getHostContext());
-          }
-        })
+      FlutterSurface({
+        safeAreaEdges: this.safeAreaEdges,
+        safeAreaTypes: this.safeAreaTypes,
+        viewId: this.viewId,
+        xComponentType: this.xComponentType,
+        xComponentRenderFit: this.xComponentRenderFit,
+        firstFrameDisplayed: this.firstFrameDisplayed,
+        xComponentColor: this.xComponentColor,
+        defaultFocusOnTouch: this.defaultFocusOnTouch
+      })
 
       if (this.showSplashScreen) {
         this.splashScreenView();

@@ -401,6 +401,7 @@ export default class PlatformViewsController implements PlatformViewsHandler {
   public createForTextureLayer(request: PlatformViewCreationRequest): number {
     Log.i(TAG, "Enter createForTextureLayer");
     this.ensureValidRequest(request);
+    this.ensureFlutterViewAttached("create platform view");
 
     let platformView: PlatformView = this.createPlatformView(request);
     let textureId = this.configureForTextureLayerComposition(platformView, request);
@@ -564,16 +565,86 @@ export default class PlatformViewsController implements PlatformViewsHandler {
    * @param newFlutterView - The FlutterView to attach to
    */
   public attachToView(newFlutterView: FlutterView) {
+    // The same FlutterView can receive multiple XComponent surface generations
+    // during fast ArkUI route changes. PlatformView attach/detach tracks the
+    // FlutterView/DV tree, not each native surface, so same-view surface churn is
+    // handled by FlutterView/XComponent native attach logic instead of notifying
+    // plugins again here.
+    if (this.flutterView == newFlutterView) {
+      return;
+    }
+
+    if (this.flutterView != null) {
+      this.detachFromView();
+    }
+
     this.flutterView = newFlutterView;
+
+    // A FlutterView surface can be destroyed and later recreated while the
+    // engine and PlatformViewsController stay alive. Reattach existing wrapper
+    // DVModels to the new FlutterView so embedded PlatformViews remain visible
+    // after the surface is mounted again.
+    for (let viewId of this.viewWrappers.keys()) {
+      let viewWrapper: PlatformViewWrapper | undefined = this.viewWrappers.get(viewId);
+      if (viewWrapper == undefined) {
+        continue;
+      }
+      let dvModel = viewWrapper.getDvModel();
+      if (this.flutterView.getDVModel().children.indexOf(dvModel) < 0) {
+        this.flutterView.getDVModel().children.push(dvModel);
+      }
+    }
+
+    // Match Android PlatformViewsController semantics: every created PlatformView
+    // is notified when the owning FlutterView attaches, even though only wrapper
+    // DVModels are physically re-added to the FlutterView tree above.
+    for (let viewId of this.platformViews.keys()) {
+      let platformView: PlatformView | undefined = this.platformViews.get(viewId);
+      if (platformView != undefined) {
+        platformView.onFlutterViewAttached(this.flutterView.getDVModel());
+      }
+    }
   }
 
   /**
    * Detaches the controller from the FlutterView.
    */
-  public detachFromView(): void {
+  public detachFromView(detachingFlutterView?: FlutterView): void {
+    if (this.flutterView == null) {
+      return;
+    }
+    if (detachingFlutterView != undefined && this.flutterView != detachingFlutterView) {
+      return;
+    }
+
+    // Mirror Android's FlutterView detach semantics: remove wrapper DVModels
+    // from the old FlutterView and notify every PlatformView so plugins do not
+    // keep using a stale FlutterView/DynamicView tree after the surface is gone.
+    for (let viewId of this.viewWrappers.keys()) {
+      let viewWrapper: PlatformViewWrapper | undefined = this.viewWrappers.get(viewId);
+      if (viewWrapper == undefined) {
+        continue;
+      }
+      let index = this.flutterView.getDVModel().children.indexOf(viewWrapper.getDvModel());
+      while (index > -1) {
+        this.flutterView.getDVModel().children.splice(index, 1);
+        index = this.flutterView.getDVModel().children.indexOf(viewWrapper.getDvModel());
+      }
+    }
+
     this.destroyOverlaySurfaces();
     this.removeOverlaySurfaces();
     this.flutterView = null;
+
+    // Keep the notification scope symmetric with attachToView and Android:
+    // PlatformView lifecycle callbacks are tied to FlutterView ownership, not to
+    // whether the view currently has a wrapper DVModel.
+    for (let viewId of this.platformViews.keys()) {
+      let platformView: PlatformView | undefined = this.platformViews.get(viewId);
+      if (platformView != undefined) {
+        platformView.onFlutterViewDetached();
+      }
+    }
   }
 
   /**
@@ -763,6 +834,10 @@ export default class PlatformViewsController implements PlatformViewsHandler {
       return;
     }
 
+    if (this.flutterView == null) {
+      Log.w(TAG, "render: FlutterView is detached, skipping render for surfaceId=" + surfaceId);
+      return;
+    }
     this.flutterView!.setSurfaceId(surfaceId.toString());
     let wrappedBuilder: WrappedBuilder<[Params]> = platformView.getView();
     this.flutterView?.setWrappedBuilder(wrappedBuilder);
@@ -792,5 +867,11 @@ export default class PlatformViewsController implements PlatformViewsHandler {
     this.flutterView?.getDVModel().children.push(viewWrapper.getDvModel());
     platformView.onFlutterViewAttached(this.flutterView!.getDVModel());
     this.platformViews.set(surfaceId, platformView!);
+  }
+
+  private ensureFlutterViewAttached(action: string): void {
+    if (this.flutterView == null) {
+      throw new Error("Cannot " + action + " while FlutterView is detached from PlatformViewsController.");
+    }
   }
 }
