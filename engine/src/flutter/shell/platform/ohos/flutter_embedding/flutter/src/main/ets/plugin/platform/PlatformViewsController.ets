@@ -94,6 +94,10 @@ const TAG = "PlatformViewsController"
 /**
  * Controller for managing platform views in Flutter applications.
  * This class handles the creation, lifecycle, and interaction of native views embedded in Flutter.
+ *
+ * Implements {@code PlatformViewsHandler} (see {@code PlatformViewsChannel}): fulfills create, dispose, touch,
+ * resize, and related commands sent from the Flutter framework over the platform-views channel, mapping them to
+ * OpenHarmony {@code PlatformView} / {@code EmbeddingNodeController} instances attached to the host {@code FlutterView}.
  */
 export default class PlatformViewsController implements PlatformViewsHandler {
   private registry: PlatformViewRegistryImpl;
