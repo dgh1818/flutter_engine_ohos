@@ -4,14 +4,17 @@
  * found in the LICENSE_HW file.
  */
 
-
 /**
- * Remove JSON5-style comments from text.
- * Supports: // line comments, /* block comments *\/
- * Preserves anything inside string literals: "..." (and optionally '...' if present)
+ * JSON5-style comment stripping for embedding configuration and similar text.
+ * Use {@link json5Tojson} to remove comments before strict JSON parsing.
  */
 
-//Pass in a string and remove the comments from it
+/**
+ * Strips JSON5-style line comments and C-style block comments from the input.
+ * String literals are preserved (handles escaped quotes).
+ * @param input - Raw text that may contain JSON5 comments
+ * @returns Text with comments removed
+ */
 function stripComments(input: string) {
   //Return value
   let out = '';
@@ -79,7 +82,11 @@ function stripComments(input: string) {
   return out;
 }
 
-
+/**
+ * Normalizes JSON5-like text to strict JSON by removing comments only (does not parse or validate JSON).
+ * @param json5Text - Source text that may include `//` or block comments
+ * @returns The same logical content with comments stripped; suitable for `JSON.parse` if the remainder is valid JSON
+ */
 export function json5Tojson(json5Text: string): string {
   const noComments = stripComments(json5Text);
   return noComments;
