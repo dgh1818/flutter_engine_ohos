@@ -10,6 +10,7 @@
 #include <hiappevent/hiappevent.h>
 #include <hitrace/trace.h>
 #include <vector>
+#include <memory>
 #include <atomic>
 #include "flutter/fml/platform/ohos/dynamic_library_loader.h"
 
