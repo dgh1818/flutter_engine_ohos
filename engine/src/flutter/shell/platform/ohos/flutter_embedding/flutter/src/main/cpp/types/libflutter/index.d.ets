@@ -534,6 +534,18 @@ export const nativeCheckLTPOSwitchState: () => number;
  */
 export const nativeSetQosOnLowMemory: (nativeShellHolderId: number, lowMemoryLevel: number) => void;
 
+/**
+ * Reports scrolling / animation status to the OHOS hiAppEvent pipeline (e.g. scroll start vs scroll end).
+ * @param nativeShellHolderId - The ID of the native shell holder
+ * @param animationStatus - Scrolling status code (e.g. scroll start / scroll end for hiAppEvent)
+ */
 export const nativeSetAnimationStatus: (nativeShellHolderId: number, animationStatus: number) => void;
 
+/**
+ * Notifies the system that the current UI page changed (OH_AbilityRuntime_NotifyPageChanged). Requires API 23+.
+ * @param pageName - Name of the current page
+ * @param pageNameLen - Length of the page name string (as required by the native API)
+ * @param windowID - Window identifier for the page
+ * @returns 0 on success, non-zero on failure; returns 0 when the API is not supported on older SDKs
+ */
 export const nativeNotifyPageChanged: (pageName: string, pageNameLen: number, windowID: number) => number;
