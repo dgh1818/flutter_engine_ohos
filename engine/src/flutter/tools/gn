@@ -865,6 +865,9 @@ def to_gn_args(args):
   if args.unuse_bisheng:
     gn_args['unuse_bisheng'] = True
 
+  if args.llvm18:
+    gn_args['use_llvm18'] = True
+
   return gn_args
 
 
@@ -1340,6 +1343,13 @@ def parse_args(args):
       default=False,
       action='store_true',
       help='Do not use BiSheng Compiler.',
+  )
+
+  parser.add_argument(
+      '--llvm18',
+      default=False,
+      action='store_true',
+      help='Use LLVM 18 toolchain and upstream libcxx instead of LLVM 15 / BiSheng / libcxx_ohos.',
   )
 
   return parser.parse_args(args)

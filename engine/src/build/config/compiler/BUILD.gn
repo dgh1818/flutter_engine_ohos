@@ -645,7 +645,7 @@ config("runtime_library") {
     # Add libcxx[abi]/include via cflags_cc, cflags_objcc to apply to
     # C++/Obj-C++ only. Adding them via include_dirs is problematic for Swift,
     # whose core libraries expect the Apple SDK C++ headers, module.modulemap.
-    if (is_ohos) {
+    if (is_ohos && !use_llvm18) {
       _libcxx_include = rebase_path("//flutter/third_party/libcxx_ohos/include", root_build_dir)
       _libcxxabi_include = rebase_path("//flutter/third_party/libcxxabi_ohos/include", root_build_dir)
     } else {
@@ -823,16 +823,14 @@ if (is_win) {
       "-Wno-unqualified-std-cast-call",
 
       # Needed by skia, imgui, swiftshader, and angle
-      "-Wno-nontrivial-memcall",
+      "-Wno-nontrivial-memaccess",
     ]
-    if (is_ohos) {
-        default_warning_flags += [
-          "-Wno-nontrivial-memaccess",
-          "-Wno-deprecated-volatile",
-          "-Wno-ambiguous-reversed-operator",
-        ]
-        default_warning_flags -= ["-Wno-nontrivial-memcall",]
-    }
+  }
+  if (is_ohos && !use_llvm18) {
+    default_warning_flags += [
+      "-Wno-deprecated-volatile",
+      "-Wno-ambiguous-reversed-operator",
+    ]
   }
   if (!is_fuchsia && is_clang) {
     default_warning_flags += [

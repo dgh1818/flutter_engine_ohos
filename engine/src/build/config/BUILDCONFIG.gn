@@ -384,6 +384,10 @@ if (!is_clang && using_sanitizer) {
 
 use_flutter_cxx = is_clang && (is_linux || is_android || is_mac || is_ios || is_ohos )
 
+declare_args() {
+  use_llvm18 = false
+}
+
 if (is_msan && !is_linux) {
   assert(false, "Memory sanitizer is only available on Linux.")
 }
@@ -410,7 +414,7 @@ _native_compiler_configs = [
   "//build/config/compiler:runtime_library",
 ]
 if (use_flutter_cxx) {
-  if (is_ohos) {
+  if (is_ohos && !use_llvm18) {
     _native_compiler_configs += [
       "//flutter/third_party/libcxxabi_ohos:libcxxabi_config",
       "//flutter/third_party/libcxx_ohos:libcxx_config",
@@ -722,7 +726,7 @@ if (use_flutter_cxx) {
           deps = []
         }
         if (!defined(invoker.no_default_deps) || !invoker.no_default_deps) {
-          if (is_ohos) {
+          if (is_ohos && !use_llvm18) {
             deps += [ "//flutter/third_party/libcxx_ohos" ]
           } else {
             deps += [ "//flutter/third_party/libcxx" ]

@@ -164,9 +164,10 @@ def isNdkValid(path):
 def engineConfig(buildInfo, args):
   OHOS_NDK_HOME = getNdkHome()
 
-  LLVM_HOME = os.path.join(OHOS_NDK_HOME, "../..", "hms", "native", "BiSheng")
-  if args.unuse_bisheng:
+  if args.unuse_bisheng or args.llvm18:
     LLVM_HOME = os.path.join(OHOS_NDK_HOME, "llvm")
+  else:
+    LLVM_HOME = os.path.join(OHOS_NDK_HOME, "../..", "hms", "native", "BiSheng")
 
   # export PATH=$OHOS_NDK_HOME/build-tools/cmake/bin:$PATH
   lastPath = os.getenv("PATH")
@@ -183,7 +184,7 @@ def engineConfig(buildInfo, args):
     )
   OPT = "--unoptimized " if buildInfo.unoptimized else ""
   LTO = "--no-lto " if buildInfo.buildType == "debug" else ""
-  UNUSE_BISHENG = "--unuse-bisheng" if args.unuse_bisheng else ""
+  UNUSE_BISHENG = "--unuse-bisheng" if (args.unuse_bisheng or args.llvm18) else ""
 
   runCommand(
       "%s " % os.path.join("src", "flutter", "tools", "gn") + "--ohos " +
@@ -191,6 +192,7 @@ def engineConfig(buildInfo, args):
       LTO + unixCommand + "--no-goma " + "--no-prebuilt-dart-sdk " + "--full-dart-sdk " +
       "--embedder-for-target " + "--disable-desktop-embeddings " + "--no-build-embedder-examples " +
       "--ohos-api-int %s " % args.ohos_api_int + "--verbose " +
+      ("--llvm18 " if args.llvm18 else "") +
       UNUSE_BISHENG +
       args.gn_extra_param.replace("\\", ""),
       checkCode=False,
@@ -328,6 +330,7 @@ def addParseParam(parser):
   parser.add_argument("--host-cpu", type=str, choices=['x64', 'arm64'], default="x64")
   parser.add_argument("--unoptimized", action="store_true", help="Build unoptimized version.")
   parser.add_argument("--unuse-bisheng", action="store_true", help="Build without BiSheng compiler.")
+  parser.add_argument("--llvm18", action="store_true", help="Use LLVM 18 instead of default LLVM 15 (BiSheng).")
 
 
 def updateCode(args):

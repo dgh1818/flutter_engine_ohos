@@ -337,7 +337,7 @@ class ConvexTessellatorImpl : public Tessellator::ConvexTessellator {
     if (supports_primitive_restart) {
       // Primitive Restart.
       const auto counts = PathTessellator::CountFillStorage(path, tolerance);
-      const size_t point_count = counts.first;   
+      const size_t point_count = counts.first;
       const size_t contour_count = counts.second;
       BufferView point_buffer = data_host_buffer.Emplace(
           nullptr, sizeof(Point) * point_count, alignof(Point));
