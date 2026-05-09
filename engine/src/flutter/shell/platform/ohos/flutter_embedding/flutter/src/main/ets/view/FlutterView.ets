@@ -378,6 +378,17 @@ export class FlutterView {
     this.context.eventHub.on('changeDevicePixelRatio', this.onDevicePixelRatioChange);
   }
 
+  /**
+   * Called when the device pixel ratio should be updated from a density scale factor.
+   * Refreshes display metadata, updates the text input channel device pixel ratio when a Flutter engine is attached,
+   * recomputes viewport device pixel ratio, and triggers onAreaChange when the ratio actually changes.
+   *
+   * Registered on Context.eventHub for the `changeDevicePixelRatio` event; also invoked internally when
+   * uiObserver reports a density update (custom density relative to system density).
+   *
+   * @param dpiScaleFactor - Multiplier applied to the system display densityPixels for the new device pixel ratio,
+   *                         or DPI_SCALE_RESET (-1) to restore the system default.
+   */
   onDevicePixelRatioChange = (dpiScaleFactor: number) => {
     try {
       // Get display information
@@ -685,11 +696,11 @@ export class FlutterView {
   }
 
   /**
-   * Gets the current keyboard height.
-   * @returns The keyboard height in pixels, or 0 if keyboard is not visible
+   * Gets the current keyboard height from the cached keyboard avoid area.
+   * @returns The keyboard height in pixels, or {@code 0} if the keyboard is not visible or avoid-area data is absent.
    */
-  getKeyboardHeight() {
-    return this.keyboardAvoidArea?.bottomRect.height
+  getKeyboardHeight(): number {
+    return this.keyboardAvoidArea?.bottomRect.height ?? 0;
   }
 
   /**
@@ -862,6 +873,20 @@ export class FlutterView {
   /**
    * Called when the rendering surface is created.
    * Marks the surface as available and processes pending messages.
+   *
+   * @returns Monotonic surface generation token for this {@code FlutterView} instance: each call assigns
+   *          {@code activeSurfaceLifecycleToken = ++surfaceLifecycleToken} (integers). The value is unique among
+   *          successive creations on this view until {@code Number.MAX_SAFE_INTEGER} wrap (not practically reachable).
+   *          Pass the returned value to `onSurfaceDestroyed` for the same surface instance; when destroy runs,
+   *          a matching token clears the active generation (reset to {@code 0}). Stale destroys with an older token are ignored.
+   *          This is not a security token—only a generation counter for ordering—not shared across {@code FlutterView} instances.
+   *
+   * @remarks Threading: In typical ArkUI apps, {@code XComponent.onLoad} / {@code onDestroy} run on the UI thread.
+   *          The reference embedding invokes this from those callbacks (see {@code FlutterSurface} in FlutterPage).
+   *          {@code activeSurfaceLifecycleToken} and related flags are updated without internal locks; only call
+   *          this from the same thread/context as your XComponent lifecycle unless you provide external
+   *          synchronization. The token addresses **out-of-order** destroy-after-recreate when the same
+   *          {@code FlutterView} is reused—not arbitrary concurrent access from multiple threads.
    */
   onSurfaceCreated(): number {
     // XComponent onDestroy can arrive after a replacement XComponent onLoad
@@ -881,6 +906,16 @@ export class FlutterView {
   /**
    * Called when the rendering surface is destroyed.
    * Marks the surface as unavailable and detaches from the engine.
+   *
+   * @param surfaceLifecycleToken - Optional token previously returned by onSurfaceCreated for this surface instance.
+   *                                When provided and it does not match the active generation, the call is ignored
+   *                                (guards against out-of-order destroy after recreation). Prefer always passing the
+   *                                token from onSurfaceCreated when your embedding tracks XComponent lifecycle (for example FlutterPage).
+   *                                Omit only when the token is unavailable; omitting skips the stale-callback guard.
+   *
+   * @remarks Threading: Same contract as `onSurfaceCreated`—invoke from the XComponent/UI thread in normal
+   *          embeddings. Concurrent onSurfaceCreated vs onSurfaceDestroyed on different threads without external
+   *          synchronization can race token and attachment flags; the implementation does not use atomics or locks.
    */
   onSurfaceDestroyed(surfaceLifecycleToken?: number) {
     if (surfaceLifecycleToken != undefined && surfaceLifecycleToken != this.activeSurfaceLifecycleToken) {
@@ -1058,6 +1093,16 @@ export class FlutterView {
     return false
   }
 
+  /**
+   * Handles status-bar click subscription setup for OpenHarmony common events.
+   *
+   * Used as the callback passed to commonEventManager.createSubscriber for {@code usual.event.CLICK_STATUSBAR}.
+   * Stores the subscriber and registers commonEventManager.subscribe so each delivered click forwards to Flutter via
+   * StatusBarClickChannel.sendClick from FlutterView.
+   *
+   * @param err - Business error from the common-event subsystem when creating the subscriber, if any; otherwise unused on success.
+   * @param subscriber - The common-event subscriber instance that receives {@code usual.event.CLICK_STATUSBAR} events.
+   */
   onStatusBarClick = (err: BusinessError, subscriber: commonEventManager.CommonEventSubscriber) => {
     this.statusBarClickSubscriber = subscriber
     if(subscriber !== null) {

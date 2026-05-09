@@ -13,7 +13,11 @@ import deviceInfo from '@ohos.deviceInfo';
 import flutter from 'libflutter.so';
 const TAG = "FlutterPage";
 
-
+/**
+ * Hosts one `XComponent` surface for `FlutterPage`. In `onLoad`, resolves `FlutterView` and stores the token from
+ * `FlutterView.onSurfaceCreated`; in `onDestroy`, passes that token to `FlutterView.onSurfaceDestroyed` so a stale
+ * `onDestroy` after fast route replacement cannot detach the current surface.
+ */
 @Component
 struct FlutterSurface {
   @Prop safeAreaEdges: SafeAreaEdge[] | undefined = [];

@@ -151,6 +151,10 @@ class NavigationCallback implements MethodCallHandler {
     }
   }
 
+  /**
+   * Forwards the current route URI to the OS via {@code FlutterNapi.NotifyPageChanged} ({@code OH_AbilityRuntime_NotifyPageChanged}).
+   * Uses {@code uri} from the method call, {@code uri.length} as {@code pageNameLen}, and {@code FlutterManager.getWindowId(context)}.
+   */
   private notifyPageChanged(call: MethodCall) {
     if (this.dartExecutor == null || this.dartExecutor.flutterNapi == null) {
       Log.e(NavigationCallback.TAG, "dartExecutor or flutterNapi is null, cancel OHOS page change notification");
