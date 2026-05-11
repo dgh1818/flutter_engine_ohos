@@ -10,9 +10,14 @@
 #include <multimedia/image_framework/image/image_common.h>
 #include <multimedia/image_framework/image/image_source_native.h>
 #include <multimedia/image_framework/image/pixelmap_native.h>
+#include <native_buffer/native_buffer.h>
+#include <native_window/external_window.h>
 #include <cstdint>
 #include <memory>
+#include <mutex>
+#include <sstream>
 #include <string>
+#include <utility>
 
 #include <multimedia/image_framework/image_pixel_map_napi.h>
 #include "fml/logging.h"
@@ -23,13 +28,131 @@
 #include "third_party/skia/include/codec/SkCodecAnimation.h"
 #include "flutter/fml/platform/ohos/dynamic_library_loader.h"
 
+#if IMPELLER_SUPPORTS_RENDERING
+#include "flutter/impeller/renderer/backend/vulkan/capabilities_vk.h"
+#include "flutter/impeller/renderer/backend/vulkan/context_vk.h"
+#include "flutter/impeller/renderer/backend/vulkan/ohos/ohb_texture_source_vk.h"
+#include "flutter/impeller/renderer/backend/vulkan/surface_context_vk.h"
+#include "flutter/impeller/renderer/backend/vulkan/texture_vk.h"
+#include "flutter/impeller/renderer/context.h"
+#endif  // IMPELLER_SUPPORTS_RENDERING
+
 std::atomic<size_t> flutter::OHOSImageGenerator::total_cached_bytes_{0};
 
 namespace flutter {
 
+#if IMPELLER_SUPPORTS_RENDERING
+namespace {
+
+/// Holds every native handle whose lifetime must outlive the resulting
+/// `impeller::Texture`.
+struct DmaTextureContext {
+  std::shared_ptr<OHOSImageGenerator::PixelMapOHOS> pixelmap;
+  OH_NativeBuffer* native_buffer = nullptr;
+  OHNativeWindowBuffer* window_buffer = nullptr;
+
+  ~DmaTextureContext() {
+    if (window_buffer != nullptr) {
+      OH_NativeWindow_DestroyNativeWindowBuffer(window_buffer);
+      window_buffer = nullptr;
+    }
+    if (native_buffer != nullptr) {
+      OH_NativeBuffer_Unreference(native_buffer);
+      native_buffer = nullptr;
+    }
+  }
+};
+
+class OhosExternalTextureSourceImpl final : public ExternalTextureSource {
+ public:
+  explicit OhosExternalTextureSourceImpl(
+      std::shared_ptr<OHOSImageGenerator::PixelMapOHOS> pixelmap)
+      : pixelmap_(std::move(pixelmap)) {}
+
+  std::shared_ptr<impeller::Texture> CreateImpellerTexture(
+      const std::shared_ptr<impeller::Context>& context) override {
+    TRACE_EVENT0("flutter", "OhosExternalTextureSource::CreateImpellerTexture");
+
+    if (!context || !context->IsValid() ||
+        context->GetBackendType() !=
+            impeller::Context::BackendType::kVulkan) {
+      return nullptr;
+    }
+    if (!pixelmap_ || !pixelmap_->IsValid() ||
+        pixelmap_->allocator_type_ != IMAGE_ALLOCATOR_TYPE_DMA) {
+      return nullptr;
+    }
+
+    auto& surface_context_vk = impeller::SurfaceContextVK::Cast(*context);
+    auto context_vk = surface_context_vk.GetParent();
+    if (!context_vk || !context_vk->GetDevice() ||
+        !context_vk->GetCapabilities()) {
+      return nullptr;
+    }
+
+    const auto& caps =
+        impeller::CapabilitiesVK::Cast(*context_vk->GetCapabilities());
+    if (!caps.HasExtension(
+            impeller::RequiredOHOSDeviceExtensionVK::kOHOSNativeBuffer)) {
+      return nullptr;
+    }
+
+    auto holder = std::make_shared<DmaTextureContext>();
+    holder->pixelmap = pixelmap_;
+
+    Image_ErrorCode err = OH_PixelmapNative_GetNativeBuffer(
+        pixelmap_->pixelmap_, &holder->native_buffer);
+    if (err != IMAGE_SUCCESS || holder->native_buffer == nullptr) {
+      FML_DLOG(WARNING)
+          << "OHOS DMA: OH_PixelmapNative_GetNativeBuffer failed (" << err
+          << ")";
+      return nullptr;
+    }
+
+    holder->window_buffer =
+        OH_NativeWindow_CreateNativeWindowBufferFromNativeBuffer(
+            holder->native_buffer);
+    if (holder->window_buffer == nullptr) {
+      FML_DLOG(WARNING)
+          << "OHOS DMA: failed to wrap native buffer in window buffer";
+      return nullptr;
+    }
+
+    auto texture_source = std::make_shared<impeller::OHBTextureSourceVK>(
+        context_vk, holder->window_buffer);
+    if (!texture_source->IsValid()) {
+      FML_DLOG(WARNING)
+          << "OHOS DMA: OHBTextureSourceVK rejected the native buffer ("
+          << pixelmap_->width_ << "x" << pixelmap_->height_ << " fmt "
+          << pixelmap_->pixel_format_ << ")";
+      return nullptr;
+    }
+
+    auto texture = std::shared_ptr<impeller::Texture>(
+        new impeller::TextureVK(context_vk, std::move(texture_source)),
+        [holder](impeller::Texture* texture) { delete texture; });
+    std::ostringstream label;
+    label << "ui.Image(OHOS DMABuf " << pixelmap_->width_ << "x"
+          << pixelmap_->height_ << ")";
+    texture->SetLabel(label.str());
+    return texture;
+  }
+
+ private:
+  std::shared_ptr<OHOSImageGenerator::PixelMapOHOS> pixelmap_;
+};
+
+}  // namespace
+#endif  // IMPELLER_SUPPORTS_RENDERING
+
 class OhosImageSourceLoader {
   using CreateFromDataWithUserBufferFunc = Image_ErrorCode (*)(
     uint8_t *data, size_t datalength, OH_ImageSourceNative **imageSource);
+  using CreatePixelmapUsingAllocatorFunc = Image_ErrorCode (*)(
+      OH_ImageSourceNative* source,
+      OH_DecodingOptions* opts,
+      IMAGE_ALLOCATOR_TYPE allocator,
+      OH_PixelmapNative** pixelmap);
 
  public:
   OhosImageSourceLoader(void);
@@ -37,11 +160,21 @@ class OhosImageSourceLoader {
   static std::shared_ptr<OhosImageSourceLoader> GetInstance(void);
   Image_ErrorCode CreateFromDataWithUserBuffer(uint8_t *data, size_t datalength, OH_ImageSourceNative **imageSource);
 
+  bool HasPixelmapAllocator() const {
+    return loader_ && loader_->IsLoaded() &&
+           createPixelmapUsingAllocatorFunc_ != nullptr;
+  }
+
+  Image_ErrorCode CreatePixelmapUsingAllocator(OH_ImageSourceNative* source,
+                                               OH_DecodingOptions* opts,
+                                               IMAGE_ALLOCATOR_TYPE allocator,
+                                               OH_PixelmapNative** pixelmap);
+
   private:
     static constexpr char IMAGE_SOURCE_LIB_NAME[] = "libimage_source.so";
-    bool isValid_ = false;
     std::unique_ptr<flutter::DynamicLibraryLoader> loader_;
     CreateFromDataWithUserBufferFunc createFromDataWithUserBufferFunc_ = nullptr;
+    CreatePixelmapUsingAllocatorFunc createPixelmapUsingAllocatorFunc_ = nullptr;
 };
 
 static std::shared_ptr<OhosImageSourceLoader> OhosImageSourceLoderInstance = nullptr;
@@ -60,20 +193,31 @@ OhosImageSourceLoader::OhosImageSourceLoader(void)
   std::vector<flutter::SymbolInfo> symbols = {
       {"OH_ImageSourceNative_CreateFromDataWithUserBuffer",
        reinterpret_cast<void**>(&createFromDataWithUserBufferFunc_), 20},
+      {"OH_ImageSourceNative_CreatePixelmapUsingAllocator",
+       reinterpret_cast<void**>(&createPixelmapUsingAllocatorFunc_), 15},
   };
 
-  isValid_ = loader_->LoadSymbols(symbols);
-
-  return;
+  loader_->LoadSymbols(symbols);
 }
 
 Image_ErrorCode OhosImageSourceLoader::CreateFromDataWithUserBuffer(
   uint8_t *data, size_t datalength, OH_ImageSourceNative **imageSource) {
-  if (!isValid_ || createFromDataWithUserBufferFunc_ == nullptr) {
+  if (!loader_->IsLoaded() || createFromDataWithUserBufferFunc_ == nullptr) {
     return IMAGE_BAD_PARAMETER;
   }
 
   return createFromDataWithUserBufferFunc_(data, datalength, imageSource);
+}
+
+Image_ErrorCode OhosImageSourceLoader::CreatePixelmapUsingAllocator(
+    OH_ImageSourceNative* source,
+    OH_DecodingOptions* opts,
+    IMAGE_ALLOCATOR_TYPE allocator,
+    OH_PixelmapNative** pixelmap) {
+  if (!loader_->IsLoaded() || createPixelmapUsingAllocatorFunc_ == nullptr) {
+    return IMAGE_BAD_PARAMETER;
+  }
+  return createPixelmapUsingAllocatorFunc_(source, opts, allocator, pixelmap);
 }
 
 static void ResolveEncodedOrigin(char* data,
@@ -300,6 +444,45 @@ bool OHOSImageGenerator::GetPixels(const SkImageInfo& info,
   return 0;
 }
 
+#if IMPELLER_SUPPORTS_RENDERING
+std::unique_ptr<ExternalTextureSource>
+OHOSImageGenerator::CreateExternalTextureSource(
+    const SkISize& decode_dimensions,
+    unsigned int frame_index,
+    std::optional<unsigned int> prior_frame) {
+  if (frame_count_ != 1 || prior_frame.has_value()) {
+    return nullptr;
+  }
+  if (decode_dimensions.isEmpty() || image_source_ == nullptr) {
+    return nullptr;
+  }
+  auto loader = OhosImageSourceLoader::GetInstance();
+  if (!loader || !loader->HasPixelmapAllocator() || is_hdr_) {
+    return nullptr;
+  }
+  TRACE_EVENT1("flutter", "Image", "CreateExternalTextureSourceOHOS",
+               to_string().c_str());
+
+  auto pixelmap = CreatePixelMap(decode_dimensions.width(),
+                                 decode_dimensions.height(),
+                                 static_cast<int>(frame_index),
+                                 /*prefer_dma=*/true);
+  if (!pixelmap || !pixelmap->IsValid() ||
+      pixelmap->allocator_type_ != IMAGE_ALLOCATOR_TYPE_DMA) {
+    return nullptr;
+  }
+  if (static_cast<int>(pixelmap->width_) != decode_dimensions.width() ||
+      static_cast<int>(pixelmap->height_) != decode_dimensions.height()) {
+    FML_DLOG(WARNING) << "OHOS DMA: pixelmap actual size " << pixelmap->width_
+                      << "x" << pixelmap->height_ << " != requested "
+                      << decode_dimensions.width() << "x"
+                      << decode_dimensions.height() << "; falling back";
+    return nullptr;
+  }
+  return std::make_unique<OhosExternalTextureSourceImpl>(std::move(pixelmap));
+}
+#endif  // IMPELLER_SUPPORTS_RENDERING
+
 std::shared_ptr<ImageGenerator> OHOSImageGenerator::MakeFromData(
     sk_sp<SkData> data) {
   // Return directly if the image data is empty.
@@ -344,7 +527,10 @@ std::shared_ptr<ImageGenerator> OHOSImageGenerator::MakeFromData(
 }
 
 std::shared_ptr<OHOSImageGenerator::PixelMapOHOS>
-OHOSImageGenerator::CreatePixelMap(int width, int height, int frame_index) {
+OHOSImageGenerator::CreatePixelMap(int width,
+                                   int height,
+                                   int frame_index,
+                                   bool prefer_dma) {
   OH_DecodingOptions* opts = nullptr;
   Image_ErrorCode err_code = OH_DecodingOptions_Create(&opts);
   if (err_code != IMAGE_SUCCESS || opts == nullptr) {
@@ -362,28 +548,52 @@ OHOSImageGenerator::CreatePixelMap(int width, int height, int frame_index) {
   OH_DecodingOptions_SetIndex(opts, frame_index);
 
   OH_PixelmapNative* pixelmap = nullptr;
-  // This could be time-consuming.
-  err_code =
-      OH_ImageSourceNative_CreatePixelmap(image_source_, opts, &pixelmap);
-  OH_NativeColorSpaceManager* mgr = nullptr;
-  auto colorspace_res = OH_PixelmapNative_GetColorSpaceNative(pixelmap, &mgr);
-
-  auto colorspace_name = 0;
-  if (colorspace_res == IMAGE_SUCCESS) {
-    colorspace_name = OH_NativeColorSpaceManager_GetColorSpaceName(mgr);
+  IMAGE_ALLOCATOR_TYPE actual_allocator = IMAGE_ALLOCATOR_TYPE_AUTO;
+  auto loader = OhosImageSourceLoader::GetInstance();
+  if (prefer_dma && !is_hdr_ && loader && loader->HasPixelmapAllocator()) {
+    err_code = loader->CreatePixelmapUsingAllocator(
+        image_source_, opts, IMAGE_ALLOCATOR_TYPE_DMA, &pixelmap);
+    if (err_code == IMAGE_SUCCESS && pixelmap != nullptr) {
+      actual_allocator = IMAGE_ALLOCATOR_TYPE_DMA;
+    } else {
+      FML_DLOG(WARNING) << "OHOS DMA: CreatePixelmapUsingAllocator failed ("
+                        << err_code << "), falling back to legacy allocator "
+                        << to_string();
+      if (pixelmap) {
+        OH_PixelmapNative_Release(pixelmap);
+        pixelmap = nullptr;
+      }
+    }
   }
-  cached_colorspaces_[frame_index] = colorspace_name;
+
+  if (pixelmap == nullptr) {
+    // This could be time-consuming.
+    err_code =
+        OH_ImageSourceNative_CreatePixelmap(image_source_, opts, &pixelmap);
+  }
+  OH_DecodingOptions_Release(opts);
+
   if (pixelmap && err_code == IMAGE_SUCCESS) {
+    OH_NativeColorSpaceManager* mgr = nullptr;
+    auto colorspace_res = OH_PixelmapNative_GetColorSpaceNative(pixelmap, &mgr);
+    auto colorspace_name = 0;
+    if (colorspace_res == IMAGE_SUCCESS) {
+      colorspace_name = OH_NativeColorSpaceManager_GetColorSpaceName(mgr);
+    }
+    cached_colorspaces_[frame_index] = colorspace_name;
     if (need_flip_) {
       OH_PixelmapNative_Flip(pixelmap, need_flip_, false);
     }
-    auto image_pixelmap = std::make_shared<PixelMapOHOS>(pixelmap);
+    auto image_pixelmap =
+        std::make_shared<PixelMapOHOS>(pixelmap, actual_allocator);
     image_pixelmap->setColorSpace(colorspace_name);
     FML_LOG(INFO) << "Create Pixelmap size:"
                   << std::to_string(image_pixelmap->width_) << "*"
                   << std::to_string(image_pixelmap->height_) << " stride "
                   << std::to_string(image_pixelmap->row_stride_) << " format "
-                  << std::to_string(image_pixelmap->pixel_format_);
+                  << std::to_string(image_pixelmap->pixel_format_)
+                  << " allocator "
+                  << std::to_string(image_pixelmap->allocator_type_);
     return image_pixelmap;
   } else {
     FML_LOG(ERROR) << "Create Pixelmap from Image source failed:" << err_code
@@ -400,7 +610,10 @@ bool OHOSImageGenerator::IsValidImageData() {
   return GetInfo().width() != 0 && GetInfo().height() != 0 && frame_count_ != 0;
 }
 
-OHOSImageGenerator::PixelMapOHOS::PixelMapOHOS(OH_PixelmapNative* pixelmap) {
+OHOSImageGenerator::PixelMapOHOS::PixelMapOHOS(
+    OH_PixelmapNative* pixelmap,
+    IMAGE_ALLOCATOR_TYPE allocator_type)
+    : allocator_type_(allocator_type) {
   if (pixelmap == nullptr) {
     return;
   }

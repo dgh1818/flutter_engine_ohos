@@ -27,6 +27,43 @@ const int IMAGE_MAX_CACHE_SIZE = 1024 * 1024 * 1024;  // 1GB
 namespace flutter {
 
 class OHOSImageGenerator : public ImageGenerator {
+ public:
+  /// Lifetime-managed wrapper around an `OH_PixelmapNative*` produced by the
+  /// platform image source. Exposed publicly so the external-texture helpers
+  /// in `ohos_image_generator.cpp` can hold strong references to a decoded
+  /// DMA pixelmap.
+  struct PixelMapOHOS {
+    OH_PixelmapNative* pixelmap_ = nullptr;
+    uint32_t width_ = 0;
+    uint32_t height_ = 0;
+    uint32_t row_stride_ = 0;
+    int32_t pixel_format_ = 0;
+    uint32_t color_space_ = 0;
+    IMAGE_ALLOCATOR_TYPE allocator_type_ = IMAGE_ALLOCATOR_TYPE_AUTO;
+
+    PixelMapOHOS(OH_PixelmapNative* pixelmap,
+                 IMAGE_ALLOCATOR_TYPE allocator_type);
+
+    ~PixelMapOHOS() {
+      if (pixelmap_) {
+        OH_PixelmapNative_Release(pixelmap_);
+      }
+    };
+
+    void setColorSpace(uint32_t colorSpace) { color_space_ = colorSpace; }
+
+    bool IsValid() const {
+      return pixelmap_ != nullptr && width_ != 0 && height_ != 0;
+    };
+
+    Image_ErrorCode ReadPixels(uint8_t* dst_buffer,
+                               uint32_t buffer_size,
+                               uint32_t row_stride);
+
+    PixelMapOHOS(const PixelMapOHOS&) = delete;
+    PixelMapOHOS& operator=(const PixelMapOHOS&) = delete;
+  };
+
  private:
   explicit OHOSImageGenerator(OH_ImageSourceNative* image_source,
                               const sk_sp<SkData>& data);
@@ -52,6 +89,13 @@ class OHOSImageGenerator : public ImageGenerator {
                  std::optional<unsigned int> prior_frame) override;
   
   uint32_t GetColorSpace(unsigned int frame_index) override;
+
+#if defined(FML_OS_OHOS) && IMPELLER_SUPPORTS_RENDERING
+  std::unique_ptr<ExternalTextureSource> CreateExternalTextureSource(
+      const SkISize& decode_dimensions,
+      unsigned int frame_index,
+      std::optional<unsigned int> prior_frame) override;
+#endif  // FML_OS_OHOS && IMPELLER_SUPPORTS_RENDERING
 
   static std::shared_ptr<ImageGenerator> MakeFromData(sk_sp<SkData> data);
 
@@ -81,42 +125,13 @@ class OHOSImageGenerator : public ImageGenerator {
   // 最大全局缓存大小
   static constexpr size_t kMaxGlobalCacheSize = IMAGE_MAX_CACHE_SIZE;
 
-  struct PixelMapOHOS {
-    OH_PixelmapNative* pixelmap_ = nullptr;
-    uint32_t width_ = 0;
-    uint32_t height_ = 0;
-    uint32_t row_stride_ = 0;
-    int32_t pixel_format_ = 0;
-    uint32_t color_space_ = 0;
-
-    explicit PixelMapOHOS(OH_PixelmapNative* pixelmap);
-
-    ~PixelMapOHOS() {
-      if (pixelmap_) {
-        OH_PixelmapNative_Release(pixelmap_);
-      }
-    };
-
-    void setColorSpace(uint32_t colorSpace) { color_space_ = colorSpace; }
-
-    bool IsValid() {
-      return pixelmap_ != nullptr && width_ != 0 && height_ != 0;
-    };
-
-    Image_ErrorCode ReadPixels(uint8_t* dst_buffer,
-                               uint32_t buffer_size,
-                               uint32_t row_stride);
-
-    PixelMapOHOS(const PixelMapOHOS&) = delete;
-    PixelMapOHOS& operator=(const PixelMapOHOS&) = delete;
-  };
-
   std::map<uint32_t, std::shared_ptr<PixelMapOHOS>> cached_pixelmaps_;
   std::map<uint32_t, uint32_t> cached_colorspaces_;
 
   std::shared_ptr<PixelMapOHOS> CreatePixelMap(int width,
                                                int height,
-                                               int frame_index);
+                                               int frame_index,
+                                               bool prefer_dma = false);
 
   bool IsValidImageData();
 

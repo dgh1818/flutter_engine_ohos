@@ -4,9 +4,11 @@
 
 #include "flutter/lib/ui/painting/image_decoder_impeller.h"
 
+#include <algorithm>
 #include <format>
 #include <memory>
 
+#include "flutter/fml/build_config.h"
 #include "flutter/fml/closure.h"
 #include "flutter/fml/make_copyable.h"
 #include "flutter/fml/mapping.h"
@@ -15,6 +17,9 @@
 #include "flutter/impeller/display_list/dl_image_impeller.h"
 #include "flutter/impeller/renderer/command_buffer.h"
 #include "flutter/impeller/renderer/context.h"
+#if defined(FML_OS_OHOS)
+#include "flutter/lib/ui/painting/image_generator.h"
+#endif  // FML_OS_OHOS
 #include "impeller/core/device_buffer.h"
 #include "impeller/core/formats.h"
 #include "impeller/core/texture_descriptor.h"
@@ -812,6 +817,56 @@ void ImageDecoderImpeller::Decode(fml::RefPtr<ImageDescriptor> descriptor,
           result(nullptr, "No Impeller context is available");
           return;
         }
+
+#if defined(FML_OS_OHOS) && IMPELLER_SUPPORTS_RENDERING
+        // OHOS-only zero-copy fast path: ask the descriptor whether it can
+        // hand us a GPU-resident texture wrapping platform-owned memory. Any
+        // failure silently falls through to the regular decompress + upload
+        // path below.
+        if (raw_descriptor->is_compressed() &&
+            context->GetBackendType() ==
+                impeller::Context::BackendType::kVulkan &&
+            !IsWideGamut(raw_descriptor->image_info().color_space.get())) {
+          const auto fast_max_size =
+              context->GetResourceAllocator()->GetMaxTextureSizeSupported();
+          const SkISize fast_target_size = SkISize::Make(
+              std::min(static_cast<int32_t>(fast_max_size.width),
+                       static_cast<int32_t>(options.target_width)),
+              std::min(static_cast<int32_t>(fast_max_size.height),
+                       static_cast<int32_t>(options.target_height)));
+
+          const SkISize source_dimensions = SkISize::Make(
+              raw_descriptor->image_info().width,
+              raw_descriptor->image_info().height);
+          SkISize decode_dimensions = source_dimensions;
+          if (kNotScalePixels) {
+            decode_dimensions = SkISize::Make(
+                std::min(static_cast<int32_t>(fast_max_size.width),
+                         decode_dimensions.width()),
+                std::min(static_cast<int32_t>(fast_max_size.height),
+                         decode_dimensions.height()));
+          } else if (raw_descriptor->should_resize(fast_target_size.width(),
+                                                   fast_target_size.height())) {
+            decode_dimensions = raw_descriptor->get_scaled_dimensions(std::max(
+                static_cast<float>(fast_target_size.width()) /
+                    source_dimensions.width(),
+                static_cast<float>(fast_target_size.height()) /
+                    source_dimensions.height()));
+          }
+
+          if (auto external_source =
+                  raw_descriptor->CreateExternalTextureSource(
+                      decode_dimensions)) {
+            if (auto texture =
+                    external_source->CreateImpellerTexture(context)) {
+              result(impeller::DlImageImpeller::Make(std::move(texture)),
+                     std::string());
+              return;
+            }
+          }
+        }
+#endif  // FML_OS_OHOS && IMPELLER_SUPPORTS_RENDERING
+
         auto max_size_supported =
             context->GetResourceAllocator()->GetMaxTextureSizeSupported();
 
