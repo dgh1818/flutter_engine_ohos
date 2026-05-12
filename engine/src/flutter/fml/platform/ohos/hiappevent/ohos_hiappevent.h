@@ -34,6 +34,10 @@ using SetReportEventFunc = int (*)(HiAppEvent_Processor* processor,
 using AddFunc = int64_t (*)(HiAppEvent_Processor* processor);
 
 using DestroyProcessor = void (*)(HiAppEvent_Processor* processor);
+
+using ReportFrameworkMemAnomaly = void(*)(int32_t fwType,
+                                          const char* fwVer, const char* description);
+
 using StartAsyncTraceExFunc = void (*)(uint64_t level,
                                        const char* name,
                                        int32_t taskId,
@@ -91,6 +95,8 @@ class OhosHiappEventDDL {
 
   static std::shared_ptr<OhosHiappEventDDL> GetInstance(void);
 
+  static const char* GetFlutterVersion();
+
   void ReportJANKEvent(const MissedFrameInfo& missed_frame_info);
 
   void ReportScrollJANKEvent(const MissedFrameInfo& missed_frame_info);
@@ -111,6 +117,8 @@ class OhosHiappEventDDL {
   void OnScrollStart();
   void OnScrollEndAndFlush();
 
+  void ReportMemoryUsage(int64_t oldUsed, int64_t newUsed);
+
  private:
   int WriteSingleFrame(void);
 
@@ -126,6 +134,8 @@ class OhosHiappEventDDL {
   SetReportEventFunc setReportEventFunc_ = nullptr;
   AddFunc addFunc_ = nullptr;
   DestroyProcessor destroyProcessor_ = nullptr;
+  ReportFrameworkMemAnomaly reportFrameworkMemAnomaly_ = nullptr;
+
   StartAsyncTraceExFunc startAsyncTraceExFunc_ = nullptr;
   FinishAsyncTraceExFunc finishAsyncTraceExFunc_ = nullptr;
 

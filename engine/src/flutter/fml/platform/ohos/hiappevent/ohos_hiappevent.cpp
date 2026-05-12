@@ -26,6 +26,10 @@ namespace fml {
 
 namespace hiappevent {
 
+const char* OhosHiappEventDDL::GetFlutterVersion() {
+  return FLUTTER_VERSION;
+}
+
 static std::shared_ptr<OhosHiappEventDDL> instance_ = nullptr;
 static std::once_flag instanceFlag_;
 
@@ -39,6 +43,7 @@ static constexpr char HIAPPEVENT_OTHER_JANK_SCROLL[] = "OTHER_JANK_SCROLL";
 static constexpr int64_t K_SCROLL_JANK_THRESHOLD_US = 50 * 1000; // 丢帧超过50ms才上报
 static constexpr int64_t SECOND_TO_MICROS_UNIT = 1 * 1000 * 1000; // Unit conversion: second to microsecond
 static constexpr int64_t MICROS_TO_MILLIS_UNIT = 1 * 1000; // Unit conversion: microsecond to millisecond 
+static constexpr int32_t K_FLUTTER_DART_FRAMEWORK_TYPE = 0; // OH_FLUTTER_DART enum value (API 26)
 
 static const int MISSED_FRAME_INFOS_SIZE = 10;
 static const int REQUIRED_API_VERSION = 18;
@@ -90,6 +95,8 @@ void OhosHiappEventDDL::Init(void) {
       {"OH_HiAppEvent_AddProcessor", reinterpret_cast<void**>(&addFunc_), 18},
       {"OH_HiAppEvent_DestroyProcessor",
        reinterpret_cast<void**>(&destroyProcessor_), 18},
+      {"OH_HiAppEvent_ReportFrameworkMemAnomaly",
+       reinterpret_cast<void**>(&reportFrameworkMemAnomaly_), 26},
   };
 
   isValid_ = loader_->LoadSymbols(symbols);
@@ -498,7 +505,26 @@ void OhosHiappEventDDL::OnScrollEndAndFlush() {
   FlushScroll();
 }
 
-
+void OhosHiappEventDDL::ReportMemoryUsage(int64_t oldUsed, int64_t newUsed) {
+  if (reportFrameworkMemAnomaly_ == nullptr) {
+    FML_LOG(WARNING) << "reportFrameworkMemAnomaly_ is nullptr, cannot report memory anomaly";
+    return;
+  }
+  
+  auto version = GetFlutterVersion();
+  int64_t totalUsed = oldUsed + newUsed;
+  int64_t totalMB = totalUsed / (1024 * 1024);
+  int64_t oldMB = oldUsed / (1024 * 1024);
+  int64_t newMB = newUsed / (1024 * 1024);
+  
+  std::string desc = "Dart heap memory usage exceeds threshold: total = " +
+                     std::to_string(totalMB) + " MB (old = " +
+                     std::to_string(oldMB) + " MB, new = " +
+                     std::to_string(newMB) + " MB)";
+  
+  FML_LOG(WARNING) << desc;
+  reportFrameworkMemAnomaly_(K_FLUTTER_DART_FRAMEWORK_TYPE, version, desc.c_str());
+}
 
 };  // namespace hiappevent
 
