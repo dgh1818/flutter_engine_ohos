@@ -16,6 +16,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
+import 'split_view_config.dart';
+import '../services/split_view_config_loader.dart';
+import 'split_view_container.dart';
+import 'split_view_manager.dart';
 import 'actions.dart';
 import 'banner.dart';
 import 'basic.dart';
@@ -1433,6 +1437,13 @@ class _WidgetsAppState extends State<WidgetsApp> with WidgetsBindingObserver {
 
   AppLifecycleState? _appLifecycleState;
 
+  /// Whether split screen is enabled by config file.
+  ///
+  /// Null indicates the configuration is not yet ready. Once the config is loaded,
+  /// this is set to `true` if either [SplitViewConfig.enableWideWindowSplit] or
+  /// [SplitViewConfig.enableSquareWindowSplit] is `true`, otherwise `false`.
+  bool? _enableSplitView;
+
   /// The default value for [WidgetsApp.onNavigationNotification].
   ///
   /// Does nothing and stops bubbling if the app is detached. Otherwise, updates
@@ -1465,6 +1476,72 @@ class _WidgetsAppState extends State<WidgetsApp> with WidgetsBindingObserver {
     _updateRouting();
     WidgetsBinding.instance.addObserver(this);
     _appLifecycleState = WidgetsBinding.instance.lifecycleState;
+    if (defaultTargetPlatform == TargetPlatform.ohos) {
+      _initSplitViewConfig();
+    }
+  }
+
+  /// Initializes split screen configuration.
+  ///
+  /// Uses deferFirstFrame to block the first frame until the configuration
+  /// is loaded, then calls allowFirstFrame. waitForConfig returns immediately
+  /// if the config is ready, otherwise waits for loading to complete.
+  void _initSplitViewConfig() {
+    WidgetsBinding.instance.deferFirstFrame();
+    SplitViewConfigLoader().waitForConfig().then((_) {
+      if (mounted) {
+        setState(() {
+          final SplitViewConfig config = SplitViewConfig();
+          _enableSplitView = config.enableWideWindowSplit || config.enableSquareWindowSplit;
+          _determinePriorityMainPage();
+        });
+      }
+      WidgetsBinding.instance.allowFirstFrame();
+    });
+  }
+
+  /// Determines the main page for split screen based on priority.
+  ///
+  /// Priority order:
+  /// 1. [SplitViewConfig.homePage] from config file
+  /// 2. [widget.home] runtime type (route set to '/')
+  /// 3. [widget.routes] with keys '/home', '/', or '/index'
+  /// 4. [widget.initialRoute]
+  ///
+  /// Throws [FlutterError] if no main page can be determined.
+  void _determinePriorityMainPage() {
+    final String? homePage = SplitViewConfig().homePage;
+    if (homePage != null) {
+      debugPrint('SplitView: Main page determined by config homePage: $homePage');
+      SplitViewManager().setRealHomePage(homePage);
+      return;
+    }
+    if (widget.home != null) {
+      final homePage = widget.home!.runtimeType.toString();
+      debugPrint('SplitView: Main page determined by widget.home: $homePage (route: /)');
+      SplitViewManager().setRealHomePage('/');
+      return;
+    }
+    if (widget.routes != null && widget.routes!.isNotEmpty) {
+      const List<String> homeRouteNames = ['/home', '/', '/index'];
+      for (final String routeName in homeRouteNames) {
+        if (widget.routes!.containsKey(routeName)) {
+          debugPrint('SplitView: Main page determined by routes: $routeName');
+          SplitViewManager().setRealHomePage(routeName);
+          return;
+        }
+      }
+    }
+    if (widget.initialRoute != null) {
+      debugPrint('SplitView: Main page determined by initialRoute: ${widget.initialRoute}');
+      SplitViewManager().setRealHomePage(widget.initialRoute!);
+      return;
+    }
+    throw FlutterError(
+      'Cannot determine main page for split screen.\n'
+      'Please provide either widget.home, widget.routes with /home, /, or /index keys, '
+      'or widget.initialRoute.'
+    );
   }
 
   @override
@@ -1688,28 +1765,56 @@ class _WidgetsAppState extends State<WidgetsApp> with WidgetsBindingObserver {
       );
     } else if (_usesNavigator) {
       assert(_navigator != null);
-      routing = FocusScope(
-        debugLabel: 'Navigator Scope',
-        autofocus: true,
-        child: Navigator(
-          clipBehavior: Clip.none,
-          restorationScopeId: 'nav',
-          key: _navigator,
-          initialRoute: _initialRouteName,
-          onGenerateRoute: _onGenerateRoute,
-          onGenerateInitialRoutes: widget.onGenerateInitialRoutes == null
+
+      // If split screen is enabled on OhOS platform, wrap the Navigator with a SplitViewContainer.
+      if (defaultTargetPlatform == TargetPlatform.ohos && _enableSplitView != null
+          && _enableSplitView!) {
+        routing = FocusScope(
+          debugLabel: 'Navigator Scope',
+          autofocus: true,
+          child: SplitViewContainer(
+            clipBehavior: Clip.none,
+            restorationScopeId: 'nav',
+            navigatorKey: _navigator,
+            initialRoute: _initialRouteName,
+            onGenerateRoute: _onGenerateRoute,
+            onGenerateInitialRoutes: widget.onGenerateInitialRoutes == null
               ? Navigator.defaultGenerateInitialRoutes
               : (NavigatorState navigator, String initialRouteName) {
-                  return widget.onGenerateInitialRoutes!(initialRouteName);
-                },
-          onUnknownRoute: _onUnknownRoute,
-          observers: widget.navigatorObservers!,
-          routeTraversalEdgeBehavior: kIsWeb
-              ? TraversalEdgeBehavior.leaveFlutterView
-              : TraversalEdgeBehavior.parentScope,
-          reportsRouteUpdateToEngine: true,
-        ),
-      );
+                return widget.onGenerateInitialRoutes!(initialRouteName);
+              },
+            onUnknownRoute: _onUnknownRoute,
+            navigatorObservers: widget.navigatorObservers,
+            routeTraversalEdgeBehavior: kIsWeb
+                ? TraversalEdgeBehavior.leaveFlutterView
+                : TraversalEdgeBehavior.parentScope,
+            reportsRouteUpdateToEngine: true,
+          ),
+        );
+      } else {
+        routing = FocusScope(
+          debugLabel: 'Navigator Scope',
+          autofocus: true,
+          child: Navigator(
+            clipBehavior: Clip.none,
+            restorationScopeId: 'nav',
+            key: _navigator,
+            initialRoute: _initialRouteName,
+            onGenerateRoute: _onGenerateRoute,
+            onGenerateInitialRoutes: widget.onGenerateInitialRoutes == null
+              ? Navigator.defaultGenerateInitialRoutes
+              : (NavigatorState navigator, String initialRouteName) {
+                return widget.onGenerateInitialRoutes!(initialRouteName);
+              },
+            onUnknownRoute: _onUnknownRoute,
+            observers: widget.navigatorObservers!,
+            routeTraversalEdgeBehavior: kIsWeb
+                ? TraversalEdgeBehavior.leaveFlutterView
+                : TraversalEdgeBehavior.parentScope,
+            reportsRouteUpdateToEngine: true,
+          ),
+        );
+      }
     } else if (_usesRouterWithConfig) {
       routing = Router<Object>.withConfig(
         restorationScopeId: 'router',
