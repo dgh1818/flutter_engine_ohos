@@ -20,6 +20,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 
 import 'basic.dart';
 import 'framework.dart';
@@ -1039,6 +1040,22 @@ abstract class ScrollPosition extends ViewportOffset with ScrollMetrics {
 
   /// Called by [beginActivity] to report when an activity has started.
   void didStartScroll() {
+    if (defaultTargetPlatform == TargetPlatform.ohos) {
+      String scrollType = '${this.runtimeType}';
+      /// Report the type of the scrolling component.
+      /// Track scrollable widget names to identify [PageView] instances.
+      SystemChannels.platform.invokeMethod(
+        'Scroll.type',
+        {'type': scrollType}
+      );
+      /// Report the behavior of scrolling components.
+      /// The optional values for Scroll.Activity include [start] and [end].
+      SystemChannels.platform.invokeMethod(
+        'Scroll.Activity',
+        'start',
+      );
+    }
+
     activity!.dispatchScrollStartNotification(copyWith(), context.notificationContext);
   }
 
@@ -1055,6 +1072,13 @@ abstract class ScrollPosition extends ViewportOffset with ScrollMetrics {
     saveOffset();
     if (keepScrollOffset) {
       saveScrollOffset();
+    }
+
+    if (defaultTargetPlatform == TargetPlatform.ohos) {
+      SystemChannels.platform.invokeMethod(
+        'Scroll.Activity',
+        'end',
+      );
     }
   }
 

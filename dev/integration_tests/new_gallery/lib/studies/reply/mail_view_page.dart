@@ -130,6 +130,7 @@ class _PictureGrid extends StatelessWidget {
     switch (defaultTargetPlatform) {
       case TargetPlatform.iOS:
       case TargetPlatform.android:
+      case TargetPlatform.ohos:
         return true;
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:

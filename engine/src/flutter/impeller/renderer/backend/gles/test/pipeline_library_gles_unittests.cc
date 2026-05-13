@@ -27,7 +27,11 @@ TEST_P(PipelineLibraryGLESTest, ProgramHandlesAreReused) {
   ASSERT_TRUE(pipeline && pipeline->IsValid());
   auto new_desc = desc;
   // Changing the sample counts should not result in a new program object.
+#ifdef __OHOS__
+  new_desc->SetSampleCount(SampleCount::kCount2);
+#else
   new_desc->SetSampleCount(SampleCount::kCount4);
+#endif
   // Make sure we don't hit the top-level descriptor cache. This will cause
   // caching irrespective of backends.
   ASSERT_FALSE(desc->IsEqual(new_desc.value()));

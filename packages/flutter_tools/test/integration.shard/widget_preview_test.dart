@@ -5,11 +5,9 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:dtd/dtd.dart';
 import 'package:file/file.dart';
 import 'package:file_testing/file_testing.dart';
 import 'package:flutter_tools/src/base/io.dart';
-import 'package:flutter_tools/src/base/logger.dart';
 import 'package:flutter_tools/src/commands/widget_preview.dart';
 import 'package:flutter_tools/src/devtools_launcher.dart';
 import 'package:flutter_tools/src/globals.dart' as globals;
@@ -50,7 +48,6 @@ void main() {
   const ProcessManager processManager = LocalProcessManager();
 
   setUp(() async {
-    logger = BufferLogger.test();
     tempDir = createResolvedTempDirectorySync('widget_preview_test.');
     await project.setUpIn(tempDir);
   });
@@ -115,6 +112,8 @@ void main() {
       }),
     );
     await completer.future;
+    process!.kill();
+    process = null;
   }
 
   void runFlutterClean() {

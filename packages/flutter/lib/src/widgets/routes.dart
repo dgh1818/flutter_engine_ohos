@@ -24,7 +24,9 @@ import 'package:flutter/services.dart';
 
 import 'actions.dart';
 import 'basic.dart';
+import 'binding.dart';
 import 'display_feature_sub_screen.dart';
+import 'media_query.dart';
 import 'focus_manager.dart';
 import 'focus_scope.dart';
 import 'focus_traversal.dart';
@@ -179,6 +181,11 @@ abstract class TransitionRoute<T> extends OverlayRoute<T> implements PredictiveB
 
   bool _popFinalized = false;
 
+  // LTPO: Used to calculate page transition animation velocity
+  double _lastProgress = 0.0;
+  DateTime? _lastFrameTime;
+  double? _maxScreenDimension; // Cached screen dimension
+
   /// The animation that drives the route's transition and the previous route's
   /// forward transition.
   Animation<double>? get animation => _animation;
@@ -298,6 +305,10 @@ abstract class TransitionRoute<T> extends OverlayRoute<T> implements PredictiveB
         }
         _performanceModeRequestHandle?.dispose();
         _performanceModeRequestHandle = null;
+        // LTPO: Clear cached screen dimension when transition finishes
+        if (defaultTargetPlatform == TargetPlatform.ohos) {
+          _maxScreenDimension = null;
+        }
       case AnimationStatus.forward:
       case AnimationStatus.reverse:
         if (overlayEntries.isNotEmpty) {
@@ -317,7 +328,87 @@ abstract class TransitionRoute<T> extends OverlayRoute<T> implements PredictiveB
           _performanceModeRequestHandle?.dispose();
           _performanceModeRequestHandle = null;
         }
+        // LTPO: Clear cached screen dimension when transition finishes
+        if (defaultTargetPlatform == TargetPlatform.ohos) {
+          _maxScreenDimension = null;
+        }
     }
+  }
+
+  // LTPO: Calculate and report page transition animation velocity
+  void _reportTransitionVelocity() {
+    if (_animation == null) {
+      return;
+    }
+
+    // Lazy initialization: use PlatformDispatcher to avoid creating an
+    // InheritedWidget dependency on MediaQuery, which would cause the
+    // Navigator to rebuild on every keyboard show/hide.
+    if (_maxScreenDimension == null) {
+      try {
+        final ui.PlatformDispatcher dispatcher =
+            WidgetsBinding.instance?.platformDispatcher ?? ui.PlatformDispatcher.instance;
+        final ui.FlutterView? view = dispatcher.implicitView ?? dispatcher.views.firstOrNull;
+        if (view != null && view.devicePixelRatio > 0.0) {
+          final Size physicalSize = view.physicalSize;
+          final double dpr = view.devicePixelRatio;
+          final Size logicalSize = Size(
+            physicalSize.width / dpr,
+            physicalSize.height / dpr,
+          );
+          _maxScreenDimension = logicalSize.width > logicalSize.height
+              ? logicalSize.width
+              : logicalSize.height;
+        }
+      } catch (_) {
+        // Platform dispatcher or view not available yet, skip this frame
+        return;
+      }
+    }
+
+    final double currentProgress = _animation!.value;
+    final DateTime now = DateTime.now();
+
+    if (_lastFrameTime != null) {
+      // The unit of the variable dt is seconds
+      final double dt = now.difference(_lastFrameTime!).inMicroseconds.toDouble()
+        / Duration.microsecondsPerSecond;
+      if (dt > 0 && dt < 0.1) {
+        // Use cached screen dimension to avoid MediaQuery lookup on every frame.
+        // Screen size doesn't change during a transition.
+        final double maxScreenDimension = _maxScreenDimension!;
+
+        // Calculate progress change rate (percent/second)
+        final double progressDelta = (currentProgress - _lastProgress).abs();
+        final double progressVelocity = progressDelta / dt; // progress/second
+
+        // Estimate pixel velocity: assuming page slides in from outside the screen (horizontally or vertically)
+        // Use the maximum of screen width and height as reference.
+        //
+        // Note: This is an approximation that assumes the page moves the full screen distance.
+        // Limitations:
+        // - Partial transitions (e.g., dialogs, bottom sheets) may report higher velocity than actual
+        // - Shared element transitions (Hero animations) have their own velocity calculation
+        // - Non-linear curves (e.g., ease-in-out) may have varying instantaneous velocities
+        // - Some transitions move only partially across the screen
+        // Despite these limitations, this provides a reasonable upper-bound estimate for LTPO purposes.
+        final double pixelVelocity = progressVelocity * maxScreenDimension;
+
+        if (pixelVelocity > 0) {
+          // Build route identifier info
+          final String routeName = settings.name ?? runtimeType.toString();
+          final String routeInfo = debugLabel != null ? '$routeName($debugLabel)' : routeName;
+          WidgetsBinding.instance.recordTranslateVelocity(
+            velocity: pixelVelocity,
+            source: TranslateAnimationSource.pageTransition,
+            debugInfo: 'Route($routeInfo)',
+          );
+        }
+      }
+    }
+
+    _lastProgress = currentProgress;
+    _lastFrameTime = now;
   }
 
   @override
@@ -328,6 +419,11 @@ abstract class TransitionRoute<T> extends OverlayRoute<T> implements PredictiveB
     _animation = createAnimation()..addStatusListener(_handleStatusChanged);
     assert(_animation != null, '$runtimeType.createAnimation() returned null.');
     super.install();
+    // LTPO: Add animation listener to calculate page transition velocity
+    // Note: Must be called after super.install() because navigator is assigned there.
+    if (defaultTargetPlatform == TargetPlatform.ohos) {
+      _animation!.addListener(_reportTransitionVelocity);
+    }
     if (_animation!.isCompleted && overlayEntries.isNotEmpty) {
       overlayEntries.first.opaque = opaque;
     }
@@ -628,6 +724,13 @@ abstract class TransitionRoute<T> extends OverlayRoute<T> implements PredictiveB
   void dispose() {
     assert(!_transitionCompleter.isCompleted, 'Cannot dispose a $runtimeType twice.');
     assert(!debugTransitionCompleted(), 'Cannot dispose a $runtimeType twice.');
+    // Remove listeners in LIFO order (reverse of install order):
+    // install: addStatusListener -> addListener
+    // dispose: removeListener -> removeStatusListener
+    if (defaultTargetPlatform == TargetPlatform.ohos) {
+      _animation?.removeListener(_reportTransitionVelocity);
+      _maxScreenDimension = null;
+    }
     _animation?.removeStatusListener(_handleStatusChanged);
     _performanceModeRequestHandle?.dispose();
     _performanceModeRequestHandle = null;

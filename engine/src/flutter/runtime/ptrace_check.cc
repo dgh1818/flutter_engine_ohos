@@ -24,6 +24,7 @@
 
 #if TRACING_CHECKS_NECESSARY
 
+#ifdef FML_OS_IOS
 #include <sys/sysctl.h>
 #include <sys/types.h>
 
@@ -144,5 +145,59 @@ TracingResult GetTracingResultImpl() {
 }
 
 }  // namespace flutter
+
+#endif // FML_OS_IOS
+
+
+#ifdef FML_OS_OHOS
+
+#include <linux/sysctl.h>
+#include <sys/types.h>
+
+#include <mutex>
+
+#include "flutter/fml/build_config.h"
+
+// Being extra careful and adding additional landmines that will prevent
+// compilation of this TU in an incorrect runtime mode.
+static_assert(FML_OS_OHOS, "This translation unit is ohos specific.");
+static_assert(FLUTTER_RUNTIME_MODE == FLUTTER_RUNTIME_MODE_DEBUG,
+              "This translation unit must only be compiled in the debug "
+              "runtime mode as it "
+              "contains private API usage.");
+
+namespace flutter {
+
+static bool IsLaunchedByFlutterCLI(const Settings& vm_settings) {
+  return vm_settings.enable_checked_mode;
+}
+
+static bool EnableTracingIfNecessaryOnce(const Settings& vm_settings) {
+  if (IsLaunchedByFlutterCLI(vm_settings)) {
+    return true;
+  }
+  return false;
+}
+
+static TracingResult sTracingResult = TracingResult::kNotAttempted;
+
+bool EnableTracingIfNecessaryImpl(const Settings& vm_settings) {
+  static std::once_flag tracing_flag;
+
+  std::call_once(tracing_flag, [&vm_settings]() {
+    sTracingResult = EnableTracingIfNecessaryOnce(vm_settings)
+                         ? TracingResult::kEnabled
+                         : TracingResult::kDisabled;
+  });
+  return sTracingResult != TracingResult::kDisabled;
+}
+
+TracingResult GetTracingResultImpl() {
+  return sTracingResult;
+}
+
+}  // namespace flutter
+
+#endif // FML_OS_OHOS
 
 #endif  // TRACING_CHECKS_NECESSARY

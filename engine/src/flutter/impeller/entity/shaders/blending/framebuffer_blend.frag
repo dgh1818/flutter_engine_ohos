@@ -15,13 +15,19 @@
 // impeller/renderer/backend/vulkan/binding_helpers_vk.cc
 layout(constant_id = 0) const float blend_type = 0;
 layout(constant_id = 1) const float supports_decal = 1;
+layout(constant_id = 2) const float sample_count = 4;
 
 layout(input_attachment_index = 0) uniform subpassInputMS uSub;
 
 vec4 ReadDestination() {
-  return (subpassLoad(uSub, 0) + subpassLoad(uSub, 1) + subpassLoad(uSub, 2) +
-          subpassLoad(uSub, 3)) /
-         vec4(4.0);
+  if (sample_count == 1.0) {
+    return subpassLoad(uSub, 0);
+  } else if (sample_count == 2.0) {
+    return (subpassLoad(uSub, 0) + subpassLoad(uSub, 1)) / vec4(2.0);
+  } else {
+    return (subpassLoad(uSub, 0) + subpassLoad(uSub, 1) + subpassLoad(uSub, 2) +
+            subpassLoad(uSub, 3)) / vec4(4.0);
+  }
 }
 
 uniform sampler2D texture_sampler_src;

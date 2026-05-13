@@ -110,7 +110,7 @@ class LazyRenderingConfig {
 
   InlinePassContext* GetInlinePassContext() const;
 
- private:
+ public:
   std::unique_ptr<EntityPassTarget> entity_pass_target_;
   std::unique_ptr<InlinePassContext> inline_pass_context_;
 };
@@ -377,9 +377,10 @@ class Canvas {
   void AddRenderEntityWithFiltersToCurrentPass(Entity& entity,
                                                const Geometry* geometry,
                                                const Paint& paint,
-                                               bool reuse_depth = false);
+                                               bool reuse_depth = false,
+                                               bool is_draw_rect = false);
 
-  void AddRenderEntityToCurrentPass(Entity& entity, bool reuse_depth = false);
+  void AddRenderEntityToCurrentPass(Entity& entity, bool reuse_depth = false,bool is_draw_rect = false);
 
   /// Returns true if this operation is consistent with a DrawShadow-like
   /// operation.

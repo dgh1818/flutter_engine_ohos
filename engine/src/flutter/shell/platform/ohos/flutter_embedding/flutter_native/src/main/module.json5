@@ -1,0 +1,9 @@
+{
+  "module": {
+    "name": "flutter_native",
+    "type": "har",
+    "deviceTypes": [
+      "default"
+    ]
+  }
+}

@@ -185,6 +185,7 @@ class _CupertinoExpansionTileState extends State<CupertinoExpansionTile> {
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
       case TargetPlatform.windows:
+      case TargetPlatform.ohos:
         break;
     }
     return Semantics(

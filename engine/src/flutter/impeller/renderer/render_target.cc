@@ -404,7 +404,11 @@ RenderTarget RenderTargetAllocator::CreateOffscreenMSAA(
     TextureDescriptor color0_tex_desc;
     color0_tex_desc.storage_mode = color_attachment_config.storage_mode;
     color0_tex_desc.type = TextureType::kTexture2DMultisample;
+#ifdef __OHOS__
+    color0_tex_desc.sample_count = SampleCount::kCount2;
+#else
     color0_tex_desc.sample_count = SampleCount::kCount4;
+#endif
     color0_tex_desc.format = pixel_format;
     color0_tex_desc.size = size;
     color0_tex_desc.usage = TextureUsage::kRenderTarget;
@@ -495,7 +499,11 @@ void RenderTarget::SetupDepthStencilAttachments(
         stencil_attachment_config.storage_mode;
     if (msaa) {
       depth_stencil_texture_desc.type = TextureType::kTexture2DMultisample;
+#ifdef __OHOS__
+      depth_stencil_texture_desc.sample_count = SampleCount::kCount2;
+#else
       depth_stencil_texture_desc.sample_count = SampleCount::kCount4;
+#endif
     }
     depth_stencil_texture_desc.format =
         context.GetCapabilities()->GetDefaultDepthStencilFormat();
@@ -522,6 +530,14 @@ void RenderTarget::SetupDepthStencilAttachments(
 
   SetDepthAttachment(std::move(depth0));
   SetStencilAttachment(std::move(stencil0));
+}
+
+void RenderTarget::SetRenderArea(std::optional<IRect> area) const {
+  render_area_ = area;
+}
+
+const std::optional<IRect> RenderTarget::GetRenderArea() const {
+  return render_area_;
 }
 
 }  // namespace impeller

@@ -1,0 +1,9 @@
+{
+  "name": "flutter_native",
+  "version": "1.0.0",
+  "description": "Place so files for flutter on ohos.",
+  "main": "Index.ets",
+  "author": "",
+  "license": "Apache-2.0",
+  "dependencies": {}
+}

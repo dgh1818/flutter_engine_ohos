@@ -49,7 +49,13 @@ ImageGeneratorRegistry::ImageGeneratorRegistry() : weak_factory_(this) {
       [](sk_sp<SkData> buffer) {
         return APNGImageGenerator::MakeFromData(std::move(buffer));
       },
+#ifdef FML_OS_OHOS
+      // OHOS's PixelMap currently does not support APNG decoding. Direct
+      // decoding will result in the image being decoded as PNG.
+      2);
+#else
       0);
+#endif
 
   static std::once_flag register_skia_codecs;
   std::call_once(register_skia_codecs, RegisterSkiaCodecs);

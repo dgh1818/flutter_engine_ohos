@@ -172,6 +172,9 @@ mixin ServicesBinding on BindingBase, SchedulerBinding {
   @mustCallSuper
   Future<void> handleSystemMessage(Object systemMessage) async {
     final message = systemMessage as Map<String, dynamic>;
+    if (message['type'] is! String) {
+      return;
+    }
     final type = message['type'] as String;
     switch (type) {
       case 'memoryPressure':
@@ -595,6 +598,23 @@ mixin ServicesBinding on BindingBase, SchedulerBinding {
   /// To unregister, set to null.
   static set systemContextMenuClient(SystemContextMenuClient? client) {
     instance._systemContextMenuClient = client;
+  }
+
+  /// Report the activity executed by the navigator.
+  ///
+  /// @Param Activity :
+  /// [push] or [pop]
+  ///
+  /// @Param status :
+  /// [start] or [finish]
+  void reportNavigatorActivity(String activity, String status) {
+    SystemChannels.navigation.invokeMethod<void>(
+      'reportNavigatorActivity',
+      <String, String>{
+        'activity': activity,
+        'status': status
+      }
+    );
   }
 }
 

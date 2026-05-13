@@ -601,7 +601,7 @@ void UmbraPinAccumulator::Write(Point point) {
     }
   }
 
-  pins_.emplace_back(point);
+  pins_.emplace_back(UmbraPin{point});
 }
 
 // Called at the end of every contour of which we hope there is only one.

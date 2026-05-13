@@ -35,6 +35,24 @@ vk::Result QueueVK::Present(const vk::PresentInfoKHR& present_info) {
   return queue_.presentKHR(present_info);
 }
 
+void QueueVK::WaitIdle() const {
+  Lock lock(queue_mutex_);
+  [[maybe_unused]] auto result = queue_.waitIdle();
+  return;
+}
+
+#ifdef FML_OS_OHOS
+vk::Result QueueVK::QueueSignalReleaseImageOHOS(
+    std::vector<vk::Semaphore> semaphores,
+    vk::Image image,
+    int* fence_fd) {
+  Lock lock(queue_mutex_);
+  return queue_.queueSignalReleaseImageOHOS((int32_t)semaphores.size(),
+                                            (vk::Semaphore*)semaphores.data(),
+                                            image, fence_fd);
+}
+#endif
+
 void QueueVK::InsertDebugMarker(std::string_view label) const {
   if (!HasValidationLayers()) {
     return;

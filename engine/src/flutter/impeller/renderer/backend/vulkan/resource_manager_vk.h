@@ -11,6 +11,13 @@
 #include <thread>
 #include <vector>
 
+#include "flutter/fml/build_config.h"
+#ifdef FML_OS_OHOS
+#define OHOS_MEMORY_LEVEL_MODRATE 0
+#define OHOS_MEMORY_LEVEL_LOW 1
+#define OHOS_MEMORY_LEVEL_CRITICAL 2
+#endif
+
 namespace impeller {
 
 //------------------------------------------------------------------------------
@@ -70,6 +77,11 @@ class ResourceManagerVK final
   /// when all references to it are dropped.
   ~ResourceManagerVK();
 
+#ifdef FML_OS_OHOS
+  void setQosOnLowMemory(int64_t lowMemoryLevel);
+  void processQosLevel();
+#endif
+
  private:
   using Reclaimables = std::vector<std::unique_ptr<ResourceVK>>;
 
@@ -78,6 +90,10 @@ class ResourceManagerVK final
   std::condition_variable reclaimables_cv_;
   Reclaimables reclaimables_;
   bool should_exit_ = false;
+#ifdef FML_OS_OHOS
+  std::atomic<int64_t> lowMemoryEventNum_{0};
+  std::atomic<int64_t> lowMemoryLevel_{0};
+#endif
   // This should be initialized last since it references the other instance
   // variables.
   std::thread waiter_;

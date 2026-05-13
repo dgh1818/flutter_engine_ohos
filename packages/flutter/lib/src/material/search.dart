@@ -620,6 +620,7 @@ class _SearchPageState<T> extends State<_SearchPage<T>> {
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
       case TargetPlatform.windows:
+      case TargetPlatform.ohos:
         routeName = searchFieldLabel;
     }
 

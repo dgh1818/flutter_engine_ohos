@@ -40,7 +40,11 @@ std::shared_ptr<Texture> SwapchainTransientsVK::CreateMSAATexture() const {
   TextureDescriptor msaa_desc;
   msaa_desc.storage_mode = StorageMode::kDeviceTransient;
   msaa_desc.type = TextureType::kTexture2DMultisample;
+#ifdef __OHOS__
+  msaa_desc.sample_count = SampleCount::kCount2;
+#else
   msaa_desc.sample_count = SampleCount::kCount4;
+#endif
   msaa_desc.format = desc_.format;
   msaa_desc.size = desc_.size;
   msaa_desc.usage = TextureUsage::kRenderTarget;
@@ -68,7 +72,11 @@ std::shared_ptr<Texture> SwapchainTransientsVK::CreateDepthStencilTexture()
   depth_stencil_desc.storage_mode = StorageMode::kDeviceTransient;
   if (enable_msaa_) {
     depth_stencil_desc.type = TextureType::kTexture2DMultisample;
+#ifdef __OHOS__
+    depth_stencil_desc.sample_count = SampleCount::kCount2;
+#else
     depth_stencil_desc.sample_count = SampleCount::kCount4;
+#endif
   } else {
     depth_stencil_desc.type = TextureType::kTexture2D;
     depth_stencil_desc.sample_count = SampleCount::kCount1;
