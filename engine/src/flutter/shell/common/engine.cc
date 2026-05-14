@@ -670,6 +670,15 @@ void Engine::LoadDartDeferredLibraryError(intptr_t loading_unit_id,
   }
 }
 
+#ifdef FML_OS_OHOS
+RuntimeController::DartHeapUsage Engine::GetDartHeapUsage() const {
+  if (runtime_controller_) {
+    return runtime_controller_->GetDartHeapUsage();
+  }
+  return RuntimeController::DartHeapUsage{0, 0, 0, 0};
+}
+#endif  // FML_OS_OHOS
+
 const std::weak_ptr<VsyncWaiter> Engine::GetVsyncWaiter() const {
   return animator_->GetVsyncWaiter();
 }

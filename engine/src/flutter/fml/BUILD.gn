@@ -9,6 +9,21 @@ if (is_fuchsia) {
   import("//flutter/tools/fuchsia/gn-sdk/src/gn_configs.gni")
 }
 
+config("fml_ohos_config") {
+  if (is_ohos) {
+    flutter_version = exec_script(
+        "//flutter/attachment/scripts/ohos_har_version.py",
+        [
+          "--package-file",
+          rebase_path("//flutter/shell/platform/ohos/flutter_embedding/oh-package.json5", root_build_dir),
+          "--git-dir",
+          rebase_path("//", root_build_dir),
+        ],
+        "value")
+    defines = [ "FLUTTER_VERSION=\"$flutter_version\"" ]
+  }
+}
+
 source_set("fml") {
   sources = [
     "ascii_trie.cc",
@@ -279,6 +294,10 @@ source_set("fml") {
       "platform/posix/posix_wrappers_posix.cc",
       "platform/posix/process_posix.cc",
     ]
+  }
+
+  if (is_ohos) {
+    public_configs += [ ":fml_ohos_config" ]
   }
 }
 

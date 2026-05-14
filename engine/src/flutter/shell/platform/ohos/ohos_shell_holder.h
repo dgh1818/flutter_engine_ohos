@@ -8,12 +8,14 @@
 #ifndef FLUTTER_SHELL_PLATFORM_OHOS_OHOS_SHELL_HOLDER_H_
 #define FLUTTER_SHELL_PLATFORM_OHOS_OHOS_SHELL_HOLDER_H_
 #define FML_USED_ON_EMBEDDER
+#include <atomic>
 
 #include "flutter/assets/asset_manager.h"
 #include "flutter/fml/macros.h"
 #include "flutter/fml/unique_fd.h"
 #include "flutter/lib/ui/window/viewport_metrics.h"
 #include "flutter/runtime/platform_data.h"
+#include "flutter/runtime/runtime_controller.h"
 #include "flutter/shell/common/run_configuration.h"
 #include "flutter/shell/common/shell.h"
 #include "flutter/shell/common/thread_host.h"
@@ -99,7 +101,11 @@ class OHOSShellHolder {
 
   void WaitRasterTasksFinished();
 
+  RuntimeController::DartHeapUsage GetDartHeapMemoryUsage();
+
  private:
+  static constexpr int64_t kDartHeapMemoryThresholdBytes = 1536LL * 1024 * 1024;  // 1.5GB
+  static constexpr int kMemoryMonitorIntervalSeconds = 10;
   std::optional<RunConfiguration> BuildRunConfiguration(
       const std::string& entrypoint,
       const std::string& libraryUrl,
@@ -118,6 +124,10 @@ class OHOSShellHolder {
 
   std::shared_ptr<PlatformViewOHOSNapi> napi_facade_;
 
+  fml::WeakPtrFactory<OHOSShellHolder> weak_factory_{this};
+
+  std::atomic<bool> memory_monitor_running_{true};
+
   OHOSShellHolder(const flutter::Settings& settings,
                   const std::shared_ptr<PlatformViewOHOSNapi>& napi_facade,
                   const std::shared_ptr<ThreadHost>& thread_host,
@@ -126,6 +136,10 @@ class OHOSShellHolder {
                   const fml::WeakPtr<PlatformViewOHOS>& platform_view);
 
   static void ThreadDestructCallback(void* value);
+
+  void ScheduleDartMemoryMonitor();
+  void CheckDartHeapMemory();
+  void StopDartMemoryMonitor();
 
   FML_DISALLOW_COPY_AND_ASSIGN(OHOSShellHolder);
 };

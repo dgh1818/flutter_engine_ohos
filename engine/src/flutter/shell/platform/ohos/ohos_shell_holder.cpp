@@ -7,6 +7,7 @@
 
 #include "flutter/shell/platform/ohos/ohos_shell_holder.h"
 #include "flutter/fml/native_library.h"
+#include "flutter/fml/platform/ohos/hiappevent/ohos_hiappevent.h"
 #include "flutter/shell/common/rasterizer.h"
 #include "flutter/shell/common/run_configuration.h"
 #include "flutter/shell/common/thread_host.h"
@@ -270,6 +271,7 @@ OHOSShellHolder::OHOSShellHolder(
   platform_view_->SetSemanticsBridge(bridge_, bridge_mutex_);
   local_font_path_ = OHOSLastFontPath;
   FML_DCHECK(platform_view_);
+  ScheduleDartMemoryMonitor();
 }
 
 OHOSShellHolder::OHOSShellHolder(
@@ -294,10 +296,12 @@ OHOSShellHolder::OHOSShellHolder(
   bridge_mutex_ = std::make_shared<std::mutex>();
   platform_view_->SetSemanticsBridge(bridge_, bridge_mutex_);
   local_font_path_ = OHOSLastFontPath;
+  ScheduleDartMemoryMonitor();
 }
 
 OHOSShellHolder::~OHOSShellHolder() {
   FML_LOG(INFO) << "MHN enter ~OHOSShellHolder()";
+  StopDartMemoryMonitor();
   shell_.reset();
   thread_host_.reset();
   napi_facade_.reset();
@@ -766,6 +770,61 @@ void OHOSShellHolder::WaitRasterTasksFinished() {
       shell_->GetTaskRunners().GetRasterTaskRunner(),
       [&gpu_latch] { gpu_latch.Signal(); });
   gpu_latch.Wait();
+}
+
+RuntimeController::DartHeapUsage OHOSShellHolder::GetDartHeapMemoryUsage() {
+  if (!shell_) {
+    return RuntimeController::DartHeapUsage{0, 0, 0, 0};
+  }
+  auto engine_ptr = shell_->GetEngine();
+  if (!engine_ptr) {
+    return RuntimeController::DartHeapUsage{0, 0, 0, 0};
+  }
+  return engine_ptr.get()->GetDartHeapUsage();
+}
+
+void OHOSShellHolder::ScheduleDartMemoryMonitor() {
+  if (!memory_monitor_running_ || !shell_) {
+    return;
+  }
+
+  auto io_task_runner = shell_->GetTaskRunners().GetIOTaskRunner();
+  auto ui_task_runner = shell_->GetTaskRunners().GetUITaskRunner();
+  if (!io_task_runner || !ui_task_runner) {
+    return;
+  }
+
+  io_task_runner->PostDelayedTask(
+      [weak_this = weak_factory_.GetWeakPtr(), ui_task_runner]() {
+        if (!weak_this) {
+          return;
+        }
+        ui_task_runner->PostTask([weak_this]() {
+          if (!weak_this) {
+            return;
+          }
+          weak_this.get()->CheckDartHeapMemory();
+        });
+      },
+      fml::TimeDelta::FromSeconds(kMemoryMonitorIntervalSeconds));
+}
+
+void OHOSShellHolder::CheckDartHeapMemory() {
+  auto heap_usage = GetDartHeapMemoryUsage();
+  auto used_size = heap_usage.old_used + heap_usage.new_used;
+
+  if (used_size > kDartHeapMemoryThresholdBytes) {
+    fml::hiappevent::OhosHiappEventDDL::GetInstance()->ReportMemoryUsage(
+        heap_usage.old_used, heap_usage.new_used);
+    StopDartMemoryMonitor();
+    return;
+  }
+
+  ScheduleDartMemoryMonitor();
+}
+
+void OHOSShellHolder::StopDartMemoryMonitor() {
+  memory_monitor_running_ = false;
 }
 
 }  // namespace flutter
