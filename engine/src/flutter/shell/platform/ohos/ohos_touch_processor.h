@@ -76,6 +76,7 @@ class OhosTouchProcessor {
   double lastMouseX_ = -1.0;
   double lastMouseY_ = -1.0;
   int64_t lastMouseTimestamp_ = 0;
+  int64_t mouse_button_state_ = 0;
 
  private:
   int apiVersion_;
@@ -109,6 +110,9 @@ class OhosTouchProcessor {
                                      OH_NativeXComponent_MouseEvent mouseEvent,
                                      double windowWidth,
                                      double windowHeight);
+  bool HandleMouseButtonEvent(OH_NativeXComponent_MouseEvent mouseEvent,
+                              PointerData::Change& change,
+                              int64_t& buttons_to_send);
 };
 }  // namespace flutter
 #endif  // FLUTTER_SHELL_PLATFORM_OHOS_OHOS_TOUCH_PROCESSOR_H_
