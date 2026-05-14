@@ -126,12 +126,12 @@ source_set("flutter_ohos_sources") {
     "ohos_surface_software.cpp",
     "ohos_surface_vulkan_impeller.cpp",
     "ohos_touch_processor.cpp",
+    "ohos_vsync_voting_mgr.cpp",
     "ohos_xcomponent_adapter.cpp",
     "platform_message_handler_ohos.cpp",
     "platform_message_response_ohos.cpp",
     "platform_view_ohos.cpp",
     "vsync_waiter_ohos.cpp",
-    "ohos_vsync_voting_mgr.cpp",
   ]
 
   sources += get_target_outputs(":icudtl_asm")
@@ -244,6 +244,7 @@ executable("flutter_ohos_unittests") {
   ldflags += [ "-limage_source" ]
   ldflags += [ "-lqos" ]
   ldflags += [ "-ldeviceinfo_ndk.z" ]
+  ldflags += [ "-lnative_color_space_manager" ]
 }
 
 shared_library("flutter_shell_native") {
@@ -287,6 +288,7 @@ shared_library("flutter_shell_native") {
   ldflags += [ "-lpixelmap" ]
   ldflags += [ "-limage_source" ]
   ldflags += [ "-lqos" ]
+  ldflags += [ "-lnative_color_space_manager" ]
 
   public_configs = [ "//flutter:config" ]
 }

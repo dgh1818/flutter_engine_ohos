@@ -76,16 +76,24 @@ static bool ContainsFormat(const std::vector<vk::SurfaceFormatKHR>& formats,
 static std::optional<vk::SurfaceFormatKHR> ChooseSurfaceFormat(
     const std::vector<vk::SurfaceFormatKHR>& formats,
     PixelFormat preference) {
+#ifdef FML_OS_OHOS
+  const auto colorspaceP3 = vk::ColorSpaceKHR::eDisplayP3NonlinearEXT;
+  const auto colorspaceSrgb = vk::ColorSpaceKHR::eSrgbNonlinear;
+  std::vector<vk::SurfaceFormatKHR> options = {
+      {vk::Format::eA2B10G10R10UnormPack32, colorspaceP3},
+      {vk::Format::eR8G8B8A8Unorm, colorspaceSrgb},
+      {vk::Format::eB8G8R8A8Unorm, colorspaceSrgb}};
+#else
   const auto colorspace = vk::ColorSpaceKHR::eSrgbNonlinear;
   const auto vk_preference =
       vk::SurfaceFormatKHR{ToVKImageFormat(preference), colorspace};
   if (ContainsFormat(formats, vk_preference)) {
     return vk_preference;
   }
-
   std::vector<vk::SurfaceFormatKHR> options = {
       {vk::Format::eB8G8R8A8Unorm, colorspace},
       {vk::Format::eR8G8B8A8Unorm, colorspace}};
+#endif
   for (const auto& format : options) {
     if (ContainsFormat(formats, format)) {
       return format;
@@ -151,13 +159,27 @@ KHRSwapchainImplVK::KHRSwapchainImplVK(const std::shared_ptr<Context>& context,
     return;
   }
 
-  const auto format = ChooseSurfaceFormat(
+const auto format = ChooseSurfaceFormat(
       formats, vk_context.GetCapabilities()->GetDefaultColorFormat());
   if (!format.has_value()) {
     VALIDATION_LOG << "Swapchain has no supported formats.";
     return;
   }
+#ifdef FML_OS_OHOS
+  PixelFormat offscreen_format;
+  if (format.value().format == vk::Format::eA2B10G10R10UnormPack32) {
+    FML_LOG(INFO) << "OHOS: Swapchain uses A2B10G10R10UnormPack32 (wide gamut), "
+                  << "offscreen uses kR8G8B8A8UNormInt (high alpha precision)";
+    offscreen_format = PixelFormat::kR8G8B8A8UNormInt;
+  } else {
+    offscreen_format = ToPixelFormat(format.value().format);
+    FML_LOG(INFO) << "OHOS: Swapchain uses non-wide-gamut format, "
+                  << "offscreen uses same format: " << PixelFormatToString(offscreen_format);
+  }
+  vk_context.SetOffscreenFormat(offscreen_format);
+#else
   vk_context.SetOffscreenFormat(ToPixelFormat(format.value().format));
+#endif
 
   const auto composite =
       ChooseAlphaCompositionMode(surface_caps.supportedCompositeAlpha);

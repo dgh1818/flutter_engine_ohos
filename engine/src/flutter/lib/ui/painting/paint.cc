@@ -68,7 +68,6 @@ DlColor ReadColor(const tonic::DartByteData& byte_data) {
   float red = float_data[kColorRedIndex];
   float green = float_data[kColorGreenIndex];
   float blue = float_data[kColorBlueIndex];
-  // Invert alpha so 0 initialized buffer has default value;
   float alpha = 1.f - float_data[kColorAlphaIndex];
   uint32_t colorspace = uint_data[kColorSpaceIndex];
 

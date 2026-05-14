@@ -41,6 +41,7 @@ static bool IsDepthStencilFormat(PixelFormat format) {
     case PixelFormat::kB10G10R10XRSRGB:
     case PixelFormat::kB10G10R10A10XR:
     case PixelFormat::kR32Float:
+    case PixelFormat::kB10G10R10A2UNorm:
       return false;
   }
   FML_UNREACHABLE();
@@ -102,6 +103,11 @@ struct TexImage2DData {
         internal_format = GL_RGBA16F;
         external_format = GL_RGBA;
         type = GL_HALF_FLOAT;
+        break;
+      case PixelFormat::kB10G10R10A2UNorm:
+        internal_format = GL_RGB10_A2;
+        external_format = GL_RGBA;
+        type = GL_UNSIGNED_INT_2_10_10_10_REV;
         break;
       case PixelFormat::kS8UInt:
         // Pure stencil textures are only available in OpenGL 4.4+, which is
@@ -398,6 +404,8 @@ static std::optional<GLenum> ToRenderBufferFormat(PixelFormat format) {
       return GL_DEPTH24_STENCIL8;
     case PixelFormat::kD32FloatS8UInt:
       return GL_DEPTH32F_STENCIL8;
+    case PixelFormat::kB10G10R10A2UNorm:
+      return GL_RGB10_A2;
     case PixelFormat::kUnknown:
     case PixelFormat::kA8UNormInt:
     case PixelFormat::kR8UNormInt:

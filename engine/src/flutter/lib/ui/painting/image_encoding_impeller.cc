@@ -261,6 +261,8 @@ int ImageEncodingImpeller::GetColorSpace(
     case impeller::PixelFormat::kB10G10R10XR:  // intentional_fallthrough
     case impeller::PixelFormat::kR16G16B16A16Float:
       return ColorSpace::kExtendedSRGB;
+    case impeller::PixelFormat::kB10G10R10A2UNorm:
+ 	    return ColorSpace::kDisplayP3;
     default:
       return ColorSpace::kSRGB;
   }

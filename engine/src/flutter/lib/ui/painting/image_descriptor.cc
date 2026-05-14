@@ -231,6 +231,8 @@ int ImageDescriptor::bytesPerPixel() const {
     case kRGBAFloat32:
       return 16;
   }
+uint32_t ImageDescriptor::get_colorspace() {
+  return generator_->GetColorSpace(0);
 }
 
 }  // namespace flutter

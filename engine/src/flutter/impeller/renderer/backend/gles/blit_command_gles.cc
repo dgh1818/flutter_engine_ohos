@@ -188,6 +188,11 @@ struct TexImage2DData {
         external_format = GL_RGBA;
         type = GL_HALF_FLOAT;
         break;
+      case PixelFormat::kB10G10R10A2UNorm:
+        internal_format = GL_RGB10_A2;
+        external_format = GL_RGBA;
+        type = GL_UNSIGNED_INT_2_10_10_10_REV;
+        break;
       case PixelFormat::kS8UInt:
         // Pure stencil textures are only available in OpenGL 4.4+, which is
         // ~0% of mobile devices. Instead, we use a depth-stencil texture and

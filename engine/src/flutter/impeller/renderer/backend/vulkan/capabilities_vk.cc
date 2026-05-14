@@ -400,8 +400,15 @@ static bool HasSuitableDepthStencilFormat(const vk::PhysicalDevice& device,
 
 static bool PhysicalDeviceSupportsRequiredFormats(
     const vk::PhysicalDevice& device) {
+#ifdef FML_OS_OHOS
+  const auto has_color_format =
+      HasSuitableColorFormat(device, vk::Format::eA2B10G10R10UnormPack32) ||
+      HasSuitableColorFormat(device, vk::Format::eR8G8B8A8Unorm) ||
+      HasSuitableColorFormat(device, vk::Format::eB8G8R8A8Unorm);
+#else
   const auto has_color_format =
       HasSuitableColorFormat(device, vk::Format::eB8G8R8A8Unorm);
+#endif
   const auto has_stencil_format =
       HasSuitableDepthStencilFormat(device, vk::Format::eD32SfloatS8Uint) ||
       HasSuitableDepthStencilFormat(device, vk::Format::eD24UnormS8Uint);

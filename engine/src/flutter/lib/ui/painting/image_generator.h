@@ -139,6 +139,7 @@ class ImageGenerator {
   ///          `ImageGenerator`.
   /// @return  A new `SkImage` containing the decoded image data.
   sk_sp<SkImage> GetImage();
+  virtual uint32_t GetColorSpace(unsigned int frame_index) = 0;
 };
 
 class BuiltinSkiaImageGenerator : public ImageGenerator {
@@ -171,6 +172,8 @@ class BuiltinSkiaImageGenerator : public ImageGenerator {
       size_t row_bytes,
       unsigned int frame_index = 0,
       std::optional<unsigned int> prior_frame = std::nullopt) override;
+
+  uint32_t GetColorSpace(unsigned int frame_index) override;
 
   static std::unique_ptr<ImageGenerator> MakeFromGenerator(
       std::unique_ptr<SkImageGenerator> generator);
@@ -211,6 +214,8 @@ class BuiltinSkiaCodecImageGenerator : public ImageGenerator {
       size_t row_bytes,
       unsigned int frame_index = 0,
       std::optional<unsigned int> prior_frame = std::nullopt) override;
+
+  uint32_t GetColorSpace(unsigned int frame_index) override;
 
   static std::unique_ptr<ImageGenerator> MakeFromData(sk_sp<SkData> data);
 
