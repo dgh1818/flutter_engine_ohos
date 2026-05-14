@@ -30,6 +30,7 @@ import AbilityControlSurface from './plugins/ability/AbilityControlSurface';
 import ExclusiveAppComponent from '../ohos/ExclusiveAppComponent';
 import FlutterEngineGroup from './FlutterEngineGroup';
 import Any from '../../plugin/common/Any';
+import SplitViewConfigPlugin from '../../plugin/splitview/SplitViewConfigPlugin';
 
 const TAG = "FlutterEngineCxnRegistry";
 
@@ -58,6 +59,7 @@ export default class FlutterEngineConnectionRegistry implements PluginRegistry, 
     this.pluginBinding = new FlutterPluginBinding(appContext, flutterEngine, flutterEngine.getDartExecutor(),
       new DefaultFlutterAssets(flutterLoader), flutterEngine.getFlutterRenderer(),
       flutterEngine.getPlatformViewsController()?.getRegistry());
+      this.add(new SplitViewConfigPlugin());
   }
 
   /**
