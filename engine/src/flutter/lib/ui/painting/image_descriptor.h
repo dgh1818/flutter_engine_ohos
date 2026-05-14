@@ -125,6 +125,8 @@ class ImageDescriptor : public RefCountedDartWrappable<ImageDescriptor> {
   /// @brief  Gets pixels for this image transformed based on the EXIF
   ///         orientation tag, if applicable.
   bool get_pixels(const SkPixmap& pixmap) const;
+  
+  uint32_t get_colorspace();
 
   void dispose() {
     buffer_.reset();

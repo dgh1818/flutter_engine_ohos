@@ -40,6 +40,15 @@ class ImpellerAllocator : public SkBitmap::Allocator {
   std::shared_ptr<impeller::DeviceBuffer> buffer_;
 };
 
+struct DecompressResult {
+  std::shared_ptr<impeller::DeviceBuffer> device_buffer;
+  std::shared_ptr<SkBitmap> sk_bitmap;
+  SkImageInfo image_info;
+  std::optional<SkImageInfo> resize_info = std::nullopt;
+  std::string decode_error;
+  int ohosColorSpace = -1;
+};
+
 class ImageDecoderImpeller final : public ImageDecoder {
  public:
   ImageDecoderImpeller(
@@ -92,7 +101,8 @@ class ImageDecoderImpeller final : public ImageDecoder {
       const std::shared_ptr<impeller::DeviceBuffer>& buffer,
       const ImageInfo& image_info,
       const std::optional<SkImageInfo>& resize_info,
-      const std::shared_ptr<const fml::SyncSwitch>& gpu_disabled_switch);
+      const std::shared_ptr<const fml::SyncSwitch>& gpu_disabled_switch,
+      const int colorspace);
 
   /// @brief Create a texture from the provided bitmap.
   /// @param context     The Impeller graphics context.
@@ -116,7 +126,8 @@ class ImageDecoderImpeller final : public ImageDecoder {
       const std::shared_ptr<impeller::Context>& context,
       const std::shared_ptr<impeller::DeviceBuffer>& buffer,
       const ImageInfo& image_info,
-      const std::optional<SkImageInfo>& resize_info);
+      const std::optional<SkImageInfo>& resize_info,
+      const int colorspace);
 
   FML_DISALLOW_COPY_AND_ASSIGN(ImageDecoderImpeller);
 };

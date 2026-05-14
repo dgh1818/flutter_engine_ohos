@@ -1062,6 +1062,8 @@ Rasterizer::ScreenshotFormat ToScreenshotFormat(impeller::PixelFormat format) {
       return Rasterizer::ScreenshotFormat::kB8G8R8A8UNormInt;
     case impeller::PixelFormat::kR16G16B16A16Float:
       return Rasterizer::ScreenshotFormat::kR16G16B16A16Float;
+    case impeller::PixelFormat::kB10G10R10A2UNorm:
+ 	       return Rasterizer::ScreenshotFormat::kR8G8B8A8UNormInt;
   }
 }
 

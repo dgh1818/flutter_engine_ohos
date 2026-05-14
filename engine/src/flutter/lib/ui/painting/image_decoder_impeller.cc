@@ -33,6 +33,42 @@
 
 namespace flutter {
 
+namespace {
+#ifdef FML_OS_OHOS
+// OHOS NativeColorSpaceManager color space constants
+// Reference: https://gitee.com/openharmony/docs/blob/master/en/application-dev/reference/native-apis/_native_color_space_manager.md
+enum OHOSColorSpaceName {
+  OHOS_COLOR_SPACE_NAME_BT709 = 0,            // sRGB
+  OHOS_COLOR_SPACE_NAME_BT2020 = 1,           // BT.2020 (wide gamut, HDR)
+  OHOS_COLOR_SPACE_NAME_DISPLAY_P3 = 2,       // DisplayP3
+  OHOS_COLOR_SPACE_NAME_ADOBE_RGB = 3,        // Adobe RGB (wide gamut)
+  OHOS_COLOR_SPACE_NAME_DCI_P3 = 4,           // DCI-P3 (cinema standard)
+  OHOS_COLOR_SPACE_NAME_LINEAR_BT2020 = 5,    // Linear BT.2020
+  OHOS_COLOR_SPACE_NAME_LINEAR_DISPLAY_P3 = 6, // Linear DisplayP3
+};
+#endif
+
+impeller::TextureColorSpace OHOSColorSpaceToTextureColorSpace(int ohos_colorspace) {
+#ifdef FML_OS_OHOS
+  switch (ohos_colorspace) {
+    case OHOS_COLOR_SPACE_NAME_DISPLAY_P3:
+    case OHOS_COLOR_SPACE_NAME_LINEAR_DISPLAY_P3:
+      return impeller::TextureColorSpace::kDisplayP3;
+    case OHOS_COLOR_SPACE_NAME_BT2020:
+    case OHOS_COLOR_SPACE_NAME_ADOBE_RGB:
+    case OHOS_COLOR_SPACE_NAME_DCI_P3:
+    case OHOS_COLOR_SPACE_NAME_LINEAR_BT2020:
+      return impeller::TextureColorSpace::kExtendedSRGB;
+    case OHOS_COLOR_SPACE_NAME_BT709:
+    default:
+      return impeller::TextureColorSpace::kSRGB;
+  }
+#else
+  return impeller::TextureColorSpace::kSRGB;
+#endif
+}
+}  // namespace
+
 class MallocDeviceBuffer : public impeller::DeviceBuffer {
  public:
   explicit MallocDeviceBuffer(impeller::DeviceBufferDescriptor desc)
@@ -348,6 +384,9 @@ std::optional<impeller::PixelFormat> ImageDecoderImpeller::ToPixelFormat(
       return impeller::PixelFormat::kB10G10R10XR;
     case kRGBA_F32_SkColorType:
       return impeller::PixelFormat::kR32G32B32A32Float;
+    case kBGRA_1010102_SkColorType:
+ 	       return impeller::PixelFormat::
+ 	           kB10G10R10A2UNorm;
     default:
       return std::nullopt;
   }
@@ -509,8 +548,17 @@ std::pair<sk_sp<DlImage>, std::string>
 ImageDecoderImpeller::UnsafeUploadTextureToPrivate(
     const std::shared_ptr<impeller::Context>& context,
     const std::shared_ptr<impeller::DeviceBuffer>& buffer,
-    const ImageDecoderImpeller::ImageInfo& image_info,
-    const std::optional<SkImageInfo>& resize_info) {
+    const SkImageInfo& image_info,
+    const std::optional<SkImageInfo>& resize_info,
+ 	  const int colorspace) {
+  const auto pixel_format = ToPixelFormat(image_info.colorType());
+  if (!pixel_format) {
+    std::string decode_error(impeller::SPrintF(
+        "Unsupported pixel format (SkColorType=%d)", image_info.colorType()));
+    FML_DLOG(ERROR) << decode_error;
+    return std::make_pair(nullptr, decode_error);
+  }
+
   impeller::TextureDescriptor texture_descriptor;
   texture_descriptor.storage_mode = impeller::StorageMode::kDevicePrivate;
   texture_descriptor.format = image_info.format;
@@ -522,6 +570,8 @@ ImageDecoderImpeller::UnsafeUploadTextureToPrivate(
     // Remove mip count if we are resizing the image on the GPU.
     texture_descriptor.mip_count = 1;
   }
+  texture_descriptor.color_space =
+      OHOSColorSpaceToTextureColorSpace(colorspace);
 
   auto dest_texture =
       context->GetResourceAllocator()->CreateTexture(texture_descriptor);
@@ -625,7 +675,8 @@ void ImageDecoderImpeller::UploadTextureToPrivate(
     const std::shared_ptr<impeller::DeviceBuffer>& buffer,
     const ImageDecoderImpeller::ImageInfo& image_info,
     const std::optional<SkImageInfo>& resize_info,
-    const std::shared_ptr<const fml::SyncSwitch>& gpu_disabled_switch) {
+    const std::shared_ptr<const fml::SyncSwitch>& gpu_disabled_switch,
+ 	  const int colorspace) {
   TRACE_EVENT0("impeller", __FUNCTION__);
   if (!context) {
     result(nullptr, "No Impeller context is available");
@@ -638,22 +689,25 @@ void ImageDecoderImpeller::UploadTextureToPrivate(
 
   gpu_disabled_switch->Execute(
       fml::SyncSwitch::Handlers()
-          .SetIfFalse([&result, context, buffer, image_info, resize_info] {
+          .SetIfFalse([&result, context, buffer, image_info, resize_info,
+ 	                        colorspace] {
             sk_sp<DlImage> image;
             std::string decode_error;
             std::tie(image, decode_error) = std::tie(image, decode_error) =
                 UnsafeUploadTextureToPrivate(context, buffer, image_info,
-                                             resize_info);
+                                             resize_info, colorspace);
             result(image, decode_error);
           })
-          .SetIfTrue([&result, context, buffer, image_info, resize_info] {
+          .SetIfTrue([&result, context, buffer, image_info, resize_info,
+ 	                       colorspace] {
             auto result_ptr = std::make_shared<ImageResult>(std::move(result));
             context->StoreTaskForGPU(
-                [result_ptr, context, buffer, image_info, resize_info]() {
+                [result_ptr, context, buffer, image_info, resize_info,
+ 	                  colorspace]() {
                   sk_sp<DlImage> image;
                   std::string decode_error;
                   std::tie(image, decode_error) = UnsafeUploadTextureToPrivate(
-                      context, buffer, image_info, resize_info);
+                      context, buffer, image_info, resize_info, colorspace);
                   (*result_ptr)(image, decode_error);
                 },
                 [result_ptr]() {
@@ -774,14 +828,23 @@ void ImageDecoderImpeller::Decode(fml::RefPtr<ImageDescriptor> descriptor,
           return;
         }
 
+#ifdef FML_OS_OHOS
+        auto colorspace2 = bitmap_result.ohosColorSpace;
+#else
+        auto colorspace2 = 0;
+#endif
+
         auto upload_texture_and_invoke_result = [result, context, bitmap_result,
-                                                 gpu_disabled_switch]() {
-          UploadTextureToPrivate(result, context,               //
-                                 bitmap_result->device_buffer,  //
-                                 bitmap_result->image_info,     //
-                                 bitmap_result->resize_info,    //
-                                 gpu_disabled_switch            //
-          );
+                                                 gpu_disabled_switch,
+ 	                                                  colorspace2]() {
+          UploadTextureToPrivate(result, context,              //
+                                 bitmap_result.device_buffer,  //
+                                 bitmap_result.image_info,     //
+                                 bitmap_result.sk_bitmap,      //
+                                 bitmap_result.resize_info,    //
+                                 gpu_disabled_switch,          //
+ 	                               colorspace2                  //
+								 );
         };
         // The I/O image uploads are not threadsafe on GLES.
         if (context->GetBackendType() ==

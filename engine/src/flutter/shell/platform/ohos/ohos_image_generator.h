@@ -50,6 +50,8 @@ class OHOSImageGenerator : public ImageGenerator {
                  size_t row_bytes,
                  unsigned int frame_index,
                  std::optional<unsigned int> prior_frame) override;
+  
+  uint32_t GetColorSpace(unsigned int frame_index) override;
 
   static std::shared_ptr<ImageGenerator> MakeFromData(sk_sp<SkData> data);
 
@@ -85,6 +87,7 @@ class OHOSImageGenerator : public ImageGenerator {
     uint32_t height_ = 0;
     uint32_t row_stride_ = 0;
     int32_t pixel_format_ = 0;
+    uint32_t color_space_ = 0;
 
     explicit PixelMapOHOS(OH_PixelmapNative* pixelmap);
 
@@ -93,6 +96,8 @@ class OHOSImageGenerator : public ImageGenerator {
         OH_PixelmapNative_Release(pixelmap_);
       }
     };
+
+    void setColorSpace(uint32_t colorSpace) { color_space_ = colorSpace; }
 
     bool IsValid() {
       return pixelmap_ != nullptr && width_ != 0 && height_ != 0;
@@ -107,6 +112,7 @@ class OHOSImageGenerator : public ImageGenerator {
   };
 
   std::map<uint32_t, std::shared_ptr<PixelMapOHOS>> cached_pixelmaps_;
+  std::map<uint32_t, uint32_t> cached_colorspaces_;
 
   std::shared_ptr<PixelMapOHOS> CreatePixelMap(int width,
                                                int height,

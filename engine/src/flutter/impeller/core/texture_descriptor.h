@@ -11,6 +11,12 @@
 
 namespace impeller {
 
+  enum class TextureColorSpace {
+ 	   kSRGB,
+ 	   kExtendedSRGB,
+ 	   kDisplayP3,
+ 	 };
+
 //------------------------------------------------------------------------------
 /// @brief      Additional compression to apply to a texture. This value is
 ///             ignored on platforms which do not support it.
@@ -42,6 +48,7 @@ struct TextureDescriptor {
   ISize size;
   size_t mip_count = 1u;  // Size::MipCount is usually appropriate.
   TextureUsageMask usage = TextureUsage::kShaderRead;
+  TextureColorSpace color_space = TextureColorSpace::kSRGB;
   SampleCount sample_count = SampleCount::kCount1;
   CompressionType compression_type = CompressionType::kLossless;
 
