@@ -144,9 +144,19 @@ bool SemanticsTree::UpdateNextFocusWhenDisappear(
   // [2]: Failed to find node B, so focus fails.
   bool request_focused_node_need_update =
       !need_request_focused_node_ ||
-      need_remove_ids.count(need_request_focused_node_->id) != 0;
+      need_remove_ids.count(need_request_focused_node_->id) != 0 ||
+      !need_request_focused_node_->IsVisible() ||
+      !need_request_focused_node_->IsFocusable();
 
-  if (in_request_progress_ && request_focused_node_need_update) {
+  bool force_update = need_request_focused_node_ &&
+                      (need_remove_ids.count(need_request_focused_node_->id) != 0 ||
+                       !need_request_focused_node_->IsVisible() ||
+                       !need_request_focused_node_->IsFocusable());
+
+  bool need_search_from_root = !focused_node_ && !need_request_focused_node_;
+
+  if ((in_request_progress_ && request_focused_node_need_update) ||
+      force_update || need_search_from_root) {
     // if focused_node is not null, focused_node cannot be root and must have
     // parent.
     if (focused_node_) {
@@ -244,7 +254,7 @@ bool SemanticsTree::FillNodeInfo(SemanticsNodeExtend* node,
   assert(node->parentNode || node->id == 0);
   auto info = OH_ArkUI_AddAndGetAccessibilityElementInfo(list);
   if (info != nullptr) {
-    node->FillElementInfo(info);
+    node->FillElementInfo(info, true);
   } else {
     FML_DLOG(ERROR) << "ohos_semantics_tree -> "
                        "OH_ArkUI_AddAndGetAccessibilityElementInfo -> "
@@ -523,6 +533,9 @@ void SemanticsTree::UpdateFocusableNodesInfo(
         // Link to the first focusable node
         node->nextFocusableNode = firstFocusableNode;
       }
+      if (!node->previousFocusableNode) {
+        node->previousFocusableNode = lastFocusableNode;
+      }
       firstFocusableNode = node;
     }
   }
@@ -543,6 +556,7 @@ void SemanticsTree::UpdateFocusableNodesInfo(
       auto node = FindNodeById(visitorOrder[i]);
       if (node) {
         node->previousFocusableNode = lastFocusableNode;
+        node->nextFocusableNode = firstFocusableNode;
       }
     }
   }
