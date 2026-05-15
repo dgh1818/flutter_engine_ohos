@@ -548,13 +548,11 @@ std::pair<sk_sp<DlImage>, std::string>
 ImageDecoderImpeller::UnsafeUploadTextureToPrivate(
     const std::shared_ptr<impeller::Context>& context,
     const std::shared_ptr<impeller::DeviceBuffer>& buffer,
-    const SkImageInfo& image_info,
+    const ImageInfo& image_info,
     const std::optional<SkImageInfo>& resize_info,
- 	  const int colorspace) {
-  const auto pixel_format = ToPixelFormat(image_info.colorType());
-  if (!pixel_format) {
-    std::string decode_error(impeller::SPrintF(
-        "Unsupported pixel format (SkColorType=%d)", image_info.colorType()));
+  	  const int colorspace) {
+  if (image_info.format == impeller::PixelFormat::kUnknown) {
+    std::string decode_error("Unsupported pixel format");
     FML_DLOG(ERROR) << decode_error;
     return std::make_pair(nullptr, decode_error);
   }
@@ -562,7 +560,7 @@ ImageDecoderImpeller::UnsafeUploadTextureToPrivate(
   impeller::TextureDescriptor texture_descriptor;
   texture_descriptor.storage_mode = impeller::StorageMode::kDevicePrivate;
   texture_descriptor.format = image_info.format;
-  texture_descriptor.size = {image_info.size.width, image_info.size.height};
+  texture_descriptor.size = image_info.size;
   texture_descriptor.mip_count = texture_descriptor.size.MipCount();
   if (context->GetBackendType() == impeller::Context::BackendType::kMetal &&
       resize_info.has_value()) {
@@ -829,21 +827,20 @@ void ImageDecoderImpeller::Decode(fml::RefPtr<ImageDescriptor> descriptor,
         }
 
 #ifdef FML_OS_OHOS
-        auto colorspace2 = bitmap_result.ohosColorSpace;
+        auto colorspace2 = raw_descriptor->get_colorspace();
 #else
         auto colorspace2 = 0;
 #endif
 
         auto upload_texture_and_invoke_result = [result, context, bitmap_result,
                                                  gpu_disabled_switch,
- 	                                                  colorspace2]() {
+  	                                              colorspace2]() {
           UploadTextureToPrivate(result, context,              //
-                                 bitmap_result.device_buffer,  //
-                                 bitmap_result.image_info,     //
-                                 bitmap_result.sk_bitmap,      //
-                                 bitmap_result.resize_info,    //
+                                 bitmap_result->device_buffer,  //
+                                 bitmap_result->image_info,     //
+                                 bitmap_result->resize_info,    //
                                  gpu_disabled_switch,          //
- 	                               colorspace2                  //
+  	                             colorspace2                  //
 								 );
         };
         // The I/O image uploads are not threadsafe on GLES.

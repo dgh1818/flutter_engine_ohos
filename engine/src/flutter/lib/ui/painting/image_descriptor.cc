@@ -231,7 +231,13 @@ int ImageDescriptor::bytesPerPixel() const {
     case kRGBAFloat32:
       return 16;
   }
+}
+
 uint32_t ImageDescriptor::get_colorspace() {
+  if (!generator_) {
+    FML_DLOG(ERROR) << "Cannot get colorspace from null generator";
+    return 0;  // Return default value for safety
+  }
   return generator_->GetColorSpace(0);
 }
 
