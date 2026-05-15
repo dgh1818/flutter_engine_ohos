@@ -54,7 +54,7 @@ std::shared_ptr<FilterContents> FilterContents::MakeGaussianBlur(
   auto linear_input = FilterInput::Make(
       std::static_pointer_cast<FilterContents>(linear_input_filter));
   auto blur = std::make_shared<GaussianBlurFilterContents>(
-      sigma_x.sigma, sigma_y.sigma, tile_mode, mask_blur_style, mask_geometry);
+      sigma_x.sigma, sigma_y.sigma, tile_mode, bounds, mask_blur_style, mask_geometry);
   blur->SetInputs({linear_input});
   auto blur_ref = FilterInput::Make(std::static_pointer_cast<FilterContents>(blur));
   auto gamma_output = ColorFilterContents::MakeLinearToSrgbFilter(blur_ref);
