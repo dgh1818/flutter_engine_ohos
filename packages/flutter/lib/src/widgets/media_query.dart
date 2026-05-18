@@ -204,7 +204,7 @@ class MediaQueryData {
   /// [dart:ui.FlutterView], or [MediaQueryData.copyWith] to create a new copy
   /// of [MediaQueryData] with updated properties from a base [MediaQueryData].
   const MediaQueryData({
-    this.size = Size.zero,
+    Size size = Size.zero,
     this.devicePixelRatio = 1.0,
     @Deprecated(
       'Use textScaler instead. '
@@ -234,8 +234,10 @@ class MediaQueryData {
     this.letterSpacingOverride,
     this.wordSpacingOverride,
     this.paragraphSpacingOverride,
+    this.enableSplitView = false,
   }) : _textScaleFactor = textScaleFactor,
        _textScaler = textScaler,
+       _rawSize = size,
        assert(
          identical(textScaler, _kUnspecifiedTextScaler) || textScaleFactor == 1.0,
          'textScaleFactor is deprecated and cannot be specified when textScaler is specified.',
@@ -293,7 +295,7 @@ class MediaQueryData {
   ///    [FlutterView], makes it available to descendant widgets, and sets up
   ///    the appropriate notification listeners to keep the data updated.
   MediaQueryData.fromView(ui.FlutterView view, {MediaQueryData? platformData})
-    : size = view.physicalSize / view.devicePixelRatio,
+    : _rawSize = view.physicalSize / view.devicePixelRatio,
       devicePixelRatio = view.devicePixelRatio,
       _textScaleFactor = 1.0, // _textScaler is the source of truth.
       _textScaler = _textScalerFromView(view, platformData),
@@ -328,6 +330,7 @@ class MediaQueryData {
       navigationMode = platformData?.navigationMode ?? NavigationMode.traditional,
       gestureSettings = DeviceGestureSettings.fromView(view),
       displayFeatures = view.displayFeatures,
+      enableSplitView = platformData?.enableSplitView ?? false,
       supportsShowingSystemContextMenu =
           platformData?.supportsShowingSystemContextMenu ??
           view.platformDispatcher.supportsShowingSystemContextMenu,
@@ -383,7 +386,21 @@ class MediaQueryData {
   /// * [FlutterView.display], which returns reports display information like size, and refresh rate.
   /// * [MediaQuery.sizeOf], a method to find and depend on the size defined for
   ///   a [BuildContext].
-  final Size size;
+  final Size _rawSize;
+
+  /// Returns the size of the media in logical pixels.
+  ///
+  /// On ohos platform only: when [enableSplitView] is true, returns a size where:
+  /// - width = original width / 2
+  /// - height = original height
+  ///
+  /// On non-ohos platforms or when [enableSplitView] is false, returns the original size.
+  Size get size {
+    if (enableSplitView && defaultTargetPlatform == TargetPlatform.ohos) {
+      return Size(_rawSize.width / 2.0, _rawSize.height);
+    }
+    return _rawSize;
+  }
 
   /// The number of device pixels for each logical pixel. This number might not
   /// be a power of two. Indeed, it might not even be an integer. For example,
@@ -656,6 +673,12 @@ class MediaQueryData {
   /// gesture behavior over the framework constants.
   final DeviceGestureSettings gestureSettings;
 
+  /// Whether split screen mode is enabled in the application.
+  ///
+  /// This is typically used by [MaterialApp] to indicate whether the app
+  /// should display in split screen mode based on screen size and orientation.
+  final bool enableSplitView;
+
   /// {@macro dart.ui.ViewConfiguration.displayFeatures}
   ///
   /// See also:
@@ -765,13 +788,14 @@ class MediaQueryData {
     DeviceGestureSettings? gestureSettings,
     List<ui.DisplayFeature>? displayFeatures,
     bool? supportsShowingSystemContextMenu,
+    bool? enableSplitView,
   }) {
     assert(textScaleFactor == null || textScaler == null);
     if (textScaleFactor != null) {
       textScaler ??= TextScaler.linear(textScaleFactor);
     }
     return MediaQueryData(
-      size: size ?? this.size,
+      size: size ?? _rawSize,
       devicePixelRatio: devicePixelRatio ?? this.devicePixelRatio,
       textScaler: textScaler ?? this.textScaler,
       platformBrightness: platformBrightness ?? this.platformBrightness,
@@ -796,6 +820,7 @@ class MediaQueryData {
       letterSpacingOverride: letterSpacingOverride,
       wordSpacingOverride: wordSpacingOverride,
       paragraphSpacingOverride: paragraphSpacingOverride,
+      enableSplitView: enableSplitView ?? this.enableSplitView,
     );
   }
 
@@ -818,7 +843,7 @@ class MediaQueryData {
     required double? paragraphSpacingOverride,
   }) {
     return MediaQueryData(
-      size: size,
+      size: _rawSize,
       devicePixelRatio: devicePixelRatio,
       textScaler: textScaler,
       platformBrightness: platformBrightness,
@@ -842,6 +867,7 @@ class MediaQueryData {
       letterSpacingOverride: letterSpacingOverride,
       wordSpacingOverride: wordSpacingOverride,
       paragraphSpacingOverride: paragraphSpacingOverride,
+      enableSplitView: enableSplitView,
     );
   }
 
@@ -1044,7 +1070,8 @@ class MediaQueryData {
         other.lineHeightScaleFactorOverride == lineHeightScaleFactorOverride &&
         other.letterSpacingOverride == letterSpacingOverride &&
         other.wordSpacingOverride == wordSpacingOverride &&
-        other.paragraphSpacingOverride == paragraphSpacingOverride;
+        other.paragraphSpacingOverride == paragraphSpacingOverride &&
+        other.enableSplitView == enableSplitView;
   }
 
   @override
@@ -1073,6 +1100,7 @@ class MediaQueryData {
       wordSpacingOverride,
       paragraphSpacingOverride,
     ),
+    enableSplitView,
   );
 
   @override
@@ -1101,6 +1129,7 @@ class MediaQueryData {
       'letterSpacingOverride: $letterSpacingOverride',
       'wordSpacingOverride: $wordSpacingOverride',
       'paragraphSpacingOverride: $paragraphSpacingOverride',
+      'enableSplitView: $enableSplitView',
     ];
     return '${objectRuntimeType(this, 'MediaQueryData')}(${properties.join(', ')})';
   }
