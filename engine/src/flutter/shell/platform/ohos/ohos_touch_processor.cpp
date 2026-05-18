@@ -700,6 +700,41 @@ void OhosTouchProcessor::SendFinalMoveEventBeforeLeave(
   }
 }
 
+bool OhosTouchProcessor::HandleMouseButtonEvent(
+    OH_NativeXComponent_MouseEvent mouseEvent,
+    PointerData::Change& change,
+    int64_t& buttons_to_send)
+{
+  int64_t button = getPointerButtonFromMouse(mouseEvent.button);
+
+  if (mouseEvent.action == OH_NATIVEXCOMPONENT_MOUSE_PRESS) {
+    // if the button was already recored, ignore it
+    if ((mouse_button_state_ & button) != 0) {
+      return false;
+    }
+    int64_t old_state = mouse_button_state_;
+    mouse_button_state_ |= button;
+    // if the button was pressed for the first time, change to kDown, otherwise change to kMove
+    change = (old_state == 0) ? PointerData::Change::kDown : PointerData::Change::kMove;
+    buttons_to_send = mouse_button_state_;
+    return true;
+  } else if (mouseEvent.action == OH_NATIVEXCOMPONENT_MOUSE_RELEASE) {
+    // if the button was not recored, ignore it
+    if ((mouse_button_state_ & button) == 0) {
+      return false;
+    }
+    mouse_button_state_ &= ~button;
+    // if the button was totally released, change to kUp, otherwise change to kMove
+    change = (mouse_button_state_ == 0) ? PointerData::Change::kUp : PointerData::Change::kMove;
+    buttons_to_send = mouse_button_state_;
+    return true;
+  } else {
+    change = getPointerChangeForMouseAction(mouseEvent.action);
+    buttons_to_send = mouse_button_state_;
+    return true;
+  }
+}
+
 void OhosTouchProcessor::HandleMouseEvent(
     int64_t shell_holderID,
     OH_NativeXComponent* component,
@@ -723,7 +758,15 @@ void OhosTouchProcessor::HandleMouseEvent(
   pointerData.Clear();
   pointerData.embedder_id = mouseEvent.button;
   pointerData.time_stamp = mouseEvent.timestamp / MSEC_PER_SECOND;
-  pointerData.change = getPointerChangeForMouseAction(mouseEvent.action);
+  PointerData::Change change;
+  int64_t buttons_to_send = 0;
+  if (HandleMouseButtonEvent(mouseEvent, change, buttons_to_send)) {
+    pointerData.change = change;
+    pointerData.buttons = buttons_to_send;
+  } else {
+    pointerData.change = PointerData::Change::kMove;
+    pointerData.buttons = buttons_to_send;
+  }
   // If this is a leave event, dispath a point event that leaves the area.
   pointerData.physical_y = isLeave ? -1 : mouseEvent.y;
   pointerData.physical_x = isLeave ? -1 : mouseEvent.x;
@@ -743,7 +786,6 @@ void OhosTouchProcessor::HandleMouseEvent(
   pointerData.pressure_max = 1.0;
   pointerData.pressure_min = 0.0;
   pointerData.kind = PointerData::DeviceKind::kMouse;  // kMouse支持鼠标框选文字
-  pointerData.buttons = getPointerButtonFromMouse(mouseEvent.button);
   // hover support
   if (mouseEvent.button == OH_NATIVEXCOMPONENT_NONE_BUTTON &&
       pointerData.change == PointerData::Change::kMove) {
