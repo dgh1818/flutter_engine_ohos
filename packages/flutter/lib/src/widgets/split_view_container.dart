@@ -4,6 +4,7 @@
 
 import 'dart:async';
 
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'split_view_config.dart';
 import 'split_view_manager.dart';
@@ -175,6 +176,9 @@ class _SplitViewContainerState extends State<SplitViewContainer>
   }
 
   void _onManagerChanged() {
+    if (SchedulerBinding.instance.schedulerPhase == SchedulerPhase.persistentCallbacks) {
+      return;
+    }
     setState(() {});
   }
 
