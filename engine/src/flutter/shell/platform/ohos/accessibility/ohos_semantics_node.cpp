@@ -14,13 +14,15 @@
 
 namespace flutter {
 void SemanticsNodeExtend::FillElementInfo(
-    ArkUI_AccessibilityElementInfo* info) {
+    ArkUI_AccessibilityElementInfo* info,
+    bool accessibility_focus_maps_to_native_focused) {
   if (!info) {
     return;
   }
 
   FillElementInfoWithId(info);
-  FillElementInfoWithProperty(info);
+  FillElementInfoWithProperty(info,
+                              accessibility_focus_maps_to_native_focused);
   FillElementInfoWithContent(info);
   FillElementInfoWithChildren(info);
   FillElementInfoWithParent(info);
@@ -36,7 +38,7 @@ void SemanticsNodeExtend::UpdateSelfElementInfo() {
     hasUpdate = true;
   }
   if (!hasInit || propertyChanged) {
-    FillElementInfoWithProperty(elementInfoOHOS);
+    FillElementInfoWithProperty(elementInfoOHOS, true);
     propertyChanged = false;
     hasUpdate = true;
   }
@@ -82,13 +84,17 @@ void SemanticsNodeExtend::FillElementInfoWithId(
 }
 
 void SemanticsNodeExtend::FillElementInfoWithProperty(
-    ArkUI_AccessibilityElementInfo* info) {
+    ArkUI_AccessibilityElementInfo* info,
+    bool accessibility_focus_maps_to_native_focused) {
   OH_ArkUI_AccessibilityElementInfoSetScrollable(info, IsScrollable());
   OH_ArkUI_AccessibilityElementInfoSetLongClickable(info, IsHasLongPress());
   OH_ArkUI_AccessibilityElementInfoSetClickable(info, IsClickable());
 
   OH_ArkUI_AccessibilityElementInfoSetEnabled(info, IsEnabled());
-  OH_ArkUI_AccessibilityElementInfoSetFocused(info, IsFocused());
+  const bool native_focused =
+      accessibility_focus_maps_to_native_focused ? isAccessibilityFocued
+                                                 : IsFocused();
+  OH_ArkUI_AccessibilityElementInfoSetFocused(info, native_focused);
   OH_ArkUI_AccessibilityElementInfoSetIsPassword(info, IsPassword());
   OH_ArkUI_AccessibilityElementInfoSetCheckable(info, IsCheckable());
   OH_ArkUI_AccessibilityElementInfoSetChecked(info, IsChecked());
