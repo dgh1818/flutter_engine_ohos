@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE_HW file.
 
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart';
 import '../services/split_view_config_loader.dart';
 
@@ -46,12 +49,39 @@ class SplitViewConfig {
   /// Fullscreen on landscape orientation request, default true.
   bool _supportLandscapeFullscreen = true;
 
+  /// Placeholder icon data (base64 encoded), displayed in split start page.
+  String? _placeholderIconData;
+  Uint8List? _placeholderIconBytes;
+  bool _bytesDecoded = false;
+
   bool get enableWideWindowSplit => _enableWideWindowSplit;
   bool get enableSquareWindowSplit => _enableSquareWindowSplit;
   String? get homePage => _homePage;
   List<String> get fullScreenPages => _fullScreenPages;
   bool get enableReducedContainerSize => _enableReducedContainerSize;
   bool get supportLandscapeFullscreen => _supportLandscapeFullscreen;
+  String? get placeholderIconData => _placeholderIconData;
+
+  Uint8List? get placeholderIconBytes {
+    if (!_bytesDecoded) {
+      _bytesDecoded = true;
+      if (_placeholderIconData != null && _placeholderIconData!.isNotEmpty) {
+        try {
+          _placeholderIconBytes = base64Decode(_placeholderIconData!);
+        } catch (e) {
+          debugPrint('SplitViewConfig: Failed to decode placeholder icon: $e');
+          _placeholderIconBytes = null;
+        }
+      }
+    }
+    return _placeholderIconBytes;
+  }
+
+  void setPlaceholderIconData(String? data) {
+    _placeholderIconData = data;
+    _bytesDecoded = false;
+    _placeholderIconBytes = null;
+  }
 
   /// Parse configuration synchronously (called from WidgetsBinding.initInstances).
   ///

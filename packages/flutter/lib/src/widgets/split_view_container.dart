@@ -1093,17 +1093,31 @@ class SplitStartPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bytes = SplitViewConfig().placeholderIconBytes;
+
+    Widget content;
+    if (bytes != null) {
+      content = Image.memory(
+        bytes,
+        width: 48,
+        height: 48,
+        fit: BoxFit.contain,
+      );
+    } else {
+      content = const Text(
+        'Split Start Page',
+        style: TextStyle(
+          fontSize: 16,
+          color: Color(0xFF000000),
+          decoration: TextDecoration.none,
+        ),
+      );
+    }
+
     return Container(
       color: const Color(0xFFf1f3f5),
-      child: const Center(
-        child: Text(
-          'Split Start Page',
-          style: TextStyle(
-            fontSize: 16,
-            color: Color(0xFF000000),
-            decoration: TextDecoration.none,
-          ),
-        ),
+      child: Center(
+        child: content,
       ),
     );
   }
