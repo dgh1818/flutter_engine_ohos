@@ -53,6 +53,12 @@ struct Vector4;
 
 enum class YUVColorSpace { kBT601LimitedRange, kBT601FullRange };
 
+enum class ColorSpace : int {
+  kSRGB = 0,
+  kExtendedSRGB = 1,
+  kDisplayP3 = 2
+};
+
 /// All blend modes assume that both the source (fragment output) and
 /// destination (first color attachment) have colors with premultiplied alpha.
 enum class BlendMode : uint8_t {

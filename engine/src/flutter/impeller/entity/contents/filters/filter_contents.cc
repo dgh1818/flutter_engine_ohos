@@ -43,29 +43,11 @@ std::shared_ptr<FilterContents> FilterContents::MakeGaussianBlur(
     std::optional<Rect> bounds,
     FilterContents::BlurStyle mask_blur_style,
     const Geometry* mask_geometry) {
-#ifdef FML_OS_OHOS
-  // OHOS: Perform Gaussian blur in linear space for correct color blending.
-  // This is critical for text shadows and anti-aliasing edges at sharp angles.
-  // 1. Convert input to linear space (SrgbToLinear)
-  // 2. Apply Gaussian blur in linear space
-  // 3. Convert back to gamma space (LinearToSrgb)
-  auto linear_input_filter =
-      ColorFilterContents::MakeSrgbToLinearFilter(input);
-  auto linear_input = FilterInput::Make(
-      std::static_pointer_cast<FilterContents>(linear_input_filter));
-  auto blur = std::make_shared<GaussianBlurFilterContents>(
-      sigma_x.sigma, sigma_y.sigma, tile_mode, bounds, mask_blur_style, mask_geometry);
-  blur->SetInputs({linear_input});
-  auto blur_ref = FilterInput::Make(std::static_pointer_cast<FilterContents>(blur));
-  auto gamma_output = ColorFilterContents::MakeLinearToSrgbFilter(blur_ref);
-  return std::static_pointer_cast<FilterContents>(gamma_output);
-#else
   auto blur = std::make_shared<GaussianBlurFilterContents>(
       sigma_x.sigma, sigma_y.sigma, tile_mode, bounds, mask_blur_style,
       mask_geometry);
   blur->SetInputs({input});
   return blur;
-#endif
 }
 
 std::shared_ptr<FilterContents> FilterContents::MakeBorderMaskBlur(
@@ -73,26 +55,11 @@ std::shared_ptr<FilterContents> FilterContents::MakeBorderMaskBlur(
     Sigma sigma_x,
     Sigma sigma_y,
     BlurStyle blur_style) {
-#ifdef FML_OS_OHOS
-  // OHOS: Perform border mask blur in linear space for correct color blending.
-  auto linear_input_filter =
-      ColorFilterContents::MakeSrgbToLinearFilter(input);
-  auto linear_input = FilterInput::Make(
-      std::static_pointer_cast<FilterContents>(linear_input_filter));
-  auto filter = std::make_shared<BorderMaskBlurFilterContents>();
-  filter->SetInputs({linear_input});
-  filter->SetSigma(sigma_x, sigma_y);
-  filter->SetBlurStyle(blur_style);
-  auto filter_ref = FilterInput::Make(std::static_pointer_cast<FilterContents>(filter));
-  auto gamma_output = ColorFilterContents::MakeLinearToSrgbFilter(filter_ref);
-  return std::static_pointer_cast<FilterContents>(gamma_output);
-#else
   auto filter = std::make_shared<BorderMaskBlurFilterContents>();
   filter->SetInputs({std::move(input)});
   filter->SetSigma(sigma_x, sigma_y);
   filter->SetBlurStyle(blur_style);
   return filter;
-#endif
 }
 
 std::shared_ptr<FilterContents> FilterContents::MakeDirectionalMorphology(

@@ -9,6 +9,7 @@
 
 #include "impeller/base/backend_cast.h"
 #include "impeller/core/runtime_types.h"
+#include "impeller/geometry/color.h"
 #include "impeller/renderer/backend/vulkan/vk.h"
 #include "impeller/renderer/command_queue.h"
 #include "impeller/renderer/context.h"
@@ -136,11 +137,24 @@ class SurfaceContextVK : public Context,
 
   void SetIsPreload(bool is_preload) { is_preload_ = is_preload; }
 
+#ifdef FML_OS_OHOS
+  void SetTargetColorSpace(ColorSpace color_space) {
+    target_color_space_ = color_space;
+  }
+
+  ColorSpace GetTargetColorSpace() const {
+    return target_color_space_;
+  }
+#endif
+
  private:
   std::shared_ptr<ContextVK> parent_;
   std::shared_ptr<SwapchainVK> swapchain_;
   mutable bool swapchain_changed_ = true;
   bool is_preload_ = false;
+#ifdef FML_OS_OHOS
+  ColorSpace target_color_space_ = ColorSpace::kSRGB;
+#endif
 };
 
 }  // namespace impeller

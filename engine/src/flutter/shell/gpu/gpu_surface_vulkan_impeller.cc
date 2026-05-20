@@ -97,6 +97,10 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceVulkanImpeller::AcquireFrame(
     int image_key = context_vk.GetCurrentImageIndex();
     if (context_vk.GetAndResetChangedFlag()) {
       damage_.clear();
+#ifdef FML_OS_OHOS
+      aiks_context_->GetContentContext().SetTargetColorSpace(
+          context_vk.GetTargetColorSpace());
+#endif
     }
 
     if (!surface) {
