@@ -51,7 +51,16 @@ class SplitViewConfigPlugin implements FlutterPlugin, MethodCallHandler {
         result.success({});
         return;
       }
-      result.success(this.parseConfigJson(configContent));
+      const config = this.parseConfigJson(configContent);
+      // Add app icon as base64 encoded data
+      const iconBase64 = this.getAppIconBase64();
+      if (iconBase64 !== null && iconBase64.length > 0) {
+        Log.i(TAG, 'Adding placeholderIconData to config');
+        config['placeholderIconData'] = iconBase64;
+      } else {
+        Log.w(TAG, 'App icon data is empty, not adding to config');
+      }
+      result.success(config);
     } else {
       result.notImplemented();
     }
@@ -94,6 +103,26 @@ class SplitViewConfigPlugin implements FlutterPlugin, MethodCallHandler {
     } catch (e) {
       Log.e(TAG, `Error parsing JSON: ${e}`);
       return {};
+    }
+  }
+
+  getAppIconBase64(): string {
+    if (this.context === null) {
+      Log.e(TAG, 'Context is null, cannot get app icon');
+      return '';
+    }
+    try {
+      // Get app icon from media resource (resources/base/media/app_icon.png)
+      // Use getMediaByNameSync - resource name without extension
+      const iconData: Uint8Array = this.context.resourceManager.getMediaByNameSync('app_icon');
+      // Convert to base64 using util.Base64Helper
+      const base64Helper = new util.Base64Helper();
+      const encoded: string = base64Helper.encodeToStringSync(iconData);
+      Log.i(TAG, `App icon base64 encoded, length: ${encoded.length}`);
+      return encoded;
+    } catch (e) {
+      Log.e(TAG, `Error getting app icon: ${e}`);
+      return '';
     }
   }
 

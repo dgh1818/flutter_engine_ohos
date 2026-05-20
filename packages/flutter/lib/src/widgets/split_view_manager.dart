@@ -5,6 +5,8 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter/services.dart';
+import 'split_view_config.dart';
 
 /// Route name constant for split view start page.
 /// Used to avoid circular dependency (SplitStartPage defined in split_view_container.dart).
@@ -17,7 +19,19 @@ class SplitViewManager extends ChangeNotifier {
     return _instance;
   }
 
-  SplitViewManager._internal();
+  SplitViewManager._internal() {
+    // Listen to orientation changes from SystemChrome
+    OrientationChangeNotifier().addListener(_onOrientationChange);
+  }
+
+  /// Handle orientation change notifications from OrientationChangeNotifier.
+  void _onOrientationChange() {
+    final bool isForcedLandscape = OrientationChangeNotifier().isForcedLandscape;
+    final config = SplitViewConfig();
+    if (config.supportLandscapeFullscreen) {
+      setLandscapeFullscreen(isForcedLandscape);
+    }
+  }
 
   /// Final determined home page route name.
   String? _realHomePage;
@@ -118,6 +132,17 @@ class SplitViewManager extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Whether app requested forced landscape mode (landscapeLeft/landscapeRight only).
+  /// When true, split view should be disabled.
+  bool _isForcedLandscape = false;
+
+  bool get isForcedLandscape => _isForcedLandscape;
+
+  void setLandscapeFullscreen(bool value) {
+    _isForcedLandscape = value;
+    notifyListeners();
+  }
+
   /// Set of processed PopupRoutes to prevent duplicate processing on both sides.
   final Set<Route<dynamic>> _processedPopupRoutes = <Route<dynamic>>{};
 
@@ -188,23 +213,30 @@ class SplitViewManager extends ChangeNotifier {
   /// Reset manager to initial state.
   /// Only call when completely exiting split screen structure (e.g., user logout, root widget disposed, test teardown).
   void reset() {
-    // 1. Clear strong references to prevent memory leaks
+    // 1. Remove listener to avoid memory leaks and invalid calls during reset
+    OrientationChangeNotifier().removeListener(_onOrientationChange);
+
+    // 2. Clear strong references to prevent memory leaks
     _leftNavigator = null;
     _rightNavigator = null;
     _globalRouteObserver = null;
     _leftCurrentRoute = null;
 
-    // 2. Clear internal collections
+    // 3. Clear internal collections
     _processedPopupRoutes.clear();
 
-    // 3. Restore config flags to initial defaults
+    // 4. Restore config flags to initial defaults
     _realHomePage = null;
     _homePageReady = false;
     _isSplitViewActive = false;
     _rightSideShowsPlaceholder = true;
     _isForceFullscreen = false;
+    _isForcedLandscape = false;
 
-    // 4. Notify all listeners that environment has been reset
+    // 5. Notify all listeners that environment has been reset
     notifyListeners();
+
+    // 6. Re-add listener to restore functionality
+    OrientationChangeNotifier().addListener(_onOrientationChange);
   }
 }

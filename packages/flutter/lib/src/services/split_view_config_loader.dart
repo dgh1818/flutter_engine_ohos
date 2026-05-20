@@ -72,6 +72,11 @@ class SplitViewConfigLoader {
         }
         // Parse config to SplitViewConfig immediately after loading
         SplitViewConfig().parseConfigSync();
+        // Load placeholder icon data (base64 encoded)
+        final dynamic iconData = fullConfig['placeholderIconData'];
+        if (iconData != null && iconData is String) {
+          SplitViewConfig().setPlaceholderIconData(iconData);
+        }
       } else if (isTimeout) {
         debugPrint('Warning: SplitView config load timeout (${timeout.inMilliseconds}ms)');
       }

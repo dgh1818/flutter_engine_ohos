@@ -4,6 +4,7 @@
 
 import 'dart:async';
 
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'split_view_config.dart';
 import 'split_view_manager.dart';
@@ -69,7 +70,6 @@ class SplitViewContainer extends StatefulWidget {
 
 class _SplitViewContainerState extends State<SplitViewContainer>
     with WidgetsBindingObserver {
-  late double _leftRatio;
   late SplitViewManager _manager;
   late bool isForceFullscreen;
   late bool isSplitViewActive;
@@ -81,7 +81,6 @@ class _SplitViewContainerState extends State<SplitViewContainer>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _leftRatio = 0.5;
     _manager = SplitViewManager();
     _manager.addListener(_onManagerChanged);
     // Check screen size - if physicalSize is invalid (Size.zero), defaults to false
@@ -177,6 +176,9 @@ class _SplitViewContainerState extends State<SplitViewContainer>
   }
 
   void _onManagerChanged() {
+    if (SchedulerBinding.instance.schedulerPhase == SchedulerPhase.persistentCallbacks) {
+      return;
+    }
     setState(() {});
   }
 
@@ -185,16 +187,31 @@ class _SplitViewContainerState extends State<SplitViewContainer>
     isForceFullscreen = _manager.isForceFullscreen;
     isSplitViewActive = _manager.isSplitViewActive;
     _rightSideShowsPlaceholder = _manager.rightSideShowsPlaceholder;
-    final bool splitScreenOnThisPage =
-        !isForceFullscreen && isSplitViewActive;
 
-    return Row(
-      children: <Widget>[
-        Expanded(
-          flex: splitScreenOnThisPage
-              ? (_leftRatio * 100).toInt().clamp(20, 80)
-              : (_rightSideShowsPlaceholder ? 100 : 0),
-          child: Visibility(
+    // When app requests forced landscape (only landscapeLeft/landscapeRight),
+    // and supportLandscapeFullscreen is enabled, disable split view
+    final bool isForcedLandscape = _manager.isForcedLandscape &&
+        SplitViewConfig().supportLandscapeFullscreen;
+
+    final bool splitScreenOnThisPage =
+        !isForceFullscreen && !isForcedLandscape && isSplitViewActive;
+
+    // When split screen is active and enableReducedContainerSize is true,
+    // wrap with MediaQuery to provide half-width size
+    final bool shouldReduceSize = splitScreenOnThisPage &&
+        SplitViewConfig().enableReducedContainerSize;
+    final MediaQueryData mediaQueryData = MediaQuery.of(context);
+    final MediaQueryData updatedMediaQueryData = mediaQueryData.copyWith(
+      enableSplitView: shouldReduceSize,
+    );
+
+    return MediaQuery(
+      data: updatedMediaQueryData,
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            flex: splitScreenOnThisPage ? 50 : (_rightSideShowsPlaceholder ? 100 : 0),
+            child: Visibility(
               visible: splitScreenOnThisPage || _rightSideShowsPlaceholder,
               maintainState: true,
               child: SizedBox(
@@ -220,38 +237,13 @@ class _SplitViewContainerState extends State<SplitViewContainer>
         ),
         Visibility(
           visible: splitScreenOnThisPage,
-          child: MouseRegion(
-            cursor: SystemMouseCursors.resizeColumn,
-            child: GestureDetector(
-              onHorizontalDragStart: (_) {
-                // Callback for drag start, ensures immediate response
-              },
-              onHorizontalDragUpdate: (DragUpdateDetails details) {
-                setState(() {
-                  final RenderBox? renderBox =
-                      context.findRenderObject() as RenderBox?;
-                  // Check renderBox validity to avoid calculation errors during widget rebuild
-                  if (renderBox == null || !renderBox.hasSize) return;
-
-                  final Offset localPosition =
-                      renderBox.globalToLocal(details.globalPosition);
-                  final double width = renderBox.size.width;
-                  // Use globalPosition converted to localPosition for more stable calculation
-                  _leftRatio = (localPosition.dx / width).clamp(0.2, 0.8);
-                });
-              },
-              behavior: HitTestBehavior.translucent,
-              child: Container(
-                width: 1,
-                color: const Color(0x33000000),
-              ),
-            ),
+          child: Container(
+            width: 1,
+            color: const Color(0x33000000),
           ),
         ),
         Expanded(
-          flex: splitScreenOnThisPage
-              ? ((1 - _leftRatio) * 100).toInt().clamp(20, 80)
-              : (_rightSideShowsPlaceholder ? 0 : 100),
+          flex: splitScreenOnThisPage ? 50 : (_rightSideShowsPlaceholder ? 0 : 100),
           child: ClipRect(
             child: Visibility(
               visible: splitScreenOnThisPage || !_rightSideShowsPlaceholder,
@@ -280,6 +272,7 @@ class _SplitViewContainerState extends State<SplitViewContainer>
           ),
         ),
       ],
+    ),
     );
   }
 }
@@ -1104,17 +1097,31 @@ class SplitStartPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bytes = SplitViewConfig().placeholderIconBytes;
+
+    Widget content;
+    if (bytes != null) {
+      content = Image.memory(
+        bytes,
+        width: 48,
+        height: 48,
+        fit: BoxFit.contain,
+      );
+    } else {
+      content = const Text(
+        'Split Start Page',
+        style: TextStyle(
+          fontSize: 16,
+          color: Color(0xFF000000),
+          decoration: TextDecoration.none,
+        ),
+      );
+    }
+
     return Container(
       color: const Color(0xFFf1f3f5),
-      child: const Center(
-        child: Text(
-          'Split Start Page',
-          style: TextStyle(
-            fontSize: 16,
-            color: Color(0xFF000000),
-            decoration: TextDecoration.none,
-          ),
-        ),
+      child: Center(
+        child: content,
       ),
     );
   }

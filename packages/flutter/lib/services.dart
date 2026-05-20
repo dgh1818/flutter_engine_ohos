@@ -58,5 +58,6 @@ export 'src/services/text_editing.dart';
 export 'src/services/text_editing_delta.dart';
 export 'src/services/text_formatter.dart';
 export 'src/services/text_input.dart';
+export 'src/services/orientation_change_notifier.dart';
 export 'src/services/text_layout_metrics.dart';
 export 'src/services/undo_manager.dart';
