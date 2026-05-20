@@ -13,6 +13,7 @@ import 'package:flutter/foundation.dart';
 
 import 'binding.dart';
 import 'system_channels.dart';
+import 'orientation_change_notifier.dart';
 
 export 'dart:ui' show Brightness, Color;
 
@@ -545,6 +546,17 @@ abstract final class SystemChrome {
   /// Should you decide to opt out of multitasking you can do this by
   /// setting "Requires full screen" to true in the Xcode Deployment Info.
   static Future<void> setPreferredOrientations(List<DeviceOrientation> orientations) async {
+    // On ohos platform: notify orientation change for platform-specific handling.
+    // SplitViewManager listens to OrientationChangeNotifier and handles split view accordingly.
+    // This design avoids direct dependency from system_chrome.dart to SplitViewManager.
+    if (defaultTargetPlatform == TargetPlatform.ohos) {
+      final bool isForcedLandscape = orientations.isNotEmpty &&
+          orientations.every((o) =>
+              o == DeviceOrientation.landscapeLeft ||
+              o == DeviceOrientation.landscapeRight);
+      OrientationChangeNotifier().notifyLandscapeChange(isForcedLandscape);
+    }
+
     await SystemChannels.platform.invokeMethod<void>(
       'SystemChrome.setPreferredOrientations',
       _stringify(orientations),

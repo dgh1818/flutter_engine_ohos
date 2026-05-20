@@ -183,8 +183,14 @@ class _SplitViewContainerState extends State<SplitViewContainer>
     isForceFullscreen = _manager.isForceFullscreen;
     isSplitViewActive = _manager.isSplitViewActive;
     _rightSideShowsPlaceholder = _manager.rightSideShowsPlaceholder;
+
+    // When app requests forced landscape (only landscapeLeft/landscapeRight),
+    // and supportLandscapeFullscreen is enabled, disable split view
+    final bool isForcedLandscape = _manager.isForcedLandscape &&
+        SplitViewConfig().supportLandscapeFullscreen;
+
     final bool splitScreenOnThisPage =
-        !isForceFullscreen && isSplitViewActive;
+        !isForceFullscreen && !isForcedLandscape && isSplitViewActive;
 
     // When split screen is active and enableReducedContainerSize is true,
     // wrap with MediaQuery to provide half-width size
