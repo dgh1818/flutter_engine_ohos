@@ -175,7 +175,9 @@ void DlDispatcherBase::setDrawStyle(flutter::DlDrawStyle style) {
 void DlDispatcherBase::setColor(flutter::DlColor color) {
   AUTO_DEPTH_WATCHER(0u);
 
-  paint_.color = skia_conversions::ToColor(color);
+  auto color_with_space = skia_conversions::ToColor(color);
+  paint_.color = color_with_space.color;
+  paint_.source_color_space = color_with_space.source_color_space;
 }
 
 // |flutter::DlOpReceiver|
@@ -514,7 +516,9 @@ void DlDispatcherBase::drawColor(flutter::DlColor color,
   AUTO_DEPTH_WATCHER(1u);
 
   Paint paint;
-  paint.color = skia_conversions::ToColor(color);
+  auto color_with_space = skia_conversions::ToColor(color);
+  paint.color = color_with_space.color;
+  paint.source_color_space = color_with_space.source_color_space;
   paint.blend_mode = dl_mode;
   GetCanvas().DrawPaint(paint);
 }
@@ -864,7 +868,7 @@ void DlDispatcherBase::drawShadow(const DlPath& path,
                                   DlScalar dpr) {
   AUTO_DEPTH_WATCHER(1u);
 
-  Color spot_color = skia_conversions::ToColor(color);
+  Color spot_color = skia_conversions::ToColor(color).color;
   spot_color.alpha *= 0.25;
 
   // Compute the spot color -- ported from SkShadowUtils::ComputeTonalColors.
@@ -1152,7 +1156,9 @@ void FirstPassDispatcher::setDrawStyle(flutter::DlDrawStyle style) {
 
 // |flutter::DlOpReceiver|
 void FirstPassDispatcher::setColor(flutter::DlColor color) {
-  paint_.color = skia_conversions::ToColor(color);
+  auto color_with_space = skia_conversions::ToColor(color);
+  paint_.color = color_with_space.color;
+  paint_.source_color_space = color_with_space.source_color_space;
 }
 
 // |flutter::DlOpReceiver|

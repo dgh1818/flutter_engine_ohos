@@ -74,7 +74,13 @@ DlColor ReadColor(const tonic::DartByteData& byte_data) {
   DlColor dl_color(alpha, red, green, blue,
                    static_cast<DlColorSpace>(colorspace));
 
+  // For OHOS wide gamut, preserve original color space
+  // Conversion will happen in shader based on target color space
+#ifdef FML_OS_OHOS
+  return dl_color;
+#else
   return dl_color.withColorSpace(DlColorSpace::kExtendedSRGB);
+#endif
 }
 }  // namespace
 

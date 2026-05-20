@@ -465,7 +465,7 @@ bool Canvas::AttemptColorFilterOptimization(
         /*texture=*/image,
         /*source=*/source,
         /*destination=*/dest,
-        /*color=*/skia_conversions::ToColor(blend_filter->color()),
+        /*color=*/skia_conversions::ToColor(blend_filter->color()).color,
         /*blend_mode=*/blend_filter->mode(),
         /*desc=*/sampler,
         /*use_strict_src_rect=*/src_rect_constraint ==

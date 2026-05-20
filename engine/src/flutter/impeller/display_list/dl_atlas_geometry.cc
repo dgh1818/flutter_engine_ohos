@@ -118,7 +118,7 @@ VertexBuffer DlAtlasGeometry::CreateBlendVertexBuffer(
             data[offset].vertices = transformed_points[indices[j]];
             data[offset].texture_coords = points[indices[j]] / texture_size;
             data[offset].color =
-                skia_conversions::ToColor(colors_[i]).Premultiply();
+                skia_conversions::ToColor(colors_[i]).color.Premultiply();
             offset += 1;
           }
         }
