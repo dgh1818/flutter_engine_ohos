@@ -1258,6 +1258,10 @@ export class ListenableEditingState {
    * Handles insertion of final text from the input method.
    * @param text - The text to insert
    * @param options - Optional policy for preview commit (e.g. English preview range + suffix). Applied by caller.
+   *
+   * Selection cache before replace: at most one if/else-if arm updates mSelection* (explicit preview, non-empty preview span without
+   * candidateBridgeBeforePreview, or BMP CJK + collapsed preview span when PreviewTextStringMerge.getFullBufferPinyinRangeIfPureLatin accepts
+   * the editable). candidateBridgeBeforePreview leaves mSelection* unchanged here; replace uses the bridge-specific start/end mapping below.
    */
   handleInsertTextEvent(text: string, options?: PreviewInsertOptions): void {
     const notifySnap = this.captureEditingSnapshot();
@@ -1293,6 +1297,8 @@ export class ListenableEditingState {
     const bridgeBeforePinyin = candidateBridgeBeforePreview
       ? this.mStringCache.substring(selectionMin, previewLeftIdx)
       : '';
+    // Selection cache priority: explicit preview range > non-empty preview > full-buffer pinyin (CJK insert + collapsed preview)
+    // candidateBridgeBeforePreview path handles leading CJK before pinyin segment marker
     // When finishTextPreview commits with retainSpan, do not overwrite mSelection with [leftIdx,rightIdx): that was only needed
     // as replace bounds; forcing [2,6) makes post-replace caret jump to span end and breaks prefix caret + delete.
     if (usedExplicitPreviewRange) {
@@ -1308,8 +1314,20 @@ export class ListenableEditingState {
       // at preview left edge sel==leftIdx breaks old check → replace(leftIdx,leftIdx) zero-width, preview remains, suggestions jump to end.
       this.mSelectionStartCache = previewLeftIdx;
       this.mSelectionEndCache = previewRightIdx;
+    } else if (
+      !usedExplicitPreviewRange &&
+      !candidateBridgeBeforePreview &&
+      ListenableEditingState.isBmpCjkOnlyInsert(text) &&
+      previewLeftIdx >= previewRightIdx
+    ) {
+      const fullRun = PreviewTextStringMerge.getFullBufferPinyinRangeIfPureLatin(this.mStringCache);
+      if (fullRun !== null) {
+        this.mSelectionStartCache = fullRun.start;
+        this.mSelectionEndCache = fullRun.end;
+      }
     }
 
+    // replace bounds: explicit preview > bridge path > selection min/max from cache
     let start: number;
     let end: number;
     let insertPayload = text;
