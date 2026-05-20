@@ -70,7 +70,19 @@ void SurfaceContextVK::Shutdown() {
 bool SurfaceContextVK::SetWindowSurface(vk::UniqueSurfaceKHR surface,
                                         const ISize& size) {
   parent_->SetIsPreload(is_preload_);
-  return SetSwapchain(SwapchainVK::Create(parent_, std::move(surface), size));
+  auto swapchain = SwapchainVK::Create(parent_, std::move(surface), size);
+#ifdef FML_OS_OHOS
+  if (swapchain && swapchain->IsValid()) {
+    // Determine target color space from swapchain surface format
+    auto surface_format = swapchain->GetSurfaceFormat();
+    if (surface_format == vk::Format::eA2B10G10R10UnormPack32) {
+      SetTargetColorSpace(ColorSpace::kDisplayP3);
+    } else {
+      SetTargetColorSpace(ColorSpace::kSRGB);
+    }
+  }
+#endif
+  return SetSwapchain(std::move(swapchain));
 }
 
 void SurfaceContextVK::TeardownSwapchain() {

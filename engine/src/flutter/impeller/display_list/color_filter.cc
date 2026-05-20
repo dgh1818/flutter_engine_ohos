@@ -34,7 +34,7 @@ std::shared_ptr<ColorFilterContents> WrapWithGPUColorFilter(
 
       auto filter = ColorFilterContents::MakeBlend(
           static_cast<BlendMode>(blend_filter->mode()), {input},
-          skia_conversions::ToColor(blend_filter->color()));
+          skia_conversions::ToColor(blend_filter->color()).color);
       filter->SetAbsorbOpacity(absorb_opacity);
       return filter;
     }
@@ -72,7 +72,7 @@ ColorFilterProc GetCPUColorFilterProc(const flutter::DlColorFilter* filter) {
       FML_DCHECK(blend_filter);
 
       return [filter_blend_mode = static_cast<BlendMode>(blend_filter->mode()),
-              filter_color = skia_conversions::ToColor(blend_filter->color())](
+              filter_color = skia_conversions::ToColor(blend_filter->color()).color](
                  Color color) {
         return color.Blend(filter_color, filter_blend_mode);
       };

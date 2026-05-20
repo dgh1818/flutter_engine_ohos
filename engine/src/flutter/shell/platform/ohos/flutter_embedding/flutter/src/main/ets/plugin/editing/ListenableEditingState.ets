@@ -1917,6 +1917,8 @@ export class ListenableEditingState {
   handleMoveCursorEvent(direction: inputMethod.Direction): void {
     switch (direction) {
       case inputMethod.Direction.CURSOR_LEFT:
+        this.moveCursorLeftWithoutKeySimulation();
+        break;
       case inputMethod.Direction.CURSOR_RIGHT:
       case inputMethod.Direction.CURSOR_UP:
       case inputMethod.Direction.CURSOR_DOWN:
@@ -1927,6 +1929,22 @@ export class ListenableEditingState {
       default:
         Log.w(TAG, `"Unknown cursor movement direction: ${direction}"`);
         break;
+    }
+  }
+
+  /**
+   * Moves the collapsed cursor one character left in mStringCache / selection cache.
+   * Used when IME calls moveCursor(LEFT) after paired-symbol insertText; does not
+   * simulate ArrowLeft (avoids Shift+Left expand-selection while Shift is held).
+   */
+  private moveCursorLeftWithoutKeySimulation(): void {
+    const selStart = this.mSelectionStartCache;
+    const selEnd = this.mSelectionEndCache;
+    if (selStart == selEnd && selStart > 0) {
+      const newOffset = FlutterTextUtils.getOffsetBefore(this.mStringCache, selStart);
+      this.setSelectionStart(newOffset);
+      this.setSelectionEnd(newOffset);
+      this.notifyListenersIfNeeded(false, true, false);
     }
   }
 

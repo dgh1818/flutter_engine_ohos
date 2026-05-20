@@ -5,19 +5,29 @@
 #include "impeller/display_list/skia_conversions.h"
 #include "flutter/display_list/dl_blend_mode.h"
 #include "flutter/display_list/dl_color.h"
+#include "flutter/fml/build_config.h"
 #include "third_party/skia/modules/skparagraph/include/Paragraph.h"
 
 namespace impeller {
 namespace skia_conversions {
 
-Color ToColor(const flutter::DlColor& color) {
-  FML_DCHECK(color.getColorSpace() == flutter::DlColorSpace::kExtendedSRGB ||
-             color.getColorSpace() == flutter::DlColorSpace::kSRGB);
+ColorWithSpace ToColor(const flutter::DlColor& color) {
+  auto dl_cs = color.getColorSpace();
+  ColorSpace cs = ColorSpace::kSRGB;
+  if (dl_cs == flutter::DlColorSpace::kExtendedSRGB) {
+    cs = ColorSpace::kExtendedSRGB;
+  } else if (dl_cs == flutter::DlColorSpace::kDisplayP3) {
+    cs = ColorSpace::kDisplayP3;
+  }
+
   return {
-      static_cast<Scalar>(color.getRedF()),    //
-      static_cast<Scalar>(color.getGreenF()),  //
-      static_cast<Scalar>(color.getBlueF()),   //
-      static_cast<Scalar>(color.getAlphaF())   //
+      Color{
+          static_cast<Scalar>(color.getRedF()),
+          static_cast<Scalar>(color.getGreenF()),
+          static_cast<Scalar>(color.getBlueF()),
+          static_cast<Scalar>(color.getAlphaF()),
+      },
+      cs,
   };
 }
 

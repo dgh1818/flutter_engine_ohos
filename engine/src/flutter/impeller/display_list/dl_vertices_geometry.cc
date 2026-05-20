@@ -167,13 +167,13 @@ GeometryResult DlVerticesGeometry::GetPositionUVColorBuffer(
         VS::PerVertexData* vtx_contents =
             reinterpret_cast<VS::PerVertexData*>(data);
         const Point* vertex_points = vertices_->vertex_data();
-        for (auto i = 0; i < vertex_count; i++) {
-          Point texture_coord = coordinates[i];
-          Point uv = uv_transform * texture_coord;
-          Color color = has_colors
-                            ? skia_conversions::ToColor(vertices_->colors()[i])
-                                  .Premultiply()
-                            : Color::BlackTransparent();
+for (auto i = 0; i < vertex_count; i++) {
+           Point texture_coord = coordinates[i];
+           Point uv = uv_transform * texture_coord;
+           Color color = has_colors
+                             ? skia_conversions::ToColor(vertices_->colors()[i])
+                                   .color.Premultiply()
+                             : Color::BlackTransparent();
           VS::PerVertexData vertex_data = {.vertices = vertex_points[i],
                                            .texture_coords = uv,
                                            .color = color};
