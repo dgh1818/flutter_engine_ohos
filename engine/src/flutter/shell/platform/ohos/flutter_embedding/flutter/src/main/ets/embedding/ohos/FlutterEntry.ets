@@ -42,6 +42,11 @@ export default class FlutterEntry implements Host {
   protected engineConfigurator: FlutterEngineConfigurator | null = null
   protected hasInit: boolean = false;
   protected callbackId: number | undefined = undefined;
+  /**
+   * 标记是否有一次onPageShow事件在delegate未初始化前执行
+   * 为了保证生命周期事件不丢失，等待delegate初始化完成后再执行一次onShow
+   */
+  protected pendingOnShow: boolean = false;
 
   /**
    * Constructs a new FlutterEntry instance.
@@ -83,6 +88,11 @@ export default class FlutterEntry implements Host {
       this.windowStage?.on('windowStageEvent', this.windowStageEventCallback);
       this.hasInit = true;
       this.delegate?.initWindow();
+      if (this.pendingOnShow) {
+        // aboutToAppear晚于onPageShow执行时，再执行一次onShow
+        this.delegate.onShow();
+        this.pendingOnShow = false;
+      }
       this.registerEnvironmentCallback();
     }
   }
@@ -196,7 +206,11 @@ export default class FlutterEntry implements Host {
    */
   onPageShow() { //生命周期
     Log.d(TAG, "FlutterEntry onPageShow");
-    this?.delegate?.onShow();
+    if (this.delegate) {
+      this.delegate.onShow();
+    } else {
+      this.pendingOnShow = true;
+    }
   }
 
   /**
