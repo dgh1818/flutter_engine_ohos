@@ -2478,6 +2478,84 @@ napi_value PlatformViewOHOSNapi::nativeLookupCallbackInformation(
   return result;
 }
 
+napi_value PlatformViewOHOSNapi::nativeLookupCallbackInformationBigInt(
+    napi_env env,
+    napi_callback_info info) {
+  napi_value result;
+  size_t argc = 2;
+  napi_value args[2] = {nullptr};
+
+  napi_handle_scope scope;
+  napi_open_handle_scope(env, &scope);
+  napi_status ret = napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+  if (ret != napi_ok) {
+    LOGE("nativeLookupCallbackInformationBigInt napi_get_cb_info error");
+    napi_create_int32(env, -1, &result);
+    napi_close_handle_scope(env, scope);
+    return result;
+  }
+
+  int64_t handle;
+  bool lossless;
+  ret = napi_get_value_bigint_int64(env, args[1], &handle, &lossless);
+  if (ret != napi_ok) {
+    LOGE(
+        "nativeLookupCallbackInformationBigInt napi_get_value_bigint_int64 "
+        "error");
+    napi_create_int32(env, -1, &result);
+    napi_close_handle_scope(env, scope);
+    return result;
+  }
+
+  if (!lossless) {
+    LOGE("nativeLookupCallbackInformationBigInt handle exceeds int64_t range");
+    napi_create_int32(env, -1, &result);
+    napi_close_handle_scope(env, scope);
+    return result;
+  }
+
+  LOGD("nativeLookupCallbackInformationBigInt::handle : %{public}ld", handle);
+  auto cbInfo = flutter::DartCallbackCache::GetCallbackInformation(handle);
+  if (cbInfo == nullptr) {
+    LOGE(
+        "nativeLookupCallbackInformationBigInt DartCallbackCache "
+        "GetCallbackInformation nullptr");
+    napi_create_int32(env, -1, &result);
+    napi_close_handle_scope(env, scope);
+    return result;
+  }
+
+  napi_ref callbck_napi_obj;
+  ret = napi_create_reference(env, args[0], 1, &callbck_napi_obj);
+  if (ret != napi_ok) {
+    LOGE("nativeLookupCallbackInformationBigInt napi_create_reference error");
+    napi_create_int32(env, -1, &result);
+    napi_close_handle_scope(env, scope);
+    return result;
+  }
+
+  napi_value callbackParam[3];
+  napi_create_string_utf8(env, cbInfo->name.c_str(), NAPI_AUTO_LENGTH,
+                          &callbackParam[0]);
+  napi_create_string_utf8(env, cbInfo->class_name.c_str(), NAPI_AUTO_LENGTH,
+                          &callbackParam[1]);
+  napi_create_string_utf8(env, cbInfo->library_path.c_str(), NAPI_AUTO_LENGTH,
+                          &callbackParam[2]);
+
+  ret = fml::napi::InvokeJsMethod(env, callbck_napi_obj, "init", 3,
+                                  callbackParam);
+  if (ret != napi_ok) {
+    FML_DLOG(ERROR) << "nativeLookupCallbackInformationBigInt init fail ";
+    napi_create_int32(env, -1, &result);
+    napi_close_handle_scope(env, scope);
+    return result;
+  }
+  napi_delete_reference(env, callbck_napi_obj);
+  napi_create_int32(env, 0, &result);
+  napi_close_handle_scope(env, scope);
+  return result;
+}
+
 napi_value PlatformViewOHOSNapi::nativeUnicodeIsEmoji(napi_env env,
                                                       napi_callback_info info) {
   size_t argc = 1;

@@ -35,6 +35,20 @@ export class FlutterCallbackInformation {
   }
 
   /**
+   * Gets callback information for a given handle using full 64-bit integer semantics.
+   *
+   * Prefer this over [lookupCallbackInformation] when the handle comes from
+   * `PluginUtilities.getCallbackHandle().toRawHandle()` and may exceed the safe
+   * integer range of `number` (e.g. pass `BigInt(rawHandle)`).
+   *
+   * @param handle - The handle for the callback as a `bigint`
+   * @returns An instance of FlutterCallbackInformation for the provided handle, or null if not found
+   */
+  static lookupCallbackInformationBigInt(handle: bigint): FlutterCallbackInformation | null {
+    return FlutterNapi.nativeLookupCallbackInformationBigInt(handle);
+  }
+
+  /**
    * Constructs a new FlutterCallbackInformation instance.
    * @param callbackName - The name of the callback function
    * @param callbackClassName - The class name containing the callback

@@ -392,6 +392,14 @@ export const nativeSetPipVisible: (nativeShellHolderId: number, visible: boolean
 export const nativeLookupCallbackInformation: (callback: FlutterCallbackInformation, handler: number) => number;
 
 /**
+ * Looks up callback information for a given handler (bigint).
+ * @param callback - The FlutterCallbackInformation object to populate
+ * @param handler - The handler as a bigint
+ * @returns The result code
+ */
+export const nativeLookupCallbackInformationBigInt: (callback: FlutterCallbackInformation, handler: bigint) => number;
+
+/**
  * Checks if a Unicode code point is an emoji.
  * @param code - The Unicode code point
  * @returns 1 if it is an emoji, 0 otherwise
