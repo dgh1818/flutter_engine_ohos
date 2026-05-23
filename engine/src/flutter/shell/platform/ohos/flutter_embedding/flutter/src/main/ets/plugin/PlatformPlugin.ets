@@ -460,7 +460,9 @@ export class PlatformPluginCallback implements PlatformMessageHandler {
           break;
       }
     } else {
-      isStatusBarLightIconValue = currentProps?.isStatusBarLightIcon ?? false
+      isStatusBarLightIconValue = currentProps?.isStatusBarLightIcon ?? false;
+      statusBarContentColorValue = currentProps?.statusBarContentColor ??
+        (isStatusBarLightIconValue ? '#FFFFFF' : '#000000');
     }
 
     if (systemChromeStyle.statusBarColor != null) {
