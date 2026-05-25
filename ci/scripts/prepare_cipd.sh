@@ -41,8 +41,8 @@ prepare_cipd() {
     }
 
     run_cmd "git branch -a"
-    run_cmd "git checkout main"
-    run_cmd "git reset --hard origin/main"
+    run_cmd "git checkout 2.0.0"
+    run_cmd "git reset --hard origin/2.0.0"
     run_cmd "git pull --rebase"
     run_cmd "patchcipd"
 

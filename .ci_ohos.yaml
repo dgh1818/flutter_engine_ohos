@@ -83,14 +83,6 @@ publish_files:
 
 # Preparation steps - executed in order
 preparation_steps:
-  - name: Prepare openharmony SDK
-    script: ci/scripts/prepare_openharmony_sdk.sh
-    description: Download openharmony sdk
-    args: 
-      - "https://cidownload.openharmony.cn/version/Daily_Version/OpenHarmony_7.0.0.20/20260409_180136/version-Daily_Version-OpenHarmony_7.0.0.20-20260409_180136-ohos-sdk-full.tar.gz"
-      - "53074415265213988aeb159448a5343c0b9108c7eb6d5294643f7f73c9eaa783"
-    required: true
-
   - name: Check System Information
     script: ci/scripts/check_system_info.sh
     description: Verify system OS and user information
@@ -156,7 +148,19 @@ compilation_steps:
   - name: Patch sysroot scripts
     script: ci/scripts/replace_in_file.sh
     description: Replacing download URL in sysroot scripts
-    args: ["flutter_flutter/engine/src/build/linux/sysroot_scripts/install-sysroot.py", "s|https://commondatastorage.googleapis.com|file:///home/tools/Flutter/repo/binary|g"]
+    args: ["flutter_flutter/engine/src/build/linux/sysroot_scripts/sysroots.json", "s|https://commondatastorage.googleapis.com|file:///home/tools/Flutter/repo/binary|g"]
+    required: true
+  
+  - name: Patch emsdk packages URL
+    script: ci/scripts/replace_in_file.sh
+    description: Replacing emsdk packages download URL with local path
+    args: ["flutter_flutter/engine/src/flutter/prebuilts/emsdk/emsdk.py", "s|https://storage.googleapis.com/webassembly/emscripten-releases-builds/deps/|file:///home/tools/Flutter/repo/binary/webassembly/emscripten-releases-builds/deps/|g"]
+    required: true
+
+  - name: Patch emsdk releases download URL
+    script: ci/scripts/replace_in_file.sh
+    description: Replacing emsdk releases download URL with local path
+    args: ["flutter_flutter/engine/src/flutter/prebuilts/emsdk/emsdk_manifest.json", "s|https://storage.googleapis.com/webassembly/emscripten-releases-builds/|file:///home/tools/Flutter/repo/binary/webassembly/emscripten-releases-builds/|g"]
     required: true
 
   - name: Running gclient hooks
