@@ -2,32 +2,32 @@
 # Do not modify manually. All changes will be overwritten.
 
 dart/dart-sdk/linux-amd64
-	git_revision:4bb26ad346b166d759773e01ffc8247893b9681e
-	IwNth-eEOTDVybM8T4UDRNUFVxzsSWuSuNCrhrVWDrgC
+	git_revision:782552bdddc112c62db28ec7e9b2763f4457a3ea
+	YzubHo2VNGx0AtS7msjsCv515K0p9d12KXm0v7fhPBAC
 
 dart/third_party/flutter/devtools
-	git_revision:131c9de7c067973d314b2684939c95e0a82b2bdb
-	9AeqBUqRsXJQh5oWFzxmMlnhF3mOvzHgSk4IymmMZKkC
+	git_revision:c13b1e172794a71ffe9436a5cfe0a0a9d7509d78
+	1xFpQa87tXK-45eYRVgVYFtcvgpmKHfJZA0R5EkWDdMC
 
 flutter/android/embedding_bundle
-	last_updated:2024-09-10T16:32:16-0700
-	S9i8a9YeVhp9nBlYQohfPtqXFugRZAK9ZG2EwS1MJhwC
+	last_updated:2025-10-15T09:53:03-0700
+	29hsyGsG23J-qab0FYTlIUMukPG8c6C2earNMV9H9dAC
 
 flutter/android/google-java-format
 	version:1.7-1
 	iblFvvZRGmzx3F8dvL6YlCXN5BIZRbHUHb7oEeJJZGQC
 
 flutter/android/sdk/all/linux-amd64
-	version:36v1
-	WlJJkMWQVxYv9q5BhIFVXket_EUdFAdUapj1jDY1w1gC
+	version:36v8unmodified
+	87vvFbB8GeXc5o9z9c3xR_b4soxmPR8OEHDsy-gXigYC
 
 flutter/dart-sdk/linux-amd64
-	git_revision:a29e08c72e2ce21813c1edf50cbcdfcac7a7acdd
-	0YaMBfWVy6Ez5VsBUnoH8Xd0z8ha_DopbiR8VbFb6EYC
+	git_revision:e927f58e327ae13d056a16bb2ebf618e071c20a7
+	Rf5RaAO302RbWiiW5D4V56E4iKA-sFrn0ztQytn8xDIC
 
 flutter/dart-sdk/linux-arm64
-	git_revision:a29e08c72e2ce21813c1edf50cbcdfcac7a7acdd
-	MEymRup8KzkXpL-YGnD7WzTnEZqX85CZ3exgwkcXjAkC
+	git_revision:e927f58e327ae13d056a16bb2ebf618e071c20a7
+	No3sevY5Acea8Xgx0cOLqqvg62fcQcQakoUKjC92po0C
 
 flutter/flutter_font_fallbacks
 	44bd38be0bc8c189a397ca6dd6f737746a9e0c6117b96a8f84f1edf6acd1206b
@@ -38,20 +38,20 @@ flutter/gradle
 	43VJhAsg7qLbhiz6xaueNZVxPxkl1BsmRxT3KUsxVUgC
 
 flutter/java/openjdk/linux-amd64
-	version:17
-	3HlEfp1nbzGbtJ4K3UQ1BM4nHieyCNc0enqBMsSRN7IC
+	version:21
+	j3W8fvLNPi6k8FEbn14S7SjI3Su4yHvcN1igIyH_2rMC
 
 flutter/tools/esbuild/linux-amd64
 	0.19.5
 	sE4YvnSysbVCCxhImYGVjHxADHlQLhWkbsTjXZY4rjoC
 
 fuchsia/third_party/clang/linux-amd64
-	git_revision:725656bdd885483c39f482a01ea25d67acf39c46
-	0W11iNLWzzp3mqEU00vxEjMJEjtSHkHf1l8UW0oRfV4C
+	git_revision:8c7a2ce01a77c96028fe2c8566f65c45ad9408d3
+	-f7MR6VniTzxeWcp2k9ZkII4oK21j44tQvYuCBaHpqEC
 
 gn/gn/linux-amd64
-	git_revision:7a8aa3a08a13521336853a28c46537ec04338a2d
-	uWL-Fla5bvB_rf0x7qUIodwXhzl-JJc2Ia2CeZ-xn-gC
+	git_revision:81b24e01531ecf0eff12ec9359a555ec3944ec4e
+	zTMMtPTg2OXILKOlg3mOpTN_0BMIlS2-Inyd2LxR2FQC
 
 infra/3pp/tools/ninja/linux-amd64
 	version:2@1.11.1.chromium.4
