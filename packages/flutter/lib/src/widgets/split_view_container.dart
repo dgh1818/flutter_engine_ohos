@@ -211,30 +211,35 @@ class _SplitViewContainerState extends State<SplitViewContainer>
         children: <Widget>[
           Expanded(
             flex: splitScreenOnThisPage ? 50 : (_rightSideShowsPlaceholder ? 100 : 0),
-            child: Visibility(
-              visible: splitScreenOnThisPage || _rightSideShowsPlaceholder,
-              maintainState: true,
-              child: SizedBox(
-                width: splitScreenOnThisPage || _rightSideShowsPlaceholder
-                    ? null
-                    : 0,
-                height: splitScreenOnThisPage || _rightSideShowsPlaceholder
-                    ? null
-                    : 0,
-                child: _ProxyNavigator(
-                  key: widget.navigatorKey ?? _leftNavKey,
-                  initialRoute: widget.initialRoute,
-                  onGenerateInitialRoutes: widget.onGenerateInitialRoutes,
-                  onGenerateRoute: widget.onGenerateRoute,
-                  onUnknownRoute: widget.onUnknownRoute,
-                  reportsRouteUpdateToEngine: widget.reportsRouteUpdateToEngine,
-                  clipBehavior: widget.clipBehavior,
-                  requestFocus: widget.requestFocus,
-                  restorationScopeId: widget.restorationScopeId,
-                  routeTraversalEdgeBehavior: widget.routeTraversalEdgeBehavior,
+            child: Semantics(
+              container: true,
+              explicitChildNodes: true,
+              child: Visibility(
+                visible: splitScreenOnThisPage || _rightSideShowsPlaceholder,
+                maintainState: true,
+                child: SizedBox(
+                  width: splitScreenOnThisPage || _rightSideShowsPlaceholder
+                      ? null
+                      : 0,
+                  height: splitScreenOnThisPage || _rightSideShowsPlaceholder
+                      ? null
+                      : 0,
+                  child: _ProxyNavigator(
+                    key: widget.navigatorKey ?? _leftNavKey,
+                    initialRoute: widget.initialRoute,
+                    onGenerateInitialRoutes: widget.onGenerateInitialRoutes,
+                    onGenerateRoute: widget.onGenerateRoute,
+                    onUnknownRoute: widget.onUnknownRoute,
+                    reportsRouteUpdateToEngine: widget.reportsRouteUpdateToEngine,
+                    clipBehavior: widget.clipBehavior,
+                    requestFocus: widget.requestFocus,
+                    restorationScopeId: widget.restorationScopeId,
+                    routeTraversalEdgeBehavior: widget.routeTraversalEdgeBehavior,
+                  ),
                 ),
-              )),
-        ),
+              ),
+            ),
+          ),
         Visibility(
           visible: splitScreenOnThisPage,
           child: Container(
@@ -245,27 +250,31 @@ class _SplitViewContainerState extends State<SplitViewContainer>
         Expanded(
           flex: splitScreenOnThisPage ? 50 : (_rightSideShowsPlaceholder ? 0 : 100),
           child: ClipRect(
-            child: Visibility(
-              visible: splitScreenOnThisPage || !_rightSideShowsPlaceholder,
-              maintainState: true,
-              child: SizedBox(
-                width: splitScreenOnThisPage || !_rightSideShowsPlaceholder
-                    ? null
-                    : 0,
-                height: splitScreenOnThisPage || !_rightSideShowsPlaceholder
-                    ? null
-                    : 0,
-                child: _RightSideNavigator(
-                  key: _rightNavKey,
-                  initialRoute: SplitStartPage.routeName,
-                  onGenerateRoute: widget.onGenerateRoute,
-                  onUnknownRoute: widget.onUnknownRoute,
-                  reportsRouteUpdateToEngine: false,
-                  clipBehavior: widget.clipBehavior,
-                  navigatorObservers: widget.navigatorObservers,
-                  requestFocus: widget.requestFocus,
-                  restorationScopeId: 'nav-right',
-                  routeTraversalEdgeBehavior: widget.routeTraversalEdgeBehavior,
+            child: Semantics(
+              container: true,
+              explicitChildNodes: true,
+              child: Visibility(
+                visible: splitScreenOnThisPage || !_rightSideShowsPlaceholder,
+                maintainState: true,
+                child: SizedBox(
+                  width: splitScreenOnThisPage || !_rightSideShowsPlaceholder
+                      ? null
+                      : 0,
+                  height: splitScreenOnThisPage || !_rightSideShowsPlaceholder
+                      ? null
+                      : 0,
+                  child: _RightSideNavigator(
+                    key: _rightNavKey,
+                    initialRoute: SplitStartPage.routeName,
+                    onGenerateRoute: widget.onGenerateRoute,
+                    onUnknownRoute: widget.onUnknownRoute,
+                    reportsRouteUpdateToEngine: false,
+                    clipBehavior: widget.clipBehavior,
+                    navigatorObservers: widget.navigatorObservers,
+                    requestFocus: widget.requestFocus,
+                    restorationScopeId: 'nav-right',
+                    routeTraversalEdgeBehavior: widget.routeTraversalEdgeBehavior,
+                  ),
                 ),
               ),
             ),
