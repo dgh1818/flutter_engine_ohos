@@ -46,6 +46,7 @@ class SemanticsTree {
   bool UpdateNextFocusWhenDisappear(
       std::unordered_set<int32_t>& need_remove_ids);
 
+  bool DetectRouteChange();
   // This flag is set after the event is sent, indicating the event has been
   // dispatched, but the focus node has not updated yet.
   bool focus_request_has_send_ = false;
@@ -62,12 +63,19 @@ class SemanticsTree {
   SemanticsNodeExtend* input_focused_node_ = nullptr;
   SemanticsNodeExtend* last_input_focused_node_ = nullptr;
 
+  // Route change detection
+  std::vector<int32_t> previous_routes_;
+  int32_t previous_route_id_ = 0;
+
   bool FillNodesRecursive(int32_t id,
                           const char* text,
                           ArkUI_AccessibilityElementInfoList* list);
   bool FillNodeInfo(SemanticsNodeExtend* node,
                     ArkUI_AccessibilityElementInfoList* list);
   void UpdateFocusableNodesInfo(std::vector<int32_t>& visitorOrder);
+
+  // Route stack comparison for navigation detection
+  void CollectRoutes(std::vector<int32_t>& routes);
 };
 
 }  // namespace flutter

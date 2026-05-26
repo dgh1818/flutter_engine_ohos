@@ -601,5 +601,39 @@ void SemanticsTree::ClearSemanticsTree() {
   in_request_progress_ = false;
   input_focused_node_ = nullptr;
   last_input_focused_node_ = nullptr;
+  previous_routes_.clear();
+  previous_route_id_ = 0;
+}
+
+void SemanticsTree::CollectRoutes(std::vector<int32_t>& routes) {
+  // Collect all node IDs that have the scopesRoute flag set.
+  // These represent the navigation stack of the Flutter app.
+  for (auto& pair : all_semantics_nodes_) {
+    auto node = pair.second;
+    if (node->flags.scopesRoute && node->isExist) {
+      routes.push_back(node->id);
+    }
+  }
+}
+
+bool SemanticsTree::DetectRouteChange() {
+  std::vector<int32_t> new_routes;
+  CollectRoutes(new_routes);
+
+  // Get the current top-most route ID
+  int32_t new_route_id = new_routes.empty() ? 0 : new_routes.back();
+
+  // Detect route change by comparing:
+  // 1. The top-most route ID changed, OR
+  // 2. The route stack size changed
+  bool route_changed = (!new_routes.empty() &&
+      (new_route_id != previous_route_id_ ||
+       new_routes.size() != previous_routes_.size()));
+
+  // Update cached route information
+  previous_routes_ = new_routes;
+  previous_route_id_ = new_route_id;
+
+  return route_changed;
 }
 }  // namespace flutter
