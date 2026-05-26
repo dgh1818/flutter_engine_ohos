@@ -29,6 +29,8 @@ const TAG: string = 'DisplayMetricsChannel';
 export default class DisplayMetricsChannel implements MethodCallHandler {
   public channel: MethodChannel;
   public context: common.Context;
+  private customDpiActive: boolean = false;
+ 	private currentUri: string = '';
 
   /**
    * Handles method calls on {@code flutter/displaymetrics} from Flutter.
@@ -43,6 +45,11 @@ export default class DisplayMetricsChannel implements MethodCallHandler {
       // More methods are expected to be added here, hence the switch.
       switch (method) {
         case "updateDpiScale":
+          if (this.customDpiActive && this.currentUri) {
+            result.success(true);
+            Log.i(TAG, "Custom DPI for this page" + this.currentUri);
+            break;
+          }
           let dpiScaleFactor: number = call.argument('dpiScale');
           Log.i(TAG, "Received dpiScaleFactor '" + dpiScaleFactor + "' message.");
           this.context.eventHub.emit('changeDevicePixelRatio', dpiScaleFactor)
@@ -55,6 +62,24 @@ export default class DisplayMetricsChannel implements MethodCallHandler {
     } catch (error) {
       result.error("error", "UnHandled error: " + JSON.stringify(error), null)
     }
+  }
+
+  setCustomDpiActive(active: boolean): void {
+    this.customDpiActive = active;
+    Log.i(TAG, "setCustomDpiActive: " + active);
+  }
+
+  isCustomDpiActive(): boolean {
+    return this.customDpiActive;
+  }
+
+  setCurrentUri(uri: string): void {
+    this.currentUri = uri;
+    Log.i(TAG, "setCurrentUri: " + uri);
+  }
+
+  getCurrentUri(): string {
+    return this.currentUri;
   }
 
   /**
