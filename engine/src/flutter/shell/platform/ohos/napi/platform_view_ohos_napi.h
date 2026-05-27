@@ -241,6 +241,9 @@ class PlatformViewOHOSNapi {
   static napi_value nativeDecodeUtf8(napi_env env, napi_callback_info info);
   static napi_value nativeLookupCallbackInformation(napi_env env,
                                                     napi_callback_info info);
+  static napi_value nativeLookupCallbackInformationBigInt(
+      napi_env env,
+      napi_callback_info info);
 
   static napi_value nativeUnicodeIsEmoji(napi_env env, napi_callback_info info);
 

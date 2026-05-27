@@ -232,6 +232,20 @@ export default class FlutterNapi {
   }
 
   /**
+   * Looks up callback information for a given handler using a bigint handle.
+   * @param handle - The handler as a bigint
+   * @returns The FlutterCallbackInformation, or null if not found
+   */
+  static nativeLookupCallbackInformationBigInt(handle: bigint): FlutterCallbackInformation | null {
+    let callbackInformation = new FlutterCallbackInformation();
+    let ret: number = flutter.nativeLookupCallbackInformationBigInt(callbackInformation, handle);
+    if (ret == 0) {
+      return callbackInformation;
+    }
+    return null;
+  }
+
+  /**
    * Notifies the Flutter engine of a low memory warning.
    */
   notifyLowMemoryWarning(): void {
