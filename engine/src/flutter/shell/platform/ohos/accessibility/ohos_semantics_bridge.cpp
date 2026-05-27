@@ -63,8 +63,7 @@ void SemanticsBridge::UpdateFocusedNode() {
   auto focused_node = tree_.focused_node_;
 
   auto root_node = tree_.GetRootNode();
-  if (has_navigationed_ && root_node != nullptr) {
-    has_navigationed_ = false;
+  if (root_node != nullptr && tree_.DetectRouteChange()) {
     SendSemanticsEvent(
         root_node, ARKUI_ACCESSIBILITY_NATIVE_EVENT_TYPE_PAGE_CONTENT_UPDATE,
         nullptr);
