@@ -5,6 +5,7 @@
 *
 */
 import { BuilderNode, FrameNode, NodeController, NodeRenderType } from '@kit.ArkUI';
+import { deviceInfo } from '@kit.BasicServicesKit';
 import Any from '../../plugin/common/Any';
 import PlatformView, { Params, PlatformViewVisibleAreaEventOptions } from '../../plugin/platform/PlatformView';
 import Log from '../../util/Log';
@@ -196,26 +197,56 @@ export class EmbeddingNodeController extends NodeController {
     this.wrappedBuilder = null;
   }
 
+  private supportPostInputEventWithStrategy(): boolean {
+    return deviceInfo.sdkApiVersion >= 24
+      && typeof (this.builderNode as ESObject)?.postInputEventWithStrategy === 'function';
+  }
+ 	 
+ 	/**
+ 	 * postInputEventWithStrategy reads GlobalLocation (window/display) for hit test and Web DOM.
+ 	 * When PlatformView has a non-zero layout offset, Flutter provides correct local x/y but
+ 	 * window/display/screen still carry window-global coords, which shifts Web hits by layoutTop.
+ 	 * Align all coordinate fields to PlatformView-local space before posting.
+ 	 */
+ 	private alignToLocalSpace(event: TouchEvent): void {
+    const alignTouch = (touch: TouchObject) => {
+      touch.displayX = touch.x;
+      touch.displayY = touch.y;
+      touch.windowX = touch.x;
+      touch.windowY = touch.y;
+      touch.screenX = touch.x;
+      touch.screenY = touch.y;
+    };
+ 	  for (let i = 0; i < event.changedTouches.length; i++) {
+      alignTouch(event.changedTouches[i]);
+ 	  }
+ 	  for (let i = 0; i < event.touches.length; i++) {
+      alignTouch(event.touches[i]);
+ 	  }
+ 	}
+
   /**
    * Posts a mouse event to the builder node.
-   * Note: postInputEvent is an API20 interface, so we check for its existence to avoid compilation errors.
+   * API 24+: prefer postInputEventWithStrategy, fallback to postInputEvent on API 20.
    * @param event - The mouse event to post
    */
   postMouseEvent(event: MouseEvent) {
-    // Avoid compilation errors: postInputEvent is an API20 interface
-    if (typeof (this.builderNode as ESObject)?.postInputEvent == 'function') {
+    if (this.supportPostInputEventWithStrategy()) {
+      (this.builderNode as ESObject)?.postInputEventWithStrategy(event, CompetitionStrategy.DEFAULT);
+    } else if (typeof (this.builderNode as ESObject)?.postInputEvent === 'function') {
       (this.builderNode as ESObject)?.postInputEvent(event);
     }
   }
 
   /**
    * Posts an axis event to the builder node.
-   * Note: postInputEvent is an API20 interface, so we check for its existence to avoid compilation errors.
+   * API 24+: prefer postInputEventWithStrategy, fallback to postInputEvent on API 20.
    * @param event - The axis event to post
    */
   postAxisEvent(event: AxisEvent) {
-    // Avoid compilation errors: postInputEvent is an API20 interface
-    if (typeof (this.builderNode as ESObject)?.postInputEvent == 'function') {
+    if (this.supportPostInputEventWithStrategy()) {
+      (this.builderNode as ESObject)?.postInputEventWithStrategy(event, CompetitionStrategy.DEFAULT);
+    } else if (typeof (this.builderNode as ESObject)?.postInputEvent === 'function') {
       (this.builderNode as ESObject)?.postInputEvent(event);
     }
   }
@@ -261,6 +292,11 @@ export class EmbeddingNodeController extends NodeController {
       }
     }
 
-    return this.builderNode?.postTouchEvent(event) as boolean
+    // API 24+: prefer postInputEventWithStrategy, fallback to postTouchEvent on API 20	 
+ 	  if (this.supportPostInputEventWithStrategy()) {
+      this.alignToLocalSpace(event);
+      return (this.builderNode as ESObject)?.postInputEventWithStrategy(event, CompetitionStrategy.DEFAULT) as boolean;
+ 	  }
+    return this.builderNode?.postTouchEvent(event) as boolean;
   }
 }
