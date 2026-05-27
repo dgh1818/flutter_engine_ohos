@@ -483,6 +483,10 @@ export class FlutterView {
         const scale = customDensity / sysDensity;
         Log.i(TAG, "densityUpdateCallback: customDensity=" + customDensity + ", sysDensity=" +
           sysDensity + ", scale=" + scale);
+        const currentUri = this.flutterEngine?.getDisplayMetricsChannel()?.getCurrentUri() ?? '';
+ 	      if (currentUri) {
+ 	        this.flutterEngine?.getDisplayMetricsChannel()?.setCustomDpiActive(true);
+ 	      }
         this.onDevicePixelRatioChange(scale);
       }
     } catch (e) {
