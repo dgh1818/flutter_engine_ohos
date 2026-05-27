@@ -167,9 +167,10 @@ class _SplitViewContainerState extends State<SplitViewContainer>
       rightNavigator.pop();
       return true;
     }
-    if (leftNavigator.canPop()) {
-      leftNavigator.pop();
-      return true;
+
+    if (leftNavigator.canPop()) { 
+      leftNavigator.pop(); 
+      return true; 
     }
 
     return false;
@@ -318,6 +319,7 @@ class _ProxyNavigatorState extends State<_ProxyNavigator> {
   late SplitViewManager _manager;
   late _ProxyNavigatorObserver _observer;
   late GlobalKey<_ProxyNavigatorStateImpl> _navigatorKey;
+  Widget? _cachedChild;
 
   @override
   void initState() {
@@ -345,7 +347,7 @@ class _ProxyNavigatorState extends State<_ProxyNavigator> {
 
   @override
   Widget build(BuildContext context) {
-    return _ProxyNavigatorImpl(
+    return _cachedChild ??= _ProxyNavigatorImpl(
       key: _navigatorKey,
       initialRoute: widget.initialRoute,
       onGenerateInitialRoutes: widget.onGenerateInitialRoutes,
@@ -427,6 +429,7 @@ class _ProxyNavigatorStateImpl extends NavigatorState {
         _manager.addProcessedPopupRoute(barrierRoute);
         _manager.setPoprouteOnScreen(true);
         if (!_manager.rightSideShowsPlaceholder) {
+          final FocusNode? previousFocus = WidgetsBinding.instance.focusManager.primaryFocus;
           super.push(barrierRoute);
           final rightFuture = manager.rightNavigator!.push(route);
           rightFuture.then((value) {
@@ -437,9 +440,14 @@ class _ProxyNavigatorStateImpl extends NavigatorState {
             _currentBarrierRoute = null;
             _manager.removeProcessedPopupRoute(route);
             _manager.setPoprouteOnScreen(false);
+
+            if (previousFocus != null && previousFocus.context != null) {
+              previousFocus.requestFocus();
+            }
           });
           return rightFuture;
         } else {
+          final FocusNode? previousFocus = WidgetsBinding.instance.focusManager.primaryFocus;
           manager.rightNavigator!.push(barrierRoute);
           final leftFuture = super.push(route);
           leftFuture.then((value) {
@@ -451,6 +459,10 @@ class _ProxyNavigatorStateImpl extends NavigatorState {
             _currentBarrierRoute = null;
             _manager.removeProcessedPopupRoute(route);
             _manager.setPoprouteOnScreen(false);
+
+            if (previousFocus != null && previousFocus.context != null) {
+              previousFocus.requestFocus();
+            }
           });
           return leftFuture;
         }
@@ -518,31 +530,43 @@ class _ProxyNavigatorStateImpl extends NavigatorState {
 
   @override
   bool canPop() {
-    final rightNavigator = _manager.rightNavigator;
-    final leftCanPop = super.canPop();
-
-    if (rightNavigator != null && rightNavigator.canPop()) {
-      return true;
+    if (_manager.isHomePageReady && !_manager.poprouteOnScreen) {
+      final rightNavigator = _manager.rightNavigator;
+      return rightNavigator != null && rightNavigator.canPop();
     }
 
-    return leftCanPop;
+    return super.canPop();
   }
 
   @override
   Future<bool> maybePop<T extends Object?>([T? result]) async {
     final rightNavigator = _manager.rightNavigator;
-
-    if (rightNavigator != null) {
-      final rightCanPop = rightNavigator.canPop();
-      if (rightCanPop) {
-        final didPop = await rightNavigator.maybePop(result);
-        if (didPop) {
-          return true;
-        }
+    // When popup route is on screen (barrier visible), only handle left side pop.
+    // Don't forward to right navigator, because right side only has barrier route.
+    // The real popup is on left side, so pop should happen on left.
+    if (_manager.poprouteOnScreen) {
+      return super.maybePop(result);
+    }
+    if (rightNavigator != null && rightNavigator.canPop()) {
+      final didPop = await rightNavigator.maybePop(result);
+      if (didPop) {
+        return true;
       }
     }
 
+    if (_manager.isHomePageReady && !_manager.poprouteOnScreen) {
+      return false;
+    }
+  
     return super.maybePop(result);
+  }
+
+  @override
+  void pop<T extends Object?>([T? result]) {
+    if (_manager.isHomePageReady && !_manager.poprouteOnScreen) {
+      return;
+    }
+    super.pop(result);
   }
 
   Route<T> _createBarrierRoute<T>(PopupRoute route) {
@@ -568,9 +592,8 @@ class _ProxyNavigatorObserver extends NavigatorObserver {
     }
     manager.setLeftCurrentRoute(previousRoute ?? route);
 
-    // Notify app's globalRouteObserver to trigger RouteAware's didPop/didPopNext callbacks
-    final observer = manager.globalRouteObserver;
-    if (observer != null) {
+    // Notify app's globalRouteObservers to trigger RouteAware's didPop/didPopNext callbacks
+    for (final observer in manager.globalRouteObservers) {
       observer.didPop(route, previousRoute);
     }
   }
@@ -603,8 +626,7 @@ class _ProxyNavigatorObserver extends NavigatorObserver {
     }
     manager.setLeftCurrentRoute(route);
 
-    final observer = manager.globalRouteObserver;
-    if (observer != null) {
+    for (final observer in manager.globalRouteObservers) {
       observer.didPush(route, previousRoute);
     }
   }
@@ -620,8 +642,7 @@ class _ProxyNavigatorObserver extends NavigatorObserver {
       manager.setLeftCurrentRoute(newRoute);
     }
 
-    final observer = manager.globalRouteObserver;
-    if (observer != null) {
+    for (final observer in manager.globalRouteObservers) {
       observer.didReplace(newRoute: newRoute, oldRoute: oldRoute);
     }
   }
@@ -661,6 +682,7 @@ class _RightSideNavigatorState extends State<_RightSideNavigator> {
   late SplitViewManager _manager;
   late _RightSideNavigatorObserver _observer;
   late final GlobalKey<_RightSideNavigatorStateImpl> _navigatorKey;
+  Widget? _cachedChild;
 
   @override
   void initState() {
@@ -671,13 +693,8 @@ class _RightSideNavigatorState extends State<_RightSideNavigator> {
     if (widget.navigatorObservers != null &&
         widget.navigatorObservers!.isNotEmpty) {
       for (final observer in widget.navigatorObservers!) {
-        try {
-          final globalObserver = observer as RouteObserver<ModalRoute<dynamic>>;
-          _manager.setGlobalRouteObserver(globalObserver);
-          break;
-        } catch (e) {
-          debugPrint('SplitScreen: Error _RightSideNavigatorState getting global observer: $e');
-          continue;
+        if (observer is RouteObserver<ModalRoute<dynamic>>) {
+          _manager.addGlobalRouteObserver(observer);
         }
       }
     }
@@ -697,7 +714,7 @@ class _RightSideNavigatorState extends State<_RightSideNavigator> {
   Widget build(BuildContext context) {
     // Use HeroControllerScope.none to prevent multiple Navigators from sharing HeroController
     // This avoids Hero animation conflicts between outer and inner Navigators
-    return HeroControllerScope.none(
+    return _cachedChild ??= HeroControllerScope.none(
       child: _RightSideNavigatorImpl(
         key: _navigatorKey,
         initialRoute: widget.initialRoute, // Use passed initialRoute (already '/split_start_page')
@@ -817,6 +834,8 @@ class _RightSideNavigatorStateImpl extends NavigatorState {
       if (manager.leftNavigator != null) {
         _manager.addProcessedPopupRoute(route);
 
+        final FocusNode? previousFocus = WidgetsBinding.instance.focusManager.primaryFocus;
+
         final barrierRoute = _createBarrierRoute(route as PopupRoute);
         _currentBarrierRoute = barrierRoute;
         _manager.addProcessedPopupRoute(barrierRoute);
@@ -833,6 +852,10 @@ class _RightSideNavigatorStateImpl extends NavigatorState {
           _currentBarrierRoute = null;
           _manager.removeProcessedPopupRoute(route);
           _manager.setPoprouteOnScreen(false);
+
+          if (previousFocus != null && previousFocus.context != null) {
+            previousFocus.requestFocus();
+          }
         });
 
         return rightFuture;
@@ -959,38 +982,42 @@ class _RightSideNavigatorObserver extends NavigatorObserver {
 
   void _notifyLeftSideDidPushNext() {
     final manager = SplitViewManager();
-    final observer = manager.globalRouteObserver;
+    final observers = manager.globalRouteObservers;
     final leftCurrentRoute = manager.leftCurrentRoute;
 
-    if (observer == null || leftCurrentRoute == null) {
+    if (observers.isEmpty || leftCurrentRoute == null) {
       return;
     }
 
     final virtualRoute = _VirtualSplitScreenRoute();
 
-    try {
-      observer.didPush(virtualRoute, leftCurrentRoute);
-    } catch (e) {
-      debugPrint('SplitScreen: Error notifying left side didPushNext: $e');
+    for (final observer in observers) {
+      try {
+        observer.didPush(virtualRoute, leftCurrentRoute);
+      } catch (e) {
+        debugPrint('SplitScreen: Error notifying left side didPushNext: $e');
+      }
     }
   }
 
   /// Notify left side RouteAware's didPopNext is triggered
   void _notifyLeftSideDidPopNext() {
     final manager = SplitViewManager();
-    final observer = manager.globalRouteObserver;
+    final observers = manager.globalRouteObservers;
     final leftCurrentRoute = manager.leftCurrentRoute;
 
-    if (observer == null || leftCurrentRoute == null) {
+    if (observers.isEmpty || leftCurrentRoute == null) {
       return;
     }
 
     final virtualRoute = _VirtualSplitScreenRoute();
 
-    try {
-      observer.didPop(virtualRoute, leftCurrentRoute);
-    } catch (e) {
-      debugPrint('SplitScreen: Error notifying left side didPopNext: $e');
+    for (final observer in observers) {
+      try {
+        observer.didPop(virtualRoute, leftCurrentRoute);
+      } catch (e) {
+        debugPrint('SplitScreen: Error notifying left side didPopNext: $e');
+      }
     }
   }
 
@@ -1041,7 +1068,7 @@ class _BarrierOnlyRoute<T> extends PopupRoute<T> {
     this.barrierDismissible = true,
     this.barrierLabel,
     this.onBarrierDismissed,
-  });
+  }) : super(requestFocus: false);
 
   @override
   Color? get barrierColorValue => barrierColor;

@@ -71,14 +71,14 @@ class SplitViewManager extends ChangeNotifier {
     _rightNavigator = navigator;
   }
 
-  /// Global RouteObserver - notifies left side RouteAware's didPushNext/didPopNext.
-  RouteObserver<ModalRoute<dynamic>>? _globalRouteObserver;
+  /// Global RouteObservers - notify left side RouteAware's didPushNext/didPopNext.
+  final List<RouteObserver<ModalRoute<dynamic>>> _globalRouteObservers =
+      <RouteObserver<ModalRoute<dynamic>>>[];
 
-  RouteObserver<ModalRoute<dynamic>>? get globalRouteObserver =>
-      _globalRouteObserver;
+  List<RouteObserver<ModalRoute<dynamic>>> get globalRouteObservers => _globalRouteObservers;
 
-  void setGlobalRouteObserver(RouteObserver<ModalRoute<dynamic>> observer) {
-    _globalRouteObserver = observer;
+  void addGlobalRouteObserver(RouteObserver<ModalRoute<dynamic>> observer) {
+    _globalRouteObservers.add(observer);
   }
 
   /// Current route on left side - used to notify left side RouteAware when placeholder page pops on right side.
@@ -98,6 +98,9 @@ class SplitViewManager extends ChangeNotifier {
   bool get isSplitViewActive => _isSplitViewActive;
 
   void setSplitViewActive(bool value) {
+    if (_isSplitViewActive == value) {
+      return;
+    }
     _isSplitViewActive = value;
     notifyListeners();
   }
@@ -108,6 +111,9 @@ class SplitViewManager extends ChangeNotifier {
   bool get rightSideShowsPlaceholder => _rightSideShowsPlaceholder;
 
   void setRightSideShowsPlaceholder(bool value) {
+    if (_rightSideShowsPlaceholder == value) {
+      return;
+    }
     _rightSideShowsPlaceholder = value;
     notifyListeners();
   }
@@ -118,6 +124,9 @@ class SplitViewManager extends ChangeNotifier {
   bool get poprouteOnScreen => _isPoprouteOnScreen;
 
   void setPoprouteOnScreen(bool value) {
+    if (_isPoprouteOnScreen == value) {
+      return;
+    }
     _isPoprouteOnScreen = value;
     notifyListeners();
   }
@@ -128,6 +137,9 @@ class SplitViewManager extends ChangeNotifier {
   bool get isForceFullscreen => _isForceFullscreen;
 
   void setForceFullscreen(bool value) {
+    if (_isForceFullscreen == value) {
+      return;
+    }
     _isForceFullscreen = value;
     notifyListeners();
   }
@@ -139,6 +151,9 @@ class SplitViewManager extends ChangeNotifier {
   bool get isForcedLandscape => _isForcedLandscape;
 
   void setLandscapeFullscreen(bool value) {
+    if (_isForcedLandscape == value) {
+      return;
+    }
     _isForcedLandscape = value;
     notifyListeners();
   }
@@ -207,7 +222,6 @@ class SplitViewManager extends ChangeNotifier {
       _rightNavigator!.popUntil((route) =>
           route.settings.name == kSplitStartPageRouteName || route.isFirst);
     }
-    notifyListeners();
   }
 
   /// Reset manager to initial state.
@@ -219,7 +233,7 @@ class SplitViewManager extends ChangeNotifier {
     // 2. Clear strong references to prevent memory leaks
     _leftNavigator = null;
     _rightNavigator = null;
-    _globalRouteObserver = null;
+    _globalRouteObservers.clear();
     _leftCurrentRoute = null;
 
     // 3. Clear internal collections
