@@ -106,19 +106,25 @@ class SplitViewConfig {
             ? config['enableSquareWindowSplit'] as bool
             : false;
 
-    // Type-safe parsing for string field
-    _homePage =
-        (config['homePage'] is String) ? config['homePage'] as String : null;
+    // Type-safe parsing for string field, treat empty string as null
+    final dynamic homePageValue = config['homePage'];
+    if (homePageValue is String && homePageValue.isNotEmpty) {
+      _homePage = homePageValue;
+    } else {
+      _homePage = null;
+    }
 
     // Type-safe parsing for list field with element filtering
+    // Also filter out empty strings for consistency
     final dynamic fullScreenPagesValue = config['fullScreenPages'];
     if (fullScreenPagesValue != null && fullScreenPagesValue is List) {
       final List<String> validPages = fullScreenPagesValue
           .whereType<String>()
+          .where((s) => s.isNotEmpty)
           .toList();
       if (validPages.length != fullScreenPagesValue.length) {
         debugPrint(
-            'SplitViewConfig: Some fullScreenPages items are not strings and were skipped');
+            'SplitViewConfig: Some fullScreenPages items are not strings or empty and were skipped');
       }
       _fullScreenPages = validPages;
     } else {
