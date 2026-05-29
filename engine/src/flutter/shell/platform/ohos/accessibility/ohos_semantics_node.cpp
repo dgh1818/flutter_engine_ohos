@@ -114,7 +114,9 @@ void SemanticsNodeExtend::FillElementInfoWithProperty(
 void SemanticsNodeExtend::FillElementInfoWithContent(
     ArkUI_AccessibilityElementInfo* info) {
   if (IsTextField()) {
-    OH_ArkUI_AccessibilityElementInfoSetHintText(info, GetHintText().c_str());
+    std::string hintText = GetHintText();
+    std::string result = value.empty() ? hintText : "";
+    OH_ArkUI_AccessibilityElementInfoSetAccessibilityText(info, result.c_str());
     OH_ArkUI_AccessibilityElementInfoSetContents(info, value.c_str());
   } else {
     contentString = GetAccessibilityText();
