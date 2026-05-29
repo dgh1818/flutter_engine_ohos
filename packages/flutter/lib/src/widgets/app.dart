@@ -1442,7 +1442,7 @@ class _WidgetsAppState extends State<WidgetsApp> with WidgetsBindingObserver {
   /// Null indicates the configuration is not yet ready. Once the config is loaded,
   /// this is set to `true` if either [SplitViewConfig.enableWideWindowSplit] or
   /// [SplitViewConfig.enableSquareWindowSplit] is `true`, otherwise `false`.
-  bool? _enableSplitView;
+  bool _enableSplitView = false;
 
   /// The default value for [WidgetsApp.onNavigationNotification].
   ///
@@ -1483,21 +1483,14 @@ class _WidgetsAppState extends State<WidgetsApp> with WidgetsBindingObserver {
 
   /// Initializes split screen configuration.
   ///
-  /// Uses deferFirstFrame to block the first frame until the configuration
-  /// is loaded, then calls allowFirstFrame. waitForConfig returns immediately
-  /// if the config is ready, otherwise waits for loading to complete.
+  /// Config is loaded via SystemChannel during binding init, no need to
+  /// block the first frame.
   void _initSplitViewConfig() {
-    WidgetsBinding.instance.deferFirstFrame();
-    SplitViewConfigLoader().waitForConfig().then((_) {
-      if (mounted) {
-        setState(() {
-          final SplitViewConfig config = SplitViewConfig();
-          _enableSplitView = config.enableWideWindowSplit || config.enableSquareWindowSplit;
-          _determinePriorityMainPage();
-        });
-      }
-      WidgetsBinding.instance.allowFirstFrame();
-    });
+    final SplitViewConfig config = SplitViewConfig();
+    _enableSplitView = config.enableWideWindowSplit || config.enableSquareWindowSplit;
+    if (_enableSplitView != null && _enableSplitView) {
+      _determinePriorityMainPage();
+    }
   }
 
   /// Determines the main page for split screen based on priority.
