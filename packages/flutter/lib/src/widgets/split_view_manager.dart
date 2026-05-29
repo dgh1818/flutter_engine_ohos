@@ -119,16 +119,24 @@ class SplitViewManager extends ChangeNotifier {
   }
 
   /// Whether there is a popup route on screen.
-  bool _isPoprouteOnScreen = false;
+  int _popupRouteCount = 0;
 
-  bool get poprouteOnScreen => _isPoprouteOnScreen;
+  bool get poprouteOnScreen => _popupRouteCount > 0;
 
   void setPoprouteOnScreen(bool value) {
-    if (_isPoprouteOnScreen == value) {
-      return;
+    if (value) {
+      _popupRouteCount++;
+      if (_popupRouteCount == 1) {
+        notifyListeners();
+      }
+    } else {
+      if (_popupRouteCount > 0) {
+        _popupRouteCount--;
+      }
+      if (_popupRouteCount == 0) {
+        notifyListeners();
+      }
     }
-    _isPoprouteOnScreen = value;
-    notifyListeners();
   }
 
   /// Whether current page is forced fullscreen.
@@ -244,6 +252,7 @@ class SplitViewManager extends ChangeNotifier {
     _homePageReady = false;
     _isSplitViewActive = false;
     _rightSideShowsPlaceholder = true;
+    _popupRouteCount = 0;
     _isForceFullscreen = false;
     _isForcedLandscape = false;
 

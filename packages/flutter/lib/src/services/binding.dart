@@ -64,7 +64,7 @@ mixin ServicesBinding on BindingBase, SchedulerBinding {
     TextInput.ensureInitialized();
     readInitialLifecycleStateFromNativeWindow();
     if (defaultTargetPlatform == TargetPlatform.ohos) {
-      SplitViewConfigLoader().startLoad();
+      SplitViewConfigLoader().setupSystemChannel();
     }
     initializationComplete();
   }

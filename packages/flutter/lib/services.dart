@@ -49,6 +49,7 @@ export 'src/services/scribe.dart';
 export 'src/services/sensitive_content.dart';
 export 'src/services/service_extensions.dart';
 export 'src/services/spell_check.dart';
+export 'src/services/split_view_config_loader.dart';
 export 'src/services/system_channels.dart';
 export 'src/services/system_chrome.dart';
 export 'src/services/system_navigator.dart';

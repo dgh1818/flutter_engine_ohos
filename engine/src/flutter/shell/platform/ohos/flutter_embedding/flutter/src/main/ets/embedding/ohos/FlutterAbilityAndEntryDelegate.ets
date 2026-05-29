@@ -143,6 +143,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
       this.host?.getDartEntrypointFunctionName() ?? ''
     );
     this.flutterEngine?.dartExecutor.executeDartEntrypoint(dartEntrypoint, this.host?.getDartEntrypointArgs());
+    this.flutterEngine?.getSplitViewConfigSystemChannel()?.sendConfigToFlutter();
   }
 
   private maybeGetInitialRouteFromIntent(want: Want): string {

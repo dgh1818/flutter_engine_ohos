@@ -168,9 +168,9 @@ class _SplitViewContainerState extends State<SplitViewContainer>
       return true;
     }
 
-    if (leftNavigator.canPop()) { 
-      leftNavigator.pop(); 
-      return true; 
+    if (leftNavigator.canPop()) {
+      leftNavigator.pop();
+      return true;
     }
 
     return false;
@@ -407,7 +407,7 @@ class _ProxyNavigatorImpl extends Navigator {
 
 class _ProxyNavigatorStateImpl extends NavigatorState {
   final SplitViewManager _manager = SplitViewManager();
-  Route? _currentBarrierRoute;
+  final Map<Route<dynamic>, Route<dynamic>> _popupToBarrier = <Route<dynamic>, Route<dynamic>>{};
 
   @override
   Future<T?> push<T extends Object?>(Route<T> route) {
@@ -424,8 +424,7 @@ class _ProxyNavigatorStateImpl extends NavigatorState {
 
         // Create barrier on left side
         final barrierRoute = _createBarrierRoute(route as PopupRoute);
-        _currentBarrierRoute = barrierRoute;
-        // Mark barrier as processed to prevent recursive interception
+        _popupToBarrier[route] = barrierRoute;
         _manager.addProcessedPopupRoute(barrierRoute);
         _manager.setPoprouteOnScreen(true);
         if (!_manager.rightSideShowsPlaceholder) {
@@ -433,14 +432,13 @@ class _ProxyNavigatorStateImpl extends NavigatorState {
           super.push(barrierRoute);
           final rightFuture = manager.rightNavigator!.push(route);
           rightFuture.then((value) {
-            if (super.canPop() && _currentBarrierRoute != null) {
+            final associatedBarrier = _popupToBarrier.remove(route);
+            if (associatedBarrier != null && super.canPop()) {
               super.pop();
-              _manager.removeProcessedPopupRoute(_currentBarrierRoute!);
+              _manager.removeProcessedPopupRoute(associatedBarrier);
             }
-            _currentBarrierRoute = null;
             _manager.removeProcessedPopupRoute(route);
             _manager.setPoprouteOnScreen(false);
-
             if (previousFocus != null && previousFocus.context != null) {
               previousFocus.requestFocus();
             }
@@ -451,15 +449,15 @@ class _ProxyNavigatorStateImpl extends NavigatorState {
           manager.rightNavigator!.push(barrierRoute);
           final leftFuture = super.push(route);
           leftFuture.then((value) {
-            if (manager.rightNavigator != null &&
+            final associatedBarrier = _popupToBarrier.remove(route);
+            if (associatedBarrier != null &&
+                manager.rightNavigator != null &&
                 manager.rightNavigator!.canPop()) {
               (manager.rightNavigator! as NavigatorState).pop();
-              _manager.removeProcessedPopupRoute(_currentBarrierRoute!);
+              _manager.removeProcessedPopupRoute(associatedBarrier);
             }
-            _currentBarrierRoute = null;
             _manager.removeProcessedPopupRoute(route);
             _manager.setPoprouteOnScreen(false);
-
             if (previousFocus != null && previousFocus.context != null) {
               previousFocus.requestFocus();
             }
@@ -808,7 +806,7 @@ class _RightSideNavigatorImpl extends Navigator {
 
 class _RightSideNavigatorStateImpl extends NavigatorState {
   final SplitViewManager _manager = SplitViewManager();
-  Route? _currentBarrierRoute;
+  final Map<Route<dynamic>, Route<dynamic>> _popupToBarrier = <Route<dynamic>, Route<dynamic>>{};
 
   @override
   Future<T?> push<T extends Object?>(Route<T> route) {
@@ -833,26 +831,24 @@ class _RightSideNavigatorStateImpl extends NavigatorState {
 
       if (manager.leftNavigator != null) {
         _manager.addProcessedPopupRoute(route);
-
         final FocusNode? previousFocus = WidgetsBinding.instance.focusManager.primaryFocus;
 
         final barrierRoute = _createBarrierRoute(route as PopupRoute);
-        _currentBarrierRoute = barrierRoute;
+        _popupToBarrier[route] = barrierRoute;
         _manager.addProcessedPopupRoute(barrierRoute);
         manager.leftNavigator!.push(barrierRoute);
-
         _manager.setPoprouteOnScreen(true);
         final rightFuture = super.push(route);
         rightFuture.then((value) {
-          if (manager.leftNavigator != null &&
+          final associatedBarrier = _popupToBarrier.remove(route);
+          if (associatedBarrier != null &&
+              manager.leftNavigator != null &&
               manager.leftNavigator!.canPop()) {
             (manager.leftNavigator! as NavigatorState).pop();
-            _manager.removeProcessedPopupRoute(_currentBarrierRoute!);
+            _manager.removeProcessedPopupRoute(associatedBarrier);
           }
-          _currentBarrierRoute = null;
           _manager.removeProcessedPopupRoute(route);
           _manager.setPoprouteOnScreen(false);
-
           if (previousFocus != null && previousFocus.context != null) {
             previousFocus.requestFocus();
           }
