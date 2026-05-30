@@ -28,12 +28,11 @@ import '../../macos/xcode.dart' as xcode show environmentTypeFromSdkroot;
 import 'android/native_assets.dart'
     show cCompilerConfigAndroid, getNativeAndroidArchitecture, targetAndroidNdkApi;
 import 'ios/native_assets.dart' show getIOSSdk, getNativeIOSArchitecture, targetIOSVersion;
-import 'ohos/native_assets.dart'
-    show cCompilerConfigOhos, getNativeOhosArchitecture;
 import 'linux/native_assets.dart';
 import 'macos/native_assets.dart' show getNativeMacOSArchitecture, targetMacOSVersion;
 import 'macos/native_assets_host.dart';
 import 'native_assets.dart';
+import 'ohos/native_assets.dart' show cCompilerConfigOhos, getNativeOhosArchitecture;
 import 'windows/native_assets.dart';
 
 /// This is a translation layer between Flutter, which knows only
@@ -159,10 +158,8 @@ sealed class AssetBuildTarget {
     return _ohosArchs(targetPlatform, environmentDefines[kOhosArchs])
         .map<Architecture>(getNativeOhosArchitecture)
         .map<OhosAssetTarget>(
-          (Architecture architecture) => OhosAssetTarget(
-            architecture: architecture,
-            supportedAssetTypes: supportedAssetTypes,
-          ),
+          (Architecture architecture) =>
+              OhosAssetTarget(architecture: architecture, supportedAssetTypes: supportedAssetTypes),
         )
         .toList();
   }
@@ -376,10 +373,8 @@ final class AndroidAssetTarget extends CodeAssetTarget {
 }
 
 final class OhosAssetTarget extends CodeAssetTarget {
-  OhosAssetTarget({
-    required super.architecture,
-    required super.supportedAssetTypes,
-  }) : super(os: OS.ohos);
+  OhosAssetTarget({required super.architecture, required super.supportedAssetTypes})
+    : super(os: OS.ohos);
 
   @override
   Future<void> setCCompilerConfig({bool mustMatchAppBuild = true}) async =>
@@ -392,7 +387,15 @@ final class OhosAssetTarget extends CodeAssetTarget {
         targetArchitecture: architecture,
         linkModePreference: LinkModePreference.dynamic,
         cCompiler: cCompilerConfigSync,
-        targetOS: OS.ohos,
+        // Third-party hooks resolve their own package:code_assets from the
+        // application. The hosted package does not know OHOS yet, so use a
+        // known OS without extra protocol configuration in the hook input while
+        // keeping this target as OS.ohos for Flutter's asset filtering and
+        // bundling. Hooks that support Linux code assets may run their Linux
+        // path for OHOS until this compatibility shim is removed.
+        // TODO(ohos): Revert to OS.ohos once hosted package:code_assets
+        // recognizes OHOS.
+        targetOS: OS.linux,
       ),
     ...dataAssetExtensions,
   ];
