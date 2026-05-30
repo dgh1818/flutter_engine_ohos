@@ -471,6 +471,19 @@ export default class FlutterManager {
     if (!mainWindow) {
       return;
     }
+
+    try {
+      // Get current window status
+      const currentStatus: window.WindowStatusType = mainWindow.getWindowStatus();
+      // In MAXIMIZE mode, skip setting padding because the window menu bar is temporarily displayed
+      if (currentStatus == window.WindowStatusType.MAXIMIZE) {
+        return;
+      }
+    } catch (e) {
+      Log.e(TAG, "Failed to get window status: " + JSON.stringify(e));
+      return;
+    }
+
     // Clear padding if window decoration is visible
     if (mainWindow.getWindowDecorVisible() ) {
       flutterView.setPaddingTop(0);

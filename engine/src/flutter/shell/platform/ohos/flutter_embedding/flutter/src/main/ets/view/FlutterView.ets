@@ -598,6 +598,9 @@ export class FlutterView {
   }
   private windowTitleButtonRectChangeCallback = (data: window.TitleButtonRect) => {
     Log.i(TAG, "windowTitleButtonRectChangeCallback " + JSON.stringify(data));
+    // Clear padding before handling window decoration to allow recalculation
+    // This fixes the issue where safe area avoidance is not applied after exiting freeform multi-window mode
+    this.paddingTop = undefined;
     FlutterManager.getInstance().handleWindowDecorSafeArea(this.id, this.context);
   }
 
