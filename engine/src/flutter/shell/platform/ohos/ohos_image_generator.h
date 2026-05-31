@@ -66,7 +66,8 @@ class OHOSImageGenerator : public ImageGenerator {
 
  private:
   explicit OHOSImageGenerator(OH_ImageSourceNative* image_source,
-                              const sk_sp<SkData>& data);
+                              const sk_sp<SkData>& data,
+                              bool unsupported_dma_encoded_data);
 
  public:
   ~OHOSImageGenerator();
@@ -118,6 +119,7 @@ class OHOSImageGenerator : public ImageGenerator {
   bool need_flip_ = false;
   uint32_t frame_count_ = 0;
   bool is_hdr_ = false;
+  bool unsupported_dma_encoded_data_ = false;
   std::vector<int32_t> frame_time_duration_;
 
   // 静态缓存计数和最大缓存限制声明

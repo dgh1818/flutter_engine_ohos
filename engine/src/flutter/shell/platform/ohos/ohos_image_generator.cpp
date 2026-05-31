@@ -13,6 +13,7 @@
 #include <native_buffer/native_buffer.h>
 #include <native_window/external_window.h>
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <mutex>
 #include <sstream>
@@ -63,6 +64,82 @@ struct DmaTextureContext {
   }
 };
 
+static bool DataStartsWith(const sk_sp<SkData>& data,
+                           const char* pattern,
+                           size_t pattern_size) {
+  if (!data || !data->data() || data->size() < pattern_size) {
+    return false;
+  }
+  return memcmp(data->data(), pattern, pattern_size) == 0;
+}
+
+static bool DataContains(const sk_sp<SkData>& data,
+                         const char* pattern,
+                         size_t pattern_size) {
+  if (!data || !data->data() || data->size() < pattern_size) {
+    return false;
+  }
+  const auto* bytes = static_cast<const uint8_t*>(data->data());
+  const size_t size = data->size();
+  for (size_t i = 0; i <= size - pattern_size; i++) {
+    if (memcmp(bytes + i, pattern, pattern_size) == 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool IsGifEncodedData(const sk_sp<SkData>& data) {
+  return DataStartsWith(data, "GIF87a", 6) ||
+         DataStartsWith(data, "GIF89a", 6);
+}
+
+static bool IsAnimatedPngEncodedData(const sk_sp<SkData>& data) {
+  constexpr char kPngSignature[] = "\x89PNG\r\n\x1A\n";
+  return DataStartsWith(data, kPngSignature, 8) &&
+         DataContains(data, "acTL", 4);
+}
+
+static bool IsAnimatedWebPEncodedData(const sk_sp<SkData>& data) {
+  return DataStartsWith(data, "RIFF", 4) && DataContains(data, "WEBP", 4) &&
+         DataContains(data, "ANIM", 4);
+}
+
+static bool IsUnsupportedDmaEncodedData(const sk_sp<SkData>& data) {
+  return IsGifEncodedData(data) || IsAnimatedPngEncodedData(data) ||
+         IsAnimatedWebPEncodedData(data);
+}
+
+static impeller::TextureColorSpace OhosColorSpaceToTextureColorSpace(
+    uint32_t color_space) {
+  switch (static_cast<ColorSpaceName>(color_space)) {
+    case DISPLAY_P3:
+    case DISPLAY_P3_LIMIT:
+    case LINEAR_P3:
+      return impeller::TextureColorSpace::kDisplayP3;
+    case ADOBE_RGB:
+    case DCI_P3:
+    case BT2020_HLG:
+    case BT2020_PQ:
+    case P3_HLG:
+    case P3_PQ:
+    case ADOBE_RGB_LIMIT:
+    case BT2020_HLG_LIMIT:
+    case BT2020_PQ_LIMIT:
+    case P3_HLG_LIMIT:
+    case P3_PQ_LIMIT:
+    case LINEAR_BT2020:
+      return impeller::TextureColorSpace::kExtendedSRGB;
+    case NONE:
+    case SRGB:
+    case CUSTOM:
+    case SRGB_LIMIT:
+    case BT709:
+    default:
+      return impeller::TextureColorSpace::kSRGB;
+  }
+}
+
 class OhosExternalTextureSourceImpl final : public ExternalTextureSource {
  public:
   explicit OhosExternalTextureSourceImpl(
@@ -103,9 +180,8 @@ class OhosExternalTextureSourceImpl final : public ExternalTextureSource {
     Image_ErrorCode err = OH_PixelmapNative_GetNativeBuffer(
         pixelmap_->pixelmap_, &holder->native_buffer);
     if (err != IMAGE_SUCCESS || holder->native_buffer == nullptr) {
-      FML_DLOG(WARNING)
-          << "OHOS DMA: OH_PixelmapNative_GetNativeBuffer failed (" << err
-          << ")";
+      FML_LOG(INFO) << "OHOS DMA: OH_PixelmapNative_GetNativeBuffer failed ("
+                    << err << ")";
       return nullptr;
     }
 
@@ -113,15 +189,17 @@ class OhosExternalTextureSourceImpl final : public ExternalTextureSource {
         OH_NativeWindow_CreateNativeWindowBufferFromNativeBuffer(
             holder->native_buffer);
     if (holder->window_buffer == nullptr) {
-      FML_DLOG(WARNING)
+      FML_LOG(INFO)
           << "OHOS DMA: failed to wrap native buffer in window buffer";
       return nullptr;
     }
 
+    const auto texture_color_space =
+        OhosColorSpaceToTextureColorSpace(pixelmap_->color_space_);
     auto texture_source = std::make_shared<impeller::OHBTextureSourceVK>(
-        context_vk, holder->window_buffer);
+        context_vk, holder->window_buffer, texture_color_space);
     if (!texture_source->IsValid()) {
-      FML_DLOG(WARNING)
+      FML_LOG(INFO)
           << "OHOS DMA: OHBTextureSourceVK rejected the native buffer ("
           << pixelmap_->width_ << "x" << pixelmap_->height_ << " fmt "
           << pixelmap_->pixel_format_ << ")";
@@ -262,9 +340,11 @@ static void ResolveEncodedOrigin(char* data,
 }
 
 OHOSImageGenerator::OHOSImageGenerator(OH_ImageSourceNative* image_source,
-                                       const sk_sp<SkData>& data)
+                                       const sk_sp<SkData>& data,
+                                       bool unsupported_dma_encoded_data)
     : image_source_(image_source),
-      data_(data) {
+      data_(data),
+      unsupported_dma_encoded_data_(unsupported_dma_encoded_data) {
   OH_ImageSource_Info* info = nullptr;
   OH_ImageSourceInfo_Create(&info);
   if (info == nullptr) {
@@ -374,7 +454,6 @@ bool OHOSImageGenerator::GetPixels(const SkImageInfo& info,
   if (frame_index == 0) {
     FML_DLOG(INFO) << trace_str;
   }
-
   if (image_source_ == nullptr) {
     FML_LOG(ERROR) << "image_source is nullptr";
     return false;
@@ -407,10 +486,15 @@ bool OHOSImageGenerator::GetPixels(const SkImageInfo& info,
   }
 
   if (image_pixelmap) {
-    uint32_t buffer_size =
-        image_pixelmap->width_ * image_pixelmap->height_ * RBGA8888_BYTES;
+    const uint32_t min_row_bytes =
+        image_pixelmap->width_ * RBGA8888_BYTES;
+    const uint32_t pixelmap_row_bytes =
+        std::max(image_pixelmap->row_stride_, min_row_bytes);
+    uint32_t buffer_size = pixelmap_row_bytes * image_pixelmap->height_;
     std::string trace_str = "size:" + std::to_string(buffer_size) +
-                            "-stride:" + std::to_string(row_bytes);
+                            "-dst_stride:" + std::to_string(row_bytes) +
+                            "-pixelmap_stride:" +
+                            std::to_string(image_pixelmap->row_stride_);
     TRACE_EVENT1("flutter", "Image", "ReadPixels", trace_str.c_str());
     if (frame_index == 0) {
       FML_DLOG(INFO) << trace_str;
@@ -450,14 +534,33 @@ OHOSImageGenerator::CreateExternalTextureSource(
     const SkISize& decode_dimensions,
     unsigned int frame_index,
     std::optional<unsigned int> prior_frame) {
+  if (unsupported_dma_encoded_data_) {
+    FML_LOG(INFO) << "OHOS DMA: regular path selected, unsupported DMA "
+                     "encoded image "
+                  << to_string();
+    return nullptr;
+  }
   if (frame_count_ != 1 || prior_frame.has_value()) {
+    FML_LOG(INFO) << "OHOS DMA: regular path selected, animated or dependent "
+                     "frame "
+                  << to_string();
     return nullptr;
   }
   if (decode_dimensions.isEmpty() || image_source_ == nullptr) {
+    FML_LOG(INFO) << "OHOS DMA: regular path selected, invalid decode request "
+                  << to_string();
     return nullptr;
   }
   auto loader = OhosImageSourceLoader::GetInstance();
-  if (!loader || !loader->HasPixelmapAllocator() || is_hdr_) {
+  if (!loader || !loader->HasPixelmapAllocator()) {
+    FML_LOG(INFO)
+        << "OHOS DMA: regular path selected, DMA allocator unavailable "
+        << to_string();
+    return nullptr;
+  }
+  if (is_hdr_) {
+    FML_LOG(INFO) << "OHOS DMA: regular path selected, HDR source "
+                  << to_string();
     return nullptr;
   }
   TRACE_EVENT1("flutter", "Image", "CreateExternalTextureSourceOHOS",
@@ -469,16 +572,43 @@ OHOSImageGenerator::CreateExternalTextureSource(
                                  /*prefer_dma=*/true);
   if (!pixelmap || !pixelmap->IsValid() ||
       pixelmap->allocator_type_ != IMAGE_ALLOCATOR_TYPE_DMA) {
+    FML_LOG(INFO)
+        << "OHOS DMA: regular path selected, DMA pixelmap unavailable "
+        << to_string();
     return nullptr;
   }
   if (static_cast<int>(pixelmap->width_) != decode_dimensions.width() ||
       static_cast<int>(pixelmap->height_) != decode_dimensions.height()) {
-    FML_DLOG(WARNING) << "OHOS DMA: pixelmap actual size " << pixelmap->width_
-                      << "x" << pixelmap->height_ << " != requested "
-                      << decode_dimensions.width() << "x"
-                      << decode_dimensions.height() << "; falling back";
+    FML_LOG(INFO) << "OHOS DMA: regular path selected, pixelmap actual size "
+                  << pixelmap->width_ << "x" << pixelmap->height_
+                  << " != requested " << decode_dimensions.width() << "x"
+                  << decode_dimensions.height() << " " << to_string();
     return nullptr;
   }
+  if (pixelmap->pixel_format_ != PIXEL_FORMAT_RGBA_8888) {
+    FML_LOG(INFO) << "OHOS DMA: regular path selected, unsupported pixel "
+                     "format "
+                  << pixelmap->pixel_format_ << " " << to_string();
+    return nullptr;
+  }
+  const uint32_t min_row_stride = pixelmap->width_ * RBGA8888_BYTES;
+  if (pixelmap->row_stride_ < min_row_stride) {
+    FML_LOG(INFO) << "OHOS DMA: regular path selected, invalid row stride "
+                  << pixelmap->row_stride_ << " < " << min_row_stride << " "
+                  << to_string();
+    return nullptr;
+  }
+  FML_LOG(INFO) << "OHOS DMA: external texture source accepted "
+                << pixelmap->width_ << "x" << pixelmap->height_
+                << " format=" << pixelmap->pixel_format_
+                << " row_stride=" << pixelmap->row_stride_
+                << " allocator=" << pixelmap->allocator_type_
+                << " color_space=" << pixelmap->color_space_
+                << " texture_color_space="
+                << static_cast<int>(
+                       OhosColorSpaceToTextureColorSpace(pixelmap->color_space_))
+                << " "
+                << to_string();
   return std::make_unique<OhosExternalTextureSourceImpl>(std::move(pixelmap));
 }
 #endif  // IMPELLER_SUPPORTS_RENDERING
@@ -491,6 +621,13 @@ std::shared_ptr<ImageGenerator> OHOSImageGenerator::MakeFromData(
   }
   TRACE_EVENT1("flutter", "Image", "MakeFromDataOHOS",
                std::to_string(data->size()).c_str());
+
+#if IMPELLER_SUPPORTS_RENDERING
+  const bool unsupported_dma_encoded_data =
+      IsUnsupportedDmaEncodedData(data);
+#else
+  const bool unsupported_dma_encoded_data = false;
+#endif  // IMPELLER_SUPPORTS_RENDERING
 
   OH_ImageSourceNative* image_source = nullptr;
 
@@ -516,7 +653,8 @@ std::shared_ptr<ImageGenerator> OHOSImageGenerator::MakeFromData(
 
   // Preventing data from being released by the system
   std::shared_ptr<OHOSImageGenerator> generator(new OHOSImageGenerator(
-      image_source, isHeldSkData ? data : sk_sp<SkData>()));
+      image_source, isHeldSkData ? data : sk_sp<SkData>(),
+      unsupported_dma_encoded_data));
 
   if (generator->IsValidImageData()) {
     return generator;
@@ -550,19 +688,24 @@ OHOSImageGenerator::CreatePixelMap(int width,
   OH_PixelmapNative* pixelmap = nullptr;
   IMAGE_ALLOCATOR_TYPE actual_allocator = IMAGE_ALLOCATOR_TYPE_AUTO;
   auto loader = OhosImageSourceLoader::GetInstance();
-  if (prefer_dma && !is_hdr_ && loader && loader->HasPixelmapAllocator()) {
+  if (prefer_dma) {
+    if (is_hdr_ || !loader || !loader->HasPixelmapAllocator()) {
+      OH_DecodingOptions_Release(opts);
+      return nullptr;
+    }
     err_code = loader->CreatePixelmapUsingAllocator(
         image_source_, opts, IMAGE_ALLOCATOR_TYPE_DMA, &pixelmap);
     if (err_code == IMAGE_SUCCESS && pixelmap != nullptr) {
       actual_allocator = IMAGE_ALLOCATOR_TYPE_DMA;
     } else {
-      FML_DLOG(WARNING) << "OHOS DMA: CreatePixelmapUsingAllocator failed ("
-                        << err_code << "), falling back to legacy allocator "
-                        << to_string();
+      FML_LOG(INFO) << "OHOS DMA: CreatePixelmapUsingAllocator failed ("
+                    << err_code << "), regular path will decode "
+                    << to_string();
       if (pixelmap) {
         OH_PixelmapNative_Release(pixelmap);
-        pixelmap = nullptr;
       }
+      OH_DecodingOptions_Release(opts);
+      return nullptr;
     }
   }
 
@@ -580,20 +723,15 @@ OHOSImageGenerator::CreatePixelMap(int width,
     if (colorspace_res == IMAGE_SUCCESS) {
       colorspace_name = OH_NativeColorSpaceManager_GetColorSpaceName(mgr);
     }
-    cached_colorspaces_[frame_index] = colorspace_name;
+    if (!prefer_dma) {
+      cached_colorspaces_[frame_index] = colorspace_name;
+    }
     if (need_flip_) {
       OH_PixelmapNative_Flip(pixelmap, need_flip_, false);
     }
     auto image_pixelmap =
         std::make_shared<PixelMapOHOS>(pixelmap, actual_allocator);
     image_pixelmap->setColorSpace(colorspace_name);
-    FML_LOG(INFO) << "Create Pixelmap size:"
-                  << std::to_string(image_pixelmap->width_) << "*"
-                  << std::to_string(image_pixelmap->height_) << " stride "
-                  << std::to_string(image_pixelmap->row_stride_) << " format "
-                  << std::to_string(image_pixelmap->pixel_format_)
-                  << " allocator "
-                  << std::to_string(image_pixelmap->allocator_type_);
     return image_pixelmap;
   } else {
     FML_LOG(ERROR) << "Create Pixelmap from Image source failed:" << err_code
@@ -638,25 +776,31 @@ Image_ErrorCode OHOSImageGenerator::PixelMapOHOS::ReadPixels(
   if (pixelmap_ == nullptr || row_stride < width_ * RBGA8888_BYTES) {
     return IMAGE_BAD_PARAMETER;
   }
+  const uint32_t min_row_bytes = width_ * RBGA8888_BYTES;
+  const uint32_t source_row_bytes = std::max(row_stride_, min_row_bytes);
+  const uint32_t source_size = source_row_bytes * height_;
+  if (buffer_size < source_size) {
+    return IMAGE_BAD_PARAMETER;
+  }
   Image_ErrorCode ret_code = IMAGE_SUCCESS;
   uint8_t* temp_dst_buffer = dst_buffer;
-  if (row_stride > width_ * RBGA8888_BYTES) {
-    temp_dst_buffer = new uint8_t[buffer_size];
+  std::unique_ptr<uint8_t[]> temp_buffer;
+  if (row_stride != source_row_bytes) {
+    temp_buffer = std::make_unique<uint8_t[]>(source_size);
+    temp_dst_buffer = temp_buffer.get();
   }
   if (temp_dst_buffer != NULL) {
-    size_t dst_size = buffer_size;
+    size_t dst_size = source_size;
     ret_code =
         OH_PixelmapNative_ReadPixels(pixelmap_, temp_dst_buffer, &dst_size);
   }
-  if (row_stride > width_ * RBGA8888_BYTES && temp_dst_buffer != nullptr) {
+  if (row_stride != source_row_bytes && temp_dst_buffer != nullptr) {
     if (ret_code == IMAGE_SUCCESS) {
       for (int i = 0; i < int(height_); i++) {
         memcpy(dst_buffer + row_stride * i,
-               temp_dst_buffer + (width_ * RBGA8888_BYTES) * i,
-               width_ * RBGA8888_BYTES);
+               temp_dst_buffer + source_row_bytes * i, min_row_bytes);
       }
     }
-    delete[] temp_dst_buffer;
   }
   return ret_code;
 }

@@ -43,28 +43,33 @@ namespace {
 // OHOS NativeColorSpaceManager color space constants
 // Reference: https://gitee.com/openharmony/docs/blob/master/en/application-dev/reference/native-apis/_native_color_space_manager.md
 enum OHOSColorSpaceName {
-  OHOS_COLOR_SPACE_NAME_BT709 = 0,            // sRGB
-  OHOS_COLOR_SPACE_NAME_BT2020 = 1,           // BT.2020 (wide gamut, HDR)
-  OHOS_COLOR_SPACE_NAME_DISPLAY_P3 = 2,       // DisplayP3
-  OHOS_COLOR_SPACE_NAME_ADOBE_RGB = 3,        // Adobe RGB (wide gamut)
-  OHOS_COLOR_SPACE_NAME_DCI_P3 = 4,           // DCI-P3 (cinema standard)
-  OHOS_COLOR_SPACE_NAME_LINEAR_BT2020 = 5,    // Linear BT.2020
-  OHOS_COLOR_SPACE_NAME_LINEAR_DISPLAY_P3 = 6, // Linear DisplayP3
+  OHOS_COLOR_SPACE_NAME_NONE = 0,
+  OHOS_COLOR_SPACE_NAME_ADOBE_RGB = 1,
+  OHOS_COLOR_SPACE_NAME_DCI_P3 = 2,
+  OHOS_COLOR_SPACE_NAME_DISPLAY_P3 = 3,
+  OHOS_COLOR_SPACE_NAME_SRGB = 4,
+  OHOS_COLOR_SPACE_NAME_CUSTOM = 5,
+  OHOS_COLOR_SPACE_NAME_BT709 = 6,
+  OHOS_COLOR_SPACE_NAME_DISPLAY_P3_LIMIT = 14,
+  OHOS_COLOR_SPACE_NAME_LINEAR_P3 = 23,
 };
 #endif
 
-impeller::TextureColorSpace OHOSColorSpaceToTextureColorSpace(int ohos_colorspace) {
+impeller::TextureColorSpace OHOSColorSpaceToTextureColorSpace(
+    int ohos_colorspace) {
 #ifdef FML_OS_OHOS
   switch (ohos_colorspace) {
     case OHOS_COLOR_SPACE_NAME_DISPLAY_P3:
-    case OHOS_COLOR_SPACE_NAME_LINEAR_DISPLAY_P3:
+    case OHOS_COLOR_SPACE_NAME_DISPLAY_P3_LIMIT:
+    case OHOS_COLOR_SPACE_NAME_LINEAR_P3:
       return impeller::TextureColorSpace::kDisplayP3;
-    case OHOS_COLOR_SPACE_NAME_BT2020:
     case OHOS_COLOR_SPACE_NAME_ADOBE_RGB:
     case OHOS_COLOR_SPACE_NAME_DCI_P3:
-    case OHOS_COLOR_SPACE_NAME_LINEAR_BT2020:
       return impeller::TextureColorSpace::kExtendedSRGB;
+    case OHOS_COLOR_SPACE_NAME_SRGB:
+    case OHOS_COLOR_SPACE_NAME_CUSTOM:
     case OHOS_COLOR_SPACE_NAME_BT709:
+    case OHOS_COLOR_SPACE_NAME_NONE:
     default:
       return impeller::TextureColorSpace::kSRGB;
   }
@@ -72,6 +77,7 @@ impeller::TextureColorSpace OHOSColorSpaceToTextureColorSpace(int ohos_colorspac
   return impeller::TextureColorSpace::kSRGB;
 #endif
 }
+
 }  // namespace
 
 class MallocDeviceBuffer : public impeller::DeviceBuffer {
@@ -573,8 +579,9 @@ ImageDecoderImpeller::UnsafeUploadTextureToPrivate(
     // Remove mip count if we are resizing the image on the GPU.
     texture_descriptor.mip_count = 1;
   }
-  texture_descriptor.color_space =
+  const auto texture_color_space =
       OHOSColorSpaceToTextureColorSpace(colorspace);
+  texture_descriptor.color_space = texture_color_space;
 
   auto dest_texture =
       context->GetResourceAllocator()->CreateTexture(texture_descriptor);
@@ -824,9 +831,10 @@ void ImageDecoderImpeller::Decode(fml::RefPtr<ImageDescriptor> descriptor,
         // failure silently falls through to the regular decompress + upload
         // path below.
         if (raw_descriptor->is_compressed() &&
+            options.target_format ==
+                ImageDecoder::TargetPixelFormat::kDontCare &&
             context->GetBackendType() ==
-                impeller::Context::BackendType::kVulkan &&
-            !IsWideGamut(raw_descriptor->image_info().color_space.get())) {
+                impeller::Context::BackendType::kVulkan) {
           const auto fast_max_size =
               context->GetResourceAllocator()->GetMaxTextureSizeSupported();
           const SkISize fast_target_size = SkISize::Make(
@@ -859,11 +867,18 @@ void ImageDecoderImpeller::Decode(fml::RefPtr<ImageDescriptor> descriptor,
                       decode_dimensions)) {
             if (auto texture =
                     external_source->CreateImpellerTexture(context)) {
+              FML_LOG(INFO)
+                  << "OHOS DMA: zero-copy image decode path selected "
+                  << decode_dimensions.width() << "x"
+                  << decode_dimensions.height();
               result(impeller::DlImageImpeller::Make(std::move(texture)),
                      std::string());
               return;
             }
           }
+          FML_LOG(INFO)
+              << "OHOS DMA: regular image decode path selected "
+                 "(fast path unavailable)";
         }
 #endif  // FML_OS_OHOS && IMPELLER_SUPPORTS_RENDERING
 
