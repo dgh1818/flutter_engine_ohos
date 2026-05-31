@@ -3335,6 +3335,11 @@ struct DestroyAsyncData {
   napi_async_work work;
   int64_t shell_holder;
   bool success;
+  // Hold an extra reference to PlatformViewOHOSNapi so its destructor (which
+  // calls napi_reference_unref and thus touches the EcmaVM) is deferred to
+  // DestroyAsyncCompleteWork on the JS thread, instead of running on the
+  // NAPI worker thread inside DestroyAsyncExecuteWork.
+  std::shared_ptr<PlatformViewOHOSNapi> napi_facade;
 };
 
 static void SpawnAsyncExecuteWork(napi_env env, void* data) {
@@ -3456,6 +3461,10 @@ static void DestroyAsyncExecuteWork(napi_env env, void* data) {
   int64_t shell_holder = async_data->shell_holder;
   if (shell_holder != 0) {
     OHOS_SHELL_HOLDER->WaitRasterTasksFinished();
+    // Deleting the shell holder releases the OHOSShellHolder's and
+    // PlatformViewOHOS's references to napi_facade. async_data->napi_facade
+    // still holds one reference, keeping ~PlatformViewOHOSNapi (and its
+    // napi_reference_unref) from running on this worker thread.
     delete OHOS_SHELL_HOLDER;
     async_data->success = true;
   } else {
@@ -3478,6 +3487,10 @@ static void DestroyAsyncCompleteWork(napi_env env,
   }
 
   napi_delete_async_work(env, async_data->work);
+  // Release the last reference to PlatformViewOHOSNapi here so that
+  // ~PlatformViewOHOSNapi (which calls napi_reference_unref) runs on the
+  // JS thread, satisfying the EcmaVM single-thread requirement.
+  async_data->napi_facade.reset();
   delete async_data;
 }
 
@@ -3509,6 +3522,13 @@ napi_value PlatformViewOHOSNapi::nativeDestroyAsync(napi_env env,
   async_data->deferred = deferred;
   async_data->shell_holder = shell_holder;
   async_data->success = false;
+  // Take an extra shared_ptr to napi_facade on the JS thread. This defers
+  // ~PlatformViewOHOSNapi to DestroyAsyncCompleteWork (also on JS thread),
+  // avoiding napi_reference_unref being called from the NAPI worker thread
+  // (which would trigger "ecma vm cannot run in multi-thread!").
+  if (shell_holder != 0) {
+    async_data->napi_facade = OHOS_SHELL_HOLDER->GetNapiFacade();
+  }
 
   napi_value resource_name;
   napi_create_string_utf8(env, "nativeDestroyAsync", NAPI_AUTO_LENGTH,
