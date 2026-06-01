@@ -9,6 +9,8 @@ Flutter SDK & Engine 仓库
 >
 > 版本规划与分支策略请参见：[Flutter OH 版本规划与分支策略](https://gitcode.com/openharmony-tpc/flutter_flutter/wiki/Flutter-OH%E7%89%88%E6%9C%AC%E6%BC%94%E8%BF%9B%E8%A7%84%E5%88%92%E5%92%8C%E5%88%86%E6%94%AF%E7%AD%96%E7%95%A5.md)
 
+> **仓库迁移公告**：Flutter 鸿蒙化相关仓库已整体迁移至 [CPF-Flutter](https://gitcode.com/CPF-Flutter) 组织。本仓库（flutter_flutter）新地址为 [CPF-Flutter/flutter_flutter](https://gitcode.com/CPF-Flutter/flutter_flutter)，旧仓库将不再维护，请及时更新远程地址和依赖引用。详情参见：[迁移公告](https://gitcode.com/openharmony-tpc/flutter_flutter/wiki/Flutter%20%E9%B8%BF%E8%92%99%E5%8C%96%E4%BB%93%E5%BA%93%E8%BF%81%E7%A7%BB%E5%85%AC%E5%91%8A%EF%BC%9A%E5%85%A8%E6%96%B0%20CPF-Flutter%20%E7%BB%84%E7%BB%87%E4%B8%8A%E7%BA%BF)
+
 ## 仓库结构
 
 Flutter 3.41.9 版本，Engine 源码已合并到仓库的 `engine/` 目录下，无需再单独克隆 Engine 仓库。
