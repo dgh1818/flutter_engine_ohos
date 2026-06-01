@@ -17,6 +17,7 @@ import 'package:flutter_tools/src/features.dart';
 import 'package:flutter_tools/src/isolated/native_assets/dart_hook_result.dart';
 import 'package:flutter_tools/src/isolated/native_assets/native_assets.dart';
 import 'package:flutter_tools/src/isolated/native_assets/targets.dart';
+import 'package:hooks/hooks.dart';
 
 import '../../src/common.dart';
 import '../../src/context.dart';
@@ -158,6 +159,76 @@ void main() {
             .childDirectory('windows'),
         exists,
       );
+    },
+  );
+
+  testUsingContext(
+    'OHOS uses a hosted code_assets compatible OS in build and link hook input',
+    overrides: <Type, Generator>{ProcessManager: () => FakeProcessManager.empty()},
+    () async {
+      final File packageConfig = environment.projectDir.childFile('.dart_tool/package_config.json');
+      final Uri nativeAssetsFileUri = environment.buildDir
+          .childFile(InstallCodeAssets.nativeAssetsFilename)
+          .uri;
+      await packageConfig.parent.create();
+      await packageConfig.create();
+
+      final File dylibAfterCompiling = fileSystem.file('libbar.so');
+      await dylibAfterCompiling.create();
+
+      final codeAssets = <CodeAsset>[
+        CodeAsset(
+          package: 'bar',
+          name: 'bar.dart',
+          linkMode: DynamicLoadingBundled(),
+          file: Uri.file('libbar.so'),
+        ),
+      ];
+      var buildHookSawCompatibleTargetOS = false;
+      var linkHookSawCompatibleTargetOS = false;
+      final environmentDefines = <String, String>{kBuildMode: BuildMode.release.cliName};
+      final DartHooksResult dartHookResult = await runFlutterSpecificHooks(
+        environmentDefines: environmentDefines,
+        targetPlatform: TargetPlatform.ohos_arm64,
+        projectUri: projectUri,
+        fileSystem: fileSystem,
+        buildRunner: FakeFlutterNativeAssetsBuildRunner(
+          packagesWithNativeAssetsResult: <String>['bar'],
+          onBuild: (BuildInput input) {
+            expect(input.config.code.targetOS, OS.linux);
+            buildHookSawCompatibleTargetOS = true;
+            return FakeFlutterNativeAssetsBuilderResult.fromAssets();
+          },
+          onLink: (LinkInput input) {
+            expect(input.config.code.targetOS, OS.linux);
+            linkHookSawCompatibleTargetOS = true;
+            return FakeFlutterNativeAssetsBuilderResult.fromAssets(codeAssets: codeAssets);
+          },
+        ),
+      );
+      await installCodeAssets(
+        dartHookResult: dartHookResult,
+        environmentDefines: environmentDefines,
+        targetPlatform: TargetPlatform.ohos_arm64,
+        projectUri: projectUri,
+        fileSystem: fileSystem,
+        nativeAssetsFileUri: nativeAssetsFileUri,
+      );
+
+      expect(testLogger.traceText, contains('Building native assets for ohos_arm64.'));
+      expect(buildHookSawCompatibleTargetOS, isTrue);
+      expect(linkHookSawCompatibleTargetOS, isTrue);
+      expect(
+        environment.projectDir
+            .childDirectory('build')
+            .childDirectory('native_assets')
+            .childDirectory('ohos')
+            .childDirectory('libs')
+            .childDirectory('arm64-v8a')
+            .childFile('libbar.so'),
+        exists,
+      );
+      expect(await fileSystem.file(nativeAssetsFileUri).readAsString(), contains('ohos_arm64'));
     },
   );
 
