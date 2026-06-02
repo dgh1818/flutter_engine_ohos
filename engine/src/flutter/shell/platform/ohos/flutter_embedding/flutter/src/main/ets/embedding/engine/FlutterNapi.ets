@@ -848,8 +848,12 @@ export default class FlutterNapi {
       Log.e(TAG, "detachFromNativeAndReleaseResourcesAsync this.nativeShellHolderId = " + this.nativeShellHolderId)
       return Promise.resolve();
     }
-    return flutter.nativeDestroyAsync(this.nativeShellHolderId!!).then(() => {
-      this.nativeShellHolderId = null;
+    // Invalidate the holder id on the JS thread before kicking off the async
+    // destroy so any concurrent native calls guarded by isAttached() short out
+    // and cannot race with the worker thread tearing down the shell holder.
+    const shellHolderId = this.nativeShellHolderId!!;
+    this.nativeShellHolderId = null;
+    return flutter.nativeDestroyAsync(shellHolderId).then(() => {
       this.isRunningDart = false;
       this.isDisplayingFlutterUi = false;
       this.isPreloadedFlutterUi = false;
