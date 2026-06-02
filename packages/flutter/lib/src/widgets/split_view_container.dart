@@ -526,11 +526,18 @@ class _ProxyNavigatorStateImpl extends NavigatorState {
     return super.pushAndRemoveUntil<T>(newRoute, predicate);
   }
 
+  bool _isLeftRoutePoppable() {
+    final currentRoute = _manager.leftCurrentRoute;
+    if (currentRoute == null) {
+      return false;
+    }
+    return currentRoute is PopupRoute || currentRoute.willHandlePopInternally;
+  }
+
   @override
   bool canPop() {
-    if (_manager.isHomePageReady && !_manager.poprouteOnScreen) {
-      final rightNavigator = _manager.rightNavigator;
-      return rightNavigator != null && rightNavigator.canPop();
+    if (_manager.isHomePageReady) {
+      return _isLeftRoutePoppable();
     }
 
     return super.canPop();
@@ -539,9 +546,6 @@ class _ProxyNavigatorStateImpl extends NavigatorState {
   @override
   Future<bool> maybePop<T extends Object?>([T? result]) async {
     final rightNavigator = _manager.rightNavigator;
-    // When popup route is on screen (barrier visible), only handle left side pop.
-    // Don't forward to right navigator, because right side only has barrier route.
-    // The real popup is on left side, so pop should happen on left.
     if (_manager.poprouteOnScreen) {
       return super.maybePop(result);
     }
@@ -552,19 +556,47 @@ class _ProxyNavigatorStateImpl extends NavigatorState {
       }
     }
 
-    if (_manager.isHomePageReady && !_manager.poprouteOnScreen) {
+    if (_manager.isHomePageReady && !_isLeftRoutePoppable()) {
       return false;
     }
-  
+
     return super.maybePop(result);
   }
 
   @override
   void pop<T extends Object?>([T? result]) {
-    if (_manager.isHomePageReady && !_manager.poprouteOnScreen) {
+    if (_manager.isHomePageReady && !_isLeftRoutePoppable()) {
       return;
     }
     super.pop(result);
+  }
+
+  @override
+  void popUntil(RoutePredicate predicate) {
+    if (_manager.isHomePageReady) {
+      super.popUntil((route) {
+        if (route is! PopupRoute && !route.willHandlePopInternally) {
+          return true;
+        }
+        return false;
+      });
+      return;
+    }
+    super.popUntil(predicate);
+  }
+
+  @override
+  void popUntilWithResult<T extends Object?>(RoutePredicate predicate, T? result) {
+    if (_manager.isHomePageReady) {
+      super.popUntilWithResult<T>((route) {
+        if (route is! PopupRoute && !route.willHandlePopInternally) {
+          return true;
+        }
+        return false;
+      }, result);
+      return;
+    }
+    super.popUntilWithResult<T>(predicate, result);
   }
 
   Route<T> _createBarrierRoute<T>(PopupRoute route) {
@@ -896,6 +928,26 @@ class _RightSideNavigatorStateImpl extends NavigatorState {
       return true;
     }
     return false;
+  }
+
+  @override
+  void popUntil(RoutePredicate predicate) {
+    super.popUntil((route) {
+      if (route.settings.name == SplitStartPage.routeName || route.isFirst) {
+        return true;
+      }
+      return predicate(route);
+    });
+  }
+
+  @override
+  void popUntilWithResult<T extends Object?>(RoutePredicate predicate, T? result) {
+    super.popUntilWithResult<T>((route) {
+      if (route.settings.name == SplitStartPage.routeName || route.isFirst) {
+        return true;
+      }
+      return predicate(route);
+    }, result);
   }
 
   Route<T> _createBarrierRoute<T>(PopupRoute route) {
