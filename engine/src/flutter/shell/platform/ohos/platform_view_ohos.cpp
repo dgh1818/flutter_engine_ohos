@@ -11,9 +11,6 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include "rapidjson/document.h"
-#include "rapidjson/stringbuffer.h"
-#include "rapidjson/writer.h"
 #include "flutter/common/constants.h"
 #include "flutter/fml/make_copyable.h"
 #include "flutter/impeller/renderer/backend/vulkan/context_vk.h"
@@ -1165,10 +1162,6 @@ void PlatformViewOHOS::ApplyReclaimLevel(GpuReclaimDecision decision) {
                 << ReclaimLevelToString(current_reclaim_level_) << " -> "
                 << ReclaimLevelToString(level);
 
-  if (decision == GpuReclaimDecision::kAggressive) {
-    RequestBackgroundImageCacheCleanup();
-  }
-
   current_reclaim_level_ = level;
 
   switch (decision) {
@@ -1176,6 +1169,7 @@ void PlatformViewOHOS::ApplyReclaimLevel(GpuReclaimDecision decision) {
       ExecuteReclaimRestore();
       break;
     case GpuReclaimDecision::kAggressive:
+      RequestBackgroundImageCacheCleanup();
       ExecuteReclaimAggressive();
       break;
     case GpuReclaimDecision::kNoChange:
@@ -1187,21 +1181,16 @@ void PlatformViewOHOS::ApplyReclaimLevel(GpuReclaimDecision decision) {
 }
 
 void PlatformViewOHOS::RequestBackgroundImageCacheCleanup() {
-  rapidjson::Document document;
-  auto& allocator = document.GetAllocator();
-  document.SetObject();
-  document.AddMember("type", "memoryPressure", allocator);
-
-  rapidjson::StringBuffer buffer;
-  rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-  if (!document.Accept(writer) || buffer.GetSize() == 0) {
-    return;
-  }
+  static constexpr char kMemoryPressureMessage[] =
+      R"({"type":"memoryPressure"})";
+  FML_LOG(INFO)
+      << "GpuReclaim: Sending memoryPressure via flutter/system channel";
 
   PlatformView::DispatchPlatformMessage(
       std::make_unique<flutter::PlatformMessage>(
           K_FLUTTER_SYSTEM,
-          fml::MallocMapping::Copy(buffer.GetString(), buffer.GetSize()),
+          fml::MallocMapping::Copy(kMemoryPressureMessage,
+                                   sizeof(kMemoryPressureMessage) - 1),
           nullptr));
   PlatformView::ScheduleFrame();
 }
@@ -1272,7 +1261,8 @@ void PlatformViewOHOS::ExecuteReclaimAggressive() {
   FML_LOG(INFO) << "GpuReclaim: ExecuteAggressive - deferring "
                 << RECLAIM_DEFERRAL_MS << "ms for PiP check";
 
-  // 1. Enable frame gate immediately to prevent new frame scheduling
+  // 1. Enable frame gate immediately to suppress external texture-driven frame
+  //    scheduling while the app is in background.
   frame_gate_enabled_.store(true, std::memory_order_release);
 
   // 2. Defer actual GPU teardown to allow async PiP detection to complete.
