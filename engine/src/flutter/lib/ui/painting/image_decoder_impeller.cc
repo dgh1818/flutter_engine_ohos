@@ -19,6 +19,7 @@
 #include "flutter/impeller/renderer/context.h"
 #if defined(FML_OS_OHOS)
 #include "flutter/lib/ui/painting/image_generator.h"
+#include "flutter/lib/ui/painting/ohos_color_space.h"
 #endif  // FML_OS_OHOS
 #include "impeller/core/device_buffer.h"
 #include "impeller/core/formats.h"
@@ -39,45 +40,6 @@
 namespace flutter {
 
 namespace {
-#ifdef FML_OS_OHOS
-// OHOS NativeColorSpaceManager color space constants
-// Reference: https://gitee.com/openharmony/docs/blob/master/en/application-dev/reference/native-apis/_native_color_space_manager.md
-enum OHOSColorSpaceName {
-  OHOS_COLOR_SPACE_NAME_NONE = 0,
-  OHOS_COLOR_SPACE_NAME_ADOBE_RGB = 1,
-  OHOS_COLOR_SPACE_NAME_DCI_P3 = 2,
-  OHOS_COLOR_SPACE_NAME_DISPLAY_P3 = 3,
-  OHOS_COLOR_SPACE_NAME_SRGB = 4,
-  OHOS_COLOR_SPACE_NAME_CUSTOM = 5,
-  OHOS_COLOR_SPACE_NAME_BT709 = 6,
-  OHOS_COLOR_SPACE_NAME_DISPLAY_P3_LIMIT = 14,
-  OHOS_COLOR_SPACE_NAME_LINEAR_P3 = 23,
-};
-#endif
-
-impeller::TextureColorSpace OHOSColorSpaceToTextureColorSpace(
-    int ohos_colorspace) {
-#ifdef FML_OS_OHOS
-  switch (ohos_colorspace) {
-    case OHOS_COLOR_SPACE_NAME_DISPLAY_P3:
-    case OHOS_COLOR_SPACE_NAME_DISPLAY_P3_LIMIT:
-    case OHOS_COLOR_SPACE_NAME_LINEAR_P3:
-      return impeller::TextureColorSpace::kDisplayP3;
-    case OHOS_COLOR_SPACE_NAME_ADOBE_RGB:
-    case OHOS_COLOR_SPACE_NAME_DCI_P3:
-      return impeller::TextureColorSpace::kExtendedSRGB;
-    case OHOS_COLOR_SPACE_NAME_SRGB:
-    case OHOS_COLOR_SPACE_NAME_CUSTOM:
-    case OHOS_COLOR_SPACE_NAME_BT709:
-    case OHOS_COLOR_SPACE_NAME_NONE:
-    default:
-      return impeller::TextureColorSpace::kSRGB;
-  }
-#else
-  return impeller::TextureColorSpace::kSRGB;
-#endif
-}
-
 }  // namespace
 
 class MallocDeviceBuffer : public impeller::DeviceBuffer {
@@ -580,7 +542,7 @@ ImageDecoderImpeller::UnsafeUploadTextureToPrivate(
     texture_descriptor.mip_count = 1;
   }
   const auto texture_color_space =
-      OHOSColorSpaceToTextureColorSpace(colorspace);
+      OhosColorSpaceToTextureColorSpace(colorspace);
   texture_descriptor.color_space = texture_color_space;
 
   auto dest_texture =

@@ -12,8 +12,10 @@
 #include <multimedia/image_framework/image/pixelmap_native.h>
 #include <native_buffer/native_buffer.h>
 #include <native_window/external_window.h>
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <sstream>
@@ -23,6 +25,7 @@
 #include <multimedia/image_framework/image_pixel_map_napi.h>
 #include "fml/logging.h"
 #include "fml/trace_event.h"
+#include "flutter/lib/ui/painting/ohos_color_space.h"
 #include "include/core/SkAlphaType.h"
 #include "include/core/SkColorType.h"
 #include "include/core/SkImageInfo.h"
@@ -75,13 +78,17 @@ static bool DataStartsWith(const sk_sp<SkData>& data,
 
 static bool DataContains(const sk_sp<SkData>& data,
                          const char* pattern,
-                         size_t pattern_size) {
+                         size_t pattern_size,
+                         size_t max_search = 32 * 1024) {
   if (!data || !data->data() || data->size() < pattern_size) {
     return false;
   }
   const auto* bytes = static_cast<const uint8_t*>(data->data());
-  const size_t size = data->size();
-  for (size_t i = 0; i <= size - pattern_size; i++) {
+  const size_t limit = std::min(data->size(), max_search);
+  if (limit < pattern_size) {
+    return false;
+  }
+  for (size_t i = 0; i + pattern_size <= limit; i++) {
     if (memcmp(bytes + i, pattern, pattern_size) == 0) {
       return true;
     }
@@ -108,36 +115,6 @@ static bool IsAnimatedWebPEncodedData(const sk_sp<SkData>& data) {
 static bool IsUnsupportedDmaEncodedData(const sk_sp<SkData>& data) {
   return IsGifEncodedData(data) || IsAnimatedPngEncodedData(data) ||
          IsAnimatedWebPEncodedData(data);
-}
-
-static impeller::TextureColorSpace OhosColorSpaceToTextureColorSpace(
-    uint32_t color_space) {
-  switch (static_cast<ColorSpaceName>(color_space)) {
-    case DISPLAY_P3:
-    case DISPLAY_P3_LIMIT:
-    case LINEAR_P3:
-      return impeller::TextureColorSpace::kDisplayP3;
-    case ADOBE_RGB:
-    case DCI_P3:
-    case BT2020_HLG:
-    case BT2020_PQ:
-    case P3_HLG:
-    case P3_PQ:
-    case ADOBE_RGB_LIMIT:
-    case BT2020_HLG_LIMIT:
-    case BT2020_PQ_LIMIT:
-    case P3_HLG_LIMIT:
-    case P3_PQ_LIMIT:
-    case LINEAR_BT2020:
-      return impeller::TextureColorSpace::kExtendedSRGB;
-    case NONE:
-    case SRGB:
-    case CUSTOM:
-    case SRGB_LIMIT:
-    case BT709:
-    default:
-      return impeller::TextureColorSpace::kSRGB;
-  }
 }
 
 class OhosExternalTextureSourceImpl final : public ExternalTextureSource {
@@ -401,7 +378,12 @@ OHOSImageGenerator::~OHOSImageGenerator() {
   }
   for (const auto& kv : cached_pixelmaps_) {
     if (kv.second) {
-      size_t old_size = kv.second->width_ * kv.second->height_ * RBGA8888_BYTES;
+      const size_t min_row_bytes =
+          static_cast<size_t>(kv.second->width_) * RBGA8888_BYTES;
+      const size_t pixelmap_row_bytes =
+          std::max(static_cast<size_t>(kv.second->row_stride_),
+                   min_row_bytes);
+      const size_t old_size = pixelmap_row_bytes * kv.second->height_;
       total_cached_bytes_.fetch_sub(old_size, std::memory_order_relaxed);
     }
   }
@@ -486,11 +468,18 @@ bool OHOSImageGenerator::GetPixels(const SkImageInfo& info,
   }
 
   if (image_pixelmap) {
-    const uint32_t min_row_bytes =
-        image_pixelmap->width_ * RBGA8888_BYTES;
-    const uint32_t pixelmap_row_bytes =
-        std::max(image_pixelmap->row_stride_, min_row_bytes);
-    uint32_t buffer_size = pixelmap_row_bytes * image_pixelmap->height_;
+    const size_t min_row_bytes =
+        static_cast<size_t>(image_pixelmap->width_) * RBGA8888_BYTES;
+    const size_t pixelmap_row_bytes =
+        std::max(static_cast<size_t>(image_pixelmap->row_stride_),
+                 min_row_bytes);
+    if (image_pixelmap->height_ != 0 &&
+        pixelmap_row_bytes >
+            std::numeric_limits<size_t>::max() / image_pixelmap->height_) {
+      FML_LOG(ERROR) << "Pixelmap buffer size overflow " << to_string();
+      return false;
+    }
+    const size_t buffer_size = pixelmap_row_bytes * image_pixelmap->height_;
     std::string trace_str = "size:" + std::to_string(buffer_size) +
                             "-dst_stride:" + std::to_string(row_bytes) +
                             "-pixelmap_stride:" +
@@ -506,8 +495,9 @@ bool OHOSImageGenerator::GetPixels(const SkImageInfo& info,
                      << to_string();
       return false;
     }
-    if (image_pixelmap &&
-        total_cached_bytes_ <= kMaxGlobalCacheSize - buffer_size) {
+    if (image_pixelmap && buffer_size <= kMaxGlobalCacheSize &&
+        total_cached_bytes_.load(std::memory_order_relaxed) <=
+            kMaxGlobalCacheSize - buffer_size) {
       // Cache animated images to improve performance.
       cached_pixelmaps_[frame_index] = image_pixelmap;
       total_cached_bytes_.fetch_add(buffer_size, std::memory_order_relaxed);
@@ -591,8 +581,9 @@ OHOSImageGenerator::CreateExternalTextureSource(
                   << pixelmap->pixel_format_ << " " << to_string();
     return nullptr;
   }
-  const uint32_t min_row_stride = pixelmap->width_ * RBGA8888_BYTES;
-  if (pixelmap->row_stride_ < min_row_stride) {
+  const size_t min_row_stride =
+      static_cast<size_t>(pixelmap->width_) * RBGA8888_BYTES;
+  if (static_cast<size_t>(pixelmap->row_stride_) < min_row_stride) {
     FML_LOG(INFO) << "OHOS DMA: regular path selected, invalid row stride "
                   << pixelmap->row_stride_ << " < " << min_row_stride << " "
                   << to_string();
@@ -720,8 +711,12 @@ OHOSImageGenerator::CreatePixelMap(int width,
     OH_NativeColorSpaceManager* mgr = nullptr;
     auto colorspace_res = OH_PixelmapNative_GetColorSpaceNative(pixelmap, &mgr);
     auto colorspace_name = 0;
-    if (colorspace_res == IMAGE_SUCCESS) {
-      colorspace_name = OH_NativeColorSpaceManager_GetColorSpaceName(mgr);
+    if (colorspace_res == IMAGE_SUCCESS && mgr != nullptr) {
+      std::unique_ptr<OH_NativeColorSpaceManager,
+                      decltype(&OH_NativeColorSpaceManager_Destroy)>
+          mgr_holder(mgr, OH_NativeColorSpaceManager_Destroy);
+      colorspace_name =
+          OH_NativeColorSpaceManager_GetColorSpaceName(mgr_holder.get());
     }
     if (!prefer_dma) {
       cached_colorspaces_[frame_index] = colorspace_name;
@@ -771,14 +766,19 @@ OHOSImageGenerator::PixelMapOHOS::PixelMapOHOS(
 
 Image_ErrorCode OHOSImageGenerator::PixelMapOHOS::ReadPixels(
     uint8_t* dst_buffer,
-    uint32_t buffer_size,
-    uint32_t row_stride) {
-  if (pixelmap_ == nullptr || row_stride < width_ * RBGA8888_BYTES) {
+    size_t buffer_size,
+    size_t row_stride) {
+  const size_t min_row_bytes = static_cast<size_t>(width_) * RBGA8888_BYTES;
+  if (pixelmap_ == nullptr || row_stride < min_row_bytes) {
     return IMAGE_BAD_PARAMETER;
   }
-  const uint32_t min_row_bytes = width_ * RBGA8888_BYTES;
-  const uint32_t source_row_bytes = std::max(row_stride_, min_row_bytes);
-  const uint32_t source_size = source_row_bytes * height_;
+  const size_t source_row_bytes =
+      std::max(static_cast<size_t>(row_stride_), min_row_bytes);
+  if (height_ != 0 &&
+      source_row_bytes > std::numeric_limits<size_t>::max() / height_) {
+    return IMAGE_BAD_PARAMETER;
+  }
+  const size_t source_size = source_row_bytes * height_;
   if (buffer_size < source_size) {
     return IMAGE_BAD_PARAMETER;
   }
@@ -796,7 +796,7 @@ Image_ErrorCode OHOSImageGenerator::PixelMapOHOS::ReadPixels(
   }
   if (row_stride != source_row_bytes && temp_dst_buffer != nullptr) {
     if (ret_code == IMAGE_SUCCESS) {
-      for (int i = 0; i < int(height_); i++) {
+      for (uint32_t i = 0; i < height_; i++) {
         memcpy(dst_buffer + row_stride * i,
                temp_dst_buffer + source_row_bytes * i, min_row_bytes);
       }
