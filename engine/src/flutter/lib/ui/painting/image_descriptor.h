@@ -125,6 +125,18 @@ class ImageDescriptor : public RefCountedDartWrappable<ImageDescriptor> {
   /// @brief  Gets pixels for this image transformed based on the EXIF
   ///         orientation tag, if applicable.
   bool get_pixels(const SkPixmap& pixmap) const;
+
+#if defined(FML_OS_OHOS) && IMPELLER_SUPPORTS_RENDERING
+  /// @brief      OHOS-only optional fast-path that lets the underlying
+  ///             generator hand back a GPU-resident texture wrapping
+  ///             platform-owned memory without copying into a CPU-side bitmap.
+  ///             Returns `nullptr` if the generator does not implement the fast
+  ///             path; callers must then fall back to `get_pixels`.
+  std::unique_ptr<ExternalTextureSource> CreateExternalTextureSource(
+      const SkISize& decode_dimensions,
+      unsigned int frame_index = 0,
+      std::optional<unsigned int> prior_frame = std::nullopt) const;
+#endif  // FML_OS_OHOS && IMPELLER_SUPPORTS_RENDERING
   
   uint32_t get_colorspace();
 

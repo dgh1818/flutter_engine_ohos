@@ -4,9 +4,11 @@
 
 #include "flutter/lib/ui/painting/image_decoder_impeller.h"
 
+#include <algorithm>
 #include <format>
 #include <memory>
 
+#include "flutter/fml/build_config.h"
 #include "flutter/fml/closure.h"
 #include "flutter/fml/make_copyable.h"
 #include "flutter/fml/mapping.h"
@@ -15,6 +17,10 @@
 #include "flutter/impeller/display_list/dl_image_impeller.h"
 #include "flutter/impeller/renderer/command_buffer.h"
 #include "flutter/impeller/renderer/context.h"
+#include "flutter/lib/ui/painting/ohos_color_space.h"
+#if defined(FML_OS_OHOS)
+#include "flutter/lib/ui/painting/image_generator.h"
+#endif  // FML_OS_OHOS
 #include "impeller/core/device_buffer.h"
 #include "impeller/core/formats.h"
 #include "impeller/core/texture_descriptor.h"
@@ -32,42 +38,6 @@
 #include "third_party/skia/include/core/SkSize.h"
 
 namespace flutter {
-
-namespace {
-#ifdef FML_OS_OHOS
-// OHOS NativeColorSpaceManager color space constants
-// Reference: https://gitee.com/openharmony/docs/blob/master/en/application-dev/reference/native-apis/_native_color_space_manager.md
-enum OHOSColorSpaceName {
-  OHOS_COLOR_SPACE_NAME_BT709 = 0,            // sRGB
-  OHOS_COLOR_SPACE_NAME_BT2020 = 1,           // BT.2020 (wide gamut, HDR)
-  OHOS_COLOR_SPACE_NAME_DISPLAY_P3 = 2,       // DisplayP3
-  OHOS_COLOR_SPACE_NAME_ADOBE_RGB = 3,        // Adobe RGB (wide gamut)
-  OHOS_COLOR_SPACE_NAME_DCI_P3 = 4,           // DCI-P3 (cinema standard)
-  OHOS_COLOR_SPACE_NAME_LINEAR_BT2020 = 5,    // Linear BT.2020
-  OHOS_COLOR_SPACE_NAME_LINEAR_DISPLAY_P3 = 6, // Linear DisplayP3
-};
-#endif
-
-impeller::TextureColorSpace OHOSColorSpaceToTextureColorSpace(int ohos_colorspace) {
-#ifdef FML_OS_OHOS
-  switch (ohos_colorspace) {
-    case OHOS_COLOR_SPACE_NAME_DISPLAY_P3:
-    case OHOS_COLOR_SPACE_NAME_LINEAR_DISPLAY_P3:
-      return impeller::TextureColorSpace::kDisplayP3;
-    case OHOS_COLOR_SPACE_NAME_BT2020:
-    case OHOS_COLOR_SPACE_NAME_ADOBE_RGB:
-    case OHOS_COLOR_SPACE_NAME_DCI_P3:
-    case OHOS_COLOR_SPACE_NAME_LINEAR_BT2020:
-      return impeller::TextureColorSpace::kExtendedSRGB;
-    case OHOS_COLOR_SPACE_NAME_BT709:
-    default:
-      return impeller::TextureColorSpace::kSRGB;
-  }
-#else
-  return impeller::TextureColorSpace::kSRGB;
-#endif
-}
-}  // namespace
 
 class MallocDeviceBuffer : public impeller::DeviceBuffer {
  public:
@@ -385,13 +355,74 @@ std::optional<impeller::PixelFormat> ImageDecoderImpeller::ToPixelFormat(
     case kRGBA_F32_SkColorType:
       return impeller::PixelFormat::kR32G32B32A32Float;
     case kBGRA_1010102_SkColorType:
- 	       return impeller::PixelFormat::
- 	           kB10G10R10A2UNorm;
+      return impeller::PixelFormat::kB10G10R10A2UNorm;
     default:
       return std::nullopt;
   }
   return std::nullopt;
 }
+
+namespace {
+
+#if defined(FML_OS_OHOS) && IMPELLER_SUPPORTS_RENDERING
+SkISize GetOhosDmaDecodeDimensions(ImageDescriptor* rawDescriptor,
+                                   SkISize targetSize,
+                                   impeller::ISize maxTextureSize) {
+  const SkISize sourceDimensions =
+      SkISize::Make(rawDescriptor->image_info().width,
+                    rawDescriptor->image_info().height);
+  const SkISize sourceWithinMaxTexture = SkISize::Make(
+      std::min(static_cast<int32_t>(maxTextureSize.width),
+               sourceDimensions.width()),
+      std::min(static_cast<int32_t>(maxTextureSize.height),
+               sourceDimensions.height()));
+  if (targetSize.isEmpty()) {
+    return sourceWithinMaxTexture;
+  }
+
+  const SkISize targetWithinMaxTexture = SkISize::Make(
+      std::min(static_cast<int32_t>(maxTextureSize.width), targetSize.width()),
+      std::min(static_cast<int32_t>(maxTextureSize.height),
+               targetSize.height()));
+  if (rawDescriptor->should_resize(targetWithinMaxTexture.width(),
+                                   targetWithinMaxTexture.height())) {
+    return targetWithinMaxTexture;
+  }
+  return sourceWithinMaxTexture;
+}
+
+bool TryCreateOhosDmaImage(ImageDescriptor* rawDescriptor,
+                           const std::shared_ptr<impeller::Context>& context,
+                           SkISize targetSize,
+                           const ImageDecoder::ImageResult& result) {
+  if (!rawDescriptor->is_compressed() ||
+      context->GetBackendType() != impeller::Context::BackendType::kVulkan) {
+    return false;
+  }
+  const auto maxTextureSize =
+      context->GetResourceAllocator()->GetMaxTextureSizeSupported();
+  const SkISize decodeDimensions =
+      GetOhosDmaDecodeDimensions(rawDescriptor, targetSize, maxTextureSize);
+  auto externalSource =
+      rawDescriptor->CreateExternalTextureSource(decodeDimensions);
+  if (!externalSource) {
+    FML_LOG(INFO) << "OHOS DMA: regular image decode path selected "
+                     "(fast path unavailable)";
+    return false;
+  }
+  auto texture = externalSource->CreateImpellerTexture(context);
+  if (!texture) {
+    FML_LOG(INFO) << "OHOS DMA: regular image decode path selected "
+                     "(fast path unavailable)";
+    return false;
+  }
+  FML_LOG(INFO) << "OHOS DMA: zero-copy image decode path selected "
+                << decodeDimensions.width() << "x" << decodeDimensions.height();
+  result(impeller::DlImageImpeller::Make(std::move(texture)), std::string());
+  return true;
+}
+#endif  // FML_OS_OHOS && IMPELLER_SUPPORTS_RENDERING
+}  // namespace
 
 ImageDecoderImpeller::ImageDecoderImpeller(
     const TaskRunners& runners,
@@ -550,7 +581,7 @@ ImageDecoderImpeller::UnsafeUploadTextureToPrivate(
     const std::shared_ptr<impeller::DeviceBuffer>& buffer,
     const ImageInfo& image_info,
     const std::optional<SkImageInfo>& resize_info,
-  	  const int colorspace) {
+    const int colorspace) {
   if (image_info.format == impeller::PixelFormat::kUnknown) {
     std::string decode_error("Unsupported pixel format");
     FML_DLOG(ERROR) << decode_error;
@@ -568,8 +599,8 @@ ImageDecoderImpeller::UnsafeUploadTextureToPrivate(
     // Remove mip count if we are resizing the image on the GPU.
     texture_descriptor.mip_count = 1;
   }
-  texture_descriptor.color_space =
-      OHOSColorSpaceToTextureColorSpace(colorspace);
+  const auto textureColorSpace = OhosColorSpaceToTextureColorSpace(colorspace);
+  texture_descriptor.color_space = textureColorSpace;
 
   auto dest_texture =
       context->GetResourceAllocator()->CreateTexture(texture_descriptor);
@@ -674,7 +705,7 @@ void ImageDecoderImpeller::UploadTextureToPrivate(
     const ImageDecoderImpeller::ImageInfo& image_info,
     const std::optional<SkImageInfo>& resize_info,
     const std::shared_ptr<const fml::SyncSwitch>& gpu_disabled_switch,
- 	  const int colorspace) {
+    const int colorspace) {
   TRACE_EVENT0("impeller", __FUNCTION__);
   if (!context) {
     result(nullptr, "No Impeller context is available");
@@ -687,21 +718,20 @@ void ImageDecoderImpeller::UploadTextureToPrivate(
 
   gpu_disabled_switch->Execute(
       fml::SyncSwitch::Handlers()
-          .SetIfFalse([&result, context, buffer, image_info, resize_info,
- 	                        colorspace] {
+          .SetIfFalse(
+          [&result, context, buffer, image_info, resize_info, colorspace] {
             sk_sp<DlImage> image;
             std::string decode_error;
-            std::tie(image, decode_error) = std::tie(image, decode_error) =
-                UnsafeUploadTextureToPrivate(context, buffer, image_info,
-                                             resize_info, colorspace);
+            std::tie(image, decode_error) = UnsafeUploadTextureToPrivate(
+                context, buffer, image_info, resize_info, colorspace);
             result(image, decode_error);
           })
           .SetIfTrue([&result, context, buffer, image_info, resize_info,
- 	                       colorspace] {
+                      colorspace] {
             auto result_ptr = std::make_shared<ImageResult>(std::move(result));
             context->StoreTaskForGPU(
                 [result_ptr, context, buffer, image_info, resize_info,
- 	                  colorspace]() {
+                 colorspace]() {
                   sk_sp<DlImage> image;
                   std::string decode_error;
                   std::tie(image, decode_error) = UnsafeUploadTextureToPrivate(
@@ -812,6 +842,23 @@ void ImageDecoderImpeller::Decode(fml::RefPtr<ImageDescriptor> descriptor,
           result(nullptr, "No Impeller context is available");
           return;
         }
+
+#if defined(FML_OS_OHOS) && IMPELLER_SUPPORTS_RENDERING
+        // OHOS-only zero-copy fast path: ask the descriptor whether it can
+        // hand us a GPU-resident texture wrapping platform-owned memory. Any
+        // failure silently falls through to the regular decompress + upload
+        // path below.
+        if (options.target_format == ImageDecoder::TargetPixelFormat::kDontCare) {
+          const SkISize target_size = SkISize::Make(
+              static_cast<int32_t>(options.target_width),
+              static_cast<int32_t>(options.target_height));
+          if (TryCreateOhosDmaImage(raw_descriptor, context, target_size,
+                                    result)) {
+            return;
+          }
+        }
+#endif  // FML_OS_OHOS && IMPELLER_SUPPORTS_RENDERING
+
         auto max_size_supported =
             context->GetResourceAllocator()->GetMaxTextureSizeSupported();
 
@@ -834,14 +881,14 @@ void ImageDecoderImpeller::Decode(fml::RefPtr<ImageDescriptor> descriptor,
 
         auto upload_texture_and_invoke_result = [result, context, bitmap_result,
                                                  gpu_disabled_switch,
-  	                                              colorspace2]() {
+                                                 colorspace2]() {
           UploadTextureToPrivate(result, context,              //
                                  bitmap_result->device_buffer,  //
                                  bitmap_result->image_info,     //
                                  bitmap_result->resize_info,    //
                                  gpu_disabled_switch,          //
-  	                             colorspace2                  //
-								 );
+                                 colorspace2                   //
+          );
         };
         // The I/O image uploads are not threadsafe on GLES.
         if (context->GetBackendType() ==

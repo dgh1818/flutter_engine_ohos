@@ -218,6 +218,19 @@ bool ImageDescriptor::get_pixels(const SkPixmap& pixmap) const {
                                pixmap.rowBytes());
 }
 
+#if defined(FML_OS_OHOS) && IMPELLER_SUPPORTS_RENDERING
+std::unique_ptr<ExternalTextureSource> ImageDescriptor::CreateExternalTextureSource(
+    const SkISize& decode_dimensions,
+    unsigned int frame_index,
+    std::optional<unsigned int> prior_frame) const {
+  if (!generator_) {
+    return nullptr;
+  }
+  return generator_->CreateExternalTextureSource(decode_dimensions, frame_index,
+                                                 prior_frame);
+}
+#endif  // FML_OS_OHOS && IMPELLER_SUPPORTS_RENDERING
+
 int ImageDescriptor::bytesPerPixel() const {
   switch (image_info_.format) {
     case kUnknown:

@@ -24,7 +24,8 @@ class ContextVK;
 class OHBTextureSourceVK final : public TextureSourceVK {
  public:
   OHBTextureSourceVK(const std::shared_ptr<ContextVK>& context,
-                     OHNativeWindowBuffer* native_window_buffer);
+                     OHNativeWindowBuffer* native_window_buffer,
+                     TextureColorSpace color_space = TextureColorSpace::kSRGB);
 
   // |TextureSourceVK|
   ~OHBTextureSourceVK() override;
