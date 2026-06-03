@@ -219,8 +219,7 @@ bool ImageDescriptor::get_pixels(const SkPixmap& pixmap) const {
 }
 
 #if defined(FML_OS_OHOS) && IMPELLER_SUPPORTS_RENDERING
-std::unique_ptr<ExternalTextureSource>
-ImageDescriptor::CreateExternalTextureSource(
+std::unique_ptr<ExternalTextureSource> ImageDescriptor::CreateExternalTextureSource(
     const SkISize& decode_dimensions,
     unsigned int frame_index,
     std::optional<unsigned int> prior_frame) const {

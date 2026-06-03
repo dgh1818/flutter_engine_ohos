@@ -222,8 +222,7 @@ OHBTextureSourceVK::OHBTextureSourceVK(
     OHNativeWindowBuffer* native_window_buffer,
     TextureColorSpace color_space)
     : TextureSourceVK(CreateTextureDescriptorFromNativeWindowBuffer(
-          native_window_buffer,
-          color_space)) {
+        native_window_buffer, color_space)) {
   is_valid_ = false;
   if (!native_window_buffer) {
     return;

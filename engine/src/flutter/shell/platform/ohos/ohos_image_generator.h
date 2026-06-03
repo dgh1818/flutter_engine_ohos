@@ -67,7 +67,7 @@ class OHOSImageGenerator : public ImageGenerator {
  private:
   explicit OHOSImageGenerator(OH_ImageSourceNative* image_source,
                               const sk_sp<SkData>& data,
-                              bool unsupported_dma_encoded_data);
+                              bool unsupportedDmaEncodedData);
 
  public:
   ~OHOSImageGenerator();
@@ -130,10 +130,33 @@ class OHOSImageGenerator : public ImageGenerator {
   std::map<uint32_t, std::shared_ptr<PixelMapOHOS>> cached_pixelmaps_;
   std::map<uint32_t, uint32_t> cached_colorspaces_;
 
+#if defined(FML_OS_OHOS) && IMPELLER_SUPPORTS_RENDERING
+  bool CanCreateDmaPixelMap(
+      const SkISize& decodeDimensions,
+      std::optional<unsigned int> priorFrame) const;
+
+  bool IsValidDmaPixelMap(const std::shared_ptr<PixelMapOHOS>& pixelmap,
+                          const SkISize& decodeDimensions) const;
+
+  void LogAcceptedDmaPixelMap(
+      const std::shared_ptr<PixelMapOHOS>& pixelmap) const;
+#endif  // FML_OS_OHOS && IMPELLER_SUPPORTS_RENDERING
+
   std::shared_ptr<PixelMapOHOS> CreatePixelMap(int width,
                                                int height,
                                                int frame_index,
-                                               bool prefer_dma = false);
+                                               bool preferDma = false);
+
+  bool CreateDmaPixelMap(OH_DecodingOptions* opts,
+                         OH_PixelmapNative** pixelmap,
+                         IMAGE_ALLOCATOR_TYPE* actualAllocator,
+                         Image_ErrorCode* errCode);
+
+  std::shared_ptr<PixelMapOHOS> AdoptPixelMap(
+      OH_PixelmapNative* pixelmap,
+      IMAGE_ALLOCATOR_TYPE actualAllocator,
+      int frameIndex,
+      bool preferDma);
 
   bool IsValidImageData();
 
