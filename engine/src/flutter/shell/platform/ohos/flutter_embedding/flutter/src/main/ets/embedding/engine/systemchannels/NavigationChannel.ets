@@ -135,7 +135,8 @@ class NavigationCallback implements MethodCallHandler {
           break;
         }
 
-        if (status === 'start') {
+        let routeName: string = args.get("routeName");
+        if (status === 'start' && routeName !== this.displayMetricsChannel?.getCurrentUri()) {
  	        this.displayMetricsChannel?.setCurrentUri('');
  	        this.displayMetricsChannel?.setCustomDpiActive(false);
  	      }
