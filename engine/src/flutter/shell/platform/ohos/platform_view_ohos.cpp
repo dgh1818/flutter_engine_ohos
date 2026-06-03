@@ -40,6 +40,7 @@ namespace flutter {
 std::map<uint64_t, PlatformViewOHOS*> g_texture_platformview_map;
 std::recursive_mutex g_map_mutex;
 static constexpr char K_FLUTTER_LIFECYCLE[] = "flutter/lifecycle";
+static constexpr char K_FLUTTER_SYSTEM[] = "flutter/system";
 
 OhosSurfaceFactoryImpl::OhosSurfaceFactoryImpl(
     const std::shared_ptr<OHOSContext>& context)
@@ -1168,6 +1169,7 @@ void PlatformViewOHOS::ApplyReclaimLevel(GpuReclaimDecision decision) {
       ExecuteReclaimRestore();
       break;
     case GpuReclaimDecision::kAggressive:
+      RequestBackgroundImageCacheCleanup();
       ExecuteReclaimAggressive();
       break;
     case GpuReclaimDecision::kNoChange:
@@ -1176,6 +1178,21 @@ void PlatformViewOHOS::ApplyReclaimLevel(GpuReclaimDecision decision) {
       FML_DLOG(WARNING) << "GpuReclaim: Unknown reclaim decision";
       break;
   }
+}
+
+void PlatformViewOHOS::RequestBackgroundImageCacheCleanup() {
+  static constexpr char kMemoryPressureMessage[] =
+      R"({"type":"memoryPressure"})";
+  FML_LOG(INFO)
+      << "GpuReclaim: Sending memoryPressure via flutter/system channel";
+
+  PlatformView::DispatchPlatformMessage(
+      std::make_unique<flutter::PlatformMessage>(
+          K_FLUTTER_SYSTEM,
+          fml::MallocMapping::Copy(kMemoryPressureMessage,
+                                   sizeof(kMemoryPressureMessage) - 1),
+          nullptr));
+  PlatformView::ScheduleFrame();
 }
 
 void PlatformViewOHOS::ExecuteReclaimRestore() {
@@ -1244,7 +1261,8 @@ void PlatformViewOHOS::ExecuteReclaimAggressive() {
   FML_LOG(INFO) << "GpuReclaim: ExecuteAggressive - deferring "
                 << RECLAIM_DEFERRAL_MS << "ms for PiP check";
 
-  // 1. Enable frame gate immediately to prevent new frame scheduling
+  // 1. Enable frame gate immediately to suppress external texture-driven frame
+  //    scheduling while the app is in background.
   frame_gate_enabled_.store(true, std::memory_order_release);
 
   // 2. Defer actual GPU teardown to allow async PiP detection to complete.

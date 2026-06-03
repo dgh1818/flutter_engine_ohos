@@ -291,6 +291,10 @@ class PlatformViewOHOS final : public PlatformView {
   /// @param  decision  The reclaim decision to apply
   void ApplyReclaimLevel(GpuReclaimDecision decision);
 
+  /// @brief  Notifies the framework to trim image caches and schedules one
+  ///         frame so deferred disposal can run before native teardown.
+  void RequestBackgroundImageCacheCleanup();
+
   /// @brief  Executes kRestore level actions (foreground restoration).
   void ExecuteReclaimRestore();
 
