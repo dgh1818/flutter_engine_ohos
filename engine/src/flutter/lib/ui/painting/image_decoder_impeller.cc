@@ -368,28 +368,27 @@ namespace {
 SkISize GetOhosDmaDecodeDimensions(ImageDescriptor* rawDescriptor,
                                    SkISize targetSize,
                                    impeller::ISize maxTextureSize) {
-  const SkISize fastTargetSize = SkISize::Make(
-      std::min(static_cast<int32_t>(maxTextureSize.width), targetSize.width()),
-      std::min(static_cast<int32_t>(maxTextureSize.height),
-               targetSize.height()));
   const SkISize sourceDimensions =
       SkISize::Make(rawDescriptor->image_info().width,
                     rawDescriptor->image_info().height);
-  SkISize decodeDimensions = sourceDimensions;
-  if (kNotScalePixels) {
-    decodeDimensions =
-        SkISize::Make(std::min(static_cast<int32_t>(maxTextureSize.width),
-                               decodeDimensions.width()),
-                      std::min(static_cast<int32_t>(maxTextureSize.height),
-                               decodeDimensions.height()));
-  } else if (rawDescriptor->should_resize(fastTargetSize.width(),
-                                          fastTargetSize.height())) {
-    decodeDimensions = rawDescriptor->get_scaled_dimensions(std::max(
-        static_cast<float>(fastTargetSize.width()) / sourceDimensions.width(),
-        static_cast<float>(fastTargetSize.height()) /
-            sourceDimensions.height()));
+  const SkISize sourceWithinMaxTexture = SkISize::Make(
+      std::min(static_cast<int32_t>(maxTextureSize.width),
+               sourceDimensions.width()),
+      std::min(static_cast<int32_t>(maxTextureSize.height),
+               sourceDimensions.height()));
+  if (targetSize.isEmpty()) {
+    return sourceWithinMaxTexture;
   }
-  return decodeDimensions;
+
+  const SkISize targetWithinMaxTexture = SkISize::Make(
+      std::min(static_cast<int32_t>(maxTextureSize.width), targetSize.width()),
+      std::min(static_cast<int32_t>(maxTextureSize.height),
+               targetSize.height()));
+  if (rawDescriptor->should_resize(targetWithinMaxTexture.width(),
+                                   targetWithinMaxTexture.height())) {
+    return targetWithinMaxTexture;
+  }
+  return sourceWithinMaxTexture;
 }
 
 bool TryCreateOhosDmaImage(ImageDescriptor* rawDescriptor,
