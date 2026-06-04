@@ -92,10 +92,16 @@ class OhosTouchProcessor {
   std::shared_ptr<std::string[]> packagePacketData(
       std::unique_ptr<OhosTouchProcessor::TouchPacket> touchPacket);
 
+  /// Trigger the touch event callback on the ETS side.
   void PlatformViewOnTouchEvent(int64_t shellHolderID,
                                 OH_NativeXComponent_TouchPointToolType toolType,
                                 OH_NativeXComponent* component,
                                 OH_NativeXComponent_TouchEvent* touchEvent);
+
+  /// Trigger the axis event callback on the ETS side.
+  void PlatformViewOnAxisEvent(int64_t shellHolderID,
+                               ArkUI_UIInputEvent* event,
+                               double result_scroll_delta_y);
 
   bool shouldDropTouchEvent(OH_NativeXComponent_TouchEvent* touchEvent);
   std::set<int32_t> activeFingerIds_;
