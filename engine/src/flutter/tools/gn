@@ -796,9 +796,7 @@ def to_gn_args(args):
 
   # Enable pointer compression on 64-bit mobile targets. iOS is excluded due to
   # its inability to allocate address space without allocating memory.
-  # HarmonyOS (ohos) is now included alongside Android for pointer compression support,
-  # providing memory efficiency improvements for 64-bit ARM and x64 architectures.
-  if args.target_os in ['android', 'ohos'] and gn_args['target_cpu'] in ['x64', 'arm64']:
+  if args.target_os in ['android'] and gn_args['target_cpu'] in ['x64', 'arm64']:
     gn_args['dart_use_compressed_pointers'] = True
 
   if args.target_os == 'fuchsia':
