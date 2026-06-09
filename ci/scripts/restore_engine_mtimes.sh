@@ -6,75 +6,52 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-restore_engine_mtimes() {
-    WORK_DIR=$(pwd)
-    PROJECT_DIR="$WORK_DIR/third_party"
+# Constants
+readonly WORK_DIR="$(pwd)"
+readonly PROJECT_DIR="${WORK_DIR}/third_party"
+readonly ARCHIVE_DIR="${WORK_DIR}/Archive/out"
+readonly BUILD_INSTRUCTION="${ARCHIVE_DIR}/build_mode.txt"
 
+restore_engine_mtimes() {
     local root_dir="$1"
     local src_dir="$2"
-    local target_branch="$3"
 
     if [[ -n "${PR_URL:-}" ]]; then
         log_info "Gatekeeper build detected, skipping mtime restoration"
         exit 0
     fi
 
-    log_info "Initializing archive"
-    run_cmd "archive init"
-
-    # If it's Thursday and before 9 AM, skip mtime restoration
-    local day_of_week=$(date +%u)
-    local hour=$(date +%H)
-    if [[ "$day_of_week" -eq 4 && "10#$hour" -lt 9 ]]; then
-        log_info "Today is Thursday and before 9 AM, skipping mtime restoration"
+    if [[ -f "$BUILD_INSTRUCTION" ]]; then
+        log_info "Full build mode detected, skipping mtime restoration"
         exit 0
     fi
 
-    cd "$PROJECT_DIR/$src_dir"
-
-    log_info "Downloading engine version file"
-    run_cmd "archive cp cloud://$target_branch/engine.ohos.har.version engine.ohos.har.version"
+    cd "$PROJECT_DIR/$src_dir" || { log_error "Failed to cd to $PROJECT_DIR/$src_dir"; exit 1; }
 
     if [[ ! -f "engine.ohos.har.version" ]]; then
-        log_warn "Engine version file not found, skipping mtime restoration"
+        log_warn "engine.ohos.har.version not found, skipping mtime restoration"
         exit 0
     fi
 
-    local commit_id=$(cat engine.ohos.har.version)
-    log_info "Last engine commit ID: $commit_id"
-
-    # Check if DEPS or DEPS_ohos file has been modified
-    cd "$PROJECT_DIR/$root_dir"
-    if git diff --name-only "$commit_id" | grep -q "DEPS"; then
-        log_warn "DEPS_ohos file has been modified, skipping mtime restoration"
-        exit 0
-    fi
-
-    cd "$PROJECT_DIR/$src_dir"
-    log_info "Setting old file timestamps"
     run_cmd "find . -type f -exec touch -d '10 days ago' {} +"
 
+    local commit_id
+    commit_id=$(cat engine.ohos.har.version)
     log_info "Touching changed files since $commit_id"
-    cd "$PROJECT_DIR/$root_dir"
+    cd "$PROJECT_DIR/$root_dir" || { log_error "Failed to cd to $PROJECT_DIR/$root_dir"; exit 1; }
     if ! run_cmd "git diff --name-only --diff-filter=d $commit_id | xargs -r touch"; then
         log_warn "Failed to touch changed files"
         exit 0
     fi
 
-    cd "$PROJECT_DIR/$src_dir"
-
-    log_info "Downloading artifacts from cloud"
-    run_cmd "archive cp cloud://$target_branch/artifacts.txt artifacts.txt"
-
+    cd "$PROJECT_DIR/$src_dir" || { log_error "Failed to cd to $PROJECT_DIR/$src_dir"; exit 1; }
     if [[ ! -f "artifacts.txt" ]]; then
         log_warn "artifacts.txt not found, skipping mtime restoration"
         exit 0
     fi
-
-    local artifacts_url=$(cat artifacts.txt)
-
-    curl -f -L -- "$artifacts_url" > out.tar.gz
-    if [ $? -ne 0 ]; then
+    local artifacts_url
+    artifacts_url=$(cat artifacts.txt)
+    if ! curl -f -L -- "$artifacts_url" > out.tar.gz; then
         log_warn "Download failed"
         exit 0
     fi
