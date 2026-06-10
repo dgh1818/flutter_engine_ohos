@@ -12,11 +12,11 @@ readonly WORK_DIR="$(pwd)"
 readonly PROJECT_DIR="${WORK_DIR}/third_party"
 readonly ARCHIVE_DIR="${WORK_DIR}/Archive/out"
 readonly VERSION_FILE="${ARCHIVE_DIR}/engine.ohos.har.version"
+readonly BUILD_INSTRUCTION="${ARCHIVE_DIR}/build_mode.txt"
 
 publish() {
     local root_dir="$1"
     local engine_dir="${2:-}"
-    local flutter_dir="${3:-}"
 
     # Skip publish for PR builds or daily builds
     if [[ -n "${PR_URL:-}" || "${version_type:-}" != "Master_Version" ]]; then
@@ -43,17 +43,9 @@ publish() {
     fi
 
     local version="$(cat "$VERSION_FILE")"
-    local last_version_file="$PROJECT_DIR/${flutter_dir}/bin/internal/engine.ohos.har.version"
     local mode="full"
-
-    if [[ -f "$last_version_file" ]]; then
-        local last_version=$(cat "$last_version_file")
-        log_info "Last version: $last_version"
-        cd "$PROJECT_DIR/$root_dir"
-        if ! git diff --name-only "$last_version" | grep -q "DEPS"; then
-            # No changes in DEPS file, perform incremental publish
-            mode="incremental"
-        fi
+    if [[ ! -f "$BUILD_INSTRUCTION" ]]; then
+        mode="incremental"
     fi
 
     # zip artifacts for full mode
