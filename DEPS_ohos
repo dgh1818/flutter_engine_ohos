@@ -16,7 +16,7 @@ vars = {
   'skia_git': 'https://skia.googlesource.com',
   'llvm_git': 'https://llvm.googlesource.com',
   'ohos_git': 'https://gitcode.com/openharmony-sig',
-  'skia_revision': 'a7a59548834b75b637809263dbaeb7d86061bd13',
+  'skia_revision': '73093931e152ab7222a117378e100950031b5064',
 
   # WARNING: DO NOT EDIT canvaskit_cipd_instance MANUALLY
   # See `lib/web_ui/README.md` for how to roll CanvasKit to a new version.
