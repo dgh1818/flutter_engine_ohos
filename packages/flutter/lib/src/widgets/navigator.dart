@@ -3242,7 +3242,7 @@ class _RouteEntry extends RouteTransitionRecord {
     assert(route.overlayEntries.isNotEmpty);
     if (currentState == _RouteLifecycle.push || currentState == _RouteLifecycle.pushReplace) {
       if (defaultTargetPlatform == TargetPlatform.ohos) {
-        ServicesBinding.instance.reportNavigatorActivity('push', 'start');
+        ServicesBinding.instance.reportNavigatorActivity('push', 'start', route.settings.name);
       }
 
       final TickerFuture routeFuture = route.didPush();
@@ -4499,7 +4499,8 @@ class NavigatorState extends State<Navigator> with TickerProviderStateMixin, Res
           assert(entry.currentState == _RouteLifecycle.popping);
           canRemoveOrAdd = true;
           if (defaultTargetPlatform == TargetPlatform.ohos) {
-            ServicesBinding.instance.reportNavigatorActivity('pop', 'start');
+            final String? routeName = _getRouteBefore(index, _RouteEntry.willBePresentPredicate)?.route.settings.name;
+            ServicesBinding.instance.reportNavigatorActivity('pop', 'start', routeName);
           }
         case _RouteLifecycle.popping:
           // Will exit this state when animation completes.

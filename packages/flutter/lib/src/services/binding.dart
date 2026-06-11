@@ -611,12 +611,15 @@ mixin ServicesBinding on BindingBase, SchedulerBinding {
   ///
   /// @Param status :
   /// [start] or [finish]
-  void reportNavigatorActivity(String activity, String status) {
+  /// 
+  /// @Param routeName?
+  void reportNavigatorActivity(String activity, String status, [String? routeName = '']) {
     SystemChannels.navigation.invokeMethod<void>(
       'reportNavigatorActivity',
       <String, String>{
         'activity': activity,
-        'status': status
+        'status': status,
+        'routeName': routeName ?? ''
       }
     );
   }
