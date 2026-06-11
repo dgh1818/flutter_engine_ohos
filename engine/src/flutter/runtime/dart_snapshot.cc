@@ -22,11 +22,11 @@ const char* DartSnapshot::kIsolateDataSymbol = "kDartIsolateSnapshotData";
 const char* DartSnapshot::kIsolateInstructionsSymbol =
     "kDartIsolateSnapshotInstructions";
 
-// On Windows and Android (in debug mode) the engine finds the Dart snapshot
-// data through symbols that are statically linked into the executable.
+// On Windows, Android, and OHOS (in debug mode) the engine finds the Dart
+// snapshot data through symbols that are statically linked into the executable.
 // On other platforms this data is obtained by a dynamic symbol lookup.
 #define DART_SNAPSHOT_STATIC_LINK \
-  ((FML_OS_WIN || FML_OS_ANDROID) && FLUTTER_JIT_RUNTIME)
+  ((FML_OS_WIN || FML_OS_ANDROID || FML_OS_OHOS) && FLUTTER_JIT_RUNTIME)
 
 #if !DART_SNAPSHOT_STATIC_LINK
 
@@ -104,7 +104,6 @@ static std::shared_ptr<const fml::Mapping> SearchMapping(
 static std::shared_ptr<const fml::Mapping> ResolveVMData(
     const Settings& settings) {
 #if DART_SNAPSHOT_STATIC_LINK
-  FML_LOG(ERROR) << "ResolveVMData: NonOwnedMapping";
   return std::make_unique<fml::NonOwnedMapping>(kDartVmSnapshotData,
                                                 0,        // size
                                                 nullptr,  // release_func
