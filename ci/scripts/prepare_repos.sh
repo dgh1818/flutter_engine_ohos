@@ -42,7 +42,7 @@ prepare_repos() {
     for repo in "${FLUTTERTPC_REPOS[@]}"; do
         if [[ -d "$repo" ]]; then
             log_info "Fetching: $repo"
-            if (cd "$repo" && git fetch origin); then
+            if (cd "$repo" && git fetch --prune origin "+refs/heads/*:refs/remotes/origin/*" "+refs/tags/*:refs/tags/*"); then
                 ((success_count++))
             else
                 log_error "Failed to fetch: $repo"

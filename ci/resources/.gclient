@@ -81,7 +81,7 @@ solutions = [
       "engine/src/flutter/third_party/rapidjson": "/home/tools/Flutter/repo/rapidjson@ef3564c5c8824989393b87df25355baf35ff544b",
       "engine/src/flutter/third_party/re2": "/home/tools/Flutter/repo/re2@c84a140c93352cdabbfb547c531be34515b12228",
       "engine/src/flutter/third_party/shaderc": "/home/tools/Flutter/repo/shaderc@37e25539ce199ecaf19fb7f7d27818716d36686d",
-      "engine/src/flutter/third_party/skia": "/home/tools/Flutter/repo/fluttertpc_skia@a7a59548834b75b637809263dbaeb7d86061bd13",
+      "engine/src/flutter/third_party/skia": "/home/tools/Flutter/repo/fluttertpc_skia@73093931e152ab7222a117378e100950031b5064",
       "engine/src/flutter/third_party/sqlite": "/home/tools/Flutter/repo/sqlite@0f61bd2023ba94423b4e4c8cfb1a23de1fe6a21c",
       "engine/src/flutter/third_party/swiftshader": "/home/tools/Flutter/repo/fluttertpc_swiftshader@88d637e8556c7a30cc161918137acebcd709af54",
       "engine/src/flutter/third_party/vulkan-deps": "/home/tools/Flutter/repo/fluttertpc_vulkan-deps@050bd02a344a461f5522d7de40991d51ad0ae408",
