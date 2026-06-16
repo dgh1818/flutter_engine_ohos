@@ -538,11 +538,13 @@ bool OHOSImageGenerator::GetPixels(const SkImageInfo& info,
   if (image_pixelmap) {
     uint32_t buffer_size =
         image_pixelmap->width_ * image_pixelmap->height_ * RBGA8888_BYTES;
-    std::string trace_str = "size:" + std::to_string(buffer_size) +
-                            "-stride:" + std::to_string(row_bytes);
-    TRACE_EVENT1("flutter", "Image", "ReadPixels", trace_str.c_str());
+    std::string read_pixels_trace_str =
+        "size:" + std::to_string(buffer_size) +
+        "-stride:" + std::to_string(row_bytes);
+    TRACE_EVENT1("flutter", "Image", "ReadPixels",
+                 read_pixels_trace_str.c_str());
     if (frame_index == 0) {
-      FML_DLOG(INFO) << trace_str;
+      FML_LOG(INFO) << read_pixels_trace_str;
     }
     Image_ErrorCode err_code =
         image_pixelmap->ReadPixels((uint8_t*)pixels, buffer_size, row_bytes);
@@ -858,8 +860,11 @@ Image_ErrorCode OHOSImageGenerator::PixelMapOHOS::ReadPixels(
   }
   Image_ErrorCode ret_code = IMAGE_SUCCESS;
   uint8_t* temp_dst_buffer = dst_buffer;
+
+  std::unique_ptr<uint8_t[]> tempBuffer;
   if (row_stride > width_ * RBGA8888_BYTES) {
-    temp_dst_buffer = new uint8_t[buffer_size];
+    tempBuffer = std::make_unique<uint8_t[]>(buffer_size);
+    temp_dst_buffer = tempBuffer.get();
   }
   if (temp_dst_buffer != NULL) {
     size_t dst_size = buffer_size;
@@ -874,7 +879,6 @@ Image_ErrorCode OHOSImageGenerator::PixelMapOHOS::ReadPixels(
                width_ * RBGA8888_BYTES);
       }
     }
-    delete[] temp_dst_buffer;
   }
   return ret_code;
 }
