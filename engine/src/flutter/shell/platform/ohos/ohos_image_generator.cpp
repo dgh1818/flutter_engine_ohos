@@ -15,7 +15,6 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
-#include <limits>
 #include <memory>
 #include <mutex>
 #include <sstream>
@@ -452,11 +451,7 @@ OHOSImageGenerator::~OHOSImageGenerator() {
   }
   for (const auto& kv : cached_pixelmaps_) {
     if (kv.second) {
-      const size_t minRowBytes =
-          static_cast<size_t>(kv.second->width_) * RBGA8888_BYTES;
-      const size_t pixelmapRowBytes =
-          std::max(static_cast<size_t>(kv.second->row_stride_), minRowBytes);
-      const size_t old_size = pixelmapRowBytes * kv.second->height_;
+      size_t old_size = kv.second->width_ * kv.second->height_ * RBGA8888_BYTES;
       total_cached_bytes_.fetch_sub(old_size, std::memory_order_relaxed);
     }
   }
@@ -541,40 +536,26 @@ bool OHOSImageGenerator::GetPixels(const SkImageInfo& info,
   }
 
   if (image_pixelmap) {
-    const size_t minRowBytes =
-        static_cast<size_t>(image_pixelmap->width_) * RBGA8888_BYTES;
-    const size_t pixelmapRowBytes =
-        std::max(static_cast<size_t>(image_pixelmap->row_stride_),
-                 minRowBytes);
-    if (image_pixelmap->height_ != 0 &&
-        pixelmapRowBytes >
-            std::numeric_limits<size_t>::max() / image_pixelmap->height_) {
-      FML_LOG(ERROR) << "Pixelmap buffer size overflow " << to_string();
-      return false;
-    }
-    const size_t bufferSize = pixelmapRowBytes * image_pixelmap->height_;
-    std::string readPixelsTraceStr =
-        "size:" + std::to_string(bufferSize) +
-        "-dst_stride:" + std::to_string(row_bytes) + "-pixelmap_stride:" +
-        std::to_string(image_pixelmap->row_stride_);
-    TRACE_EVENT1("flutter", "Image", "ReadPixels",
-                 readPixelsTraceStr.c_str());
+    uint32_t buffer_size =
+        image_pixelmap->width_ * image_pixelmap->height_ * RBGA8888_BYTES;
+    std::string trace_str = "size:" + std::to_string(buffer_size) +
+                            "-stride:" + std::to_string(row_bytes);
+    TRACE_EVENT1("flutter", "Image", "ReadPixels", trace_str.c_str());
     if (frame_index == 0) {
-      FML_DLOG(INFO) << readPixelsTraceStr;
+      FML_DLOG(INFO) << trace_str;
     }
     Image_ErrorCode err_code =
-        image_pixelmap->ReadPixels((uint8_t*)pixels, bufferSize, row_bytes);
+        image_pixelmap->ReadPixels((uint8_t*)pixels, buffer_size, row_bytes);
     if (err_code != IMAGE_SUCCESS) {
       FML_LOG(ERROR) << "Pixelmap ReadPixels failed:" << err_code << " "
                      << to_string();
       return false;
     }
-    if (image_pixelmap && bufferSize <= kMaxGlobalCacheSize &&
-        total_cached_bytes_.load(std::memory_order_relaxed) <=
-            kMaxGlobalCacheSize - bufferSize) {
+    if (image_pixelmap &&
+        total_cached_bytes_ <= kMaxGlobalCacheSize - buffer_size) {
       // Cache animated images to improve performance.
       cached_pixelmaps_[frame_index] = image_pixelmap;
-      total_cached_bytes_.fetch_add(bufferSize, std::memory_order_relaxed);
+      total_cached_bytes_.fetch_add(buffer_size, std::memory_order_relaxed);
     }
     return true;
   } else {
@@ -870,41 +851,30 @@ OHOSImageGenerator::PixelMapOHOS::PixelMapOHOS(
 
 Image_ErrorCode OHOSImageGenerator::PixelMapOHOS::ReadPixels(
     uint8_t* dst_buffer,
-    size_t buffer_size,
-    size_t row_stride) {
-  const size_t minRowBytes = static_cast<size_t>(width_) * RBGA8888_BYTES;
-  if (pixelmap_ == nullptr || row_stride < minRowBytes) {
-    return IMAGE_BAD_PARAMETER;
-  }
-  const size_t sourceRowBytes =
-      std::max(static_cast<size_t>(row_stride_), minRowBytes);
-  if (height_ != 0 &&
-      sourceRowBytes > std::numeric_limits<size_t>::max() / height_) {
-    return IMAGE_BAD_PARAMETER;
-  }
-  const size_t sourceSize = sourceRowBytes * height_;
-  if (buffer_size < sourceSize) {
+    uint32_t buffer_size,
+    uint32_t row_stride) {
+  if (pixelmap_ == nullptr || row_stride < width_ * RBGA8888_BYTES) {
     return IMAGE_BAD_PARAMETER;
   }
   Image_ErrorCode ret_code = IMAGE_SUCCESS;
   uint8_t* temp_dst_buffer = dst_buffer;
-  std::unique_ptr<uint8_t[]> tempBuffer;
-  if (row_stride != sourceRowBytes) {
-    tempBuffer = std::make_unique<uint8_t[]>(sourceSize);
-    temp_dst_buffer = tempBuffer.get();
+  if (row_stride > width_ * RBGA8888_BYTES) {
+    temp_dst_buffer = new uint8_t[buffer_size];
   }
   if (temp_dst_buffer != NULL) {
-    size_t dstSize = sourceSize;
+    size_t dst_size = buffer_size;
     ret_code =
-        OH_PixelmapNative_ReadPixels(pixelmap_, temp_dst_buffer, &dstSize);
+        OH_PixelmapNative_ReadPixels(pixelmap_, temp_dst_buffer, &dst_size);
   }
-  if (row_stride != sourceRowBytes && temp_dst_buffer != nullptr) {
+  if (row_stride > width_ * RBGA8888_BYTES && temp_dst_buffer != nullptr) {
     if (ret_code == IMAGE_SUCCESS) {
-      for (uint32_t i = 0; i < height_; i++) {
+      for (int i = 0; i < int(height_); i++) {
         memcpy(dst_buffer + row_stride * i,
-               temp_dst_buffer + sourceRowBytes * i, minRowBytes);
+               temp_dst_buffer + (width_ * RBGA8888_BYTES) * i,
+               width_ * RBGA8888_BYTES);
       }
     }
+    delete[] temp_dst_buffer;
   }
   return ret_code;
 }
