@@ -83,10 +83,6 @@ source_set("flutter_ohos_sources") {
              "ohos_external_texture_vulkan.h",
              "ohos_logger.h",
              "ohos_logging.h",
-             "./accessibility/ohos_semantics_node.h",
-             "./accessibility/ohos_semantics_tree.h",
-             "./accessibility/ohos_semantics_bridge.h",
-             "./accessibility/multi_instance_xcomp_accessibility.h",
            ]
 
   #configs += [ "//flutter/shell/platform/ohos/config:gtk" ]
@@ -110,6 +106,7 @@ source_set("flutter_ohos_sources") {
     "./accessibility/ohos_semantics_node.cpp",
     "./accessibility/ohos_semantics_tree.cpp",
     "image_lru.cpp",
+    "mpf_decoder.cpp",
     "ohos_context_gl_skia.cpp",
     "ohos_display.cpp",
     "ohos_egl_surface.cpp",
@@ -144,10 +141,10 @@ source_set("flutter_ohos_sources") {
   ]
 
   deps = [
-    "//flutter/impeller/display_list:display_list",
+    "//flutter/impeller/display_list",
     "//flutter/shell/platform/common:common_cpp_input",
     "//flutter/shell/platform/common:common_cpp_switches",
-    "//flutter/shell/platform/common/client_wrapper:client_wrapper",
+    "//flutter/shell/platform/common/client_wrapper",
     "//flutter/shell/platform/common/client_wrapper:client_wrapper_library_stubs",
     "//flutter/shell/platform/embedder:embedder_headers",
     "//flutter/third_party/rapidjson",
@@ -244,6 +241,7 @@ executable("flutter_ohos_unittests") {
   ldflags += [ "-limage_source" ]
   ldflags += [ "-lqos" ]
   ldflags += [ "-ldeviceinfo_ndk.z" ]
+  ldflags += [ "-limage_processing" ]
   ldflags += [ "-lnative_color_space_manager" ]
 }
 
@@ -288,6 +286,7 @@ shared_library("flutter_shell_native") {
   ldflags += [ "-lpixelmap" ]
   ldflags += [ "-limage_source" ]
   ldflags += [ "-lqos" ]
+  ldflags += [ "-limage_processing" ]
   ldflags += [ "-lnative_color_space_manager" ]
 
   public_configs = [ "//flutter:config" ]

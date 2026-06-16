@@ -7,6 +7,7 @@
 #include "impeller/renderer/backend/vulkan/allocator_vk.h"
 #include "impeller/renderer/backend/vulkan/context_vk.h"
 #include "impeller/renderer/backend/vulkan/yuv_conversion_library_vk.h"
+#include "impeller/renderer/context.h"
 
 #include <native_buffer/native_buffer.h>
 
@@ -30,12 +31,35 @@ static PixelFormat ToPixelFormat(int32_t format) {
       return PixelFormat::kR8G8B8A8UNormInt;
     case OH_NativeBuffer_Format::NATIVEBUFFER_PIXEL_FMT_BGRA_8888:
       return PixelFormat::kB8G8R8A8UNormInt;
+    case OH_NativeBuffer_Format::NATIVEBUFFER_PIXEL_FMT_RGBA_1010102:
+      return PixelFormat::kB10G10R10A2UNorm;
     default:
       // Not understood by the rest of Impeller. Use a placeholder but create
       // the native image and image views using the right external format.
       break;
   }
   return PixelFormat::kR8G8B8A8UNormInt;
+}
+
+static TextureColorSpace ToTextureColorSpace(
+    OH_NativeBuffer_ColorSpace color_space) {
+  switch (color_space) {
+    case OH_COLORSPACE_BT2020_HLG_FULL:
+    case OH_COLORSPACE_BT2020_PQ_FULL:
+    case OH_COLORSPACE_BT2020_HLG_LIMIT:
+    case OH_COLORSPACE_BT2020_PQ_LIMIT:
+    case OH_COLORSPACE_P3_HLG_FULL:
+    case OH_COLORSPACE_P3_PQ_FULL:
+    case OH_COLORSPACE_P3_HLG_LIMIT:
+    case OH_COLORSPACE_P3_PQ_LIMIT:
+    case OH_COLORSPACE_DISPLAY_P3_HLG:
+    case OH_COLORSPACE_DISPLAY_P3_PQ:
+    case OH_COLORSPACE_DISPLAY_BT2020_HLG:
+    case OH_COLORSPACE_DISPLAY_BT2020_PQ:
+      return TextureColorSpace::kExtendedSRGB;
+    default:
+      return TextureColorSpace::kSRGB;
+  }
 }
 
 static TextureDescriptor CreateTextureDescriptorFromNativeWindowBuffer(
@@ -52,12 +76,41 @@ static TextureDescriptor CreateTextureDescriptorFromNativeWindowBuffer(
     return descriptor;
   }
   OH_NativeBuffer_GetConfig(native_buffer, &nativebuffer_config);
+  OH_NativeBuffer_ColorSpace native_color_space = OH_COLORSPACE_NONE;
+  OH_NativeBuffer_GetColorSpace(native_buffer, &native_color_space);
+  TextureColorSpace descriptor_color_space = color_space;
+  if (descriptor_color_space == TextureColorSpace::kSRGB) {
+    descriptor_color_space = ToTextureColorSpace(native_color_space);
+  }
+
+  if (!impeller::Context::is_image_) {
+    if (native_color_space == OH_COLORSPACE_DISPLAY_BT2020_PQ &&
+        impeller::Context::enable_hdr_) {
+      FML_DLOG(ERROR) << "color_space = OH_COLORSPACE_DISPLAY_BT2020_PQ";
+      impeller::Context::hdr_ = kHDRPQ;
+    } else if (native_color_space == OH_COLORSPACE_BT2020_HLG_LIMIT &&
+               impeller::Context::enable_hdr_) {
+      FML_DLOG(ERROR) << "color_space = OH_COLORSPACE_BT2020_HLG_LIMIT";
+      impeller::Context::hdr_ = kHDRHLG;
+    } else if (native_color_space == OH_COLORSPACE_DISPLAY_BT2020_HLG &&
+               impeller::Context::enable_hdr_) {
+      FML_DLOG(ERROR) << "color_space = OH_COLORSPACE_BT2020_HLG_LIMIT";
+      impeller::Context::hdr_ = kHDRHLG;
+    } else {
+      FML_DLOG(ERROR) << "default color_space = OH_COLORSPACE_BT709";
+      impeller::Context::hdr_ = kSDR;
+    }
+  }
+
   descriptor.format = ToPixelFormat(nativebuffer_config.format);
+  if (impeller::Context::hdr_ > 0) {
+    descriptor.format = PixelFormat::kB10G10R10A2UNorm;
+  }
   descriptor.size =
       ISize{nativebuffer_config.width, nativebuffer_config.height};
   descriptor.storage_mode = StorageMode::kDevicePrivate;
   descriptor.type = TextureType::kTexture2D;
-  descriptor.color_space = color_space;
+  descriptor.color_space = descriptor_color_space;
   descriptor.mip_count = 1;
   descriptor.sample_count = SampleCount::kCount1;
   descriptor.compression_type = CompressionType::kLossless;
@@ -221,8 +274,9 @@ OHBTextureSourceVK::OHBTextureSourceVK(
     const std::shared_ptr<ContextVK>& context,
     OHNativeWindowBuffer* native_window_buffer,
     TextureColorSpace color_space)
-    : TextureSourceVK(CreateTextureDescriptorFromNativeWindowBuffer(
-        native_window_buffer, color_space)) {
+    : TextureSourceVK(
+          CreateTextureDescriptorFromNativeWindowBuffer(native_window_buffer,
+                                                        color_space)) {
   is_valid_ = false;
   if (!native_window_buffer) {
     return;

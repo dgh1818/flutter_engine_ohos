@@ -13,6 +13,24 @@
 
 namespace impeller {
 
+#ifdef FML_OS_OHOS
+namespace {
+
+ColorSpace GetTargetColorSpaceForSurface(vk::ColorSpaceKHR color_space) {
+  switch (color_space) {
+    case vk::ColorSpaceKHR::eHdr10St2084EXT:
+    case vk::ColorSpaceKHR::eHdr10HlgEXT:
+      return ColorSpace::kExtendedSRGB;
+    case vk::ColorSpaceKHR::eDisplayP3NonlinearEXT:
+      return ColorSpace::kDisplayP3;
+    default:
+      return ColorSpace::kSRGB;
+  }
+}
+
+}  // namespace
+#endif
+
 SurfaceContextVK::SurfaceContextVK(const std::shared_ptr<ContextVK>& parent)
     : Context(parent->GetFlags()), parent_(parent) {}
 
@@ -73,13 +91,8 @@ bool SurfaceContextVK::SetWindowSurface(vk::UniqueSurfaceKHR surface,
   auto swapchain = SwapchainVK::Create(parent_, std::move(surface), size);
 #ifdef FML_OS_OHOS
   if (swapchain && swapchain->IsValid()) {
-    // Determine target color space from swapchain surface format
-    auto surface_format = swapchain->GetSurfaceFormat();
-    if (surface_format == vk::Format::eA2B10G10R10UnormPack32) {
-      SetTargetColorSpace(ColorSpace::kDisplayP3);
-    } else {
-      SetTargetColorSpace(ColorSpace::kSRGB);
-    }
+    SetTargetColorSpace(
+        GetTargetColorSpaceForSurface(swapchain->GetSurfaceColorSpace()));
   }
 #endif
   return SetSwapchain(std::move(swapchain));
@@ -113,6 +126,16 @@ std::unique_ptr<Surface> SurfaceContextVK::AcquireNextSurface() {
   if (!surface) {
     return nullptr;
   }
+#ifdef FML_OS_OHOS
+  if (swapchain_) {
+    const ColorSpace target_color_space =
+        GetTargetColorSpaceForSurface(swapchain_->GetSurfaceColorSpace());
+    if (target_color_space != GetTargetColorSpace()) {
+      SetTargetColorSpace(target_color_space);
+      swapchain_changed_ = true;
+    }
+  }
+#endif
   MarkFrameEnd();
   return surface;
 }
