@@ -57,8 +57,8 @@ class OHOSImageGenerator : public ImageGenerator {
     };
 
     Image_ErrorCode ReadPixels(uint8_t* dst_buffer,
-                               size_t buffer_size,
-                               size_t row_stride);
+                               uint32_t buffer_size,
+                               uint32_t row_stride);
 
     PixelMapOHOS(const PixelMapOHOS&) = delete;
     PixelMapOHOS& operator=(const PixelMapOHOS&) = delete;
