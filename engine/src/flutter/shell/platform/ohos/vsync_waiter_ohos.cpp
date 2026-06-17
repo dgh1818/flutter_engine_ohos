@@ -19,6 +19,7 @@ static constexpr int32_t SUPPORT_API_VERSION = 14;
 const char* flutterSyncName = "flutter_connect";
 const char* NATIVE_DVSYNC_SO = "libnative_vsync.so";
 
+constexpr uint64_t OPTIMAL_FRAME_LATENCY = 4000000; // 4ms
 
 thread_local bool VsyncWaiterOHOS::firstCall = true;
 
@@ -134,13 +135,10 @@ void VsyncWaiterOHOS::OnVsyncFromOHOS(long long timestamp, void* data) {
   if (shared_this) {
     auto ohos_vsync_waiter = static_cast<VsyncWaiterOHOS*>(shared_this.get());
     vsync_period = ohos_vsync_waiter->GetVsyncPeriod();
-    // To avoid excessive response latency, frames will not be cached when the
-    // refresh rate is 60 Hz.
-    if (*ohos_vsync_waiter->enable_frame_cache_ && vsync_period < 15000000) {
-      // When the frame cache is enabled, one frame will be cached, sacrificing
-      // one frame of latency in exchange for smoothness.
-      vsync_period += vsync_period - 1000000;
-    }
+    // When the frame cache is enabled, one frame will be cached, sacrificing
+    // one frame of latency in exchange for smoothness.
+    // Smooth transition between different frame rates with a 4ms latency buffer.
+    vsync_period += OPTIMAL_FRAME_LATENCY;
   }
 
   auto target_time = frame_time + fml::TimeDelta::FromNanoseconds(vsync_period);
