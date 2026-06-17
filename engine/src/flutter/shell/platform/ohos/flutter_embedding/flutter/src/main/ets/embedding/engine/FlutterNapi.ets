@@ -29,6 +29,12 @@ enum ContextType {
   JS_PAGE_LIFECYCLE,
 }
 
+export enum LTPOSwitchState {
+  OFF = 0,
+  ON = 1,
+  NOT_INIT = 2
+}
+
 /**
  * Represents a pending platform message that is queued during preloading.
  * These messages are processed once the Flutter engine is ready to handle them.
@@ -1134,34 +1140,43 @@ export default class FlutterNapi {
   }
 
   /**
-   * Sends screen scrolling velocity to the native engine.
-   * @param type - The animation type
-   * @param velocity - The current screen scrolling velocity
-   */
+  * @brief  [LTPO] Send Animation Velocity
+  * @note
+  * @param  type: Animation type, 0-TRANSLATE, 1-SCALE, 2-ROTATION
+  * @param  velocity: Current animation velocity. Unit is logical pixels
+  * @return none
+  */
   static animationVoting(type: number, velocity: number): void {
     flutter.nativeAnimationVoting(type, velocity);
   }
 
   /**
-   * Sends video frame count to the native engine.
-   * @param seconds - The time duration in seconds
-   * @param frameCount - The number of frames within the specified time duration
-   */
+  * @brief  [LTPO] Send Video Frame Count
+  * @note
+  * @param  seconds: Seconds
+  * @param  frameCount: Frame count within a certain period of time
+  * @return none
+  */
   static videoVoting(seconds: number, frameCount: number): void {
     flutter.nativeVideoVoting(seconds, frameCount);
   }
 
   /**
-   * Prefetches the frame rate configuration file.
-   */
+  * @brief  [LTPO] Preload Frame Rate Configuration File
+  * @note
+  * @param  none
+  * @return none
+  */
   static prefetchFramesCfg(): void {
     flutter.nativePrefetchFramesCfg();
   }
 
   /**
-   * Checks the LTPO (Low Temperature Polycrystalline Oxide) switch state.
-   * @returns The LTPO switch state value
-   */
+  * @brief  [LTPO] Check LTPO Activation Status
+  * @note
+  * @param  none
+  * @return number 0: Disabled, 1: Enabled, 2: Uninitialized
+  */
   static checkLTPOSwitchState(): number {
     return flutter.nativeCheckLTPOSwitchState();
   }
@@ -1180,6 +1195,16 @@ export default class FlutterNapi {
 
   NotifyPageChanged(pageName: string, pageNameLen: number, windowID: number): number {
     return flutter.nativeNotifyPageChanged(pageName, pageNameLen, windowID);
+  }
+
+  /**
+  * @brief  [LTPO] Send high frame rate request when LTPO is enabled
+  * @note
+  * @param  none
+  * @return none
+  */
+  LTPODispatchHighFrameRate(): void {
+    flutter.nativeLTPODispatchHighFrameRate(this.nativeShellHolderId!);
   }
 }
 
