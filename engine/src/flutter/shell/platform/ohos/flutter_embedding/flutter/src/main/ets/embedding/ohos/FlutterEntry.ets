@@ -5,6 +5,7 @@
 */
 
 import FlutterEngine from '../engine/FlutterEngine';
+import FlutterEngineCache from '../engine/FlutterEngineCache';
 import PlatformPlugin from '../../plugin/PlatformPlugin';
 import Want from '@ohos.app.ability.Want';
 import FlutterShellArgs from '../engine/FlutterShellArgs';
@@ -308,6 +309,11 @@ export default class FlutterEntry implements Host {
     if ((this.getCachedEngineId() != null && this.getCachedEngineId().length > 0) ||
     this.delegate!!.isFlutterEngineFromHost()) {
       // Only destroy a cached engine if explicitly requested by app developer.
+      return false;
+    }
+
+    const engine = this.delegate?.flutterEngine;
+    if (engine != null && FlutterEngineCache.getInstance().containsEngine(engine)) {
       return false;
     }
     return true;

@@ -46,6 +46,20 @@ export default class FlutterEngineCache {
   }
 
   /**
+   * Checks whether the given engine instance is held in the cache under any id.
+   * @param engine - The FlutterEngine instance to look up
+   * @returns true if this exact instance is cached, false otherwise
+   */
+  containsEngine(engine: FlutterEngine): boolean {
+    for (const cachedEngine of this.cachedEngines.values()) {
+      if (cachedEngine === engine) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Gets an engine from the cache by ID.
    * @param engineId - The ID of the engine to retrieve
    * @returns The FlutterEngine instance, or null if not found
