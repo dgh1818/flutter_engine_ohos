@@ -511,28 +511,37 @@ export const nativeSetDVsyncSwitch: (nativeShellHolderId: number, isEnable: bool
 export const nativeUpdateCurrentXComponentId: (xcomponent_id: string) => void;
 
 /**
- * Performs animation voting based on type and velocity.
- * @param type - The animation type
- * @param velocity - The animation velocity
- */
+* @brief  [LTPO] Performs animation voting based on type and velocity.
+* @note
+* @param  type: Animation type, 0-TRANSLATE, 1-SCALE, 2-ROTATION
+* @param  velocity: Current animation velocity. Unit is logical pixels
+* @return none
+*/
 export const nativeAnimationVoting: (type: number, velocity: number) => void;
 
 /**
- * Performs video voting based on duration and frame count.
- * @param seconds - The video duration in seconds
- * @param frameCount - The number of frames
- */
+* @brief  [LTPO] Performs video voting based on duration and frame count.
+* @note
+* @param  seconds: Seconds
+* @param  frameCount: Frame count within a certain period of time
+* @return none
+*/
 export const nativeVideoVoting: (seconds: number, frameCount: number) => void;
 
 /**
- * Prefetches frame configuration.
- */
+* @brief  [LTPO] Preload Frame Rate Configuration File
+* @note
+* @param  none
+* @return none
+*/
 export const nativePrefetchFramesCfg: () => void;
 
 /**
- * Checks the LTPO (Low Temperature Polycrystalline Oxide) switch state.
- * @returns The LTPO switch state value
- */
+* @brief  [LTPO] Check LTPO Activation Status
+* @note
+* @param  none
+* @return number 0: Disabled, 1: Enabled, 2: Uninitialized
+*/
 export const nativeCheckLTPOSwitchState: () => number;
 
 /**
@@ -557,3 +566,11 @@ export const nativeSetAnimationStatus: (nativeShellHolderId: number, animationSt
  * @returns 0 on success, non-zero on failure; returns 0 when the API is not supported on older SDKs
  */
 export const nativeNotifyPageChanged: (pageName: string, pageNameLen: number, windowID: number) => number;
+
+/**
+* @brief  [LTPO] Send high frame rate request when LTPO is enabled
+* @note
+* @param  nativeShellHolderId - The ID of the native shell holder
+* @return none
+*/
+export const nativeLTPODispatchHighFrameRate: (nativeShellHolderId: number) => void;
