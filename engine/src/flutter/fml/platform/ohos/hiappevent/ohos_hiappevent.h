@@ -83,6 +83,10 @@ extern std::atomic<int> ScrollStatus;
 extern std::atomic<uint64_t> scroll_start_frame_;
 extern std::atomic<uint64_t> scroll_end_frame_;
 
+// Scroll start/end UTC time (milliseconds since epoch)
+extern std::atomic<int64_t> scroll_start_time_utc_ms;
+extern std::atomic<int64_t> scroll_end_time_utc_ms;
+
 // Last frame number observed by rasterizer (atomic)
 extern std::atomic<uint64_t> last_frame_number_;
 

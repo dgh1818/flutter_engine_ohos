@@ -595,13 +595,13 @@ Rasterizer::DoDrawResult Rasterizer::DoDraw(
   const int64_t latest_frame_target_time_micros =
     latest_frame_target_time.ToEpochDelta().ToMicroseconds();
 
-  // 丢帧时长，绝对时间，wall time
-  const int64_t frame_duration_micros =
-    latest_frame_target_time_micros - vsync_start_time_micros;
-
   // 当前帧完成的时间，绝对时间，wall time
   const int64_t raster_finish_time_micros =
     raster_finish_time.ToEpochDelta().ToMicroseconds();
+
+  // 丢帧时长，绝对时间，wall time
+  const int64_t frame_duration_micros =
+    raster_finish_time_micros - vsync_start_time_micros;
 
   // 当前帧间隔
   const int64_t frame_budget_time_micros =
@@ -617,7 +617,7 @@ Rasterizer::DoDrawResult Rasterizer::DoDraw(
   missed_frame_info.raster_finish_time_micros = raster_finish_time_micros; // The actual raster time of the frame(epoch us)
   missed_frame_info.frame_budget_time_micros = frame_budget_time_micros; // Frame interval (duration us)
   missed_frame_info.frame_number = frame_timings_recorder->GetFrameNumber(); // Frame number
-  missed_frame_info.vsync_transitions_missed = vsync_transitions_missed; 
+  missed_frame_info.vsync_transitions_missed = round(frame_duration_micros / frame_budget_time_micros); 
 
   // 判断上报丢帧事件类型
   const int scroll_status =

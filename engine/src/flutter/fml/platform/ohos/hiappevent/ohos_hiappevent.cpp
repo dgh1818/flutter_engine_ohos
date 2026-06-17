@@ -56,6 +56,8 @@ static constexpr int32_t TRACE_ARGS_BUFFER_SIZE = 128;
 std::atomic<int> ScrollStatus{-1}; // Cross-thread visible scroll state
 std::atomic<uint64_t> scroll_start_frame_{0}; // Frame ID at the beginning of scrolling
 std::atomic<uint64_t> scroll_end_frame_{0};   // Frame ID at the end of scrolling
+std::atomic<int64_t> scroll_start_time_utc_ms{0}; // Scroll start UTC time (ms)
+std::atomic<int64_t> scroll_end_time_utc_ms{0};   // Scroll end UTC time (ms)
 std::atomic<uint64_t> last_frame_number_{0}; // Last frame number observed by rasterizer (atomic)
 
 std::shared_ptr<OhosHiappEventDDL> OhosHiappEventDDL::GetInstance() {
@@ -212,43 +214,52 @@ int OhosHiappEventDDL::WriteStatisticFrame(void) {
 
   int total_missed_frames = 0;
   // The maximum dropped frame time and its corresponding index
-  int64_t max_diff_time = 0;
+  int64_t max_diff_time = 0;     
+  // The frame budget time corresponding to the longest frame loss time
+  int64_t max_frame_budget = 0;
   int target_index = 0;
   int index = 0;
   for (auto it = missed_frame_infos.begin(); it != missed_frame_infos.end(); it++) {
     total_missed_frames += (*it).vsync_transitions_missed;
-    int frame_duration_micros = (*it).frame_duration_micros;
+    int64_t frame_duration_micros = (*it).frame_duration_micros;
     if (frame_duration_micros > max_diff_time) {
       max_diff_time = frame_duration_micros;
+      max_frame_budget = (*it).frame_budget_time_micros;
       target_index = index;
     }
     index++;
   }
   // The maximum dropped frame time corresponding frame rate
   int max_FPS = 0;
-  if (max_diff_time > 0) {
-    max_FPS = static_cast<int>(SECOND_TO_MICROS_UNIT / max_diff_time);
+  if (max_frame_budget > 0) {
+    max_FPS = static_cast<int>(SECOND_TO_MICROS_UNIT / max_frame_budget);
+  }
+
+  // The actual maximum frame time (raster finish time - vsync start time)
+  int64_t max_frame_time = 0;
+  if (target_index >= 0 && target_index < static_cast<int>(missed_frame_infos.size())) {
+    max_frame_time = missed_frame_infos[target_index].raster_finish_time_micros
+                     - missed_frame_infos[target_index].vsync_start_time_micros;
   }
 
   // The first missed frame vsync start time
   int64_t vsync_start_time = missed_frame_infos.front().vsync_start_time_micros;
   // Convert to UTC time
   int64_t front_raster_finish_time_micros = missed_frame_infos.front().raster_finish_time_micros;
-  int64_t diff = (front_raster_finish_time_micros - vsync_start_time) / MICROS_TO_MILLIS_UNIT;
-  int64_t vsync_start_time_utc = missed_frame_infos.front().utc_time_stamp_millis - diff;
+  int64_t offset_ms = missed_frame_infos.front().utc_time_stamp_millis
+                      - front_raster_finish_time_micros / MICROS_TO_MILLIS_UNIT;
+  int64_t vsync_start_time_utc = vsync_start_time / MICROS_TO_MILLIS_UNIT + offset_ms;
   // The last missed frame's expected vsync time
   int64_t back_lastest_target_time = missed_frame_infos.back().latest_vsync_target_time_micros;
   // Convert to UTC time
-  int64_t back_raster_finish_time_micros = missed_frame_infos.back().raster_finish_time_micros;
-  diff = (back_lastest_target_time - back_raster_finish_time_micros) / MICROS_TO_MILLIS_UNIT;
-  int64_t back_lastest_target_time_utc = missed_frame_infos.back().utc_time_stamp_millis + diff;
+  int64_t back_lastest_target_time_utc = back_lastest_target_time / MICROS_TO_MILLIS_UNIT + offset_ms;
 
   OH_HiAppEvent_AddStringParam(list, "frameworkName", "FLUTTER");
   OH_HiAppEvent_AddInt32Param(list, "versionCode", 0);
 
   OH_HiAppEvent_AddInt32Param(list, "maxMissedFrameRate", max_FPS);
   OH_HiAppEvent_AddInt32Param(list, "totalMissedFrames", total_missed_frames);
-  OH_HiAppEvent_AddInt64Param(list, "maxFrameTime", max_diff_time / MICROS_TO_MILLIS_UNIT);
+  OH_HiAppEvent_AddInt64Param(list, "maxFrameTime", max_frame_time / MICROS_TO_MILLIS_UNIT);
   OH_HiAppEvent_AddInt64Param(list, "startTime", vsync_start_time_utc);
   OH_HiAppEvent_AddInt64Param(list, "endTime", back_lastest_target_time_utc);
   OH_HiAppEvent_AddInt64Param(list, "pid", getpid());
@@ -291,50 +302,64 @@ int OhosHiappEventDDL::WriteScrolledFrame(void) {
   int total_missed_frames = 0;
   // The maximum dropped frame time and its corresponding index
   int64_t max_diff_time = 0;
+  // The frame budget time corresponding to the longest frame loss time
+  int64_t max_frame_budget = 0;
   int target_index = 0;
   int index = 0;
   for (auto it = missed_frame_infos_scroll.begin(); it != missed_frame_infos_scroll.end(); it++) {
-    total_missed_frames += (*it).vsync_transitions_missed; // Calculate total missed frames
-
-    int frame_duration_micros = (*it).frame_duration_micros;
+    total_missed_frames += (*it).vsync_transitions_missed;
+    int64_t frame_duration_micros = (*it).frame_duration_micros;
     if (frame_duration_micros > max_diff_time) {
       max_diff_time = frame_duration_micros;
+      max_frame_budget = (*it).frame_budget_time_micros;
       target_index = index;
     }
     index++;
   }
-  
+
   // The frame rate corresponding to the longest frame loss time
   int max_FPS = 0;
-  if (max_diff_time > 0) {
-    max_FPS = static_cast<int>(SECOND_TO_MICROS_UNIT / max_diff_time);
+  if (max_frame_budget > 0) {
+    max_FPS = static_cast<int>(SECOND_TO_MICROS_UNIT / max_frame_budget);
   }
 
-  // The frame number corresponding to the longest frame loss time
-  uint64_t frame_number = missed_frame_infos_scroll[target_index].frame_number;
+  int64_t max_frame_time = 0;
+  uint64_t frame_number = 0;
+  if (target_index >= 0 && target_index < static_cast<int>(missed_frame_infos_scroll.size())) {
+    max_frame_time = missed_frame_infos_scroll[target_index].raster_finish_time_micros
+                     - missed_frame_infos_scroll[target_index].vsync_start_time_micros;
 
-  // The first missed frame vsync start time
-  int64_t vsync_start_time = missed_frame_infos_scroll.front().vsync_start_time_micros;
-  // Convert to UTC time
-  int64_t front_raster_finish_time_micros = missed_frame_infos_scroll.front().raster_finish_time_micros;
-  int64_t diff = (front_raster_finish_time_micros - vsync_start_time) / MICROS_TO_MILLIS_UNIT;
-  int64_t vsync_start_time_utc = missed_frame_infos_scroll.front().utc_time_stamp_millis - diff;
-  // The last missed frame's expected vsync time
-  int64_t back_lastest_target_time = missed_frame_infos_scroll.back().latest_vsync_target_time_micros;
-  // Convert to UTC time
-  int64_t back_raster_finish_time_micros = missed_frame_infos_scroll.back().raster_finish_time_micros;
-  diff = (back_lastest_target_time - back_raster_finish_time_micros) / MICROS_TO_MILLIS_UNIT;
-  int64_t back_lastest_target_time_utc = missed_frame_infos_scroll.back().utc_time_stamp_millis + diff;
+    // The frame number corresponding to the longest frame loss time
+    frame_number = missed_frame_infos_scroll[target_index].frame_number;
+  }
+
+  int64_t scroll_start_utc = scroll_start_time_utc_ms.load(std::memory_order_relaxed);
+  int64_t scroll_end_utc = scroll_end_time_utc_ms.load(std::memory_order_relaxed);
+
+  if (scroll_start_utc == 0) {
+    int64_t vsync_start_time = missed_frame_infos_scroll.front().vsync_start_time_micros;
+    int64_t front_raster_finish_time_micros = missed_frame_infos_scroll.front().raster_finish_time_micros;
+    int64_t offset_ms = missed_frame_infos_scroll.front().utc_time_stamp_millis
+                        - front_raster_finish_time_micros / MICROS_TO_MILLIS_UNIT;
+    scroll_start_utc = vsync_start_time / MICROS_TO_MILLIS_UNIT + offset_ms;
+  }
+  if (scroll_end_utc == 0) {
+    int64_t back_lastest_target_time = missed_frame_infos_scroll.back().latest_vsync_target_time_micros;
+    int64_t front_raster_finish_time_micros = missed_frame_infos_scroll.front().raster_finish_time_micros;
+    int64_t offset_ms = missed_frame_infos_scroll.front().utc_time_stamp_millis
+                        - front_raster_finish_time_micros / MICROS_TO_MILLIS_UNIT;
+    scroll_end_utc = back_lastest_target_time / MICROS_TO_MILLIS_UNIT + offset_ms;
+  }
 
   OH_HiAppEvent_AddStringParam(list, "frameworkName", "FLUTTER");
   OH_HiAppEvent_AddInt32Param(list, "versionCode", 0);
 
   // Start time (unit: ms)
-  OH_HiAppEvent_AddInt64Param(list, "startTime", vsync_start_time_utc);
+  OH_HiAppEvent_AddInt64Param(list, "startTime", scroll_start_utc);
   // End time (unit: ms)
-  OH_HiAppEvent_AddInt64Param(list, "endTime", back_lastest_target_time_utc);
+  OH_HiAppEvent_AddInt64Param(list, "endTime", scroll_end_utc);
   // Maximum dropped frame duration (unit: ms)
-  OH_HiAppEvent_AddInt64Param(list, "maxFrameTime", max_diff_time / MICROS_TO_MILLIS_UNIT);
+  OH_HiAppEvent_AddInt64Param(list, "maxFrameTime", max_frame_time / MICROS_TO_MILLIS_UNIT);
   // TODO: The frame number corresponding to the longest frame loss time
   OH_HiAppEvent_AddInt64Param(list, "frameId", frame_number);
   // The frame rate corresponding to the longest frame loss time
@@ -357,6 +382,9 @@ int OhosHiappEventDDL::WriteScrolledFrame(void) {
   // Reset scroll start and end frame IDs
   scroll_start_frame_.store(0, std::memory_order_relaxed);
   scroll_end_frame_.store(0, std::memory_order_relaxed);
+
+  scroll_start_time_utc_ms.store(0, std::memory_order_relaxed);
+  scroll_end_time_utc_ms.store(0, std::memory_order_relaxed);
 
   OH_HiAppEvent_DestroyParamList(list);
   return ret;
@@ -397,7 +425,6 @@ void OhosHiappEventDDL::Flush(void) {
 }
 
 void OhosHiappEventDDL::FlushScroll(void) {
-  recent_scroll_count++;
   if (missed_frame_infos_scroll.size() == 0) {
     return;
   } 
@@ -491,6 +518,13 @@ void OhosHiappEventDDL::OnScrollStart() {
   scroll_start_frame_.store(cur_frame_number, std::memory_order_relaxed);
   // Init end = start, so totalFrames is at least 1 if we flush immediately.
   scroll_end_frame_.store(cur_frame_number, std::memory_order_relaxed);
+
+  // Record scroll start UTC time
+  auto now = std::chrono::system_clock::now();
+  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch());
+  scroll_start_time_utc_ms.store(static_cast<int64_t>(duration.count()), std::memory_order_relaxed);
+  // Reset scroll end time
+  scroll_end_time_utc_ms.store(0, std::memory_order_relaxed);
 }
 
 void OhosHiappEventDDL::OnScrollEndAndFlush() {
@@ -500,6 +534,14 @@ void OhosHiappEventDDL::OnScrollEndAndFlush() {
   // Snapshot end from last seen raster frame.
   const uint64_t end = last_frame_number_.load(std::memory_order_relaxed);
   scroll_end_frame_.store(end, std::memory_order_relaxed);
+
+  // Record scroll end UTC time
+  auto now = std::chrono::system_clock::now();
+  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch());
+  scroll_end_time_utc_ms.store(static_cast<int64_t>(duration.count()), std::memory_order_relaxed);
+
+  // Increment scroll count for every scroll session
+  recent_scroll_count++;
 
   // Now flush AFTER we have end frame id.
   FlushScroll();

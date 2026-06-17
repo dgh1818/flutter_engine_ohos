@@ -1806,17 +1806,12 @@ void Shell::OnFrameRasterized(const FrameTiming& timing) {
 }
 
 fml::Milliseconds Shell::GetFrameBudget() {
-  if (cached_display_refresh_rate_.has_value()) {
-    return cached_display_refresh_rate_.value();
-  }
   double display_refresh_rate = display_manager_->GetMainDisplayRefreshRate();
   if (display_refresh_rate > 0) {
-    cached_display_refresh_rate_ =
-        fml::RefreshRateToFrameBudget(display_refresh_rate);
+    return fml::RefreshRateToFrameBudget(display_refresh_rate);
   } else {
-    cached_display_refresh_rate_ = fml::kDefaultFrameBudget;
+    return fml::kDefaultFrameBudget;
   }
-  return cached_display_refresh_rate_.value_or(fml::kDefaultFrameBudget);
 }
 
 fml::TimePoint Shell::GetLatestFrameTargetTime() const {
