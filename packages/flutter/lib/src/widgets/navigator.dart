@@ -31,12 +31,19 @@ import 'focus_scope.dart';
 import 'focus_traversal.dart';
 import 'framework.dart';
 import 'heroes.dart';
+import 'media_query.dart';
+import 'modal_barrier.dart';
 import 'notification_listener.dart';
 import 'overlay.dart';
 import 'restoration.dart';
 import 'restoration_properties.dart';
 import 'routes.dart';
+import 'split_view_config.dart';
+import 'split_view_manager.dart';
 import 'ticker_provider.dart';
+import 'visibility.dart';
+
+part 'split_view_navigator_policy.dart';
 
 // Duration for delay before refocusing in android so that the focus won't be interrupted.
 const Duration _kAndroidRefocusingDelayDuration = Duration(milliseconds: 300);
@@ -2934,6 +2941,8 @@ class Navigator extends StatefulWidget {
       }
       return true;
     }());
+    // Capture the caller route for split-view push interception.
+    navigator?._splitViewPolicy?.setCallerRoute(context);
     return navigator!;
   }
 
@@ -2965,9 +2974,12 @@ class Navigator extends StatefulWidget {
       navigator = state;
     }
 
-    return rootNavigator
+    navigator = rootNavigator
         ? context.findRootAncestorStateOfType<NavigatorState>() ?? navigator
         : navigator ?? context.findAncestorStateOfType<NavigatorState>();
+    // Capture the caller route for split-view push interception.
+    navigator?._splitViewPolicy?.setCallerRoute(context);
+    return navigator;
   }
 
   /// Turn a route name into a set of [Route] objects.
@@ -3703,6 +3715,7 @@ class _History extends Iterable<_RouteEntry> with ChangeNotifier {
 /// A reference to this class can be obtained by calling [Navigator.of].
 class NavigatorState extends State<Navigator> with TickerProviderStateMixin, RestorationMixin {
   late GlobalKey<OverlayState> _overlayKey;
+  SplitViewNavigatorPolicy? _splitViewPolicy;
   final _History _history = _History();
 
   /// A set for entries that are waiting to dispose until their subtrees are
@@ -3726,6 +3739,10 @@ class NavigatorState extends State<Navigator> with TickerProviderStateMixin, Res
   HeroController? _heroControllerFromScope;
 
   late List<NavigatorObserver> _effectiveObservers;
+
+  // Split-view: The name of the home page that is currently preserved (not in pages list).
+  // This is used by _firstRouteEntryWhereOrNull to skip the preserved home page.
+  String? _preservedHomePageName;
 
   bool get _usingPagesAPI => widget.pages != const <Page<dynamic>>[];
 
@@ -3805,6 +3822,20 @@ class NavigatorState extends State<Navigator> with TickerProviderStateMixin, Res
             as HeroControllerScope?;
     _updateHeroController(heroControllerScope?.controller);
 
+    // Split view should only be active on the root Navigator.
+    // Use _SplitViewScope InheritedWidget to detect if this Navigator is
+    // nested inside another Navigator that already has split view enabled.
+    // This prevents nested split view (split view inside split view).
+    if (defaultTargetPlatform == TargetPlatform.ohos &&
+        SplitViewNavigatorPolicy.isSplitViewEnabled &&
+        !_SplitViewScope.isInsideSplitView(context)) {
+      // Initialize _overlayKey early for split-view mode, as
+      // SplitViewNavigatorPolicy needs to access it before restoreState runs.
+      _overlayKey = GlobalKey<OverlayState>();
+      _splitViewPolicy = SplitViewNavigatorPolicy(this);
+      _splitViewPolicy!.init();
+    }
+
     if (widget.reportsRouteUpdateToEngine) {
       SystemNavigator.selectSingleEntryHistory();
     }
@@ -3834,6 +3865,7 @@ class NavigatorState extends State<Navigator> with TickerProviderStateMixin, Res
     _forcedDisposeAllRouteEntries();
     assert(_history.isEmpty);
     _overlayKey = GlobalKey<OverlayState>();
+    _splitViewPolicy?.resetOverlayKeys();
 
     // Populate the new history from restoration data.
     _history.addAll(_serializableHistory.restoreEntriesForPage(null, this));
@@ -4100,6 +4132,8 @@ class NavigatorState extends State<Navigator> with TickerProviderStateMixin, Res
     userGestureInProgressNotifier.dispose();
     ServicesBinding.instance.accessibilityFocus.removeListener(_recordLastFocus);
     _history.removeListener(_handleHistoryChanged);
+    _splitViewPolicy?.dispose();
+    _splitViewPolicy = null;
     _history.dispose();
     super.dispose();
     // don't unlock, so that the object becomes unusable
@@ -4294,6 +4328,52 @@ class NavigatorState extends State<Navigator> with TickerProviderStateMixin, Res
       }
     }
 
+    // In split-view mode, preserve the home page when it's removed from the pages list.
+    // This ensures the home page remains visible in the primary pane while the secondary
+    // pane shows other pages, maintaining the split-view layout structure.
+    if (_splitViewPolicy != null) {
+      final String? homePageNameForUpdatePages = _splitViewPolicy?.getHomePageNameIfReady();
+      if (homePageNameForUpdatePages != null) {
+        final bool homePageInNewPages = widget.pages.any(
+          (page) => page.name == homePageNameForUpdatePages,
+        );
+        if (homePageInNewPages) {
+          _preservedHomePageName = null;
+        } else {
+          _RouteEntry? homePageEntry;
+          for (int i = oldEntriesBottom; i <= oldEntriesTop; i++) {
+            final _RouteEntry entry = _history[i];
+            if (entry.route.settings.name == homePageNameForUpdatePages) {
+              homePageEntry = entry;
+              break;
+            }
+          }
+          if (homePageEntry != null) {
+            pageKeyToOldEntry.remove((homePageEntry.route.settings as Page<dynamic>).key);
+            _preservedHomePageName = homePageNameForUpdatePages;
+            if (homePageEntry.currentState != _RouteLifecycle.idle) {
+              homePageEntry.currentState = _RouteLifecycle.idle;
+            }
+            if (homePageEntry._isWaitingForExitingDecision) {
+              homePageEntry._isWaitingForExitingDecision = false;
+            }
+            newHistory.insert(0, homePageEntry);
+          } else {
+            // This should not happen in normal circumstances. Once split-view has
+            // identified a home page (homePageNameForUpdatePages != null), the
+            // home page entry should exist in the old history. If it's missing,
+            // something unexpected has occurred.
+            debugPrint(
+              'Warning: Split-view home page "$homePageNameForUpdatePages" was identified '
+              'but not found in the old history during _updatePages. '
+              'This may indicate an unexpected state transition.',
+            );
+            _preservedHomePageName = null;
+          }
+        }
+      }
+    }
+
     // Any remaining old routes that do not have a match will need to be removed.
     final locationToExitingPageRoute = <RouteTransitionRecord?, RouteTransitionRecord>{};
     while (oldEntriesBottom <= oldEntriesTop) {
@@ -4313,8 +4393,15 @@ class NavigatorState extends State<Navigator> with TickerProviderStateMixin, Res
         }
         continue;
       }
-
       final potentialPageToRemove = potentialEntryToRemove.route.settings as Page<dynamic>;
+
+      if (_splitViewPolicy != null &&
+          _preservedHomePageName != null &&
+          potentialPageToRemove.name == _preservedHomePageName) {
+        previousOldPageRouteEntry = potentialEntryToRemove;
+        continue;
+      }
+
       // Marks for transition delegate to remove if this old page does not have
       // a key, was not taken during updating the middle of new page, or is
       // already transitioning out.
@@ -4563,6 +4650,8 @@ class NavigatorState extends State<Navigator> with TickerProviderStateMixin, Res
       }
     }
     _lastTopmostRoute = lastEntry;
+
+    _splitViewPolicy?.updateForceFullscreen(lastEntry?.route.settings);
     // Announce route name changes.
     if (widget.reportsRouteUpdateToEngine) {
       final String? routeName = lastEntry?.route.settings.name;
@@ -4576,13 +4665,38 @@ class NavigatorState extends State<Navigator> with TickerProviderStateMixin, Res
     // them.
     for (final entry in toBeDisposed) {
       _disposeRouteEntry(entry, graceful: true);
+      _splitViewPolicy?.disposeMirrorBarrierFor(entry);
     }
     if (rearrangeOverlay) {
-      overlay?.rearrange(_allRouteOverlayEntries);
+      if (_splitViewPolicy != null) {
+        final split = _splitViewPolicy!.splitOverlayEntries();
+        final OverlayState? leftOverlay = overlay;
+        final OverlayState? rightOverlay = _splitViewPolicy!.rightOverlay;
+        if (leftOverlay != null) {
+          for (final OverlayEntry entry in split.right) {
+            if (leftOverlay.containsEntry(entry)) {
+              entry.remove();
+            }
+          }
+        }
+        if (rightOverlay != null) {
+          for (final OverlayEntry entry in split.left) {
+            if (rightOverlay.containsEntry(entry)) {
+              entry.remove();
+            }
+          }
+        }
+        leftOverlay?.rearrange(split.left);
+        rightOverlay?.rearrange(split.right);
+      } else {
+        overlay?.rearrange(_allRouteOverlayEntries);
+      }
     }
     if (bucket != null) {
       _serializableHistory.update(_history);
     }
+    _splitViewPolicy?.updateHomePageCache();
+    _splitViewPolicy?.updateHomePageReady();
     _flushingHistory = false;
   }
 
@@ -4615,8 +4729,12 @@ class NavigatorState extends State<Navigator> with TickerProviderStateMixin, Res
         index + 1,
         _RouteEntry.suitableForTransitionAnimationPredicate,
       );
-
-      if (next?.route != entry.lastAnnouncedNextRoute) {
+      if (_splitViewPolicy != null && _splitViewPolicy!.shouldSkipEffectiveRoutesForEntry(entry)) {
+        if (entry.lastAnnouncedNextRoute != null) {
+          entry.route.didChangeNext(null);
+        }
+        entry.lastAnnouncedNextRoute = null;
+      } else if (next?.route != entry.lastAnnouncedNextRoute) {
         if (entry.shouldAnnounceChangeToNext(next?.route)) {
           entry.route.didChangeNext(next?.route);
         }
@@ -5074,18 +5192,38 @@ class NavigatorState extends State<Navigator> with TickerProviderStateMixin, Res
 
   void _pushEntry(_RouteEntry entry) {
     assert(!_debugLocked);
+
+    if (_splitViewPolicy != null) {
+      if (_splitViewPolicy!.shouldClearAllStackOnPushByRoute(entry)) {
+        // Split-view: When pushing a new home page from a detail page, clear all entries
+        // (including the old home page) and use 'add' state instead of 'push'
+        // to skip transition animation for immediate switch.
+        _splitViewPolicy!.clearAllEntriesForPush();
+        entry.currentState = _RouteLifecycle.add;
+      } else if (_splitViewPolicy!.shouldClearRightStackOnPushByRoute(entry)) {
+        // Split-view: If the push originates from the home page, clear all
+        // detail entries on the right side so the new page takes over.
+        _splitViewPolicy!.clearRightEntriesForPush();
+      }
+    }
     assert(() {
       _debugLocked = true;
       return true;
     }());
     assert(!entry.route._installed);
-    assert(entry.currentState == _RouteLifecycle.push);
+    assert(
+      entry.currentState == _RouteLifecycle.push ||
+          (_splitViewPolicy != null && entry.currentState == _RouteLifecycle.add),
+    );
     _history.add(entry);
     _flushHistoryUpdates();
     assert(() {
       _debugLocked = false;
       return true;
     }());
+    // Reset the caller route after the push completes to prevent stale
+    // values from influencing subsequent navigation operations.
+    _splitViewPolicy?.clearCallerRoute();
     _afterNavigation(entry.route);
   }
 
@@ -5206,6 +5344,18 @@ class NavigatorState extends State<Navigator> with TickerProviderStateMixin, Res
 
   void _pushReplacementEntry<TO extends Object?>(_RouteEntry entry, TO? result) {
     assert(!_debugLocked);
+    // Split-view: when pushReplacement originates from the home page, convert it
+    // to a plain push. The home page must remain on the left side, so we
+    // push the new page to the right side instead of replacing the home page.
+    // _pushEntry will handle clearing the right-side stack and resetting
+    // _callerRoute, so we only need to change the entry state and delegate.
+    final SplitViewNavigatorPolicy? policy = _splitViewPolicy;
+    if (policy != null && policy.shouldInterceptNavigationFromHomePage()) {
+      // Convert pushReplace to push: skip the replacement of current route.
+      entry.currentState = _RouteLifecycle.push;
+      _pushEntry(entry);
+      return;
+    }
     assert(() {
       _debugLocked = true;
       return true;
@@ -5307,6 +5457,22 @@ class NavigatorState extends State<Navigator> with TickerProviderStateMixin, Res
 
   void _pushEntryAndRemoveUntil(_RouteEntry entry, RoutePredicate predicate) {
     assert(!_debugLocked);
+    // Split-view: if the push originates from the home page, convert it to
+    // a plain push. The home page must remain on the left side, and the
+    // right-side stack will be cleared by _pushEntry's interception.
+    // This avoids state conflicts between pop (from clearRightEntriesForPush)
+    // and complete (from the while loop), which caused the need for two
+    // swipe-back gestures to actually return.
+    // Unlike push, pushAndRemoveUntil must be intercepted even when there
+    // are no detail entries, because the while loop would otherwise mark
+    // the home page itself for removal.
+    final SplitViewNavigatorPolicy? policy = _splitViewPolicy;
+    if (policy != null && policy.shouldInterceptNavigationFromHomePage()) {
+      // _pushEntry will handle clearing the right-side stack and resetting
+      // _callerRoute, so we just delegate.
+      _pushEntry(entry);
+      return;
+    }
     assert(() {
       _debugLocked = true;
       return true;
@@ -5601,6 +5767,14 @@ class NavigatorState extends State<Navigator> with TickerProviderStateMixin, Res
   @optionalTypeArgs
   void pop<T extends Object?>([T? result]) {
     assert(!_debugLocked);
+    // Split-view: block pop if it originates from the home page, because
+    // the home page must remain visible on the left side. This must happen
+    // before _debugLocked is set to true.
+    final SplitViewNavigatorPolicy? policy = _splitViewPolicy;
+    if (policy != null && policy.shouldBlockPopFromHomePageByRoute(result)) {
+      _splitViewPolicy?.clearCallerRoute();
+      return;
+    }
     assert(() {
       _debugLocked = true;
       return true;
@@ -5627,6 +5801,7 @@ class NavigatorState extends State<Navigator> with TickerProviderStateMixin, Res
       _debugLocked = false;
       return true;
     }());
+    _splitViewPolicy?.clearCallerRoute();
     _afterNavigation(entry.route);
   }
 
@@ -5941,13 +6116,15 @@ class NavigatorState extends State<Navigator> with TickerProviderStateMixin, Res
                 includeSemantics: false,
                 child: UnmanagedRestorationScope(
                   bucket: bucket,
-                  child: Overlay(
-                    key: _overlayKey,
-                    clipBehavior: widget.clipBehavior,
-                    initialEntries: overlay == null
-                        ? _allRouteOverlayEntries.toList(growable: false)
-                        : const <OverlayEntry>[],
-                  ),
+                  child:
+                      _splitViewPolicy?.buildOverlayLayout() ??
+                      Overlay(
+                        key: _overlayKey,
+                        clipBehavior: widget.clipBehavior,
+                        initialEntries: overlay == null
+                            ? _allRouteOverlayEntries.toList(growable: false)
+                            : const <OverlayEntry>[],
+                      ),
                 ),
               ),
             ),
