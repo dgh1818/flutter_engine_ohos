@@ -233,9 +233,6 @@ static napi_value Init(napi_env env, napi_value exports) {
       DECLARE_NAPI_FUNCTION(
           "nativeNotifyPageChanged",
           flutter::PlatformViewOHOSNapi::nativeNotifyPageChanged),
-      DECLARE_NAPI_FUNCTION(
-          "nativeLTPODispatchHighFrameRate",
-          flutter::PlatformViewOHOSNapi::nativeLTPODispatchHighFrameRate),
   };
 
   FML_DLOG(INFO) << "Init NAPI size=" << sizeof(desc) / sizeof(desc[0]);

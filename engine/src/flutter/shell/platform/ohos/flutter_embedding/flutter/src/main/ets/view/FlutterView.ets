@@ -25,7 +25,6 @@ import { common } from '@kit.AbilityKit';
 import { deviceInfo } from '@kit.BasicServicesKit';
 import KeyEventChannel from '../embedding/engine/systemchannels/KeyEventChannel';
 import StatusBarClickChannel from '../embedding/engine/systemchannels/StatusBarClickChannel';
-import FlutterNapi, { LTPOSwitchState } from '../embedding/engine/FlutterNapi';
 import { commonEventManager, BusinessError } from '@kit.BasicServicesKit';
 
 const TAG = "FlutterViewTag";
@@ -333,8 +332,6 @@ export class FlutterView {
   private isDevicePixelRatioAdaptive: boolean = false;
   private lastHeight: number = 0;
   private statusBarClickSubscriber: commonEventManager.CommonEventSubscriber | null = null;
-
-  private ltpoSwitchState: LTPOSwitchState = LTPOSwitchState.NOT_INIT;
 
   /**
    * Constructs a new FlutterView instance.
@@ -788,11 +785,6 @@ export class FlutterView {
     this.onAreaChange(newArea, true);
 
     this.context.eventHub.on(EVENT_BACK_PRESS, () => {
-      /// [LTPO] Notifying the VSync signal may require a high frame rate.
-      if (this.ltpoSwitchState == LTPOSwitchState.ON) {
-        this.flutterEngine?.getFlutterNapi()?.LTPODispatchHighFrameRate();
-      }
-
       if (this?.getKeyboardHeight() == 0) {
         this.flutterEngine?.getNavigationChannel()?.popRoute();
       } else {
@@ -819,11 +811,6 @@ export class FlutterView {
     if (this.isSurfaceAvailableForRendering) {
       this.flutterEngine?.processPendingMessages();
     }
-
-    if (this.ltpoSwitchState == LTPOSwitchState.NOT_INIT) {
-      this.ltpoSwitchState = FlutterNapi.checkLTPOSwitchState() as LTPOSwitchState;
-    }
-
     hiTraceMeter.finishTrace("attachToFlutterEngine", 0);
   }
 
