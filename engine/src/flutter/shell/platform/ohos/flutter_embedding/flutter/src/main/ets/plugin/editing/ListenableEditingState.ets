@@ -864,11 +864,7 @@ export class ListenableEditingState {
     if (docSelEnd > len) {
       docSelEnd = len;
     }
-    if (docSelStart > docSelEnd) {
-      const swapHold = docSelStart;
-      docSelStart = docSelEnd;
-      docSelEnd = swapHold;
-    }
+    
     this.mSelectionStartCache = docSelStart;
     this.mSelectionEndCache = docSelEnd;
   }

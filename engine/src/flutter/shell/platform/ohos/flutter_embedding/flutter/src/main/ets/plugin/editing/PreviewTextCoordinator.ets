@@ -373,14 +373,8 @@ export class PreviewTextCoordinator {
       }
       return leftIdx + newMidLen;
     };
-    let mappedSelStart = mapOne(selStart);
-    let mappedSelEnd = mapOne(selEnd);
-    if (mappedSelStart > mappedSelEnd) {
-      const swapHold = mappedSelStart;
-      mappedSelStart = mappedSelEnd;
-      mappedSelEnd = swapHold;
-    }
-    return [mappedSelStart, mappedSelEnd];
+
+    return [mapOne(selStart), mapOne(selEnd)];
   }
 
   private static clampSelection(selStart: number, selEnd: number, len: number): [number, number] {
@@ -398,11 +392,7 @@ export class PreviewTextCoordinator {
     if (clampedSelEnd > len) {
       clampedSelEnd = len;
     }
-    if (clampedSelStart > clampedSelEnd) {
-      const swapHold = clampedSelStart;
-      clampedSelStart = clampedSelEnd;
-      clampedSelEnd = swapHold;
-    }
+
     return [clampedSelStart, clampedSelEnd];
   }
 
