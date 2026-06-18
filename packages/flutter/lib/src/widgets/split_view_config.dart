@@ -56,6 +56,7 @@ class SplitViewConfig {
 
   bool get enableWideWindowSplit => _enableWideWindowSplit;
   bool get enableSquareWindowSplit => _enableSquareWindowSplit;
+  bool get isEnabled => _enableWideWindowSplit || _enableSquareWindowSplit;
   String? get homePage => _homePage;
   List<String> get fullScreenPages => _fullScreenPages;
   bool get enableReducedContainerSize => _enableReducedContainerSize;

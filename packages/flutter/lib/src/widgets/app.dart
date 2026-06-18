@@ -15,11 +15,7 @@ import 'dart:collection' show HashMap;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
-
-import 'split_view_config.dart';
 import '../services/split_view_config_loader.dart';
-import 'split_view_container.dart';
-import 'split_view_manager.dart';
 import 'actions.dart';
 import 'banner.dart';
 import 'basic.dart';
@@ -42,6 +38,8 @@ import 'scrollable_helpers.dart';
 import 'semantics_debugger.dart';
 import 'shared_app_data.dart';
 import 'shortcuts.dart';
+import 'split_view_config.dart';
+import 'split_view_manager.dart';
 import 'tap_region.dart';
 import 'text.dart';
 import 'title.dart';
@@ -1490,6 +1488,7 @@ class _WidgetsAppState extends State<WidgetsApp> with WidgetsBindingObserver {
     _enableSplitView = config.enableWideWindowSplit || config.enableSquareWindowSplit;
     if (_enableSplitView != null && _enableSplitView) {
       _determinePriorityMainPage();
+      SplitViewManager().initDefaultPlaceholderBuilder();
     }
   }
 
@@ -1757,57 +1756,29 @@ class _WidgetsAppState extends State<WidgetsApp> with WidgetsBindingObserver {
         backButtonDispatcher: _effectiveBackButtonDispatcher,
       );
     } else if (_usesNavigator) {
-      assert(_navigator != null);
-
-      // If split screen is enabled on OhOS platform, wrap the Navigator with a SplitViewContainer.
-      if (defaultTargetPlatform == TargetPlatform.ohos && _enableSplitView != null
-          && _enableSplitView!) {
-        routing = FocusScope(
-          debugLabel: 'Navigator Scope',
-          autofocus: true,
-          child: SplitViewContainer(
-            clipBehavior: Clip.none,
-            restorationScopeId: 'nav',
-            navigatorKey: _navigator,
-            initialRoute: _initialRouteName,
-            onGenerateRoute: _onGenerateRoute,
-            onGenerateInitialRoutes: widget.onGenerateInitialRoutes == null
-              ? Navigator.defaultGenerateInitialRoutes
-              : (NavigatorState navigator, String initialRouteName) {
-                return widget.onGenerateInitialRoutes!(initialRouteName);
-              },
-            onUnknownRoute: _onUnknownRoute,
-            navigatorObservers: widget.navigatorObservers,
-            routeTraversalEdgeBehavior: kIsWeb
-                ? TraversalEdgeBehavior.leaveFlutterView
-                : TraversalEdgeBehavior.parentScope,
-            reportsRouteUpdateToEngine: true,
-          ),
-        );
-      } else {
-        routing = FocusScope(
-          debugLabel: 'Navigator Scope',
-          autofocus: true,
-          child: Navigator(
-            clipBehavior: Clip.none,
-            restorationScopeId: 'nav',
-            key: _navigator,
-            initialRoute: _initialRouteName,
-            onGenerateRoute: _onGenerateRoute,
-            onGenerateInitialRoutes: widget.onGenerateInitialRoutes == null
-              ? Navigator.defaultGenerateInitialRoutes
-              : (NavigatorState navigator, String initialRouteName) {
-                return widget.onGenerateInitialRoutes!(initialRouteName);
-              },
-            onUnknownRoute: _onUnknownRoute,
-            observers: widget.navigatorObservers!,
-            routeTraversalEdgeBehavior: kIsWeb
-                ? TraversalEdgeBehavior.leaveFlutterView
-                : TraversalEdgeBehavior.parentScope,
-            reportsRouteUpdateToEngine: true,
-          ),
-        );
-      }
+    assert(_navigator != null);
+      routing = FocusScope(
+        debugLabel: 'Navigator Scope',
+        autofocus: true,
+        child: Navigator(
+          clipBehavior: Clip.none,
+          restorationScopeId: 'nav',
+          key: _navigator,
+          initialRoute: _initialRouteName,
+          onGenerateRoute: _onGenerateRoute,
+          onGenerateInitialRoutes: widget.onGenerateInitialRoutes == null
+            ? Navigator.defaultGenerateInitialRoutes
+            : (NavigatorState navigator, String initialRouteName) {
+              return widget.onGenerateInitialRoutes!(initialRouteName);
+            },
+          onUnknownRoute: _onUnknownRoute,
+          observers: widget.navigatorObservers!,
+          routeTraversalEdgeBehavior: kIsWeb
+              ? TraversalEdgeBehavior.leaveFlutterView
+              : TraversalEdgeBehavior.parentScope,
+          reportsRouteUpdateToEngine: true,
+        ),
+      );
     } else if (_usesRouterWithConfig) {
       routing = Router<Object>.withConfig(
         restorationScopeId: 'router',
