@@ -123,6 +123,11 @@ class NavigationCallback implements MethodCallHandler {
     Log.i(NavigationCallback.TAG, "method = " + method);
     switch (method) {
       case "reportNavigatorActivity": {
+        if (args == null || !(args instanceof Map)) {
+          Log.e(NavigationCallback.TAG, "reportNavigatorActivity, args is null or not a Map");
+          result.success(null);
+          break;
+        }
         let activity: string = args.get("activity");
         if (activity === undefined) {
           Log.e(NavigationCallback.TAG, "reportNavigatorActivity, incorrect parameter activity");
@@ -177,6 +182,12 @@ class NavigationCallback implements MethodCallHandler {
     // Skip notification if context is not provided
     if (this.context == null) {
       Log.e(NavigationCallback.TAG, "context is not provided, skip OHOS page change notification");
+      return;
+    }
+
+    // Skip notification if args is null or not a Map
+    if (call.args == null || !(call.args instanceof Map)) {
+      Log.e(NavigationCallback.TAG, "routeInformationUpdated args is null or not a Map, skip OHOS page change notification");
       return;
     }
 
