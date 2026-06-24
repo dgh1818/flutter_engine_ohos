@@ -1,0 +1,16 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "Platform interaction integration test module"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "Platform interaction test ability"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "PlatformInteraction"
+    }
+  ]
+}
