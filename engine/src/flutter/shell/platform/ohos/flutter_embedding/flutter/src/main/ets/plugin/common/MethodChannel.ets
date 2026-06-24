@@ -225,7 +225,9 @@ export class IncomingMethodCallHandler implements BinaryMessageHandler {
       });
     } catch (e) {
       Log.e(MethodChannel.TAG, "Failed to handle method call", e);
-      reply.reply(this.codec.encodeErrorEnvelopeWithStacktrace("error", e.getMessage(), null, e));
+      const errMsg = e instanceof Error ? (e.message ?? '') : String(e);
+      const errStack = e instanceof Error ? (e.stack ?? '') : '';
+      reply.reply(this.codec.encodeErrorEnvelopeWithStacktrace("error", errMsg, null, errStack));
     }
   }
 }
