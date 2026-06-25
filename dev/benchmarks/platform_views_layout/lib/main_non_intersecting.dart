@@ -62,6 +62,8 @@ class DummyPlatformView extends StatelessWidget {
       nativeView = const UiKitView(viewType: viewType);
     } else if (Platform.isAndroid) {
       nativeView = const AndroidView(viewType: viewType);
+    } else if (Platform.isOhos) {
+      nativeView = const OhosView(viewType: viewType);
     } else {
       assert(false, 'Invalid platform');
     }
