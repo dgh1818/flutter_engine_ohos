@@ -112,10 +112,16 @@ void OhosVsyncVotingMgr::VoteAnimationValue(AnimationType AN_type,
 
   double velocity_tmp = std::abs(velocity);
   if (device_pixel_ratio != 0.0) {
-    // V(millimeter) = V(pixel) * 25.4 / (device_pixel_ratio * 160)
-    velocity_tmp = velocity_tmp / (device_pixel_ratio * PHYSICAL_PIXEL_DENSITY);
-    velocity_tmp = velocity_tmp * INCH_2_MILL;
+    /// V_Logical_Pixel(millimeter) = V(pixel) * 25.4 / (device_pixel_ratio * 160)
+    /// V_Physical_Pixel(millimeter) = V_Logical_Pixel(millimeter) * device_pixel_ratio
+    /// => V_Physical_Pixel(millimeter) = V(pixel) * 25.4 / 160
+    velocity_tmp = velocity_tmp * INCH_2_MILL / PHYSICAL_PIXEL_DENSITY;
   }
+
+  std::ostringstream oss;
+  oss << "AN_type=" << static_cast<int>(AN_type) << " V=" << velocity_tmp;
+  std::string trace_str = oss.str();
+  TRACE_EVENT0("flutter", trace_str.c_str());
 
   switch (AN_type) {
     case AnimationType::AN_TYPE_TRANSLATE:
