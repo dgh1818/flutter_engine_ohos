@@ -29,7 +29,7 @@ import StandardMethodCodec from '../../../plugin/common/StandardMethodCodec';
 enum AnimationVotingType {
   TRANSLATE = 0,
   SCALE,
-  RATATION,
+  ROTATION,
 }
 
 /**
