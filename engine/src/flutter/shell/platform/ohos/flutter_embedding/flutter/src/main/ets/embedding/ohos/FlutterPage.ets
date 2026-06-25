@@ -11,6 +11,7 @@ import { DVModel, DVModelChildren, DynamicView } from '../../view/DynamicView/dy
 import Any from '../../plugin/common/Any';
 import deviceInfo from '@ohos.deviceInfo';
 import flutter from 'libflutter.so';
+import { AUTOFILL_SUPPORT_API } from '../../plugin/editing/OhosAutoFillHelper';
 const TAG = "FlutterPage";
 
 /**
@@ -32,6 +33,18 @@ struct FlutterSurface {
   private surfaceLifecycleToken: number = 0;
   private flutterView?: FlutterView | null;
 
+  private pushAutofillUiContext(source: string): void {
+    if (deviceInfo.sdkApiVersion < AUTOFILL_SUPPORT_API) {
+      return;
+    }
+    try {
+      const pageUiContext = this.getUIContext();
+      this.flutterView?.setAutofillUiContext(source, pageUiContext);
+    } catch (error) {
+      Log.w(TAG, 'pushAutofillUiContext(' + source + ') failed: ' + JSON.stringify(error));
+    }
+  }
+
   build() {
     XComponent({ id: this.viewId, type: this.xComponentType, libraryname: 'flutter' })
       .id(this.viewId)
@@ -40,6 +53,7 @@ struct FlutterSurface {
       .onLoad((context) => {
         this.flutterView = FlutterManager.getInstance().getFlutterView(this.viewId);
         this.surfaceLifecycleToken = this.flutterView?.onSurfaceCreated() ?? 0;
+        this.pushAutofillUiContext('FlutterPage.XComponent.onLoad');
         // Callback is triggered when the xcomponent window is partially visible or completely hidden.
         if (deviceInfo.sdkApiVersion < 15) {
           this.getUIContext()?.getAttachedFrameNodeById(this.viewId)?.commonEvent.setOnVisibleAreaApproximateChange(
@@ -292,12 +306,25 @@ export struct FlutterPage {
   private flutterView?: FlutterView | null
   private panOption: PanGestureOptions = new PanGestureOptions({ direction: PanDirection.Up | PanDirection.Down });
 
+  private pushAutofillUiContext(source: string): void {
+    if (deviceInfo.sdkApiVersion < AUTOFILL_SUPPORT_API) {
+      return;
+    }
+    try {
+      const pageUiContext = this.getUIContext();
+      this.flutterView?.setAutofillUiContext(source, pageUiContext);
+    } catch (error) {
+      Log.w(TAG, 'pushAutofillUiContext(' + source + ') failed: ' + JSON.stringify(error));
+    }
+  }
+
   /**
    * Called when the page is about to appear.
    * Initializes the FlutterView and sets up listeners and callbacks.
    */
   aboutToAppear() {
     this.flutterView = FlutterManager.getInstance().getFlutterView(this.viewId);
+    this.pushAutofillUiContext('FlutterPage.aboutToAppear');
     this.flutterView?.addFirstFrameListener(this)
     this.flutterView?.addFirstPreloadFrameListener(this)
 

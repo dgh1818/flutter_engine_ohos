@@ -26,6 +26,7 @@ import { deviceInfo } from '@kit.BasicServicesKit';
 import KeyEventChannel from '../embedding/engine/systemchannels/KeyEventChannel';
 import StatusBarClickChannel from '../embedding/engine/systemchannels/StatusBarClickChannel';
 import { commonEventManager, BusinessError } from '@kit.BasicServicesKit';
+import { AUTOFILL_SUPPORT_API } from '../plugin/editing/OhosAutoFillHelper';
 
 const TAG = "FlutterViewTag";
 const EVENT_BACK_PRESS = 'EVENT_BACK_PRESS';
@@ -302,6 +303,8 @@ export class FlutterView {
   private mouseCursorPlugin?: MouseCursorPlugin;
   private textInputPlugin?: TextInputPlugin;
   private uiContext?: UIContext | undefined;
+  /** Page/component UIContext for autoFillManager; preferred over window UIContext. */
+  private autofillUiContext?: UIContext | undefined;
   private context: Context;
   private settings?: Settings;
   private mFirstFrameListeners: ArrayList<FirstFrameListener>;
@@ -794,8 +797,14 @@ export class FlutterView {
 
     let windowId = this.mainWindow?.getWindowProperties()?.id ?? 0
     this.mouseCursorPlugin = new MouseCursorPlugin(windowId, this.flutterEngine?.getMouseCursorChannel()!);
+    if (this.uiContext === undefined) {
+      this.uiContext = this.tryGetUIContext();
+    }
     this.textInputPlugin = new TextInputPlugin(this.flutterEngine?.getTextInputChannel()!, this.id,
-      new KeyEventChannel(this.flutterEngine.dartExecutor));
+      new KeyEventChannel(this.flutterEngine.dartExecutor), this.uiContext);
+    if (this.uiContext !== undefined && this.autofillUiContext === undefined) {
+      this.applyAutofillUiContext(this.uiContext);
+    }
     this.statusBarClickChannel = new StatusBarClickChannel(flutterEngine.dartExecutor)
     this.keyboardManager = new KeyboardManager(flutterEngine, this.textInputPlugin!);
     this.settings = new Settings(this.flutterEngine.getSettingsChannel()!);
@@ -851,19 +860,57 @@ export class FlutterView {
   }
 
   /**
+   * Safely obtains UIContext. Before loadContent completes, getUIContext() may throw on some API levels.
+   */
+  private tryGetUIContext(): UIContext | undefined {
+    if (this.mainWindow == null) {
+      return undefined;
+    }
+    try {
+      return this.mainWindow.getUIContext();
+    } catch (error) {
+      Log.w(TAG, 'tryGetUIContext failed: ' + JSON.stringify(error));
+      return undefined;
+    }
+  }
+
+  /**
+   * Supplies the page/component UIContext that owns the XComponent. This should be used for
+   * autoFillManager so UIExtension shares the same UIContent instanceId as the Flutter surface.
+   */
+  setAutofillUiContext(source: string, uiContext: UIContext | undefined): void {
+    if (deviceInfo.sdkApiVersion < AUTOFILL_SUPPORT_API || uiContext === undefined) {
+      return;
+    }
+    this.autofillUiContext = uiContext;
+    this.applyAutofillUiContext(uiContext);
+  }
+
+  private applyAutofillUiContext(uiContext: UIContext): void {
+    if (deviceInfo.sdkApiVersion < AUTOFILL_SUPPORT_API) {
+      return;
+    }
+    this.textInputPlugin?.setAutofillUiContext(uiContext);
+  }
+
+  /**
    * Called when the window is created.
    * Initializes the UIContext and sends settings to Flutter.
    */
   onWindowCreated() {
     Log.d(TAG, "received onwindowCreated.");
-    let _UIContext = this.mainWindow?.getUIContext();
-    this.uiContext = _UIContext;
-    // Listen to route navigation (Flutter navigating to HarmonyOS native), soft keyboard management
-    uiObserver.on('routerPageUpdate', this.uiContext as UIContext, this.routerPageUpdateCallback);
-    uiObserver.on('densityUpdate', this.uiContext as UIContext, this.densityUpdateCallback);
-    this.sendSettings();
-    this.mainWindow?.on('windowTitleButtonRectChange', this.windowTitleButtonRectChangeCallback);
-    Log.d(TAG, "uiContext init and sendSettings finished.");
+    this.uiContext = this.tryGetUIContext();
+    if (this.uiContext !== undefined) {
+      // Listen to route navigation (Flutter navigating to HarmonyOS native), soft keyboard management
+      uiObserver.on('routerPageUpdate', this.uiContext, this.routerPageUpdateCallback);
+      uiObserver.on('densityUpdate', this.uiContext, this.densityUpdateCallback);
+      this.sendSettings();
+      if (this.autofillUiContext === undefined) {
+        this.applyAutofillUiContext(this.uiContext);
+      }
+      this.mainWindow?.on('windowTitleButtonRectChange', this.windowTitleButtonRectChangeCallback);
+      Log.d(TAG, "uiContext init and sendSettings finished.");
+    }
   }
 
   /**
