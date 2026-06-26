@@ -1,0 +1,6 @@
+{
+  "name": "libnativerender.so",
+  "types": "./index.d.ets",
+  "version": "",
+  "description": "Native render module for external textures test"
+}

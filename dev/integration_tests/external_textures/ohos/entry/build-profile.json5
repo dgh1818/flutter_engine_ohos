@@ -1,0 +1,26 @@
+{
+  "apiType": 'stageMode',
+  "buildOption": {
+    "arkOptions": {
+      "runtimeOnly": {
+        "sources": [
+          "./src/main/ets/plugins/GeneratedPluginRegistrant.ets"
+        ]
+      }
+    },
+    "externalNativeOptions": {
+      "path": "./src/main/cpp/CMakeLists.txt",
+      "arguments": "",
+      "cppFlags": ""
+    }
+  },
+  "targets": [
+    {
+      "name": "default",
+      "runtimeOS": "HarmonyOS"
+    },
+    {
+      "name": "ohosTest",
+    }
+  ]
+}
