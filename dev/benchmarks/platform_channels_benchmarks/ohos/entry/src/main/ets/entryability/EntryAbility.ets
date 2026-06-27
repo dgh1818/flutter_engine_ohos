@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026 Huawei Device Co., Ltd. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE_HW file.
+ */
+
 import {
   Any,
   BackgroundBasicMessageChannel,
@@ -27,7 +33,6 @@ export default class EntryAbility extends FlutterAbility {
     reset.setMessageHandler({
       onMessage: (message: Any, reply: Reply<Any>) => {
         this.byteBufferCache = null;
-        reply.reply(null);
       },
     });
 
@@ -52,7 +57,9 @@ export default class EntryAbility extends FlutterAbility {
           return;
         }
         if (this.byteBufferCache == null) {
-          this.byteBufferCache = message.slice(0);
+          const copy = new ArrayBuffer(message.byteLength);
+          new Uint8Array(copy).set(new Uint8Array(message));
+          this.byteBufferCache = copy;
         }
         reply.reply(this.byteBufferCache);
       },
