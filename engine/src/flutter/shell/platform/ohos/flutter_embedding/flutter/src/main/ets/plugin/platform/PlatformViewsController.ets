@@ -90,6 +90,10 @@ enum TouchEventType {
 }
 
 const TAG = "PlatformViewsController"
+const PLATFORM_VIEW_ACTIVE_TOUCHES = 'platformViewActiveTouches';
+const PLATFORM_VIEW_LAST_TOUCH_EVENT = 'platformViewLastTouchEvent';
+const PLATFORM_VIEW_LAST_TOUCH_EVENT_IS_PX = 'platformViewLastTouchEventIsPx';
+const PLATFORM_VIEW_CANCEL_DRAINING = 'platformViewCancelDraining';
 
 /**
  * Controller for managing platform views in Flutter applications.
@@ -147,6 +151,133 @@ export default class PlatformViewsController implements PlatformViewsHandler {
     this.configureForHybridComposition(platformView, request);
   }
 
+  private isTerminalTouch(type: TouchType): boolean {
+    return type === TouchType.Up || type === TouchType.Cancel;
+  }
+
+  private cloneTouchObjectWithType(touch: CustomTouchObject, type: TouchType): CustomTouchObject {
+    return new CustomTouchObject(type, touch.id, touch.displayX, touch.displayY, touch.windowX, touch.windowY,
+      touch.screenX, touch.screenY, touch.x, touch.y);
+  }
+
+  private getActiveTouches(params: Record<string, Any>, create: boolean = false): Map<number, CustomTouchObject> | undefined {
+    let activeTouches = params[PLATFORM_VIEW_ACTIVE_TOUCHES] as Map<number, CustomTouchObject> | undefined;
+    if (activeTouches === undefined && create) {
+      activeTouches = new Map<number, CustomTouchObject>();
+      params[PLATFORM_VIEW_ACTIVE_TOUCHES] = activeTouches;
+    }
+    return activeTouches;
+  }
+
+  private rememberPostedTouchEvent(params: Record<string, Any>, event: CustomTouchEvent, isPx: boolean = true): void {
+    params[PLATFORM_VIEW_LAST_TOUCH_EVENT] = event;
+    params[PLATFORM_VIEW_LAST_TOUCH_EVENT_IS_PX] = isPx;
+
+    let activeTouches = this.getActiveTouches(params, true)!;
+    if (event.type === TouchType.Cancel) {
+      activeTouches.clear();
+      return;
+    }
+
+    for (let touch of event.changedTouches) {
+      if (this.isTerminalTouch(touch.type)) {
+        activeTouches.delete(touch.id);
+      } else {
+        activeTouches.set(touch.id, this.cloneTouchObjectWithType(touch, touch.type));
+      }
+    }
+
+    for (let touch of event.touches) {
+      if (this.isTerminalTouch(touch.type)) {
+        activeTouches.delete(touch.id);
+      } else {
+        activeTouches.set(touch.id, this.cloneTouchObjectWithType(touch, touch.type));
+      }
+    }
+  }
+
+  private clearTrackedTouchState(params: Record<string, Any>): void {
+    params['down'] = false;
+    params['touchEvent'] = undefined;
+    params['mouseEvent'] = undefined;
+    params[PLATFORM_VIEW_LAST_TOUCH_EVENT] = undefined;
+    params[PLATFORM_VIEW_LAST_TOUCH_EVENT_IS_PX] = undefined;
+    const activeTouches = this.getActiveTouches(params);
+    activeTouches?.clear();
+    params[PLATFORM_VIEW_ACTIVE_TOUCHES] = undefined;
+  }
+
+  private postTouchCancelEvent(nodeController: EmbeddingNodeController,
+    lastTouchEvent: CustomTouchEvent | undefined,
+    lastTouchEventIsPx: boolean,
+    viewId: number,
+    reason: string,
+    source: string,
+    cancelTouches: Array<CustomTouchObject>): boolean {
+    const cancelEvent = new CustomTouchEvent(TouchType.Cancel, cancelTouches, cancelTouches,
+      Date.now(),
+      lastTouchEvent?.source ?? SourceType.TouchScreen, lastTouchEvent?.pressure ?? 1,
+      lastTouchEvent?.tiltX ?? 0, lastTouchEvent?.tiltY ?? 0, lastTouchEvent?.sourceTool ?? SourceTool.Finger);
+    let ret = false;
+    try {
+      ret = nodeController.postEvent(cancelEvent, lastTouchEventIsPx);
+    } catch (err) {
+      Log.e(TAG, "Sending platform view touch cancel threw an exception", err);
+    }
+    Log.i(TAG, "platform_view_touch_cancel sent viewId=" + viewId
+      + " reason=" + reason + " source=" + source + " changedTouches=" + cancelTouches.length
+      + " ret=" + ret);
+    return ret;
+  }
+
+  private cancelActiveTouchIfNeeded(viewId: number, params: Record<string, Any>, reason: string): void {
+    const nodeController = params['nodeController'] as EmbeddingNodeController | undefined;
+    const activeTouches = this.getActiveTouches(params);
+    const lastTouchEvent = params[PLATFORM_VIEW_LAST_TOUCH_EVENT] as CustomTouchEvent | undefined;
+    const lastTouchEventIsPx = params[PLATFORM_VIEW_LAST_TOUCH_EVENT_IS_PX] as boolean ?? false;
+    const pendingTouchEvents = params['touchEvent'] as Array<CustomTouchEvent> | undefined;
+    const pendingCount = pendingTouchEvents === undefined ? 0 : pendingTouchEvents.length;
+
+    if (nodeController === undefined) {
+      Log.i(TAG, "platform_view_touch_cancel skip viewId=" + viewId
+        + " reason=" + reason + " no_node pending=" + pendingCount);
+      this.clearTrackedTouchState(params);
+      return;
+    }
+
+    let cancelTouches: Array<CustomTouchObject> = [];
+    let cancelSource: string = "none";
+    if (activeTouches !== undefined && activeTouches.size > 0) {
+      activeTouches.forEach((touch: CustomTouchObject) => {
+        cancelTouches.push(this.cloneTouchObjectWithType(touch, TouchType.Cancel));
+      });
+      cancelSource = "active_map";
+    } else if (lastTouchEvent !== undefined) {
+      const sourceTouches = lastTouchEvent.touches.length > 0 ? lastTouchEvent.touches : lastTouchEvent.changedTouches;
+      for (let touch of sourceTouches) {
+        cancelTouches.push(this.cloneTouchObjectWithType(touch, TouchType.Cancel));
+      }
+      cancelSource = "last_event";
+    }
+
+    if (cancelTouches.length > 0) {
+      if (cancelTouches.length > 1) {
+        for (let i = 0; i < cancelTouches.length; i++) {
+          this.postTouchCancelEvent(nodeController, lastTouchEvent, lastTouchEventIsPx,
+            viewId, reason, cancelSource + "_single_" + i, [cancelTouches[i]]);
+        }
+      }
+      this.postTouchCancelEvent(nodeController, lastTouchEvent, lastTouchEventIsPx,
+        viewId, reason, cancelSource + "_combined", cancelTouches);
+      params[PLATFORM_VIEW_CANCEL_DRAINING] = true;
+    } else {
+      Log.i(TAG, "platform_view_touch_cancel skip viewId=" + viewId
+        + " reason=" + reason + " no_touch pending=" + pendingCount);
+    }
+
+    this.clearTrackedTouchState(params);
+  }
+
   /**
    * Disposes a platform view and releases all associated resources.
    * @param viewId - The ID of the platform view to dispose
@@ -157,6 +288,15 @@ export default class PlatformViewsController implements PlatformViewsHandler {
       Log.e(TAG, "Disposing unknown platform view with id: " + viewId);
       return;
     }
+    let viewWrapper: PlatformViewWrapper | null = this.viewWrappers.get(viewId) || null;
+    if (viewWrapper != null) {
+      let disposedParams = viewWrapper.getDvModel().getLayoutParams() as Record<string, Any>;
+      this.cancelActiveTouchIfNeeded(viewId, disposedParams, "dispose");
+    } else {
+      Log.i(TAG, "platform_view_touch_cancel skip viewId=" + viewId
+        + " reason=dispose no_wrapper");
+    }
+
     if (this.focusViewId == viewId) {
       this.clearFocus(viewId);
       this.focusViewId = -1;
@@ -172,7 +312,6 @@ export default class PlatformViewsController implements PlatformViewsHandler {
     this.viewIdWithNodeController.get(viewId)?.disposeFrameNode()
     this.viewIdWithNodeController.delete(viewId);
 
-    let viewWrapper: PlatformViewWrapper | null = this.viewWrappers.get(viewId) || null;
     if (viewWrapper != null && this.flutterView) {
       let index = this.flutterView.getDVModel().children.indexOf(viewWrapper.getDvModel()!);
       if (index > -1) {
@@ -309,12 +448,14 @@ export default class PlatformViewsController implements PlatformViewsHandler {
       if (touch.action === TouchEventType.ACTION_DOWN) {
         // Set the current touch state to true
         params['down'] = true
+        params[PLATFORM_VIEW_CANCEL_DRAINING] = false;
         // When first receiving a touch DOWN event, dispatch all events stored in the list
         let touchEventArray: Array<CustomTouchEvent> | undefined = params['touchEvent'] as Array<CustomTouchEvent>
         if (touchEventArray !== undefined) {
           let nodeController = params['nodeController'] as EmbeddingNodeController;
           for (let it of touchEventArray) {
             nodeController.postEvent(it)
+            this.rememberPostedTouchEvent(params, it);
           }
           // Clear the list after first dispatch
           params['touchEvent'] = undefined
@@ -332,6 +473,9 @@ export default class PlatformViewsController implements PlatformViewsHandler {
         }
         // When receiving an UP action
       } else if (touch.action === TouchEventType.ACTION_UP || touch.action === TouchEventType.ACTION_CANCEL) {
+        if (touch.action === TouchEventType.ACTION_CANCEL) {
+          this.cancelActiveTouchIfNeeded(touch.viewId, params, "platform_cancel");
+        }
         // Set the touch state to false after finger is lifted. When multiple fingers are lifted suddenly,
         // the final state returned is also ACTION_UP, so we use the UP state to indicate the user
         // is no longer touching the platform view
@@ -872,7 +1016,6 @@ export default class PlatformViewsController implements PlatformViewsHandler {
     platformView.onFlutterViewAttached(this.flutterView!.getDVModel());
     this.platformViews.set(surfaceId, platformView!);
   }
-
   private ensureFlutterViewAttached(action: string): void {
     if (this.flutterView == null) {
       throw new Error("Cannot " + action + " while FlutterView is detached from PlatformViewsController.");
