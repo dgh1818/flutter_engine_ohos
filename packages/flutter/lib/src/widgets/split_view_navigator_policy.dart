@@ -71,6 +71,10 @@ class SplitViewNavigatorPolicy with WidgetsBindingObserver {
 
   _RouteEntry? _cachedHomePageEntry;
 
+  /// Whether there is more than one present route entry whose name matches
+  /// the home page name in [_history]. Updated by [updateHomePageCache].
+  bool _hasOtherHomePage = false;
+
   /// Whether the home page is ready in split-view mode.
   bool get isHomePageReady => _homePageReady;
 
@@ -124,6 +128,43 @@ class SplitViewNavigatorPolicy with WidgetsBindingObserver {
     return _splitOverlayEntries();
   }
 
+  /// Rearranges the left and right overlays to reflect the current split-view
+  /// state.
+  ///
+  /// Before rearranging, entries that need to migrate between overlays are
+  /// removed from their current overlay. This is required because [rearrange]
+  /// uses append semantics rather than replace, and its assert requires
+  /// `entry._overlay` to be null or point to the same overlay. Without prior
+  /// removal, the assert 'already present in another Overlay' would fire.
+  ///
+  /// Performance note: `containsEntry` and `remove` are both O(n) List
+  /// operations, making the overall complexity O(n²). With typical route stack
+  /// sizes (10–60 entries) and since this runs only on navigation operations
+  /// (not every build), the overhead is negligible. If future route stacks
+  /// grow significantly, consider adding a Set-based batch removal method to
+  /// [OverlayState] (e.g. `removeWhereInSet`) to reduce lookups to O(1).
+  void rearrangeSplitOverlays() {
+    final ({List<OverlayEntry> left, List<OverlayEntry> right}) split = _splitOverlayEntries();
+    final OverlayState? leftOverlay = _navigator.overlay;
+    final OverlayState? rightOverlay = _rightOverlay;
+    if (leftOverlay != null) {
+      for (final OverlayEntry entry in split.right) {
+        if (leftOverlay.containsEntry(entry)) {
+          entry.remove();
+        }
+      }
+    }
+    if (rightOverlay != null) {
+      for (final OverlayEntry entry in split.left) {
+        if (rightOverlay.containsEntry(entry)) {
+          entry.remove();
+        }
+      }
+    }
+    leftOverlay?.rearrange(split.left);
+    rightOverlay?.rearrange(split.right);
+  }
+
   /// Disposes the mirror barrier for the given entry if it is a [PopupRoute].
   void disposeMirrorBarrierFor(_RouteEntry entry) {
     if (entry.route is PopupRoute && _mirrorBarrierRoutes.containsKey(entry.route)) {
@@ -146,29 +187,92 @@ class SplitViewNavigatorPolicy with WidgetsBindingObserver {
   }
 
   /// Determines whether a pop operation should be blocked because it
-  /// originates from the home page in split-view mode, based on the
-  /// [_callerRoute] captured via [Navigator.of] / [Navigator.maybeOf].
+  /// originates from the home page in split-view mode.
   ///
-  /// When the home page is on the left side and a pop originates from it,
-  /// the pop is blocked to prevent the home page from being removed from
-  /// the split view. If the route handles pop internally, [didPop] is
-  /// called on it so the route can process the result. When [didPop]
-  /// returns false (route rejected the pop), [onPopInvokedWithResult]
-  /// is called to notify the route, matching Flutter's official
-  /// [NavigatorState.pop] behavior.
+  /// This method handles two distinct scenarios:
+  ///
+  /// **Scenario A — Home page is at the top of the stack (e.g. after
+  /// `deduplicateRouteStack` moved it up):**
+  /// - If there is another home page entry deeper in the stack, the pop
+  ///   is **not blocked** — the top home page is simply removed, and
+  ///   the deeper home page naturally takes its place on the left side.
+  /// - If the sole home page handles pop internally
+  ///   ([Route.willHandlePopInternally] is true), the pop is **not
+  ///   blocked** — the standard pop/maybePop flow already handles this
+  ///   correctly (popDisposition=doNotPop, popGestureEnabled=false).
+  /// - Otherwise (sole home page, willHandlePopInternally=false), the
+  ///   pop is **blocked** and [onPopInvokedWithResult] is called to
+  ///   notify the route, matching Flutter's official doNotPop behavior.
+  ///
+  /// **Scenario B — `_callerRoute` is the home page (pop originates from
+  /// the home page, e.g. a back button on the left side):**
+  /// - The pop is **blocked** because the home page on the left side
+  ///   should not pop routes on the right side.
+  /// - If the home page handles pop internally, [didPop] is called to
+  ///   let it dismiss internal overlays (e.g. bottom sheets). When
+  ///   [didPop] succeeds, no further notification is needed.
+  /// - Otherwise, [onPopInvokedWithResult] is called to notify the route.
   bool shouldBlockPopFromHomePageByRoute(Object? result) {
     if (!_homePageReady) {
       return false;
     }
-    final Route<dynamic>? callerRoute = _callerRoute;
-    if (callerRoute != null && callerRoute == _cachedHomePageEntry?.route) {
-      if (callerRoute.willHandlePopInternally) {
-        final bool handled = callerRoute.didPop(result);
-        if (!handled) {
-          callerRoute.onPopInvokedWithResult(false, result);
-        }
-        return true;
+    final _RouteEntry? homePageEntry = _cachedHomePageEntry;
+    if (homePageEntry == null) {
+      return false;
+    }
+
+    // Scenario A: sole home page at top → block pop and notify route.
+    final _RouteEntry? topEntry = _navigator._lastRouteEntryWhereOrNull(
+      _RouteEntry.isPresentPredicate,
+    );
+    if (topEntry != null && topEntry == homePageEntry) {
+      if (_hasOtherHomePage || topEntry.route.willHandlePopInternally) {
+        return false;
       }
+      topEntry.route.onPopInvokedWithResult(false, result);
+      return true;
+    }
+
+    // Scenario B: pop from home page → block and notify via didPop/onPopInvokedWithResult.
+    final Route<dynamic>? callerRoute = _callerRoute;
+    if (callerRoute != null && callerRoute == homePageEntry.route) {
+      final bool didHandle = callerRoute.willHandlePopInternally && callerRoute.didPop(result);
+      if (!didHandle) {
+        callerRoute.onPopInvokedWithResult(false, result);
+      }
+      return true;
+    }
+
+    return false;
+  }
+
+  /// Determines whether [NavigatorState.maybePop] should bubble up to the
+  /// parent navigator instead of attempting a pop that would be blocked.
+  ///
+  /// Returns true only when:
+  /// - Split view is active and the home page is ready.
+  /// - The top of the stack is a home page entry.
+  /// - There is no other home page entry deeper in the stack.
+  /// - The top home page route does NOT handle pop internally
+  ///   ([Route.willHandlePopInternally] is false).
+  ///
+  /// When the top home page handles pop internally (e.g. it has an open
+  /// bottom sheet to dismiss first), we should NOT bubble up — instead,
+  /// [maybePop] should proceed to [pop], which will be intercepted by
+  /// [shouldBlockPopFromHomePageByRoute]. The interception calls
+  /// [Route.didPop] so the route can dismiss its internal overlays
+  /// (e.g. bottom sheets) before the next back gesture bubbles up.
+  bool shouldBubbleUpFromHomePage() {
+    if (!_homePageReady) {
+      return false;
+    }
+    final _RouteEntry? topEntry = _navigator._lastRouteEntryWhereOrNull(
+      _RouteEntry.isPresentPredicate,
+    );
+    if (topEntry != null &&
+        topEntry == _cachedHomePageEntry &&
+        !_hasOtherHomePage &&
+        !topEntry.route.willHandlePopInternally) {
       return true;
     }
     return false;
@@ -300,15 +404,19 @@ class SplitViewNavigatorPolicy with WidgetsBindingObserver {
     final String? homePageName = SplitViewManager().realHomePage;
     if (homePageName == null) {
       _cachedHomePageEntry = _navigator._firstRouteEntryWhereOrNull(_RouteEntry.isPresentPredicate);
+      _hasOtherHomePage = false;
       return;
     }
     _RouteEntry? homePageEntry;
+    int homePageCount = 0;
     for (final _RouteEntry entry in _navigator._history) {
       if (entry.willBePresent && entry.route.settings.name == homePageName) {
         homePageEntry = entry;
+        homePageCount++;
       }
     }
     _cachedHomePageEntry = homePageEntry;
+    _hasOtherHomePage = homePageCount > 1;
   }
 
   /// Builds the overlay layout widget for split-view.
@@ -449,7 +557,14 @@ class SplitViewNavigatorPolicy with WidgetsBindingObserver {
       } else if (!pastHomePage) {
         left.addAll(entry.route.overlayEntries);
       } else if (pastHomePage && entry.route.overlayEntries.isNotEmpty) {
-        right.addAll(entry.route.overlayEntries);
+        // An exiting home page entry should stay on the left overlay to cover
+        // the gap during the first home page's secondaryAnimation recovery.
+        if (!_RouteEntry.isPresentPredicate(entry) &&
+            entry.route.settings.name == homePageEntry.route.settings.name) {
+          left.addAll(entry.route.overlayEntries);
+        } else {
+          right.addAll(entry.route.overlayEntries);
+        }
       }
     }
 
@@ -497,9 +612,7 @@ class SplitViewNavigatorPolicy with WidgetsBindingObserver {
           return barrier;
         },
       );
-      _mirrorBarrierRoutes[popupRoute] = MirrorBarrierInfo(
-        mirrorBarrier: mirrorBarrier,
-      );
+      _mirrorBarrierRoutes[popupRoute] = MirrorBarrierInfo(mirrorBarrier: mirrorBarrier);
     }
 
     // Use the current popupOnLeft parameter to determine barrier placement,
@@ -522,7 +635,13 @@ class SplitViewNavigatorPolicy with WidgetsBindingObserver {
   }
 
   Widget _buildSplitViewOverlay() {
-    final ({List<OverlayEntry> left, List<OverlayEntry> right}) split = _splitOverlayEntries();
+    // Only compute split entries when overlays haven't been created yet
+    // (first build). On subsequent builds, initialEntries is ignored by
+    // OverlayState, so computing split would be wasted work.
+    final bool needSplit = _navigator.overlay == null || _rightOverlay == null;
+    final ({List<OverlayEntry> left, List<OverlayEntry> right})? split = needSplit
+        ? _splitOverlayEntries()
+        : null;
 
     final bool rightShowsPlaceholder;
     if (!_isHomePageTopOnLeft) {
@@ -555,12 +674,17 @@ class SplitViewNavigatorPolicy with WidgetsBindingObserver {
                   child: SizedBox(
                     width: leftVisible ? null : 0,
                     height: leftVisible ? null : 0,
-                    child: Overlay(
-                      key: _navigator._overlayKey,
-                      clipBehavior: _navigator.widget.clipBehavior,
-                      initialEntries: _navigator.overlay == null
-                          ? split.left
-                          : const <OverlayEntry>[],
+                    child: Stack(
+                      children: <Widget>[
+                        const Positioned.fill(child: ColoredBox(color: Color(0xfff1f3f5))),
+                        Overlay(
+                          key: _navigator._overlayKey,
+                          clipBehavior: _navigator.widget.clipBehavior,
+                          initialEntries: _navigator.overlay == null
+                              ? split!.left
+                              : const <OverlayEntry>[],
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -586,7 +710,7 @@ class SplitViewNavigatorPolicy with WidgetsBindingObserver {
                           key: _rightOverlayKey,
                           clipBehavior: _navigator.widget.clipBehavior,
                           initialEntries: _rightOverlay == null
-                              ? split.right
+                              ? split!.right
                               : const <OverlayEntry>[],
                         ),
                       ],
