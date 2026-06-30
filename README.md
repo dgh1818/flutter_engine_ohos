@@ -248,7 +248,7 @@ flutter_flutter/                 # 仓库根目录
 
 19. 模拟器执行时发生白屏、崩溃等现象。
 
-    1. 模拟器只支持Mac(arm64), 还不支持Mac(x86)和Windows
+    1. 模拟器调试支持Mac(arm64)和Windows(x64)，还不支持Mac(x86)
     2. 模拟器暂不支持vulkan，请尝试构建步骤2.1，关闭impeller后重试
 
 20. flutter profile模式下编译或运行失败
