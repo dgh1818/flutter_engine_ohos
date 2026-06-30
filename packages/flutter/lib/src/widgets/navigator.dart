@@ -4667,27 +4667,12 @@ class NavigatorState extends State<Navigator> with TickerProviderStateMixin, Res
       _disposeRouteEntry(entry, graceful: true);
       _splitViewPolicy?.disposeMirrorBarrierFor(entry);
     }
+    // Update home page cache before overlay rearrangement to avoid flicker.
+    _splitViewPolicy?.updateHomePageCache();
+    _splitViewPolicy?.updateHomePageReady();
     if (rearrangeOverlay) {
       if (_splitViewPolicy != null) {
-        final split = _splitViewPolicy!.splitOverlayEntries();
-        final OverlayState? leftOverlay = overlay;
-        final OverlayState? rightOverlay = _splitViewPolicy!.rightOverlay;
-        if (leftOverlay != null) {
-          for (final OverlayEntry entry in split.right) {
-            if (leftOverlay.containsEntry(entry)) {
-              entry.remove();
-            }
-          }
-        }
-        if (rightOverlay != null) {
-          for (final OverlayEntry entry in split.left) {
-            if (rightOverlay.containsEntry(entry)) {
-              entry.remove();
-            }
-          }
-        }
-        leftOverlay?.rearrange(split.left);
-        rightOverlay?.rearrange(split.right);
+        _splitViewPolicy!.rearrangeSplitOverlays();
       } else {
         overlay?.rearrange(_allRouteOverlayEntries);
       }
@@ -4695,8 +4680,6 @@ class NavigatorState extends State<Navigator> with TickerProviderStateMixin, Res
     if (bucket != null) {
       _serializableHistory.update(_history);
     }
-    _splitViewPolicy?.updateHomePageCache();
-    _splitViewPolicy?.updateHomePageReady();
     _flushingHistory = false;
   }
 
@@ -5728,6 +5711,27 @@ class NavigatorState extends State<Navigator> with TickerProviderStateMixin, Res
       return true;
     }
 
+    // Split-view: When the sole home page is at the top of the stack,
+    // calling pop() would be blocked by shouldBlockPopFromHomePageByRoute.
+    // In this case, maybePop should bubble up (return false) to let the
+    // parent navigator or the system handle the back gesture.
+    if (_splitViewPolicy != null && _splitViewPolicy!.shouldBubbleUpFromHomePage()) {
+      return false;
+    }
+
+    // Split-view: When the preserved home page sits at the bottom of _history
+    // and only one non-preserved route remains on top, the delegate's onPopPage
+    // will block the pop (its route stack has only 1 entry, not counting the
+    // preserved home). In this case, the app should exit (bubble) instead of
+    // attempting a pop that will be silently blocked.
+    if (_splitViewPolicy != null &&
+        _preservedHomePageName != null &&
+        _history.length >= 2 &&
+        _history[0].route.settings.name == _preservedHomePageName &&
+        identical(lastEntry, _history[1])) {
+      return false;
+    }
+
     switch (lastEntry.route.popDisposition) {
       case RoutePopDisposition.bubble:
         return false;
@@ -5767,18 +5771,21 @@ class NavigatorState extends State<Navigator> with TickerProviderStateMixin, Res
   @optionalTypeArgs
   void pop<T extends Object?>([T? result]) {
     assert(!_debugLocked);
-    // Split-view: block pop if it originates from the home page, because
-    // the home page must remain visible on the left side. This must happen
-    // before _debugLocked is set to true.
-    final SplitViewNavigatorPolicy? policy = _splitViewPolicy;
-    if (policy != null && policy.shouldBlockPopFromHomePageByRoute(result)) {
-      _splitViewPolicy?.clearCallerRoute();
-      return;
-    }
     assert(() {
       _debugLocked = true;
       return true;
     }());
+    // Split-view: block pop if it originates from the home page, because
+    // the home page must remain visible on the left side.
+    final SplitViewNavigatorPolicy? policy = _splitViewPolicy;
+    if (policy != null && policy.shouldBlockPopFromHomePageByRoute(result)) {
+      assert(() {
+        _debugLocked = false;
+        return true;
+      }());
+      policy.clearCallerRoute();
+      return;
+    }
     final _RouteEntry entry = _history.lastWhere(_RouteEntry.isPresentPredicate);
     if (entry.pageBased && widget.onPopPage != null) {
       if (widget.onPopPage!(entry.route, result)) {
@@ -5826,7 +5833,14 @@ class NavigatorState extends State<Navigator> with TickerProviderStateMixin, Res
         return;
       }
       pop();
-      candidate = _lastRouteEntryWhereOrNull(_RouteEntry.isPresentPredicate);
+      final _RouteEntry? newCandidate = _lastRouteEntryWhereOrNull(_RouteEntry.isPresentPredicate);
+      // Split-view: when pop is rejected (e.g. onPopPage returned false or
+      // the home page must remain visible), the top entry stays unchanged.
+      // Continuing the loop would repeat forever, so stop here.
+      if (_splitViewPolicy != null && identical(newCandidate, candidate)) {
+        return;
+      }
+      candidate = newCandidate;
     }
   }
 
@@ -5852,8 +5866,14 @@ class NavigatorState extends State<Navigator> with TickerProviderStateMixin, Res
       } else {
         pop();
       }
-
-      candidate = _lastRouteEntryWhereOrNull(_RouteEntry.isPresentPredicate);
+      final _RouteEntry? newCandidate = _lastRouteEntryWhereOrNull(_RouteEntry.isPresentPredicate);
+      // Split-view: when pop is rejected (e.g. onPopPage returned false or
+      // the home page must remain visible), the top entry stays unchanged.
+      // Continuing the loop would repeat forever, so stop here.
+      if (_splitViewPolicy != null && identical(newCandidate, candidate)) {
+        return;
+      }
+      candidate = newCandidate;
     }
   }
 
