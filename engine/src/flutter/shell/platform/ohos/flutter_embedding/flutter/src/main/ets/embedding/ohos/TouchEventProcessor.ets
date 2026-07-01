@@ -407,6 +407,9 @@ export default class TouchEventProcessor {
         if (down) {
           //如果flutter端判断当前platformView是可点击的，则将事件分发出去
           let touchEvent: CustomTouchEvent = TouchEventProcessor.getInstance().constructCustomTouchEvent(strings, top, left);
+          // Correct local coordinates for rotation/scale using the global→local
+          // affine stored at layout time (PlatformViewsController.offset).
+          TouchEventProcessor.applyAffineTransform(touchEvent, params['affineTransform'] as Array<number> | undefined);
           let nodeController = params['nodeController'] as EmbeddingNodeController;
           nodeController.postEvent(touchEvent)
         } else {
@@ -534,6 +537,76 @@ export default class TouchEventProcessor {
       return true;
     } else {
       return false;
+    }
+  }
+
+  /**
+   * Corrects the local coordinates of a touch event using the global→local
+   * affine derived in PlatformViewsController.applyTransformOffset.
+   *
+   * affineTransform = [invScaleX, invShearY, invTx, invShearX, invScaleY, invTy] with
+   *   localX = invScaleX*gx + invShearY*gy + invTx ; localY = invShearX*gx + invScaleY*gy + invTy
+   * where (gx, gy) is the raw screen coordinate (stored identically in the
+   * touch object's displayX/displayY/windowX/windowY/screenX/screenY) and
+   * (x, y) is the platform-view local coordinate.
+   *
+   * For an unrotated view at offset (left, top) this reduces to localX = gx −
+   * left, matching decodeTouchPacket's existing computation, so non-rotated
+   * behaviour is unchanged. Rotated/scaled views (e.g. WebView inside a
+   * RotatedBox) get the correctly transformed local coordinate instead.
+   *
+   * This must be applied exactly once per event, on the dispatch path
+   * (postTouchEvent immediate branch, or onTouch flush of buffered events).
+   *
+   * @param event - The touch event whose touch points need correction
+   * @param affineTransform - The global→local affine [invScaleX, invShearY, invTx, invShearX, invScaleY, invTy]
+   */
+  public static applyAffineTransform(event: CustomTouchEvent, affineTransform: Array<number> | undefined): void {
+    if (affineTransform == undefined || affineTransform.length < 6) {
+      return;
+    }
+    let invScaleX = affineTransform[0];
+    let invShearY = affineTransform[1];
+    let invTx     = affineTransform[2];
+    let invShearX = affineTransform[3];
+    let invScaleY = affineTransform[4];
+    let invTy     = affineTransform[5];
+
+    // Guard against non-finite coefficients (NaN / Infinity).  Although
+    // applyTransformOffset validates the source matrix before storing it,
+    // this is a defensive check at the consumption site to ensure that
+    // stale or corrupted data never produces non-finite touch coordinates.
+    if (!Number.isFinite(invScaleX) || !Number.isFinite(invShearY) || !Number.isFinite(invTx) ||
+        !Number.isFinite(invShearX) || !Number.isFinite(invScaleY) || !Number.isFinite(invTy)) {
+      return;
+    }
+
+    TouchEventProcessor.applyAffineToObjects(event.changedTouches, invScaleX, invShearY, invTx, invShearX, invScaleY, invTy);
+    TouchEventProcessor.applyAffineToObjects(event.touches, invScaleX, invShearY, invTx, invShearX, invScaleY, invTy);
+  }
+
+  // Apply the global→local affine to the touch coordinates.
+  // Only x/y (local coordinates) are overwritten; displayX/displayY/windowX/
+  // windowY/screenX/screenY intentionally remain as the original screen
+  // coordinates — they represent the global touch position, while x/y
+  // represent the position relative to the component.  This matches the
+  // OHOS TouchObject contract and the Android MotionEvent convention
+  // (getX/getY = local, getRawX/getRawY = screen).
+  private static applyAffineToObjects(objects: CustomTouchObject[], invScaleX: number, invShearY: number, invTx: number,
+    invShearX: number, invScaleY: number, invTy: number): void {
+    for (let i = 0; i < objects.length; i++) {
+      let obj = objects[i];
+      let gx = obj.displayX;
+      let gy = obj.displayY;
+      let lx = invScaleX * gx + invShearY * gy + invTx;
+      let ly = invShearX * gx + invScaleY * gy + invTy;
+
+      if (Number.isFinite(lx)) {
+        obj.x = lx;
+      }
+      if (Number.isFinite(ly)) {
+        obj.y = ly;
+      }
     }
   }
 }

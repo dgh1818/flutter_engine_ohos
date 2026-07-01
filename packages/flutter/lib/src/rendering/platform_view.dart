@@ -406,10 +406,36 @@ class RenderOhosView extends PlatformViewRenderBox {
     SchedulerBinding.instance.addPostFrameCallback((_) async {
       if (!_isDisposed) {
         if (attached) {
-          await _viewController.setOffset(localToGlobal(Offset.zero));
+          // Extract the local→global affine transform and send it to the
+          // engine alongside the offset. This is the same matrix that
+          // globalToLocal/localToGlobal use (getTransformTo), so it is correct
+          // by construction for any rotation/scale/translation.
+          //
+          // The engine uses it to:
+          //   1. detect the rotation robustly (the 2x2 part encodes it,
+          //      independent of the view's on-screen position or size),
+          //   2. position the native node at the rotated bounding box's visual
+          //      top-left via a 4-corner min, and
+          //   3. correct touch coordinates for non-axis-aligned transforms.
+          //
+          // Only send the affine when the matrix is actually affine (no
+          // perspective).  If perspective components matrixStorage[3],
+          // matrixStorage[7], or matrixStorage[11] are non-zero, the 2D affine
+          // approximation is invalid — the true mapping requires homogeneous
+          // division — so fall back to offset-only (the engine will skip touch
+          // correction, matching the old pre-transform behaviour).
+          final matrixStorage = getTransformTo(null).storage;
+          final bool isAffine = matrixStorage[3] == 0.0 && matrixStorage[7] == 0.0 && matrixStorage[11] == 0.0 && matrixStorage[15] == 1.0;
+          await _viewController.setOffset(
+            localToGlobal(Offset.zero),
+            transform: isAffine ? <double>[matrixStorage[0], matrixStorage[4], matrixStorage[1], matrixStorage[5], matrixStorage[12], matrixStorage[13]] : null,
+          );
         }
-        // Schedule a new post frame callback.
-        _setOffset();
+        // Re-check after the await: the RenderObject may have been disposed
+        // or detached while we were asynchronously waiting for setOffset.
+        if (!_isDisposed) {
+          _setOffset();
+        }
       }
     });
   }
