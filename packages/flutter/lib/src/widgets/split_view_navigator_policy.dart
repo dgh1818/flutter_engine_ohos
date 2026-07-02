@@ -221,10 +221,15 @@ class SplitViewNavigatorPolicy with WidgetsBindingObserver {
       return false;
     }
 
-    // Scenario A: sole home page at top → block pop and notify route.
+    // Scenario: top entry is a popup → allow pop (popups should close normally).
     final _RouteEntry? topEntry = _navigator._lastRouteEntryWhereOrNull(
       _RouteEntry.isPresentPredicate,
     );
+    if (topEntry != null && topEntry.route is PopupRoute) {
+      return false;
+    }
+
+    // Scenario A: sole home page at top → block pop and notify route.
     if (topEntry != null && topEntry == homePageEntry) {
       if (_hasOtherHomePage || topEntry.route.willHandlePopInternally) {
         return false;
