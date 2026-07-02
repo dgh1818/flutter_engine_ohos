@@ -299,7 +299,7 @@ export class FlutterView {
   private viewportMetrics = new ViewportMetrics();
   private displayInfo?: display.Display;
   private keyboardManager: KeyboardManager | null = null;
-  private statusBarClickChannel: StatusBarClickChannel|null = null;
+  private statusBarClickChannel: StatusBarClickChannel | null = null;
   private mainWindow: window.Window | null = null;
   private mouseCursorPlugin?: MouseCursorPlugin;
   private textInputPlugin?: TextInputPlugin;
@@ -339,6 +339,8 @@ export class FlutterView {
 
   private ltpoSwitchState: LTPOSwitchState = LTPOSwitchState.NOT_INIT;
 
+  private isAllCallbacksRegistered: boolean = false;
+
   /**
    * Constructs a new FlutterView instance.
    * @param viewId - The unique identifier for this view
@@ -354,35 +356,28 @@ export class FlutterView {
     this.mainWindow = FlutterManager.getInstance()
       .getWindowStage(FlutterManager.getInstance().getUIAbility(context))
       ?.getMainWindowSync();
-    this.mFirstFrameListeners = new ArrayList<FirstFrameListener>();
-    this.mFirstPreloadFrameListeners = new ArrayList<FirstPreloadFrameListener>();
-
-    this.mainWindow?.on('windowSizeChange', this.windowSizeChangeCallback);
-    this.mainWindow?.on('avoidAreaChange', this.avoidAreaChangeCallback);
-    this.mainWindow?.on('windowStatusChange', this.windowStatusChangeCallback);
-    this.mainWindow?.on('keyboardHeightChange', this.keyboardHeightChangeCallback);
-    this.mainWindow?.on('windowRectChange', this.windowRectChangeCallback);
-    //监听系统无障碍服务状态改变
-    accessibility.on('accessibilityStateChange', this.accessibilityStateChangeCallback);
 
     this.systemAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
     this.navigationAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR);
     this.gestureAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM_GESTURE);
     this.keyboardAvoidArea = this.mainWindow?.getWindowAvoidArea(window.AvoidAreaType.TYPE_KEYBOARD);
-    commonEventManager.createSubscriber(
- 	       { events: ["usual.event.CLICK_STATUSBAR"] }, this.onStatusBarClick);
 
-    // 监听折叠状态的改变
-    display?.on('foldStatusChange', this.foldStatusChangeCallback);
-
-    // Subscribes to display changes. Example: event that the display size is changed.
-    try {
-      display.on("change", this.displayChangeCallback);
-    } catch (e) {
-      Log.e(TAG, "displayInfo error" + JSON.stringify(e));
-    }
-    this.context.eventHub.on('changeDevicePixelRatio', this.onDevicePixelRatioChange);
+    this.mFirstFrameListeners = new ArrayList<FirstFrameListener>();
+    this.mFirstPreloadFrameListeners = new ArrayList<FirstPreloadFrameListener>();
   }
+
+  onBackPressCallback = () => {
+    /// [LTPO] Notifying the VSync signal may require a high frame rate.
+    if (this.ltpoSwitchState == LTPOSwitchState.ON) {
+      this.flutterEngine?.getFlutterNapi()?.LTPODispatchHighFrameRate();
+    }
+
+    if (this.getKeyboardHeight() == 0) {
+      this.flutterEngine?.getNavigationChannel()?.popRoute();
+    } else {
+      this.flutterEngine?.getTextInputChannel()?.textInputMethodHandler?.hide();
+    }
+  };
 
   /**
    * Called when the device pixel ratio should be updated from a density scale factor.
@@ -430,7 +425,7 @@ export class FlutterView {
       Log.e(TAG, "Error updating device pixel ratio: " + JSON.stringify(e));
     }
   }
-  
+
   /**
    * Sets the callback for getting touch slop value.
    * @param callback - The callback function that returns the touch slop value
@@ -523,36 +518,43 @@ export class FlutterView {
       default:
         break;
     }
+    if (!this.isActive) {
+      Log.d(TAG, `${this.id} is not active. Ignoring avoid area change.`);
+      return;
+    }
     if (this.isAttachedToFlutterEngine()) {
       this.onAreaChange(null);
     }
   }
   private windowSizeChangeCallback = (data: window.Size) => {
     Log.i(TAG, `windowSizeChangeCallback: width=${data.width}, height=${data.height}, lastHeight=${this.lastHeight}`);
-    
+    if (!this.isActive) {
+      Log.d(TAG, `${this.id} is not active. Ignoring window size change.`);
+      return;
+    }
     // Only handle when height changes
     if (this.lastHeight !== data.height) {
       try {
         // If DPI has been customized, do not process system DPI changes
-          this.displayInfo = display.getDefaultDisplaySync();
-          this.flutterEngine?.getTextInputChannel()?.setDevicePixelRatio(this.displayInfo.densityPixels);
-          
-          let devicePixelRatio: number = this.displayInfo.densityPixels;
-          Log.i(TAG, `windowSizeChangeCallback devicePixelRatio: ${devicePixelRatio}, viewportMetrics.devicePixelRatio: ${this.viewportMetrics.devicePixelRatio}`);
-          
-          if (devicePixelRatio !== this.viewportMetrics.devicePixelRatio) {
-            this.viewportMetrics.devicePixelRatio = devicePixelRatio;
-            Log.i(TAG, `windowSizeChangeCallback: Updated devicePixelRatio to ${devicePixelRatio}`);
-            this.needSetViewport = true;
-          }
+        this.displayInfo = display.getDefaultDisplaySync();
+        this.flutterEngine?.getTextInputChannel()?.setDevicePixelRatio(this.displayInfo.densityPixels);
+
+        let devicePixelRatio: number = this.displayInfo.densityPixels;
+        Log.i(TAG, `windowSizeChangeCallback devicePixelRatio: ${devicePixelRatio}, viewportMetrics.devicePixelRatio: ${this.viewportMetrics.devicePixelRatio}`);
+
+        if (devicePixelRatio !== this.viewportMetrics.devicePixelRatio) {
+          this.viewportMetrics.devicePixelRatio = devicePixelRatio;
+          Log.i(TAG, `windowSizeChangeCallback: Updated devicePixelRatio to ${devicePixelRatio}`);
+          this.needSetViewport = true;
+        }
       } catch (e) {
         Log.e(TAG, `windowSizeChangeCallback error: ${JSON.stringify(e)}`);
       }
     }
-    
+
     // Update lastHeight
     this.lastHeight = data.height;
-    
+
     // Notify area change, this method handles all necessary view updates
     if (this.isAttachedToFlutterEngine()) {
       this.onAreaChange(null);
@@ -560,6 +562,10 @@ export class FlutterView {
   }
   private windowStatusChangeCallback = (data: window.WindowStatusType) => {
     Log.i(TAG, "windowStatusChangeCallback " + data);
+    if (!this.isActive) {
+      Log.d(TAG, `${this.id} is not active. Ignoring window status change.`);
+      return;
+    }
     if (this.isAttachedToFlutterEngine()) {
       FlutterManager.getInstance().getFullScreenListener().onScreenStateChanged(data);
     }
@@ -570,7 +576,10 @@ export class FlutterView {
       Log.d(TAG, "Skipping display change callback due to custom DPI setting");
       return;
     }
-    
+    if (!this.isActive) {
+      Log.d(TAG, `${this.id} is not active. Ignoring display change.`);
+      return;
+    }
     this.displayInfo = display.getDefaultDisplaySync();
     this.flutterEngine?.getTextInputChannel()?.setDevicePixelRatio(this.displayInfo.densityPixels);
     let devicePixelRatio: number = this.displayInfo?.densityPixels;
@@ -584,13 +593,21 @@ export class FlutterView {
   }
   private keyboardHeightChangeCallback = (data: number) => {
     Log.i(TAG, "keyboardHeightChangeCallback " + data);
+    if (!this.isActive) {
+      Log.d(TAG, `${this.id} is not active. Ignoring keyboard height change.`);
+      return;
+    }
     if (this.keyboardAvoidArea) {
       this.keyboardAvoidArea.bottomRect.height = data;
     }
     this.onAreaChange(null);
   };
   private windowRectChangeCallback = (data: window.RectChangeOptions) => {
-    Log.i(TAG, "windowRectChangeCallback " + data);
+    Log.i(TAG, "windowRectChangeCallback " + JSON.stringify(data));
+    if (!this.isActive) {
+      Log.d(TAG, `${this.id} is not active. Ignoring window rect change.`);
+      return;
+    }
     this.windowPosition = data.rect as window.Rect;
     this.flutterEngine?.getTextInputChannel()?.setWindowPosition(this.windowPosition);
   }
@@ -604,10 +621,128 @@ export class FlutterView {
   }
   private windowTitleButtonRectChangeCallback = (data: window.TitleButtonRect) => {
     Log.i(TAG, "windowTitleButtonRectChangeCallback " + JSON.stringify(data));
+    if (!this.isActive) {
+      Log.d(TAG, `${this.id} is not active. Ignoring window title button rect change.`);
+      return;
+    }
     // Clear padding before handling window decoration to allow recalculation
     // This fixes the issue where safe area avoidance is not applied after exiting freeform multi-window mode
     this.paddingTop = undefined;
     FlutterManager.getInstance().handleWindowDecorSafeArea(this.id, this.context);
+  }
+
+  private registerAllCallbacks() {
+    if (this.isAllCallbacksRegistered) {
+      this.unRegisterAllCallbacks();
+    }
+
+    try {
+      this.mainWindow?.on('windowSizeChange', this.windowSizeChangeCallback);
+      this.mainWindow?.on('avoidAreaChange', this.avoidAreaChangeCallback);
+      this.mainWindow?.on('windowStatusChange', this.windowStatusChangeCallback);
+      this.mainWindow?.on('keyboardHeightChange', this.keyboardHeightChangeCallback);
+      this.mainWindow?.on('windowRectChange', this.windowRectChangeCallback);
+      this.mainWindow?.on('windowTitleButtonRectChange', this.windowTitleButtonRectChangeCallback);
+    } catch (e) {
+      Log.e(TAG, "mainWindow on error: " + JSON.stringify(e));
+    }
+
+    try {
+      //监听系统无障碍服务状态改变
+      accessibility.on('accessibilityStateChange', this.accessibilityStateChangeCallback);
+    } catch (e) {
+      Log.e(TAG, "accessibility on error: " + JSON.stringify(e));
+    }
+
+    try {
+      this.context.eventHub.on(EVENT_BACK_PRESS, this.onBackPressCallback);
+      this.context.eventHub.on('changeDevicePixelRatio', this.onDevicePixelRatioChange);
+    } catch (e) {
+      Log.e(TAG, "eventHub on error: " + JSON.stringify(e));
+    }
+
+    try {
+      commonEventManager.createSubscriber(
+        { events: ["usual.event.CLICK_STATUSBAR"] }, this.onStatusBarClick);
+    } catch (e) {
+      Log.e(TAG, "commonEventManager createSubscriber error: " + JSON.stringify(e));
+    }
+
+    try {
+      // Listen to route navigation (Flutter navigating to HarmonyOS native), soft keyboard management
+      uiObserver.on('routerPageUpdate', this.uiContext as UIContext, this.routerPageUpdateCallback);
+      uiObserver.on('densityUpdate', this.uiContext as UIContext, this.densityUpdateCallback);
+    } catch (e) {
+      Log.e(TAG, "uiObserver on error: " + JSON.stringify(e));
+    }
+
+    // Subscribes to display changes. Example: event that the display size is changed.
+    try {
+      display.on('foldStatusChange', this.foldStatusChangeCallback);
+      display.on("change", this.displayChangeCallback);
+    } catch (e) {
+      Log.e(TAG, "displayInfo on error: " + JSON.stringify(e));
+    }
+    this.isAllCallbacksRegistered = true;
+  }
+
+  private unRegisterAllCallbacks() {
+    if (!this.isAllCallbacksRegistered) {
+      return;
+    }
+
+    try {
+      this.mainWindow?.off('windowSizeChange', this.windowSizeChangeCallback);
+      this.mainWindow?.off('avoidAreaChange', this.avoidAreaChangeCallback);
+      this.mainWindow?.off('windowStatusChange', this.windowStatusChangeCallback);
+      this.mainWindow?.off('keyboardHeightChange', this.keyboardHeightChangeCallback);
+      this.mainWindow?.off('windowRectChange', this.windowRectChangeCallback);
+      this.mainWindow?.off('windowTitleButtonRectChange', this.windowTitleButtonRectChangeCallback);
+    } catch (e) {
+      Log.e(TAG, "mainWindow off error: " + JSON.stringify(e));
+    }
+
+    try {
+      accessibility.off('accessibilityStateChange', this.accessibilityStateChangeCallback);
+    } catch (e) {
+      Log.e(TAG, "accessibility off error: " + JSON.stringify(e));
+    }
+
+    try {
+      this.context.eventHub.off(EVENT_BACK_PRESS, this.onBackPressCallback);
+      this.context.eventHub.off('changeDevicePixelRatio', this.onDevicePixelRatioChange);
+    } catch (e) {
+      Log.e(TAG, "eventHub off error: " + JSON.stringify(e));
+    }
+
+    try {
+      if (this.statusBarClickSubscriber != null) {
+        commonEventManager.unsubscribe(this.statusBarClickSubscriber, (err: BusinessError) => {
+          if (err) {
+            Log.e(TAG, "Failed to unsubscribe status bar click event: " + JSON.stringify(err));
+            return;
+          }
+          this.statusBarClickSubscriber = null;
+        });
+      }
+    } catch (e) {
+      Log.e(TAG, "commonEventManager unsubscribe error: " + JSON.stringify(e));
+    }
+
+    try {
+      uiObserver.off('routerPageUpdate', this.uiContext as UIContext, this.routerPageUpdateCallback);
+      uiObserver.off('densityUpdate', this.uiContext as UIContext, this.densityUpdateCallback);
+    } catch (e) {
+      Log.e(TAG, "uiObserver off error: " + JSON.stringify(e));
+    }
+
+    try {
+      display.off('foldStatusChange', this.foldStatusChangeCallback);
+      display.off("change", this.displayChangeCallback);
+    } catch (e) {
+      Log.e(TAG, "displayInfo off error: " + JSON.stringify(e));
+    }
+    this.isAllCallbacksRegistered = false;
   }
 
   /**
@@ -617,13 +752,18 @@ export class FlutterView {
   getId(): string {
     return this.id;
   }
-  
+
   /**
    * Sets the active state of the view.
    * @param value - True to activate, false to deactivate
    */
   setActive(value: boolean): void {
+    const wasActive = this.isActive;
     this.isActive = value;
+    if (value && !wasActive && this.isAttachedToFlutterEngine()) {
+      this.displayInfo = display.getDefaultDisplaySync();
+      this.onAreaChange(null);
+    }
   }
 
   /**
@@ -721,28 +861,8 @@ export class FlutterView {
    * Cleans up all event listeners and resources.
    */
   onDestroy() {
-    try {
-      uiObserver.off('routerPageUpdate', this.uiContext as UIContext, this.routerPageUpdateCallback);
-      uiObserver.off('densityUpdate', this.uiContext as UIContext, this.densityUpdateCallback);
-      this.mainWindow?.off('windowSizeChange', this.windowSizeChangeCallback);
-      this.mainWindow?.off('avoidAreaChange', this.avoidAreaChangeCallback);
-      this.mainWindow?.off('windowStatusChange', this.windowStatusChangeCallback);
-      this.mainWindow?.off('keyboardHeightChange', this.keyboardHeightChangeCallback);
-      this.mainWindow?.off('windowRectChange', this.windowRectChangeCallback);
-      this.mainWindow?.off('windowTitleButtonRectChange', this.windowTitleButtonRectChangeCallback);
-      accessibility.off('accessibilityStateChange', this.accessibilityStateChangeCallback);
-      display.off('foldStatusChange', this.foldStatusChangeCallback);
-      this.context.eventHub.off('changeDevicePixelRatio', this.onDevicePixelRatioChange);
-    } catch (e) {
-      Log.e(TAG, "mainWindow off error: " + JSON.stringify(e));
-    }
+    this.unRegisterAllCallbacks();
     this.mainWindow = null;
-
-    try {
-      display.off("change", this.displayChangeCallback);
-    } catch (e) {
-      Log.e(TAG, "displayInfo off error" + JSON.stringify(e));
-    }
     FlutterManager.getInstance().deleteFlutterView(this.id, this);
 
     this.nodeController.disposeFrameNode();
@@ -763,7 +883,7 @@ export class FlutterView {
       Log.i(
         TAG,
         "Currently attached to a different engine. Detaching and then attaching"
-          + " to new engine.");
+        + " to new engine.");
       this.detachFromFlutterEngine();
     }
     Log.i(TAG, "attachToFlutterEngine");
@@ -789,19 +909,6 @@ export class FlutterView {
       newArea = null;
     }
     this.onAreaChange(newArea, true);
-
-    this.context.eventHub.on(EVENT_BACK_PRESS, () => {
-      /// [LTPO] Notifying the VSync signal may require a high frame rate.
-      if (this.ltpoSwitchState == LTPOSwitchState.ON) {
-        this.flutterEngine?.getFlutterNapi()?.LTPODispatchHighFrameRate();
-      }
-
-      if (this?.getKeyboardHeight() == 0) {
-        this.flutterEngine?.getNavigationChannel()?.popRoute();
-      } else {
-        this.flutterEngine?.getTextInputChannel()?.textInputMethodHandler?.hide();
-      }
-    });
 
     let windowId = this.mainWindow?.getWindowProperties()?.id ?? 0
     this.mouseCursorPlugin = new MouseCursorPlugin(windowId, this.flutterEngine?.getMouseCursorChannel()!);
@@ -869,7 +976,6 @@ export class FlutterView {
     this.flutterEngine = null;
     this.keyboardManager = null;
     this.textInputPlugin?.destroy();
-    this.context?.eventHub.off(EVENT_BACK_PRESS);
   }
 
   /**
@@ -913,17 +1019,12 @@ export class FlutterView {
   onWindowCreated() {
     Log.d(TAG, "received onwindowCreated.");
     this.uiContext = this.tryGetUIContext();
-    if (this.uiContext !== undefined) {
-      // Listen to route navigation (Flutter navigating to HarmonyOS native), soft keyboard management
-      uiObserver.on('routerPageUpdate', this.uiContext, this.routerPageUpdateCallback);
-      uiObserver.on('densityUpdate', this.uiContext, this.densityUpdateCallback);
-      this.sendSettings();
-      if (this.autofillUiContext === undefined) {
-        this.applyAutofillUiContext(this.uiContext);
-      }
-      this.mainWindow?.on('windowTitleButtonRectChange', this.windowTitleButtonRectChangeCallback);
-      Log.d(TAG, "uiContext init and sendSettings finished.");
+    this.sendSettings();
+    this.registerAllCallbacks();
+    if (this.uiContext !== undefined && this.autofillUiContext === undefined) {
+      this.applyAutofillUiContext(this.uiContext);
     }
+    Log.d(TAG, "uiContext init and sendSettings finished.");
   }
 
   /**
@@ -1172,7 +1273,7 @@ export class FlutterView {
    */
   onStatusBarClick = (err: BusinessError, subscriber: commonEventManager.CommonEventSubscriber) => {
     this.statusBarClickSubscriber = subscriber
-    if(subscriber !== null) {
+    if (subscriber !== null) {
       commonEventManager.subscribe(subscriber, (err, data) => {
         this.statusBarClickChannel?.sendClick()
       })
