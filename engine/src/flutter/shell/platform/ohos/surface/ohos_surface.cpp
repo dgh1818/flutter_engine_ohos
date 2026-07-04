@@ -71,6 +71,7 @@ bool OHOSSurface::PrepareOffscreenWindow(int32_t width, int32_t height) {
       static_cast<OHNativeWindow*>(offscreen_nativewindow_));
   ohosNativeWindow->setIsPreload(true);
   SetNativeWindow(ohosNativeWindow);
+  ohosNativeWindow->setIsPreload(false);
 
   OH_OnFrameAvailableListener listener;
   std::lock_guard<std::mutex> lock(g_surface_alive_mutex);
