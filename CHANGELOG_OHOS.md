@@ -1,4 +1,15 @@
 # Changelog
+
+## 3.41.9-ohos-0.0.2-beta
+
+- Fix OHOS platform view active touch cancellation,([9a62d0c00a7](https://gitcode.com/CPF-Flutter/flutter_flutter/commit/9a62d0c00a7576a025e122b556260e25e13f6f3f))
+- 解决分栏功能跳转返回时的几个异常。1.使用go_router库时跳转主页有动画残留（闪烁）2.详情页非模态弹窗返回时会自动回到上一页 3.如果栈中没有主页，则虽然sdk会拦截主页移除，但是此时侧滑返回无效 4.popuntil特定场景下会死循环,([3e1db0ddc45](https://gitcode.com/CPF-Flutter/flutter_flutter/commit/3e1db0ddc45187450993a1916a56d1da3d19d99d))
+- LTPO Performance Optimization,([5ef12e4ebc3](https://gitcode.com/CPF-Flutter/flutter_flutter/commit/5ef12e4ebc38e8078781757303e4fd3db4c17f34))
+- 切换分栏实现方案，支持router路由方式下的分栏,([1a5c594c47f](https://gitcode.com/CPF-Flutter/flutter_flutter/commit/1a5c594c47f0aef6ac0d5f47cf5fd807180fb05c))
+- Frame Buffer PTS Optimization for Delayed Frame Presentation,([70e256534f4](https://gitcode.com/CPF-Flutter/flutter_flutter/commit/70e256534f478c08fd600e711c4ab7fe1a8f53a2))
+- [OHOS] Fix PixelMap ReadPixels temp buffer cleanup,([6f79361bf7b](https://gitcode.com/CPF-Flutter/flutter_flutter/commit/6f79361bf7b63f17a1367e6ca382c28fb07267a8))
+- fix：修复性能雷达滑动丢帧上报字段值问题,([97bfa3bae03](https://gitcode.com/CPF-Flutter/flutter_flutter/commit/97bfa3bae0397495ea0d217c1d8eeff6cedccd6d))
+
 ## 3.41.9-ohos-0.0.1
 - 修复旋转黑屏问题,([b2778ff9a6](https://gitcode.com/openharmony-tpc/flutter_flutter/commit/b2778ff9a6db2378f34ef8888ac50a63f7d303a0?ref=oh-3.41.9-dev))
 - 修复插件注册失败问题,([ec32c187bb](https://gitcode.com/openharmony-tpc/flutter_flutter/commit/ec32c187bb5ca5737422ddb11fb700c617ca82a4?ref=oh-3.41.9-dev))
