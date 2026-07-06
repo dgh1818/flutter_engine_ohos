@@ -42,7 +42,6 @@ void expectCupertinoToolbarForPartialSelection() {
 
   switch (defaultTargetPlatform) {
     case TargetPlatform.android:
-    case TargetPlatform.ohos:
       expect(find.byType(CupertinoButton), findsNWidgets(5));
       expect(find.text('Cut'), findsOneWidget);
       expect(find.text('Copy'), findsOneWidget);
@@ -62,6 +61,7 @@ void expectCupertinoToolbarForPartialSelection() {
       expect(find.text('Cut'), findsOneWidget);
       expect(find.text('Copy'), findsOneWidget);
       expect(find.text('Paste'), findsOneWidget);
+    case TargetPlatform.ohos:
     case TargetPlatform.fuchsia:
     case TargetPlatform.linux:
     case TargetPlatform.windows:

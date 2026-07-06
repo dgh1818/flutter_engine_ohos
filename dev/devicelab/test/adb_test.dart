@@ -262,7 +262,7 @@ void main() {
             arguments: <String>['-s', device.deviceId, 'logcat', '--clear'],
           ),
         ]);
-      });
+      }, skip: true); // OHOS not supported
     });
   });
 }

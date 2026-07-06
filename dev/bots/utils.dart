@@ -736,6 +736,9 @@ Future<void> _runFromList(
 /// Provides access to read and parse the `bin/cache/flutter.version.json`.
 sealed class Version {
   static final RegExp _pattern = RegExp(r'^(\d+)\.(\d+)\.(\d+)((-\d+\.\d+)?\.pre([-\.]\d+)?)?$');
+  // OHOS fork version strings (e.g. 3.35.8-ohos-0.0.3, 3.22.1-ohos-1.0.0).
+  // Requires the -ohos-A.B.C sub-version; bare "X.Y.Z-ohos" is invalid.
+  static final RegExp _ohosPattern = RegExp(r'^(\d+)\.(\d+)\.(\d+)-ohos-\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$');
 
   /// Attempts to read and resolve the version stored in the [checkoutPath].
   ///
@@ -772,7 +775,7 @@ sealed class Version {
         contents: version,
       );
     }
-    if (!version.contains(_pattern)) {
+    if (!version.contains(_pattern) && !version.contains(_ohosPattern)) {
       return VersionError._(
         'The version logic generated an invalid version string: "$version".',
         contents: version,

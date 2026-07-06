@@ -398,6 +398,7 @@ class DefaultTextEditingShortcuts extends StatelessWidget {
   //   * Meta + shift? + backspace
   static final Map<ShortcutActivator, Intent> _ohosShortcuts = <ShortcutActivator, Intent>{
     ..._commonShortcuts,
+    ..._clipboardShortcuts,
     const SingleActivator(LogicalKeyboardKey.home): const ExtendSelectionToLineBreakIntent(
       forward: false,
       collapseSelection: true,

@@ -53,7 +53,8 @@ Finder findLiveTextButton() {
   final bool isMobile =
       defaultTargetPlatform == TargetPlatform.android ||
       defaultTargetPlatform == TargetPlatform.fuchsia ||
-      defaultTargetPlatform == TargetPlatform.iOS;
+      defaultTargetPlatform == TargetPlatform.iOS ||
+      defaultTargetPlatform == TargetPlatform.ohos;
   if (isMobile) {
     return find.byWidgetPredicate((Widget widget) {
       return (widget is CustomPaint &&

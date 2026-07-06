@@ -13,6 +13,7 @@ import 'package:flutter_tools/src/doctor.dart';
 import 'package:flutter_tools/src/doctor_validator.dart';
 import 'package:flutter_tools/src/features.dart';
 import 'package:flutter_tools/src/globals.dart' as globals;
+import 'package:flutter_tools/src/ohos/ohos_sdk.dart';
 import 'package:flutter_tools/src/project.dart';
 import 'package:test/fake.dart';
 
@@ -253,12 +254,20 @@ void main() {
       () => testbed.run(() async {
         final command = CreateCommand();
         final CommandRunner<void> runner = createTestCommandRunner(command);
-        await runner.run(<String>['create', 'testy', '--offline']);
+        await runner.run(<String>[
+          'create',
+          'testy',
+          '--offline',
+        ]);
         expect(fakePub.calledOnline, 0);
         expect(fakePub.calledGetOffline, 1);
         expect(command.argParser.options.containsKey('offline'), true);
         expect(command.shouldUpdateCache, true);
-      }, overrides: <Type, Generator>{Java: () => null, Pub: () => fakePub}),
+      }, overrides: <Type, Generator>{
+        Java: () => null,
+        Pub: () => fakePub,
+        HmosSdk: () => FakeHmosSdk(),
+      }),
     );
 
     testUsingContext(

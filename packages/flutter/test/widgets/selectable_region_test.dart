@@ -989,10 +989,16 @@ void main() {
       }
       await gesture.up();
     },
-    variant: TargetPlatformVariant.all(),
+    variant: TargetPlatformVariant.all(excluding: <TargetPlatform>{TargetPlatform.ohos}),
   );
 
   group('SelectionArea integration', () {
+    const TargetPlatformVariant mobileExceptOhos = TargetPlatformVariant(<TargetPlatform>{
+      TargetPlatform.android,
+      TargetPlatform.iOS,
+      TargetPlatform.fuchsia,
+    });
+
     testWidgets(
       'selection is not cleared when app loses focus on desktop',
       (WidgetTester tester) async {
@@ -1113,7 +1119,7 @@ void main() {
         expect(paragraph.selections[0], const TextSelection(baseOffset: 4, extentOffset: 11));
         await gesture.up();
       },
-      variant: TargetPlatformVariant.mobile(),
+      variant: mobileExceptOhos,
       // [intended] Web does not support double tap + drag gestures on all of the tested platforms.
       skip: kIsWeb,
     );
@@ -1170,7 +1176,7 @@ void main() {
 
         await gesture.up();
       },
-      variant: TargetPlatformVariant.mobile(),
+      variant: mobileExceptOhos,
       // [intended] Web does not support double tap + drag gestures on all of the tested platforms.
       skip: kIsWeb,
     );
@@ -1239,7 +1245,7 @@ void main() {
 
         await gesture.up();
       },
-      variant: TargetPlatformVariant.mobile(),
+      variant: mobileExceptOhos,
       // [intended] Web does not support double tap + drag gestures on all of the tested platforms.
       skip: kIsWeb,
     );
@@ -1295,7 +1301,7 @@ void main() {
 
         await gesture.up();
       },
-      variant: TargetPlatformVariant.mobile(),
+      variant: mobileExceptOhos,
       // [intended] Web does not support double tap + drag gestures on all of the tested platforms.
       skip: kIsWeb,
     );
@@ -1785,7 +1791,7 @@ void main() {
       expect(paragraph.selections[0], const TextSelection(baseOffset: 5, extentOffset: 11));
 
       await gesture.up();
-    }, variant: TargetPlatformVariant.mobile());
+    }, variant: mobileExceptOhos);
 
     testWidgets('mouse drag finalizes the selection', (WidgetTester tester) async {
       SelectableRegionSelectionStatus? selectionStatus;
@@ -1870,7 +1876,7 @@ void main() {
         expect(paragraph.selections.length, 0);
         expect(selectionStatus, isNull);
       },
-      variant: TargetPlatformVariant.mobile(),
+      variant: mobileExceptOhos,
     );
 
     testWidgets('mouse can select word-by-word on double click drag', (WidgetTester tester) async {
@@ -5128,6 +5134,7 @@ void main() {
           case TargetPlatform.fuchsia:
           case TargetPlatform.linux:
           case TargetPlatform.windows:
+          case TargetPlatform.ohos:
             meta = false;
             alt = true;
           case TargetPlatform.iOS:
@@ -5508,7 +5515,7 @@ void main() {
           break;
       }
     },
-    variant: TargetPlatformVariant.mobile(),
+    variant: const TargetPlatformVariant(<TargetPlatform>{TargetPlatform.android, TargetPlatform.iOS, TargetPlatform.fuchsia}),
     skip: kIsWeb, // [intended] Web uses its native context menu.
   );
 
@@ -5567,6 +5574,7 @@ void main() {
         case TargetPlatform.android:
         case TargetPlatform.iOS:
         case TargetPlatform.fuchsia:
+        case TargetPlatform.ohos:
           expect(regionState.selectionOverlay, isNotNull);
           expect(regionState.selectionOverlay?.startHandleLayerLink, isNotNull);
           expect(regionState.selectionOverlay?.endHandleLayerLink, isNotNull);
@@ -5577,7 +5585,7 @@ void main() {
           break;
       }
     },
-    variant: TargetPlatformVariant.mobile(),
+    variant: const TargetPlatformVariant(<TargetPlatform>{TargetPlatform.android, TargetPlatform.iOS, TargetPlatform.fuchsia}),
     skip: kIsWeb, // [intended] Web uses its native context menu.
   );
 
@@ -5698,7 +5706,7 @@ void main() {
           expect(buttonItems[1].type, ContextMenuButtonType.selectAll);
       }
     },
-    variant: TargetPlatformVariant.all(),
+    variant: TargetPlatformVariant.all(excluding: <TargetPlatform>{TargetPlatform.ohos}),
     skip: kIsWeb, // [intended] Web uses its native context menu.
   );
 
@@ -5819,7 +5827,7 @@ void main() {
       expect(buttonLabels.contains(fakeAction1Label), areTextActionsSupported);
       expect(buttonLabels.contains(fakeAction2Label), areTextActionsSupported);
     },
-    variant: TargetPlatformVariant.all(),
+    variant: TargetPlatformVariant.all(excluding: <TargetPlatform>{TargetPlatform.ohos}),
     skip: kIsWeb, // [intended] Web uses its native context menu.
   );
 

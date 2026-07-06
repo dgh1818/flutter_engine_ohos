@@ -21,6 +21,7 @@ import 'package:flutter_tools/src/cache.dart';
 import 'package:flutter_tools/src/convert.dart';
 import 'package:flutter_tools/src/features.dart';
 import 'package:flutter_tools/src/ios/plist_parser.dart';
+import 'package:flutter_tools/src/ohos/ohos_sdk.dart';
 import 'package:flutter_tools/src/project.dart';
 import 'package:flutter_tools/src/resident_runner.dart';
 import 'package:flutter_tools/src/version.dart';
@@ -614,6 +615,7 @@ class TestFeatureFlags implements FeatureFlags {
 
   @override
   List<Feature> get allFeatures => const <Feature>[
+    flutterOhosFeature,
     flutterWebFeature,
     flutterLinuxDesktopFeature,
     flutterMacOSDesktopFeature,
@@ -754,6 +756,28 @@ class FakeAndroidSdk extends Fake implements AndroidSdk {
 
   @override
   AndroidSdkVersion? latestVersion;
+}
+
+class FakeHmosSdk extends Fake implements HmosSdk {
+  FakeHmosSdk({this.sdkPath = '/fake/hmos/sdk'});
+
+  @override
+  final String sdkPath;
+
+  @override
+  String get name => 'HarmonyOSSDK';
+
+  @override
+  String? get hdcPath => null;
+
+  @override
+  String? get npmPath => null;
+
+  @override
+  List<String> get apiAvailable => <String>[];
+
+  @override
+  bool get isValidDirectory => true;
 }
 
 class FakeAndroidStudio extends Fake implements AndroidStudio {

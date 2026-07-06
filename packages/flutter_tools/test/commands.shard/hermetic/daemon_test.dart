@@ -184,6 +184,16 @@ void main() {
                 },
               ],
             },
+            'ohos': <String, Object>{
+              'isSupported': false,
+              'reasons': <Map<String, String>>[
+                <String, String>{
+                  'reasonText': 'the Ohos feature is not enabled',
+                  'fixText': 'Run "flutter config --enable-ohos"',
+                  'fixCode': 'config',
+                },
+              ],
+            },
             'custom': <String, Object>{
               'isSupported': false,
               'reasons': <Map<String, String>>[

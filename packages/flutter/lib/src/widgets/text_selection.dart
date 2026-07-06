@@ -2725,44 +2725,8 @@ class TextSelectionGestureDetectorBuilder {
   ///    this callback.
   @protected
   void onSingleLongTapStart(LongPressStartDetails details) {
-    if (delegate.selectionEnabled) {
-      switch (defaultTargetPlatform) {
-        case TargetPlatform.iOS:
-        case TargetPlatform.macOS:
-          if (!renderEditable.hasFocus) {
-            _longPressStartedWithoutFocus = true;
-            renderEditable.selectWord(cause: SelectionChangedCause.longPress);
-          } else {
-            renderEditable.selectPositionAt(
-              from: details.globalPosition,
-              cause: SelectionChangedCause.longPress,
-            );
-            // Show the floating cursor.
-            final RawFloatingCursorPoint cursorPoint = RawFloatingCursorPoint(
-              state: FloatingCursorDragState.Start,
-              startLocation: (
-                renderEditable.globalToLocal(details.globalPosition),
-                TextPosition(
-                  offset: editableText.textEditingValue.selection.baseOffset,
-                  affinity: editableText.textEditingValue.selection.affinity,
-                ),
-              ),
-              offset: Offset.zero,
-            );
-            editableText.updateFloatingCursor(cursorPoint);
-          }
-        case TargetPlatform.android:
-        case TargetPlatform.fuchsia:
-        case TargetPlatform.linux:
-        case TargetPlatform.ohos:
-        case TargetPlatform.windows:
-          renderEditable.selectWord(cause: SelectionChangedCause.longPress);
-      }
-
-      _showMagnifierIfSupportedByPlatform(details.globalPosition);
-
-      _dragStartViewportOffset = renderEditable.offset.pixels;
-      _dragStartScrollOffset = _scrollPosition;
+    if (!delegate.selectionEnabled) {
+      return;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.iOS:

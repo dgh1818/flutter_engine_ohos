@@ -34,7 +34,6 @@ import 'base/user_messages.dart';
 import 'build_info.dart';
 import 'convert.dart';
 import 'features.dart';
-import 'globals.dart';
 
 const kFlutterRootEnvironmentVariableName =
     'FLUTTER_ROOT'; // should point to //flutter/ (root of flutter/flutter repo)

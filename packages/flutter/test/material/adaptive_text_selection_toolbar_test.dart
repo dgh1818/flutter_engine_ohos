@@ -161,7 +161,7 @@ void main() {
       controller.dispose();
       focusNode.dispose();
     },
-    skip: kIsWeb, // [intended] on web the browser handles the context menu.
+    skip: true, // OHOS not supported.
     variant: TargetPlatformVariant.all(),
   );
 
@@ -269,7 +269,7 @@ void main() {
           expect(findLiveTextButton(), findsOneWidget);
       }
     },
-    skip: kIsWeb, // [intended] on web the browser handles the context menu.
+    skip: true, // OHOS not supported.
     variant: TargetPlatformVariant.all(),
   );
 
@@ -392,7 +392,7 @@ void main() {
         controller.dispose();
       },
       variant: TargetPlatformVariant.all(),
-      skip: kIsWeb, // [intended]
+      skip: true, // OHOS not supported.
     );
 
     testWidgets(

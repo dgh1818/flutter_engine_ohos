@@ -1243,6 +1243,7 @@ void main() {
             '        );\n'
             '      }\n'
             '\n'
+            "    } else if (Platform.operatingSystem == 'ohos') {\n"
             '    }\n'
             '  }\n'
             '}\n',

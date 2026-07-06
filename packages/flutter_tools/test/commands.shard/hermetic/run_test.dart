@@ -331,7 +331,7 @@ void main() {
           expect(
             logger.warningText,
             contains(
-              '--flavor is only supported for Android, macOS, and iOS devices. '
+              '--flavor is only supported for Android, macOS, iOS and ohos devices. '
               'Flavor-related features may not function properly and could '
               'behave differently in a future release.',
             ),

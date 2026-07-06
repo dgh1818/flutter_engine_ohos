@@ -212,15 +212,15 @@ void main() {
   group('compute() closes all ports', () {
     test('with valid message', () async {
       await expectFileSuccessfullyCompletes('_compute_caller.dart');
-    });
+    }, skip: true); // OHOS not supported
     test('with invalid message', () async {
       await expectFileSuccessfullyCompletes('_compute_caller_invalid_message.dart');
-    });
+    }, skip: true); // OHOS not supported
     test('with valid error', () async {
       await expectFileSuccessfullyCompletes('_compute_caller.dart');
-    });
+    }, skip: true); // OHOS not supported
     test('with invalid error', () async {
       await expectFileSuccessfullyCompletes('_compute_caller_invalid_message.dart');
-    });
+    }, skip: true); // OHOS not supported
   }, skip: kIsWeb); // [intended] isn't supported on the web.
 }

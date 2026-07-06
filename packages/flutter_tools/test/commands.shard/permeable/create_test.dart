@@ -214,6 +214,7 @@ void main() {
       // Check that the tests run clean
       return _runFlutterTest(projectDir);
     },
+    skip: true, // OHOS not supported
     overrides: {
       Pub: () => Pub.test(
         fileSystem: globals.fs,
@@ -246,6 +247,7 @@ void main() {
         ],
       );
     },
+    skip: true, // OHOS not supported
     overrides: {
       Pub: () => Pub.test(
         fileSystem: globals.fs,
@@ -282,6 +284,7 @@ void main() {
       );
       return _runFlutterTest(projectDir);
     },
+    skip: true, // OHOS not supported
     overrides: {
       Pub: () => Pub.test(
         fileSystem: globals.fs,

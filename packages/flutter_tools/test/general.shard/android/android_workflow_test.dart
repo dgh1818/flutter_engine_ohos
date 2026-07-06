@@ -906,14 +906,3 @@ class ThrowingStdin<T> extends Fake implements IOSink {
     return Future<T>.error(exception);
   }
 }
-
-class ThrowingStdin<T> extends Fake implements IOSink {
-  ThrowingStdin(this.exception);
-
-  final Exception exception;
-
-  @override
-  Future<dynamic> addStream(Stream<List<int>> stream) {
-    return Future<T>.error(exception);
-  }
-}

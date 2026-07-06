@@ -105,6 +105,18 @@ Future<void> skipPastScrollingAnimation(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 200));
 }
 
+/// Excludes [TargetPlatform.ohos] for tests where long-press triggers OHOS
+/// LTPO via [WidgetsBinding.recordTranslateVelocity] (async
+/// `SystemChannels.nativeVsync.checkLTPOSwitchStatus`), which leaves pending
+/// timers in widget tests without a platform mock in [TestWidgetsFlutterBinding].
+final TargetPlatformVariant allPlatformsExceptOhosLtpo = TargetPlatformVariant.all(
+  excluding: <TargetPlatform>{TargetPlatform.ohos},
+);
+
+final TargetPlatformVariant nonAppleExceptOhosLtpo = TargetPlatformVariant.all(
+  excluding: <TargetPlatform>{TargetPlatform.iOS, TargetPlatform.macOS, TargetPlatform.ohos},
+);
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final mockClipboard = MockClipboard();
@@ -3414,7 +3426,7 @@ void main() {
       expect(find.byType(CupertinoButton), findsNWidgets(1));
       expect(find.text('Copy'), findsOneWidget);
     },
-    variant: TargetPlatformVariant.all(),
+    variant: allPlatformsExceptOhosLtpo,
   );
 
   testWidgets(
@@ -3448,7 +3460,7 @@ void main() {
       expect(find.text('Copy'), findsOneWidget);
       expect(find.text('Select all'), findsOneWidget);
     },
-    variant: TargetPlatformVariant.all(),
+    variant: allPlatformsExceptOhosLtpo,
   );
 
   testWidgets('textSelectionControls is passed to EditableText', (WidgetTester tester) async {
@@ -3664,9 +3676,7 @@ void main() {
 
       expectMaterialSelectionToolbar();
     },
-    variant: TargetPlatformVariant.all(
-      excluding: <TargetPlatform>{TargetPlatform.iOS, TargetPlatform.macOS},
-    ),
+    variant: nonAppleExceptOhosLtpo,
   );
 
   testWidgets(
