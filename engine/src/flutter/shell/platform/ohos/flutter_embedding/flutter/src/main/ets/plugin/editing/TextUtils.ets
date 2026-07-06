@@ -461,10 +461,6 @@ export class FlutterTextUtils {
       return offset + nextCharCount;
     }
 
-    // Keycaps
-    if (FlutterTextUtils.isKeycapBase(codePoint)) {
-      nextCharCount += FlutterTextUtils.charCount(codePoint);
-    }
     if (codePoint == COMBINING_ENCLOSING_KEYCAP) {
       codePoint = FlutterTextUtils.codePointBefore(text, nextOffset);
       nextOffset += FlutterTextUtils.charCount(codePoint);
