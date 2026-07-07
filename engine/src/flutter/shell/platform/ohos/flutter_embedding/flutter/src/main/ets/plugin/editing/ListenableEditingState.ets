@@ -1318,7 +1318,8 @@ export class ListenableEditingState {
       !usedExplicitPreviewRange &&
       !candidateBridgeBeforePreview &&
       ListenableEditingState.isBmpCjkOnlyInsert(text) &&
-      previewLeftIdx >= previewRightIdx
+      previewLeftIdx >= previewRightIdx &&
+      this.isPreviewStagingActive()
     ) {
       const fullRun = PreviewTextStringMerge.getFullBufferPinyinRangeIfPureLatin(this.mStringCache);
       if (fullRun !== null) {
