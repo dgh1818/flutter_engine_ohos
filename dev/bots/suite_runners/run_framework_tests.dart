@@ -9,6 +9,7 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:path/path.dart' as path;
 
+import '../ohos_platform_config.dart';
 import '../run_command.dart';
 import '../utils.dart';
 import 'run_test_harness_tests.dart';
@@ -21,14 +22,35 @@ Future<void> frameworkTestsRunner() async {
 
   Future<void> runWidgets() async {
     printProgress('${green}Running packages/flutter tests $reset for ${cyan}test/widgets/$reset');
-    for (final trackWidgetCreationOption in trackWidgetCreationAlternatives) {
+    var widgetTests = <String>[path.join('test', 'widgets') + path.separator];
+    if (isOhosCi) {
+      final String? widgetSubshard = Platform.environment['OHOS_WIDGETS_SUBSHARD'];
+      if (widgetSubshard != null) {
+        widgetTests = Directory(path.join(flutterRoot, 'packages', 'flutter', 'test', 'widgets'))
+            .listSync(followLinks: false)
+            .whereType<File>()
+            .where((File f) => f.path.endsWith('_test.dart'))
+            .map<String>((File f) => path.join('test', 'widgets', path.basename(f.path)))
+            .toList();
+        widgetTests = selectIndexOfTotalSubshard<String>(
+          widgetTests,
+          subshardKey: 'OHOS_WIDGETS_SUBSHARD',
+        );
+      }
+    }
+    final trackOptions = isOhosCi
+        ? <String>['--track-widget-creation']
+        : trackWidgetCreationAlternatives;
+    for (final trackWidgetCreationOption in trackOptions) {
       await runFlutterTest(
         path.join(flutterRoot, 'packages', 'flutter'),
         options: <String>[trackWidgetCreationOption],
-        tests: <String>[path.join('test', 'widgets') + path.separator],
+        tests: widgetTests,
       );
     }
-    // Try compiling code outside of the packages/flutter directory with and without --track-widget-creation
+  }
+
+  Future<void> runWidgetExtras() async {
     for (final trackWidgetCreationOption in trackWidgetCreationAlternatives) {
       await runFlutterTest(
         path.join(flutterRoot, 'dev', 'integration_tests', 'flutter_gallery'),
@@ -36,13 +58,11 @@ Future<void> frameworkTestsRunner() async {
         fatalWarnings: false, // until we've migrated video_player
       );
     }
-    // Run release mode tests (see packages/flutter/test_release/README.md)
     await runFlutterTest(
       path.join(flutterRoot, 'packages', 'flutter'),
       options: <String>['--dart-define=dart.vm.product=true'],
       tests: <String>['test_release${path.separator}'],
     );
-    // Run profile mode tests (see packages/flutter/test_profile/README.md)
     await runFlutterTest(
       path.join(flutterRoot, 'packages', 'flutter'),
       options: <String>[
@@ -62,16 +82,88 @@ Future<void> frameworkTestsRunner() async {
   }
 
   Future<void> runLibraries() async {
-    final List<String> tests = Directory(path.join(flutterRoot, 'packages', 'flutter', 'test'))
-        .listSync(followLinks: false)
-        .whereType<Directory>()
-        .where((Directory dir) => !dir.path.endsWith('widgets'))
-        .map<String>((Directory dir) => path.join('test', path.basename(dir.path)) + path.separator)
-        .toList();
+    List<String> tests;
+    if (isOhosCi) {
+      final String? libSubshard = Platform.environment['OHOS_LIBRARIES_SUBSHARD'];
+      if (libSubshard != null && libSubshard != 'non_material') {
+        final List<File> materialFiles =
+            Directory(path.join(flutterRoot, 'packages', 'flutter', 'test', 'material'))
+                .listSync(followLinks: false)
+                .whereType<File>()
+                .where((File f) => f.path.endsWith('_test.dart'))
+                .toList()
+              ..sort((File a, File b) => a.path.compareTo(b.path));
+        tests = selectIndexOfTotalSubshard<File>(
+          materialFiles,
+          subshardKey: 'OHOS_LIBRARIES_SUBSHARD',
+        ).map<String>((File f) => path.join('test', 'material', path.basename(f.path))).toList();
+      } else if (libSubshard == 'non_material' &&
+          Platform.environment['OHOS_NON_MATERIAL_SUBSHARD'] != null) {
+        final nonMaterialFiles = <File>[];
+        for (final Directory dir
+            in Directory(path.join(flutterRoot, 'packages', 'flutter', 'test'))
+                .listSync(followLinks: false)
+                .whereType<Directory>()
+                .where(
+                  (Directory d) => !d.path.endsWith('widgets') && !d.path.endsWith('material'),
+                )) {
+          nonMaterialFiles.addAll(
+            dir
+                .listSync(followLinks: false)
+                .whereType<File>()
+                .where((File f) => f.path.endsWith('_test.dart')),
+          );
+        }
+        nonMaterialFiles.sort((File a, File b) => a.path.compareTo(b.path));
+        tests =
+            selectIndexOfTotalSubshard<File>(
+              nonMaterialFiles,
+              subshardKey: 'OHOS_NON_MATERIAL_SUBSHARD',
+            ).map<String>((File f) {
+              final String relPath = path.relative(
+                f.path,
+                from: path.join(flutterRoot, 'packages', 'flutter'),
+              );
+              return relPath;
+            }).toList();
+      } else if (libSubshard == 'non_material') {
+        tests = Directory(path.join(flutterRoot, 'packages', 'flutter', 'test'))
+            .listSync(followLinks: false)
+            .whereType<Directory>()
+            .where(
+              (Directory dir) => !dir.path.endsWith('widgets') && !dir.path.endsWith('material'),
+            )
+            .map<String>(
+              (Directory dir) => path.join('test', path.basename(dir.path)) + path.separator,
+            )
+            .toList();
+      } else {
+        tests = Directory(path.join(flutterRoot, 'packages', 'flutter', 'test'))
+            .listSync(followLinks: false)
+            .whereType<Directory>()
+            .where((Directory dir) => !dir.path.endsWith('widgets'))
+            .map<String>(
+              (Directory dir) => path.join('test', path.basename(dir.path)) + path.separator,
+            )
+            .toList();
+      }
+    } else {
+      tests = Directory(path.join(flutterRoot, 'packages', 'flutter', 'test'))
+          .listSync(followLinks: false)
+          .whereType<Directory>()
+          .where((Directory dir) => !dir.path.endsWith('widgets'))
+          .map<String>(
+            (Directory dir) => path.join('test', path.basename(dir.path)) + path.separator,
+          )
+          .toList();
+    }
     printProgress(
       '${green}Running packages/flutter tests$reset for $cyan${tests.join(", ")}$reset',
     );
-    for (final trackWidgetCreationOption in trackWidgetCreationAlternatives) {
+    final trackOptions = isOhosCi
+        ? <String>['--track-widget-creation']
+        : trackWidgetCreationAlternatives;
+    for (final trackWidgetCreationOption in trackOptions) {
       await runFlutterTest(
         path.join(flutterRoot, 'packages', 'flutter'),
         options: <String>[trackWidgetCreationOption],
@@ -239,68 +331,121 @@ Future<void> frameworkTestsRunner() async {
     printProgress(
       '${green}Running slow package tests$reset for directories other than packages/flutter',
     );
-    await runTracingTests();
+    // OHOS TODO: tracing_tests builds Android AAB which requires Android SDK.
+    // Re-enable after OHOS CI has Android SDK or after adding OHOS-specific
+    // tracing test that builds OHOS app bundle instead.
+    if (!isOhosCi) {
+      await runTracingTests();
+    }
     await runFixTests('flutter');
     await runFixTests('flutter_test');
     await runFixTests('integration_test');
     await runFixTests('flutter_driver');
-    await runPrivateTests();
+    if (!isOhosCi) {
+      await runPrivateTests();
+    }
 
-    // Run java unit tests for integration_test
-    //
-    // Generate Gradle wrapper if it doesn't exist.
-    Process.runSync(
-      flutter,
-      <String>['build', 'apk', '--config-only'],
-      workingDirectory: path.join(
-        flutterRoot,
-        'packages',
-        'integration_test',
-        'example',
-        'android',
-      ),
-    );
-    await runCommand(
-      path.join(flutterRoot, 'packages', 'integration_test', 'example', 'android', 'gradlew$bat'),
-      <String>[
-        ':integration_test:testDebugUnitTest',
-        '--tests',
-        'dev.flutter.plugins.integration_test.FlutterDeviceScreenshotTest',
-      ],
-      workingDirectory: path.join(
-        flutterRoot,
-        'packages',
-        'integration_test',
-        'example',
-        'android',
-      ),
-    );
+    if (!isOhosCi) {
+      // Run java unit tests for integration_test
+      //
+      // Generate Gradle wrapper if it doesn't exist.
+      Process.runSync(
+        flutter,
+        <String>['build', 'apk', '--config-only'],
+        workingDirectory: path.join(
+          flutterRoot,
+          'packages',
+          'integration_test',
+          'example',
+          'android',
+        ),
+      );
+      await runCommand(
+        path.join(flutterRoot, 'packages', 'integration_test', 'example', 'android', 'gradlew$bat'),
+        <String>[
+          ':integration_test:testDebugUnitTest',
+          '--tests',
+          'dev.flutter.plugins.integration_test.FlutterDeviceScreenshotTest',
+        ],
+        workingDirectory: path.join(
+          flutterRoot,
+          'packages',
+          'integration_test',
+          'example',
+          'android',
+        ),
+      );
+    }
   }
 
   Future<void> runMisc() async {
     printProgress(
-      '${green}Running package tests$reset for directories other than packages/flutter',
+      '${green}Running package tests$reset for directories other than packages/flutter (part 1)',
     );
     await testHarnessTestsRunner();
-    await runExampleTests();
+    if (!isOhosCi) {
+      await runExampleTests();
+    }
     await runFlutterTest(
       path.join(flutterRoot, 'dev', 'a11y_assessments'),
       tests: <String>['test'],
     );
-    await runDartTest(path.join(flutterRoot, 'dev', 'bots'));
-    await runDartTest(
-      path.join(flutterRoot, 'dev', 'devicelab'),
-      ensurePrecompiledTool: false, // See https://github.com/flutter/flutter/issues/86209
+    if (!isOhosCi) {
+      await runDartTest(path.join(flutterRoot, 'dev', 'bots'));
+      await runDartTest(
+        path.join(flutterRoot, 'dev', 'devicelab'),
+        ensurePrecompiledTool: false, // See https://github.com/flutter/flutter/issues/86209
+      );
+    }
+    if (isOhosCi) {
+      for (final OhosExtraTest test in OhosPlatformConfig.extraTests) {
+        if (test.subshard != 'misc') {
+          continue;
+        }
+        final String testDir = path.basename(test.path);
+        if (OhosPlatformConfig.skippedIntegrationTests.contains(testDir)) {
+          continue;
+        }
+        await runFlutterTest(path.join(flutterRoot, test.path));
+      }
+    }
+  }
+
+  Future<void> runMiscExamples() async {
+    printProgress('${green}Running example tests$reset');
+    if (isOhosCi) {
+      printProgress(
+        '${yellow}Skipping: examples require xvfb-run and have OHOS pubspec issues$reset',
+      );
+      return;
+    }
+    await runExampleTests();
+  }
+
+  Future<void> runMisc3() async {
+    printProgress(
+      '${green}Running package tests$reset for directories other than packages/flutter (part 3)',
     );
-    await runDartTest(path.join(flutterRoot, 'dev', 'packages_autoroller'));
-    // TODO(gspencergoog): Remove the exception for fatalWarnings once https://github.com/flutter/flutter/issues/113782 has landed.
-    await runFlutterTest(
-      path.join(flutterRoot, 'dev', 'integration_tests', 'android_semantics_testing'),
-      fatalWarnings: false,
-    );
+    if (!isOhosCi) {
+      await runDartTest(path.join(flutterRoot, 'dev', 'packages_autoroller'));
+    }
+    if (!isOhosCi) {
+      await runFlutterTest(
+        path.join(flutterRoot, 'dev', 'integration_tests', 'android_semantics_testing'),
+        fatalWarnings: false,
+      );
+    }
     await runFlutterTest(path.join(flutterRoot, 'dev', 'integration_tests', 'ui'));
     await runFlutterTest(path.join(flutterRoot, 'dev', 'manual_tests'));
-    await runFlutterTest(path.join(flutterRoot, 'dev', 'tools'));
+    if (!isOhosCi) {
+      await runFlutterTest(path.join(flutterRoot, 'dev', 'tools'));
+    }
+  }
+
+  Future<void> runMisc2() async {
+    printProgress(
+      '${green}Running package tests$reset for directories other than packages/flutter (part 2)',
+    );
     await runFlutterTest(path.join(flutterRoot, 'dev', 'tools', 'vitool'));
     await runFlutterTest(path.join(flutterRoot, 'dev', 'tools', 'gen_defaults'));
     await runFlutterTest(path.join(flutterRoot, 'dev', 'tools', 'gen_keycodes'));
@@ -309,14 +454,12 @@ Future<void> frameworkTestsRunner() async {
       path.join(flutterRoot, 'packages', 'flutter_driver'),
       tests: <String>[path.join('test', 'src', 'real_tests')],
     );
-    await runFlutterTest(
-      path.join(flutterRoot, 'packages', 'integration_test'),
-      options: <String>[
-        '--enable-vmservice',
-        // Web-specific tests depend on Chromium, so they run as part of the web_long_running_tests shard.
-        '--exclude-tags=web',
-      ],
-    );
+    if (!isOhosCi) {
+      await runFlutterTest(
+        path.join(flutterRoot, 'packages', 'integration_test'),
+        options: <String>['--enable-vmservice', '--exclude-tags=web'],
+      );
+    }
     await runFlutterTest(path.join(flutterRoot, 'packages', 'flutter_goldens'));
     await runFlutterTest(path.join(flutterRoot, 'packages', 'flutter_localizations'));
     await runFlutterTest(path.join(flutterRoot, 'packages', 'flutter_test'));
@@ -342,13 +485,36 @@ Future<void> frameworkTestsRunner() async {
         return null;
       },
     );
+    if (isOhosCi) {
+      for (final OhosExtraTest test in OhosPlatformConfig.extraTests) {
+        if (test.subshard != 'misc2') {
+          continue;
+        }
+        final String testDir = path.basename(test.path);
+        if (OhosPlatformConfig.skippedIntegrationTests.contains(testDir)) {
+          continue;
+        }
+        await runFlutterTest(path.join(flutterRoot, test.path));
+      }
+    }
   }
 
-  await selectSubshard(<String, ShardRunner>{
+  final subshards = <String, ShardRunner>{
     'widgets': runWidgets,
+    'widget_extras': runWidgetExtras,
     'libraries': runLibraries,
     'slow': runSlow,
     'misc': runMisc,
+    'misc2': runMisc2,
+    'misc3': runMisc3,
+    'misc_examples': runMiscExamples,
     'impeller': runImpeller,
-  });
+  };
+  if (isOhosCi) {
+    subshards.removeWhere(
+      (String key, _) =>
+          OhosPlatformConfig.skippedSubshards['framework_tests']?.contains(key) ?? false,
+    );
+  }
+  await selectSubshard(subshards);
 }

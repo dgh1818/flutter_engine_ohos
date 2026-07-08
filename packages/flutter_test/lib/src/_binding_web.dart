@@ -16,3 +16,6 @@ void setupHttpOverrides() {}
 
 /// This method is a noop on the web.
 void mockFlutterAssets() {}
+
+/// This method is a noop on the web.
+void mockNativeVsyncChannel() {}

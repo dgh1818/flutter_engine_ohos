@@ -18,6 +18,7 @@ import 'package:file/local.dart';
 import 'package:meta/meta.dart';
 import 'package:path/path.dart' as path;
 
+import 'ohos_platform_config.dart';
 import 'run_command.dart';
 import 'tool_subsharding.dart';
 
@@ -434,6 +435,11 @@ Future<void> runDartTest(
   List<String>? tags,
   bool runSkipped = false,
 }) async {
+  // OHOS CI always collects metrics for JSON report export.
+  if (isOhosCi) {
+    collectMetrics = true;
+  }
+
   // TODO(matanlurey): Consider Platform.numberOfProcessors instead.
   // See https://github.com/flutter/flutter/issues/161399.
   var cpus = 2;
@@ -489,8 +495,21 @@ Future<void> runDartTest(
   }
 
   final test = TestFileReporterResults.fromFile(metricFile); // --file-reporter name
-  final File info = fileSystem.file(path.join(flutterRoot, 'error.log'));
-  info.writeAsStringSync(json.encode(test.errors));
+
+  if (isOhosCi) {
+    final Directory ohosOutputDir = fileSystem.directory(path.join(flutterRoot, 'test_output'));
+    if (!ohosOutputDir.existsSync()) {
+      ohosOutputDir.createSync();
+    }
+    final File ohosErrorLog = fileSystem.file(path.join(ohosOutputDir.path, 'error_$suffix.log'));
+    ohosErrorLog.writeAsStringSync(json.encode(test.errors));
+    if (metricFile.existsSync()) {
+      metricFile.copySync(path.join(ohosOutputDir.path, 'metrics_$suffix.json'));
+    }
+  } else {
+    final File info = fileSystem.file(path.join(flutterRoot, 'error.log'));
+    info.writeAsStringSync(json.encode(test.errors));
+  }
 
   if (collectMetrics) {
     try {
@@ -501,8 +520,21 @@ Future<void> runDartTest(
       }
       if (testList.isNotEmpty) {
         final String testJson = json.encode(testList);
-        final File testResults = fileSystem.file(path.join(flutterRoot, 'test_results.json'));
-        testResults.writeAsStringSync(testJson);
+        if (isOhosCi) {
+          final Directory ohosOutputDir = fileSystem.directory(
+            path.join(flutterRoot, 'test_output'),
+          );
+          if (!ohosOutputDir.existsSync()) {
+            ohosOutputDir.createSync();
+          }
+          final File ohosTestResults = fileSystem.file(
+            path.join(ohosOutputDir.path, 'test_results_$suffix.json'),
+          );
+          ohosTestResults.writeAsStringSync(testJson);
+        } else {
+          final File testResults = fileSystem.file(path.join(flutterRoot, 'test_results.json'));
+          testResults.writeAsStringSync(testJson);
+        }
       }
     } on fs.FileSystemException catch (e) {
       print('Failed to generate metrics: $e');
@@ -544,6 +576,7 @@ Future<void> runFlutterTest(
   final File metricFile = fileSystem.systemTempDirectory.childFile('metrics_$suffix.json');
   final args = <String>[
     'test',
+    if (isOhosCi) '--no-pub',
     '--reporter=expanded',
     '--file-reporter=json:${metricFile.path}',
     if (shuffleTests && !_isRandomizationOff) '--test-randomize-ordering-seed=$shuffleSeed',
@@ -586,7 +619,16 @@ Future<void> runFlutterTest(
   // TODO(godofredoc): Ensure metricFile is parsed and aggregated before deleting.
   // https://github.com/flutter/flutter/issues/146003
   if (!dryRun) {
-    metricFile.deleteSync();
+    if (isOhosCi && metricFile.existsSync()) {
+      final Directory ohosOutputDir = fileSystem.directory(path.join(flutterRoot, 'test_output'));
+      if (!ohosOutputDir.existsSync()) {
+        ohosOutputDir.createSync();
+      }
+      metricFile.copySync(path.join(ohosOutputDir.path, 'metrics_$suffix.json'));
+    }
+    if (metricFile.existsSync()) {
+      metricFile.deleteSync();
+    }
   }
 
   if (outputChecker != null) {

@@ -72,6 +72,21 @@ void mockFlutterAssets() {
   );
 }
 
+/// Setup mocking of the nativeVsync method channel so that LTPO switch status
+/// checks return immediately instead of pending on a platform channel that
+/// has no handler in the test environment.
+void mockNativeVsyncChannel() {
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+    SystemChannels.nativeVsync,
+    (MethodCall methodCall) async {
+      if (methodCall.method == 'checkLTPOSwitchStatus') {
+        return 0;
+      }
+      return null;
+    },
+  );
+}
+
 /// Provides a default [HttpClient] which always returns empty 400 responses.
 ///
 /// If another [HttpClient] is provided using [HttpOverrides.runZoned], that will

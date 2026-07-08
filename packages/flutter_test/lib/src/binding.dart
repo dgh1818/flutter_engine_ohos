@@ -1889,6 +1889,7 @@ class AutomatedTestWidgetsFlutterBinding extends TestWidgetsFlutterBinding {
     super.initInstances();
     _instance = this;
     binding.mockFlutterAssets();
+    binding.mockNativeVsyncChannel();
   }
 
   /// The current [AutomatedTestWidgetsFlutterBinding], if one has been created.
