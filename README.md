@@ -3,11 +3,43 @@ Flutter SDK & Engine 仓库
 
 <span style="color:red">**仓库迁移公告**：Flutter 鸿蒙化相关仓库已整体迁移至 [CPF-Flutter](https://gitcode.com/CPF-Flutter) 组织。本仓库（flutter_flutter）新地址为 [CPF-Flutter/flutter_flutter](https://gitcode.com/CPF-Flutter/flutter_flutter)，旧仓库将不再维护，请及时更新远程地址和依赖引用。详情参见：[迁移公告](https://gitcode.com/openharmony-tpc/flutter_flutter/wiki/Flutter%20%E9%B8%BF%E8%92%99%E5%8C%96%E4%BB%93%E5%BA%93%E8%BF%81%E7%A7%BB%E5%85%AC%E5%91%8A%EF%BC%9A%E5%85%A8%E6%96%B0%20CPF-Flutter%20%E7%BB%84%E7%BB%87%E4%B8%8A%E7%BA%BF)</span>
 
+## 跨平台框架技术选型
+
+为破解原生开发痛点，行业持续迭代演进跨平台技术方案，主流框架已形成多元格局：
+
+- 基于 Web 技术的跨端方案：如 uni-app、Electron、各类小程序框架，延续 BS 架构优势并适配移动生态
+- React Native：通过 DSL 描述 UI 并采用原生组件渲染，提升性能与原生 API 调用体验
+- **Flutter：以 Dart 语言与自渲染引擎为核心，实现接近原生的性能表现并覆盖移动与桌面场景**
+- Kotlin Multiplatform（KMP）与 Compose Multiplatform（CMP）：以逻辑跨端为突破，叠加 UI 跨端能力，获得企业级开发者广泛认可
+
+> 详情请参见：[开源鸿蒙跨平台框架社区正式发布《跨平台框架白皮书》](https://openharmonycrossplatform.csdn.net/6a1d3e4810ee7a33f276c2c5.html)
+
 ## 仓库说明
 
 本仓库是 **[Flutter SDK](https://github.com/flutter/flutter)** 和 **[Flutter Engine](https://github.com/flutter/flutter/tree/master/engine)** 的 **OpenHarmony** 适配版本，当前版本分支基于 Flutter 官方社区 [![Flutter Version](https://img.shields.io/badge/Flutter-3.41.9-blue?logo=flutter)](https://github.com/flutter/flutter/commit/00b0c91f06209d9e4a41f71b7a512d6eb3b9c694) 构建，由 OpenHarmony-Flutter 团队维护。开发者可使用熟悉的 Flutter 技术栈开发 OpenHarmony 应用，也可基于本仓库源码构建支持 OpenHarmony 的 Flutter Engine。
 
-> 版本规划与分支策略请参见：[Flutter OH 版本规划与分支策略](https://gitcode.com/CPF-Flutter/flutter_flutter/wiki/Flutter-OH%E7%89%88%E6%9C%AC%E6%BC%94%E8%BF%9B%E8%A7%84%E5%88%92%E5%92%8C%E5%88%86%E6%94%AF%E7%AD%96%E7%95%A5.md)
+## 版本规划与分支策略
+
+### 稳定版本
+
+推荐基于版本tag获取稳定版本，版本tag格式如下：
+- 3.7.12-ohos-X.X.X: 基于上游社区3.7.12分支适配OpenHarmony的X.X.X版本。
+- 3.22.1-ohos-X.X.X: 基于上游社区3.22.0分支适配OpenHarmony的X.X.X版本。
+- 3.27.5-ohos-X.X.X: 基于上游社区3.27.4分支适配OpenHarmony的X.X.X版本。
+- 3.35.8-ohos-X.X.X: 基于上游社区3.35.7分支适配OpenHarmony的X.X.X版本。
+
+### 版本规划
+
+| Flutter 版本 | 源社区发布时间 | 鸿蒙版本发布时间 | 间隔时间 |
+| :----------- | :------------- | :--------------- | -------- |
+| Flutter 3.35 | 2025/08        | 2026/03          | 7个月    |
+| Flutter 3.41 | 2026/02        | 2026/06          | 4个月    |
+| Flutter 3.44 | 2026/05        | 2026/09          | 4个月    |
+| Flutter 3.47 | 2026/08        | 2026/12          | 4个月    |
+
+*注：以上时间为预估，实际发版可能会根据质量验收情况及交付规划微调。*
+
+> 详情请参见：[Flutter OH 版本规划与分支策略](https://gitcode.com/CPF-Flutter/flutter_flutter/wiki/Flutter-OH%E7%89%88%E6%9C%AC%E6%BC%94%E8%BF%9B%E8%A7%84%E5%88%92%E5%92%8C%E5%88%86%E6%94%AF%E7%AD%96%E7%95%A5.md)
 
 ## 仓库结构
 
