@@ -96,6 +96,10 @@ void main() {
     focusScopeNode.dispose();
   });
 
+  final TargetPlatformVariant allExceptOhos = TargetPlatformVariant.all(
+    excluding: <TargetPlatform>{TargetPlatform.ohos},
+  );
+
   // Tests that the desired keyboard action button is requested.
   //
   // More technically, when an EditableText is given a particular [action], Flutter
@@ -7191,7 +7195,7 @@ void main() {
 
       // On web, using keyboard for selection is handled by the browser.
     },
-    variant: TargetPlatformVariant.all(),
+    variant: TargetPlatformVariant.all(excluding: <TargetPlatform>{TargetPlatform.ohos}),
     skip: kIsWeb, // [intended]
   );
 
@@ -7206,7 +7210,7 @@ void main() {
 
       // On web, using keyboard for selection is handled by the browser.
     },
-    variant: TargetPlatformVariant.all(),
+    variant: TargetPlatformVariant.all(excluding: <TargetPlatform>{TargetPlatform.ohos}),
     skip: kIsWeb, // [intended]
   );
 
@@ -7489,7 +7493,7 @@ void main() {
       expect(controller.text, equals(testText), reason: 'on $platform');
     },
     skip: kIsWeb, // [intended] on web these keys are handled by the browser.
-    variant: TargetPlatformVariant.all(),
+    variant: allExceptOhos,
   );
 
   testWidgets(
@@ -7614,7 +7618,7 @@ void main() {
       }
     },
     skip: kIsWeb, // [intended] on web these keys are handled by the browser.
-    variant: TargetPlatformVariant.all(),
+    variant: allExceptOhos,
   );
 
   testWidgets(
@@ -7738,7 +7742,7 @@ void main() {
       }
     },
     skip: kIsWeb, // [intended] on web these keys are handled by the browser.
-    variant: TargetPlatformVariant.all(),
+    variant: allExceptOhos,
   );
 
   testWidgets(
@@ -7875,7 +7879,7 @@ void main() {
       }
     },
     skip: kIsWeb, // [intended] on web these keys are handled by the browser.
-    variant: TargetPlatformVariant.all(),
+    variant: allExceptOhos,
   );
 
   testWidgets(
@@ -8150,7 +8154,7 @@ void main() {
       }
     },
     skip: kIsWeb, // [intended] on web these keys are handled by the browser.
-    variant: TargetPlatformVariant.all(),
+    variant: allExceptOhos,
   );
 
   testWidgets(
@@ -8298,7 +8302,7 @@ void main() {
       }
     },
     skip: kIsWeb, // [intended] on web these keys are handled by the browser.
-    variant: TargetPlatformVariant.all(),
+    variant: allExceptOhos,
   );
 
   testWidgets(
@@ -8429,6 +8433,7 @@ void main() {
             equals(const TextSelection.collapsed(offset: 0, affinity: TextAffinity.upstream)),
           );
         case TargetPlatform.android:
+        case TargetPlatform.ohos:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
         case TargetPlatform.windows:
@@ -8453,6 +8458,7 @@ void main() {
             equals(const TextSelection.collapsed(offset: 0, affinity: TextAffinity.upstream)),
           );
         case TargetPlatform.android:
+        case TargetPlatform.ohos:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
         case TargetPlatform.windows:
@@ -8460,7 +8466,7 @@ void main() {
       }
     },
     skip: kIsWeb, // [intended] on web these keys are handled by the browser.
-    variant: TargetPlatformVariant.all(),
+    variant: allExceptOhos,
   );
 
   testWidgets(
@@ -8517,6 +8523,7 @@ void main() {
 
         // These platforms select to the endof the text.
         case TargetPlatform.android:
+        case TargetPlatform.ohos:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
         case TargetPlatform.windows:
@@ -8549,6 +8556,7 @@ void main() {
 
         // These platforms select to the beginning of the text.
         case TargetPlatform.android:
+        case TargetPlatform.ohos:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
         case TargetPlatform.windows:
@@ -8559,7 +8567,7 @@ void main() {
       }
     },
     skip: kIsWeb, // [intended] on web these keys are handled by the browser.
-    variant: TargetPlatformVariant.all(),
+    variant: allExceptOhos,
   );
 
   testWidgets(
@@ -9703,6 +9711,7 @@ void main() {
       'TextInput.show',
       'TextInput.requestAutofill',
       'TextInput.setEditingState',
+      'TextInput.updateConfig',
       'TextInput.show',
       'TextInput.setCaretRect',
     ];
@@ -9861,6 +9870,7 @@ void main() {
       'TextInput.show',
       'TextInput.requestAutofill',
       'TextInput.setEditingState',
+      'TextInput.updateConfig',
       'TextInput.show',
       'TextInput.setCaretRect',
     ];
@@ -9906,6 +9916,7 @@ void main() {
       'TextInput.show',
       'TextInput.requestAutofill',
       'TextInput.setEditingState',
+      'TextInput.updateConfig',
       'TextInput.show',
       'TextInput.setCaretRect',
       'TextInput.setEditingState',

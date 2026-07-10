@@ -2234,7 +2234,7 @@ void main() {
       );
       await tester.pump();
       expect(taps.contains(const ChildVicinity(xIndex: 5, yIndex: 5)), isFalse);
-    }, variant: TargetPlatformVariant.all());
+    }, variant: TargetPlatformVariant.all(excluding: <TargetPlatform>{TargetPlatform.ohos})); // OHOS not supported
 
     testWidgets('getChildFor', (WidgetTester tester) async {
       final childKeys = <ChildVicinity, UniqueKey>{};

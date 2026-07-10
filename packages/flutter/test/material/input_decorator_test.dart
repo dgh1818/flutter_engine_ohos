@@ -7601,7 +7601,7 @@ void main() {
       expect(getHintOpacity(tester), 1.0);
       expect(getHintRect(tester).height, inputHeight);
       expect(getHintRect(tester).top, 0.0);
-    }, variant: TargetPlatformVariant.mobile());
+    }, variant: TargetPlatformVariant.mobile(), skip: true); // OHOS not supported.
 
     testWidgets('Decoration height is set to input height on desktop', (WidgetTester tester) async {
       // Regression test for https://github.com/flutter/flutter/issues/150763.

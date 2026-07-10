@@ -285,7 +285,6 @@ flutter:
       expect(processManager, hasNoRemainingExpectations);
     },
     overrides: <Type, Generator>{
-      FeatureFlags: enableExplicitPackageDependencies,
       FileSystem: () => fileSystem,
       ProcessManager: () => FakeProcessManager.any(),
     },
@@ -410,7 +409,6 @@ format: false
       expect(processManager, hasNoRemainingExpectations);
     },
     overrides: <Type, Generator>{
-      FeatureFlags: enableExplicitPackageDependencies,
       FileSystem: () => fileSystem,
       ProcessManager: () => FakeProcessManager.any(),
     },

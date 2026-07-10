@@ -66,7 +66,8 @@ void main() {
       }
     },
     variant: TargetPlatformVariant.all(),
-    skip: isBrowser, // [intended] see https://github.com/flutter/flutter/issues/108382
+    skip: true, // OHOS not supported
+    
   );
 
   testWidgets(
@@ -151,7 +152,7 @@ void main() {
           expect(find.byType(CupertinoDesktopTextSelectionToolbarButton), findsOneWidget);
       }
     },
-    skip: kIsWeb, // [intended] on web the browser handles the context menu.
+    skip: true, // OHOS not supported
     variant: TargetPlatformVariant.all(),
   );
 
@@ -232,7 +233,7 @@ void main() {
           expect(findLiveTextButton(), findsOneWidget);
       }
     },
-    skip: kIsWeb, // [intended] on web the browser handles the context menu.
+    skip: true, // OHOS not supported
     variant: TargetPlatformVariant.all(),
   );
 

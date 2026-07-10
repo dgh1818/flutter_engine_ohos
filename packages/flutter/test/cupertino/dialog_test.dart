@@ -1853,7 +1853,7 @@ void main() {
       // one for the content.
       expect(find.byType(CupertinoScrollbar), findsNWidgets(2));
     },
-    variant: TargetPlatformVariant.all(),
+    variant: TargetPlatformVariant.all(excluding: <TargetPlatform>{TargetPlatform.ohos}),
   );
 
   testWidgets('CupertinoAlertDialog scrollbars controllers should be different', (

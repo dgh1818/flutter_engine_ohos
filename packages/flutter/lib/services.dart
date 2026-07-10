@@ -42,6 +42,7 @@ export 'src/services/raw_keyboard_fuchsia.dart';
 export 'src/services/raw_keyboard_ios.dart';
 export 'src/services/raw_keyboard_linux.dart';
 export 'src/services/raw_keyboard_macos.dart';
+export 'src/services/raw_keyboard_ohos.dart';
 export 'src/services/raw_keyboard_web.dart';
 export 'src/services/raw_keyboard_windows.dart';
 export 'src/services/restoration.dart';

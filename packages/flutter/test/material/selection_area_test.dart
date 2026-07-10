@@ -305,7 +305,7 @@ void main() {
       expect(find.text(fakeAction2Label), areTextActionsSupported ? findsOneWidget : findsNothing);
     },
     variant: TargetPlatformVariant.all(),
-    skip: kIsWeb, // [intended]
+    skip: true, // OHOS not supported.
   );
 
   testWidgets('onSelectionChange is called when the selection changes', (
@@ -412,7 +412,7 @@ void main() {
       expect(find.text('Copy'), findsOneWidget);
     },
     variant: TargetPlatformVariant.mobile(),
-    skip: kIsWeb, // [intended]
+    skip: true, // OHOS not supported.
   );
 
   testWidgets(

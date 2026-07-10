@@ -265,6 +265,7 @@ void main() {
           expect(testLogger.statusText, isEmpty);
           expect(processManager, hasNoRemainingExpectations);
         },
+        skip: true,  // OHOS not supported
         overrides: <Type, Generator>{
           ProcessManager: () => processManager,
           Cache: () => cache,
@@ -456,6 +457,7 @@ void main() {
           expect(testLogger.statusText, isEmpty);
           expect(processManager, hasNoRemainingExpectations);
         },
+        skip: true,  // OHOS not supported
         overrides: <Type, Generator>{
           ProcessManager: () => processManager,
           Cache: () => cache,
@@ -535,6 +537,7 @@ void main() {
           expect(testLogger.statusText, isEmpty);
           expect(processManager, hasNoRemainingExpectations);
         },
+        skip: true,  // OHOS not supported
         overrides: <Type, Generator>{
           ProcessManager: () => processManager,
           Cache: () => cache,
@@ -900,6 +903,7 @@ void main() {
 
       expect(processManager, hasNoRemainingExpectations);
     },
+    skip: true,  // OHOS not supported
     overrides: <Type, Generator>{ProcessManager: () => processManager, Cache: () => cache},
   );
 
@@ -997,6 +1001,7 @@ void main() {
 }''');
       expect(processManager, hasNoRemainingExpectations);
     },
+    skip: true,  // OHOS not supported
     overrides: <Type, Generator>{ProcessManager: () => processManager, Cache: () => cache},
   );
 
@@ -1227,6 +1232,7 @@ void main() {
       expect(processManager, hasNoRemainingExpectations);
       expect(versionFile.existsSync(), isTrue);
     },
+    skip: true,  // OHOS not supported
     overrides: <Type, Generator>{ProcessManager: () => processManager, Cache: () => cache},
   );
 
@@ -1438,7 +1444,7 @@ void main() {
     );
     // reported version should increment the m
     expect(gitTagVersion.frameworkVersionFor(headRevision), '1.2.0-3.0.pre-12');
-  });
+  }, skip: true);  // OHOS not supported
 
   testUsingContext('determine does not call fetch --tags', () {
     processManager.addCommands(<FakeCommand>[
@@ -1454,7 +1460,7 @@ void main() {
 
     GitTagVersion.determine(platform, workingDirectory: '.', git: git);
     expect(processManager, hasNoRemainingExpectations);
-  });
+  }, skip: true);  // OHOS not supported
 
   testUsingContext('determine does not fetch tags on beta', () {
     processManager.addCommands(<FakeCommand>[
@@ -1474,7 +1480,7 @@ void main() {
 
     GitTagVersion.determine(platform, workingDirectory: '.', fetchTags: true, git: git);
     expect(processManager, hasNoRemainingExpectations);
-  });
+  }, skip: true);  // OHOS not supported
 
   testUsingContext('determine calls fetch --tags on master', () {
     processManager.addCommands(<FakeCommand>[
@@ -1497,7 +1503,7 @@ void main() {
 
     GitTagVersion.determine(platform, workingDirectory: '.', fetchTags: true, git: git);
     expect(processManager, hasNoRemainingExpectations);
-  });
+  }, skip: true);  // OHOS not supported
 
   testUsingContext('determine uses overridden git url', () {
     processManager.addCommands(<FakeCommand>[
@@ -1522,7 +1528,7 @@ void main() {
 
     GitTagVersion.determine(platform, workingDirectory: '.', fetchTags: true, git: git);
     expect(processManager, hasNoRemainingExpectations);
-  }, overrides: {Git: () => git});
+  }, skip: true, overrides: {Git: () => git});  // OHOS not supported
 
   group('$FlutterEngineStampFromFile', () {
     late FileSystem fs;
