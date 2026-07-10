@@ -1,25 +1,25 @@
-name: Create an umbrella issue
-description: As a contributor, I would like to create an umbrella issue for a
-feature to be added to the feature tracker.
-title: '☂️ <Feature Title>'
+name: 创建功能追踪 Issue
+description: 作为贡献者，创建一个功能追踪 Issue，用于跟踪某项大型功能及其子任务的进展。
+labels: ['triage']
+title: '☂️ <功能标题>'
 projects: ["flutter/82"]
 body:
   - type: input
     id: design_doc
     attributes:
-      label: Design Doc
-      description: Add a design doc if there is one for this feature.
+      label: 设计文档
+      description: 如有，请附上此功能的设计文档链接。
   - type: textarea
     id: description
     attributes:
-      label: Description
-      description: Please describe the feature you are adding.
+      label: 描述
+      description: 请描述你要添加的功能。
     validations:
       required: true
   - type: textarea
     id: tracking_issues
     attributes:
-      label: Tracking Issues
-      description: List of issues associated with this feature.
+      label: 跟踪 Issue
+      description: 与此功能关联的 Issue 列表。
     validations:
       required: true

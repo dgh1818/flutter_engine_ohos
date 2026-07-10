@@ -1,24 +1,23 @@
-name: My app is slow or missing frames
+name: 应用运行缓慢或丢帧
 description: |
-  You are writing an application but have discovered that it is slow,
-  you are not hitting 60Hz, or you are getting jank (missed frames).
-labels: 'from: performance template'
+  开发应用时发现运行缓慢、无法达到 60Hz，
+  或出现卡顿（丢帧）。
+labels: ['performance', 'triage']
 body:
   - type: markdown
     attributes:
       value: |
-        Thank you for using Flutter!
+        感谢使用 Flutter！
 
-        If you are looking for support, please check out our documentation
-        or consider asking a question on Stack Overflow:
+        如需帮助，请查阅文档或在 Stack Overflow 上提问：
 
           - https://flutter.dev/
           - https://api.flutter.dev/
           - https://stackoverflow.com/questions/tagged/flutter?sort=frequent
   - type: textarea
     attributes:
-      label: Steps to reproduce
-      description: Please tell us exactly how to reproduce the problem you are running into.
+      label: 复现步骤
+      description: 请详细描述如何复现你遇到的问题。
       placeholder: |
         1. ...
         2. ...
@@ -27,22 +26,22 @@ body:
       required: true
   - type: textarea
     attributes:
-      label: Code sample
+      label: 代码示例
       description: |
-        Please create a minimal reproducible sample that shows the problem and attach it below between the lines with the backticks.
+        请创建一个最小可复现示例来展示问题，并在下方代码块中粘贴。
 
-        Try to reproduce the problem in a test app. Either run `flutter create janktest` and recreate the situation you are experiencing in that app, or clone your app and delete code until you have the jank reproducing with a single `.dart` file.
+        请尝试在测试应用中复现问题：运行 `flutter create janktest` 并在其中重现你遇到的情况，或克隆你的应用并逐步删减代码，直到卡顿问题可以通过单个 `.dart` 文件复现。
 
-        If you need more than just a `.dart` file (for example, assets are needed to reproduce the issue, or plugins/packages are needed to reproduce the issue) then create a GitHub repository and upload code there.
+        如果仅靠 `.dart` 文件无法复现（例如需要资源文件或插件），请创建 GitCode 仓库并上传代码。
 
-        Without this we will unlikely be able to progress on the issue, and because of that we regretfully will have to close it.
+        缺少此示例将很难推进问题排查，我们可能不得不关闭此 Issue。
 
-        Note: Please do not upload screenshots of text. Instead, use code blocks or the above mentioned ways to upload your code sample.
+        注意：请勿上传文本截图，请使用代码块或上述方式提供代码。
       value: |
-        <details open><summary>Code sample</summary>
+        <details open><summary>代码示例</summary>
 
         ```dart
-        [Paste your code here]
+        [在此粘贴代码]
         ```
 
         </details>
@@ -50,31 +49,31 @@ body:
       required: true
   - type: checkboxes
     attributes:
-      label: Performance profiling on master channel
+      label: 在 master 渠道上进行性能分析
       description: |
-        Switch flutter to master channel and run this app on a physical device using profile mode with Skia tracing enabled, as follows:
+        将 Flutter 切换到 master 渠道，在真机上以 profile 模式并启用 Skia tracing 运行应用：
         ```console
         flutter channel master
         flutter run --profile --trace-skia
         ```
-        The bleeding edge master channel is encouraged here because Flutter is constantly fixing bugs and improving its performance. Your problem in an older Flutter version may have already been solved in the master channel.
+        建议使用最新的 master 渠道，因为 Flutter 会持续修复 Bug 并优化性能。旧版本中的问题可能已在 master 渠道中修复。
       options:
-      - label: The issue still persists on the master channel
+      - label: 该问题在 master 渠道上仍然存在
         required: true
   - type: textarea
     attributes:
-      label: Timeline Traces
+      label: 时间线追踪
       description: |
-        Open Flutter DevTools and save a timeline trace of the performance issue so we know which functions might be causing it. See "How to Collect and Read Timeline Traces" on this blog post: https://medium.com/flutter/profiling-flutter-applications-using-the-timeline-a1a434964af3#a499
+        打开 Flutter DevTools，保存性能问题的时间线追踪，以便我们定位可能导致问题的函数。请参阅博客文章中的"如何收集和阅读时间线追踪"：https://medium.com/flutter/profiling-flutter-applications-using-the-timeline-a1a434964af3#a499
 
-        Make sure the performance overlay is turned OFF when recording the trace as that may affect the performance of the profile run. (Pressing ‘P’ on the command line toggles the overlay.)
+        录制追踪时请确保关闭性能覆盖层，因为它可能影响 profile 运行的性能。（在命令行按 'P' 键可切换覆盖层。）
 
-        If the trace are too large to be uploaded to GitHub, you may upload them as a `zip` file or use online tools like https://pastebin.com to share it.
+        如果追踪文件过大无法上传到 GitCode，可以将其保存为 `zip` 文件，或使用 https://pastebin.com 等在线工具分享。
       value: |
-        <details open><summary>Timeline Traces JSON</summary>
+        <details open><summary>时间线追踪 JSON</summary>
 
         ```json
-        [Paste the Timeline Traces here]
+        [在此粘贴时间线追踪]
         ```
 
         </details>
@@ -82,24 +81,25 @@ body:
       required: true
   - type: textarea
     attributes:
-      label: Video demonstration
+      label: 视频演示
       description: |
-        Record a video of the performance issue using another phone so we can have an intuitive understanding of what happened.
+        请用另一部手机录制性能问题的视频，以便我们直观了解发生了什么。
 
-        Don’t use "adb screenrecord", as that affects the performance of the profile run.
+        
       value: |
         <details open>
-        <summary>Video demonstration</summary>
+        <summary>视频演示</summary>
 
-        [Upload media here]
+        [在此上传媒体文件]
 
         </details>
   - type: dropdown
     id: target_platforms
     attributes:
-      label: What target platforms are you seeing this bug on?
+      label: 在哪些目标平台上出现了此问题？
       multiple: true
       options:
+        - OHOS
         - Android
         - iOS
         - Web
@@ -110,61 +110,61 @@ body:
       required: true
   - type: textarea
     attributes:
-      label: OS/Browser name and version | Device information
+      label: 操作系统/浏览器名称及版本 | 设备信息
       description: |
-        Which target OS version is the test system running? For Web, please provide browser version.
-        Please also include the device information (model, CPU architecture, etc).
+        测试系统运行的目标操作系统版本是什么？Web 平台请提供浏览器版本。
+        请同时提供设备信息（型号、CPU 架构等）。
     validations:
       required: true
   - type: dropdown
     id: device-kind
     attributes:
-      label: Does the problem occur on emulator/simulator as well as on physical devices?
+      label: 该问题在模拟器和真机上都会出现吗？
       options:
-        - "Unknown"
-        - "Yes"
-        - "No"
+        - "不确定"
+        - "是"
+        - "否"
     validations:
       required: true
   - type: dropdown
     id: enable-impeller
     attributes:
-      label: Is the problem only reproducible with Impeller?
+      label: 该问题是否仅在 Impeller 下可复现？
       description: |
-        Please check https://docs.flutter.dev/perf/impeller as the guideline on how to enable/disable it.
+        请参阅 https://docs.flutter.dev/perf/impender 了解如何启用/禁用 Impeller。
       options:
-        - "N/A"
-        - "Yes"
-        - "No"
+        - "不适用"
+        - "是"
+        - "否"
     validations:
       required: true
   - type: textarea
     attributes:
-      label: Logs
+      label: 日志
       description: |
-        Include the full logs of the commands you are running between the lines with the backticks below. If you are running any `flutter` commands, please include the output of running them with `--verbose`; for example, the output of running `flutter --verbose create foo`.
+        请在下方代码块中粘贴所运行命令的完整日志。如果运行了 `flutter` 命令，请附上添加 `--verbose` 参数后的输出，例如 `flutter --verbose create foo` 的输出。
 
-        If the logs are too large to be uploaded to GitHub, you may upload them as a `txt` file or use online tools like https://pastebin.com to share it.
+        如果日志过大无法上传到 GitCode，可以将其保存为 `txt` 文件，或使用 https://pastebin.com 等在线工具分享。
 
-        Note: Please do not upload screenshots of text. Instead, use code blocks or the above mentioned ways to upload logs.
+        注意：请勿上传文本截图，请使用代码块或上述方式提供日志。
       value: |
-        <details open><summary>Logs</summary>
+        <details open><summary>日志</summary>
 
         ```console
-        [Paste your logs here]
+        [在此粘贴日志]
         ```
 
         </details>
   - type: textarea
     attributes:
-      label: Flutter Doctor output
+      label: Flutter Doctor 输出
       description: |
-        Finally, paste the output of running `flutter doctor -v` here, with your device plugged in.
+        最后，请在连接设备的情况下粘贴 `flutter doctor -v` 的输出。
       value: |
-        <details open><summary>Doctor output</summary>
+        <details open><summary>Doctor 输出</summary>
 
         ```console
-        [Paste your output here]
+        [在此粘贴输出]
         ```
 
         </details>
