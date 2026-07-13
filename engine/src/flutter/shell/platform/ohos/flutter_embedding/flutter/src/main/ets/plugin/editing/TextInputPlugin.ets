@@ -181,7 +181,14 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   ): LatinFinishPreviewRange {
     const imcW = imcEnd - imcStart;
     const previewLen = previewText.length;
-    if (previewLen > 0 && leftIdx === imcW && leftIdx < rightIdx && imcStart >= 0 && imcEnd > imcStart && imcW > 0) {
+    if (previewLen > 0 &&
+        leftIdx === imcW &&
+        leftIdx < rightIdx &&
+        imcStart >= 0 &&
+        imcEnd > imcStart &&
+        imcW > 0 &&
+        cache.startsWith(previewText)
+    ) {
       const rangeEnd = Math.min(cache.length, Math.max(rightIdx, imcW));
       const out: LatinFinishPreviewRange = { rangeStart: 0, rangeEnd: rangeEnd, mode: 'stacked' };
       return out;
@@ -685,6 +692,20 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
 
     // Preview staging: handle taps inside [leftIdx, rightIdx), strictly before leftIdx, or strictly after rightIdx without falling through to raw Flutter apply.
     if (isPreviewTextSupported() && this.mEditable.isPreviewStagingActive()) {
+      const displayNow = PreviewTextCoordinator.composeDisplayState(this.mEditable);
+      if (displayNow.text !== editingState.text) {
+        this.mEditable.discardPreviewStagingMetadata();
+        this.mEditable.updateTextInputState(editingState);
+        this.mLastOutgoingFrameworkState = PreviewTextCoordinator.safeTextEditStateForNativeDocument(
+          editingState.text,
+          editingState.selectionStart,
+          editingState.selectionEnd,
+          editingState.composingStart,
+          editingState.composingEnd
+        )
+        this.notifySelectionToFramework(editingState.text, editingState.selectionStart, editingState.selectionEnd);
+        return;
+      }
       const leftIdx = this.mEditable.getLeftIdxOfPreviewTextRange();
       const rightIdx = this.mEditable.getRightIdxOfPreviewTextRange();
       const selStart = editingState.selectionStart;

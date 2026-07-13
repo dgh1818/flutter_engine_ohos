@@ -919,7 +919,7 @@ export class ListenableEditingState {
 
     this.mImcFullSyncAfterPreviewInsert = true;
 
-    this.applyImePreviewStringCacheAndRange(ctx);
+    this.applyImePreviewStringCacheAndRange(ctx, range);
 
     this.setPreviewText(ctx.effectiveText);
     this.setPreviewTextStart(range.start);
@@ -965,15 +965,22 @@ export class ListenableEditingState {
   }
 
   /** Writes merged preview into mStringCache and [leftIdx,rightIdx); uses ctx.prevLen / prevPreview at entry for suffix math. */
-  private applyImePreviewStringCacheAndRange(ctx: PreviewTextMergeContext): void {
+  private applyImePreviewStringCacheAndRange(ctx: PreviewTextMergeContext, range:inputMethod.Range): void {
     this.repairPreviewSpanInCacheIfSpanDrifted(ctx);
     const prevLen = ctx.prevLen;
     const effectiveText = ctx.effectiveText;
     if (!ctx.hadActivePreview) {
-      const anchor = this.getSelectionStart();
-      this.mStringCache =
-        this.mStringCache.substring(0, anchor) + effectiveText + this.mStringCache.substring(anchor);
-      this.updatePreviewTextRange(anchor, anchor + effectiveText.length);
+      if (range.start >= 0 && range.end >= 0 && range.start <= range.end && range.start <= this.mStringCache.length) {
+        const safeEnd = Math.min(range.end, this.mStringCache.length);
+        this.mStringCache =
+          this.mStringCache.substring(0, range.start) + effectiveText + this.mStringCache.substring(safeEnd);
+        this.updatePreviewTextRange(range.start, range.start + effectiveText.length);
+      } else {
+        const anchor = this.getSelectionStart();
+        this.mStringCache =
+          this.mStringCache.substring(0, anchor) + effectiveText + this.mStringCache.substring(anchor);
+        this.updatePreviewTextRange(anchor, anchor + effectiveText.length);
+      }
     } else {
       const leftIdx = this.mLeftIdxOfPreviewTextRange;
       const lenCache = this.mStringCache.length;
