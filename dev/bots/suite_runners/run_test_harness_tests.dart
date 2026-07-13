@@ -7,6 +7,7 @@ import 'dart:io' show File, Platform;
 
 import 'package:path/path.dart' as path;
 
+import '../ohos_platform_config.dart';
 import '../run_command.dart';
 import '../utils.dart';
 
@@ -152,6 +153,15 @@ Future<void> _validateEngineRevision() async {
     // Because the artifacts have been changed, this particular test will return
     // a false positive and should be skipped.
     print('${yellow}Skipping Flutter Engine Version Validation for swarming bot $luciBotId.');
+    return;
+  }
+
+  if (isOhosCi) {
+    // OHOS CI uses a self-compiled engine (ci/scripts/compile_engine.sh) whose
+    // revision does not match bin/internal/engine.version, which tracks the
+    // upstream Flutter engine revision. This check would always produce a false
+    // positive, so it is skipped.
+    print('${yellow}Skipping Flutter Engine Version Validation for OHOS CI.$reset');
     return;
   }
 
