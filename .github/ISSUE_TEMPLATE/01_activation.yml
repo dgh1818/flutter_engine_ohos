@@ -1,32 +1,29 @@
-name: I am having difficulty installing Flutter or getting it to work
-description: You have run into problems while downloading or installing Flutter, or the
-  "flutter" tool is crashing, or you are running into some other issue before even
-  being able to use "flutter run".
+name: 安装或运行 Flutter 时遇到困难
+description: 在下载或安装 Flutter 时遇到问题，或 "flutter" 工具崩溃，或在使用 "flutter run" 之前就遇到了其他问题。
+labels: ['triage']
 body:
   - type: markdown
     attributes:
       value: |
-        Thank you for using Flutter!
+        感谢使用 Flutter！
 
-        If you are looking for support, please check out our documentation
-        or consider asking a question on Stack Overflow:
+        如需帮助，请查阅文档或在 Stack Overflow 上提问：
 
           - https://flutter.dev/
           - https://api.flutter.dev/
           - https://stackoverflow.com/questions/tagged/flutter?sort=frequent
 
-        If you have found a bug or if our documentation doesn't have an answer
-        to what you're looking for, then fill out the template below.
+        如果发现了 Bug，或文档中没有你需要的答案，请填写以下模板。
   - type: markdown
     attributes:
       value: |
-        Before filling the form fields, please consider the following:
-        - Ensure that you have searched the [existing issues](https://github.com/flutter/flutter/issues)
-        - Read the [guide to filing a bug](https://docs.flutter.dev/resources/bug-reports)
+        填写表单前，请确认以下事项：
+        - 已搜索[已有的 Issue](https://gitcode.com/CPF-Flutter/flutter_flutter/issues)
+        - 已阅读[提交 Bug 指南](https://docs.flutter.dev/resources/bug-reports)
   - type: textarea
     attributes:
-      label: Steps to reproduce
-      description: Please tell us exactly how to reproduce the problem you are running into.
+      label: 复现步骤
+      description: 请详细描述如何复现你遇到的问题。
       placeholder: |
         1. ...
         2. ...
@@ -35,48 +32,42 @@ body:
       required: true
   - type: textarea
     attributes:
-      label: Actual results
-      description: Please tell us what is actually happening
+      label: 实际结果
+      description: 请描述实际发生了什么。
     validations:
       required: true
   - type: textarea
     attributes:
-      label: Logs
+      label: 日志
       description: |
-        Include the full logs of the commands you are running between the lines
-        with the backticks below. If you are running any `flutter` commands,
-        please include the output of running them with `--verbose`; for example,
-        the output of running `flutter --verbose create foo`.
+        请在下方代码块中粘贴所运行命令的完整日志。如果运行了 `flutter` 命令，请附上添加 `--verbose` 参数后的输出，例如 `flutter --verbose create foo` 的输出。
 
-        If the logs are too large to be uploaded to Github, you may upload
-        them as a `txt` file or use online tools like https://pastebin.com to
-        share it.
+        如果日志过大无法上传到 GitCode，可以将其保存为 `txt` 文件，或使用 https://pastebin.com 等在线工具分享。
 
-        Note: Please do not upload screenshots of text. Instead, use code blocks
-        or the above mentioned ways to upload logs.
+        注意：请勿上传文本截图，请使用代码块或上述方式提供日志。
       value: |
         <details open>
-        <summary>Logs</summary>
+        <summary>日志</summary>
 
         ```console
 
-        <!-- Paste your logs here -->
+        <!-- 在此粘贴日志 -->
 
         ```
 
         </details>
   - type: textarea
     attributes:
-      label: Flutter Doctor output
+      label: Flutter Doctor 输出
       description: |
-        Please provide the full output of running `flutter doctor -v`
+        请提供 `flutter doctor -v` 的完整输出
       value: |
         <details open>
-        <summary>Doctor output</summary>
+        <summary>Doctor 输出</summary>
 
         ```console
 
-        <!-- Paste your output here -->
+        <!-- 在此粘贴输出 -->
 
         ```
 

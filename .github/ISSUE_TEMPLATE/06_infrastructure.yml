@@ -1,37 +1,34 @@
-name: Flutter's CI infrastructure has a problem
+name: Flutter 的 CI 基础设施存在问题
 description: |
-  As a contributor, you want to file an issue about the build/test/release
-  infra, e.g. dashboards (http://flutter-dashboard.appspot.com), devicelab,
-  LUCI (https://ci.chromium.org/p/flutter) etc.
-labels: ['team-infra']
+  作为贡献者，提交关于构建/测试/发布基础设施的 Issue，
+  例如仪表板 (http://flutter-dashboard.appspot.com)、devicelab、
+  LUCI (https://ci.chromium.org/p/flutter) 等。
+labels: ['CICD', 'triage']
 body:
   - type: markdown
     attributes:
       value: |
-        Thank you for contributing to Flutter!
+        感谢为 Flutter 做贡献！
 
-        This template is for requests made to [`team-infra`](https://flutter.dev/to/team-infra).
+        此模板用于提交 CI 基础设施相关的请求。
 
-        If you are filing this to track your **own** contributed work to infrastructure, and the
-        work is already agreed upon (routine maintenance, etc), feel free to skip this template;
-        and use a blank issue - just remember to assign the bug to yourself so it's clear we do
-        not have to triage it.
+        如果是为了跟踪你自己的基础设施维护工作（已达成共识的日常维护等），可以跳过此模板，直接使用空白 Issue——只需将 Issue 分配给自己，这样我们就无需再进行分流。
   - type: markdown
     attributes:
       value: |
-        Please search [existing infra issues](https://github.com/flutter/flutter/issues?q=is%3Aopen+is%3Aissue+label%3Ateam-infra) before filing a new issue.
+        提交新 Issue 前，请搜索[已有的基础设施 Issue](https://gitcode.com/CPF-Flutter/flutter_flutter/issues?q=is%3Aopen+is%3Aissue+label%3ACICD)。
   - type: checkboxes
     id: priority
     attributes:
-      label: Help us understand the severity of this issue
-      description: Please only choose one
+      label: 帮助我们了解此问题的严重程度
+      description: 请仅选择一项
       options:
-        - label: breakage; unable to contribute or trigger builds will no workarounds
-        - label: inconvenient workarounds exist, but significant effort required
-        - label: needed for a Flutter team-wide priority (already agreed upon)
-        - label: nice-to-have; none of the above
+        - label: 导致中断：无法贡献代码或触发构建，且无临时方案
+        - label: 存在临时方案，但需耗费大量精力
+        - label: Flutter 团队级优先事项所需（已达成共识）
+        - label: 非必须，以上都不是
   - type: textarea
     attributes:
-      label: What do you need help with
-      description: If you have a bug, What should the expect output be?
+      label: 你需要什么帮助
+      description: 如果是 Bug，期望的输出应该是什么？
       value: ...

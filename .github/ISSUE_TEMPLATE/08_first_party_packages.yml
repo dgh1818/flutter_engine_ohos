@@ -1,14 +1,14 @@
-name: Report a bug in one of Flutter's first-party packages
+name: 报告 Flutter 官方插件的 Bug
 description: |
-  You found a bug in one of Flutter's first-party packages.
+  在 Flutter 的某个官方插件中发现了 Bug。
+labels: ['triage']
 body:
   - type: markdown
     attributes:
       value: |
-        Thank you for using Flutter!
+        感谢使用 Flutter！
 
-        If you are looking for support, please check out our documentation
-        or consider asking a question on Stack Overflow:
+        如需帮助，请查阅文档或在 Stack Overflow 上提问：
 
           - https://flutter.dev/
           - https://api.flutter.dev/
@@ -16,17 +16,16 @@ body:
   - type: markdown
     attributes:
       value: |
-        Before filling the form fields, please consider the following:
-        - Ensure that you have searched the [existing package issues](https://github.com/flutter/flutter/issues?q=is%3Aopen+is%3Aissue+label%3Apackage)
-        - Read the [guide to filing a bug](https://docs.flutter.dev/resources/bug-reports)
+        填写表单前，请确认以下事项：
+        - 已搜索[已有的插件 Issue](https://gitcode.com/CPF-Flutter/flutter_packages/issues)
+        - 已阅读[提交 Bug 指南](https://docs.flutter.dev/resources/bug-reports)
   - type: dropdown
     id: packages
     attributes:
-      label: What package does this bug report belong to?
+      label: 此 Bug 报告属于哪个插件？
       description: |
-        If the package you are reporting a bug for is not listed here,
-        it could be a third party package's issue.
-        In that case, you should report the issue to the package's developers.
+        如果遇到问题的插件不在列表中，可能是第三方插件。
+        此情况请直接向该插件的开发者反馈。
       options:
         - animations
         - camera
@@ -74,10 +73,11 @@ body:
   - type: dropdown
     id: target_platforms
     attributes:
-      label: What target platforms are you seeing this bug on?
-      description: Have you confirmed that package supports the platform you are reporting against?
+      label: 在哪些目标平台上出现了此问题？
+      description: 请确认该插件是否支持你报告的目标平台。
       multiple: true
       options:
+        - OHOS
         - Android
         - iOS
         - Web
@@ -89,39 +89,37 @@ body:
   - type: dropdown
     id: pub_upgrade
     attributes:
-      label: Have you already upgraded your packages?
+      label: 是否已升级插件版本？
       description: |
-        Please check if the issue still persists or not after running `flutter pub upgrade`.
+        请运行 `flutter pub upgrade` 后检查问题是否仍然存在。
       options:
-        - "Yes"
-        - "No"
+        - "是"
+        - "否"
     validations:
       required: true
   - type: textarea
     attributes:
-      label: Dependency versions
+      label: 依赖版本
       description: |
-        `pubspec.lock` file content that includes the package and its dependencies.
+        请提供包含该插件及其依赖项的 `pubspec.lock` 文件内容。
 
-        You can remove private dependencies from the file if they are sensitive.
+        如有敏感信息，可移除文件中的私有依赖。
 
-        If the file is too large to be uploaded to GitHub or the content is too long,
-        you may use online tools like https://pastebin.com and share the url here.
+        如果文件过大或内容过长，可使用 https://pastebin.com 等在线工具分享链接。
 
-        Note: Please do not upload screenshots of text. Instead, use code blocks
-        or the above mentioned ways to upload this.
+        注意：请勿上传文本截图，请使用代码块或上述方式提供内容。
       value: |
         <details><summary>pubspec.lock</summary>
 
         ```lock
-        [Paste file content here]
+        [在此粘贴文件内容]
         ```
 
         </details>
   - type: textarea
     attributes:
-      label: Steps to reproduce
-      description: Please tell us exactly how to reproduce the problem you are running into.
+      label: 复现步骤
+      description: 请详细描述如何复现你遇到的问题。
       placeholder: |
         1. ...
         2. ...
@@ -130,40 +128,36 @@ body:
       required: true
   - type: textarea
     attributes:
-      label: Expected results
-      description: Please tell us what is expected to happen.
+      label: 期望结果
+      description: 请描述期望发生的行为。
     validations:
       required: true
   - type: textarea
     attributes:
-      label: Actual results
-      description: Please tell us what is actually happening.
+      label: 实际结果
+      description: 请描述实际发生了什么。
     validations:
       required: true
   - type: textarea
     attributes:
-      label: Code sample
+      label: 代码示例
       description: |
-        Please create a minimal reproducible sample that shows the problem
-        and attach it below between the lines with the backticks.
+        请创建一个最小可复现示例来展示问题，并在下方代码块中粘贴。
 
-        To create it, use the `flutter create bug` command and update the `main.dart` file.
+        可使用 `flutter create bug` 命令创建项目并修改 `main.dart` 文件。
 
-        Alternatively, you can create a public GitHub repository to share your sample.
+        也可以创建公开的 GitCode 仓库来分享示例。
 
-        Without this we will unlikely be able to progress on the issue, and because of that
-        we regretfully will have to close it.
+        缺少此示例将很难推进问题排查，我们可能不得不关闭此 Issue。
 
-        You can also refer to the package's example project if it is simple enough
-        to reproduce the bug.
+        如果该插件的示例项目足够简单，也可以直接参考它来复现 Bug。
 
-        Note: Please do not upload screenshots of text. Instead, use code blocks
-        or the above mentioned ways to upload your code sample.
+        注意：请勿上传文本截图，请使用代码块或上述方式提供代码。
       value: |
-        <details open><summary>Code sample</summary>
+        <details open><summary>代码示例</summary>
 
         ```dart
-        [Paste your code here]
+        [在此粘贴代码]
         ```
 
         </details>
@@ -171,49 +165,43 @@ body:
       required: true
   - type: textarea
     attributes:
-      label: Screenshots or Videos
+      label: 截图或视频
       description: |
-        Upload any screenshots or videos of the bug if applicable.
+        如有，请上传 Bug 相关的截图或视频。
       value: |
         <details open>
-        <summary>Screenshots / Video demonstration</summary>
+        <summary>截图 / 视频演示</summary>
 
-        [Upload media here]
+        [在此上传媒体文件]
 
         </details>
   - type: textarea
     attributes:
-      label: Logs
+      label: 日志
       description: |
-        Include the full logs of the commands you are running between the lines
-        with the backticks below. If you are running any `flutter` commands,
-        please include the output of running them with `--verbose`; for example,
-        the output of running `flutter --verbose create foo`.
+        请在下方代码块中粘贴所运行命令的完整日志。如果运行了 `flutter` 命令，请附上添加 `--verbose` 参数后的输出，例如 `flutter --verbose create foo` 的输出。
 
-        If the logs are too large to be uploaded to GitHub, you may upload
-        them as a `txt` file or use online tools like https://pastebin.com to
-        share it.
+        如果日志过大无法上传到 GitCode，可以将其保存为 `txt` 文件，或使用 https://pastebin.com 等在线工具分享。
 
-        Note: Please do not upload screenshots of text. Instead, use code blocks
-        or the above mentioned ways to upload logs.
+        注意：请勿上传文本截图，请使用代码块或上述方式提供日志。
       value: |
-        <details open><summary>Logs</summary>
+        <details open><summary>日志</summary>
 
         ```console
-        [Paste your logs here]
+        [在此粘贴日志]
         ```
 
         </details>
   - type: textarea
     attributes:
-      label: Flutter Doctor output
+      label: Flutter Doctor 输出
       description: |
-        Please provide the full output of running `flutter doctor -v`
+        请提供 `flutter doctor -v` 的完整输出
       value: |
-        <details open><summary>Doctor output</summary>
+        <details open><summary>Doctor 输出</summary>
 
         ```console
-        [Paste your output here]
+        [在此粘贴输出]
         ```
 
         </details>
