@@ -540,7 +540,12 @@ static std::unique_ptr<PipelineT> CreateDefaultPipeline(
   // Apply default ContentContextOptions to the descriptor.
   const auto default_color_format =
       context.GetCapabilities()->GetDefaultColorFormat();
-  ContentContextOptions{.sample_count = SampleCount::kCount4,
+  ContentContextOptions{
+#ifdef __OHOS__
+      .sample_count = SampleCount::kCount2,
+#else
+      .sample_count = SampleCount::kCount4,
+#endif
                         .primitive_type = PrimitiveType::kTriangleStrip,
                         .color_attachment_pixel_format = default_color_format}
       .ApplyToPipelineDescriptor(*desc);
@@ -604,11 +609,19 @@ ContentContext::ContentContext(
   }
 
   auto options = ContentContextOptions{
+#ifdef __OHOS__
+      .sample_count = SampleCount::kCount2,
+#else
       .sample_count = SampleCount::kCount4,
+#endif
       .color_attachment_pixel_format =
           context_->GetCapabilities()->GetDefaultColorFormat()};
   auto options_trianglestrip = ContentContextOptions{
+#ifdef __OHOS__
+      .sample_count = SampleCount::kCount2,
+#else
       .sample_count = SampleCount::kCount4,
+#endif
       .primitive_type = PrimitiveType::kTriangleStrip,
       .color_attachment_pixel_format =
           context_->GetCapabilities()->GetDefaultColorFormat()};
@@ -684,7 +697,11 @@ ContentContext::ContentContext(
       return;
     }
     ContentContextOptions{
-        .sample_count = SampleCount::kCount4,
+#ifdef __OHOS__
+      .sample_count = SampleCount::kCount2,
+#else
+      .sample_count = SampleCount::kCount4,
+#endif
         .color_attachment_pixel_format =
             context_->GetCapabilities()->GetDefaultColorFormat()}
         .ApplyToPipelineDescriptor(*clip_pipeline_descriptor);
@@ -756,51 +773,60 @@ ContentContext::ContentContext(
   }
 
   if (context_->GetCapabilities()->SupportsFramebufferFetch()) {
+    Scalar sample_count = static_cast<Scalar>(options_trianglestrip.sample_count);
+
+#ifdef __OHOS__
+    // If sample_count is 2 but GPU doesn't support it, fall back to 1
+    if (sample_count == 2.0f && !context_->GetCapabilities()->SupportsFramebufferColorSampleCount2x()) {
+      sample_count = 1.0f;
+    }
+#endif  // __OHOS__
+
     pipelines_->framebuffer_blend_color.CreateDefault(
         *context_, options_trianglestrip,
-        {static_cast<Scalar>(BlendSelectValues::kColor), supports_decal});
+        {static_cast<Scalar>(BlendSelectValues::kColor), supports_decal, sample_count});
     pipelines_->framebuffer_blend_colorburn.CreateDefault(
         *context_, options_trianglestrip,
-        {static_cast<Scalar>(BlendSelectValues::kColorBurn), supports_decal});
+        {static_cast<Scalar>(BlendSelectValues::kColorBurn), supports_decal, sample_count});
     pipelines_->framebuffer_blend_colordodge.CreateDefault(
         *context_, options_trianglestrip,
-        {static_cast<Scalar>(BlendSelectValues::kColorDodge), supports_decal});
+        {static_cast<Scalar>(BlendSelectValues::kColorDodge), supports_decal, sample_count});
     pipelines_->framebuffer_blend_darken.CreateDefault(
         *context_, options_trianglestrip,
-        {static_cast<Scalar>(BlendSelectValues::kDarken), supports_decal});
+        {static_cast<Scalar>(BlendSelectValues::kDarken), supports_decal, sample_count});
     pipelines_->framebuffer_blend_difference.CreateDefault(
         *context_, options_trianglestrip,
-        {static_cast<Scalar>(BlendSelectValues::kDifference), supports_decal});
+        {static_cast<Scalar>(BlendSelectValues::kDifference), supports_decal, sample_count});
     pipelines_->framebuffer_blend_exclusion.CreateDefault(
         *context_, options_trianglestrip,
-        {static_cast<Scalar>(BlendSelectValues::kExclusion), supports_decal});
+        {static_cast<Scalar>(BlendSelectValues::kExclusion), supports_decal, sample_count});
     pipelines_->framebuffer_blend_hardlight.CreateDefault(
         *context_, options_trianglestrip,
-        {static_cast<Scalar>(BlendSelectValues::kHardLight), supports_decal});
+        {static_cast<Scalar>(BlendSelectValues::kHardLight), supports_decal, sample_count});
     pipelines_->framebuffer_blend_hue.CreateDefault(
         *context_, options_trianglestrip,
-        {static_cast<Scalar>(BlendSelectValues::kHue), supports_decal});
+        {static_cast<Scalar>(BlendSelectValues::kHue), supports_decal, sample_count});
     pipelines_->framebuffer_blend_lighten.CreateDefault(
         *context_, options_trianglestrip,
-        {static_cast<Scalar>(BlendSelectValues::kLighten), supports_decal});
+        {static_cast<Scalar>(BlendSelectValues::kLighten), supports_decal, sample_count});
     pipelines_->framebuffer_blend_luminosity.CreateDefault(
         *context_, options_trianglestrip,
-        {static_cast<Scalar>(BlendSelectValues::kLuminosity), supports_decal});
+        {static_cast<Scalar>(BlendSelectValues::kLuminosity), supports_decal, sample_count});
     pipelines_->framebuffer_blend_multiply.CreateDefault(
         *context_, options_trianglestrip,
-        {static_cast<Scalar>(BlendSelectValues::kMultiply), supports_decal});
+        {static_cast<Scalar>(BlendSelectValues::kMultiply), supports_decal, sample_count});
     pipelines_->framebuffer_blend_overlay.CreateDefault(
         *context_, options_trianglestrip,
-        {static_cast<Scalar>(BlendSelectValues::kOverlay), supports_decal});
+        {static_cast<Scalar>(BlendSelectValues::kOverlay), supports_decal, sample_count});
     pipelines_->framebuffer_blend_saturation.CreateDefault(
         *context_, options_trianglestrip,
-        {static_cast<Scalar>(BlendSelectValues::kSaturation), supports_decal});
+        {static_cast<Scalar>(BlendSelectValues::kSaturation), supports_decal, sample_count});
     pipelines_->framebuffer_blend_screen.CreateDefault(
         *context_, options_trianglestrip,
-        {static_cast<Scalar>(BlendSelectValues::kScreen), supports_decal});
+        {static_cast<Scalar>(BlendSelectValues::kScreen), supports_decal, sample_count});
     pipelines_->framebuffer_blend_softlight.CreateDefault(
         *context_, options_trianglestrip,
-        {static_cast<Scalar>(BlendSelectValues::kSoftLight), supports_decal});
+        {static_cast<Scalar>(BlendSelectValues::kSoftLight), supports_decal, sample_count});
   } else {
     pipelines_->blend_color.CreateDefault(
         *context_, options_trianglestrip,

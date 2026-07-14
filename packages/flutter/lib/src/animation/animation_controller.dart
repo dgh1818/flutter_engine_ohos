@@ -12,6 +12,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter/widgets.dart';
+import 'package:meta/meta.dart';
 
 import 'animation.dart';
 import 'curves.dart';
@@ -326,6 +328,10 @@ class AnimationController extends Animation<double>
   Duration? reverseDuration;
 
   Ticker? _ticker;
+
+  /// Animation usage tag (internal use, only for ohos platform LTPO related)
+  @internal
+  TranslateAnimationSource? translateSource;
 
   /// Recreates the [Ticker] with the new [TickerProvider].
   void resync(TickerProvider vsync) {
@@ -938,6 +944,19 @@ class AnimationController extends Animation<double>
     }
   }
 
+  /// This value represents whether the current animation interval is a ratio.
+  ///
+  /// If [upperBound] is not Infinite, and it less than 1.0,
+  /// consider it as an interval ratio.
+  bool get isIntervalRatio {
+    if (!upperBound.isInfinite &&
+        upperBound <= 1.0 &&
+        _simulation is _InterpolationSimulation) {
+      return true;
+    }
+    return false;
+  }
+
   void _tick(Duration elapsed) {
     _lastElapsedDuration = elapsed;
     final double elapsedInSeconds =
@@ -950,6 +969,16 @@ class AnimationController extends Animation<double>
           : AnimationStatus.dismissed;
       stop(canceled: false);
     }
+
+    if (defaultTargetPlatform == TargetPlatform.ohos) {
+      final TranslateAnimationSource source = translateSource ?? TranslateAnimationSource.widget;
+      WidgetsBinding.instance.recordTranslateVelocity(
+        velocity: velocity.abs(),
+        source: source,
+        debugInfo: debugLabel,
+      );
+    }
+
     notifyListeners();
     _checkStatusChanged();
   }

@@ -3519,6 +3519,29 @@ void main() {
     expect(buildGradleContent.contains('namespace = "com.bar.foo.flutter_project"'), true);
   });
 
+  testUsingContext('FFI plugin loader uses operatingSystem for OHOS', () async {
+    final command = CreateCommand();
+    final CommandRunner<void> runner = createTestCommandRunner(command);
+
+    await runner.run(<String>['create', '--no-pub', '--template=plugin_ffi', projectDir.path]);
+
+    final String pluginLibrary = await projectDir
+        .childDirectory('lib')
+        .childFile('flutter_project.dart')
+        .readAsString();
+    final int windowsBranch = pluginLibrary.indexOf('Platform.isWindows');
+    final int ohosBranch = pluginLibrary.indexOf("Platform.operatingSystem == 'ohos'");
+    final int unsupportedError = pluginLibrary.indexOf(
+      "throw UnsupportedError('Unknown platform: \${Platform.operatingSystem}')",
+    );
+
+    expect(pluginLibrary, isNot(contains('Platform.isOhos')));
+    expect(windowsBranch, greaterThanOrEqualTo(0));
+    expect(ohosBranch, greaterThanOrEqualTo(0));
+    expect(unsupportedError, greaterThanOrEqualTo(0));
+    expect(windowsBranch, lessThan(ohosBranch));
+  });
+
   testUsingContext(
     'creates a plugin with shared darwin implementation',
     () async {

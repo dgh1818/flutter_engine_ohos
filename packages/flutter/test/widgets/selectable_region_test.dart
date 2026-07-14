@@ -981,6 +981,7 @@ void main() {
             log.last,
             isMethodCall('HapticFeedback.vibrate', arguments: 'HapticFeedbackType.selectionClick'),
           );
+        case TargetPlatform.ohos:
         case TargetPlatform.fuchsia:
         case TargetPlatform.iOS:
         case TargetPlatform.linux:
@@ -4787,6 +4788,7 @@ void main() {
       final bool alt;
       final bool control;
       switch (defaultTargetPlatform) {
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
@@ -4925,6 +4927,7 @@ void main() {
       final bool alt;
       final bool meta;
       switch (defaultTargetPlatform) {
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
@@ -5040,6 +5043,7 @@ void main() {
           case TargetPlatform.fuchsia:
           case TargetPlatform.linux:
           case TargetPlatform.windows:
+          case TargetPlatform.ohos:
             meta = false;
             alt = true;
           case TargetPlatform.iOS:
@@ -5531,6 +5535,7 @@ void main() {
       switch (defaultTargetPlatform) {
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
+        case TargetPlatform.ohos:
           expect(regionState.selectionOverlay, isNull);
           expect(regionState.selectionOverlay?.startHandleLayerLink, isNull);
           expect(regionState.selectionOverlay?.endHandleLayerLink, isNull);
@@ -5588,6 +5593,7 @@ void main() {
         case TargetPlatform.linux:
         case TargetPlatform.macOS:
         case TargetPlatform.windows:
+        case TargetPlatform.ohos:
           expect(buttonItems[1].type, ContextMenuButtonType.selectAll);
           selectAllButton = buttonItems[1];
       }
@@ -5728,6 +5734,7 @@ void main() {
         case TargetPlatform.linux:
         case TargetPlatform.macOS:
         case TargetPlatform.windows:
+        case TargetPlatform.ohos:
           expect(buttonItems.length, 2);
           expect(buttonItems[0].type, ContextMenuButtonType.copy);
           expect(buttonItems[1].type, ContextMenuButtonType.selectAll);

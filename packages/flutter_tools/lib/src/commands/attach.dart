@@ -8,6 +8,7 @@ import 'package:meta/meta.dart';
 import 'package:unified_analytics/unified_analytics.dart';
 import 'package:vm_service/vm_service.dart';
 
+import '../ohos/ohos_device.dart';
 import '../android/android_device.dart';
 import '../base/common.dart';
 import '../base/file_system.dart';

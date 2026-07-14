@@ -73,6 +73,10 @@ bool BuiltinSkiaImageGenerator::GetPixels(
   return generator_->getPixels(info, pixels, row_bytes);
 }
 
+uint32_t BuiltinSkiaImageGenerator::GetColorSpace(unsigned int frame_index) {
+  return 0;
+}
+
 std::unique_ptr<ImageGenerator> BuiltinSkiaImageGenerator::MakeFromGenerator(
     std::unique_ptr<SkImageGenerator> generator) {
   if (!generator) {
@@ -140,7 +144,10 @@ SkISize BuiltinSkiaCodecImageGenerator::GetScaledDimensions(
   }
   return size;
 }
-
+uint32_t BuiltinSkiaCodecImageGenerator::GetColorSpace(
+ 	     unsigned int frame_index) {
+ 	   return 0;
+ 	 }
 bool BuiltinSkiaCodecImageGenerator::GetPixels(
     const SkImageInfo& info,
     void* pixels,

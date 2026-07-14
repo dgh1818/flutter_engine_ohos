@@ -15,6 +15,9 @@ mixin FlutterFeatureFlagsIsEnabled implements FeatureFlags {
   Platform get platform;
 
   @override
+  bool get isOhosEnabled => isEnabled(flutterOhosFeature);
+
+  @override
   bool get isLinuxEnabled => isEnabled(flutterLinuxDesktopFeature);
 
   @override

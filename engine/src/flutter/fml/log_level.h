@@ -44,6 +44,9 @@ constexpr LogSeverity LOG_IMPORTANT = kLogImportant;
 // NOLINTNEXTLINE(readability-identifier-naming)
 constexpr LogSeverity LOG_FATAL = kLogFatal;
 
+constexpr LogSeverity LOG_NUM_SEVERITIES = kLogNumSeverities;
+constexpr LogSeverity LOG_DEBUG = 0;
+
 // One of the Windows headers defines ERROR to 0. This makes the token
 // concatenation in FML_LOG(ERROR) to resolve to LOG_0. We define this back to
 // the appropriate log level.

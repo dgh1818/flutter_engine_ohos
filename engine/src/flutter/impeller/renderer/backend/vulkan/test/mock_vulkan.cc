@@ -589,6 +589,9 @@ VkResult vkQueueSubmit(VkQueue queue,
   return VK_SUCCESS;
 }
 
+static thread_local std::function<std::remove_pointer_t<PFN_vkWaitForFences>>
+    g_wait_for_fences_callback;
+
 VkResult vkWaitForFences(VkDevice device,
                          uint32_t fenceCount,
                          const VkFence* pFences,
@@ -804,6 +807,10 @@ void vkDestroySemaphore(VkDevice device,
                         const VkAllocationCallbacks* pAllocator) {
   delete reinterpret_cast<MockSemaphore*>(semaphore);
 }
+
+static thread_local std::function<
+    std::remove_pointer_t<PFN_vkAcquireNextImageKHR>>
+    g_acquire_next_image_callback;
 
 VkResult vkAcquireNextImageKHR(VkDevice device,
                                VkSwapchainKHR swapchain,

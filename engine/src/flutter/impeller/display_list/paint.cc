@@ -42,12 +42,15 @@ void Paint::ConvertStops(const flutter::DlGradientColorSourceBase* gradient,
 
   auto* dl_colors = gradient->colors();
   auto* dl_stops = gradient->stops();
+  if (!dl_colors || !dl_stops) {
+    return;
+  }
   if (dl_stops[0] != 0.0) {
-    colors.emplace_back(skia_conversions::ToColor(dl_colors[0]));
+    colors.emplace_back(skia_conversions::ToColor(dl_colors[0]).color);
     stops.emplace_back(0);
   }
   for (auto i = 0; i < gradient->stop_count(); i++) {
-    colors.emplace_back(skia_conversions::ToColor(dl_colors[i]));
+    colors.emplace_back(skia_conversions::ToColor(dl_colors[i]).color);
     stops.emplace_back(std::clamp(dl_stops[i], 0.0f, 1.0f));
   }
   if (dl_stops[gradient->stop_count() - 1] != 1.0) {
@@ -63,7 +66,11 @@ std::shared_ptr<ColorSourceContents> Paint::CreateContents(
     const Geometry* geometry) const {
   if (color_source == nullptr) {
     auto contents = std::make_shared<SolidColorContents>(geometry);
+#ifdef FML_OS_OHOS
+    contents->SetColorWithSpace(color, source_color_space);
+#else
     contents->SetColor(color);
+#endif
     return contents;
   }
 

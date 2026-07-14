@@ -1,0 +1,70 @@
+# Copyright (c) 2025 Huawei Device Co., Ltd. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE_HW file.
+
+# This file collects all required cipd packages, mainly used to lock cipd package versions
+#
+# You can generate cipd_manifest.versions using the following command:
+#   cipd ensure-file-resolve -ensure-file cipd_manifest.txt
+
+$ResolvedVersions cipd_manifest.versions
+
+# Fully supported platforms.
+$VerifiedPlatform linux-amd64
+
+$ParanoidMode CheckPresence
+$OverrideInstallMode copy
+
+@Subdir engine/src/flutter/buildtools/linux-x64/clang
+fuchsia/third_party/clang/linux-amd64 git_revision:8c7a2ce01a77c96028fe2c8566f65c45ad9408d3
+
+@Subdir engine/src/flutter/prebuilts/linux-arm64/dart-sdk
+flutter/dart-sdk/linux-arm64 git_revision:e927f58e327ae13d056a16bb2ebf618e071c20a7
+
+@Subdir engine/src/flutter/prebuilts/linux-x64/dart-sdk
+flutter/dart-sdk/linux-amd64 git_revision:e927f58e327ae13d056a16bb2ebf618e071c20a7
+
+@Subdir engine/src/flutter/prebuilts/linux-x64/esbuild
+flutter/tools/esbuild/linux-amd64 0.19.5
+
+@Subdir engine/src/flutter/third_party/android_embedding_dependencies
+flutter/android/embedding_bundle last_updated:2025-10-15T09:53:03-0700
+
+@Subdir engine/src/flutter/third_party/android_tools
+flutter/android/sdk/all/${platform} version:36v8unmodified
+
+@Subdir engine/src/flutter/third_party/android_tools/google-java-format
+flutter/android/google-java-format version:1.7-1
+
+@Subdir engine/src/flutter/third_party/android_tools/trace_to_text
+perfetto/trace_to_text/${platform} git_tag:v25.0
+
+@Subdir engine/src/flutter/third_party/dart/third_party/devtools
+dart/third_party/flutter/devtools git_revision:c13b1e172794a71ffe9436a5cfe0a0a9d7509d78
+
+@Subdir engine/src/flutter/third_party/dart/tools/sdks/dart-sdk
+dart/dart-sdk/${platform} git_revision:782552bdddc112c62db28ec7e9b2763f4457a3ea
+
+@Subdir engine/src/flutter/third_party/gn
+gn/gn/${platform} git_revision:81b24e01531ecf0eff12ec9359a555ec3944ec4e
+
+@Subdir engine/src/flutter/third_party/google_fonts_for_unit_tests
+flutter/flutter_font_fallbacks 44bd38be0bc8c189a397ca6dd6f737746a9e0c6117b96a8f84f1edf6acd1206b
+
+@Subdir engine/src/flutter/third_party/gradle
+flutter/gradle version:8.11.1
+
+@Subdir engine/src/flutter/third_party/java/openjdk
+flutter/java/openjdk/${platform} version:21
+
+@Subdir engine/src/flutter/tools/fuchsia/gn-sdk
+chromium/fuchsia/gn-sdk NAEC5tfgSl8g94nwpKsGtNMEdbiAlgwrNa9XQ7cIcbcC
+
+@Subdir engine/src/flutter/tools/fuchsia/test_scripts
+chromium/fuchsia/test-scripts nR2ESa1Gd8yPcWo063yCqGBh6aAsLcwhgsRPFU0I0v0C
+
+@Subdir engine/src/third_party/fuchsia-sdk/sdk
+fuchsia/sdk/core/linux-amd64 rxeg-6UB678HKJ4UQLCcLXWIpyiqp3-AZhNclbbePEkC
+
+@Subdir third_party/ninja
+infra/3pp/tools/ninja/${platform} version:2@1.11.1.chromium.4

@@ -40,6 +40,7 @@ static bool IsDepthStencilFormat(PixelFormat format) {
     case PixelFormat::kB10G10R10XRSRGB:
     case PixelFormat::kB10G10R10A10XR:
     case PixelFormat::kR32Float:
+    case PixelFormat::kB10G10R10A2UNorm:
       return false;
   }
   FML_UNREACHABLE();
@@ -50,7 +51,7 @@ static TextureGLES::Type GetTextureTypeFromDescriptor(
     const std::shared_ptr<const CapabilitiesGLES>& capabilities) {
   const auto usage = static_cast<TextureUsageMask>(desc.usage);
   const auto render_target = TextureUsage::kRenderTarget;
-  const auto is_msaa = desc.sample_count == SampleCount::kCount4;
+  const auto is_msaa = desc.sample_count != SampleCount::kCount1;
   if (usage == render_target && IsDepthStencilFormat(desc.format)) {
     return is_msaa ? TextureGLES::Type::kRenderBufferMultisampled
                    : TextureGLES::Type::kRenderBuffer;
@@ -325,6 +326,8 @@ static std::optional<GLenum> ToRenderBufferFormat(PixelFormat format) {
       return GL_DEPTH24_STENCIL8;
     case PixelFormat::kD32FloatS8UInt:
       return GL_DEPTH32F_STENCIL8;
+    case PixelFormat::kB10G10R10A2UNorm:
+      return GL_RGB10_A2;
     case PixelFormat::kUnknown:
     case PixelFormat::kA8UNormInt:
     case PixelFormat::kR8UNormInt:

@@ -9,6 +9,10 @@
 #include <memory>
 #include <sstream>
 
+#if defined(FML_OS_OHOS)
+#include "flutter/fml/platform/ohos/restrace.h"
+#endif
+
 namespace fml {
 
 // FileMapping
@@ -119,7 +123,11 @@ bool NonOwnedMapping::IsDontNeedSafe() const {
 MallocMapping::MallocMapping() : data_(nullptr), size_(0) {}
 
 MallocMapping::MallocMapping(uint8_t* data, size_t size)
-    : data_(data), size_(size) {}
+    : data_(data), size_(size) {
+#if defined(FML_OS_OHOS)
+  OH_RESTRACE(data_, size_);
+#endif
+}
 
 MallocMapping::MallocMapping(fml::MallocMapping&& mapping)
     : data_(mapping.data_), size_(mapping.size_) {
@@ -128,6 +136,9 @@ MallocMapping::MallocMapping(fml::MallocMapping&& mapping)
 }
 
 MallocMapping::~MallocMapping() {
+#if defined(FML_OS_OHOS)
+  OH_RESTRACE_FREE_REGION(data_, size_);
+#endif
   free(data_);
   data_ = nullptr;
 }
@@ -153,6 +164,9 @@ bool MallocMapping::IsDontNeedSafe() const {
 }
 
 uint8_t* MallocMapping::Release() {
+#if defined(FML_OS_OHOS)
+  OH_RESTRACE_FREE_REGION(data_, size_);
+#endif
   uint8_t* result = data_;
   data_ = nullptr;
   size_ = 0;

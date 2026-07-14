@@ -15,8 +15,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
-
 import 'basic.dart';
+import 'binding.dart';
 import 'framework.dart';
 import 'primary_scroll_controller.dart';
 import 'scroll_activity.dart';
@@ -390,7 +390,7 @@ class NestedScrollView extends StatefulWidget {
 ///
 /// ** See code in examples/api/lib/widgets/nested_scroll_view/nested_scroll_view_state.0.dart **
 /// {@end-tool}
-class NestedScrollViewState extends State<NestedScrollView> {
+class NestedScrollViewState extends State<NestedScrollView> with WidgetsBindingObserver {
   final SliverOverlapAbsorberHandle _absorberHandle = SliverOverlapAbsorberHandle();
 
   /// The [ScrollController] provided to the [ScrollView] in
@@ -436,6 +436,10 @@ class NestedScrollViewState extends State<NestedScrollView> {
       _handleHasScrolledBodyChanged,
       widget.floatHeaderSlivers,
     );
+
+    if (widget.scrollDirection == Axis.vertical) {
+      WidgetsBinding.instance.addObserver(this);
+    }
   }
 
   @protected
@@ -460,7 +464,22 @@ class NestedScrollViewState extends State<NestedScrollView> {
     _coordinator!.dispose();
     _coordinator = null;
     _absorberHandle.dispose();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void handleStatusBarTap() {
+    if (widget.scrollDirection != Axis.vertical) return;
+    try {
+      _coordinator?.animateTo(
+        0.0,
+        duration: const Duration(milliseconds: 1000),
+        curve: Curves.easeOutCirc,
+      );
+    } catch (err) {
+      debugPrint('$err');
+    }
   }
 
   bool? _lastHasScrolledBody;

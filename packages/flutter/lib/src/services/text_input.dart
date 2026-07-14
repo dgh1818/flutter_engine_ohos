@@ -13,7 +13,7 @@ library;
 
 import 'dart:async';
 import 'dart:io' show Platform;
-import 'dart:ui' show FlutterView, FontWeight, Locale, Offset, Rect, Size, TextAlign, TextDirection;
+import 'dart:ui' show FlutterView, FontWeight, Locale, Offset, Rect, Size, TextAlign, TextDirection, PointerDeviceKind;
 
 import 'package:flutter/foundation.dart';
 import 'package:vector_math/vector_math_64.dart' show Matrix4;
@@ -532,6 +532,7 @@ class TextInputConfiguration {
     this.enableDeltaModel = false,
     this.hintLocales = const <Locale>[],
     this.enableInlinePrediction,
+    this.deviceKind = PointerDeviceKind.unknown,
   }) : smartDashesType =
            smartDashesType ?? (obscureText ? SmartDashesType.disabled : SmartDashesType.enabled),
        smartQuotesType =
@@ -737,6 +738,7 @@ class TextInputConfiguration {
     bool? enableDeltaModel,
     List<Locale>? hintLocales,
     bool? enableInlinePrediction,
+    PointerDeviceKind? deviceKind,
   }) {
     return TextInputConfiguration(
       viewId: viewId ?? this.viewId,
@@ -759,6 +761,7 @@ class TextInputConfiguration {
       enableDeltaModel: enableDeltaModel ?? this.enableDeltaModel,
       hintLocales: hintLocales ?? this.hintLocales,
       enableInlinePrediction: enableInlinePrediction ?? this.enableInlinePrediction,
+      deviceKind: deviceKind ?? this.deviceKind,
     );
   }
 
@@ -786,6 +789,9 @@ class TextInputConfiguration {
   ///
   /// Defaults to false.
   final bool enableDeltaModel;
+
+  /// Defaults to PointerDeviceKind.unknown. Cannot be null.
+  final PointerDeviceKind deviceKind;
 
   /// Returns a representation of this object as a JSON object.
   Map<String, dynamic> toJson() {

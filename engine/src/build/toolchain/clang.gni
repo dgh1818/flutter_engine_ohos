@@ -16,4 +16,7 @@ declare_args() {
 
   # Set this flag to strip .so files.
   stripped_symbols = !is_debug
+
+  # ohos platform unuse the BiSheng compiler.
+  unuse_bisheng = false
 }

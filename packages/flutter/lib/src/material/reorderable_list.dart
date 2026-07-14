@@ -439,6 +439,7 @@ class _ReorderableListViewState extends State<ReorderableListView> {
         case TargetPlatform.iOS:
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
+        case TargetPlatform.ohos:
           return ReorderableDelayedDragStartListener(key: itemGlobalKey, index: index, child: item);
       }
     }

@@ -106,7 +106,8 @@ mixin MaterialRouteTransitionMixin<T> on PageRoute<T> {
           TargetPlatform.android ||
           TargetPlatform.fuchsia ||
           TargetPlatform.windows ||
-          TargetPlatform.linux => const ZoomPageTransitionsBuilder(),
+          TargetPlatform.linux ||
+          TargetPlatform.ohos => const ZoomPageTransitionsBuilder(),
         };
   }
 

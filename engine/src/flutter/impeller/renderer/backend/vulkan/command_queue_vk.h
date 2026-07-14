@@ -23,7 +23,6 @@ class CommandQueueVK : public CommandQueue {
 
  private:
   std::weak_ptr<ContextVK> context_;
-
   CommandQueueVK(const CommandQueueVK&) = delete;
 
   CommandQueueVK& operator=(const CommandQueueVK&) = delete;

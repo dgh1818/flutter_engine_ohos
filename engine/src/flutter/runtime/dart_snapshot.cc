@@ -6,6 +6,7 @@
 
 #include <sstream>
 
+#include "flutter/fml/logging.h"
 #include "flutter/fml/native_library.h"
 #include "flutter/fml/paths.h"
 #include "flutter/fml/trace_event.h"
@@ -21,11 +22,11 @@ const char* DartSnapshot::kIsolateDataSymbol = "kDartIsolateSnapshotData";
 const char* DartSnapshot::kIsolateInstructionsSymbol =
     "kDartIsolateSnapshotInstructions";
 
-// On Windows and Android (in debug mode) the engine finds the Dart snapshot
-// data through symbols that are statically linked into the executable.
+// On Windows, Android, and OHOS (in debug mode) the engine finds the Dart
+// snapshot data through symbols that are statically linked into the executable.
 // On other platforms this data is obtained by a dynamic symbol lookup.
 #define DART_SNAPSHOT_STATIC_LINK \
-  ((FML_OS_WIN || FML_OS_ANDROID) && FLUTTER_JIT_RUNTIME)
+  ((FML_OS_WIN || FML_OS_ANDROID || FML_OS_OHOS) && FLUTTER_JIT_RUNTIME)
 
 #if !DART_SNAPSHOT_STATIC_LINK
 
@@ -56,6 +57,7 @@ static std::shared_ptr<const fml::Mapping> SearchMapping(
     const std::vector<std::string>& native_library_paths,
     const char* native_library_symbol_name,
     bool is_executable) {
+  FML_LOG(INFO) << "SearchMapping file:" << file_path;
   // Ask the embedder. There is no fallback as we expect the embedders (via
   // their embedding APIs) to just specify the mappings directly.
   if (embedder_mapping_callback) {

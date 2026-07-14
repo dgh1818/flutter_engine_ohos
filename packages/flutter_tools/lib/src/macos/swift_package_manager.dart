@@ -122,6 +122,24 @@ class SwiftPackageManager {
       templateRenderer: _templateRenderer,
     );
     pluginsPackage.createSwiftPackage();
+
+    final flutterFrameworkPackage = SwiftPackage(
+      manifest: project.flutterFrameworkSwiftPackageDirectory.childFile('Package.swift'),
+      name: kFlutterGeneratedFrameworkSwiftPackageTargetName,
+      platforms: <SwiftPackageSupportedPlatform>[platform.supportedPackagePlatform],
+      products: <SwiftPackageProduct>[
+        SwiftPackageProduct(
+          name: kFlutterGeneratedFrameworkSwiftPackageTargetName,
+          targets: <String>[kFlutterGeneratedFrameworkSwiftPackageTargetName],
+        ),
+      ],
+      dependencies: <SwiftPackagePackageDependency>[],
+      targets: <SwiftPackageTarget>[
+        SwiftPackageTarget.defaultTarget(name: kFlutterGeneratedFrameworkSwiftPackageTargetName),
+      ],
+      templateRenderer: _templateRenderer,
+    );
+    flutterFrameworkPackage.createSwiftPackage();
   }
 
   (List<SwiftPackagePackageDependency>, List<SwiftPackageTargetDependency>)

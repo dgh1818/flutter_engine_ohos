@@ -21,6 +21,15 @@ class SolidColorContents final : public ColorSourceContents {
 
   Color GetColor() const;
 
+#ifdef FML_OS_OHOS
+  void SetColorWithSpace(Color color, ColorSpace color_space);
+
+  void SetSourceColorSpace(ColorSpace color_space);
+  ColorSpace GetSourceColorSpace() const;
+  void SetTargetColorSpace(ColorSpace color_space);
+  ColorSpace GetTargetColorSpace() const;
+#endif
+
   // |ColorSourceContents|
   bool IsSolidColor() const override;
 
@@ -47,6 +56,10 @@ class SolidColorContents final : public ColorSourceContents {
  private:
   const Geometry* geometry_ = nullptr;
   Color color_;
+#ifdef FML_OS_OHOS
+  ColorSpace source_color_space_ = ColorSpace::kSRGB;
+  ColorSpace target_color_space_ = ColorSpace::kSRGB;
+#endif
 
   SolidColorContents(const SolidColorContents&) = delete;
 

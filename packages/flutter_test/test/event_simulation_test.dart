@@ -609,6 +609,7 @@ void main() {
             TargetPlatform.linux => RawKeyEventDataLinux,
             TargetPlatform.macOS => RawKeyEventDataMacOs,
             TargetPlatform.windows => RawKeyEventDataWindows,
+            TargetPlatform.ohos => RawKeyEventDataOhos,
           };
     expect(events.first.data.runtimeType, expectedType);
   }, variant: TargetPlatformVariant.all());

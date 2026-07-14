@@ -43,6 +43,14 @@ class QueueVK {
 
   vk::Result Present(const vk::PresentInfoKHR& present_info);
 
+  void WaitIdle() const;
+
+#ifdef FML_OS_OHOS
+  vk::Result QueueSignalReleaseImageOHOS(std::vector<vk::Semaphore> semaphores,
+                                         vk::Image image,
+                                         int* fence_fd);
+#endif
+
   void InsertDebugMarker(std::string_view label) const;
 
  private:

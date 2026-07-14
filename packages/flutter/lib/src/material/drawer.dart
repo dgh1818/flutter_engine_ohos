@@ -255,6 +255,7 @@ class Drawer extends StatelessWidget {
       TargetPlatform.android ||
       TargetPlatform.fuchsia ||
       TargetPlatform.linux ||
+      TargetPlatform.ohos ||
       TargetPlatform.windows => semanticLabel ?? MaterialLocalizations.of(context).drawerLabel,
     };
     final bool useMaterial3 = Theme.of(context).useMaterial3;
@@ -646,7 +647,7 @@ class DrawerControllerState extends State<DrawerController> with SingleTickerPro
 
   Widget _buildDrawer(BuildContext context) {
     final bool isDesktop = switch (Theme.of(context).platform) {
-      TargetPlatform.android || TargetPlatform.iOS || TargetPlatform.fuchsia => false,
+      TargetPlatform.android || TargetPlatform.iOS || TargetPlatform.fuchsia || TargetPlatform.ohos => false,
       TargetPlatform.macOS || TargetPlatform.linux || TargetPlatform.windows => true,
     };
 
@@ -684,6 +685,7 @@ class DrawerControllerState extends State<DrawerController> with SingleTickerPro
       final bool platformHasBackButton = switch (defaultTargetPlatform) {
         TargetPlatform.android => true,
         TargetPlatform.iOS ||
+        TargetPlatform.ohos ||
         TargetPlatform.macOS ||
         TargetPlatform.fuchsia ||
         TargetPlatform.linux ||

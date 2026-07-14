@@ -25,6 +25,7 @@ struct KHRFrameSynchronizerVK {
   bool acquire_fence_pending = false;
   vk::UniqueSemaphore render_ready;
   std::shared_ptr<CommandBuffer> final_cmd_buffer;
+  std::shared_ptr<CommandBuffer> ready_cmd_buffer;
   bool is_valid = false;
   // Whether the renderer attached an onscreen command buffer to render to.
   bool has_onscreen = false;
@@ -75,16 +76,24 @@ static bool ContainsFormat(const std::vector<vk::SurfaceFormatKHR>& formats,
 static std::optional<vk::SurfaceFormatKHR> ChooseSurfaceFormat(
     const std::vector<vk::SurfaceFormatKHR>& formats,
     PixelFormat preference) {
+#ifdef FML_OS_OHOS
+  const auto colorspaceP3 = vk::ColorSpaceKHR::eDisplayP3NonlinearEXT;
+  const auto colorspaceSrgb = vk::ColorSpaceKHR::eSrgbNonlinear;
+  std::vector<vk::SurfaceFormatKHR> options = {
+      {vk::Format::eA2B10G10R10UnormPack32, colorspaceP3},
+      {vk::Format::eR8G8B8A8Unorm, colorspaceSrgb},
+      {vk::Format::eB8G8R8A8Unorm, colorspaceSrgb}};
+#else
   const auto colorspace = vk::ColorSpaceKHR::eSrgbNonlinear;
   const auto vk_preference =
       vk::SurfaceFormatKHR{ToVKImageFormat(preference), colorspace};
   if (ContainsFormat(formats, vk_preference)) {
     return vk_preference;
   }
-
   std::vector<vk::SurfaceFormatKHR> options = {
       {vk::Format::eB8G8R8A8Unorm, colorspace},
       {vk::Format::eR8G8B8A8Unorm, colorspace}};
+#endif
   for (const auto& format : options) {
     if (ContainsFormat(formats, format)) {
       return format;
@@ -150,13 +159,27 @@ KHRSwapchainImplVK::KHRSwapchainImplVK(const std::shared_ptr<Context>& context,
     return;
   }
 
-  const auto format = ChooseSurfaceFormat(
+const auto format = ChooseSurfaceFormat(
       formats, vk_context.GetCapabilities()->GetDefaultColorFormat());
   if (!format.has_value()) {
     VALIDATION_LOG << "Swapchain has no supported formats.";
     return;
   }
+#ifdef FML_OS_OHOS
+  PixelFormat offscreen_format;
+  if (format.value().format == vk::Format::eA2B10G10R10UnormPack32) {
+    FML_LOG(INFO) << "OHOS: Swapchain uses A2B10G10R10UnormPack32 (wide gamut), "
+                  << "offscreen uses kR8G8B8A8UNormInt (high alpha precision)";
+    offscreen_format = PixelFormat::kR8G8B8A8UNormInt;
+  } else {
+    offscreen_format = ToPixelFormat(format.value().format);
+    FML_LOG(INFO) << "OHOS: Swapchain uses non-wide-gamut format, "
+                  << "offscreen uses same format: " << PixelFormatToString(offscreen_format);
+  }
+  vk_context.SetOffscreenFormat(offscreen_format);
+#else
   vk_context.SetOffscreenFormat(ToPixelFormat(format.value().format));
+#endif
 
   const auto composite =
       ChooseAlphaCompositionMode(surface_caps.supportedCompositeAlpha);
@@ -178,6 +201,24 @@ KHRSwapchainImplVK::KHRSwapchainImplVK(const std::shared_ptr<Context>& context,
                  surface_caps.minImageExtent.height,
                  surface_caps.maxImageExtent.height),
   };
+
+#ifdef __OHOS__
+  if (vk_context.IsPreload()) {
+    // Setting it to 1u may cause acquireNextImageKHR execution failure.
+    swapchain_info.minImageCount = 2u;
+  } else {
+    // OHOS's RenderService will hold one buffer, and the hardware composer
+    // will always hold two buffers.
+    uint32_t minCount = std::max(surface_caps.minImageCount, 3u);
+    swapchain_info.minImageCount =
+        std::clamp(minCount + 3u,  // preferred image count
+                   minCount,       // min count cannot be zero
+                   surface_caps.maxImageCount == 0u
+                       ? minCount + 3u
+                       : surface_caps.maxImageCount  // max zero means no limit
+        );
+  }
+#else
   swapchain_info.minImageCount =
       std::clamp(surface_caps.minImageCount + 1u,  // preferred image count
                  surface_caps.minImageCount,       // min count cannot be zero
@@ -185,6 +226,7 @@ KHRSwapchainImplVK::KHRSwapchainImplVK(const std::shared_ptr<Context>& context,
                      ? surface_caps.minImageCount + 1u
                      : surface_caps.maxImageCount  // max zero means no limit
       );
+#endif
   swapchain_info.imageArrayLayers = 1u;
   // Swapchain images are primarily used as color attachments (via resolve) or
   // input attachments.
@@ -264,6 +306,16 @@ KHRSwapchainImplVK::KHRSwapchainImplVK(const std::shared_ptr<Context>& context,
   }
   FML_DCHECK(!synchronizers.empty());
 
+  if (CapabilitiesVK::Cast(*vk_context.GetCapabilities())
+          .HasExtension(OptionalDeviceExtensionVK::kVKKHRIncrementalPresent)) {
+    support_present_damage_ = true;
+  }
+
+#ifdef __OHOS__
+  // OHOS support this capability but does not declare it explicitly
+  support_present_damage_ = true;
+#endif
+
   context_ = context;
   surface_ = std::move(surface);
   surface_format_ = swapchain_info.imageFormat;
@@ -325,8 +377,8 @@ bool KHRSwapchainImplVK::IsValid() const {
 
 void KHRSwapchainImplVK::WaitIdle() const {
   if (auto context = context_.lock()) {
-    [[maybe_unused]] auto result =
-        ContextVK::Cast(*context).GetDevice().waitIdle();
+    // vkDeviceWaitIdle is equivalent to calling vkQueueWaitIdle on all queues.
+    ContextVK::Cast(*context).WaitIdle();
   }
 }
 
@@ -411,6 +463,54 @@ KHRSwapchainImplVK::AcquireResult KHRSwapchainImplVK::AcquireNextDrawable() {
   context.GetGPUTracer()->MarkFrameStart();
 
   auto image = images_[index % images_.size()];
+  current_image_index_ = index % images_.size();
+
+  /// The GPU's write operations to the image must wait for the
+  /// sync->render_ready semaphore (i.e., wait for the GPU or hardware composer
+  /// to complete reading the image);
+  /// otherwise, screen tearing or other visual artifacts may occur.
+  /// However, the current function does not provide the render_ready semaphore
+  /// upon return, meaning subsequent write operations to the image will not
+  /// wait for the semaphore to signal, potentially leading to visual anomalies.
+
+  /// To address this issue, a write barrier is added here for the image,
+  /// along with a wait for the corresponding semaphore,
+  /// ensuring correct rendering.
+  /// Note: vkWaitSemaphores might not function correctly when the semaphore is
+  /// imported from a sync FD.
+  sync->ready_cmd_buffer = context.CreateCommandBuffer();
+  if (sync->ready_cmd_buffer) {
+    auto vk_cmd_buffer =
+        CommandBufferVK::Cast(*sync->ready_cmd_buffer).GetCommandBuffer();
+    BarrierVK barrier;
+    barrier.new_layout = vk::ImageLayout::eColorAttachmentOptimal;
+    barrier.cmd_buffer = vk_cmd_buffer;
+    barrier.src_access = {};
+    barrier.src_stage = vk::PipelineStageFlagBits::eTopOfPipe;
+    barrier.dst_access = vk::AccessFlagBits::eColorAttachmentWrite;
+    barrier.dst_stage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+    image->SetLayout(barrier);
+
+    auto end_ret = vk_cmd_buffer.end();
+    if (end_ret == vk::Result::eSuccess) {
+      vk::SubmitInfo submit_info;
+      vk::PipelineStageFlags wait_stage =
+          vk::PipelineStageFlagBits::eColorAttachmentOutput;
+      submit_info.setWaitDstStageMask(wait_stage);
+      submit_info.setWaitSemaphores(*sync->render_ready);
+      submit_info.setCommandBuffers(vk_cmd_buffer);
+      auto result = context.GetGraphicsQueue()->Submit(submit_info, nullptr);
+      if (result != vk::Result::eSuccess) {
+        VALIDATION_LOG << "Submit Swapchain Image Write Barrier Failed: "
+                       << vk::to_string(result);
+      }
+    } else {
+      VALIDATION_LOG << "Command Buffer End Failed: " << vk::to_string(end_ret);
+    }
+  } else {
+    VALIDATION_LOG << "Create Command Buffer Failed";
+  }
+
   uint32_t image_index = index;
   return AcquireResult{SurfaceVK::WrapSwapchainImage(
       transients_,  // transients
@@ -505,6 +605,22 @@ bool KHRSwapchainImplVK::Present(
   present_info.setSwapchains(*swapchain_);
   present_info.setImageIndices(indices);
   present_info.setWaitSemaphores(*present_semaphores_[index]);
+
+  vk::RectLayerKHR damage_rect;
+  vk::PresentRegionKHR present_region;
+  vk::PresentRegionsKHR present_regions;
+
+  if (support_present_damage_ && render_area_.has_value()) {
+    damage_rect.setOffset(
+        {(int)render_area_->GetX(), (int)render_area_->GetY()});
+    damage_rect.setExtent({(uint32_t)render_area_->GetWidth(),
+                           (uint32_t)render_area_->GetHeight()});
+
+    present_region.setRectangles(damage_rect);
+    present_regions.setRegions(present_region);
+
+    present_info.setPNext(&present_regions);
+  }
 
   auto result = context.GetGraphicsQueue()->Present(present_info);
 

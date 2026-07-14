@@ -385,9 +385,10 @@ class _PlatformItem extends StatelessWidget {
     return switch (platform) {
       TargetPlatform.android => 'Mountain View',
       TargetPlatform.fuchsia => 'Fuchsia',
-      TargetPlatform.iOS => 'Cupertino',
-      TargetPlatform.linux => 'Material Desktop (linux)',
-      TargetPlatform.macOS => 'Material Desktop (macOS)',
+      TargetPlatform.iOS     => 'Cupertino',
+      TargetPlatform.ohos     => 'Ohos',
+      TargetPlatform.linux   => 'Material Desktop (linux)',
+      TargetPlatform.macOS   => 'Material Desktop (macOS)',
       TargetPlatform.windows => 'Material Desktop (Windows)',
     };
   }

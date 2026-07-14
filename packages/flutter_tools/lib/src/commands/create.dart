@@ -25,6 +25,7 @@ import '../flutter_project_metadata.dart';
 import '../globals.dart' as globals;
 import '../ios/code_signing.dart';
 import '../macos/swift_packages.dart';
+import '../ohos/hvigor_utils.dart' as hvigor;
 import '../project.dart';
 import '../runner/flutter_command.dart';
 import 'create_base.dart';
@@ -380,8 +381,9 @@ class CreateCommand extends FlutterCommand with CreateBase {
     final bool includeLinux;
     final bool includeMacos;
     final bool includeWindows;
+    final bool includeOhos;
     if (template == FlutterTemplateType.module) {
-      // The module template only supports iOS and Android.
+      // The module template only supports iOS 、Android And OpenHarmony
       includeIos = true;
       includeAndroid = true;
       includeWeb = false;
@@ -389,6 +391,7 @@ class CreateCommand extends FlutterCommand with CreateBase {
       includeMacos = false;
       includeWindows = false;
       includeDarwin = false;
+      includeOhos = true;
     } else if (template == FlutterTemplateType.package) {
       // The package template does not supports any platform.
       includeIos = false;
@@ -398,6 +401,7 @@ class CreateCommand extends FlutterCommand with CreateBase {
       includeMacos = false;
       includeWindows = false;
       includeDarwin = false;
+      includeOhos = false;
     } else {
       final bool darwinRequested = platforms.contains('darwin');
       final bool darwinSupported =
@@ -424,6 +428,7 @@ class CreateCommand extends FlutterCommand with CreateBase {
       includeWeb = featureFlags.isWebEnabled && platforms.contains('web');
       includeLinux = featureFlags.isLinuxEnabled && platforms.contains('linux');
       includeWindows = featureFlags.isWindowsEnabled && platforms.contains('windows');
+      includeOhos = featureFlags.isOhosEnabled && platforms.contains('ohos');
     }
 
     String? developmentTeam;
@@ -465,6 +470,7 @@ class CreateCommand extends FlutterCommand with CreateBase {
       linux: includeLinux,
       macos: includeMacos,
       windows: includeWindows,
+      ohos: includeOhos,
       dartSdkVersionBounds: '^$dartSdk',
       implementationTests: boolArg('implementation-tests'),
       agpVersion: gradle.templateAndroidGradlePluginVersion,
@@ -579,6 +585,7 @@ class CreateCommand extends FlutterCommand with CreateBase {
           macOSPlatform: includeMacos || includeDarwin,
           windowsPlatform: includeWindows,
           webPlatform: includeWeb,
+          ohosPlatform: includeOhos,
         );
       }
     }
@@ -776,27 +783,21 @@ Your $application code is in $relativeAppMain.
       gradle.updateLocalProperties(project: project, requireAndroidSdk: false);
     }
 
+    final bool generateOhos = templateContext['ohos'] == true;
+    if (generateOhos) {
+      hvigor.updateLocalProperties(project: project);
+    }
+
     final organization =
         templateContext['organization']! as String; // Required to make the context.
     final androidPluginIdentifier = templateContext['androidIdentifier'] as String?;
     final exampleProjectName = '${projectName}_example';
     templateContext['projectName'] = exampleProjectName;
-    templateContext['androidIdentifier'] = CreateBase.createAndroidIdentifier(
-      organization,
-      exampleProjectName,
-    );
-    templateContext['iosIdentifier'] = CreateBase.createUTIIdentifier(
-      organization,
-      exampleProjectName,
-    );
-    templateContext['macosIdentifier'] = CreateBase.createUTIIdentifier(
-      organization,
-      exampleProjectName,
-    );
-    templateContext['windowsIdentifier'] = CreateBase.createWindowsIdentifier(
-      organization,
-      exampleProjectName,
-    );
+    templateContext['androidIdentifier'] = CreateBase.createAndroidIdentifier(organization, exampleProjectName);
+    templateContext['ohosIdentifier'] = CreateBase.createAndroidIdentifier(organization, exampleProjectName);
+    templateContext['iosIdentifier'] = CreateBase.createUTIIdentifier(organization, exampleProjectName);
+    templateContext['macosIdentifier'] = CreateBase.createUTIIdentifier(organization, exampleProjectName);
+    templateContext['windowsIdentifier'] = CreateBase.createWindowsIdentifier(organization, exampleProjectName);
     templateContext['description'] = 'Demonstrates how to use the $projectName plugin.';
     templateContext['pluginProjectName'] = projectName;
     templateContext['androidPluginIdentifier'] = androidPluginIdentifier;

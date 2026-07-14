@@ -55,6 +55,7 @@ enum class FlutterGPUPixelFormat {
   kS8UInt,
   kD24UnormS8Uint,
   kD32FloatS8UInt,
+  kB10G10R10A2UNorm,
 };
 
 constexpr impeller::PixelFormat ToImpellerPixelFormat(
@@ -92,6 +93,8 @@ constexpr impeller::PixelFormat ToImpellerPixelFormat(
       return impeller::PixelFormat::kD24UnormS8Uint;
     case FlutterGPUPixelFormat::kD32FloatS8UInt:
       return impeller::PixelFormat::kD32FloatS8UInt;
+    case FlutterGPUPixelFormat::kB10G10R10A2UNorm:
+ 	       return impeller::PixelFormat::kB10G10R10A2UNorm;
   }
 }
 
@@ -131,6 +134,8 @@ constexpr FlutterGPUPixelFormat FromImpellerPixelFormat(
       return FlutterGPUPixelFormat::kB10G10R10XRSRGB;
     case impeller::PixelFormat::kB10G10R10A10XR:
       return FlutterGPUPixelFormat::kB10G10R10A10XR;
+case impeller::PixelFormat::kB10G10R10A2UNorm:
+      return FlutterGPUPixelFormat::kB10G10R10A2UNorm;
     case impeller::PixelFormat::kS8UInt:
       return FlutterGPUPixelFormat::kS8UInt;
     case impeller::PixelFormat::kD24UnormS8Uint:

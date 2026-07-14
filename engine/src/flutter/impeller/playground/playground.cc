@@ -400,6 +400,9 @@ static std::shared_ptr<Texture> CreateTextureForDecompressedImage(
   texture_descriptor.storage_mode = StorageMode::kDevicePrivate;
   texture_descriptor.format = PixelFormat::kR8G8B8A8UNormInt;
   texture_descriptor.size = decompressed_image.GetSize();
+#ifdef FML_OS_OHOS
+  texture_descriptor.color_space = impeller::TextureColorSpace::kExtendedSRGB;
+#endif
   texture_descriptor.mip_count =
       enable_mipmapping ? decompressed_image.GetSize().MipCount() : 1u;
 

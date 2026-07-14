@@ -97,6 +97,7 @@ class DowngradeCommand extends FlutterCommand {
       throwToolExit(downgradePositionalArgumentErrorMessage(argResults!.rest), exitCode: 2);
     }
 
+    throwToolExit('It will be supported later.', exitCode: 1);
     // Commands do not necessarily have access to the correct zone injected
     // values when being created. Fields must be lazily instantiated in runCommand,
     // at least until the zone injection is refactored.

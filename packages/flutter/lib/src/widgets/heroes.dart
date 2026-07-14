@@ -6,6 +6,8 @@
 library;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+
 import 'basic.dart';
 import 'binding.dart';
 import 'framework.dart';
@@ -566,6 +568,10 @@ class _HeroFlight {
   OverlayEntry? overlayEntry;
   bool _aborted = false;
 
+  // LTPO: Used to calculate Hero animation velocity
+  Offset? _lastCenter;
+  DateTime? _lastTime;
+
   static final Animatable<double> _reverseTween = Tween<double>(begin: 1.0, end: 0.0);
 
   // The OverlayEntry WidgetBuilder callback for the hero's overlay.
@@ -615,6 +621,10 @@ class _HeroFlight {
       manifest.toHero.endFlight(keepPlaceholder: status.isDismissed);
       onFlightEnded(this);
       _proxyAnimation.removeListener(onTick);
+
+      // LTPO: Reset velocity tracking state
+      _lastCenter = null;
+      _lastTime = null;
     }
   }
 
@@ -692,6 +702,50 @@ class _HeroFlight {
     }
     // Update _aborted for the next animation tick.
     _aborted = toHeroOrigin == null || !toHeroOrigin.isFinite;
+
+    // LTPO: Report Hero animation velocity
+    _reportHeroVelocity();
+  }
+
+  // LTPO: Calculate and report Hero animation velocity
+  void _reportHeroVelocity() {
+    if (defaultTargetPlatform != TargetPlatform.ohos) {
+      return;
+    }
+
+    // Skip velocity reporting if the animation is aborted to avoid false
+    // high-velocity reports caused by position jumps when the target hero
+    // disappears or becomes invalid.
+    if (_aborted) {
+      return;
+    }
+
+    final Rect? rect = heroRectTween.evaluate(_proxyAnimation);
+    if (rect == null) {
+      return;
+    }
+
+    final Offset center = rect.center;
+    final DateTime now = DateTime.now();
+
+    if (_lastCenter != null && _lastTime != null) {
+      final double distance = (center - _lastCenter!).distance;
+      // The unit of the variable dt is seconds
+      final double dt = now.difference(_lastTime!).inMicroseconds.toDouble() / Duration.microsecondsPerSecond;
+      if (dt > 0 && dt < 0.1) {
+        final double velocity = distance / dt; // pixels/second
+        // Use Hero tag as component identifier
+        final String? heroTag = _manifest?.tag?.toString();
+        WidgetsBinding.instance.recordTranslateVelocity(
+          velocity: velocity,
+          source: TranslateAnimationSource.pageTransition,
+          debugInfo: heroTag != null ? 'Hero($heroTag)' : 'Hero',
+        );
+      }
+    }
+
+    _lastCenter = center;
+    _lastTime = now;
   }
 
   // The simple case: we're either starting a push or a pop animation.

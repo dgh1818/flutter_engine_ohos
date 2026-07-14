@@ -2666,6 +2666,7 @@ class _LocalizedShortcutLabeler {
       switch (defaultTargetPlatform) {
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
+        case TargetPlatform.ohos:
         case TargetPlatform.linux:
           return localizations.keyboardKeyMeta;
         case TargetPlatform.windows:
@@ -2683,6 +2684,7 @@ class _LocalizedShortcutLabeler {
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
         case TargetPlatform.windows:
+        case TargetPlatform.ohos:
           return localizations.keyboardKeyAlt;
         case TargetPlatform.iOS:
         case TargetPlatform.macOS:
@@ -2702,6 +2704,7 @@ class _LocalizedShortcutLabeler {
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
         case TargetPlatform.windows:
+        case TargetPlatform.ohos:
           return localizations.keyboardKeyControl;
         case TargetPlatform.iOS:
         case TargetPlatform.macOS:
@@ -2716,6 +2719,7 @@ class _LocalizedShortcutLabeler {
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
         case TargetPlatform.windows:
+        case TargetPlatform.ohos:
           return localizations.keyboardKeyShift;
         case TargetPlatform.iOS:
         case TargetPlatform.macOS:
@@ -3986,6 +3990,7 @@ bool get _isCupertino {
     case TargetPlatform.fuchsia:
     case TargetPlatform.linux:
     case TargetPlatform.windows:
+    case TargetPlatform.ohos:
       return false;
   }
 }

@@ -85,6 +85,13 @@ template("tester") {
       deps += invoker.deps
     }
 
+    ldflags = []
+    if (is_ohos) {
+      deps += [ "//flutter/shell/platform/ohos:icudtl_asm" ]
+      sources += [ "$root_build_dir/gen/flutter/shell/platform/ohos/flutter/third_party/icu/flutter/icudtl.dat.S" ]
+      ldflags += [ "-lnative_drawing" ]
+    }
+
     if (defined(invoker.metadata)) {
       metadata = invoker.metadata
     }

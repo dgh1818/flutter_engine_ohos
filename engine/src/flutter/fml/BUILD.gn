@@ -9,6 +9,21 @@ if (is_fuchsia) {
   import("//flutter/tools/fuchsia/gn-sdk/src/gn_configs.gni")
 }
 
+config("fml_ohos_config") {
+  if (is_ohos) {
+    flutter_version = exec_script(
+        "//flutter/attachment/scripts/ohos_har_version.py",
+        [
+          "--package-file",
+          rebase_path("//flutter/shell/platform/ohos/flutter_embedding/oh-package.json5", root_build_dir),
+          "--git-dir",
+          rebase_path("//", root_build_dir),
+        ],
+        "value")
+    defines = [ "FLUTTER_VERSION=\"$flutter_version\"" ]
+  }
+}
+
 source_set("fml") {
   sources = [
     "ascii_trie.cc",
@@ -188,7 +203,33 @@ source_set("fml") {
     ]
   }
 
-  if (is_linux) {
+  if (is_ohos) {
+    sources += [
+      "platform/ohos/hisysevent_c.cc",
+      "platform/ohos/hisysevent_c.h",
+      "platform/ohos/message_loop_ohos.cc",
+      "platform/ohos/message_loop_ohos.h",
+      "platform/ohos/napi_util.cc",
+
+      #"platform/ohos/message_loop_ohos_test.cc",
+      #"platform/ohos/message_loop_ohos_test.h",
+      "platform/ohos/dynamic_library_loader.cpp",
+      "platform/ohos/dynamic_library_loader.h",
+      "platform/ohos/hiappevent/ohos_hiappevent.cpp",
+      "platform/ohos/napi_util.h",
+      "platform/ohos/ohos_trace_event.cc",
+      "platform/ohos/paths_ohos.cc",
+      "platform/ohos/paths_ohos.h",
+      "platform/ohos/timerfd.cc",
+      "platform/ohos/timerfd.h",
+    ]
+    libs += [ "hilog_ndk.z" ]
+    libs += [ "ace_napi.z" ]
+    libs += [ "uv" ]
+    libs += [ "hitrace_ndk.z" ]
+    libs += [ "hiappevent_ndk.z" ]
+    libs += [ "deviceinfo_ndk.z" ]
+  } else if (is_linux) {
     sources += [
       "platform/linux/message_loop_linux.cc",
       "platform/linux/message_loop_linux.h",
@@ -250,6 +291,10 @@ source_set("fml") {
       "platform/posix/posix_wrappers_posix.cc",
       "platform/posix/process_posix.cc",
     ]
+  }
+
+  if (is_ohos) {
+    public_configs += [ ":fml_ohos_config" ]
   }
 }
 

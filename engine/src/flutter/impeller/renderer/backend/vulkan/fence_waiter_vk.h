@@ -9,9 +9,16 @@
 #include <memory>
 #include <thread>
 #include <vector>
+#include <atomic>
 
 #include "flutter/fml/closure.h"
 #include "impeller/renderer/backend/vulkan/device_holder_vk.h"
+
+#ifdef FML_OS_OHOS
+#define OHOS_MEMORY_LEVEL_MODRATE 0
+#define OHOS_MEMORY_LEVEL_LOW 1
+#define OHOS_MEMORY_LEVEL_CRITICAL 2
+#endif
 
 namespace impeller {
 
@@ -30,6 +37,11 @@ class FenceWaiterVK {
 
   bool AddFence(vk::UniqueFence fence, const fml::closure& callback);
 
+#ifdef FML_OS_OHOS
+  void setQosOnLowMemory(int64_t lowMemoryLevel);
+  void processQosLevel();
+#endif
+
  private:
   friend class ContextVK;
 
@@ -39,6 +51,11 @@ class FenceWaiterVK {
   std::condition_variable wait_set_cv_;
   WaitSet wait_set_;
   bool terminate_ = false;
+
+#ifdef FML_OS_OHOS
+  std::atomic<int64_t> lowMemoryEventNum_{0};
+  std::atomic<int64_t> lowMemoryLevel_{0};
+#endif
 
   explicit FenceWaiterVK(std::weak_ptr<DeviceHolderVK> device_holder);
 
