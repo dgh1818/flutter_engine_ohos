@@ -6,7 +6,8 @@
         "name": "default",
         "signingConfig": "default",
         "compatibleSdkVersion": "5.0.0(12)",
-        "runtimeOS": "HarmonyOS"
+        "runtimeOS": "HarmonyOS",
+        "targetSdkVersion": "5.0.0(12)"
       }
     ],
     "buildModeSet": [
@@ -29,6 +30,10 @@
     {
       "name": "flutter_native",
       "srcPath": "./flutter_native",
+    },
+    {
+      "name": "entry",
+      "srcPath": "./entry",
     }
   ]
 }

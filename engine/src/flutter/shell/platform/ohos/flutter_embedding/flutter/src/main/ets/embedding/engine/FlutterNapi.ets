@@ -191,8 +191,9 @@ export default class FlutterNapi {
       Log.e(TAG, "runBundleAndSnapshotFromLibrary this.nativeShellHolderId = " + this.nativeShellHolderId)
       return;
     }
-    flutter.nativeRunBundleAndSnapshotFromLibrary(this.nativeShellHolderId!, bundlePath, entrypointFunctionName,
-      pathToEntrypointFunction, assetManager, entrypointArgs);
+    const shellHolderId: number = this.nativeShellHolderId as number;
+    flutter.nativeRunBundleAndSnapshotFromLibrary(shellHolderId, bundlePath, entrypointFunctionName!,
+      pathToEntrypointFunction!, assetManager, entrypointArgs);
     this.isRunningDart = true;
     this.isDisplayingFlutterUi = false;
     this.isPreloadedFlutterUi = false;
