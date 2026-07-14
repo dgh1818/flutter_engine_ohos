@@ -28,7 +28,7 @@ ENGINE_REALM="${ENGINE_REALM//[[:space:]]/}"
 ENGINE_OHOS_VERSION=$(cat "$FLUTTER_ROOT/bin/cache/engine.ohos.stamp")
 ENGINE_OHOS_REALM=$(cat "$FLUTTER_ROOT/bin/cache/engine.ohos.realm" | tr -d '[:space:]')
 
-if [ ! -f "$ENGINE_STAMP" ] || [ "$ENGINE_VERSION" != "$(< "$ENGINE_STAMP")" ]; then
+if [ ! -f "$ENGINE_STAMP" ] || [ "$ENGINE_OHOS_VERSION" != "$(< "$ENGINE_STAMP")" ]; then
   command -v curl > /dev/null 2>&1 || {
     >&2 echo
     >&2 echo 'Missing "curl" tool. Unable to download Dart SDK.'

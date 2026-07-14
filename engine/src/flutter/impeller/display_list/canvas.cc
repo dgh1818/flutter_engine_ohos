@@ -853,7 +853,8 @@ void Canvas::DrawRect(const Rect& rect, const Paint& paint) {
   } else {
     FillRectGeometry geom(rect);
 #ifdef FML_OS_OHOS
-    AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint, false, true);
+    AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint, false,
+                                            nullptr, true);
 #else
     AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint);
 #endif
@@ -1074,7 +1075,8 @@ void Canvas::DrawCircle(const Point& center,
   } else {
     CircleGeometry geom(center, radius);
 #ifdef FML_OS_OHOS
-    AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint, false, true);
+    AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint, false,
+                                            nullptr, true);
 #else
     AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint);
 #endif

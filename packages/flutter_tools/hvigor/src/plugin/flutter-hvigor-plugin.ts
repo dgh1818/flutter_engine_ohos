@@ -410,13 +410,12 @@ function registerFlutterTask(node: HvigorNode, sdkPath: string, buildMode: strin
       }
 
       // 3.5 Copy native code assets (.so files produced by build hooks)
-      // from build/native_assets/ohos/libs/{arch}/ to module libs/{arch}/.
+      // from {intermediateDir}/native_assets/libs/{arch}/ to module libs/{arch}/.
       targetPlatforms?.map(platform => PLATFORM_ARCH_MAP[platform]).forEach(arch => {
         const nativeAssetsDir = path.join(
           flutterProjectPath,
-          'build',
+          intermediateDir,
           'native_assets',
-          'ohos',
           'libs',
           arch
         )

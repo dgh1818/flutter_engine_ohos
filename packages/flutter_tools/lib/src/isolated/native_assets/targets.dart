@@ -528,6 +528,7 @@ List<OhosArch> _ohosArchs(TargetPlatform targetPlatform, String? ohosArchsEnviro
     case TargetPlatform.fuchsia_x64:
     case TargetPlatform.ios:
     case TargetPlatform.linux_arm64:
+    case TargetPlatform.linux_riscv64:
     case TargetPlatform.linux_x64:
     case TargetPlatform.tester:
     case TargetPlatform.web_javascript:

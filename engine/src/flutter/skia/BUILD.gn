@@ -781,7 +781,7 @@ skia_component("skia") {
   }
 
   if (is_ohos) {
-    sources += [ "$_skia_root/src/ports/SkDebug_ohos.cpp" ]
+    sources += [ "$_skia_root/src/ports/SkLog_ohos.cpp" ]
     libs += [
       "EGL",
       "GLESv3",

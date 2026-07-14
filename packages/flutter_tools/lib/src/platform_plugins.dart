@@ -564,19 +564,6 @@ class LinuxPlugin extends PluginPlatform implements NativeOrDartPlugin {
       );
     }
 
-    final String? pluginClass;
-    if (yaml[kPluginClass] == 'none') {
-      // TODO(matanlurey): Remove as part of https://github.com/flutter/flutter/issues/57497.
-      globals.printWarning(
-        'Use of `dartPluginClass: none` ($name) is deprecated, and will be '
-        'removed in the next stable version. See '
-        'https://github.com/flutter/flutter/issues/57497 for details.',
-      );
-      pluginClass = null;
-    } else {
-      pluginClass = yaml[kPluginClass] as String?;
-    }
-
     return LinuxPlugin(
       name: name,
       pluginClass: yaml[kPluginClass] as String?,

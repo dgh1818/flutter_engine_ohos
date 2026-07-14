@@ -1119,6 +1119,10 @@ napi_value PlatformViewOHOSNapi::nativeSetViewportMetrics(
       std::vector<int>(displayFeaturesState.begin(),
                        displayFeaturesState.end()),
       0,  // Display ID
+      -1.0,  // physical_display_corner_radius_top_left
+      -1.0,  // physical_display_corner_radius_top_right
+      -1.0,  // physical_display_corner_radius_bottom_right
+      -1.0,  // physical_display_corner_radius_bottom_left
   };
 
   OHOS_SHELL_HOLDER->GetPlatformView()->SetViewportMetrics(

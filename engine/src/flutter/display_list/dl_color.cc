@@ -13,6 +13,7 @@ namespace flutter {
 
 namespace {
 
+#ifndef FML_OS_OHOS
 /// sRGB standard constants for transfer functions.
 /// See https://en.wikipedia.org/wiki/SRGB.
 constexpr double kSrgbGamma = 2.4;
@@ -87,6 +88,7 @@ DlColor p3ToExtendedSrgb(const DlColor& color) {
                  static_cast<float>(g_out), static_cast<float>(b_out),
                  DlColorSpace::kExtendedSRGB);
 }
+#endif  // !defined(FML_OS_OHOS)
 
 }  // namespace
 
