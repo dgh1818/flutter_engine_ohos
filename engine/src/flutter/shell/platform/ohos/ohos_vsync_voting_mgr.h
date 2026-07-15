@@ -91,7 +91,11 @@ public:
   LTPOSwitchState CheckVotingSwitchState();
 
 private:
-  int ParseFramesCfgImpl();
+  void ParseFramesCfgImpl();
+
+  bool ParseFramesConfigJson(const char* data, int size, Json::Value& root);
+
+  void ApplyTranslateConfig(const Json::Value& root);
 
   void VoteANTranslate(double velocity);
 
