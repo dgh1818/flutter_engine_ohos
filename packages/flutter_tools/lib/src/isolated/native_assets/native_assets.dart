@@ -25,8 +25,8 @@ import 'android/native_assets.dart';
 import 'dart_hook_result.dart';
 import 'ios/native_assets.dart';
 import 'macos/native_assets.dart';
-import 'targets.dart';
 import 'ohos/native_assets.dart';
+import 'targets.dart';
 
 /// A [CodeAsset] for a specific [target].
 ///
@@ -729,11 +729,7 @@ const _osTargets = <OS, Set<Architecture>>{
     Architecture.x64,
   },
   OS.macOS: <Architecture>{Architecture.arm64, Architecture.x64},
-  OS.ohos: <Architecture>{
-    Architecture.arm,
-    Architecture.arm64,
-    Architecture.x64,
-  },
+  OS.ohos: <Architecture>{Architecture.arm, Architecture.arm64, Architecture.x64},
   OS.windows: <Architecture>{Architecture.arm64, Architecture.ia32, Architecture.x64},
 };
 

@@ -15,7 +15,6 @@ import 'dart:collection' show HashMap;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
-import '../services/split_view_config_loader.dart';
 import 'actions.dart';
 import 'banner.dart';
 import 'basic.dart';
@@ -1484,9 +1483,9 @@ class _WidgetsAppState extends State<WidgetsApp> with WidgetsBindingObserver {
   /// Config is loaded via SystemChannel during binding init, no need to
   /// block the first frame.
   void _initSplitViewConfig() {
-    final SplitViewConfig config = SplitViewConfig();
+    final config = SplitViewConfig();
     _enableSplitView = config.enableWideWindowSplit || config.enableSquareWindowSplit;
-    if (_enableSplitView != null && _enableSplitView) {
+    if (_enableSplitView) {
       _determinePriorityMainPage();
       SplitViewManager().initDefaultPlaceholderBuilder();
     }
@@ -1515,8 +1514,8 @@ class _WidgetsAppState extends State<WidgetsApp> with WidgetsBindingObserver {
       return;
     }
     if (widget.routes != null && widget.routes!.isNotEmpty) {
-      const List<String> homeRouteNames = ['/home', '/', '/index'];
-      for (final String routeName in homeRouteNames) {
+      const homeRouteNames = <String>['/home', '/', '/index'];
+      for (final routeName in homeRouteNames) {
         if (widget.routes!.containsKey(routeName)) {
           debugPrint('SplitView: Main page determined by routes: $routeName');
           SplitViewManager().setRealHomePage(routeName);
@@ -1526,13 +1525,13 @@ class _WidgetsAppState extends State<WidgetsApp> with WidgetsBindingObserver {
     }
     if (widget.initialRoute != null) {
       debugPrint('SplitView: Main page determined by initialRoute: ${widget.initialRoute}');
-      SplitViewManager().setRealHomePage(widget.initialRoute!);
+      SplitViewManager().setRealHomePage(widget.initialRoute);
       return;
     }
     throw FlutterError(
       'Cannot determine main page for split screen.\n'
       'Please provide either widget.home, widget.routes with /home, /, or /index keys, '
-      'or widget.initialRoute.'
+      'or widget.initialRoute.',
     );
   }
 
@@ -1756,7 +1755,7 @@ class _WidgetsAppState extends State<WidgetsApp> with WidgetsBindingObserver {
         backButtonDispatcher: _effectiveBackButtonDispatcher,
       );
     } else if (_usesNavigator) {
-    assert(_navigator != null);
+      assert(_navigator != null);
       routing = FocusScope(
         debugLabel: 'Navigator Scope',
         autofocus: true,
@@ -1767,10 +1766,10 @@ class _WidgetsAppState extends State<WidgetsApp> with WidgetsBindingObserver {
           initialRoute: _initialRouteName,
           onGenerateRoute: _onGenerateRoute,
           onGenerateInitialRoutes: widget.onGenerateInitialRoutes == null
-            ? Navigator.defaultGenerateInitialRoutes
-            : (NavigatorState navigator, String initialRouteName) {
-              return widget.onGenerateInitialRoutes!(initialRouteName);
-            },
+              ? Navigator.defaultGenerateInitialRoutes
+              : (NavigatorState navigator, String initialRouteName) {
+                  return widget.onGenerateInitialRoutes!(initialRouteName);
+                },
           onUnknownRoute: _onUnknownRoute,
           observers: widget.navigatorObservers!,
           routeTraversalEdgeBehavior: kIsWeb

@@ -52,12 +52,12 @@ void main() {
     path.join('..', '..', 'bin', 'cache', 'dart-sdk', 'bin', dartName),
   );
   final String testGenDefaultsPath = path.join('test', 'analyze-gen-defaults');
-  final File genDefaultsChipFixture = File(
+  final genDefaultsChipFixture = File(
     path.join(testGenDefaultsPath, 'packages', 'flutter', 'lib', 'src', 'material', 'chip.dart'),
   );
 
   // gen_defaults syncs this file when the test runs; restore before each run.
-  const String outOfSyncGenDefaultsChipFixture = '''
+  const outOfSyncGenDefaultsChipFixture = '''
 // Copyright 2014 The Flutter Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.

@@ -701,16 +701,17 @@ class _HeroFlight {
     }
 
     final Offset center = rect.center;
-    final DateTime now = DateTime.now();
+    final now = DateTime.now();
 
     if (_lastCenter != null && _lastTime != null) {
       final double distance = (center - _lastCenter!).distance;
       // The unit of the variable dt is seconds
-      final double dt = now.difference(_lastTime!).inMicroseconds.toDouble() / Duration.microsecondsPerSecond;
+      final double dt =
+          now.difference(_lastTime!).inMicroseconds.toDouble() / Duration.microsecondsPerSecond;
       if (dt > 0 && dt < 0.1) {
         final double velocity = distance / dt; // pixels/second
         // Use Hero tag as component identifier
-        final String? heroTag = _manifest?.tag?.toString();
+        final heroTag = _manifest?.tag.toString();
         WidgetsBinding.instance.recordTranslateVelocity(
           velocity: velocity,
           source: TranslateAnimationSource.pageTransition,

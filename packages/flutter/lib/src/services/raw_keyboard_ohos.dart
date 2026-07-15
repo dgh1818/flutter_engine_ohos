@@ -49,14 +49,13 @@ enum KeyType {
   keyup,
 
   /// 按键按下
-  keydown
+  keydown,
 }
 
 /// RawKeyEventData for OpenHarmony platform
 class RawKeyEventDataOhos extends RawKeyEventData {
   /// Constructor
-  const RawKeyEventDataOhos(
-      this._type, this._keyCode, this._deviceId, this._character);
+  const RawKeyEventDataOhos(this._type, this._keyCode, this._deviceId, this._character);
 
   //按键类型，keyup/keydown
   final String _type;
@@ -65,6 +64,7 @@ class RawKeyEventDataOhos extends RawKeyEventData {
   final int _keyCode;
 
   // 设备id
+  // ignore: unused_field
   final int _deviceId;
 
   // 按键键值
@@ -103,8 +103,7 @@ class RawKeyEventDataOhos extends RawKeyEventData {
   }
 
   @override
-  bool isModifierPressed(ModifierKey key,
-      {KeyboardSide side = KeyboardSide.any}) {
+  bool isModifierPressed(ModifierKey key, {KeyboardSide side = KeyboardSide.any}) {
     if (!_isKeyDown) {
       return false;
     }
@@ -112,8 +111,7 @@ class RawKeyEventDataOhos extends RawKeyEventData {
       case ModifierKey.controlModifier:
         return _keyCode == KEYCODE_CTRL_LEFT || _keyCode == KEYCODE_CTRL_RIGHT;
       case ModifierKey.shiftModifier:
-        return _keyCode == KEYCODE_SHIFT_LEFT ||
-            _keyCode == KEYCODE_SHIFT_RIGHT;
+        return _keyCode == KEYCODE_SHIFT_LEFT || _keyCode == KEYCODE_SHIFT_RIGHT;
       case ModifierKey.altModifier:
         return _keyCode == KEYCODE_ALT_LEFT || _keyCode == KEYCODE_ALT_RIGHT;
       case ModifierKey.metaModifier:

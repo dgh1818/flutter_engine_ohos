@@ -13,11 +13,6 @@ import 'package:flutter/physics.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/widgets.dart';
-import 'package:meta/meta.dart';
-
-import 'animation.dart';
-import 'curves.dart';
-import 'listener_helpers.dart';
 
 export 'package:flutter/physics.dart' show Simulation, SpringDescription;
 export 'package:flutter/scheduler.dart' show TickerFuture, TickerProvider;
@@ -949,9 +944,7 @@ class AnimationController extends Animation<double>
   /// If [upperBound] is not Infinite, and it less than 1.0,
   /// consider it as an interval ratio.
   bool get isIntervalRatio {
-    if (!upperBound.isInfinite &&
-        upperBound <= 1.0 &&
-        _simulation is _InterpolationSimulation) {
+    if (!upperBound.isInfinite && upperBound <= 1.0 && _simulation is _InterpolationSimulation) {
       return true;
     }
     return false;

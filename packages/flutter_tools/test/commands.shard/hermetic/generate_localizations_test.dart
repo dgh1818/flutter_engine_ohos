@@ -269,7 +269,7 @@ flutter:
       final File pubspecFile = fileSystem.file('pubspec.yaml')..createSync();
       pubspecFile.writeAsStringSync(BasicProjectWithFlutterGen().pubspec);
 
-      final GenerateLocalizationsCommand command = GenerateLocalizationsCommand(
+      final command = GenerateLocalizationsCommand(
         fileSystem: fileSystem,
         logger: logger,
         artifacts: artifacts,
@@ -394,7 +394,7 @@ format: false
 ''');
       final File pubspecFile = fileSystem.file('pubspec.yaml')..createSync();
       pubspecFile.writeAsStringSync(BasicProjectWithFlutterGen().pubspec);
-      final GenerateLocalizationsCommand command = GenerateLocalizationsCommand(
+      final command = GenerateLocalizationsCommand(
         fileSystem: fileSystem,
         logger: logger,
         artifacts: artifacts,

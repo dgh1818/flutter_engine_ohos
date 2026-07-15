@@ -4597,14 +4597,12 @@ class _SemanticsSortGroup implements Comparable<_SemanticsSortGroup> {
       // sortedWithinKnot may order childenInTraversalOrder as [A, C, B] unexpectedly.
       // FIXME: Remove it when OHOS support childrenInHitTestOrder
       case TargetPlatform.ohos:
-        return
-          horizontalGroups
-          .expand((_SemanticsSortGroup group) => group.nodes)
-          .toList();
+        return horizontalGroups.expand((_SemanticsSortGroup group) => group.nodes).toList();
+      // ignore: no_default_cases
       default:
         return horizontalGroups
-        .expand((_SemanticsSortGroup group) => group.sortedWithinKnot())
-        .toList();
+            .expand((_SemanticsSortGroup group) => group.sortedWithinKnot())
+            .toList();
     }
   }
 

@@ -2,10 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE_HW file.
 
-import 'dart:async';
+// ignore_for_file: use_setters_to_change_properties
+
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
+
 import 'split_view_config.dart';
 
 /// Builder callback for the split-view placeholder page.
@@ -13,9 +15,10 @@ import 'split_view_config.dart';
 /// component) does not need to depend on Text, Image, or other UI widgets.
 typedef SplitViewPlaceholderBuilder = Widget Function(BuildContext context);
 
+/// Holds the shared split-view state (active, fullscreen, landscape) and
+/// notifies listeners on change.
 class SplitViewManager extends ChangeNotifier {
-  static final SplitViewManager _instance = SplitViewManager._internal();
-
+  /// Returns the singleton [SplitViewManager] instance.
   factory SplitViewManager() {
     return _instance;
   }
@@ -24,6 +27,7 @@ class SplitViewManager extends ChangeNotifier {
     // Listen to orientation changes from SystemChrome
     OrientationChangeNotifier().addListener(_onOrientationChange);
   }
+  static final SplitViewManager _instance = SplitViewManager._internal();
 
   /// Handle orientation change notifications from OrientationChangeNotifier.
   void _onOrientationChange() {
@@ -37,8 +41,10 @@ class SplitViewManager extends ChangeNotifier {
   /// Final determined home page route name.
   String? _realHomePage;
 
+  /// The final determined home page route name.
   String? get realHomePage => _realHomePage;
 
+  /// Sets the home page route name.
   void setRealHomePage(String? homePage) {
     _realHomePage = homePage;
   }
@@ -46,8 +52,10 @@ class SplitViewManager extends ChangeNotifier {
   /// Whether split screen is active on current page.
   bool _isSplitViewActive = false;
 
+  /// Whether split screen is active on the current page.
   bool get isSplitViewActive => _isSplitViewActive;
 
+  /// Updates whether split screen is active and notifies listeners.
   void setSplitViewActive(bool value) {
     if (_isSplitViewActive == value) {
       return;
@@ -59,8 +67,10 @@ class SplitViewManager extends ChangeNotifier {
   /// Whether current page is forced fullscreen.
   bool _isForceFullscreen = false;
 
+  /// Whether the current page is forced to fullscreen.
   bool get isForceFullscreen => _isForceFullscreen;
 
+  /// Updates the forced fullscreen state and notifies listeners.
   void setForceFullscreen(bool value) {
     if (_isForceFullscreen == value) {
       return;
@@ -73,8 +83,10 @@ class SplitViewManager extends ChangeNotifier {
   /// When true, split view should be disabled.
   bool _isForcedLandscape = false;
 
+  /// Whether the app requested forced landscape orientation.
   bool get isForcedLandscape => _isForcedLandscape;
 
+  /// Updates the forced landscape state and notifies listeners.
   void setLandscapeFullscreen(bool value) {
     if (_isForcedLandscape == value) {
       return;
@@ -88,6 +100,7 @@ class SplitViewManager extends ChangeNotifier {
   /// to depend on UI widgets like Text or Image.
   SplitViewPlaceholderBuilder? _placeholderBuilder;
 
+  /// The placeholder builder for the split-view right panel.
   SplitViewPlaceholderBuilder? get placeholderBuilder => _placeholderBuilder;
 
   /// Initialize the default placeholder builder using SplitViewConfig.

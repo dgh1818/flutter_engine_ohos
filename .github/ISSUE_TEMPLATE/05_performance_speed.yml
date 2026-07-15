@@ -85,7 +85,7 @@ body:
       description: |
         请用另一部手机录制性能问题的视频，以便我们直观了解发生了什么。
 
-        
+
       value: |
         <details open>
         <summary>视频演示</summary>

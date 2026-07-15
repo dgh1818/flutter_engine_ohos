@@ -5,9 +5,9 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
 
+import '../widgets/split_view_config.dart';
 import 'message_codecs.dart';
 import 'platform_channel.dart';
-import '../widgets/split_view_config.dart';
 
 /// Split view configuration loader.
 ///
@@ -16,19 +16,18 @@ import '../widgets/split_view_config.dart';
 /// channel immediately after Dart isolate starts, which is the fastest way
 /// to get config without blocking the first frame.
 class SplitViewConfigLoader {
-  static final SplitViewConfigLoader _instance = SplitViewConfigLoader._internal();
-
+  /// Returns the singleton [SplitViewConfigLoader] instance.
   factory SplitViewConfigLoader() => _instance;
 
   SplitViewConfigLoader._internal();
+  static final SplitViewConfigLoader _instance = SplitViewConfigLoader._internal();
 
   static const String _systemChannelName = 'flutter/split_view_config_system';
 
   Map<String, dynamic>? _rawConfig;
 
-
+  /// Returns the raw config map received from the platform, or null.
   Map<String, dynamic>? getRawConfig() => _rawConfig;
-
 
   static Map<String, dynamic> _extractSplitOptions(Map<String, dynamic> fullConfig) {
     final dynamic splitOptions = fullConfig['splitOptions'];
@@ -38,15 +37,14 @@ class SplitViewConfigLoader {
     return fullConfig;
   }
 
+  /// Registers the platform channel handler that receives the config pushed
+  /// by the ETS engine on isolate start.
   void setupSystemChannel() {
-    final BasicMessageChannel<String> channel = BasicMessageChannel<String>(
-      _systemChannelName,
-      StringCodec(),
-    );
+    const channel = BasicMessageChannel<String>(_systemChannelName, StringCodec());
     channel.setMessageHandler((String? message) async {
       if (message != null && message.isNotEmpty) {
         try {
-          final Map<String, dynamic> fullConfig = jsonDecode(message) as Map<String, dynamic>;
+          final fullConfig = jsonDecode(message) as Map<String, dynamic>;
           final Map<String, dynamic> config = _extractSplitOptions(fullConfig);
           _rawConfig = config;
 
@@ -63,10 +61,12 @@ class SplitViewConfigLoader {
     });
   }
 
+  /// Clears the raw config and resets the loader state.
   void reset() {
     _rawConfig = null;
   }
 
+  /// Clears the cached raw config (called after [SplitViewConfig] parses it).
   void clearRawConfig() {
     _rawConfig = null;
   }

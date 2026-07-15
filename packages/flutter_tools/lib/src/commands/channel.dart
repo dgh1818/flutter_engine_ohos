@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// ignore_for_file: dead_code
+
 import '../base/common.dart';
 import '../base/process.dart';
 import '../cache.dart';

@@ -102,7 +102,8 @@ class _DraggableScrollableSheetExampleState
         TargetPlatform.windows => true,
         TargetPlatform.android ||
         TargetPlatform.iOS ||
-        TargetPlatform.fuchsia => false,
+        TargetPlatform.fuchsia ||
+        TargetPlatform.ohos => false,
       };
 }
 

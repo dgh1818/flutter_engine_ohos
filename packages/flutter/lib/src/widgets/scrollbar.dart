@@ -1604,6 +1604,7 @@ class RawScrollbarState<T extends RawScrollbar> extends State<T> with TickerProv
     }
   }
 
+  // ignore: unused_element
   void _updateScrollPosition(Offset updatedOffset) {
     assert(_cachedController != null);
     assert(_startDragScrollbarAxisOffset != null);
@@ -1618,11 +1619,11 @@ class RawScrollbarState<T extends RawScrollbar> extends State<T> with TickerProv
         primaryDeltaFromDragStart = _startDragScrollbarAxisOffset!.dy - updatedOffset.dy;
         primaryDeltaFromLastDragUpdate = _lastDragUpdateOffset!.dy - updatedOffset.dy;
       case AxisDirection.right:
-        primaryDeltaFromDragStart = updatedOffset.dx -_startDragScrollbarAxisOffset!.dx;
-        primaryDeltaFromLastDragUpdate = updatedOffset.dx -_lastDragUpdateOffset!.dx;
+        primaryDeltaFromDragStart = updatedOffset.dx - _startDragScrollbarAxisOffset!.dx;
+        primaryDeltaFromLastDragUpdate = updatedOffset.dx - _lastDragUpdateOffset!.dx;
       case AxisDirection.down:
-        primaryDeltaFromDragStart = updatedOffset.dy -_startDragScrollbarAxisOffset!.dy;
-        primaryDeltaFromLastDragUpdate = updatedOffset.dy -_lastDragUpdateOffset!.dy;
+        primaryDeltaFromDragStart = updatedOffset.dy - _startDragScrollbarAxisOffset!.dy;
+        primaryDeltaFromLastDragUpdate = updatedOffset.dy - _lastDragUpdateOffset!.dy;
       case AxisDirection.left:
         primaryDeltaFromDragStart = _startDragScrollbarAxisOffset!.dx - updatedOffset.dx;
         primaryDeltaFromLastDragUpdate = _lastDragUpdateOffset!.dx - updatedOffset.dx;
@@ -1631,16 +1632,22 @@ class RawScrollbarState<T extends RawScrollbar> extends State<T> with TickerProv
     // Convert primaryDelta, the amount that the scrollbar moved since the last
     // time when drag started or last updated, into the coordinate space of the scroll
     // position, and jump to that position.
-    double scrollOffsetGlobal = scrollbarPainter.getTrackToScroll(primaryDeltaFromDragStart + _startDragThumbOffset!);
-    if (primaryDeltaFromDragStart > 0 && scrollOffsetGlobal < position.pixels
-        || primaryDeltaFromDragStart < 0 && scrollOffsetGlobal > position.pixels) {
+    double scrollOffsetGlobal = scrollbarPainter.getTrackToScroll(
+      primaryDeltaFromDragStart + _startDragThumbOffset!,
+    );
+    if (primaryDeltaFromDragStart > 0 && scrollOffsetGlobal < position.pixels ||
+        primaryDeltaFromDragStart < 0 && scrollOffsetGlobal > position.pixels) {
       // Adjust the position value if the scrolling direction conflicts with
       // the dragging direction due to scroll metrics shrink.
-      scrollOffsetGlobal = position.pixels + scrollbarPainter.getTrackToScroll(primaryDeltaFromLastDragUpdate);
+      scrollOffsetGlobal =
+          position.pixels + scrollbarPainter.getTrackToScroll(primaryDeltaFromLastDragUpdate);
     }
     if (scrollOffsetGlobal != position.pixels) {
       // Ensure we don't drag into overscroll if the physics do not allow it.
-      final double physicsAdjustment = position.physics.applyBoundaryConditions(position, scrollOffsetGlobal);
+      final double physicsAdjustment = position.physics.applyBoundaryConditions(
+        position,
+        scrollOffsetGlobal,
+      );
       double newPosition = scrollOffsetGlobal - physicsAdjustment;
 
       // The physics may allow overscroll when actually *scrolling*, but
@@ -1650,7 +1657,11 @@ class RawScrollbarState<T extends RawScrollbar> extends State<T> with TickerProv
         case TargetPlatform.linux:
         case TargetPlatform.macOS:
         case TargetPlatform.windows:
-          newPosition = clampDouble(newPosition, position.minScrollExtent, position.maxScrollExtent);
+          newPosition = clampDouble(
+            newPosition,
+            position.minScrollExtent,
+            position.maxScrollExtent,
+          );
         case TargetPlatform.iOS:
         case TargetPlatform.android:
         case TargetPlatform.ohos:

@@ -276,6 +276,7 @@ class RenderAndroidView extends PlatformViewRenderBox {
   }
 }
 
+/// Renders an embedded OHOS platform view.
 class RenderOhosView extends PlatformViewRenderBox {
   /// Creates a render object for an Ohos view.
   RenderOhosView({
@@ -283,13 +284,13 @@ class RenderOhosView extends PlatformViewRenderBox {
     required PlatformViewHitTestBehavior hitTestBehavior,
     required Set<Factory<OneSequenceGestureRecognizer>> gestureRecognizers,
     Clip clipBehavior = Clip.hardEdge,
-  }) : assert(viewController != null),
-        assert(hitTestBehavior != null),
-        assert(gestureRecognizers != null),
-        assert(clipBehavior != null),
-        _viewController = viewController,
-        _clipBehavior = clipBehavior,
-        super(controller: viewController, hitTestBehavior: hitTestBehavior, gestureRecognizers: gestureRecognizers) {
+  }) : _viewController = viewController,
+       _clipBehavior = clipBehavior,
+       super(
+         controller: viewController,
+         hitTestBehavior: hitTestBehavior,
+         gestureRecognizers: gestureRecognizers,
+       ) {
     _viewController.pointTransformer = (Offset offset) => globalToLocal(offset);
     updateGestureRecognizers(gestureRecognizers);
     _viewController.addOnPlatformViewCreatedListener(_onPlatformViewCreated);
@@ -313,8 +314,6 @@ class RenderOhosView extends PlatformViewRenderBox {
   @override
   set controller(OhosViewController controller) {
     assert(!_isDisposed);
-    assert(_viewController != null);
-    assert(controller != null);
     if (_viewController == controller) {
       return;
     }
@@ -335,7 +334,6 @@ class RenderOhosView extends PlatformViewRenderBox {
   Clip get clipBehavior => _clipBehavior;
   Clip _clipBehavior = Clip.hardEdge;
   set clipBehavior(Clip value) {
-    assert(value != null);
     if (value != _clipBehavior) {
       _clipBehavior = value;
       markNeedsPaint();
@@ -424,11 +422,24 @@ class RenderOhosView extends PlatformViewRenderBox {
           // approximation is invalid — the true mapping requires homogeneous
           // division — so fall back to offset-only (the engine will skip touch
           // correction, matching the old pre-transform behaviour).
-          final matrixStorage = getTransformTo(null).storage;
-          final bool isAffine = matrixStorage[3] == 0.0 && matrixStorage[7] == 0.0 && matrixStorage[11] == 0.0 && matrixStorage[15] == 1.0;
+          final Float64List matrixStorage = getTransformTo(null).storage;
+          final bool isAffine =
+              matrixStorage[3] == 0.0 &&
+              matrixStorage[7] == 0.0 &&
+              matrixStorage[11] == 0.0 &&
+              matrixStorage[15] == 1.0;
           await _viewController.setOffset(
             localToGlobal(Offset.zero),
-            transform: isAffine ? <double>[matrixStorage[0], matrixStorage[4], matrixStorage[1], matrixStorage[5], matrixStorage[12], matrixStorage[13]] : null,
+            transform: isAffine
+                ? <double>[
+                    matrixStorage[0],
+                    matrixStorage[4],
+                    matrixStorage[1],
+                    matrixStorage[5],
+                    matrixStorage[12],
+                    matrixStorage[13],
+                  ]
+                : null,
           );
         }
         // Re-check after the await: the RenderObject may have been disposed
@@ -454,8 +465,8 @@ class RenderOhosView extends PlatformViewRenderBox {
     // To prevent unwanted scaling artifacts while resizing, clip the texture.
     // This guarantees that the size of the texture frame we're painting is always
     // _currentOhosTextureSize.
-    final bool isTextureLargerThanWidget = _currentTextureSize!.width > size.width ||
-        _currentTextureSize!.height > size.height;
+    final bool isTextureLargerThanWidget =
+        _currentTextureSize!.width > size.width || _currentTextureSize!.height > size.height;
     if (isTextureLargerThanWidget && clipBehavior != Clip.none) {
       _clipRectLayer.layer = context.pushClipRect(
         true,
@@ -486,10 +497,9 @@ class RenderOhosView extends PlatformViewRenderBox {
       return;
     }
 
-    context.addLayer(TextureLayer(
-      rect: offset & _currentTextureSize!,
-      textureId: _viewController.textureId!,
-    ));
+    context.addLayer(
+      TextureLayer(rect: offset & _currentTextureSize!, textureId: _viewController.textureId!),
+    );
   }
 
   @override

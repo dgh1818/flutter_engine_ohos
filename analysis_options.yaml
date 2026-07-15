@@ -29,6 +29,10 @@ analyzer:
       # Ignore protoc generated files
     - "dev/conductor/lib/proto/*"
     - "engine/**"
+      # OHOS not support
+    - "dev/integration_tests/android_semantics_testing/**"
+    - "dev/integration_tests/android_engine_test/**"
+    - "dev/tools/android_driver_extensions/**"
 
 formatter:
   page_width: 100

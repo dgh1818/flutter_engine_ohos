@@ -13,7 +13,17 @@ library;
 
 import 'dart:async';
 import 'dart:io' show Platform;
-import 'dart:ui' show FlutterView, FontWeight, Locale, Offset, Rect, Size, TextAlign, TextDirection, PointerDeviceKind;
+import 'dart:ui'
+    show
+        FlutterView,
+        FontWeight,
+        Locale,
+        Offset,
+        PointerDeviceKind,
+        Rect,
+        Size,
+        TextAlign,
+        TextDirection;
 
 import 'package:flutter/foundation.dart';
 import 'package:vector_math/vector_math_64.dart' show Matrix4;

@@ -78,11 +78,16 @@ String? _findLlvmBinPath(String sdkPath) {
       continue;
     }
     final String candidate = globals.fs.path.join(
-      entity.path, 'openharmony', 'native', 'llvm', 'bin',
+      entity.path,
+      'openharmony',
+      'native',
+      'llvm',
+      'bin',
     );
     if (globals.fs.directory(candidate).existsSync()) {
       final String clang = globals.fs.path.join(
-        candidate, globals.platform.isWindows ? 'clang.exe' : 'clang',
+        candidate,
+        globals.platform.isWindows ? 'clang.exe' : 'clang',
       );
       if (globals.fs.file(clang).existsSync()) {
         return candidate;
@@ -99,7 +104,7 @@ Uri? _toOptionalFileUri(String path) {
   return Uri.file(path);
 }
 
-/// Copies native code assets into the OHOS build output under libs/<arch>/
+/// Copies native code assets into the OHOS build output under `libs/<arch>/`
 /// (e.g. libs/arm64-v8a/), matching the layout expected by the HAP package.
 Future<void> copyNativeCodeAssetsOhos(
   Uri buildUri,
@@ -107,10 +112,8 @@ Future<void> copyNativeCodeAssetsOhos(
   FileSystem fileSystem,
 ) async {
   assert(assetTargetLocations.isNotEmpty);
-  final archDirs = <String>[
-    for (final OhosArch arch in OhosArch.values) getNameForOhosArch(arch),
-  ];
-  for (final String archDir in archDirs) {
+  final archDirs = <String>[for (final OhosArch arch in OhosArch.values) getNameForOhosArch(arch)];
+  for (final archDir in archDirs) {
     final Uri archUri = buildUri.resolve('libs/$archDir/');
     await fileSystem.directory(archUri).create(recursive: true);
   }

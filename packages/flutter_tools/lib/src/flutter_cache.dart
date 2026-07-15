@@ -252,6 +252,7 @@ class FlutterSdk extends EngineCachedArtifact {
     : _platform = platform,
       super('flutter_sdk', cache, DevelopmentArtifact.universal);
 
+  // ignore: unused_field
   final Platform _platform;
 
   @override
@@ -259,8 +260,6 @@ class FlutterSdk extends EngineCachedArtifact {
 
   @override
   List<List<String>> getBinaryDirs() {
-    // Linux and Windows both support arm64 and x64.
-    final String arch = cache.getHostPlatformArchName();
     return <List<String>>[
       <String>['common', 'flutter_patched_sdk.zip'],
       <String>['common', 'flutter_patched_sdk_product.zip'],
@@ -272,15 +271,11 @@ class FlutterSdk extends EngineCachedArtifact {
 }
 
 class FlutterSdkOhos extends EngineCachedArtifact {
-  FlutterSdkOhos(Cache cache, {
-    required Platform platform,
-  }) : _platform = platform,
-      super(
-        'flutter_sdk_ohos',
-        cache,
-        DevelopmentArtifact.universal,
-      );
+  FlutterSdkOhos(Cache cache, {required Platform platform})
+    : _platform = platform,
+      super('flutter_sdk_ohos', cache, DevelopmentArtifact.universal);
 
+  // ignore: unused_field
   final Platform _platform;
 
   @override
@@ -307,7 +302,7 @@ class FlutterSdkOhos extends EngineCachedArtifact {
   @override
   List<String> getLicenseDirs() => const <String>[];
 
-    @override
+  @override
   String get storageBaseUrl => cache.ohosStorageBaseUrl;
 
   @override
@@ -319,6 +314,7 @@ class MacOSEngineArtifacts extends EngineCachedArtifact {
     : _platform = platform,
       super('macos-sdk', cache, DevelopmentArtifact.macOS);
 
+  // ignore: unused_field
   final Platform _platform;
 
   @override
@@ -342,6 +338,7 @@ class WindowsEngineArtifacts extends EngineCachedArtifact {
     : _platform = platform,
       super('windows-sdk', cache, DevelopmentArtifact.windows);
 
+  // ignore: unused_field
   final Platform _platform;
 
   @override
@@ -366,6 +363,7 @@ class LinuxEngineArtifacts extends EngineCachedArtifact {
     : _platform = platform,
       super('linux-sdk', cache, DevelopmentArtifact.linux);
 
+  // ignore: unused_field
   final Platform _platform;
 
   @override
@@ -394,6 +392,7 @@ class AndroidGenSnapshotArtifacts extends EngineCachedArtifact {
     : _platform = platform,
       super('android-sdk', cache, DevelopmentArtifact.androidGenSnapshot);
 
+  // ignore: unused_field
   final Platform _platform;
 
   @override
@@ -434,6 +433,7 @@ class AndroidMavenArtifacts extends ArtifactSet {
       super(DevelopmentArtifact.androidMaven);
 
   final Java? _java;
+  // ignore: unused_field
   final Platform _platform;
   final Cache cache;
 
@@ -519,6 +519,7 @@ class IOSEngineArtifacts extends EngineCachedArtifact {
     : _platform = platform,
       super('ios-sdk', cache, DevelopmentArtifact.iOS);
 
+  // ignore: unused_field
   final Platform _platform;
 
   @override
@@ -542,15 +543,11 @@ class IOSEngineArtifacts extends EngineCachedArtifact {
 
 /// The artifact used to generate snapshots for Ohos builds.
 class OHOSGenSnapshotArtifacts extends EngineCachedArtifact {
-  OHOSGenSnapshotArtifacts(Cache cache, {
-    required Platform platform,
-  }) : _platform = platform,
-        super(
-        'ohos-sdk',
-        cache,
-        DevelopmentArtifact.ohosGenSnapshot,
-      );
+  OHOSGenSnapshotArtifacts(Cache cache, {required Platform platform})
+    : _platform = platform,
+      super('ohos-sdk', cache, DevelopmentArtifact.ohosGenSnapshot);
 
+  // ignore: unused_field
   final Platform _platform;
 
   @override
@@ -563,7 +560,7 @@ class OHOSGenSnapshotArtifacts extends EngineCachedArtifact {
         ..._osxBinaryDirsForOhos,
         ..._linuxBinaryDirsForOhos,
         ..._windowsBinaryDirsForOhos,
-        ..._dartSdks
+        ..._dartSdks,
       ] else if (_platform.isWindows)
         ..._windowsBinaryDirsForOhos
       else if (_platform.isMacOS)
@@ -586,11 +583,8 @@ class OHOSGenSnapshotArtifacts extends EngineCachedArtifact {
 }
 
 class OHOSInternalBuildArtifacts extends EngineCachedArtifact {
-  OHOSInternalBuildArtifacts(Cache cache) : super(
-    'ohos-internal-build-artifacts',
-    cache,
-    DevelopmentArtifact.ohosInternalBuild,
-  );
+  OHOSInternalBuildArtifacts(Cache cache)
+    : super('ohos-internal-build-artifacts', cache, DevelopmentArtifact.ohosInternalBuild);
 
   @override
   List<String> getPackageDirs() => const <String>[];
@@ -697,6 +691,7 @@ class FlutterRunnerSDKArtifacts extends CachedArtifact {
     : _platform = platform,
       super('flutter_runner', cache, DevelopmentArtifact.flutterRunner);
 
+  // ignore: unused_field
   final Platform _platform;
 
   @override
@@ -762,6 +757,7 @@ class FlutterRunnerDebugSymbols extends CachedArtifact {
        super('flutter_runner_debug_symbols', cache, DevelopmentArtifact.flutterRunner);
 
   final VersionedPackageResolver packageResolver;
+  // ignore: unused_field
   final Platform _platform;
 
   @override
@@ -800,6 +796,7 @@ class LinuxFuchsiaSDKArtifacts extends _FuchsiaSDKArtifacts {
     : _platform = platform,
       super(cache, 'linux');
 
+  // ignore: unused_field
   final Platform _platform;
 
   @override
@@ -821,6 +818,7 @@ class MacOSFuchsiaSDKArtifacts extends _FuchsiaSDKArtifacts {
     : _platform = platform,
       super(cache, 'mac');
 
+  // ignore: unused_field
   final Platform _platform;
 
   @override
@@ -842,6 +840,7 @@ class FontSubsetArtifacts extends EngineCachedArtifact {
     : _platform = platform,
       super(artifactName, cache, DevelopmentArtifact.universal);
 
+  // ignore: unused_field
   final Platform _platform;
 
   static const artifactName = 'font-subset';
@@ -879,6 +878,7 @@ class IosUsbArtifacts extends CachedArtifact {
     : _platform = platform,
       super(name, cache, DevelopmentArtifact.universal);
 
+  // ignore: unused_field
   final Platform _platform;
 
   static const artifactNames = <String>[

@@ -1,19 +1,13 @@
-/*
-* Copyright 2014 The Flutter Authors. All rights reserved.
-* Use of this source code is governed by a BSD-style license that can be
-* found in the LICENSE file.
-*
-*/
+// Copyright 2014 The Flutter Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
 
 import 'package:process/process.dart';
 
 import '../base/common.dart';
-import '../base/file_system.dart';
 import '../base/io.dart';
 import '../base/logger.dart';
-import '../base/platform.dart';
 import '../base/process.dart';
-import '../base/user_messages.dart';
 import '../device.dart';
 import 'hdc_server.dart';
 import 'ohos_device.dart';
@@ -26,39 +20,30 @@ class OhosDevices extends PollingDeviceDiscovery {
     required ProcessManager processManager,
     required Logger logger,
     HarmonySdk? ohosSdk,
-    required FileSystem fileSystem,
-    required Platform platform,
-    required UserMessages userMessages,
-  })  : _ohosWorkflow = ohosWorkflow,
-        _processUtils = ProcessUtils(
-          logger: logger,
-          processManager: processManager,
-        ),
-        _ohosSdk = ohosSdk,
-        _processManager = processManager,
-        _logger = logger,
-        _fileSystem = fileSystem,
-        _platform = platform,
-        _userMessages = userMessages,
-        super('HarmonyOS devices');
+  }) : _ohosWorkflow = ohosWorkflow,
+       _processUtils = ProcessUtils(logger: logger, processManager: processManager),
+       _ohosSdk = ohosSdk,
+       _processManager = processManager,
+       _logger = logger,
+       super('HarmonyOS devices');
 
   final OhosWorkflow _ohosWorkflow;
   final ProcessUtils _processUtils;
   final ProcessManager _processManager;
   final Logger _logger;
-  final FileSystem _fileSystem;
-  final Platform _platform;
-  final UserMessages _userMessages;
   final HarmonySdk? _ohosSdk;
 
   bool _doesNotHaveHdc() {
     return _ohosSdk == null ||
-        _ohosSdk?.hdcPath == null ||
-        !_processManager.canRun(_ohosSdk!.hdcPath);
+        _ohosSdk.hdcPath == null ||
+        !_processManager.canRun(_ohosSdk.hdcPath);
   }
 
   @override
-  Future<List<Device>> pollingGetDevices({Duration? timeout, bool forWirelessDiscovery = false}) async {
+  Future<List<Device>> pollingGetDevices({
+    Duration? timeout,
+    bool forWirelessDiscovery = false,
+  }) async {
     if (_doesNotHaveHdc()) {
       return <OhosDevice>[];
     }
@@ -67,12 +52,7 @@ class OhosDevices extends PollingDeviceDiscovery {
     final List<String> cmd = getHdcCommandCompat(_ohosSdk!, '', <String>['list', 'targets']);
 
     try {
-      text = (await _processUtils.run(
-        cmd,
-        throwOnError: true,
-      ))
-          .stdout
-          .trim();
+      text = (await _processUtils.run(cmd, throwOnError: true)).stdout.trim();
       // _logger.printStatus('hdc list result:\n$text');
     } on ProcessException catch (exception) {
       throwToolExit(
@@ -80,11 +60,8 @@ class OhosDevices extends PollingDeviceDiscovery {
         '$kOhosSdkRoot environment variable: ${exception.executable}',
       );
     }
-    final List<OhosDevice> devices = <OhosDevice>[];
-    _parseHdcDeviceOutput(
-      text,
-      devices: devices,
-    );
+    final devices = <OhosDevice>[];
+    _parseHdcDeviceOutput(text, devices: devices);
     return devices;
   }
 
@@ -94,12 +71,7 @@ class OhosDevices extends PollingDeviceDiscovery {
   @override
   bool get canListAnything => _ohosWorkflow.canListDevices;
 
-  void _parseHdcDeviceOutput(
-    String text, {
-    List<OhosDevice>? devices,
-    List<String>? diagnostics,
-    String? hdcServer,
-  }) {
+  void _parseHdcDeviceOutput(String text, {List<OhosDevice>? devices, List<String>? diagnostics}) {
     // return empty if do not discovery any devices
     if (text.contains('[Empty]') || text.contains('connect failed')) {
       diagnostics?.add(text);
@@ -108,16 +80,15 @@ class OhosDevices extends PollingDeviceDiscovery {
 
     for (final String line in text.trim().split('\n')) {
       final String deviceId = line.trim();
-      devices?.add(OhosDevice(
-        deviceId,
-        deviceCodeName: deviceId,
-        ohosSdk: _ohosSdk!,
-        fileSystem: _fileSystem,
-        logger: _logger,
-        platform: _platform,
-        processManager: _processManager,
-        hdcServer: hdcServer,
-      ));
+      devices?.add(
+        OhosDevice(
+          deviceId,
+          deviceCodeName: deviceId,
+          ohosSdk: _ohosSdk!,
+          logger: _logger,
+          processManager: _processManager,
+        ),
+      );
     }
   }
 

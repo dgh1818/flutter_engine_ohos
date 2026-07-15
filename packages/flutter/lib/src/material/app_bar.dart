@@ -810,7 +810,6 @@ class AppBar extends StatefulWidget implements PreferredSizeWidget {
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
         case TargetPlatform.windows:
-        case TargetPlatform.ohos:
           return false;
         case TargetPlatform.iOS:
         case TargetPlatform.macOS:

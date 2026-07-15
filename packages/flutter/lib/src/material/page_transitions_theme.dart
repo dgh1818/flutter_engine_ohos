@@ -52,16 +52,15 @@ class _OpenRightwardsPageTransition extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
-        final Size size = constraints.biggest;
-
-        final CurvedAnimation primaryAnimation = CurvedAnimation(
+        final primaryAnimation = CurvedAnimation(
           parent: animation,
           curve: _transitionCurve,
           reverseCurve: _transitionCurve.flipped,
         );
 
-
-        final Animation<Offset> primaryTranslationAnimation = _primaryTranslationTween.animate(primaryAnimation);
+        final Animation<Offset> primaryTranslationAnimation = _primaryTranslationTween.animate(
+          primaryAnimation,
+        );
 
         final Animation<Offset> secondaryTranslationAnimation = _secondaryTranslationTween.animate(
           CurvedAnimation(
@@ -499,6 +498,7 @@ class _FadeForwardsPageTransition extends StatelessWidget {
   }
 }
 
+/// Page transition that slides the new route in from the right.
 class OpenRightwardsPageTransitionsBuilder extends PageTransitionsBuilder {
   /// Constructs a page transition animation that matches the transition used on
   /// Openharmony.

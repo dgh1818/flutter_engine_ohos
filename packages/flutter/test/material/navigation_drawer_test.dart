@@ -294,18 +294,15 @@ void main() {
   });
 
   testWidgets('Navigation drawer is scrollable', (WidgetTester tester) async {
-    final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
+    final scaffoldKey = GlobalKey<ScaffoldState>();
     widgetSetup(tester, 500, viewHeight: 300);
     await tester.pumpWidget(
       _buildWidget(
         scaffoldKey,
         NavigationDrawer(
           children: <Widget>[
-            for(int i = 0; i < 100; i++)
-              NavigationDrawerDestination(
-                icon: const Icon(Icons.ac_unit),
-                label: Text('Label$i'),
-              ),
+            for (int i = 0; i < 100; i++)
+              NavigationDrawerDestination(icon: const Icon(Icons.ac_unit), label: Text('Label$i')),
           ],
           onDestinationSelected: (int i) {},
         ),
@@ -338,10 +335,10 @@ void main() {
     expect(find.text('Label8'), findsOneWidget);
     expect(find.text('Label9'), findsNothing);
     expect(find.text('Label10'), findsNothing);
-   });
+  });
 
   testWidgets('Safe Area test', (WidgetTester tester) async {
-    final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
+    final scaffoldKey = GlobalKey<ScaffoldState>();
     const double windowHeight = 300;
     widgetSetup(tester, 500, viewHeight: windowHeight);
     await tester.pumpWidget(
@@ -353,15 +350,15 @@ void main() {
           home: Scaffold(
             key: scaffoldKey,
             drawer: NavigationDrawer(
-                  children: <Widget>[
-                    for(int i = 0; i < 10; i++)
-                      NavigationDrawerDestination(
-                        icon: const Icon(Icons.ac_unit),
-                        label: Text('Label$i'),
-                      ),
-                  ],
-                  onDestinationSelected: (int i) {},
-                ),
+              children: <Widget>[
+                for (int i = 0; i < 10; i++)
+                  NavigationDrawerDestination(
+                    icon: const Icon(Icons.ac_unit),
+                    label: Text('Label$i'),
+                  ),
+              ],
+              onDestinationSelected: (int i) {},
+            ),
             body: Container(),
           ),
         ),
@@ -373,13 +370,16 @@ void main() {
 
     // Safe area padding on the top and sides.
     expect(
-      tester.getTopLeft(find.widgetWithText(NavigationDrawerDestination,'Label0')),
+      tester.getTopLeft(find.widgetWithText(NavigationDrawerDestination, 'Label0')),
       const Offset(20.0, 20.0),
     );
 
     // No Safe area padding at the bottom.
-    expect(tester.getBottomRight(find.widgetWithText(NavigationDrawerDestination,'Label4')).dy, windowHeight);
-   });
+    expect(
+      tester.getBottomRight(find.widgetWithText(NavigationDrawerDestination, 'Label4')).dy,
+      windowHeight,
+    );
+  });
 
   testWidgets('Navigation drawer semantics', (WidgetTester tester) async {
     final scaffoldKey = GlobalKey<ScaffoldState>();
