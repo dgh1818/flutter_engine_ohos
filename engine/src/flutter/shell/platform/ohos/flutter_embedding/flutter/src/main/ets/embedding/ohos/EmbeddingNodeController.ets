@@ -136,7 +136,7 @@ export class EmbeddingNodeController extends NodeController {
   makeNode(uiContext: UIContext): FrameNode | null {
     this.builderNode = new BuilderNode(uiContext, { surfaceId: this.surfaceId, type: this.renderType });
 
-    if (this.platformView) {
+    if (this.platformView && this.wrappedBuilder) {
       this.builderNode.build(this.wrappedBuilder, { direction: this.direction, platformView: this.platformView });
       this.setPlatformViewVisibleAreaEventCallback();
     }
