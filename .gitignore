@@ -166,3 +166,4 @@ app.*.symbols
 
 # AI related
 .agents/skills/personal-*
+/dev/integration_tests/flavors/ohos/har/flutter.har

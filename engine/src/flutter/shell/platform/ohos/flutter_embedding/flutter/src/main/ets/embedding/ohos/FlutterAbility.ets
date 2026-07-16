@@ -24,6 +24,7 @@ import { Configuration } from '@ohos.app.ability.Configuration';
 import { deviceInfo } from '@kit.BasicServicesKit';
 import ExclusiveAppComponent from './ExclusiveAppComponent';
 import errorManager from '@ohos.app.ability.errorManager';
+import { OhosAutoFillHelper } from '../../plugin/editing/OhosAutoFillHelper';
 import appRecovery from '@ohos.app.ability.appRecovery';
 import FlutterManager from './FlutterManager';
 import { FlutterView } from '../../view/FlutterView';
@@ -82,6 +83,8 @@ export class FlutterAbility extends UIAbility implements Host {
    * @param launchParam - The launch parameters
    */
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam) {
+    OhosAutoFillHelper.setHostPageUrl(this.pagePath());
+    OhosAutoFillHelper.setHostAbilityContext(this.context);
     // On cold start, get the current system font size from the context and store it
     AppStorage.setOrCreate('fontSizeScale', this.context.config.fontSizeScale);
     Log.i(TAG, "this.context.config.fontSizeScale = " + this.context.config.fontSizeScale);

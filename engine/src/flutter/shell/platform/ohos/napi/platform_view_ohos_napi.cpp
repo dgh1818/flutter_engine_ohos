@@ -49,6 +49,8 @@ std::shared_ptr<std::set<int>> PlatformViewOHOSNapi::all_refresh_rates =
     std::make_shared<std::set<int>>(std::initializer_list<int>{60});
 double PlatformViewOHOSNapi::display_density_pixels = 1.0;
 
+constexpr int TOUCH_UP_PERFORMANCE_SECTION = 3000; // 3s
+
 napi_env PlatformViewOHOSNapi::env_;
 std::vector<std::string> PlatformViewOHOSNapi::system_languages;
 
@@ -3234,6 +3236,67 @@ napi_value PlatformViewOHOSNapi::nativeNotifyPageChanged(napi_env env, napi_call
     napi_close_handle_scope(env, scope);
     return resultValue;
   }
+}
+
+/**
+ * @brief  Send high frame rate request when LTPO is enabled
+ * @note
+ * @param  shell_holder_id: int64_t
+ * @return napi_value
+ */
+napi_value PlatformViewOHOSNapi::nativeLTPODispatchHighFrameRate(
+    napi_env env,
+    napi_callback_info info) {
+  FML_LOG(INFO) << "PlatformViewOHOSNapi::nativeLTPODispatchHighFrameRate";
+
+  size_t argc = 1;
+  napi_value args[1] = {nullptr};
+  napi_status ret = napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+  if (ret != napi_ok) {
+    FML_LOG(ERROR) << "PlatformViewOHOSNapi::nativeLTPODispatchHighFrameRate "
+                      "napi_get_cb_info error:" << ret;
+    return nullptr;
+  }
+
+  int64_t shell_holder_id;
+  ret = napi_get_value_int64(env, args[0], &shell_holder_id);
+  if (ret != napi_ok) {
+    FML_LOG(ERROR) << "PlatformViewOHOSNapi::nativeLTPODispatchHighFrameRate "
+                      "napi_get_value_int64 error:" << ret;
+    return nullptr;
+  }
+
+  int64_t upTimestamp = fml::TimePoint::Now().ToEpochDelta().ToMilliseconds();
+  fml::closure task_voting_touch_up = [timestamp = upTimestamp](void) {
+    std::shared_ptr<OhosVsyncVotingMgr> votingMgr = OhosVsyncVotingMgr::GetInstance();
+    if (votingMgr != nullptr) {
+      votingMgr->VoteTouchValue(VVMTouchType::TOUCH_TYPE_UP, timestamp);
+    }
+  };
+
+  fml::closure task_voting_touch_up_3s_later = [timestamp = upTimestamp](void) {
+    std::shared_ptr<OhosVsyncVotingMgr> votingMgr = OhosVsyncVotingMgr::GetInstance();
+    if (votingMgr != nullptr) {
+      votingMgr->VoteTouchValue(
+        VVMTouchType::TOUCH_TYPE_UP_3_SEC_AFTER, timestamp + TOUCH_UP_PERFORMANCE_SECTION);
+    }
+  };
+  auto ohos_shell_holder = reinterpret_cast<OHOSShellHolder*>(shell_holder_id);
+  if (ohos_shell_holder == nullptr) {
+      FML_LOG(ERROR) << "nativeLTPODispatchHighFrameRate: ohos_shell_holder is null";
+      return nullptr;
+  }
+  auto platform_view = ohos_shell_holder->GetPlatformView();
+  if (!platform_view) {
+      FML_LOG(ERROR) << "nativeLTPODispatchHighFrameRate: platform_view is null";
+      return nullptr;
+  }
+
+  platform_view->RunTask(OhosThreadType::kIO, task_voting_touch_up);
+  platform_view->RunTask(OhosThreadType::kIO, task_voting_touch_up_3s_later,
+      TOUCH_UP_PERFORMANCE_SECTION);
+
+  return nullptr;
 }
 
 }  // namespace flutter

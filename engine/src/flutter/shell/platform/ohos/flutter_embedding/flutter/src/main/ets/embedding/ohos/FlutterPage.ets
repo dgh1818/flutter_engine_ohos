@@ -11,6 +11,7 @@ import { DVModel, DVModelChildren, DynamicView } from '../../view/DynamicView/dy
 import Any from '../../plugin/common/Any';
 import deviceInfo from '@ohos.deviceInfo';
 import flutter from 'libflutter.so';
+import { AUTOFILL_SUPPORT_API } from '../../plugin/editing/OhosAutoFillHelper';
 const TAG = "FlutterPage";
 
 /**
@@ -32,6 +33,18 @@ struct FlutterSurface {
   private surfaceLifecycleToken: number = 0;
   private flutterView?: FlutterView | null;
 
+  private pushAutofillUiContext(source: string): void {
+    if (deviceInfo.sdkApiVersion < AUTOFILL_SUPPORT_API) {
+      return;
+    }
+    try {
+      const pageUiContext = this.getUIContext();
+      this.flutterView?.setAutofillUiContext(source, pageUiContext);
+    } catch (error) {
+      Log.w(TAG, 'pushAutofillUiContext(' + source + ') failed: ' + JSON.stringify(error));
+    }
+  }
+
   build() {
     XComponent({ id: this.viewId, type: this.xComponentType, libraryname: 'flutter' })
       .id(this.viewId)
@@ -40,6 +53,7 @@ struct FlutterSurface {
       .onLoad((context) => {
         this.flutterView = FlutterManager.getInstance().getFlutterView(this.viewId);
         this.surfaceLifecycleToken = this.flutterView?.onSurfaceCreated() ?? 0;
+        this.pushAutofillUiContext('FlutterPage.XComponent.onLoad');
         // Callback is triggered when the xcomponent window is partially visible or completely hidden.
         if (deviceInfo.sdkApiVersion < 15) {
           this.getUIContext()?.getAttachedFrameNodeById(this.viewId)?.commonEvent.setOnVisibleAreaApproximateChange(
@@ -101,6 +115,13 @@ export struct FlutterPage {
    * and occasional timeouts in rendering frame submissions will not result in frame dropping.
    */
   @Prop enableFrameCacheForSmooth: boolean = true;
+
+  @Prop shouldPauseWhenInvisible: boolean = true;
+
+  private modifier: StackModifier = new StackModifier(
+    this.shouldPauseWhenInvisible,
+    this.flutterView
+  )
 
   /**
    * Empty builder function used as default.
@@ -176,6 +197,7 @@ export struct FlutterPage {
       });
       Log.d(TAG, "onDrop");
     })
+    .attributeModifier(this.modifier)
   }
 
   /**
@@ -254,6 +276,7 @@ export struct FlutterPage {
           this.flutterView?.onMouseWheel("actionEnd", event);
         })
     )
+    .attributeModifier(this.modifier)
   }
 
   /** Whether to show the splash screen. */
@@ -292,12 +315,25 @@ export struct FlutterPage {
   private flutterView?: FlutterView | null
   private panOption: PanGestureOptions = new PanGestureOptions({ direction: PanDirection.Up | PanDirection.Down });
 
+  private pushAutofillUiContext(source: string): void {
+    if (deviceInfo.sdkApiVersion < AUTOFILL_SUPPORT_API) {
+      return;
+    }
+    try {
+      const pageUiContext = this.getUIContext();
+      this.flutterView?.setAutofillUiContext(source, pageUiContext);
+    } catch (error) {
+      Log.w(TAG, 'pushAutofillUiContext(' + source + ') failed: ' + JSON.stringify(error));
+    }
+  }
+
   /**
    * Called when the page is about to appear.
    * Initializes the FlutterView and sets up listeners and callbacks.
    */
   aboutToAppear() {
     this.flutterView = FlutterManager.getInstance().getFlutterView(this.viewId);
+    this.pushAutofillUiContext('FlutterPage.aboutToAppear');
     this.flutterView?.addFirstFrameListener(this)
     this.flutterView?.addFirstPreloadFrameListener(this)
 
@@ -316,6 +352,11 @@ export struct FlutterPage {
     this.flutterView?.enableFrameCache(this.enableFrameCacheForSmooth);
 
     this.rootDvModel = this.flutterView!!.getDVModel().children
+
+    this.modifier = new StackModifier(
+      this.shouldPauseWhenInvisible,
+      this.flutterView
+    );
   }
 
   /**
@@ -359,6 +400,36 @@ export struct FlutterPage {
       this.mouseWheelPage();
     } else {
       this.defaultPage();
+    }
+  }
+}
+
+class StackModifier implements AttributeModifier<StackAttribute> {
+  private shouldPauseWhenInvisible: boolean;
+  private flutterView?: FlutterView | null;
+
+  constructor (
+    shouldPauseWhenInvisible: boolean,
+    flutterView?: FlutterView | null
+  ) {
+    this.shouldPauseWhenInvisible = shouldPauseWhenInvisible;
+    this.flutterView = flutterView;
+  }
+
+  applyNormalAttribute(instance: StackAttribute): void {
+    if (this.shouldPauseWhenInvisible && deviceInfo.sdkApiVersion >= 20) {
+      instance.onVisibleAreaChange(
+        [0.0],
+        (isExpanding: boolean, currentRatio: number) => {
+          if (isExpanding && currentRatio > 0.0) { 
+            // partially visible
+            this.flutterView?.onVisibleAreaChanged(true);
+          } else if (!isExpanding && currentRatio <= 0.0){ 
+            // completely invisible
+            this.flutterView?.onVisibleAreaChanged(false);
+          }
+        }
+      )
     }
   }
 }

@@ -220,3 +220,15 @@ compilation_steps:
     description: Publish build artifacts to cloud storage
     args: ["flutter_flutter", "flutter_flutter/engine"]
     required: true
+
+# Test steps - executed in order
+test_steps:
+  - name: Initialize Flutter Test Environment
+    script: ci/scripts/init_flutter_test_env.sh
+    description: Initialize Flutter test environment and pre-download dependencies
+    required: true
+
+  - name: Unit Tests (Parallel Shards)
+    script: ci/scripts/run_parallel_shards.sh
+    description: Run all unit tests in parallel shard groups (single machine)
+    required: true

@@ -295,7 +295,7 @@ void main() {
 
   testWidgets('Navigation drawer is scrollable', (WidgetTester tester) async {
     final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
-    widgetSetup(tester, 500, windowHeight: 300);
+    widgetSetup(tester, 500, viewHeight: 300);
     await tester.pumpWidget(
       _buildWidget(
         scaffoldKey,
@@ -343,7 +343,7 @@ void main() {
   testWidgets('Safe Area test', (WidgetTester tester) async {
     final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
     const double windowHeight = 300;
-    widgetSetup(tester, 500, windowHeight: windowHeight);
+    widgetSetup(tester, 500, viewHeight: windowHeight);
     await tester.pumpWidget(
       MediaQuery(
         data: const MediaQueryData(padding: EdgeInsets.all(20.0)),

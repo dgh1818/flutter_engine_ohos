@@ -970,6 +970,7 @@ void main() {
         case TargetPlatform.linux:
         case TargetPlatform.macOS:
         case TargetPlatform.windows:
+        case TargetPlatform.ohos:
           expect(theme.splashFactory, equals(InkRipple.splashFactory));
       }
     },
@@ -1020,6 +1021,7 @@ void main() {
         case TargetPlatform.android:
         case TargetPlatform.iOS:
         case TargetPlatform.fuchsia:
+        case TargetPlatform.ohos:
           expect(
             VisualDensity.defaultDensityForPlatform(debugDefaultTargetPlatformOverride!),
             equals(VisualDensity.standard),
@@ -1069,6 +1071,7 @@ void main() {
         case TargetPlatform.linux:
         case TargetPlatform.macOS:
         case TargetPlatform.windows:
+        case TargetPlatform.ohos:
           expect(themeData.visualDensity, equals(VisualDensity.standard));
         case TargetPlatform.android:
           expect(themeData.visualDensity, equals(VisualDensity.compact));

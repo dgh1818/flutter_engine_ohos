@@ -39,6 +39,7 @@ import { CustomTouchEvent, CustomTouchObject } from './CustomTouchEvent';
 import { NodeRenderType } from '@kit.ArkUI';
 import { PlatformViewInfo } from '../../embedding/ohos/PlatformViewInfo';
 import { EmbeddingNodeController } from '../../embedding/ohos/EmbeddingNodeController';
+import TouchEventProcessor from '../../embedding/ohos/TouchEventProcessor';
 
 /**
  * JSON representation of a DynamicView model.
@@ -90,6 +91,10 @@ enum TouchEventType {
 }
 
 const TAG = "PlatformViewsController"
+const PLATFORM_VIEW_ACTIVE_TOUCHES = 'platformViewActiveTouches';
+const PLATFORM_VIEW_LAST_TOUCH_EVENT = 'platformViewLastTouchEvent';
+const PLATFORM_VIEW_LAST_TOUCH_EVENT_IS_PX = 'platformViewLastTouchEventIsPx';
+const PLATFORM_VIEW_CANCEL_DRAINING = 'platformViewCancelDraining';
 
 /**
  * Controller for managing platform views in Flutter applications.
@@ -147,6 +152,133 @@ export default class PlatformViewsController implements PlatformViewsHandler {
     this.configureForHybridComposition(platformView, request);
   }
 
+  private isTerminalTouch(type: TouchType): boolean {
+    return type === TouchType.Up || type === TouchType.Cancel;
+  }
+
+  private cloneTouchObjectWithType(touch: CustomTouchObject, type: TouchType): CustomTouchObject {
+    return new CustomTouchObject(type, touch.id, touch.displayX, touch.displayY, touch.windowX, touch.windowY,
+      touch.screenX, touch.screenY, touch.x, touch.y);
+  }
+
+  private getActiveTouches(params: Record<string, Any>, create: boolean = false): Map<number, CustomTouchObject> | undefined {
+    let activeTouches = params[PLATFORM_VIEW_ACTIVE_TOUCHES] as Map<number, CustomTouchObject> | undefined;
+    if (activeTouches === undefined && create) {
+      activeTouches = new Map<number, CustomTouchObject>();
+      params[PLATFORM_VIEW_ACTIVE_TOUCHES] = activeTouches;
+    }
+    return activeTouches;
+  }
+
+  private rememberPostedTouchEvent(params: Record<string, Any>, event: CustomTouchEvent, isPx: boolean = true): void {
+    params[PLATFORM_VIEW_LAST_TOUCH_EVENT] = event;
+    params[PLATFORM_VIEW_LAST_TOUCH_EVENT_IS_PX] = isPx;
+
+    let activeTouches = this.getActiveTouches(params, true)!;
+    if (event.type === TouchType.Cancel) {
+      activeTouches.clear();
+      return;
+    }
+
+    for (let touch of event.changedTouches) {
+      if (this.isTerminalTouch(touch.type)) {
+        activeTouches.delete(touch.id);
+      } else {
+        activeTouches.set(touch.id, this.cloneTouchObjectWithType(touch, touch.type));
+      }
+    }
+
+    for (let touch of event.touches) {
+      if (this.isTerminalTouch(touch.type)) {
+        activeTouches.delete(touch.id);
+      } else {
+        activeTouches.set(touch.id, this.cloneTouchObjectWithType(touch, touch.type));
+      }
+    }
+  }
+
+  private clearTrackedTouchState(params: Record<string, Any>): void {
+    params['down'] = false;
+    params['touchEvent'] = undefined;
+    params['mouseEvent'] = undefined;
+    params[PLATFORM_VIEW_LAST_TOUCH_EVENT] = undefined;
+    params[PLATFORM_VIEW_LAST_TOUCH_EVENT_IS_PX] = undefined;
+    const activeTouches = this.getActiveTouches(params);
+    activeTouches?.clear();
+    params[PLATFORM_VIEW_ACTIVE_TOUCHES] = undefined;
+  }
+
+  private postTouchCancelEvent(nodeController: EmbeddingNodeController,
+    lastTouchEvent: CustomTouchEvent | undefined,
+    lastTouchEventIsPx: boolean,
+    viewId: number,
+    reason: string,
+    source: string,
+    cancelTouches: Array<CustomTouchObject>): boolean {
+    const cancelEvent = new CustomTouchEvent(TouchType.Cancel, cancelTouches, cancelTouches,
+      Date.now(),
+      lastTouchEvent?.source ?? SourceType.TouchScreen, lastTouchEvent?.pressure ?? 1,
+      lastTouchEvent?.tiltX ?? 0, lastTouchEvent?.tiltY ?? 0, lastTouchEvent?.sourceTool ?? SourceTool.Finger);
+    let ret = false;
+    try {
+      ret = nodeController.postEvent(cancelEvent, lastTouchEventIsPx);
+    } catch (err) {
+      Log.e(TAG, "Sending platform view touch cancel threw an exception", err);
+    }
+    Log.i(TAG, "platform_view_touch_cancel sent viewId=" + viewId
+      + " reason=" + reason + " source=" + source + " changedTouches=" + cancelTouches.length
+      + " ret=" + ret);
+    return ret;
+  }
+
+  private cancelActiveTouchIfNeeded(viewId: number, params: Record<string, Any>, reason: string): void {
+    const nodeController = params['nodeController'] as EmbeddingNodeController | undefined;
+    const activeTouches = this.getActiveTouches(params);
+    const lastTouchEvent = params[PLATFORM_VIEW_LAST_TOUCH_EVENT] as CustomTouchEvent | undefined;
+    const lastTouchEventIsPx = params[PLATFORM_VIEW_LAST_TOUCH_EVENT_IS_PX] as boolean ?? false;
+    const pendingTouchEvents = params['touchEvent'] as Array<CustomTouchEvent> | undefined;
+    const pendingCount = pendingTouchEvents === undefined ? 0 : pendingTouchEvents.length;
+
+    if (nodeController === undefined) {
+      Log.i(TAG, "platform_view_touch_cancel skip viewId=" + viewId
+        + " reason=" + reason + " no_node pending=" + pendingCount);
+      this.clearTrackedTouchState(params);
+      return;
+    }
+
+    let cancelTouches: Array<CustomTouchObject> = [];
+    let cancelSource: string = "none";
+    if (activeTouches !== undefined && activeTouches.size > 0) {
+      activeTouches.forEach((touch: CustomTouchObject) => {
+        cancelTouches.push(this.cloneTouchObjectWithType(touch, TouchType.Cancel));
+      });
+      cancelSource = "active_map";
+    } else if (lastTouchEvent !== undefined) {
+      const sourceTouches = lastTouchEvent.touches.length > 0 ? lastTouchEvent.touches : lastTouchEvent.changedTouches;
+      for (let touch of sourceTouches) {
+        cancelTouches.push(this.cloneTouchObjectWithType(touch, TouchType.Cancel));
+      }
+      cancelSource = "last_event";
+    }
+
+    if (cancelTouches.length > 0) {
+      if (cancelTouches.length > 1) {
+        for (let i = 0; i < cancelTouches.length; i++) {
+          this.postTouchCancelEvent(nodeController, lastTouchEvent, lastTouchEventIsPx,
+            viewId, reason, cancelSource + "_single_" + i, [cancelTouches[i]]);
+        }
+      }
+      this.postTouchCancelEvent(nodeController, lastTouchEvent, lastTouchEventIsPx,
+        viewId, reason, cancelSource + "_combined", cancelTouches);
+      params[PLATFORM_VIEW_CANCEL_DRAINING] = true;
+    } else {
+      Log.i(TAG, "platform_view_touch_cancel skip viewId=" + viewId
+        + " reason=" + reason + " no_touch pending=" + pendingCount);
+    }
+
+    this.clearTrackedTouchState(params);
+  }
+
   /**
    * Disposes a platform view and releases all associated resources.
    * @param viewId - The ID of the platform view to dispose
@@ -157,6 +289,15 @@ export default class PlatformViewsController implements PlatformViewsHandler {
       Log.e(TAG, "Disposing unknown platform view with id: " + viewId);
       return;
     }
+    let viewWrapper: PlatformViewWrapper | null = this.viewWrappers.get(viewId) || null;
+    if (viewWrapper != null) {
+      let disposedParams = viewWrapper.getDvModel().getLayoutParams() as Record<string, Any>;
+      this.cancelActiveTouchIfNeeded(viewId, disposedParams, "dispose");
+    } else {
+      Log.i(TAG, "platform_view_touch_cancel skip viewId=" + viewId
+        + " reason=dispose no_wrapper");
+    }
+
     if (this.focusViewId == viewId) {
       this.clearFocus(viewId);
       this.focusViewId = -1;
@@ -172,7 +313,6 @@ export default class PlatformViewsController implements PlatformViewsHandler {
     this.viewIdWithNodeController.get(viewId)?.disposeFrameNode()
     this.viewIdWithNodeController.delete(viewId);
 
-    let viewWrapper: PlatformViewWrapper | null = this.viewWrappers.get(viewId) || null;
     if (viewWrapper != null && this.flutterView) {
       let index = this.flutterView.getDVModel().children.indexOf(viewWrapper.getDvModel()!);
       if (index > -1) {
@@ -244,8 +384,12 @@ export default class PlatformViewsController implements PlatformViewsHandler {
    * @param viewId - The ID of the platform view
    * @param top - The top offset
    * @param left - The left offset
+   * @param transform - Optional local→global affine [invScaleX, invShearY, invTx, invShearX, invScaleY, invTy]
+   *                    supplied by the framework via getTransformTo. Used to detect rotation,
+   *                    position rotated views at their visual top-left, and
+   *                    correct touch coordinates.
    */
-  offset(viewId: number, top: number, left: number): void {
+  offset(viewId: number, top: number, left: number, transform?: Array<number>): void {
     Log.i(TAG, `Offset is id${viewId}, t:${top}, l:${left}`);
 
     let viewWrapper = this.viewWrappers.get(viewId)
@@ -273,9 +417,119 @@ export default class PlatformViewsController implements PlatformViewsHandler {
           nodeController.notifyPlatformViewInvisible();
         }
       }
+      // Preserve NaN in left/top so the invisible state is detectable on
+      // subsequent frames.  Do NOT fall through to the transform branch: even
+      // if Dart sends a transform (it will be all-zeros for a singular
+      // getTransformTo), applyTransformOffset would compute non-NaN posLeft/
+      // posTop (e.g. 0,0), overwriting the NaN marker and breaking the
+      // visibility detection on later frames.
+      let paramsRecord = params! as Record<string, Any>;
+      paramsRecord['affineTransform'] = undefined;
+      this.setParams(params!, "left", left);
+      this.setParams(params!, "top", top);
+      return;
     }
-    this.setParams(params!, "left", left);
-    this.setParams(params!, "top", top);
+
+    let paramsRecord = params! as Record<string, Any>;
+    if (transform !== undefined && transform.length >= 6) {
+      // Framework supplied the local→global affine. Use it to position the
+      // native node at the rotated bounding box's visual top-left and to
+      // derive the global→local transform used for touch correction.
+      this.applyTransformOffset(top, left, params!, transform);
+    } else {
+      // No transform (old Dart side): plain offset, no rotation handling.
+      paramsRecord['affineTransform'] = undefined;
+      this.setParams(params!, "left", left);
+      this.setParams(params!, "top", top);
+    }
+  }
+
+  /**
+   * Applies the local→global affine to position the platform view and derives
+   * the global→local affine used to correct touch coordinates.
+   *
+   * transform = [scaleX, shearY, shearX, scaleY, translateX, translateY] with
+   * gx = scaleX*lx + shearY*ly + translateX, gy = shearX*lx + scaleY*ly + translateY.
+   *
+   * The native node is positioned at the visual top-left of the rotated
+   * bounding box, computed as the min of the four transformed corners. This is
+   * correct for any rotation/scale and is independent of the view's on-screen
+   * position (unlike a screen-edge heuristic). The inverse (global→local) is
+   * stored as params['affineTransform'] = [invScaleX, invShearY, invTx, invShearX, invScaleY, invTy]
+   * and applied to touch events in TouchEventProcessor.postTouchEvent / .applyAffineTransform.
+   *
+   * @param params - The layout parameters to update
+   * @param transform - The local→global affine [scaleX, shearY, shearX, scaleY, translateX, translateY]
+   */
+  private applyTransformOffset(top: number, left: number, params: DVModelParameters, transform: Array<number>): void {
+    // Local→global affine: gx = scaleX·lx + shearY·ly + translateX , gy = shearX·lx + scaleY·ly + translateY
+    let scaleX     = transform[0];
+    let shearY     = transform[1];
+    let shearX     = transform[2];
+    let scaleY     = transform[3];
+    let translateX = transform[4];
+    let translateY = transform[5];
+
+    // Guard against non-finite coefficients (NaN / Infinity) from the Dart
+    // side.  If any component is non-finite, the determinant check below
+    // would be bypassed (Math.abs(NaN) < 1e-9 === false), and every
+    // subsequent division would produce NaN, poisoning the touch transform.
+    // Clear affineTransform and fall back to the plain-offset path.
+    if (!Number.isFinite(scaleX) || !Number.isFinite(shearY) || !Number.isFinite(shearX) ||
+        !Number.isFinite(scaleY) || !Number.isFinite(translateX) || !Number.isFinite(translateY)) {
+      let paramsRecord = params as Record<string, Any>;
+      paramsRecord['affineTransform'] = undefined;
+      this.setParams(params, "left", left);
+      this.setParams(params, "top", top);
+      return;
+    }
+
+    // Check for a degenerate (singular) 2×2 part early.  When the determinant
+    // is near zero the four transformed corners collapse to a line/point, so
+    // the 4-corner min would not produce a meaningful "visual top-left" and
+    // the inverse does not exist.  Fall back to the translation component
+    // (translateX, translateY) for positioning and clear the touch transform.
+    let det = scaleX * scaleY - shearY * shearX;
+    if (Math.abs(det) < 1e-9) {
+      let paramsRecord = params as Record<string, Any>;
+      paramsRecord['affineTransform'] = undefined;
+      this.setParams(params, "left", left);
+      this.setParams(params, "top", top);
+      return;
+    }
+
+    // params width/height are in logical pixels (vp).  Despite the name,
+    // toPhysicalPixels is effectively an identity function:
+    //   Math.round(px2vp(logical * density)) = Math.round(logical)
+    // so the stored values are already in the same unit as the transform
+    // matrix (logical).  Do NOT divide by density again.
+    let viewWidth = this.getParams(params, "width");
+    let viewHeight = this.getParams(params, "height");
+    let posLeft: number;
+    let posTop: number;
+    if (!Number.isNaN(viewWidth) && !Number.isNaN(viewHeight) && viewWidth > 0 && viewHeight > 0) {
+      // Visual top-left = min over the 4 corners (0,0),(viewWidth,0),(0,viewHeight),(viewWidth,viewHeight).
+      posLeft = translateX + Math.min(0, Math.min(scaleX * viewWidth, Math.min(shearY * viewHeight, scaleX * viewWidth + shearY * viewHeight)));
+      posTop = translateY + Math.min(0, Math.min(shearX * viewWidth, Math.min(scaleY * viewHeight, shearX * viewWidth + scaleY * viewHeight)));
+    } else {
+      // Dimensions not yet known: fall back to the origin corner's position.
+      posLeft = translateX;
+      posTop = translateY;
+    }
+    this.setParams(params, "left", posLeft);
+    this.setParams(params, "top", posTop);
+
+    // Derive the global→local affine (inverse of the 2x2 rotation/scale part).
+    // localX = invScaleX·gx + invShearY·gy + invTx ; localY = invShearX·gx + invScaleY·gy + invTy
+    let paramsRecord = params as Record<string, Any>;
+    let invScaleX = scaleY / det;
+    let invShearY = -shearY / det;
+    let invTx = (shearY * translateY - scaleY * translateX) / det;
+    let invShearX = -shearX / det;
+    let invScaleY = scaleX / det;
+    let invTy = (shearX * translateX - scaleX * translateY) / det;
+    let affineTransform: Array<number> = [invScaleX, invShearY, invTx, invShearX, invScaleY, invTy];
+    paramsRecord['affineTransform'] = affineTransform;
   }
 
   /**
@@ -309,12 +563,18 @@ export default class PlatformViewsController implements PlatformViewsHandler {
       if (touch.action === TouchEventType.ACTION_DOWN) {
         // Set the current touch state to true
         params['down'] = true
+        params[PLATFORM_VIEW_CANCEL_DRAINING] = false;
         // When first receiving a touch DOWN event, dispatch all events stored in the list
         let touchEventArray: Array<CustomTouchEvent> | undefined = params['touchEvent'] as Array<CustomTouchEvent>
         if (touchEventArray !== undefined) {
           let nodeController = params['nodeController'] as EmbeddingNodeController;
+          let affineTransform = params['affineTransform'] as Array<number> | undefined;
           for (let it of touchEventArray) {
+            // Correct local coordinates for rotation/scale using the global→local
+            // affine stored at layout time (PlatformViewsController.offset).
+            TouchEventProcessor.applyAffineTransform(it, affineTransform);
             nodeController.postEvent(it)
+            this.rememberPostedTouchEvent(params, it);
           }
           // Clear the list after first dispatch
           params['touchEvent'] = undefined
@@ -332,6 +592,9 @@ export default class PlatformViewsController implements PlatformViewsHandler {
         }
         // When receiving an UP action
       } else if (touch.action === TouchEventType.ACTION_UP || touch.action === TouchEventType.ACTION_CANCEL) {
+        if (touch.action === TouchEventType.ACTION_CANCEL) {
+          this.cancelActiveTouchIfNeeded(touch.viewId, params, "platform_cancel");
+        }
         // Set the touch state to false after finger is lifted. When multiple fingers are lifted suddenly,
         // the final state returned is also ACTION_UP, so we use the UP state to indicate the user
         // is no longer touching the platform view
@@ -872,7 +1135,6 @@ export default class PlatformViewsController implements PlatformViewsHandler {
     platformView.onFlutterViewAttached(this.flutterView!.getDVModel());
     this.platformViews.set(surfaceId, platformView!);
   }
-
   private ensureFlutterViewAttached(action: string): void {
     if (this.flutterView == null) {
       throw new Error("Cannot " + action + " while FlutterView is detached from PlatformViewsController.");

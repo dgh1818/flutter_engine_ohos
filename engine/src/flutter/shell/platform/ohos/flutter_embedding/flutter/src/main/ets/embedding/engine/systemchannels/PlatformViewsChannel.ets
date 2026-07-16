@@ -189,10 +189,17 @@ export default class PlatformViewsChannel {
   offset(call: MethodCall, result: MethodResult): void {
     const offsetArgs: Map<string, Any> = call.args;
     try {
+      // Optional local→global affine [invScaleX, invShearY, invTx, invShearX, invScaleY, invTy] sent by the framework
+      // (getTransformTo). Absent on old Dart sides; null/undefined keeps the
+      // plain x-left / y-top offset and touch behavior.
+      // Normalize null → undefined so downstream checks only need !== undefined.
+      const rawTransform: Any | undefined = offsetArgs.get("transform");
+      const transform: Array<number> | undefined = (rawTransform != null && rawTransform !== undefined) ? rawTransform as Array<number> : undefined;
       this.handler?.offset(
         offsetArgs.get("id"),
         offsetArgs.get("top"),
-        offsetArgs.get("left"));
+        offsetArgs.get("left"),
+        transform);
       result.success(null);
     } catch (err) {
       Log.e(TAG, "offset failed", err);
@@ -373,8 +380,10 @@ export interface PlatformViewsHandler {
    * @param viewId - The ID of the platform view
    * @param top - The new top offset
    * @param left - The new left offset
+   * @param transform - Optional local→global affine [invScaleX, invShearY, invTx, invShearX, invScaleY, invTy]
+   *                    Used to detect rotation, position rotated views, and correct touch coords.
    */
-  offset(viewId: number, top: number, left: number): void;
+  offset(viewId: number, top: number, left: number, transform?: Array<number>): void;
 
   /**
    * The user touched a platform view within Flutter.

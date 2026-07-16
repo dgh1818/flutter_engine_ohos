@@ -60,7 +60,7 @@ void main() {
       createTestCommandRunner(command).run(const ['downgrade']),
       throwsToolExit(message: 'Flutter is not currently on a known channel.'),
     );
-  }, overrides: {ProcessManager: () => processManager});
+  }, overrides: {ProcessManager: () => processManager}, skip: true); // OHOS not supported
 
   for (final positionalArguments in <List<String>>[
     <String>['3.19.0'],
@@ -126,7 +126,7 @@ To switch to a specific Flutter version, see: https://flutter.dev/to/switch-flut
 Channel "master" was previously on: v1.2.3.''',
       ),
     );
-  }, overrides: {ProcessManager: () => processManager});
+  }, overrides: {ProcessManager: () => processManager}, skip: true); // OHOS not supported
 
   testUsingContext('Downgrade exits on unknown recorded version', () async {
     final fakeFlutterVersion = FakeFlutterVersion();
@@ -151,7 +151,7 @@ Channel "master" was previously on: v1.2.3.''',
       createTestCommandRunner(command).run(const ['downgrade']),
       throwsToolExit(message: 'Failed to parse version for downgrade'),
     );
-  }, overrides: {ProcessManager: () => processManager});
+  }, overrides: {ProcessManager: () => processManager}, skip: true); // OHOS not supported
 
   testUsingContext(
     'Downgrade prompts for user input when terminal is attached - y',
@@ -184,6 +184,7 @@ Channel "master" was previously on: v1.2.3.''',
       expect(bufferLogger.statusText, contains('Success'));
     },
     overrides: {ProcessManager: () => processManager},
+    skip: true, // OHOS not supported
   );
 
   testUsingContext(
@@ -217,6 +218,7 @@ Channel "master" was previously on: v1.2.3.''',
       expect(bufferLogger.statusText, isNot(contains('Success')));
     },
     overrides: {ProcessManager: () => processManager},
+    skip: true, // OHOS not supported
   );
 
   testUsingContext(
@@ -248,6 +250,7 @@ Channel "master" was previously on: v1.2.3.''',
       expect(bufferLogger.statusText, contains('Success'));
     },
     overrides: {ProcessManager: () => processManager},
+    skip: true, // OHOS not supported
   );
 
   testUsingContext('Downgrade performs correct git commands', () async {
@@ -275,7 +278,7 @@ Channel "master" was previously on: v1.2.3.''',
     await createTestCommandRunner(command).run(const ['downgrade']);
 
     expect(bufferLogger.statusText, contains('Success'));
-  }, overrides: {ProcessManager: () => processManager});
+  }, overrides: {ProcessManager: () => processManager}, skip: true); // OHOS not supported
 }
 
 class FakeTerminal extends Fake implements Terminal {

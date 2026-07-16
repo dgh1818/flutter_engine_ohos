@@ -1461,7 +1461,6 @@ class _CupertinoTextFieldState extends State<CupertinoTextField>
       case TargetPlatform.iOS:
       case TargetPlatform.android:
       case TargetPlatform.fuchsia:
-      case TargetPlatform.linux:
       case TargetPlatform.ohos:
         textSelectionControls ??= cupertinoTextSelectionHandleControls;
       case TargetPlatform.linux:

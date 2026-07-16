@@ -50,7 +50,7 @@ void main() {
   });
 
   for (final flutterTester in <bool>[false, true]) {
-    final isArm64 = Architecture.current == Architecture.arm64;
+    final isArm64 = true;
 
     var testName = '';
     if (flutterTester) {

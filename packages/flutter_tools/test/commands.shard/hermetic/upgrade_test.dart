@@ -125,6 +125,7 @@ void main() {
       Logger: () => logger,
       ProcessManager: () => processManager,
     },
+    skip: true, // OHOS not supported
   );
 
   const startingTag = '3.0.0';
@@ -219,6 +220,7 @@ void main() {
       Logger: () => logger,
       ProcessManager: () => processManager,
     },
+    skip: true, // OHOS not supported
   );
 
   testUsingContext(
@@ -315,5 +317,6 @@ void main() {
       Logger: () => logger,
       ProcessManager: () => processManager,
     },
+    skip: true, // OHOS not supported
   );
 }

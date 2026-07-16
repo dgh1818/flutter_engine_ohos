@@ -420,7 +420,8 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     this.isPageShow = true;
     this.flutterView?.setActive(true);
     if (this.shouldDispatchAppLifecycleState()) {
-      this.flutterEngine?.getLifecycleChannel()?.appIsResumed();
+      // Aggregate per-engine host visibility
+      this.flutterView?.onPageVisibilityChanged(true);
     }
   }
 
@@ -452,7 +453,8 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     if (this.shouldDispatchAppLifecycleState()) {
       this.isPageShow = false;
       this.flutterView?.setActive(false);
-      this.flutterEngine?.getLifecycleChannel()?.appIsPaused();
+      // Aggregate per-engine host visibility
+      this.flutterView?.onPageVisibilityChanged(false);
     }
   }
 

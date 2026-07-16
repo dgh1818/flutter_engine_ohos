@@ -36,7 +36,6 @@ import 'base/user_messages.dart';
 import 'base/utils.dart' show getElapsedAsSeconds, getSizeAsPlatformMB;
 import 'convert.dart';
 import 'features.dart';
-import 'globals.dart';
 
 const kFlutterRootEnvironmentVariableName =
     'FLUTTER_ROOT'; // should point to //flutter/ (root of flutter/flutter repo)

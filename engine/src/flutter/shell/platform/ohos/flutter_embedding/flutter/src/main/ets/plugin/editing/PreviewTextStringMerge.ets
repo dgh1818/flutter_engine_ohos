@@ -16,6 +16,12 @@ export interface PreviewCollapseApostropheCaretResult {
   rel: number;
 }
 
+/** Half-open [start, end) span in editable UTF-16 code units (full-buffer pinyin Latin + IME apostrophe only). */
+export interface FullBufferLatinPinyinRange {
+  start: number;
+  end: number;
+}
+
 /**
  * Stateless helpers for preview text merging, tail-shrink picking, and caret mapping.
  */
@@ -43,6 +49,49 @@ export class PreviewTextStringMerge {
     }
     const codeUnit = segmentChar.charCodeAt(0);
     return segmentChar === "'" || codeUnit === 0x2019 || codeUnit === 0x02BC || codeUnit === 0xFF07;
+  }
+
+  /**
+   * True if `text` contains at least one BMP CJK unified ideograph code unit (U+4E00..U+9FFF; same band as pinyin-to-Han commit detection).
+   * Generic over any UTF-16 string — callers may pass preview buffer, IME string, merged text, etc.
+   */
+  private static stringContainsBmpCjk(text: string): boolean {
+    for (let charIndex = 0; charIndex < text.length; charIndex++) {
+      const codeUnit = text.charCodeAt(charIndex);
+      if (codeUnit >= 0x4e00 && codeUnit <= 0x9fff) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Validates the entire editable UTF-16 buffer from index 0 (not a substring search from an arbitrary caret offset).
+   * Returns half-open `[0, length)` iff every code unit is ASCII Latin or an IME-style apostrophe; otherwise null.
+   * Used when preview metadata collapses to L === R before insertText so replace must swap the whole pinyin run with a CJK candidate.
+   *
+   * O(`bufferText.length`) with early exit; intended only for short IME composition buffers (tens/hundreds of code units).
+   */
+  static getFullBufferPinyinRangeIfPureLatin(bufferText: string): FullBufferLatinPinyinRange | null {
+    const textLength = bufferText.length;
+    if (textLength === 0) {
+      return null;
+    }
+    for (let charIndex = 0; charIndex < textLength; charIndex++) {
+      const character = bufferText.charAt(charIndex);
+      const isApostropheLike =
+        character === "'" ||
+        character.charCodeAt(0) === 0x2019 ||
+        character.charCodeAt(0) === 0x02bc ||
+        character.charCodeAt(0) === 0xff07;
+      const isAsciiLetter =
+        (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z');
+      if (!isApostropheLike && !isAsciiLetter) {
+        return null;
+      }
+    }
+    const range: FullBufferLatinPinyinRange = { start: 0, end: textLength };
+    return range;
   }
 
   /** Whether two adjacent apostrophe-like code units exist (mixing U+2019 with ASCII breaks indexOf("''")). */
@@ -771,6 +820,18 @@ export class PreviewTextStringMerge {
       off = prevLen;
     }
     if (ime.length < prevLen) {
+      // Pinyin (Latin+') → CJK+optional Latin+': UTF-16 length often *shrinks* (e.g. "zmh" → "怎么"), but this is
+      // candidate / composition replacement, not one Backspace at the end of `prev`. Running
+      // `getImePreviewBackspaceDeleteRange` here deletes the last letter (e.g. `h` → "zm") instead of applying the IME
+      // body. Trust the IME text whenever it introduces CJK while `prev` was still Latin-only; when `prev` already
+      // contains CJK, keep the tail-shrink / Backspace heuristics below.
+      if (
+        PreviewTextStringMerge.stringContainsBmpCjk(ime) &&
+        !PreviewTextStringMerge.stringContainsBmpCjk(prevPreview)
+      ) {
+        ctx.textForMerge = ime;
+        return;
+      }
       if (off <= 0) {
         ctx.textForMerge = prevPreview;
         return;

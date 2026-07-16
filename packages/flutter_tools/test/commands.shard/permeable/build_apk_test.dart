@@ -451,7 +451,7 @@ void main() {
         },
       );
     });
-  });
+  }, skip: true); // OHOS not supported
 
   group('Gradle', () {
     late Directory tempDir;

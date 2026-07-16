@@ -1,15 +1,15 @@
-name: Report a bug
+name: 报告 Bug
 description: |
-  You found a bug in Flutter causing your application to crash or
-  throw an exception, a widget is buggy, or something looks wrong.
+  在 Flutter 中发现导致应用崩溃或抛出异常的 Bug，
+  某个组件有缺陷，或界面显示异常。
+labels: ['bug', 'triage']
 body:
   - type: markdown
     attributes:
       value: |
-        Thank you for using Flutter!
+        感谢使用 Flutter！
 
-        If you are looking for support, please check out our documentation
-        or consider asking a question on Stack Overflow:
+        如需帮助，请查阅文档或在 Stack Overflow 上提问：
 
           - https://flutter.dev/
           - https://api.flutter.dev/
@@ -17,13 +17,13 @@ body:
   - type: markdown
     attributes:
       value: |
-        Before filling the form fields, please consider the following:
-        - Ensure that you have searched the [existing issues](https://github.com/flutter/flutter/issues)
-        - Read the [guide to filing a bug](https://docs.flutter.dev/resources/bug-reports)
+        填写表单前，请确认以下事项：
+        - 已搜索[已有的 Issue](https://gitcode.com/CPF-Flutter/flutter_flutter/issues)
+        - 已阅读[提交 Bug 指南](https://docs.flutter.dev/resources/bug-reports)
   - type: textarea
     attributes:
-      label: Steps to reproduce
-      description: Please tell us exactly how to reproduce the problem you are running into.
+      label: 复现步骤
+      description: 请详细描述如何复现你遇到的问题。
       placeholder: |
         1. ...
         2. ...
@@ -32,38 +32,34 @@ body:
       required: true
   - type: textarea
     attributes:
-      label: Expected results
-      description: Please tell us what is expected to happen.
+      label: 期望结果
+      description: 请描述期望发生的行为。
     validations:
       required: true
   - type: textarea
     attributes:
-      label: Actual results
-      description: Please tell us what is actually happening.
+      label: 实际结果
+      description: 请描述实际发生了什么。
     validations:
       required: true
   - type: textarea
     attributes:
-      label: Code sample
+      label: 代码示例
       description: |
-        Please create a minimal reproducible sample that shows the problem
-        and attach it below between the lines with the backticks.
+        请创建一个最小可复现示例来展示问题，并在下方代码块中粘贴。
 
-        To create it, use the `flutter create bug` command and update the `main.dart` file.
+        可使用 `flutter create bug` 命令创建项目并修改 `main.dart` 文件。
 
-        Alternatively, you can use https://dartpad.dev/ or create a public GitHub
-        repository to share your sample.
+        也可以使用 https://dartpad.dev/ 或创建公开的 GitCode 仓库来分享示例。
 
-        Without this we will unlikely be able to progress on the issue, and because of that
-        we regretfully will have to close it.
+        缺少此示例将很难推进问题排查，我们可能不得不关闭此 Issue。
 
-        Note: Please do not upload screenshots of text. Instead, use code blocks
-        or the above mentioned ways to upload your code sample.
+        注意：请勿上传文本截图，请使用代码块或上述方式提供代码。
       value: |
-        <details open><summary>Code sample</summary>
+        <details open><summary>代码示例</summary>
 
         ```dart
-        [Paste your code here]
+        [在此粘贴代码]
         ```
 
         </details>
@@ -71,49 +67,43 @@ body:
       required: true
   - type: textarea
     attributes:
-      label: Screenshots or Video
+      label: 截图或视频
       description: |
-        Upload any screenshots or video of the bug if applicable.
+        如有，请上传 Bug 相关的截图或视频。
       value: |
         <details open>
-        <summary>Screenshots / Video demonstration</summary>
+        <summary>截图 / 视频演示</summary>
 
-        [Upload media here]
+        [在此上传媒体文件]
 
         </details>
   - type: textarea
     attributes:
-      label: Logs
+      label: 日志
       description: |
-        Include the full logs of the commands you are running between the lines
-        with the backticks below. If you are running any `flutter` commands,
-        please include the output of running them with `--verbose`; for example,
-        the output of running `flutter --verbose create foo`.
+        请在下方代码块中粘贴所运行命令的完整日志。如果运行了 `flutter` 命令，请附上添加 `--verbose` 参数后的输出，例如 `flutter --verbose create foo` 的输出。
 
-        If the logs are too large to be uploaded to GitHub, you may upload
-        them as a `txt` file or use online tools like https://pastebin.com to
-        share it.
+        如果日志过大无法上传到 GitCode，可以将其保存为 `txt` 文件，或使用 https://pastebin.com 等在线工具分享。
 
-        Note: Please do not upload screenshots of text. Instead, use code blocks
-        or the above mentioned ways to upload logs.
+        注意：请勿上传文本截图，请使用代码块或上述方式提供日志。
       value: |
-        <details open><summary>Logs</summary>
+        <details open><summary>日志</summary>
 
         ```console
-        [Paste your logs here]
+        [在此粘贴日志]
         ```
 
         </details>
   - type: textarea
     attributes:
-      label: Flutter Doctor output
+      label: Flutter Doctor 输出
       description: |
-        Please provide the full output of running `flutter doctor -v`
+        请提供 `flutter doctor -v` 的完整输出
       value: |
-        <details open><summary>Doctor output</summary>
+        <details open><summary>Doctor 输出</summary>
 
         ```console
-        [Paste your output here]
+        [在此粘贴输出]
         ```
 
         </details>

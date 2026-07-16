@@ -68,6 +68,7 @@ void main() {
           ),
         );
       },
+      skip: true, // OHOS not supported
       overrides: <Type, Generator>{
         AndroidBuilder: () => FakeAndroidBuilder(),
         Analytics: () => fakeAnalytics,
@@ -147,6 +148,7 @@ void main() {
           ),
         );
       },
+      skip: true, // OHOS not supported
       overrides: <Type, Generator>{
         AndroidBuilder: () => FakeAndroidBuilder(),
         Analytics: () => fakeAnalytics,
@@ -175,6 +177,7 @@ void main() {
           ),
         );
       },
+      skip: true, // OHOS not supported
       overrides: <Type, Generator>{
         AndroidBuilder: () => FakeAndroidBuilder(),
         Analytics: () => fakeAnalytics,
@@ -360,6 +363,7 @@ void main() {
           ),
         );
       },
+      skip: true, // OHOS not supported
       overrides: <Type, Generator>{
         AndroidBuilder: () => FakeAndroidBuilder(),
         Analytics: () => fakeAnalytics,

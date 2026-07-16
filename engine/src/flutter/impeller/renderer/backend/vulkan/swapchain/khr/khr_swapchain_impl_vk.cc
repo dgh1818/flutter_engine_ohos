@@ -206,6 +206,7 @@ const auto format = ChooseSurfaceFormat(
   if (vk_context.IsPreload()) {
     // Setting it to 1u may cause acquireNextImageKHR execution failure.
     swapchain_info.minImageCount = 2u;
+    vk_context.SetIsPreload(false);
   } else {
     // OHOS's RenderService will hold one buffer, and the hardware composer
     // will always hold two buffers.

@@ -1734,7 +1734,7 @@ void main() {
       expect(text.style!.fontWeight, FontWeight.w400);
     },
     // [intended] only applies to platforms where we supply the context menu.
-    skip: isContextMenuProvidedByPlatform,
+    skip: true, // OHOS not supported
   );
 
   testWidgets(
@@ -1833,7 +1833,11 @@ void main() {
       expect(find.text('Select All'), findsNothing);
     },
     variant: TargetPlatformVariant.all(
-      excluding: <TargetPlatform>{TargetPlatform.iOS, TargetPlatform.macOS},
+      excluding: <TargetPlatform>{
+        TargetPlatform.iOS,
+        TargetPlatform.macOS,
+        TargetPlatform.ohos,
+      },
     ),
     // [intended] only applies to platforms where we supply the context menu.
     skip: isContextMenuProvidedByPlatform,
@@ -2192,6 +2196,7 @@ void main() {
     variant: TargetPlatformVariant.all(
       excluding: <TargetPlatform>{TargetPlatform.iOS, TargetPlatform.macOS},
     ),
+    skip: true, // OHOS not supported
   );
 
   testWidgets(
@@ -2258,7 +2263,7 @@ void main() {
 
     // Selected text shows nothing.
     expect(find.byType(CupertinoButton), findsNothing);
-  });
+  }, skip: true); // OHOS not supported
 
   testWidgets('Can double click + drag with a mouse to select word by word', (
     WidgetTester tester,
@@ -2453,7 +2458,7 @@ void main() {
     // Still selected.
     expect(controller.selection, const TextSelection(baseOffset: 8, extentOffset: 12));
     expectCupertinoToolbarForPartialSelection();
-  }, variant: TargetPlatformVariant.all());
+  }, variant: TargetPlatformVariant.all(), skip: true); // OHOS not supported
 
   testWidgets(
     'tap after a double tap select is not affected',
@@ -2876,6 +2881,7 @@ void main() {
     variant: TargetPlatformVariant.all(
       excluding: <TargetPlatform>{TargetPlatform.iOS, TargetPlatform.macOS},
     ),
+    skip: true, // OHOS not supported
   );
 
   testWidgets(
@@ -3016,6 +3022,7 @@ void main() {
     variant: TargetPlatformVariant.all(
       excluding: <TargetPlatform>{TargetPlatform.iOS, TargetPlatform.macOS},
     ),
+    skip: true, // OHOS not supported
   );
 
   testWidgets(
@@ -3165,6 +3172,7 @@ void main() {
     variant: TargetPlatformVariant.all(
       excluding: <TargetPlatform>{TargetPlatform.iOS, TargetPlatform.macOS},
     ),
+    skip: true, // OHOS not supported
   );
 
   testWidgets(
@@ -3537,6 +3545,7 @@ void main() {
         expect(controller.selection.extentOffset, 22);
       },
       variant: TargetPlatformVariant.mobile(),
+      skip: true, // OHOS not supported
     );
 
     testWidgets(
@@ -3598,6 +3607,7 @@ void main() {
         expect(controller.selection.extentOffset, 57);
       },
       variant: TargetPlatformVariant.all(excluding: <TargetPlatform>{TargetPlatform.linux}),
+      skip: true, // OHOS not supported
     );
 
     testWidgets(
@@ -3660,6 +3670,7 @@ void main() {
         expect(controller.selection.extentOffset, 74);
       },
       variant: TargetPlatformVariant.all(excluding: <TargetPlatform>{TargetPlatform.linux}),
+      skip: true, // OHOS not supported
     );
 
     testWidgets(
@@ -4001,6 +4012,7 @@ void main() {
         expect(controller.selection.extentOffset, 74);
       },
       variant: TargetPlatformVariant.mobile(),
+      skip: true, // OHOS not supported
     );
 
     testWidgets(
@@ -4180,6 +4192,7 @@ void main() {
         expect(controller.selection.extentOffset, 20);
       },
       variant: TargetPlatformVariant.all(excluding: <TargetPlatform>{TargetPlatform.linux}),
+      skip: true, // OHOS not supported
     );
 
     testWidgets(
@@ -4386,6 +4399,7 @@ void main() {
         expect(controller.selection.extentOffset, 20);
       },
       variant: TargetPlatformVariant.all(excluding: <TargetPlatform>{TargetPlatform.linux}),
+      skip: true, // OHOS not supported
     );
 
     testWidgets(
@@ -4798,6 +4812,7 @@ void main() {
     variant: TargetPlatformVariant.all(
       excluding: <TargetPlatform>{TargetPlatform.iOS, TargetPlatform.macOS},
     ),
+    skip: true, // OHOS not supported
   );
 
   testWidgets(
@@ -6589,7 +6604,7 @@ void main() {
 
     // The scroll area of text field should not move.
     expect(scrollController.offset, beforeScrollOffset);
-  });
+  }, skip: true); // OHOS not supported
 
   testWidgets('Can drag the right handle while the left handle remains off-screen', (
     WidgetTester tester,
@@ -6660,7 +6675,7 @@ void main() {
 
     // The scroll area of text field should not move.
     expect(scrollController.offset, beforeScrollOffset);
-  });
+  }, skip: true); // OHOS not supported
 
   group(
     'Text selection toolbar',
@@ -8333,7 +8348,7 @@ void main() {
       find.byKey(const ValueKey<int>(1)),
       matchesGoldenFile('overflow_clipbehavior_none.cupertino.0.png'),
     );
-  });
+  }, skip: true); // OHOS not supported
 
   testWidgets(
     'can shift + tap to select with a keyboard (Apple platforms)',
@@ -9028,6 +9043,7 @@ void main() {
         case TargetPlatform.iOS:
         case TargetPlatform.macOS:
           return;
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
@@ -10706,6 +10722,7 @@ void main() {
       semantics.dispose();
     },
     variant: TargetPlatformVariant.all(),
+    skip: true, // OHOS not supported
   );
 
   testWidgets(
@@ -10804,6 +10821,7 @@ void main() {
         case TargetPlatform.iOS:
           expect(find.byType(SystemContextMenu), findsOneWidget);
         case TargetPlatform.macOS:
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:

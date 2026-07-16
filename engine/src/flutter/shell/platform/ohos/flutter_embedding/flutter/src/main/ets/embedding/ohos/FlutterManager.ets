@@ -609,8 +609,10 @@ export class DefaultFullScreenListener implements FullScreenListener {
       return;
     }
     switch (data) {
+      case window.WindowStatusType.MINIMIZE:
+        // In the minimized mode of the APP window, the original state is maintained to avoid the problem of evasive calculation errors caused by the lock screen
+        break;
       case window.WindowStatusType.FULL_SCREEN:
-
       case window.WindowStatusType.SPLIT_SCREEN:
       case window.WindowStatusType.FLOATING:
       case window.WindowStatusType.MAXIMIZE:

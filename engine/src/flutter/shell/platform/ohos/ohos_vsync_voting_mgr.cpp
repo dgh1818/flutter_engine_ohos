@@ -48,6 +48,16 @@ static constexpr int32_t DEFAULT_FPS = FPS_120;
 static constexpr int32_t RET_FAILED = -1;
 static constexpr int32_t RET_SUCCEED = 0;
 
+// Built-in default TRANSLATE frame rate mapping, migrated from framesconfig.json.
+// Unit: mm/frame (velocity has been converted in VoteANTranslate).
+static const std::vector<map<string, int>> kDefaultTranslateFramesConfig = {
+  {{"serial_number", 1}, {"min", 500}, {"max", -1},  {"preferred_fps", 90}},
+  {{"serial_number", 2}, {"min", 60},  {"max", 500}, {"preferred_fps", 120}},
+  {{"serial_number", 3}, {"min", 35},  {"max", 60},  {"preferred_fps", 90}},
+  {{"serial_number", 4}, {"min", 10},  {"max", 35},  {"preferred_fps", 72}},
+  {{"serial_number", 5}, {"min", 0},   {"max", 10},  {"preferred_fps", 60}},
+};
+
 constexpr char LIB_NATIVE_VSYNC_NAME[] = "libnative_vsync.so";
 constexpr char FUN_SET_FREAM_RATE_NAME[] =
     "OH_NativeVSync_SetExpectedFrameRateRange";
@@ -112,10 +122,16 @@ void OhosVsyncVotingMgr::VoteAnimationValue(AnimationType AN_type,
 
   double velocity_tmp = std::abs(velocity);
   if (device_pixel_ratio != 0.0) {
-    // V(millimeter) = V(pixel) * 25.4 / (device_pixel_ratio * 160)
-    velocity_tmp = velocity_tmp / (device_pixel_ratio * PHYSICAL_PIXEL_DENSITY);
-    velocity_tmp = velocity_tmp * INCH_2_MILL;
+    /// V_Logical_Pixel(millimeter) = V(pixel) * 25.4 / (device_pixel_ratio * 160)
+    /// V_Physical_Pixel(millimeter) = V_Logical_Pixel(millimeter) * device_pixel_ratio
+    /// => V_Physical_Pixel(millimeter) = V(pixel) * 25.4 / 160
+    velocity_tmp = velocity_tmp * INCH_2_MILL / PHYSICAL_PIXEL_DENSITY;
   }
+
+  std::ostringstream oss;
+  oss << "AN_type=" << static_cast<int>(AN_type) << " V=" << velocity_tmp;
+  std::string trace_str = oss.str();
+  TRACE_EVENT0("flutter", trace_str.c_str());
 
   switch (AN_type) {
     case AnimationType::AN_TYPE_TRANSLATE:
@@ -152,6 +168,7 @@ void OhosVsyncVotingMgr::VoteTouchValue(VVMTouchType type, int64_t timestamp) {
         break;
       }
       if (timestamp - touch_timestamp_.load() >= TOUCH_UP_MILLIS_TIME_OUT_FPS_60) {
+        FML_LOG(INFO) << "VoteTouchValue TOUCH_UP timeout, reset touch voting";
         touch_voting_.store(FPS_NO_VOTING);
         VotingBySelf();
       }
@@ -168,10 +185,13 @@ void OhosVsyncVotingMgr::VoteVideoValue(int second, int frame_count) {
   }
 
   if (second <= 0 || frame_count <= 0) {
+    FML_LOG(INFO) << "VoteVideoValue ignored, invalid input"
+                   << ", second = " << second << ", frame_count = " << frame_count;
     return;
   }
 
   int framerate = frame_count / second;
+  FML_LOG(INFO) << "VoteVideoValue, framerate = " << framerate;
   if (framerate <= FPS_30) {
     video_voting_.store(FPS_30);
   } else {
@@ -359,13 +379,13 @@ void OhosVsyncVotingMgr::VotingByNativeVsync(OH_NativeVSync* handle) {
   std::ostringstream oss;
   oss << "{" << range.min << "," << range.max << "," << range.expected << "}";
   std::string rangeStr = oss.str();
-  FML_LOG(INFO) << "OH_NativeVSync_SetExpectedFrameRateRange() calling with range: " << rangeStr.c_str();
+  FML_LOG(INFO) << "SetExpectedFrameRateRange : " << rangeStr.c_str();
   TRACE_EVENT1("flutter", "SetExpectedFrameRateRange",
     "range", rangeStr.c_str());
 
   ret = func_SetExpectedFrameRateRange_symbol_handle_(handle, &range);
   if (ret != 0) {
-    FML_LOG(ERROR) << "OH_NativeVSync_SetExpectedFrameRateRange() failed, ret = " << ret;
+    FML_LOG(ERROR) << "SetExpectedFrameRateRange failed, ret = " << ret;
   }
 
   return;
@@ -397,7 +417,7 @@ void OhosVsyncVotingMgr::VotingBySelf() {
   std::ostringstream oss;
   oss << "{" << range.min << "," << range.max << "," << range.expected << "}";
   std::string range_str = oss.str();
-  FML_LOG(INFO) << "OH_NativeVSync_SetExpectedFrameRateRange() BySelf calling with range: " << range_str.c_str();
+  FML_LOG(INFO) << "BySelf SetExpectedFrameRateRange : " << range_str.c_str();
   TRACE_EVENT1("flutter", "BySelf SetExpectedFrameRateRange", "range",
                range_str.c_str());
 
@@ -420,7 +440,7 @@ void OhosVsyncVotingMgr::VotingBySelf() {
     }
     ret = func_SetExpectedFrameRateRange_symbol_handle_(handle, &range);
     if (ret != 0) {
-      FML_LOG(ERROR) << "OH_NativeVSync_SetExpectedFrameRateRange() BySelf failed, ret = " << ret;
+      FML_LOG(ERROR) << "BySelf SetExpectedFrameRateRange failed, ret = " << ret;
     }
   }
 
@@ -460,7 +480,9 @@ void OhosVsyncVotingMgr::ParseTranslate(const Json::Value& arr) {
       }
       int value_tmp = arr[i][key].asInt();
       if ((j == 0) && (value_tmp != number)) {
-        FML_LOG(ERROR) << "config value serial_number is wrong";
+        FML_LOG(ERROR) << "config value serial_number is wrong at index = "
+                       << i << ", expected = " << number
+                       << ", actual = " << value_tmp;
       }
       map_tmp.insert(std::pair<string, int>(string(key), value_tmp));
     }
@@ -478,12 +500,6 @@ void OhosVsyncVotingMgr::ParseFramesCfg() {
     return;
   }
 
-  if (asset_provider_ == nullptr) {
-    FML_LOG(ERROR) << "asset_provider is null";
-    switch_status_ = LTPOSwitchState::LTPO_SWITCH_OFF;
-    return;
-  }
-
   if (is_frames_config_file_init_) {
     FML_LOG(ERROR) << "framesconfig file has been initiallized";
     // switch_status_ has already been set once; there’s no need to set it again.
@@ -492,32 +508,26 @@ void OhosVsyncVotingMgr::ParseFramesCfg() {
 
   is_frames_config_file_init_ = true;
 
-  if (ParseFramesCfgImpl() != RET_SUCCEED) {
-    FML_LOG(ERROR) << "Failed to parse file frameconfig";
-    switch_status_ = LTPOSwitchState::LTPO_SWITCH_OFF;
+  // Default behavior: enable LTPO with the built-in mapping.
+  // framesconfig.json is now only an optional escape hatch to turn LTPO off
+  // or override the TRANSLATE mapping.
+  switch_status_ = LTPOSwitchState::LTPO_SWITCH_ON;
+  frames_config_vec_ = kDefaultTranslateFramesConfig;
+  FML_LOG(WARNING) << "LTPO enabled (default config)";
+
+  if (asset_provider_ == nullptr) {
+    FML_LOG(WARNING) << "asset_provider is null, skip reading framesconfig.json";
+    return;
   }
 
+  // Apply optional escape-hatch configuration.
+  ParseFramesCfgImpl();
   return;
 }
 
-int OhosVsyncVotingMgr::ParseFramesCfgImpl() {
-  std::unique_ptr<fml::Mapping> frames_config_mapping =
-      asset_provider_->GetAsMapping(std::string(FRAMES_CFG_JSON));
-  if (frames_config_mapping == nullptr) {
-    FML_LOG(ERROR) << "Failed to GetAsMapping";
-    return RET_FAILED;
-  }
-
-  const char* data =
-      reinterpret_cast<const char*>(frames_config_mapping->GetMapping());
-  if (data == nullptr) {
-    FML_LOG(ERROR) << "Failed to GetBuffer";
-    return RET_FAILED;
-  }
-
-  int size = static_cast<int>(frames_config_mapping->GetSize());
-
-  Json::Value root;
+bool OhosVsyncVotingMgr::ParseFramesConfigJson(const char* data,
+                                               int size,
+                                               Json::Value& root) {
   Json::CharReaderBuilder char_reader_builder;
   std::string errs;
   std::unique_ptr<Json::CharReader> json_reader(
@@ -525,40 +535,81 @@ int OhosVsyncVotingMgr::ParseFramesCfgImpl() {
   bool is_json = json_reader->parse(data, data + size, &root, &errs);
   if (!is_json || !errs.empty()) {
     FML_LOG(ERROR) << "Failed to parse frameconfig.json, err = " << errs;
-    return RET_FAILED;
+    return false;
+  }
+  return true;
+}
+
+void OhosVsyncVotingMgr::ApplyTranslateConfig(const Json::Value& root) {
+  if (!root.isMember(TRANSLATE_KEY)) {
+    frames_config_vec_ = kDefaultTranslateFramesConfig;
+    FML_LOG(WARNING) << "TRANSLATE not configured, using default LTPO mapping";
+    return;
   }
 
-  uint32_t switch_status = 0;
-  if (root.isMember(SWITCH_KEY)) {
-    if (root[SWITCH_KEY].isNumeric()) {
-      switch_status = root[SWITCH_KEY].asUInt();
-      // for DFX
-      FML_LOG(WARNING) << "vsync_voting_mgr switch_status = " << switch_status;
-    } else {
-      FML_LOG(ERROR) << "Failed to parse key of SWITCH";
-      return RET_FAILED;
+  auto backup_config = std::move(frames_config_vec_);
+  frames_config_vec_.clear();
+  ParseTranslate(root[TRANSLATE_KEY]);
+  if (frames_config_vec_.empty()) {
+    frames_config_vec_ = std::move(backup_config);
+    if (frames_config_vec_.empty()) {
+      frames_config_vec_ = kDefaultTranslateFramesConfig;
     }
+    FML_LOG(WARNING) << "Invalid TRANSLATE config, using default LTPO mapping";
+    return;
+  }
+
+  FML_LOG(WARNING) << "LTPO translate config overridden by framesconfig.json";
+}
+
+void OhosVsyncVotingMgr::ParseFramesCfgImpl() {
+  std::unique_ptr<fml::Mapping> frames_config_mapping =
+      asset_provider_->GetAsMapping(std::string(FRAMES_CFG_JSON));
+  if (frames_config_mapping == nullptr) {
+    FML_LOG(WARNING) << "framesconfig.json not found, keep default LTPO config";
+    return;
+  }
+
+  const char* data =
+      reinterpret_cast<const char*>(frames_config_mapping->GetMapping());
+  if (data == nullptr) {
+    FML_LOG(ERROR) << "Failed to GetBuffer, keep default LTPO config";
+    return;
+  }
+
+  int size = static_cast<int>(frames_config_mapping->GetSize());
+
+  Json::Value root;
+  if (!ParseFramesConfigJson(data, size, root)) {
+    // Keep LTPO enabled with the built-in default mapping.
+    return;
+  }
+
+  uint32_t switch_status = static_cast<uint32_t>(LTPOSwitchState::LTPO_SWITCH_ON);
+  if (root.isMember(SWITCH_KEY)) {
+    if (!root[SWITCH_KEY].isNumeric()) {
+      FML_LOG(ERROR) << "Failed to parse key of SWITCH, keep default LTPO config";
+      return;
+    }
+    switch_status = root[SWITCH_KEY].asUInt();
+    FML_LOG(WARNING) << "vsync_voting_mgr switch_status = " << switch_status;
   }
 
   if (switch_status != static_cast<uint32_t>(LTPOSwitchState::LTPO_SWITCH_ON)) {
-    FML_LOG(WARNING) << "ltpo is not enabled";
-    return RET_FAILED;
+    switch_status_ = LTPOSwitchState::LTPO_SWITCH_OFF;
+    FML_LOG(WARNING) << "LTPO disabled by framesconfig.json";
+    return;
   }
 
-  if (root.isMember(TRANSLATE_KEY)) {
-    ParseTranslate(root[TRANSLATE_KEY]);
-  } else {
-    FML_LOG(ERROR) << "Failed to parse key of TRANSLATE";
-    return RET_FAILED;
-  }
-
-  switch_status_ = LTPOSwitchState::LTPO_SWITCH_ON;
-  return RET_SUCCEED;
+  ApplyTranslateConfig(root);
+  FML_LOG(WARNING) << "LTPO enabled (config parsed)";
+  return;
 }
 
 void OhosVsyncVotingMgr::SetAssetProvider(
     std::unique_ptr<OHOSAssetProvider> hap_asset_provider) {
   if (lib_native_vsync_handle_ == nullptr) {
+    FML_LOG(ERROR) << "SetAssetProvider skipped, libnative_vsync.so is not loaded";
     return;
   }
 
@@ -585,9 +636,7 @@ void OhosVsyncVotingMgr::SetPlatformViewExist(bool is_exist) {
 
 LTPOSwitchState OhosVsyncVotingMgr::CheckVotingSwitchState() {
   // for DFX
-  if (switch_status_ == LTPOSwitchState::LTPO_SWITCH_ON) {
-    FML_LOG(WARNING) << "VotingSwitchState is on.";
-  }
+  FML_LOG(WARNING) << "CheckVotingSwitchState = " << static_cast<int>(switch_status_);
   return switch_status_;
 }
 }  // namespace flutter

@@ -814,6 +814,7 @@ void main() {
             PersistentToolState: () =>
                 PersistentToolState.test(directory: tempDir, logger: testLogger),
           },
+          skip: true, // OHOS not supported
         );
       });
     });

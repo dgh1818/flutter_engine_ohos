@@ -1,0 +1,16 @@
+{
+  "string": [
+    {
+      "name": "module_test_desc",
+      "value": "Platform interaction test ability description"
+    },
+    {
+      "name": "TestAbility_desc",
+      "value": "the test ability for platform interaction"
+    },
+    {
+      "name": "TestAbility_label",
+      "value": "PlatformInteractionTest"
+    }
+  ]
+}

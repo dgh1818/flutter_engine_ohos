@@ -1600,7 +1600,7 @@ void main() {
         find.byType(CupertinoDatePicker),
         matchesGoldenFile('date_picker_test.datetime.drag.png'),
       );
-    });
+    }, skip: true); // OHOS not supported
 
     testWidgets('DatePicker displays the date in correct order', (WidgetTester tester) async {
       await tester.pumpWidget(

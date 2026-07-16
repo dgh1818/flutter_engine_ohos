@@ -757,6 +757,7 @@ void main() {
           await expectLoggerInterruptEndsTask(task, logger);
           await loggerSubscription.cancel();
         },
+        skip: true, // OHOS not supported
         overrides: <Type, Generator>{
           FileSystem: () => testFileSystem,
           ProcessManager: () => FakeProcessManager.any(),
@@ -1064,6 +1065,7 @@ void main() {
           await expectLoggerInterruptEndsTask(task, logger);
           await loggerSubscription.cancel();
         },
+        skip: true, // OHOS not supported
         overrides: <Type, Generator>{
           FileSystem: () => testFileSystem,
           ProcessManager: () => FakeProcessManager.any(),
@@ -1109,6 +1111,7 @@ void main() {
           await expectLoggerInterruptEndsTask(task, logger);
           await loggerSubscription.cancel();
         },
+        skip: true, // OHOS not supported
         overrides: <Type, Generator>{
           FileSystem: () => testFileSystem,
           ProcessManager: () => FakeProcessManager.any(),
@@ -1160,6 +1163,7 @@ void main() {
           await expectLoggerInterruptEndsTask(task, logger);
           await loggerSubscription.cancel();
         },
+        skip: true, // OHOS not supported
         overrides: <Type, Generator>{
           FileSystem: () => testFileSystem,
           ProcessManager: () => FakeProcessManager.any(),
@@ -1212,6 +1216,7 @@ void main() {
           await expectLoggerInterruptEndsTask(task, logger);
           await loggerSubscription.cancel();
         },
+        skip: true, // OHOS not supported
         overrides: <Type, Generator>{
           FileSystem: () => testFileSystem,
           ProcessManager: () => FakeProcessManager.any(),

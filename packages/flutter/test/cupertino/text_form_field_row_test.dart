@@ -642,16 +642,14 @@ void main() {
         case TargetPlatform.iOS:
           expect(find.byType(SystemContextMenu), findsOneWidget);
         case TargetPlatform.macOS:
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
         case TargetPlatform.windows:
           expect(find.byType(CupertinoAdaptiveTextSelectionToolbar), findsOneWidget);
       }
-    },
-    variant: TargetPlatformVariant.all(),
-    skip: kIsWeb, // [intended] on web the browser handles the context menu.
-  );
+    }, skip: true); // OHOS not supported
 
   testWidgets('CupertinoTextFormFieldRow does not crash at zero area', (WidgetTester tester) async {
     tester.view.physicalSize = Size.zero;

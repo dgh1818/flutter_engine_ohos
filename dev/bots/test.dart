@@ -49,6 +49,7 @@ import 'dart:math' as math;
 
 import 'package:path/path.dart' as path;
 
+import 'ohos_platform_config.dart';
 import 'run_command.dart';
 import 'suite_runners/run_add_to_app_life_cycle_tests.dart';
 import 'suite_runners/run_analyze_tests.dart';
@@ -120,7 +121,7 @@ Future<void> main(List<String> args) async {
       enableDryRun();
     }
     final webTestsSuite = WebTestsSuite(flutterTestArgs);
-    await selectShard(<String, ShardRunner>{
+    final allShards = <String, ShardRunner>{
       'add_to_app_life_cycle_tests': addToAppLifeCycleRunner,
       'build_tests': _runBuildTests,
       'framework_coverage': frameworkCoverageRunner,
@@ -153,7 +154,13 @@ Future<void> main(List<String> args) async {
       'verify_binaries_pre_codesigned': verifyPreCodesignedTestRunner,
       kTestHarnessShardName:
           testHarnessTestsRunner, // Used for testing this script; also run as part of SHARD=framework_tests, SUBSHARD=misc.
-    });
+    };
+    var activeShards = allShards;
+    if (isOhosCi) {
+      activeShards = Map<String, ShardRunner>.from(allShards)
+        ..removeWhere((String key, _) => OhosPlatformConfig.skippedShards.contains(key));
+    }
+    await selectShard(activeShards);
   } catch (error, stackTrace) {
     foundError(<String>[
       'UNEXPECTED ERROR!',
@@ -173,9 +180,24 @@ Future<void> main(List<String> args) async {
 final String _toolsPath = path.join(flutterRoot, 'packages', 'flutter_tools');
 
 Future<void> _runGeneralToolTests() async {
+  var testPaths = <String>[path.join('test', 'general.shard')];
+  if (isOhosCi) {
+    final Set<String> skipped =
+        OhosPlatformConfig.skippedTestPaths['tool_tests/general'] ?? <String>{};
+    if (skipped.isNotEmpty) {
+      final generalDir = Directory(path.join(_toolsPath, 'test', 'general.shard'));
+      testPaths = generalDir
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((File f) => f.path.endsWith('_test.dart'))
+          .where((File f) => !skipped.any((String s) => f.path.endsWith(s)))
+          .map<String>((File f) => path.relative(f.path, from: _toolsPath))
+          .toList();
+    }
+  }
   await runDartTest(
     _toolsPath,
-    testPaths: <String>[path.join('test', 'general.shard')],
+    testPaths: testPaths,
     enableFlutterToolAsserts: false,
 
     // Detect unit test time regressions (poor time delay handling, etc).
@@ -186,16 +208,20 @@ Future<void> _runGeneralToolTests() async {
 }
 
 Future<void> _runCommandsToolTests() async {
-  final List<File> allFiles = Directory(
-    path.join(_toolsPath, 'test', 'commands.shard'),
-  ).listSync(recursive: true).whereType<File>().toList();
-  final allTests = <String>[];
-  for (final file in allFiles) {
-    if (file.path.endsWith('_test.dart')) {
-      allTests.add(file.path);
+  final commandsDir = Directory(path.join(_toolsPath, 'test', 'commands.shard'));
+  List<String> allTests = commandsDir
+      .listSync(recursive: true)
+      .whereType<File>()
+      .where((File f) => f.path.endsWith('_test.dart'))
+      .map<String>((File f) => path.relative(f.path, from: _toolsPath))
+      .toList();
+  if (isOhosCi) {
+    final Set<String> skipped =
+        OhosPlatformConfig.skippedTestPaths['tool_tests/commands'] ?? <String>{};
+    if (skipped.isNotEmpty) {
+      allTests = allTests.where((String p) => !skipped.any((String s) => p.endsWith(s))).toList();
     }
   }
-
   await runDartTest(
     _toolsPath,
     forceSingleCore: true,
@@ -257,10 +283,16 @@ Future<void> _runWidgetPreviewScaffoldToolTests() async {
 }
 
 Future<void> _runToolTests() async {
-  await selectSubshard(<String, ShardRunner>{
+  final subshards = <String, ShardRunner>{
     'general': _runGeneralToolTests,
     'widget_preview_scaffold': _runWidgetPreviewScaffoldToolTests,
-  });
+  };
+  if (isOhosCi) {
+    subshards.removeWhere(
+      (String key, _) => OhosPlatformConfig.skippedSubshards['tool_tests']?.contains(key) ?? false,
+    );
+  }
+  await selectSubshard(subshards);
 }
 
 Future<void> _runSnippetsTests() async {
@@ -272,12 +304,20 @@ Future<void> _runSnippetsTests() async {
       .where((String testPath) => path.basename(testPath).endsWith('_test.dart'))
       .toList();
 
-  await runDartTest(
-    snippetsPath,
-    forceSingleCore: true,
-    testPaths: selectIndexOfTotalSubshard<String>(allTests),
-    collectMetrics: true,
-  );
+  // OHOS CI: use runFlutterTest instead of runDartTest because the OHOS
+  // pubspec replacement causes `dart pub get` to fail (workspace-level
+  // dependency resolution requires Flutter SDK). `flutter test` handles
+  // this correctly via `flutter pub get`.
+  if (isOhosCi) {
+    await runFlutterTest(snippetsPath, tests: selectIndexOfTotalSubshard<String>(allTests));
+  } else {
+    await runDartTest(
+      snippetsPath,
+      forceSingleCore: true,
+      testPaths: selectIndexOfTotalSubshard<String>(allTests),
+      collectMetrics: true,
+    );
+  }
 }
 
 Future<void> runForbiddenFromReleaseTests() async {
@@ -348,32 +388,33 @@ Future<void> _runBuildTests() async {
           .cast<Directory>()
           .toList()
         ..add(Directory(path.join(flutterRoot, 'packages', 'integration_test', 'example')))
-        ..add(
-          Directory(
-            path.join(flutterRoot, 'dev', 'integration_tests', 'android_semantics_testing'),
-          ),
-        )
-        ..add(Directory(path.join(flutterRoot, 'dev', 'integration_tests', 'android_views')))
-        ..add(Directory(path.join(flutterRoot, 'dev', 'integration_tests', 'channels')))
-        ..add(Directory(path.join(flutterRoot, 'dev', 'integration_tests', 'data_asset_app')))
-        ..add(Directory(path.join(flutterRoot, 'dev', 'integration_tests', 'hybrid_android_views')))
         ..add(Directory(path.join(flutterRoot, 'dev', 'integration_tests', 'flutter_gallery')))
-        ..add(
-          Directory(path.join(flutterRoot, 'dev', 'integration_tests', 'ios_platform_view_tests')),
-        )
-        ..add(
-          Directory(path.join(flutterRoot, 'dev', 'integration_tests', 'ios_app_with_extensions')),
-        )
-        ..add(Directory(path.join(flutterRoot, 'dev', 'integration_tests', 'platform_interaction')))
-        ..add(Directory(path.join(flutterRoot, 'dev', 'integration_tests', 'spell_check')))
         ..add(Directory(path.join(flutterRoot, 'dev', 'integration_tests', 'ui')));
+
+  if (!isOhosCi) {
+    exampleDirectories
+      ..add(
+        Directory(path.join(flutterRoot, 'dev', 'integration_tests', 'android_semantics_testing')),
+      )
+      ..add(Directory(path.join(flutterRoot, 'dev', 'integration_tests', 'android_views')))
+      ..add(Directory(path.join(flutterRoot, 'dev', 'integration_tests', 'channels')))
+      ..add(Directory(path.join(flutterRoot, 'dev', 'integration_tests', 'hybrid_android_views')))
+      ..add(
+        Directory(path.join(flutterRoot, 'dev', 'integration_tests', 'ios_platform_view_tests')),
+      )
+      ..add(
+        Directory(path.join(flutterRoot, 'dev', 'integration_tests', 'ios_app_with_extensions')),
+      )
+      ..add(Directory(path.join(flutterRoot, 'dev', 'integration_tests', 'platform_interaction')))
+      ..add(Directory(path.join(flutterRoot, 'dev', 'integration_tests', 'spell_check')));
+  }
 
   // The tests are randomly distributed into subshards so as to get a uniform
   // distribution of costs, but the seed is fixed so that issues are reproducible.
   final tests = <ShardRunner>[
     for (final Directory exampleDirectory in exampleDirectories)
       () => _runExampleProjectBuildTests(exampleDirectory),
-    ...<ShardRunner>[
+    if (!isOhosCi) ...<ShardRunner>[
       // Web compilation tests.
       () => _flutterBuildDart2js(
         path.join('dev', 'integration_tests', 'web'),

@@ -18,6 +18,10 @@ import Any from '../../plugin/common/Any';
 
 const OH_NATIVEXCOMPONENT_UNKNOWN = 4;
 const OH_NATIVEXCOMPONENT_TOOL_TYPE_UNKNOWN = 0;
+const PLATFORM_VIEW_ACTIVE_TOUCHES = 'platformViewActiveTouches';
+const PLATFORM_VIEW_LAST_TOUCH_EVENT = 'platformViewLastTouchEvent';
+const PLATFORM_VIEW_LAST_TOUCH_EVENT_IS_PX = 'platformViewLastTouchEventIsPx';
+const PLATFORM_VIEW_CANCEL_DRAINING = 'platformViewCancelDraining';
 
 /**
  * Represents a touch point in a native XComponent touch event.
@@ -338,6 +342,51 @@ export default class TouchEventProcessor {
     return customTouchEvent;
   }
 
+  private isTerminalTouch(type: TouchType): boolean {
+    return type === TouchType.Up || type === TouchType.Cancel;
+  }
+
+  private cloneTouchObjectWithType(touch: CustomTouchObject, type: TouchType): CustomTouchObject {
+    return new CustomTouchObject(type, touch.id, touch.displayX, touch.displayY, touch.windowX, touch.windowY,
+      touch.screenX, touch.screenY, touch.x, touch.y);
+  }
+
+  private getActiveTouches(params: Record<string, Any>, create: boolean = false): Map<number, CustomTouchObject> | undefined {
+    let activeTouches = params[PLATFORM_VIEW_ACTIVE_TOUCHES] as Map<number, CustomTouchObject> | undefined;
+    if (activeTouches === undefined && create) {
+      activeTouches = new Map<number, CustomTouchObject>();
+      params[PLATFORM_VIEW_ACTIVE_TOUCHES] = activeTouches;
+    }
+    return activeTouches;
+  }
+
+  private rememberPostedTouchEvent(params: Record<string, Any>, event: CustomTouchEvent): void {
+    params[PLATFORM_VIEW_LAST_TOUCH_EVENT] = event;
+    params[PLATFORM_VIEW_LAST_TOUCH_EVENT_IS_PX] = true;
+
+    let activeTouches = this.getActiveTouches(params, true)!;
+    if (event.type === TouchType.Cancel) {
+      activeTouches.clear();
+      return;
+    }
+
+    for (let touch of event.changedTouches) {
+      if (this.isTerminalTouch(touch.type)) {
+        activeTouches.delete(touch.id);
+      } else {
+        activeTouches.set(touch.id, this.cloneTouchObjectWithType(touch, touch.type));
+      }
+    }
+
+    for (let touch of event.touches) {
+      if (this.isTerminalTouch(touch.type)) {
+        activeTouches.delete(touch.id);
+      } else {
+        activeTouches.set(touch.id, this.cloneTouchObjectWithType(touch, touch.type));
+      }
+    }
+  }
+
   /**
    * Posts an axis/scroll event to platform views.
    * Axis/wheel coordinates are passed to nodes through this method.
@@ -383,7 +432,7 @@ export default class TouchEventProcessor {
         } as AxisEvent;
 
         let nodeController = params['nodeController'] as EmbeddingNodeController;
-        nodeController.postAxisEvent(axisEvent)
+        nodeController.postAxisEvent(axisEvent);
       }      
     });
   }
@@ -407,16 +456,25 @@ export default class TouchEventProcessor {
         if (down) {
           //如果flutter端判断当前platformView是可点击的，则将事件分发出去
           let touchEvent: CustomTouchEvent = TouchEventProcessor.getInstance().constructCustomTouchEvent(strings, top, left);
+          // Correct local coordinates for rotation/scale using the global→local
+          // affine stored at layout time (PlatformViewsController.offset).
+          TouchEventProcessor.applyAffineTransform(touchEvent, params['affineTransform'] as Array<number> | undefined);
           let nodeController = params['nodeController'] as EmbeddingNodeController;
-          nodeController.postEvent(touchEvent)
+          nodeController.postEvent(touchEvent);
+          this.rememberPostedTouchEvent(params, touchEvent);
         } else {
           //如果触摸事件为OH_NATIVEXCOMPONENT_DOWN=0，且只有一个手指，说明是下一次点击了，这时候需要清空上一次的数据
           if (strings[6] == '0' && strings[0] == '1') {
             params['touchEvent'] = undefined
+            params[PLATFORM_VIEW_CANCEL_DRAINING] = false;
           }
           //如果触摸事件为OH_NATIVEXCOMPONENT_DOWN=0类型，且在flutter端还没判断当前view是否处于点击区域内，则
           //将点击事件存储在list列表中。
           let touchEvent: CustomTouchEvent = TouchEventProcessor.getInstance().constructCustomTouchEvent(strings, top, left);
+          const cancelDraining = params[PLATFORM_VIEW_CANCEL_DRAINING] as boolean ?? false;
+          if (cancelDraining && touchEvent.type !== TouchType.Down) {
+            continue;
+          }
           let array: Array<CustomTouchEvent> | undefined = params['touchEvent'] as Array<CustomTouchEvent>
           if (array == undefined) {
             array = []
@@ -464,6 +522,8 @@ export default class TouchEventProcessor {
       screenY: mousePacket.screenY,
       x: mousePacket.x,
       y: mousePacket.y,
+      source: SourceType.Mouse,
+      sourceTool: SourceTool.MOUSE,
       stopPropagation: () => {},
       timestamp: mousePacket.timestamp,
       pressure: 0,
@@ -506,11 +566,11 @@ export default class TouchEventProcessor {
           // 如果鼠标事件不是OH_NATIVEXCOMPONENT_MOUSE_PRESS类型或OH_NATIVEXCOMPONENT_MOUSE_RELEASE类型，则
           // 直接分发出去
           let nodeController = params['nodeController'] as EmbeddingNodeController;
-          nodeController.postMouseEvent(mouseEvent)
+          nodeController.postMouseEvent(mouseEvent);
         } else if (down) {
           // 如果flutter端判断当前platformView是可点击的，则将事件分发出去,并结束分发
           let nodeController = params['nodeController'] as EmbeddingNodeController;
-          nodeController.postMouseEvent(mouseEvent)
+          nodeController.postMouseEvent(mouseEvent);
           break;
         } else {
           // 如果鼠标事件为OH_NATIVEXCOMPONENT_MOUSE_PRESS，说明是下一次点击了，这时候需要清空上一次的数据
@@ -534,6 +594,76 @@ export default class TouchEventProcessor {
       return true;
     } else {
       return false;
+    }
+  }
+
+  /**
+   * Corrects the local coordinates of a touch event using the global→local
+   * affine derived in PlatformViewsController.applyTransformOffset.
+   *
+   * affineTransform = [invScaleX, invShearY, invTx, invShearX, invScaleY, invTy] with
+   *   localX = invScaleX*gx + invShearY*gy + invTx ; localY = invShearX*gx + invScaleY*gy + invTy
+   * where (gx, gy) is the raw screen coordinate (stored identically in the
+   * touch object's displayX/displayY/windowX/windowY/screenX/screenY) and
+   * (x, y) is the platform-view local coordinate.
+   *
+   * For an unrotated view at offset (left, top) this reduces to localX = gx −
+   * left, matching decodeTouchPacket's existing computation, so non-rotated
+   * behaviour is unchanged. Rotated/scaled views (e.g. WebView inside a
+   * RotatedBox) get the correctly transformed local coordinate instead.
+   *
+   * This must be applied exactly once per event, on the dispatch path
+   * (postTouchEvent immediate branch, or onTouch flush of buffered events).
+   *
+   * @param event - The touch event whose touch points need correction
+   * @param affineTransform - The global→local affine [invScaleX, invShearY, invTx, invShearX, invScaleY, invTy]
+   */
+  public static applyAffineTransform(event: CustomTouchEvent, affineTransform: Array<number> | undefined): void {
+    if (affineTransform == undefined || affineTransform.length < 6) {
+      return;
+    }
+    let invScaleX = affineTransform[0];
+    let invShearY = affineTransform[1];
+    let invTx     = affineTransform[2];
+    let invShearX = affineTransform[3];
+    let invScaleY = affineTransform[4];
+    let invTy     = affineTransform[5];
+
+    // Guard against non-finite coefficients (NaN / Infinity).  Although
+    // applyTransformOffset validates the source matrix before storing it,
+    // this is a defensive check at the consumption site to ensure that
+    // stale or corrupted data never produces non-finite touch coordinates.
+    if (!Number.isFinite(invScaleX) || !Number.isFinite(invShearY) || !Number.isFinite(invTx) ||
+        !Number.isFinite(invShearX) || !Number.isFinite(invScaleY) || !Number.isFinite(invTy)) {
+      return;
+    }
+
+    TouchEventProcessor.applyAffineToObjects(event.changedTouches, invScaleX, invShearY, invTx, invShearX, invScaleY, invTy);
+    TouchEventProcessor.applyAffineToObjects(event.touches, invScaleX, invShearY, invTx, invShearX, invScaleY, invTy);
+  }
+
+  // Apply the global→local affine to the touch coordinates.
+  // Only x/y (local coordinates) are overwritten; displayX/displayY/windowX/
+  // windowY/screenX/screenY intentionally remain as the original screen
+  // coordinates — they represent the global touch position, while x/y
+  // represent the position relative to the component.  This matches the
+  // OHOS TouchObject contract and the Android MotionEvent convention
+  // (getX/getY = local, getRawX/getRawY = screen).
+  private static applyAffineToObjects(objects: CustomTouchObject[], invScaleX: number, invShearY: number, invTx: number,
+    invShearX: number, invScaleY: number, invTy: number): void {
+    for (let i = 0; i < objects.length; i++) {
+      let obj = objects[i];
+      let gx = obj.displayX;
+      let gy = obj.displayY;
+      let lx = invScaleX * gx + invShearY * gy + invTx;
+      let ly = invShearX * gx + invScaleY * gy + invTy;
+
+      if (Number.isFinite(lx)) {
+        obj.x = lx;
+      }
+      if (Number.isFinite(ly)) {
+        obj.y = ly;
+      }
     }
   }
 }

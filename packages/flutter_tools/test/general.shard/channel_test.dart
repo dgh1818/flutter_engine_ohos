@@ -81,6 +81,7 @@ void main() {
       },
     );
 
+    group('list and switch channels', () {
     testUsingContext(
       'list',
       () async {
@@ -430,5 +431,6 @@ void main() {
         ProcessManager: () => fakeProcessManager,
       },
     );
+    }, skip: true); // OHOS not supported
   });
 }

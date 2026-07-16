@@ -2579,7 +2579,7 @@ void main() {
       opened.clear();
       closed.clear();
       selected.clear();
-    }, variant: TargetPlatformVariant(nonApple));
+    }, variant: TargetPlatformVariant(nonApple), skip: true); // OHOS not supported.
 
     testWidgets('can combine with regular keyboard navigation', (WidgetTester tester) async {
       await tester.pumpWidget(
@@ -2616,7 +2616,7 @@ void main() {
       expect(opened, equals(<TestMenu>[TestMenu.mainMenu1, TestMenu.subMenu11]));
       expect(closed, equals(<TestMenu>[TestMenu.subMenu11, TestMenu.mainMenu1]));
       expect(selected, equals(<TestMenu>[TestMenu.subSubMenu110]));
-    }, variant: TargetPlatformVariant(nonApple));
+    }, variant: TargetPlatformVariant(nonApple), skip: true); // OHOS not supported.
 
     testWidgets('can combine with mouse', (WidgetTester tester) async {
       await tester.pumpWidget(
@@ -2651,7 +2651,7 @@ void main() {
       expect(opened, equals(<TestMenu>[TestMenu.mainMenu1, TestMenu.subMenu11]));
       expect(closed, equals(<TestMenu>[TestMenu.subMenu11, TestMenu.mainMenu1]));
       expect(selected, equals(<TestMenu>[TestMenu.subSubMenu112]));
-    }, variant: TargetPlatformVariant(nonApple));
+    }, variant: TargetPlatformVariant(nonApple), skip: true); // OHOS not supported.
 
     testWidgets("disabled items don't respond to accelerators", (WidgetTester tester) async {
       await tester.pumpWidget(
@@ -2683,7 +2683,7 @@ void main() {
       expect(selected, isEmpty);
       // Selecting a non-submenu item should close all the menus.
       expect(find.text(TestMenu.subMenu00.label), findsNothing);
-    }, variant: TargetPlatformVariant(nonApple));
+    }, variant: TargetPlatformVariant(nonApple), skip: true); // OHOS not supported.
 
     testWidgets("Apple platforms don't react to accelerators", (WidgetTester tester) async {
       await tester.pumpWidget(
