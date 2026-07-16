@@ -96,7 +96,7 @@
                 <filteritem type="filename" name="*.msgpack|*.woff2|*.hap|*.abc|*.bin|*.protoBin|*.dll|*.index|*.otf|*.Z" desc="desc files"/>
                 <filteritem type="filename" name="*.frag|*.linter|*.lock|*.xml|*.readme|*.dartignore|*.firebaserc|*.lutter-plugins|*.inc|*.proto|*.flutter-plugins-dependencies" desc="desc files"/>
                 <filteritem type="filename" name="LICENSE|README.OpenSource|AUTHORS|CHANGELOG|PATENTS|NOTICES|LICENSE_*|PATENT_GRANT|TESTOWNERS|version|licenses.dart|OpenHarmonyTestRunner.ts" desc="desc files"/>
-                <filteritem type="filename" name="Index.ets|hvigorfile.ts|hvigorconfig.ts|.gitignore|EntryAbility.ets" desc="desc files"/>
+                <filteritem type="filename" name="Index.ets|hvigorfile.ts|hvigorconfig.ts|.gitignore|EntryAbility.ets|BuildProfile.ets" desc="desc files"/>
                 <filteritem type="filename" name="CODEOWNERS|JAVA" desc="desc files"/>
                 <filteritem type="filename" name="*.png|*.ico|*.jpg|*.ttf|*.enc|*.json5|*.tsbuildinfo|*.tgz" desc="app resource files"/>
                 <filteritem type="filepath" name="projectroot/[a-zA-Z0-9]{20,}.sh" desc="Temp files"/>
