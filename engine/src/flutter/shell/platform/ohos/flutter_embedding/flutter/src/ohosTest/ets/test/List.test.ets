@@ -81,6 +81,18 @@ import LocalizationPluginTest from './plugin/localization/LocalizationPlugin.tes
 import SendableStandardMessageCodecTest from './plugin/common/SendableStandardMessageCodec.test';
 import SendableStandardMethodCodecTest from './plugin/common/SendableStandardMethodCodec.test';
 
+import json5ToJsonTest from './util/Json5ToJson.test';
+import methodChannelTest from './plugin/common/MethodChannel.test';
+import eventChannelTest from './plugin/common/EventChannel.test';
+import basicMessageChannelTest from './plugin/common/BasicMessageChannel.test';
+import backgroundMethodChannelTest from './plugin/common/BackgroundMethodChannel.test';
+import backgroundBasicMessageChannelTest from './plugin/common/BackgroundBasicMessageChannel.test';
+import previewSpanCoalescingTest from './plugin/editing/PreviewSpanCoalescing.test';
+import previewTextMergeContextTest from './plugin/editing/PreviewTextMergeContext.test';
+import previewTextSupportTest from './plugin/editing/PreviewTextSupport.test';
+import previewTextStringMergeTest from './plugin/editing/PreviewTextStringMerge.test';
+import previewTextCoordinatorTest from './plugin/editing/PreviewTextCoordinator.test';
+
 export default function testsuite() {
   FlutterAbilityAndEntryDelegateTest();
   FlutterAbilityTest();
@@ -147,4 +159,15 @@ export default function testsuite() {
   TextEditingDeltaTest();
   TextInputPluginTest();
   LocalizationPluginTest();
+  json5ToJsonTest();
+  methodChannelTest();
+  eventChannelTest();
+  basicMessageChannelTest();
+  backgroundMethodChannelTest();
+  backgroundBasicMessageChannelTest();
+  previewSpanCoalescingTest();
+  previewTextMergeContextTest();
+  previewTextSupportTest();
+  previewTextStringMergeTest();
+  previewTextCoordinatorTest();
 }
