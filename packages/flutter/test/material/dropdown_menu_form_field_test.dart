@@ -36,14 +36,6 @@ void main() {
     return findMenuItemButton(menuItem.label);
   }
 
-  Finder findMenuItemButton(String label) {
-    // For each menu items there are two MenuItemButton widgets.
-    // The last one is the real button item in the menu.
-    // The first one is not visible, it is part of _DropdownMenuBody
-    // which is used to compute the dropdown width.
-    return find.widgetWithText(MenuItemButton, label).last;
-  }
-
   testWidgets('Creates an underlying DropdownMenu', (WidgetTester tester) async {
     await tester.pumpWidget(
       MaterialApp(

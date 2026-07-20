@@ -780,10 +780,6 @@ class FakeXcodeProject extends Fake implements IosProject {
       flutterPluginSwiftPackageDirectory.childFile('Package.swift');
 
   @override
-  Directory get flutterFrameworkSwiftPackageDirectory =>
-      relativeSwiftPackagesDirectory.childDirectory('FlutterFramework');
-
-  @override
   bool get flutterPluginSwiftPackageInProjectSettings {
     return xcodeProjectInfoFile.existsSync() &&
         xcodeProjectInfoFile.readAsStringSync().contains('FlutterGeneratedPluginSwiftPackage');

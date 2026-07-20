@@ -209,6 +209,8 @@ void main() {
             return FakeFlutterNativeAssetsBuilderResult.fromAssets(codeAssets: codeAssets);
           },
         ),
+        buildCodeAssets: const BuildCodeAssetsOptions(appBuildDirectory: null),
+        buildDataAssets: true,
       );
       await installCodeAssets(
         dartHookResult: dartHookResult,
@@ -217,6 +219,7 @@ void main() {
         projectUri: projectUri,
         fileSystem: fileSystem,
         nativeAssetsFileUri: nativeAssetsFileUri,
+        targetUri: projectUri.resolve('${getBuildDirectory()}/native_assets/test/'),
       );
 
       expect(testLogger.traceText, contains('Building native assets for ohos_arm64.'));
@@ -226,7 +229,7 @@ void main() {
         environment.projectDir
             .childDirectory('build')
             .childDirectory('native_assets')
-            .childDirectory('ohos')
+            .childDirectory('test')
             .childDirectory('libs')
             .childDirectory('arm64-v8a')
             .childFile('libbar.so'),
