@@ -254,7 +254,10 @@ class KernelSnapshot extends Target {
       TargetPlatform.linux_riscv64 ||
       TargetPlatform.linux_x64 => 'linux',
       TargetPlatform.windows_arm64 || TargetPlatform.windows_x64 => 'windows',
-      TargetPlatform.ohos || TargetPlatform.ohos_arm || TargetPlatform.ohos_arm64 || TargetPlatform.ohos_x64 => 'ohos',
+      TargetPlatform.ohos ||
+      TargetPlatform.ohos_arm ||
+      TargetPlatform.ohos_arm64 ||
+      TargetPlatform.ohos_x64 => 'ohos',
       TargetPlatform.tester || TargetPlatform.web_javascript => null,
       TargetPlatform.unsupported => TargetPlatform.throwUnsupportedTarget(),
     };

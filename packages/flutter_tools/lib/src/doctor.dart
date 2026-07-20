@@ -100,7 +100,7 @@ class _DefaultDoctorValidatorsProvider implements DoctorValidatorsProvider {
         operatingSystemUtils: globals.os,
         featureFlags: featureFlags,
       ),
-      ohosValidator!,   //OhosValidator
+      ohosValidator!, //OhosValidator
       if (platform.isWindows)
         WindowsVersionValidator(
           operatingSystemUtils: globals.os,

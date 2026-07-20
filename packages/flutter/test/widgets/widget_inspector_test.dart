@@ -362,20 +362,22 @@ class _TestWidgetInspectorService extends TestWidgetInspectorService {
       expect(WidgetInspectorService.objectToDiagnosticsNode(Alignment.bottomCenter), isNull);
     });
 
-    test('WidgetInspector does not hold objects from GC', () async {
-      List<DateTime>? someObject = <DateTime>[DateTime.now(), DateTime.now()];
-      final String? id = service.toId(someObject, 'group_name');
+    test(
+      'WidgetInspector does not hold objects from GC',
+      () async {
+        List<DateTime>? someObject = <DateTime>[DateTime.now(), DateTime.now()];
+        final String? id = service.toId(someObject, 'group_name');
 
-      expect(id, isNotNull);
+        expect(id, isNotNull);
 
-      final ref = WeakReference<Object>(someObject);
-      someObject = null;
+        final ref = WeakReference<Object>(someObject);
+        someObject = null;
 
-      // 1 should be enough for [fullGcCycles], but it is 3 to make sure tests are not flaky.
-      await forceGC(fullGcCycles: 3);
+        // 1 should be enough for [fullGcCycles], but it is 3 to make sure tests are not flaky.
+        await forceGC(fullGcCycles: 3);
 
-      expect(ref.target, null);
-    },
+        expect(ref.target, null);
+      },
       skip: true, // OHOS not supported
     );
 

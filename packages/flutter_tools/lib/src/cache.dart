@@ -1079,7 +1079,11 @@ abstract class EngineCachedArtifact extends CachedArtifact {
     final Directory pkgDir = cache.getCacheDir('pkg');
     for (final String pkgName in getPackageDirs()) {
       if (pkgName == 'sky_engine') {
-        await artifactUpdater.downloadZipArchive(pkgName, Uri.parse('$ohosUrl$pkgName.zip'), pkgDir);
+        await artifactUpdater.downloadZipArchive(
+          pkgName,
+          Uri.parse('$ohosUrl$pkgName.zip'),
+          pkgDir,
+        );
       } else {
         await artifactUpdater.downloadZipArchive(pkgName, Uri.parse('$url$pkgName.zip'), pkgDir);
       }

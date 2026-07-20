@@ -280,23 +280,22 @@ void main() {
 
     testUsingContext(
       'create --offline',
-      () => testbed.run(() async {
-        final command = CreateCommand();
-        final CommandRunner<void> runner = createTestCommandRunner(command);
-        await runner.run(<String>[
-          'create',
-          'testy',
-          '--offline',
-        ]);
-        expect(fakePub.calledOnline, 0);
-        expect(fakePub.calledGetOffline, 1);
-        expect(command.argParser.options.containsKey('offline'), true);
-        expect(command.shouldUpdateCache, true);
-      }, overrides: <Type, Generator>{
-        Java: () => null,
-        Pub: () => fakePub,
-        HmosSdk: () => FakeHmosSdk(),
-      }),
+      () => testbed.run(
+        () async {
+          final command = CreateCommand();
+          final CommandRunner<void> runner = createTestCommandRunner(command);
+          await runner.run(<String>['create', 'testy', '--offline']);
+          expect(fakePub.calledOnline, 0);
+          expect(fakePub.calledGetOffline, 1);
+          expect(command.argParser.options.containsKey('offline'), true);
+          expect(command.shouldUpdateCache, true);
+        },
+        overrides: <Type, Generator>{
+          Java: () => null,
+          Pub: () => fakePub,
+          HmosSdk: () => FakeHmosSdk(),
+        },
+      ),
     );
 
     testUsingContext(

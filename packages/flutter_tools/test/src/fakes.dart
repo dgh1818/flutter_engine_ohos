@@ -37,8 +37,8 @@ class FakeDyldEnvironmentArtifact extends ArtifactSet {
   FakeDyldEnvironmentArtifact() : super(DevelopmentArtifact.iOS);
   @override
   Map<String, String> get environment => <String, String>{
-        'DYLD_LIBRARY_PATH': '/path/to/libraries',
-      };
+    'DYLD_LIBRARY_PATH': '/path/to/libraries',
+  };
 
   @override
   Future<bool> isUpToDate(FileSystem fileSystem) => Future<bool>.value(true);
@@ -64,8 +64,8 @@ class FakeProcess implements Process {
     IOSink? stdin,
     this.stdout = const Stream<List<int>>.empty(),
     this.stderr = const Stream<List<int>>.empty(),
-  })  : exitCode = exitCode ?? Future<int>.value(0),
-        stdin = stdin ?? MemoryIOSink();
+  }) : exitCode = exitCode ?? Future<int>.value(0),
+       stdin = stdin ?? MemoryIOSink();
 
   @override
   final int pid;
@@ -211,8 +211,7 @@ class MemoryIOSink implements IOSink {
   }
 
   String getAndClear() {
-    final String result =
-        utf8.decode(writes.expand((List<int> l) => l).toList());
+    final String result = utf8.decode(writes.expand((List<int> l) => l).toList());
     clear();
     return result;
   }
@@ -290,10 +289,8 @@ class FakeStdio extends Stdio {
   @override
   bool hasTerminal = false;
 
-  List<String> get writtenToStdout =>
-      _stdout.writes.map<String>(_stdout.encoding.decode).toList();
-  List<String> get writtenToStderr =>
-      _stderr.writes.map<String>(_stderr.encoding.decode).toList();
+  List<String> get writtenToStdout => _stdout.writes.map<String>(_stdout.encoding.decode).toList();
+  List<String> get writtenToStderr => _stderr.writes.map<String>(_stderr.encoding.decode).toList();
 }
 
 class FakeStdin extends Fake implements Stdin {

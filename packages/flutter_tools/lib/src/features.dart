@@ -164,18 +164,9 @@ const flutterWindowsDesktopFeature = Feature.fullyEnabled(
 const flutterOhosFeature = Feature(
   name: 'Flutter for Ohos',
   configSetting: 'enable-ohos',
-  master: FeatureChannelSetting(
-    available: true,
-    enabledByDefault: true,
-  ),
-  beta: FeatureChannelSetting(
-    available: true,
-    enabledByDefault: true,
-  ),
-  stable: FeatureChannelSetting(
-    available: true,
-    enabledByDefault: true,
-  ),
+  master: FeatureChannelSetting(available: true, enabledByDefault: true),
+  beta: FeatureChannelSetting(available: true, enabledByDefault: true),
+  stable: FeatureChannelSetting(available: true, enabledByDefault: true),
 );
 
 /// The [Feature] for Android devices.

@@ -523,11 +523,7 @@ Future<List<File>> _copyNativeCodeAssetsForOS(
       );
     case OS.ohos:
       assert(codesignIdentity == null);
-      installedFiles = await copyNativeCodeAssetsOhos(
-        targetUri,
-        assetTargetLocations,
-        fileSystem,
-      );
+      installedFiles = await copyNativeCodeAssetsOhos(targetUri, assetTargetLocations, fileSystem);
     default:
       throw StateError('This should be unreachable.');
   }

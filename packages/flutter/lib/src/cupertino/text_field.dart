@@ -1244,8 +1244,7 @@ class _CupertinoTextFieldState extends State<CupertinoTextField>
       case TargetPlatform.fuchsia:
       case TargetPlatform.android:
       case TargetPlatform.ohos:
-        if (cause == SelectionChangedCause.longPress
-            || cause == SelectionChangedCause.drag) {
+        if (cause == SelectionChangedCause.longPress || cause == SelectionChangedCause.drag) {
           _editableText.bringIntoView(selection.extent);
         }
     }
@@ -1444,7 +1443,9 @@ class _CupertinoTextFieldState extends State<CupertinoTextField>
         : AutofillConfiguration.disabled;
 
     return _editableText.textInputConfiguration.copyWith(
-        autofillConfiguration: autofillConfiguration, deviceKind: _deviceKind);
+      autofillConfiguration: autofillConfiguration,
+      deviceKind: _deviceKind,
+    );
   }
   // AutofillClient implementation end.
 

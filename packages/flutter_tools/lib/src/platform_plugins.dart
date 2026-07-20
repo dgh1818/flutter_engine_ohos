@@ -566,7 +566,7 @@ class LinuxPlugin extends PluginPlatform implements NativeOrDartPlugin {
 
     return LinuxPlugin(
       name: name,
-      pluginClass: pluginClass,
+      pluginClass: yaml[kPluginClass] as String?,
       dartPluginClass: dartPluginClass,
       dartFileName: dartFileName,
       ffiPlugin: yaml[kFfiPlugin] as bool? ?? false,

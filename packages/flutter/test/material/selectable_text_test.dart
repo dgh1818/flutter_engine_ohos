@@ -3428,39 +3428,37 @@ void main() {
     variant: allPlatformsExceptOhosLtpo,
   );
 
-  testWidgets(
-    'long press selects word and shows custom toolbar (Material)',
-    (WidgetTester tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Material(
-            child: Center(
-              child: SelectableText(
-                'Atwater Peel Sherbrooke Bonaventure',
-                selectionControls: materialTextSelectionControls,
-              ),
+  testWidgets('long press selects word and shows custom toolbar (Material)', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Material(
+          child: Center(
+            child: SelectableText(
+              'Atwater Peel Sherbrooke Bonaventure',
+              selectionControls: materialTextSelectionControls,
             ),
           ),
         ),
-      );
+      ),
+    );
 
-      final Offset selectableTextStart = tester.getTopLeft(find.byType(SelectableText));
+    final Offset selectableTextStart = tester.getTopLeft(find.byType(SelectableText));
 
-      await tester.longPressAt(selectableTextStart + const Offset(50.0, 5.0));
-      await tester.pump();
+    await tester.longPressAt(selectableTextStart + const Offset(50.0, 5.0));
+    await tester.pump();
 
-      final EditableText editableTextWidget = tester.widget(find.byType(EditableText).first);
-      final TextEditingController controller = editableTextWidget.controller;
+    final EditableText editableTextWidget = tester.widget(find.byType(EditableText).first);
+    final TextEditingController controller = editableTextWidget.controller;
 
-      expect(controller.selection, const TextSelection(baseOffset: 0, extentOffset: 7));
+    expect(controller.selection, const TextSelection(baseOffset: 0, extentOffset: 7));
 
-      // Collapsed toolbar shows 2 buttons: copy, select all
-      expect(find.byType(TextButton), findsNWidgets(2));
-      expect(find.text('Copy'), findsOneWidget);
-      expect(find.text('Select all'), findsOneWidget);
-    },
-    variant: allPlatformsExceptOhosLtpo,
-  );
+    // Collapsed toolbar shows 2 buttons: copy, select all
+    expect(find.byType(TextButton), findsNWidgets(2));
+    expect(find.text('Copy'), findsOneWidget);
+    expect(find.text('Select all'), findsOneWidget);
+  }, variant: allPlatformsExceptOhosLtpo);
 
   testWidgets('textSelectionControls is passed to EditableText', (WidgetTester tester) async {
     await tester.pumpWidget(

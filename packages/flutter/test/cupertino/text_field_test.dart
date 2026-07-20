@@ -1833,11 +1833,7 @@ void main() {
       expect(find.text('Select All'), findsNothing);
     },
     variant: TargetPlatformVariant.all(
-      excluding: <TargetPlatform>{
-        TargetPlatform.iOS,
-        TargetPlatform.macOS,
-        TargetPlatform.ohos,
-      },
+      excluding: <TargetPlatform>{TargetPlatform.iOS, TargetPlatform.macOS, TargetPlatform.ohos},
     ),
     // [intended] only applies to platforms where we supply the context menu.
     skip: isContextMenuProvidedByPlatform,
@@ -2429,36 +2425,41 @@ void main() {
     }),
   );
 
-  testWidgets('double tap hold selects word', (WidgetTester tester) async {
-    final controller = TextEditingController(text: 'Atwater Peel Sherbrooke Bonaventure');
-    addTearDown(controller.dispose);
-    await tester.pumpWidget(
-      CupertinoApp(
-        home: Center(child: CupertinoTextField(controller: controller)),
-      ),
-    );
+  testWidgets(
+    'double tap hold selects word',
+    (WidgetTester tester) async {
+      final controller = TextEditingController(text: 'Atwater Peel Sherbrooke Bonaventure');
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        CupertinoApp(
+          home: Center(child: CupertinoTextField(controller: controller)),
+        ),
+      );
 
-    final Offset textFieldStart = tester.getTopLeft(find.byType(CupertinoTextField));
+      final Offset textFieldStart = tester.getTopLeft(find.byType(CupertinoTextField));
 
-    await tester.tapAt(textFieldStart + const Offset(150.0, 5.0));
-    await tester.pump(const Duration(milliseconds: 50));
-    final TestGesture gesture = await tester.startGesture(
-      textFieldStart + const Offset(150.0, 5.0),
-    );
-    // Hold the press.
-    await tester.pumpAndSettle();
+      await tester.tapAt(textFieldStart + const Offset(150.0, 5.0));
+      await tester.pump(const Duration(milliseconds: 50));
+      final TestGesture gesture = await tester.startGesture(
+        textFieldStart + const Offset(150.0, 5.0),
+      );
+      // Hold the press.
+      await tester.pumpAndSettle();
 
-    expect(controller.selection, const TextSelection(baseOffset: 8, extentOffset: 12));
+      expect(controller.selection, const TextSelection(baseOffset: 8, extentOffset: 12));
 
-    expectCupertinoToolbarForPartialSelection();
+      expectCupertinoToolbarForPartialSelection();
 
-    await gesture.up();
-    await tester.pump();
+      await gesture.up();
+      await tester.pump();
 
-    // Still selected.
-    expect(controller.selection, const TextSelection(baseOffset: 8, extentOffset: 12));
-    expectCupertinoToolbarForPartialSelection();
-  }, variant: TargetPlatformVariant.all(), skip: true); // OHOS not supported
+      // Still selected.
+      expect(controller.selection, const TextSelection(baseOffset: 8, extentOffset: 12));
+      expectCupertinoToolbarForPartialSelection();
+    },
+    variant: TargetPlatformVariant.all(),
+    skip: true, // [intended] OHOS not supported
+  );
 
   testWidgets(
     'tap after a double tap select is not affected',
@@ -9490,7 +9491,11 @@ void main() {
           );
         },
         variant: TargetPlatformVariant.all(
-          excluding: <TargetPlatform>{TargetPlatform.iOS, TargetPlatform.android, TargetPlatform.ohos},
+          excluding: <TargetPlatform>{
+            TargetPlatform.iOS,
+            TargetPlatform.android,
+            TargetPlatform.ohos,
+          },
         ),
       );
     });

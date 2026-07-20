@@ -113,10 +113,8 @@ Future<List<File>> copyNativeCodeAssetsOhos(
 ) async {
   assert(assetTargetLocations.isNotEmpty);
   final installedFiles = <File>[];
-  final archDirs = <String>[
-    for (final OhosArch arch in OhosArch.values) getNameForOhosArch(arch),
-  ];
-  for (final String archDir in archDirs) {
+  final archDirs = <String>[for (final OhosArch arch in OhosArch.values) getNameForOhosArch(arch)];
+  for (final archDir in archDirs) {
     final Uri archUri = buildUri.resolve('libs/$archDir/');
     await fileSystem.directory(archUri).create(recursive: true);
   }

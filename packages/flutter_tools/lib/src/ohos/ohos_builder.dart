@@ -117,7 +117,7 @@ class OhosDartBuilder implements OhosBuilder {
       'src/main/resources/rawfile',
     );
     final Directory rawfileDirectory = globals.localFileSystem.directory(rawfilePath);
-    if (!await rawfileDirectory.exists()) {
+    if (!rawfileDirectory.existsSync()) {
       return;
     }
 
@@ -130,17 +130,17 @@ class OhosDartBuilder implements OhosBuilder {
     final String destinationFilePath = globals.fs.path.join(rawfilePath, fileName);
     final File destinationFile = globals.localFileSystem.file(destinationFilePath);
 
-    if (!await sourceFile.exists()) {
+    if (!sourceFile.existsSync()) {
       return;
     }
 
-    if (!await destinationFile.exists()) {
-      await sourceFile.copy(destinationFilePath);
+    if (!destinationFile.existsSync()) {
+      sourceFile.copySync(destinationFilePath);
     } else {
       return;
     }
     // delete sourceFile
-    await sourceFile.delete();
+    sourceFile.deleteSync();
   }
 
   Future<void> copyFramesCfgFile(OhosProject ohosProject, Logger? logger) async {
@@ -149,7 +149,7 @@ class OhosDartBuilder implements OhosBuilder {
       'src/main/resources/rawfile',
     );
     final Directory rawfileDirectory = globals.localFileSystem.directory(rawfilePath);
-    if (!await rawfileDirectory.exists()) {
+    if (!rawfileDirectory.existsSync()) {
       rawfileDirectory.createSync();
     }
 
@@ -162,17 +162,17 @@ class OhosDartBuilder implements OhosBuilder {
     final String destinationFilePath = globals.fs.path.join(rawfilePath, fileName);
     final File destinationFile = globals.localFileSystem.file(destinationFilePath);
 
-    if (!await sourceFile.exists()) {
+    if (!sourceFile.existsSync()) {
       return;
     }
 
-    if (!await destinationFile.exists()) {
-      await sourceFile.copy(destinationFilePath);
+    if (!destinationFile.existsSync()) {
+      sourceFile.copySync(destinationFilePath);
     } else {
       return;
     }
     // delete sourceFile
-    await sourceFile.delete();
+    sourceFile.deleteSync();
   }
 
   /// flutter构建
@@ -319,9 +319,7 @@ class OhosDartBuilder implements OhosBuilder {
     // Copy native code assets (.so files produced by build hooks)
     // from {outputDir}/native_assets/libs/{arch}/ to
     // flutterModuleDirectory/libs/{arch}/.
-    final String nativeAssetsBase = globals.fs.path.join(
-        output,
-        'native_assets', 'libs');
+    final String nativeAssetsBase = globals.fs.path.join(output, 'native_assets', 'libs');
     for (final OhosArch arch in ohosBuildInfo.targetArchs) {
       final String archName = getNameForOhosArch(arch);
       final Directory nativeAssetsArchDir = globals.fs.directory(

@@ -1648,7 +1648,10 @@ class FocusManager with DiagnosticableTreeMixin, ChangeNotifier {
     if (kFlutterMemoryAllocationsEnabled) {
       ChangeNotifier.maybeDispatchObjectCreation(this);
     }
-    if (_respondToLifecycleChange || kIsWeb || (defaultTargetPlatform != TargetPlatform.android && defaultTargetPlatform != TargetPlatform.ohos)) {
+    if (_respondToLifecycleChange ||
+        kIsWeb ||
+        (defaultTargetPlatform != TargetPlatform.android &&
+            defaultTargetPlatform != TargetPlatform.ohos)) {
       // It appears that some Android keyboard implementations can cause
       // app lifecycle state changes: adding this listener would cause the
       // text field to unfocus as the user is trying to type.

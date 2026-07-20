@@ -17,7 +17,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import '../foundation/_features.dart' show isWindowingEnabled;
 import '_window.dart' show WindowManager;
-import '../services/split_view_config_loader.dart';
 import 'actions.dart';
 import 'banner.dart';
 import 'basic.dart';

@@ -62,11 +62,11 @@ Future<void> setImpellerEnableFlag(OhosProject ohosProject, OhosBuildInfo ohosBu
 
   final File file = globals.localFileSystem.file(buildinfoFilePath);
 
-  if (!await file.exists()) {
+  if (!file.existsSync()) {
     throw Exception('Failed to find buildinfo.json5 file: $buildinfoFilePath');
   }
 
-  final String content = await file.readAsString();
+  final String content = file.readAsStringSync();
 
   final json = jsonDecode(content) as Map<String, dynamic>;
 

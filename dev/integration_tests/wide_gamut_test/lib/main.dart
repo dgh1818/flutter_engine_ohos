@@ -196,7 +196,11 @@ class _SaveLayerDrawer extends CustomPainter {
           ..strokeWidth = 3,
       );
       canvas.saveLayer(imageRect, Paint()..blendMode = BlendMode.dstOver);
-      canvas.drawImage(_image!, Offset(-_image!.width / 2.0, -_image!.height / 2.0), Paint());
+      canvas.drawImage(
+        _image!,
+        Offset(-_image!.width / 2.0, -_image!.height / 2.0),
+        Paint(),
+      );
       canvas.restore();
       canvas.restore();
     }
@@ -213,7 +217,9 @@ Future<ui.Image> _loadCodecImage() async {
   final ui.ImmutableBuffer buffer = await ui.ImmutableBuffer.fromUint8List(
     base64Decode(displayP3Logo),
   );
-  final ui.ImageDescriptor descriptor = await ui.ImageDescriptor.encoded(buffer);
+  final ui.ImageDescriptor descriptor = await ui.ImageDescriptor.encoded(
+    buffer,
+  );
   final ui.Codec codec = await descriptor.instantiateCodec();
   final ui.FrameInfo frameInfo = await codec.getNextFrame();
   codec.dispose();
@@ -229,13 +235,23 @@ Future<ui.Image> _drawImage() async {
   final ovalPaint = Paint()..color = const Color(0xff00ff00);
   final ovalPath = Path()
     ..addOval(
-      Rect.fromLTWH((canvasSize - markerSize.width) / 2, 1, markerSize.width, markerSize.height),
+      Rect.fromLTWH(
+        (canvasSize - markerSize.width) / 2,
+        1,
+        markerSize.width,
+        markerSize.height,
+      ),
     );
   canvas.drawPath(ovalPath, ovalPaint);
 
   final ui.Picture picture = recorder.endRecording();
-  final ui.Image image = await picture.toImage(canvasSize.toInt(), (canvasSize + 0).toInt());
-  final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.rawExtendedRgba128);
+  final ui.Image image = await picture.toImage(
+    canvasSize.toInt(),
+    (canvasSize + 0).toInt(),
+  );
+  final ByteData? byteData = await image.toByteData(
+    format: ui.ImageByteFormat.rawExtendedRgba128,
+  );
   final completer = Completer<ui.Image>();
   ui.decodeImageFromPixels(
     Uint8List.view(byteData!.buffer),
@@ -315,7 +331,10 @@ class _MyHomePageState extends State<MyHomePage> {
       case Setup.blur:
         imageWidget = Stack(
           children: <Widget>[
-            const ColoredBox(color: Color(0xff00ff00), child: SizedBox(width: 100, height: 100)),
+            const ColoredBox(
+              color: Color(0xff00ff00),
+              child: SizedBox(width: 100, height: 100),
+            ),
             ImageFiltered(
               imageFilter: ui.ImageFilter.blur(sigmaX: 6, sigmaY: 6),
               child: Image.memory(base64Decode(displayP3Logo)),
@@ -442,7 +461,10 @@ class _MyHomePageState extends State<MyHomePage> {
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),
       body: Center(
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: <Widget>[imageWidget]),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[imageWidget],
+        ),
       ),
     );
   }

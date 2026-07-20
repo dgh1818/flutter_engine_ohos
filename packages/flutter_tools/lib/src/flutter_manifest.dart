@@ -17,7 +17,15 @@ import 'base/utils.dart';
 import 'platform_plugins.dart';
 import 'plugins.dart';
 
-const _kValidPluginPlatforms = <String>{'android', 'ios', 'web', 'windows', 'linux', 'macos', 'ohos'};
+const _kValidPluginPlatforms = <String>{
+  'android',
+  'ios',
+  'web',
+  'windows',
+  'linux',
+  'macos',
+  'ohos',
+};
 
 /// A wrapper for a platform-specific plugin configuration.
 class PluginPlatformConfig {
@@ -289,7 +297,7 @@ class FlutterManifest {
   /// module descriptor. Returns null, if there is no
   /// such declaration.
   String? get ohosBundleName {
-     if (isModule) {
+    if (isModule) {
       final Object? module = _flutterDescriptor['module'];
       if (module is YamlMap) {
         return module['ohosBundleName'] as String?;

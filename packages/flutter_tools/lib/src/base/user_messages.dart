@@ -74,22 +74,22 @@ class UserMessages {
   // Messages used in NoOhosSdkValidator
   String ohosSdkMissing(String location) =>
       'OHOS_SDK_HOME = $location\n'
-          'but OpenHarmony Sdk not found at this location';
+      'but OpenHarmony Sdk not found at this location';
   String hosSdkMissing(String location) =>
       'HOS_SDK_HOME = $location\n'
-          'but nHarmonyOS Sdk not found at this location';
+      'but nHarmonyOS Sdk not found at this location';
   String ohosSdkInstallation() =>
       'OpenHarmony Sdk not found; \n'
-          'please do that, first: download from https://developer.harmonyos.com/cn/develop/deveco-studio#download_cli ;\n'
-          'second: follow this document: https://developer.harmonyos.com/cn/docs/documentation/doc-guides-V3/ide-command-line-ohsdkmgr-0000001545647965-V3 to install OpenHarmony sdk with ohsdkmgr; \n'
-          'If the Ohos SDK has been installed to a custom location, please use\n'
-          '`flutter config --ohos-sdk` to update to that location.\n';
+      'please do that, first: download from https://developer.harmonyos.com/cn/develop/deveco-studio#download_cli ;\n'
+      'second: follow this document: https://developer.harmonyos.com/cn/docs/documentation/doc-guides-V3/ide-command-line-ohsdkmgr-0000001545647965-V3 to install OpenHarmony sdk with ohsdkmgr; \n'
+      'If the Ohos SDK has been installed to a custom location, please use\n'
+      '`flutter config --ohos-sdk` to update to that location.\n';
   String hosSdkInstallation() =>
       'HarmonyOS Sdk not found; \n'
-          'please do that, first: download from https://developer.harmonyos.com/cn/develop/deveco-studio#download_cli ;\n'
-          'second: follow this document: https://developer.harmonyos.com/cn/docs/documentation/doc-guides-V3/ide-command-line-ohsdkmgr-0000001545647965-V3 to install OpenHarmony sdk with ohsdkmgr; \n'
-          'If the Ohos SDK has been installed to a custom location, please use\n'
-          '`flutter config --ohos-sdk` to update to that location.\n';
+      'please do that, first: download from https://developer.harmonyos.com/cn/develop/deveco-studio#download_cli ;\n'
+      'second: follow this document: https://developer.harmonyos.com/cn/docs/documentation/doc-guides-V3/ide-command-line-ohsdkmgr-0000001545647965-V3 to install OpenHarmony sdk with ohsdkmgr; \n'
+      'If the Ohos SDK has been installed to a custom location, please use\n'
+      '`flutter config --ohos-sdk` to update to that location.\n';
 
   String ohosSdkVersion(HarmonySdk ohosSdk) =>
       'OpenHarmony Sdk at ${ohosSdk.sdkPath}, available api versions has ${ohosSdk.apiAvailable}';
@@ -98,9 +98,8 @@ class UserMessages {
 
   String hdcMissing() =>
       'hdc is missing ,please download from https://developer.harmonyos.com/cn/develop/deveco-studio#download_cli;\n'
-          'and set environment HDC_HOME also set to PATH';
-  String hdcVersion(String ohpmVersion) =>
-      'hdc version $ohpmVersion';
+      'and set environment HDC_HOME also set to PATH';
+  String hdcVersion(String ohpmVersion) => 'hdc version $ohpmVersion';
 
   String ohpmMissing() =>
       'Ohpm is missing, please configure "ohpm" to the environment variable PATH.';
@@ -116,12 +115,10 @@ class UserMessages {
 
   String signToolMissing() =>
       'signTool is missing ,please download from https://gitee.com/openharmony/developtools_hapsigner;\n'
-          'and follow ReadMe to generate hap-sign-tool.jar, set environment SIGN_TOOL_HOME = <parent>/developtools_hapsigner/autosign such as /home/xxx/sdk/developtools_hapsigner/autosign\n'
-          'If the signTool has been installed to a custom location, please use\n'
-          '`flutter config --signTool-home` to update to that location.\n';
-  String signToolVersion(String signToolHome) =>
-      'signTool location:$signToolHome';
-
+      'and follow ReadMe to generate hap-sign-tool.jar, set environment SIGN_TOOL_HOME = <parent>/developtools_hapsigner/autosign such as /home/xxx/sdk/developtools_hapsigner/autosign\n'
+      'If the signTool has been installed to a custom location, please use\n'
+      '`flutter config --signTool-home` to update to that location.\n';
+  String signToolVersion(String signToolHome) => 'signTool location:$signToolHome';
 
   // Messages used in XcodeValidator
   String get xcodeMissing =>

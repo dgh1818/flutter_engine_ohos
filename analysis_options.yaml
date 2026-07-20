@@ -33,6 +33,7 @@ analyzer:
     - "dev/integration_tests/android_semantics_testing/**"
     - "dev/integration_tests/android_engine_test/**"
     - "dev/tools/android_driver_extensions/**"
+    - "dev/integration_tests/hook_user_defines/**"
 
 formatter:
   page_width: 100

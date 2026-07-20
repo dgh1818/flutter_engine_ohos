@@ -81,9 +81,7 @@ void main() {
       final command = PackagesCommand();
       final CommandRunner<void> runner = createTestCommandRunner(command);
       await context.run<void>(
-        overrides: <Type, Generator>{
-          FeatureFlags: () => TestFeatureFlags(),
-        },
+        overrides: <Type, Generator>{FeatureFlags: () => TestFeatureFlags()},
         body: () async {
           await runner.run(<String>[
             ...?globalArgs,
@@ -522,7 +520,11 @@ flutter:
         );
         removeGeneratedFiles(projectPath);
 
-        final PackagesCommand command = await runCommandIn(projectPath, 'get', excludeExample: true);
+        final PackagesCommand command = await runCommandIn(
+          projectPath,
+          'get',
+          excludeExample: true,
+        );
         final getCommand = command.subcommands['get']! as PackagesGetCommand;
 
         expect(
@@ -623,7 +625,11 @@ flutter:
         );
         removeGeneratedFiles(projectPath);
 
-        final PackagesCommand command = await runCommandIn(projectPath, 'get', excludeExample: true);
+        final PackagesCommand command = await runCommandIn(
+          projectPath,
+          'get',
+          excludeExample: true,
+        );
         final getCommand = command.subcommands['get']! as PackagesGetCommand;
 
         expect(
