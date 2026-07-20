@@ -1,9 +1,6 @@
-/*
-* Copyright 2014 The Flutter Authors. All rights reserved.
-* Use of this source code is governed by a BSD-style license that can be
-* found in the LICENSE file.
-*
-*/
+// Copyright 2014 The Flutter Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
 
 import 'package:file/file.dart';
 
@@ -18,7 +15,6 @@ import '../depfile.dart';
 import '../exceptions.dart';
 import 'assets.dart';
 import 'common.dart';
-import '../tools/shader_compiler.dart';
 import 'native_assets.dart';
 
 class DebugOhosApplication extends OhosAssetBundle {
@@ -29,29 +25,33 @@ class DebugOhosApplication extends OhosAssetBundle {
 
   @override
   List<Source> get inputs => <Source>[
-        ...super.inputs,
-        const Source.artifact(Artifact.vmSnapshotData, mode: BuildMode.debug),
-        const Source.artifact(Artifact.isolateSnapshotData,
-            mode: BuildMode.debug),
-      ];
+    ...super.inputs,
+    const Source.artifact(Artifact.vmSnapshotData, mode: BuildMode.debug),
+    const Source.artifact(Artifact.isolateSnapshotData, mode: BuildMode.debug),
+  ];
 
   @override
   List<Source> get outputs => <Source>[
-        ...super.outputs,
-        const Source.pattern('{OUTPUT_DIR}/flutter_assets/vm_snapshot_data'),
-        const Source.pattern(
-            '{OUTPUT_DIR}/flutter_assets/isolate_snapshot_data'),
-        const Source.pattern('{OUTPUT_DIR}/flutter_assets/kernel_blob.bin'),
-      ];
+    ...super.outputs,
+    const Source.pattern('{OUTPUT_DIR}/flutter_assets/vm_snapshot_data'),
+    const Source.pattern('{OUTPUT_DIR}/flutter_assets/isolate_snapshot_data'),
+    const Source.pattern('{OUTPUT_DIR}/flutter_assets/kernel_blob.bin'),
+  ];
 }
 
 /// ohos release targets
 const OhosAotBundle ohosArmReleaseBundle = OhosAotBundle(ohosArmRelease);
 const OhosAotBundle ohosArm64ReleaseBundle = OhosAotBundle(ohosArm64Release);
 const OhosAotBundle ohosX64ReleaseBundle = OhosAotBundle(ohosX64Release);
-const OhosAotBundle ohosArmProfileBundle = OhosAotBundle(OhosAot(TargetPlatform.ohos_arm, BuildMode.profile));
-const OhosAotBundle ohosArm64ProfileBundle = OhosAotBundle(OhosAot(TargetPlatform.ohos_arm64, BuildMode.profile));
-const OhosAotBundle ohosX64ProfileBundle = OhosAotBundle(OhosAot(TargetPlatform.ohos_x64, BuildMode.profile));
+const OhosAotBundle ohosArmProfileBundle = OhosAotBundle(
+  OhosAot(TargetPlatform.ohos_arm, BuildMode.profile),
+);
+const OhosAotBundle ohosArm64ProfileBundle = OhosAotBundle(
+  OhosAot(TargetPlatform.ohos_arm64, BuildMode.profile),
+);
+const OhosAotBundle ohosX64ProfileBundle = OhosAotBundle(
+  OhosAot(TargetPlatform.ohos_x64, BuildMode.profile),
+);
 
 List<Target> ohosTargets = <Target>[
   ohosArmReleaseBundle,
@@ -73,8 +73,9 @@ class OhosAotBundle extends Target {
 
   /// The name of the produced Ohos ABI.
   String get _ohosAbiName {
-    return getNameForOhosArch(getOhosArchForName(
-        getNameForTargetPlatform(dependency.targetPlatform)));
+    return getNameForOhosArch(
+      getOhosArchForName(getNameForTargetPlatform(dependency.targetPlatform)),
+    );
   }
 
   @override
@@ -90,41 +91,30 @@ class OhosAotBundle extends Target {
   BuildMode get buildMode => dependency.buildMode;
 
   @override
-  List<Source> get inputs => <Source>[
-        Source.pattern('{BUILD_DIR}/$_ohosAbiName/app.so'),
-      ];
+  List<Source> get inputs => <Source>[Source.pattern('{BUILD_DIR}/$_ohosAbiName/app.so')];
 
   // flutter.gradle has been updated to correctly consume it.
   @override
-  List<Source> get outputs => <Source>[
-        Source.pattern('{OUTPUT_DIR}/$_ohosAbiName/app.so'),
-      ];
+  List<Source> get outputs => <Source>[Source.pattern('{OUTPUT_DIR}/$_ohosAbiName/app.so')];
 
   @override
-  List<String> get depfiles => <String>[
-        'flutter_$name.d',
-      ];
+  List<String> get depfiles => <String>['flutter_$name.d'];
 
   @override
-  List<Target> get dependencies => <Target>[
-        dependency,
-        const AotOhosAssetBundle(),
-      ];
+  List<Target> get dependencies => <Target>[dependency, const AotOhosAssetBundle()];
 
   @override
   Future<void> build(Environment environment) async {
-    final Directory buildDir =
-        environment.buildDir.childDirectory(_ohosAbiName);
-    final Directory outputDirectory =
-        environment.outputDir.childDirectory(_ohosAbiName);
+    final Directory buildDir = environment.buildDir.childDirectory(_ohosAbiName);
+    final Directory outputDirectory = environment.outputDir.childDirectory(_ohosAbiName);
     if (!outputDirectory.existsSync()) {
       outputDirectory.createSync(recursive: true);
     }
     final File outputLibFile = buildDir.childFile('app.so');
     outputLibFile.copySync(outputDirectory.childFile('app.so').path);
 
-    final List<File> inputs = <File>[];
-    final List<File> outputs = <File>[];
+    final inputs = <File>[];
+    final outputs = <File>[];
     final File manifestFile = buildDir.childFile('manifest.json');
     if (manifestFile.existsSync()) {
       final File destinationFile = outputDirectory.childFile('manifest.json');
@@ -132,7 +122,7 @@ class OhosAotBundle extends Target {
       inputs.add(manifestFile);
       outputs.add(destinationFile);
     }
-    final DepfileService depfileService = DepfileService(
+    final depfileService = DepfileService(
       fileSystem: environment.fileSystem,
       logger: environment.logger,
     );
@@ -144,12 +134,9 @@ class OhosAotBundle extends Target {
   }
 }
 
-const OhosAot ohosArmRelease =
-    OhosAot(TargetPlatform.ohos_arm, BuildMode.release);
-const OhosAot ohosArm64Release =
-    OhosAot(TargetPlatform.ohos_arm64, BuildMode.release);
-const OhosAot ohosX64Release =
-    OhosAot(TargetPlatform.ohos_x64, BuildMode.release);
+const OhosAot ohosArmRelease = OhosAot(TargetPlatform.ohos_arm, BuildMode.release);
+const OhosAot ohosArm64Release = OhosAot(TargetPlatform.ohos_arm64, BuildMode.release);
+const OhosAot ohosX64Release = OhosAot(TargetPlatform.ohos_x64, BuildMode.release);
 
 class OhosAot extends AotElfBase {
   /// Create an [OhosAot] implementation for a given [targetPlatform] and [buildMode].
@@ -157,12 +144,12 @@ class OhosAot extends AotElfBase {
 
   /// The name of the produced Ohos ABI.
   String get _ohosAbiName {
-    return getNameForOhosArch(
-        getOhosArchForName(getNameForTargetPlatform(targetPlatform)));
+    return getNameForOhosArch(getOhosArchForName(getNameForTargetPlatform(targetPlatform)));
   }
 
   @override
-  String get name => 'ohos_aot_${buildMode.cliName}_'
+  String get name =>
+      'ohos_aot_${buildMode.cliName}_'
       '${getNameForTargetPlatform(targetPlatform)}';
 
   /// The specific Ohos ABI we are building for.
@@ -175,35 +162,26 @@ class OhosAot extends AotElfBase {
 
   @override
   List<Source> get inputs => <Source>[
-        const Source.pattern(
-            '{FLUTTER_ROOT}/packages/flutter_tools/lib/src/build_system/targets/ohos.dart'),
-        const Source.pattern('{BUILD_DIR}/app.dill'),
-        const Source.artifact(Artifact.skyEnginePath),
-        Source.artifact(
-          Artifact.genSnapshot,
-          mode: buildMode,
-          platform: targetPlatform,
-        ),
-      ];
+    const Source.pattern(
+      '{FLUTTER_ROOT}/packages/flutter_tools/lib/src/build_system/targets/ohos.dart',
+    ),
+    const Source.pattern('{BUILD_DIR}/app.dill'),
+    const Source.artifact(Artifact.skyEnginePath),
+    Source.artifact(Artifact.genSnapshot, mode: buildMode, platform: targetPlatform),
+  ];
 
   @override
-  List<Source> get outputs => <Source>[
-        Source.pattern('{BUILD_DIR}/$_ohosAbiName/app.so'),
-      ];
+  List<Source> get outputs => <Source>[Source.pattern('{BUILD_DIR}/$_ohosAbiName/app.so')];
 
   @override
-  List<String> get depfiles => <String>[
-        'flutter_$name.d',
-      ];
+  List<String> get depfiles => <String>['flutter_$name.d'];
 
   @override
-  List<Target> get dependencies => const <Target>[
-        KernelSnapshot(),
-      ];
+  List<Target> get dependencies => const <Target>[KernelSnapshot()];
 
   @override
   Future<void> build(Environment environment) async {
-    final AOTSnapshotter snapshotter = AOTSnapshotter(
+    final snapshotter = AOTSnapshotter(
       fileSystem: environment.fileSystem,
       logger: environment.logger,
       xcode: globals.xcode!,
@@ -218,18 +196,18 @@ class OhosAot extends AotElfBase {
     if (!output.existsSync()) {
       output.createSync(recursive: true);
     }
-    final List<String> extraGenSnapshotOptions =
-        decodeCommaSeparated(environment.defines, kExtraGenSnapshotOptions);
-    final List<File> outputs = <File>[]; // outputs for the depfile
-    final String manifestPath =
-        '${output.path}${environment.platform.pathSeparator}manifest.json';
+    final List<String> extraGenSnapshotOptions = decodeCommaSeparated(
+      environment.defines,
+      kExtraGenSnapshotOptions,
+    );
+    final outputs = <File>[]; // outputs for the depfile
+    final manifestPath = '${output.path}${environment.platform.pathSeparator}manifest.json';
     if (environment.defines[kDeferredComponents] == 'true') {
       extraGenSnapshotOptions.add('--loading_unit_manifest=$manifestPath');
       outputs.add(environment.fileSystem.file(manifestPath));
     }
-    final BuildMode buildMode = BuildMode.fromCliName(buildModeEnvironment);
-    final bool dartObfuscation =
-        environment.defines[kDartObfuscation] == 'true';
+    final buildMode = BuildMode.fromCliName(buildModeEnvironment);
+    final dartObfuscation = environment.defines[kDartObfuscation] == 'true';
     final String? codeSizeDirectory = environment.defines[kCodeSizeDirectory];
 
     if (codeSizeDirectory != null) {
@@ -239,10 +217,8 @@ class OhosAot extends AotElfBase {
       final File precompilerTraceFile = environment.fileSystem
           .directory(codeSizeDirectory)
           .childFile('trace.$_ohosAbiName.json');
-      extraGenSnapshotOptions
-          .add('--write-v8-snapshot-profile-to=${codeSizeFile.path}');
-      extraGenSnapshotOptions
-          .add('--trace-precompiler-to=${precompilerTraceFile.path}');
+      extraGenSnapshotOptions.add('--write-v8-snapshot-profile-to=${codeSizeFile.path}');
+      extraGenSnapshotOptions.add('--trace-precompiler-to=${precompilerTraceFile.path}');
     }
 
     final String? splitDebugInfo = environment.defines[kSplitDebugInfo];
@@ -260,14 +236,15 @@ class OhosAot extends AotElfBase {
     }
     if (environment.defines[kDeferredComponents] == 'true') {
       // Parse the manifest for .so paths
-      final List<LoadingUnit> loadingUnits =
-          LoadingUnit.parseLoadingUnitManifest(
-              environment.fileSystem.file(manifestPath), environment.logger);
-      for (final LoadingUnit unit in loadingUnits) {
+      final List<LoadingUnit> loadingUnits = LoadingUnit.parseLoadingUnitManifest(
+        environment.fileSystem.file(manifestPath),
+        environment.logger,
+      );
+      for (final unit in loadingUnits) {
         outputs.add(environment.fileSystem.file(unit.path));
       }
     }
-    final DepfileService depfileService = DepfileService(
+    final depfileService = DepfileService(
       fileSystem: environment.fileSystem,
       logger: environment.logger,
     );
@@ -298,17 +275,15 @@ abstract class OhosAssetBundle extends Target {
 
   @override
   List<Source> get inputs => const <Source>[
-        Source.pattern('{BUILD_DIR}/app.dill'),
-        // ...IconTreeShaker.inputs,
-      ];
+    Source.pattern('{BUILD_DIR}/app.dill'),
+    // ...IconTreeShaker.inputs,
+  ];
 
   @override
   List<Source> get outputs => const <Source>[];
 
   @override
-  List<String> get depfiles => <String>[
-        'flutter_assets.d',
-      ];
+  List<String> get depfiles => <String>['flutter_assets.d'];
 
   @override
   Future<void> build(Environment environment) async {
@@ -316,17 +291,20 @@ abstract class OhosAssetBundle extends Target {
     if (buildModeEnvironment == null) {
       throw MissingDefineException(kBuildMode, name);
     }
-    final BuildMode buildMode = BuildMode.fromCliName(buildModeEnvironment);
-    final Directory outputDirectory = environment.outputDir
-        .childDirectory('flutter_assets')
+    final buildMode = BuildMode.fromCliName(buildModeEnvironment);
+    final Directory outputDirectory = environment.outputDir.childDirectory('flutter_assets')
       ..createSync(recursive: true);
 
     // Only copy the prebuilt runtimes and kernel blob in debug mode.
     if (buildMode == BuildMode.debug) {
-      final String vmSnapshotData = environment.artifacts
-          .getArtifactPath(Artifact.vmSnapshotData, mode: BuildMode.debug);
-      final String isolateSnapshotData = environment.artifacts
-          .getArtifactPath(Artifact.isolateSnapshotData, mode: BuildMode.debug);
+      final String vmSnapshotData = environment.artifacts.getArtifactPath(
+        Artifact.vmSnapshotData,
+        mode: BuildMode.debug,
+      );
+      final String isolateSnapshotData = environment.artifacts.getArtifactPath(
+        Artifact.isolateSnapshotData,
+        mode: BuildMode.debug,
+      );
       environment.buildDir
           .childFile('app.dill')
           .copySync(outputDirectory.childFile('kernel_blob.bin').path);
@@ -346,20 +324,17 @@ abstract class OhosAssetBundle extends Target {
       buildMode: buildMode,
       flavor: environment.defines[kFlavor],
     );
-    final DepfileService depfileService = DepfileService(
+    final depfileService = DepfileService(
       fileSystem: environment.fileSystem,
       logger: environment.logger,
     );
-    depfileService.writeToFile(
-      assetDepfile,
-      environment.buildDir.childFile('flutter_assets.d'),
-    );
+    depfileService.writeToFile(assetDepfile, environment.buildDir.childFile('flutter_assets.d'));
   }
 
   @override
   List<Target> get dependencies => const <Target>[
-        DartBuildForNative(),
-        KernelSnapshot(),
-        InstallCodeAssets()
-      ];
+    DartBuildForNative(),
+    KernelSnapshot(),
+    InstallCodeAssets(),
+  ];
 }

@@ -783,7 +783,7 @@ Your $application code is in $relativeAppMain.
       gradle.updateLocalProperties(project: project, requireAndroidSdk: false);
     }
 
-    final bool generateOhos = templateContext['ohos'] == true;
+    final generateOhos = templateContext['ohos'] == true;
     if (generateOhos) {
       hvigor.updateLocalProperties(project: project);
     }
@@ -793,11 +793,26 @@ Your $application code is in $relativeAppMain.
     final androidPluginIdentifier = templateContext['androidIdentifier'] as String?;
     final exampleProjectName = '${projectName}_example';
     templateContext['projectName'] = exampleProjectName;
-    templateContext['androidIdentifier'] = CreateBase.createAndroidIdentifier(organization, exampleProjectName);
-    templateContext['ohosIdentifier'] = CreateBase.createAndroidIdentifier(organization, exampleProjectName);
-    templateContext['iosIdentifier'] = CreateBase.createUTIIdentifier(organization, exampleProjectName);
-    templateContext['macosIdentifier'] = CreateBase.createUTIIdentifier(organization, exampleProjectName);
-    templateContext['windowsIdentifier'] = CreateBase.createWindowsIdentifier(organization, exampleProjectName);
+    templateContext['androidIdentifier'] = CreateBase.createAndroidIdentifier(
+      organization,
+      exampleProjectName,
+    );
+    templateContext['ohosIdentifier'] = CreateBase.createAndroidIdentifier(
+      organization,
+      exampleProjectName,
+    );
+    templateContext['iosIdentifier'] = CreateBase.createUTIIdentifier(
+      organization,
+      exampleProjectName,
+    );
+    templateContext['macosIdentifier'] = CreateBase.createUTIIdentifier(
+      organization,
+      exampleProjectName,
+    );
+    templateContext['windowsIdentifier'] = CreateBase.createWindowsIdentifier(
+      organization,
+      exampleProjectName,
+    );
     templateContext['description'] = 'Demonstrates how to use the $projectName plugin.';
     templateContext['pluginProjectName'] = projectName;
     templateContext['androidPluginIdentifier'] = androidPluginIdentifier;

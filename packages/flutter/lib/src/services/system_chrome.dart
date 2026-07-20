@@ -12,8 +12,8 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 
 import 'binding.dart';
-import 'system_channels.dart';
 import 'orientation_change_notifier.dart';
+import 'system_channels.dart';
 
 export 'dart:ui' show Brightness, Color;
 
@@ -550,10 +550,11 @@ abstract final class SystemChrome {
     // SplitViewManager listens to OrientationChangeNotifier and handles split view accordingly.
     // This design avoids direct dependency from system_chrome.dart to SplitViewManager.
     if (defaultTargetPlatform == TargetPlatform.ohos) {
-      final bool isForcedLandscape = orientations.isNotEmpty &&
-          orientations.every((o) =>
-              o == DeviceOrientation.landscapeLeft ||
-              o == DeviceOrientation.landscapeRight);
+      final bool isForcedLandscape =
+          orientations.isNotEmpty &&
+          orientations.every(
+            (o) => o == DeviceOrientation.landscapeLeft || o == DeviceOrientation.landscapeRight,
+          );
       OrientationChangeNotifier().notifyLandscapeChange(isForcedLandscape);
     }
 

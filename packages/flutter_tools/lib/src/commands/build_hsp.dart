@@ -14,7 +14,7 @@ import 'build.dart';
 
 class BuildHspCommand extends BuildSubCommand {
   BuildHspCommand({required super.logger, bool verboseHelp = false})
-      : super(verboseHelp: verboseHelp) {
+    : super(verboseHelp: verboseHelp) {
     addTreeShakeIconsFlag();
     usesTargetOption();
     addBuildModeFlags(verboseHelp: verboseHelp);
@@ -50,9 +50,6 @@ class BuildHspCommand extends BuildSubCommand {
   String get name => 'hsp';
 
   @override
-  bool get reportNullSafety => false;
-
-  @override
   Future<Set<DevelopmentArtifact>> get requiredArtifacts async => <DevelopmentArtifact>{
     DevelopmentArtifact.ohosGenSnapshot,
     DevelopmentArtifact.ohosInternalBuild,
@@ -64,7 +61,7 @@ class BuildHspCommand extends BuildSubCommand {
       exitWithNoSdkMessage();
     }
     final BuildInfo buildInfo = await getBuildInfo();
-    final OhosBuildInfo ohosBuildInfo = OhosBuildInfo(
+    final ohosBuildInfo = OhosBuildInfo(
       buildInfo,
       targetArchs: stringsArg('target-platform').map<OhosArch>(getOhosArchForName),
     );

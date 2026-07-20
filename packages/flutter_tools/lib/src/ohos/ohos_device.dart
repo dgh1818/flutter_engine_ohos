@@ -1,9 +1,6 @@
-/*
-* Copyright 2014 The Flutter Authors. All rights reserved.
-* Use of this source code is governed by a BSD-style license that can be
-* found in the LICENSE file.
-*
-*/
+// Copyright 2014 The Flutter Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
 
 import 'dart:async';
 import 'dart:math';
@@ -15,7 +12,6 @@ import '../base/common.dart';
 import '../base/file_system.dart';
 import '../base/io.dart';
 import '../base/logger.dart';
-import '../base/platform.dart';
 import '../base/process.dart';
 import '../build_info.dart';
 import '../convert.dart';
@@ -34,41 +30,25 @@ class OhosDevice extends Device {
   OhosDevice(
     super.id, {
     this.deviceCodeName,
-    required Logger logger,
+    required super.logger,
     required ProcessManager processManager,
-    required Platform platform,
     required HarmonySdk ohosSdk,
-    required FileSystem fileSystem,
-    required String? hdcServer,
-  })  : _logger = logger,
-        _processManager = processManager,
-        _ohosSdk = ohosSdk,
-        _platform = platform,
-        _fileSystem = fileSystem,
-        _processUtils =
-            ProcessUtils(logger: logger, processManager: processManager),
-        _hdcServer = hdcServer,
-        super(
-          category: Category.mobile,
-          platformType: PlatformType.ohos,
-          ephemeral: true,
-          logger: logger,
-        );
+  }) : _logger = logger,
+       _processManager = processManager,
+       _ohosSdk = ohosSdk,
+       _processUtils = ProcessUtils(logger: logger, processManager: processManager),
+       super(category: Category.mobile, platformType: PlatformType.ohos, ephemeral: true);
 
   final Logger _logger;
   final ProcessManager _processManager;
   final HarmonySdk _ohosSdk;
-  final Platform _platform;
-  final FileSystem _fileSystem;
   final ProcessUtils _processUtils;
-  final String? _hdcServer;
   final String? deviceCodeName;
 
   @override
   void clearLogs() {
     // clear hilog history
-    _processUtils
-        .runSync(hdcCommandForDevice(<String>['shell', 'hilog', '-r']));
+    _processUtils.runSync(hdcCommandForDevice(<String>['shell', 'hilog', '-r']));
   }
 
   @override
@@ -95,10 +75,7 @@ class OhosDevice extends Device {
         includePastLogs: true,
       );
     } else {
-      return _logReader ??= await HdcLogReader.createLogReader(
-        this,
-        _processManager,
-      );
+      return _logReader ??= await HdcLogReader.createLogReader(this, _processManager);
     }
   }
 
@@ -107,9 +84,8 @@ class OhosDevice extends Device {
 
   @override
   Future<void> takeScreenshot(File outputFile) async {
-    const String remotePath = '/data/local/tmp/flutter_screenshot.jpeg';
-    await runHdcCheckedAsync(
-        <String>['shell', 'snapshot_display', '-f', remotePath]);
+    const remotePath = '/data/local/tmp/flutter_screenshot.jpeg';
+    await runHdcCheckedAsync(<String>['shell', 'snapshot_display', '-f', remotePath]);
     await _processUtils.run(
       hdcCommandForDevice(<String>['file recv', remotePath, outputFile.path]),
       throwOnError: true,
@@ -120,8 +96,7 @@ class OhosDevice extends Device {
   @override
   bool get supportsFlavors => true;
 
-  Future<bool> _installApp(covariant ApplicationPackage app,
-      {String? userIdentifier}) async {
+  Future<bool> _installApp(covariant ApplicationPackage app, {String? userIdentifier}) async {
     if (app is! OhosHap) {
       throwToolExit('this project or file is not contain(a) Hap file');
     }
@@ -132,14 +107,16 @@ class OhosDevice extends Device {
     }
 
     _logger.printStatus('installing hap. bundleName: ${app.id} ');
-    const String targetPath = 'data/local/tmp/flutterInstallTemp';
+    const targetPath = 'data/local/tmp/flutterInstallTemp';
     final List<List<String>> hspCmds = app.ohosBuildData.hspModules
-        .map((OhosModule module) => OhosProject.getSignedFile(
-              modulePath: module.srcPath,
-              moduleName: module.name,
-              flavor: module.flavor,
-              type: OhosFileType.hsp,
-            ))
+        .map(
+          (OhosModule module) => OhosProject.getSignedFile(
+            modulePath: module.srcPath,
+            moduleName: module.name,
+            flavor: module.flavor,
+            type: OhosFileType.hsp,
+          ),
+        )
         .map((File file) => <String>['file', 'send', file.path, targetPath])
         .toList();
     final List<List<String>> cmds = <List<String>>[
@@ -152,10 +129,12 @@ class OhosDevice extends Device {
     ].map((List<String> cmd) => hdcCommandForDevice(cmd)).toList();
 
     RunResult? result;
-    for (final List<String> cmd in cmds) {
+    for (final cmd in cmds) {
       result = _processUtils.runSync(cmd, throwOnError: true);
       if (result.exitCode != 0 || result.stdout.contains('error')) {
-        _logger.printError('_installApp: cmd=$cmd\n  code=${result.exitCode}, stdout=${result.stdout}, stderr=${result.stderr}');
+        _logger.printError(
+          '_installApp: cmd=$cmd\n  code=${result.exitCode}, stdout=${result.stdout}, stderr=${result.stderr}',
+        );
         return false;
       }
     }
@@ -163,11 +142,12 @@ class OhosDevice extends Device {
   }
 
   @override
-  Future<bool> isAppInstalled(covariant ApplicationPackage app,
-      {String? userIdentifier}) async {
+  Future<bool> isAppInstalled(covariant ApplicationPackage app, {String? userIdentifier}) async {
     final String bundleName = app.id;
-    final List<String> propCommand =
-        hdcCommandForDevice(<String>['shell', '"bm dump -n $bundleName"']);
+    final List<String> propCommand = hdcCommandForDevice(<String>[
+      'shell',
+      '"bm dump -n $bundleName"',
+    ]);
     _logger.printTrace(propCommand.join(' '));
     final RunResult result = _processUtils.runSync(propCommand);
     if (result.exitCode == 0) {
@@ -216,7 +196,6 @@ class OhosDevice extends Device {
       processManager: _processManager,
       logger: _logger,
       deviceId: id,
-      hdcPath: hdcPath,
       ohosDevice: this,
     );
   }();
@@ -229,17 +208,17 @@ class OhosDevice extends Device {
 
   Future<String?> get apiVersion => _getProperty('const.ohos.apiversion');
 
-  OhosHap? _package;
-
   @override
-  Future<LaunchResult> startApp(covariant ApplicationPackage? package,
-      {String? mainPath,
-      String? route,
-      required DebuggingOptions debuggingOptions,
-      Map<String, Object?> platformArgs = const <String, Object>{},
-      bool prebuiltApplication = false,
-      bool ipv6 = false,
-      String? userIdentifier}) async {
+  Future<LaunchResult> startApp(
+    covariant ApplicationPackage? package, {
+    String? mainPath,
+    String? route,
+    required DebuggingOptions debuggingOptions,
+    Map<String, Object?> platformArgs = const <String, Object>{},
+    bool prebuiltApplication = false,
+    bool ipv6 = false,
+    String? userIdentifier,
+  }) async {
     ///
     /// 1. check build status
     /// 2. build or not
@@ -248,7 +227,7 @@ class OhosDevice extends Device {
     ///
 
     final TargetPlatform devicePlatform = await targetPlatform;
-    OhosHap? builtPackage = package as OhosHap?;
+    var builtPackage = package as OhosHap?;
     OhosArch ohosArch;
     switch (devicePlatform) {
       case TargetPlatform.ohos_arm64:
@@ -292,9 +271,12 @@ class OhosDevice extends Device {
         target: mainPath ?? 'lib/main.dart',
       );
 
-      builtPackage = await ApplicationPackageFactory.instance!
-          .getPackageForPlatform(devicePlatform,
-              buildInfo: debuggingOptions.buildInfo) as OhosHap?;
+      builtPackage =
+          await ApplicationPackageFactory.instance!.getPackageForPlatform(
+                devicePlatform,
+                buildInfo: debuggingOptions.buildInfo,
+              )
+              as OhosHap?;
     }
     // There was a failure parsing the android project information.
     if (builtPackage == null) {
@@ -308,7 +290,6 @@ class OhosDevice extends Device {
       return LaunchResult.failed();
     }
 
-    final bool traceStartup = platformArgs['trace-startup'] as bool? ?? false;
     ProtocolDiscovery? observatoryDiscovery;
 
     if (debuggingOptions.debuggingEnabled) {
@@ -320,10 +301,7 @@ class OhosDevice extends Device {
         // Avoid using getLogReader, which returns a singleton instance, because the
         // observatory discovery will dipose at the end. creating a new logger here allows
         // logs to be surfaced normally during `flutter drive`.
-        await HdcLogReader.createLogReader(
-          this,
-          _processManager,
-        ),
+        await HdcLogReader.createLogReader(this, _processManager),
         portForwarder: portForwarder,
         hostPort: debuggingOptions.hostVmServicePort,
         devicePort: debuggingOptions.deviceVmServicePort,
@@ -331,7 +309,7 @@ class OhosDevice extends Device {
         logger: _logger,
       );
     }
-    final List<String> cmd = <String>[
+    final cmd = <String>[
       'shell',
       'aa',
       'start',
@@ -350,7 +328,6 @@ class OhosDevice extends Device {
       return LaunchResult.failed();
     }
 
-    _package = builtPackage;
     if (!debuggingOptions.debuggingEnabled) {
       return LaunchResult.succeeded();
     }
@@ -360,8 +337,7 @@ class OhosDevice extends Device {
     _logger.printTrace('Waiting for observatory port to be available...');
     try {
       Uri? observatoryUri;
-      if (debuggingOptions.buildInfo.isDebug ||
-          debuggingOptions.buildInfo.isProfile) {
+      if (debuggingOptions.buildInfo.isDebug || debuggingOptions.buildInfo.isProfile) {
         observatoryUri = await observatoryDiscovery?.uri;
         _logger.printWarning('waiting for a debug connection: $observatoryUri');
         if (observatoryUri == null) {
@@ -375,7 +351,7 @@ class OhosDevice extends Device {
 
       if (debuggingOptions.buildInfo.isDebug) {
         try {
-          final List<String> attachCmd = <String>[
+          final attachCmd = <String>[
             'shell',
             'aa',
             'attach',
@@ -383,8 +359,10 @@ class OhosDevice extends Device {
             builtPackage.ohosBuildData.appInfo!.bundleName,
           ];
           await runHdcCheckedAsync(attachCmd);
-          _logger.printStatus('Execute attach command for bundle: ${builtPackage.ohosBuildData.appInfo!.bundleName}');
-        } catch (e) {
+          _logger.printStatus(
+            'Execute attach command for bundle: ${builtPackage.ohosBuildData.appInfo!.bundleName}',
+          );
+        } on Exception catch (e) {
           _logger.printWarning('Failed to execute attach command: $e');
         }
       }
@@ -399,10 +377,8 @@ class OhosDevice extends Device {
   }
 
   @override
-  Future<bool> installApp(covariant ApplicationPackage app,
-      {String? userIdentifier}) async {
-    final bool wasInstalled =
-        await isAppInstalled(app, userIdentifier: userIdentifier);
+  Future<bool> installApp(covariant ApplicationPackage app, {String? userIdentifier}) async {
+    final bool wasInstalled = await isAppInstalled(app, userIdentifier: userIdentifier);
     _logger.printTrace('Installing Hap.');
     if (await _installApp(app, userIdentifier: userIdentifier)) {
       return true;
@@ -424,8 +400,7 @@ class OhosDevice extends Device {
   }
 
   @override
-  Future<bool> stopApp(covariant ApplicationPackage? app,
-      {String? userIdentifier}) async {
+  Future<bool> stopApp(covariant ApplicationPackage? app, {String? userIdentifier}) async {
     if (app == null) {
       return false;
     }
@@ -456,12 +431,9 @@ class OhosDevice extends Device {
   }();
 
   @override
-  Future<bool> uninstallApp(covariant ApplicationPackage app,
-      {String? userIdentifier}) async {
-    final List<String> uninstallCommand =
-        hdcCommandForDevice(<String>['uninstall', app.id]);
-    final RunResult result =
-        _processUtils.runSync(uninstallCommand, throwOnError: true);
+  Future<bool> uninstallApp(covariant ApplicationPackage app, {String? userIdentifier}) async {
+    final List<String> uninstallCommand = hdcCommandForDevice(<String>['uninstall', app.id]);
+    final RunResult result = _processUtils.runSync(uninstallCommand, throwOnError: true);
     return result.exitCode == 0;
   }
 
@@ -487,13 +459,11 @@ class OhosDevice extends Device {
   }
 
   late final Future<Map<String, String>> _properties = () async {
-    Map<String, String> properties = <String, String>{};
+    var properties = <String, String>{};
 
-    final List<String> propCommand =
-        hdcCommandForDevice(<String>['shell', 'param', 'get']);
+    final List<String> propCommand = hdcCommandForDevice(<String>['shell', 'param', 'get']);
     _logger.printTrace(propCommand.join(' '));
-    final RunResult result =
-        _processUtils.runSync(propCommand, throwOnError: true);
+    final RunResult result = _processUtils.runSync(propCommand, throwOnError: true);
 
     if (result.exitCode == 0) {
       properties = parseHdcDeviceProperties(result.stdout);
@@ -502,9 +472,9 @@ class OhosDevice extends Device {
   }();
 
   Map<String, String> parseHdcDeviceProperties(String str) {
-    final Map<String, String> properties = <String, String>{};
+    final properties = <String, String>{};
     final List<String> split = str.split('\r\n');
-    for (final String line in split) {
+    for (final line in split) {
       // some properties value may contain '=' char,but key not
       final int indexOf = line.indexOf('=');
       if (indexOf == -1) {
@@ -524,17 +494,13 @@ class OhosDevicePortForwarder extends DevicePortForwarder {
     required ProcessManager processManager,
     required Logger logger,
     required String deviceId,
-    required String hdcPath,
     required OhosDevice ohosDevice,
-  })  : _deviceId = deviceId,
-        _hdcPath = hdcPath,
-        _logger = logger,
-        _processUtils =
-            ProcessUtils(logger: logger, processManager: processManager),
-        _ohosDevice = ohosDevice;
+  }) : _deviceId = deviceId,
+       _logger = logger,
+       _processUtils = ProcessUtils(logger: logger, processManager: processManager),
+       _ohosDevice = ohosDevice;
 
   final String _deviceId;
-  final String _hdcPath;
   final Logger _logger;
   final ProcessUtils _processUtils;
   final OhosDevice _ohosDevice;
@@ -545,18 +511,12 @@ class OhosDevicePortForwarder extends DevicePortForwarder {
 
   @override
   List<ForwardedPort> get forwardedPorts {
-    final List<ForwardedPort> ports = <ForwardedPort>[];
+    final ports = <ForwardedPort>[];
 
     String stdout;
     try {
       stdout = _processUtils
-          .runSync(
-            _ohosDevice.hdcCommandForDevice(<String>[
-              'fport',
-              'ls',
-            ]),
-            throwOnError: true,
-          )
+          .runSync(_ohosDevice.hdcCommandForDevice(<String>['fport', 'ls']), throwOnError: true)
           .stdout
           .trim();
     } on ProcessException catch (error) {
@@ -565,7 +525,7 @@ class OhosDevicePortForwarder extends DevicePortForwarder {
     }
 
     final List<String> lines = LineSplitter.split(stdout).toList();
-    for (final String line in lines) {
+    for (final line in lines) {
       if (!line.startsWith(_deviceId)) {
         continue;
       }
@@ -593,8 +553,8 @@ class OhosDevicePortForwarder extends DevicePortForwarder {
 
   /// return one random port num , between [50000 ~ 65535]
   int getOneRandomPort() {
-    const int min = 50000;
-    const int max = 65535;
+    const min = 50000;
+    const max = 65535;
     return min + Random().nextInt(max - min);
   }
 
@@ -604,11 +564,7 @@ class OhosDevicePortForwarder extends DevicePortForwarder {
     hostPort ??= getOneRandomPort();
 
     final RunResult process = await _processUtils.run(
-      _ohosDevice.hdcCommandForDevice(<String>[
-        'fport',
-        'tcp:$hostPort',
-        'tcp:$devicePort',
-      ]),
+      _ohosDevice.hdcCommandForDevice(<String>['fport', 'tcp:$hostPort', 'tcp:$devicePort']),
       throwOnError: true,
     );
 
@@ -674,20 +630,16 @@ class HdcLogReader extends DeviceLogReader {
     ProcessManager processManager, {
     bool includePastLogs = false,
   }) async {
-    final List<String> args = <String>[
-      'shell',
-      'hilog',
-    ];
+    final args = <String>['shell', 'hilog'];
 
     // If past logs are included then filter for 'flutter' logs only.
     if (includePastLogs) {
       args.addAll(<String>['-e', 'flutter']);
     } else {
-       // execute show local time log
+      // execute show local time log
       args.addAll(<String>['-v', 'time']);
     }
-    final Process process =
-        await processManager.start(device.hdcCommandForDevice(args));
+    final Process process = await processManager.start(device.hdcCommandForDevice(args));
     return HdcLogReader._(process, device.name);
   }
 
@@ -696,8 +648,7 @@ class HdcLogReader extends DeviceLogReader {
   @override
   final String name;
 
-  late final StreamController<String> _linesController =
-      StreamController<String>.broadcast(
+  late final StreamController<String> _linesController = StreamController<String>.broadcast(
     onListen: _start,
     onCancel: _stop,
   );
@@ -706,7 +657,7 @@ class HdcLogReader extends DeviceLogReader {
   Stream<String> get logLines => _linesController.stream;
 
   void _start() {
-    const Utf8Decoder decoder = Utf8Decoder(reportErrors: false);
+    const decoder = Utf8Decoder(reportErrors: false);
     _hdcProcess.stdout
         .transform<String>(decoder)
         .transform<String>(const LineSplitter())
@@ -715,11 +666,13 @@ class HdcLogReader extends DeviceLogReader {
         .transform<String>(decoder)
         .transform<String>(const LineSplitter())
         .listen(_onLine);
-    unawaited(_hdcProcess.exitCode.whenComplete(() {
-      if (_linesController.hasListener) {
-        _linesController.close();
-      }
-    }));
+    unawaited(
+      _hdcProcess.exitCode.whenComplete(() {
+        if (_linesController.hasListener) {
+          _linesController.close();
+        }
+      }),
+    );
   }
 
   // 10-27 19:57:53.779  1195  2885 I Thread:528202332952  [INFO:ohos_main.cpp(140)] flutter The Dart VM service is listening on http://0.0.0.0:34063/nBIFd7ZPwk0=/
@@ -733,16 +686,12 @@ class HdcLogReader extends DeviceLogReader {
   ];
 
   // 'F/libc(pid): Fatal signal 11'
-  static final RegExp _fatalLog =
-      RegExp(r'^F\/libc\s*\(\s*\d+\):\sFatal signal (\d+)');
 
   // 'I/DEBUG(pid): ...'
-  static final RegExp _tombstoneLine =
-      RegExp(r'^[IF]\/DEBUG\s*\(\s*\d+\):\s(.+)$');
+  static final RegExp _tombstoneLine = RegExp(r'^[IF]\/DEBUG\s*\(\s*\d+\):\s(.+)$');
 
   // 'I/DEBUG(pid): Tombstone written to: '
-  static final RegExp _tombstoneTerminator =
-      RegExp(r'^Tombstone written to:\s');
+  static final RegExp _tombstoneTerminator = RegExp(r'^Tombstone written to:\s');
 
   // we default to true in case none of the log lines match
   bool _acceptedLastLine = true;
@@ -763,7 +712,7 @@ class HdcLogReader extends DeviceLogReader {
     }
     final Match? logMatch = _logFormat.firstMatch(line);
     if (logMatch != null) {
-      bool acceptLine = false;
+      var acceptLine = false;
 
       if (_fatalCrash) {
         // While a fatal crash is going on, only accept lines from the crash
@@ -791,8 +740,7 @@ class HdcLogReader extends DeviceLogReader {
         return;
       }
       _acceptedLastLine = false;
-    } else if (line == '--------- beginning of system' ||
-        line == '--------- beginning of main') {
+    } else if (line == '--------- beginning of system' || line == '--------- beginning of main') {
       _acceptedLastLine = false;
     } else {
       if (_acceptedLastLine) {

@@ -6839,10 +6839,9 @@ class _TextEditingHistoryState extends State<_TextEditingHistory> {
     if (nextValue.text == widget.controller.text) {
       return;
     }
-    widget.onTriggered(widget.controller.value.copyWith(
-      text: nextValue.text,
-      selection: nextValue.selection,
-    ));
+    widget.onTriggered(
+      widget.controller.value.copyWith(text: nextValue.text, selection: nextValue.selection),
+    );
   }
 
   void _push() {
@@ -6860,7 +6859,6 @@ class _TextEditingHistoryState extends State<_TextEditingHistory> {
         if (!widget.controller.value.composing.isCollapsed) {
           return;
         }
-        break;
       case TargetPlatform.android:
       case TargetPlatform.ohos:
         // Gboard on Android puts non-CJK words in composing regions. Coalesce
@@ -6903,9 +6901,15 @@ class _TextEditingHistoryState extends State<_TextEditingHistory> {
   @override
   Widget build(BuildContext context) {
     return Actions(
-      actions: <Type, Action<Intent>> {
-        UndoTextIntent: Action<UndoTextIntent>.overridable(context: context, defaultAction: CallbackAction<UndoTextIntent>(onInvoke: _undo)),
-        RedoTextIntent: Action<RedoTextIntent>.overridable(context: context, defaultAction: CallbackAction<RedoTextIntent>(onInvoke: _redo)),
+      actions: <Type, Action<Intent>>{
+        UndoTextIntent: Action<UndoTextIntent>.overridable(
+          context: context,
+          defaultAction: CallbackAction<UndoTextIntent>(onInvoke: _undo),
+        ),
+        RedoTextIntent: Action<RedoTextIntent>.overridable(
+          context: context,
+          defaultAction: CallbackAction<RedoTextIntent>(onInvoke: _redo),
+        ),
       },
       child: widget.child,
     );
@@ -6944,7 +6948,7 @@ class _UndoStack<T> {
 
     // If anything has been undone in this stack, remove those irrelevant states
     // before adding the new one.
-    if (_index != null && _index != _list.length - 1) {
+    if (_index != _list.length - 1) {
       _list.removeRange(_index + 1, _list.length);
     }
     _list.add(value);
@@ -7020,7 +7024,7 @@ _Throttled<T> _throttle<T>({
   bool leadingEdge = false,
 }) {
   Timer? timer;
-  bool calledDuringTimer = false;
+  var calledDuringTimer = false;
   late T arg;
 
   return (T currentArg) {
@@ -7045,11 +7049,9 @@ _Throttled<T> _throttle<T>({
 
 /// The start and end glyph heights of some range of text.
 @immutable
+// ignore: unused_element
 class _GlyphHeights {
-  const _GlyphHeights({
-    required this.start,
-    required this.end,
-  });
+  const _GlyphHeights({required this.start, required this.end});
 
   /// The glyph height of the first line.
   final double start;

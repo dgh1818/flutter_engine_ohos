@@ -78,8 +78,14 @@ class DevelopmentArtifact {
   static const iOS = DevelopmentArtifact._('ios', feature: flutterIOSFeature);
 
   /// Artifacts required for OpenHarmony development.
-  static const DevelopmentArtifact ohosGenSnapshot = DevelopmentArtifact._('ohos_gen_snapshot', feature: flutterOhosFeature);
-  static const DevelopmentArtifact ohosInternalBuild = DevelopmentArtifact._('ohos_internal_build', feature: flutterOhosFeature);
+  static const DevelopmentArtifact ohosGenSnapshot = DevelopmentArtifact._(
+    'ohos_gen_snapshot',
+    feature: flutterOhosFeature,
+  );
+  static const DevelopmentArtifact ohosInternalBuild = DevelopmentArtifact._(
+    'ohos_internal_build',
+    feature: flutterOhosFeature,
+  );
 
   /// Artifacts required for web development.
   static const web = DevelopmentArtifact._('web', feature: flutterWebFeature);
@@ -1065,11 +1071,11 @@ abstract class EngineCachedArtifact extends CachedArtifact {
     FileSystem fileSystem,
     OperatingSystemUtils operatingSystemUtils,
   ) async {
-    final String url = '$storageBaseUrl/flutter_infra_release/flutter/$version/';
+    final url = '$storageBaseUrl/flutter_infra_release/flutter/$version/';
     final String ohosEngineVersion = cache.getVersionFor('engine.ohos')!;
     // New platform Ohos is supported, so flutter needs to download
     // sky_engine.zip, flutter_patched_sdk.zip and flutter_patched_sdk_product.zip from ohos URL
-    final String ohosUrl = '$ohosStorageBaseUrl/flutter_infra_release/flutter/$ohosEngineVersion/';
+    final ohosUrl = '$ohosStorageBaseUrl/flutter_infra_release/flutter/$ohosEngineVersion/';
     final Directory pkgDir = cache.getCacheDir('pkg');
     for (final String pkgName in getPackageDirs()) {
       if (pkgName == 'sky_engine') {

@@ -647,7 +647,10 @@ class DrawerControllerState extends State<DrawerController> with SingleTickerPro
 
   Widget _buildDrawer(BuildContext context) {
     final bool isDesktop = switch (Theme.of(context).platform) {
-      TargetPlatform.android || TargetPlatform.iOS || TargetPlatform.fuchsia || TargetPlatform.ohos => false,
+      TargetPlatform.android ||
+      TargetPlatform.iOS ||
+      TargetPlatform.fuchsia ||
+      TargetPlatform.ohos => false,
       TargetPlatform.macOS || TargetPlatform.linux || TargetPlatform.windows => true,
     };
 

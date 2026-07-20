@@ -98,7 +98,7 @@ class _DraggableScrollableSheetExampleState
       kIsWeb ||
       switch (defaultTargetPlatform) {
         .macOS || .linux || .windows => true,
-        .android || .iOS || .fuchsia => false,
+        .android || .iOS || .fuchsia || .ohos => false,
       };
 }
 

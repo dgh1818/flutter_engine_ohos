@@ -173,7 +173,7 @@ class OhosFlexOverflowStrategy implements FlexOverflowStrategy {
   /// Calculates the safe scale factor for overflow handling
   double _calculateScale(ScreenInfo screenInfo, double actualSize, double allocatedSize) {
     final double scale = actualSize / allocatedSize;
-    return scale.clamp(_kMinScaleFactor, 1.0);
+    return clampDouble(scale, _kMinScaleFactor, 1.0);
   }
 
   /// Determines if overflow should be reported

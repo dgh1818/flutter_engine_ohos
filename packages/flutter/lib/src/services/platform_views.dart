@@ -153,6 +153,7 @@ class PlatformViewsService {
     return controller;
   }
 
+  /// Creates a controller that embeds an OHOS platform view via the hybrid API.
   static OhosViewController initOhosView({
     required int id,
     required String viewType,
@@ -161,12 +162,9 @@ class PlatformViewsService {
     MessageCodec<dynamic>? creationParamsCodec,
     VoidCallback? onFocus,
   }) {
-    assert(id != null);
-    assert(viewType != null);
-    assert(layoutDirection != null);
     assert(creationParams == null || creationParamsCodec != null);
 
-    final TextureOhosViewController controller = TextureOhosViewController._(
+    final controller = TextureOhosViewController._(
       viewId: id,
       viewType: viewType,
       layoutDirection: layoutDirection,
@@ -207,6 +205,7 @@ class PlatformViewsService {
     return controller;
   }
 
+  /// Creates a controller that embeds an OHOS platform view using a surface composition.
   static SurfaceOhosViewController initSurfaceOhosView({
     required int id,
     required String viewType,
@@ -215,12 +214,9 @@ class PlatformViewsService {
     MessageCodec<dynamic>? creationParamsCodec,
     VoidCallback? onFocus,
   }) {
-    assert(id != null);
-    assert(viewType != null);
-    assert(layoutDirection != null);
     assert(creationParams == null || creationParamsCodec != null);
 
-    final SurfaceOhosViewController controller = SurfaceOhosViewController._(
+    final controller = SurfaceOhosViewController._(
       viewId: id,
       viewType: viewType,
       layoutDirection: layoutDirection,
@@ -288,6 +284,7 @@ class PlatformViewsService {
     return controller;
   }
 
+  /// Creates a controller that embeds an OHOS platform view using an expensive composition path.
   static ExpensiveOhosViewController initExpensiveOhosView({
     required int id,
     required String viewType,
@@ -296,7 +293,7 @@ class PlatformViewsService {
     MessageCodec<dynamic>? creationParamsCodec,
     VoidCallback? onFocus,
   }) {
-    final ExpensiveOhosViewController controller = ExpensiveOhosViewController._(
+    final controller = ExpensiveOhosViewController._(
       viewId: id,
       viewType: viewType,
       layoutDirection: layoutDirection,
@@ -424,16 +421,14 @@ class AndroidPointerProperties {
   }
 }
 
+/// OHOS pointer properties (id, tool type, buttons) for a motion event.
 class OhosPointerProperties {
   /// Creates an [OhosPointerProperties] object.
   ///
   /// All parameters must not be null.
-  const OhosPointerProperties({
-    required this.id,
-    required this.toolType,
-  }) : assert(id != null),
-        assert(toolType != null);
+  const OhosPointerProperties({required this.id, required this.toolType});
 
+  /// Unique pointer id.
   final int id;
 
   /// The type of tool used to make contact such as a finger or stylus, if known.
@@ -536,6 +531,7 @@ class AndroidPointerCoords {
   }
 }
 
+/// OHOS pointer coordinates (position, size, pressure) for a motion event.
 class OhosPointerCoords {
   /// Creates an OhosPointerCoords.
   ///
@@ -550,15 +546,7 @@ class OhosPointerCoords {
     required this.touchMinor,
     required this.x,
     required this.y,
-  }) : assert(orientation != null),
-        assert(pressure != null),
-        assert(size != null),
-        assert(toolMajor != null),
-        assert(toolMinor != null),
-        assert(touchMajor != null),
-        assert(touchMinor != null),
-        assert(x != null),
-        assert(y != null);
+  });
 
   /// The orientation of the touch area and tool area in radians clockwise from vertical.
   final double orientation;
@@ -569,12 +557,16 @@ class OhosPointerCoords {
   /// A normalized value that describes the approximate size of the pointer touch area in relation to the maximum detectable size of the device.
   final double size;
 
+  /// Major axis of the tool ellipse.
   final double toolMajor;
 
+  /// Minor axis of the tool ellipse.
   final double toolMinor;
 
+  /// Major axis of the touch ellipse.
   final double touchMajor;
 
+  /// Minor axis of the touch ellipse.
   final double touchMinor;
 
   /// The X component of the pointer movement.
@@ -728,6 +720,8 @@ class AndroidMotionEvent {
 }
 
 enum _AndroidViewState { waitingForSize, creating, created, disposed }
+
+/// An OHOS motion event describing a batch of pointer updates.
 class OhosMotionEvent {
   /// Creates an OhosMotionEvent.
   ///
@@ -748,22 +742,8 @@ class OhosMotionEvent {
     required this.source,
     required this.flags,
     required this.motionEventId,
-  }) : assert(downTime != null),
-        assert(eventTime != null),
-        assert(action != null),
-        assert(pointerCount != null),
-        assert(pointerProperties != null),
-        assert(pointerCoords != null),
-        assert(metaState != null),
-        assert(buttonState != null),
-        assert(xPrecision != null),
-        assert(yPrecision != null),
-        assert(deviceId != null),
-        assert(edgeFlags != null),
-        assert(source != null),
-        assert(flags != null),
-        assert(pointerProperties.length == pointerCount),
-        assert(pointerCoords.length == pointerCount);
+  }) : assert(pointerProperties.length == pointerCount),
+       assert(pointerCoords.length == pointerCount);
 
   /// The time (in ms) when the user originally pressed down to start a stream of position events,
   /// relative to an arbitrary timeline.
@@ -797,6 +777,7 @@ class OhosMotionEvent {
   /// The precision of the Y coordinates being reported, in physical pixels.
   final double yPrecision;
 
+  /// See Android's [MotionEvent#getDeviceId](https://developer.android.com/reference/android/view/MotionEvent.html#getDeviceId()).
   final int deviceId;
 
   /// A bit field indicating which edges, if any, were touched by this MotionEvent.
@@ -805,8 +786,10 @@ class OhosMotionEvent {
   /// The source of this event (e.g a touchpad or stylus).
   final int source;
 
+  /// See Android's [MotionEvent#getFlags](https://developer.android.com/reference/android/view/MotionEvent.html#getFlags()).
   final int flags;
 
+  /// Used to identify this [MotionEvent](https://developer.android.com/reference/android/view/MotionEvent.html) uniquely in the Flutter Engine.
   final int motionEventId;
 
   List<dynamic> _asList(int viewId) {
@@ -836,12 +819,7 @@ class OhosMotionEvent {
   }
 }
 
-enum _OhosViewState {
-  waitingForSize,
-  creating,
-  created,
-  disposed,
-}
+enum _OhosViewState { waitingForSize, creating, created, disposed }
 
 // Helper for converting PointerEvents into AndroidMotionEvents.
 class _AndroidMotionEventConverter {
@@ -1809,16 +1787,14 @@ class _Hybrid2AndroidViewControllerInternals extends _AndroidViewControllerInter
 class _OhosMotionEventConverter {
   _OhosMotionEventConverter();
 
-  final Map<int, OhosPointerCoords> pointerPositions =
-  <int, OhosPointerCoords>{};
-  final Map<int, OhosPointerProperties> pointerProperties =
-  <int, OhosPointerProperties>{};
+  final Map<int, OhosPointerCoords> pointerPositions = <int, OhosPointerCoords>{};
+  final Map<int, OhosPointerProperties> pointerProperties = <int, OhosPointerProperties>{};
   final Set<int> usedOhosPointerIds = <int>{};
 
+  // ignore: unnecessary_getters_setters
   PointTransformer get pointTransformer => _pointTransformer;
   late PointTransformer _pointTransformer;
   set pointTransformer(PointTransformer transformer) {
-    assert(transformer != null);
     _pointTransformer = transformer;
   }
 
@@ -1828,7 +1804,7 @@ class _OhosMotionEventConverter {
     if (pointerProperties.isEmpty) {
       downTimeMillis = event.timeStamp.inMilliseconds;
     }
-    int ohosPointerId = 0;
+    var ohosPointerId = 0;
     while (usedOhosPointerIds.contains(ohosPointerId)) {
       ohosPointerId++;
     }
@@ -1878,7 +1854,7 @@ class _OhosMotionEventConverter {
 
     // This value must match the value in engine's FlutterView.java.
     // This flag indicates whether the original Ohos pointer events were batched together.
-    const int kPointerDataFlagBatched = 1;
+    const kPointerDataFlagBatched = 1;
 
     // Ohos MotionEvent objects can batch information on multiple pointers.
     // Flutter breaks these such batched events into multiple PointerEvent objects.
@@ -1915,9 +1891,7 @@ class _OhosMotionEventConverter {
       pointerProperties: pointers
           .map<OhosPointerProperties>((int i) => pointerProperties[i]!)
           .toList(),
-      pointerCoords: pointers
-          .map<OhosPointerCoords>((int i) => pointerPositions[i]!)
-          .toList(),
+      pointerCoords: pointers.map<OhosPointerCoords>((int i) => pointerPositions[i]!).toList(),
       metaState: 0,
       buttonState: 0,
       xPrecision: 1.0,
@@ -1936,19 +1910,14 @@ class _OhosMotionEventConverter {
       case PointerDeviceKind.touch:
       case PointerDeviceKind.trackpad:
         toolType = OhosPointerProperties.kToolTypeFinger;
-        break;
       case PointerDeviceKind.mouse:
         toolType = OhosPointerProperties.kToolTypeMouse;
-        break;
       case PointerDeviceKind.stylus:
         toolType = OhosPointerProperties.kToolTypeStylus;
-        break;
       case PointerDeviceKind.invertedStylus:
         toolType = OhosPointerProperties.kToolTypeEraser;
-        break;
       case PointerDeviceKind.unknown:
         toolType = OhosPointerProperties.kToolTypeUnknown;
-        break;
     }
     return OhosPointerProperties(id: pointerId, toolType: toolType);
   }
@@ -1957,6 +1926,7 @@ class _OhosMotionEventConverter {
       event is! PointerDownEvent && event is! PointerUpEvent;
 }
 
+/// Base controller for an embedded OHOS platform view.
 abstract class OhosViewController extends PlatformViewController {
   OhosViewController._({
     required this.viewId,
@@ -1964,13 +1934,12 @@ abstract class OhosViewController extends PlatformViewController {
     required TextDirection layoutDirection,
     dynamic creationParams,
     MessageCodec<dynamic>? creationParamsCodec,
-  })  : assert(viewId != null),
-        assert(viewType != null),
-        assert(layoutDirection != null),
-        assert(creationParams == null || creationParamsCodec != null),
-        _viewType = viewType,
-        _layoutDirection = layoutDirection,
-        _creationParams = creationParams == null ? null : _CreationParams(creationParams, creationParamsCodec!);
+  }) : assert(creationParams == null || creationParamsCodec != null),
+       _viewType = viewType,
+       _layoutDirection = layoutDirection,
+       _creationParams = creationParams == null
+           ? null
+           : _CreationParams(creationParams, creationParamsCodec!);
 
   /// Action code for when a primary pointer touched the screen.
   ///
@@ -1996,8 +1965,10 @@ abstract class OhosViewController extends PlatformViewController {
   ///
   static const int kActionPointerUp = 6;
 
+  /// Layout direction constant: left-to-right.
   static const int kOhosLayoutDirectionLtr = 0;
 
+  /// Layout direction constant: right-to-left.
   static const int kOhosLayoutDirectionRtl = 1;
 
   /// The unique identifier of the Ohos view controlled by this controller.
@@ -2007,8 +1978,7 @@ abstract class OhosViewController extends PlatformViewController {
   final String _viewType;
 
   // Helps convert PointerEvents to OhosMotionEvents.
-  final _OhosMotionEventConverter _motionEventConverter =
-  _OhosMotionEventConverter();
+  final _OhosMotionEventConverter _motionEventConverter = _OhosMotionEventConverter();
 
   TextDirection _layoutDirection;
 
@@ -2017,10 +1987,9 @@ abstract class OhosViewController extends PlatformViewController {
   final _CreationParams? _creationParams;
 
   final List<PlatformViewCreatedCallback> _platformViewCreatedCallbacks =
-  <PlatformViewCreatedCallback>[];
+      <PlatformViewCreatedCallback>[];
 
   static int _getOhosDirection(TextDirection direction) {
-    assert(direction != null);
     switch (direction) {
       case TextDirection.ltr:
         return kOhosLayoutDirectionLtr;
@@ -2127,10 +2096,7 @@ abstract class OhosViewController extends PlatformViewController {
   /// See [OhosViewController.dispatchPointerEvent] for sending a
   /// [PointerEvent].
   Future<void> sendMotionEvent(OhosMotionEvent event) async {
-    await SystemChannels.platform_views.invokeMethod<dynamic>(
-      'touch',
-      event._asList(viewId),
-    );
+    await SystemChannels.platform_views.invokeMethod<dynamic>('touch', event._asList(viewId));
   }
 
   /// Converts a given point from the global coordinate system in logical pixels
@@ -2140,7 +2106,6 @@ abstract class OhosViewController extends PlatformViewController {
   /// It is typically provided by using [RenderBox.globalToLocal].
   PointTransformer get pointTransformer => _motionEventConverter._pointTransformer;
   set pointTransformer(PointTransformer transformer) {
-    assert(transformer != null);
     _motionEventConverter._pointTransformer = transformer;
   }
 
@@ -2150,14 +2115,12 @@ abstract class OhosViewController extends PlatformViewController {
   /// Adds a callback that will get invoke after the platform view has been
   /// created.
   void addOnPlatformViewCreatedListener(PlatformViewCreatedCallback listener) {
-    assert(listener != null);
     assert(_state != _OhosViewState.disposed);
     _platformViewCreatedCallbacks.add(listener);
   }
 
   /// Removes a callback added with [addOnPlatformViewCreatedListener].
   void removeOnPlatformViewCreatedListener(PlatformViewCreatedCallback listener) {
-    assert(listener != null);
     assert(_state != _OhosViewState.disposed);
     _platformViewCreatedCallbacks.remove(listener);
   }
@@ -2170,15 +2133,14 @@ abstract class OhosViewController extends PlatformViewController {
   /// Sets the layout direction for the Ohos view.
   Future<void> setLayoutDirection(TextDirection layoutDirection) async {
     assert(
-    _state != _OhosViewState.disposed,
-    'trying to set a layout direction for a disposed UIView. View id: $viewId',
+      _state != _OhosViewState.disposed,
+      'trying to set a layout direction for a disposed UIView. View id: $viewId',
     );
 
     if (layoutDirection == _layoutDirection) {
       return;
     }
 
-    assert(layoutDirection != null);
     _layoutDirection = layoutDirection;
 
     // If the view was not yet created we just update _layoutDirection and return, as the new
@@ -2187,8 +2149,7 @@ abstract class OhosViewController extends PlatformViewController {
       return;
     }
 
-    await SystemChannels.platform_views
-        .invokeMethod<void>('setDirection', <String, dynamic>{
+    await SystemChannels.platform_views.invokeMethod<void>('setDirection', <String, dynamic>{
       'id': viewId,
       'direction': _getOhosDirection(layoutDirection),
     });
@@ -2218,8 +2179,7 @@ abstract class OhosViewController extends PlatformViewController {
 
     _motionEventConverter.updatePointerPositions(event);
 
-    final OhosMotionEvent? ohosEvent =
-    _motionEventConverter.toOhosMotionEvent(event);
+    final OhosMotionEvent? ohosEvent = _motionEventConverter.toOhosMotionEvent(event);
 
     if (event is PointerUpEvent) {
       _motionEventConverter.handlePointerUpEvent(event);
@@ -2241,6 +2201,7 @@ abstract class OhosViewController extends PlatformViewController {
     return SystemChannels.platform_views.invokeMethod<void>('clearFocus', viewId);
   }
 
+  /// Dispatches the current pointer state as a hover event to the platform.
   Future<void> sendHoverEvent() {
     return SystemChannels.platform_views.invokeMethod<void>('hover', viewId);
   }
@@ -2261,6 +2222,7 @@ abstract class OhosViewController extends PlatformViewController {
   }
 }
 
+/// Controller for an OHOS platform view composed via a surface.
 class SurfaceOhosViewController extends OhosViewController {
   SurfaceOhosViewController._({
     required super.viewId,
@@ -2268,7 +2230,7 @@ class SurfaceOhosViewController extends OhosViewController {
     required super.layoutDirection,
     super.creationParams,
     super.creationParamsCodec,
-  })  : super._();
+  }) : super._();
 
   // By default, assume the implementation will be texture-based.
   _OhosViewControllerInternals _internals = _TextureOhosViewControllerInternals();
@@ -2278,7 +2240,10 @@ class SurfaceOhosViewController extends OhosViewController {
 
   @override
   Future<bool> _sendCreateMessage({required Size size, Offset? position}) async {
-    assert(!size.isEmpty, 'trying to create $TextureAndroidViewController without setting a valid size.');
+    assert(
+      !size.isEmpty,
+      'trying to create $TextureAndroidViewController without setting a valid size.',
+    );
 
     final dynamic response = await _OhosViewControllerInternals.sendCreateMessage(
       viewId: viewId,
@@ -2326,6 +2291,7 @@ class SurfaceOhosViewController extends OhosViewController {
   }
 }
 
+/// Controller for an OHOS platform view composed via the expensive path.
 class ExpensiveOhosViewController extends OhosViewController {
   ExpensiveOhosViewController._({
     required super.viewId,
@@ -2333,7 +2299,7 @@ class ExpensiveOhosViewController extends OhosViewController {
     required super.layoutDirection,
     super.creationParams,
     super.creationParamsCodec,
-  })  : super._();
+  }) : super._();
 
   final _OhosViewControllerInternals _internals = _HybridOhosViewControllerInternals();
 
@@ -2378,6 +2344,7 @@ class ExpensiveOhosViewController extends OhosViewController {
   }
 }
 
+/// Controller for an OHOS platform view composed via a texture.
 class TextureOhosViewController extends OhosViewController {
   TextureOhosViewController._({
     required super.viewId,
@@ -2394,17 +2361,22 @@ class TextureOhosViewController extends OhosViewController {
 
   @override
   Future<void> _sendCreateMessage({required Size size, Offset? position}) async {
-    assert(!size.isEmpty, 'trying to create $TextureOhosViewController without setting a valid size.');
+    assert(
+      !size.isEmpty,
+      'trying to create $TextureOhosViewController without setting a valid size.',
+    );
 
-    _internals.textureId = await _OhosViewControllerInternals.sendCreateMessage(
-      viewId: viewId,
-      viewType: _viewType,
-      hybrid: false,
-      layoutDirection: _layoutDirection,
-      creationParams: _creationParams,
-      size: size,
-      position: position,
-    ) as int;
+    _internals.textureId =
+        await _OhosViewControllerInternals.sendCreateMessage(
+              viewId: viewId,
+              viewType: _viewType,
+              hybrid: false,
+              layoutDirection: _layoutDirection,
+              creationParams: _creationParams,
+              size: size,
+              position: position,
+            )
+            as int;
   }
 
   @override
@@ -2448,25 +2420,22 @@ abstract class _OhosViewControllerInternals {
     bool hybridFallback = false,
     _CreationParams? creationParams,
     Size? size,
-    Offset? position}) {
-    final Map<String, dynamic> args = <String, dynamic>{
+    Offset? position,
+  }) {
+    final args = <String, dynamic>{
       'id': viewId,
       'viewType': viewType,
       'direction': OhosViewController._getOhosDirection(layoutDirection),
-      if (hybrid == true) 'hybrid': hybrid,
+      if (hybrid) 'hybrid': hybrid,
       if (size != null) 'width': size.width,
       if (size != null) 'height': size.height,
-      if (hybridFallback == true) 'hybridFallback': hybridFallback,
+      if (hybridFallback) 'hybridFallback': hybridFallback,
       if (position != null) 'left': position.dx,
       if (position != null) 'top': position.dy,
     };
     if (creationParams != null) {
       final ByteData paramsByteData = creationParams.codec.encodeMessage(creationParams.data)!;
-      args['params'] = Uint8List.view(
-        paramsByteData.buffer,
-        0,
-        paramsByteData.lengthInBytes,
-      );
+      args['params'] = Uint8List.view(paramsByteData.buffer, 0, paramsByteData.lengthInBytes);
     }
     return SystemChannels.platform_views.invokeMethod<dynamic>('create', args);
   }
@@ -2475,18 +2444,14 @@ abstract class _OhosViewControllerInternals {
 
   bool get requiresViewComposition;
 
-  Future<Size> setSize(
-      Size size, {
-        required int viewId,
-        required _OhosViewState viewState,
-      });
+  Future<Size> setSize(Size size, {required int viewId, required _OhosViewState viewState});
 
   Future<void> setOffset(
-      Offset offset, {
-        required int viewId,
-        required _OhosViewState viewState,
-        List<double>? transform,
-      });
+    Offset offset, {
+    required int viewId,
+    required _OhosViewState viewState,
+    List<double>? transform,
+  });
 
   Future<void> sendDisposeMessage({required int viewId});
 }
@@ -2507,38 +2472,34 @@ class _TextureOhosViewControllerInternals extends _OhosViewControllerInternals {
   bool get requiresViewComposition => false;
 
   @override
-  Future<Size> setSize(
-      Size size, {
-        required int viewId,
-        required _OhosViewState viewState,
-      }) async {
-    assert(viewState != _OhosViewState.waitingForSize, 'Ohos view must have an initial size. View id: $viewId');
+  Future<Size> setSize(Size size, {required int viewId, required _OhosViewState viewState}) async {
+    assert(
+      viewState != _OhosViewState.waitingForSize,
+      'Ohos view must have an initial size. View id: $viewId',
+    );
     assert(!size.isEmpty);
 
-    final Map<Object?, Object?>? meta = await SystemChannels.platform_views.invokeMapMethod<Object?, Object?>(
-      'resize',
-      <String, dynamic>{
-        'id': viewId,
-        'width': size.width,
-        'height': size.height,
-      },
-    );
+    final Map<Object?, Object?>? meta = await SystemChannels.platform_views
+        .invokeMapMethod<Object?, Object?>('resize', <String, dynamic>{
+          'id': viewId,
+          'width': size.width,
+          'height': size.height,
+        });
     assert(meta != null);
     assert(meta!.containsKey('width'));
     assert(meta!.containsKey('height'));
-    int width = meta!['width']! as int;
-    int height = meta!['height']! as int;
+    final width = meta!['width']! as int;
+    final height = meta['height']! as int;
     return Size(width.toDouble(), height.toDouble());
   }
 
   @override
   Future<void> setOffset(
-      Offset offset, {
-        required int viewId,
-        required _OhosViewState viewState,
-        List<double>? transform,
-      }) async {
-
+    Offset offset, {
+    required int viewId,
+    required _OhosViewState viewState,
+    List<double>? transform,
+  }) async {
     if (transform != null && listEquals<double>(transform, _transform) && offset == _offset) {
       return;
     }
@@ -2557,21 +2518,17 @@ class _TextureOhosViewControllerInternals extends _OhosViewControllerInternals {
     _offset = offset;
     _transform = transform;
 
-    await SystemChannels.platform_views.invokeMethod<void>(
-      'offset',
-      <String, dynamic>{
-        'id': viewId,
-        'top': offset.dy,
-        'left': offset.dx,
-        'transform': transform,
-      },
-    );
+    await SystemChannels.platform_views.invokeMethod<void>('offset', <String, dynamic>{
+      'id': viewId,
+      'top': offset.dy,
+      'left': offset.dx,
+      'transform': transform,
+    });
   }
 
   @override
   Future<void> sendDisposeMessage({required int viewId}) {
-    return SystemChannels
-        .platform_views.invokeMethod<void>('dispose', <String, dynamic>{
+    return SystemChannels.platform_views.invokeMethod<void>('dispose', <String, dynamic>{
       'id': viewId,
       'hybrid': false,
     });
@@ -2588,21 +2545,17 @@ class _HybridOhosViewControllerInternals extends _OhosViewControllerInternals {
   bool get requiresViewComposition => true;
 
   @override
-  Future<Size> setSize(
-      Size size, {
-        required int viewId,
-        required _OhosViewState viewState,
-      }) {
+  Future<Size> setSize(Size size, {required int viewId, required _OhosViewState viewState}) {
     throw UnimplementedError('Not supported for hybrid composition.');
   }
 
   @override
   Future<void> setOffset(
-      Offset offset, {
-        required int viewId,
-        required _OhosViewState viewState,
-        List<double>? transform,
-      }) {
+    Offset offset, {
+    required int viewId,
+    required _OhosViewState viewState,
+    List<double>? transform,
+  }) {
     throw UnimplementedError('Not supported for hybrid composition.');
   }
 

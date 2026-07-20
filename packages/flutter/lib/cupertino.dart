@@ -74,4 +74,5 @@ export 'src/cupertino/text_selection_toolbar_button.dart';
 export 'src/cupertino/text_theme.dart';
 export 'src/cupertino/theme.dart';
 export 'src/cupertino/thumb_painter.dart';
+// ignore: invalid_export_of_internal_element
 export 'widgets.dart';

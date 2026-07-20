@@ -4360,7 +4360,7 @@ class NavigatorState extends State<Navigator> with TickerProviderStateMixin, Res
           _preservedHomePageName = null;
         } else {
           _RouteEntry? homePageEntry;
-          for (int i = oldEntriesBottom; i <= oldEntriesTop; i++) {
+          for (var i = oldEntriesBottom; i <= oldEntriesTop; i++) {
             final _RouteEntry entry = _history[i];
             if (entry.route.settings.name == homePageNameForUpdatePages) {
               homePageEntry = entry;
@@ -4605,7 +4605,10 @@ class NavigatorState extends State<Navigator> with TickerProviderStateMixin, Res
           assert(entry.currentState == _RouteLifecycle.popping);
           canRemoveOrAdd = true;
           if (defaultTargetPlatform == TargetPlatform.ohos) {
-            final String? routeName = _getRouteBefore(index, _RouteEntry.willBePresentPredicate)?.route.settings.name;
+            final String? routeName = _getRouteBefore(
+              index,
+              _RouteEntry.willBePresentPredicate,
+            )?.route.settings.name;
             ServicesBinding.instance.reportNavigatorActivity('pop', 'start', routeName);
           }
         case _RouteLifecycle.popping:

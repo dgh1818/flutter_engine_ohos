@@ -113,13 +113,10 @@ void main() {
   group(
     'Common text editing shortcuts: ',
     () {
-      final allExceptApple = TargetPlatformVariant.all(
-        excluding: <TargetPlatform>{TargetPlatform.macOS, TargetPlatform.iOS},
-      );
-      final TargetPlatformVariant allExceptOhos = TargetPlatformVariant.all(
+      final allExceptOhos = TargetPlatformVariant.all(
         excluding: <TargetPlatform>{TargetPlatform.ohos},
       );
-      final TargetPlatformVariant allExceptAppleAndOhos = TargetPlatformVariant.all(
+      final allExceptAppleAndOhos = TargetPlatformVariant.all(
         excluding: <TargetPlatform>{TargetPlatform.macOS, TargetPlatform.iOS, TargetPlatform.ohos},
       );
 
@@ -1441,44 +1438,40 @@ void main() {
             );
           }, variant: allExceptOhos);
 
-          testWidgets(
-            'run with page down/up',
-            (WidgetTester tester) async {
-              controller.text =
-                  'aa\n' // 3
-                  'a\n' // 3 + 2 = 5
-                  'aa\n' // 5 + 3 = 8
-                  'aaa\n' // 8 + 4 = 12
-                  '${"aaa\n" * 50}'
-                  'aaaa';
+          testWidgets('run with page down/up', (WidgetTester tester) async {
+            controller.text =
+                'aa\n' // 3
+                'a\n' // 3 + 2 = 5
+                'aa\n' // 5 + 3 = 8
+                'aaa\n' // 8 + 4 = 12
+                '${"aaa\n" * 50}'
+                'aaaa';
 
-              controller.selection = const TextSelection.collapsed(offset: 2);
-              await tester.pumpWidget(buildEditableText());
+            controller.selection = const TextSelection.collapsed(offset: 2);
+            await tester.pumpWidget(buildEditableText());
 
-              await sendKeyCombination(tester, const SingleActivator(LogicalKeyboardKey.arrowDown));
-              await tester.pump();
-              expect(
-                controller.selection,
-                const TextSelection.collapsed(offset: 4, affinity: TextAffinity.upstream),
-              );
+            await sendKeyCombination(tester, const SingleActivator(LogicalKeyboardKey.arrowDown));
+            await tester.pump();
+            expect(
+              controller.selection,
+              const TextSelection.collapsed(offset: 4, affinity: TextAffinity.upstream),
+            );
 
-              await sendKeyCombination(tester, const SingleActivator(LogicalKeyboardKey.pageDown));
-              await tester.pump();
-              expect(controller.selection, const TextSelection.collapsed(offset: 82));
+            await sendKeyCombination(tester, const SingleActivator(LogicalKeyboardKey.pageDown));
+            await tester.pump();
+            expect(controller.selection, const TextSelection.collapsed(offset: 82));
 
-              await sendKeyCombination(tester, const SingleActivator(LogicalKeyboardKey.arrowUp));
-              await tester.pump();
-              expect(controller.selection, const TextSelection.collapsed(offset: 78));
+            await sendKeyCombination(tester, const SingleActivator(LogicalKeyboardKey.arrowUp));
+            await tester.pump();
+            expect(controller.selection, const TextSelection.collapsed(offset: 78));
 
-              await sendKeyCombination(tester, const SingleActivator(LogicalKeyboardKey.pageUp));
-              await tester.pump();
-              expect(
-                controller.selection,
-                const TextSelection.collapsed(offset: 2, affinity: TextAffinity.upstream),
-              );
-            },
-            variant: allExceptAppleAndOhos,
-          ); // intended: on macOS Page Up/Down only scrolls
+            await sendKeyCombination(tester, const SingleActivator(LogicalKeyboardKey.pageUp));
+            await tester.pump();
+            expect(
+              controller.selection,
+              const TextSelection.collapsed(offset: 2, affinity: TextAffinity.upstream),
+            );
+          }, variant: allExceptAppleAndOhos); // intended: on macOS Page Up/Down only scrolls
 
           testWidgets('run can be interrupted by layout changes', (WidgetTester tester) async {
             controller.text =

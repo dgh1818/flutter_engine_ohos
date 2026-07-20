@@ -15,7 +15,6 @@ import 'base/utils.dart';
 import 'build_info.dart';
 import 'cache.dart';
 import 'globals.dart' as globals;
-import 'reporting/reporting.dart';
 
 //////////////////////////////////////////////////////////////////////
 //                                                                  //
@@ -249,8 +248,6 @@ String? _artifactToFileName(Artifact artifact, Platform hostPlatform, [BuildMode
       return 'const_finder.dart.snapshot';
     case Artifact.flutterEngineHar:
       return 'flutter.har';
-    case Artifact.engineDartBinary:
-      return 'dart$exe';
     case Artifact.flutterToolsFileGenerators:
       return '';
   }
@@ -547,7 +544,11 @@ class CachedArtifacts implements Artifacts {
       case TargetPlatform.ohos_arm:
       case TargetPlatform.ohos_arm64:
       case TargetPlatform.ohos_x64:
-        return _getOhosArtifactPath(artifact, platform ?? _currentHostPlatform(_platform, _operatingSystemUtils), mode!);
+        return _getOhosArtifactPath(
+          artifact,
+          platform ?? _currentHostPlatform(_platform, _operatingSystemUtils),
+          mode!,
+        );
       case TargetPlatform.tester:
       case TargetPlatform.web_javascript:
       case null:
@@ -908,8 +909,9 @@ class CachedArtifacts implements Artifacts {
         throw StateError('Artifact $artifact not available for platform $platform.');
       case Artifact.flutterEngineHar:
         return _fileSystem.path.join(
-                      _getEngineArtifactsPath(platform, mode)!,
-                     _artifactToFileName(artifact, _platform, mode));
+          _getEngineArtifactsPath(platform, mode)!,
+          _artifactToFileName(artifact, _platform, mode),
+        );
       case Artifact.flutterToolsFileGenerators:
         return _getFileGeneratorsPath();
     }
@@ -1163,17 +1165,15 @@ class CachedLocalEngineArtifacts implements Artifacts {
   final Artifacts _backupCache;
 
   /// this list hostArtifact will execute by the backup engine ,because local engine arch not match .
-  final List<HostArtifact> hostArtifactList = [
-    HostArtifact.impellerc,
-  ];
+  final List<HostArtifact> hostArtifactList = [HostArtifact.impellerc];
 
-  bool isOhosLocalEngine(){
+  bool isOhosLocalEngine() {
     return _fileSystem.path.basename(localEngineInfo.targetOutPath).contains('ohos');
   }
 
   @override
   FileSystemEntity getHostArtifact(HostArtifact artifact) {
-    if (isOhosLocalEngine() && hostArtifactList.contains(artifact)){
+    if (isOhosLocalEngine() && hostArtifactList.contains(artifact)) {
       return _backupCache.getHostArtifact(artifact);
     }
     switch (artifact) {
@@ -1475,7 +1475,10 @@ class CachedLocalEngineArtifacts implements Artifacts {
 
   String _flutterTesterPath(TargetPlatform platform) {
     if (_platform.isLinux) {
-      return _fileSystem.path.join(localEngineInfo.targetOutPath, _artifactToFileName(Artifact.flutterTester, _platform));
+      return _fileSystem.path.join(
+        localEngineInfo.targetOutPath,
+        _artifactToFileName(Artifact.flutterTester, _platform),
+      );
     } else if (_platform.isMacOS) {
       return _fileSystem.path.join(localEngineInfo.targetOutPath, 'flutter_tester');
     } else if (_platform.isWindows) {

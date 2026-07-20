@@ -4,6 +4,7 @@
 
 import 'dart:async';
 
+import 'package:dtd/dtd.dart';
 import 'package:file/file.dart';
 import 'package:file_testing/file_testing.dart';
 import 'package:flutter_tools/src/base/logger.dart';

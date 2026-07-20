@@ -39,9 +39,6 @@ class OhosPlatformConfig {
     'verify_binaries_codesigned',
     'verify_binaries_pre_codesigned',
     'docs',
-    // OHOS TODO: analyze shard requires ktlint which is not installed in OHOS CI.
-    // Re-enable after installing ktlint or skipping Kotlin lint in analyze.
-    'analyze',
     // OHOS TODO: tool_integration_tests require Android SDK, Chrome, and
     // network access for pub get. Most integration tests involve building
     // Android/iOS/web apps. Re-enable after OHOS CI environment has the

@@ -66,6 +66,7 @@ INIT_PACKAGES=(
     "dev/integration_tests/link_hook"
     "dev/integration_tests/flutter_gallery"
     "dev/integration_tests/hook_user_defines"
+    "dev/integration_tests/widget_preview_scaffold"
 )
 
 log_step "Step 2/3: Apply OHOS pubspec and initialize test packages"

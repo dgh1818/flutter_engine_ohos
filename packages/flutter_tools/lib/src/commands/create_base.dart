@@ -352,7 +352,7 @@ mixin CreateBase on FlutterCommand {
     final linuxIdentifier = androidIdentifier;
 
     // Ohos uses the same scheme as the Android identifier.
-    final String ohosIdentifier = androidIdentifier;
+    final ohosIdentifier = androidIdentifier;
     // locating ohos sdk from environment
     final String? ohosSdkHome = globals.ohosSdk?.sdkPath;
     final String? hosSdkHome = globals.hmosSdk?.sdkPath;
@@ -368,10 +368,10 @@ mixin CreateBase on FlutterCommand {
       'darwinIdentifier': appleIdentifier,
       'linuxIdentifier': linuxIdentifier,
       'windowsIdentifier': windowsIdentifier,
-      'ohosIdentifier':ohosIdentifier,
-      'ohosSdkHome':ohosSdkHome,
-      'hosSdkHome':hosSdkHome,
-      'nodeHome':nodeHome,
+      'ohosIdentifier': ohosIdentifier,
+      'ohosSdkHome': ohosSdkHome,
+      'hosSdkHome': hosSdkHome,
+      'nodeHome': nodeHome,
       'description': projectDescription,
       'dartSdk': '$flutterRoot/bin/cache/dart-sdk',
       'androidMinApiLevel': gradle.minSdkVersion,
@@ -507,7 +507,7 @@ mixin CreateBase on FlutterCommand {
     final bool windowsPlatform = templateContext['windows'] as bool? ?? false;
     final bool webPlatform = templateContext['web'] as bool? ?? false;
     final bool darwinPlatform = templateContext['darwin'] as bool? ?? false;
-    final bool ohosPlatform = templateContext['ohos'] as bool ? ?? false;
+    final bool ohosPlatform = templateContext['ohos'] as bool? ?? false;
 
     final platformsForMigrateConfig = <SupportedPlatform>[SupportedPlatform.root];
     if (androidPlatform) {

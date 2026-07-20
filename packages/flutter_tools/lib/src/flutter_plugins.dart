@@ -976,12 +976,15 @@ Future<void> _writePluginCmakefile(
 
 Future<void> _writeOhosPluginRegistrant(FlutterProject project, List<Plugin> plugins) async {
   /// 检查依赖
-  final List<Plugin> methodChannelPlugins = _filterMethodChannelPlugins(plugins, OhosPlugin.kConfigKey);
-  final List<Map<String, Object?>> ohosMethodChannelPlugins = _extractPlatformMaps(methodChannelPlugins, OhosPlugin.kConfigKey);
-  final Map<String, Object> context = <String, Object>{
-    'os': 'ohos',
-    'methodChannelPlugins': ohosMethodChannelPlugins,
-  };
+  final List<Plugin> methodChannelPlugins = _filterMethodChannelPlugins(
+    plugins,
+    OhosPlugin.kConfigKey,
+  );
+  final List<Map<String, Object?>> ohosMethodChannelPlugins = _extractPlatformMaps(
+    methodChannelPlugins,
+    OhosPlugin.kConfigKey,
+  );
+  final context = <String, Object>{'os': 'ohos', 'methodChannelPlugins': ohosMethodChannelPlugins};
   await _renderTemplateToFile(
     _arktsPluginRegistryTemplate,
     context,

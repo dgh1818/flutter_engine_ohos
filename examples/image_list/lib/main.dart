@@ -19,7 +19,7 @@ import 'package:flutter/services.dart';
 ///
 /// $ openssl req -new -out image_list.csr
 ///   Generating a 2048 bit RSA private key
-///   Enter PEM pass phrase: <random string>
+///   Enter PEM pass phrase: random string
 ///   ...
 ///   Common Name (eg, fully qualified host name) []:localhost
 ///
@@ -82,7 +82,8 @@ class MyHttpOverrides extends HttpOverrides {
   @override
   HttpClient createHttpClient(SecurityContext? context) {
     return super.createHttpClient(
-      (context ?? SecurityContext())..setTrustedCertificatesBytes(certificate.codeUnits),
+      (context ?? SecurityContext())
+        ..setTrustedCertificatesBytes(certificate.codeUnits),
     );
   }
 }
@@ -94,7 +95,11 @@ Future<void> main() async {
     ..useCertificateChainBytes(certificate.codeUnits)
     ..usePrivateKeyBytes(privateKey.codeUnits);
 
-  final HttpServer httpServer = await HttpServer.bindSecure('localhost', 0, serverContext);
+  final HttpServer httpServer = await HttpServer.bindSecure(
+    'localhost',
+    0,
+    serverContext,
+  );
   final int port = httpServer.port;
   debugPrint('Listening on port $port.');
 
@@ -102,10 +107,10 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final ByteData byteData = await rootBundle.load('images/coast.jpg');
   httpServer.listen((HttpRequest request) async {
-    const chunk_size = 2048;
+    const chunkSize = 2048;
     int offset = byteData.offsetInBytes;
     while (offset < byteData.lengthInBytes) {
-      final int length = min(byteData.lengthInBytes - offset, chunk_size);
+      final int length = min(byteData.lengthInBytes - offset, chunkSize);
       final Uint8List bytes = byteData.buffer.asUint8List(offset, length);
       offset += length;
       request.response.add(bytes);
@@ -157,12 +162,18 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   Widget createImage(final int index, final Completer<bool> completer) {
     return Image.network(
       'https://localhost:${widget.port}/${_counter * images + index}',
-      frameBuilder: (BuildContext context, Widget child, int? frame, bool wasSynchronouslyLoaded) {
-        if (frame == 0 && !completer.isCompleted) {
-          completer.complete(true);
-        }
-        return child;
-      },
+      frameBuilder:
+          (
+            BuildContext context,
+            Widget child,
+            int? frame,
+            bool wasSynchronouslyLoaded,
+          ) {
+            if (frame == 0 && !completer.isCompleted) {
+              completer.complete(true);
+            }
+            return child;
+          },
     );
   }
 
@@ -170,9 +181,14 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final controllers = <AnimationController>[
       for (int i = 0; i < images; i++)
-        AnimationController(duration: const Duration(milliseconds: 3600), vsync: this)..repeat(),
+        AnimationController(
+          duration: const Duration(milliseconds: 3600),
+          vsync: this,
+        )..repeat(),
     ];
-    final completers = <Completer<bool>>[for (int i = 0; i < images; i++) Completer<bool>()];
+    final completers = <Completer<bool>>[
+      for (int i = 0; i < images; i++) Completer<bool>(),
+    ];
     final List<Future<bool>> futures = completers
         .map((Completer<bool> completer) => completer.future)
         .toList();
@@ -190,7 +206,10 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
           children: <Widget>[
             Row(children: createImageList(images, completers, controllers)),
             const Text('You have pushed the button this many times:'),
-            Text('$_counter', style: Theme.of(context).textTheme.headlineMedium),
+            Text(
+              '$_counter',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
           ],
         ),
       ),

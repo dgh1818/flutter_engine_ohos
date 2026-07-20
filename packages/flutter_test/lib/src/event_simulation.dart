@@ -77,7 +77,6 @@ abstract final class KeyEventSimulator {
     switch (platform) {
       case 'ohos':
         map = kOhosToPhysicalKey;
-        break;
       case 'android':
         map = kAndroidToPhysicalKey;
       case 'fuchsia':
@@ -116,7 +115,6 @@ abstract final class KeyEventSimulator {
       switch (platform) {
         case 'ohos':
           map = kOhosToLogicalKey;
-          break;
         case 'android':
           map = kAndroidToLogicalKey;
         case 'fuchsia':
@@ -205,7 +203,6 @@ abstract final class KeyEventSimulator {
       switch (platform) {
         case 'ohos':
           map = kOhosToPhysicalKey;
-          break;
         case 'android':
           map = kAndroidToPhysicalKey;
         case 'fuchsia':
@@ -275,10 +272,9 @@ abstract final class KeyEventSimulator {
         result['deviceId'] = 1;
         if (resultCharacter.isNotEmpty) {
           result['character'] = resultCharacter;
-        }else {
+        } else {
           result['character'] = '';
         }
-        break;
       case 'android':
         result['keyCode'] = keyCode;
         if (resultCharacter.isNotEmpty) {

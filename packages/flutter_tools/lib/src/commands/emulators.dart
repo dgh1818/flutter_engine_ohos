@@ -17,19 +17,26 @@ const String kOhosSdkEmulatorPath = 'OHOS_EMULATOR_HOME';
 
 class EmulatorsCommand extends FlutterCommand {
   EmulatorsCommand() {
-    argParser.addOption('launch',
-        help: 'The full or partial ID of the emulator to launch.');
-    argParser.addFlag('cold',
-        help: 'Used with the "--launch" flag to cold boot the emulator instance (Android only).',
-        negatable: false);
-    argParser.addFlag('create',
-        help: 'Creates a new Android emulator based on a Pixel device.',
-        negatable: false);
-    argParser.addOption('name',
-        help: 'Used with the "--create" flag. Specifies a name for the emulator being created.');
+    argParser.addOption('launch', help: 'The full or partial ID of the emulator to launch.');
+    argParser.addFlag(
+      'cold',
+      help: 'Used with the "--launch" flag to cold boot the emulator instance (Android only).',
+      negatable: false,
+    );
+    argParser.addFlag(
+      'create',
+      help: 'Creates a new Android emulator based on a Pixel device.',
+      negatable: false,
+    );
+    argParser.addOption(
+      'name',
+      help: 'Used with the "--create" flag. Specifies a name for the emulator being created.',
+    );
     if (globals.platform.isWindows) {
-      argParser.addFlag('launch-ohos-emulator',
-          help: 'Launch  boot the emulator instance (Ohos only).');
+      argParser.addFlag(
+        'launch-ohos-emulator',
+        help: 'Launch  boot the emulator instance (Ohos only).',
+      );
     }
   }
 
@@ -88,19 +95,19 @@ class EmulatorsCommand extends FlutterCommand {
     if (!globals.platform.isWindows) {
       return;
     }
-    String? emulatorDirectory = globals.platform.environment[kOhosSdkEmulatorPath];
+    final String? emulatorDirectory = globals.platform.environment[kOhosSdkEmulatorPath];
 
     if (emulatorDirectory == null) {
-      globals.printStatus("Please set OHOS_EMULATOR_HOME.\n");
+      globals.printStatus('Please set OHOS_EMULATOR_HOME.\n');
       return;
     }
 
-    final Directory emulatorPath = Directory(emulatorDirectory);
+    final emulatorPath = Directory(emulatorDirectory);
     if (!emulatorPath.existsSync()) {
-      globals.printStatus("ohos emulator cannot found.\n");
+      globals.printStatus('ohos emulator cannot found.\n');
       return;
     }
-    final List<String> cmd = <String>[];
+    final cmd = <String>[];
     cmd.add(globals.fs.path.join(emulatorDirectory, 'emulator', 'Emulator.exe'));
     cmd.add('-hvd');
     cmd.add('x86');
@@ -111,10 +118,8 @@ class EmulatorsCommand extends FlutterCommand {
     return;
   }
 
-
-  Future<void> _createEmulator({ String? name }) async {
-    final CreateEmulatorResult createResult =
-        await emulatorManager!.createEmulator(name: name);
+  Future<void> _createEmulator({String? name}) async {
+    final CreateEmulatorResult createResult = await emulatorManager!.createEmulator(name: name);
 
     if (createResult.success) {
       globals.printStatus("Emulator '${createResult.emulatorName}' created successfully.");

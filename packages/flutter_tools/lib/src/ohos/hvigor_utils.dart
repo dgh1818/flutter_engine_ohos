@@ -38,7 +38,7 @@ void updateLocalProperties({
     exitWithNoSdkMessage();
   }
   final File localProperties = project.ohos.localPropertiesFile;
-  bool changed = false;
+  var changed = false;
 
   SettingsFile settings;
   if (localProperties.existsSync()) {
@@ -95,7 +95,7 @@ void updateLocalProperties({
 ///
 /// Writes the path to the Ohos SDK, if known.
 void writeLocalProperties(File properties) {
-  final SettingsFile settings = SettingsFile();
+  final settings = SettingsFile();
   final HmosSdk? hmosSdk = globals.hmosSdk;
   if (hmosSdk != null) {
     settings.values['hwsdk.dir'] = globals.fsUtils.escapePath(hmosSdk.sdkPath);
@@ -108,13 +108,16 @@ void writeLocalProperties(File properties) {
 }
 
 void exitWithNoSdkMessage() {
-  BuildEvent('unsupported-project',
-          type: 'hvigor',
-          eventError: 'hos-sdk-not-found',
-          flutterUsage: globals.flutterUsage)
-      .send();
-  throwToolExit('${globals.logger.terminal.warningMark} No Hmos SDK found. '
-      'Try setting the HOS_SDK_HOME environment variable.');
+  BuildEvent(
+    'unsupported-project',
+    type: 'hvigor',
+    eventError: 'hos-sdk-not-found',
+    flutterUsage: globals.flutterUsage,
+  ).send();
+  throwToolExit(
+    '${globals.logger.terminal.warningMark} No Hmos SDK found. '
+    'Try setting the HOS_SDK_HOME environment variable.',
+  );
 }
 
 String getFlavor(File buildProfileFile, String? flavor) {
@@ -122,8 +125,7 @@ String getFlavor(File buildProfileFile, String? flavor) {
     return FLAVOR_DEFAULT;
   }
   if (buildProfileFile.existsSync()) {
-    final Map<String, dynamic> config = JSON5
-        .parse(buildProfileFile.readAsStringSync()) as Map<String, dynamic>;
+    final config = JSON5.parse(buildProfileFile.readAsStringSync()) as Map<String, dynamic>;
     final List<dynamic> targetList;
     // ignore: avoid_dynamic_calls
     if (config['app'] != null && config['app']['products'] != null) {
@@ -138,14 +140,15 @@ String getFlavor(File buildProfileFile, String? flavor) {
       targetList = [];
     }
     for (final dynamic item in targetList) {
-      final Map<String, dynamic> map = item as Map<String, dynamic>;
+      final map = item as Map<String, dynamic>;
       if (flavor == (map['name'] as String)) {
         return flavor;
       }
     }
   }
   globals.logger.printWarning(
-      'Flavor "$flavor" not exists in file ${buildProfileFile.path}, use "$FLAVOR_DEFAULT" instead.');
+    'Flavor "$flavor" not exists in file ${buildProfileFile.path}, use "$FLAVOR_DEFAULT" instead.',
+  );
   return FLAVOR_DEFAULT;
 }
 
@@ -163,18 +166,16 @@ void updateProjectVersion(FlutterProject project, BuildInfo? buildInfo) {
       globals.logger,
     );
 
-    final Map<String, dynamic> config =
-        JSON5.parse(targetFile.readAsStringSync()) as Map<String, dynamic>;
+    final config = JSON5.parse(targetFile.readAsStringSync()) as Map<String, dynamic>;
     if (config['app'] != null) {
-      final Map<String, dynamic> map = config['app'] as Map<String, dynamic>;
+      final map = config['app'] as Map<String, dynamic>;
       if (buildNumber != null) {
         map['versionCode'] = int.parse(buildNumber);
       }
       if (buildName != null) {
         map['versionName'] = buildName;
       }
-      final String configNew =
-          const JsonEncoder.withIndent('  ').convert(config);
+      final String configNew = const JsonEncoder.withIndent('  ').convert(config);
       targetFile.writeAsStringSync(configNew, flush: true);
     }
   }
@@ -197,30 +198,21 @@ void installHvigorPlugin(OhosProject ohosProject) {
   if (packageJsonFile.existsSync()) {
     packageJsonFile.deleteSync();
   }
-  final Map<String, dynamic> packageJson = <String, dynamic>{
-    'dependencies': <String, String>{
-      'flutter-hvigor-plugin': 'file:$hvigorAppPluginPath'
-    }
+  final packageJson = <String, dynamic>{
+    'dependencies': <String, String>{'flutter-hvigor-plugin': 'file:$hvigorAppPluginPath'},
   };
   packageJsonFile.createSync();
   final String packageJsonContent = const JsonEncoder.withIndent('  ').convert(packageJson);
   packageJsonFile.writeAsStringSync(packageJsonContent);
-  final List<String> command = <String>[
-    'npm',
-    'install',
-  ];
-  globals.processManager.runSync(
-    command,
-    workingDirectory: ohosProject.ohosRoot.path,
-  );
+  final command = <String>['npm', 'install'];
+  globals.processManager.runSync(command, workingDirectory: ohosProject.ohosRoot.path);
 }
 
 bool useHvigorTsBuilder(OhosProject ohosProject) {
   final File file = ohosProject.isModule
-    ? ohosProject.ohosRoot.childFile('include_flutter.ts')
-    : ohosProject.ohosRoot.childFile('hvigorfile.ts');
-  return file.existsSync() &&
-      file.readAsStringSync().contains('flutter-hvigor-plugin');
+      ? ohosProject.ohosRoot.childFile('include_flutter.ts')
+      : ohosProject.ohosRoot.childFile('hvigorfile.ts');
+  return file.existsSync() && file.readAsStringSync().contains('flutter-hvigor-plugin');
 }
 
 bool useHvigorDartBuilder(OhosProject ohosProject) {

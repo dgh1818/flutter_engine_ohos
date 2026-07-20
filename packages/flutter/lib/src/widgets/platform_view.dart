@@ -200,6 +200,7 @@ class AndroidView extends StatefulWidget {
   State<AndroidView> createState() => _AndroidViewState();
 }
 
+/// Embeds an OHOS platform view into the widget tree.
 class OhosView extends StatefulWidget {
   /// Creates a widget that embeds an Ohos view.
   ///
@@ -217,10 +218,7 @@ class OhosView extends StatefulWidget {
     this.creationParams,
     this.creationParamsCodec,
     this.clipBehavior = Clip.hardEdge,
-  }) : assert(viewType != null),
-        assert(hitTestBehavior != null),
-        assert(creationParams == null || creationParamsCodec != null),
-        assert(clipBehavior != null);
+  }) : assert(creationParams == null || creationParamsCodec != null);
 
   /// The unique identifier for Ohos view type to be embedded by this widget.
   ///
@@ -1145,7 +1143,7 @@ class _OhosViewState extends State<OhosView> {
   FocusNode? _focusNode;
 
   static final Set<Factory<OneSequenceGestureRecognizer>> _emptyRecognizersSet =
-  <Factory<OneSequenceGestureRecognizer>>{};
+      <Factory<OneSequenceGestureRecognizer>>{};
 
   @override
   Widget build(BuildContext context) {
@@ -1174,7 +1172,7 @@ class _OhosViewState extends State<OhosView> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final TextDirection newLayoutDirection = _findLayoutDirection();
-    final bool didChangeLayoutDirection = _layoutDirection != newLayoutDirection;
+    final didChangeLayoutDirection = _layoutDirection != newLayoutDirection;
     _layoutDirection = newLayoutDirection;
 
     _initializeOnce();
@@ -1190,7 +1188,7 @@ class _OhosViewState extends State<OhosView> {
     super.didUpdateWidget(oldWidget);
 
     final TextDirection newLayoutDirection = _findLayoutDirection();
-    final bool didChangeLayoutDirection = _layoutDirection != newLayoutDirection;
+    final didChangeLayoutDirection = _layoutDirection != newLayoutDirection;
     _layoutDirection = newLayoutDirection;
 
     if (widget.viewType != oldWidget.viewType) {
@@ -1252,20 +1250,21 @@ class _OhosViewState extends State<OhosView> {
       });
       return;
     }
-    SystemChannels.textInput.invokeMethod<void>(
-      'TextInput.setPlatformViewClient',
-      <String, dynamic>{'platformViewId': _id},
-    ).catchError((dynamic e) {
-      if (e is MissingPluginException) {
-        // We land the framework part of Ohos platform views keyboard
-        // support before the engine part. There will be a commit range where
-        // setPlatformViewClient isn't implemented in the engine. When that
-        // happens we just swallow the error here. Once the engine part is
-        // rolled to the framework I'll remove this.
-        // TODO(amirh): remove this once the engine's clearFocus is rolled.
-        return;
-      }
-    });
+    SystemChannels.textInput
+        .invokeMethod<void>('TextInput.setPlatformViewClient', <String, dynamic>{
+          'platformViewId': _id,
+        })
+        .catchError((dynamic e) {
+          if (e is MissingPluginException) {
+            // We land the framework part of Ohos platform views keyboard
+            // support before the engine part. There will be a commit range where
+            // setPlatformViewClient isn't implemented in the engine. When that
+            // happens we just swallow the error here. Once the engine part is
+            // rolled to the framework I'll remove this.
+            // TODO(amirh): remove this once the engine's clearFocus is rolled.
+            return;
+          }
+        });
   }
 }
 
@@ -1383,10 +1382,7 @@ class _OhosPlatformView extends LeafRenderObjectWidget {
     required this.hitTestBehavior,
     required this.gestureRecognizers,
     this.clipBehavior = Clip.hardEdge,
-  }) : assert(controller != null),
-        assert(hitTestBehavior != null),
-        assert(gestureRecognizers != null),
-        assert(clipBehavior != null);
+  });
 
   final OhosViewController controller;
   final PlatformViewHitTestBehavior hitTestBehavior;
@@ -1394,13 +1390,12 @@ class _OhosPlatformView extends LeafRenderObjectWidget {
   final Clip clipBehavior;
 
   @override
-  RenderObject createRenderObject(BuildContext context) =>
-      RenderOhosView(
-        viewController: controller,
-        hitTestBehavior: hitTestBehavior,
-        gestureRecognizers: gestureRecognizers,
-        clipBehavior: clipBehavior,
-      );
+  RenderObject createRenderObject(BuildContext context) => RenderOhosView(
+    viewController: controller,
+    hitTestBehavior: hitTestBehavior,
+    gestureRecognizers: gestureRecognizers,
+    clipBehavior: clipBehavior,
+  );
 
   @override
   void updateRenderObject(BuildContext context, RenderOhosView renderObject) {
@@ -1808,6 +1803,7 @@ class AndroidViewSurface extends StatefulWidget {
   }
 }
 
+/// A surface for an embedded OHOS platform view.
 class OhosViewSurface extends StatefulWidget {
   /// Construct an `OhosPlatformViewSurface`.
   const OhosViewSurface({
@@ -1815,9 +1811,7 @@ class OhosViewSurface extends StatefulWidget {
     required this.controller,
     required this.hitTestBehavior,
     required this.gestureRecognizers,
-  }) : assert(controller != null),
-        assert(hitTestBehavior != null),
-        assert(gestureRecognizers != null);
+  });
 
   /// The controller for the platform view integrated by this [OhosViewSurface].
   ///
@@ -1946,22 +1940,19 @@ class _TextureBasedOhosViewSurface extends PlatformViewSurface {
     required OhosViewController super.controller,
     required super.hitTestBehavior,
     required super.gestureRecognizers,
-  }) : assert(controller != null),
-        assert(hitTestBehavior != null),
-        assert(gestureRecognizers != null);
+  });
 
   @override
   RenderObject createRenderObject(BuildContext context) {
-    final OhosViewController viewController = controller as OhosViewController;
+    final viewController = controller as OhosViewController;
     // Use GL texture based composition.
     // App should use GL texture unless they require to embed a SurfaceView.
-    final RenderOhosView renderBox = RenderOhosView(
+    final renderBox = RenderOhosView(
       viewController: viewController,
       gestureRecognizers: gestureRecognizers,
       hitTestBehavior: hitTestBehavior,
     );
-    viewController.pointTransformer =
-        (Offset position) => renderBox.globalToLocal(position);
+    viewController.pointTransformer = (Offset position) => renderBox.globalToLocal(position);
     return renderBox;
   }
 }
@@ -1987,17 +1978,13 @@ class _PlatformLayerBasedOhosViewSurface extends PlatformViewSurface {
     required OhosViewController super.controller,
     required super.hitTestBehavior,
     required super.gestureRecognizers,
-  }) : assert(controller != null),
-        assert(hitTestBehavior != null),
-        assert(gestureRecognizers != null);
+  });
 
   @override
   RenderObject createRenderObject(BuildContext context) {
-    final OhosViewController viewController = controller as OhosViewController;
-    final PlatformViewRenderBox renderBox =
-        super.createRenderObject(context) as PlatformViewRenderBox;
-    viewController.pointTransformer =
-        (Offset position) => renderBox.globalToLocal(position);
+    final viewController = controller as OhosViewController;
+    final renderBox = super.createRenderObject(context) as PlatformViewRenderBox;
+    viewController.pointTransformer = (Offset position) => renderBox.globalToLocal(position);
     return renderBox;
   }
 }

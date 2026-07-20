@@ -1,14 +1,16 @@
-/*
-* Copyright 2014 The Flutter Authors. All rights reserved.
-* Use of this source code is governed by a BSD-style license that can be
-* found in the LICENSE file.
-*/
+// Copyright 2014 The Flutter Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// ignore_for_file: avoid_dynamic_calls
 
 import 'dart:collection';
+
 import 'package:json5/json5.dart';
+import 'package:path/path.dart' as path;
+
 import '../base/file_system.dart';
 import '../globals.dart' as globals;
-import 'package:path/path.dart' as path;
 
 // OpenHarmony SDK
 const String kOhosHome = 'OHOS_HOME';
@@ -23,15 +25,15 @@ SplayTreeMap<int, String> sdkVersionMap = SplayTreeMap<int, String>((a, b) => b.
 // find first hdc in sdkPath
 String? _getHdcPath(String sdkPath) {
   final bool isWindows = globals.platform.isWindows;
-  final String hdcName = isWindows ? 'hdc.exe' : 'hdc';
+  final hdcName = isWindows ? 'hdc.exe' : 'hdc';
   for (final int api in sdkVersionMap.keys) {
     final String sdkVersion = sdkVersionMap[api]!;
-    final List<String> findList = <String>[
+    final findList = <String>[
       globals.fs.path.join(sdkPath, sdkVersion, 'openharmony', 'toolchains', hdcName),
       globals.fs.path.join(sdkPath, sdkVersion, 'base', 'toolchains', hdcName),
       globals.fs.path.join(sdkPath, api.toString(), 'toolchains', hdcName),
     ];
-    for (final String path in findList) {
+    for (final path in findList) {
       if (globals.fs.file(path).existsSync()) {
         return path;
       }
@@ -43,9 +45,9 @@ String? _getHdcPath(String sdkPath) {
 // find npm in nodePath
 String? _getNpmPath(String? nodePath) {
   final bool isWindows = globals.platform.isWindows,
-  isMacOS = globals.platform.isMacOS,
-  isLinux = globals.platform.isLinux;
-  final String tempPath, npmName = isWindows? 'npm.cmd' : 'npm';
+      isMacOS = globals.platform.isMacOS,
+      isLinux = globals.platform.isLinux;
+  final String tempPath, npmName = isWindows ? 'npm.cmd' : 'npm';
   if (nodePath != null) {
     tempPath = nodePath;
   } else {
@@ -61,7 +63,8 @@ String? _getNpmPath(String? nodePath) {
   }
 
   if (globals.fs.file(npmPath).existsSync()) {
-    if (isWindows) { //若是Windows平台，则对路径进行格式化
+    if (isWindows) {
+      //若是Windows平台，则对路径进行格式化
       npmPath = path.windows.normalize(npmPath);
     }
     return npmPath;
@@ -115,7 +118,7 @@ class OhosSdk implements HarmonySdk {
   String? get hdcPath => _getHdcPath(_sdkDir.path);
 
   @override
-  String? get npmPath => _getNpmPath(this.getOhosSdkNodePath());
+  String? get npmPath => _getNpmPath(getOhosSdkNodePath());
 
   @override
   List<String> get apiAvailable => getAvailableApi();
@@ -146,12 +149,14 @@ class OhosSdk implements HarmonySdk {
       }
 
       //openharmony/11/toolchains/hdc
-      final List<File> hdcBins = globals.os.whichAll(globals.platform.isWindows ? 'hdc.exe' : 'hdc');
-      for (File hdcBin in hdcBins) {
+      final List<File> hdcBins = globals.os.whichAll(
+        globals.platform.isWindows ? 'hdc.exe' : 'hdc',
+      );
+      for (var hdcBin in hdcBins) {
         // Make sure we're using the hdc from the SDK.
         hdcBin = globals.fs.file(hdcBin.resolveSymbolicLinksSync());
         final String dir = hdcBin.parent.parent.parent.path;
-        Directory directory = globals.fs.directory(dir);
+        final Directory directory = globals.fs.directory(dir);
         if (directory.existsSync()) {
           initSdkVersionMap(dir);
           if (validSdkDirectory(dir)) {
@@ -177,9 +182,9 @@ class OhosSdk implements HarmonySdk {
   static void initSdkVersionMap(String sdkPath) {
     final Directory directory = globals.fs.directory(sdkPath);
     if (directory.existsSync()) {
-      for (FileSystemEntity element in directory.listSync()) {
+      for (final FileSystemEntity element in directory.listSync()) {
         if (element is Directory) {
-          Directory dir = globals.fs.directory(element).childDirectory('toolchains');
+          final Directory dir = globals.fs.directory(element).childDirectory('toolchains');
           if (dir.existsSync() && HarmonySdk.isNumeric(element.basename)) {
             sdkVersionMap.addAll({int.parse(element.basename): element.basename});
           }
@@ -197,11 +202,12 @@ class OhosSdk implements HarmonySdk {
   }
 
   List<String> getAvailableApi() {
-    final List<String> list = <String>[];
-     // for api11 developer preview
+    final list = <String>[];
+    // for api11 developer preview
     for (final int api in sdkVersionMap.keys) {
-      final Directory directory =
-          globals.fs.directory(globals.fs.path.join(sdkPath, sdkVersionMap[api]));
+      final Directory directory = globals.fs.directory(
+        globals.fs.path.join(sdkPath, sdkVersionMap[api]),
+      );
       if (directory.existsSync()) {
         list.add('$api:${sdkVersionMap[api]!}');
       }
@@ -209,8 +215,9 @@ class OhosSdk implements HarmonySdk {
     // if not found, find it in previous version
     if (list.isEmpty) {
       for (final int folder in sdkVersionMap.keys) {
-        final Directory directory =
-            globals.fs.directory(globals.fs.path.join(sdkPath, folder.toString()));
+        final Directory directory = globals.fs.directory(
+          globals.fs.path.join(sdkPath, folder.toString()),
+        );
         if (directory.existsSync()) {
           list.add(folder.toString());
         }
@@ -219,16 +226,15 @@ class OhosSdk implements HarmonySdk {
     return list;
   }
 
-  @override
   String? getOhosSdkNodePath() {
     final bool isWindows = globals.platform.isWindows,
-    isMacOS = globals.platform.isMacOS,
-    isLinux = globals.platform.isLinux;
+        isMacOS = globals.platform.isMacOS,
+        isLinux = globals.platform.isLinux;
 
     final String parentPath = globals.fs.path.dirname(sdkPath);
     String? nodePath;
     if (isWindows || isMacOS) {
-     nodePath = globals.fs.path.join(parentPath, 'tools', 'node');
+      nodePath = globals.fs.path.join(parentPath, 'tools', 'node');
     } else if (isLinux) {
       nodePath = globals.fs.path.join(parentPath, 'tool', 'node');
     }
@@ -239,7 +245,6 @@ class OhosSdk implements HarmonySdk {
     }
     return null;
   }
-
 }
 
 class HmosSdk implements HarmonySdk {
@@ -254,7 +259,7 @@ class HmosSdk implements HarmonySdk {
   String? get hdcPath => _getHdcPath(_sdkDir.path);
 
   @override
-  String? get npmPath => _getNpmPath(this.getNodePath());
+  String? get npmPath => _getNpmPath(getNodePath());
 
   @override
   String get sdkPath => _sdkDir.path;
@@ -265,27 +270,29 @@ class HmosSdk implements HarmonySdk {
   @override
   bool get isValidDirectory => validSdkDirectory(sdkPath);
 
-   List<String> getAvailableApi() {
-     final List<String> list = <String>[];
-     // for api11 developer preview
-     for (final int api in sdkVersionMap.keys) {
-       final Directory directory =
-       globals.fs.directory(globals.fs.path.join(sdkPath, sdkVersionMap[api]));
-       if (directory.existsSync()) {
-         list.add('$api:${sdkVersionMap[api]!}');
-       }
-     }
-     // if not found, find it in previous version
-     if (list.isEmpty) {
-       for (final int folder in sdkVersionMap.keys) {
-         final Directory directory =
-         globals.fs.directory(globals.fs.path.join(sdkPath, folder.toString()));
-         if (directory.existsSync()) {
-           list.add(folder.toString());
-         }
-       }
-     }
-     return list;
+  List<String> getAvailableApi() {
+    final list = <String>[];
+    // for api11 developer preview
+    for (final int api in sdkVersionMap.keys) {
+      final Directory directory = globals.fs.directory(
+        globals.fs.path.join(sdkPath, sdkVersionMap[api]),
+      );
+      if (directory.existsSync()) {
+        list.add('$api:${sdkVersionMap[api]!}');
+      }
+    }
+    // if not found, find it in previous version
+    if (list.isEmpty) {
+      for (final int folder in sdkVersionMap.keys) {
+        final Directory directory = globals.fs.directory(
+          globals.fs.path.join(sdkPath, folder.toString()),
+        );
+        if (directory.existsSync()) {
+          list.add(folder.toString());
+        }
+      }
+    }
+    return list;
   }
 
   static HmosSdk? localHmosSdk() {
@@ -307,12 +314,14 @@ class HmosSdk implements HarmonySdk {
         }
       }
       //sdk/HarmonyOS-NEXT-DP1/base/toolchains/hdc
-      final List<File> hdcBins = globals.os.whichAll(globals.platform.isWindows ? 'hdc.exe' : 'hdc');
-      for (File hdcBin in hdcBins) {
+      final List<File> hdcBins = globals.os.whichAll(
+        globals.platform.isWindows ? 'hdc.exe' : 'hdc',
+      );
+      for (var hdcBin in hdcBins) {
         // Make sure we're using the hdc from the SDK.
         hdcBin = globals.fs.file(hdcBin.resolveSymbolicLinksSync());
         final String dir = hdcBin.parent.parent.parent.parent.path;
-        Directory directory = globals.fs.directory(dir);
+        final Directory directory = globals.fs.directory(dir);
         if (directory.existsSync()) {
           initSdkVersionMap(dir);
           if (validSdkDirectory(dir)) {
@@ -338,15 +347,18 @@ class HmosSdk implements HarmonySdk {
   static void initSdkVersionMap(String sdkPath) {
     final Directory directory = globals.fs.directory(sdkPath);
     if (directory.existsSync()) {
-      for (FileSystemEntity element in directory.listSync()) {
+      for (final FileSystemEntity element in directory.listSync()) {
         if (element is Directory) {
           // read apiVersion from sdk-pkg.json
-          File sdkPkgJson = globals.fs.directory(element).childFile('sdk-pkg.json');
+          final File sdkPkgJson = globals.fs.directory(element).childFile('sdk-pkg.json');
           if (sdkPkgJson.existsSync()) {
-            dynamic sdk_pkg = JSON5.parse(sdkPkgJson.readAsStringSync());
-            if (sdk_pkg['data'] != null && sdk_pkg['data']['apiVersion'] != null
-                && HarmonySdk.isNumeric(sdk_pkg['data']['apiVersion'] as String)) {
-              sdkVersionMap.addAll({int.parse(sdk_pkg['data']['apiVersion'] as String): element.basename});
+            final dynamic sdkPkg = JSON5.parse(sdkPkgJson.readAsStringSync());
+            if (sdkPkg['data'] != null &&
+                sdkPkg['data']['apiVersion'] != null &&
+                HarmonySdk.isNumeric(sdkPkg['data']['apiVersion'] as String)) {
+              sdkVersionMap.addAll({
+                int.parse(sdkPkg['data']['apiVersion'] as String): element.basename,
+              });
             }
           }
         }
@@ -356,8 +368,7 @@ class HmosSdk implements HarmonySdk {
 
   //harmonyOsSdk，包含目录hmscore和openharmony
   static bool validSdkDirectory(String hmosHomeDir) {
-    return validApi10SdkDirectory(hmosHomeDir) ||
-        validApi11SdkDirectory(hmosHomeDir);
+    return validApi10SdkDirectory(hmosHomeDir) || validApi11SdkDirectory(hmosHomeDir);
   }
 
   static bool validApi10SdkDirectory(String hmosHomeDir) {
@@ -367,12 +378,11 @@ class HmosSdk implements HarmonySdk {
   }
 
   static bool validApi11SdkDirectory(String hmosHomeDir) {
-    if (sdkVersionMap.length == 0) {
+    if (sdkVersionMap.isEmpty) {
       return false;
     }
-    for (String sdkName in sdkVersionMap.values) {
-      Directory sdkDir = globals.fs.directory(
-          globals.fs.path.join(hmosHomeDir, sdkName));
+    for (final String sdkName in sdkVersionMap.values) {
+      final Directory sdkDir = globals.fs.directory(globals.fs.path.join(hmosHomeDir, sdkName));
       if (!sdkDir.existsSync()) {
         return false;
       }
@@ -380,16 +390,15 @@ class HmosSdk implements HarmonySdk {
     return true;
   }
 
-  @override
   String? getNodePath() {
     final bool isWindows = globals.platform.isWindows,
-    isMacOS = globals.platform.isMacOS,
-    isLinux = globals.platform.isLinux;
+        isMacOS = globals.platform.isMacOS,
+        isLinux = globals.platform.isLinux;
 
     final String parentPath = globals.fs.path.dirname(sdkPath);
     String? nodePath;
     if (isWindows || isMacOS) {
-     nodePath = globals.fs.path.join(parentPath, 'tools', 'node');
+      nodePath = globals.fs.path.join(parentPath, 'tools', 'node');
     } else if (isLinux) {
       nodePath = globals.fs.path.join(parentPath, 'tool', 'node');
     }

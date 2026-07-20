@@ -995,7 +995,7 @@ void main() {
   );
 
   group('SelectionArea integration', () {
-    const TargetPlatformVariant mobileExceptOhos = TargetPlatformVariant(<TargetPlatform>{
+    const mobileExceptOhos = TargetPlatformVariant(<TargetPlatform>{
       TargetPlatform.android,
       TargetPlatform.iOS,
       TargetPlatform.fuchsia,
@@ -1838,48 +1838,46 @@ void main() {
       expect(selectionStatus, SelectableRegionSelectionStatus.finalized);
     }, variant: TargetPlatformVariant.all());
 
-    testWidgets(
-      'touch drag does not finalize selection on mobile platforms',
-      (WidgetTester tester) async {
-        SelectableRegionSelectionStatus? selectionStatus;
-        final GlobalKey textKey = GlobalKey();
-        await tester.pumpWidget(
-          MaterialApp(
-            home: SelectableRegion(
-              selectionControls: materialTextSelectionControls,
-              child: Center(child: Text(key: textKey, 'How are you')),
-            ),
+    testWidgets('touch drag does not finalize selection on mobile platforms', (
+      WidgetTester tester,
+    ) async {
+      SelectableRegionSelectionStatus? selectionStatus;
+      final GlobalKey textKey = GlobalKey();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SelectableRegion(
+            selectionControls: materialTextSelectionControls,
+            child: Center(child: Text(key: textKey, 'How are you')),
           ),
-        );
-        await tester.pumpAndSettle();
-        expect(textKey.currentContext, isNotNull);
-        final ValueListenable<SelectableRegionSelectionStatus>? selectionStatusNotifier =
-            SelectableRegionSelectionStatusScope.maybeOf(textKey.currentContext!);
-        void onSelectionStatusChange() {
-          selectionStatus = selectionStatusNotifier?.value;
-        }
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(textKey.currentContext, isNotNull);
+      final ValueListenable<SelectableRegionSelectionStatus>? selectionStatusNotifier =
+          SelectableRegionSelectionStatusScope.maybeOf(textKey.currentContext!);
+      void onSelectionStatusChange() {
+        selectionStatus = selectionStatusNotifier?.value;
+      }
 
-        selectionStatusNotifier?.addListener(onSelectionStatusChange);
-        addTearDown(() {
-          selectionStatusNotifier?.removeListener(onSelectionStatusChange);
-        });
-        final RenderParagraph paragraph = tester.renderObject<RenderParagraph>(
-          find.descendant(of: find.text('How are you'), matching: find.byType(RichText)),
-        );
-        final TestGesture gesture = await tester.startGesture(textOffsetToPosition(paragraph, 2));
-        addTearDown(gesture.removePointer);
-        await tester.pump();
+      selectionStatusNotifier?.addListener(onSelectionStatusChange);
+      addTearDown(() {
+        selectionStatusNotifier?.removeListener(onSelectionStatusChange);
+      });
+      final RenderParagraph paragraph = tester.renderObject<RenderParagraph>(
+        find.descendant(of: find.text('How are you'), matching: find.byType(RichText)),
+      );
+      final TestGesture gesture = await tester.startGesture(textOffsetToPosition(paragraph, 2));
+      addTearDown(gesture.removePointer);
+      await tester.pump();
 
-        await gesture.moveTo(textOffsetToPosition(paragraph, 4));
-        await tester.pump();
-        await gesture.up();
-        await tester.pump();
+      await gesture.moveTo(textOffsetToPosition(paragraph, 4));
+      await tester.pump();
+      await gesture.up();
+      await tester.pump();
 
-        expect(paragraph.selections.length, 0);
-        expect(selectionStatus, isNull);
-      },
-      variant: mobileExceptOhos,
-    );
+      expect(paragraph.selections.length, 0);
+      expect(selectionStatus, isNull);
+    }, variant: mobileExceptOhos);
 
     testWidgets('mouse can select word-by-word on double click drag', (WidgetTester tester) async {
       await tester.pumpWidget(
@@ -5557,7 +5555,11 @@ void main() {
           break;
       }
     },
-    variant: const TargetPlatformVariant(<TargetPlatform>{TargetPlatform.android, TargetPlatform.iOS, TargetPlatform.fuchsia}),
+    variant: const TargetPlatformVariant(<TargetPlatform>{
+      TargetPlatform.android,
+      TargetPlatform.iOS,
+      TargetPlatform.fuchsia,
+    }),
     skip: kIsWeb, // [intended] Web uses its native context menu.
   );
 
@@ -5627,7 +5629,11 @@ void main() {
           break;
       }
     },
-    variant: const TargetPlatformVariant(<TargetPlatform>{TargetPlatform.android, TargetPlatform.iOS, TargetPlatform.fuchsia}),
+    variant: const TargetPlatformVariant(<TargetPlatform>{
+      TargetPlatform.android,
+      TargetPlatform.iOS,
+      TargetPlatform.fuchsia,
+    }),
     skip: kIsWeb, // [intended] Web uses its native context menu.
   );
 

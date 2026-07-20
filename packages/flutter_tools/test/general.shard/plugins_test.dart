@@ -3181,9 +3181,9 @@ class FakeLinuxProject extends Fake implements LinuxProject {
 
 class FakeOhosProject extends Fake implements OhosProject {
   @override
-  var pluginConfigKey = 'ohos';
+  String pluginConfigKey = 'ohos';
 
-  var exists = false;
+  bool exists = false;
 
   @override
   bool existsSync() => exists;

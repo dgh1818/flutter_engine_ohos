@@ -1059,19 +1059,21 @@ class GitTagVersion {
       }
     }
 
-    final RegExp ohosTagPattern = RegExp(
-      r'^\d+\.\d+\.\d+-ohos(-\d+\.\d+\.\d+)?(-[a-zA-Z0-9.]+)?$',
-    );
-    for (final String tag in tags) {
+    final ohosTagPattern = RegExp(r'^\d+\.\d+\.\d+-ohos(-\d+\.\d+\.\d+)?(-[a-zA-Z0-9.]+)?$');
+    for (final tag in tags) {
       if (ohosTagPattern.hasMatch(tag.trim())) {
         return parse(tag);
       }
     }
 
-    final RunResult describeResult = git.runSync(
-      <String>['describe', '--match', '*.*.*', '--long', '--tags', gitRef],
-      workingDirectory: workingDirectory,
-    );
+    final RunResult describeResult = git.runSync(<String>[
+      'describe',
+      '--match',
+      '*.*.*',
+      '--long',
+      '--tags',
+      gitRef,
+    ], workingDirectory: workingDirectory);
     if (describeResult.exitCode == 0 && describeResult.stdout.trim().isNotEmpty) {
       final GitTagVersion described = parse(describeResult.stdout.trim());
       if (described != const GitTagVersion.unknown()) {
@@ -1164,8 +1166,9 @@ class GitTagVersion {
 
   /// Parse a version string for ohos.
   static GitTagVersion parseOhosVersion(String version) {
-    final RegExp versionPattern = RegExp(
-      r'^(\d+)\.(\d+)\.(\d+)(-ohos(-\d+\.\d+\.\d+)?(-[a-zA-Z0-9.]+)?)?(?:-(\d+)-g([a-f0-9]+))?$');
+    final versionPattern = RegExp(
+      r'^(\d+)\.(\d+)\.(\d+)(-ohos(-\d+\.\d+\.\d+)?(-[a-zA-Z0-9.]+)?)?(?:-(\d+)-g([a-f0-9]+))?$',
+    );
     final Match? match = versionPattern.firstMatch(version.trim());
     if (match == null) {
       return const GitTagVersion.unknown();
@@ -1218,8 +1221,8 @@ class GitTagVersion {
     if (commits == 0) {
       return gitTag;
     }
-    if (gitTag != null && gitTag!.contains('ohos')) {
-      return gitTag!;
+    if (gitTag.contains('ohos')) {
+      return gitTag;
     }
     if (hotfix != null) {
       // This is an unexpected state where untagged commits exist past a hotfix

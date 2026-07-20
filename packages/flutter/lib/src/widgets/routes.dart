@@ -26,7 +26,6 @@ import 'actions.dart';
 import 'basic.dart';
 import 'binding.dart';
 import 'display_feature_sub_screen.dart';
-import 'media_query.dart';
 import 'focus_manager.dart';
 import 'focus_scope.dart';
 import 'focus_traversal.dart';
@@ -346,16 +345,12 @@ abstract class TransitionRoute<T> extends OverlayRoute<T> implements PredictiveB
     // Navigator to rebuild on every keyboard show/hide.
     if (_maxScreenDimension == null) {
       try {
-        final ui.PlatformDispatcher dispatcher =
-            WidgetsBinding.instance?.platformDispatcher ?? ui.PlatformDispatcher.instance;
+        final ui.PlatformDispatcher dispatcher = WidgetsBinding.instance.platformDispatcher;
         final ui.FlutterView? view = dispatcher.implicitView ?? dispatcher.views.firstOrNull;
         if (view != null && view.devicePixelRatio > 0.0) {
           final Size physicalSize = view.physicalSize;
           final double dpr = view.devicePixelRatio;
-          final Size logicalSize = Size(
-            physicalSize.width / dpr,
-            physicalSize.height / dpr,
-          );
+          final logicalSize = Size(physicalSize.width / dpr, physicalSize.height / dpr);
           _maxScreenDimension = logicalSize.width > logicalSize.height
               ? logicalSize.width
               : logicalSize.height;
@@ -367,12 +362,13 @@ abstract class TransitionRoute<T> extends OverlayRoute<T> implements PredictiveB
     }
 
     final double currentProgress = _animation!.value;
-    final DateTime now = DateTime.now();
+    final now = DateTime.now();
 
     if (_lastFrameTime != null) {
       // The unit of the variable dt is seconds
-      final double dt = now.difference(_lastFrameTime!).inMicroseconds.toDouble()
-        / Duration.microsecondsPerSecond;
+      final double dt =
+          now.difference(_lastFrameTime!).inMicroseconds.toDouble() /
+          Duration.microsecondsPerSecond;
       if (dt > 0 && dt < 0.1) {
         // Use cached screen dimension to avoid MediaQuery lookup on every frame.
         // Screen size doesn't change during a transition.
@@ -397,7 +393,7 @@ abstract class TransitionRoute<T> extends OverlayRoute<T> implements PredictiveB
         if (pixelVelocity > 0) {
           // Build route identifier info
           final String routeName = settings.name ?? runtimeType.toString();
-          final String routeInfo = debugLabel != null ? '$routeName($debugLabel)' : routeName;
+          final routeInfo = '$routeName($debugLabel)';
           WidgetsBinding.instance.recordTranslateVelocity(
             velocity: pixelVelocity,
             source: TranslateAnimationSource.pageTransition,

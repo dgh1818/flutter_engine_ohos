@@ -2255,7 +2255,6 @@ class RenderEditable extends RenderBox
             }
             return TextSelection(baseOffset: previousWord.start, extentOffset: position.offset);
           }
-          break;
         case TargetPlatform.ohos:
         case TargetPlatform.fuchsia:
         case TargetPlatform.macOS:

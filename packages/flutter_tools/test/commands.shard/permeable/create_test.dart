@@ -3535,7 +3535,7 @@ void main() {
     final int windowsBranch = pluginLibrary.indexOf('Platform.isWindows');
     final int ohosBranch = pluginLibrary.indexOf("Platform.operatingSystem == 'ohos'");
     final int unsupportedError = pluginLibrary.indexOf(
-      "throw UnsupportedError('Unknown platform: \${Platform.operatingSystem}')",
+      r"throw UnsupportedError('Unknown platform: ${Platform.operatingSystem}')",
     );
 
     expect(pluginLibrary, isNot(contains('Platform.isOhos')));

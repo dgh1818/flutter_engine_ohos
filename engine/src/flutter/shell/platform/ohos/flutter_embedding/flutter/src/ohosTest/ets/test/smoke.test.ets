@@ -1,4 +1,4 @@
-import { describe, it, expect, Level } from '@ohos/hypium';
+import { describe, expect, it, Level } from '@ohos/hypium';
 
 export default function smokeTest() {
   describe('smoke', () => {

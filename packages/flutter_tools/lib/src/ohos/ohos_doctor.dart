@@ -1,17 +1,11 @@
-/*
-* Copyright 2014 The Flutter Authors. All rights reserved.
-* Use of this source code is governed by a BSD-style license that can be
-* found in the LICENSE file.
-*
-*/
+// Copyright 2014 The Flutter Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
 
 import 'package:process/process.dart';
 
 import '../base/context.dart';
-import '../base/file_system.dart';
 import '../base/io.dart';
-import '../base/logger.dart';
-import '../base/os.dart';
 import '../base/platform.dart';
 import '../base/user_messages.dart';
 import '../base/version.dart';
@@ -28,9 +22,9 @@ class _VersionInfo {
   /// This should contain a version number. For example:
   ///     "clang version 9.0.1-6+build1"
   _VersionInfo(this.description) {
-    final String? versionString = RegExp(r'[0-9]+\.[0-9]+(?:\.[0-9]+)?')
-        .firstMatch(description)
-        ?.group(0);
+    final String? versionString = RegExp(
+      r'[0-9]+\.[0-9]+(?:\.[0-9]+)?',
+    ).firstMatch(description)?.group(0);
     number = Version.parse(versionString);
   }
 
@@ -44,29 +38,16 @@ class _VersionInfo {
 class OhosValidator extends DoctorValidator {
   OhosValidator({
     required HarmonySdk? ohosSdk,
-    required FileSystem fileSystem,
-    required Logger logger,
     required Platform platform,
     required ProcessManager processManager,
     required UserMessages userMessages,
-  })  : _hosSdk = ohosSdk,
-        _fileSystem = fileSystem,
-        _logger = logger,
-        _operatingSystemUtils = OperatingSystemUtils(
-          fileSystem: fileSystem,
-          logger: logger,
-          platform: platform,
-          processManager: processManager,
-        ),
-        _platform = platform,
-        _processManager = processManager,
-        _userMessages = userMessages,
-        super('HarmonyOS toolchain - develop for HarmonyOS devices');
+  }) : _hosSdk = ohosSdk,
+       _platform = platform,
+       _processManager = processManager,
+       _userMessages = userMessages,
+       super('HarmonyOS toolchain - develop for HarmonyOS devices');
 
   final HarmonySdk? _hosSdk;
-  final FileSystem _fileSystem;
-  final Logger _logger;
-  final OperatingSystemUtils _operatingSystemUtils;
   final Platform _platform;
   final ProcessManager _processManager;
   final UserMessages _userMessages;
@@ -76,19 +57,17 @@ class OhosValidator extends DoctorValidator {
   @override
   Future<ValidationResult> validate() async {
     ValidationType validationType = ValidationType.success;
-    final List<ValidationMessage> messages = <ValidationMessage>[];
+    final messages = <ValidationMessage>[];
 
     /// check ohos sdk exist and version correct
-    if (HarmonySdk.locateHarmonySdk() != null ) {
+    if (HarmonySdk.locateHarmonySdk() != null) {
       messages.add(ValidationMessage(_userMessages.ohosSdkVersion(_hosSdk!)));
     } else {
       validationType = ValidationType.missing;
       if (_hosSdk != null) {
-        messages.add(ValidationMessage.error(
-            _userMessages.ohosSdkMissing((_hosSdk?.sdkPath) ?? '')));
+        messages.add(ValidationMessage.error(_userMessages.ohosSdkMissing(_hosSdk.sdkPath)));
       }
-      messages
-          .add(ValidationMessage.error(_userMessages.hosSdkInstallation()));
+      messages.add(ValidationMessage.error(_userMessages.hosSdkInstallation()));
     }
 
     /// check ohpm
@@ -98,8 +77,7 @@ class OhosValidator extends DoctorValidator {
       validationType = ValidationType.missing;
       messages.add(ValidationMessage.error(_userMessages.ohpmMissing()));
     } else {
-      messages
-          .add(ValidationMessage(_userMessages.ohpmVersion(ohpmVersionString)));
+      messages.add(ValidationMessage(_userMessages.ohpmVersion(ohpmVersionString)));
     }
 
     /// check node
@@ -109,8 +87,7 @@ class OhosValidator extends DoctorValidator {
       validationType = ValidationType.missing;
       messages.add(ValidationMessage.error(_userMessages.nodeMissing()));
     } else {
-      messages
-          .add(ValidationMessage(_userMessages.nodeVersion(nodeVersionString)));
+      messages.add(ValidationMessage(_userMessages.nodeVersion(nodeVersionString)));
     }
 
     /// check hvigorw
@@ -125,15 +102,14 @@ class OhosValidator extends DoctorValidator {
       validationType = ValidationType.missing;
       messages.add(ValidationMessage.error(_userMessages.hvigorwMissing()));
     } else {
-      messages
-          .add(ValidationMessage(_userMessages.hvigorwPath(hvigorPathString)));
+      messages.add(ValidationMessage(_userMessages.hvigorwPath(hvigorPathString)));
     }
     return ValidationResult(validationType, messages);
   }
 
-  /// Returns the installed version of [binary], or null if it's not installed.
+  /// Returns the installed version of the binary run by [commands], or null if it's not installed.
   ///
-  /// Requires tha [binary] take a '--version' flag, and print a version of the
+  /// Requires that [commands] take a '--version' flag, and print a version of the
   /// form x.y.z somewhere on the first line of output.
   Future<_VersionInfo?> _getBinaryVersion(List<Object> commands) async {
     ProcessResult? result;

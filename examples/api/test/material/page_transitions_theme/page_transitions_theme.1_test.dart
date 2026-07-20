@@ -34,6 +34,7 @@ void main() {
         case .linux:
         case .fuchsia:
         case .windows:
+        case .ohos:
           expect(theme.builders[platform], isNull);
       }
     }

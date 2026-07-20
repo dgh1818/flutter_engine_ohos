@@ -14,12 +14,11 @@ import 'package:flutter/foundation.dart';
 /// - [SystemChrome] calls [notifyLandscapeChange] when orientation preferences change
 /// - [SplitViewManager] listens to this notifier and reacts accordingly
 class OrientationChangeNotifier extends ChangeNotifier {
-  static final OrientationChangeNotifier _instance =
-      OrientationChangeNotifier._internal();
-
+  /// Returns the singleton [OrientationChangeNotifier] instance.
   factory OrientationChangeNotifier() => _instance;
 
   OrientationChangeNotifier._internal();
+  static final OrientationChangeNotifier _instance = OrientationChangeNotifier._internal();
 
   bool _isForcedLandscape = false;
 

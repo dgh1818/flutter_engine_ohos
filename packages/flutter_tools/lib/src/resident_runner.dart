@@ -34,7 +34,6 @@ import 'globals.dart' as globals;
 import 'hook_runner.dart' show FlutterHookRunner;
 import 'ios/application_package.dart';
 import 'ios/devices.dart';
-import 'ohos/hdc_server.dart';
 import 'project.dart';
 import 'run_cold.dart';
 import 'run_hot.dart';
