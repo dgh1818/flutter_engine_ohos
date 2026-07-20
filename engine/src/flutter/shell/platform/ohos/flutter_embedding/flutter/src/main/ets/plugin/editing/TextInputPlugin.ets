@@ -298,6 +298,8 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   // Record the type of soft keyboard that was triggered last time
   private lastInputType?: inputMethod.TextInputType;
   private isInputMethodAttached: boolean = false;
+  private currentImeName: string;
+ 	private previousInputType?: inputMethod.TextInputType;
   /**
    * After finishTextPreview commits Latin preview using document [leftIdx, rightIdx), OHOS may still deliver insertText(same).
    * One matching insertText is skipped to avoid duplicate words (e.g. "This This").
@@ -367,6 +369,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     this.inputTarget = new InputTarget(Type.NO_TARGET, 0);
     this.focusViewId = viewId;
     this.flutterViewContext = flutterViewContext;
+    this.currentImeName = inputMethod.getCurrentInputMethod().name;
   }
 
   setFlutterViewContext(flutterViewContext: UIContext): void {
@@ -1004,8 +1007,8 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
       this.lastKind = this.configuration.deviceKind;
     }
     if (this.keyboardStatus == inputMethod.KeyboardStatus.SHOW) {
-      // When keyboard is already SHOW, still call attach; false means attach does not show the keyboard again.
-      await this.attach(false);
+      // When the state is Show and the keyboard has been dismissed, it can cause the keyboard to not come up again.
+      await this.attach(true);
       if (this.lastKind != this.configuration?.deviceKind ||
         this.hasSecureKeyboardInSwitch()) {
         if (deviceInfo.sdkApiVersion >= INPUT_SUPPORT_API) {
@@ -1482,9 +1485,21 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     this.mEditable.handleFunctionKey(functionKey);
   }
 
-  private applyKeyboardStatus(state: inputMethod.KeyboardStatus): void {
+   private applyKeyboardStatus(state: inputMethod.KeyboardStatus): void {
+    const isAutofillActive = this.autoFillSessionActive || this.autoFillRequestInFlight || this.autoSaveInFlight;
+    const currentIme: inputMethod.InputMethodProperty = inputMethod.getCurrentInputMethod();
     this.keyboardStatus = state;
     if (state === inputMethod.KeyboardStatus.HIDE) {
+      if (isAutofillActive) {
+        return;
+      }
+      // Switch the input method app or switch the password input box
+      if (this.currentImeName !== currentIme.name || this.configuration?.inputType?.type !== this.previousInputType) {
+        this.currentImeName = currentIme.name;
+        this.previousInputType = this.configuration?.inputType?.type;
+        return;
+      }
+      
       const closedClientId =
         this.pendingTeardownPlatformViewClientId != -1
           ? this.pendingTeardownPlatformViewClientId
@@ -1492,6 +1507,8 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
       this.plugin.textInputChannel.onConnectionClosed(closedClientId);
       this.pendingTeardownPlatformViewClientId = -1;
     }
+    this.currentImeName = currentIme.name;
+    this.previousInputType = this.configuration?.inputType?.type;
   }
 
   private sendKeyboardStatusCallback = (state: inputMethod.KeyboardStatus) => {
