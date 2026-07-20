@@ -1266,6 +1266,18 @@ class _ModalScopeState<T> extends State<_ModalScope<T>> {
   // and route.offstage.
   void _routeSetState(VoidCallback fn) {
     if (widget.route.isCurrent && !_shouldIgnoreFocusRequest && _shouldRequestFocus) {
+      // In split-view mode, redirect focus to the pre-popup location captured
+      // when the outermost popup was pushed. Only redirect when this route is
+      // NOT itself a PopupRoute (popup-to-popup transitions use default focus).
+      if (widget.route is! PopupRoute) {
+        final FocusScopeNode? popupPreviousScope = widget.route.navigator
+            ?.getPopupPreviousFocusScope();
+        if (popupPreviousScope != null) {
+          widget.route.navigator!.focusNode.enclosingScope?.setFirstFocus(popupPreviousScope);
+          setState(fn);
+          return;
+        }
+      }
       widget.route.navigator!.focusNode.enclosingScope?.setFirstFocus(focusScopeNode);
     }
     setState(fn);

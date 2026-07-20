@@ -63,6 +63,11 @@ class SplitViewNavigatorPolicy with WidgetsBindingObserver {
   final Map<Route<dynamic>, MirrorBarrierInfo> _mirrorBarrierRoutes =
       <Route<dynamic>, MirrorBarrierInfo>{};
 
+  /// The [FocusScopeNode] that held primary focus when the outermost popup
+  /// was pushed. Shared across all active barriers so that chained dialogs
+  /// always restore focus to the original pre-popup location.
+  FocusScopeNode? _popupPreviousFocusScope;
+
   bool _isSplitViewActive = false;
   bool _splitViewVisible = false;
   bool _homePageReady = false;
@@ -103,6 +108,7 @@ class SplitViewNavigatorPolicy with WidgetsBindingObserver {
       info.mirrorBarrier.remove();
     }
     _mirrorBarrierRoutes.clear();
+    _popupPreviousFocusScope = null;
   }
 
   /// Resets the overlay keys.
@@ -170,8 +176,22 @@ class SplitViewNavigatorPolicy with WidgetsBindingObserver {
   void disposeMirrorBarrierFor(_RouteEntry entry) {
     if (entry.route is PopupRoute && _mirrorBarrierRoutes.containsKey(entry.route)) {
       final MirrorBarrierInfo mirrorInfo = _mirrorBarrierRoutes.remove(entry.route)!;
+      if (_mirrorBarrierRoutes.isEmpty) {
+        _popupPreviousFocusScope = null;
+      }
       mirrorInfo.mirrorBarrier.remove();
     }
+  }
+
+  /// Returns the shared pre-popup [FocusScopeNode], or null if no popup is
+  /// active or the captured scope has been disposed (e.g. its route was
+  /// removed from the navigation stack while the popup was still visible).
+  FocusScopeNode? getPopupPreviousFocusScope() {
+    final FocusScopeNode? scope = _popupPreviousFocusScope;
+    if (scope == null || scope.parent == null) {
+      return null;
+    }
+    return scope;
   }
 
   /// Returns the home page name if split-view is active and home page is ready.
@@ -632,6 +652,11 @@ class SplitViewNavigatorPolicy with WidgetsBindingObserver {
           return barrier;
         },
       );
+      // Capture the current primary focus scope when the first barrier is
+      // created. Shared by all subsequent barriers.
+      if (_mirrorBarrierRoutes.isEmpty) {
+        _popupPreviousFocusScope = FocusManager.instance.primaryFocus?.enclosingScope;
+      }
       _mirrorBarrierRoutes[popupRoute] = MirrorBarrierInfo(mirrorBarrier: mirrorBarrier);
     }
 
