@@ -105,7 +105,8 @@ class _PageViewExampleState extends State<PageViewExample>
         TargetPlatform.windows => true,
         TargetPlatform.android ||
         TargetPlatform.iOS ||
-        TargetPlatform.fuchsia => false,
+        TargetPlatform.fuchsia ||
+        TargetPlatform.ohos => false,
       };
 }
 

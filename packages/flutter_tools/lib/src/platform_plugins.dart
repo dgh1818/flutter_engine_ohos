@@ -578,7 +578,7 @@ class LinuxPlugin extends PluginPlatform implements NativeOrDartPlugin {
 
     return LinuxPlugin(
       name: name,
-      pluginClass: yaml[kPluginClass] as String?,
+      pluginClass: pluginClass,
       dartPluginClass: dartPluginClass,
       dartFileName: dartFileName,
       ffiPlugin: yaml[kFfiPlugin] as bool? ?? false,
@@ -678,11 +678,10 @@ class OhosPlugin extends PluginPlatform implements NativeOrDartPlugin {
     bool? ffiPlugin,
     this.defaultPackage,
     required FileSystem fileSystem,
-  })  : _fileSystem = fileSystem,
-        ffiPlugin = ffiPlugin ?? false;
+  }) : _fileSystem = fileSystem,
+       ffiPlugin = ffiPlugin ?? false;
 
-  factory OhosPlugin.fromYaml(
-      String name, YamlMap yaml, String pluginPath, FileSystem fileSystem) {
+  factory OhosPlugin.fromYaml(String name, YamlMap yaml, String pluginPath, FileSystem fileSystem) {
     assert(validate(yaml));
     return OhosPlugin(
       name: name,
@@ -696,6 +695,7 @@ class OhosPlugin extends PluginPlatform implements NativeOrDartPlugin {
     );
   }
 
+  // ignore: unused_field
   final FileSystem _fileSystem;
 
   @override
@@ -708,9 +708,6 @@ class OhosPlugin extends PluginPlatform implements NativeOrDartPlugin {
   bool hasDart() => dartPluginClass != null;
 
   static bool validate(YamlMap yaml) {
-    if (yaml == null) {
-      return false;
-    }
     return yaml[kPluginClass] is String ||
         yaml[kDartPluginClass] is String ||
         yaml[kFfiPlugin] == true ||
@@ -740,7 +737,7 @@ class OhosPlugin extends PluginPlatform implements NativeOrDartPlugin {
   /// The absolute path to the plugin in the pub cache.
   final String pluginPath;
 
- @override
+  @override
   Map<String, dynamic> toMap() {
     return <String, dynamic>{
       'name': name,

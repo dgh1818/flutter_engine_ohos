@@ -79,6 +79,7 @@ sleep 120
 
 echo "[$(date +%H:%M:%S)] Wave 2: Launching medium shards"
 
+launch_shard analyze
 launch_shard framework_tests misc
 launch_shard framework_tests misc2
 launch_shard framework_tests misc3

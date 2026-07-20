@@ -31,7 +31,6 @@ import 'base/os.dart' show OperatingSystemUtils;
 import 'base/platform.dart';
 import 'base/terminal.dart';
 import 'base/user_messages.dart';
-import 'build_info.dart';
 import 'convert.dart';
 import 'features.dart';
 
@@ -76,8 +75,14 @@ class DevelopmentArtifact {
   static const iOS = DevelopmentArtifact._('ios', feature: flutterIOSFeature);
 
   /// Artifacts required for OpenHarmony development.
-  static const DevelopmentArtifact ohosGenSnapshot = DevelopmentArtifact._('ohos_gen_snapshot', feature: flutterOhosFeature);
-  static const DevelopmentArtifact ohosInternalBuild = DevelopmentArtifact._('ohos_internal_build', feature: flutterOhosFeature);
+  static const DevelopmentArtifact ohosGenSnapshot = DevelopmentArtifact._(
+    'ohos_gen_snapshot',
+    feature: flutterOhosFeature,
+  );
+  static const DevelopmentArtifact ohosInternalBuild = DevelopmentArtifact._(
+    'ohos_internal_build',
+    feature: flutterOhosFeature,
+  );
 
   /// Artifacts required for web development.
   static const web = DevelopmentArtifact._('web', feature: flutterWebFeature);
@@ -234,11 +239,7 @@ class Cache {
       tempStorage: getDownloadDir(),
       platform: _platform,
       httpClient: HttpClient(),
-      allowedBaseUrls: <String>[
-        storageBaseUrl,
-        ohosStorageBaseUrl,
-        cipdBaseUrl,
-      ],
+      allowedBaseUrls: <String>[storageBaseUrl, ohosStorageBaseUrl, cipdBaseUrl],
     );
   }
 
@@ -1011,17 +1012,25 @@ abstract class EngineCachedArtifact extends CachedArtifact {
     FileSystem fileSystem,
     OperatingSystemUtils operatingSystemUtils,
   ) async {
-    final String url = '$storageBaseUrl/flutter_infra_release/flutter/$version/';
+    final url = '$storageBaseUrl/flutter_infra_release/flutter/$version/';
     final String ohosEngineVersion = cache.getVersionFor('engine.ohos')!;
     // New platform Ohos is supported, so flutter needs to download
     // sky_engine.zip, flutter_patched_sdk.zip and flutter_patched_sdk_product.zip from ohos URL
-    final String ohosUrl = '$ohosStorageBaseUrl/flutter_infra_release/flutter/$ohosEngineVersion/';
+    final ohosUrl = '$ohosStorageBaseUrl/flutter_infra_release/flutter/$ohosEngineVersion/';
     final Directory pkgDir = cache.getCacheDir('pkg');
     for (final String pkgName in getPackageDirs()) {
       if (pkgName == 'sky_engine') {
-        await artifactUpdater.downloadZipArchive('Downloading package $pkgName...', Uri.parse('$ohosUrl$pkgName.zip'), pkgDir);
+        await artifactUpdater.downloadZipArchive(
+          'Downloading package $pkgName...',
+          Uri.parse('$ohosUrl$pkgName.zip'),
+          pkgDir,
+        );
       } else {
-        await artifactUpdater.downloadZipArchive('Downloading package $pkgName...', Uri.parse('$url$pkgName.zip'), pkgDir);
+        await artifactUpdater.downloadZipArchive(
+          'Downloading package $pkgName...',
+          Uri.parse('$url$pkgName.zip'),
+          pkgDir,
+        );
       }
     }
 
@@ -1032,9 +1041,17 @@ abstract class EngineCachedArtifact extends CachedArtifact {
       // Avoid printing things like 'Downloading linux-x64 tools...' multiple times.
       final String friendlyName = urlPath.replaceAll('/artifacts.zip', '').replaceAll('.zip', '');
       if (urlPath.startsWith('flutter_patched_sdk')) {
-        await artifactUpdater.downloadZipArchive('Downloading $friendlyName tools...', Uri.parse(ohosUrl + urlPath), dir);
+        await artifactUpdater.downloadZipArchive(
+          'Downloading $friendlyName tools...',
+          Uri.parse(ohosUrl + urlPath),
+          dir,
+        );
       } else {
-        await artifactUpdater.downloadZipArchive('Downloading $friendlyName tools...', Uri.parse(url + urlPath), dir);
+        await artifactUpdater.downloadZipArchive(
+          'Downloading $friendlyName tools...',
+          Uri.parse(url + urlPath),
+          dir,
+        );
       }
       _makeFilesExecutable(dir, operatingSystemUtils);
     }

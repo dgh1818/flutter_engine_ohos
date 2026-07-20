@@ -244,7 +244,7 @@ List of commands adapted for OpenHarmony development:
 
 19. White screen, crashes, or similar issues occur when running the emulator.
 
-    1. The emulator supports debugging on macOS (ARM64) and Windows (x64), but not macOS (x86). 
+    1. The emulator supports debugging on macOS (ARM64) and Windows (x64), but not macOS (x86).
     2. Since the emulator does not currently support Vulkan, please try following the steps in section 2.1. Disable Impeller and try again.
 
 20. Compilation or runtime failure in Flutter profile mode
@@ -266,4 +266,3 @@ If you would like to contribute code to Flutter-OH, please refer to the [Flutter
 ## Communication
 
 - **Issue Feedback:** Submit issues to the [Flutter Framework Repository](https://gitcode.com/openharmony-tpc/flutter_flutter/issues) or related third-party libraries.
-

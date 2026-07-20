@@ -197,4 +197,5 @@ export 'src/material/tooltip_theme.dart';
 export 'src/material/tooltip_visibility.dart';
 export 'src/material/typography.dart';
 export 'src/material/user_accounts_drawer_header.dart';
+// ignore: invalid_export_of_internal_element
 export 'widgets.dart';

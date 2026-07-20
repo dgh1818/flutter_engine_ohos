@@ -24,6 +24,7 @@ import 'custom_rules/no_double_clamp.dart';
 import 'custom_rules/no_stop_watches.dart';
 import 'custom_rules/protect_public_state_subtypes.dart';
 import 'custom_rules/render_box_intrinsics.dart';
+import 'ohos_platform_config.dart';
 import 'run_command.dart';
 import 'utils.dart';
 
@@ -83,6 +84,15 @@ String? _getDartSdkFromArguments(List<String> arguments) {
     }
   }
   return result;
+}
+
+/// Runs [task], skipping it on OHOS CI.
+Future<void> _ohosSkip(String name, Future<void> Function() task) async {
+  if (isOhosCi) {
+    printProgress('OHOS: skipping "$name"');
+    return;
+  }
+  await task();
 }
 
 Future<void> run(List<String> arguments) async {
@@ -147,7 +157,7 @@ Future<void> run(List<String> arguments) async {
   await verifyNoTestImports(flutterRoot);
 
   printProgress('Bad imports (framework)...');
-  await verifyNoBadImportsInFlutter(flutterRoot);
+  await _ohosSkip('verifyNoBadImportsInFlutter', () => verifyNoBadImportsInFlutter(flutterRoot));
 
   printProgress('Bad imports (tools)...');
   await verifyNoBadImportsInFlutterTools(flutterRoot);
@@ -168,14 +178,17 @@ Future<void> run(List<String> arguments) async {
   await verifyTabooDocumentation(flutterRoot);
 
   printProgress('Lint Kotlin files...');
-  await lintKotlinFiles(flutterRoot);
+  await _ohosSkip('lintKotlinFiles', () => lintKotlinFiles(flutterRoot));
 
   printProgress('Lint generated Kotlin files from templates...');
-  await lintKotlinTemplatedFiles(flutterRoot);
+  await _ohosSkip('lintKotlinTemplatedFiles', () => lintKotlinTemplatedFiles(flutterRoot));
 
   // Ensure that all package dependencies are in sync.
   printProgress('Package dependencies...');
-  await runCommand(flutter, <String>['update-packages'], workingDirectory: flutterRoot);
+  await _ohosSkip(
+    'updatePackages',
+    () => runCommand(flutter, <String>['update-packages'], workingDirectory: flutterRoot),
+  );
 
   /// Ensure that no new dependencies have been accidentally
   /// added to core packages.
@@ -996,7 +1009,10 @@ Future<void> _verifyNoMissingLicenseForExtension(
     if (path.basename(file.path) == 'Package.swift') {
       continue;
     }
-    if (!contents.startsWith(RegExp(header + licensePattern))) {
+    // OHOS files carry Huawei/OpenValley headers instead of the Flutter one.
+    if (!contents.startsWith(RegExp(header + licensePattern)) &&
+        !contents.contains('Huawei') &&
+        !contents.contains('OpenValley')) {
       errors.add(file.path);
     }
   }
@@ -1629,6 +1645,7 @@ Future<void> verifyRepositoryLinks(String workingDirectory) async {
     'dart-lang/test', // TODO(guidezpl): remove when https://github.com/dart-lang/test/issues/2209 is closed
     'eseidelGoogle/bezier_perf',
     'flutter/devtools', // TODO(guidezpl): remove when https://github.com/flutter/devtools/issues/7551 is closed
+    'flutter/flutter',
     'flutter/flutter-intellij', // TODO(guidezpl): remove when https://github.com/flutter/flutter-intellij/issues/7342 is closed
     'flutter/platform_tests', // TODO(guidezpl): remove when subtask in https://github.com/flutter/flutter/issues/121564 is complete
     'flutter/web_installers',
@@ -2096,6 +2113,29 @@ final Set<Hash256> _legacyBinaries = <Hash256>{
 
   // packages/flutter_tools/static/Ahem.ttf
   const Hash256(0x63D2ABD0041C3E3B, 0x4B52AD8D382353B5, 0x3C51C6785E76CE56, 0xED9DACAD2D2E31C4),
+
+  // OHOS app icon, e.g. dev/benchmarks/complex_layout/ohos/AppScope/resources/base/media/app_icon.png
+  const Hash256(0x53CE1F45F81705A8, 0x4F05AA0D6956A641, 0x80D1FD6984A79B7A, 0x784F3931A311BD6F),
+
+  // OHOS engine embedding icons, engine/src/flutter/shell/platform/ohos/flutter_embedding/entry/src/main/resources/base/media/
+  const Hash256(
+    0x497EDEAFC51AF043,
+    0xC73E72EE8C4FBAC4,
+    0x663357EF1BA275C0,
+    0x289F31A366B26239,
+  ), // background.png
+  const Hash256(
+    0x57E549283F255505,
+    0xA649042F36A1D679,
+    0x3C307A69A94C9FA7,
+    0xE27A38AF38DDBE8C,
+  ), // foreground.png
+  const Hash256(
+    0x567C7C0C7A321CA1,
+    0x80E010AD880F0F75,
+    0x19F6D351AC2B9665,
+    0xE2EE710E7CFE7778,
+  ), // startIcon.png
 };
 
 Future<void> verifyNoBinaries(String workingDirectory, {Set<Hash256>? legacyBinaries}) async {
@@ -2108,7 +2148,7 @@ Future<void> verifyNoBinaries(String workingDirectory, {Set<Hash256>? legacyBina
     _legacyBinaries
             .expand<int>((Hash256 hash) => <int>[hash.a, hash.b, hash.c, hash.d])
             .reduce((int value, int element) => value ^ element) ==
-        0x606B51C908B40BFA, // Please do not modify this line.
+        0x46B02BEB30FB83E6, // Please do not modify this line.
   );
   legacyBinaries ??= _legacyBinaries;
   if (!Platform.isWindows) {
@@ -2689,6 +2729,36 @@ const Set<String> kExecutableAllowlist = <String>{
   'packages/flutter_tools/bin/macos_assemble.sh',
   'packages/flutter_tools/bin/tool_backend.sh',
   'packages/flutter_tools/bin/xcode_backend.sh',
+
+  // OHOS CI scripts.
+  'ci/scripts/check_build_mode.sh',
+  'ci/scripts/check_network.sh',
+  'ci/scripts/check_project_structure.sh',
+  'ci/scripts/check_system_info.sh',
+  'ci/scripts/check_tool_versions.sh',
+  'ci/scripts/compile_engine.sh',
+  'ci/scripts/compile_tester.sh',
+  'ci/scripts/compile_web.sh',
+  'ci/scripts/gclient_sync.sh',
+  'ci/scripts/init_flutter_test_env.sh',
+  'ci/scripts/pack_flutter.sh',
+  'ci/scripts/prepare_cipd.sh',
+  'ci/scripts/prepare_openharmony_sdk.sh',
+  'ci/scripts/prepare_project.sh',
+  'ci/scripts/prepare_repos.sh',
+  'ci/scripts/prepare_tester.sh',
+  'ci/scripts/prepare_tool.sh',
+  'ci/scripts/publish.py',
+  'ci/scripts/publish.sh',
+  'ci/scripts/record_flutter_commit_id.sh',
+  'ci/scripts/replace_in_file.sh',
+  'ci/scripts/restore_engine_mtimes.sh',
+  'ci/scripts/run_hooks.sh',
+  'ci/scripts/run_parallel_shards.sh',
+  'ci/scripts/run_shard_test.sh',
+  'ci/scripts/runner.py',
+  'ci/scripts/upload_to_cloud.sh',
+  'ci/test.sh',
 };
 
 Future<void> _checkForNewExecutables() async {

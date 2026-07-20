@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// OHOS: isArm64 hardcoded to true, x64 branches unreachable.
+// ignore_for_file: dead_code
+
 import 'package:code_assets/code_assets.dart';
 import 'package:file/file.dart';
 import 'package:file/memory.dart';
@@ -50,7 +53,7 @@ void main() {
   });
 
   for (final flutterTester in <bool>[false, true]) {
-    final isArm64 = true;
+    const isArm64 = true;
 
     var testName = '';
     if (flutterTester) {

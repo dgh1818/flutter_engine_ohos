@@ -22,7 +22,7 @@ get_shared_pub_cache() {
 parse_test_spec() {
     local test_spec="$1"
     local default_cmd="$2"
-    
+
     if [[ "$test_spec" == *:* ]]; then
         local path="${test_spec%%:*}"
         local cmd="${test_spec#*:}"
@@ -48,7 +48,7 @@ clean_flutter_locks() {
         "$flutter_root/bin/cache/.dart_tool_state"
         "$flutter_root/.flutter_tool_state"
     )
-    
+
     for lock_file in "${locks[@]}"; do
         if [ -f "$lock_file" ]; then
             rm -f "$lock_file"
@@ -62,7 +62,7 @@ init_package() {
     local pkg_path="$1"
     local timeout_sec="${2:-120}"
     local log_file="$3"
-    
+
     if [ -d "$pkg_path" ]; then
         log_info "Initializing: $(basename "$pkg_path")"
         timeout $timeout_sec bash -c "cd '$pkg_path' && flutter pub get" >> "$log_file" 2>&1

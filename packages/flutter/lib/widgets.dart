@@ -32,6 +32,7 @@ export 'src/widgets/autofill.dart';
 export 'src/widgets/automatic_keep_alive.dart';
 export 'src/widgets/banner.dart';
 export 'src/widgets/basic.dart';
+// ignore: invalid_export_of_internal_element
 export 'src/widgets/binding.dart';
 export 'src/widgets/bottom_navigation_bar_item.dart';
 export 'src/widgets/color_filter.dart';

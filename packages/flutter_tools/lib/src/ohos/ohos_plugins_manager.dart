@@ -1,8 +1,6 @@
-/*
-* Copyright 2014 The Flutter Authors. All rights reserved.
-* Use of this source code is governed by a BSD-style license that can be
-* found in the LICENSE file.
-*/
+// Copyright 2014 The Flutter Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
 
 import 'dart:convert';
 
@@ -21,42 +19,47 @@ const String kUseAbsolutePathOfHar = 'useAbsolutePathOfHar';
 
 /// 检查 ohos plugin 依赖
 Future<void> checkOhosPluginsDependencies(FlutterProject flutterProject) async {
-  final List<Plugin> plugins = (await findPlugins(flutterProject))
-      .where((Plugin p) => p.platforms.containsKey(OhosPlugin.kConfigKey))
-      .toList();
-  final File packageFile =
-      flutterProject.ohos.flutterModuleDirectory.childFile('oh-package.json5');
+  final List<Plugin> plugins = (await findPlugins(
+    flutterProject,
+  )).where((Plugin p) => p.platforms.containsKey(OhosPlugin.kConfigKey)).toList();
+  final File packageFile = flutterProject.ohos.flutterModuleDirectory.childFile('oh-package.json5');
   if (!packageFile.existsSync()) {
     globals.logger.printTrace('check if oh-package.json5 file:($packageFile) exist ?');
     return;
   }
 
   final SettingsFile settings = flutterProject.ohos.settings;
-  final bool useAbsolutePathOfHar = settings.values[kUseAbsolutePathOfHar] == 'true';
+  final useAbsolutePathOfHar = settings.values[kUseAbsolutePathOfHar] == 'true';
 
   final String packageConfig = packageFile.readAsStringSync();
-  final Map<String, dynamic> config = JSON5.parse(packageConfig) as Map<String, dynamic>;
-  final Map<String, dynamic> dependencies =
-      config['dependencies'] as Map<String, dynamic>;
-  dependencies['@ohos/flutter_ohos'] = "har/flutter.har";
-  final List<String> removeList = <String>[];
-  for (final Plugin plugin in plugins) {
+  final config = JSON5.parse(packageConfig) as Map<String, dynamic>;
+  final dependencies = config['dependencies'] as Map<String, dynamic>;
+  dependencies['@ohos/flutter_ohos'] = 'har/flutter.har';
+  final removeList = <String>[];
+  for (final plugin in plugins) {
     for (final String key in dependencies.keys) {
       if (key.startsWith('@ohos') && key.contains(plugin.name)) {
         removeList.add(key);
       }
     }
-    final String absolutePath = globals.fs.path.join(flutterProject.ohos.ohosRoot.path, 'har/${plugin.name}.har');
+    final String absolutePath = globals.fs.path.join(
+      flutterProject.ohos.ohosRoot.path,
+      'har/${plugin.name}.har',
+    );
     if (useAbsolutePathOfHar && flutterProject.isModule) {
       dependencies[plugin.name] = 'file:$absolutePath';
     } else {
-      final String relativePath = _relative(absolutePath, globals.fs.path.dirname(packageFile.path));
+      final String relativePath = _relative(
+        absolutePath,
+        globals.fs.path.dirname(packageFile.path),
+      );
       dependencies[plugin.name] = 'file:$relativePath';
     }
   }
-  for (final String key in removeList) {
+  for (final key in removeList) {
     globals.printStatus(
-        'OhosDependenciesManager: deprecated plugin dependencies "$key" has been removed.');
+      'OhosDependenciesManager: deprecated plugin dependencies "$key" has been removed.',
+    );
     dependencies.remove(key);
   }
   final String configNew = const JsonEncoder.withIndent('  ').convert(config);
@@ -65,9 +68,9 @@ Future<void> checkOhosPluginsDependencies(FlutterProject flutterProject) async {
 
 /// 添加到工程级 build-profile.json5 的 modules 中
 Future<void> addPluginsModules(FlutterProject flutterProject) async {
-  final List<Plugin> plugins = (await findPlugins(flutterProject))
-      .where((Plugin p) => p.platforms.containsKey(OhosPlugin.kConfigKey))
-      .toList();
+  final List<Plugin> plugins = (await findPlugins(
+    flutterProject,
+  )).where((Plugin p) => p.platforms.containsKey(OhosPlugin.kConfigKey)).toList();
   if (plugins.isEmpty) {
     return;
   }
@@ -76,10 +79,12 @@ Future<void> addPluginsModules(FlutterProject flutterProject) async {
     throwToolExit('check if build-profile.json5 file:($buildProfileFile) exist ?');
   }
   final String packageConfig = buildProfileFile.readAsStringSync();
-  final Map<String, dynamic> buildProfile = JSON5.parse(packageConfig) as Map<String, dynamic>;
+  final buildProfile = JSON5.parse(packageConfig) as Map<String, dynamic>;
   final List<Map<dynamic, dynamic>> modules = (buildProfile['modules'] as List<dynamic>).cast();
-  final Map<String, dynamic> modulesMap = Map<String, dynamic>.fromEntries(modules.map((e) => MapEntry(e['name'] as String, e)));
-  for (final Plugin plugin in plugins) {
+  final modulesMap = Map<String, dynamic>.fromEntries(
+    modules.map((e) => MapEntry(e['name'] as String, e)),
+  );
+  for (final plugin in plugins) {
     if (modulesMap.containsKey(plugin.name)) {
       continue;
     }
@@ -92,8 +97,8 @@ Future<void> addPluginsModules(FlutterProject flutterProject) async {
       'targets': <Map<String, dynamic>>[
         <String, dynamic>{
           'name': 'default',
-          'applyToProducts': <dynamic>['default']
-        }
+          'applyToProducts': <dynamic>['default'],
+        },
       ],
     });
   }
@@ -103,9 +108,9 @@ Future<void> addPluginsModules(FlutterProject flutterProject) async {
 
 /// 在工程级的的oh-package.json5里添加flutter_module以及plugins的配置
 Future<void> addFlutterModuleAndPluginsSrcOverrides(FlutterProject flutterProject) async {
-  final List<Plugin> plugins = (await findPlugins(flutterProject))
-      .where((Plugin p) => p.platforms.containsKey(OhosPlugin.kConfigKey))
-      .toList();
+  final List<Plugin> plugins = (await findPlugins(
+    flutterProject,
+  )).where((Plugin p) => p.platforms.containsKey(OhosPlugin.kConfigKey)).toList();
   if (plugins.isEmpty) {
     return;
   }
@@ -115,16 +120,20 @@ Future<void> addFlutterModuleAndPluginsSrcOverrides(FlutterProject flutterProjec
     return;
   }
   final String packageConfig = packageFile.readAsStringSync();
-  final Map<String, dynamic> config = JSON5.parse(packageConfig) as Map<String, dynamic>;
-  final Map<String, dynamic> overrides = config['overrides'] as Map<String, dynamic>? ?? <String, dynamic>{};
+  final config = JSON5.parse(packageConfig) as Map<String, dynamic>;
+  final Map<String, dynamic> overrides =
+      config['overrides'] as Map<String, dynamic>? ?? <String, dynamic>{};
 
-  for (final Plugin plugin in plugins) {
+  for (final plugin in plugins) {
     overrides[plugin.name] = _relative(
       globals.fs.path.join(plugin.path, OhosPlugin.kConfigKey),
       flutterProject.ohos.ohosRoot.path,
     );
   }
-  final String relativePath = _relative(flutterProject.ohos.flutterModuleDirectory.path, flutterProject.ohos.ohosRoot.path);
+  final String relativePath = _relative(
+    flutterProject.ohos.flutterModuleDirectory.path,
+    flutterProject.ohos.ohosRoot.path,
+  );
   overrides['@ohos/flutter_module'] = 'file:./$relativePath';
   overrides['@ohos/flutter_ohos'] = 'file:./har/flutter.har';
   config['overrides'] = overrides;
@@ -134,14 +143,14 @@ Future<void> addFlutterModuleAndPluginsSrcOverrides(FlutterProject flutterProjec
 
 /// 添加到工程级 build-profile.json5 的 modules 中
 Future<void> removePluginsModules(FlutterProject flutterProject) async {
-  final List<Plugin> plugins = (await findPlugins(flutterProject))
-      .where((Plugin p) => p.platforms.containsKey(OhosPlugin.kConfigKey))
-      .toList();
+  final List<Plugin> plugins = (await findPlugins(
+    flutterProject,
+  )).where((Plugin p) => p.platforms.containsKey(OhosPlugin.kConfigKey)).toList();
   if (plugins.isEmpty) {
     return;
   }
-  final Map<String, Plugin> pluginsMap = Map<String, Plugin>.fromEntries(
-    plugins.map((Plugin e) => MapEntry<String, Plugin>(e.name, e))
+  final pluginsMap = Map<String, Plugin>.fromEntries(
+    plugins.map((Plugin e) => MapEntry<String, Plugin>(e.name, e)),
   );
   final File buildProfileFile = flutterProject.ohos.getBuildProfileFile();
   if (!buildProfileFile.existsSync()) {
@@ -149,11 +158,11 @@ Future<void> removePluginsModules(FlutterProject flutterProject) async {
     return;
   }
   final String packageConfig = buildProfileFile.readAsStringSync();
-  final Map<String, dynamic> buildProfile = JSON5.parse(packageConfig) as Map<String, dynamic>;
+  final buildProfile = JSON5.parse(packageConfig) as Map<String, dynamic>;
   final List<Map<dynamic, dynamic>> modules = (buildProfile['modules'] as List<dynamic>).cast();
-  final List<Map<dynamic, dynamic>> newModules = <Map<dynamic, dynamic>>[];
+  final newModules = <Map<dynamic, dynamic>>[];
 
-  for (final Map<dynamic, dynamic> module in modules) {
+  for (final module in modules) {
     if (pluginsMap.containsKey(module['name'])) {
       continue;
     } else {
@@ -167,9 +176,9 @@ Future<void> removePluginsModules(FlutterProject flutterProject) async {
 
 /// 把flutter_module跟plugins的依赖写入工程级oh-package.json5里的overrides
 Future<void> addFlutterModuleAndPluginsOverrides(FlutterProject flutterProject) async {
-  final List<Plugin> plugins = (await findPlugins(flutterProject))
-      .where((Plugin p) => p.platforms.containsKey(OhosPlugin.kConfigKey))
-      .toList();
+  final List<Plugin> plugins = (await findPlugins(
+    flutterProject,
+  )).where((Plugin p) => p.platforms.containsKey(OhosPlugin.kConfigKey)).toList();
   if (plugins.isEmpty) {
     return;
   }
@@ -179,13 +188,17 @@ Future<void> addFlutterModuleAndPluginsOverrides(FlutterProject flutterProject) 
     return;
   }
   final String packageConfig = packageFile.readAsStringSync();
-  final Map<String, dynamic> config = JSON5.parse(packageConfig) as Map<String, dynamic>;
-  final Map<String, dynamic> overrides = config['overrides'] as Map<String, dynamic>? ?? <String, dynamic>{};
+  final config = JSON5.parse(packageConfig) as Map<String, dynamic>;
+  final Map<String, dynamic> overrides =
+      config['overrides'] as Map<String, dynamic>? ?? <String, dynamic>{};
   final SettingsFile settings = flutterProject.ohos.settings;
-  final bool useAbsolutePathOfHar = settings.values[kUseAbsolutePathOfHar] == 'true';
+  final useAbsolutePathOfHar = settings.values[kUseAbsolutePathOfHar] == 'true';
 
-  for (final Plugin plugin in plugins) {
-    final String absolutePath = globals.fs.path.join(flutterProject.ohos.ohosRoot.path, 'har/${plugin.name}.har');
+  for (final plugin in plugins) {
+    final String absolutePath = globals.fs.path.join(
+      flutterProject.ohos.ohosRoot.path,
+      'har/${plugin.name}.har',
+    );
     if (useAbsolutePathOfHar && flutterProject.isModule) {
       overrides[plugin.name] = 'file:$absolutePath';
     } else {

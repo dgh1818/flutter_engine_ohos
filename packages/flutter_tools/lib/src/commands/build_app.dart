@@ -15,7 +15,7 @@ import 'build.dart';
 
 class BuildAppCommand extends BuildSubCommand {
   BuildAppCommand({required super.logger, bool verboseHelp = false})
-      : super(verboseHelp: verboseHelp) {
+    : super(verboseHelp: verboseHelp) {
     addTreeShakeIconsFlag();
     usesTargetOption();
     addBuildModeFlags(verboseHelp: verboseHelp);
@@ -43,7 +43,8 @@ class BuildAppCommand extends BuildSubCommand {
       help: 'The target platform for which the app is compiled.',
     );
 
-    argParser.addFlag('codesign',
+    argParser.addFlag(
+      'codesign',
       defaultsTo: true,
       help: 'Codesign the application bundle (only available on device builds).',
     );
@@ -54,9 +55,6 @@ class BuildAppCommand extends BuildSubCommand {
 
   @override
   String get name => 'app';
-
-  @override
-  bool get reportNullSafety => false;
 
   bool get shouldCodesign => boolArg('codesign');
 
@@ -72,15 +70,15 @@ class BuildAppCommand extends BuildSubCommand {
       exitWithNoSdkMessage();
     }
     final BuildInfo buildInfo = await getBuildInfo();
-    final OhosBuildInfo ohosBuildInfo = OhosBuildInfo(
+    final ohosBuildInfo = OhosBuildInfo(
       buildInfo,
       targetArchs: stringsArg('target-platform').map<OhosArch>(getOhosArchForName),
-      shouldCodesign: shouldCodesign
+      shouldCodesign: shouldCodesign,
     );
     if (!shouldCodesign) {
       globals.printStatus(
         '${globals.terminal.warningMark} Warning: Building for device with codesigning disabled. You will '
-            'have to manually codesign before deploying to device.',
+        'have to manually codesign before deploying to device.',
         color: TerminalColor.yellow,
       );
     }

@@ -42,6 +42,7 @@ void main() {
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
         case TargetPlatform.windows:
+        case TargetPlatform.ohos:
           expect(theme.builders[platform], isNull);
       }
     }

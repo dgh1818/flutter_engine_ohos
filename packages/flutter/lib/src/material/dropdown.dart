@@ -1504,8 +1504,9 @@ class _DropdownButtonState<T> extends State<DropdownButton<T>> with WidgetsBindi
       }
       widget.onChanged?.call(newValue.result);
       // Only unfocus in touch mode to preserve keyboard navigation and accessibility
-      if (defaultTargetPlatform == TargetPlatform.ohos && FocusManager.instance.highlightMode == FocusHighlightMode.touch) {
-        focusNode?.unfocus();
+      if (defaultTargetPlatform == TargetPlatform.ohos &&
+          FocusManager.instance.highlightMode == FocusHighlightMode.touch) {
+        focusNode.unfocus();
       }
     });
 

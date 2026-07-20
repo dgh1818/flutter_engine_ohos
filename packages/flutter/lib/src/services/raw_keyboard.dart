@@ -417,7 +417,6 @@ abstract class RawKeyEvent with Diagnosticable {
           if (message.containsKey('character')) {
             character = message['character'] as String?;
           }
-          break;
         case 'android':
           data = RawKeyEventDataAndroid(
             flags: message['flags'] as int? ?? 0,

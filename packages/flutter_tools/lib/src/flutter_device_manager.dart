@@ -71,9 +71,6 @@ class FlutterDeviceManager extends DeviceManager {
            logger: logger,
            ohosSdk: ohosSdk,
            processManager: processManager,
-           fileSystem: fileSystem,
-           platform: platform,
-           userMessages: userMessages,
            ohosWorkflow: ohosWorkflow,
          ),
          IOSDevices(

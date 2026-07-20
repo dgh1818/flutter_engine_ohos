@@ -470,7 +470,9 @@ class NestedScrollViewState extends State<NestedScrollView> with WidgetsBindingO
 
   @override
   void handleStatusBarTap() {
-    if (widget.scrollDirection != Axis.vertical) return;
+    if (widget.scrollDirection != Axis.vertical) {
+      return;
+    }
     try {
       _coordinator?.animateTo(
         0.0,

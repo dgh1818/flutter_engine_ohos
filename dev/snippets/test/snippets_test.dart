@@ -325,7 +325,7 @@ void main() {
         platform: platform,
       );
       FlutterInformation.instance = flutterInformation;
-      var mockSnippetGenerator = MockSnippetGenerator();
+      final mockSnippetGenerator = MockSnippetGenerator();
       snippets_main.snippetGenerator = mockSnippetGenerator;
       var errorMessage = '';
       errorExit = (String message) {

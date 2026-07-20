@@ -67,7 +67,6 @@ void main() {
     },
     variant: TargetPlatformVariant.all(),
     skip: true, // OHOS not supported
-    
   );
 
   testWidgets(

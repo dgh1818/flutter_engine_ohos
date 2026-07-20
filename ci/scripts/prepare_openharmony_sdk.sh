@@ -23,7 +23,7 @@ prepare_openharmony_sdk() {
     log_info "Downloading daily build SDK"
     log_info "URL: $sdk_url"
 
-    curl -f -L -- "$sdk_url" > download/sdk_openharmony.tar.gz 
+    curl -f -L -- "$sdk_url" > download/sdk_openharmony.tar.gz
     if [ $? -ne 0 ]; then
         log_error "Download failed"
         exit 1

@@ -911,7 +911,9 @@ class _PageViewState extends State<PageView> with WidgetsBindingObserver {
 
   @override
   void handleStatusBarTap() {
-    if (widget.scrollDirection != Axis.vertical) return;
+    if (widget.scrollDirection != Axis.vertical) {
+      return;
+    }
     try {
       _controller.animateToPage(
         0,

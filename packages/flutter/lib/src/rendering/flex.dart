@@ -11,10 +11,10 @@ import 'package:flutter/foundation.dart';
 
 import 'box.dart';
 import 'debug_overflow_indicator.dart';
+import 'flex_overflow_strategy.dart';
 import 'layer.dart';
 import 'layout_helper.dart';
 import 'object.dart';
-import 'flex_overflow_strategy.dart';
 
 // A 2D vector that uses a [RenderFlex]'s main axis and cross axis as its first and second coordinate axes.
 // It represents the same vector as (double mainAxisExtent, double crossAxisExtent).

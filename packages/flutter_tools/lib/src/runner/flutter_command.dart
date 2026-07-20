@@ -2117,7 +2117,7 @@ mixin DeviceBasedDevelopmentArtifacts on FlutterCommand {
         case TargetPlatform.ohos_arm64:
         case TargetPlatform.ohos_x64:
           artifacts.add(DevelopmentArtifact.ohosInternalBuild);
-          break;
+        // ignore: no_default_cases
         default:
           break;
       }

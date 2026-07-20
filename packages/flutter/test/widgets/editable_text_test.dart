@@ -96,9 +96,7 @@ void main() {
     focusScopeNode.dispose();
   });
 
-  final TargetPlatformVariant allExceptOhos = TargetPlatformVariant.all(
-    excluding: <TargetPlatform>{TargetPlatform.ohos},
-  );
+  final allExceptOhos = TargetPlatformVariant.all(excluding: <TargetPlatform>{TargetPlatform.ohos});
 
   // Tests that the desired keyboard action button is requested.
   //
@@ -13802,7 +13800,9 @@ void main() {
 
         // On web, these keyboard shortcuts are handled by the browser.
       },
-      variant: TargetPlatformVariant.all(excluding: <TargetPlatform>{TargetPlatform.android, TargetPlatform.ohos}),
+      variant: TargetPlatformVariant.all(
+        excluding: <TargetPlatform>{TargetPlatform.android, TargetPlatform.ohos},
+      ),
       skip: kIsWeb, // [intended]
     );
 

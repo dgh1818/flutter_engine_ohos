@@ -792,8 +792,8 @@ class AlertDialog extends StatelessWidget {
     final double paddingScaleFactor = _scalePadding(effectiveTextScale);
     final TextDirection? textDirection = Directionality.maybeOf(context);
 
-    final bool effectiveScrollable = scrollable ?? 
- 	       (Theme.of(context).platform == TargetPlatform.ohos ? true : false);
+    final bool effectiveScrollable =
+        scrollable ?? (Theme.of(context).platform == TargetPlatform.ohos);
 
     Widget? iconWidget;
     Widget? titleWidget;

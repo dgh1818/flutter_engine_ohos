@@ -42,10 +42,8 @@ String? getHdcServerPort() {
   return hdcServerPort;
 }
 
-List<String> getHdcCommandCompat(
-    HarmonySdk ohosSdk, String id, List<String> args) {
+List<String> getHdcCommandCompat(HarmonySdk ohosSdk, String id, List<String> args) {
   final String? hdcServer = getHdcServer();
-  final List<String> hdcServerCommand =
-      hdcServer == null ? <String>['-t', id] : <String>['-s', hdcServer];
+  final hdcServerCommand = hdcServer == null ? <String>['-t', id] : <String>['-s', hdcServer];
   return <String>[ohosSdk.hdcPath!, ...hdcServerCommand, ...args];
 }
