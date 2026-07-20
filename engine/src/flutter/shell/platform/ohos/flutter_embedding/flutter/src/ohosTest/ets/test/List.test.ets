@@ -92,6 +92,13 @@ import previewTextMergeContextTest from './plugin/editing/PreviewTextMergeContex
 import previewTextSupportTest from './plugin/editing/PreviewTextSupport.test';
 import previewTextStringMergeTest from './plugin/editing/PreviewTextStringMerge.test';
 import previewTextCoordinatorTest from './plugin/editing/PreviewTextCoordinator.test';
+import customTouchEventTest from './plugin/platform/CustomTouchEvent.test';
+import mouseCursorPluginTest from './plugin/mouse/MouseCursorPlugin.test';
+import splitViewConfigPluginTest from './plugin/splitview/SplitViewConfigPlugin.test';
+import sensitiveContentPluginTest from './plugin/view/SensitiveContentPlugin.test';
+import platformPluginTest from './plugin/platform/PlatformPlugin.test';
+import accessibilityChannelTest from './embedding/engine/systemchannels/AccessibilityChannel.test';
+import keyEventChannelTest from './embedding/engine/systemchannels/KeyEventChannel.test';
 
 export default function testsuite() {
   FlutterAbilityAndEntryDelegateTest();
@@ -110,6 +117,7 @@ export default function testsuite() {
   RestorationChannelUnitTest();
   SettingsChannelUnitTest();
   TextInputChannelUnitTest();
+
   JSONMethodCodecUnitTest();
   MethodCallUnitTest();
   DartMessengerTest();
@@ -170,4 +178,11 @@ export default function testsuite() {
   previewTextSupportTest();
   previewTextStringMergeTest();
   previewTextCoordinatorTest();
+  customTouchEventTest();
+  mouseCursorPluginTest();
+  splitViewConfigPluginTest();
+  sensitiveContentPluginTest();
+  platformPluginTest();
+  accessibilityChannelTest();
+  keyEventChannelTest();
 }
