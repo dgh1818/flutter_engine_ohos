@@ -959,6 +959,7 @@ export class FlutterView {
     if (this.uiContext !== undefined && this.autofillUiContext === undefined) {
       this.applyAutofillUiContext(this.uiContext);
     }
+    this.flutterEngine.getPlatformViewsController()?.attachTextInputPlugin(this.textInputPlugin);
     this.statusBarClickChannel = new StatusBarClickChannel(flutterEngine.dartExecutor)
     this.keyboardManager = new KeyboardManager(flutterEngine, this.textInputPlugin!);
     this.settings = new Settings(this.flutterEngine.getSettingsChannel()!);
@@ -1016,7 +1017,11 @@ export class FlutterView {
       this.flutterEngine?.hostDidBecomeHidden();
       this.hostVisible = false;
     }
+    // Keep the controller -> TextInputPlugin link alive until the platform-view
+    // hierarchy has been detached. This lets late blur/teardown callbacks clear
+    // any physical PlatformView owner that is still active during shutdown.
     this.flutterEngine?.getPlatformViewsController()?.detachFromView(this);
+    this.flutterEngine?.getPlatformViewsController()?.detachTextInputPlugin();
     this.flutterEngine = null;
     this.keyboardManager = null;
     this.textInputPlugin?.destroy();

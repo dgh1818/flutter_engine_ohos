@@ -106,6 +106,27 @@ export default abstract class PlatformView {
   onInputConnectionUnlocked(): void {
   }
 
+  /**
+   * Whether this PlatformView should participate in the eager Flutter->native
+   * text-input handoff path. Defaults to false so non-text PlatformViews keep
+   * their original focus behavior unless the plugin explicitly opts in.
+   */
+  shouldParticipateInTextInputHandoff(): boolean {
+    return false;
+  }
+
+  /**
+   * Whether the current DOWN gesture should eagerly transfer Flutter text
+   * ownership to this PlatformView.
+   *
+   * Composite ArkUI PlatformViews can override this to report whether the
+   * just-dispatched gesture actually targeted their inner native editor child.
+   * The default preserves the original behavior for simple text PlatformViews.
+   */
+  shouldTriggerTextInputHandoffOnTouch(): boolean {
+    return this.shouldParticipateInTextInputHandoff();
+  }
+
   // Obtain the parameters related to the changes in the visible area of the external texture
   getPlatformViewVisibleAreaEventOptions(): PlatformViewVisibleAreaEventOptions {
     return {
