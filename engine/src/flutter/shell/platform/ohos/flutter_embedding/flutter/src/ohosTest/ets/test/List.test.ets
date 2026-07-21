@@ -99,6 +99,24 @@ import sensitiveContentPluginTest from './plugin/view/SensitiveContentPlugin.tes
 import platformPluginTest from './plugin/platform/PlatformPlugin.test';
 import accessibilityChannelTest from './embedding/engine/systemchannels/AccessibilityChannel.test';
 import keyEventChannelTest from './embedding/engine/systemchannels/KeyEventChannel.test';
+import navigationChannelTest from './embedding/engine/systemchannels/NavigationChannel.test';
+import statusBarClickChannelTest from './embedding/engine/systemchannels/StatusBarClickChannel.test';
+import sensitiveContentChannelTest from './embedding/engine/systemchannels/SensitiveContentChannel.test';
+import platformViewsChannelTest from './embedding/engine/systemchannels/PlatformViewsChannel.test';
+import flutterAbilityLaunchConfigsTest from './embedding/ohos/FlutterAbilityLaunchConfigs.test';
+import platformViewInfoTest from './embedding/ohos/PlatformViewInfo.test';
+import keyboardMapTest from './embedding/ohos/KeyboardMap.test';
+import keyDataTest from './embedding/ohos/KeyData.test';
+import keyEmbedderResponderTest from './embedding/ohos/KeyEmbedderResponder.test';
+import keyboardChannelTest from './embedding/engine/systemchannels/KeyboardChannel.test';
+import mouseCursorChannelTest from './embedding/engine/systemchannels/MouseCursorChannel.test';
+import localizationChannelTest from './embedding/engine/systemchannels/LocalizationChannel.test';
+import displayMetricsChannelTest from './embedding/engine/systemchannels/DisplayMetricsChannel.test';
+import testChannelTest from './embedding/engine/systemchannels/TestChannel.test';
+import nativeVsyncChannelTest from './embedding/engine/systemchannels/NativeVsyncChannel.test';
+import splitViewConfigSystemChannelTest from './embedding/engine/systemchannels/SplitViewConfigSystemChannel.test';
+import keyEventHandlerTest from './embedding/ohos/KeyEventHandler.test';
+import keyboardManagerTest from './embedding/ohos/KeyboardManager.test';
 
 export default function testsuite() {
   FlutterAbilityAndEntryDelegateTest();
@@ -185,4 +203,22 @@ export default function testsuite() {
   platformPluginTest();
   accessibilityChannelTest();
   keyEventChannelTest();
+  navigationChannelTest();
+  statusBarClickChannelTest();
+  sensitiveContentChannelTest();
+  platformViewsChannelTest();
+  flutterAbilityLaunchConfigsTest();
+  platformViewInfoTest();
+  keyboardMapTest();
+  keyDataTest();
+  keyEmbedderResponderTest();
+  keyboardChannelTest();
+  mouseCursorChannelTest();
+  localizationChannelTest();
+  displayMetricsChannelTest();
+  testChannelTest();
+  nativeVsyncChannelTest();
+  splitViewConfigSystemChannelTest();
+  keyEventHandlerTest();
+  keyboardManagerTest();
 }
