@@ -1273,7 +1273,7 @@ class _ModalScopeState<T> extends State<_ModalScope<T>> {
         final FocusScopeNode? popupPreviousScope = widget.route.navigator
             ?.getPopupPreviousFocusScope();
         if (popupPreviousScope != null) {
-          widget.route.navigator!.focusNode.enclosingScope?.setFirstFocus(popupPreviousScope);
+          popupPreviousScope.requestFocus();
           setState(fn);
           return;
         }
