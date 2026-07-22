@@ -188,7 +188,7 @@ class SplitViewNavigatorPolicy with WidgetsBindingObserver {
   /// removed from the navigation stack while the popup was still visible).
   FocusScopeNode? getPopupPreviousFocusScope() {
     final FocusScopeNode? scope = _popupPreviousFocusScope;
-    if (scope == null || scope.parent == null) {
+    if (scope == null || scope.parent == null || !scope.canRequestFocus) {
       return null;
     }
     return scope;
@@ -654,8 +654,12 @@ class SplitViewNavigatorPolicy with WidgetsBindingObserver {
       );
       // Capture the current primary focus scope when the first barrier is
       // created. Shared by all subsequent barriers.
+      //
+      // nearestScope returns the FocusScopeNode itself when primaryFocus is
+      // a scope, so the captured scope's focusedChildren only contains
+      // healthy page subtrees and never the popup's scope.
       if (_mirrorBarrierRoutes.isEmpty) {
-        _popupPreviousFocusScope = FocusManager.instance.primaryFocus?.enclosingScope;
+        _popupPreviousFocusScope = FocusManager.instance.primaryFocus?.nearestScope;
       }
       _mirrorBarrierRoutes[popupRoute] = MirrorBarrierInfo(mirrorBarrier: mirrorBarrier);
     }
