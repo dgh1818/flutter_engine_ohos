@@ -400,14 +400,16 @@ export class OhosAutoFillHelper {
           fieldConfig.autofill, nodeId, isFocused, rect));
       }
     }
-
+    const resolvedPageRect = OhosAutoFillHelper.resolvePageRect(pageRect, focusedFieldRect);
     return {
       bundleName: hostInfo.bundleName,
       moduleName: hostInfo.moduleName,
       abilityName: hostInfo.abilityName,
       pageUrl: hostInfo.pageUrl,
       pageNodeInfos: pageNodeInfos,
-      pageRect: OhosAutoFillHelper.resolvePageRect(pageRect, focusedFieldRect),
+      pageRect: deviceInfo.deviceType === '2in1'
+        ? { left: 0, top: 0, width: resolvedPageRect.width, height: resolvedPageRect.height }
+        : resolvedPageRect,
       isUserSelected: false,
       isOtherAccount: false,
     };
@@ -451,13 +453,16 @@ export class OhosAutoFillHelper {
     Log.i(TAG, 'buildViewDataForSave: configCount=' + fieldConfigs.size +
       ' textCount=' + fieldTexts.size + ' nodeCount=' + pageNodeInfos.length +
       ' emptyValue=' + emptyValueCount + ' focusedUniqueId=' + focusedUniqueId);
+    const resolvedPageRect = OhosAutoFillHelper.resolvePageRect(pageRect, focusedFieldRect);
     return {
       bundleName: hostInfo.bundleName,
       moduleName: hostInfo.moduleName,
       abilityName: hostInfo.abilityName,
       pageUrl: hostInfo.pageUrl,
       pageNodeInfos: pageNodeInfos,
-      pageRect: OhosAutoFillHelper.resolvePageRect(pageRect, focusedFieldRect),
+      pageRect: deviceInfo.deviceType === '2in1'
+        ? { left: 0, top: 0, width: resolvedPageRect.width, height: resolvedPageRect.height }
+        : resolvedPageRect,
       isUserSelected: false,
       isOtherAccount: false,
     };
