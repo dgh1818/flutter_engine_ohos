@@ -291,7 +291,7 @@ deps = {
   'https://boringssl.googlesource.com/boringssl.git' + '@' + Var('dart_boringssl_rev'),
 
   'engine/src/flutter/third_party/dart':
-   Var('ohos_git') + '/fluttertpc_dart_sdk.git' + '@' + 'a4a25769cdf8e7de264317b059808dbe089ff6dd',
+   Var('ohos_git') + '/fluttertpc_dart_sdk.git' + '@' + 'a2fb0c47995cd1b1dc44eebef27064982ba53e7c',
 
   # WARNING: Unused Dart dependencies in the list below till "WARNING:" marker are removed automatically - see create_updated_flutter_deps.py.
 
