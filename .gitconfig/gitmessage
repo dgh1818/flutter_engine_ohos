@@ -1,0 +1,21 @@
+type(scope): describe user-facing impact
+
+# --- template reference ---
+# <type>(<scope>): <subject>
+#
+# Changelog types (will appear in CHANGELOG):
+#   feat        - Added: new features, APIs, modules
+#   change      - Changed: modifications to existing behavior
+#   deprecate   - Deprecated: mark features for future removal
+#   remove      - Removed: remove previously deprecated features
+#   fix         - Fixed: bug fixes, compatibility fixes
+#   security    - Security: vulnerability fixes
+#   docs        - Documentation: user-facing doc changes
+#   perf        - Performance: optimizations without functional changes
+#
+# Internal types (will NOT appear in CHANGELOG):
+#   chore       - Build/toolchain, CI/CD
+#   test        - Test additions or modifications
+#   style       - Code formatting only
+#   refactor    - Code restructuring (no behavior change)
+#   revert      - Revert a previous commit

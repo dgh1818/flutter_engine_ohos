@@ -1,0 +1,190 @@
+#!/bin/bash
+# pre-push hook: check branch sync status and validate commit format
+
+VALID_TYPES="feat|fix|docs|style|refactor|perf|test|chore|revert|change|deprecate|remove|security|ci|build"
+FAILED=0
+
+# Get current branch name
+CURRENT_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null)
+
+# ============================================================
+# Check if local branch is synced with upstream
+# ============================================================
+if [ -n "$CURRENT_BRANCH" ]; then
+    UPSTREAM_URL="https://gitcode.com/CPF-Flutter/flutter_flutter.git"
+    CHECK_REMOTE="__upstream_check__"
+
+    TARGET_BRANCH=""
+    DETECTION_METHOD=""
+
+    # Priority 1: Check if upstream has same-named branch
+    if git ls-remote --exit-code --heads "$UPSTREAM_URL" "$CURRENT_BRANCH" >/dev/null 2>&1; then
+        TARGET_BRANCH="$CURRENT_BRANCH"
+        DETECTION_METHOD="auto-detected"
+    fi
+
+    # Priority 2: Check branch-specific configuration
+    if [ -z "$TARGET_BRANCH" ]; then
+        CONFIGURED_BRANCH=$(git config --get "branch.$CURRENT_BRANCH.upstream-check" 2>/dev/null)
+        if [ -n "$CONFIGURED_BRANCH" ]; then
+            if git ls-remote --exit-code --heads "$UPSTREAM_URL" "$CONFIGURED_BRANCH" >/dev/null 2>&1; then
+                TARGET_BRANCH="$CONFIGURED_BRANCH"
+                DETECTION_METHOD="configured"
+            else
+                echo ""
+                echo "============================================================"
+                echo " CONFIGURATION ERROR"
+                echo "============================================================"
+                echo " Configured upstream branch '$CONFIGURED_BRANCH' does not exist."
+                echo " Please update the configuration:"
+                echo ""
+                echo "   git config branch.$CURRENT_BRANCH.upstream-check <valid-branch>"
+                echo "============================================================"
+                echo ""
+                exit 1
+            fi
+        fi
+    fi
+
+    if [ -n "$TARGET_BRANCH" ]; then
+        # Add temporary remote for fetch
+        if ! git remote get-url "$CHECK_REMOTE" >/dev/null 2>&1; then
+            git remote add "$CHECK_REMOTE" "$UPSTREAM_URL" 2>/dev/null
+        fi
+
+        # Fetch upstream branch and handle failure
+        if ! git fetch "$CHECK_REMOTE" "$TARGET_BRANCH" --quiet 2>/dev/null; then
+            echo ""
+            echo "============================================================"
+            echo " FETCH FAILED"
+            echo "============================================================"
+            echo " Cannot fetch upstream branch '$TARGET_BRANCH'."
+            echo " Please check your network connection and try again."
+            echo "============================================================"
+            echo ""
+            git remote remove "$CHECK_REMOTE" 2>/dev/null
+            exit 1
+        fi
+
+        AHEAD=$(git rev-list "$CHECK_REMOTE/$TARGET_BRANCH..HEAD" --count 2>/dev/null)
+        BEHIND=$(git rev-list "HEAD..$CHECK_REMOTE/$TARGET_BRANCH" --count 2>/dev/null)
+
+        if [ "$AHEAD" -gt 0 ] && [ "$BEHIND" -gt 0 ] 2>/dev/null; then
+            echo ""
+            echo "============================================================"
+            echo " BRANCH DIVERGED"
+            echo "============================================================"
+            echo " Your branch '$CURRENT_BRANCH' has diverged from upstream."
+            echo " Local: +$AHEAD commit(s) ahead | Upstream: +$BEHIND commit(s) ahead"
+            echo " Comparing against: $TARGET_BRANCH ($DETECTION_METHOD)"
+            echo " Please sync your branch with upstream before pushing."
+            echo "============================================================"
+            echo ""
+            git remote remove "$CHECK_REMOTE" 2>/dev/null
+            exit 1
+        elif [ "$BEHIND" -gt 0 ] 2>/dev/null; then
+            echo ""
+            echo "============================================================"
+            echo " BRANCH OUT OF SYNC"
+            echo "============================================================"
+            echo " Your branch '$CURRENT_BRANCH' is $BEHIND commit(s) behind upstream."
+            echo " Comparing against: $TARGET_BRANCH ($DETECTION_METHOD)"
+            echo " Please sync your branch with upstream before pushing."
+            echo "============================================================"
+            echo ""
+            git remote remove "$CHECK_REMOTE" 2>/dev/null
+            exit 1
+        fi
+
+        git remote remove "$CHECK_REMOTE" 2>/dev/null
+    else
+        # No upstream branch found, need configuration
+        echo ""
+        echo "============================================================"
+        echo " UPSTREAM BRANCH NOT FOUND"
+        echo "============================================================"
+        echo " Could not detect upstream base branch for '$CURRENT_BRANCH'."
+        echo " Please configure the upstream branch to check against:"
+        echo ""
+        echo "   git config branch.$CURRENT_BRANCH.upstream-check <upstream-branch>"
+        echo ""
+        echo " Example:"
+        echo "   git config branch.$CURRENT_BRANCH.upstream-check oh-3.35.7-dev"
+        echo "============================================================"
+        echo ""
+        exit 1
+    fi
+fi
+
+# ============================================================
+# Validate commit format and signatures
+# ============================================================
+while read local_ref local_sha remote_ref remote_sha; do
+    # Skip deleted branches
+    if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
+        continue
+    fi
+
+    # Determine commit range
+    if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
+        COMMITS=$(git rev-list "$local_sha" --not --remotes 2>/dev/null)
+    else
+        COMMITS=$(git rev-list "$remote_sha..$local_sha" 2>/dev/null)
+    fi
+
+    USER_EMAIL=$(git config --get user.email 2>/dev/null)
+
+    # Get hook install time as cutoff (only check commits after hook was set up)
+    HOOK_TIME=$(git config --get hook.pre-push.install-time 2>/dev/null)
+    if [ -z "$HOOK_TIME" ]; then
+        # First run: save current time as install time
+        HOOK_TIME=$(date +%s)
+        git config hook.pre-push.install-time "$HOOK_TIME"
+    fi
+
+    for COMMIT in $COMMITS; do
+        # Skip merge commits
+        PARENTS=$(git rev-list --parents -n 1 "$COMMIT" | awk '{print NF-1}')
+        if [ "$PARENTS" -gt 1 ]; then
+            continue
+        fi
+
+        # Skip commits not authored by current user
+        AUTHOR_EMAIL=$(git log -1 --format=%ae "$COMMIT" 2>/dev/null)
+        if [ -n "$USER_EMAIL" ] && [ "$AUTHOR_EMAIL" != "$USER_EMAIL" ]; then
+            continue
+        fi
+
+        # Skip historical commits created before hook was installed
+        COMMIT_TIME=$(git log -1 --format=%ct "$COMMIT" 2>/dev/null)
+        if [ "$HOOK_TIME" -gt 0 ] && [ "$COMMIT_TIME" -lt "$HOOK_TIME" ] 2>/dev/null; then
+            continue
+        fi
+
+        MSG=$(git log -1 --format=%B "$COMMIT")
+        FIRST_LINE=$(echo "$MSG" | head -1)
+        SHORT_SHA=$(git log -1 --format=%h "$COMMIT")
+
+        # Check type prefix
+        if ! echo "$FIRST_LINE" | grep -qE "^($VALID_TYPES)(\(.+\))?: "; then
+            echo "ERROR: Commit $SHORT_SHA missing valid type prefix"
+            echo "  Message: $FIRST_LINE"
+            echo "  Valid types: $VALID_TYPES"
+            echo ""
+            FAILED=1
+        fi
+
+        # Check Signed-off-by
+        if ! echo "$MSG" | grep -q "^Signed-off-by: "; then
+            echo "ERROR: Commit $SHORT_SHA missing Signed-off-by signature"
+            echo "  Use: git commit -s --amend"
+            echo ""
+            FAILED=1
+        fi
+    done
+done
+
+if [ $FAILED -eq 1 ]; then
+    echo "Push rejected. Please fix the above errors."
+    exit 1
+fi

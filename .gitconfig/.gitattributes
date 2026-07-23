@@ -1,0 +1,3 @@
+# Force LF line endings for git hooks and config files
+# Required for bash scripts to work on Mac/Linux
+* text eol=lf
