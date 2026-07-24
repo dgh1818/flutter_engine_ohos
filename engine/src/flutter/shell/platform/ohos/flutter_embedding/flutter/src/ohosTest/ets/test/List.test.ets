@@ -117,6 +117,10 @@ import nativeVsyncChannelTest from './embedding/engine/systemchannels/NativeVsyn
 import splitViewConfigSystemChannelTest from './embedding/engine/systemchannels/SplitViewConfigSystemChannel.test';
 import keyEventHandlerTest from './embedding/ohos/KeyEventHandler.test';
 import keyboardManagerTest from './embedding/ohos/KeyboardManager.test';
+import TextUtilsTest from './plugin/editing/TextUtils.test';
+import FlutterEnginePreloadTest from './embedding/engine/FlutterEnginePreload.test';
+import FlutterPluginRegistryTest from './app/FlutterPluginRegistry.test';
+import FlutterCallbackInformationTest from './view/FlutterCallbackInformation.test';
 
 export default function testsuite() {
   FlutterAbilityAndEntryDelegateTest();
@@ -221,4 +225,8 @@ export default function testsuite() {
   splitViewConfigSystemChannelTest();
   keyEventHandlerTest();
   keyboardManagerTest();
+  TextUtilsTest();
+  FlutterEnginePreloadTest();
+  FlutterPluginRegistryTest();
+  FlutterCallbackInformationTest();
 }
