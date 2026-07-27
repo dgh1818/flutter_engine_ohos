@@ -159,7 +159,8 @@ OHOSShellHolder::OHOSShellHolder(
   auto thread_label = std::to_string(thread_host_count++);
   TRACE_EVENT0("OHOSShellHolder", "Create");
   auto mask = ThreadHost::Type::kRaster | ThreadHost::Type::kIo;
-  if (settings.merged_platform_ui_thread != Settings::MergedPlatformUIThread::kEnabled) {
+  if (settings.merged_platform_ui_thread !=
+      Settings::MergedPlatformUIThread::kEnabled) {
     mask |= ThreadHost::Type::kUi;
   }
 
@@ -222,7 +223,8 @@ OHOSShellHolder::OHOSShellHolder(
   fml::RefPtr<fml::TaskRunner> platform_runner =
       fml::MessageLoop::GetCurrent().GetTaskRunner();
   raster_runner = thread_host_->raster_thread->GetTaskRunner();
-  if (settings.merged_platform_ui_thread == Settings::MergedPlatformUIThread::kEnabled) {
+  if (settings.merged_platform_ui_thread ==
+      Settings::MergedPlatformUIThread::kEnabled) {
     ui_runner = platform_runner;
   } else {
     ui_runner = thread_host_->ui_thread->GetTaskRunner();
@@ -314,6 +316,27 @@ bool OHOSShellHolder::IsValid() const {
 
 const flutter::Settings& OHOSShellHolder::GetSettings() const {
   return settings_;
+}
+
+std::unique_ptr<OHOSShellHolder> OHOSShellHolder::SpawnAsync(
+    std::shared_ptr<PlatformViewOHOSNapi> napi_facade,
+    const std::string& entrypoint,
+    const std::string& libraryUrl,
+    const std::string& initial_route,
+    const std::vector<std::string>& entrypoint_args) const {
+  // SpawnAsync is invoked on a worker thread so that the latch-based wait
+  // happens off the platform thread. The subsequent call chain
+  // Spawn -> CreateWithSnapshot -> CreateShellOnPlatformThread internally
+  // blocks on the parent engine's UI task runner to drain pending work;
+  // draining that queue here first avoids pinning the platform thread on a
+  // long UI-thread wait during shell spawn.
+  fml::AutoResetWaitableEvent ui_latch;
+  fml::TaskRunner::RunNowOrPostTask(shell_->GetTaskRunners().GetUITaskRunner(),
+                                    [&ui_latch] { ui_latch.Signal(); });
+  ui_latch.Wait();
+
+  return Spawn(napi_facade, entrypoint, libraryUrl, initial_route,
+               entrypoint_args);
 }
 
 std::unique_ptr<OHOSShellHolder> OHOSShellHolder::Spawn(

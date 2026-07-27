@@ -451,6 +451,32 @@ export default class FlutterNapi {
   }
 
   /**
+   * Spawns a new FlutterNapi instance from this instance asynchronously.
+   * @param entrypointFunctionName - Name of the entrypoint function
+   * @param pathToEntrypointFunction - Path to the entrypoint function
+   * @param initialRoute - Initial route for navigation
+   * @param entrypointArgs - Arguments to pass to the entrypoint function
+   * @returns Promise of the new FlutterNapi instance
+   */
+  spawnAsync(entrypointFunctionName: string, pathToEntrypointFunction: string, initialRoute: string,
+    entrypointArgs: Array<string>): Promise<FlutterNapi> {
+    if (this.nextSpawnNapi) {
+      let ret = this.nextSpawnNapi;
+      this.nextSpawnNapi = null;
+      return Promise.resolve(ret);
+    }
+    let flutterNapi = new FlutterNapi();
+    return flutter.nativeSpawnAsync(this.nativeShellHolderId, entrypointFunctionName, pathToEntrypointFunction,
+      initialRoute, entrypointArgs, flutterNapi).then((shellHolderId: number) => {
+      flutterNapi.nativeShellHolderId = shellHolderId;
+      flutterNapi.isRunningDart = this.isRunningDart;
+      flutterNapi.isDisplayingFlutterUi = false;
+      flutterNapi.isPreloadedFlutterUi = false;
+      return flutterNapi;
+    });
+  }
+
+  /**
    * Pre-spawns a new FlutterNapi instance for later use.
    * @param entrypointFunctionName - Name of the entrypoint function
    * @param pathToEntrypointFunction - Path to the entrypoint function
@@ -812,6 +838,27 @@ export default class FlutterNapi {
     this.isDisplayingFlutterUi = false;
     this.isPreloadedFlutterUi = false;
     this.readyForHandleMessage = false;
+  }
+
+  /**
+   * Detaches this FlutterNapi instance from the native engine and releases all resources asynchronously.
+   */
+  detachFromNativeAndReleaseResourcesAsync(): Promise<void> {
+    if (!this.nativeShellHolderId) {
+      Log.e(TAG, "detachFromNativeAndReleaseResourcesAsync this.nativeShellHolderId = " + this.nativeShellHolderId)
+      return Promise.resolve();
+    }
+    // Invalidate the holder id on the JS thread before kicking off the async
+    // destroy so any concurrent native calls guarded by isAttached() short out
+    // and cannot race with the worker thread tearing down the shell holder.
+    const shellHolderId = this.nativeShellHolderId!!;
+    this.nativeShellHolderId = null;
+    return flutter.nativeDestroyAsync(shellHolderId).then(() => {
+      this.isRunningDart = false;
+      this.isDisplayingFlutterUi = false;
+      this.isPreloadedFlutterUi = false;
+      this.readyForHandleMessage = false;
+    });
   }
 
   /**

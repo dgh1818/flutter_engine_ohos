@@ -59,6 +59,13 @@ class OHOSShellHolder {
       const std::string& initial_route,
       const std::vector<std::string>& entrypoint_args) const;
 
+  std::unique_ptr<OHOSShellHolder> SpawnAsync(
+      std::shared_ptr<PlatformViewOHOSNapi> napi_facade,
+      const std::string& entrypoint,
+      const std::string& libraryUrl,
+      const std::string& initial_route,
+      const std::vector<std::string>& entrypoint_args) const;
+
   const std::shared_ptr<PlatformMessageHandler>& GetPlatformMessageHandler()
       const {
     return shell_->GetPlatformMessageHandler();
@@ -104,7 +111,8 @@ class OHOSShellHolder {
   RuntimeController::DartHeapUsage GetDartHeapMemoryUsage();
 
  private:
-  static constexpr int64_t kDartHeapMemoryThresholdBytes = 1536LL * 1024 * 1024;  // 1.5GB
+  static constexpr int64_t kDartHeapMemoryThresholdBytes =
+      1536LL * 1024 * 1024;  // 1.5GB
   static constexpr int kMemoryMonitorIntervalSeconds = 10;
   std::optional<RunConfiguration> BuildRunConfiguration(
       const std::string& entrypoint,
