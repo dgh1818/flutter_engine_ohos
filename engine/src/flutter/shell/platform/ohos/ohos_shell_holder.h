@@ -23,7 +23,6 @@
 #include "accessibility/ohos_semantics_bridge.h"
 #include "flutter/assets/asset_resolver.h"
 #include "flutter/common/settings.h"
-#include "flutter/fml/platform/ohos/watchdog/ohos_watchdog.h"
 #include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
 #include "flutter/shell/platform/ohos/platform_view_ohos.h"
 

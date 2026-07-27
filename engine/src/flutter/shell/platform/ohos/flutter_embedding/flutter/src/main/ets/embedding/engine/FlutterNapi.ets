@@ -466,8 +466,8 @@ export default class FlutterNapi {
       return Promise.resolve(ret);
     }
     let flutterNapi = new FlutterNapi();
-    return flutter.nativeSpawnAsync(this.nativeShellHolderId, entrypointFunctionName, pathToEntrypointFunction, initialRoute,
-      entrypointArgs, flutterNapi).then(shellHolderId => {
+    return flutter.nativeSpawnAsync(this.nativeShellHolderId, entrypointFunctionName, pathToEntrypointFunction,
+      initialRoute, entrypointArgs, flutterNapi).then((shellHolderId: number) => {
       flutterNapi.nativeShellHolderId = shellHolderId;
       flutterNapi.isRunningDart = this.isRunningDart;
       flutterNapi.isDisplayingFlutterUi = false;
