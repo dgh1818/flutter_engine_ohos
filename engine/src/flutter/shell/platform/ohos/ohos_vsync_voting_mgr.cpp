@@ -131,7 +131,7 @@ void OhosVsyncVotingMgr::VoteAnimationValue(AnimationType AN_type,
   std::ostringstream oss;
   oss << "AN_type=" << static_cast<int>(AN_type) << " V=" << velocity_tmp;
   std::string trace_str = oss.str();
-  TRACE_EVENT0("flutter", trace_str.c_str());
+  TRACE_EVENT1("flutter", "VSYNC", "Vote", trace_str.c_str());
 
   switch (AN_type) {
     case AnimationType::AN_TYPE_TRANSLATE:
@@ -298,9 +298,9 @@ int OhosVsyncVotingMgr::DelayFrameRateDropForStability(
     int next_framerate,
     VVMVotingFrameRateRole type) {
   std::ostringstream oss;
-  oss << "DelayFrameRateDropForStability " << local_framerate_ << "->" << next_framerate;
+  oss << local_framerate_ << "->" << next_framerate;
   std::string resultStr = oss.str();
-  TRACE_EVENT0("flutter", resultStr.c_str());
+  TRACE_EVENT1("flutter", "VSYNC", "DelayFrameRateDropForStability", resultStr.c_str());
 
   if (next_framerate >= local_framerate_) {
     delay_drop_framerate_times_ = HIGH_FPS_MAINTAINED_TIMES;
