@@ -218,8 +218,8 @@ compilation_steps:
   - name: Publish
     script: ci/scripts/publish.sh
     description: Publish build artifacts to cloud storage
-    args: ["flutter_flutter", "flutter_flutter/engine"]
-    required: true
+    args: ["flutter_flutter", "flutter_flutter/engine", "3.41"]
+    required: false
 
 # Test steps - executed in order
 test_steps:
