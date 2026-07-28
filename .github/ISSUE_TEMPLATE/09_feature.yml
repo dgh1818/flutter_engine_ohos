@@ -1,6 +1,6 @@
 name: 创建功能追踪 Issue
 description: 作为贡献者，创建一个功能追踪 Issue，用于跟踪某项大型功能及其子任务的进展。
-labels: ['triage']
+labels: ['triage', 'feature-tracking']
 title: '☂️ <功能标题>'
 projects: ["flutter/82"]
 body:
