@@ -312,6 +312,6 @@ PR 需满足以下全部条件，方可由 openharmony_ci 自动执行合入：
 > 代码门禁常见错误处理：
 > 1. 评论`start build`后提示“此PR未通过DCO校验”，可能是“未签署“DCO协议”或者“Commits 中未包含 Signed-off-by信息”，参考对应提示的指引进行处理即可。
 > 2. 如果代码门禁未通过，可在评论页看到查看相关报错进行处理后再重新提交代码。对于**“静态检查”**的`result`是`noPass`的情况，可以点击`report`下的链接查看具体报错问题，如是不需要解决的报错可在评论区@任一审查人员屏蔽报错，审查人员屏蔽完成以后，PR提交人重新评论`start build`触发门禁。对于**“编译测试”**的`build result`不是`success`的情况，，可以点击`build result`下的链接查看日志找到失败原因。
-> 
+>
 
 如果代码检视、审查等环节处理不及时，可在PR评论中@对应人员进行处理，如果仍长时间未响应，可邮件发送至huanglin23@huawei.com、zhuhaojian@huawei-partners.com请求处理。
