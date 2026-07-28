@@ -18,6 +18,23 @@ class SemanticsNodeTest : public ::testing::Test {
   SemanticsNodeExtend node_;
 };
 
+// ============================================================================
+// NOTE: This file uses the flutter3.41 SemanticsFlags API, which differs from
+// flutter3.35 due to an upstream (non-OHOS) refactor of semantics_flags.h:
+//
+//   - hasCheckedState (bool) + isChecked (bool)  -> isChecked (SemanticsCheckState)
+//   - hasToggledState (bool) + isToggled (bool)  -> isToggled (SemanticsTristate)
+//   - hasEnabledState (bool) + isEnabled (bool)  -> isEnabled (SemanticsTristate)
+//   - isFocusable (bool)                          -> removed (IsFocusable() now
+//                                                  derives focusability from
+//                                                  other flags like isTextField)
+//   - isFocused (bool)                           -> isFocused (SemanticsTristate)
+//
+// flutter3.35 retains the old bool-pair API, so its test file uses
+// hasCheckedState/isToggled=true/isFocusable=true etc. directly. These
+// differences are intentional and should NOT be synced between branches.
+// ============================================================================
+
 // ===== Inline getters with default (empty) flags =====
 
 TEST_F(SemanticsNodeTest, IsTextFieldDefaultFalse) {
@@ -179,19 +196,23 @@ TEST_F(SemanticsNodeTest, GetAccessibilityTextCombinesValueAndHint) {
 
 // ===== IsFocusable with various flags =====
 
-TEST_F(SemanticsNodeTest, IsFocusableTrueWhenFocusableFlagSet) {
-  node_.flags.isFocusable = true;
+TEST_F(SemanticsNodeTest, IsFocusableTrueWhenIsChecked) {
+  // flutter3.41 removed the isFocusable bool flag; IsFocusable() now returns
+  // true when isChecked is set (SemanticsCheckState != kNone).
+  node_.flags.isChecked = SemanticsCheckState::kTrue;
   EXPECT_TRUE(node_.IsFocusable());
 }
 
 TEST_F(SemanticsNodeTest, IsFocusableFalseWhenScopesRouteSet) {
+  // scopesRoute short-circuits IsFocusable to false regardless of other flags.
   node_.flags.scopesRoute = true;
-  node_.flags.isFocusable = true;
+  node_.flags.isChecked = SemanticsCheckState::kTrue;
   EXPECT_FALSE(node_.IsFocusable());
 }
 
 TEST_F(SemanticsNodeTest, IsFocusableTrueWhenHasCheckedState) {
-  node_.flags.hasCheckedState = true;
+  // In flutter3.41, hasCheckedState was replaced by isChecked != kNone.
+  node_.flags.isChecked = SemanticsCheckState::kFalse;
   EXPECT_TRUE(node_.IsFocusable());
 }
 
@@ -218,12 +239,13 @@ TEST_F(SemanticsNodeTest, IsFocusableTrueWhenHasHint) {
 // ===== IsCheckable / IsChecked with toggled state =====
 
 TEST_F(SemanticsNodeTest, IsCheckableTrueWhenHasToggledState) {
-  node_.flags.hasToggledState = true;
+  // flutter3.41 replaced hasToggledState with isToggled != SemanticsTristate::kNone.
+  node_.flags.isToggled = SemanticsTristate::kFalse;
   EXPECT_TRUE(node_.IsCheckable());
 }
 
 TEST_F(SemanticsNodeTest, IsCheckedTrueWhenIsToggled) {
-  node_.flags.isToggled = true;
+  node_.flags.isToggled = SemanticsTristate::kTrue;
   EXPECT_TRUE(node_.IsChecked());
 }
 
@@ -252,8 +274,10 @@ TEST_F(SemanticsNodeTest, IsEditableFalseWhenTextFieldAndReadOnly) {
 // ===== IsEnabled =====
 
 TEST_F(SemanticsNodeTest, IsEnabledFalseWhenHasEnabledStateAndNotEnabled) {
-  node_.flags.hasEnabledState = true;
-  node_.flags.isEnabled = false;
+  // flutter3.41 replaced hasEnabledState+isEnabled bool pair with a single
+  // SemanticsTristate isEnabled field. IsEnabled() returns false when
+  // isEnabled == kFalse.
+  node_.flags.isEnabled = SemanticsTristate::kFalse;
   EXPECT_FALSE(node_.IsEnabled());
 }
 
@@ -317,14 +341,15 @@ TEST_F(SemanticsNodeTest, OHOSComponentTypeUpdateHeader) {
 
 TEST_F(SemanticsNodeTest, OHOSComponentTypeUpdateCheckBox) {
   node_.id = 1;
-  node_.flags.hasCheckedState = true;
+  // flutter3.41: hasCheckedState replaced by isChecked != SemanticsCheckState::kNone
+  node_.flags.isChecked = SemanticsCheckState::kFalse;
   node_.OHOSComponentTypeUpdate();
   EXPECT_STREQ(node_.componentType, OHWidgetName::kCheckBoxWidgetName);
 }
 
 TEST_F(SemanticsNodeTest, OHOSComponentTypeUpdateRadioButton) {
   node_.id = 1;
-  node_.flags.hasCheckedState = true;
+  node_.flags.isChecked = SemanticsCheckState::kFalse;
   node_.flags.isInMutuallyExclusiveGroup = true;
   node_.OHOSComponentTypeUpdate();
   EXPECT_STREQ(node_.componentType, OHWidgetName::kRadioButtonWidgetName);
@@ -332,7 +357,8 @@ TEST_F(SemanticsNodeTest, OHOSComponentTypeUpdateRadioButton) {
 
 TEST_F(SemanticsNodeTest, OHOSComponentTypeUpdateSwitch) {
   node_.id = 1;
-  node_.flags.hasToggledState = true;
+  // flutter3.41: hasToggledState replaced by isToggled != SemanticsTristate::kNone
+  node_.flags.isToggled = SemanticsTristate::kFalse;
   node_.OHOSComponentTypeUpdate();
   EXPECT_STREQ(node_.componentType, OHWidgetName::kSwitchWidgetName);
 }
@@ -675,8 +701,9 @@ TEST_F(SemanticsNodeTest, OHOSActionsUpdateSetText) {
 }
 
 TEST_F(SemanticsNodeTest, OHOSActionsUpdateGainFocusWhenFocusable) {
-  // When IsFocusable() is true, gain/clear focus actions should be added
-  node_.flags.isFocusable = true;
+  // When IsFocusable() is true, gain/clear focus actions should be added.
+  // flutter3.41 removed isFocusable flag; use isTextField to make IsFocusable() true.
+  node_.flags.isTextField = true;
   node_.OHOSActionsUpdate();
   bool found_gain = false;
   bool found_clear = false;

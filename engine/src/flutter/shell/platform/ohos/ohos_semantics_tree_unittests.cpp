@@ -22,6 +22,19 @@ class SemanticsTreeTest : public ::testing::Test {
   SemanticsTree tree_;
 };
 
+// ============================================================================
+// NOTE: This file uses the flutter3.41 SemanticsFlags API, which differs from
+// flutter3.35 due to an upstream (non-OHOS) refactor of semantics_flags.h:
+//
+//   - isFocusable (bool)  -> removed; tests now use isTextField = true to
+//                            trigger IsFocusable() instead.
+//   - isFocused (bool)    -> isFocused (SemanticsTristate); tests use
+//                            isFocused = SemanticsTristate::kTrue.
+//
+// flutter3.35 retains the old bool API (isFocusable = true, isFocused = true).
+// These differences are intentional and should NOT be synced between branches.
+// ============================================================================
+
 // FindNodeById should return nullptr on an empty tree
 TEST_F(SemanticsTreeTest, FindNodeByIdReturnsNullOnEmptyTree) {
   EXPECT_EQ(tree_.FindNodeById(0), nullptr);
@@ -253,8 +266,8 @@ TEST_F(SemanticsTreeTest, FindFocusNodeReturnsInputFocusNodeWithNegativeId) {
   nodes[0] = root;
   SemanticsNode child;
   child.id = 1;
-  child.flags.isFocusable = true;
-  child.flags.isFocused = true;
+  child.flags.isTextField = true;
+  child.flags.isFocused = SemanticsTristate::kTrue;
   nodes[1] = child;
   tree_.UpdateWithNodes(nodes);
 
@@ -274,7 +287,7 @@ TEST_F(SemanticsTreeTest, FindFocusNodeReturnsAccessibilityFocusWithNegativeId) 
   nodes[0] = root;
   SemanticsNode child;
   child.id = 1;
-  child.flags.isFocusable = true;
+  child.flags.isTextField = true;
   nodes[1] = child;
   tree_.UpdateWithNodes(nodes);
 
@@ -307,8 +320,8 @@ TEST_F(SemanticsTreeTest, FindFocusNodeWithIdMatchingAncestor) {
   nodes[0] = root;
   SemanticsNode child;
   child.id = 1;
-  child.flags.isFocusable = true;
-  child.flags.isFocused = true;
+  child.flags.isTextField = true;
+  child.flags.isFocused = SemanticsTristate::kTrue;
   nodes[1] = child;
   tree_.UpdateWithNodes(nodes);
 
@@ -328,8 +341,8 @@ TEST_F(SemanticsTreeTest, FindFocusNodeWithIdNotMatchingAncestor) {
   nodes[0] = root;
   SemanticsNode child;
   child.id = 1;
-  child.flags.isFocusable = true;
-  child.flags.isFocused = true;
+  child.flags.isTextField = true;
+  child.flags.isFocused = SemanticsTristate::kTrue;
   nodes[1] = child;
   tree_.UpdateWithNodes(nodes);
 
@@ -349,11 +362,11 @@ TEST_F(SemanticsTreeTest, FindNextFocusNodeForwardReturnsNextFocusable) {
   nodes[0] = root;
   SemanticsNode child1;
   child1.id = 1;
-  child1.flags.isFocusable = true;
+  child1.flags.isTextField = true;
   nodes[1] = child1;
   SemanticsNode child2;
   child2.id = 2;
-  child2.flags.isFocusable = true;
+  child2.flags.isTextField = true;
   nodes[2] = child2;
   tree_.UpdateWithNodes(nodes);
 
@@ -372,11 +385,11 @@ TEST_F(SemanticsTreeTest, FindNextFocusNodeBackwardReturnsPrevFocusable) {
   nodes[0] = root;
   SemanticsNode child1;
   child1.id = 1;
-  child1.flags.isFocusable = true;
+  child1.flags.isTextField = true;
   nodes[1] = child1;
   SemanticsNode child2;
   child2.id = 2;
-  child2.flags.isFocusable = true;
+  child2.flags.isTextField = true;
   nodes[2] = child2;
   tree_.UpdateWithNodes(nodes);
 
@@ -395,7 +408,7 @@ TEST_F(SemanticsTreeTest, FindNextFocusNodeForwardReturnsStartWhenNoNext) {
   nodes[0] = root;
   SemanticsNode child;
   child.id = 1;
-  child.flags.isFocusable = true;
+  child.flags.isTextField = true;
   nodes[1] = child;
   tree_.UpdateWithNodes(nodes);
 
@@ -414,11 +427,11 @@ TEST_F(SemanticsTreeTest, FindNextFocusNodeRightReturnsNextSibling) {
   nodes[0] = root;
   SemanticsNode child1;
   child1.id = 1;
-  child1.flags.isFocusable = true;
+  child1.flags.isTextField = true;
   nodes[1] = child1;
   SemanticsNode child2;
   child2.id = 2;
-  child2.flags.isFocusable = true;
+  child2.flags.isTextField = true;
   nodes[2] = child2;
   tree_.UpdateWithNodes(nodes);
 
@@ -436,11 +449,11 @@ TEST_F(SemanticsTreeTest, FindNextFocusNodeLeftReturnsPrevSibling) {
   nodes[0] = root;
   SemanticsNode child1;
   child1.id = 1;
-  child1.flags.isFocusable = true;
+  child1.flags.isTextField = true;
   nodes[1] = child1;
   SemanticsNode child2;
   child2.id = 2;
-  child2.flags.isFocusable = true;
+  child2.flags.isTextField = true;
   nodes[2] = child2;
   tree_.UpdateWithNodes(nodes);
 
@@ -458,7 +471,7 @@ TEST_F(SemanticsTreeTest, FindNextFocusNodeUpReturnsParent) {
   nodes[0] = root;
   SemanticsNode child;
   child.id = 1;
-  child.flags.isFocusable = true;
+  child.flags.isTextField = true;
   nodes[1] = child;
   tree_.UpdateWithNodes(nodes);
 
@@ -478,7 +491,7 @@ TEST_F(SemanticsTreeTest, FindNextFocusNodeDownReturnsFirstChild) {
   nodes[0] = root;
   SemanticsNode child;
   child.id = 1;
-  child.flags.isFocusable = true;
+  child.flags.isTextField = true;
   nodes[1] = child;
   tree_.UpdateWithNodes(nodes);
 
@@ -498,11 +511,11 @@ TEST_F(SemanticsTreeTest, UpdateNextFocusWhenDisappearWithFocusedNodeRemoved) {
   nodes[0] = root;
   SemanticsNode child1;
   child1.id = 1;
-  child1.flags.isFocusable = true;
+  child1.flags.isTextField = true;
   nodes[1] = child1;
   SemanticsNode child2;
   child2.id = 2;
-  child2.flags.isFocusable = true;
+  child2.flags.isTextField = true;
   nodes[2] = child2;
   tree_.UpdateWithNodes(nodes);
 
@@ -550,11 +563,11 @@ TEST_F(SemanticsTreeTest,
   nodes[0] = root;
   SemanticsNode child1;
   child1.id = 1;
-  child1.flags.isFocusable = true;
+  child1.flags.isTextField = true;
   nodes[1] = child1;
   SemanticsNode child2;
   child2.id = 2;
-  child2.flags.isFocusable = true;
+  child2.flags.isTextField = true;
   nodes[2] = child2;
   tree_.UpdateWithNodes(nodes);
 
@@ -575,15 +588,15 @@ TEST_F(SemanticsTreeTest,
   nodes[0] = root;
   SemanticsNode child1;
   child1.id = 1;
-  child1.flags.isFocusable = true;
+  child1.flags.isTextField = true;
   nodes[1] = child1;
   SemanticsNode child2;
   child2.id = 2;
-  child2.flags.isFocusable = true;
+  child2.flags.isTextField = true;
   nodes[2] = child2;
   SemanticsNode child3;
   child3.id = 3;
-  child3.flags.isFocusable = true;
+  child3.flags.isTextField = true;
   nodes[3] = child3;
   tree_.UpdateWithNodes(nodes);
 
@@ -610,7 +623,7 @@ TEST_F(SemanticsTreeTest,
   // child1 is focusable but will be removed
   SemanticsNode child1;
   child1.id = 1;
-  child1.flags.isFocusable = true;
+  child1.flags.isTextField = true;
   nodes[1] = child1;
   // child2 is NOT focusable (no flags, no label)
   SemanticsNode child2;
@@ -619,7 +632,7 @@ TEST_F(SemanticsTreeTest,
   // child3 is focusable
   SemanticsNode child3;
   child3.id = 3;
-  child3.flags.isFocusable = true;
+  child3.flags.isTextField = true;
   nodes[3] = child3;
   tree_.UpdateWithNodes(nodes);
 
@@ -647,7 +660,7 @@ TEST_F(SemanticsTreeTest,
   nodes[1] = child1;
   SemanticsNode child2;
   child2.id = 2;
-  child2.flags.isFocusable = true;
+  child2.flags.isTextField = true;
   nodes[2] = child2;
   tree_.UpdateWithNodes(nodes);
 
@@ -696,12 +709,12 @@ TEST_F(SemanticsTreeTest,
   nodes[0] = root;
   SemanticsNode child1;
   child1.id = 1;
-  child1.flags.isFocusable = true;
+  child1.flags.isTextField = true;
   child1.flags.isHidden = true;  // not visible
   nodes[1] = child1;
   SemanticsNode child2;
   child2.id = 2;
-  child2.flags.isFocusable = true;
+  child2.flags.isTextField = true;
   nodes[2] = child2;
   tree_.UpdateWithNodes(nodes);
 
@@ -722,7 +735,7 @@ TEST_F(SemanticsTreeTest,
   nodes[0] = root;
   SemanticsNode child1;
   child1.id = 1;
-  child1.flags.isFocusable = true;
+  child1.flags.isTextField = true;
   nodes[1] = child1;
   tree_.UpdateWithNodes(nodes);
 
@@ -760,15 +773,15 @@ TEST_F(SemanticsTreeTest,
   nodes[0] = root;
   SemanticsNode child1;
   child1.id = 1;
-  child1.flags.isFocusable = true;
+  child1.flags.isTextField = true;
   nodes[1] = child1;
   SemanticsNode child2;
   child2.id = 2;
-  child2.flags.isFocusable = true;
+  child2.flags.isTextField = true;
   nodes[2] = child2;
   SemanticsNode child3;
   child3.id = 3;
-  child3.flags.isFocusable = true;
+  child3.flags.isTextField = true;
   nodes[3] = child3;
   tree_.UpdateWithNodes(nodes);
 
@@ -798,11 +811,11 @@ TEST_F(SemanticsTreeTest,
   nodes[0] = root;
   SemanticsNode child1;
   child1.id = 1;
-  child1.flags.isFocusable = true;
+  child1.flags.isTextField = true;
   nodes[1] = child1;
   SemanticsNode child2;
   child2.id = 2;
-  child2.flags.isFocusable = true;
+  child2.flags.isTextField = true;
   nodes[2] = child2;
   tree_.UpdateWithNodes(nodes);
 
@@ -830,11 +843,11 @@ TEST_F(SemanticsTreeTest,
   nodes[0] = root;
   SemanticsNode child1;
   child1.id = 1;
-  child1.flags.isFocusable = true;
+  child1.flags.isTextField = true;
   nodes[1] = child1;
   SemanticsNode child2;
   child2.id = 2;
-  child2.flags.isFocusable = true;
+  child2.flags.isTextField = true;
   nodes[2] = child2;
   tree_.UpdateWithNodes(nodes);
 
@@ -843,8 +856,9 @@ TEST_F(SemanticsTreeTest,
   tree_.UpdateNextFocusWhenDisappear(remove_ids1);
   ASSERT_EQ(tree_.need_request_focused_node_->id, 2);
 
-  // Make child2 not focusable by clearing isFocusable and label
-  tree_.need_request_focused_node_->flags.isFocusable = false;
+  // Make child2 not focusable by clearing isTextField (flutter3.41 has no
+  // isFocusable flag; isTextField is one way IsFocusable() returns true)
+  tree_.need_request_focused_node_->flags.isTextField = false;
   std::unordered_set<int32_t> remove_ids2;
   EXPECT_TRUE(tree_.UpdateNextFocusWhenDisappear(remove_ids2));
   EXPECT_EQ(tree_.need_request_focused_node_->id, 1);
@@ -861,11 +875,11 @@ TEST_F(SemanticsTreeTest,
   nodes[0] = root;
   SemanticsNode child1;
   child1.id = 1;
-  child1.flags.isFocusable = true;
+  child1.flags.isTextField = true;
   nodes[1] = child1;
   SemanticsNode child2;
   child2.id = 2;
-  child2.flags.isFocusable = true;
+  child2.flags.isTextField = true;
   nodes[2] = child2;
   tree_.UpdateWithNodes(nodes);
 
@@ -899,11 +913,11 @@ TEST_F(SemanticsTreeTest,
   nodes[1] = child1;
   SemanticsNode child2;
   child2.id = 2;
-  child2.flags.isFocusable = true;
+  child2.flags.isTextField = true;
   nodes[2] = child2;
   SemanticsNode child3;
   child3.id = 3;
-  child3.flags.isFocusable = true;
+  child3.flags.isTextField = true;
   nodes[3] = child3;
   tree_.UpdateWithNodes(nodes);
 
@@ -928,7 +942,7 @@ TEST_F(SemanticsTreeTest,
   nodes[0] = root;
   SemanticsNode child1;
   child1.id = 1;
-  child1.flags.isFocusable = true;
+  child1.flags.isTextField = true;
   nodes[1] = child1;
   // child2 and child3 are not focusable (no flags, no label)
   SemanticsNode child2;
@@ -939,7 +953,7 @@ TEST_F(SemanticsTreeTest,
   nodes[3] = child3;
   SemanticsNode child4;
   child4.id = 4;
-  child4.flags.isFocusable = true;
+  child4.flags.isTextField = true;
   nodes[4] = child4;
   tree_.UpdateWithNodes(nodes);
 
@@ -962,15 +976,15 @@ TEST_F(SemanticsTreeTest,
   nodes[0] = root;
   SemanticsNode child1;
   child1.id = 1;
-  child1.flags.isFocusable = true;
+  child1.flags.isTextField = true;
   nodes[1] = child1;
   SemanticsNode child2;
   child2.id = 2;
-  child2.flags.isFocusable = true;
+  child2.flags.isTextField = true;
   nodes[2] = child2;
   SemanticsNode child3;
   child3.id = 3;
-  child3.flags.isFocusable = true;
+  child3.flags.isTextField = true;
   nodes[3] = child3;
   tree_.UpdateWithNodes(nodes);
 
@@ -992,7 +1006,7 @@ TEST_F(SemanticsTreeTest, FindNextFocusNodeInvalidDirectionReturnsStart) {
   nodes[0] = root;
   SemanticsNode child;
   child.id = 1;
-  child.flags.isFocusable = true;
+  child.flags.isTextField = true;
   nodes[1] = child;
   tree_.UpdateWithNodes(nodes);
 
@@ -1012,7 +1026,7 @@ TEST_F(SemanticsTreeTest,
   nodes[0] = root;
   SemanticsNode child;
   child.id = 1;
-  child.flags.isFocusable = true;
+  child.flags.isTextField = true;
   nodes[1] = child;
   tree_.UpdateWithNodes(nodes);
 
@@ -1033,7 +1047,7 @@ TEST_F(SemanticsTreeTest,
   nodes[0] = root;
   SemanticsNode child;
   child.id = 1;
-  child.flags.isFocusable = true;
+  child.flags.isTextField = true;
   nodes[1] = child;
   tree_.UpdateWithNodes(nodes);
 
@@ -1052,7 +1066,7 @@ TEST_F(SemanticsTreeTest, FindNextFocusNodeUpNoParentReturnsStart) {
   nodes[0] = root;
   SemanticsNode child;
   child.id = 1;
-  child.flags.isFocusable = true;
+  child.flags.isTextField = true;
   nodes[1] = child;
   tree_.UpdateWithNodes(nodes);
 
@@ -1072,7 +1086,7 @@ TEST_F(SemanticsTreeTest, FindNextFocusNodeDownNoChildrenReturnsStart) {
   nodes[0] = root;
   SemanticsNode child;
   child.id = 1;
-  child.flags.isFocusable = true;
+  child.flags.isTextField = true;
   nodes[1] = child;
   tree_.UpdateWithNodes(nodes);
 
@@ -1092,7 +1106,7 @@ TEST_F(SemanticsTreeTest, FindNextFocusNodeLeftNoPrevReturnsStart) {
   nodes[0] = root;
   SemanticsNode child;
   child.id = 1;
-  child.flags.isFocusable = true;
+  child.flags.isTextField = true;
   nodes[1] = child;
   tree_.UpdateWithNodes(nodes);
 
@@ -1112,7 +1126,7 @@ TEST_F(SemanticsTreeTest, FindNextFocusNodeRightNoNextReturnsStart) {
   nodes[0] = root;
   SemanticsNode child;
   child.id = 1;
-  child.flags.isFocusable = true;
+  child.flags.isTextField = true;
   nodes[1] = child;
   tree_.UpdateWithNodes(nodes);
 
@@ -1132,7 +1146,7 @@ TEST_F(SemanticsTreeTest, FindNextFocusNodeReturnsStartWhenRootIsNext) {
   nodes[0] = root;
   SemanticsNode child;
   child.id = 1;
-  child.flags.isFocusable = true;
+  child.flags.isTextField = true;
   nodes[1] = child;
   tree_.UpdateWithNodes(nodes);
 
@@ -1152,7 +1166,7 @@ TEST_F(SemanticsTreeTest, FindNextFocusNodeMultiRoundLoopFindsFocusable) {
   nodes[0] = root;
   SemanticsNode child1;
   child1.id = 1;
-  child1.flags.isFocusable = true;
+  child1.flags.isTextField = true;
   nodes[1] = child1;
   // child2 is not focusable
   SemanticsNode child2;
@@ -1160,7 +1174,7 @@ TEST_F(SemanticsTreeTest, FindNextFocusNodeMultiRoundLoopFindsFocusable) {
   nodes[2] = child2;
   SemanticsNode child3;
   child3.id = 3;
-  child3.flags.isFocusable = true;
+  child3.flags.isTextField = true;
   nodes[3] = child3;
   tree_.UpdateWithNodes(nodes);
 
