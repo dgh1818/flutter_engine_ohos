@@ -165,33 +165,34 @@ OHOSSurfaceVulkanImpeller::GetImpellerContext() {
 
 bool OHOSSurfaceVulkanImpeller::SetPresentInfo(
     const VulkanPresentInfo& present_info) {
-  if (native_window_ && native_window_->IsValid()) {
-    if (present_info.frame_damage.has_value()) {
-      DlIRect damage_rect = present_info.frame_damage.value();
-      std::ostringstream oss;
-      oss << "<" << damage_rect.GetLeft() << "," << damage_rect.GetTop() << ","
-          << damage_rect.GetRight() << "," << damage_rect.GetBottom() << ">";
-      std::string damage_rect_str = oss.str();
-      TRACE_EVENT1("flutter", "OHOSSurfaceVulkanImpeller::SetPresentInfo",
-                   "frame_damage", damage_rect_str.c_str());
-    } else {
-      TRACE_EVENT1("flutter", "OHOSSurfaceVulkanImpeller::SetPresentInfo",
-                   "frame_damage", "no frame_damage");
-    }
-
-    // pts upload
-    if (present_info.presentation_time) {
-      uint64_t present_time =
-          present_info.presentation_time->ToEpochDelta().ToNanoseconds();
-      OH_NativeWindow_NativeWindowHandleOpt(
-          (OHNativeWindow*)native_window_->Gethandle(),
-          SET_DESIRED_PRESENT_TIMESTAMP, present_time);
-      return true;
-    }
+  if (!native_window_ || !native_window_->IsValid()) {
+    return false;
   }
 
-  FML_LOG(ERROR) << "Failed to SetPresentInfo";
-  return false;
+  if (present_info.frame_damage.has_value()) {
+    DlIRect damage_rect = present_info.frame_damage.value();
+    std::ostringstream oss;
+    oss << "<" << damage_rect.GetLeft() << "," << damage_rect.GetTop() << ","
+        << damage_rect.GetRight() << "," << damage_rect.GetBottom() << ">";
+    std::string damage_rect_str = oss.str();
+    TRACE_EVENT1("flutter", "OHOSSurfaceVulkanImpeller::SetPresentInfo",
+                  "frame_damage", damage_rect_str.c_str());
+  } else {
+    TRACE_EVENT1("flutter", "OHOSSurfaceVulkanImpeller::SetPresentInfo",
+                  "frame_damage", "no frame_damage");
+  }
+
+  // pts upload
+  if (!present_info.presentation_time.has_value()) {
+    return false;
+  }
+
+  uint64_t present_time =
+      present_info.presentation_time->ToEpochDelta().ToNanoseconds();
+  OH_NativeWindow_NativeWindowHandleOpt(
+      (OHNativeWindow*)native_window_->Gethandle(),
+      SET_DESIRED_PRESENT_TIMESTAMP, present_time);
+  return true;
 }
 
 }  // namespace flutter
