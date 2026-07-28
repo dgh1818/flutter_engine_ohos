@@ -17,6 +17,7 @@ readonly BUILD_INSTRUCTION="${ARCHIVE_DIR}/build_mode.txt"
 publish() {
     local root_dir="$1"
     local engine_dir="${2:-}"
+    local flutter_tester_name="${3:-}"
 
     # Skip publish for PR builds or daily builds
     if [[ -n "${PR_URL:-}" || "${version_type:-}" != "Master_Version" ]]; then
@@ -48,8 +49,21 @@ publish() {
         mode="incremental"
     fi
 
-    # zip artifacts for full mode
     if [[ "$mode" == "full" ]]; then
+        log_step "Prepare flutter_tester"
+        local cipd_tester_path="$PROJECT_DIR/cipd/flutter_tester/$flutter_tester_name"
+        local target_tester_path="$PROJECT_DIR/$engine_dir/src/out/host_release/flutter_tester"
+
+        if [[ ! -f "$cipd_tester_path" ]]; then
+            log_error "CIPD flutter_tester not found: $cipd_tester_path"
+            exit 1
+        fi
+
+        log_info "Copying flutter_tester from CIPD: $cipd_tester_path -> $target_tester_path"
+        run_cmd "cp $cipd_tester_path $target_tester_path"
+        run_cmd "chmod +x $target_tester_path"
+
+        # zip artifacts for full mode
         local zip_scripts_dir="$PROJECT_DIR/$engine_dir/src/flutter/attachment/scripts"
         local scripts=(
             "zip_artifacts.py"
