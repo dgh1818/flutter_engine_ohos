@@ -203,6 +203,9 @@ executable("flutter_ohos_unittests") {
     "paths_ohos_unittests.cpp",
     "platform_message_handler_ohos_unittests.cpp",
     "timerfd_unittests.cpp",
+    "image_lru_unittests.cpp",
+    "ohos_color_space_unittests.cpp",
+    "//flutter/impeller/renderer/backend/vulkan/ohos/ohb_texture_source_vk_unittests.cc",
   ]
 
   public_configs = [ "//flutter:config" ]
@@ -233,6 +236,7 @@ executable("flutter_ohos_unittests") {
   ]
 
   ldflags += [ "-lnative_window" ]
+  ldflags += [ "-lnative_buffer" ]
   ldflags += [ "-lnative_drawing" ]
   ldflags += [ "-lnative_vsync" ]
   ldflags += [ "-lace_napi.z" ]
