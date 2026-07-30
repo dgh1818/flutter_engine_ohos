@@ -8,7 +8,7 @@ import BasicMessageChannel from '../../../plugin/common/BasicMessageChannel';
 import StringCodec from '../../../plugin/common/StringCodec';
 import Log from '../../../util/Log';
 import DartExecutor from '../dart/DartExecutor';
-import { common } from '@kit.AbilityKit';
+import { common, bundleManager } from '@kit.AbilityKit';
 import { util } from '@kit.ArkTS';
 
 const TAG: string = "SplitViewConfigSystemChannel";
@@ -74,9 +74,22 @@ export default class SplitViewConfigSystemChannel {
       return '';
     }
     try {
-      const iconData: Uint8Array = this.context.resourceManager.getMediaByNameSync('app_icon');
-      const base64Helper = new util.Base64Helper();
-      return base64Helper.encodeToStringSync(iconData);
+      const bundleInfo = bundleManager.getBundleInfoForSelfSync(
+        bundleManager.BundleFlag.GET_BUNDLE_INFO_WITH_APPLICATION);
+      const iconId: number = bundleInfo.appInfo.iconId;
+      if (iconId === 0) {
+        Log.w(TAG, 'App icon not configured (iconId=0), skipping');
+        return '';
+      }
+      // getMediaContentBase64Sync returns a data URI string:
+      // "data:image/<subtype>;base64,<Base64EncodedData>"
+      // Strip the data URI prefix so Dart receives pure base64.
+      const dataUri: string = this.context.resourceManager.getMediaContentBase64Sync(iconId);
+      const base64Index: number = dataUri.indexOf(';base64,');
+      if (base64Index >= 0) {
+        return dataUri.substring(base64Index + ';base64,'.length);
+      }
+      return dataUri;
     } catch (e) {
       Log.e(TAG, `Error getting app icon: ${e}`);
       return '';
