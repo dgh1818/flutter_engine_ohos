@@ -67,7 +67,7 @@ export function flutterHvigorPlugin(flutterProjectPath: string, flutterProjectTy
         }
         // build-profile.json5
         const overrides = appContext.getOverrides() ?? {}
-        setFlutterHarInOverrides(overrides, targetPlatforms!, sdkPath, buildMode)
+        setFlutterHarInOverrides(overrides, targetPlatforms!, sdkPath, buildMode == 'test' ? 'debug' : buildMode)
         nativePlugins.forEach(nativePlugin => {
           overrides[nativePlugin.name] =
             `file:${path.join(nativePlugin.path, 'ohos')}`
@@ -93,7 +93,7 @@ export function flutterHvigorPlugin(flutterProjectPath: string, flutterProjectTy
             }
             if (flutterProjectType == 0) {
               hapContext.targets((target: Target) => {
-                registerFlutterTask(node, sdkPath, buildMode, flutterProjectPath, target)
+                registerFlutterTask(node, sdkPath, buildMode == 'test' ? 'debug' : buildMode, flutterProjectPath, target)
               })
             }
             const dependenciesOpt = hapContext.getDependenciesOpt()
@@ -110,7 +110,7 @@ export function flutterHvigorPlugin(flutterProjectPath: string, flutterProjectTy
               return
             }
             harContext.targets((target: Target) => {
-              registerFlutterTask(node, sdkPath, buildMode, flutterProjectPath, target)
+              registerFlutterTask(node, sdkPath, buildMode == 'test' ? 'debug' : buildMode, flutterProjectPath, target)
             })
             const dependenciesOpt = harContext.getDependenciesOpt()
             setFlutterHarInDependencies(dependenciesOpt, targetPlatforms)
