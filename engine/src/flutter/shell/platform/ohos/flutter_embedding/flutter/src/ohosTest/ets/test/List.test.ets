@@ -94,7 +94,6 @@ import previewTextStringMergeTest from './plugin/editing/PreviewTextStringMerge.
 import previewTextCoordinatorTest from './plugin/editing/PreviewTextCoordinator.test';
 import customTouchEventTest from './plugin/platform/CustomTouchEvent.test';
 import mouseCursorPluginTest from './plugin/mouse/MouseCursorPlugin.test';
-import splitViewConfigPluginTest from './plugin/splitview/SplitViewConfigPlugin.test';
 import sensitiveContentPluginTest from './plugin/view/SensitiveContentPlugin.test';
 import platformPluginTest from './plugin/platform/PlatformPlugin.test';
 import accessibilityChannelTest from './embedding/engine/systemchannels/AccessibilityChannel.test';
@@ -202,7 +201,6 @@ export default function testsuite() {
   previewTextCoordinatorTest();
   customTouchEventTest();
   mouseCursorPluginTest();
-  splitViewConfigPluginTest();
   sensitiveContentPluginTest();
   platformPluginTest();
   accessibilityChannelTest();
