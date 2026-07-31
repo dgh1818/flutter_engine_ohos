@@ -153,7 +153,7 @@ class TestFlutterPlugin implements FlutterPlugin {
   }
 
   onDetachedFromEngine(binding: FlutterPluginBinding): void {
-    console.info("uitest: onAttachedToEngine");
+    console.info("uitest: onDetachedFromEngine");
   }
 }
 

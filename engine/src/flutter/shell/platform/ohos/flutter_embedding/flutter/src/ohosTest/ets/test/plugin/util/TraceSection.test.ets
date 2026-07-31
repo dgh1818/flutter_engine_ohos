@@ -30,5 +30,12 @@ export default function TraceSectionTest() {
       const sectionName = "DartExecutor";
       TraceSection.endWithId(sectionName, 1);
     });
+    it('begin_and_end_pair', 0, () => {
+      const sectionName = "DartExecutor";
+      const taskId = TraceSection.begin(sectionName);
+      expect(taskId).assertLarger(0);
+      // end应该使用与begin相同的taskId
+      TraceSection.end(sectionName); // 验证不抛异常
+    });
   })
 }

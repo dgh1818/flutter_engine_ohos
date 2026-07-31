@@ -15,10 +15,12 @@
 
 import { describe, expect, it } from '@ohos/hypium'
 import Log from '../../../../../main/ets/util/Log';
+import HiLog from '@ohos.hilog';
 
 export default function LogTest() {
   describe('LogTest', () => {
     it('Log', 0, () => {
+      Log.setLogLevel(HiLog.LogLevel.DEBUG);
       expect(Log.toString()).not().assertNull();
     });
   })

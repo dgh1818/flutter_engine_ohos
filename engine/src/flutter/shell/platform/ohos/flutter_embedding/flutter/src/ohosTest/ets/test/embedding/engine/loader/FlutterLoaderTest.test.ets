@@ -46,6 +46,8 @@ export default function FlutterLoaderTest() {
       let context: common.Context = getContext();
       expect(flutterLoader.initialized).assertFalse();
       flutterLoader.startInitialization(context);
+      expect(flutterLoader.flutterApplicationInfo).not().assertNull();
+      expect(flutterLoader.context).not().assertNull();
       done();
     })
   })
