@@ -789,8 +789,10 @@ export class PreviewTextStringMerge {
     }
   }
 
-  /**
-   * Full-body preview merge: shrink uses local one-step rules (`L'R`, `getImePreviewBackspaceDeleteRange`, `pick…`).
+/**
+   * Full-body preview merge: on shrink, if `ime` contains BMP CJK, trust the IME body (candidate / composition
+   * replacement that often shortens UTF-16 vs Latin pinyin). Otherwise shrink uses local one-step rules (`L'R`,
+   * `getImePreviewBackspaceDeleteRange`, `pick…`).
    * When the IME body is a **strict UTF-16 prefix** shorter than `prev` and the caret lies **in the removed suffix**
    * (`offset >= len(ime)`), use **`ime`** so pre-edit text matches candidates (e.g. `z'n'x'h` + `z'n'x` at tail — local
    * bk can wrongly yield `z'n'h`). If the caret is still **inside** the kept prefix (`offset < len(ime)`), keep local bk.
@@ -823,12 +825,9 @@ export class PreviewTextStringMerge {
       // Pinyin (Latin+') → CJK+optional Latin+': UTF-16 length often *shrinks* (e.g. "zmh" → "怎么"), but this is
       // candidate / composition replacement, not one Backspace at the end of `prev`. Running
       // `getImePreviewBackspaceDeleteRange` here deletes the last letter (e.g. `h` → "zm") instead of applying the IME
-      // body. Trust the IME text whenever it introduces CJK while `prev` was still Latin-only; when `prev` already
-      // contains CJK, keep the tail-shrink / Backspace heuristics below.
-      if (
-        PreviewTextStringMerge.stringContainsBmpCjk(ime) &&
-        !PreviewTextStringMerge.stringContainsBmpCjk(prevPreview)
-      ) {
+      // body. Trust the IME text whenever it contains BMP CJK (also when `prev` already has CJK); otherwise keep the
+      // tail-shrink / Backspace heuristics below.
+      if (PreviewTextStringMerge.stringContainsBmpCjk(ime)) {
         ctx.textForMerge = ime;
         return;
       }
