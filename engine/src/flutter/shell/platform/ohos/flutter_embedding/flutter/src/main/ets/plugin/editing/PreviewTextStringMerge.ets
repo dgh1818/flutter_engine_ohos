@@ -116,6 +116,7 @@ export class PreviewTextStringMerge {
     return true;
   }
 
+  /** Returns the starting UTF-16 index of the first adjacent IME apostrophe-like pair, or -1 if none exists. */
   static previewIndexOfFirstConsecutiveImeApostropheRun(text: string): number {
     for (let idx = 0; idx < text.length - 1; idx++) {
       if (PreviewTextStringMerge.isImePreviewApostropheLikeChar(text.charAt(idx)) &&
@@ -822,7 +823,7 @@ export class PreviewTextStringMerge {
       off = prevLen;
     }
     if (ime.length < prevLen) {
-      // Pinyin (Latin+') → CJK+optional Latin+': UTF-16 length often *shrinks* (e.g. "zmh" → "怎么"), but this is
+      // Pinyin (Latin+') to CJK+optional Latin+': UTF-16 length often *shrinks* (e.g. "zmh" to "zenme"), but this is
       // candidate / composition replacement, not one Backspace at the end of `prev`. Running
       // `getImePreviewBackspaceDeleteRange` here deletes the last letter (e.g. `h` → "zm") instead of applying the IME
       // body. Trust the IME text whenever it contains BMP CJK (also when `prev` already has CJK); otherwise keep the

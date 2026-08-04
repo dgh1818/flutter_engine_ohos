@@ -75,7 +75,7 @@ export default class FlutterEngine implements EngineLifecycleListener {
   dartExecutor: DartExecutor;
   private flutterLoader: FlutterLoader;
   private assetManager: resourceManager.ResourceManager;
-  //channel定义
+  // Channel definitions
   private lifecycleChannel: LifecycleChannel | null = null;
   private navigationChannel: NavigationChannel | null = null;
   private textInputChannel: TextInputChannel | null = null;
@@ -147,7 +147,7 @@ export default class FlutterEngine implements EngineLifecycleListener {
       this.flutterLoader.startInitialization(context)
       this.flutterLoader.ensureInitializationComplete(dartVmArgs);
     }
-    //channel初始化
+    // Channel initialization
     this.lifecycleChannel = new LifecycleChannel(this.dartExecutor);
     this.displayMetricsChannel = new DisplayMetricsChannel(this.dartExecutor, context);
  	  this.navigationChannel = new NavigationChannel(this.dartExecutor, context, this.displayMetricsChannel);
@@ -355,6 +355,10 @@ export default class FlutterEngine implements EngineLifecycleListener {
     return this.systemChannel;
   }
 
+  /**
+   * Gets the split view configuration system channel.
+   * @returns The SplitViewConfigSystemChannel instance, or null if not initialized
+   */
   getSplitViewConfigSystemChannel(): SplitViewConfigSystemChannel | null {
     return this.splitViewConfigSystemChannel;
   }
@@ -375,6 +379,10 @@ export default class FlutterEngine implements EngineLifecycleListener {
     return this.mouseCursorChannel;
   }
 
+  /**
+   * Gets the display metrics channel for managing display-related information.
+   * @returns The DisplayMetricsChannel instance, or null if not initialized
+   */
   getDisplayMetricsChannel(): DisplayMetricsChannel | null {
     return this.displayMetricsChannel;
   }
@@ -403,6 +411,10 @@ export default class FlutterEngine implements EngineLifecycleListener {
     return this.dartExecutor
   }
 
+  /**
+   * Gets the sensitive content channel for managing content sensitivity settings.
+   * @returns The SensitiveContentChannel instance, or null if not initialized
+   */
   getSensitiveContentChannel():SensitiveContentChannel |null {
     return this.sensitiveContentChannel
   }

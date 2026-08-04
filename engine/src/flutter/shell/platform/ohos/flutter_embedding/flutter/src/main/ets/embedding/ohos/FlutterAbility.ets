@@ -151,6 +151,9 @@ export class FlutterAbility extends UIAbility implements Host {
     return this?.delegate?.onSaveState(reason, wantParam) ?? AbilityConstant.OnSaveResult.ALL_REJECT;
   }
 
+  /**
+   * Callback invoked when the window stage event changes.
+   */
   protected windowStageEventCallback = (data: window.WindowStageEventType) => {
     this.delegate?.onWindowStageChanged(data)
   }
@@ -525,9 +528,9 @@ export class FlutterAbility extends UIAbility implements Host {
       .setPlatformBrightness(config.colorMode != ConfigurationConstant.ColorMode.COLOR_MODE_DARK
         ? PlatformBrightness.LIGHT : PlatformBrightness.DARK)
       .setTextScaleFactor(config.fontSizeScale == undefined ? 1.0 : config.fontSizeScale)
-      .send(); //热启动生命周期内，实时监听系统设置环境改变并实时发送相应信息
+      .send(); // Monitors system settings changes during warm start lifecycle and sends updated settings in real time
 
-    //实时获取系统字体加粗系数
+    // Gets the system font weight scale in real time
     this.delegate?.getFlutterNapi()?.setFontWeightScale(config.fontWeightScale == undefined ? 0 :
     config.fontWeightScale);
     Log.i(TAG, 'fontWeightScale: ' + JSON.stringify(config.fontWeightScale));

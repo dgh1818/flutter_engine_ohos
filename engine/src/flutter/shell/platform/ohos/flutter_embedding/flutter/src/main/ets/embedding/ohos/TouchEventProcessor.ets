@@ -224,6 +224,14 @@ export default class TouchEventProcessor {
     return TouchEventProcessor.instance;
   }
 
+  /**
+   * Decodes a touch packet from string array data.
+   * @param strings - Array of string values representing raw touch data
+   * @param densityPixels - Display density pixels for coordinate conversion
+   * @param top - The top offset for local coordinate adjustment
+   * @param left - The left offset for local coordinate adjustment
+   * @returns A TouchPacket containing the decoded touch event and tool information
+   */
   private decodeTouchPacket(strings: Array<string>, densityPixels: number, top: number, left: number): TouchPacket {
     let offset: number = 0;
     let numPoint: number = parseInt(strings[offset++]);
@@ -421,7 +429,7 @@ export default class TouchEventProcessor {
         const displayY: number = vp2px(parseFloat(strings[offset++]) / densityPixels);
         const scroll: number = parseFloat(strings[offset++]);
 
-        // 构造AxisEvent数据
+        // Construct AxisEvent data
         const axisEvent: AxisEvent = {
           action: action,
           x: x,
@@ -457,7 +465,7 @@ export default class TouchEventProcessor {
         let top = params['top'] as number ?? 0;
         let down = params['down'] as boolean ?? false;
         if (down) {
-          //如果flutter端判断当前platformView是可点击的，则将事件分发出去
+          // If the Flutter side determines the current platformView is clickable, dispatch the event
           let touchEvent: CustomTouchEvent = TouchEventProcessor.getInstance().constructCustomTouchEvent(strings, top, left);
           // Correct local coordinates for rotation/scale using the global→local
           // affine stored at layout time (PlatformViewsController.offset).
@@ -475,13 +483,13 @@ export default class TouchEventProcessor {
             textInputHandoffOnTouch(touchEvent.type == TouchType.Down);
           }
         } else {
-          //如果触摸事件为OH_NATIVEXCOMPONENT_DOWN=0，且只有一个手指，说明是下一次点击了，这时候需要清空上一次的数据
+          // If the touch event type is OH_NATIVEXCOMPONENT_DOWN and there is only one finger, this is the next tap, so clear the previous data
           if (strings[6] == OH_NATIVEXCOMPONENT_DOWN.toString() && strings[0] == '1') {
             params['touchEvent'] = undefined
             params[PLATFORM_VIEW_CANCEL_DRAINING] = false;
           }
-          //如果触摸事件为OH_NATIVEXCOMPONENT_DOWN=0类型，且在flutter端还没判断当前view是否处于点击区域内，则
-          //将点击事件存储在list列表中。
+          // If the touch event type is OH_NATIVEXCOMPONENT_DOWN and the Flutter side has not yet determined
+          // whether the current view is within the click area, store the touch event in the list.
           let touchEvent: CustomTouchEvent = TouchEventProcessor.getInstance().constructCustomTouchEvent(strings, top, left);
           const cancelDraining = params[PLATFORM_VIEW_CANCEL_DRAINING] as boolean ?? false;
           if (cancelDraining && touchEvent.type !== TouchType.Down) {
@@ -522,7 +530,7 @@ export default class TouchEventProcessor {
   }
 
   private constructMouseEventImpl(mousePacket: MousePacket): MouseEvent {
-    // 构造MouseEvent数据
+    // Construct MouseEvent data
     const mouseEvent: MouseEvent = {
       button: mousePacket.button,
       action: mousePacket.action,
@@ -555,7 +563,7 @@ export default class TouchEventProcessor {
     return mouseEvent;
   }
 
-  // 鼠标坐标通过postInputEvent传入到节点
+  // Mouse coordinates are passed to nodes via postInputEvent
   /**
    * Posts a mouse event to platform views.
    * @param strings - Array of string values representing mouse event data
@@ -575,21 +583,21 @@ export default class TouchEventProcessor {
         let mouseEvent: MouseEvent = TouchEventProcessor.getInstance().constructMouseEvent(strings, top, left);
 
         if (mouseEvent.action != MouseAction.Press && mouseEvent.action != MouseAction.Release && params["hover"]) {
-          // 如果鼠标事件不是OH_NATIVEXCOMPONENT_MOUSE_PRESS类型或OH_NATIVEXCOMPONENT_MOUSE_RELEASE类型，则
-          // 直接分发出去
+          // If the mouse event is not MOUSE_PRESS or MOUSE_RELEASE type, dispatch it directly
           let nodeController = params['nodeController'] as EmbeddingNodeController;
           nodeController.postMouseEvent(mouseEvent);
         } else if (down) {
-          // 如果flutter端判断当前platformView是可点击的，则将事件分发出去,并结束分发
+          // If the Flutter side determines the current platformView is clickable, dispatch the event and stop iterating
           let nodeController = params['nodeController'] as EmbeddingNodeController;
           nodeController.postMouseEvent(mouseEvent);
           break;
         } else {
-          // 如果鼠标事件为OH_NATIVEXCOMPONENT_MOUSE_PRESS，说明是下一次点击了，这时候需要清空上一次的数据
+          // If the mouse event is MOUSE_PRESS, this is the next click, so clear the previous data
           if (strings[5] == '1') {
             params['mouseEvent'] = undefined
           }
-          // 如果鼠标事件为OH_NATIVEXCOMPONENT_MOUSE_PRESS类型，且在flutter端还没判断当前view是否处于点击区域内，则将点击事件存储在list列表中。
+          // If the mouse event is MOUSE_PRESS and the Flutter side has not yet determined whether the current
+          // view is within the click area, store the click event in the list.
           let array: Array<MouseEvent> | undefined = params['mouseEvent'] as Array<MouseEvent>
           if (array == undefined) {
             array = []
