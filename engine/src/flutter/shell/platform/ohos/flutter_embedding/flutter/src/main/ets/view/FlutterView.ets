@@ -333,7 +333,7 @@ export class FlutterView {
   private keyboardAvoidArea: window.AvoidArea;
   private needSetViewport: boolean = false;
   private windowPosition: window.Rect | null = null;
-  // 默认值5，参考：https://developer.huawei.com/consumer/cn/doc/harmonyos-references/ts-basic-gestures-pangesture
+  // Default value 5, see: https://developer.huawei.com/consumer/cn/doc/harmonyos-references/ts-basic-gestures-pangesture
   private callbackValue: callbackNumber = () => 5;
   // DPI update flag to distinguish between system DPI updates and custom DPI updates
   private isDevicePixelRatioAdaptive: boolean = false;
@@ -650,7 +650,7 @@ export class FlutterView {
     }
 
     try {
-      //监听系统无障碍服务状态改变
+      // Listen to system accessibility service state changes
       accessibility.on('accessibilityStateChange', this.accessibilityStateChangeCallback);
     } catch (e) {
       Log.e(TAG, "accessibility on error: " + JSON.stringify(e));
@@ -812,6 +812,11 @@ export class FlutterView {
     }
   }
 
+  /**
+   * Called when the page visibility changes.
+   * Updates the visibility state and notifies the Flutter engine accordingly.
+   * @param isVisible - True if the page is now visible, false otherwise
+   */
   public onPageVisibilityChanged(isVisible: boolean): void {
     if (this.pageVisible === isVisible) {
       return;
@@ -820,6 +825,11 @@ export class FlutterView {
     this.updateHostVisibility();
   }
 
+  /**
+   * Called when the visible area changes.
+   * Updates the area visibility state and notifies the Flutter engine accordingly.
+   * @param isVisible - True if the area is now visible, false otherwise
+   */
   public onVisibleAreaChanged(isVisible: boolean): void {
     if (this.areaVisible === isVisible) {
       return;
@@ -1164,9 +1174,9 @@ export class FlutterView {
       this.viewportMetrics.physicalHeight = vp2px(newArea.height as number);
     }
     let fullScreen = false
-    // 根据是否全屏显示，设置标题栏高度
+    // Set title bar height based on whether fullscreen is active
     if (this.checkFullScreen &&
-      (setFullScreen || FlutterManager.getInstance().getFullScreenListener().useFullScreen())) { // 全屏显示
+      (setFullScreen || FlutterManager.getInstance().getFullScreenListener().useFullScreen())) { // Fullscreen display
       fullScreen = true
       if (this.paddingTop != undefined) {
         this.viewportMetrics.physicalViewPaddingTop = this.paddingTop;
@@ -1180,7 +1190,7 @@ export class FlutterView {
         this.viewportMetrics.physicalViewPaddingBottom =
           this.systemAvoidArea?.bottomRect.height ?? this.viewportMetrics.physicalViewPaddingBottom;
       }
-    } else { // 非全屏显示
+    } else { // Non-fullscreen display
       this.viewportMetrics.physicalViewPaddingTop = this.paddingTop ?? 0;
       this.viewportMetrics.physicalViewPaddingBottom = this.paddingBottom ?? 0;
     }
@@ -1352,7 +1362,7 @@ export class FlutterView {
    * @param event - The pan gesture event
    */
   onMouseWheel(eventType: string, event: PanGestureEvent) {
-    if (deviceInfo.sdkApiVersion < 15) { // API15 及以后通过轴事件处理滚动
+    if (deviceInfo.sdkApiVersion < 15) { // API15 and later handle scrolling via axis events
       this.flutterEngine?.getFlutterNapi()?.xComponentDisPatchMouseWheel(this.id, eventType, event);
     }
   }

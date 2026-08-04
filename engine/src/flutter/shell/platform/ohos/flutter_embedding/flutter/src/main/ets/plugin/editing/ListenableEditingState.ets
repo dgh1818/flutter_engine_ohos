@@ -193,10 +193,18 @@ export class ListenableEditingState {
   /** After preview merge, handler should run `syncImcSelectionAfterEditableChange` once. */
   private mImcFullSyncAfterPreviewInsert: boolean = false;
 
+  /**
+   * Marks that the next Flutter selection apply should be skipped.
+   * Sets the stale end echo skip counter to at least 6 to suppress echo selection updates.
+   */
   markSkipNextFlutterSelectionApplyOnce(): void {
     this.mSkipFlutterStaleEndEchoRemaining = Math.max(this.mSkipFlutterStaleEndEchoRemaining, 6);
   }
 
+  /**
+   * Gets the remaining count of stale end echo skips.
+   * @returns The number of remaining stale end echo skips to apply
+   */
   getSkipFlutterStaleEndEchoRemaining(): number {
     return this.mSkipFlutterStaleEndEchoRemaining;
   }
@@ -208,6 +216,11 @@ export class ListenableEditingState {
     }
   }
 
+  /**
+   * Consumes the flag that requests a full IMC selection sync after preview insert.
+   * Clears the flag after reading it.
+   * @returns True if a full IMC sync was requested after preview insert
+   */
   consumeImcFullSyncAfterPreviewInsert(): boolean {
     if (!this.mImcFullSyncAfterPreviewInsert) {
       return false;

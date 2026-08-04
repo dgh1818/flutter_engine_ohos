@@ -24,7 +24,7 @@ import { BusinessError, print } from '@kit.BasicServicesKit';
 import { PointerDeviceKind } from '../../ohos/OhosTouchProcessor';
 
 const TAG = "TextInputChannel";
-/// 规避换行标识无法显示问题，api修改后再删除
+/// Workaround for newline key type display issue; remove after API is updated
 const NEWLINE_KEY_TYPE: number = 8;
 
 /**
@@ -132,6 +132,11 @@ export default class TextInputChannel {
     this.channel.invokeMethod('TextInputClient.updateEditingState', [inputClientId, state]);
   }
 
+  /**
+   * Updates the editing state with tagged text.
+   * @param inputClientId - The input client ID
+   * @param editStates - Map of unique identifiers to text edit states
+   */
   updateEditingStateWithTag(
     inputClientId: number, editStates: Map<string, TextEditState>): void {
     const json: Map<string, EditingState> = new Map();
@@ -649,6 +654,10 @@ export class TextEditState {
     this.composingEnd = composingEnd;
   }
 
+  /**
+   * Checks if there is an active text selection.
+   * @returns True if a selection exists, false otherwise
+   */
   hasSelection(): boolean {
     // When selectionStart == -1, it's guaranteed that selectionEnd will also
     // be -1.
@@ -857,6 +866,12 @@ class TextInputCallback implements MethodCallHandler {
     }
   }
 
+  /**
+   * Saves the editable size and transform, computing the input position bounding box.
+   * @param width - The editable width
+   * @param height - The editable height
+   * @param transform - The 4x4 transform matrix
+   */
   saveEditableSizeAndTransform(width: number, height: number, transform: Array<number>) {
     const matrix: Array<number> = transform;
     const minMax: Array<number> = [];
@@ -886,12 +901,21 @@ class TextInputCallback implements MethodCallHandler {
   }
 }
 
+/**
+ * Autofill metadata for text input fields.
+ */
 class Autofill {
   public readonly uniqueIdentifier: string;
   public readonly hints: string[];
   public readonly editState: TextEditState;
   public readonly hintText: string | null;
 
+  /**
+   * Creates an Autofill instance from JSON.
+   * @param json - The JSON object
+   * @returns A new Autofill instance
+   * @throws Error if the uniqueIdentifier or editingValue property is missing
+   */
   static fromJson(json: Any): Autofill {
     const uniqueIdentifier: string = json.uniqueIdentifier;
     if (!uniqueIdentifier) {
@@ -919,6 +943,11 @@ class Autofill {
     );
   }
 
+  /**
+   * Translates a Flutter autofill hint string to an OpenHarmony autofill hint string.
+   * @param hint - The Flutter autofill hint
+   * @returns The corresponding OpenHarmony autofill hint, or the original hint if no mapping exists
+   */
   private static translateAutofillHint(hint: string): string {
     switch (hint) {
       case "addressCity":
@@ -998,6 +1027,13 @@ class Autofill {
     }
   }
 
+  /**
+   * Constructs a new Autofill instance.
+   * @param uniqueIdentifier - The unique identifier for this autofill field
+   * @param hints - Array of autofill hint strings
+   * @param hintText - The hint text, or null if not set
+   * @param editingState - The text editing state for this field
+   */
   constructor(
     uniqueIdentifier: string,
     hints: string[],

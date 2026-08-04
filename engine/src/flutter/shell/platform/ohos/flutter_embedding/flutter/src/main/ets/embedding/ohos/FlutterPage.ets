@@ -337,7 +337,7 @@ export struct FlutterPage {
     this.flutterView?.addFirstFrameListener(this)
     this.flutterView?.addFirstPreloadFrameListener(this)
 
-    // api18开始支持getDistance()接口
+    // API 18+ supports getDistance() for touch slop detection.
     if (deviceInfo.sdkApiVersion >= 18) {
       this.flutterView?.setTouchSlopCallbackValue(() => {
         return this.panOption.getDistance()
