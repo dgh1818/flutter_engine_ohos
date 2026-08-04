@@ -112,6 +112,66 @@ export default class FlutterEngineGroup {
   }
 
   /**
+   * Creates and runs a Flutter engine based on the provided options asynchronously.
+   * If no engines exist, creates a new engine. Otherwise, spawns from the first engine.
+   * @param options - Configuration options for engine creation
+   * @returns The created or spawned FlutterEngine instance
+   */
+  createAndRunEngineByOptionsAsync(options: Options): Promise<FlutterEngine> {
+    let context: common.Context = options.getContext();
+    let dartEntrypoint: DartEntrypoint | null = options.getDartEntrypoint();
+    let initialRoute: string = options.getInitialRoute();
+    let dartEntrypointArgs: Array<string> = options.getDartEntrypointArgs();
+    let platformViewsController: PlatformViewsController | null = options.getPlatformViewsController();
+    let waitForRestorationData: boolean = options.getWaitForRestorationData();
+
+    if (dartEntrypoint == null) {
+      dartEntrypoint = DartEntrypoint.createDefault();
+    }
+
+    if (platformViewsController == null) {
+      platformViewsController = new PlatformViewsController();
+    }
+
+    Log.i(TAG, "shellHolder async, this.activeEngines.length=" + this.activeEngines.length)
+    if (this.activeEngines.length == 0) {
+      const engine = this.createEngine(context, platformViewsController);
+      engine.init(context, null, waitForRestorationData);
+      if (initialRoute != null) {
+        engine.getNavigationChannel()?.setInitialRoute(initialRoute);
+      }
+      engine.getDartExecutor().executeDartEntrypoint(dartEntrypoint!, dartEntrypointArgs);
+      engine.prefetchFramesCfg();
+      this.activeEngines.add(engine);
+
+      const engineToCleanUpOnDestroy = engine;
+      let listener: EngineLifecycleListener = new EngineLifecycleListenerImpl(
+        platformViewsController,
+        this.activeEngines,
+        engineToCleanUpOnDestroy);
+      engine?.addEngineLifecycleListener(listener);
+      return Promise.resolve(engine);
+    } else {
+      return this.activeEngines[0].spawnAsync(
+        context,
+        dartEntrypoint,
+        initialRoute,
+        dartEntrypointArgs,
+        platformViewsController,
+        waitForRestorationData).then(engine => {
+        this.activeEngines.add(engine);
+        const engineToCleanUpOnDestroy = engine;
+        let listener: EngineLifecycleListener = new EngineLifecycleListenerImpl(
+          platformViewsController!,
+          this.activeEngines,
+          engineToCleanUpOnDestroy);
+        engine.addEngineLifecycleListener(listener);
+        return engine;
+      });
+    }
+  }
+
+  /**
    * Creates a new FlutterEngine instance.
    * @param context - The application context
    * @param platformViewsController - The platform views controller for the engine

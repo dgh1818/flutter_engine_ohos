@@ -78,9 +78,12 @@ export default function ByteBufferTest() {
     })
 
     it('TestByteBufferReadBool', 0, async (done: Function) => {
-      byteBuffer.writeBool(false);
-      let result = byteBuffer.readBool();
-      expect(result).assertFalse();
+      const buffer = ByteBuffer.from(new ArrayBuffer(8));
+      buffer.writeBool(true);
+      buffer.writeBool(false);
+      buffer.reset();
+      expect(buffer.readBool()).assertTrue();
+      expect(buffer.readBool()).assertFalse();
       done();
     })
 
@@ -92,9 +95,14 @@ export default function ByteBufferTest() {
     })
 
     it('TestByteBufferReadInt8', 0, async (done: Function) => {
-      byteBuffer.writeInt8(byteOffset);
-      let result = byteBuffer.readInt8();
-      expect(result).assertEqual(0);
+      const buffer = ByteBuffer.from(new ArrayBuffer(16));
+      buffer.writeInt8(-128);
+      buffer.writeInt8(127);
+      buffer.writeInt8(0);
+      buffer.reset();
+      expect(buffer.readInt8()).assertEqual(-128);
+      expect(buffer.readInt8()).assertEqual(127);
+      expect(buffer.readInt8()).assertEqual(0);
       done();
     })
 
@@ -106,9 +114,14 @@ export default function ByteBufferTest() {
     })
 
     it('TestByteBufferReadUint8', 0, async (done: Function) => {
-      byteBuffer.writeUint8(byteOffset);
-      let result = byteBuffer.readUint8();
-      expect(result).assertEqual(0);
+      const buffer = ByteBuffer.from(new ArrayBuffer(16));
+      buffer.writeUint8(0);
+      buffer.writeUint8(255);
+      buffer.writeUint8(128);
+      buffer.reset();
+      expect(buffer.readUint8()).assertEqual(0);
+      expect(buffer.readUint8()).assertEqual(255);
+      expect(buffer.readUint8()).assertEqual(128);
       done();
     })
 
@@ -120,9 +133,14 @@ export default function ByteBufferTest() {
     })
 
     it('TestByteBufferReadInt16', 0, async (done: Function) => {
-      byteBuffer.writeInt16(byteOffset);
-      let result = byteBuffer.readInt16();
-      expect(result).assertEqual(0);
+      const buffer = ByteBuffer.from(new ArrayBuffer(32));
+      buffer.writeInt16(-32768);
+      buffer.writeInt16(32767);
+      buffer.writeInt16(0, true);
+      buffer.reset();
+      expect(buffer.readInt16()).assertEqual(-32768);
+      expect(buffer.readInt16()).assertEqual(32767);
+      expect(buffer.readInt16(true)).assertEqual(0);
       done();
     })
 
@@ -134,9 +152,14 @@ export default function ByteBufferTest() {
     })
 
     it('TestByteBufferReadUint16', 0, async (done: Function) => {
-      byteBuffer.writeUint16(byteOffset);
-      let result = byteBuffer.readUint16();
-      expect(result).assertEqual(0);
+      const buffer = ByteBuffer.from(new ArrayBuffer(32));
+      buffer.writeUint16(0);
+      buffer.writeUint16(65535);
+      buffer.writeUint16(32768, true);
+      buffer.reset();
+      expect(buffer.readUint16()).assertEqual(0);
+      expect(buffer.readUint16()).assertEqual(65535);
+      expect(buffer.readUint16(true)).assertEqual(32768);
       done();
     })
 
@@ -148,9 +171,14 @@ export default function ByteBufferTest() {
     })
 
     it('TestByteBufferReadInt32', 0, async (done: Function) => {
-      byteBuffer.writeInt32(byteOffset);
-      let result = byteBuffer.readInt32();
-      expect(result).assertEqual(0);
+      const buffer = ByteBuffer.from(new ArrayBuffer(64));
+      buffer.writeInt32(-2147483648);
+      buffer.writeInt32(2147483647);
+      buffer.writeInt32(0, true);
+      buffer.reset();
+      expect(buffer.readInt32()).assertEqual(-2147483648);
+      expect(buffer.readInt32()).assertEqual(2147483647);
+      expect(buffer.readInt32(true)).assertEqual(0);
       done();
     })
 
@@ -162,9 +190,14 @@ export default function ByteBufferTest() {
     })
 
     it('TestByteBufferReadUint32', 0, async (done: Function) => {
-      byteBuffer.writeUint32(byteOffset);
-      let result = byteBuffer.readUint32();
-      expect(result).assertEqual(0);
+      const buffer = ByteBuffer.from(new ArrayBuffer(64));
+      buffer.writeUint32(0);
+      buffer.writeUint32(4294967295);
+      buffer.writeUint32(2147483648, true);
+      buffer.reset();
+      expect(buffer.readUint32()).assertEqual(0);
+      expect(buffer.readUint32()).assertEqual(4294967295);
+      expect(buffer.readUint32(true)).assertEqual(2147483648);
       done();
     })
 
@@ -176,9 +209,14 @@ export default function ByteBufferTest() {
     })
 
     it('TestByteBufferReadFloat32', 0, async (done: Function) => {
-      byteBuffer.writeFloat32(byteOffset);
-      let result = byteBuffer.readFloat32();
-      expect(result).assertEqual(0);
+      const buffer = ByteBuffer.from(new ArrayBuffer(64));
+      buffer.writeFloat32(1.5);
+      buffer.writeFloat32(-2.25);
+      buffer.writeFloat32(0.0, true);
+      buffer.reset();
+      expect(buffer.readFloat32()).assertEqual(1.5);
+      expect(buffer.readFloat32()).assertEqual(-2.25);
+      expect(buffer.readFloat32(true)).assertEqual(0.0);
       done();
     })
 
@@ -190,9 +228,14 @@ export default function ByteBufferTest() {
     })
 
     it('TestByteBufferReadFloat64', 0, async (done: Function) => {
-      byteBuffer.writeFloat64(byteOffset);
-      let result = byteBuffer.readFloat64();
-      expect(result).assertEqual(0);
+      const buffer = ByteBuffer.from(new ArrayBuffer(128));
+      buffer.writeFloat64(3.141592653589793);
+      buffer.writeFloat64(-2.718281828459045);
+      buffer.writeFloat64(0.0, true);
+      buffer.reset();
+      expect(buffer.readFloat64()).assertEqual(3.141592653589793);
+      expect(buffer.readFloat64()).assertEqual(-2.718281828459045);
+      expect(buffer.readFloat64(true)).assertEqual(0.0);
       done();
     })
 
@@ -205,10 +248,17 @@ export default function ByteBufferTest() {
     })
 
     it('TestByteBufferReadBigInt64', 0, async (done: Function) => {
-      const value: bigint = BigInt(9223372036854775807);
-      byteBuffer.writeBigInt64(value);
-      let result = byteBuffer.readBigInt64();
-      expect(result).assertEqual(0n);
+      const buffer = ByteBuffer.from(new ArrayBuffer(128));
+      const value1: bigint = BigInt("9223372036854775807");
+      const value2: bigint = BigInt("-9223372036854775808");
+      const value3: bigint = BigInt(0);
+      buffer.writeBigInt64(value1);
+      buffer.writeBigInt64(value2);
+      buffer.writeBigInt64(value3, true);
+      buffer.reset();
+      expect(buffer.readBigInt64()).assertEqual(value1);
+      expect(buffer.readBigInt64()).assertEqual(value2);
+      expect(buffer.readBigInt64(true)).assertEqual(value3);
       done();
     })
 
@@ -221,10 +271,17 @@ export default function ByteBufferTest() {
     })
 
     it('TestByteBufferReadBigUint64', 0, async (done: Function) => {
-      const value: bigint = BigInt(9223372036854775807);
-      byteBuffer.writeBigUint64(value);
-      let result = byteBuffer.readBigUint64();
-      expect(result).assertEqual(0n);
+      const buffer = ByteBuffer.from(new ArrayBuffer(128));
+      const value1: bigint = BigInt("9223372036854775807");
+      const value2: bigint = BigInt("18446744073709551615");
+      const value3: bigint = BigInt(0);
+      buffer.writeBigUint64(value1);
+      buffer.writeBigUint64(value2);
+      buffer.writeBigUint64(value3, true);
+      buffer.reset();
+      expect(buffer.readBigUint64()).assertEqual(value1);
+      expect(buffer.readBigUint64()).assertEqual(value2);
+      expect(buffer.readBigUint64(true)).assertEqual(value3);
       done();
     })
 
@@ -236,9 +293,14 @@ export default function ByteBufferTest() {
     })
 
     it('TestByteBufferReadInt64', 0, async (done: Function) => {
-      byteBuffer.writeInt64(10);
-      let result = byteBuffer.readInt64();
-      expect(result).assertEqual(0n);
+      const buffer = ByteBuffer.from(new ArrayBuffer(128));
+      buffer.writeInt64(9007199254740991);
+      buffer.writeInt64(-9007199254740991);
+      buffer.writeInt64(0, true);
+      buffer.reset();
+      expect(buffer.readInt64()).assertEqual(BigInt(9007199254740991));
+      expect(buffer.readInt64()).assertEqual(BigInt(-9007199254740991));
+      expect(buffer.readInt64(true)).assertEqual(BigInt(0));
       done();
     })
 
@@ -250,9 +312,14 @@ export default function ByteBufferTest() {
     })
 
     it('TestByteBufferReadUint64', 0, async (done: Function) => {
-      byteBuffer.writeUint64(10);
-      let result = byteBuffer.readUint64();
-      expect(result).assertEqual(0);
+      const buffer = ByteBuffer.from(new ArrayBuffer(128));
+      buffer.writeUint64(0);
+      buffer.writeUint64(9007199254740991);
+      buffer.writeUint64(123456789, true);
+      buffer.reset();
+      expect(buffer.readUint64()).assertEqual(0);
+      expect(buffer.readUint64()).assertEqual(9007199254740991);
+      expect(buffer.readUint64(true)).assertEqual(123456789);
       done();
     })
 
@@ -265,10 +332,20 @@ export default function ByteBufferTest() {
     })
 
     it('TestByteBufferReadUint8Array', 0, async (done: Function) => {
-      const value: Uint8Array = new Uint8Array();
-      byteBuffer.writeUint8Array(value);
-      let result = byteBuffer.readUint8Array();
-      expect(result).assertInstanceOf('Uint8Array');
+      const buffer = ByteBuffer.from(new ArrayBuffer(32));
+      const value1: Uint8Array = new Uint8Array([1, 2, 3, 4, 5]);
+      const value2: Uint8Array = new Uint8Array([255, 128, 0]);
+      buffer.writeUint8Array(value1);
+      buffer.writeUint8Array(value2);
+      buffer.reset();
+      const result1 = buffer.readUint8Array(5);
+      expect(result1.length).assertEqual(5);
+      expect(result1[0]).assertEqual(1);
+      expect(result1[4]).assertEqual(5);
+      const result2 = buffer.readUint8Array(3);
+      expect(result2.length).assertEqual(3);
+      expect(result2[0]).assertEqual(255);
+      expect(result2[2]).assertEqual(0);
       done();
     })
 
@@ -281,10 +358,20 @@ export default function ByteBufferTest() {
     })
 
     it('TestByteBufferReadUint16Array', 0, async (done: Function) => {
-      const value: Uint16Array = new Uint16Array();
-      byteBuffer.writeUint16Array(value);
-      let result = byteBuffer.readUint16Array();
-      expect(result).assertInstanceOf('Uint16Array');
+      const buffer = ByteBuffer.from(new ArrayBuffer(64));
+      const value1: Uint16Array = new Uint16Array([100, 200, 300]);
+      const value2: Uint16Array = new Uint16Array([0, 65535, 32768]);
+      buffer.writeUint16Array(value1);
+      buffer.writeUint16Array(value2);
+      buffer.reset();
+      const result1 = buffer.readUint16Array(6);
+      expect(result1.length).assertEqual(3);
+      expect(result1[0]).assertEqual(100);
+      expect(result1[2]).assertEqual(300);
+      const result2 = buffer.readUint16Array(6);
+      expect(result2.length).assertEqual(3);
+      expect(result2[0]).assertEqual(0);
+      expect(result2[1]).assertEqual(65535);
       done();
     })
 
@@ -296,9 +383,12 @@ export default function ByteBufferTest() {
     })
 
     it('TestByteBufferReadString', 0, async (done: Function) => {
-      byteBuffer.writeString('test');
-      let result = byteBuffer.readString();
-      expect(result).assertUndefined();
+      const buffer = ByteBuffer.from(new ArrayBuffer(64));
+      buffer.writeString('hello');
+      buffer.writeString('world');
+      buffer.reset();
+      expect(buffer.readString(5)).assertEqual('hello');
+      expect(buffer.readString(5)).assertEqual('world');
       done();
     })
 

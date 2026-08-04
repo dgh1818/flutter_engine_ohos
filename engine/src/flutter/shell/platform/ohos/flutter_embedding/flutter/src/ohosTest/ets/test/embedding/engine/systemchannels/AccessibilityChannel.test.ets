@@ -42,6 +42,37 @@ export default function accessibilityChannelTest() {
       expect(Action.SHOW_ON_SCREEN).assertEqual(256);
     });
 
+    it('MOVE_CURSOR_FORWARD_BY_CHARACTER equals 512', Level.LEVEL0, () => {
+      expect(Action.MOVE_CURSOR_FORWARD_BY_CHARACTER).assertEqual(512);
+    });
+
+    it('MOVE_CURSOR_BACKWARD_BY_CHARACTER equals 1024', Level.LEVEL0, () => {
+      expect(Action.MOVE_CURSOR_BACKWARD_BY_CHARACTER).assertEqual(1024);
+    });
+
+    it('SET_SELECTION equals 2048', Level.LEVEL0, () => {
+      expect(Action.SET_SELECTION).assertEqual(2048);
+    });
+
+    it('DID_GAIN_ACCESSIBILITY_FOCUS equals 32768', Level.LEVEL0, () => {
+      expect(Action.DID_GAIN_ACCESSIBILITY_FOCUS).assertEqual(32768);
+    });
+
+    it('DID_LOSE_ACCESSIBILITY_FOCUS equals 65536', Level.LEVEL0, () => {
+      expect(Action.DID_LOSE_ACCESSIBILITY_FOCUS).assertEqual(65536);
+    });
+
+    it('CUSTOM_ACTION equals 131072', Level.LEVEL0, () => {
+      expect(Action.CUSTOM_ACTION).assertEqual(131072);
+    });
+
+    it('MOVE_CURSOR_FORWARD_BY_WORD equals 524288', Level.LEVEL0, () => {
+      expect(Action.MOVE_CURSOR_FORWARD_BY_WORD).assertEqual(524288);
+    });
+
+    it('MOVE_CURSOR_BACKWARD_BY_WORD equals 1048576', Level.LEVEL0, () => {
+      expect(Action.MOVE_CURSOR_BACKWARD_BY_WORD).assertEqual(1048576);
+    });
     it('COPY equals 4096', Level.LEVEL1, () => {
       expect(Action.COPY).assertEqual(4096);
     });

@@ -199,7 +199,7 @@ export default class FlutterEnginePreload {
       }
       Log.d(TAG, "setInitialRoute: " + initialRoute);
       let message = JSONMethodCodec.INSTANCE.encodeMethodCall(new MethodCall("setInitialRoute", initialRoute));
-      flutterNapi.dispatchPlatformMessage("flutter/navigation", message, message.byteLength, 0);
+      flutterNapi.dispatchPlatformMessage("flutter/navigation", message, message ? message.byteLength : 0, 0);
 
       flutterNapi.runBundleAndSnapshotFromLibrary(
         bundlePath,

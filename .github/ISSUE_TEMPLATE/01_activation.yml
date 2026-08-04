@@ -1,6 +1,6 @@
 name: 安装或运行 Flutter 时遇到困难
 description: 在下载或安装 Flutter 时遇到问题，或 "flutter" 工具崩溃，或在使用 "flutter run" 之前就遇到了其他问题。
-labels: ['triage']
+labels: ['triage', 'setup']
 body:
   - type: markdown
     attributes:

@@ -1,7 +1,7 @@
 name: 报告 Flutter 官方插件的 Bug
 description: |
   在 Flutter 的某个官方插件中发现了 Bug。
-labels: ['triage']
+labels: ['triage', 'bug', 'plugin']
 body:
   - type: markdown
     attributes:

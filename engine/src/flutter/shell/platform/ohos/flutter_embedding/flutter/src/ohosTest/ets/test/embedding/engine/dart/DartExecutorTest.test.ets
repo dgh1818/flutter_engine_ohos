@@ -25,18 +25,14 @@ export default function DartExecutorTest() {
   let dartExecutor: DartExecutor;
   let options: Options;
   let assetManager: resourceManager.ResourceManager;
-  let dartEntrypoint: DartEntrypoint | null = null;
-  let resourceManager: resourceManager.ResourceManager;
 
   describe('DartExecutorTest', () => {
 
     beforeAll(() => {
       context = getContext() as common.UIAbilityContext;
       assetManager = context.resourceManager;
-      resourceManager = context.resourceManager;
       dartExecutor = new DartExecutor(flutterNapi, assetManager);
       options = new Options(context);
-      dartEntrypoint = options.getDartEntrypoint();
     })
 
     it('isExecutingDart', 0, async (done: Function) => {

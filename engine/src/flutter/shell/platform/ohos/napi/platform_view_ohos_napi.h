@@ -119,6 +119,10 @@ class PlatformViewOHOSNapi {
   static napi_value nativeDestroy(
       napi_env env,
       napi_callback_info info);  // Detaches flutterNapi和engine之间的关联
+
+  static napi_value nativeSpawnAsync(napi_env env, napi_callback_info info);
+  static napi_value nativeDestroyAsync(napi_env env, napi_callback_info info);
+
   static napi_value nativeSetViewportMetrics(
       napi_env env,
       napi_callback_info info);  // 把物理屏幕参数通知到native
@@ -312,7 +316,8 @@ class PlatformViewOHOSNapi {
   static std::vector<std::string> system_languages;
   fml::RefPtr<fml::TaskRunner> platform_task_runner_;
   static int64_t napi_shell_holder_id_;
-  // Dynamic library loader for OH_AbilityRuntime_ApplicationContextNotifyPageChanged
+  // Dynamic library loader for
+  // OH_AbilityRuntime_ApplicationContextNotifyPageChanged
   static std::once_flag notify_page_changed_init_flag_;
   static std::unique_ptr<DynamicLibraryLoader> ability_runtime_loader_;
   using NotifyPageChangedFunc = int32_t (*)(const char*, int32_t, int32_t);

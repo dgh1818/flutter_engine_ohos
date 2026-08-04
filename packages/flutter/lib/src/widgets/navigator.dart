@@ -3737,6 +3737,12 @@ class NavigatorState extends State<Navigator> with TickerProviderStateMixin, Res
   SplitViewNavigatorPolicy? _splitViewPolicy;
   final _History _history = _History();
 
+  /// Returns the [FocusScopeNode] that held primary focus when the
+  /// outermost active popup was pushed, or null if not applicable.
+  FocusScopeNode? getPopupPreviousFocusScope() {
+    return _splitViewPolicy?.getPopupPreviousFocusScope();
+  }
+
   /// A set for entries that are waiting to dispose until their subtrees are
   /// disposed.
   ///

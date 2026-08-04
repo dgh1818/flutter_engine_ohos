@@ -531,10 +531,6 @@ export class FlutterView {
   }
   private windowSizeChangeCallback = (data: window.Size) => {
     Log.i(TAG, `windowSizeChangeCallback: width=${data.width}, height=${data.height}, lastHeight=${this.lastHeight}`);
-    if (!this.isActive) {
-      Log.d(TAG, `${this.id} is not active. Ignoring window size change.`);
-      return;
-    }
     // Only handle when height changes
     if (this.lastHeight !== data.height) {
       try {
@@ -557,7 +553,10 @@ export class FlutterView {
 
     // Update lastHeight
     this.lastHeight = data.height;
-
+    if (!this.isActive) {
+      Log.d(TAG, `${this.id} is not active. Ignoring window size change.`);
+      return;
+    }
     // Notify area change, this method handles all necessary view updates
     if (this.isAttachedToFlutterEngine()) {
       this.onAreaChange(null);
@@ -579,10 +578,6 @@ export class FlutterView {
       Log.d(TAG, "Skipping display change callback due to custom DPI setting");
       return;
     }
-    if (!this.isActive) {
-      Log.d(TAG, `${this.id} is not active. Ignoring display change.`);
-      return;
-    }
     this.displayInfo = display.getDefaultDisplaySync();
     this.flutterEngine?.getTextInputChannel()?.setDevicePixelRatio(this.displayInfo.densityPixels);
     let devicePixelRatio: number = this.displayInfo?.densityPixels;
@@ -590,28 +585,32 @@ export class FlutterView {
     if (devicePixelRatio != this.viewportMetrics.devicePixelRatio) {
       this.viewportMetrics.devicePixelRatio = devicePixelRatio;
       this.needSetViewport = true;
+      if (!this.isActive) {
+        Log.d(TAG, `${this.id} is not active. Ignoring display change.`);
+        return;
+      }
       this.onAreaChange(null);
     }
     this.flutterEngine?.getFlutterNapi()?.updateRefreshRate(this.displayInfo?.refreshRate);
   }
   private keyboardHeightChangeCallback = (data: number) => {
     Log.i(TAG, "keyboardHeightChangeCallback " + data);
+    if (this.keyboardAvoidArea) {
+      this.keyboardAvoidArea.bottomRect.height = data;
+    }
     if (!this.isActive) {
       Log.d(TAG, `${this.id} is not active. Ignoring keyboard height change.`);
       return;
-    }
-    if (this.keyboardAvoidArea) {
-      this.keyboardAvoidArea.bottomRect.height = data;
     }
     this.onAreaChange(null);
   };
   private windowRectChangeCallback = (data: window.RectChangeOptions) => {
     Log.i(TAG, "windowRectChangeCallback " + JSON.stringify(data));
+    this.windowPosition = data.rect as window.Rect;
     if (!this.isActive) {
       Log.d(TAG, `${this.id} is not active. Ignoring window rect change.`);
       return;
     }
-    this.windowPosition = data.rect as window.Rect;
     this.flutterEngine?.getTextInputChannel()?.setWindowPosition(this.windowPosition);
   }
   private accessibilityStateChangeCallback = (data: boolean) => {
@@ -959,6 +958,7 @@ export class FlutterView {
     if (this.uiContext !== undefined && this.autofillUiContext === undefined) {
       this.applyAutofillUiContext(this.uiContext);
     }
+    this.flutterEngine.getPlatformViewsController()?.attachTextInputPlugin(this.textInputPlugin);
     this.statusBarClickChannel = new StatusBarClickChannel(flutterEngine.dartExecutor)
     this.keyboardManager = new KeyboardManager(flutterEngine, this.textInputPlugin!);
     this.settings = new Settings(this.flutterEngine.getSettingsChannel()!);
@@ -1016,7 +1016,11 @@ export class FlutterView {
       this.flutterEngine?.hostDidBecomeHidden();
       this.hostVisible = false;
     }
+    // Keep the controller -> TextInputPlugin link alive until the platform-view
+    // hierarchy has been detached. This lets late blur/teardown callbacks clear
+    // any physical PlatformView owner that is still active during shutdown.
     this.flutterEngine?.getPlatformViewsController()?.detachFromView(this);
+    this.flutterEngine?.getPlatformViewsController()?.detachTextInputPlugin();
     this.flutterEngine = null;
     this.keyboardManager = null;
     this.textInputPlugin?.destroy();
