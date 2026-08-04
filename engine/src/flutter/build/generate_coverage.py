@@ -13,7 +13,7 @@ import shutil
 
 
 def get_llvm_bin_directory():
-  buildtool_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../buildtools')
+  buildtool_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../buildtools')
   platform_dir = ''
   if sys.platform.startswith('linux'):
     platform_dir = 'linux-x64'
@@ -166,7 +166,11 @@ def main():
 
   llvm_cov_binary = os.path.join(llvm_bin_dir, 'llvm-cov')
   instr_profile_flag = '-instr-profile=%s' % merged_profile_path
-  ignore_flags = '-ignore-filename-regex=third_party|unittest|fixture'
+  # Match flutter/third_party/ (not bare "third_party") because coverage
+  # mappings store absolute paths, and the workspace root may itself contain
+  # "third_party" (e.g. .../third_party/flutter_flutter/...), which would
+  # otherwise filter out every source file.
+  ignore_flags = '-ignore-filename-regex=flutter/third_party/|unittest|fixture'
 
   # Generate the HTML report if specified.
   if generate_all_reports or args.format == 'html':

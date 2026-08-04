@@ -193,6 +193,8 @@ executable("flutter_ohos_unittests") {
 
   sources = [
     #"testing/mock_texture_registrar.cc",
+    "//flutter/fml/platform/ohos/hisysevent_c_unittests.cc",
+    "//flutter/fml/platform/ohos/hiappevent/ohos_hiappevent_unittests.cpp",
     "ohos_asset_provider_unittests.cpp",
     "dynamic_library_loader_unittests.cpp",
     "message_loop_ohos_unittests.cpp",
@@ -206,6 +208,8 @@ executable("flutter_ohos_unittests") {
     "image_lru_unittests.cpp",
     "ohos_color_space_unittests.cpp",
     "//flutter/impeller/renderer/backend/vulkan/ohos/ohb_texture_source_vk_unittests.cc",
+    "ohos_logger_unittests.cpp",
+    "ohos_trace_event_unittests.cpp",
   ]
 
   public_configs = [ "//flutter:config" ]
