@@ -46,9 +46,9 @@ export default function FlutterNapiTest() {
           `${context.filesDir}/`,
           `${context.cacheDir}/`,
           `${context.filesDir}`);
+        flutterApplicationInfo = ApplicationInfoLoader.load(context);
         snapshotAssetPath = initResult!.dataDirPath + FILE_SEPARATOR + flutterApplicationInfo!.flutterAssetsDir;
         bundlePath = snapshotAssetPath + FILE_SEPARATOR + DEFAULT_KERNEL_BLOB;
-        flutterApplicationInfo = ApplicationInfoLoader.load(context);
         assetManager = context.resourceManager;
       }
       const target: EventTarget = new CustomEventTarget(new CustomArea(0, 0, {

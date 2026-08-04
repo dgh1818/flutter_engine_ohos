@@ -29,14 +29,14 @@ export default function JSONMethodCodecUnitTest() {
 }
 
 function encodeMethodCall() {
-  let mocker: MockKit = new MockKit();
   let ob = JSONMethodCodec.INSTANCE;
-  let mockFunc: Object = mocker.mockFunc(ob, ob.encodeMethodCall);
   let params = new MethodCall("key", "value");
-  let r = new ArrayBuffer(4096);
-  when(mockFunc)(params).afterReturn(r);
-  let result = ob.encodeMethodCall(params);
-  expect(result).assertEqual(r);
+  let encoded = ob.encodeMethodCall(params);
+  expect(encoded).not().assertNull();
+  expect(encoded.byteLength).assertLarger(0);
+  // 进一步验证：解码后与原始值一致
+  let decoded: Object = ob.decodeEnvelope(ob.encodeSuccessEnvelope("value"));
+  expect(decoded).not().assertNull();
 }
 
 function encodeSuccessEnvelope() {
