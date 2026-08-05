@@ -262,6 +262,12 @@ def build_engine_executable_command(
   return test_command
 
 
+def _executable_exists(unstripped_exe, stripped_exe):
+  # pylint: disable=missing-function-docstring
+  return (os.path.exists(unstripped_exe) or os.path.exists(stripped_exe) or
+          os.path.exists(stripped_exe + '.exe') or os.path.exists(stripped_exe + '.bat'))
+
+
 def run_engine_executable( # pylint: disable=too-many-arguments
     build_dir: str,
     executable_name: str,
@@ -282,6 +288,15 @@ def run_engine_executable( # pylint: disable=too-many-arguments
     logger.info('Skipping %s due to filter.', executable_name)
     return
 
+  unstripped_exe = os.path.join(build_dir, 'exe.unstripped', executable_name)
+
+  # Skip gracefully if the executable was not built (e.g. OHos builds disable
+  # desktop embeddings, so client_wrapper_glfw_unittests is absent).
+  stripped_exe = os.path.join(build_dir, executable_name)
+  if not _executable_exists(unstripped_exe, stripped_exe):
+    logger.warning('Skipping %s: executable not found in build directory.', executable_name)
+    return
+
   if flags is None:
     flags = []
   if forbidden_output is None:
@@ -290,8 +305,6 @@ def run_engine_executable( # pylint: disable=too-many-arguments
     allowed_failure_output = []
   if extra_env is None:
     extra_env = {}
-
-  unstripped_exe = os.path.join(build_dir, 'exe.unstripped', executable_name)
   env = os.environ.copy()
   if is_linux():
     env['LD_LIBRARY_PATH'] = build_dir
@@ -831,6 +844,175 @@ def run_android_tests(
   run_android_unittest('impeller_vulkan_android_unittests', android_variant, adb_path)
 
 
+def run_ohos_unittest(
+    test_runner_name, ohos_variant, hdc_path, coverage=False, source_regex='ohos'
+):
+  tests_path = os.path.join(OUT_DIR, ohos_variant, test_runner_name)
+  remote_path = '/data/local/tmp'
+  remote_tests_path = os.path.join(remote_path, test_runner_name)
+  run_cmd([hdc_path, 'file', 'send', tests_path, remote_path], cwd=BUILDROOT_DIR)
+  run_cmd([hdc_path, 'shell', 'chmod', '+x', remote_tests_path], cwd=BUILDROOT_DIR)
+
+  remote_rawprofile = os.path.join(remote_path, test_runner_name + '.profraw')
+  try:
+    if coverage:
+      # Remove stale profile on the device, then run with LLVM_PROFILE_FILE set.
+      run_cmd([hdc_path, 'shell', 'rm', '-f', remote_rawprofile], cwd=BUILDROOT_DIR)
+      run_cmd(
+          [hdc_path, 'shell', 'LLVM_PROFILE_FILE=%s %s' % (remote_rawprofile, remote_tests_path)],
+          cwd=BUILDROOT_DIR,
+      )
+    else:
+      run_cmd([hdc_path, 'shell', remote_tests_path])
+  except:
+    luci_test_outputs_path = os.environ.get('FLUTTER_TEST_OUTPUTS_DIR')
+    if luci_test_outputs_path:
+      print('>>>>> Test %s failed. Capturing hilog.' % test_runner_name)
+      hilog_path = os.path.join(luci_test_outputs_path, '%s_hilog' % test_runner_name)
+      hilog_file = open(hilog_path, 'w')
+      subprocess.run([hdc_path, 'shell', 'hilog'], stdout=hilog_file, check=False)
+    raise
+  finally:
+    if coverage:
+      try:
+        _collect_and_generate_ohos_coverage(
+            test_runner_name, ohos_variant, hdc_path, remote_rawprofile,
+            source_regex
+        )
+      except Exception as exn:  # pylint: disable=broad-except
+        _logger.warning('Failed to collect coverage for %s: %s', test_runner_name, exn)
+
+
+def _filter_coverage_source_files(cov_binary, unstripped_exe, merged_profile, source_regex):
+  """Returns source files matching source_regex, excluding third_party/unittest/fixture/generated."""
+  report_output = subprocess.check_output(
+      [cov_binary, 'report', '-object', unstripped_exe,
+       '-instr-profile=%s' % merged_profile],
+      cwd=BUILDROOT_DIR, universal_newlines=True,
+  )
+  source_pattern = re.compile(source_regex, re.IGNORECASE)
+  exclude_pattern = re.compile(r'flutter/third_party/|unittest|fixture|/out/|^out/')
+  filtered = []
+  for line in report_output.splitlines():
+    parts = line.split()
+    if not parts:
+      continue
+    filename = parts[0]
+    if (source_pattern.search(filename) and not exclude_pattern.search(filename)
+        and filename.endswith(('.cc', '.cpp', '.h', '.c'))):
+      filtered.append(filename)
+  return filtered
+
+
+def _collect_and_generate_ohos_coverage(
+    test_runner_name, ohos_variant, hdc_path, remote_rawprofile, source_regex='ohos'
+):
+  """Pulls the raw profile from the device and generates an HTML coverage report."""
+  build_dir = os.path.join(OUT_DIR, ohos_variant)
+  local_rawprofile = os.path.join(build_dir, test_runner_name + '.profraw')
+
+  # Pull the raw profile from the device.
+  run_cmd([hdc_path, 'file', 'recv', remote_rawprofile, local_rawprofile], cwd=BUILDROOT_DIR)
+
+  if not os.path.exists(local_rawprofile):
+    _logger.warning(
+        'Could not find raw profile data for %s. Did you build with the --coverage flag?',
+        test_runner_name,
+    )
+    return
+
+  # Use the unstripped binary for coverage reporting (it has __llvm_covmap).
+  unstripped_exe = os.path.join(build_dir, 'exe.unstripped', test_runner_name)
+  if not os.path.exists(unstripped_exe):
+    unstripped_exe = os.path.join(build_dir, test_runner_name)
+
+  coverage_dir = os.path.join(build_dir, 'coverage', test_runner_name)
+  os.makedirs(coverage_dir, exist_ok=True)
+
+  # OHos binaries are instrumented by the NDK's clang (LLVM 15), whose raw
+  # profile format may not be readable by the buildtools llvm-profdata (LLVM 18).
+  # Prefer the NDK's llvm tools (from custom_toolchain in args.gn); fall back to
+  # buildtools if custom_toolchain is not set.
+  llvm_bin_dir = _get_ohos_llvm_bin_dir(build_dir)
+  if not llvm_bin_dir:
+    llvm_bin_dir = os.path.join(
+        BUILDROOT_DIR, 'flutter', 'buildtools', 'linux-x64', 'clang', 'bin'
+    )
+  profdata_binary = os.path.join(llvm_bin_dir, 'llvm-profdata')
+  cov_binary = os.path.join(llvm_bin_dir, 'llvm-cov')
+
+  # Merge the raw profile into a single profile.
+  merged_profile = os.path.join(coverage_dir, 'all.profile')
+  run_cmd(
+      [profdata_binary, 'merge', '-sparse', local_rawprofile, '-o', merged_profile],
+      cwd=BUILDROOT_DIR,
+  )
+
+  # Generate the HTML report. When a source_regex is provided, filter the report
+  # to only those source files (the binary links many shared libraries whose
+  # coverage is irrelevant). Otherwise fall back to ignore-regex filtering.
+  filtered_files = (
+      _filter_coverage_source_files(
+          cov_binary, unstripped_exe, merged_profile, source_regex
+      ) if source_regex else None
+  )
+
+  if filtered_files:
+    # Pass matching source files as positional args: the first positional is
+    # the covered executable, the rest are source files to display. No
+    # -ignore-filename-regex needed — the file list itself is the filter.
+    run_cmd(
+        [cov_binary, 'show',
+         '-instr-profile=%s' % merged_profile,
+         '-format=html',
+         '-output-dir=%s' % coverage_dir,
+         '-tab-size=2',
+         unstripped_exe] + filtered_files,
+        cwd=BUILDROOT_DIR,
+    )
+  else:
+    # No source filter (or no matches): show all files, excluding third_party
+    # and test code via -ignore-filename-regex.
+    run_cmd(
+        [cov_binary, 'show', '-object', unstripped_exe,
+         '-instr-profile=%s' % merged_profile,
+         '-format=html',
+         '-output-dir=%s' % coverage_dir,
+         '-tab-size=2',
+         '-ignore-filename-regex=flutter/third_party/|unittest|fixture'],
+        cwd=BUILDROOT_DIR,
+    )
+  _logger.info('Coverage report for %s generated at %s', test_runner_name, coverage_dir)
+
+
+def _get_ohos_llvm_bin_dir(build_dir):
+  """Returns the LLVM bin directory from the OHos build's custom_toolchain."""
+  args_gn_path = os.path.join(build_dir, 'args.gn')
+  if not os.path.exists(args_gn_path):
+    return None
+  with open(args_gn_path, 'r') as f:
+    content = f.read()
+  match = re.search(r'custom_toolchain\s*=\s*"([^"]+)"', content)
+  if match:
+    return os.path.join(match.group(1), 'bin')
+  return None
+
+
+def run_ohos_tests(
+    ohos_variant='ohos_debug_arm64', hdc_path=None, coverage=False,
+    coverage_source_regex=None
+):
+  if hdc_path is None:
+    hdc_path = 'hdc'
+  if coverage_source_regex is None:
+    coverage_source_regex = 'ohos'
+
+  run_ohos_unittest(
+      'flutter_ohos_unittests', ohos_variant, hdc_path,
+      coverage=coverage, source_regex=coverage_source_regex
+  )
+
+
 def run_objc_tests(
     ios_variant: str = 'ios_debug_sim_unopt', test_filter: typing.Optional[str] = None
 ) -> None:
@@ -1227,6 +1409,7 @@ Flutter Wiki page on the subject: https://github.com/flutter/flutter/wiki/Testin
       'benchmarks',
       'java',
       'android',
+      'ohos',
       'objc',
       'font-subset',
       'impeller-golden',
@@ -1282,6 +1465,13 @@ Flutter Wiki page on the subject: https://github.com/flutter/flutter/wiki/Testin
       help='The engine build variant to run objective-c tests for'
   )
   parser.add_argument(
+      '--ohos-variant',
+      dest='ohos_variant',
+      action='store',
+      default='ohos_debug_arm64',
+      help='The engine build variant to run ohos tests for'
+  )
+  parser.add_argument(
       '--verbose-dart-snapshot',
       dest='verbose_dart_snapshot',
       action='store_true',
@@ -1304,6 +1494,14 @@ Flutter Wiki page on the subject: https://github.com/flutter/flutter/wiki/Testin
       help='Generate coverage reports for each unit test framework run.'
   )
   parser.add_argument(
+      '--coverage-source-regex',
+      dest='coverage_source_regex',
+      action='store',
+      default=None,
+      help='Regex to filter source files in ohos coverage reports (default: "ohos"). '
+           'Pass ".*" to include all source files.'
+  )
+  parser.add_argument(
       '--engine-capture-core-dump',
       dest='engine_capture_core_dump',
       action='store_true',
@@ -1323,6 +1521,13 @@ Flutter Wiki page on the subject: https://github.com/flutter/flutter/wiki/Testin
       action='store',
       default=None,
       help='Provide the path of adb used for android tests. By default it looks on $PATH.'
+  )
+  parser.add_argument(
+      '--hdc-path',
+      dest='hdc_path',
+      action='store',
+      default=None,
+      help='Provide the path of hdc used for ohos tests. By default it looks on $PATH.'
   )
   parser.add_argument(
       '--quiet',
@@ -1365,7 +1570,7 @@ Flutter Wiki page on the subject: https://github.com/flutter/flutter/wiki/Testin
     print('Warning: using "android" in variant. Did you mean to use --android-variant?')
 
   build_dir = os.path.join(OUT_DIR, args.variant)
-  if args.type not in ('java', 'android'):
+  if args.type not in ('java', 'android', 'ohos'):
     assert os.path.exists(build_dir), f'Build variant directory {build_dir} does not exist!'
 
   if args.sanitizer_suppressions:
@@ -1441,6 +1646,13 @@ Flutter Wiki page on the subject: https://github.com/flutter/flutter/wiki/Testin
   if 'android' in types:
     assert not is_windows(), "Android engine files can't be compiled on Windows."
     run_android_tests(args.android_variant, args.adb_path)
+
+  if 'ohos' in types:
+    assert not is_windows(), "OHos engine files can't be compiled on Windows."
+    run_ohos_tests(
+        args.ohos_variant, args.hdc_path, coverage=args.coverage,
+        coverage_source_regex=args.coverage_source_regex
+    )
 
   if 'objc' in types:
     assert is_mac(), 'iOS embedding tests can only be run on macOS.'
