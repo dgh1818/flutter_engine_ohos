@@ -189,6 +189,9 @@ bool OhosTouchProcessor::shouldDropTouchEvent(
       activeFingerIds_.erase(touchEvent->id);
     }
   }
+  if (touchEvent->type == OH_NATIVEXCOMPONENT_CANCEL) {
+    activeFingerIds_.erase(touchEvent->id);
+  }
   return false;
 }
 
