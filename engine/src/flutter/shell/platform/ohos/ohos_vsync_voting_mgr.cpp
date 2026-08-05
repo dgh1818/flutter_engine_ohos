@@ -7,11 +7,10 @@
 
 #include <dlfcn.h>
 #include <algorithm>
-#include <unordered_map>
-#include <vector>
-#include <string>
-#include <sstream>
 #include <cmath>
+#include <sstream>
+#include <string>
+#include <unordered_map>
 
 #include "flutter/fml/logging.h"
 #include "flutter/fml/trace_event.h"
@@ -19,8 +18,27 @@
 
 namespace flutter {
 
+// Singleton state, guarded by instance_mutex.
+//
+// A plain std::mutex replaces the previous std::call_once because a
+// once_flag cannot be re-armed: after ResetInstance() cleared the
+// pointer, a call_once-based GetInstance() would never construct again
+// and would return a stale/empty pointer. The mutex version keeps the
+// exact same singleton semantics -- the nullptr check and the
+// construction happen atomically under the lock, and the lock's
+// happens-before edges publish the fully constructed object to every
+// thread. It introduces no new failure modes:
+//  - No deadlock: instance_mutex is a leaf lock. It is only ever taken
+//    by GetInstance()/ResetInstance(), and the code executed inside the
+//    critical section acquires no other lock, so no lock-order cycle
+//    can exist.
+//  - No hidden re-entrancy: std::mutex (not std::recursive_mutex) is
+//    intentional. If a future change makes the constructor call
+//    GetInstance() (nested construction), the non-recursive mutex turns
+//    that bug into an immediate, obvious deadlock in tests instead of
+//    silently creating a second, half-initialized instance.
 static std::shared_ptr<OhosVsyncVotingMgr> instance = nullptr;
-static std::once_flag instance_flag;
+static std::mutex instance_mutex;
 
 // default is 160 DPI
 static constexpr int32_t PHYSICAL_PIXEL_DENSITY = 160;
@@ -48,14 +66,15 @@ static constexpr int32_t DEFAULT_FPS = FPS_120;
 static constexpr int32_t RET_FAILED = -1;
 static constexpr int32_t RET_SUCCEED = 0;
 
-// Built-in default TRANSLATE frame rate mapping, migrated from framesconfig.json.
-// Unit: mm/frame (velocity has been converted in VoteANTranslate).
+// Built-in default TRANSLATE frame rate mapping, migrated from
+// framesconfig.json. Unit: mm/frame (velocity has been converted in
+// VoteANTranslate).
 static const std::vector<map<string, int>> kDefaultTranslateFramesConfig = {
-  {{"serial_number", 1}, {"min", 500}, {"max", -1},  {"preferred_fps", 90}},
-  {{"serial_number", 2}, {"min", 60},  {"max", 500}, {"preferred_fps", 120}},
-  {{"serial_number", 3}, {"min", 35},  {"max", 60},  {"preferred_fps", 90}},
-  {{"serial_number", 4}, {"min", 10},  {"max", 35},  {"preferred_fps", 72}},
-  {{"serial_number", 5}, {"min", 0},   {"max", 10},  {"preferred_fps", 60}},
+    {{"serial_number", 1}, {"min", 500}, {"max", -1}, {"preferred_fps", 90}},
+    {{"serial_number", 2}, {"min", 60}, {"max", 500}, {"preferred_fps", 120}},
+    {{"serial_number", 3}, {"min", 35}, {"max", 60}, {"preferred_fps", 90}},
+    {{"serial_number", 4}, {"min", 10}, {"max", 35}, {"preferred_fps", 72}},
+    {{"serial_number", 5}, {"min", 0}, {"max", 10}, {"preferred_fps", 60}},
 };
 
 constexpr char LIB_NATIVE_VSYNC_NAME[] = "libnative_vsync.so";
@@ -69,20 +88,46 @@ constexpr char SCALE_KEY[] = "SCALE";
 constexpr char ROTATION_KEY[] = "ROTATION";
 
 static unordered_map<VVMVotingType, std::string> voting_type_unordered_map = {
-  {VVMVotingType::VOTING_TYPE_NOTHING, std::string("NOTHING")},
-  {VVMVotingType::VOTING_TYPE_TOUCH_DOWN_FPS_120, std::string("TOUCH_DOWN_FPS_120")},
-  {VVMVotingType::VOTING_TYPE_TOUCH_UP_FPS_60, std::string("TOUCH_UP_FPS_60")},
-  {VVMVotingType::VOTING_TYPE_TOUCH_UP_FPS_120, std::string("TOUCH_UP_FPS_120")},
-  {VVMVotingType::VOTING_TYPE_COMMON_PLATFORMVIEW_FPS_120, std::string("COMMON_PLATFORMVIEW_FPS_120")},
-  {VVMVotingType::VOTING_TYPE_ANIMATION, std::string("ANIMATION")},
+    {VVMVotingType::VOTING_TYPE_NOTHING, std::string("NOTHING")},
+    {VVMVotingType::VOTING_TYPE_TOUCH_DOWN_FPS_120,
+     std::string("TOUCH_DOWN_FPS_120")},
+    {VVMVotingType::VOTING_TYPE_TOUCH_UP_FPS_60,
+     std::string("TOUCH_UP_FPS_60")},
+    {VVMVotingType::VOTING_TYPE_TOUCH_UP_FPS_120,
+     std::string("TOUCH_UP_FPS_120")},
+    {VVMVotingType::VOTING_TYPE_COMMON_PLATFORMVIEW_FPS_120,
+     std::string("COMMON_PLATFORMVIEW_FPS_120")},
+    {VVMVotingType::VOTING_TYPE_ANIMATION, std::string("ANIMATION")},
 };
 
 std::shared_ptr<OhosVsyncVotingMgr> OhosVsyncVotingMgr::GetInstance() {
-  std::call_once(instance_flag, [&] {
+  // Taking the lock on every call (instead of call_once's lock-free fast
+  // path) is acceptable here: this is not a per-frame hot path, and the
+  // mutex is what makes ResetInstance() possible.
+  //
+  // WARNING: the constructor below runs with instance_mutex held. Keep
+  // it free of re-entrancy (no GetInstance()/ResetInstance() calls) and
+  // nested locking (no other mutexes acquired), or it will deadlock.
+  std::lock_guard<std::mutex> lock(instance_mutex);
+  if (instance == nullptr) {
     instance = std::make_shared<OhosVsyncVotingMgr>();
-  });
-
+  }
   return instance;
+}
+
+void OhosVsyncVotingMgr::ResetInstance() {
+  // Move the old instance out and let it be destroyed only AFTER the
+  // lock is released (its destructor dlclose()s the vsync library).
+  // Keeping the critical section free of any non-trivial code is what
+  // guarantees that instance_mutex stays a leaf lock and this function
+  // cannot deadlock.
+  std::shared_ptr<OhosVsyncVotingMgr> old_instance;
+  {
+    std::lock_guard<std::mutex> lock(instance_mutex);
+    old_instance.swap(instance);
+  }
+  // old_instance is destroyed here, outside the lock. The next
+  // GetInstance() call constructs a fresh instance.
 }
 
 OhosVsyncVotingMgr::OhosVsyncVotingMgr()
@@ -90,7 +135,8 @@ OhosVsyncVotingMgr::OhosVsyncVotingMgr()
   switch_status_ = LTPOSwitchState::LTPO_SWITCH_NOT_INIT;
   delay_drop_framerate_times_ = HIGH_FPS_MAINTAINED_TIMES;
 
-  lib_native_vsync_handle_ = dlopen(LIB_NATIVE_VSYNC_NAME, RTLD_LAZY | RTLD_LOCAL);
+  lib_native_vsync_handle_ =
+      dlopen(LIB_NATIVE_VSYNC_NAME, RTLD_LAZY | RTLD_LOCAL);
   if (lib_native_vsync_handle_ == nullptr) {
     FML_LOG(ERROR) << "Failed to dlopen libnative_vsync.so";
     return;
@@ -116,14 +162,16 @@ OhosVsyncVotingMgr::~OhosVsyncVotingMgr() {
 void OhosVsyncVotingMgr::VoteAnimationValue(AnimationType AN_type,
                                             double device_pixel_ratio,
                                             double velocity) {
-  if (lib_native_vsync_handle_ == nullptr || switch_status_ != LTPOSwitchState::LTPO_SWITCH_ON) {
+  if (lib_native_vsync_handle_ == nullptr ||
+      switch_status_ != LTPOSwitchState::LTPO_SWITCH_ON) {
     return;
   }
 
   double velocity_tmp = std::abs(velocity);
   if (device_pixel_ratio != 0.0) {
-    /// V_Logical_Pixel(millimeter) = V(pixel) * 25.4 / (device_pixel_ratio * 160)
-    /// V_Physical_Pixel(millimeter) = V_Logical_Pixel(millimeter) * device_pixel_ratio
+    /// V_Logical_Pixel(millimeter) = V(pixel) * 25.4 / (device_pixel_ratio *
+    /// 160) V_Physical_Pixel(millimeter) = V_Logical_Pixel(millimeter) *
+    /// device_pixel_ratio
     /// => V_Physical_Pixel(millimeter) = V(pixel) * 25.4 / 160
     velocity_tmp = velocity_tmp * INCH_2_MILL / PHYSICAL_PIXEL_DENSITY;
   }
@@ -146,7 +194,8 @@ void OhosVsyncVotingMgr::VoteAnimationValue(AnimationType AN_type,
 }
 
 void OhosVsyncVotingMgr::VoteTouchValue(VVMTouchType type, int64_t timestamp) {
-  if (lib_native_vsync_handle_ == nullptr || switch_status_ != LTPOSwitchState::LTPO_SWITCH_ON) {
+  if (lib_native_vsync_handle_ == nullptr ||
+      switch_status_ != LTPOSwitchState::LTPO_SWITCH_ON) {
     return;
   }
 
@@ -163,11 +212,13 @@ void OhosVsyncVotingMgr::VoteTouchValue(VVMTouchType type, int64_t timestamp) {
       VotingBySelf();
       break;
     case VVMTouchType::TOUCH_TYPE_UP_3_SEC_AFTER:
-      // During the continuous swiping process, maintain a stable frame rate(FPS).
+      // During the continuous swiping process, maintain a stable frame
+      // rate(FPS).
       if (is_touch_down_) {
         break;
       }
-      if (timestamp - touch_timestamp_.load() >= TOUCH_UP_MILLIS_TIME_OUT_FPS_60) {
+      if (timestamp - touch_timestamp_.load() >=
+          TOUCH_UP_MILLIS_TIME_OUT_FPS_60) {
         FML_LOG(INFO) << "VoteTouchValue TOUCH_UP timeout, reset touch voting";
         touch_voting_.store(FPS_NO_VOTING);
         VotingBySelf();
@@ -180,13 +231,15 @@ void OhosVsyncVotingMgr::VoteTouchValue(VVMTouchType type, int64_t timestamp) {
 }
 
 void OhosVsyncVotingMgr::VoteVideoValue(int second, int frame_count) {
-  if (lib_native_vsync_handle_ == nullptr || switch_status_ != LTPOSwitchState::LTPO_SWITCH_ON) {
+  if (lib_native_vsync_handle_ == nullptr ||
+      switch_status_ != LTPOSwitchState::LTPO_SWITCH_ON) {
     return;
   }
 
   if (second <= 0 || frame_count <= 0) {
     FML_LOG(INFO) << "VoteVideoValue ignored, invalid input"
-                   << ", second = " << second << ", frame_count = " << frame_count;
+                  << ", second = " << second
+                  << ", frame_count = " << frame_count;
     return;
   }
 
@@ -201,7 +254,7 @@ void OhosVsyncVotingMgr::VoteVideoValue(int second, int frame_count) {
 }
 
 void OhosVsyncVotingMgr::VoteANTranslate(double velocity) {
-  // Determine the maximum velocity withthin one vsync. 
+  // Determine the maximum velocity withthin one vsync.
   if (velocity < cur_animation_translate_velocity_) {
     return;
   }
@@ -209,7 +262,8 @@ void OhosVsyncVotingMgr::VoteANTranslate(double velocity) {
   cur_animation_translate_velocity_ = velocity;
 
   int expected_framerate_tmp = DEFAULT_FPS;
-  for (std::vector<std::map<string, int>>::iterator it = frames_config_vec_.begin();
+  for (std::vector<std::map<string, int>>::iterator it =
+           frames_config_vec_.begin();
        it != frames_config_vec_.end(); it++) {
     if (velocity > static_cast<double>((*it)["min"])) {
       expected_framerate_tmp = (*it)["preferred_fps"];
@@ -263,8 +317,10 @@ int OhosVsyncVotingMgr::VoteFinalFrameRateByPriority() {
       break;
     }
 
-    int64_t now_timestamp = fml::TimePoint::Now().ToEpochDelta().ToMilliseconds();
-    if (now_timestamp - touch_timestamp_.load() < TOUCH_UP_MILLIS_TIME_OUT_FPS_120) {
+    int64_t now_timestamp =
+        fml::TimePoint::Now().ToEpochDelta().ToMilliseconds();
+    if (now_timestamp - touch_timestamp_.load() <
+        TOUCH_UP_MILLIS_TIME_OUT_FPS_120) {
       final_framerate = FPS_120;
       voting_type = VVMVotingType::VOTING_TYPE_TOUCH_UP_FPS_120;
       break;
@@ -288,9 +344,9 @@ int OhosVsyncVotingMgr::VoteFinalFrameRateByPriority() {
     }
   } while (0);
 
-  TRACE_EVENT2("flutter", "VoteFinalFrameRateByPriority",
-    "FPS", std::to_string(final_framerate).c_str(),
-    "type", voting_type_unordered_map[voting_type].c_str());
+  TRACE_EVENT2("flutter", "VoteFinalFrameRateByPriority", "FPS",
+               std::to_string(final_framerate).c_str(), "type",
+               voting_type_unordered_map[voting_type].c_str());
   return final_framerate;
 }
 
@@ -300,7 +356,8 @@ int OhosVsyncVotingMgr::DelayFrameRateDropForStability(
   std::ostringstream oss;
   oss << local_framerate_ << "->" << next_framerate;
   std::string resultStr = oss.str();
-  TRACE_EVENT1("flutter", "VSYNC", "DelayFrameRateDropForStability", resultStr.c_str());
+  TRACE_EVENT1("flutter", "VSYNC", "DelayFrameRateDropForStability",
+               resultStr.c_str());
 
   if (next_framerate >= local_framerate_) {
     delay_drop_framerate_times_ = HIGH_FPS_MAINTAINED_TIMES;
@@ -308,8 +365,8 @@ int OhosVsyncVotingMgr::DelayFrameRateDropForStability(
     return next_framerate;
   }
 
-  TRACE_EVENT1("flutter", "DelayFrameRateDropForStability",
-    "remain", std::to_string(delay_drop_framerate_times_).c_str());
+  TRACE_EVENT1("flutter", "DelayFrameRateDropForStability", "remain",
+               std::to_string(delay_drop_framerate_times_).c_str());
 
   // The high frame rate transitions to low frame rate
   // using a slowly decreasing method.
@@ -333,7 +390,8 @@ int OhosVsyncVotingMgr::VotingExpectedRateRange(
     int result_frameRate,
     OH_NativeVSync_ExpectedRateRange* range) {
   if ((result_frameRate == local_framerate_) &&
-      (result_frameRate == FPS_NO_VOTING || result_frameRate == PlatformViewOHOSNapi::display_refresh_rate)) {
+      (result_frameRate == FPS_NO_VOTING ||
+       result_frameRate == PlatformViewOHOSNapi::display_refresh_rate)) {
     // Vote results match the local frame rate or the display refresh rate.
     return RET_FAILED;
   }
@@ -355,7 +413,8 @@ int OhosVsyncVotingMgr::VotingExpectedRateRange(
 }
 
 void OhosVsyncVotingMgr::VotingByNativeVsync(OH_NativeVSync* handle) {
-  if (lib_native_vsync_handle_ == nullptr || switch_status_ != LTPOSwitchState::LTPO_SWITCH_ON ||
+  if (lib_native_vsync_handle_ == nullptr ||
+      switch_status_ != LTPOSwitchState::LTPO_SWITCH_ON ||
       func_SetExpectedFrameRateRange_symbol_handle_ == nullptr) {
     return;
   }
@@ -380,8 +439,8 @@ void OhosVsyncVotingMgr::VotingByNativeVsync(OH_NativeVSync* handle) {
   oss << "{" << range.min << "," << range.max << "," << range.expected << "}";
   std::string rangeStr = oss.str();
   FML_LOG(INFO) << "SetExpectedFrameRateRange : " << rangeStr.c_str();
-  TRACE_EVENT1("flutter", "SetExpectedFrameRateRange",
-    "range", rangeStr.c_str());
+  TRACE_EVENT1("flutter", "SetExpectedFrameRateRange", "range",
+               rangeStr.c_str());
 
   ret = func_SetExpectedFrameRateRange_symbol_handle_(handle, &range);
   if (ret != 0) {
@@ -392,13 +451,15 @@ void OhosVsyncVotingMgr::VotingByNativeVsync(OH_NativeVSync* handle) {
 }
 
 void OhosVsyncVotingMgr::VotingBySelf() {
-  if (lib_native_vsync_handle_ == nullptr || switch_status_ != LTPOSwitchState::LTPO_SWITCH_ON ||
+  if (lib_native_vsync_handle_ == nullptr ||
+      switch_status_ != LTPOSwitchState::LTPO_SWITCH_ON ||
       func_SetExpectedFrameRateRange_symbol_handle_ == nullptr) {
     return;
   }
 
   int result_framerate = VoteFinalFrameRateByPriority();
-  result_framerate = DelayFrameRateDropForStability(result_framerate, VVMVotingFrameRateRole::ROLE_SELF);
+  result_framerate = DelayFrameRateDropForStability(
+      result_framerate, VVMVotingFrameRateRole::ROLE_SELF);
 
   // Reset some states
   cur_animation_translate_velocity_ = 0.0;
@@ -429,7 +490,8 @@ void OhosVsyncVotingMgr::VotingBySelf() {
       return;
     }
     native_vsync_handle_vec.reserve(native_vsync_map_.size());
-    for (auto it = native_vsync_map_.begin(); it != native_vsync_map_.end(); ++it) {
+    for (auto it = native_vsync_map_.begin(); it != native_vsync_map_.end();
+         ++it) {
       native_vsync_handle_vec.push_back(it->second);
     }
   }
@@ -440,7 +502,8 @@ void OhosVsyncVotingMgr::VotingBySelf() {
     }
     ret = func_SetExpectedFrameRateRange_symbol_handle_(handle, &range);
     if (ret != 0) {
-      FML_LOG(ERROR) << "BySelf SetExpectedFrameRateRange failed, ret = " << ret;
+      FML_LOG(ERROR) << "BySelf SetExpectedFrameRateRange failed, ret = "
+                     << ret;
     }
   }
 
@@ -480,8 +543,8 @@ void OhosVsyncVotingMgr::ParseTranslate(const Json::Value& arr) {
       }
       int value_tmp = arr[i][key].asInt();
       if ((j == 0) && (value_tmp != number)) {
-        FML_LOG(ERROR) << "config value serial_number is wrong at index = "
-                       << i << ", expected = " << number
+        FML_LOG(ERROR) << "config value serial_number is wrong at index = " << i
+                       << ", expected = " << number
                        << ", actual = " << value_tmp;
       }
       map_tmp.insert(std::pair<string, int>(string(key), value_tmp));
@@ -502,7 +565,8 @@ void OhosVsyncVotingMgr::ParseFramesCfg() {
 
   if (is_frames_config_file_init_) {
     FML_LOG(ERROR) << "framesconfig file has been initiallized";
-    // switch_status_ has already been set once; there’s no need to set it again.
+    // switch_status_ has already been set once; there's no need to set it
+    // again.
     return;
   }
 
@@ -516,7 +580,8 @@ void OhosVsyncVotingMgr::ParseFramesCfg() {
   FML_LOG(WARNING) << "LTPO enabled (default config)";
 
   if (asset_provider_ == nullptr) {
-    FML_LOG(WARNING) << "asset_provider is null, skip reading framesconfig.json";
+    FML_LOG(WARNING)
+        << "asset_provider is null, skip reading framesconfig.json";
     return;
   }
 
@@ -585,10 +650,12 @@ void OhosVsyncVotingMgr::ParseFramesCfgImpl() {
     return;
   }
 
-  uint32_t switch_status = static_cast<uint32_t>(LTPOSwitchState::LTPO_SWITCH_ON);
+  uint32_t switch_status =
+      static_cast<uint32_t>(LTPOSwitchState::LTPO_SWITCH_ON);
   if (root.isMember(SWITCH_KEY)) {
     if (!root[SWITCH_KEY].isNumeric()) {
-      FML_LOG(ERROR) << "Failed to parse key of SWITCH, keep default LTPO config";
+      FML_LOG(ERROR)
+          << "Failed to parse key of SWITCH, keep default LTPO config";
       return;
     }
     switch_status = root[SWITCH_KEY].asUInt();
@@ -609,7 +676,8 @@ void OhosVsyncVotingMgr::ParseFramesCfgImpl() {
 void OhosVsyncVotingMgr::SetAssetProvider(
     std::unique_ptr<OHOSAssetProvider> hap_asset_provider) {
   if (lib_native_vsync_handle_ == nullptr) {
-    FML_LOG(ERROR) << "SetAssetProvider skipped, libnative_vsync.so is not loaded";
+    FML_LOG(ERROR)
+        << "SetAssetProvider skipped, libnative_vsync.so is not loaded";
     return;
   }
 
@@ -636,7 +704,8 @@ void OhosVsyncVotingMgr::SetPlatformViewExist(bool is_exist) {
 
 LTPOSwitchState OhosVsyncVotingMgr::CheckVotingSwitchState() {
   // for DFX
-  FML_LOG(WARNING) << "CheckVotingSwitchState = " << static_cast<int>(switch_status_);
+  FML_LOG(WARNING) << "CheckVotingSwitchState = "
+                   << static_cast<int>(switch_status_);
   return switch_status_;
 }
 }  // namespace flutter

@@ -204,11 +204,33 @@ VkResult vkEnumerateDeviceExtensionProperties(
     const char* pLayerName,
     uint32_t* pPropertyCount,
     VkExtensionProperties* pProperties) {
+#ifdef FML_OS_OHOS
+  // These must cover the required OHOS device extensions checked by
+  // CapabilitiesVK::GetEnabledDeviceExtensions, otherwise
+  // MockVulkanContextBuilder().Build() returns nullptr on OHOS.
+  static constexpr const char* kDeviceExtensions[] = {
+      "VK_KHR_swapchain",
+      "VK_OHOS_native_buffer",
+      "VK_KHR_sampler_ycbcr_conversion",
+      "VK_OHOS_external_memory",
+      "VK_EXT_queue_family_foreign",
+      "VK_KHR_dedicated_allocation",
+      "VK_KHR_external_semaphore_fd",
+  };
+#else
+  static constexpr const char* kDeviceExtensions[] = {
+      "VK_KHR_swapchain",
+  };
+#endif  // FML_OS_OHOS
+  constexpr uint32_t kDeviceExtensionCount =
+      sizeof(kDeviceExtensions) / sizeof(kDeviceExtensions[0]);
   if (!pProperties) {
-    *pPropertyCount = 1;
+    *pPropertyCount = kDeviceExtensionCount;
   } else {
-    strcpy(pProperties[0].extensionName, "VK_KHR_swapchain");
-    pProperties[0].specVersion = 0;
+    for (uint32_t i = 0; i < kDeviceExtensionCount; i++) {
+      strcpy(pProperties[i].extensionName, kDeviceExtensions[i]);
+      pProperties[i].specVersion = 0;
+    }
   }
   return VK_SUCCESS;
 }
