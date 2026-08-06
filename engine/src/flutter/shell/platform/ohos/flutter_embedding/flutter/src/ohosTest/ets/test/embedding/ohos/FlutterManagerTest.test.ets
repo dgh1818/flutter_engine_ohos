@@ -54,6 +54,10 @@ export default function FlutterManagerTest() {
           console.info("uitest: setUseFullScreen useFullScreen " + useFullScreen);
         }
 
+        setUseFullScreenForFreeWindow(useFullScreen: boolean): void {
+          console.info("uitest: setUseFullScreenForFreeWindow useFullScreen " + useFullScreen);
+        }
+
         onScreenStateChanged(data: window.WindowStatusType): void {
           console.info("uitest: onScreenStateChanged");
         }
@@ -72,6 +76,52 @@ export default function FlutterManagerTest() {
       expect(result).assertTrue();
       flutterManager.setUseFullScreen(result);
       flutterManager.clear();
+      done();
+    })
+
+    it('TestSetUseFullScreenForFreeWindow', 0, (done: Function) => {
+      class RecordingFullScreenListener implements FullScreenListener {
+        freeWindowArg: boolean = false;
+        callCount: number = 0;
+
+        useFullScreen(): boolean {
+          return true;
+        }
+
+        setUseFullScreen(useFullScreen: boolean): void {
+        }
+
+        setUseFullScreenForFreeWindow(useFullScreen: boolean): void {
+          this.freeWindowArg = useFullScreen;
+          this.callCount = this.callCount + 1;
+        }
+
+        onScreenStateChanged(data: window.WindowStatusType): void {
+        }
+      }
+
+      const listener = new RecordingFullScreenListener();
+      flutterManager.setFullScreenListener(listener);
+
+      flutterManager.setUseFullScreenForFreeWindow(true, null);
+      expect(listener.callCount).assertEqual(1);
+      expect(listener.freeWindowArg).assertTrue();
+
+      flutterManager.setUseFullScreenForFreeWindow(false, null);
+      expect(listener.callCount).assertEqual(2);
+      expect(listener.freeWindowArg).assertEqual(false);
+      done();
+    })
+
+    it('TestIsInFreeWindowModeSupported', 0, (done: Function) => {
+      const result = flutterManager.isInFreeWindowModeSupported(null);
+      expect(result === true || result === false).assertTrue();
+      done();
+    })
+
+    it('TestIsInFreeMultiWindowMode', 0, (done: Function) => {
+      const result = flutterManager.isInFreeMultiWindowMode(null);
+      expect(result === true || result === false).assertTrue();
       done();
     })
   })
