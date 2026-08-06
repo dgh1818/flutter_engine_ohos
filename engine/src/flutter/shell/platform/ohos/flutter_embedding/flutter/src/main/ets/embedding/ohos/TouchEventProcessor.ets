@@ -572,9 +572,24 @@ export default class TouchEventProcessor {
         const left = params['left'] as number ?? 0;
         const top = params['top'] as number ?? 0;
         let down = params['down'] as boolean ?? false;
+        // 跨区域拖入时合成的 Press 标志，独立于 Dart 管理的 params['down']
+        let synthesized = params['mouseDownSynthesized'] as boolean ?? false;
         let mouseEvent: MouseEvent = TouchEventProcessor.getInstance().constructMouseEvent(strings, top, left);
 
-        if (mouseEvent.action != MouseAction.Press && mouseEvent.action != MouseAction.Release && params["hover"]) {
+        if (synthesized) {
+          // 已合成 Press，Release 直接分发；Move 仅在 view 内分发，避免离开时边界外坐标误触发 mouseleave
+          if (mouseEvent.action == MouseAction.Release ||
+            (mouseEvent.action == MouseAction.Move && this.checkHitPlatformViewByLocal(mouseEvent, params))) {
+            let nodeController = params['nodeController'] as EmbeddingNodeController;
+            nodeController.postMouseEvent(mouseEvent);
+          }
+          if (mouseEvent.action == MouseAction.Release) {
+            // 手势结束清除标志（Dart 跨区域时不发 onTouch UP）
+            params['mouseDownSynthesized'] = false;
+            params['mouseEvent'] = undefined;
+          }
+          break;
+        } else if (mouseEvent.action != MouseAction.Press && mouseEvent.action != MouseAction.Release && params["hover"]) {
           // 如果鼠标事件不是OH_NATIVEXCOMPONENT_MOUSE_PRESS类型或OH_NATIVEXCOMPONENT_MOUSE_RELEASE类型，则
           // 直接分发出去
           let nodeController = params['nodeController'] as EmbeddingNodeController;
@@ -583,6 +598,23 @@ export default class TouchEventProcessor {
           // 如果flutter端判断当前platformView是可点击的，则将事件分发出去,并结束分发
           let nodeController = params['nodeController'] as EmbeddingNodeController;
           nodeController.postMouseEvent(mouseEvent);
+          break;
+        } else if (mouseEvent.button != 0 && mouseEvent.action != MouseAction.Press &&
+          this.checkHitPlatformViewByLocal(mouseEvent, params)) {
+          // 跨区域按键拖入：down 恒为 false，webview 未收到 Press 会拒绝 Release。
+          // 拖入瞬间合成 Press 补发，置 synthesized=true 使后续 Release 正常分发。
+          // 排除 action==Press：区域内直接点击应走缓存分支由 Dart drain，避免双发 Press。
+          let nodeController = params['nodeController'] as EmbeddingNodeController;
+          let originalAction = mouseEvent.action;
+          mouseEvent.action = MouseAction.Press;
+          nodeController.postMouseEvent(mouseEvent);
+          mouseEvent.action = originalAction;
+          params['mouseDownSynthesized'] = true;
+          params['mouseEvent'] = undefined;
+          nodeController.postMouseEvent(mouseEvent);
+          if (mouseEvent.action == MouseAction.Release) {
+            params['mouseDownSynthesized'] = false;
+          }
           break;
         } else {
           // 如果鼠标事件为OH_NATIVEXCOMPONENT_MOUSE_PRESS，说明是下一次点击了，这时候需要清空上一次的数据
@@ -607,6 +639,20 @@ export default class TouchEventProcessor {
     } else {
       return false;
     }
+  }
+
+  /**
+   * Checks whether the mouse cursor is within the PlatformView bounds.
+   * mouseEvent.x/y are local px; params['width'/'height'] are vp, converted via vp2px.
+   */
+  private checkHitPlatformViewByLocal(mouseEvent: MouseEvent, params: Record<string, ESObject>): boolean {
+    const viewWidth = params['width'] as number ?? 0;
+    const viewHeight = params['height'] as number ?? 0;
+    if (viewWidth <= 0 || viewHeight <= 0) {
+      return false;
+    }
+    return mouseEvent.x >= 0 && mouseEvent.x <= vp2px(viewWidth) &&
+      mouseEvent.y >= 0 && mouseEvent.y <= vp2px(viewHeight);
   }
 
   /**
