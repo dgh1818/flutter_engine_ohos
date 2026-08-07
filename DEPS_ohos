@@ -301,7 +301,7 @@ deps = {
   #  Var('flutter_git') + '/third_party/protobuf-gn' + '@' + Var('dart_protobuf_gn_rev'),
 
   'engine/src/flutter/third_party/dart':
-   Var('ohos_git') + '/fluttertpc_dart_sdk.git' + '@' + '7a3b4e7bc22846bd6e8d23850aa52756412ecf56',
+   Var('ohos_git') + '/fluttertpc_dart_sdk.git' + '@' + 'ee3baaa7621306ad8eaa2c4961abec5cbf8672a6',
 
   # WARNING: Unused Dart dependencies in the list below till "WARNING:" marker are removed automatically - see create_updated_flutter_deps.py.
 
