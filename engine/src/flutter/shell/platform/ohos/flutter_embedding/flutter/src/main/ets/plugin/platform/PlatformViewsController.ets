@@ -201,6 +201,7 @@ export default class PlatformViewsController implements PlatformViewsHandler {
     params['down'] = false;
     params['touchEvent'] = undefined;
     params['mouseEvent'] = undefined;
+    params['mouseDownSynthesized'] = false;
     params[PLATFORM_VIEW_LAST_TOUCH_EVENT] = undefined;
     params[PLATFORM_VIEW_LAST_TOUCH_EVENT_IS_PX] = undefined;
     const activeTouches = this.getActiveTouches(params);
