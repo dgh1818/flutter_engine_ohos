@@ -18,7 +18,7 @@ import inputMethod from '@ohos.inputMethod';
 import ArrayList from '@ohos.util.ArrayList';
 import { TextEditingDelta, TextEditingDeltaJson } from '../../../plugin/editing/TextEditingDelta';
 import Any from '../../../plugin/common/Any';
-import { display } from '@kit.ArkUI'
+import { display, componentUtils } from '@kit.ArkUI'
 import { window } from '@kit.ArkUI';
 import { BusinessError, print } from '@kit.BasicServicesKit';
 import { PointerDeviceKind } from '../../ohos/OhosTouchProcessor';
@@ -47,7 +47,7 @@ export default class TextInputChannel {
   public channel: MethodChannel;
   /** The text input method handler for processing text input requests, or null if not set. */
   textInputMethodHandler: TextInputMethodHandler | null = null;
-  private TextInputCallback: TextInputCallback | null = null;
+  textInputCallback: TextInputCallback | null = null;
 
   /**
    * Constructs a new TextInputChannel instance.
@@ -63,9 +63,9 @@ export default class TextInputChannel {
    */
   setTextInputMethodHandler(textInputMethodHandler: TextInputMethodHandler | null): void {
     this.textInputMethodHandler = textInputMethodHandler;
-    this.TextInputCallback = this.textInputMethodHandler == null
+    this.textInputCallback = this.textInputMethodHandler == null
       ? null : new TextInputCallback(this.textInputMethodHandler);
-    this.channel.setMethodCallHandler(this.TextInputCallback);
+    this.channel.setMethodCallHandler(this.textInputCallback);
   }
 
   /**
@@ -258,20 +258,11 @@ export default class TextInputChannel {
   }
 
   /**
-   * Sets the window position for text input.
-   * @param windowPosition - The window position rectangle
-   */
-  public setWindowPosition(windowPosition: window.Rect) {
-    this.TextInputCallback?.setWindowPosition(windowPosition);
-    this.TextInputCallback?.setCursorPosition();
-  }
-
-  /**
    * Sets the device pixel ratio.
    * @param devicePixelRatio - The device pixel ratio value
    */
   public setDevicePixelRatio(devicePixelRatio: number) {
-    this.TextInputCallback?.setDevicePixelRatio(devicePixelRatio);
+    this.textInputCallback?.setDevicePixelRatio(devicePixelRatio);
   }
 
   /**
@@ -694,8 +685,6 @@ export class TextEditState {
 class TextInputCallback implements MethodCallHandler {
   /** The text input method handler for processing text input requests. */
   textInputMethodHandler: TextInputMethodHandler;
-  /** The window position rectangle, or null if not set. */
-  windowPosition: window.Rect | null = null;
   /** The cursor position rectangle. */
   cursorPosition: window.Rect = {
     left: 0,
@@ -705,13 +694,15 @@ class TextInputCallback implements MethodCallHandler {
   }
   /** The device pixel ratio for converting logical to physical pixels. */
   devicePixelRatio = display.getDefaultDisplaySync()?.densityPixels as number;
-  /** The input position rectangle. */
-  inputPosition: window.Rect = {
-    left: 0,
-    top: 0,
-    width: 0,
-    height: 0,
-  }
+  // 编辑框坐标，不是输入框
+ 	editInputPosition: ESObject = {
+ 	  left: 0,
+ 	  top: 0,
+ 	  right: 0,
+ 	  bottom: 0,
+ 	};
+ 	// XComponent组件的ID
+ 	viewId: string = '';
 
   /**
    * Constructs a new TextInputCallback instance.
@@ -721,13 +712,9 @@ class TextInputCallback implements MethodCallHandler {
     this.textInputMethodHandler = handler;
   }
 
-  /**
-   * Sets the window position.
-   * @param windowPosition - The window position rectangle
-   */
-  setWindowPosition(windowPosition: window.Rect) {
-    this.windowPosition = windowPosition;
-  }
+ 	setViewId(viewId: string) {
+ 	  this.viewId = viewId;
+ 	}
 
   /**
    * Sets the device pixel ratio.
@@ -741,33 +728,43 @@ class TextInputCallback implements MethodCallHandler {
    * Sets the cursor position based on window and input positions.
    */
   setCursorPosition() {
-    const left = (this.windowPosition?.left ?? 0 as number) + (this.cursorPosition.left + this.inputPosition.left) * this.devicePixelRatio;
-    const top = (this.windowPosition?.top ?? 0 as number) + (this.cursorPosition.top + this.inputPosition.top) * this.devicePixelRatio;
-    this.textInputMethodHandler.setCursorSizeAndPosition({
-      left: left,
-      top: top,
-      width: 100,
-      height: 50,
-    })
-    const dpr = this.devicePixelRatio;
-    const fieldLeft = (this.windowPosition?.left ?? 0 as number) + this.inputPosition.left * dpr;
-    const fieldTop = (this.windowPosition?.top ?? 0 as number) + this.inputPosition.top * dpr;
-    const fieldWidth = this.inputPosition.width * dpr;
-    const fieldHeight = this.inputPosition.height * dpr;
-    this.textInputMethodHandler.setAutoFillFieldRect(
-      fieldLeft,
-      fieldTop,
-      fieldWidth,
-      fieldHeight,
-    );
-    const winWidth = this.windowPosition?.width ?? 0;
-    const winHeight = this.windowPosition?.height ?? 0;
-    this.textInputMethodHandler.setAutoFillPageRect(
-      this.windowPosition?.left ?? 0,
-      this.windowPosition?.top ?? 0,
-      winWidth,
-      winHeight,
-    );
+    if (this.viewId.length === 0) {
+      return;
+    }
+    try {
+      const xComponentPosition = componentUtils.getRectangleById(this.viewId);
+      const screenOffsetX = xComponentPosition.screenOffset.x;
+      const screenOffsetY = xComponentPosition.screenOffset.y;
+      const dpr = this.devicePixelRatio;
+      const caretLeft = screenOffsetX + (this.cursorPosition.left + this.editInputPosition.left) * dpr;
+      const caretTop = screenOffsetY + (this.cursorPosition.top + this.editInputPosition.top) * dpr;
+      this.textInputMethodHandler.setCursorSizeAndPosition({
+        left: caretLeft,
+        top: caretTop,
+        width: this.cursorPosition.width * dpr,
+        height: this.cursorPosition.height * dpr,
+      });
+      const fieldLeft = screenOffsetX + this.editInputPosition.left * dpr;
+      const fieldTop = screenOffsetY + this.editInputPosition.top * dpr;
+      const fieldWidth = (this.editInputPosition.right - this.editInputPosition.left) * dpr;
+      const fieldHeight = (this.editInputPosition.bottom - this.editInputPosition.top) * dpr;
+      this.textInputMethodHandler.setAutoFillFieldRect(
+        fieldLeft,
+        fieldTop,
+        fieldWidth,
+        fieldHeight,
+      );
+      const pageWidth = xComponentPosition.size.width * dpr;
+      const pageHeight = xComponentPosition.size.height * dpr;
+      this.textInputMethodHandler.setAutoFillPageRect(
+        screenOffsetX,
+        screenOffsetY,
+        pageWidth,
+        pageHeight,
+      );
+    } catch(error) {
+      Log.e(TAG, "Exception in setCursorPosition:" + JSON.stringify(error));
+    }
   }
 
 
@@ -857,32 +854,41 @@ class TextInputCallback implements MethodCallHandler {
     }
   }
 
+  // https://github.com/flutter/flutter/commit/1afb95d156f7f8a087b0adeefb8d21db1b8933fd
   saveEditableSizeAndTransform(width: number, height: number, transform: Array<number>) {
     const matrix: Array<number> = transform;
-    const minMax: Array<number> = [];
+ 	 
+    const minMax: Array<number>  = []; // minX, maxX, minY, maxY.
     const isAffine = matrix[3] == 0 && matrix[7] == 0 && matrix[15] == 1;
-    minMax[0] = minMax[1] = matrix[12] / matrix[15];
-    minMax[2] = minMax[3] = matrix[13] / matrix[15];
-    const temArr: Array<ESObject> = [{ x: width, y: 0 }, { x: width, y: height }, { x: width, y: height }];
-    for (let i = 0; i < temArr.length; i++) {
+    minMax[0] = minMax[1] = matrix[12] / matrix[15]; // minX and maxX.
+    minMax[2] = minMax[3] = matrix[13] / matrix[15]; // minY and maxY.
+ 	 
+    const temArr: Array<ESObject> = [{x: width, y: 0}, {x:width, y:height}, {x: width, y:height}]
+
+    for (let i = 0 ; i < temArr.length ; i++) {
       const w = isAffine ? 1 : 1 / (matrix[3] * temArr[i].x + matrix[7] * temArr[i].y + matrix[15]);
       const tx = (matrix[0] * temArr[i].x + matrix[4] * temArr[i].y + matrix[12]) * w;
       const ty = (matrix[1] * temArr[i].x + matrix[5] * temArr[i].y + matrix[13]) * w;
+
       if (tx < minMax[0]) {
         minMax[0] = tx;
       } else if (tx > minMax[1]) {
         minMax[1] = tx;
       }
+
       if (ty < minMax[2]) {
         minMax[2] = ty;
       } else if (ty > minMax[3]) {
         minMax[3] = ty;
       }
     }
-    this.inputPosition.left = minMax[0];
-    this.inputPosition.top = minMax[2];
-    this.inputPosition.width = minMax[1] - minMax[0];
-    this.inputPosition.height = minMax[3] - minMax[2];
+
+    this.editInputPosition = {
+      left: minMax[0],
+      top: minMax[2],
+      right: minMax[1],
+      bottom: minMax[3]
+    }
   }
 }
 

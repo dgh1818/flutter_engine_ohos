@@ -611,7 +611,7 @@ export class FlutterView {
       Log.d(TAG, `${this.id} is not active. Ignoring window rect change.`);
       return;
     }
-    this.flutterEngine?.getTextInputChannel()?.setWindowPosition(this.windowPosition);
+    this.flutterEngine?.getTextInputChannel()?.textInputCallback?.setCursorPosition();
   }
   private accessibilityStateChangeCallback = (data: boolean) => {
     Log.i(TAG, `subscribe accessibility state change, result: ${JSON.stringify(data)}`);
@@ -960,6 +960,7 @@ export class FlutterView {
     }
     this.flutterEngine.getPlatformViewsController()?.attachTextInputPlugin(this.textInputPlugin);
     this.statusBarClickChannel = new StatusBarClickChannel(flutterEngine.dartExecutor)
+    this.flutterEngine?.getTextInputChannel()?.textInputCallback?.setViewId(this.id);
     this.keyboardManager = new KeyboardManager(flutterEngine, this.textInputPlugin!);
     this.settings = new Settings(this.flutterEngine.getSettingsChannel()!);
     this.sendSettings();
