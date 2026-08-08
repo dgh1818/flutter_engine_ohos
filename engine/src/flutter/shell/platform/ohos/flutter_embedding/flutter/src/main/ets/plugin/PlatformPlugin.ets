@@ -85,7 +85,9 @@ export default class PlatformPlugin {
   updateSystemUiOverlays(): void {
     this.callback.mainWindow?.setWindowSystemBarEnable(this.callback.showBarOrNavigation);
 
-    if (FlutterManager.getInstance().isWindowDecorSafeAreaAvoidSupported(this.callback.context)) {
+    // Manage window decoration (skip for fullscreen/immersive mode [], let maximize handle it)
+    if (this.callback.showBarOrNavigation.length > 0 &&
+      FlutterManager.getInstance().isWindowDecorSafeAreaAvoidSupported(this.callback.context)) {
       const shouldHideWindowDecor = this.callback.shouldHideWindowDecor();
       this.callback.mainWindow?.setWindowDecorVisible(!shouldHideWindowDecor);
 
@@ -419,13 +421,25 @@ export class PlatformPluginCallback implements PlatformMessageHandler {
     let uiConfig: ('status' | 'navigation')[] = [];
     if (mode == SystemUiMode.LEAN_BACK) {
       // Full screen mode, status and navigation bars can be shown by tapping anywhere on the display
-      FlutterManager.getInstance().setUseFullScreen(true, null);
+      if (FlutterManager.getInstance().isInFreeMultiWindowMode()) {
+        FlutterManager.getInstance().setUseFullScreenForFreeWindow(true, null)
+      } else {
+        FlutterManager.getInstance().setUseFullScreen(true, null);
+      }
     } else if (mode == SystemUiMode.IMMERSIVE) {
       // Full screen mode, status and navigation bars can be shown by swiping from display edges, gesture not received by app
-      FlutterManager.getInstance().setUseFullScreen(true, null);
+      if (FlutterManager.getInstance().isInFreeMultiWindowMode()) {
+        FlutterManager.getInstance().setUseFullScreenForFreeWindow(true, null)
+      } else {
+        FlutterManager.getInstance().setUseFullScreen(true, null);
+      }
     } else if (mode == SystemUiMode.IMMERSIVE_STICKY) {
       // Full screen mode, status and navigation bars can be shown by swiping from display edges, gesture received by app
-      FlutterManager.getInstance().setUseFullScreen(true, null);
+      if (FlutterManager.getInstance().isInFreeMultiWindowMode()) {
+        FlutterManager.getInstance().setUseFullScreenForFreeWindow(true, null)
+      } else {
+        FlutterManager.getInstance().setUseFullScreen(true, null);
+      }
     } else if (mode == SystemUiMode.EDGE_TO_EDGE) {
       uiConfig = ['status', 'navigation'];
     } else {
@@ -543,11 +557,10 @@ export class PlatformPluginCallback implements PlatformMessageHandler {
     const hasStatus = this.showBarOrNavigation.includes('status');
     const hasNavigation = this.showBarOrNavigation.includes('navigation');
 
-    // Fullscreen: [] → hide
-    // Edge-to-edge: ['status', 'navigation'] → hide
+    // Edge-to-edge: ['status', 'navigation'] → show
     // Bottom only: ['navigation'] → hide
     // Top only: ['status'] → show
 
-    return !hasStatus || hasNavigation;
+    return !hasStatus && hasNavigation;
   }
 }
