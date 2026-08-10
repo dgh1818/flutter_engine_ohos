@@ -44,9 +44,9 @@ export default function platformPluginTest() {
   });
 
   describe('PlatformPluginCallback.shouldHideWindowDecor', () => {
-    it('returns true for default status and navigation', Level.LEVEL0, () => {
+    it('returns false for default status and navigation', Level.LEVEL0, () => {
       const callback = new PlatformPluginCallback();
-      expect(callback.shouldHideWindowDecor()).assertEqual(true);
+      expect(callback.shouldHideWindowDecor()).assertEqual(false);
     });
 
     it('returns false for status only', Level.LEVEL1, () => {
@@ -63,18 +63,18 @@ export default function platformPluginTest() {
       expect(callback.shouldHideWindowDecor()).assertEqual(true);
     });
 
-    it('returns true for empty array', Level.LEVEL1, () => {
+    it('returns false for empty array', Level.LEVEL1, () => {
       const callback = new PlatformPluginCallback();
       const arr: ('status' | 'navigation')[] = new Array<'status' | 'navigation'>();
       callback.showBarOrNavigation = arr;
-      expect(callback.shouldHideWindowDecor()).assertEqual(true);
+      expect(callback.shouldHideWindowDecor()).assertEqual(false);
     });
 
-    it('returns true for both status and navigation', Level.LEVEL1, () => {
+    it('returns false for both status and navigation', Level.LEVEL1, () => {
       const callback = new PlatformPluginCallback();
       const arr: ('status' | 'navigation')[] = ['status', 'navigation'];
       callback.showBarOrNavigation = arr;
-      expect(callback.shouldHideWindowDecor()).assertEqual(true);
+      expect(callback.shouldHideWindowDecor()).assertEqual(false);
     });
   });
 }

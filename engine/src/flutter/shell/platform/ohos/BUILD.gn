@@ -83,10 +83,6 @@ source_set("flutter_ohos_sources") {
              "ohos_external_texture_vulkan.h",
              "ohos_logger.h",
              "ohos_logging.h",
-             "./accessibility/ohos_semantics_node.h",
-             "./accessibility/ohos_semantics_tree.h",
-             "./accessibility/ohos_semantics_bridge.h",
-             "./accessibility/multi_instance_xcomp_accessibility.h",
            ]
 
   #configs += [ "//flutter/shell/platform/ohos/config:gtk" ]
@@ -144,10 +140,10 @@ source_set("flutter_ohos_sources") {
   ]
 
   deps = [
-    "//flutter/impeller/display_list:display_list",
+    "//flutter/impeller/display_list",
     "//flutter/shell/platform/common:common_cpp_input",
     "//flutter/shell/platform/common:common_cpp_switches",
-    "//flutter/shell/platform/common/client_wrapper:client_wrapper",
+    "//flutter/shell/platform/common/client_wrapper",
     "//flutter/shell/platform/common/client_wrapper:client_wrapper_library_stubs",
     "//flutter/shell/platform/embedder:embedder_headers",
     "//flutter/third_party/rapidjson",
@@ -193,22 +189,38 @@ executable("flutter_ohos_unittests") {
 
   sources = [
     #"testing/mock_texture_registrar.cc",
-    "ohos_asset_provider_unittests.cpp",
+    "//flutter/fml/platform/ohos/hiappevent/ohos_hiappevent_unittests.cpp",
+    "//flutter/fml/platform/ohos/hisysevent_c_unittests.cc",
+    "//flutter/impeller/display_list/paint_ohos_unittests.cc",
+    "//flutter/impeller/entity/contents/solid_color_contents_ohos_unittests.cc",
+    "//flutter/impeller/renderer/backend/vulkan/ohos/ohb_texture_source_vk_unittests.cc",
+    "//flutter/impeller/renderer/backend/vulkan/qos_ohos_unittests.cc",
+    "//flutter/impeller/renderer/backend/vulkan/surface_context_vk_ohos_unittests.cc",
+    "//flutter/impeller/renderer/backend/vulkan/test/swapchain_ohos_unittests.cc",
+    "//flutter/impeller/renderer/backend/vulkan/vulkan_ohos_constants_unittests.cc",
+    "//flutter/impeller/renderer/backend/vulkan/yuv_conversion_vk_ohos_unittests.cc",
     "dynamic_library_loader_unittests.cpp",
+    "image_lru_unittests.cpp",
     "message_loop_ohos_unittests.cpp",
+    "ohos_asset_provider_unittests.cpp",
+    "ohos_color_space_unittests.cpp",
+    "ohos_external_texture_unittests.cpp",
+    "ohos_logger_unittests.cpp",
     "ohos_semantics_node_unittests.cpp",
     "ohos_semantics_tree_unittests.cpp",
     "ohos_shell_holder_unittests.cpp",
     "ohos_touch_processor_unittests.cpp",
+    "ohos_trace_event_unittests.cpp",
+    "ohos_vsync_voting_mgr_unittests.cpp",
     "paths_ohos_unittests.cpp",
     "platform_message_handler_ohos_unittests.cpp",
     "timerfd_unittests.cpp",
-    "image_lru_unittests.cpp",
-    "ohos_color_space_unittests.cpp",
-    "//flutter/impeller/renderer/backend/vulkan/ohos/ohb_texture_source_vk_unittests.cc",
+    "vsync_waiter_ohos_unittests.cpp",
   ]
 
   public_configs = [ "//flutter:config" ]
+
+  include_dirs = [ "//flutter/third_party/vulkan-deps/spirv-headers/src/tools/buildHeaders/jsoncpp/dist/" ]
 
   defines = [
     "FLUTTER_ENGINE_NO_PROTOTYPES",
@@ -221,6 +233,7 @@ executable("flutter_ohos_unittests") {
   deps = [
     ":flutter_ohos_fixtures",
     ":flutter_ohos_sources",
+    "//flutter/impeller/renderer/backend/vulkan:mock_vulkan",
     "//flutter/runtime:libdart",
     "//flutter/shell/platform/embedder:embedder_headers",
     "//flutter/shell/platform/embedder:embedder_test_utils",

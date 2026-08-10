@@ -14,7 +14,6 @@ import 'package:flutter/foundation.dart' show clampDouble, precisionErrorToleran
 import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:flutter/rendering.dart';
 import 'basic.dart';
-import 'binding.dart';
 import 'debug.dart';
 import 'framework.dart';
 import 'notification_listener.dart';
@@ -941,7 +940,7 @@ class PageView extends StatefulWidget {
   State<PageView> createState() => _PageViewState();
 }
 
-class _PageViewState extends State<PageView> with WidgetsBindingObserver {
+class _PageViewState extends State<PageView> {
   int _lastReportedPage = 0;
 
   late PageController _controller;
@@ -951,9 +950,6 @@ class _PageViewState extends State<PageView> with WidgetsBindingObserver {
     super.initState();
     _initController();
     _lastReportedPage = _controller.initialPage;
-    if (widget.scrollDirection == Axis.vertical) {
-      WidgetsBinding.instance.addObserver(this);
-    }
   }
 
   @override
@@ -961,24 +957,7 @@ class _PageViewState extends State<PageView> with WidgetsBindingObserver {
     if (widget.controller == null) {
       _controller.dispose();
     }
-    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
-  }
-
-  @override
-  void handleStatusBarTap() {
-    if (widget.scrollDirection != Axis.vertical) {
-      return;
-    }
-    try {
-      _controller.animateToPage(
-        0,
-        duration: const Duration(milliseconds: 1000),
-        curve: Curves.easeOutCirc,
-      );
-    } catch (err) {
-      debugPrint('$err');
-    }
   }
 
   void _initController() {

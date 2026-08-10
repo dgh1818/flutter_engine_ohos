@@ -10,9 +10,9 @@
 #include <memory>
 #include "flutter/fml/trace_event.h"
 #include "flutter/lib/ui/window/pointer_data_packet.h"
+#include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
 #include "flutter/shell/platform/ohos/ohos_shell_holder.h"
 #include "flutter/shell/platform/ohos/ohos_vsync_voting_mgr.h"
-#include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
 
 namespace flutter {
 
@@ -189,6 +189,9 @@ bool OhosTouchProcessor::shouldDropTouchEvent(
       activeFingerIds_.erase(touchEvent->id);
     }
   }
+  if (touchEvent->type == OH_NATIVEXCOMPONENT_CANCEL) {
+    activeFingerIds_.erase(touchEvent->id);
+  }
   return false;
 }
 
@@ -225,9 +228,11 @@ void OhosTouchProcessor::HandleTouchEvent(
   pointerData.pressure_max = 1.0;
   pointerData.pressure_min = 0.0;
   OH_NativeXComponent_TouchPointToolType toolType;
-  int32_t ret = OH_NativeXComponent_GetTouchPointToolType(component, 0, &toolType);
+  int32_t ret =
+      OH_NativeXComponent_GetTouchPointToolType(component, 0, &toolType);
   if (ret != OH_NATIVEXCOMPONENT_RESULT_SUCCESS) {
-    FML_LOG(ERROR) << "OH_NativeXComponent_GetTouchPointToolType failed, ret=" << ret << ", using default kTouch";
+    FML_LOG(ERROR) << "OH_NativeXComponent_GetTouchPointToolType failed, ret="
+                   << ret << ", using default kTouch";
   }
   pointerData.kind = getPointerDeviceTypeForToolType(toolType);
   // 适配PC兼容模式，kind的值可能不是kTouch，需要确保 pointerData.buttons 被赋值
@@ -295,7 +300,8 @@ void OhosTouchProcessor::HandleAxisEvent(int64_t shell_holderID,
     // 处理滚动
     static bool warned = false;
     if (!warned) {
-      FML_LOG(WARNING) << "HandleAxisEvent: API version " << apiVersion_ << " < 15, skipping axis event processing";
+      FML_LOG(WARNING) << "HandleAxisEvent: API version " << apiVersion_
+                       << " < 15, skipping axis event processing";
       warned = true;
     }
     return;
@@ -377,7 +383,8 @@ void OhosTouchProcessor::HandleScaleEvent(int64_t shell_holderID,
                            : DEFAULT_SCALE_DEVICE_ID;
   if (pointerData.device == -1) {
     // 如果 deviceId 为 -1，则设置为默认值
-    FML_LOG(ERROR) << "OH_ArkUI_UIInputEvent_GetDeviceId returned -1, using DEFAULT_SCALE_DEVICE_ID";
+    FML_LOG(ERROR) << "OH_ArkUI_UIInputEvent_GetDeviceId returned -1, using "
+                      "DEFAULT_SCALE_DEVICE_ID";
     pointerData.device = DEFAULT_SCALE_DEVICE_ID;
   }
   pointerData.kind = PointerData::DeviceKind::kTrackpad;
@@ -414,13 +421,14 @@ void OhosTouchProcessor::HandleScaleEvent(int64_t shell_holderID,
   return;
 }
 
-void OhosTouchProcessor::PlatformViewOnAxisEvent(
-    int64_t shell_holderID,
-    ArkUI_UIInputEvent* event,
-    double result_scroll_delta_y) {
+void OhosTouchProcessor::PlatformViewOnAxisEvent(int64_t shell_holderID,
+                                                 ArkUI_UIInputEvent* event,
+                                                 double result_scroll_delta_y) {
   if (apiVersion_ < PLATFORM_AXIS_EVENT_MIN_API_VERSION) {
     // 由于接口原因，api20以上才支持
-    FML_LOG(WARNING) << "OhosTouchProcessor::PlatformViewOnAxisEvent apiVersion is too low: " << apiVersion_;
+    FML_LOG(WARNING)
+        << "OhosTouchProcessor::PlatformViewOnAxisEvent apiVersion is too low: "
+        << apiVersion_;
     return;
   }
 
@@ -435,12 +443,14 @@ void OhosTouchProcessor::PlatformViewOnAxisEvent(
       std::to_string(OH_ArkUI_PointerEvent_GetWindowY(event)),
       std::to_string(OH_ArkUI_PointerEvent_GetDisplayX(event)),
       std::to_string(OH_ArkUI_PointerEvent_GetDisplayY(event)),
-      std::to_string(result_scroll_delta_y)   // Mouse scroll step value
+      std::to_string(result_scroll_delta_y)  // Mouse scroll step value
   };
 
   size_t length = temp_strings.size();
   if (length == 0 || length > MAX_PACKAGE_SIZE) {
-    FML_LOG(ERROR) << "OhosTouchProcessor::PlatformViewOnAxisEvent Axis event data length is abnormal: " << length;
+    FML_LOG(ERROR) << "OhosTouchProcessor::PlatformViewOnAxisEvent Axis event "
+                      "data length is abnormal: "
+                   << length;
     return;
   }
   auto unique_package = std::make_unique<std::string[]>(length);
@@ -490,7 +500,8 @@ void OhosTouchProcessor::HandleScrollEvent(int64_t shell_holderID,
                            : DEFAULT_SRCOLL_DEVICE_ID;
   if (pointerData.device == -1) {
     // 如果 deviceId 为 -1，则设置为默认值
-    FML_LOG(ERROR) << "OH_ArkUI_UIInputEvent_GetDeviceId returned -1, using DEFAULT_SRCOLL_DEVICE_ID";
+    FML_LOG(ERROR) << "OH_ArkUI_UIInputEvent_GetDeviceId returned -1, using "
+                      "DEFAULT_SRCOLL_DEVICE_ID";
     pointerData.device = DEFAULT_SRCOLL_DEVICE_ID;
   }
   pointerData.kind = PointerData::DeviceKind::kMouse;
@@ -552,7 +563,8 @@ void OhosTouchProcessor::HandlePanZooomEvent(int64_t shell_holderID,
   pointerData.scale = OH_ArkUI_AxisEvent_GetPinchAxisScaleValue(event);
   if (pointerData.scale == 0) {
     // 如果 scale 为 0，则设置为默认值 1.0
-    FML_LOG(WARNING) << "OH_ArkUI_AxisEvent_GetPinchAxisScaleValue returned 0, using default scale 1.0";
+    FML_LOG(WARNING) << "OH_ArkUI_AxisEvent_GetPinchAxisScaleValue returned 0, "
+                        "using default scale 1.0";
     pointerData.scale = 1.0;
   }
 
@@ -565,7 +577,8 @@ void OhosTouchProcessor::HandlePanZooomEvent(int64_t shell_holderID,
                            : DEFAULT_PANZOOM_DEVICE_ID;
   if (pointerData.device == -1) {
     // 如果 deviceId 为 -1，则设置为默认值
-    FML_LOG(ERROR) << "OH_ArkUI_UIInputEvent_GetDeviceId returned -1, using DEFAULT_PANZOOM_DEVICE_ID";
+    FML_LOG(ERROR) << "OH_ArkUI_UIInputEvent_GetDeviceId returned -1, using "
+                      "DEFAULT_PANZOOM_DEVICE_ID";
     pointerData.device = DEFAULT_PANZOOM_DEVICE_ID;
   }
   pointerData.kind = PointerData::DeviceKind::kTrackpad;
@@ -612,11 +625,13 @@ void OhosTouchProcessor::PlatformViewOnTouchEvent(
   float tiltY = 0.0;
   int32_t ret = OH_NativeXComponent_GetTouchPointTiltX(component, 0, &tiltX);
   if (ret != OH_NATIVEXCOMPONENT_RESULT_SUCCESS) {
-    FML_LOG(ERROR) << "OH_NativeXComponent_GetTouchPointTiltX failed, ret=" << ret;
+    FML_LOG(ERROR) << "OH_NativeXComponent_GetTouchPointTiltX failed, ret="
+                   << ret;
   }
   ret = OH_NativeXComponent_GetTouchPointTiltY(component, 0, &tiltY);
   if (ret != OH_NATIVEXCOMPONENT_RESULT_SUCCESS) {
-    FML_LOG(ERROR) << "OH_NativeXComponent_GetTouchPointTiltY failed, ret=" << ret;
+    FML_LOG(ERROR) << "OH_NativeXComponent_GetTouchPointTiltY failed, ret="
+                   << ret;
   }
   std::unique_ptr<OhosTouchProcessor::TouchPacket> touchPacket =
       std::make_unique<OhosTouchProcessor::TouchPacket>();
@@ -688,14 +703,15 @@ void OhosTouchProcessor::SendFinalMoveEventBeforeLeave(
     OH_NativeXComponent_MouseEvent mouseEvent,
     double windowWidth,
     double windowHeight) {
-  // Before sending the leave event, send a final move event with boundary coordinates
-  // This allows MouseTracker to correctly compare states and trigger exit events
+  // Before sending the leave event, send a final move event with boundary
+  // coordinates This allows MouseTracker to correctly compare states and
+  // trigger exit events
   if (lastMouseX_ >= 0 && lastMouseY_ >= 0) {
     // Create a copy of the last move event
     OH_NativeXComponent_MouseEvent lastMoveEvent = mouseEvent;
     lastMoveEvent.action = OH_NATIVEXCOMPONENT_MOUSE_MOVE;
     lastMoveEvent.timestamp = lastMouseTimestamp_;
-    
+
     // Adjust coordinates to be outside the nearest boundary to ensure hit-test
     // won't hit MouseRegions inside the application
     // Determine the nearest boundary based on the last position
@@ -705,12 +721,13 @@ void OhosTouchProcessor::SendFinalMoveEventBeforeLeave(
       double distToRight = windowWidth - lastMouseX_;
       double distToTop = lastMouseY_;
       double distToBottom = windowHeight - lastMouseY_;
-      
+
       // Find the nearest boundary
-      double minDist = std::min({distToLeft, distToRight, distToTop, distToBottom});
-      
-      // Adjust coordinates to be outside the boundary (slightly beyond to ensure
-      // hit-test won't hit MouseRegions inside the application)
+      double minDist =
+          std::min({distToLeft, distToRight, distToTop, distToBottom});
+
+      // Adjust coordinates to be outside the boundary (slightly beyond to
+      // ensure hit-test won't hit MouseRegions inside the application)
       if (minDist == distToLeft) {
         // Outside left boundary
         lastMoveEvent.x = -MOUSE_BOUNDARY_OFFSET;
@@ -733,17 +750,17 @@ void OhosTouchProcessor::SendFinalMoveEventBeforeLeave(
       lastMoveEvent.x = lastMouseX_;
       lastMoveEvent.y = lastMouseY_;
     }
-    
+
     // Send the final move event
-    HandleMouseEvent(shell_holderID, component, lastMoveEvent, 0.0, false, windowWidth, windowHeight);
+    HandleMouseEvent(shell_holderID, component, lastMoveEvent, 0.0, false,
+                     windowWidth, windowHeight);
   }
 }
 
 bool OhosTouchProcessor::HandleMouseButtonEvent(
     OH_NativeXComponent_MouseEvent mouseEvent,
     PointerData::Change& change,
-    int64_t& buttons_to_send)
-{
+    int64_t& buttons_to_send) {
   int64_t button = getPointerButtonFromMouse(mouseEvent.button);
 
   if (mouseEvent.action == OH_NATIVEXCOMPONENT_MOUSE_PRESS) {
@@ -753,8 +770,10 @@ bool OhosTouchProcessor::HandleMouseButtonEvent(
     }
     int64_t old_state = mouse_button_state_;
     mouse_button_state_ |= button;
-    // if the button was pressed for the first time, change to kDown, otherwise change to kMove
-    change = (old_state == 0) ? PointerData::Change::kDown : PointerData::Change::kMove;
+    // if the button was pressed for the first time, change to kDown, otherwise
+    // change to kMove
+    change = (old_state == 0) ? PointerData::Change::kDown
+                              : PointerData::Change::kMove;
     buttons_to_send = mouse_button_state_;
     return true;
   } else if (mouseEvent.action == OH_NATIVEXCOMPONENT_MOUSE_RELEASE) {
@@ -763,8 +782,10 @@ bool OhosTouchProcessor::HandleMouseButtonEvent(
       return false;
     }
     mouse_button_state_ &= ~button;
-    // if the button was totally released, change to kUp, otherwise change to kMove
-    change = (mouse_button_state_ == 0) ? PointerData::Change::kUp : PointerData::Change::kMove;
+    // if the button was totally released, change to kUp, otherwise change to
+    // kMove
+    change = (mouse_button_state_ == 0) ? PointerData::Change::kUp
+                                        : PointerData::Change::kMove;
     buttons_to_send = mouse_button_state_;
     return true;
   } else {
@@ -783,7 +804,8 @@ void OhosTouchProcessor::HandleMouseEvent(
     double windowWidth,
     double windowHeight) {
   if (isLeave) {
-    SendFinalMoveEventBeforeLeave(shell_holderID, component, mouseEvent, windowWidth, windowHeight);
+    SendFinalMoveEventBeforeLeave(shell_holderID, component, mouseEvent,
+                                  windowWidth, windowHeight);
   } else {
     // Store the last mouse position (for non-leave events)
     lastMouseX_ = mouseEvent.x;
@@ -882,17 +904,24 @@ void OhosTouchProcessor::HandleVirtualTouchEvent(
   float tiltY = 0.0;
   auto ohos_shell_holder = reinterpret_cast<OHOSShellHolder*>(shell_holderID);
   OH_NativeXComponent_TouchPointToolType toolType;
-  int32_t ret = OH_NativeXComponent_GetTouchPointToolType(component, 0, &toolType);
+  int32_t ret =
+      OH_NativeXComponent_GetTouchPointToolType(component, 0, &toolType);
   if (ret != OH_NATIVEXCOMPONENT_RESULT_SUCCESS) {
-    FML_LOG(ERROR) << "OH_NativeXComponent_GetTouchPointToolType (virtual touch) failed, ret=" << ret;
+    FML_LOG(ERROR) << "OH_NativeXComponent_GetTouchPointToolType (virtual "
+                      "touch) failed, ret="
+                   << ret;
   }
   ret = OH_NativeXComponent_GetTouchPointTiltX(component, 0, &tiltX);
   if (ret != OH_NATIVEXCOMPONENT_RESULT_SUCCESS) {
-    FML_LOG(ERROR) << "OH_NativeXComponent_GetTouchPointTiltX (virtual touch) failed, ret=" << ret;
+    FML_LOG(ERROR)
+        << "OH_NativeXComponent_GetTouchPointTiltX (virtual touch) failed, ret="
+        << ret;
   }
   ret = OH_NativeXComponent_GetTouchPointTiltY(component, 0, &tiltY);
   if (ret != OH_NATIVEXCOMPONENT_RESULT_SUCCESS) {
-    FML_LOG(ERROR) << "OH_NativeXComponent_GetTouchPointTiltY (virtual touch) failed, ret=" << ret;
+    FML_LOG(ERROR)
+        << "OH_NativeXComponent_GetTouchPointTiltY (virtual touch) failed, ret="
+        << ret;
   }
   std::unique_ptr<OhosTouchProcessor::TouchPacket> touchPacket =
       std::make_unique<OhosTouchProcessor::TouchPacket>();

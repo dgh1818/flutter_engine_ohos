@@ -166,3 +166,18 @@ TEST(Thread, LinuxLongThreadNameTruncated) {
   thread.Join();
 }
 #endif  // FML_OS_LINUX
+
+#if defined(FML_OS_OHOS)
+TEST(Thread, OHOSLongThreadNameTruncated) {
+  const std::string name = "VeryLongThreadNameTest";
+  fml::Thread thread(name);
+
+  thread.GetTaskRunner()->PostTask([&name]() {
+    constexpr size_t kThreadNameLen = 16;
+    char thread_name[kThreadNameLen];
+    pthread_getname_np(pthread_self(), thread_name, kThreadNameLen);
+    ASSERT_EQ(thread_name, name.substr(0, kThreadNameLen - 1));
+  });
+  thread.Join();
+}
+#endif  // FML_OS_OHOS

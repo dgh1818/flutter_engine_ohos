@@ -359,6 +359,61 @@ export default class FlutterManager {
   }
 
   /**
+   * Sets whether to use full screen mode specifically for free multi-window.
+   * @param useFullScreen - Whether to use full screen
+   * @param context - Optional context
+   */
+  setUseFullScreenForFreeWindow(useFullScreen: boolean, context?: Context | null | undefined): void {
+    this.mFullScreenListener.setUseFullScreenForFreeWindow(useFullScreen, context);
+  }
+
+  /**
+   * Checks if the isInFreeWindowMode API is supported on the current device.
+   * @param context - Optional context, defaults to first UIAbility
+   * @returns True if the isInFreeWindowMode API is available, false otherwise
+   */
+  isInFreeWindowModeSupported(context?: Context | null | undefined): boolean {
+    // API 22+ required for isInFreeWindowMode
+    if (deviceInfo.sdkApiVersion < 22) {
+      return false;
+    }
+    const mainWindow = this.getWindowStage(this.getUIAbility(context ?? undefined))?.getMainWindowSync();
+    if (!mainWindow) {
+      return false;
+    }
+    try {
+      // Avoid compilation errors: isInFreeWindowMode is an API22 interface
+      // Check if isInFreeWindowMode API is available
+      const result = typeof (mainWindow as ESObject)?.isInFreeWindowMode();
+      return result == 'boolean';
+    } catch (exception) {
+      Log.i(TAG, `Failed to check isInFreeWindowMode support. Cause code: ${exception.code}, message: ${exception.message}`);
+      return false;
+    }
+  }
+
+  /**
+   * Checks if the current device is in free free-window mode.
+   * @param context - Optional context, defaults to first UIAbility
+   * @returns True if the device is in free multi-window mode, false otherwise
+   */
+  isInFreeMultiWindowMode(context?: Context | null | undefined): boolean {
+    if (this.isInFreeWindowModeSupported(context)) {
+      const mainWindow = this.getWindowStage(this.getUIAbility(context ?? undefined))?.getMainWindowSync();
+      if (!mainWindow) {
+        return false;
+      }
+      try {
+        return mainWindow.isInFreeWindowMode();
+      } catch (exception) {
+        Log.e(TAG, `isInFreeMultiWindowMode failed. Cause code: ${exception.code}, message: ${exception.message}`);
+        return false;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Deletes a FlutterView from the list.
    * @param viewId - The view ID
    * @param flutterView - Optional FlutterView instance to verify
@@ -554,7 +609,14 @@ export interface FullScreenListener {
    * @param context - Optional context
    */
   setUseFullScreen(useFullScreen: boolean, context?: Context | null | undefined): void;
-  
+
+  /**
+   * Sets whether to use full screen mode specifically for free free-window.
+   * @param useFullScreen - Whether to use full screen
+   * @param context - Optional context
+   */
+  setUseFullScreenForFreeWindow(useFullScreen: boolean, context?: Context | null | undefined): void;
+
   /**
    * Called when the screen state changes.
    * @param data - The window status type
@@ -595,8 +657,27 @@ export class DefaultFullScreenListener implements FullScreenListener {
     if (deviceInfo.deviceType === '2in1' && deviceInfo.sdkApiVersion >= 14 && useFullScreen) {
       currentWindow.getMainWindowSync().maximize(window.MaximizePresentation.ENTER_IMMERSIVE);
     }
-       
-    Log.i(TAG, "WindowLayoutFullScreen is on")
+
+     Log.i(TAG, "WindowLayoutFullScreen is on")
+  }
+
+  /**
+   * Sets whether to use full screen mode specifically for free multi-window.
+   * @param useFullScreen - Whether to use full screen
+   * @param context - Optional context
+   */
+  setUseFullScreenForFreeWindow(useFullScreen: boolean, context?: Context | null | undefined): void {
+    this.fullScreen = useFullScreen;
+    context = context??getContext(this);
+    const currentWindow = FlutterManager.getInstance()
+      .getWindowStage(FlutterManager.getInstance().getUIAbility(context));
+
+    currentWindow.getMainWindowSync().setWindowLayoutFullScreen(useFullScreen);
+
+    if (deviceInfo.sdkApiVersion >= 14 && useFullScreen) {
+      currentWindow.getMainWindowSync().maximize(window.MaximizePresentation.ENTER_IMMERSIVE);
+    }
+    Log.i(TAG, 'WindowLayoutFullScreen is on')
   }
 
   /**

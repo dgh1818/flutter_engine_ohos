@@ -3,13 +3,13 @@ Flutter SDK Repository
 
 ## Description
 
-This repository is the **OpenHarmony** adaptation of the **[Flutter SDK](https://github.com/flutter/flutter)** and **[Flutter Engine](https://github.com/flutter/flutter/tree/master/engine)**. The current version branch is based on the official Flutter community [![Flutter Version](https://img.shields.io/badge/Flutter-3.44.8-blue?logo=flutter)](https://github.com/flutter/flutter/commit/058e0af2c2b57e369d905a03ac9748b0ebf543c6), maintained by the OpenHarmony-Flutter team. Developers can use the familiar Flutter technology stack to develop OpenHarmony applications, and can also build the Flutter Engine with OpenHarmony support from the source code in this repository.
+This repository is the **OpenHarmony** adaptation of the **[Flutter SDK](https://github.com/flutter/flutter)** and **[Flutter Engine](https://github.com/flutter/flutter/tree/master/engine)**. The current version branch is based on the official Flutter community [![Flutter Version](https://img.shields.io/badge/Flutter-3.44.9-blue?logo=flutter)](https://github.com/flutter/flutter/commit/6b182d2c7585eba26d4edce0f97630effd256c33), maintained by the OpenHarmony-Flutter team. Developers can use the familiar Flutter technology stack to develop OpenHarmony applications, and can also build the Flutter Engine with OpenHarmony support from the source code in this repository.
 
 > For information on version planning and branch strategy, see: [Flutter OH Version Planning and Branch Strategy](https://gitcode.com/CPF-Flutter/flutter_flutter/wiki/Flutter-OH%E7%89%88%E6%9C%AC%E6%BC%94%E8%BF%9B%E8%A7%84%E5%88%92%E5%92%8C%E5%88%86%E6%94%AF%E7%AD%96%E7%95%A5.md)
 
 ## Repository Structure
 
-Starting from Flutter version 3.44.8, the Engine source code has been merged into the `engine/` directory of this repository. There is no need to clone the Engine repository separately.
+Starting from Flutter version 3.44.9, the Engine source code has been merged into the `engine/` directory of this repository. There is no need to clone the Engine repository separately.
 
 ```json
 flutter_flutter/                 # Root Directory
