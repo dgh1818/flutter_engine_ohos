@@ -15,8 +15,8 @@ vars = {
   'flutter_git': 'https://flutter.googlesource.com',
   'skia_git': 'https://skia.googlesource.com',
   'llvm_git': 'https://llvm.googlesource.com',
-  'ohos_git': 'https://gitcode.com/zhong_ning',
-  'skia_revision': '2dcb94288616f9903f5aac62782c3ba7b24a7270',
+  'ohos_git': 'https://gitcode.com/openharmony-sig',
+  'skia_revision': '0ea939198eed53c49202af499666332ef9cddf0f',
 
   # WARNING: DO NOT EDIT canvaskit_cipd_instance MANUALLY
   # See `lib/web_ui/README.md` for how to roll CanvasKit to a new version.
@@ -291,7 +291,7 @@ deps = {
   'https://boringssl.googlesource.com/boringssl.git' + '@' + Var('dart_boringssl_rev'),
 
   'engine/src/flutter/third_party/dart':
-   Var('ohos_git') + '/fluttertpc_dart_sdk.git' + '@' + 'a2fb0c47995cd1b1dc44eebef27064982ba53e7c',
+   Var('ohos_git') + '/fluttertpc_dart_sdk.git' + '@' + 'ed9ec7c3ac1a66300d2e9b65526ea9338379ead8',
 
   # WARNING: Unused Dart dependencies in the list below till "WARNING:" marker are removed automatically - see create_updated_flutter_deps.py.
 
