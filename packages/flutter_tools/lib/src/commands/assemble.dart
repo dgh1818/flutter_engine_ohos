@@ -19,6 +19,7 @@ import '../build_system/targets/deferred_components.dart';
 import '../build_system/targets/ios.dart';
 import '../build_system/targets/linux.dart';
 import '../build_system/targets/macos.dart';
+import '../build_system/targets/ohos.dart';
 import '../build_system/targets/windows.dart';
 import '../cache.dart';
 import '../convert.dart';
@@ -89,6 +90,8 @@ var _kDefaultTargets = <Target>[
   const ProfileBundleWindowsAssets(TargetPlatform.windows_arm64),
   const ReleaseBundleWindowsAssets(TargetPlatform.windows_x64),
   const ReleaseBundleWindowsAssets(TargetPlatform.windows_arm64),
+  // Ohos targets
+  ...ohosTargets,
 ];
 
 /// Assemble provides a low level API to interact with the flutter tool build

@@ -104,7 +104,14 @@ class DisplayListParagraphPainter : public skt::ParagraphPainter {
       return;
     }
     DlPaint paint;
+#ifdef FML_OS_OHOS
+    // OHOS: Keep shadow color in original sRGB space (no DisplayP3 conversion).
+    // Shadow colors are fixed sRGB values from Dart, and the blur filter
+    // will handle linear space blending correctly.
+    paint.setColor(DlColor(color).withColorSpace(DlColorSpace::kSRGB));
+#else
     paint.setColor(DlColor(color));
+#endif
     if (blur_sigma > 0.0) {
       DlBlurMaskFilter filter(DlBlurStyle::kNormal, blur_sigma, false);
       paint.setMaskFilter(&filter);

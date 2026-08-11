@@ -196,6 +196,8 @@ class ContextVK final : public Context,
 
   const vk::Device& GetDevice() const;
 
+  void WaitIdle() const;
+
   const std::unique_ptr<DriverInfoVK>& GetDriverInfo() const;
 
   const std::shared_ptr<fml::ConcurrentTaskRunner>
@@ -226,6 +228,10 @@ class ContextVK final : public Context,
 
   // |Context|
   void DisposeThreadLocalCachedResources() override;
+
+  bool IsPreload() const { return is_preload_; }
+
+  void SetIsPreload(bool is_preload) { is_preload_ = is_preload; }
 
   /// @brief Whether the Android Surface control based swapchain should be
   ///        enabled
@@ -296,6 +302,7 @@ class ContextVK final : public Context,
   bool should_enable_surface_control_ = false;
   bool should_batch_cmd_buffers_ = false;
   std::vector<std::shared_ptr<CommandBuffer>> pending_command_buffers_;
+  bool is_preload_ = false;
 
   const uint64_t hash_;
 

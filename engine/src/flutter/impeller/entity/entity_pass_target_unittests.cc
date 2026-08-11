@@ -4,6 +4,7 @@
 
 #include <memory>
 
+#include "flutter/fml/build_config.h"
 #include "flutter/testing/testing.h"
 #include "gtest/gtest.h"
 #include "impeller/core/formats.h"
@@ -62,10 +63,18 @@ TEST_P(EntityPassTargetTest, SwapWithMSAAImplicitResolve) {
     TextureDescriptor color0_tex_desc;
     color0_tex_desc.storage_mode = StorageMode::kDevicePrivate;
     color0_tex_desc.type = TextureType::kTexture2DMultisample;
-    color0_tex_desc.sample_count = SampleCount::kCount4;
+#if defined(FML_OS_OHOS)
+    color0_tex_desc.sample_count = SampleCount::kCount2,
+#else
+    color0_tex_desc.sample_count = SampleCount::kCount4,
+#endif  // FML_OS_OHOS
     color0_tex_desc.format = pixel_format;
     color0_tex_desc.size = ISize{100, 100};
     color0_tex_desc.usage = TextureUsage::kRenderTarget;
+
+#if defined(FML_OS_OHOS)
+    EXPECT_EQ(color0_tex_desc.sample_count, SampleCount::kCount2);
+#endif  // FML_OS_OHOS
 
     auto color0_msaa_tex = allocator.CreateTexture(color0_tex_desc);
 

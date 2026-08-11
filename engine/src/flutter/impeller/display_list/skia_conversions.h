@@ -14,7 +14,14 @@
 namespace impeller {
 namespace skia_conversions {
 
-Color ToColor(const flutter::DlColor& color);
+using ColorSpace = impeller::ColorSpace;
+
+struct ColorWithSpace {
+  Color color;
+  ColorSpace source_color_space;
+};
+
+ColorWithSpace ToColor(const flutter::DlColor& color);
 
 impeller::SamplerDescriptor ToSamplerDescriptor(
     const flutter::DlImageSampling options);

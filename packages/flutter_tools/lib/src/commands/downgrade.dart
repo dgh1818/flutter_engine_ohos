@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// ignore_for_file: dead_code
+
 import 'package:meta/meta.dart';
 import 'package:process/process.dart';
 
@@ -97,6 +99,7 @@ class DowngradeCommand extends FlutterCommand {
       throwToolExit(downgradePositionalArgumentErrorMessage(argResults!.rest), exitCode: 2);
     }
 
+    throwToolExit('It will be supported later.', exitCode: 1);
     // Commands do not necessarily have access to the correct zone injected
     // values when being created. Fields must be lazily instantiated in runCommand,
     // at least until the zone injection is refactored.

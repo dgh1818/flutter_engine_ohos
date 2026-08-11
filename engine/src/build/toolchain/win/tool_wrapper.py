@@ -77,7 +77,7 @@ class WinTool(object):
     # The environment is saved as an "environment block" (see CreateProcess
     # and msvs_emulation for details). We convert to a dict here.
     # Drop last 2 NULs, one for list terminator, one for trailing vs. separator.
-    pairs = open(arch).read()[:-2].split('\0')
+    pairs = open(arch, encoding='utf-8', errors='replace').read()[:-2].split('\0')
     kvs = [item.split('=', 1) for item in pairs]
     return dict(kvs)
 

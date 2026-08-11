@@ -254,6 +254,7 @@ class _MyContextMenuState extends State<MyContextMenu> {
       case .fuchsia:
       case .linux:
       case .windows:
+      case .ohos:
         // Don't open the menu on these platforms with a Ctrl-tap (or a
         // tap).
         break;

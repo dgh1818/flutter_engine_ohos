@@ -78,6 +78,9 @@ class FakeImageGenerator : public ImageGenerator {
     return false;
   };
 
+  uint32_t GetColorSpace(unsigned int frame_index) {
+    return 0;
+  }
  private:
   SkImageInfo info_;
 };

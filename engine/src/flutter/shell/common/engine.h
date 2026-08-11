@@ -1009,6 +1009,13 @@ class Engine final : public RuntimeDelegate, PointerDataDispatcher::Delegate {
     return runtime_controller_.get();
   }
 
+#ifdef FML_OS_OHOS
+  //--------------------------------------------------------------------------
+  /// @brief      Get the Dart heap memory usage for the root isolate.
+  ///
+  RuntimeController::DartHeapUsage GetDartHeapUsage() const;
+#endif  // FML_OS_OHOS
+
   const std::weak_ptr<VsyncWaiter> GetVsyncWaiter() const;
 
   //--------------------------------------------------------------------------

@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "flutter/fml/build_config.h"
 #include "impeller/fixtures/spec_constant.frag.h"
 #include "impeller/fixtures/spec_constant.vert.h"
 #include "impeller/playground/playground_test.h"
@@ -27,7 +28,12 @@ TEST_P(PipelineLibraryGLESTest, ProgramHandlesAreReused) {
   ASSERT_TRUE(pipeline && pipeline->IsValid());
   auto new_desc = desc;
   // Changing the sample counts should not result in a new program object.
+#if defined(FML_OS_OHOS)
+  new_desc->SetSampleCount(SampleCount::kCount2);
+  EXPECT_EQ(new_desc->GetSampleCount(), SampleCount::kCount2);
+#else
   new_desc->SetSampleCount(SampleCount::kCount4);
+#endif  // FML_OS_OHOS
   // Make sure we don't hit the top-level descriptor cache. This will cause
   // caching irrespective of backends.
   ASSERT_FALSE(desc->IsEqual(new_desc.value()));

@@ -2525,165 +2525,185 @@ void main() {
       }
     });
 
-    testWidgets('can invoke menu items', (WidgetTester tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Material(
-            child: MenuBar(
-              key: UniqueKey(),
-              controller: controller,
-              children: createTestMenus(
-                onPressed: onPressed,
-                onOpen: onOpen,
-                onClose: onClose,
-                accelerators: true,
+    testWidgets(
+      'can invoke menu items',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Material(
+              child: MenuBar(
+                key: UniqueKey(),
+                controller: controller,
+                children: createTestMenus(
+                  onPressed: onPressed,
+                  onOpen: onOpen,
+                  onClose: onClose,
+                  accelerators: true,
+                ),
               ),
             ),
           ),
-        ),
-      );
+        );
 
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
-      await tester.pump();
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyM, character: 'm');
-      await tester.pump();
-      // Makes sure that identical accelerators in parent menu items don't
-      // shadow the ones in the children.
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyM, character: 'm');
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
-      await tester.pump();
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyM, character: 'm');
+        await tester.pump();
+        // Makes sure that identical accelerators in parent menu items don't
+        // shadow the ones in the children.
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyM, character: 'm');
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+        await tester.pump();
 
-      expect(opened, equals(<TestMenu>[TestMenu.mainMenu0]));
-      expect(closed, equals(<TestMenu>[TestMenu.mainMenu0]));
-      expect(selected, equals(<TestMenu>[TestMenu.subMenu00]));
-      // Selecting a non-submenu item should close all the menus.
-      expect(find.text(TestMenu.subMenu00.label), findsNothing);
-      opened.clear();
-      closed.clear();
-      selected.clear();
+        expect(opened, equals(<TestMenu>[TestMenu.mainMenu0]));
+        expect(closed, equals(<TestMenu>[TestMenu.mainMenu0]));
+        expect(selected, equals(<TestMenu>[TestMenu.subMenu00]));
+        // Selecting a non-submenu item should close all the menus.
+        expect(find.text(TestMenu.subMenu00.label), findsNothing);
+        opened.clear();
+        closed.clear();
+        selected.clear();
 
-      // Invoking several levels deep.
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.altRight);
-      await tester.pump();
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyM, character: 'e');
-      await tester.pump();
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyM, character: '1');
-      await tester.pump();
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyM, character: '1');
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.altRight);
-      await tester.pump();
+        // Invoking several levels deep.
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.altRight);
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyM, character: 'e');
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyM, character: '1');
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyM, character: '1');
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.altRight);
+        await tester.pump();
 
-      expect(opened, equals(<TestMenu>[TestMenu.mainMenu1, TestMenu.subMenu11]));
-      expect(closed, equals(<TestMenu>[TestMenu.subMenu11, TestMenu.mainMenu1]));
-      expect(selected, equals(<TestMenu>[TestMenu.subSubMenu111]));
-      opened.clear();
-      closed.clear();
-      selected.clear();
-    }, variant: TargetPlatformVariant(nonApple));
+        expect(opened, equals(<TestMenu>[TestMenu.mainMenu1, TestMenu.subMenu11]));
+        expect(closed, equals(<TestMenu>[TestMenu.subMenu11, TestMenu.mainMenu1]));
+        expect(selected, equals(<TestMenu>[TestMenu.subSubMenu111]));
+        opened.clear();
+        closed.clear();
+        selected.clear();
+      },
+      variant: TargetPlatformVariant(nonApple),
+      skip: true, // [intended] OHOS not supported.
+    );
 
-    testWidgets('can combine with regular keyboard navigation', (WidgetTester tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Material(
-            child: MenuBar(
-              key: UniqueKey(),
-              controller: controller,
-              children: createTestMenus(
-                onPressed: onPressed,
-                onOpen: onOpen,
-                onClose: onClose,
-                accelerators: true,
+    testWidgets(
+      'can combine with regular keyboard navigation',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Material(
+              child: MenuBar(
+                key: UniqueKey(),
+                controller: controller,
+                children: createTestMenus(
+                  onPressed: onPressed,
+                  onOpen: onOpen,
+                  onClose: onClose,
+                  accelerators: true,
+                ),
               ),
             ),
           ),
-        ),
-      );
+        );
 
-      // Combining accelerators and regular keyboard navigation works.
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
-      await tester.pump();
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyM, character: 'e');
-      await tester.pump();
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyM, character: '1');
-      await tester.pump();
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
-      await tester.pump();
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-      await tester.pump();
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pump();
+        // Combining accelerators and regular keyboard navigation works.
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyM, character: 'e');
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyM, character: '1');
+        await tester.pump();
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pump();
 
-      expect(opened, equals(<TestMenu>[TestMenu.mainMenu1, TestMenu.subMenu11]));
-      expect(closed, equals(<TestMenu>[TestMenu.subMenu11, TestMenu.mainMenu1]));
-      expect(selected, equals(<TestMenu>[TestMenu.subSubMenu110]));
-    }, variant: TargetPlatformVariant(nonApple));
+        expect(opened, equals(<TestMenu>[TestMenu.mainMenu1, TestMenu.subMenu11]));
+        expect(closed, equals(<TestMenu>[TestMenu.subMenu11, TestMenu.mainMenu1]));
+        expect(selected, equals(<TestMenu>[TestMenu.subSubMenu110]));
+      },
+      variant: TargetPlatformVariant(nonApple),
+      skip: true, // [intended] OHOS not supported.
+    );
 
-    testWidgets('can combine with mouse', (WidgetTester tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Material(
-            child: MenuBar(
-              key: UniqueKey(),
-              controller: controller,
-              children: createTestMenus(
-                onPressed: onPressed,
-                onOpen: onOpen,
-                onClose: onClose,
-                accelerators: true,
+    testWidgets(
+      'can combine with mouse',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Material(
+              child: MenuBar(
+                key: UniqueKey(),
+                controller: controller,
+                children: createTestMenus(
+                  onPressed: onPressed,
+                  onOpen: onOpen,
+                  onClose: onClose,
+                  accelerators: true,
+                ),
               ),
             ),
           ),
-        ),
-      );
+        );
 
-      // Combining accelerators and regular keyboard navigation works.
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
-      await tester.pump();
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyM, character: 'e');
-      await tester.pump();
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyM, character: '1');
-      await tester.pump();
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
-      await tester.pump();
-      await tester.tap(find.text(TestMenu.subSubMenu112.label));
-      await tester.pump();
+        // Combining accelerators and regular keyboard navigation works.
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyM, character: 'e');
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyM, character: '1');
+        await tester.pump();
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+        await tester.pump();
+        await tester.tap(find.text(TestMenu.subSubMenu112.label));
+        await tester.pump();
 
-      expect(opened, equals(<TestMenu>[TestMenu.mainMenu1, TestMenu.subMenu11]));
-      expect(closed, equals(<TestMenu>[TestMenu.subMenu11, TestMenu.mainMenu1]));
-      expect(selected, equals(<TestMenu>[TestMenu.subSubMenu112]));
-    }, variant: TargetPlatformVariant(nonApple));
+        expect(opened, equals(<TestMenu>[TestMenu.mainMenu1, TestMenu.subMenu11]));
+        expect(closed, equals(<TestMenu>[TestMenu.subMenu11, TestMenu.mainMenu1]));
+        expect(selected, equals(<TestMenu>[TestMenu.subSubMenu112]));
+      },
+      variant: TargetPlatformVariant(nonApple),
+      skip: true, // [intended] OHOS not supported.
+    );
 
-    testWidgets("disabled items don't respond to accelerators", (WidgetTester tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Material(
-            child: MenuBar(
-              key: UniqueKey(),
-              controller: controller,
-              children: createTestMenus(
-                onPressed: onPressed,
-                onOpen: onOpen,
-                onClose: onClose,
-                accelerators: true,
+    testWidgets(
+      "disabled items don't respond to accelerators",
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Material(
+              child: MenuBar(
+                key: UniqueKey(),
+                controller: controller,
+                children: createTestMenus(
+                  onPressed: onPressed,
+                  onOpen: onOpen,
+                  onClose: onClose,
+                  accelerators: true,
+                ),
               ),
             ),
           ),
-        ),
-      );
+        );
 
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
-      await tester.pump();
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyM, character: '5');
-      await tester.pump();
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
-      await tester.pump();
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyM, character: '5');
+        await tester.pump();
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+        await tester.pump();
 
-      expect(opened, isEmpty);
-      expect(closed, isEmpty);
-      expect(selected, isEmpty);
-      // Selecting a non-submenu item should close all the menus.
-      expect(find.text(TestMenu.subMenu00.label), findsNothing);
-    }, variant: TargetPlatformVariant(nonApple));
+        expect(opened, isEmpty);
+        expect(closed, isEmpty);
+        expect(selected, isEmpty);
+        // Selecting a non-submenu item should close all the menus.
+        expect(find.text(TestMenu.subMenu00.label), findsNothing);
+      },
+      variant: TargetPlatformVariant(nonApple),
+      skip: true, // [intended] OHOS not supported.
+    );
 
     testWidgets("Apple platforms don't react to accelerators", (WidgetTester tester) async {
       await tester.pumpWidget(
@@ -2884,6 +2904,7 @@ void main() {
       Text mnemonic3 = tester.widget(findMnemonic(TestMenu.subSubMenu113.label));
 
       switch (defaultTargetPlatform) {
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
@@ -2993,6 +3014,7 @@ void main() {
       final Text mnemonic2 = tester.widget(findMnemonic(TestMenu.subSubMenu112.label));
 
       switch (defaultTargetPlatform) {
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
@@ -4262,6 +4284,7 @@ void main() {
         String expectedSeparator;
         String expectedShift;
         switch (defaultTargetPlatform) {
+          case TargetPlatform.ohos:
           case TargetPlatform.android:
           case TargetPlatform.fuchsia:
           case TargetPlatform.linux:
@@ -4289,6 +4312,7 @@ void main() {
         );
         late String allExpected;
         switch (defaultTargetPlatform) {
+          case TargetPlatform.ohos:
           case TargetPlatform.android:
           case TargetPlatform.fuchsia:
           case TargetPlatform.linux:

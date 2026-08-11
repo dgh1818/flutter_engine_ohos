@@ -1,0 +1,13 @@
+{
+  "modelVersion": "5.1.0",
+  "name": "platform_interaction",
+  "version": "1.0.0",
+  "description": "Integration test for platform interactions on OHOS.",
+  "main": "",
+  "author": "",
+  "license": "",
+  "dependencies": {},
+  "devDependencies": {
+    "@ohos/hypium": "1.0.6"
+  }
+}

@@ -1516,6 +1516,10 @@ Future<String?> getMissingPackageHintForPlatform(TargetPlatform platform) async 
     case TargetPlatform.web_javascript:
     case TargetPlatform.windows_x64:
     case TargetPlatform.windows_arm64:
+    case TargetPlatform.ohos:
+    case TargetPlatform.ohos_arm:
+    case TargetPlatform.ohos_arm64:
+    case TargetPlatform.ohos_x64:
       return null;
     case TargetPlatform.unsupported:
       TargetPlatform.throwUnsupportedTarget();
@@ -1867,6 +1871,7 @@ String nextPlatform(String currentPlatform) {
     'macOS',
     'linux',
     'fuchsia',
+    'ohos',
   ];
   // dart format on
   final int index = platforms.indexOf(currentPlatform);

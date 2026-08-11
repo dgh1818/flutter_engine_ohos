@@ -1219,6 +1219,7 @@ void main() {
           expect(find.text('Copy'), findsOneWidget);
           expect(find.text('Paste'), findsOneWidget);
 
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
@@ -1244,6 +1245,7 @@ void main() {
           expect(find.text('Copy'), findsOneWidget);
           expect(find.text('Paste'), findsOneWidget);
 
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
@@ -1256,7 +1258,7 @@ void main() {
       }
     },
     variant: TargetPlatformVariant.all(),
-    skip: kIsWeb, // [intended] we don't supply the cut/copy/paste buttons on the web.
+    skip: true, // OHOS not supported.
   );
 
   testWidgets('spellCheckConfiguration passes through to EditableText', (
@@ -1853,6 +1855,7 @@ void main() {
         case TargetPlatform.iOS:
           expect(find.byType(SystemContextMenu), findsOneWidget);
         case TargetPlatform.macOS:
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:

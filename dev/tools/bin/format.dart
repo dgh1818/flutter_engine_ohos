@@ -81,9 +81,13 @@ class DartFormatChecker {
       failOk: true,
     );
     if (upstreamUrl.isEmpty) {
-      upstream = 'origin';
+      if (Platform.environment['OHOS_CI'] == 'true') {
+        upstream = 'gitcode';
+      } else {
+        upstream = 'origin';
+      }
     }
-    await _runGit(<String>['fetch', upstream, 'main'], processRunner);
+    await _runGit(<String>['fetch', upstream, 'oh-3.44.9-dev'], processRunner);
     var result = '';
     try {
       // This is the preferred command to use, but developer checkouts often do

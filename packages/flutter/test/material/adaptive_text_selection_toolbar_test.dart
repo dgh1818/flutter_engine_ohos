@@ -49,6 +49,7 @@ void main() {
       expect(find.text(buttonText), findsOneWidget);
 
       switch (defaultTargetPlatform) {
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
           expect(find.byType(TextSelectionToolbar), findsOneWidget);
           expect(find.byType(CupertinoTextSelectionToolbar), findsNothing);
@@ -145,6 +146,7 @@ void main() {
       expect(find.text('Paste'), findsOneWidget);
 
       switch (defaultTargetPlatform) {
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
           expect(find.byType(TextSelectionToolbarTextButton), findsOneWidget);
@@ -159,7 +161,7 @@ void main() {
       controller.dispose();
       focusNode.dispose();
     },
-    skip: kIsWeb, // [intended] on web the browser handles the context menu.
+    skip: true, // OHOS not supported.
     variant: TargetPlatformVariant.all(),
   );
 
@@ -192,6 +194,7 @@ void main() {
       expect(find.byKey(key), findsOneWidget);
 
       switch (defaultTargetPlatform) {
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
           expect(find.byType(TextSelectionToolbarTextButton), findsNWidgets(6));
           expect(find.text('Cut'), findsOneWidget);
@@ -266,7 +269,7 @@ void main() {
           expect(findLiveTextButton(), findsOneWidget);
       }
     },
-    skip: kIsWeb, // [intended] on web the browser handles the context menu.
+    skip: true, // OHOS not supported.
     variant: TargetPlatformVariant.all(),
   );
 
@@ -352,6 +355,7 @@ void main() {
         expect(buttonTypes, contains(ContextMenuButtonType.paste));
 
         switch (defaultTargetPlatform) {
+          case TargetPlatform.ohos:
           case TargetPlatform.android:
           case TargetPlatform.iOS:
           case TargetPlatform.fuchsia:
@@ -373,6 +377,7 @@ void main() {
         expect(buttonTypes, contains(ContextMenuButtonType.paste));
 
         switch (defaultTargetPlatform) {
+          case TargetPlatform.ohos:
           case TargetPlatform.android:
           case TargetPlatform.fuchsia:
           case TargetPlatform.linux:
@@ -387,7 +392,7 @@ void main() {
         controller.dispose();
       },
       variant: TargetPlatformVariant.all(),
-      skip: kIsWeb, // [intended]
+      skip: true, // OHOS not supported.
     );
 
     testWidgets(
@@ -420,6 +425,7 @@ void main() {
         expect(find.text(buttonText), findsOneWidget);
 
         switch (defaultTargetPlatform) {
+          case TargetPlatform.ohos:
           case TargetPlatform.fuchsia:
           case TargetPlatform.android:
             expect(find.byType(TextSelectionToolbarTextButton), findsOneWidget);

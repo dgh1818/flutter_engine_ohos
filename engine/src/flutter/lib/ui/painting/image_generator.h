@@ -5,7 +5,10 @@
 #ifndef FLUTTER_LIB_UI_PAINTING_IMAGE_GENERATOR_H_
 #define FLUTTER_LIB_UI_PAINTING_IMAGE_GENERATOR_H_
 
+#include <memory>
 #include <optional>
+
+#include "flutter/fml/build_config.h"
 #include "flutter/fml/macros.h"
 #include "third_party/skia/include/codec/SkCodec.h"
 #include "third_party/skia/include/codec/SkCodecAnimation.h"
@@ -15,7 +18,32 @@
 #include "third_party/skia/include/core/SkImageInfo.h"
 #include "third_party/skia/include/core/SkSize.h"
 
+#if defined(FML_OS_OHOS) && IMPELLER_SUPPORTS_RENDERING
+namespace impeller {
+class Context;
+class Texture;
+}  // namespace impeller
+#endif  // FML_OS_OHOS && IMPELLER_SUPPORTS_RENDERING
+
 namespace flutter {
+
+#if defined(FML_OS_OHOS) && IMPELLER_SUPPORTS_RENDERING
+/// @brief  OHOS-only optional hook that lets an `ImageGenerator` bypass the
+///         normal "decompress to CPU memory then upload to GPU" path and
+///         return a GPU-resident texture wrapping memory that the platform
+///         already owns.
+class ExternalTextureSource {
+ public:
+  virtual ~ExternalTextureSource() = default;
+
+  /// @return A texture wrapping the platform handle on success, or `nullptr`
+  ///         if import failed and the caller should fall back.
+  virtual std::shared_ptr<impeller::Texture> CreateImpellerTexture(
+      const std::shared_ptr<impeller::Context>& context) {
+    return nullptr;
+  }
+};
+#endif  // FML_OS_OHOS && IMPELLER_SUPPORTS_RENDERING
 
 /// @brief  The minimal interface necessary for defining a decoder that can be
 ///         used for both single and multi-frame image decoding. Image
@@ -135,10 +163,24 @@ class ImageGenerator {
       unsigned int frame_index = 0,
       std::optional<unsigned int> prior_frame = std::nullopt) = 0;
 
+#if defined(FML_OS_OHOS) && IMPELLER_SUPPORTS_RENDERING
+  /// @brief      OHOS-only optional fast-path that lets the generator hand
+  ///             back a GPU-resident texture without ever materializing the
+  ///             decoded pixels in CPU memory. The default returns `nullptr`;
+  ///             callers must then fall back to `GetPixels`.
+  virtual std::unique_ptr<ExternalTextureSource> CreateExternalTextureSource(
+      const SkISize& decode_dimensions,
+      unsigned int frame_index = 0,
+      std::optional<unsigned int> prior_frame = std::nullopt) {
+    return nullptr;
+  }
+#endif  // FML_OS_OHOS && IMPELLER_SUPPORTS_RENDERING
+
   /// @brief   Creates an `SkImage` based on the current `ImageInfo` of this
   ///          `ImageGenerator`.
   /// @return  A new `SkImage` containing the decoded image data.
   sk_sp<SkImage> GetImage();
+  virtual uint32_t GetColorSpace(unsigned int frame_index) = 0;
 };
 
 class BuiltinSkiaImageGenerator : public ImageGenerator {
@@ -171,6 +213,8 @@ class BuiltinSkiaImageGenerator : public ImageGenerator {
       size_t row_bytes,
       unsigned int frame_index = 0,
       std::optional<unsigned int> prior_frame = std::nullopt) override;
+
+  uint32_t GetColorSpace(unsigned int frame_index) override;
 
   static std::unique_ptr<ImageGenerator> MakeFromGenerator(
       std::unique_ptr<SkImageGenerator> generator);
@@ -211,6 +255,8 @@ class BuiltinSkiaCodecImageGenerator : public ImageGenerator {
       size_t row_bytes,
       unsigned int frame_index = 0,
       std::optional<unsigned int> prior_frame = std::nullopt) override;
+
+  uint32_t GetColorSpace(unsigned int frame_index) override;
 
   static std::unique_ptr<ImageGenerator> MakeFromData(sk_sp<SkData> data);
 

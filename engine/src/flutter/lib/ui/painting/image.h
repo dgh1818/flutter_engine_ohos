@@ -24,6 +24,7 @@ constexpr PixelFormat kLastPixelFormat = PixelFormat::kRFloat32;
 enum ColorSpace {
   kSRGB,
   kExtendedSRGB,
+  kDisplayP3,
 };
 
 class CanvasImage final : public RefCountedDartWrappable<CanvasImage> {

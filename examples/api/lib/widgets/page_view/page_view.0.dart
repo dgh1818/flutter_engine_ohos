@@ -101,7 +101,7 @@ class _PageViewExampleState extends State<PageViewExample>
       kIsWeb ||
       switch (defaultTargetPlatform) {
         .macOS || .linux || .windows => true,
-        .android || .iOS || .fuchsia => false,
+        .android || .iOS || .fuchsia || .ohos => false,
       };
 }
 

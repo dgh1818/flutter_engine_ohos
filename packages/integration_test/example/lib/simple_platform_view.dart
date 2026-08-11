@@ -14,6 +14,7 @@ class SimplePlatformView extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
+      case TargetPlatform.ohos:
         // TODO(cbracken): Implement. https://github.com/flutter/flutter/issues/164130
         return Container();
       case TargetPlatform.iOS:

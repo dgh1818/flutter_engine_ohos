@@ -2456,6 +2456,7 @@ void _testInMemory(
       ),
       FlutterProjectFactory: () =>
           FlutterProjectFactory(fileSystem: testFileSystem, logger: globals.logger),
+      FeatureFlags: () => TestFeatureFlags(),
       Pub: ThrowingPub.new,
     },
   );

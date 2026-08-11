@@ -1,16 +1,19 @@
 // Copyright 2013 The Flutter Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file.
+// Use of this source code is governed by a BSD-style license
+// can be found in the LICENSE file.
 
 #include "flutter/display_list/dl_color.h"
 
 #include <algorithm>
 #include <cmath>
 
+#include "flutter/fml/build_config.h"
+
 namespace flutter {
 
 namespace {
 
+#ifndef FML_OS_OHOS
 /// sRGB standard constants for transfer functions.
 /// See https://en.wikipedia.org/wiki/SRGB.
 constexpr double kSrgbGamma = 2.4;
@@ -85,10 +88,33 @@ DlColor p3ToExtendedSrgb(const DlColor& color) {
                  static_cast<float>(g_out), static_cast<float>(b_out),
                  DlColorSpace::kExtendedSRGB);
 }
+#endif  // !defined(FML_OS_OHOS)
 
 }  // namespace
 
 DlColor DlColor::withColorSpace(DlColorSpace color_space) const {
+#ifdef FML_OS_OHOS
+  // OHOS: color space conversion is delegated to the GPU shader
+  // (solid_fill.frag). Preserve the original color values and only relabel the
+  // color space identifier.
+  if (color_space_ == color_space) {
+    return *this;
+  }
+  switch (color_space) {
+    case DlColorSpace::kSRGB:
+      // When converting to sRGB, clamp values to [0,1].
+      return DlColor(alpha_, std::clamp(red_, 0.0f, 1.0f),
+                     std::clamp(green_, 0.0f, 1.0f),
+                     std::clamp(blue_, 0.0f, 1.0f), DlColorSpace::kSRGB);
+    case DlColorSpace::kExtendedSRGB:
+    case DlColorSpace::kDisplayP3:
+      // For ExtendedSRGB and DisplayP3, keep the values as-is; the shader
+      // performs the sRGB<->P3 conversion at draw time.
+      return DlColor(alpha_, red_, green_, blue_, color_space);
+    default:
+      return *this;
+  }
+#else
   switch (color_space_) {
     case DlColorSpace::kSRGB:
       switch (color_space) {
@@ -123,6 +149,7 @@ DlColor DlColor::withColorSpace(DlColorSpace color_space) const {
           return *this;
       }
   }
+#endif
 }
 
 }  // namespace flutter

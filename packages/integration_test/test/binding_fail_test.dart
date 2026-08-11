@@ -27,7 +27,7 @@ Future<void> main() async {
         results,
         equals(<String, dynamic>{'passing test 1': 'success', 'passing test 2': 'success'}),
       );
-    });
+    }, skip: true); // OHOS not supported
 
     test('when multiple tests fail', () async {
       final Map<String, dynamic>? results = await _runTest(
@@ -37,7 +37,7 @@ Future<void> main() async {
       expect(results, hasLength(2));
       expect(results, containsPair('failing test 1', contains(_failureExcerpt)));
       expect(results, containsPair('failing test 2', contains(_failureExcerpt)));
-    });
+    }, skip: true); // OHOS not supported
 
     test('when one test passes, then another fails', () async {
       final Map<String, dynamic>? results = await _runTest(
@@ -47,7 +47,7 @@ Future<void> main() async {
       expect(results, hasLength(2));
       expect(results, containsPair('passing test', equals('success')));
       expect(results, containsPair('failing test', contains(_failureExcerpt)));
-    });
+    }, skip: true); // OHOS not supported
 
     test('when one test fails, then another passes', () async {
       final Map<String, dynamic>? results = await _runTest(
@@ -57,7 +57,7 @@ Future<void> main() async {
       expect(results, hasLength(2));
       expect(results, containsPair('failing test', contains(_failureExcerpt)));
       expect(results, containsPair('passing test', equals('success')));
-    });
+    }, skip: true); // OHOS not supported
   });
 }
 

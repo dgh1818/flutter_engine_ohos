@@ -1,0 +1,16 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "Test entry for flutter_embedding"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "Entry ability hosting flutter_embedding unit tests"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "flutter_embedding_tests"
+    }
+  ]
+}

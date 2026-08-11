@@ -25,6 +25,7 @@ void main() {
         case TargetPlatform.macOS:
         case TargetPlatform.linux:
         case TargetPlatform.windows:
+        case TargetPlatform.ohos:
           expect(
             theme.builders[platform],
             isNotNull,
@@ -991,6 +992,7 @@ void main() {
         case TargetPlatform.linux:
         case TargetPlatform.fuchsia:
         case TargetPlatform.windows:
+        case TargetPlatform.ohos:
           // Does no transition yet; still shows page b only.
           expect(find.text('push'), findsNothing);
       }
@@ -1037,6 +1039,7 @@ void main() {
       case TargetPlatform.linux:
       case TargetPlatform.fuchsia:
       case TargetPlatform.windows:
+      case TargetPlatform.ohos:
         expect(
           themeData.pageTransitionsTheme.builders[defaultTargetPlatform],
           isNot(isA<PredictiveBackPageTransitionsBuilder>()),
@@ -1089,6 +1092,7 @@ void main() {
               TargetPlatform.windows: PredictiveBackPageTransitionsBuilder(),
               TargetPlatform.linux: PredictiveBackPageTransitionsBuilder(),
               TargetPlatform.fuchsia: PredictiveBackPageTransitionsBuilder(),
+              TargetPlatform.ohos: PredictiveBackPageTransitionsBuilder(),
             },
           ),
         ),
@@ -1136,6 +1140,7 @@ void main() {
       case TargetPlatform.linux:
       case TargetPlatform.fuchsia:
       case TargetPlatform.windows:
+      case TargetPlatform.ohos:
         expect(findPredictiveBackPageTransition(), findsNothing);
         expect(findFallbackPageTransition(), findsOneWidget);
     }
@@ -1175,6 +1180,7 @@ void main() {
       case TargetPlatform.linux:
       case TargetPlatform.fuchsia:
       case TargetPlatform.windows:
+      case TargetPlatform.ohos:
         expect(findPredictiveBackPageTransition(), findsNothing);
         expect(findFallbackPageTransition(), findsOneWidget);
     }
@@ -1214,6 +1220,7 @@ void main() {
       case TargetPlatform.linux:
       case TargetPlatform.fuchsia:
       case TargetPlatform.windows:
+      case TargetPlatform.ohos:
         expect(findPredictiveBackPageTransition(), findsNothing);
         expect(findFallbackPageTransition(), findsNWidgets(2));
     }
@@ -1232,6 +1239,7 @@ void main() {
       case TargetPlatform.linux:
       case TargetPlatform.fuchsia:
       case TargetPlatform.windows:
+      case TargetPlatform.ohos:
         expect(findPredictiveBackPageTransition(), findsNothing);
         expect(findFallbackPageTransition(), findsOneWidget);
     }

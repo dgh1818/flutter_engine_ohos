@@ -42,6 +42,7 @@ void main() {
           case TargetPlatform.linux:
           case TargetPlatform.macOS:
           case TargetPlatform.windows:
+          case TargetPlatform.ohos:
             expect(find.byType(RepaintBoundary), findsNWidgets(3));
         }
 
@@ -74,6 +75,7 @@ void main() {
           case TargetPlatform.linux:
           case TargetPlatform.macOS:
           case TargetPlatform.windows:
+          case TargetPlatform.ohos:
             expect(find.byType(RepaintBoundary), findsNWidgets(2));
         }
       }, variant: TargetPlatformVariant.all());
@@ -509,6 +511,7 @@ void main() {
           case TargetPlatform.linux:
           case TargetPlatform.macOS:
           case TargetPlatform.windows:
+          case TargetPlatform.ohos:
             expect(find.byType(RepaintBoundary), findsNWidgets(3));
         }
 
@@ -540,6 +543,7 @@ void main() {
           case TargetPlatform.linux:
           case TargetPlatform.macOS:
           case TargetPlatform.windows:
+          case TargetPlatform.ohos:
             expect(find.byType(RepaintBoundary), findsNWidgets(2));
         }
       }, variant: TargetPlatformVariant.all());
@@ -2146,81 +2150,85 @@ void main() {
       expect(viewport.firstChild, tester.renderObject<RenderBox>(find.byKey(newChildKey)));
     }, variant: TargetPlatformVariant.all());
 
-    testWidgets('hitTestChildren', (WidgetTester tester) async {
-      final taps = <ChildVicinity>[];
-      final childKeys = <ChildVicinity, UniqueKey>{};
-      final delegate = TwoDimensionalChildBuilderDelegate(
-        maxXIndex: 19,
-        maxYIndex: 19,
-        builder: (BuildContext context, ChildVicinity vicinity) {
-          childKeys[vicinity] = childKeys[vicinity] ?? UniqueKey();
-          return SizedBox.square(
-            dimension: 200,
-            child: Center(
-              child: GestureDetector(
-                key: childKeys[vicinity],
-                behavior: HitTestBehavior.opaque,
-                onTap: () {
-                  taps.add(vicinity);
-                },
-                child: const SizedBox.square(dimension: 56),
+    testWidgets(
+      'hitTestChildren',
+      (WidgetTester tester) async {
+        final taps = <ChildVicinity>[];
+        final childKeys = <ChildVicinity, UniqueKey>{};
+        final delegate = TwoDimensionalChildBuilderDelegate(
+          maxXIndex: 19,
+          maxYIndex: 19,
+          builder: (BuildContext context, ChildVicinity vicinity) {
+            childKeys[vicinity] = childKeys[vicinity] ?? UniqueKey();
+            return SizedBox.square(
+              dimension: 200,
+              child: Center(
+                child: GestureDetector(
+                  key: childKeys[vicinity],
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    taps.add(vicinity);
+                  },
+                  child: const SizedBox.square(dimension: 56),
+                ),
               ),
-            ),
-          );
-        },
-      );
-      addTearDown(delegate.dispose);
+            );
+          },
+        );
+        addTearDown(delegate.dispose);
 
-      await tester.pumpWidget(
-        simpleBuilderTest(
-          delegate: delegate,
-          useCacheExtent: true, // Untappable children are rendered in the cache extent
-        ),
-      );
-      await tester.pumpAndSettle();
-      // Regular orientation
-      // Offset at center of first child
-      await tester.tapAt(const Offset(100.0, 100.0));
-      await tester.pump();
-      expect(taps.contains(const ChildVicinity(xIndex: 0, yIndex: 0)), isTrue);
-      // Offset by child location
-      await tester.tap(find.byKey(childKeys[const ChildVicinity(xIndex: 2, yIndex: 2)]!));
-      await tester.pump();
-      expect(taps.contains(const ChildVicinity(xIndex: 2, yIndex: 2)), isTrue);
-      // Offset out of bounds
-      await tester.tap(
-        find.byKey(childKeys[const ChildVicinity(xIndex: 5, yIndex: 5)]!),
-        warnIfMissed: false,
-      );
-      await tester.pump();
-      expect(taps.contains(const ChildVicinity(xIndex: 5, yIndex: 5)), isFalse);
+        await tester.pumpWidget(
+          simpleBuilderTest(
+            delegate: delegate,
+            useCacheExtent: true, // Untappable children are rendered in the cache extent
+          ),
+        );
+        await tester.pumpAndSettle();
+        // Regular orientation
+        // Offset at center of first child
+        await tester.tapAt(const Offset(100.0, 100.0));
+        await tester.pump();
+        expect(taps.contains(const ChildVicinity(xIndex: 0, yIndex: 0)), isTrue);
+        // Offset by child location
+        await tester.tap(find.byKey(childKeys[const ChildVicinity(xIndex: 2, yIndex: 2)]!));
+        await tester.pump();
+        expect(taps.contains(const ChildVicinity(xIndex: 2, yIndex: 2)), isTrue);
+        // Offset out of bounds
+        await tester.tap(
+          find.byKey(childKeys[const ChildVicinity(xIndex: 5, yIndex: 5)]!),
+          warnIfMissed: false,
+        );
+        await tester.pump();
+        expect(taps.contains(const ChildVicinity(xIndex: 5, yIndex: 5)), isFalse);
 
-      // Reversed
-      await tester.pumpWidget(
-        simpleBuilderTest(
-          delegate: delegate,
-          verticalDetails: const ScrollableDetails.vertical(reverse: true),
-          horizontalDetails: const ScrollableDetails.horizontal(reverse: true),
-          useCacheExtent: true, // Untappable children are rendered in the cache extent
-        ),
-      );
-      await tester.pumpAndSettle();
-      // Offset at center of first child
-      await tester.tapAt(const Offset(700.0, 500.0));
-      await tester.pump();
-      expect(taps.contains(const ChildVicinity(xIndex: 0, yIndex: 0)), isTrue);
-      // Offset by child location
-      await tester.tap(find.byKey(childKeys[const ChildVicinity(xIndex: 2, yIndex: 2)]!));
-      await tester.pump();
-      expect(taps.contains(const ChildVicinity(xIndex: 2, yIndex: 2)), isTrue);
-      // Offset out of bounds
-      await tester.tap(
-        find.byKey(childKeys[const ChildVicinity(xIndex: 5, yIndex: 5)]!),
-        warnIfMissed: false,
-      );
-      await tester.pump();
-      expect(taps.contains(const ChildVicinity(xIndex: 5, yIndex: 5)), isFalse);
-    }, variant: TargetPlatformVariant.all());
+        // Reversed
+        await tester.pumpWidget(
+          simpleBuilderTest(
+            delegate: delegate,
+            verticalDetails: const ScrollableDetails.vertical(reverse: true),
+            horizontalDetails: const ScrollableDetails.horizontal(reverse: true),
+            useCacheExtent: true, // Untappable children are rendered in the cache extent
+          ),
+        );
+        await tester.pumpAndSettle();
+        // Offset at center of first child
+        await tester.tapAt(const Offset(700.0, 500.0));
+        await tester.pump();
+        expect(taps.contains(const ChildVicinity(xIndex: 0, yIndex: 0)), isTrue);
+        // Offset by child location
+        await tester.tap(find.byKey(childKeys[const ChildVicinity(xIndex: 2, yIndex: 2)]!));
+        await tester.pump();
+        expect(taps.contains(const ChildVicinity(xIndex: 2, yIndex: 2)), isTrue);
+        // Offset out of bounds
+        await tester.tap(
+          find.byKey(childKeys[const ChildVicinity(xIndex: 5, yIndex: 5)]!),
+          warnIfMissed: false,
+        );
+        await tester.pump();
+        expect(taps.contains(const ChildVicinity(xIndex: 5, yIndex: 5)), isFalse);
+      },
+      variant: TargetPlatformVariant.all(excluding: <TargetPlatform>{TargetPlatform.ohos}),
+    ); // OHOS not supported
 
     testWidgets('getChildFor', (WidgetTester tester) async {
       final childKeys = <ChildVicinity, UniqueKey>{};

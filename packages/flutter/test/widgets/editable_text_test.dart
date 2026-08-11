@@ -99,6 +99,8 @@ void main() {
     focusScopeNode.dispose();
   });
 
+  final allExceptOhos = TargetPlatformVariant.all(excluding: <TargetPlatform>{TargetPlatform.ohos});
+
   // Tests that the desired keyboard action button is requested.
   //
   // More technically, when an EditableText is given a particular [action], Flutter
@@ -7228,6 +7230,7 @@ void main() {
 
     switch (defaultTargetPlatform) {
       // These platforms extend by line.
+      case TargetPlatform.ohos:
       case TargetPlatform.android:
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
@@ -7344,6 +7347,7 @@ void main() {
 
     switch (defaultTargetPlatform) {
       // Extend selection.
+      case TargetPlatform.ohos:
       case TargetPlatform.android:
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
@@ -7723,7 +7727,7 @@ void main() {
 
       // On web, using keyboard for selection is handled by the browser.
     },
-    variant: TargetPlatformVariant.all(),
+    variant: TargetPlatformVariant.all(excluding: <TargetPlatform>{TargetPlatform.ohos}),
     skip: kIsWeb, // [intended]
   );
 
@@ -7738,7 +7742,7 @@ void main() {
 
       // On web, using keyboard for selection is handled by the browser.
     },
-    variant: TargetPlatformVariant.all(),
+    variant: TargetPlatformVariant.all(excluding: <TargetPlatform>{TargetPlatform.ohos}),
     skip: kIsWeb, // [intended]
   );
 
@@ -7979,6 +7983,7 @@ void main() {
 
         // These platforms go to the line start/end.
         case TargetPlatform.android:
+        case TargetPlatform.ohos:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
         case TargetPlatform.windows:
@@ -8007,6 +8012,7 @@ void main() {
 
         // These platforms go to the line start/end.
         case TargetPlatform.android:
+        case TargetPlatform.ohos:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
         case TargetPlatform.windows:
@@ -8019,7 +8025,7 @@ void main() {
       expect(controller.text, equals(testText), reason: 'on $platform');
     },
     skip: kIsWeb, // [intended] on web these keys are handled by the browser.
-    variant: TargetPlatformVariant.all(),
+    variant: allExceptOhos,
   );
 
   testWidgets(
@@ -8096,6 +8102,7 @@ void main() {
 
         // These platforms go to the line start/end.
         case TargetPlatform.android:
+        case TargetPlatform.ohos:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
         case TargetPlatform.windows:
@@ -8132,6 +8139,7 @@ void main() {
 
         // Windows, Android, and Fuchsia jump to the previous wordwrapped line.
         case TargetPlatform.android:
+        case TargetPlatform.ohos:
         case TargetPlatform.fuchsia:
         case TargetPlatform.windows:
           expect(
@@ -8142,7 +8150,7 @@ void main() {
       }
     },
     skip: kIsWeb, // [intended] on web these keys are handled by the browser.
-    variant: TargetPlatformVariant.all(),
+    variant: allExceptOhos,
   );
 
   testWidgets(
@@ -8219,6 +8227,7 @@ void main() {
 
         // These platforms go to the line start/end.
         case TargetPlatform.android:
+        case TargetPlatform.ohos:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
         case TargetPlatform.windows:
@@ -8254,6 +8263,7 @@ void main() {
 
         // Windows, Android, and Fuchsia jump to the next wordwrapped line.
         case TargetPlatform.android:
+        case TargetPlatform.ohos:
         case TargetPlatform.fuchsia:
         case TargetPlatform.windows:
           expect(
@@ -8264,7 +8274,7 @@ void main() {
       }
     },
     skip: kIsWeb, // [intended] on web these keys are handled by the browser.
-    variant: TargetPlatformVariant.all(),
+    variant: allExceptOhos,
   );
 
   testWidgets(
@@ -8368,6 +8378,7 @@ void main() {
           );
 
         // Windows expands to the line start/end.
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
         case TargetPlatform.windows:
@@ -8400,7 +8411,7 @@ void main() {
       }
     },
     skip: kIsWeb, // [intended] on web these keys are handled by the browser.
-    variant: TargetPlatformVariant.all(),
+    variant: allExceptOhos,
   );
 
   testWidgets(
@@ -8624,6 +8635,7 @@ void main() {
 
         // These platforms select to the line start.
         case TargetPlatform.android:
+        case TargetPlatform.ohos:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
         case TargetPlatform.windows:
@@ -8663,6 +8675,7 @@ void main() {
 
         // Windows jumps to the previous wordwrapped line.
         case TargetPlatform.android:
+        case TargetPlatform.ohos:
         case TargetPlatform.fuchsia:
         case TargetPlatform.windows:
           expect(
@@ -8673,7 +8686,7 @@ void main() {
       }
     },
     skip: kIsWeb, // [intended] on web these keys are handled by the browser.
-    variant: TargetPlatformVariant.all(),
+    variant: allExceptOhos,
   );
 
   testWidgets(
@@ -8753,6 +8766,7 @@ void main() {
 
         // These platforms select to the line end.
         case TargetPlatform.android:
+        case TargetPlatform.ohos:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
         case TargetPlatform.windows:
@@ -8803,6 +8817,7 @@ void main() {
 
         // Windows jumps to the previous wordwrapped line.
         case TargetPlatform.android:
+        case TargetPlatform.ohos:
         case TargetPlatform.fuchsia:
         case TargetPlatform.windows:
           expect(
@@ -8819,7 +8834,7 @@ void main() {
       }
     },
     skip: kIsWeb, // [intended] on web these keys are handled by the browser.
-    variant: TargetPlatformVariant.all(),
+    variant: allExceptOhos,
   );
 
   testWidgets(
@@ -8950,6 +8965,7 @@ void main() {
             equals(const TextSelection.collapsed(offset: 0, affinity: TextAffinity.upstream)),
           );
         case TargetPlatform.android:
+        case TargetPlatform.ohos:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
         case TargetPlatform.windows:
@@ -8974,6 +8990,7 @@ void main() {
             equals(const TextSelection.collapsed(offset: 0, affinity: TextAffinity.upstream)),
           );
         case TargetPlatform.android:
+        case TargetPlatform.ohos:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
         case TargetPlatform.windows:
@@ -8981,7 +8998,7 @@ void main() {
       }
     },
     skip: kIsWeb, // [intended] on web these keys are handled by the browser.
-    variant: TargetPlatformVariant.all(),
+    variant: allExceptOhos,
   );
 
   testWidgets(
@@ -9038,6 +9055,7 @@ void main() {
 
         // These platforms select to the endof the text.
         case TargetPlatform.android:
+        case TargetPlatform.ohos:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
         case TargetPlatform.windows:
@@ -9070,6 +9088,7 @@ void main() {
 
         // These platforms select to the beginning of the text.
         case TargetPlatform.android:
+        case TargetPlatform.ohos:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
         case TargetPlatform.windows:
@@ -9080,7 +9099,7 @@ void main() {
       }
     },
     skip: kIsWeb, // [intended] on web these keys are handled by the browser.
-    variant: TargetPlatformVariant.all(),
+    variant: allExceptOhos,
   );
 
   testWidgets(
@@ -10221,6 +10240,7 @@ void main() {
       'TextInput.show',
       'TextInput.requestAutofill',
       'TextInput.setEditingState',
+      'TextInput.updateConfig',
       'TextInput.show',
       'TextInput.setCaretRect',
     ];
@@ -10379,6 +10399,7 @@ void main() {
       'TextInput.show',
       'TextInput.requestAutofill',
       'TextInput.setEditingState',
+      'TextInput.updateConfig',
       'TextInput.show',
       'TextInput.setCaretRect',
     ];
@@ -10424,6 +10445,7 @@ void main() {
       'TextInput.show',
       'TextInput.requestAutofill',
       'TextInput.setEditingState',
+      'TextInput.updateConfig',
       'TextInput.show',
       'TextInput.setCaretRect',
       'TextInput.setEditingState',
@@ -12367,6 +12389,7 @@ void main() {
       expect(controller.selection.isCollapsed, false);
       switch (defaultTargetPlatform) {
         // These platforms extend by line.
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
@@ -14307,7 +14330,9 @@ void main() {
 
         // On web, these keyboard shortcuts are handled by the browser.
       },
-      variant: TargetPlatformVariant.all(excluding: <TargetPlatform>{TargetPlatform.android}),
+      variant: TargetPlatformVariant.all(
+        excluding: <TargetPlatform>{TargetPlatform.android, TargetPlatform.ohos},
+      ),
       skip: kIsWeb, // [intended]
     );
 
@@ -14556,6 +14581,7 @@ void main() {
         await sendUndo(tester);
         switch (defaultTargetPlatform) {
           // Android includes composing changes.
+          case TargetPlatform.ohos:
           case TargetPlatform.android:
             expect(
               controller.value,
@@ -14602,6 +14628,7 @@ void main() {
         await sendRedo(tester);
         switch (defaultTargetPlatform) {
           // Android includes composing changes.
+          case TargetPlatform.ohos:
           case TargetPlatform.android:
             expect(
               controller.value,

@@ -260,6 +260,26 @@ VkResult vkEnumerateDeviceExtensionProperties(
     const char* pLayerName,
     uint32_t* pPropertyCount,
     VkExtensionProperties* pProperties) {
+#ifdef FML_OS_OHOS
+  // These must cover the required OHOS device extensions checked by
+  // CapabilitiesVK::GetEnabledDeviceExtensions, otherwise
+  // MockVulkanContextBuilder().Build() returns nullptr on OHOS.
+  static constexpr const char* kDeviceExtensions[] = {
+      "VK_KHR_swapchain",
+      "VK_OHOS_native_buffer",
+      "VK_KHR_sampler_ycbcr_conversion",
+      "VK_OHOS_external_memory",
+      "VK_EXT_queue_family_foreign",
+      "VK_KHR_dedicated_allocation",
+      "VK_KHR_external_semaphore_fd",
+  };
+#else
+  static constexpr const char* kDeviceExtensions[] = {
+      "VK_KHR_swapchain",
+  };
+#endif  // FML_OS_OHOS
+  constexpr uint32_t kDeviceExtensionCount =
+      sizeof(kDeviceExtensions) / sizeof(kDeviceExtensions[0]);
   if (!pProperties) {
     *pPropertyCount = GetMockVulkanState().device_extensions.size();
     return VK_SUCCESS;
@@ -622,6 +642,9 @@ VkResult vkQueueSubmit(VkQueue queue,
   return VK_SUCCESS;
 }
 
+static thread_local std::function<std::remove_pointer_t<PFN_vkWaitForFences>>
+    g_wait_for_fences_callback;
+
 VkResult vkWaitForFences(VkDevice device,
                          uint32_t fenceCount,
                          const VkFence* pFences,
@@ -837,6 +860,10 @@ void vkDestroySemaphore(VkDevice device,
                         const VkAllocationCallbacks* pAllocator) {
   delete reinterpret_cast<MockSemaphore*>(semaphore);
 }
+
+static thread_local std::function<
+    std::remove_pointer_t<PFN_vkAcquireNextImageKHR>>
+    g_acquire_next_image_callback;
 
 VkResult vkAcquireNextImageKHR(VkDevice device,
                                VkSwapchainKHR swapchain,

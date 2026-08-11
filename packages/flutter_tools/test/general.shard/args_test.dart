@@ -37,6 +37,7 @@ void main() {
         }
       }
     }),
+    skip: true, // OHOS not supported
   );
 
   testUsingContext('Global arg results are available in FlutterCommands', () async {

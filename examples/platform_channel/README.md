@@ -16,6 +16,12 @@ You can use the commands `flutter build` and `flutter run` from the app's root
 directory to build/run the app or to build with Android Studio, open the
 `android` folder in Android Studio and build the project as usual.
 
+## OHOS
+
+You can use the commands `flutter build` and `flutter run` from the app's root
+directory to build/run the app or to build with DevEco Studio, open the
+`ohos` folder in DevEco Studio and build the project as usual.
+
 ## Windows
 You can use the commands `flutter build` and `flutter run` from the app's root
 directory to build/run the app or you can build once then open

@@ -17,7 +17,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import '../foundation/_features.dart' show isWindowingEnabled;
 import '_window.dart' show WindowManager;
-
 import 'actions.dart';
 import 'banner.dart';
 import 'basic.dart';
@@ -40,6 +39,8 @@ import 'scrollable_helpers.dart';
 import 'semantics_debugger.dart';
 import 'shared_app_data.dart';
 import 'shortcuts.dart';
+import 'split_view_config.dart';
+import 'split_view_manager.dart';
 import 'tap_region.dart';
 import 'text.dart';
 import 'title.dart';
@@ -1394,6 +1395,7 @@ class WidgetsApp extends StatefulWidget {
 
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
+      case TargetPlatform.ohos:
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
       case TargetPlatform.windows:
@@ -1434,6 +1436,13 @@ class _WidgetsAppState extends State<WidgetsApp> with WidgetsBindingObserver {
 
   AppLifecycleState? _appLifecycleState;
 
+  /// Whether split screen is enabled by config file.
+  ///
+  /// Null indicates the configuration is not yet ready. Once the config is loaded,
+  /// this is set to `true` if either [SplitViewConfig.enableWideWindowSplit] or
+  /// [SplitViewConfig.enableSquareWindowSplit] is `true`, otherwise `false`.
+  bool _enableSplitView = false;
+
   /// The default value for [WidgetsApp.onNavigationNotification].
   ///
   /// Does nothing and stops bubbling if the app is detached. Otherwise, updates
@@ -1466,6 +1475,66 @@ class _WidgetsAppState extends State<WidgetsApp> with WidgetsBindingObserver {
     _updateRouting();
     WidgetsBinding.instance.addObserver(this);
     _appLifecycleState = WidgetsBinding.instance.lifecycleState;
+    if (defaultTargetPlatform == TargetPlatform.ohos) {
+      _initSplitViewConfig();
+    }
+  }
+
+  /// Initializes split screen configuration.
+  ///
+  /// Config is loaded via SystemChannel during binding init, no need to
+  /// block the first frame.
+  void _initSplitViewConfig() {
+    final config = SplitViewConfig();
+    _enableSplitView = config.enableWideWindowSplit || config.enableSquareWindowSplit;
+    if (_enableSplitView) {
+      _determinePriorityMainPage();
+      SplitViewManager().initDefaultPlaceholderBuilder();
+    }
+  }
+
+  /// Determines the main page for split screen based on priority.
+  ///
+  /// Priority order:
+  /// 1. [SplitViewConfig.homePage] from config file
+  /// 2. [widget.home] runtime type (route set to '/')
+  /// 3. [widget.routes] with keys '/home', '/', or '/index'
+  /// 4. [widget.initialRoute]
+  ///
+  /// Throws [FlutterError] if no main page can be determined.
+  void _determinePriorityMainPage() {
+    final String? homePage = SplitViewConfig().homePage;
+    if (homePage != null) {
+      debugPrint('SplitView: Main page determined by config homePage: $homePage');
+      SplitViewManager().setRealHomePage(homePage);
+      return;
+    }
+    if (widget.home != null) {
+      final homePage = widget.home!.runtimeType.toString();
+      debugPrint('SplitView: Main page determined by widget.home: $homePage (route: /)');
+      SplitViewManager().setRealHomePage('/');
+      return;
+    }
+    if (widget.routes != null && widget.routes!.isNotEmpty) {
+      const homeRouteNames = <String>['/home', '/', '/index'];
+      for (final routeName in homeRouteNames) {
+        if (widget.routes!.containsKey(routeName)) {
+          debugPrint('SplitView: Main page determined by routes: $routeName');
+          SplitViewManager().setRealHomePage(routeName);
+          return;
+        }
+      }
+    }
+    if (widget.initialRoute != null) {
+      debugPrint('SplitView: Main page determined by initialRoute: ${widget.initialRoute}');
+      SplitViewManager().setRealHomePage(widget.initialRoute);
+      return;
+    }
+    throw FlutterError(
+      'Cannot determine main page for split screen.\n'
+      'Please provide either widget.home, widget.routes with /home, /, or /index keys, '
+      'or widget.initialRoute.',
+    );
   }
 
   @override

@@ -105,6 +105,18 @@ Future<void> skipPastScrollingAnimation(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 200));
 }
 
+/// Excludes [TargetPlatform.ohos] for tests where long-press triggers OHOS
+/// LTPO via [WidgetsBinding.recordTranslateVelocity] (async
+/// `SystemChannels.nativeVsync.checkLTPOSwitchStatus`), which leaves pending
+/// timers in widget tests without a platform mock in [TestWidgetsFlutterBinding].
+final TargetPlatformVariant allPlatformsExceptOhosLtpo = TargetPlatformVariant.all(
+  excluding: <TargetPlatform>{TargetPlatform.ohos},
+);
+
+final TargetPlatformVariant nonAppleExceptOhosLtpo = TargetPlatformVariant.all(
+  excluding: <TargetPlatform>{TargetPlatform.iOS, TargetPlatform.macOS, TargetPlatform.ohos},
+);
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final mockClipboard = MockClipboard();
@@ -3413,42 +3425,40 @@ void main() {
       expect(find.byType(CupertinoButton), findsNWidgets(1));
       expect(find.text('Copy'), findsOneWidget);
     },
-    variant: TargetPlatformVariant.all(),
+    variant: allPlatformsExceptOhosLtpo,
   );
 
-  testWidgets(
-    'long press selects word and shows custom toolbar (Material)',
-    (WidgetTester tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Material(
-            child: Center(
-              child: SelectableText(
-                'Atwater Peel Sherbrooke Bonaventure',
-                selectionControls: materialTextSelectionControls,
-              ),
+  testWidgets('long press selects word and shows custom toolbar (Material)', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Material(
+          child: Center(
+            child: SelectableText(
+              'Atwater Peel Sherbrooke Bonaventure',
+              selectionControls: materialTextSelectionControls,
             ),
           ),
         ),
-      );
+      ),
+    );
 
-      final Offset selectableTextStart = tester.getTopLeft(find.byType(SelectableText));
+    final Offset selectableTextStart = tester.getTopLeft(find.byType(SelectableText));
 
-      await tester.longPressAt(selectableTextStart + const Offset(50.0, 5.0));
-      await tester.pump();
+    await tester.longPressAt(selectableTextStart + const Offset(50.0, 5.0));
+    await tester.pump();
 
-      final EditableText editableTextWidget = tester.widget(find.byType(EditableText).first);
-      final TextEditingController controller = editableTextWidget.controller;
+    final EditableText editableTextWidget = tester.widget(find.byType(EditableText).first);
+    final TextEditingController controller = editableTextWidget.controller;
 
-      expect(controller.selection, const TextSelection(baseOffset: 0, extentOffset: 7));
+    expect(controller.selection, const TextSelection(baseOffset: 0, extentOffset: 7));
 
-      // Collapsed toolbar shows 2 buttons: copy, select all
-      expect(find.byType(TextButton), findsNWidgets(2));
-      expect(find.text('Copy'), findsOneWidget);
-      expect(find.text('Select all'), findsOneWidget);
-    },
-    variant: TargetPlatformVariant.all(),
-  );
+    // Collapsed toolbar shows 2 buttons: copy, select all
+    expect(find.byType(TextButton), findsNWidgets(2));
+    expect(find.text('Copy'), findsOneWidget);
+    expect(find.text('Select all'), findsOneWidget);
+  }, variant: allPlatformsExceptOhosLtpo);
 
   testWidgets('textSelectionControls is passed to EditableText', (WidgetTester tester) async {
     await tester.pumpWidget(
@@ -3663,9 +3673,7 @@ void main() {
 
       expectMaterialSelectionToolbar();
     },
-    variant: TargetPlatformVariant.all(
-      excluding: <TargetPlatform>{TargetPlatform.iOS, TargetPlatform.macOS},
-    ),
+    variant: nonAppleExceptOhosLtpo,
   );
 
   testWidgets(

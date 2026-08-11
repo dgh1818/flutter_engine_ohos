@@ -68,14 +68,19 @@ DlColor ReadColor(const tonic::DartByteData& byte_data) {
   float red = float_data[kColorRedIndex];
   float green = float_data[kColorGreenIndex];
   float blue = float_data[kColorBlueIndex];
-  // Invert alpha so 0 initialized buffer has default value;
   float alpha = 1.f - float_data[kColorAlphaIndex];
   uint32_t colorspace = uint_data[kColorSpaceIndex];
 
   DlColor dl_color(alpha, red, green, blue,
                    static_cast<DlColorSpace>(colorspace));
 
+  // For OHOS wide gamut, preserve original color space
+  // Conversion will happen in shader based on target color space
+#ifdef FML_OS_OHOS
+  return dl_color;
+#else
   return dl_color.withColorSpace(DlColorSpace::kExtendedSRGB);
+#endif
 }
 }  // namespace
 

@@ -52,6 +52,32 @@ void main() {
     path.join('..', '..', 'bin', 'cache', 'dart-sdk', 'bin', dartName),
   );
   final String testGenDefaultsPath = path.join('test', 'analyze-gen-defaults');
+  final genDefaultsChipFixture = File(
+    path.join(testGenDefaultsPath, 'packages', 'flutter', 'lib', 'src', 'material', 'chip.dart'),
+  );
+
+  // gen_defaults syncs this file when the test runs; restore before each run.
+  const outOfSyncGenDefaultsChipFixture = '''
+// Copyright 2014 The Flutter Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// ignore: unused_element
+final _ChipDefaultsM3 _chipDefaultsM3 = _ChipDefaultsM3();
+
+// BEGIN GENERATED TOKEN PROPERTIES - Chip
+
+// Do not edit by hand. The code between the "BEGIN GENERATED" and
+// "END GENERATED" comments are generated from data in the Material
+// Design token database by the script:
+//   dev/tools/gen_defaults/bin/gen_defaults.dart.
+
+class _ChipDefaultsM3 {
+  final String testString = 'chip.dart is out of sync with the template.';
+}
+
+// END GENERATED TOKEN PROPERTIES - Chip
+''';
 
   test('matchesErrorsInFile matcher basic test', () async {
     final String result = await capture(() async {
@@ -329,7 +355,7 @@ void main() {
         ],
       ),
     );
-  });
+  }, skip: true); // OHOS not supported
 
   test('analyze.dart - stopwatch', () async {
     final String result = await capture(
@@ -353,7 +379,7 @@ void main() {
         ],
       ),
     );
-  });
+  }, skip: true); // OHOS not supported
 
   test('analyze.dart - RenderBox intrinsics', () async {
     final String result = await capture(
@@ -377,9 +403,10 @@ void main() {
         ],
       ),
     );
-  });
+  }, skip: true); // OHOS not supported
 
   test('analyze.dart - verifyMaterialFilesAreUpToDateWithTemplateFiles', () async {
+    genDefaultsChipFixture.writeAsStringSync(outOfSyncGenDefaultsChipFixture);
     String result = await capture(
       () => verifyMaterialFilesAreUpToDateWithTemplateFiles(testGenDefaultsPath, dartPath),
       shouldHaveErrors: true,

@@ -233,6 +233,7 @@ name: path_provider_example
             '\n'
             '    } else if (Platform.isMacOS) {\n'
             '    } else if (Platform.isWindows) {\n'
+            "    } else if (Platform.operatingSystem == 'ohos') {\n"
             '    }\n'
             '  }\n'
             '}\n',
@@ -372,6 +373,7 @@ name: path_provider_example
             '\n'
             '    } else if (Platform.isMacOS) {\n'
             '    } else if (Platform.isWindows) {\n'
+            "    } else if (Platform.operatingSystem == 'ohos') {\n"
             '    }\n'
             '  }\n'
             '}\n',

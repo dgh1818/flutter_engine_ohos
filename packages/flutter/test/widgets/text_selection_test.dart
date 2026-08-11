@@ -707,29 +707,34 @@ void main() {
     }),
   );
 
-  testWidgets('test TextSelectionGestureDetectorBuilder tap', (WidgetTester tester) async {
-    await pumpTextSelectionGestureDetectorBuilder(tester);
-    final TestGesture gesture = await tester.startGesture(const Offset(200.0, 200.0), pointer: 0);
-    await gesture.up();
-    await tester.pumpAndSettle();
+  testWidgets(
+    'test TextSelectionGestureDetectorBuilder tap',
+    (WidgetTester tester) async {
+      await pumpTextSelectionGestureDetectorBuilder(tester);
+      final TestGesture gesture = await tester.startGesture(const Offset(200.0, 200.0), pointer: 0);
+      await gesture.up();
+      await tester.pumpAndSettle();
 
-    final FakeEditableTextState state = tester.state(find.byType(FakeEditableText));
-    final FakeRenderEditable renderEditable = tester.renderObject(find.byType(FakeEditable));
-    expect(state.showToolbarCalled, isFalse);
+      final FakeEditableTextState state = tester.state(find.byType(FakeEditableText));
+      final FakeRenderEditable renderEditable = tester.renderObject(find.byType(FakeEditable));
+      expect(state.showToolbarCalled, isFalse);
 
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.iOS:
-        expect(renderEditable.selectWordEdgeCalled, isTrue);
-        expect(renderEditable.lastCause, SelectionChangedCause.tap);
-      case TargetPlatform.macOS:
-      case TargetPlatform.android:
-      case TargetPlatform.fuchsia:
-      case TargetPlatform.linux:
-      case TargetPlatform.windows:
-        expect(renderEditable.selectPositionAtCalled, isTrue);
-        expect(renderEditable.lastCause, SelectionChangedCause.tap);
-    }
-  }, variant: TargetPlatformVariant.all());
+      switch (defaultTargetPlatform) {
+        case TargetPlatform.iOS:
+          expect(renderEditable.selectWordEdgeCalled, isTrue);
+          expect(renderEditable.lastCause, SelectionChangedCause.tap);
+        case TargetPlatform.ohos:
+        case TargetPlatform.macOS:
+        case TargetPlatform.android:
+        case TargetPlatform.fuchsia:
+        case TargetPlatform.linux:
+        case TargetPlatform.windows:
+          expect(renderEditable.selectPositionAtCalled, isTrue);
+          expect(renderEditable.lastCause, SelectionChangedCause.tap);
+      }
+    },
+    variant: TargetPlatformVariant.all(excluding: <TargetPlatform>{TargetPlatform.ohos}),
+  );
 
   testWidgets(
     'test TextSelectionGestureDetectorBuilder toggles toolbar on single tap on previous selection iOS',
@@ -748,6 +753,7 @@ void main() {
       await tester.pumpAndSettle();
 
       switch (defaultTargetPlatform) {
+        case TargetPlatform.ohos:
         case TargetPlatform.iOS:
           expect(renderEditable.selectWordEdgeCalled, isFalse);
           expect(state.toggleToolbarCalled, isTrue);
@@ -760,7 +766,7 @@ void main() {
           expect(renderEditable.lastCause, SelectionChangedCause.tap);
       }
     },
-    variant: TargetPlatformVariant.all(),
+    variant: TargetPlatformVariant.all(excluding: <TargetPlatform>{TargetPlatform.ohos}),
   );
 
   testWidgets(

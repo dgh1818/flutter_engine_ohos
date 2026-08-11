@@ -61,6 +61,7 @@ void expectCupertinoToolbarForPartialSelection() {
       expect(find.text('Cut'), findsOneWidget);
       expect(find.text('Copy'), findsOneWidget);
       expect(find.text('Paste'), findsOneWidget);
+    case TargetPlatform.ohos:
     case TargetPlatform.fuchsia:
     case TargetPlatform.linux:
     case TargetPlatform.windows:
@@ -82,6 +83,7 @@ void expectCupertinoToolbarForFullSelection() {
 
   switch (defaultTargetPlatform) {
     case TargetPlatform.android:
+    case TargetPlatform.ohos:
       expect(find.byType(CupertinoButton), findsNWidgets(4));
       expect(find.text('Cut'), findsOneWidget);
       expect(find.text('Copy'), findsOneWidget);
@@ -115,6 +117,7 @@ void expectCupertinoToolbarForCollapsedSelection() {
 
   switch (defaultTargetPlatform) {
     case TargetPlatform.android:
+    case TargetPlatform.ohos:
       expect(find.byType(CupertinoButton), findsNWidgets(4));
       expect(find.text('Cut'), findsOneWidget);
       expect(find.text('Copy'), findsOneWidget);
@@ -147,6 +150,7 @@ void expectMaterialToolbarForPartialSelection() {
 
   switch (defaultTargetPlatform) {
     case TargetPlatform.android:
+    case TargetPlatform.ohos:
       expect(find.byType(TextButton), findsNWidgets(5));
       expect(find.text('Cut'), findsOneWidget);
       expect(find.text('Copy'), findsOneWidget);
@@ -176,6 +180,7 @@ void expectMaterialToolbarForFullSelection() {
 
   switch (defaultTargetPlatform) {
     case TargetPlatform.android:
+    case TargetPlatform.ohos:
       expect(find.byType(TextButton), findsNWidgets(4));
       expect(find.text('Cut'), findsOneWidget);
       expect(find.text('Copy'), findsOneWidget);

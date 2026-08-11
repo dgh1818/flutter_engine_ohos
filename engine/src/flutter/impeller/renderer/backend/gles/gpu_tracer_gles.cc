@@ -64,6 +64,10 @@ void GPUTracerGLES::ProcessQueries(const ProcTableGLES& gl) {
     gl.GetQueryObjectui64vEXT(query, GL_QUERY_RESULT_EXT, &duration);
     auto gpu_ms = duration / 1000000.0;
 
+    TRACE_EVENT0("flutter-GPUTracer",
+                 std::string(std::to_string(reinterpret_cast<int64_t>(this)) +
+                             "-FrameTimeMS-" + std::to_string(gpu_ms))
+                     .c_str());
     FML_TRACE_COUNTER("flutter", "GPUTracer",
                       reinterpret_cast<int64_t>(this),  // Trace Counter ID
                       "FrameTimeMS", gpu_ms);

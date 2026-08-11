@@ -280,23 +280,28 @@ TEST(DisplayListColor, ColorSpaceP3ToP3) {
             p3.withColorSpace(DlColorSpace::kDisplayP3));
 }
 
+// OHos-specific behavior: P3 -> ExtendedSRGB does not perform numeric
+// conversion at the C++ layer. withColorSpace only switches the color space
+// label, preserving the original color values unchanged; the actual color
+// space conversion is performed by the OHOS wide-gamut shader at the
+// rendering stage. See the kExtendedSRGB/kDisplayP3 branch of withColorSpace
+// in dl_color.cc.
+// (Upstream Flutter performs the conversion at the C++ layer, so the
+// original test expected values are post-conversion numbers; after the OHos
+// fork switched to shader-based conversion, this test must be updated
+// accordingly.)
 TEST(DisplayListColor, ColorSpaceP3ToExtendedSRGB) {
   DlColor red(0.9, 1.0, 0.0, 0.0, DlColorSpace::kDisplayP3);
-  EXPECT_TRUE(
-      DlColor(0.9, 1.0931, -0.2268, -0.1501, DlColorSpace::kExtendedSRGB)
-          .isClose(red.withColorSpace(DlColorSpace::kExtendedSRGB)))
-      << red.withColorSpace(DlColorSpace::kExtendedSRGB);
+  EXPECT_EQ(DlColor(0.9, 1.0, 0.0, 0.0, DlColorSpace::kExtendedSRGB),
+            red.withColorSpace(DlColorSpace::kExtendedSRGB));
 
   DlColor green(0.9, 0.0, 1.0, 0.0, DlColorSpace::kDisplayP3);
-  EXPECT_TRUE(
-      DlColor(0.9, -0.5116, 1.0183, -0.3106, DlColorSpace::kExtendedSRGB)
-          .isClose(green.withColorSpace(DlColorSpace::kExtendedSRGB)))
-      << green.withColorSpace(DlColorSpace::kExtendedSRGB);
+  EXPECT_EQ(DlColor(0.9, 0.0, 1.0, 0.0, DlColorSpace::kExtendedSRGB),
+            green.withColorSpace(DlColorSpace::kExtendedSRGB));
 
   DlColor blue(0.9, 0.0, 0.0, 1.0, DlColorSpace::kDisplayP3);
-  EXPECT_TRUE(DlColor(0.9, -0.0004, 0.0003, 1.0420, DlColorSpace::kExtendedSRGB)
-                  .isClose(blue.withColorSpace(DlColorSpace::kExtendedSRGB)))
-      << blue.withColorSpace(DlColorSpace::kExtendedSRGB);
+  EXPECT_EQ(DlColor(0.9, 0.0, 0.0, 1.0, DlColorSpace::kExtendedSRGB),
+            blue.withColorSpace(DlColorSpace::kExtendedSRGB));
 }
 
 // Verifies that P3-to-sRGB conversion operates in linear light.

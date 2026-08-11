@@ -15,7 +15,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
-
 import 'basic.dart';
 import 'framework.dart';
 import 'primary_scroll_controller.dart';

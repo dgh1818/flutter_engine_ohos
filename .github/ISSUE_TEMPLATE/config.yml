@@ -1,5 +1,5 @@
-blank_issues_enabled: true
+blank_issues_enabled: false
 contact_links:
-  - name: I want help writing my application
+  - name: 需要应用开发方面的帮助
     url: https://stackoverflow.com/tags/flutter
-    about: Ask your questions about how to achieve a particular effect in Flutter or get help with using a particular API.
+    about: 在这里提问如何在 Flutter 中实现特定效果，或获取特定 API 的使用帮助。

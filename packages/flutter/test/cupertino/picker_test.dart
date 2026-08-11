@@ -547,7 +547,10 @@ void main() {
       },
       variant: TargetPlatformVariant(
         TargetPlatform.values
-            .where((TargetPlatform platform) => platform != TargetPlatform.iOS)
+            .where(
+              (TargetPlatform platform) =>
+                  platform != TargetPlatform.iOS && platform != TargetPlatform.ohos,
+            )
             .toSet(),
       ),
     );

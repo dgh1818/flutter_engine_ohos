@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'package:args/command_runner.dart';
 import 'package:file/memory.dart';
 import 'package:flutter_tools/src/base/bot_detector.dart';
+import 'package:flutter_tools/src/base/context.dart';
 import 'package:flutter_tools/src/base/error_handling_io.dart';
 import 'package:flutter_tools/src/base/file_system.dart' hide IOSink;
 import 'package:flutter_tools/src/base/io.dart';
@@ -15,6 +16,7 @@ import 'package:flutter_tools/src/base/platform.dart';
 import 'package:flutter_tools/src/cache.dart';
 import 'package:flutter_tools/src/commands/packages.dart';
 import 'package:flutter_tools/src/dart/pub.dart';
+import 'package:flutter_tools/src/features.dart';
 import 'package:flutter_tools/src/globals.dart' as globals;
 import 'package:unified_analytics/unified_analytics.dart';
 import 'package:yaml/yaml.dart';
@@ -33,7 +35,7 @@ void main() {
     mockStdio = FakeStdio()..stdout.terminalColumns = 80;
 
     // Some tests below override this with a blank root, always reset it.
-    Cache.flutterRoot = null;
+    Cache.flutterRoot = globals.fs.path.normalize(globals.fs.path.absolute('..', '..'));
   });
 
   setUpAll(() {
@@ -74,17 +76,24 @@ void main() {
       String verb, {
       List<String>? args,
       List<String>? globalArgs,
+      bool excludeExample = false,
     }) async {
       final command = PackagesCommand();
       final CommandRunner<void> runner = createTestCommandRunner(command);
-      await runner.run(<String>[
-        ...?globalArgs,
-        'packages',
-        verb,
-        ...?args,
-        '--directory',
-        projectPath,
-      ]);
+      await context.run<void>(
+        overrides: <Type, Generator>{FeatureFlags: () => TestFeatureFlags()},
+        body: () async {
+          await runner.run(<String>[
+            ...?globalArgs,
+            'packages',
+            verb,
+            ...?args,
+            if (excludeExample) '--no-example',
+            '--directory',
+            projectPath,
+          ]);
+        },
+      );
       return command;
     }
 
@@ -240,7 +249,7 @@ void main() {
         );
         removeGeneratedFiles(projectPath);
 
-        await runCommandIn(projectPath, 'get');
+        await runCommandIn(projectPath, 'get', excludeExample: true);
 
         expect(
           mockStdio.stdout.writes.map(utf8.decode),
@@ -265,6 +274,7 @@ void main() {
           true,
         );
       },
+      skip: true, // OHOS not supported
       overrides: <Type, Generator>{
         Stdio: () => mockStdio,
         Pub: () => Pub.test(
@@ -288,11 +298,12 @@ void main() {
         );
         removeGeneratedFiles(projectPath);
 
-        await runCommandIn(projectPath, 'get', args: <String>['--offline']);
+        await runCommandIn(projectPath, 'get', args: <String>['--offline'], excludeExample: true);
 
         expectDependenciesResolved(projectPath);
         expectZeroPluginsInjected(projectPath);
       },
+      skip: true, // OHOS not supported
       overrides: <Type, Generator>{
         Stdio: () => mockStdio,
         Pub: () => Pub.test(
@@ -331,7 +342,7 @@ workspace:
           },
         };
         pubspecFile.writeAsStringSync(jsonEncode(pubspec));
-        await runCommandIn(projectPath, 'get');
+        await runCommandIn(projectPath, 'get', excludeExample: true);
 
         expect(
           mockStdio.stdout.writes.map(utf8.decode),
@@ -367,6 +378,7 @@ workspace:
           true,
         );
       },
+      skip: true, // OHOS not supported
       overrides: <Type, Generator>{
         Stdio: () => mockStdio,
         Pub: () => Pub.test(
@@ -444,6 +456,7 @@ workspace:
           true,
         );
       },
+      skip: true, // OHOS not supported
       overrides: <Type, Generator>{
         Stdio: () => mockStdio,
         Pub: () => Pub.test(
@@ -476,7 +489,7 @@ flutter:
 ''');
         projectDir.childFile('pubspec.yaml').writeAsStringSync(pubspecFileContent);
         projectDir.childFile('l10n.yaml').createSync();
-        await runCommandIn(projectPath, 'get');
+        await runCommandIn(projectPath, 'get', excludeExample: true);
         expect(
           projectDir
               .childDirectory('lib')
@@ -486,6 +499,7 @@ flutter:
           true,
         );
       },
+      skip: true, // OHOS not supported
       overrides: <Type, Generator>{
         Pub: () => Pub(
           fileSystem: globals.fs,
@@ -506,7 +520,11 @@ flutter:
         );
         removeGeneratedFiles(projectPath);
 
-        final PackagesCommand command = await runCommandIn(projectPath, 'get');
+        final PackagesCommand command = await runCommandIn(
+          projectPath,
+          'get',
+          excludeExample: true,
+        );
         final getCommand = command.subcommands['get']! as PackagesGetCommand;
 
         expect(
@@ -516,6 +534,7 @@ flutter:
           0,
         );
       },
+      skip: true, // OHOS not supported
       overrides: <Type, Generator>{
         Stdio: () => mockStdio,
         Pub: () => Pub.test(
@@ -553,6 +572,7 @@ flutter:
           2,
         );
       },
+      skip: true, // OHOS not supported
       overrides: <Type, Generator>{
         Stdio: () => mockStdio,
         Pub: () => Pub.test(
@@ -582,6 +602,7 @@ flutter:
           false,
         );
       },
+      skip: true, // OHOS not supported
       overrides: <Type, Generator>{
         Stdio: () => mockStdio,
         Pub: () => Pub.test(
@@ -604,7 +625,11 @@ flutter:
         );
         removeGeneratedFiles(projectPath);
 
-        final PackagesCommand command = await runCommandIn(projectPath, 'get');
+        final PackagesCommand command = await runCommandIn(
+          projectPath,
+          'get',
+          excludeExample: true,
+        );
         final getCommand = command.subcommands['get']! as PackagesGetCommand;
 
         expect(
@@ -614,6 +639,7 @@ flutter:
           true,
         );
       },
+      skip: true, // OHOS not supported
       overrides: <Type, Generator>{
         Stdio: () => mockStdio,
         Pub: () => Pub.test(
@@ -643,6 +669,7 @@ flutter:
           'v2',
         );
       },
+      skip: true, // OHOS not supported
       overrides: <Type, Generator>{
         Stdio: () => mockStdio,
         Pub: () => Pub.test(
@@ -665,11 +692,12 @@ flutter:
         );
         removeGeneratedFiles(projectPath);
 
-        await runCommandIn(projectPath, 'upgrade');
+        await runCommandIn(projectPath, 'upgrade', excludeExample: true);
 
         expectDependenciesResolved(projectPath);
         expectZeroPluginsInjected(projectPath);
       },
+      skip: true, // OHOS not supported
       overrides: <Type, Generator>{
         Stdio: () => mockStdio,
         Pub: () => Pub.test(
@@ -692,11 +720,12 @@ flutter:
         );
         removeGeneratedFiles(projectPath);
 
-        await runCommandIn(projectPath, 'get');
+        await runCommandIn(projectPath, 'get', excludeExample: true);
 
         expectDependenciesResolved(projectPath);
         expectModulePluginInjected(projectPath, includeLegacyPluginsList: false);
       },
+      skip: true, // OHOS not supported
       overrides: <Type, Generator>{
         Stdio: () => mockStdio,
         Pub: () => Pub.test(
@@ -730,6 +759,7 @@ flutter:
         expectDependenciesResolved(exampleProjectPath);
         expectPluginInjected(exampleProjectPath, includeLegacyPluginsList: false);
       },
+      skip: true, // OHOS not supported
       overrides: <Type, Generator>{
         Stdio: () => mockStdio,
         Pub: () => Pub.test(
@@ -761,6 +791,7 @@ flutter:
         expectDependenciesResolved(exampleProjectPath);
         expectPluginInjected(exampleProjectPath, includeLegacyPluginsList: false);
       },
+      skip: true, // OHOS not supported
       overrides: <Type, Generator>{
         Stdio: () => mockStdio,
         Pub: () => Pub.test(

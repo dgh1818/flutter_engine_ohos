@@ -6,6 +6,7 @@
 
 #include "flutter/common/constants.h"
 #include "flutter/flow/frame_timings.h"
+#include "flutter/fml/logging.h"
 #include "flutter/fml/time/time_point.h"
 #include "flutter/fml/trace_event.h"
 #include "third_party/dart/runtime/include/dart_tools_api.h"
@@ -237,6 +238,7 @@ void Animator::DrawLastLayerTrees(
 }
 
 void Animator::RequestFrame(bool regenerate_layer_trees) {
+  TRACE_EVENT0("flutter", "Animator::RequestFrame");
   if (regenerate_layer_trees && !regenerate_layer_trees_) {
     // This event will be closed by BeginFrame. BeginFrame will only be called
     // if regenerating the layer trees. If a frame has been requested to update
@@ -250,6 +252,7 @@ void Animator::RequestFrame(bool regenerate_layer_trees) {
   if (!pending_frame_semaphore_.TryWait()) {
     // Multiple calls to Animator::RequestFrame will still result in a
     // single request to the VsyncWaiter.
+    TRACE_EVENT0("flutter", "Animator::pending_frame_semaphore");
     return;
   }
 
@@ -271,6 +274,7 @@ void Animator::RequestFrame(bool regenerate_layer_trees) {
 }
 
 void Animator::AwaitVSync() {
+  TRACE_EVENT0("flutter", "Animator::AwaitVSync");
   waiter_->AsyncWaitForVsync(
       [self = weak_factory_.GetWeakPtr()](
           std::unique_ptr<FrameTimingsRecorder> frame_timings_recorder) {

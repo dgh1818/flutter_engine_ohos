@@ -67,6 +67,10 @@ SkISize APNGImageGenerator::GetScaledDimensions(float desired_scale) {
   return image_info_.dimensions();
 }
 
+uint32_t APNGImageGenerator::GetColorSpace(unsigned int frame_index) {
+  return 0;
+}
+
 bool APNGImageGenerator::GetPixels(const SkImageInfo& info,
                                    void* pixels,
                                    size_t row_bytes,

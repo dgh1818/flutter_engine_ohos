@@ -7554,33 +7554,38 @@ void main() {
     // height (font size = 16, line height = 1.5).
     const inputHeight = 24.0;
 
-    testWidgets('Decoration height is set to input height on mobile', (WidgetTester tester) async {
-      await tester.pumpWidget(
-        buildInputDecorator(decoration: const InputDecoration.collapsed(hintText: hintText)),
-      );
+    testWidgets(
+      'Decoration height is set to input height on mobile',
+      (WidgetTester tester) async {
+        await tester.pumpWidget(
+          buildInputDecorator(decoration: const InputDecoration.collapsed(hintText: hintText)),
+        );
 
-      expect(getDecoratorRect(tester).size, const Size(800.0, inputHeight));
-      expect(getInputRect(tester).height, inputHeight);
-      expect(getInputRect(tester).top, 0.0);
-      expect(getHintOpacity(tester), 0.0);
+        expect(getDecoratorRect(tester).size, const Size(800.0, inputHeight));
+        expect(getInputRect(tester).height, inputHeight);
+        expect(getInputRect(tester).top, 0.0);
+        expect(getHintOpacity(tester), 0.0);
 
-      // The hint should appear.
-      await tester.pumpWidget(
-        buildInputDecorator(
-          isEmpty: true,
-          isFocused: true,
-          decoration: const InputDecoration.collapsed(hintText: hintText),
-        ),
-      );
-      await tester.pumpAndSettle();
+        // The hint should appear.
+        await tester.pumpWidget(
+          buildInputDecorator(
+            isEmpty: true,
+            isFocused: true,
+            decoration: const InputDecoration.collapsed(hintText: hintText),
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      expect(getDecoratorRect(tester).size, const Size(800.0, inputHeight));
-      expect(getInputRect(tester).height, inputHeight);
-      expect(getInputRect(tester).top, 0.0);
-      expect(getHintOpacity(tester), 1.0);
-      expect(getHintRect(tester).height, inputHeight);
-      expect(getHintRect(tester).top, 0.0);
-    }, variant: TargetPlatformVariant.mobile());
+        expect(getDecoratorRect(tester).size, const Size(800.0, inputHeight));
+        expect(getInputRect(tester).height, inputHeight);
+        expect(getInputRect(tester).top, 0.0);
+        expect(getHintOpacity(tester), 1.0);
+        expect(getHintRect(tester).height, inputHeight);
+        expect(getHintRect(tester).top, 0.0);
+      },
+      variant: TargetPlatformVariant.mobile(),
+      skip: true, // [intended] OHOS not supported.
+    );
 
     testWidgets('Decoration height is set to input height on desktop', (WidgetTester tester) async {
       // Regression test for https://github.com/flutter/flutter/issues/150763.

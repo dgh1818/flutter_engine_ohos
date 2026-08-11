@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+@Tags(<String>['web'])
+library;
+
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 

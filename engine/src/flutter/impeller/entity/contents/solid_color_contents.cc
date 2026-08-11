@@ -28,6 +28,33 @@ const Geometry* SolidColorContents::GetGeometry() const {
   return geometry_;
 }
 
+#ifdef FML_OS_OHOS
+void SolidColorContents::SetColorWithSpace(
+    Color color,
+    ColorSpace color_space) {
+  color_ = color;
+  source_color_space_ = color_space;
+}
+
+void SolidColorContents::SetSourceColorSpace(
+    ColorSpace color_space) {
+  source_color_space_ = color_space;
+}
+
+ColorSpace SolidColorContents::GetSourceColorSpace() const {
+  return source_color_space_;
+}
+
+void SolidColorContents::SetTargetColorSpace(
+    ColorSpace color_space) {
+  target_color_space_ = color_space;
+}
+
+ColorSpace SolidColorContents::GetTargetColorSpace() const {
+  return target_color_space_;
+}
+#endif
+
 bool SolidColorContents::IsSolidColor() const {
   return true;
 }
@@ -60,6 +87,16 @@ bool SolidColorContents::Render(const ContentContext& renderer,
   FS::FragInfo frag_info;
   frag_info.color = GetColor().Premultiply() *
                     GetGeometry()->ComputeAlphaCoverage(entity.GetTransform());
+
+#ifdef FML_OS_OHOS
+  float source_color_space = static_cast<float>(source_color_space_);
+  float target_color_space = static_cast<float>(renderer.GetTargetColorSpace());
+  frag_info.source_color_space = source_color_space;
+  frag_info.target_color_space = target_color_space;
+#else
+  frag_info.source_color_space = 0.0f;
+  frag_info.target_color_space = 0.0f;
+#endif
 
   PipelineBuilderCallback pipeline_callback =
       [&renderer](ContentContextOptions options) {

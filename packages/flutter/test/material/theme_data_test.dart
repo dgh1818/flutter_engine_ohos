@@ -132,6 +132,7 @@ void main() {
     (WidgetTester tester) async {
       final themeData = ThemeData(platform: defaultTargetPlatform);
       switch (defaultTargetPlatform) {
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
         case TargetPlatform.iOS:
@@ -969,6 +970,7 @@ void main() {
         case TargetPlatform.linux:
         case TargetPlatform.macOS:
         case TargetPlatform.windows:
+        case TargetPlatform.ohos:
           expect(theme.splashFactory, equals(InkRipple.splashFactory));
       }
     },
@@ -981,6 +983,7 @@ void main() {
       final theme = ThemeData(useMaterial3: false);
 
       switch (debugDefaultTargetPlatformOverride!) {
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.iOS:
         case TargetPlatform.fuchsia:
@@ -997,6 +1000,7 @@ void main() {
     'VisualDensity.adaptivePlatformDensity returns adaptive values',
     (WidgetTester tester) async {
       switch (debugDefaultTargetPlatformOverride!) {
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.iOS:
         case TargetPlatform.fuchsia:
@@ -1017,6 +1021,7 @@ void main() {
         case TargetPlatform.android:
         case TargetPlatform.iOS:
         case TargetPlatform.fuchsia:
+        case TargetPlatform.ohos:
           expect(
             VisualDensity.defaultDensityForPlatform(debugDefaultTargetPlatformOverride!),
             equals(VisualDensity.standard),
@@ -1038,6 +1043,7 @@ void main() {
     (WidgetTester tester) async {
       final themeData = ThemeData();
       switch (debugDefaultTargetPlatformOverride!) {
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.iOS:
         case TargetPlatform.fuchsia:
@@ -1065,6 +1071,7 @@ void main() {
         case TargetPlatform.linux:
         case TargetPlatform.macOS:
         case TargetPlatform.windows:
+        case TargetPlatform.ohos:
           expect(themeData.visualDensity, equals(VisualDensity.standard));
         case TargetPlatform.android:
           expect(themeData.visualDensity, equals(VisualDensity.compact));

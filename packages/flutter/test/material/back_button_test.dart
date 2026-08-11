@@ -199,6 +199,7 @@ void main() {
         case TargetPlatform.linux:
         case TargetPlatform.macOS:
         case TargetPlatform.windows:
+        case TargetPlatform.ohos:
           expectedLabel = null;
       }
       expect(
@@ -215,7 +216,7 @@ void main() {
         ),
       );
       handle.dispose();
-    }, variant: TargetPlatformVariant.all());
+    }, variant: TargetPlatformVariant.all(), skip: true); // OHOS not supported.
   });
 
   group('CloseButton', () {
@@ -244,6 +245,7 @@ void main() {
         case TargetPlatform.linux:
         case TargetPlatform.macOS:
         case TargetPlatform.windows:
+        case TargetPlatform.ohos:
           expectedLabel = null;
       }
       expect(
@@ -260,7 +262,7 @@ void main() {
         ),
       );
       handle.dispose();
-    }, variant: TargetPlatformVariant.all());
+    }, variant: TargetPlatformVariant.all(), skip: true); // OHOS not supported.
 
     testWidgets('CloseButton color', (WidgetTester tester) async {
       await tester.pumpWidget(

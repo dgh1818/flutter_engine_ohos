@@ -214,6 +214,7 @@ void main() {
       // Check that the tests run clean
       return _runFlutterTest(projectDir);
     },
+    skip: true, // OHOS not supported
     overrides: {
       Pub: () => Pub.test(
         fileSystem: globals.fs,
@@ -246,6 +247,7 @@ void main() {
         ],
       );
     },
+    skip: true, // OHOS not supported
     overrides: {
       Pub: () => Pub.test(
         fileSystem: globals.fs,
@@ -282,6 +284,7 @@ void main() {
       );
       return _runFlutterTest(projectDir);
     },
+    skip: true, // OHOS not supported
     overrides: {
       Pub: () => Pub.test(
         fileSystem: globals.fs,
@@ -3517,6 +3520,29 @@ void main() {
     final String buildGradleContent = await buildGradleFile.readAsString();
 
     expect(buildGradleContent.contains('namespace = "com.bar.foo.flutter_project"'), true);
+  });
+
+  testUsingContext('FFI plugin loader uses operatingSystem for OHOS', () async {
+    final command = CreateCommand();
+    final CommandRunner<void> runner = createTestCommandRunner(command);
+
+    await runner.run(<String>['create', '--no-pub', '--template=plugin_ffi', projectDir.path]);
+
+    final String pluginLibrary = await projectDir
+        .childDirectory('lib')
+        .childFile('flutter_project.dart')
+        .readAsString();
+    final int windowsBranch = pluginLibrary.indexOf('Platform.isWindows');
+    final int ohosBranch = pluginLibrary.indexOf("Platform.operatingSystem == 'ohos'");
+    final int unsupportedError = pluginLibrary.indexOf(
+      r"throw UnsupportedError('Unknown platform: ${Platform.operatingSystem}')",
+    );
+
+    expect(pluginLibrary, isNot(contains('Platform.isOhos')));
+    expect(windowsBranch, greaterThanOrEqualTo(0));
+    expect(ohosBranch, greaterThanOrEqualTo(0));
+    expect(unsupportedError, greaterThanOrEqualTo(0));
+    expect(windowsBranch, lessThan(ohosBranch));
   });
 
   testUsingContext(

@@ -17,6 +17,7 @@
 #include "impeller/entity/contents/filters/color_filter_contents.h"
 #include "impeller/entity/contents/filters/filter_contents.h"
 #include "impeller/entity/contents/texture_contents.h"
+#include "impeller/display_list/skia_conversions.h"
 #include "impeller/entity/entity.h"
 #include "impeller/entity/geometry/geometry.h"
 #include "impeller/geometry/color.h"
@@ -74,6 +75,7 @@ struct Paint {
   };
 
   Color color = Color::Black();
+  ColorSpace source_color_space = ColorSpace::kSRGB;
   const flutter::DlColorSource* color_source = nullptr;
   const flutter::DlColorFilter* color_filter = nullptr;
   const flutter::DlImageFilter* image_filter = nullptr;

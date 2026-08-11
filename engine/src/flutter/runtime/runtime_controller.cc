@@ -15,6 +15,9 @@
 #include "flutter/runtime/dart_isolate_group_data.h"
 #include "flutter/runtime/isolate_configuration.h"
 #include "flutter/runtime/runtime_delegate.h"
+#ifdef FML_OS_OHOS
+#include "third_party/dart/runtime/include/dart_tools_api.h"
+#endif  // FML_OS_OHOS
 #include "third_party/tonic/dart_message_handler.h"
 
 namespace flutter {
@@ -625,6 +628,30 @@ uint64_t RuntimeController::GetRootIsolateGroup() const {
     return 0;
   }
 }
+
+#ifdef FML_OS_OHOS
+RuntimeController::DartHeapUsage RuntimeController::GetDartHeapUsage() const {
+  DartHeapUsage usage = {0, 0, 0, 0};
+  auto isolate = root_isolate_.lock();
+  if (!isolate) {
+    FML_LOG(WARNING) << "GetDartHeapUsage: root_isolate is invalid";
+    return usage;
+  }
+  
+  auto isolate_scope = tonic::DartIsolateScope(isolate->isolate());
+  Dart_IsolateGroup isolate_group = Dart_CurrentIsolateGroup();
+  if (!isolate_group) {
+    FML_LOG(WARNING) << "GetDartHeapUsage: isolate_group is nullptr";
+    return usage;
+  }
+  
+  usage.old_used = Dart_IsolateGroupHeapOldUsedMetric(isolate_group);
+  usage.old_capacity = Dart_IsolateGroupHeapOldCapacityMetric(isolate_group);
+  usage.new_used = Dart_IsolateGroupHeapNewUsedMetric(isolate_group);
+  usage.new_capacity = Dart_IsolateGroupHeapNewCapacityMetric(isolate_group);
+  return usage;
+}
+#endif  // FML_OS_OHOS
 
 void RuntimeController::LoadDartDeferredLibrary(
     intptr_t loading_unit_id,

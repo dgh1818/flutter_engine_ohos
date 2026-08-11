@@ -36,10 +36,13 @@ class FlutterCache extends Cache {
     registerArtifact(AndroidGenSnapshotArtifacts(this, platform: platform));
     registerArtifact(AndroidInternalBuildArtifacts(this));
     registerArtifact(IOSEngineArtifacts(this, platform: platform));
+    registerArtifact(OHOSGenSnapshotArtifacts(this, platform: platform));
+    registerArtifact(OHOSInternalBuildArtifacts(this));
     registerArtifact(FlutterWebSdk(this));
     registerArtifact(FlutterEngineStamp(this, logger));
     registerArtifact(LegacyCanvasKitRemover(this));
     registerArtifact(FlutterSdk(this, platform: platform));
+    registerArtifact(FlutterSdkOhos(this, platform: platform));
     registerArtifact(WindowsEngineArtifacts(this, platform: platform));
     registerArtifact(MacOSEngineArtifacts(this, platform: platform));
     registerArtifact(LinuxEngineArtifacts(this, platform: platform));
@@ -173,7 +176,7 @@ class FlutterWebSdk extends CachedArtifact {
   Directory get location => cache.getWebSdkDirectory();
 
   @override
-  String? get version => cache.engineRevision;
+  String? get version => cache.getVersionFor('engine.ohos');
 
   @override
   Future<void> updateInner(
@@ -182,7 +185,7 @@ class FlutterWebSdk extends CachedArtifact {
     OperatingSystemUtils operatingSystemUtils,
   ) async {
     final Uri url = Uri.parse(
-      '${cache.storageBaseUrl}/flutter_infra_release/flutter/$version/flutter-web-sdk.zip',
+      '${cache.ohosStorageBaseUrl}/flutter_infra_release/flutter/$version/flutter-web-sdk.zip',
     );
     ErrorHandlingFileSystem.deleteIfExists(location, recursive: true);
     await artifactUpdater.downloadZipArchive(displayName, url, location);
@@ -255,6 +258,7 @@ class FlutterSdk extends EngineCachedArtifact {
     : _platform = platform,
       super('flutter_sdk', cache, DevelopmentArtifact.universal);
 
+  // ignore: unused_field
   final Platform _platform;
 
   @override
@@ -265,11 +269,32 @@ class FlutterSdk extends EngineCachedArtifact {
 
   @override
   List<List<String>> getBinaryDirs() {
-    // Linux and Windows both support arm64 and x64.
-    final String arch = cache.getHostPlatformArchName();
     return <List<String>>[
       <String>['common', 'flutter_patched_sdk.zip'],
       <String>['common', 'flutter_patched_sdk_product.zip'],
+    ];
+  }
+
+  @override
+  List<String> getLicenseDirs() => const <String>[];
+}
+
+class FlutterSdkOhos extends EngineCachedArtifact {
+  FlutterSdkOhos(Cache cache, {required Platform platform})
+    : _platform = platform,
+      super('flutter_sdk_ohos', cache, DevelopmentArtifact.universal);
+
+  // ignore: unused_field
+  final Platform _platform;
+
+  @override
+  List<String> getPackageDirs() => const <String>[];
+
+  @override
+  List<List<String>> getBinaryDirs() {
+    // Currently only Linux supports both arm64 and x64.
+    final String arch = cache.getHostPlatformArchName();
+    return <List<String>>[
       if (cache.includeAllPlatforms) ...<List<String>>[
         <String>['windows-$arch', 'windows-$arch/artifacts.zip'],
         <String>['linux-$arch', 'linux-$arch/artifacts.zip'],
@@ -285,6 +310,12 @@ class FlutterSdk extends EngineCachedArtifact {
 
   @override
   List<String> getLicenseDirs() => const <String>[];
+
+  @override
+  String get storageBaseUrl => cache.ohosStorageBaseUrl;
+
+  @override
+  String? get version => cache.getVersionFor('engine.ohos');
 }
 
 class MacOSEngineArtifacts extends EngineCachedArtifact {
@@ -292,6 +323,7 @@ class MacOSEngineArtifacts extends EngineCachedArtifact {
     : _platform = platform,
       super('macos-sdk', cache, DevelopmentArtifact.macOS);
 
+  // ignore: unused_field
   final Platform _platform;
 
   @override
@@ -318,6 +350,7 @@ class WindowsEngineArtifacts extends EngineCachedArtifact {
     : _platform = platform,
       super('windows-sdk', cache, DevelopmentArtifact.windows);
 
+  // ignore: unused_field
   final Platform _platform;
 
   @override
@@ -345,6 +378,7 @@ class LinuxEngineArtifacts extends EngineCachedArtifact {
     : _platform = platform,
       super('linux-sdk', cache, DevelopmentArtifact.linux);
 
+  // ignore: unused_field
   final Platform _platform;
 
   @override
@@ -376,6 +410,7 @@ class AndroidGenSnapshotArtifacts extends EngineCachedArtifact {
     : _platform = platform,
       super('android-sdk', cache, DevelopmentArtifact.androidGenSnapshot);
 
+  // ignore: unused_field
   final Platform _platform;
 
   @override
@@ -419,6 +454,7 @@ class AndroidMavenArtifacts extends ArtifactSet {
       super(DevelopmentArtifact.androidMaven);
 
   final Java? _java;
+  // ignore: unused_field
   final Platform _platform;
   final Cache cache;
 
@@ -507,6 +543,7 @@ class IOSEngineArtifacts extends EngineCachedArtifact {
     : _platform = platform,
       super('ios-sdk', cache, DevelopmentArtifact.iOS);
 
+  // ignore: unused_field
   final Platform _platform;
 
   @override
@@ -529,6 +566,71 @@ class IOSEngineArtifacts extends EngineCachedArtifact {
   List<String> getPackageDirs() {
     return <String>[];
   }
+}
+
+/// The artifact used to generate snapshots for Ohos builds.
+class OHOSGenSnapshotArtifacts extends EngineCachedArtifact {
+  OHOSGenSnapshotArtifacts(Cache cache, {required Platform platform})
+    : _platform = platform,
+      super('ohos-sdk', cache, DevelopmentArtifact.ohosGenSnapshot);
+
+  // ignore: unused_field
+  final Platform _platform;
+
+  @override
+  List<String> getPackageDirs() => const <String>[];
+
+  @override
+  List<List<String>> getBinaryDirs() {
+    return <List<String>>[
+      if (cache.includeAllPlatforms) ...<List<String>>[
+        ..._osxBinaryDirsForOhos,
+        ..._linuxBinaryDirsForOhos,
+        ..._windowsBinaryDirsForOhos,
+        ..._dartSdks,
+      ] else if (_platform.isWindows)
+        ..._windowsBinaryDirsForOhos
+      else if (_platform.isMacOS)
+        ..._osxBinaryDirsForOhos
+      else if (_platform.isLinux)
+        ..._linuxBinaryDirsForOhos,
+    ];
+  }
+
+  @override
+  List<String> getLicenseDirs() {
+    return <String>[];
+  }
+
+  @override
+  String? get version => cache.getVersionFor('engine.ohos');
+
+  @override
+  String get storageBaseUrl => cache.ohosStorageBaseUrl;
+}
+
+class OHOSInternalBuildArtifacts extends EngineCachedArtifact {
+  OHOSInternalBuildArtifacts(Cache cache)
+    : super('ohos-internal-build-artifacts', cache, DevelopmentArtifact.ohosInternalBuild);
+
+  @override
+  List<String> getPackageDirs() => const <String>[];
+
+  @override
+  List<List<String>> getBinaryDirs() {
+    return _ohosBinaryDirs;
+  }
+
+  @override
+  List<String> getLicenseDirs() {
+    return <String>[];
+  }
+
+  @override
+  String get storageBaseUrl => cache.ohosStorageBaseUrl;
+
+  @override
+  String? get version => cache.getVersionFor('engine.ohos.har');
 }
 
 /// A cached artifact containing Gradle Wrapper scripts and binaries.
@@ -614,6 +716,7 @@ class FlutterRunnerSDKArtifacts extends CachedArtifact {
     : _platform = platform,
       super('flutter_runner', cache, DevelopmentArtifact.flutterRunner);
 
+  // ignore: unused_field
   final Platform _platform;
 
   @override
@@ -678,6 +781,7 @@ class FlutterRunnerDebugSymbols extends CachedArtifact {
        super('flutter_runner_debug_symbols', cache, DevelopmentArtifact.flutterRunner);
 
   final VersionedPackageResolver packageResolver;
+  // ignore: unused_field
   final Platform _platform;
 
   @override
@@ -722,6 +826,7 @@ class LinuxFuchsiaSDKArtifacts extends _FuchsiaSDKArtifacts {
     : _platform = platform,
       super(cache, 'linux');
 
+  // ignore: unused_field
   final Platform _platform;
 
   @override
@@ -743,6 +848,7 @@ class MacOSFuchsiaSDKArtifacts extends _FuchsiaSDKArtifacts {
     : _platform = platform,
       super(cache, 'mac');
 
+  // ignore: unused_field
   final Platform _platform;
 
   @override
@@ -764,6 +870,7 @@ class FontSubsetArtifacts extends EngineCachedArtifact {
     : _platform = platform,
       super(artifactName, cache, DevelopmentArtifact.universal);
 
+  // ignore: unused_field
   final Platform _platform;
 
   static const artifactName = 'font-subset';
@@ -804,6 +911,7 @@ class IosUsbArtifacts extends CachedArtifact {
     : _platform = platform,
       super(name, cache, DevelopmentArtifact.universal);
 
+  // ignore: unused_field
   final Platform _platform;
 
   @override
@@ -937,6 +1045,36 @@ const _androidBinaryDirs = <List<String>>[
   <String>['android-arm64-release', 'android-arm64-release/artifacts.zip'],
   <String>['android-x64-profile', 'android-x64-profile/artifacts.zip'],
   <String>['android-x64-release', 'android-x64-release/artifacts.zip'],
+];
+
+const _osxBinaryDirsForOhos = <List<String>>[
+  <String>['ohos-arm64-profile/darwin-x64', 'ohos-arm64-profile/darwin-x64.zip'],
+  <String>['ohos-arm64-release/darwin-x64', 'ohos-arm64-release/darwin-x64.zip'],
+  <String>['ohos-x64-profile/darwin-x64', 'ohos-x64-profile/darwin-x64.zip'],
+  <String>['ohos-x64-release/darwin-x64', 'ohos-x64-release/darwin-x64.zip'],
+];
+
+const _linuxBinaryDirsForOhos = <List<String>>[
+  <String>['ohos-arm64-profile/linux-x64', 'ohos-arm64-profile/linux-x64.zip'],
+  <String>['ohos-arm64-release/linux-x64', 'ohos-arm64-release/linux-x64.zip'],
+  <String>['ohos-x64-profile/linux-x64', 'ohos-x64-profile/linux-x64.zip'],
+  <String>['ohos-x64-release/linux-x64', 'ohos-x64-release/linux-x64.zip'],
+];
+
+const _windowsBinaryDirsForOhos = <List<String>>[
+  <String>['ohos-arm64-profile/windows-x64', 'ohos-arm64-profile/windows-x64.zip'],
+  <String>['ohos-arm64-release/windows-x64', 'ohos-arm64-release/windows-x64.zip'],
+  <String>['ohos-x64-profile/windows-x64', 'ohos-x64-profile/windows-x64.zip'],
+  <String>['ohos-x64-release/windows-x64', 'ohos-x64-release/windows-x64.zip'],
+];
+
+const _ohosBinaryDirs = <List<String>>[
+  <String>['ohos-arm64', 'ohos-arm64/artifacts.zip'],
+  <String>['ohos-arm64-profile', 'ohos-arm64-profile/artifacts.zip'],
+  <String>['ohos-arm64-release', 'ohos-arm64-release/artifacts.zip'],
+  <String>['ohos-x64', 'ohos-x64/artifacts.zip'],
+  <String>['ohos-x64-profile', 'ohos-x64-profile/artifacts.zip'],
+  <String>['ohos-x64-release', 'ohos-x64-release/artifacts.zip'],
 ];
 
 const _dartSdks = <List<String>>[

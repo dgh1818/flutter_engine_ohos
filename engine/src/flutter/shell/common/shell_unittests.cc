@@ -2345,7 +2345,9 @@ class SinglePixelImageGenerator : public ImageGenerator {
     reinterpret_cast<uint32_t*>(pixels)[0] = 0x00ff00ff;
     return true;
   };
-
+  uint32_t GetColorSpace(unsigned int frame_index) {
+    return 0;
+  }
  private:
   SkImageInfo info_;
 };

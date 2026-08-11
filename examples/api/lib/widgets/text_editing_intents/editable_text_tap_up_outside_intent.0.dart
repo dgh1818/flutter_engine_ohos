@@ -48,6 +48,7 @@ class _EditableTextTapUpOutsideIntentExampleState
       case .android:
       case .iOS:
       case .fuchsia:
+      case .ohos:
         // On mobile platforms, we don't unfocus on touch events unless they're
         // in the web browser, but we do unfocus for all other kinds of events.
         switch (intent.pointerDownEvent.kind) {

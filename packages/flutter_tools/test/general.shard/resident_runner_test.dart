@@ -2052,7 +2052,8 @@ flutter:
     expect(nextPlatform('windows'), 'macOS');
     expect(nextPlatform('macOS'), 'linux');
     expect(nextPlatform('linux'), 'fuchsia');
-    expect(nextPlatform('fuchsia'), 'android');
+    expect(nextPlatform('fuchsia'), 'ohos');
+    expect(nextPlatform('ohos'), 'android');
     expect(() => nextPlatform('unknown'), throwsAssertionError);
   });
 

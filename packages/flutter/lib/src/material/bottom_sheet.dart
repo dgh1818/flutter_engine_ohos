@@ -724,7 +724,8 @@ class _ModalBottomSheetState<T> extends State<_ModalBottomSheet<T>> {
     TargetPlatform.android ||
     TargetPlatform.fuchsia ||
     TargetPlatform.linux ||
-    TargetPlatform.windows => localizations.dialogLabel,
+    TargetPlatform.windows ||
+    TargetPlatform.ohos => localizations.dialogLabel,
   };
 
   EdgeInsets _getNewClipDetails(Size topLayerSize) {

@@ -129,6 +129,12 @@ class Capabilities {
 
   /// @brief The minimum alignment of uniform value offsets in bytes.
   virtual size_t GetMinimumUniformAlignment() const = 0;
+  /// @brief Returns whether the GPU supports 2x MSAA for framebuffer fetch
+  ///        operations. Some GPUs support 2x MSAA for regular rendering but
+  ///        not for framebuffer fetch operations.
+  virtual bool SupportsFramebufferColorSampleCount2x() const {
+    return true;  // Default: assume 2x is supported
+  }
 
   /// @brief The minimum alignment of storage buffer value offsets in bytes.
   virtual size_t GetMinimumStorageBufferAlignment() const;

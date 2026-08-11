@@ -970,7 +970,7 @@ class _DraggableScrollableSheetScrollPosition extends ScrollPositionWithSingleCo
     final ballisticController = AnimationController.unbounded(
       debugLabel: objectRuntimeType(this, '_DraggableScrollableSheetPosition'),
       vsync: context.vsync,
-    );
+    )..translateSource = TranslateAnimationSource.scroll;
     _ballisticControllers.add(ballisticController);
 
     double lastPosition = extent.currentPixels;

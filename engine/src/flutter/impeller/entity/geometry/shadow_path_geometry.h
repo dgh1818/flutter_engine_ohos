@@ -32,11 +32,10 @@ class ShadowVertices {
         std::move(vertices), std::move(indices), std::move(gaussians));
   }
 
-  constexpr ShadowVertices() {}
-
-  constexpr ShadowVertices(std::vector<Point> vertices,
-                           std::vector<uint16_t> indices,
-                           std::vector<Scalar> gaussians)
+  ShadowVertices() {}
+  ShadowVertices(std::vector<Point> vertices,
+                 std::vector<uint16_t> indices,
+                 std::vector<Scalar> gaussians)
       : vertices_(std::move(vertices)),
         indices_(std::move(indices)),
         gaussians_(std::move(gaussians)) {}

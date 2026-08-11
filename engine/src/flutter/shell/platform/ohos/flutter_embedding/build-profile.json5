@@ -1,0 +1,39 @@
+{
+  "app": {
+    "signingConfigs": [],
+    "products": [
+      {
+        "name": "default",
+        "signingConfig": "default",
+        "compatibleSdkVersion": "5.0.0(12)",
+        "runtimeOS": "HarmonyOS",
+        "targetSdkVersion": "5.0.0(12)"
+      }
+    ],
+    "buildModeSet": [
+      {
+        "name": "debug",
+      },
+      {
+        "name": "release"
+      },
+      {
+        "name": "profile"
+      }
+    ]
+  },
+  "modules": [
+    {
+      "name": "flutter",
+      "srcPath": "./flutter"
+    },
+    {
+      "name": "flutter_native",
+      "srcPath": "./flutter_native",
+    },
+    {
+      "name": "entry",
+      "srcPath": "./entry",
+    }
+  ]
+}

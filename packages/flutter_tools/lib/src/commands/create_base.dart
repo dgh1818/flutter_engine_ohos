@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'dart:io';
+
 import 'package:meta/meta.dart';
 import 'package:uuid/uuid.dart';
 import 'package:yaml/yaml.dart';
@@ -18,7 +20,7 @@ import '../project.dart';
 import '../runner/flutter_command.dart';
 import '../template.dart';
 
-const _kAvailablePlatforms = <String>['ios', 'android', 'windows', 'linux', 'macos', 'web'];
+const _kAvailablePlatforms = <String>['ios', 'android', 'windows', 'linux', 'macos', 'web', 'ohos'];
 
 /// A list of all possible create platforms, even those that may not be enabled
 /// with the current config.
@@ -30,6 +32,7 @@ const kAllCreatePlatforms = <String>[
   'macos',
   'web',
   'darwin',
+  'ohos',
 ];
 
 const _kDefaultPlatformArgumentHelp =
@@ -330,6 +333,7 @@ mixin CreateBase on FlutterCommand {
     bool macos = false,
     bool windows = false,
     bool darwin = false,
+    bool ohos = false,
     bool implementationTests = false,
   }) {
     final String pluginDartClass = _createPluginClassName(projectName);
@@ -347,6 +351,13 @@ mixin CreateBase on FlutterCommand {
     // https://developer.gnome.org/gio/stable/GApplication.html#g-application-id-is-valid
     final linuxIdentifier = androidIdentifier;
 
+    // Ohos uses the same scheme as the Android identifier.
+    final ohosIdentifier = androidIdentifier;
+    // locating ohos sdk from environment
+    final String? ohosSdkHome = globals.ohosSdk?.sdkPath;
+    final String? hosSdkHome = globals.hmosSdk?.sdkPath;
+    final String? nodeHome = Platform.environment['NODE_HOME'];
+
     return <String, Object?>{
       'organization': organization,
       'projectName': projectName,
@@ -357,6 +368,10 @@ mixin CreateBase on FlutterCommand {
       'darwinIdentifier': appleIdentifier,
       'linuxIdentifier': linuxIdentifier,
       'windowsIdentifier': windowsIdentifier,
+      'ohosIdentifier': ohosIdentifier,
+      'ohosSdkHome': ohosSdkHome,
+      'hosSdkHome': hosSdkHome,
+      'nodeHome': nodeHome,
       'description': projectDescription,
       'dartSdk': '$flutterRoot/bin/cache/dart-sdk',
       'androidMinApiLevel': gradle.minSdkVersion,
@@ -387,6 +402,7 @@ mixin CreateBase on FlutterCommand {
       'darwin': darwin,
       'sharedDarwinSource': darwin,
       'windows': windows,
+      'ohos': ohos,
       'year': DateTime.now().year,
       'dartSdkVersionBounds': dartSdkVersionBounds,
       'implementationTests': implementationTests,
@@ -491,6 +507,7 @@ mixin CreateBase on FlutterCommand {
     final bool windowsPlatform = templateContext['windows'] as bool? ?? false;
     final bool webPlatform = templateContext['web'] as bool? ?? false;
     final bool darwinPlatform = templateContext['darwin'] as bool? ?? false;
+    final bool ohosPlatform = templateContext['ohos'] as bool? ?? false;
 
     final platformsForMigrateConfig = <SupportedPlatform>[SupportedPlatform.root];
     if (androidPlatform) {
@@ -519,6 +536,9 @@ mixin CreateBase on FlutterCommand {
     }
     if (windowsPlatform) {
       platformsForMigrateConfig.add(SupportedPlatform.windows);
+    }
+    if (ohosPlatform) {
+      platformsForMigrateConfig.add(SupportedPlatform.ohos);
     }
     if (templateContext['fuchsia'] == true) {
       platformsForMigrateConfig.add(SupportedPlatform.fuchsia);

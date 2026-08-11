@@ -14,12 +14,15 @@ import '../../build_info.dart'
         BuildMode,
         DarwinArch,
         EnvironmentType,
+        OhosArch,
         TargetPlatform,
         getAndroidArchForName,
         getDarwinArchsFromEnv,
         getIOSArchForName,
+        getOhosArchForName,
         kAndroidArchs,
         kIosArchs,
+        kOhosArchs,
         kSdkRoot;
 import '../../build_system/exceptions.dart' show MissingDefineException;
 import '../../macos/xcode.dart' as xcode show environmentTypeFromSdkroot;
@@ -30,6 +33,7 @@ import 'linux/native_assets.dart';
 import 'macos/native_assets.dart' show getNativeMacOSArchitecture, targetMacOSVersion;
 import 'macos/native_assets_host.dart';
 import 'native_assets.dart';
+import 'ohos/native_assets.dart' show cCompilerConfigOhos, getNativeOhosArchitecture;
 import 'windows/native_assets.dart';
 
 /// This is a translation layer between Flutter, which knows only
@@ -89,6 +93,11 @@ sealed class AssetBuildTarget {
         return _androidTargets(targetPlatform, environmentDefines, supportedAssetTypes);
       case TargetPlatform.ios:
         return _iosTargets(environmentDefines, fileSystem, supportedAssetTypes);
+      case TargetPlatform.ohos:
+      case TargetPlatform.ohos_arm:
+      case TargetPlatform.ohos_arm64:
+      case TargetPlatform.ohos_x64:
+        return _ohosTargets(targetPlatform, environmentDefines, supportedAssetTypes);
       case TargetPlatform.web_javascript:
         return _webTarget(supportedAssetTypes);
       case TargetPlatform.tester:
@@ -160,6 +169,20 @@ sealed class AssetBuildTarget {
             supportedAssetTypes: supportedAssetTypes,
             environmentDefines: environmentDefines,
           ),
+        )
+        .toList();
+  }
+
+  static List<OhosAssetTarget> _ohosTargets(
+    TargetPlatform targetPlatform,
+    Map<String, String> environmentDefines,
+    List<SupportedAssetTypes> supportedAssetTypes,
+  ) {
+    return _ohosArchs(targetPlatform, environmentDefines[kOhosArchs])
+        .map<Architecture>(getNativeOhosArchitecture)
+        .map<OhosAssetTarget>(
+          (Architecture architecture) =>
+              OhosAssetTarget(architecture: architecture, supportedAssetTypes: supportedAssetTypes),
         )
         .toList();
   }
@@ -385,6 +408,35 @@ final class AndroidAssetTarget extends CodeAssetTarget {
   ];
 }
 
+final class OhosAssetTarget extends CodeAssetTarget {
+  OhosAssetTarget({required super.architecture, required super.supportedAssetTypes})
+    : super(os: OS.ohos);
+
+  @override
+  Future<void> setCCompilerConfig({bool mustMatchAppBuild = true}) async =>
+      cCompilerConfigSync = await cCompilerConfigOhos();
+
+  @override
+  List<ProtocolExtension> get extensions => <ProtocolExtension>[
+    if (supportedAssetTypes.contains(SupportedAssetTypes.codeAssets))
+      CodeAssetExtension(
+        targetArchitecture: architecture,
+        linkModePreference: LinkModePreference.dynamic,
+        cCompiler: cCompilerConfigSync,
+        // Third-party hooks resolve their own package:code_assets from the
+        // application. The hosted package does not know OHOS yet, so use a
+        // known OS without extra protocol configuration in the hook input while
+        // keeping this target as OS.ohos for Flutter's asset filtering and
+        // bundling. Hooks that support Linux code assets may run their Linux
+        // path for OHOS until this compatibility shim is removed.
+        // TODO(ohos): Revert to OS.ohos once hosted package:code_assets
+        // recognizes OHOS.
+        targetOS: OS.linux,
+      ),
+    ...dataAssetExtensions,
+  ];
+}
+
 final class FlutterTesterAssetTarget extends CodeAssetTarget {
   FlutterTesterAssetTarget({required super.supportedAssetTypes})
     : super(architecture: Architecture.current, os: OS.current) {
@@ -445,8 +497,45 @@ List<AndroidArch> _androidArchs(TargetPlatform targetPlatform, String? androidAr
     case TargetPlatform.web_javascript:
     case TargetPlatform.windows_x64:
     case TargetPlatform.windows_arm64:
+    case TargetPlatform.ohos:
+    case TargetPlatform.ohos_arm:
+    case TargetPlatform.ohos_arm64:
+    case TargetPlatform.ohos_x64:
     case TargetPlatform.unsupported:
       throwToolExit('Unsupported Android target platform: $targetPlatform.');
+  }
+}
+
+List<OhosArch> _ohosArchs(TargetPlatform targetPlatform, String? ohosArchsEnvironment) {
+  switch (targetPlatform) {
+    case TargetPlatform.ohos_arm:
+      return <OhosArch>[OhosArch.armeabi_v7a];
+    case TargetPlatform.ohos_arm64:
+      return <OhosArch>[OhosArch.arm64_v8a];
+    case TargetPlatform.ohos_x64:
+      return <OhosArch>[OhosArch.x86_64];
+    case TargetPlatform.ohos:
+      if (ohosArchsEnvironment == null || ohosArchsEnvironment.isEmpty) {
+        return <OhosArch>[OhosArch.arm64_v8a];
+      }
+      return ohosArchsEnvironment.split(' ').map(getOhosArchForName).toList();
+    case TargetPlatform.android:
+    case TargetPlatform.android_arm:
+    case TargetPlatform.android_arm64:
+    case TargetPlatform.android_x64:
+    case TargetPlatform.darwin:
+    case TargetPlatform.fuchsia_arm64:
+    case TargetPlatform.fuchsia_x64:
+    case TargetPlatform.ios:
+    case TargetPlatform.linux_arm64:
+    case TargetPlatform.linux_riscv64:
+    case TargetPlatform.linux_x64:
+    case TargetPlatform.tester:
+    case TargetPlatform.web_javascript:
+    case TargetPlatform.windows_x64:
+    case TargetPlatform.windows_arm64:
+    case TargetPlatform.unsupported:
+      throwToolExit('Unsupported OHOS target platform: $targetPlatform.');
   }
 }
 

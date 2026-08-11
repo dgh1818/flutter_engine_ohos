@@ -50,6 +50,8 @@ class APNGImageGenerator : public ImageGenerator {
                  size_t row_bytes,
                  unsigned int frame_index,
                  std::optional<unsigned int> prior_frame) override;
+  
+  uint32_t GetColorSpace(unsigned int frame_index) override;
 
   static std::unique_ptr<ImageGenerator> MakeFromData(sk_sp<SkData> data);
 

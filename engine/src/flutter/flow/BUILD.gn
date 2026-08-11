@@ -106,6 +106,7 @@ source_set("flow") {
     deps += [
       "//flutter/impeller",
       "//flutter/impeller/display_list",
+      "//flutter/impeller/entity:entity",
       "//flutter/impeller/typographer/backends/skia:typographer_skia_backend",
     ]
   }

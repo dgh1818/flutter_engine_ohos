@@ -39,6 +39,7 @@ class AdaptiveDialogExample extends StatelessWidget {
       case .fuchsia:
       case .linux:
       case .windows:
+      case .ohos:
         return TextButton(onPressed: onPressed, child: child);
       case .iOS:
       case .macOS:

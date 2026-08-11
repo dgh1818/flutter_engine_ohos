@@ -218,6 +218,19 @@ bool ImageDescriptor::get_pixels(const SkPixmap& pixmap) const {
                                pixmap.rowBytes());
 }
 
+#if defined(FML_OS_OHOS) && IMPELLER_SUPPORTS_RENDERING
+std::unique_ptr<ExternalTextureSource> ImageDescriptor::CreateExternalTextureSource(
+    const SkISize& decode_dimensions,
+    unsigned int frame_index,
+    std::optional<unsigned int> prior_frame) const {
+  if (!generator_) {
+    return nullptr;
+  }
+  return generator_->CreateExternalTextureSource(decode_dimensions, frame_index,
+                                                 prior_frame);
+}
+#endif  // FML_OS_OHOS && IMPELLER_SUPPORTS_RENDERING
+
 int ImageDescriptor::bytesPerPixel() const {
   switch (image_info_.format) {
     case kUnknown:
@@ -231,6 +244,14 @@ int ImageDescriptor::bytesPerPixel() const {
     case kRGBAFloat32:
       return 16;
   }
+}
+
+uint32_t ImageDescriptor::get_colorspace() {
+  if (!generator_) {
+    FML_DLOG(ERROR) << "Cannot get colorspace from null generator";
+    return 0;  // Return default value for safety
+  }
+  return generator_->GetColorSpace(0);
 }
 
 }  // namespace flutter

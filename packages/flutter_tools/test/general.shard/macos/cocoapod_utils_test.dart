@@ -44,6 +44,7 @@ void main() {
         ..web = FakeWebProject()
         ..windows = FakeWindowsProject()
         ..linux = FakeLinuxProject()
+        ..ohos = FakeOhosProject()
         ..packageConfig = flutterProject.directory
             .childDirectory('.dart_tool')
             .childFile('package_config.json');
@@ -441,6 +442,14 @@ class FakeFlutterManifest extends Fake implements FlutterManifest {
   YamlMap toYaml() => YamlMap.wrap(<String, String>{});
 }
 
+class FakeOhosProject extends Fake implements OhosProject {
+  @override
+  final String pluginConfigKey = 'ohos';
+
+  @override
+  bool existsSync() => false;
+}
+
 class FakeFlutterProject extends Fake implements FlutterProject {
   @override
   bool isModule = false;
@@ -471,6 +480,9 @@ class FakeFlutterProject extends Fake implements FlutterProject {
 
   @override
   late WindowsProject windows;
+
+  @override
+  late OhosProject ohos;
 
   @override
   late File packageConfig;
@@ -516,6 +528,10 @@ class FakeMacOSProject extends Fake implements MacOSProject {
   @override
   File get flutterPluginSwiftPackageManifest =>
       flutterPluginSwiftPackageDirectory.childFile('Package.swift');
+
+  @override
+  Directory get flutterFrameworkSwiftPackageDirectory =>
+      relativeSwiftPackagesDirectory.childDirectory('FlutterFramework');
 
   @override
   bool usesSwiftPackageManager = false;
@@ -565,6 +581,10 @@ class FakeIosProject extends Fake implements IosProject {
   @override
   File get flutterPluginSwiftPackageManifest =>
       flutterPluginSwiftPackageDirectory.childFile('Package.swift');
+
+  @override
+  Directory get flutterFrameworkSwiftPackageDirectory =>
+      relativeSwiftPackagesDirectory.childDirectory('FlutterFramework');
 
   @override
   bool usesSwiftPackageManager = false;

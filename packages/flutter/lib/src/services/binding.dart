@@ -26,6 +26,7 @@ import 'platform_channel.dart';
 import 'raw_keyboard.dart' show RawKeyboard;
 import 'restoration.dart';
 import 'service_extensions.dart';
+import 'split_view_config_loader.dart';
 import 'system_channels.dart';
 import 'system_chrome.dart';
 import 'text_input.dart';
@@ -62,6 +63,9 @@ mixin ServicesBinding on BindingBase, SchedulerBinding {
     platformDispatcher.onViewFocusChange = handleViewFocusChanged;
     TextInput.ensureInitialized();
     readInitialLifecycleStateFromNativeWindow();
+    if (defaultTargetPlatform == TargetPlatform.ohos) {
+      SplitViewConfigLoader().setupSystemChannel();
+    }
     initializationComplete();
   }
 
@@ -172,6 +176,9 @@ mixin ServicesBinding on BindingBase, SchedulerBinding {
   @mustCallSuper
   Future<void> handleSystemMessage(Object systemMessage) async {
     final message = systemMessage as Map<String, dynamic>;
+    if (message['type'] is! String) {
+      return;
+    }
     final type = message['type'] as String;
     switch (type) {
       case 'memoryPressure':
@@ -595,6 +602,23 @@ mixin ServicesBinding on BindingBase, SchedulerBinding {
   /// To unregister, set to null.
   static set systemContextMenuClient(SystemContextMenuClient? client) {
     instance._systemContextMenuClient = client;
+  }
+
+  /// Report the activity executed by the navigator.
+  ///
+  /// @Param Activity :
+  /// [push] or [pop]
+  ///
+  /// @Param status :
+  /// [start] or [finish]
+  ///
+  /// @Param routeName?
+  void reportNavigatorActivity(String activity, String status, [String? routeName = '']) {
+    SystemChannels.navigation.invokeMethod<void>('reportNavigatorActivity', <String, String>{
+      'activity': activity,
+      'status': status,
+      'routeName': routeName ?? '',
+    });
   }
 }
 
