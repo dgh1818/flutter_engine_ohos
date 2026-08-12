@@ -362,10 +362,10 @@ void PlatformViewOHOSNapi::FlutterViewHandlePlatformMessage(
   }
   if (message->hasData()) {
     fml::MallocMapping mapping = message->releaseData();
+    size_t dataSize = mapping.GetSize();
     char* mapData = (char*)mapping.Release();
-    mapData[mapping.GetSize()] = '\0';
-    status = napi_create_string_utf8(env_, mapData, strlen(mapData),
-                                     &callbackParam[3]);
+    status =
+        napi_create_string_utf8(env_, mapData, dataSize, &callbackParam[3]);
     if (status != napi_ok) {
       FML_DLOG(ERROR) << "napi_create_string_utf8 err " << status;
       if (mapData) {
