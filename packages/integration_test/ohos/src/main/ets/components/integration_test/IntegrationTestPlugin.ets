@@ -25,7 +25,8 @@ export default class IntegrationTestPlugin implements MethodCallHandler, Flutter
   private static CHANNEL: string = "plugins.flutter.io/integration_test";
   private methodChannel: MethodChannel | null = null;
   private flutterAbility: UIAbility | null = null;
-  private static testResultsSetter: Set<Map<String, String>>;
+  private static testResultsSetter: Set<Map<String, String>> =
+    new Set<Map<String, String>>();
 
   getUniqueClassName(): string {
     return 'IntegrationTestPlugin';
