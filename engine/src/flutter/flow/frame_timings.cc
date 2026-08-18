@@ -62,6 +62,12 @@ fml::TimePoint FrameTimingsRecorder::GetVsyncTargetTime() const {
   return vsync_target_;
 }
 
+fml::TimePoint FrameTimingsRecorder::GetDartFrameDeadline() const {
+  std::scoped_lock state_lock(state_mutex_);
+  FML_DCHECK(state_ >= State::kVsync);
+  return dart_frame_deadline_;
+}
+
 fml::TimePoint FrameTimingsRecorder::GetBuildStartTime() const {
   std::scoped_lock state_lock(state_mutex_);
   FML_DCHECK(state_ >= State::kBuildStart);
@@ -128,7 +134,16 @@ size_t FrameTimingsRecorder::GetPictureCacheBytes() const {
 
 void FrameTimingsRecorder::RecordVsync(fml::TimePoint vsync_start,
                                        fml::TimePoint vsync_target) {
-  fml::Status status = RecordVsyncImpl(vsync_start, vsync_target);
+  fml::Status status = RecordVsyncImpl(vsync_start, vsync_target, vsync_target);
+  FML_DCHECK(status.ok());
+  (void)status;
+}
+
+void FrameTimingsRecorder::RecordVsync(fml::TimePoint vsync_start,
+                                       fml::TimePoint vsync_target,
+                                       fml::TimePoint dart_frame_deadline) {
+  fml::Status status =
+      RecordVsyncImpl(vsync_start, vsync_target, dart_frame_deadline);
   FML_DCHECK(status.ok());
   (void)status;
 }
@@ -151,8 +166,10 @@ void FrameTimingsRecorder::RecordRasterStart(fml::TimePoint raster_start) {
   (void)status;
 }
 
-fml::Status FrameTimingsRecorder::RecordVsyncImpl(fml::TimePoint vsync_start,
-                                                  fml::TimePoint vsync_target) {
+fml::Status FrameTimingsRecorder::RecordVsyncImpl(
+    fml::TimePoint vsync_start,
+    fml::TimePoint vsync_target,
+    fml::TimePoint dart_frame_deadline) {
   std::scoped_lock state_lock(state_mutex_);
   if (state_ != State::kUninitialized) {
     return fml::Status(fml::StatusCode::kFailedPrecondition,
@@ -161,6 +178,7 @@ fml::Status FrameTimingsRecorder::RecordVsyncImpl(fml::TimePoint vsync_start,
   state_ = State::kVsync;
   vsync_start_ = vsync_start;
   vsync_target_ = vsync_target;
+  dart_frame_deadline_ = dart_frame_deadline;
   return fml::Status();
 }
 
@@ -247,6 +265,7 @@ std::unique_ptr<FrameTimingsRecorder> FrameTimingsRecorder::CloneUntil(
   if (state >= State::kVsync) {
     recorder->vsync_start_ = vsync_start_;
     recorder->vsync_target_ = vsync_target_;
+    recorder->dart_frame_deadline_ = dart_frame_deadline_;
   }
 
   if (state >= State::kBuildStart) {

@@ -34,6 +34,7 @@ class FakeAnimatorDelegate : public Animator::Delegate {
 
   void OnAnimatorNotifyIdle(fml::TimeDelta deadline) override {
     notify_idle_called_ = true;
+    notify_idle_deadline_ = deadline;
   }
 
   MOCK_METHOD(void,
@@ -50,6 +51,27 @@ class FakeAnimatorDelegate : public Animator::Delegate {
       std::unique_ptr<FrameTimingsRecorder> frame_timings_recorder) override {}
 
   bool notify_idle_called_ = false;
+  fml::TimeDelta notify_idle_deadline_;
+};
+
+class CustomDartFrameDeadlineVsyncWaiter final : public VsyncWaiter {
+ public:
+  static constexpr fml::TimePoint kFrameBeginTime =
+      fml::TimePoint::FromEpochDelta(fml::TimeDelta::FromSeconds(0));
+  static constexpr fml::TimePoint kFrameTargetTime =
+      fml::TimePoint::FromEpochDelta(fml::TimeDelta::FromMilliseconds(32));
+  static constexpr fml::TimePoint kDartFrameDeadline =
+      fml::TimePoint::FromEpochDelta(fml::TimeDelta::FromMilliseconds(16));
+
+  explicit CustomDartFrameDeadlineVsyncWaiter(const TaskRunners& task_runners)
+      : VsyncWaiter(task_runners) {}
+
+ protected:
+  void AwaitVSync() override {
+    task_runners_.GetPlatformTaskRunner()->PostTask([this]() {
+      FireCallback(kFrameBeginTime, kFrameTargetTime, kDartFrameDeadline);
+    });
+  }
 };
 
 TEST_F(ShellTest, VSyncTargetTime) {
@@ -204,6 +226,56 @@ TEST_F(ShellTest, AnimatorDoesNotNotifyIdleBeforeRender) {
     latch.Signal();
   });
   latch.Wait();
+}
+
+TEST_F(ShellTest, AnimatorUsesDartFrameDeadlineForNotifyIdle) {
+  FakeAnimatorDelegate delegate;
+  TaskRunners task_runners = {
+      "test",
+      CreateNewThread(),  // platform
+      CreateNewThread(),  // raster
+      CreateNewThread(),  // ui
+      CreateNewThread()   // io
+  };
+
+  std::shared_ptr<Animator> animator;
+  PostTaskSync(task_runners.GetUITaskRunner(), [&] {
+    auto vsync_waiter =
+        std::make_unique<CustomDartFrameDeadlineVsyncWaiter>(task_runners);
+    animator = std::make_unique<Animator>(delegate, task_runners,
+                                          std::move(vsync_waiter));
+  });
+
+  fml::AutoResetWaitableEvent begin_frame_latch;
+  EXPECT_CALL(
+      delegate,
+      OnAnimatorBeginFrame(CustomDartFrameDeadlineVsyncWaiter::kFrameTargetTime,
+                           ::testing::_))
+      .WillOnce([&] {
+        auto layer_tree =
+            std::make_unique<LayerTree>(nullptr, DlISize(600, 800));
+        animator->Render(kImplicitViewId, std::move(layer_tree), 1.0);
+        begin_frame_latch.Signal();
+      });
+
+  task_runners.GetUITaskRunner()->PostTask(
+      [&] { animator->RequestFrame(true); });
+  begin_frame_latch.Wait();
+
+  fml::AutoResetWaitableEvent notify_idle_latch;
+  task_runners.GetUITaskRunner()->PostTask([&] {
+    animator->RequestFrame(false);
+    task_runners.GetUITaskRunner()->PostTask(
+        [&] { notify_idle_latch.Signal(); });
+  });
+  notify_idle_latch.Wait();
+
+  ASSERT_TRUE(delegate.notify_idle_called_);
+  ASSERT_EQ(
+      CustomDartFrameDeadlineVsyncWaiter::kDartFrameDeadline.ToEpochDelta(),
+      delegate.notify_idle_deadline_);
+
+  PostTaskSync(task_runners.GetUITaskRunner(), [&] { animator.reset(); });
 }
 
 TEST_F(ShellTest, AnimatorDoesNotNotifyDelegateIfPipelineIsNotEmpty) {

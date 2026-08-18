@@ -57,6 +57,12 @@ class FrameTimingsRecorder {
   /// This is typically the next vsync signal timestamp.
   fml::TimePoint GetVsyncTargetTime() const;
 
+  /// Timestamp used as the VM idle notification deadline for this frame.
+  ///
+  /// This usually matches the vsync target time, but embedders may provide a
+  /// separate deadline when the presentation target is intentionally offset.
+  fml::TimePoint GetDartFrameDeadline() const;
+
   /// Timestamp of when the frame building started.
   fml::TimePoint GetBuildStartTime() const;
 
@@ -89,6 +95,9 @@ class FrameTimingsRecorder {
 
   /// Records a vsync event.
   void RecordVsync(fml::TimePoint vsync_start, fml::TimePoint vsync_target);
+  void RecordVsync(fml::TimePoint vsync_start,
+                   fml::TimePoint vsync_target,
+                   fml::TimePoint dart_frame_deadline);
 
   /// Records a build start event.
   void RecordBuildStart(fml::TimePoint build_start);
@@ -127,12 +136,15 @@ class FrameTimingsRecorder {
   void AssertInState(State state) const;
 
  private:
+  FML_FRIEND_TEST(FrameTimingsRecorderTest,
+                  ThrowWhenRecordVsyncWhenNotUninitialized);
   FML_FRIEND_TEST(FrameTimingsRecorderTest, ThrowWhenRecordBuildBeforeVsync);
   FML_FRIEND_TEST(FrameTimingsRecorderTest,
                   ThrowWhenRecordRasterBeforeBuildEnd);
 
   [[nodiscard]] fml::Status RecordVsyncImpl(fml::TimePoint vsync_start,
-                                            fml::TimePoint vsync_target);
+                                            fml::TimePoint vsync_target,
+                                            fml::TimePoint dart_frame_deadline);
   [[nodiscard]] fml::Status RecordBuildStartImpl(fml::TimePoint build_start);
   [[nodiscard]] fml::Status RecordBuildEndImpl(fml::TimePoint build_end);
   [[nodiscard]] fml::Status RecordRasterStartImpl(fml::TimePoint raster_start);
@@ -147,6 +159,7 @@ class FrameTimingsRecorder {
 
   fml::TimePoint vsync_start_;
   fml::TimePoint vsync_target_;
+  fml::TimePoint dart_frame_deadline_;
   fml::TimePoint build_start_;
   fml::TimePoint build_end_;
   fml::TimePoint raster_start_;
