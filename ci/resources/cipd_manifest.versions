@@ -2,12 +2,12 @@
 # Do not modify manually. All changes will be overwritten.
 
 dart/dart-sdk/linux-amd64
-	git_revision:782552bdddc112c62db28ec7e9b2763f4457a3ea
-	YzubHo2VNGx0AtS7msjsCv515K0p9d12KXm0v7fhPBAC
+	git_revision:9ac06cdd18015c83a25921e26912c96e3fbe22c2
+	kQHO7IWSgyqTlMF5sQShwKsh_v2nhtDq94BMQSmIfYUC
 
 dart/third_party/flutter/devtools
-	git_revision:c13b1e172794a71ffe9436a5cfe0a0a9d7509d78
-	1xFpQa87tXK-45eYRVgVYFtcvgpmKHfJZA0R5EkWDdMC
+	git_revision:fa063f322c03cc7a690d819db124c196a69cff56
+	jnk4ozU2qzyHPF9kkEliL7v7blRhxhor4rTTcud5yd4C
 
 flutter/android/embedding_bundle
 	last_updated:2025-10-15T09:53:03-0700
@@ -22,12 +22,12 @@ flutter/android/sdk/all/linux-amd64
 	87vvFbB8GeXc5o9z9c3xR_b4soxmPR8OEHDsy-gXigYC
 
 flutter/dart-sdk/linux-amd64
-	git_revision:e927f58e327ae13d056a16bb2ebf618e071c20a7
-	Rf5RaAO302RbWiiW5D4V56E4iKA-sFrn0ztQytn8xDIC
+	git_revision:d684a576a6aa954ae107a03b2b4e1d61c3bebe93
+	mKiCKGu13Mk_I7udqhlk6gAyukzBPONWUy1bcpMF5mEC
 
 flutter/dart-sdk/linux-arm64
-	git_revision:e927f58e327ae13d056a16bb2ebf618e071c20a7
-	No3sevY5Acea8Xgx0cOLqqvg62fcQcQakoUKjC92po0C
+	git_revision:d684a576a6aa954ae107a03b2b4e1d61c3bebe93
+	diNDSUyrNB3UQgOLec4PmjHC0omFD8il4DwlPpGSNw8C
 
 flutter/flutter_font_fallbacks
 	44bd38be0bc8c189a397ca6dd6f737746a9e0c6117b96a8f84f1edf6acd1206b
@@ -46,8 +46,8 @@ flutter/tools/esbuild/linux-amd64
 	sE4YvnSysbVCCxhImYGVjHxADHlQLhWkbsTjXZY4rjoC
 
 fuchsia/third_party/clang/linux-amd64
-	git_revision:8c7a2ce01a77c96028fe2c8566f65c45ad9408d3
-	-f7MR6VniTzxeWcp2k9ZkII4oK21j44tQvYuCBaHpqEC
+	git_revision:80743bd43fd5b38fedc503308e7a652e23d3ec93
+	LLHJM3zpP8SMJFN354aXWHO3JoSHDFdhCcLMCDAQSwkC
 
 gn/gn/linux-amd64
 	git_revision:81b24e01531ecf0eff12ec9359a555ec3944ec4e

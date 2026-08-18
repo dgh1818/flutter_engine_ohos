@@ -10,27 +10,11 @@ work_dir_levels: 2
 
 # Environment variables
 env_vars:
-  TOOL_HOME: /home/tools/command-line-tools
-  DEVECO_SDK_HOME: /home/tools/command-line-tools/sdk
-  PUB_CACHE: /home/tools/Flutter/PUB
-  PUB_HOSTED_URL: https://pub.flutter-io.cn
-  FLUTTER_STORAGE_BASE_URL: https://storage.flutter-io.cn
-  DEPOT_TOOLS_UPDATE: 0
-  GCLIENT_SUPPRESS_GIT_VERSION_WARNING: 1
-  CIPD_CACHE_DIR: /home/tools/cipd_cache
-  CIPD_HTTP_USER_AGENT_PREFIX: offline
-  CIPD_NO_SELF_UPDATE: true
   # PATH components - appended in order
   # Note: PATH is handled specially to expand variables and join with colon
   PATH:
     - "$WORK_DIR/third_party/flutter_flutter/bin"
     - "$WORK_DIR/third_party/cipd/bin"
-    - "$DEVECO_SDK_HOME/default/openharmony/toolchains"
-    - "$TOOL_HOME/ohpm/bin"
-    - "$TOOL_HOME/hvigor/bin"
-    - "$TOOL_HOME/tool/node/bin"
-    - "/home/tools/depot_tools"
-    - "$DEVECO_SDK_HOME/default/openharmony/native/llvm/bin"
     - "$PATH"
 
 # Publish files
@@ -120,7 +104,7 @@ preparation_steps:
   - name: Prepare Flutter
     script: ci/scripts/prepare_project.sh
     description: Prepare Flutter project and sync to target branch
-    args: ["flutter_flutter", "oh-3.41.9-dev"]
+    args: ["flutter_flutter", "oh-3.44.9-dev"]
     required: true
 
   - name: Record Flutter Commit ID
@@ -140,7 +124,7 @@ compilation_steps:
   - name: Pack Flutter
     script: ci/scripts/pack_flutter.sh
     description: Pack Flutter SDK
-    args: ["oh-3.41.9-dev"]
+    args: ["oh-3.44.9-dev"]
     required: true
 
   - name: Install dependencies
@@ -182,7 +166,7 @@ compilation_steps:
   - name: Check Build Mode
     script: ci/scripts/check_build_mode.sh
     description: Check Build Mode
-    args: ["flutter_flutter", "flutter_flutter/engine/src", "oh-3.41.9-dev", "flutter_flutter"]
+    args: ["flutter_flutter", "flutter_flutter/engine/src", "oh-3.44.9-dev", "flutter_flutter"]
     required: true
 
   - name: Restoring Engine mTimes
@@ -212,13 +196,13 @@ compilation_steps:
   - name: Upload to cloud
     script: ci/scripts/upload_to_cloud.sh
     description: Upload build artifacts to cloud storage
-    args: ["oh-3.41.9-dev"]
+    args: ["oh-3.44.9-dev"]
     required: true
 
   - name: Publish
     script: ci/scripts/publish.sh
     description: Publish build artifacts to cloud storage
-    args: ["flutter_flutter", "flutter_flutter/engine", "3.41"]
+    args: ["flutter_flutter", "flutter_flutter/engine", "3.44"]
     required: false
 
 # Test steps - executed in order
