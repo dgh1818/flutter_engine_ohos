@@ -12,6 +12,15 @@ gclient_sync() {
     WORK_DIR=$(pwd)
     PROJECT_DIR="$WORK_DIR/third_party"
 
+    log_info "Restoring .gitconfig from cipd repo (url insteadOf redirects)"
+    local cipd_gitconfig="$WORK_DIR/third_party/cipd/resource/.gitconfig"
+    if [[ -f "$cipd_gitconfig" ]]; then
+        run_cmd "cp $cipd_gitconfig ~/.gitconfig"
+    else
+        log_warn "cipd/resource/.gitconfig not found at $cipd_gitconfig, skipping"
+    fi
+    run_cmd "git config -l"
+
     local root_dir="$1"
 
     cd "$PROJECT_DIR/$root_dir"
