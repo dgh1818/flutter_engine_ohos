@@ -30,6 +30,7 @@ class OHWidgetName {
   static constexpr const char* kButtonWidgetName = "Button";
   static constexpr const char* kLinkWidgetName = "Link";
   static constexpr const char* kSliderWidgetName = "Slider";
+  static constexpr const char* kProgressWidgetName = "Progress";
   static constexpr const char* kHeaderWidgetName = "Header";
   static constexpr const char* kRadioButtonWidgetName = "Radio";
   static constexpr const char* kCheckBoxWidgetName = "Checkbox";
@@ -61,6 +62,7 @@ struct SemanticsNodeExtend : flutter::SemanticsNode {
   bool parentChanged = false;
   bool idChanged = false;
   bool isExist = false;
+  bool componentIdentifierWriteFailed = false;
 
   bool performSelectAction = false;
   bool isAccessibilityFocued = false;
@@ -116,6 +118,8 @@ struct SemanticsNodeExtend : flutter::SemanticsNode {
   void OHOSActionsUpdate();
   void OHOSComponentTypeUpdate();
 
+  void UpdateContentWithNode(flutter::SemanticsNode& node);
+  void UpdateScrollWithNode(flutter::SemanticsNode& node);
   void UpdateWithNode(flutter::SemanticsNode& node);
   void UpdateSelfRecursively(std::unordered_set<int32_t>& visitorId,
                              std::vector<int32_t>& visitorOrder,
