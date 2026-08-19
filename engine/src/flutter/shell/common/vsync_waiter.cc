@@ -87,6 +87,14 @@ void VsyncWaiter::ScheduleSecondaryCallback(uintptr_t id,
 void VsyncWaiter::FireCallback(fml::TimePoint frame_start_time,
                                fml::TimePoint frame_target_time,
                                bool pause_secondary_tasks) {
+  FireCallback(frame_start_time, frame_target_time, frame_target_time,
+               pause_secondary_tasks);
+}
+
+void VsyncWaiter::FireCallback(fml::TimePoint frame_start_time,
+                               fml::TimePoint frame_target_time,
+                               fml::TimePoint dart_frame_deadline,
+                               bool pause_secondary_tasks) {
   FML_DCHECK(fml::TimePoint::Now() >= frame_start_time);
 
   Callback callback;
@@ -129,15 +137,15 @@ void VsyncWaiter::FireCallback(fml::TimePoint frame_start_time,
         task_runners_.GetUITaskRunner()->GetTaskQueueId();
     task_runners_.GetUITaskRunner()->PostTask(
         [ui_task_queue_id, callback, flow_identifier, frame_start_time,
-         frame_target_time, pause_secondary_tasks]() {
+         frame_target_time, dart_frame_deadline, pause_secondary_tasks]() {
           FML_TRACE_EVENT_WITH_FLOW_IDS(
               "flutter", kVsyncTraceName, /*flow_id_count=*/1,
               /*flow_ids=*/&flow_identifier, "StartTime", frame_start_time,
               "TargetTime", frame_target_time);
           std::unique_ptr<FrameTimingsRecorder> frame_timings_recorder =
               std::make_unique<FrameTimingsRecorder>();
-          frame_timings_recorder->RecordVsync(frame_start_time,
-                                              frame_target_time);
+          frame_timings_recorder->RecordVsync(
+              frame_start_time, frame_target_time, dart_frame_deadline);
           callback(std::move(frame_timings_recorder));
           TRACE_FLOW_END("flutter", kVsyncFlowName, flow_identifier);
           if (pause_secondary_tasks) {

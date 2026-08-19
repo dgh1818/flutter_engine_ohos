@@ -35,7 +35,8 @@ class VsyncWaiterOHOS final : public VsyncWaiter {
   static void OnVsyncFromOHOS(long long timestamp, void* data);
   static void ConsumePendingCallback(std::weak_ptr<VsyncWaiter>* weak_this,
                                      fml::TimePoint frame_start_time,
-                                     fml::TimePoint frame_target_time);
+                                     fml::TimePoint frame_target_time,
+                                     fml::TimePoint dart_frame_deadline);
 
   void SetDvsyncSwitch(bool enableDvsync);
 

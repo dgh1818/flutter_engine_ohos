@@ -114,7 +114,8 @@ void Animator::BeginFrame(
   FML_DCHECK(producer_continuation_);
   const fml::TimePoint frame_target_time =
       frame_timings_recorder_->GetVsyncTargetTime();
-  dart_frame_deadline_ = frame_target_time.ToEpochDelta();
+  dart_frame_deadline_ =
+      frame_timings_recorder_->GetDartFrameDeadline().ToEpochDelta();
   uint64_t frame_number = frame_timings_recorder_->GetFrameNumber();
   delegate_.OnAnimatorBeginFrame(frame_target_time, frame_number);
 }

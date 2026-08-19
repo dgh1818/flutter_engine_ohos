@@ -14,7 +14,12 @@
 #include <set>
 
 #include "flutter/common/task_runners.h"
+#include "flutter/flow/frame_timings.h"
 #include "flutter/fml/message_loop.h"
+#include "flutter/fml/synchronization/waitable_event.h"
+#include "flutter/fml/thread.h"
+#include "flutter/fml/time/time_delta.h"
+#include "flutter/fml/time/time_point.h"
 #include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
 #include "flutter/shell/platform/ohos/ohos_vsync_voting_mgr.h"
 #include "gtest/gtest.h"
@@ -170,6 +175,128 @@ TEST_F(VsyncWaiterOhosTest, AwaitVSyncDoesNotCrash) {
 TEST_F(VsyncWaiterOhosTest, EnableFrameCacheFlag) {
   *enable_frame_cache_ = true;
   EXPECT_TRUE(*waiter_->enable_frame_cache_);
+}
+
+TEST_F(VsyncWaiterOhosTest, ConsumePendingCallbackExpiredWeakPtrNoCrash) {
+  fml::TimePoint frame_start = fml::TimePoint::Now();
+  fml::TimePoint frame_target =
+      frame_start + fml::TimeDelta::FromMilliseconds(32);
+  fml::TimePoint dart_frame_deadline =
+      frame_start + fml::TimeDelta::FromMilliseconds(16);
+
+  auto* weak_this = new std::weak_ptr<VsyncWaiter>();
+
+  EXPECT_NO_FATAL_FAILURE(VsyncWaiterOHOS::ConsumePendingCallback(
+      weak_this, frame_start, frame_target, dart_frame_deadline));
+}
+
+TEST_F(VsyncWaiterOhosTest, OnVsyncFromOHOSNullDataNoCrash) {
+  EXPECT_NO_FATAL_FAILURE(VsyncWaiterOHOS::OnVsyncFromOHOS(0, nullptr));
+}
+
+TEST_F(VsyncWaiterOhosTest, OnVsyncFromOHOSEndToEndDartFrameDeadline) {
+  fml::MessageLoop::EnsureInitializedForCurrentThread();
+  auto task_runner = fml::MessageLoop::GetCurrent().GetTaskRunner();
+
+  fml::Thread ui_thread("test_e2e_ui");
+  const TaskRunners task_runners("test_e2e", task_runner,
+                                 ui_thread.GetTaskRunner(), task_runner,
+                                 task_runner);
+
+  std::shared_ptr<bool> cache_flag = std::make_shared<bool>(false);
+
+  OhosVsyncVotingMgr::ResetInstance();
+
+  auto original_rate = PlatformViewOHOSNapi::display_refresh_rate;
+  auto original_rates = PlatformViewOHOSNapi::all_refresh_rates;
+  PlatformViewOHOSNapi::display_refresh_rate = 60;
+  PlatformViewOHOSNapi::all_refresh_rates =
+      std::make_shared<std::set<int>>(std::set<int>{60, 90, 120});
+
+  auto ohos_waiter =
+      std::make_shared<VsyncWaiterOHOS>(task_runners, cache_flag);
+
+  std::unique_ptr<FrameTimingsRecorder> captured_recorder;
+  fml::AutoResetWaitableEvent latch;
+
+  ohos_waiter->AsyncWaitForVsync(
+      [&](std::unique_ptr<FrameTimingsRecorder> recorder) {
+        captured_recorder = std::move(recorder);
+        latch.Signal();
+      });
+
+  auto* weak_this = new std::weak_ptr<VsyncWaiter>(ohos_waiter);
+
+  int64_t timestamp_ns = 1'000'000'000;
+
+  VsyncWaiterOHOS::firstCall = false;
+  VsyncWaiterOHOS::OnVsyncFromOHOS(timestamp_ns, weak_this);
+
+  latch.Wait();
+
+  ASSERT_TRUE(captured_recorder != nullptr);
+
+  auto frame_start = fml::TimePoint::FromEpochDelta(
+      fml::TimeDelta::FromNanoseconds(timestamp_ns));
+  EXPECT_EQ(captured_recorder->GetVsyncStartTime(), frame_start);
+
+  EXPECT_EQ(captured_recorder->GetDartFrameDeadline(),
+            captured_recorder->GetVsyncTargetTime());
+
+  PlatformViewOHOSNapi::display_refresh_rate = original_rate;
+  PlatformViewOHOSNapi::all_refresh_rates = original_rates;
+}
+
+TEST_F(VsyncWaiterOhosTest, OnVsyncFromOHOSFrameCacheOffsetsTargetNotDeadline) {
+  fml::MessageLoop::EnsureInitializedForCurrentThread();
+  auto task_runner = fml::MessageLoop::GetCurrent().GetTaskRunner();
+
+  fml::Thread ui_thread("test_cache_ui");
+  const TaskRunners task_runners("test_cache", task_runner,
+                                 ui_thread.GetTaskRunner(), task_runner,
+                                 task_runner);
+
+  std::shared_ptr<bool> cache_flag = std::make_shared<bool>(true);
+
+  OhosVsyncVotingMgr::ResetInstance();
+
+  auto original_rate = PlatformViewOHOSNapi::display_refresh_rate;
+  auto original_rates = PlatformViewOHOSNapi::all_refresh_rates;
+  PlatformViewOHOSNapi::display_refresh_rate = 60;
+  PlatformViewOHOSNapi::all_refresh_rates =
+      std::make_shared<std::set<int>>(std::set<int>{60, 90, 120});
+
+  auto ohos_waiter =
+      std::make_shared<VsyncWaiterOHOS>(task_runners, cache_flag);
+
+  std::unique_ptr<FrameTimingsRecorder> captured_recorder;
+  fml::AutoResetWaitableEvent latch;
+
+  ohos_waiter->AsyncWaitForVsync(
+      [&](std::unique_ptr<FrameTimingsRecorder> recorder) {
+        captured_recorder = std::move(recorder);
+        latch.Signal();
+      });
+
+  auto* weak_this = new std::weak_ptr<VsyncWaiter>(ohos_waiter);
+
+  int64_t timestamp_ns = 2'000'000'000;
+
+  VsyncWaiterOHOS::firstCall = false;
+  VsyncWaiterOHOS::OnVsyncFromOHOS(timestamp_ns, weak_this);
+
+  latch.Wait();
+
+  ASSERT_TRUE(captured_recorder != nullptr);
+
+  EXPECT_NE(captured_recorder->GetDartFrameDeadline(),
+            captured_recorder->GetVsyncTargetTime());
+
+  EXPECT_LT(captured_recorder->GetDartFrameDeadline(),
+            captured_recorder->GetVsyncTargetTime());
+
+  PlatformViewOHOSNapi::display_refresh_rate = original_rate;
+  PlatformViewOHOSNapi::all_refresh_rates = original_rates;
 }
 
 }  // namespace testing

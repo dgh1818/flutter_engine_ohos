@@ -27,6 +27,19 @@ TEST(FrameTimingsRecorderTest, RecordVsync) {
 
   ASSERT_EQ(st, recorder->GetVsyncStartTime());
   ASSERT_EQ(en, recorder->GetVsyncTargetTime());
+  ASSERT_EQ(en, recorder->GetDartFrameDeadline());
+}
+
+TEST(FrameTimingsRecorderTest, RecordVsyncWithDartFrameDeadline) {
+  auto recorder = std::make_unique<FrameTimingsRecorder>();
+  const auto st = fml::TimePoint::Now();
+  const auto target = st + fml::TimeDelta::FromMillisecondsF(32);
+  const auto dart_frame_deadline = st + fml::TimeDelta::FromMillisecondsF(16);
+  recorder->RecordVsync(st, target, dart_frame_deadline);
+
+  ASSERT_EQ(st, recorder->GetVsyncStartTime());
+  ASSERT_EQ(target, recorder->GetVsyncTargetTime());
+  ASSERT_EQ(dart_frame_deadline, recorder->GetDartFrameDeadline());
 }
 
 TEST(FrameTimingsRecorderTest, RecordBuildTimes) {
@@ -127,6 +140,18 @@ TEST(FrameTimingsRecorderTest, RecordRasterTimesWithCache) {
 #if !defined(OS_FUCHSIA) && !defined(FML_OS_WIN) && \
     (FLUTTER_RUNTIME_MODE == FLUTTER_RUNTIME_MODE_DEBUG)
 
+TEST(FrameTimingsRecorderTest, ThrowWhenRecordVsyncWhenNotUninitialized) {
+  auto recorder = std::make_unique<FrameTimingsRecorder>();
+
+  const auto st = fml::TimePoint::Now();
+  const auto en = st + fml::TimeDelta::FromMillisecondsF(16);
+  recorder->RecordVsync(st, en);
+
+  fml::Status status = recorder->RecordVsyncImpl(st, en, en);
+  EXPECT_FALSE(status.ok());
+  EXPECT_EQ(status.message(), "Check failed: state_ == State::kUninitialized.");
+}
+
 TEST(FrameTimingsRecorderTest, ThrowWhenRecordBuildBeforeVsync) {
   auto recorder = std::make_unique<FrameTimingsRecorder>();
 
@@ -170,12 +195,15 @@ TEST(FrameTimingsRecorderTest, ClonedHasSameVsyncStartAndTarget) {
   auto recorder = std::make_unique<FrameTimingsRecorder>();
 
   const auto now = fml::TimePoint::Now();
-  recorder->RecordVsync(now, now + fml::TimeDelta::FromMilliseconds(16));
+  const auto target = now + fml::TimeDelta::FromMilliseconds(32);
+  const auto dart_frame_deadline = now + fml::TimeDelta::FromMilliseconds(16);
+  recorder->RecordVsync(now, target, dart_frame_deadline);
 
   auto cloned = recorder->CloneUntil(FrameTimingsRecorder::State::kVsync);
   ASSERT_EQ(recorder->GetFrameNumber(), cloned->GetFrameNumber());
   ASSERT_EQ(recorder->GetVsyncStartTime(), cloned->GetVsyncStartTime());
   ASSERT_EQ(recorder->GetVsyncTargetTime(), cloned->GetVsyncTargetTime());
+  ASSERT_EQ(recorder->GetDartFrameDeadline(), cloned->GetDartFrameDeadline());
 }
 
 TEST(FrameTimingsRecorderTest, ClonedHasSameBuildStart) {
@@ -189,6 +217,7 @@ TEST(FrameTimingsRecorderTest, ClonedHasSameBuildStart) {
   ASSERT_EQ(recorder->GetFrameNumber(), cloned->GetFrameNumber());
   ASSERT_EQ(recorder->GetVsyncStartTime(), cloned->GetVsyncStartTime());
   ASSERT_EQ(recorder->GetVsyncTargetTime(), cloned->GetVsyncTargetTime());
+  ASSERT_EQ(recorder->GetDartFrameDeadline(), cloned->GetDartFrameDeadline());
   ASSERT_EQ(recorder->GetBuildStartTime(), cloned->GetBuildStartTime());
 }
 
@@ -204,6 +233,7 @@ TEST(FrameTimingsRecorderTest, ClonedHasSameBuildEnd) {
   ASSERT_EQ(recorder->GetFrameNumber(), cloned->GetFrameNumber());
   ASSERT_EQ(recorder->GetVsyncStartTime(), cloned->GetVsyncStartTime());
   ASSERT_EQ(recorder->GetVsyncTargetTime(), cloned->GetVsyncTargetTime());
+  ASSERT_EQ(recorder->GetDartFrameDeadline(), cloned->GetDartFrameDeadline());
   ASSERT_EQ(recorder->GetBuildStartTime(), cloned->GetBuildStartTime());
   ASSERT_EQ(recorder->GetBuildEndTime(), cloned->GetBuildEndTime());
 }
@@ -221,6 +251,7 @@ TEST(FrameTimingsRecorderTest, ClonedHasSameRasterStart) {
   ASSERT_EQ(recorder->GetFrameNumber(), cloned->GetFrameNumber());
   ASSERT_EQ(recorder->GetVsyncStartTime(), cloned->GetVsyncStartTime());
   ASSERT_EQ(recorder->GetVsyncTargetTime(), cloned->GetVsyncTargetTime());
+  ASSERT_EQ(recorder->GetDartFrameDeadline(), cloned->GetDartFrameDeadline());
   ASSERT_EQ(recorder->GetBuildStartTime(), cloned->GetBuildStartTime());
   ASSERT_EQ(recorder->GetBuildEndTime(), cloned->GetBuildEndTime());
   ASSERT_EQ(recorder->GetRasterStartTime(), cloned->GetRasterStartTime());
@@ -240,6 +271,7 @@ TEST(FrameTimingsRecorderTest, ClonedHasSameRasterEnd) {
   ASSERT_EQ(recorder->GetFrameNumber(), cloned->GetFrameNumber());
   ASSERT_EQ(recorder->GetVsyncStartTime(), cloned->GetVsyncStartTime());
   ASSERT_EQ(recorder->GetVsyncTargetTime(), cloned->GetVsyncTargetTime());
+  ASSERT_EQ(recorder->GetDartFrameDeadline(), cloned->GetDartFrameDeadline());
   ASSERT_EQ(recorder->GetBuildStartTime(), cloned->GetBuildStartTime());
   ASSERT_EQ(recorder->GetBuildEndTime(), cloned->GetBuildEndTime());
   ASSERT_EQ(recorder->GetRasterStartTime(), cloned->GetRasterStartTime());
@@ -276,6 +308,7 @@ TEST(FrameTimingsRecorderTest, ClonedHasSameRasterEndWithCache) {
   ASSERT_EQ(recorder->GetFrameNumber(), cloned->GetFrameNumber());
   ASSERT_EQ(recorder->GetVsyncStartTime(), cloned->GetVsyncStartTime());
   ASSERT_EQ(recorder->GetVsyncTargetTime(), cloned->GetVsyncTargetTime());
+  ASSERT_EQ(recorder->GetDartFrameDeadline(), cloned->GetDartFrameDeadline());
   ASSERT_EQ(recorder->GetBuildStartTime(), cloned->GetBuildStartTime());
   ASSERT_EQ(recorder->GetBuildEndTime(), cloned->GetBuildEndTime());
   ASSERT_EQ(recorder->GetRasterStartTime(), cloned->GetRasterStartTime());
