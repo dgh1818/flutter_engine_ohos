@@ -461,6 +461,7 @@ class OhosBuildInfo {
     this.buildInfo, {
     this.targetArchs = const <OhosArch>[OhosArch.armeabi_v7a, OhosArch.arm64_v8a, OhosArch.x86_64],
     this.enableImpellerFlag,
+    this.enableHcppFlag,
     this.shouldCodesign,
   });
 
@@ -472,6 +473,9 @@ class OhosBuildInfo {
 
   // enable impeller option, default is true
   final bool? enableImpellerFlag;
+
+  /// Whether to enable OHOS Hybrid Composition (HCPP) platform view mode.
+  final bool? enableHcppFlag;
 
   // Whether check codesign while build hap, default is true
   final bool? shouldCodesign;

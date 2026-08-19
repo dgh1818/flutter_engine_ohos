@@ -54,7 +54,17 @@ void checkPlatformEnvironment(String environment, Logger? logger) {
   }
 }
 
-Future<void> setImpellerEnableFlag(OhosProject ohosProject, OhosBuildInfo ohosBuildInfo) async {
+/// Sets the [name] entry's value in the module's buildinfo.json5.
+///
+/// When the entry is absent and [appendIfMissing] is false the file is left
+/// unchanged; with [appendIfMissing] true the entry is appended (for newer
+/// switches that existing project templates don't pre-declare).
+Future<void> _setBuildInfoFlag(
+  OhosProject ohosProject,
+  String name,
+  String? value, {
+  bool appendIfMissing = false,
+}) async {
   final String buildinfoFilePath = globals.fs.path.join(
     ohosProject.flutterModuleDirectory.path,
     BUILD_INFO_JSON_DES_PATH,
@@ -66,27 +76,48 @@ Future<void> setImpellerEnableFlag(OhosProject ohosProject, OhosBuildInfo ohosBu
     throw Exception('Failed to find buildinfo.json5 file: $buildinfoFilePath');
   }
 
-  final String content = file.readAsStringSync();
+  final String content = await file.readAsString();
 
   final json = jsonDecode(content) as Map<String, dynamic>;
 
-  // find "enable_impeller" in json file
   final stringList = json['string'] as List<dynamic>;
-  final enableImpellerItem =
+  final flagItem =
       stringList.firstWhere(
-            (dynamic item) => (item as Map<String, dynamic>)['name'] == 'enable_impeller',
+            (dynamic item) => (item as Map<String, dynamic>)['name'] == name,
             orElse: () => null,
           )
           as Map<String, dynamic>?;
 
-  if (enableImpellerItem != null) {
-    enableImpellerItem['value'] = ohosBuildInfo.enableImpellerFlag?.toString();
+  if (flagItem != null) {
+    flagItem['value'] = value;
+  } else if (appendIfMissing) {
+    stringList.add(<String, dynamic>{'name': name, 'value': value});
   }
 
   final String updatedContent = const JsonEncoder.withIndent('  ').convert(json);
 
   // save setting
   await file.writeAsString(updatedContent);
+}
+
+Future<void> setImpellerEnableFlag(OhosProject ohosProject, OhosBuildInfo ohosBuildInfo) async {
+  await _setBuildInfoFlag(
+    ohosProject,
+    'enable_impeller',
+    ohosBuildInfo.enableImpellerFlag?.toString(),
+  );
+}
+
+Future<void> setHcppEnableFlag(OhosProject ohosProject, OhosBuildInfo ohosBuildInfo) async {
+  // appendIfMissing: HCPP is a newer switch than impeller; existing projects
+  // may not have pre-declared this entry in buildinfo.json5. Append it so
+  // --enable-hcpp takes effect without requiring a template refresh.
+  await _setBuildInfoFlag(
+    ohosProject,
+    'enable_ohos_hybrid_composition',
+    ohosBuildInfo.enableHcppFlag?.toString(),
+    appendIfMissing: true,
+  );
 }
 
 String getHvigorwPath(String ohosRootPath, {bool checkMod = false}) {
@@ -406,6 +437,9 @@ class OhosHvigorBuilder implements OhosBuilder {
     if (ohosBuildInfo.enableImpellerFlag != null) {
       await setImpellerEnableFlag(ohosProject, ohosBuildInfo);
     }
+    if (ohosBuildInfo.enableHcppFlag != null) {
+      await setHcppEnableFlag(ohosProject, ohosBuildInfo);
+    }
 
     await assembleHsps(_processUtils, project, ohosBuildInfo, _logger, target);
     final String hvigorwPath = getHvigorwPath(ohosRootPath, checkMod: true);
@@ -479,6 +513,9 @@ class OhosHvigorBuilder implements OhosBuilder {
 
     if (ohosBuildInfo.enableImpellerFlag != null) {
       await setImpellerEnableFlag(ohosProject, ohosBuildInfo);
+    }
+    if (ohosBuildInfo.enableHcppFlag != null) {
+      await setHcppEnableFlag(ohosProject, ohosBuildInfo);
     }
 
     // 删除 build/ohos/har 目录
@@ -569,6 +606,9 @@ class OhosHvigorBuilder implements OhosBuilder {
 
     if (ohosBuildInfo.enableImpellerFlag != null) {
       await setImpellerEnableFlag(ohosProject, ohosBuildInfo);
+    }
+    if (ohosBuildInfo.enableHcppFlag != null) {
+      await setHcppEnableFlag(ohosProject, ohosBuildInfo);
     }
 
     await assembleHsps(_processUtils, project, ohosBuildInfo, _logger, target);

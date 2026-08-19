@@ -288,6 +288,11 @@ DEF_SWITCH(EnableAndroidHcppAndSurfaceControl,
            "enable-hcpp-and-surface-control",
            "Enable the HCPP platform view mode and SurfaceControl backed "
            "swapchain when supported.")
+DEF_SWITCH(EnableOhosHybridComposition,
+           "enable-ohos-hybrid-composition",
+           "Enable the OpenHarmony Hybrid Composition (HCPP) platform view "
+           "mode, compositing native views as ArkUI system layers "
+           "(RENDER_TYPE_DISPLAY) instead of external textures.")
 DEF_SWITCH(EnableFlutterGPU,
            "enable-flutter-gpu",
            "Whether Flutter GPU is enabled.")

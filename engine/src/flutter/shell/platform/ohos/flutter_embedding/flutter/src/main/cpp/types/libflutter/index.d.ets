@@ -412,6 +412,30 @@ export const nativeEnableFrameCache: (nativeShellHolderId: number, enable: boole
 export const nativeSetPipVisible: (nativeShellHolderId: number, visible: boolean) => void;
 
 /**
+ * Hybrid Composition (HCPP): whether HCPP is enabled on the native engine.
+ * @param nativeShellHolderId - The ID of the native shell holder
+ * @returns True when HCPP is enabled.
+ */
+export const nativeIsHybridCompositionEnabled: (nativeShellHolderId: number) => boolean;
+
+/**
+ * Hybrid Composition (HCPP) route D: injects a DISPLAY system layer's touch
+ * event into the engine as a PointerDataPacket, bypassing the broken main
+ * XComponent hit path so the Dart gesture arena can arbitrate. Coordinates in
+ * each touchData item must be physical pixels in the Flutter-view coordinate
+ * system (converted on the ArkTS side before this call).
+ * @param nativeShellHolderId - The ID of the native shell holder
+ * @param touchData - Array of touch data objects, each with fields:
+ *   change(number), device(number), embedder_id(number),
+ *   physical_x(number), physical_y(number), time_stamp(number),
+ *   pressure(number), size(number), kind(number)
+ */
+export const nativeDispatchTouchToEngine: (
+  nativeShellHolderId: number,
+  touchData: Object[]
+) => void;
+
+/**
  * Looks up callback information for a given handler.
  * @param callback - The FlutterCallbackInformation object to populate
  * @param handler - The handler number

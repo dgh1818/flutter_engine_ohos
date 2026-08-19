@@ -8,6 +8,7 @@
 #define FLUTTER_SHELL_PLATFORM_OHOS_NAPI_PLATFORM_VIEW_OHOS_NAPI_H_
 #include <memory>
 #include <mutex>
+#include <vector>
 #include "flutter/fml/file.h"
 #include "flutter/fml/mapping.h"
 #include "flutter/fml/platform/ohos/dynamic_library_loader.h"
@@ -61,6 +62,33 @@ class PlatformViewOHOSNapi {
 
   void FlutterViewOnFirstFrame(bool is_preload = false);
   void FlutterViewOnPreEngineRestart();
+
+  void OnDisplayPlatformViewHybrid(int64_t view_id,
+                              double x,
+                              double y,
+                              double width,
+                              double height,
+                              double view_width,
+                              double view_height);
+
+  void OnDisplayOverlayHybrid(int64_t view_id,
+                         double x,
+                         double y,
+                         double width,
+                         double height);
+
+  void OnDisplayMutatorsHybrid(int64_t view_id, const std::vector<double>& data);
+
+  void HidePlatformViewHybrid(int64_t view_id);
+
+  void ShowOverlaySurfaceHybrid();
+
+  void HideOverlaySurfaceHybrid();
+
+  void OnBeginFrameHybrid();
+
+  void OnEndFrameHybrid();
+
   flutter::locale resolveNativeLocale(
       std::vector<flutter::locale> supportedLocales);
   std::unique_ptr<std::vector<std::string>>
@@ -209,6 +237,17 @@ class PlatformViewOHOSNapi {
                                            napi_callback_info info);
 
   static napi_value nativeSetPipVisible(napi_env env, napi_callback_info info);
+
+  // HCPP: returns whether Hybrid Composition is enabled for the engine.
+  static napi_value nativeIsHybridCompositionEnabled(napi_env env,
+                                                     napi_callback_info info);
+
+  // HCPP route D: injects a DISPLAY system layer's touch event into the
+  // engine as a PointerDataPacket, bypassing the (broken) main XComponent
+  // hit path so the Dart gesture arena can arbitrate. touchData is an array
+  // of objects whose fields mirror HandleTouchEvent's PointerData layout.
+  static napi_value nativeDispatchTouchToEngine(napi_env env,
+                                                napi_callback_info info);
 
   // Surface相关，XComponent调用
   static void SurfaceCreated(int64_t shell_holder,

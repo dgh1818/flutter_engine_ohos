@@ -93,6 +93,7 @@ source_set("flutter_ohos_sources") {
     "./context/ohos_context.cpp",
     "./napi/platform_view_ohos_napi.cpp",
     "./surface/ohos_native_window.cpp",
+    "./external_view_embedder/external_view_embedder.cc",
     "./surface/ohos_snapshot_surface_producer.cpp",
     "./surface/ohos_surface.cpp",
     "library_loader.cpp",
