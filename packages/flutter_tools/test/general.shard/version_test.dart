@@ -265,7 +265,7 @@ void main() {
           expect(testLogger.statusText, isEmpty);
           expect(processManager, hasNoRemainingExpectations);
         },
-        skip: true,  // OHOS not supported
+        skip: true, // OHOS not supported
         overrides: <Type, Generator>{
           ProcessManager: () => processManager,
           Cache: () => cache,
@@ -457,7 +457,7 @@ void main() {
           expect(testLogger.statusText, isEmpty);
           expect(processManager, hasNoRemainingExpectations);
         },
-        skip: true,  // OHOS not supported
+        skip: true, // OHOS not supported
         overrides: <Type, Generator>{
           ProcessManager: () => processManager,
           Cache: () => cache,
@@ -537,7 +537,7 @@ void main() {
           expect(testLogger.statusText, isEmpty);
           expect(processManager, hasNoRemainingExpectations);
         },
-        skip: true,  // OHOS not supported
+        skip: true, // OHOS not supported
         overrides: <Type, Generator>{
           ProcessManager: () => processManager,
           Cache: () => cache,
@@ -903,7 +903,7 @@ void main() {
 
       expect(processManager, hasNoRemainingExpectations);
     },
-    skip: true,  // OHOS not supported
+    skip: true, // OHOS not supported
     overrides: <Type, Generator>{ProcessManager: () => processManager, Cache: () => cache},
   );
 
@@ -1001,7 +1001,7 @@ void main() {
 }''');
       expect(processManager, hasNoRemainingExpectations);
     },
-    skip: true,  // OHOS not supported
+    skip: true, // OHOS not supported
     overrides: <Type, Generator>{ProcessManager: () => processManager, Cache: () => cache},
   );
 
@@ -1232,7 +1232,7 @@ void main() {
       expect(processManager, hasNoRemainingExpectations);
       expect(versionFile.existsSync(), isTrue);
     },
-    skip: true,  // OHOS not supported
+    skip: true, // OHOS not supported
     overrides: <Type, Generator>{ProcessManager: () => processManager, Cache: () => cache},
   );
 
@@ -1388,6 +1388,75 @@ void main() {
     );
   }, overrides: {Logger: () => testLogger});
 
+  testUsingContext('GitTagVersion ohos -ohos pre-release format', () {
+    // Legacy -ohos format (pre-release, lower precedence than upstream stable)
+    final GitTagVersion gitTagVersion = GitTagVersion.parse('3.35.7-ohos-1.0.4-beta');
+    expect(gitTagVersion.x, 3);
+    expect(gitTagVersion.y, 35);
+    expect(gitTagVersion.z, 7);
+    expect(gitTagVersion.gitTag, '3.35.7-ohos-1.0.4-beta');
+    expect(gitTagVersion.commits, 0);
+  });
+
+  testUsingContext('GitTagVersion ohos +ohos build metadata format', () {
+    // Preferred +ohos format (build metadata, equal precedence to upstream stable)
+    final GitTagVersion gitTagVersion = GitTagVersion.parse('3.35.7+ohos-1.0.4-beta');
+    expect(gitTagVersion.x, 3);
+    expect(gitTagVersion.y, 35);
+    expect(gitTagVersion.z, 7);
+    expect(gitTagVersion.gitTag, '3.35.7+ohos-1.0.4-beta');
+    expect(gitTagVersion.commits, 0);
+  });
+
+  testUsingContext('GitTagVersion ohos with commits past tag', () {
+    const hash = 'abcdef';
+    // +ohos format with commits past the tag (git describe output)
+    final GitTagVersion gitTagVersion = GitTagVersion.parse('3.35.7+ohos-1.0.4-beta-5-g$hash');
+    expect(gitTagVersion.x, 3);
+    expect(gitTagVersion.y, 35);
+    expect(gitTagVersion.z, 7);
+    expect(gitTagVersion.gitTag, '3.35.7+ohos-1.0.4-beta');
+    expect(gitTagVersion.commits, 5);
+    expect(gitTagVersion.hash, hash);
+    // ohos tags return gitTag directly even when commits > 0
+    expect(gitTagVersion.frameworkVersionFor(hash), '3.35.7+ohos-1.0.4-beta');
+  });
+
+  testUsingContext('GitTagVersion ohos +ohos with commits past tag no suffix', () {
+    const hash = 'abcdef';
+    // +ohos format without prerelease suffix, with commits past the tag
+    final GitTagVersion gitTagVersion = GitTagVersion.parse('3.44.9+ohos-1.0.0-5-g$hash');
+    expect(gitTagVersion.x, 3);
+    expect(gitTagVersion.y, 44);
+    expect(gitTagVersion.z, 9);
+    expect(gitTagVersion.gitTag, '3.44.9+ohos-1.0.0');
+    expect(gitTagVersion.commits, 5);
+    expect(gitTagVersion.hash, hash);
+    expect(gitTagVersion.frameworkVersionFor(hash), '3.44.9+ohos-1.0.0');
+  });
+
+  testUsingContext('GitTagVersion ohos -ohos with commits past tag', () {
+    const hash = 'abcdef';
+    // -ohos format with commits past the tag
+    final GitTagVersion gitTagVersion = GitTagVersion.parse('3.35.8-ohos-0.0.3-140-g$hash');
+    expect(gitTagVersion.x, 3);
+    expect(gitTagVersion.y, 35);
+    expect(gitTagVersion.z, 8);
+    expect(gitTagVersion.gitTag, '3.35.8-ohos-0.0.3');
+    expect(gitTagVersion.commits, 140);
+    expect(gitTagVersion.frameworkVersionFor(hash), '3.35.8-ohos-0.0.3');
+  });
+
+  testUsingContext('GitTagVersion ohos historical formats', () {
+    // Historical tag formats should still parse correctly
+    expect(GitTagVersion.parse('3.22.1-ohos-1.0.0').gitTag, '3.22.1-ohos-1.0.0');
+    expect(
+      GitTagVersion.parse('3.22.1-ohos-1.0.0-candidate.1').gitTag,
+      '3.22.1-ohos-1.0.0-candidate.1',
+    );
+    expect(GitTagVersion.parse('3.22.1-ohos-1.0.0-SP1').gitTag, '3.22.1-ohos-1.0.0-SP1');
+  });
+
   testUsingContext('determine reports correct stable version if HEAD is at a tag', () {
     const stableTag = '1.2.3';
     processManager.addCommands(<FakeCommand>[
@@ -1444,7 +1513,7 @@ void main() {
     );
     // reported version should increment the m
     expect(gitTagVersion.frameworkVersionFor(headRevision), '1.2.0-3.0.pre-12');
-  }, skip: true);  // OHOS not supported
+  }, skip: true); // OHOS not supported
 
   testUsingContext('determine does not call fetch --tags', () {
     processManager.addCommands(<FakeCommand>[
@@ -1460,7 +1529,7 @@ void main() {
 
     GitTagVersion.determine(platform, workingDirectory: '.', git: git);
     expect(processManager, hasNoRemainingExpectations);
-  }, skip: true);  // OHOS not supported
+  }, skip: true); // OHOS not supported
 
   testUsingContext('determine does not fetch tags on beta', () {
     processManager.addCommands(<FakeCommand>[
@@ -1480,7 +1549,7 @@ void main() {
 
     GitTagVersion.determine(platform, workingDirectory: '.', fetchTags: true, git: git);
     expect(processManager, hasNoRemainingExpectations);
-  }, skip: true);  // OHOS not supported
+  }, skip: true); // OHOS not supported
 
   testUsingContext('determine calls fetch --tags on master', () {
     processManager.addCommands(<FakeCommand>[
@@ -1503,32 +1572,37 @@ void main() {
 
     GitTagVersion.determine(platform, workingDirectory: '.', fetchTags: true, git: git);
     expect(processManager, hasNoRemainingExpectations);
-  }, skip: true);  // OHOS not supported
+  }, skip: true); // OHOS not supported
 
-  testUsingContext('determine uses overridden git url', () {
-    processManager.addCommands(<FakeCommand>[
-      const FakeCommand(
-        command: <String>['git', 'symbolic-ref', '--short', 'HEAD'],
-        stdout: 'master',
-      ),
-      const FakeCommand(
-        command: <String>['git', 'fetch', 'https://githubmirror.com/flutter.git', '--tags', '-f'],
-      ),
-      const FakeCommand(command: <String>['git', 'tag', '--points-at', 'HEAD']),
-      ...mockGitTagHistory(
-        latestTag: 'v0.1.2-3',
-        headRef: 'HEAD',
-        ancestorRef: 'abcd1234',
-        commitsBetweenRefs: 12,
-      ),
-    ]);
-    final platform = FakePlatform(
-      environment: <String, String>{'FLUTTER_GIT_URL': 'https://githubmirror.com/flutter.git'},
-    );
+  testUsingContext(
+    'determine uses overridden git url',
+    () {
+      processManager.addCommands(<FakeCommand>[
+        const FakeCommand(
+          command: <String>['git', 'symbolic-ref', '--short', 'HEAD'],
+          stdout: 'master',
+        ),
+        const FakeCommand(
+          command: <String>['git', 'fetch', 'https://githubmirror.com/flutter.git', '--tags', '-f'],
+        ),
+        const FakeCommand(command: <String>['git', 'tag', '--points-at', 'HEAD']),
+        ...mockGitTagHistory(
+          latestTag: 'v0.1.2-3',
+          headRef: 'HEAD',
+          ancestorRef: 'abcd1234',
+          commitsBetweenRefs: 12,
+        ),
+      ]);
+      final platform = FakePlatform(
+        environment: <String, String>{'FLUTTER_GIT_URL': 'https://githubmirror.com/flutter.git'},
+      );
 
-    GitTagVersion.determine(platform, workingDirectory: '.', fetchTags: true, git: git);
-    expect(processManager, hasNoRemainingExpectations);
-  }, skip: true, overrides: {Git: () => git});  // OHOS not supported
+      GitTagVersion.determine(platform, workingDirectory: '.', fetchTags: true, git: git);
+      expect(processManager, hasNoRemainingExpectations);
+    },
+    skip: true, // OHOS not supported
+    overrides: {Git: () => git},
+  );
 
   group('$FlutterEngineStampFromFile', () {
     late FileSystem fs;
