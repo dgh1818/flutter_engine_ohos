@@ -161,6 +161,19 @@ bool BlitPass::AddCopy(BufferView source,
                                       mip_level, slice, convert_to_read);
 }
 
+bool BlitPass::AddCopies(std::vector<BufferToTextureCopy> copies,
+                         std::shared_ptr<Texture> destination,
+                         std::string_view label,
+                         bool convert_to_read) {
+  for (auto& copy : copies) {
+    if (!AddCopy(std::move(copy.source), destination, copy.destination_region,
+                 label, copy.mip_level, copy.slice, convert_to_read)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 bool BlitPass::ConvertTextureToShaderRead(
     const std::shared_ptr<Texture>& texture) {
   return true;

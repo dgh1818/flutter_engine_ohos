@@ -558,6 +558,8 @@ Settings SettingsFromCommandLine(const fml::CommandLine& command_line,
       command_line.HasOption(FlagForSwitch(Switch::ImpellerAntialiasLines));
   settings.impeller_use_sdfs =
       command_line.HasOption(FlagForSwitch(Switch::ImpellerUseSDFs));
+  settings.enable_glyph_raster_parallelization = command_line.HasOption(
+      FlagForSwitch(Switch::EnableGlyphRasterParallelization));
 
   return settings;
 }

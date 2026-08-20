@@ -32,27 +32,46 @@ static constexpr int64_t kImplicitViewId = 0;
 static void OHOSPlatformThreadConfigSetter(
     const fml::Thread::ThreadConfig& config) {
   fml::Thread::SetCurrentThreadName(config);
-  // set thread priority
   switch (config.priority) {
     case fml::Thread::ThreadPriority::kBackground: {
       int ret = OH_QoS_SetThreadQoS(QoS_Level::QOS_BACKGROUND);
-      FML_DLOG(INFO) << "qos set background result:" << ret
-                     << ",tid:" << gettid();
+      if (ret != 0) {
+        FML_LOG(WARNING) << "qos set background failed:" << ret
+                         << ", fallback to QOS_DEFAULT, tid:" << gettid();
+        OH_QoS_SetThreadQoS(QoS_Level::QOS_DEFAULT);
+      } else {
+        FML_LOG(INFO) << "qos set background ok, tid:" << gettid();
+      }
       break;
     }
     case fml::Thread::ThreadPriority::kDisplay: {
       int ret = OH_QoS_SetThreadQoS(QoS_Level::QOS_USER_INTERACTIVE);
-      FML_DLOG(INFO) << "qos set display result:" << ret << ",tid:" << gettid();
+      if (ret != 0) {
+        FML_LOG(WARNING) << "qos set display failed:" << ret
+                         << ", fallback to QOS_USER_INITIATED, tid:"
+                         << gettid();
+        OH_QoS_SetThreadQoS(QoS_Level::QOS_USER_INITIATED);
+      } else {
+        FML_LOG(INFO) << "qos set display ok, tid:" << gettid();
+      }
       break;
     }
     case fml::Thread::ThreadPriority::kRaster: {
       int ret = OH_QoS_SetThreadQoS(QoS_Level::QOS_USER_INTERACTIVE);
-      FML_DLOG(INFO) << "qos set raster result:" << ret << ",tid:" << gettid();
+      if (ret != 0) {
+        FML_LOG(WARNING) << "qos set raster failed:" << ret
+                         << ", fallback to QOS_USER_INITIATED, tid:"
+                         << gettid();
+        OH_QoS_SetThreadQoS(QoS_Level::QOS_USER_INITIATED);
+      } else {
+        FML_LOG(INFO) << "qos set raster ok, tid:" << gettid();
+      }
       break;
     }
-    default:
+    default: {
       int ret = OH_QoS_SetThreadQoS(QoS_Level::QOS_DEFAULT);
-      FML_DLOG(INFO) << "qos set default result:" << ret << ",tid:" << gettid();
+      FML_LOG(INFO) << "qos set default result:" << ret << ", tid:" << gettid();
+    }
   }
 }
 

@@ -9,6 +9,7 @@
 #include "flutter/flow/surface.h"
 #include "flutter/fml/macros.h"
 #include "flutter/fml/memory/weak_ptr.h"
+#include "flutter/impeller/base/flags.h"
 #include "flutter/impeller/display_list/aiks_context.h"
 #include "flutter/impeller/renderer/context.h"
 #include "flutter/shell/gpu/gpu_surface_vulkan_delegate.h"
@@ -19,7 +20,8 @@ namespace flutter {
 class GPUSurfaceVulkanImpeller final : public Surface {
  public:
   explicit GPUSurfaceVulkanImpeller(GPUSurfaceVulkanDelegate* delegate,
-                                    std::shared_ptr<impeller::Context> context);
+                                    std::shared_ptr<impeller::Context> context,
+                                    impeller::Flags flags = impeller::Flags{});
 
   // |Surface|
   ~GPUSurfaceVulkanImpeller() override;

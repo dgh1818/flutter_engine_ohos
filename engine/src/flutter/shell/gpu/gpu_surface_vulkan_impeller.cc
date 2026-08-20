@@ -56,14 +56,15 @@ class WrappedTextureSourceVK : public impeller::TextureSourceVK {
 
 GPUSurfaceVulkanImpeller::GPUSurfaceVulkanImpeller(
     GPUSurfaceVulkanDelegate* delegate,
-    std::shared_ptr<impeller::Context> context)
+    std::shared_ptr<impeller::Context> context,
+    impeller::Flags flags)
     : delegate_(delegate) {
   if (!context || !context->IsValid()) {
     return;
   }
 
   auto aiks_context = std::make_shared<impeller::AiksContext>(
-      context, impeller::TypographerContextSkia::Make());
+      context, impeller::TypographerContextSkia::Make(flags));
   if (!aiks_context->IsValid()) {
     return;
   }

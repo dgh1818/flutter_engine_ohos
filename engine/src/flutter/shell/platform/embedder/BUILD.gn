@@ -467,6 +467,7 @@ shared_library("flutter_engine_library") {
   if (is_ohos) {
     ldflags += [ "-Wl,--version-script=" + rebase_path("embedder_exports.lst") ]
     ldflags += [ "-lnative_drawing" ]
+    ldflags += [ "-lqos" ]
   }
 
   deps = [ ":embedder" ]

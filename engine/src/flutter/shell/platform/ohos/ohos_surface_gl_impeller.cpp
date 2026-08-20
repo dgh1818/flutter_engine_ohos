@@ -194,11 +194,12 @@ bool OHOSSurfaceGLImpeller::IsValid() const {
 // OHOSSurface
 std::unique_ptr<Surface> OHOSSurfaceGLImpeller::CreateGPUSurface(
     GrDirectContext* gr_context) {
-  auto surface =
-      std::make_unique<GPUSurfaceGLImpeller>(this,               // delegate
-                                             impeller_context_,  // context
-                                             true  // bool render_to_surface
-      );
+  auto surface = std::make_unique<GPUSurfaceGLImpeller>(
+      this,                              // delegate
+      impeller_context_,                 // context
+      true,                              // bool render_to_surface
+      ohos_context_->GetImpellerFlags()  // flags
+  );
   if (!surface->IsValid()) {
     return nullptr;
   }

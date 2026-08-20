@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "impeller/core/device_buffer.h"
 #include "impeller/core/texture.h"
@@ -15,6 +16,13 @@ namespace impeller {
 
 class HostBuffer;
 class Allocator;
+
+struct BufferToTextureCopy {
+  BufferView source;
+  IRect destination_region;
+  uint32_t mip_level = 0u;
+  uint32_t slice = 0u;
+};
 
 //------------------------------------------------------------------------------
 /// @brief      Blit passes encode blit into the underlying command buffer.
@@ -131,6 +139,17 @@ class BlitPass {
                uint32_t mip_level = 0,
                uint32_t slice = 0,
                bool convert_to_read = true);
+
+  //----------------------------------------------------------------------------
+  /// @brief      Record commands to copy multiple buffer regions to a texture.
+  ///
+  ///             Backends can override this to submit multiple regions in fewer
+  ///             native copy commands. The default path falls back to AddCopy
+  ///             for each region.
+  virtual bool AddCopies(std::vector<BufferToTextureCopy> copies,
+                         std::shared_ptr<Texture> destination,
+                         std::string_view label = "",
+                         bool convert_to_read = true);
 
   //----------------------------------------------------------------------------
   /// @brief      Record a command to generate all mip levels for a texture.

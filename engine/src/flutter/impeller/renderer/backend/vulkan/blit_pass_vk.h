@@ -50,6 +50,12 @@ class BlitPassVK final : public BlitPass {
       const std::shared_ptr<Texture>& texture) override;
 
   // |BlitPass|
+  bool AddCopies(std::vector<BufferToTextureCopy> copies,
+                 std::shared_ptr<Texture> destination,
+                 std::string_view label,
+                 bool convert_to_read) override;
+
+  // |BlitPass|
   bool OnCopyTextureToTextureCommand(std::shared_ptr<Texture> source,
                                      std::shared_ptr<Texture> destination,
                                      IRect source_region,
