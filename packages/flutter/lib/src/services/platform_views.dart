@@ -2096,7 +2096,11 @@ abstract class OhosViewController extends PlatformViewController {
   /// See [OhosViewController.dispatchPointerEvent] for sending a
   /// [PointerEvent].
   Future<void> sendMotionEvent(OhosMotionEvent event) async {
-    await SystemChannels.platform_views.invokeMethod<dynamic>('touch', event._asList(viewId));
+    if (requiresViewComposition) {
+      await SystemChannels.platform_views_2.invokeMethod<dynamic>('touch', event._asList(viewId));
+    } else {
+      await SystemChannels.platform_views.invokeMethod<dynamic>('touch', event._asList(viewId));
+    }
   }
 
   /// Converts a given point from the global coordinate system in logical pixels

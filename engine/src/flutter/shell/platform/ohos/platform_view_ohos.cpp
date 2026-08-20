@@ -116,6 +116,14 @@ PlatformViewOHOS::PlatformViewOHOS(
       platform_message_handler_(new PlatformMessageHandlerOHOS(
           napi_facade,
           task_runners_.GetPlatformTaskRunner())) {
+  // HCPP is opt-in via settings and requires a GPU rendering backend. When
+  // disabled, CreateExternalViewEmbedder() returns nullptr and the external
+  // texture / TLHC path is used unchanged.
+  hybrid_composition_enabled_ =
+      delegate.OnPlatformViewGetSettings().enable_ohos_hybrid_composition &&
+      ohos_context_ &&
+      ohos_context_->RenderingApi() != OHOSRenderingAPI::kSoftware;
+
   if (ohos_context_) {
     FML_CHECK(ohos_context_->IsValid())
         << "Could not create surface from invalid HarmonyOS context.";
@@ -477,8 +485,60 @@ std::unique_ptr<Surface> PlatformViewOHOS::CreateRenderingSurface() {
 // |PlatformView|
 std::shared_ptr<ExternalViewEmbedder>
 PlatformViewOHOS::CreateExternalViewEmbedder() {
-  FML_DLOG(INFO) << "CreateExternalViewEmbedder";
-  return nullptr;
+  if (!hybrid_composition_enabled_) {
+    // Preserve the external texture / TLHC composition path.
+    return nullptr;
+  }
+  if (!ohos_external_view_embedder_) {
+    ohos_external_view_embedder_ = std::make_shared<OHOSExternalViewEmbedder>(
+        ohos_context_, napi_facade_, surface_factory_, task_runners_);
+    // Deliver an overlay window that arrived before the embedder existed
+    // (see SetHybridCompositionOverlayWindow).
+    if (pending_overlay_window_ != nullptr) {
+      fml::RefPtr<OHOSNativeWindow> native_window =
+          fml::MakeRefCounted<OHOSNativeWindow>(
+              static_cast<OHNativeWindow*>(pending_overlay_window_), false);
+      ohos_external_view_embedder_->SetOverlayWindow(std::move(native_window));
+      pending_overlay_window_ = nullptr;
+    }
+  }
+  return ohos_external_view_embedder_;
+}
+
+void PlatformViewOHOS::SetHybridCompositionOverlayWindow(void* window) {
+  if (!ohos_external_view_embedder_) {
+    // The HCPP embedder is created lazily on the first
+    // CreateExternalViewEmbedder() call, which can happen AFTER the overlay
+    // XComponent's surface exists. Stash the window and push it when the
+    // embedder is created — previously this early window was dropped with a
+    // warning and the overlay stayed dead for the whole session (no retry
+    // path: OnSurfaceCreated fires once per surface).
+    FML_LOG(INFO) << "SetHybridCompositionOverlayWindow: HCPP embedder not "
+                     "created yet, stashing window "
+                  << window;
+    pending_overlay_window_ = window;
+    return;
+  }
+  fml::RefPtr<OHOSNativeWindow> native_window;
+  if (window != nullptr) {
+    native_window = fml::MakeRefCounted<OHOSNativeWindow>(
+        static_cast<OHNativeWindow*>(window), false);
+  }
+  ohos_external_view_embedder_->SetOverlayWindow(std::move(native_window));
+}
+
+void PlatformViewOHOS::ClearHybridCompositionOverlayWindowSync() {
+  if (!ohos_external_view_embedder_) {
+    return;
+  }
+  fml::AutoResetWaitableEvent latch;
+  fml::TaskRunner::RunNowOrPostTask(
+      task_runners_.GetRasterTaskRunner(),
+      [embedder = ohos_external_view_embedder_, &latch]() {
+        embedder->TearDownOverlayWindow();
+        latch.Signal();
+      });
+  latch.Wait();
 }
 
 // |PlatformView|

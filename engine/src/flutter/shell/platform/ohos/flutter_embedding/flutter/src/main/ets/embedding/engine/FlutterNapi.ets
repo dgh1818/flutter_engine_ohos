@@ -51,6 +51,25 @@ interface PendingMessage {
 }
 
 /**
+ * Handler for Hybrid Composition (HCPP) callbacks coming from the engine.
+ * Implemented by the HCPP platform views controller (M2). When absent, the
+ * callbacks are logged and the engine degrades gracefully (no overlay / no
+ * native view positioning), without affecting the external texture path.
+ */
+export interface HybridCompositionHandler {
+  onDisplayPlatformViewHybrid(viewId: number, x: number, y: number, width: number,
+    height: number, viewWidth: number, viewHeight: number): void;
+  onDisplayOverlayHybrid(viewId: number, x: number, y: number, width: number,
+    height: number): void;
+  onDisplayMutatorsHybrid(viewId: number, data: number[]): void;
+  hidePlatformViewHybrid(viewId: number): void;
+  showOverlaySurfaceHybrid(): void;
+  hideOverlaySurfaceHybrid(): void;
+  onBeginFrameHybrid(): void;
+  onEndFrameHybrid(): void;
+}
+
+/**
  * Provides Flutter NAPI interface for ArkTS.
  * This class serves as the bridge between the ArkTS layer and the native Flutter engine,
  * handling initialization, message passing, viewport management, and lifecycle events.
@@ -78,6 +97,22 @@ export default class FlutterNapi {
   private pendingMessages: PendingMessage[] = [];
   private readyForHandleMessage: boolean = true;
   private firstPreloading: boolean = true;
+  /** Hybrid Composition (HCPP) handler, or null when HCPP is inactive. */
+  private hybridCompositionHandler: HybridCompositionHandler | null = null;
+  /**
+   * Cached result of isHybridCompositionEnabled(). The native value is set once
+   * during PlatformViewOHOS construction and never changes, so we query NAPI
+   * a single time and reuse the cached boolean on subsequent calls (notably the
+   * per-touch-event hot path in onTouchEvent). null = not yet queried.
+   */
+  private hybridCompositionEnabledCached: boolean | null = null;
+  /**
+   * Reports whether any texture-mode (TLHC) platform view is alive, so the
+   * HCPP touch-path skip in onTouchEvent can spare the reinjection stream
+   * those views depend on. Wired by FlutterEngine from PlatformViewsController
+   * (lazily evaluated per call). null = not wired (skip stays in effect).
+   */
+  private textureTouchArbiter: (() => boolean) | null = null;
 
   /**
    * Updates the refresh rate for the Flutter engine.
@@ -612,6 +647,109 @@ export default class FlutterNapi {
   }
 
   /**
+   * Registers the HCPP handler that receives engine composition callbacks.
+   * @param handler - The handler, or null to unregister.
+   */
+  setHybridCompositionHandler(handler: HybridCompositionHandler | null): void {
+    this.hybridCompositionHandler = handler;
+    Log.i(TAG, "setHybridCompositionHandler " + (handler != null ? "registered" : "cleared"));
+  }
+
+  /**
+   * Whether Hybrid Composition (HCPP) is enabled on the native engine.
+   * The native value is immutable after PlatformViewOHOS construction, so the
+   * first call queries NAPI and caches the result; subsequent calls (including
+   * the per-touch-event hot path) return the cached boolean without crossing
+   * the JS→C++ boundary.
+   */
+  isHybridCompositionEnabled(): boolean {
+    if (this.hybridCompositionEnabledCached != null) {
+      return this.hybridCompositionEnabledCached;
+    }
+    if (this.nativeShellHolderId == null) {
+      return false;
+    }
+    const enabled: boolean =
+      flutter.nativeIsHybridCompositionEnabled(this.nativeShellHolderId);
+    this.hybridCompositionEnabledCached = enabled;
+    return enabled;
+  }
+
+  /**
+   * HCPP route D: injects a DISPLAY system layer's touch event into the engine.
+   * Each touchData item fields mirror native HandleTouchEvent's PointerData
+   * layout; coordinates must already be physical pixels in the Flutter-view
+   * coordinate system.
+   */
+  dispatchTouchToEngine(touchData: Object[]): void {
+    if (this.nativeShellHolderId == null) {
+      Log.e(TAG, "dispatchTouchToEngine: nativeShellHolderId is null");
+      return;
+    }
+    flutter.nativeDispatchTouchToEngine(this.nativeShellHolderId, touchData);
+  }
+
+  onDisplayPlatformViewHybrid(viewId: number, x: number, y: number, width: number,
+    height: number, viewWidth: number, viewHeight: number): void {
+    if (this.hybridCompositionHandler != null) {
+      this.hybridCompositionHandler.onDisplayPlatformViewHybrid(
+        viewId, x, y, width, height, viewWidth, viewHeight);
+    } else {
+      Log.d(TAG, "onDisplayPlatformViewHybrid (no handler) viewId=" + viewId);
+    }
+  }
+
+  /** native 下发 SliceViews 算出的 overlay rect → 转发 ControllerHybrid 存 AppStorage。 */
+  onDisplayOverlayHybrid(viewId: number, x: number, y: number, width: number,
+    height: number): void {
+    if (this.hybridCompositionHandler != null) {
+      this.hybridCompositionHandler.onDisplayOverlayHybrid(
+        viewId, x, y, width, height);
+    } else {
+      Log.d(TAG, "onDisplayOverlayHybrid (no handler) viewId=" + viewId);
+    }
+  }
+
+  /** native 下发折叠后的 mutator finals → 转发 ControllerHybrid。 */
+  onDisplayMutatorsHybrid(viewId: number, data: number[]): void {
+    if (this.hybridCompositionHandler != null) {
+      this.hybridCompositionHandler.onDisplayMutatorsHybrid(viewId, data);
+    } else {
+      Log.d(TAG, "onDisplayMutatorsHybrid (no handler) viewId=" + viewId);
+    }
+  }
+
+  hidePlatformViewHybrid(viewId: number): void {
+    if (this.hybridCompositionHandler != null) {
+      this.hybridCompositionHandler.hidePlatformViewHybrid(viewId);
+    }
+  }
+
+  showOverlaySurfaceHybrid(): void {
+    if (this.hybridCompositionHandler != null) {
+      this.hybridCompositionHandler.showOverlaySurfaceHybrid();
+    }
+  }
+
+  hideOverlaySurfaceHybrid(): void {
+    if (this.hybridCompositionHandler != null) {
+      this.hybridCompositionHandler.hideOverlaySurfaceHybrid();
+    }
+  }
+
+  onBeginFrameHybrid(): void {
+    if (this.hybridCompositionHandler != null) {
+      this.hybridCompositionHandler.onBeginFrameHybrid();
+    }
+  }
+
+  onEndFrameHybrid(): void {
+    if (this.hybridCompositionHandler != null) {
+      this.hybridCompositionHandler.onEndFrameHybrid();
+    }
+  }
+
+  /**
    * Computes the platform-resolved locale from the given locale strings.
    * Invoked by native to obtain the results of OpenHarmony's locale resolution algorithm.
    * @param strings - Array of locale strings
@@ -1081,8 +1219,21 @@ export default class FlutterNapi {
    */
   onTouchEvent(strings: Array<string>): void {
     if (this.isAttached()) {
+      const hasTextureViews = this.textureTouchArbiter != null
+        ? this.textureTouchArbiter() : false;
+      if (this.isHybridCompositionEnabled() && !hasTextureViews) {
+        return;
+      }
       TouchEventProcessor.getInstance().postTouchEvent(strings);
     }
+  }
+
+  /**
+   * Wires the texture-PV liveness probe consulted by onTouchEvent's HCPP skip
+   * (see textureTouchArbiter). Pass null to restore the unconditional skip.
+   */
+  setTextureTouchArbiter(arbiter: (() => boolean) | null): void {
+    this.textureTouchArbiter = arbiter;
   }
 
   /**

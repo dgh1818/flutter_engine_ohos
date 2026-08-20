@@ -266,6 +266,11 @@ class OhosDevice extends Device {
           debuggingOptions.buildInfo,
           targetArchs: <OhosArch>[ohosArch],
           enableImpellerFlag: debuggingOptions.enableImpeller.asBool,
+          // enableHcpp is a non-nullable bool defaulting to false; map false
+          // to null so a plain `flutter run` without --enable-hcpp leaves any
+          // manually configured enable_ohos_hybrid_composition value in
+          // buildinfo.json5 untouched instead of rewriting it to 'false'.
+          enableHcppFlag: debuggingOptions.enableHcpp ? true : null,
           shouldCodesign: true,
         ),
         target: mainPath ?? 'lib/main.dart',

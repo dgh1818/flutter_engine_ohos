@@ -917,6 +917,49 @@ export class FlutterView {
   }
 
   /**
+   * 封装对 controllerHybrid.dispatchTouchToEngine 的调用，不暴露 flutterEngine。
+   * @param viewId - overlay rect 所属 platform view id（webview 的 viewId）
+   * @param event - ArkUI TouchEvent，坐标用 windowX×dpr（dispatchTouchToEngine 内部转）
+   */
+  dispatchTouchToEngineHybrid(viewId: number, event: TouchEvent): void {
+    const controller = this.flutterEngine?.getPlatformViewsControllerHybrid();
+    if (controller == null) {
+      Log.w(TAG, `dispatchTouchToEngineHybrid no controllerHybrid (viewId=${viewId})`);
+      return;
+    }
+    controller.dispatchTouchToEngine(viewId, event);
+  }
+
+  /**
+   * 封装对 controllerHybrid.dispatchHoverToEngine 的调用（hover 返投）。
+   * @param viewId - overlay rect 所属 platform view id
+   * @param isHover - ArkUI onHover 的 isHover（true=进入/移动，false=离开）
+   * @param event - ArkUI HoverEvent，坐标用 windowX×dpr（dispatchHoverToEngine 内部转）
+   */
+  dispatchHoverToEngineHybrid(viewId: number, isHover: boolean, event: HoverEvent): void {
+    const controller = this.flutterEngine?.getPlatformViewsControllerHybrid();
+    if (controller == null) {
+      Log.w(TAG, `dispatchHoverToEngineHybrid no controllerHybrid (viewId=${viewId})`);
+      return;
+    }
+    controller.dispatchHoverToEngine(viewId, isHover, event);
+  }
+
+  /**
+   * 封装对 controllerHybrid.dispatchAxisToEngine 的调用（滚轮返投）。
+   * @param viewId - overlay rect 所属 platform view id
+   * @param event - ArkUI AxisEvent，滚轮增量在 UPDATE action 时有值（dispatchAxisToEngine 内部处理）
+   */
+  dispatchAxisToEngineHybrid(viewId: number, event: AxisEvent): void {
+    const controller = this.flutterEngine?.getPlatformViewsControllerHybrid();
+    if (controller == null) {
+      Log.w(TAG, `dispatchAxisToEngineHybrid no controllerHybrid (viewId=${viewId})`);
+      return;
+    }
+    controller.dispatchAxisToEngine(viewId, event);
+  }
+
+  /**
    * Attaches this view to a Flutter engine.
    * @param flutterEngine - The FlutterEngine to attach to
    */
@@ -1262,6 +1305,22 @@ export class FlutterView {
    */
   public isAttachedToFlutterEngine(): boolean {
     return this.flutterEngine != null
+  }
+
+  public isHybridCompositionEnabled(): boolean {
+    if (this.isAttachedToFlutterEngine() && this.flutterEngine!.getFlutterNapi().isAttached()) {
+      return this.flutterEngine!.getFlutterNapi().isHybridCompositionEnabled();
+    }
+    // Pre-attach fallback: the loader flag alone is NOT sufficient — the
+    // native gate (PlatformViewOHOS ctor) also requires a non-software
+    // rendering API, and software rendering is only reachable with Impeller
+    // off (ohos_main.cpp FML_CHECKs enable_impeller==false for software).
+    // Requiring isEnableImpeller mirrors that gate: GL+HCPP falls through
+    // unchanged, software+HCPP now answers false so the page never mounts
+    // the overlay XComponent against a non-HCPP engine (which native
+    // IsHcppOverlay() would then hijack as a second main surface).
+    const loader = this.flutterEngine?.getFlutterLoader();
+    return loader?.isEnableHcpp === true && loader.isEnableImpeller === true;
   }
 
   /**

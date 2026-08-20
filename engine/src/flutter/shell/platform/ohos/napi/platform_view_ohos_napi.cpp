@@ -23,6 +23,8 @@
 #include "flutter/fml/platform/ohos/napi_util.h"
 #include "flutter/impeller/renderer/backend/vulkan/context_vk.h"
 #include "flutter/lib/ui/plugins/callback_cache.h"
+#include "flutter/lib/ui/window/pointer_data.h"
+#include "flutter/lib/ui/window/pointer_data_packet.h"
 #include "flutter/shell/platform/ohos/context/ohos_context.h"
 #include "flutter/shell/platform/ohos/ohos_logging.h"
 #include "flutter/shell/platform/ohos/ohos_main.h"
@@ -416,6 +418,218 @@ void PlatformViewOHOSNapi::FlutterViewOnPreEngineRestart() {
     FML_DLOG(ERROR) << "InvokeJsMethod onPreEngineRestart fail ";
   }
   napi_close_handle_scope(env_, scope);
+}
+
+void PlatformViewOHOSNapi::OnDisplayPlatformViewHybrid(int64_t view_id,
+                                                  double x,
+                                                  double y,
+                                                  double width,
+                                                  double height,
+                                                  double view_width,
+                                                  double view_height) {
+  napi_handle_scope scope;
+  napi_open_handle_scope(env_, &scope);
+  napi_value argv[7] = {nullptr};
+  napi_create_int64(env_, view_id, &argv[0]);
+  napi_create_double(env_, x, &argv[1]);
+  napi_create_double(env_, y, &argv[2]);
+  napi_create_double(env_, width, &argv[3]);
+  napi_create_double(env_, height, &argv[4]);
+  napi_create_double(env_, view_width, &argv[5]);
+  napi_create_double(env_, view_height, &argv[6]);
+  fml::napi::InvokeJsMethod(env_, ref_napi_obj_, "onDisplayPlatformViewHybrid", 7,
+                            argv);
+  napi_close_handle_scope(env_, scope);
+}
+
+void PlatformViewOHOSNapi::OnDisplayOverlayHybrid(int64_t view_id,
+                                              double x,
+                                              double y,
+                                              double width,
+                                              double height) {
+  napi_handle_scope scope;
+  napi_open_handle_scope(env_, &scope);
+  napi_value argv[5] = {nullptr};
+  napi_create_int64(env_, view_id, &argv[0]);
+  napi_create_double(env_, x, &argv[1]);
+  napi_create_double(env_, y, &argv[2]);
+  napi_create_double(env_, width, &argv[3]);
+  napi_create_double(env_, height, &argv[4]);
+  fml::napi::InvokeJsMethod(env_, ref_napi_obj_, "onDisplayOverlayHybrid", 5, argv);
+  napi_close_handle_scope(env_, scope);
+}
+
+void PlatformViewOHOSNapi::OnDisplayMutatorsHybrid(int64_t view_id,
+                                               const std::vector<double>& data) {
+  napi_handle_scope scope;
+  napi_open_handle_scope(env_, &scope);
+  napi_value argv[2] = {nullptr};
+  napi_create_int64(env_, view_id, &argv[0]);
+  napi_value array;
+  napi_create_array(env_, &array);
+  for (size_t i = 0; i < data.size(); ++i) {
+    napi_value v;
+    napi_create_double(env_, data[i], &v);
+    napi_set_element(env_, array, i, v);
+  }
+  argv[1] = array;
+  fml::napi::InvokeJsMethod(env_, ref_napi_obj_, "onDisplayMutatorsHybrid", 2, argv);
+  napi_close_handle_scope(env_, scope);
+}
+
+void PlatformViewOHOSNapi::HidePlatformViewHybrid(int64_t view_id) {
+  napi_handle_scope scope;
+  napi_open_handle_scope(env_, &scope);
+  napi_value argv[1] = {nullptr};
+  napi_create_int64(env_, view_id, &argv[0]);
+  fml::napi::InvokeJsMethod(env_, ref_napi_obj_, "hidePlatformViewHybrid", 1, argv);
+  napi_close_handle_scope(env_, scope);
+}
+
+
+void PlatformViewOHOSNapi::ShowOverlaySurfaceHybrid() {
+  napi_handle_scope scope;
+  napi_open_handle_scope(env_, &scope);
+  fml::napi::InvokeJsMethod(env_, ref_napi_obj_, "showOverlaySurfaceHybrid", 0,
+                            nullptr);
+  napi_close_handle_scope(env_, scope);
+}
+
+void PlatformViewOHOSNapi::HideOverlaySurfaceHybrid() {
+  napi_handle_scope scope;
+  napi_open_handle_scope(env_, &scope);
+  fml::napi::InvokeJsMethod(env_, ref_napi_obj_, "hideOverlaySurfaceHybrid", 0,
+                            nullptr);
+  napi_close_handle_scope(env_, scope);
+}
+
+void PlatformViewOHOSNapi::OnBeginFrameHybrid() {
+  napi_handle_scope scope;
+  napi_open_handle_scope(env_, &scope);
+  fml::napi::InvokeJsMethod(env_, ref_napi_obj_, "onBeginFrameHybrid", 0, nullptr);
+  napi_close_handle_scope(env_, scope);
+}
+
+void PlatformViewOHOSNapi::OnEndFrameHybrid() {
+  napi_handle_scope scope;
+  napi_open_handle_scope(env_, &scope);
+  fml::napi::InvokeJsMethod(env_, ref_napi_obj_, "onEndFrameHybrid", 0, nullptr);
+  napi_close_handle_scope(env_, scope);
+}
+
+napi_value PlatformViewOHOSNapi::nativeIsHybridCompositionEnabled(
+    napi_env env,
+    napi_callback_info info) {
+  size_t argc = 1;
+  napi_value args[1] = {nullptr};
+  int64_t shell_holder = 0;
+  NAPI_CALL(env, napi_get_cb_info(env, info, &argc, args, nullptr, nullptr));
+  NAPI_CALL(env, napi_get_value_int64(env, args[0], &shell_holder));
+  auto platform_view = OHOS_SHELL_HOLDER->GetPlatformView();
+  if (!platform_view) {
+    FML_LOG(ERROR) << "nativeIsHybridCompositionEnabled platform view is null";
+    napi_value res;
+    napi_get_boolean(env, false, &res);
+    return res;
+  }
+  bool enabled = platform_view->IsHybridCompositionEnabled();
+  napi_value res;
+  napi_get_boolean(env, enabled, &res);
+  return res;
+}
+
+namespace {
+inline int32_t TouchGetInt(napi_env env, napi_value obj, const char* key) {
+  napi_value v;
+  napi_get_named_property(env, obj, key, &v);
+  int32_t iv = 0;
+  napi_get_value_int32(env, v, &iv);
+  return iv;
+}
+inline int64_t TouchGetInt64(napi_env env, napi_value obj, const char* key) {
+  napi_value v;
+  napi_get_named_property(env, obj, key, &v);
+  int64_t iv = 0;
+  napi_get_value_int64(env, v, &iv);
+  return iv;
+}
+inline double TouchGetDouble(napi_env env, napi_value obj, const char* key) {
+  napi_value v;
+  napi_get_named_property(env, obj, key, &v);
+  double dv = 0.0;
+  napi_get_value_double(env, v, &dv);
+  return dv;
+}
+}  // namespace
+
+napi_value PlatformViewOHOSNapi::nativeDispatchTouchToEngine(
+    napi_env env,
+    napi_callback_info info) {
+  size_t argc = 2;
+  napi_value args[2] = {nullptr};
+  int64_t shell_holder = 0;
+  NAPI_CALL(env, napi_get_cb_info(env, info, &argc, args, nullptr, nullptr));
+  NAPI_CALL(env, napi_get_value_int64(env, args[0], &shell_holder));
+
+  uint32_t count = 0;
+  NAPI_CALL(env, napi_get_array_length(env, args[1], &count));
+  if (count == 0) {
+    return nullptr;
+  }
+
+  auto packet = std::make_unique<flutter::PointerDataPacket>(count);
+  for (uint32_t i = 0; i < count; ++i) {
+    napi_value item;
+    napi_get_element(env, args[1], i, &item);
+    PointerData pd;
+    pd.Clear();
+    pd.change =
+        static_cast<PointerData::Change>(TouchGetInt(env, item, "change"));
+    pd.device = TouchGetInt(env, item, "device");
+    pd.embedder_id = TouchGetInt64(env, item, "embedder_id");
+    pd.physical_x = TouchGetDouble(env, item, "physical_x");
+    pd.physical_y = TouchGetDouble(env, item, "physical_y");
+    // Delta/pointer_identifier are derived in pointer_data_packet_converter.
+    pd.physical_delta_x = 0.0;
+    pd.physical_delta_y = 0.0;
+    pd.time_stamp = TouchGetInt64(env, item, "time_stamp");
+    pd.pointer_identifier = 0;
+    pd.signal_kind = static_cast<PointerData::SignalKind>(TouchGetInt(env, item, "signal_kind"));
+    pd.scroll_delta_x = 0.0;
+    pd.scroll_delta_y = 0.0;
+    pd.pressure = TouchGetDouble(env, item, "pressure");
+    pd.pressure_max = 1.0;
+    pd.pressure_min = 0.0;
+    pd.kind = static_cast<PointerData::DeviceKind>(TouchGetInt(env, item, "kind"));
+    // Buttons align with HandleTouchEvent:236 — touch contact only while
+    // down/move, cleared otherwise; mouse reads from the JS event.
+    if (pd.kind == PointerData::DeviceKind::kMouse) {
+      pd.buttons = TouchGetInt(env, item, "buttons");
+      pd.scroll_delta_x = TouchGetDouble(env, item, "scroll_delta_x");
+      pd.scroll_delta_y = TouchGetDouble(env, item, "scroll_delta_y");
+    } else if (pd.change == PointerData::Change::kDown ||
+               pd.change == PointerData::Change::kMove) {
+      pd.buttons = kPointerButtonTouchContact;
+    } else {
+      pd.buttons = 0;
+    }
+    pd.pan_x = 0.0;
+    pd.pan_y = 0.0;
+    pd.pan_delta_x = 0.0;
+    pd.pan_delta_y = 0.0;
+    pd.size = TouchGetDouble(env, item, "size");
+    pd.scale = 1.0;
+    pd.rotation = 0.0;
+    packet->SetPointerData(i, pd);
+  }
+
+  auto platform_view = OHOS_SHELL_HOLDER->GetPlatformView();
+  if (!platform_view) {
+    FML_LOG(ERROR) << "nativeDispatchTouchToEngine platform view is null";
+    return nullptr;
+  }
+  platform_view->DispatchPointerDataPacket(std::move(packet));
+  return nullptr;
 }
 
 std::vector<std::string> splitString(const std::string& input, char delimiter) {

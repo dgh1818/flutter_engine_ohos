@@ -9,6 +9,7 @@
 #include <ace/xcomponent/native_interface_xcomponent.h>
 #include <arkui/native_interface_accessibility.h>
 #include <map>
+#include <mutex>
 #include <string>
 #include "flutter/fml/platform/ohos/dynamic_library_loader.h"
 #include "flutter/shell/platform/ohos/accessibility/multi_instance_xcomp_accessibility.h"
@@ -48,6 +49,15 @@ class XComponentBase {
   void OnSurfaceCreated(OH_NativeXComponent* component, void* window);
   void OnSurfaceChanged(OH_NativeXComponent* component, void* window);
   void OnSurfaceDestroyed(OH_NativeXComponent* component, void* window);
+
+  // True when this XComponent is a genuine HCPP overlay: its id ends with the
+  // reserved "__overlay" suffix AND the stripped base id maps to a registered
+  // main XComponent whose engine runs HCPP. A registered-but-unattached main
+  // also counts (spawn/attach race; FlutterPage only creates the overlay after
+  // HCPP is confirmed on). An app view whose id merely ends with the suffix is
+  // NOT an overlay — it must go through main-surface setup, otherwise it is
+  // silently hijacked and white-screens in builds with HCPP off.
+  bool IsHcppOverlay();
   void OnDispatchTouchEvent(OH_NativeXComponent* component, void* window);
   void OnDispatchAxisEvent(OH_NativeXComponent* component,
                            ArkUI_UIInputEvent* event,
@@ -132,6 +142,32 @@ class XComponentAdapter {
   XComponentBase* GetXcomponentBase(const std::string& id);
   void SetCurrentXcomponentId(std::string id);
 
+  // ---------------------------------------------------------------------
+  // HCPP overlay pending-window stash.
+  //
+  // Overlay identity is inferred from the "__overlay" id suffix (see
+  // XComponentBase::IsHcppOverlay): the stripped base id must map to a
+  // registered main XComponent whose engine runs HCPP (or is not yet
+  // attached — the spawn/attach race; FlutterPage only creates the overlay
+  // XComponent after HCPP is confirmed on).
+  //
+  // The stash below covers the one gap inference cannot: an overlay surface
+  // whose OnSurfaceCreated fires before the main XComponent attached the
+  // engine. The fire-once callback would otherwise drop the window for the
+  // whole session; instead it is stashed here and delivered by
+  // FlushHcppOverlayPendingWindows when the main XComponent attaches.
+  // ---------------------------------------------------------------------
+  // Stashes an overlay window that arrived before its owning engine's
+  // platform view existed (shell still creating).
+  void StoreHcppOverlayPendingWindow(const std::string& overlay_id,
+                                      void* window);
+  // Delivers the stashed window of the overlay owned by |main_id| (i.e. the
+  // "<main_id>__overlay" entry) to this engine's platform view. Called when
+  // the main XComponent attaches the engine.
+  void FlushHcppOverlayPendingWindows(const std::string& main_id);
+  // Drops a stashed window (overlay surface destroyed before delivery).
+  void ClearHcppOverlayPendingWindow(const std::string& overlay_id);
+
  public:
   std::map<std::string, XComponentBase*> xcomponetMap_;
   std::recursive_mutex xcomponentMap_mutex_;
@@ -139,6 +175,12 @@ class XComponentAdapter {
  private:
   std::string current_xcomponent_id_ = "";
   static XComponentAdapter mXComponentAdapter;
+
+  // overlay id → stashed window. Guarded by its own mutex so stash lookups
+  // never hold xcomponentMap_mutex_ across the blocking
+  // ClearHybridCompositionOverlayWindowSync latch.
+  std::map<std::string, void*> hcpp_overlay_pending_windows_;
+  std::mutex hcpp_overlay_pending_mutex_;
 };
 
 }  // namespace flutter

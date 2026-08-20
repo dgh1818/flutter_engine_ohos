@@ -470,7 +470,16 @@ export default class TouchEventProcessor {
           // Correct local coordinates for rotation/scale using the global→local
           // affine stored at layout time (PlatformViewsController.offset).
           TouchEventProcessor.applyAffineTransform(touchEvent, params['affineTransform'] as Array<number> | undefined);
+          // HCPP (hybrid) wrappers also live in DVModel children and carry
+          // params['down'], but they never register a TLHC nodeController —
+          // their reinjection is driven by ControllerHybrid.onTouch via its
+          // own nodeControllers map. Skip them instead of dereferencing
+          // undefined (mixed texture+HCPP engines, see
+          // FlutterNapi.onTouchEvent's textureTouchArbiter).
           let nodeController = params['nodeController'] as EmbeddingNodeController;
+          if (nodeController == undefined) {
+            continue;
+          }
           nodeController.postEvent(touchEvent);
           this.rememberPostedTouchEvent(params, touchEvent);
           // Keep the text-input handoff check on the same path that delivers

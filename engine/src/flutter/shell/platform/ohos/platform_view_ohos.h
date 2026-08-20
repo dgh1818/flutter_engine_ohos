@@ -26,6 +26,7 @@
 #include "flutter/shell/platform/ohos/accessibility/ohos_semantics_bridge.h"
 #include "flutter/shell/platform/ohos/background_resource_cleanup.h"
 #include "flutter/shell/platform/ohos/context/ohos_context.h"
+#include "flutter/shell/platform/ohos/external_view_embedder/external_view_embedder.h"
 #include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
 #include "flutter/shell/platform/ohos/ohos_external_texture_gl.h"
 #include "flutter/shell/platform/ohos/platform_message_handler_ohos.h"
@@ -188,6 +189,22 @@ class PlatformViewOHOS final : public PlatformView {
   /// @brief Called when surface is destroyed.
   void OnSurfaceDestroyed();
 
+  /// @brief  HCPP: registers the ArkUI overlay XComponent's native window with
+  ///         the external view embedder. Passing nullptr clears it.
+  void SetHybridCompositionOverlayWindow(void* window);
+
+  /// @brief  HCPP: clears the overlay window and tears down the overlay
+  ///         surfaces on the raster thread, blocking until done. Called from
+  ///         the platform thread when the overlay XComponent is destroyed,
+  ///         BEFORE the underlying OHNativeWindow is unreferenced — the wait
+  ///         guarantees every in-flight raster use of the window has drained,
+  ///         so the raw window pointer stays valid throughout. Mirrors the
+  ///         NotifyDestroyed latch pattern used by the texture path.
+  void ClearHybridCompositionOverlayWindowSync();
+
+  /// @brief  Whether Hybrid Composition (HCPP) is enabled for this engine.
+  bool IsHybridCompositionEnabled() const { return hybrid_composition_enabled_; }
+
   /// @brief Updates whether the current engine is still visibly rendered in a
   ///        same-engine PiP window while the app is backgrounded.
   void SetPipVisible(bool visible);
@@ -209,6 +226,16 @@ class PlatformViewOHOS final : public PlatformView {
 
   std::shared_ptr<OhosSurfaceFactoryImpl> surface_factory_;
   std::map<int64_t, std::shared_ptr<OHOSExternalTexture>> all_external_texture_;
+
+  // HCPP (Hybrid Composition) state. The embedder is only created when
+  // hybrid_composition_enabled_ is true; otherwise the external texture / TLHC
+  // path is used and CreateExternalViewEmbedder() returns nullptr.
+  bool hybrid_composition_enabled_ = false;
+  std::shared_ptr<OHOSExternalViewEmbedder> ohos_external_view_embedder_;
+  // Overlay window that arrived before CreateExternalViewEmbedder() created
+  // the HCPP embedder; pushed on embedder creation. Platform thread only
+  // (both call sites run there).
+  void* pending_overlay_window_ = nullptr;
 
   std::shared_ptr<bool> enable_frame_cache_ = std::make_shared<bool>(true);
 
