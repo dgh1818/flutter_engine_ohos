@@ -117,8 +117,22 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
   /**
    * Runs the initial Flutter view by resolving the entrypoint and initial route,
    * then executes the Dart entrypoint.
+   * The entrypoint is skipped for warm cached engines; split-view config is always sent.
    */
   private doInitialFlutterViewRun(): void {
+    this.maybeExecuteDartEntrypoint();
+    this.sendSplitViewConfigToFlutter();
+  }
+
+  /** Executes the Dart entrypoint unless Dart is already running on this engine. */
+  private maybeExecuteDartEntrypoint(): void {
+    // Skip only when the isolate is verifiably running; DartExecutor guards
+    // re-entry. Engines created but never run must still start here.
+    if (this.flutterEngine?.dartExecutor?.isExecutingDart()) {
+      Log.d(TAG, "Skipping Dart entrypoint: Dart already running");
+      return;
+    }
+
     let initialRoute = this.host?.getInitialRoute();
     if (initialRoute == null && this.host != null) {
       initialRoute = this.maybeGetInitialRouteFromIntent(this.host.getWant());
@@ -147,6 +161,13 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
       this.host?.getDartEntrypointFunctionName() ?? ''
     );
     this.flutterEngine?.dartExecutor.executeDartEntrypoint(dartEntrypoint, this.host?.getDartEntrypointArgs());
+  }
+
+  /**
+   * Must run on every initial-view run even when the entrypoint was skipped
+   * (warm engine), or split view silently disables itself (re-sends idempotent).
+   */
+  private sendSplitViewConfigToFlutter(): void {
     this.flutterEngine?.getSplitViewConfigSystemChannel()?.sendConfigToFlutter();
   }
 

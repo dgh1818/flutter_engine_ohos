@@ -6,6 +6,7 @@
  */
 
 #include "flutter/shell/platform/ohos/ohos_shell_holder.h"
+#include "flutter/common/constants.h"
 #include "flutter/fml/native_library.h"
 #include "flutter/fml/platform/ohos/hiappevent/ohos_hiappevent.h"
 #include "flutter/shell/common/rasterizer.h"
@@ -26,8 +27,17 @@
 
 namespace flutter {
 
+namespace {
+// Process-wide engine id source: stamped into every RunConfiguration and
+// mirrored into the holder's window controller (windowing FFI routing; Dart
+// echoes the id back via PlatformDispatcher.engineId).
+int64_t NextEngineId() {
+  static int64_t next_engine_id = 1;
+  return next_engine_id++;
+}
+}  // namespace
+
 std::string OHOSLastFontPath = "";
-static constexpr int64_t kImplicitViewId = 0;
 
 static void OHOSPlatformThreadConfigSetter(
     const fml::Thread::ThreadConfig& config) {
@@ -203,7 +213,7 @@ OHOSShellHolder::OHOSShellHolder(
   fml::WeakPtr<PlatformViewOHOS> weak_platform_view;
 
   Shell::CreateCallback<PlatformView> on_create_platform_view =
-      [&napi_facade, &weak_platform_view](Shell& shell) {
+      [this, &napi_facade, &weak_platform_view](Shell& shell) {
         FML_DLOG(INFO) << "on_create_platform_view";
         std::unique_ptr<PlatformViewOHOS> platform_view_OHOS;
         platform_view_OHOS = std::make_unique<PlatformViewOHOS>(
@@ -211,7 +221,8 @@ OHOSShellHolder::OHOSShellHolder(
             shell.GetTaskRunners(),  // task runners
             napi_facade,             // napi interop
             shell.GetSettings()
-                .enable_software_rendering  // use software rendering
+                .enable_software_rendering,  // use software rendering
+            this  // shell holder (windowing controller owner)
         );
         LOGI("on_create_platform_view LOGI");
         FML_LOG(INFO) << "on_create_platform_view end";
@@ -292,6 +303,8 @@ OHOSShellHolder::OHOSShellHolder(
   platform_view_->SetSemanticsBridge(bridge_, bridge_mutex_);
   local_font_path_ = OHOSLastFontPath;
   FML_DCHECK(platform_view_);
+  // Only the primary holder owns a windowing controller (single-engine today).
+  window_controller_ = std::make_unique<OHOSWindowController>(this);
   ScheduleDartMemoryMonitor();
 }
 
@@ -384,8 +397,9 @@ std::unique_ptr<OHOSShellHolder> OHOSShellHolder::Spawn(
             shell,                   // delegate
             shell.GetTaskRunners(),  // task runners
             napi_facade,             // NAPI interop
-            ohos_context             // Ohos context
-        );
+            ohos_context,            // Ohos context
+            // No holder yet; re-pointed below via SetShellHolder.
+            nullptr);
         weak_platform_view = platform_view_ohos->GetWeakPtr();
         return platform_view_ohos;
       };
@@ -400,19 +414,44 @@ std::unique_ptr<OHOSShellHolder> OHOSShellHolder::Spawn(
     // Fail the whole thing.
     return nullptr;
   }
+  // Spawned engine: the id belongs to the child shell's Dart isolate (which
+  // echoes it back); spawned holders own no window controller.
+  config->SetEngineId(NextEngineId());
 
   std::unique_ptr<flutter::Shell> shell =
       shell_->Spawn(std::move(config.value()), initial_route,
                     on_create_platform_view, on_create_rasterizer);
 
-  return std::unique_ptr<OHOSShellHolder>(new OHOSShellHolder(
+  std::unique_ptr<OHOSShellHolder> spawned(new OHOSShellHolder(
       GetSettings(), napi_facade, thread_host_, std::move(shell),
       asset_provider_->Clone(), weak_platform_view));
+  if (weak_platform_view) {
+    weak_platform_view->SetShellHolder(spawned.get());
+  }
+  return spawned;
 }
 
 fml::WeakPtr<PlatformViewOHOS> OHOSShellHolder::GetPlatformView() {
   FML_DCHECK(platform_view_);
   return platform_view_;
+}
+
+bool OHOSShellHolder::AddViewSync(int64_t view_id) {
+  if (!IsValid()) {
+    FML_LOG(ERROR) << "AddViewSync: shell not valid for view " << view_id;
+    return false;
+  }
+  // Runs inline on the calling (UI) thread, so the Dart add_view_ callback
+  // completes before this returns.
+  auto engine = shell_->GetEngine();
+  if (!engine) {
+    FML_LOG(ERROR) << "AddViewSync: engine gone for view " << view_id;
+    return false;
+  }
+  bool added = false;
+  engine->AddView(view_id, ViewportMetrics{},
+                  [&added](bool ok) { added = ok; });
+  return added;
 }
 
 void OHOSShellHolder::NotifyLowMemoryWarning() {
@@ -439,6 +478,15 @@ void OHOSShellHolder::Launch(
   auto config = BuildRunConfiguration(entrypoint, libraryUrl, entrypoint_args);
   if (!config) {
     return;
+  }
+  // Stamp the process-wide engine id BEFORE RunEngine consumes the config,
+  // and mirror it into this holder's controller so windowing FFI calls from
+  // this engine's Dart isolate route to their own controller (the id is
+  // what Dart echoes back via PlatformDispatcher.engineId).
+  const int64_t engine_id = NextEngineId();
+  config->SetEngineId(engine_id);
+  if (window_controller_) {
+    window_controller_->SetEngineId(engine_id);
   }
   std::vector<std::unique_ptr<Display>> displays;
   displays.push_back(std::make_unique<OHOSDisplay>(napi_facade_));
@@ -764,19 +812,19 @@ int32_t OHOSShellHolder::ExecuteAction(
                   StandardMessageCodec::GetInstance().EncodeMessage(args);
 
               platform_view_->DispatchSemanticsAction(
-                  kImplicitViewId, id, flutter_action,
+                  kFlutterImplicitViewId, id, flutter_action,
                   fml::MallocMapping::Copy(encoded_message->data(),
                                            encoded_message->size()));
             } else {
-              platform_view_->DispatchSemanticsAction(kImplicitViewId, id,
-                                                      flutter_action, {});
+              platform_view_->DispatchSemanticsAction(kFlutterImplicitViewId,
+                                                      id, flutter_action, {});
             }
             break;
           case ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_GAIN_ACCESSIBILITY_FOCUS:
             bridge_->GainAccessibilityFocus(id, &needShowOnScreen);
             if (needShowOnScreen) {
               platform_view_->DispatchSemanticsAction(
-                  kImplicitViewId, id, ACTIONS_::kShowOnScreen, {});
+                  kFlutterImplicitViewId, id, ACTIONS_::kShowOnScreen, {});
             }
             break;
           case ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_CLEAR_ACCESSIBILITY_FOCUS:

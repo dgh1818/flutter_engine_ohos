@@ -626,3 +626,37 @@ export const nativeNotifyPageChanged: (pageName: string, pageNameLen: number, wi
  * @return none
  */
 export const nativeLTPODispatchHighFrameRate: (nativeShellHolderId: number) => void;
+
+/**
+ * Notifies native the OS destroyed viewId's host window; same teardown as
+ * Dart-initiated destroy(), no-ops if already torn down.
+ * @param viewId - The engine view id whose OS window host is gone
+ */
+export const nativeHandleOsWindowClosed: (viewId: number) => void;
+
+/**
+ * Structural type of the embedding's result object; native populates it by
+ * invoking set() from the nativeComputeWindowPosition callback path.
+ */
+export interface WindowPositionResult {
+  set(left: number, top: number, width: number, height: number): void;
+}
+
+/**
+ * Computes the LOGICAL-px position for a positioner-anchored sub-window
+ * (tooltip/popup) via the Dart positioner callback; out.set() fires only
+ * when placed.
+ * @param out - Result object populated via set() on success
+ * @returns 0 on placement, non-zero otherwise
+ */
+export const nativeComputeWindowPosition: (out: WindowPositionResult,
+  viewId: number, childW: number, childH: number,
+  parentLeft: number, parentTop: number, parentW: number, parentH: number,
+  workLeft: number, workTop: number, workW: number, workH: number) => number;
+
+/**
+ * Window focus changed (windowEvent/stageEvent ACTIVE↔INACTIVE): native
+ * caches the flag for the Dart `isActivated` query and pings the window's
+ * notify-listeners chain so dependents rebuild.
+ */
+export const nativeNotifyWindowActivated: (viewId: number, activated: boolean) => void;

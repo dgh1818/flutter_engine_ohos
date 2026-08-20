@@ -8,13 +8,17 @@
 #define FLUTTER_SHELL_PLATFORM_OHOS_EXTERNAL_VIEW_EMBEDDER_EXTERNAL_VIEW_EMBEDDER_H_
 
 #include <atomic>
+#include <cstdint>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "flutter/common/task_runners.h"
+#include "flutter/display_list/dl_builder.h"
 #include "flutter/flow/embedded_views.h"
 #include "flutter/flow/surface.h"
 #include "flutter/shell/platform/ohos/context/ohos_context.h"
@@ -174,6 +178,131 @@ class OHOSExternalViewEmbedder final : public ExternalViewEmbedder {
   void HideOverlayLayerIfNeeded();
 
   FML_DISALLOW_COPY_AND_ASSIGN(OHOSExternalViewEmbedder);
+};
+
+// ============================================================================
+// Multi-window (Windowing) embedder — one of two runtime-selected
+// embedders (see PlatformViewOHOS::CreateExternalViewEmbedder).
+// ============================================================================
+
+// The always-valid root surface installed as the rasterizer's implicit
+// surface. It only satisfies the stock rasterizer's root-surface contract
+// (shared GPU context): AcquireFrame returns a token frame whose canvas
+// is never the raster canvas (see Rasterizer::DrawToSurfaceUnsafe) and
+// whose submit is a no-op.
+class OhosEmbedderRootSurface : public Surface {
+ public:
+  explicit OhosEmbedderRootSurface(
+      std::shared_ptr<impeller::Context> impeller_context);
+
+  ~OhosEmbedderRootSurface() override = default;
+
+  // |Surface|
+  bool IsValid() override { return true; }
+
+  // |Surface|
+  std::unique_ptr<SurfaceFrame> AcquireFrame(const DlISize& size) override;
+
+  // |Surface| (this backend does not support root surface transformations.)
+  DlMatrix GetRootTransformation() const override { return {}; }
+
+  // |Surface| (Impeller != Skia.)
+  GrDirectContext* GetContext() override { return nullptr; }
+
+  // |Surface|
+  // Lazily created over the shared impeller context; per-view frames carry
+  // their own contexts and never render through this one.
+  std::shared_ptr<impeller::AiksContext> GetAiksContext() const override;
+
+  // |Surface| (mirror GPUSurfaceVulkanImpeller: no raster cache on this
+  // path.)
+  bool EnableRasterCache() const override { return false; }
+
+ private:
+  std::shared_ptr<impeller::Context> impeller_context_;
+  mutable std::shared_ptr<impeller::AiksContext> aiks_context_;
+};
+
+// OHOS multi-window ExternalViewEmbedder: owns one on-screen surface per
+// window (including the implicit view's main window) and presents each view
+// to its own window.
+//
+// The rasterizer records each view's layer tree onto the GetRootCanvas()
+// DisplayListBuilder; SubmitFlutterView replays it onto that view's
+// swapchain frame — one display-list indirection, not a new GPU pipeline.
+//
+// PrepareFlutterView receives frame size and DPR, but the view id only at
+// SubmitFlutterView, so per-view recording state lives between the two
+// calls.
+//
+// Threading: every override and the surface registry run on the raster task
+// runner only.
+class OHOSWindowingViewEmbedder : public ExternalViewEmbedder {
+ public:
+  OHOSWindowingViewEmbedder();
+
+  ~OHOSWindowingViewEmbedder() override;
+
+  // Registers the on-screen render surface for a view; a null surface
+  // unregisters. Raster task runner only.
+  void RegisterViewSurface(int64_t view_id, std::unique_ptr<Surface> surface);
+
+  // Unregisters (and destroys) a view's surface. Raster task runner only;
+  // must happen before the owning OHOSSurface is torn down.
+  void UnregisterViewSurface(int64_t view_id);
+
+  // |ExternalViewEmbedder|
+  // The engine is discarding this view; drop its surface too.
+  void CollectView(int64_t view_id) override;
+
+  // |ExternalViewEmbedder|
+  DlCanvas* GetRootCanvas() override;
+
+  // |ExternalViewEmbedder|
+  void CancelFrame() override;
+
+  // |ExternalViewEmbedder|
+  void BeginFrame(GrDirectContext* context,
+                  const fml::RefPtr<fml::RasterThreadMerger>&
+                      raster_thread_merger) override;
+
+  // |ExternalViewEmbedder|
+  // OHOS windows are pure Flutter content; no embedded platform views.
+  void PrerollCompositeEmbeddedView(
+      int64_t platform_view_id,
+      std::unique_ptr<EmbeddedViewParams> params) override {}
+
+  // |ExternalViewEmbedder|
+  DlCanvas* CompositeEmbeddedView(int64_t platform_view_id) override {
+    return nullptr;
+  }
+
+  // |ExternalViewEmbedder|
+  void PrepareFlutterView(DlISize frame_size,
+                          double device_pixel_ratio) override;
+
+  // |ExternalViewEmbedder|
+  void SubmitFlutterView(
+      int64_t flutter_view_id,
+      GrDirectContext* context,
+      const std::shared_ptr<impeller::AiksContext>& aiks_context,
+      std::unique_ptr<SurfaceFrame> frame) override;
+
+  // |ExternalViewEmbedder|
+  void EndFrame(bool should_resubmit_frame,
+                const fml::RefPtr<fml::RasterThreadMerger>&
+                    raster_thread_merger) override;
+
+  // |ExternalViewEmbedder|
+  void Teardown() override;
+
+ private:
+  // Per-view on-screen surfaces keyed by view id.
+  std::unordered_map<int64_t, std::unique_ptr<Surface>> view_surfaces_;
+
+  // Per-view recording state; reset in BeginFrame/EndFrame/CancelFrame.
+  std::unique_ptr<DisplayListBuilder> pending_builder_;
+  DlISize pending_size_ = {0, 0};
 };
 
 }  // namespace flutter

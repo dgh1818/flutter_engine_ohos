@@ -25,6 +25,14 @@ class XComponentBase {
   void BindXComponentCallback();
   void BindAccessibilityProviderCallback();
 
+  // Multi-view id routing: "oh_flutter_<n>" = main window, decimal view_id
+  // ("1", "2", ...) = sub-view; purely lexical, no liveness check.
+  static bool IsSubViewId(const std::string& id, int64_t* out_view_id);
+
+  // Caches multi-view routing once at attach: a decimal id routes per-view
+  // only if the controller tracks it as LIVE (else white screen); STICKY.
+  void ResolveSubViewRouting();
+
   // dynamic load the needed accessibility symbols
   static std::unique_ptr<DynamicLibraryLoader> loader_;
   static constexpr char ARKUI_REGISTER_CALLBACK_WITH_INSTANCE[] =
@@ -115,6 +123,9 @@ class XComponentBase {
   bool is_engine_attached_ = false;
   bool is_surface_present_ = false;
   bool is_surface_preloaded_ = false;
+  // Cached multi-view routing (see ResolveSubViewRouting).
+  bool is_sub_view_ = false;
+  int64_t sub_view_id_ = 0;
   OH_NativeXComponent* nativeXComponent_ = nullptr;
   ArkUI_AccessibilityProvider* provider_ = nullptr;
   void* window_ = nullptr;

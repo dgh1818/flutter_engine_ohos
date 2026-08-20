@@ -89,6 +89,47 @@ class PlatformViewOHOSNapi {
 
   void OnEndFrameHybrid();
 
+  // Multi-window: ask the ETS host to create/destroy a sub-window for a
+  // non-implicit view. width/height are LOGICAL px.
+  void RequestWindowHost(int64_t view_id,
+                         int64_t parent_view_id,
+                         double width,
+                         double height,
+                         int32_t archetype);
+  // Regular window → real UIAbility host (startAbility-launched, cached
+  // engine); `title` is currently unused on this path.
+  void CreateRegularAbility(int64_t view_id,
+                            int64_t request_id,
+                            double width,
+                            double height,
+                            const std::string& title);
+  // First Regular window → rebind the EntryAbility's main window surface to
+  // `view_id` instead of spawning a sibling RegularWindowAbility.
+  void BindEntryAbilityToView(int64_t view_id,
+                              double width,
+                              double height,
+                              const std::string& title);
+  void DestroyWindowHost(int64_t view_id);
+  // View 0 → exit via ArkTS `exitApplication` (terminateSelf, full Ability
+  // teardown — NOT a raw exit()); HandleWillClose fires first.
+  void ExitApplication();
+
+  // Runtime window-property mutations; width/height are LOGICAL px.
+  void SetWindowSize(int64_t view_id, double width, double height);
+  void SetWindowTitle(int64_t view_id, const std::string& title);
+  void SetWindowMaximized(int64_t view_id, bool maximized);
+  void SetWindowMinimized(int64_t view_id, bool minimized);
+  void SetWindowFullscreen(int64_t view_id, bool fullscreen);
+  // LOGICAL-px min/max (max 0 == unbounded); forwards to the ETS host so the
+  // WM re-clamps live resizes, and mirrors the request copy used at birth.
+  void SetWindowConstraints(int64_t view_id,
+                            double min_width,
+                            double max_width,
+                            double min_height,
+                            double max_height);
+  // Brings the window to front (ETS focusWindow/activate path).
+  void ActivateWindow(int64_t view_id);
+
   flutter::locale resolveNativeLocale(
       std::vector<flutter::locale> supportedLocales);
   std::unique_ptr<std::vector<std::string>>
@@ -264,6 +305,22 @@ class PlatformViewOHOSNapi {
 
   static void SurfaceDestroyed(int64_t shell_holder);
 
+  // Multi-view counterparts of the three Surface* entries above, for a
+  // non-implicit view (per-view swapchain/GPUSurface).
+  static void NotifyCreateForView(int64_t shell_holder,
+                                  int64_t view_id,
+                                  void* window,
+                                  int width,
+                                  int height);
+
+  static void NotifyDestroyForView(int64_t shell_holder, int64_t view_id);
+
+  static void NotifySurfaceChangedForView(int64_t shell_holder,
+                                          int64_t view_id,
+                                          void* window,
+                                          int width,
+                                          int height);
+
   static napi_value nativeXComponentAttachFlutterEngine(
       napi_env env,
       napi_callback_info info);
@@ -287,6 +344,21 @@ class PlatformViewOHOSNapi {
   static napi_value nativeLookupCallbackInformationBigInt(
       napi_env env,
       napi_callback_info info);
+  // ETS -> C++: the OS closed a host window; fires the Dart
+  // onWindowDestroyed teardown. Arg: view_id (int64).
+  static napi_value nativeHandleOsWindowClosed(napi_env env,
+                                               napi_callback_info info);
+  // ETS -> C++: computes a positioner-anchored sub-window position via the
+  // Dart on_get_window_position callback; returns 0 on success, nonzero =
+  // default.
+  static napi_value nativeComputeWindowPosition(napi_env env,
+                                                napi_callback_info info);
+
+  // ETS -> C++: window focus changed (windowEvent/stageEvent ACTIVE↔
+  // INACTIVE). Args: view_id (int64), activated (bool). Caches the flag for
+  // the Dart `isActivated` query and pings notify_listeners on change.
+  static napi_value nativeNotifyWindowActivated(napi_env env,
+                                                napi_callback_info info);
 
   static napi_value nativeUnicodeIsEmoji(napi_env env, napi_callback_info info);
 

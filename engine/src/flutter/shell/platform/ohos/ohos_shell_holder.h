@@ -25,6 +25,7 @@
 #include "flutter/common/settings.h"
 #include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
 #include "flutter/shell/platform/ohos/platform_view_ohos.h"
+#include "flutter/shell/platform/ohos/windowing/ohos_window_controller.h"
 
 #include "napi_common.h"
 #include "ohos_asset_provider.h"
@@ -44,6 +45,15 @@ class OHOSShellHolder {
   const flutter::Settings& GetSettings() const;
 
   fml::WeakPtr<PlatformViewOHOS> GetPlatformView();
+
+  // Synchronously AddView's on the CALLING thread (the FFI/UI thread, which
+  // Engine::AddView requires) so the view is registered when this returns.
+  bool AddViewSync(int64_t view_id);
+
+  // The windowing controller; null on spawned holders (no windows).
+  OHOSWindowController* GetWindowController() {
+    return window_controller_.get();
+  }
 
   void NotifyLowMemoryWarning();
 
@@ -125,6 +135,7 @@ class OHOSShellHolder {
   fml::WeakPtr<PlatformViewOHOS> platform_view_;
   std::shared_ptr<ThreadHost> thread_host_;
   std::unique_ptr<Shell> shell_;
+  std::unique_ptr<OHOSWindowController> window_controller_;
   uint64_t next_pointer_flow_id_ = 0;
   std::string local_font_path_;
 

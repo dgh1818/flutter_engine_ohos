@@ -12,6 +12,7 @@
 #include <queue>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -37,6 +38,8 @@
 
 namespace flutter {
 
+class OHOSShellHolder;
+
 enum class OhosThreadType {
   kPlatform,
   kUI,
@@ -61,20 +64,46 @@ class PlatformViewOHOS final : public PlatformView {
   PlatformViewOHOS(PlatformView::Delegate& delegate,
                    const flutter::TaskRunners& task_runners,
                    const std::shared_ptr<PlatformViewOHOSNapi>& napi_facade,
-                   bool use_software_rendering);
+                   bool use_software_rendering,
+                   OHOSShellHolder* shell_holder = nullptr);
 
   PlatformViewOHOS(PlatformView::Delegate& delegate,
                    const flutter::TaskRunners& task_runners,
                    const std::shared_ptr<PlatformViewOHOSNapi>& napi_facade,
-                   const std::shared_ptr<flutter::OHOSContext>& OHOS_context);
+                   const std::shared_ptr<flutter::OHOSContext>& OHOS_context,
+                   OHOSShellHolder* shell_holder = nullptr);
 
   ~PlatformViewOHOS() override;
 
   void NotifyCreate(fml::RefPtr<OHOSNativeWindow> native_window);
 
+  /// @brief Attaches a non-implicit view's OHNativeWindow as a new render
+  ///        target; on false the caller must tear the window down.
+  bool NotifyCreateForView(int64_t view_id,
+                           fml::RefPtr<OHOSNativeWindow> native_window,
+                           double width,
+                           double height);
+
+  /// @brief Tears down a non-implicit view's surface (paired with RemoveView).
+  void NotifyDestroyForView(int64_t view_id);
+
+  /// @brief Adds a non-implicit view (posts to the platform task runner);
+  ///        surface bound later via `NotifyCreateForView`.
+  void AddViewForWindow(int64_t view_id);
+
+  /// @brief Removes a non-implicit view (paired with AddViewForWindow).
+  void RemoveViewForWindow(int64_t view_id);
+
   void Preload(int width, int height);
 
   void NotifySurfaceWindowChanged(fml::RefPtr<OHOSNativeWindow> native_window);
+
+  /// @brief Per-view NotifySurfaceWindowChanged: rebuilds the swapchain and
+  ///        metrics; skipping it leaves the view on a dead window (black screen).
+  void NotifySurfaceChangedForView(int64_t view_id,
+                                   fml::RefPtr<OHOSNativeWindow> native_window,
+                                   double width,
+                                   double height);
 
   void NotifyChanged(const DlISize& size);
 
@@ -217,11 +246,32 @@ class PlatformViewOHOS final : public PlatformView {
     return frame_gate_enabled_.load(std::memory_order_acquire);
   }
 
+  /// @brief After a Spawn: the platform view is created before its holder
+  ///        exists, so it starts null and is patched here.
+  void SetShellHolder(OHOSShellHolder* shell_holder) {
+    shell_holder_ = shell_holder;
+  }
+
+  /// @brief PlatformViewOHOS-typed weak pointer (base GetWeakPtr is typed
+  ///        PlatformView), for OHOS-only methods posted off-thread.
+  fml::WeakPtr<PlatformViewOHOS> GetOHOSWeakPtr() {
+    return ohos_weak_factory_.GetWeakPtr();
+  }
+
  private:
   const std::shared_ptr<PlatformViewOHOSNapi> napi_facade_;
+  // Holder of this view's shell (and the windowing controller); null in tests.
+  OHOSShellHolder* shell_holder_ = nullptr;
   std::shared_ptr<OHOSContext> ohos_context_;
 
   std::shared_ptr<OHOSSurface> ohos_surface_;
+  // Per-view OHOSSurfaces; the GPUSurfaces live in the embedder below.
+  std::unordered_map<int64_t, std::shared_ptr<OHOSSurface>> secondary_surfaces_;
+  // Multi-window embedder owning every on-screen GPUSurface; its registry is
+  // raster-thread only.
+  std::shared_ptr<OHOSWindowingViewEmbedder> external_view_embedder_;
+  // EntryAbility-reuse guard: NotifyCreated posted lazily on first attach.
+  std::atomic<bool> implicit_view_notify_posted_{false};
   std::shared_ptr<PlatformMessageHandlerOHOS> platform_message_handler_;
 
   std::shared_ptr<OhosSurfaceFactoryImpl> surface_factory_;
@@ -251,6 +301,10 @@ class PlatformViewOHOS final : public PlatformView {
   std::queue<std::pair<flutter::SemanticsNodeUpdates,
                        flutter::CustomAccessibilityActionUpdates>>
       semantics_queue_;
+
+  // Views whose semantics update has been dropped with a warning (the single
+  // SemanticsTree serves the implicit view only; see UpdateSemantics).
+  std::unordered_set<int64_t> warned_semantics_views_;
 
   std::shared_ptr<SemanticsBridge> bridge_;
   std::shared_ptr<std::mutex> bridge_mutex_;
@@ -347,6 +401,12 @@ class PlatformViewOHOS final : public PlatformView {
   /// @param  task  The closure to run on the raster thread.
   void RunOnRasterAndWait(fml::closure task);
 
+  /// @brief  Per-view ViewportMetrics: every view pins its constraints to
+  ///         the surface size.
+  ViewportMetrics BuildViewMetricsForView(int64_t view_id,
+                                          double physical_width,
+                                          double physical_height);
+
   /// @brief  Attempts to free Skia GPU resources.
   static void TryFreeSkiaGpuResources(
       const std::shared_ptr<OHOSSurface>& surface,
@@ -407,6 +467,9 @@ class PlatformViewOHOS final : public PlatformView {
   FML_DISALLOW_COPY_AND_ASSIGN(PlatformViewOHOS);
 
   static void OnNativeImageFrameAvailable(void* data);
+
+  // Must be the last data member: guards off-thread access to OHOS state.
+  fml::WeakPtrFactory<PlatformViewOHOS> ohos_weak_factory_;
 };
 
 }  // namespace flutter

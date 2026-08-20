@@ -167,6 +167,15 @@ static napi_value Init(napi_env env, napi_value exports) {
           "nativeLookupCallbackInformationBigInt",
           flutter::PlatformViewOHOSNapi::nativeLookupCallbackInformationBigInt),
       DECLARE_NAPI_FUNCTION(
+          "nativeHandleOsWindowClosed",
+          flutter::PlatformViewOHOSNapi::nativeHandleOsWindowClosed),
+      DECLARE_NAPI_FUNCTION(
+          "nativeComputeWindowPosition",
+          flutter::PlatformViewOHOSNapi::nativeComputeWindowPosition),
+      DECLARE_NAPI_FUNCTION(
+          "nativeNotifyWindowActivated",
+          flutter::PlatformViewOHOSNapi::nativeNotifyWindowActivated),
+      DECLARE_NAPI_FUNCTION(
           "nativeUnicodeIsEmoji",
           flutter::PlatformViewOHOSNapi::nativeUnicodeIsEmoji),
       DECLARE_NAPI_FUNCTION(

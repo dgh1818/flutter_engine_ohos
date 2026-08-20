@@ -756,6 +756,13 @@ export class FlutterView {
   }
 
   /**
+   * Returns the FlutterEngine attached to this view, or null.
+   */
+  getFlutterEngine(): FlutterEngine | null {
+    return this.flutterEngine;
+  }
+
+  /**
    * Sets the active state of the view.
    * @param value - True to activate, false to deactivate
    */

@@ -27,6 +27,7 @@ import errorManager from '@ohos.app.ability.errorManager';
 import { OhosAutoFillHelper } from '../../plugin/editing/OhosAutoFillHelper';
 import appRecovery from '@ohos.app.ability.appRecovery';
 import FlutterManager from './FlutterManager';
+import FlutterNapi from '../engine/FlutterNapi';
 import { FlutterView } from '../../view/FlutterView';
 import ApplicationInfoLoader from '../engine/loader/ApplicationInfoLoader';
 import { accessibility } from '@kit.AccessibilityKit';
@@ -46,6 +47,8 @@ export class FlutterAbility extends UIAbility implements Host {
   private flutterView: FlutterView | null = null;
   private mainWindow?: window.Window | null;
   private errorManagerId: number = 0;
+  // Non-implicit view id this ability hosts; 0 = implicit main host.
+  public hostedViewId: number = 0;
 
   /**
    * Gets the FlutterView instance.
@@ -125,6 +128,22 @@ export class FlutterAbility extends UIAbility implements Host {
    * Cleans up resources and removes the ability from FlutterManager.
    */
   onDestroy() {
+    if (this.hostedViewId > 0) {
+      try {
+        FlutterNapi.nativeHandleOsWindowClosed(this.hostedViewId);
+      } catch (e) {
+        Log.w(TAG, `nativeHandleOsWindowClosed failed for view ${this.hostedViewId}: ${JSON.stringify(e)}`);
+      }
+      const host = FlutterManager.getInstance().getWindowHostOf(String(this.hostedViewId));
+      if (host) {
+        host.handleOsClosed();
+      } else {
+        // No host: still drop the per-view maps so nothing dangles.
+        FlutterManager.getInstance().removeHost(String(this.hostedViewId));
+        FlutterManager.getInstance().deleteViewAbility(String(this.hostedViewId));
+      }
+    }
+
     FlutterManager.getInstance().popUIAbility(this);
 
     errorManager.off('error', this.errorManagerId);
@@ -132,6 +151,10 @@ export class FlutterAbility extends UIAbility implements Host {
     if (this.flutterView != null) {
       this.flutterView.onDestroy()
       this.flutterView = null;
+    }
+
+    if (this.shouldDestroyEngineWithHost()) {
+      FlutterManager.getInstance().cascadeCloseChildren(this);
     }
 
     if (this.stillAttachedForEvent("onDestroy")) {
@@ -155,7 +178,24 @@ export class FlutterAbility extends UIAbility implements Host {
    * Callback invoked when the window stage event changes.
    */
   protected windowStageEventCallback = (data: window.WindowStageEventType) => {
-    this.delegate?.onWindowStageChanged(data)
+    this.delegate?.onWindowStageChanged(data);
+    // Focus push for ability-hosted windows: the EntryAbility's main window
+    // is implicit view 0 (hostedViewId stays 0); spawned Regular hosts carry
+    // their numeric id on hostedViewId. Native caches the flag for the Dart
+    // `isActivated` query and fires notify_listeners on change.
+    let activated: boolean | null = null;
+    if (data === window.WindowStageEventType.ACTIVE) {
+      activated = true;
+    } else if (data === window.WindowStageEventType.INACTIVE) {
+      activated = false;
+    }
+    if (activated !== null) {
+      try {
+        FlutterNapi.nativeNotifyWindowActivated(this.hostedViewId, activated);
+      } catch (e) {
+        Log.w(TAG, `nativeNotifyWindowActivated failed for view ${this.hostedViewId}: ${JSON.stringify(e)}`);
+      }
+    }
   }
 
   /**
@@ -170,6 +210,14 @@ export class FlutterAbility extends UIAbility implements Host {
       windowStage.on('windowStageEvent', this.windowStageEventCallback);
       this.flutterView = this.delegate!!.createView(this.context)
       Log.i(TAG, 'onWindowStageCreate:' + this.flutterView!!.getId());
+      // Record this UIAbility as the host of the main (implicit) view.
+      FlutterManager.getInstance().registerViewAbility(this.flutterView!!.getId(), this);
+      // Stamp own numeric view id for OS-close notification (onDestroy);
+      // non-numeric main id skipped (its close = app exit).
+      const numericViewId = Number(this.flutterView!!.getId());
+      if (!Number.isNaN(numericViewId) && numericViewId > 0) {
+        this.hostedViewId = numericViewId;
+      }
       let storage: LocalStorage = new LocalStorage();
       storage.setOrCreate("viewId", this.flutterView!!.getId())
       windowStage.loadContent(this.pagePath(), storage, (err, data) => {

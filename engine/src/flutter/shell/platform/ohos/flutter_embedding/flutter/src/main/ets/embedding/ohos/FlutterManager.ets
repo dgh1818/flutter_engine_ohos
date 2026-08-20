@@ -8,20 +8,49 @@
 import { FlutterView } from '../../view/FlutterView';
 import UIAbility from '@ohos.app.ability.UIAbility';
 import window from '@ohos.window';
+import display from '@ohos.display';
 import Log from '../../util/Log';
 import HashMap from '@ohos.util.HashMap';
 import List from '@ohos.util.List';
 import { deviceInfo } from '@kit.BasicServicesKit';
 import { common } from '@kit.AbilityKit';
 import PiPVisibilityBridge from './PiPVisibilityBridge';
+import FlutterEngine from '../engine/FlutterEngine';
+import FlutterNapi from '../engine/FlutterNapi';
+import {
+  WindowHostContext,
+  FlutterWindowHost,
+  WindowHostRegistry,
+  WindowArchetype,
+  archetypeFromInt,
+  SubWindowHost,
+  DialogWindowHost,
+  TooltipWindowHost,
+  PopupWindowHost,
+  AnchoredWindowHost,
+  AbilityWindowHost,
+  AbilityHostMode,
+} from './windowing/Windowing';
 
 const TAG = "FlutterManager"
+
+/** Duck-typed view of FlutterAbility's public hostedViewId field — lets the
+ * manager stamp it in registerViewAbility without importing FlutterAbility
+ * (which imports this module; a cycle would break HAR compilation).
+ * Optional member keeps the cast below comparable under strict ArkTS (which
+ * forbids unknown and non-overlapping casts). */
+interface HostedViewIdHolder {
+  hostedViewId?: number;
+}
 
 /**
  * Singleton manager for Flutter views and UI abilities.
  * This class manages the lifecycle of FlutterView instances and their association with UI abilities.
+ *
+ * Multi-window: per-window host behavior lives in the window/ host classes;
+ * this manager keeps the shared bookkeeping and implements WindowHostContext.
  */
-export default class FlutterManager {
+export default class FlutterManager implements WindowHostContext {
   private static instance: FlutterManager;
 
   /**
@@ -41,6 +70,31 @@ export default class FlutterManager {
   private windowStageList = new Map<UIAbility, window.WindowStage>();
   private mFullScreenListener: FullScreenListener = new DefaultFullScreenListener();
   private windowStageEventCallbacks = new Map<UIAbility, (event: window.WindowStageEventType) => void>();
+  private viewToAbility = new Map<string, UIAbility>();
+  // viewId (string) -> window host; the registry IS the host-existence record.
+  private windowHosts = new WindowHostRegistry();
+  private spawnedAbilityName: string = 'RegularWindowAbility';
+  private subWindowPageName: string = 'pages/FlutterWindowPage';
+  // Per-parent windowRectChange listener (parent moved → re-anchor its
+  private parentRectListeners = new Map<UIAbility, Callback<window.RectChangeOptions>>();
+  // Same, for SUB-WINDOW parents (dialog → anchored children): keyed by the
+  // parent's view id, released in removeHost when that host dies.
+  private subWindowRectListeners = new Map<number, Callback<window.RectChangeOptions>>();
+  // ~20Hz throttle: windowRectChange streams during a drag; sub-window moves are unanimated.
+  private static readonly kParentMoveThrottleMs = 50;
+  // Leading-edge timestamp PER parent key (`ability@<serial>` /
+  // `subWindow@<viewId>`); a single shared stamp would starve every other
+  // parent's moves while one is being dragged.
+  private lastMoveForward = new Map<string, number>();
+  // Parents with a trailing-edge re-anchor scheduled (the final resting
+  // position after a drag burst must not be dropped by the throttle).
+  private trailingReanchors = new Set<string>();
+  // Stable serial per UIAbility for the string-keyed throttle map above.
+  private abilityKeys = new Map<UIAbility, number>();
+  private nextAbilityKey = 1;
+  // Main (EntryAbility) window's view id — implicit view 0, an "oh_flutter_<n>" id set
+  // once in registerViewAbility; adopted (bindEntryAbilityToView), never rebound.
+  private mainViewId: string | undefined = undefined;
 
   private dragEnterCbId: number = 1;
   private dragMoveCbId: number = 1;
@@ -199,6 +253,9 @@ export default class FlutterManager {
    */
   popWindowStage(uiAbility: UIAbility) {
     this.stopPipWindowStageListener(uiAbility);
+    // Ability death: release its main-window rect listener too — the
+    // singleton-held closure would otherwise pin the destroyed ability.
+    this.releaseParentRectListener(uiAbility);
     this.windowStageList.delete(uiAbility)
   }
 
@@ -307,6 +364,559 @@ export default class FlutterManager {
     let flutterView = new FlutterView(`oh_flutter_${this.flutterViewIndex++}`, context);
     this.putFlutterView(flutterView.getId(), flutterView);
     return flutterView;
+  }
+
+  /**
+   * Registers a FlutterView by explicit id (multi-window sub-views use the
+   * decimal engine view_id).
+   */
+  registerFlutterView(viewId: string, flutterView: FlutterView): void {
+    this.putFlutterView(viewId, flutterView);
+  }
+
+  /**
+   * Multi-window: records which UIAbility hosts the view `viewId` (so a
+   * sub-window can parent on the right WindowStage).
+   */
+  registerViewAbility(viewId: string, ability: UIAbility): void {
+    this.viewToAbility.set(viewId, ability);
+    // First "oh_flutter_<n>" registration = the EntryAbility's implicit view 0.
+    if (this.mainViewId === undefined && viewId.startsWith('oh_flutter_')) {
+      this.mainViewId = viewId;
+    }
+    // Spawned RegularWindowAbility path (decimal view id): stamp the numeric
+    // id onto the ability so its onDestroy OS-close notification block runs.
+    // FlutterAbility.onWindowStageCreate's own stamp is unreachable here (the
+    // spawned template overrides it without the base view-creation segment),
+    // and without the stamp a title-bar close of a cached-engine secondary
+    // window never reaches Dart/native (ghost view + leaked host entry).
+    // Duck-typed to avoid the FlutterAbility import cycle.
+    const numeric = Number(viewId);
+    if (!Number.isNaN(numeric) && numeric > 0) {
+      const holder = ability as HostedViewIdHolder;
+      if (holder != null && typeof holder.hostedViewId === 'number' && holder.hostedViewId === 0) {
+        holder.hostedViewId = numeric;
+      }
+    }
+  }
+
+  /**
+   * Multi-window (SubWindow path): creates the per-archetype window host for
+   * an auxiliary, parent-bound view and attaches it.
+   */
+  createSubWindow(viewId: number,
+                  parentViewId: number,
+                  width: number,
+                  height: number,
+                  archetype: number): void {
+    // Dialog here = modal BY DEFINITION. NEVER gate on parentViewId — the main window
+    // IS view 0 (modal-to-main has parentViewId===0); has_parent (C++) is authoritative.
+    const type = archetypeFromInt(archetype);
+    let host: SubWindowHost;
+    switch (type) {
+      case WindowArchetype.DIALOG:
+        host = new DialogWindowHost(this, viewId, parentViewId, width, height);
+        break;
+      case WindowArchetype.TOOLTIP:
+        host = new TooltipWindowHost(this, viewId, parentViewId, width, height);
+        break;
+      case WindowArchetype.POPUP:
+        host = new PopupWindowHost(this, viewId, parentViewId, width, height);
+        break;
+      default:
+        // Regular (never routed here in practice) / unknown: generic host.
+        host = new SubWindowHost(this, viewId, parentViewId, type, width, height);
+        break;
+    }
+    this.windowHosts.register(host);
+    host.attach();
+  }
+
+  // ---- WindowHostContext: service surface for the window/ host classes ----
+
+  resolveParentAbility(parentViewId: number): UIAbility | undefined {
+    if (parentViewId === 0) {
+      // Implicit (main) view: locate it by its "oh_flutter_" id prefix.
+      const mainId = this.findMainFlutterViewId();
+      return mainId ? this.viewToAbility.get(mainId) : undefined;
+    }
+    return this.viewToAbility.get(String(parentViewId));
+  }
+
+  windowStageOf(ability: UIAbility): window.WindowStage | undefined {
+    return this.windowStageList.get(ability);
+  }
+
+  mainFlutterViewId(): string | undefined {
+    return this.findMainFlutterViewId();
+  }
+
+  sharedEngine(): FlutterEngine | null {
+    const mainId = this.findMainFlutterViewId();
+    const mainFv = mainId ? this.getFlutterView(mainId) : null;
+    return mainFv ? mainFv.getFlutterEngine() : null;
+  }
+
+  setViewAbility(viewId: string, ability: UIAbility): void {
+    this.viewToAbility.set(viewId, ability);
+  }
+
+  getViewAbility(viewId: string): UIAbility | undefined {
+    return this.viewToAbility.get(viewId);
+  }
+
+  deleteViewAbility(viewId: string): void {
+    this.viewToAbility.delete(viewId);
+  }
+
+  subWindowOfView(viewId: string): window.Window | undefined {
+    return this.windowHosts.subWindowOf(viewId);
+  }
+
+  /** The window host owning a view, or undefined (view 0 / no host yet). */
+  getWindowHostOf(viewId: string): FlutterWindowHost | undefined {
+    return this.windowHosts.get(viewId);
+  }
+
+  densityPixels(): number {
+    try {
+      return display.getDefaultDisplaySync().densityPixels || 1.0;
+    } catch (_) {
+      return 1.0;
+    }
+  }
+
+  ensureParentRectListener(ability: UIAbility, stage: window.WindowStage): void {
+    if (this.parentRectListeners.has(ability)) {
+      return;
+    }
+    try {
+      const parentMain = stage.getMainWindowSync();
+      const cb = (options: window.RectChangeOptions): void => {
+        this.reanchorChildrenOf(ability);
+      };
+      parentMain.on('windowRectChange', cb);
+      this.parentRectListeners.set(ability, cb);
+    } catch (e) {
+      Log.w(TAG, `windowRectChange on() failed: ` +
+        `${JSON.stringify(e)} — anchored children will not follow parent moves`);
+    }
+  }
+
+  /**
+   * Sub-window parent (dialog) moved → re-anchor ITS anchored children.
+   * The main-window listener above never fires for a dialog drag; without
+   * this, a tooltip anchored inside a dialog cannot follow the dialog.
+   */
+  ensureSubWindowRectListener(parentViewId: number): void {
+    if (this.subWindowRectListeners.has(parentViewId)) {
+      return;
+    }
+    const parentSub = this.windowHosts.subWindowOf(String(parentViewId));
+    if (!parentSub) {
+      return;
+    }
+    try {
+      const cb = (options: window.RectChangeOptions): void => {
+        this.reanchorChildrenOfParentView(parentViewId);
+      };
+      parentSub.on('windowRectChange', cb);
+      this.subWindowRectListeners.set(parentViewId, cb);
+    } catch (e) {
+      Log.w(TAG, `subWindow windowRectChange on() failed for parent ${parentViewId}: ` +
+        `${JSON.stringify(e)} — anchored children will not follow its moves`);
+    }
+  }
+
+  /** Releases the main-window listener of a dying ability (popWindowStage). */
+  private releaseParentRectListener(ability: UIAbility): void {
+    const cb = this.parentRectListeners.get(ability);
+    if (!cb) {
+      return;
+    }
+    const stage = this.windowStageList.get(ability);
+    try {
+      const parentMain = stage ? stage.getMainWindowSync() : undefined;
+      if (parentMain) {
+        parentMain.off('windowRectChange', cb);
+      }
+    } catch (e) {
+      Log.w(TAG, `windowRectChange off() failed: ${JSON.stringify(e)}`);
+    }
+    const serial = this.abilityKeys.get(ability);
+    this.parentRectListeners.delete(ability);
+    this.abilityKeys.delete(ability);
+    if (serial !== undefined) {
+      // A trailing-edge re-anchor keyed to the old serial may still fire
+      // once; it iterates anchoredHostsOf(ability), which is empty by then.
+      this.lastMoveForward.delete(`ability@${serial}`);
+      this.trailingReanchors.delete(`ability@${serial}`);
+    }
+  }
+
+  /** Releases the sub-window listener of a dying parent host (removeHost). */
+  private releaseSubWindowRectListener(parentViewId: number): void {
+    const cb = this.subWindowRectListeners.get(parentViewId);
+    if (!cb) {
+      return;
+    }
+    const parentSub = this.windowHosts.subWindowOf(String(parentViewId));
+    try {
+      if (parentSub) {
+        parentSub.off('windowRectChange', cb);
+      }
+    } catch (e) {
+      Log.w(TAG, `subWindow windowRectChange off() failed for parent ${parentViewId}: ${JSON.stringify(e)}`);
+    }
+    this.subWindowRectListeners.delete(parentViewId);
+    this.lastMoveForward.delete(`subWindow@${parentViewId}`);
+    this.trailingReanchors.delete(`subWindow@${parentViewId}`);
+  }
+
+  removeHost(viewIdStr: string): void {
+    // Host death: if OTHER views anchored to this one, release its
+    // sub-window rect listener before the registry entry goes away.
+    const numericViewId = Number(viewIdStr);
+    if (!Number.isNaN(numericViewId)) {
+      this.releaseSubWindowRectListener(numericViewId);
+    }
+    this.windowHosts.unregister(viewIdStr);
+  }
+
+  /**
+   * UIAbility class name spawned for Regular/modeless-Dialog hosts. An app MUST set
+   * its own name first: an undeclared name fails startAbility silently (never shown).
+   */
+  regularWindowAbilityName(): string {
+    return this.spawnedAbilityName;
+  }
+
+  setRegularWindowAbilityName(name: string): void {
+    if (name && name.length > 0) {
+      this.spawnedAbilityName = name;
+    }
+  }
+
+  /**
+   * ArkUI page loaded into every SubWindow host — APP code, not in the HAR. An app
+   * MUST set its own page first: unresolvable → loadContent fails → window reported closed.
+   */
+  subWindowPage(): string {
+    return this.subWindowPageName;
+  }
+
+  setSubWindowPageName(name: string): void {
+    if (name && name.length > 0) {
+      this.subWindowPageName = name;
+    }
+  }
+
+  private reanchorChildrenOf(parentAbility: UIAbility): void {
+    // Per-ability leading timestamp + trailing edge: a drag streams events,
+    // the last pose must land, and one parent's burst must not starve
+    // another parent's moves (the old global timestamp did).
+    const run = (): void => {
+      this.windowHosts.anchoredHostsOf(parentAbility).forEach((host: AnchoredWindowHost) => {
+        host.reanchor();
+      });
+    };
+    this.throttledReanchor(`ability@${this.abilityKey(parentAbility)}`, run);
+  }
+
+  /** Sub-window parent (dialog) variant: children are matched by
+   * parentViewId, not by ability (several sub-windows share one ability). */
+  private reanchorChildrenOfParentView(parentViewId: number): void {
+    const run = (): void => {
+      this.windowHosts.anchoredHostsOfParentView(parentViewId).forEach((host: AnchoredWindowHost) => {
+        host.reanchor();
+      });
+    };
+    this.throttledReanchor(`subWindow@${parentViewId}`, run);
+  }
+
+  /** Stable serial per UIAbility (objects cannot key the string throttle map). */
+  private abilityKey(ability: UIAbility): number {
+    let k = this.abilityKeys.get(ability);
+    if (k === undefined) {
+      k = this.nextAbilityKey++;
+      this.abilityKeys.set(ability, k);
+    }
+    return k;
+  }
+
+  /**
+   * Leading-edge throttle with a per-key trailing edge: events within
+   * [kParentMoveThrottleMs] are dropped EXCEPT one deferred run, so the
+   * final resting position after a drag burst is always applied.
+   */
+  private throttledReanchor(key: string, run: () => void): void {
+    const now = Date.now();
+    const last = this.lastMoveForward.get(key) ?? 0;
+    const elapsed = now - last;
+    if (elapsed >= FlutterManager.kParentMoveThrottleMs) {
+      this.lastMoveForward.set(key, now);
+      run();
+      return;
+    }
+    if (this.trailingReanchors.has(key)) {
+      return;
+    }
+    this.trailingReanchors.add(key);
+    setTimeout(() => {
+      this.trailingReanchors.delete(key);
+      this.lastMoveForward.set(key, Date.now());
+      run();
+    }, FlutterManager.kParentMoveThrottleMs - elapsed);
+  }
+
+  // ---- Runtime window-property mutations ----------------------------------
+  // OHOSWindowController::Set* (Dart FFI → napi), delegated to the per-view
+  // host (LOGICAL px ×DPR → PHYSICAL px); fire-and-forget, host logs errors.
+
+  setWindowSize(viewId: number, width: number, height: number): void {
+    const host = this.windowHosts.get(String(viewId));
+    if (!host) {
+      Log.e(TAG, `setWindowSize: no window for viewId=${viewId}`);
+      return;
+    }
+    host.setWindowSize(width, height);
+  }
+
+  setWindowTitle(viewId: number, title: string): void {
+    const host = this.windowHosts.get(String(viewId));
+    if (!host) {
+      Log.e(TAG, `setWindowTitle: no window for viewId=${viewId}`);
+      return;
+    }
+    host.setWindowTitle(title);
+  }
+
+  setWindowMaximized(viewId: number, maximized: boolean): void {
+    const host = this.windowHosts.get(String(viewId));
+    if (!host) {
+      Log.e(TAG, `setWindowMaximized: no window for viewId=${viewId}`);
+      return;
+    }
+    host.setWindowMaximized(maximized);
+  }
+
+  setWindowMinimized(viewId: number, minimized: boolean): void {
+    const host = this.windowHosts.get(String(viewId));
+    if (!host) {
+      Log.e(TAG, `setWindowMinimized: no window for viewId=${viewId}`);
+      return;
+    }
+    host.setWindowMinimized(minimized);
+  }
+
+  setWindowFullscreen(viewId: number, fullscreen: boolean): void {
+    const host = this.windowHosts.get(String(viewId));
+    if (!host) {
+      Log.e(TAG, `setWindowFullscreen: no window for viewId=${viewId}`);
+      return;
+    }
+    host.setWindowFullscreen(fullscreen);
+  }
+
+  // LOGICAL-px runtime constraints (max 0 == unbounded): the host clamps
+  // subsequent setWindowSize calls and pushes to the WM when supported.
+  setWindowConstraints(viewId: number,
+                       minWidth: number,
+                       maxWidth: number,
+                       minHeight: number,
+                       maxHeight: number): void {
+    const host = this.windowHosts.get(String(viewId));
+    if (!host) {
+      Log.e(TAG, `setWindowConstraints: no window for viewId=${viewId}`);
+      return;
+    }
+    host.setWindowConstraints(minWidth, maxWidth, minHeight, maxHeight);
+  }
+
+  // Brings the window to front (Dart Window.activate).
+  activateWindow(viewId: number): void {
+    const host = this.windowHosts.get(String(viewId));
+    if (!host) {
+      Log.e(TAG, `activateWindow: no window for viewId=${viewId}`);
+      return;
+    }
+    host.activate();
+  }
+
+  /**
+   * Per-window delete (Dart destroy() → napi destroyWindowHost): host runs the
+   * synchronous native detach first; shared engine NOT freed. View 0 is
+   * guarded out — `viewId` is numeric here (a Dart-created window id ≥ 1), so
+   * the guard is the value, not a string prefix.
+   */
+  destroyWindowHost(viewId: number): void {
+    const viewIdStr = String(viewId);
+    if (viewId <= 0) {
+      Log.w(TAG, `destroyWindowHost: skip implicit main view ${viewIdStr}`);
+      return;
+    }
+    const host = this.windowHosts.get(viewIdStr);
+    if (!host) {
+      Log.w(TAG, `destroyWindowHost: no host for ${viewIdStr} (already closed?)`);
+      return;
+    }
+    host.destroy();
+  }
+
+  /**
+   * WMS does not reliably return focus to the parent after a child SubWindow closes
+   * (2-in-1: app drops to the launcher); showWindow() recovers. Best-effort, never throws.
+   */
+  restoreParentForeground(parentAbility: UIAbility | undefined, closedViewId: string): void {
+    if (!parentAbility) {
+      return;
+    }
+    const windowStage = this.windowStageList.get(parentAbility);
+    if (!windowStage) {
+      Log.w(TAG, `restoreParentForeground: no windowStage for parent (closed ${closedViewId})`);
+      return;
+    }
+    try {
+      const mainWindow = windowStage.getMainWindowSync();
+      mainWindow.showWindow()
+        .catch((e: Error) => {
+          Log.w(TAG, `restoreParentForeground: showWindow failed after ${closedViewId}: ${JSON.stringify(e)}`);
+        });
+    } catch (e) {
+      Log.w(TAG, `restoreParentForeground: getMainWindowSync/showWindow threw after ${closedViewId}: ${JSON.stringify(e)}`);
+    }
+  }
+
+  /**
+   * Focus push for sub-window hosts (WindowHostContext): windowEvent
+   * WINDOW_ACTIVE↔WINDOW_INACTIVE translated into the view's activation flag
+   * and handed to native. Native caches it for the Dart `isActivated` query
+   * and fires the view's notify_listeners on CHANGE so Dart dependents
+   * rebuild. Native no-ops for untracked views — safe at any lifecycle point.
+   */
+  notifyWindowActivated(viewId: number, activated: boolean): void {
+    try {
+      FlutterNapi.nativeNotifyWindowActivated(viewId, activated);
+    } catch (e) {
+      Log.w(TAG, `notifyWindowActivated(${viewId}, ${activated}) napi failed: ${JSON.stringify(e)}`);
+    }
+  }
+
+  /**
+   * Close child windows BEFORE the parent frees the shared engine (survivors
+   * dangle); closeForCascade's synchronous detach is the guarantee; idempotent.
+   * @param parentAbility - The host that owns and is about to destroy the engine.
+   */
+  cascadeCloseChildren(parentAbility: UIAbility): void {
+    const mainId = this.findMainFlutterViewId();
+    // Only the engine-owning (main-host) ability cascades; unknown ownership
+    // still cascades (so the crash-safety detach runs).
+    const mainAbility = mainId ? this.viewToAbility.get(mainId) : undefined;
+    if (mainAbility !== undefined && mainAbility !== parentAbility) {
+      Log.i(TAG, `cascadeCloseChildren: ${parentAbility.constructor.name}` +
+        ` does not own the shared engine; leaving its windows open`);
+      return;
+    }
+    // Snapshot the hosts first — closeForCascade unregisters them below.
+    // The ADOPTED main host is exempted EXPLICITLY: its window IS the dying
+    // ability's own window (FlutterAbility.onDestroy already tears it down),
+    // and an id-format check ('oh_flutter_…' vs its decimal '0') would never
+    // match it.
+    const hosts = this.windowHosts.snapshot().filter((host: FlutterWindowHost) => {
+      if (host instanceof AbilityWindowHost && host.isAdopted()) {
+        return false;
+      }
+      return host.viewIdStr !== mainId;
+    });
+    if (hosts.length === 0) {
+      return;
+    }
+
+    for (const host of hosts) {
+      // closeForCascade: synchronous native detach first (crash-safety),
+      // then best-effort async OS close.
+      host.closeForCascade(parentAbility);
+    }
+  }
+
+  /**
+   * UIAbility path: spawns a SEPARATE RegularWindowAbility instance (own task-center
+   * card, same process, cached engine); it binds its view from these want.parameters.
+   *
+   * @param viewId    - The engine numeric view_id to host in this window
+   * @param requestId - AbilityStage onAcceptWant instance key → one ability per window
+   * @param width     - Preferred window width (0 = use default)
+   * @param height    - Preferred window height (0 = use default)
+   * @param title     - Window title (empty = no title set)
+   */
+  createRegularAbilityWindow(
+    viewId: number,
+    requestId: number,
+    width: number,
+    height: number,
+    title: string,
+  ): void {
+    const host = new AbilityWindowHost(this, viewId, AbilityHostMode.SPAWNED,
+      requestId, width, height, title);
+    this.windowHosts.register(host);
+    host.attach();
+  }
+
+  /**
+   * ADOPT path, view 0 only (C++ CreateWindow routes it here): adopt the
+   * EntryAbility's main window as the FIRST Dart Regular window's surface.
+   *
+   * @param viewId - The engine numeric view id (always 0 here)
+   * @param width  - Preferred window width in LOGICAL px (0 = leave as-is)
+   * @param height - Preferred window height in LOGICAL px (0 = leave as-is)
+   * @param title  - Window title (empty = no title set)
+   */
+  bindEntryAbilityToView(viewId: number,
+                         width: number,
+                         height: number,
+                         title: string): void {
+    const host = new AbilityWindowHost(this, viewId, AbilityHostMode.ADOPTED,
+      0, width, height, title);
+    this.windowHosts.register(host);
+    host.attach();
+  }
+
+  /**
+   * The main (EntryAbility) window's view id (implicit view 0): mainViewId,
+   * with a defensive prefix-scan fallback.
+   */
+  private findMainFlutterViewId(): string | undefined {
+    if (this.mainViewId !== undefined) {
+      return this.mainViewId;
+    }
+    for (const id of this.viewToAbility.keys()) {
+      if (id.startsWith('oh_flutter_')) {
+        return id;
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * Main-window close = quit: terminateSelf() runs the full shutdown
+   * (cascadeCloseChildren → engine.destroy). NOT exit(0) — it bypasses the Ability lifecycle.
+   */
+  exitApplication(): void {
+    const mainId = this.findMainFlutterViewId();
+    const mainAbility = mainId ? this.viewToAbility.get(mainId) : undefined;
+    if (!mainAbility) {
+      Log.e(TAG, `exitApplication: no main (EntryAbility) host found — cannot terminate`);
+      return;
+    }
+    try {
+      (mainAbility.context as common.UIAbilityContext)
+        .terminateSelf()
+        .catch((e: Error) => {
+          Log.e(TAG, `exitApplication: terminateSelf failed: ${JSON.stringify(e)}`);
+        });
+    } catch (e) {
+      Log.e(TAG, `exitApplication: terminateSelf threw: ${JSON.stringify(e)}`);
+    }
   }
 
   /**
@@ -611,7 +1221,7 @@ export interface FullScreenListener {
   setUseFullScreen(useFullScreen: boolean, context?: Context | null | undefined): void;
 
   /**
-   * Sets whether to use full screen mode specifically for free free-window.
+   * Sets whether to use full screen mode specifically for free multi-window.
    * @param useFullScreen - Whether to use full screen
    * @param context - Optional context
    */

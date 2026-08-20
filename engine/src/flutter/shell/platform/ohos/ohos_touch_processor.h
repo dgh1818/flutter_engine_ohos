@@ -60,6 +60,10 @@ class OhosTouchProcessor {
   PointerButtonMouse getPointerButtonFromMouse(
       OH_NativeXComponent_MouseEventButton mouseButton);
 
+  // Multi-view pointer routing: tags every PointerData with the owning
+  // XComponent's view_id, refreshed at each dispatch.
+  void SetViewId(int64_t view_id) { view_id_ = view_id; }
+
  public:
   OH_NativeXComponent_TouchPointToolType touchType_;
 
@@ -77,6 +81,8 @@ class OhosTouchProcessor {
   double lastMouseY_ = -1.0;
   int64_t lastMouseTimestamp_ = 0;
   int64_t mouse_button_state_ = 0;
+  // View id of the owning XComponent (0 == kFlutterImplicitViewId).
+  int64_t view_id_ = 0;
 
  private:
   int apiVersion_;

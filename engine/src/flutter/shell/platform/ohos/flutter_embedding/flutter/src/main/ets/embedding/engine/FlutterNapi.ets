@@ -69,6 +69,21 @@ export interface HybridCompositionHandler {
   onEndFrameHybrid(): void;
 }
 
+/** Result holder for a computed window position; native populates it by
+ * invoking its `set` method (InvokeJsMethod). All fields are LOGICAL px. */
+export class WindowPositionResult {
+  left: number = 0;
+  top: number = 0;
+  width: number = 0;
+  height: number = 0;
+  set(left: number, top: number, width: number, height: number): void {
+    this.left = left;
+    this.top = top;
+    this.width = width;
+    this.height = height;
+  }
+}
+
 /**
  * Provides Flutter NAPI interface for ArkTS.
  * This class serves as the bridge between the ArkTS layer and the native Flutter engine,
@@ -285,6 +300,38 @@ export default class FlutterNapi {
       return callbackInformation;
     }
     return null;
+  }
+
+  /**
+   * The OS itself destroyed a host window (title-bar close, sub-window
+   * teardown): native fires the same teardown Dart destroy() triggers.
+   * Safe to call unconditionally — native no-ops if already torn down.
+   */
+  static nativeHandleOsWindowClosed(viewId: number): void {
+    flutter.nativeHandleOsWindowClosed(viewId);
+  }
+
+  /**
+   * Computes the LOGICAL position for a positioner-anchored sub-window via
+   * the Dart positioner callback. `out` is populated only when the view
+   * has a positioner; nonzero return → the caller keeps default OS
+   * placement. Caller scales to physical px for moveWindowTo.
+   */
+  static nativeComputeWindowPosition(out: WindowPositionResult, viewId: number,
+    childW: number, childH: number,
+    parentLeft: number, parentTop: number, parentW: number, parentH: number,
+    workLeft: number, workTop: number, workW: number, workH: number): number {
+    return flutter.nativeComputeWindowPosition(out, viewId, childW, childH,
+      parentLeft, parentTop, parentW, parentH, workLeft, workTop, workW, workH);
+  }
+
+  /**
+   * Window focus changed (windowEvent/stageEvent ACTIVE↔INACTIVE): native
+   * caches the flag and pings the window's notify-listeners chain so Dart
+   * `isActivated` dependents rebuild and re-query.
+   */
+  static nativeNotifyWindowActivated(viewId: number, activated: boolean): void {
+    flutter.nativeNotifyWindowActivated(viewId, activated);
   }
 
   /**
@@ -635,6 +682,104 @@ export default class FlutterNapi {
         value.onFirstFrame(isPreload);
       }
     });
+  }
+
+  /**
+   * Native entry (InvokeJsMethod "requestWindowHost"): create a sub-window
+   * host for a non-implicit view. width/height are the LOGICAL preferred
+   * size (0 = sized-to-content); archetype is
+   * OHOSWindowController::WindowType.
+   */
+  requestWindowHost(viewId: number,
+                    parentViewId: number,
+                    width: number,
+                    height: number,
+                    archetype: number): void {
+    Log.i(TAG, `requestWindowHost viewId=${viewId} parentViewId=${parentViewId}` +
+      ` size=${width}x${height} archetype=${archetype}`);
+    FlutterManager.getInstance().createSubWindow(
+      viewId, parentViewId, width, height, archetype);
+  }
+
+  /** Native entry (InvokeJsMethod "createRegularAbility"): launch a Regular
+   * window as its own UIAbility so it gets a task-center card (contrast
+   * requestWindowHost, the SubWindow path). */
+  createRegularAbility(viewId: number,
+                       requestId: number,
+                       width: number,
+                       height: number,
+                       title: string): void {
+    Log.i(TAG, `createRegularAbility viewId=${viewId} requestId=${requestId}` +
+      ` size=${width}x${height} title="${title}"`);
+    FlutterManager.getInstance().createRegularAbilityWindow(
+      viewId, requestId, width, height, title);
+  }
+
+  /**
+   * Native entry (InvokeJsMethod "bindEntryAbilityToView"): reuse the
+   * EntryAbility's pre-created main window as the surface host for the
+   * FIRST Dart-requested Regular window — the first RegularWindow IS the
+   * main window, keeping `main.dart` identical across platforms.
+   * Subsequent Regular windows use createRegularAbility.
+   */
+  bindEntryAbilityToView(viewId: number,
+                         width: number,
+                         height: number,
+                         title: string): void {
+    Log.i(TAG, `bindEntryAbilityToView viewId=${viewId}` +
+      ` size=${width}x${height} title="${title}"`);
+    FlutterManager.getInstance().bindEntryAbilityToView(
+      viewId, width, height, title);
+  }
+
+  /** Native entry (InvokeJsMethod "destroyWindowHost"): tear down the OS
+   * window host when Dart closes it (controller.destroy()). */
+  destroyWindowHost(viewId: number): void {
+    Log.i(TAG, `destroyWindowHost viewId=${viewId}`);
+    FlutterManager.getInstance().destroyWindowHost(viewId);
+  }
+
+  exitApplication(): void {
+    Log.i(TAG, `exitApplication`);
+    FlutterManager.getInstance().exitApplication();
+  }
+
+  setWindowSize(viewId: number, width: number, height: number): void {
+    Log.i(TAG, `setWindowSize viewId=${viewId} size=${width}x${height}`);
+    FlutterManager.getInstance().setWindowSize(viewId, width, height);
+  }
+
+  setWindowTitle(viewId: number, title: string): void {
+    Log.i(TAG, `setWindowTitle viewId=${viewId} title="${title}"`);
+    FlutterManager.getInstance().setWindowTitle(viewId, title);
+  }
+
+  setWindowMaximized(viewId: number, maximized: boolean): void {
+    Log.i(TAG, `setWindowMaximized viewId=${viewId} maximized=${maximized}`);
+    FlutterManager.getInstance().setWindowMaximized(viewId, maximized);
+  }
+
+  setWindowMinimized(viewId: number, minimized: boolean): void {
+    Log.i(TAG, `setWindowMinimized viewId=${viewId} minimized=${minimized}`);
+    FlutterManager.getInstance().setWindowMinimized(viewId, minimized);
+  }
+
+  setWindowFullscreen(viewId: number, fullscreen: boolean): void {
+    Log.i(TAG, `setWindowFullscreen viewId=${viewId} fullscreen=${fullscreen}`);
+    FlutterManager.getInstance().setWindowFullscreen(viewId, fullscreen);
+  }
+
+  // LOGICAL-px runtime constraint update (max 0 == unbounded).
+  setWindowConstraints(viewId: number, minWidth: number, maxWidth: number,
+                       minHeight: number, maxHeight: number): void {
+    Log.i(TAG, `setWindowConstraints viewId=${viewId} min=${minWidth}x${minHeight} max=${maxWidth}x${maxHeight}`);
+    FlutterManager.getInstance().setWindowConstraints(viewId, minWidth, maxWidth, minHeight, maxHeight);
+  }
+
+  // Brings the window to front.
+  activateWindow(viewId: number): void {
+    Log.i(TAG, `activateWindow viewId=${viewId}`);
+    FlutterManager.getInstance().activateWindow(viewId);
   }
 
   /**

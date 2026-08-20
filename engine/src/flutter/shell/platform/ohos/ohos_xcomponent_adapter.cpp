@@ -9,7 +9,10 @@
 #include <native_buffer/native_buffer.h>
 #include <native_window/external_window.h>
 #include <stdint.h>
+#include <cerrno>
+#include <cinttypes>
 #include <cstddef>
+#include <cstdlib>
 #include <cstring>
 #include <functional>
 #include <utility>
@@ -382,6 +385,11 @@ void XComponentBase::OnDispatchMouseLeaveEvent(OH_NativeXComponent* component) {
     return;
   }
 
+  // Multi-view pointer routing: stamp this XComponent's view_id so emitted
+  // PointerData reaches the right per-view tree.
+  int64_t pointer_view_id = is_sub_view_ ? sub_view_id_ : 0;
+  ohosTouchProcessor_.SetViewId(pointer_view_id);
+
   LOGD("XComponentManger::OnDispatchMouseLeaveEvent()");
   // the leave mouseEvent data，is the same of last point on the area.
   ohosTouchProcessor_.HandleMouseEvent(std::stoll(shellholderId_),
@@ -559,6 +567,60 @@ XComponentBase::XComponentBase(const std::string& id)
 
 XComponentBase::~XComponentBase() {}
 
+bool XComponentBase::IsSubViewId(const std::string& id, int64_t* out_view_id) {
+  if (id.empty()) {
+    return false;
+  }
+  const std::string kMainPrefix = "oh_flutter_";
+  if (id.size() >= kMainPrefix.size() &&
+      id.compare(0, kMainPrefix.size(), kMainPrefix) == 0) {
+    return false;  // main-window id
+  }
+  for (char c : id) {
+    if (c < '0' || c > '9') {
+      return false;
+    }
+  }
+  errno = 0;
+  char* end = nullptr;
+  long long parsed = strtoll(id.c_str(), &end, 10);
+  if (errno != 0 || end == id.c_str() || *end != '\0' || parsed == 0) {
+    // 0 is kFlutterImplicitViewId — not a sub-view.
+    return false;
+  }
+  if (out_view_id) {
+    *out_view_id = static_cast<int64_t>(parsed);
+  }
+  return true;
+}
+
+void XComponentBase::ResolveSubViewRouting() {
+  // Lexical parse first (no engine dependency).
+  int64_t parsed = 0;
+  if (!IsSubViewId(id_, &parsed)) {
+    is_sub_view_ = false;
+    sub_view_id_ = 0;
+    return;
+  }
+  is_sub_view_ = false;
+  sub_view_id_ = 0;
+  if (shellholder_ptr_ != nullptr) {
+    if (OHOSWindowController* controller =
+            shellholder_ptr_->GetWindowController()) {
+      if (controller->GetHandleForView(parsed) != nullptr) {
+        is_sub_view_ = true;
+        sub_view_id_ = parsed;
+      }
+    }
+  }
+  if (is_sub_view_) {
+    LOGD("XComponent id=%{public}s routes as sub-view viewId=%{public}" PRId64,
+         id_.c_str(), sub_view_id_);
+  } else {
+    LOGD("XComponent id=%{public}s routes as implicit (view 0)", id_.c_str());
+  }
+}
+
 void XComponentBase::AttachFlutterEngine(std::string shellholderId) {
   LOGD(
       "XComponentManger::AttachFlutterEngine xcomponentId:%{public}s, "
@@ -568,12 +630,18 @@ void XComponentBase::AttachFlutterEngine(std::string shellholderId) {
   shellholder_ptr_ =
       reinterpret_cast<OHOSShellHolder*>(std::stoll(shellholderId_));
   is_engine_attached_ = true;
+  ResolveSubViewRouting();
   if (window_ != nullptr) {
     if (provider_ != nullptr && shellholder_ptr_) {
       shellholder_ptr_->SetAccessibilityProvider(provider_);
     }
-    PlatformViewOHOSNapi::SurfaceCreated(std::stoll(shellholderId_), window_,
-                                         width_, height_);
+    if (is_sub_view_) {
+      PlatformViewOHOSNapi::NotifyCreateForView(
+          std::stoll(shellholderId_), sub_view_id_, window_, width_, height_);
+    } else {
+      PlatformViewOHOSNapi::SurfaceCreated(std::stoll(shellholderId_), window_,
+                                           width_, height_);
+    }
     is_surface_present_ = true;
   }
   // HCPP: deliver any overlay window that arrived before this attach (the
@@ -591,6 +659,7 @@ void XComponentBase::PreDraw(std::string shellholderId, int width, int height) {
   shellholder_ptr_ =
       reinterpret_cast<OHOSShellHolder*>(std::stoll(shellholderId_));
   is_engine_attached_ = true;
+  ResolveSubViewRouting();
   if (is_surface_preloaded_) {
     return;
   }
@@ -605,7 +674,12 @@ void XComponentBase::DetachFlutterEngine() {
       "shellholderId:%{public}s",
       id_.c_str(), shellholderId_.c_str());
   if (window_ != nullptr) {
-    PlatformViewOHOSNapi::SurfaceDestroyed(std::stoll(shellholderId_));
+    if (is_sub_view_) {
+      PlatformViewOHOSNapi::NotifyDestroyForView(std::stoll(shellholderId_),
+                                                 sub_view_id_);
+    } else {
+      PlatformViewOHOSNapi::SurfaceDestroyed(std::stoll(shellholderId_));
+    }
   } else {
     LOGE("DetachFlutterEngine XComponentBase is not attached");
   }
@@ -822,8 +896,14 @@ void XComponentBase::OnSurfaceCreated(OH_NativeXComponent* component,
       LOGE("OnSurfaceCreated AccessibilityProvider is nullptr");
     }
 
-    PlatformViewOHOSNapi::SurfaceCreated(std::stoll(shellholderId_), window,
-                                         width_, height_);
+    if (is_sub_view_) {
+      // Sub-window view: route its surface to the multi-view pipeline.
+      PlatformViewOHOSNapi::NotifyCreateForView(
+          std::stoll(shellholderId_), sub_view_id_, window, width_, height_);
+    } else {
+      PlatformViewOHOSNapi::SurfaceCreated(std::stoll(shellholderId_), window,
+                                           width_, height_);
+    }
     is_surface_present_ = true;
   } else {
     LOGE("OnSurfaceCreated XComponentBase is not attached");
@@ -840,8 +920,15 @@ void XComponentBase::OnSurfaceChanged(OH_NativeXComponent* component,
          static_cast<int>(width_), static_cast<int>(height_));
   }
   if (is_engine_attached_) {
-    PlatformViewOHOSNapi::SurfaceChanged(std::stoll(shellholderId_), window,
-                                         width_, height_);
+    if (is_sub_view_) {
+      // Route to THIS view's swapchain: the implicit SurfaceChanged would
+      // rebuild view 0's and leave this view on a stale window (black screen).
+      PlatformViewOHOSNapi::NotifySurfaceChangedForView(
+          std::stoll(shellholderId_), sub_view_id_, window, width_, height_);
+    } else {
+      PlatformViewOHOSNapi::SurfaceChanged(std::stoll(shellholderId_), window,
+                                           width_, height_);
+    }
   } else {
     LOGE("OnSurfaceChanged XComponentBase is not attached");
   }
@@ -880,6 +967,28 @@ void XComponentBase::OnSurfaceDestroyed(OH_NativeXComponent* component,
     // its own reference).
     XComponentAdapter::GetInstance()->ClearHcppOverlayPendingWindow(id_);
   }
+  // Notify the engine FIRST, drop the window reference LAST: the sub-view
+  // teardown holds GPU resources tied to this OHNativeWindow; unreferencing
+  // first could free it under in-flight raster work (UAF).
+  if (is_engine_attached_) {
+    is_surface_present_ = false;
+    is_surface_preloaded_ = false;
+    if (is_sub_view_) {
+      PlatformViewOHOSNapi::NotifyDestroyForView(std::stoll(shellholderId_),
+                                                 sub_view_id_);
+    } else {
+      PlatformViewOHOSNapi::SurfaceDestroyed(std::stoll(shellholderId_));
+    }
+
+    if (provider_ != nullptr && shellholder_ptr_) {
+      // Only the implicit main view ever set the slot (see OnSurfaceCreated)
+      // — clearing here restores null, NOT the previous sub-view's provider.
+      shellholder_ptr_->SetAccessibilityProvider(nullptr);
+    }
+    provider_ = nullptr;
+  } else {
+    LOGE("XComponentManger::OnSurfaceDestroyed XComponentBase is not attached");
+  }
   if (window_) {
     int32_t ret = OH_NativeWindow_NativeObjectUnreference(window_);
     if (ret) {
@@ -890,19 +999,6 @@ void XComponentBase::OnSurfaceDestroyed(OH_NativeXComponent* component,
   }
   window_ = nullptr;
   LOGD("XComponentManger::OnSurfaceDestroyed");
-  if (is_engine_attached_) {
-    is_surface_present_ = false;
-    is_surface_preloaded_ = false;
-    PlatformViewOHOSNapi::SurfaceDestroyed(std::stoll(shellholderId_));
-
-    if (provider_ != nullptr && shellholder_ptr_) {
-      shellholder_ptr_->SetAccessibilityProvider(nullptr);
-    }
-    provider_ = nullptr;
-
-  } else {
-    LOGE("XComponentManger::OnSurfaceDestroyed XComponentBase is not attached");
-  }
 }
 
 void XComponentBase::OnDispatchTouchEvent(OH_NativeXComponent* component,
@@ -918,6 +1014,9 @@ void XComponentBase::OnDispatchTouchEvent(OH_NativeXComponent* component,
     LOGE("XComponentManger::DispatchTouchEvent XComponentBase is not attached");
     return;
   }
+
+  int64_t pointer_view_id = is_sub_view_ ? sub_view_id_ : 0;
+  ohosTouchProcessor_.SetViewId(pointer_view_id);
 
   // if this touchEvent triggered by mouse, return
   OH_NativeXComponent_EventSourceType sourceType;
@@ -943,7 +1042,9 @@ void XComponentBase::OnDispatchAxisEvent(OH_NativeXComponent* component,
                                          ArkUI_UIInputEvent* event,
                                          ArkUI_UIInputEvent_Type type) {
   if (type == ARKUI_UIINPUTEVENT_TYPE_AXIS) {
-    if (is_engine_attached_) {
+    if (is_engine_attached_ && is_surface_present_) {
+      int64_t pointer_view_id = is_sub_view_ ? sub_view_id_ : 0;
+      ohosTouchProcessor_.SetViewId(pointer_view_id);
       ohosTouchProcessor_.HandleAxisEvent(std::stoll(shellholderId_), component,
                                           event);
     } else {
@@ -963,10 +1064,15 @@ void XComponentBase::OnDispatchMouseEvent(OH_NativeXComponent* component,
     return;
   }
 
-  if (!is_engine_attached_) {
-    LOGE("XComponentManger::DispatchMouseEvent XComponentBase is not attached");
+  if (!is_engine_attached_ || !is_surface_present_) {
+    // Same guard as the touch path: during teardown the surface is gone but
+    // the engine stays attached; a mouse event would touch freed resources.
+    LOGE("XComponentManger::DispatchMouseEvent XComponentBase is not attached or surface gone");
     return;
   }
+
+  int64_t pointer_view_id = is_sub_view_ ? sub_view_id_ : 0;
+  ohosTouchProcessor_.SetViewId(pointer_view_id);
 
   // Update global left button state
   if (mouseEvent.button == OH_NATIVEXCOMPONENT_LEFT_BUTTON) {
@@ -988,7 +1094,9 @@ void XComponentBase::OnDispatchMouseWheelEvent(mouseWheelEvent event) {
   if (shell_holder_str != shellholderId_) {
     return;
   }
-  if (is_engine_attached_) {
+  if (is_engine_attached_ && is_surface_present_) {
+    int64_t pointer_view_id = is_sub_view_ ? sub_view_id_ : 0;
+    ohosTouchProcessor_.SetViewId(pointer_view_id);
     if (g_isMouseLeftActive) {
       return;
     }

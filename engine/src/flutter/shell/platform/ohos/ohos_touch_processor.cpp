@@ -209,6 +209,7 @@ void OhosTouchProcessor::HandleTouchEvent(
       std::make_unique<flutter::PointerDataPacket>(numTouchPoints);
   PointerData pointerData;
   pointerData.Clear();
+  pointerData.view_id = view_id_;
   pointerData.embedder_id = touchEvent->id;
   pointerData.time_stamp = touchEvent->timeStamp / MSEC_PER_SECOND;
   pointerData.change = getPointerChangeForAction(touchEvent->type);
@@ -343,6 +344,7 @@ void OhosTouchProcessor::HandleScaleEvent(int64_t shell_holderID,
       std::make_unique<flutter::PointerDataPacket>(numTouchPoints);
   PointerData pointerData;
   pointerData.Clear();
+  pointerData.view_id = view_id_;
 
   // 获取 PointerData 状态类型并处理缩放累计值
   int32_t axisAction = dynamicGetAxisAction_ != nullptr
@@ -473,6 +475,7 @@ void OhosTouchProcessor::HandleScrollEvent(int64_t shell_holderID,
       std::make_unique<flutter::PointerDataPacket>(numTouchPoints);
   PointerData pointerData;
   pointerData.Clear();
+  pointerData.view_id = view_id_;
 
   /// The unit of AxisValue is vp.
   /// AxisValue = angle_value * ScrollStep
@@ -527,6 +530,7 @@ void OhosTouchProcessor::HandlePanZooomEvent(int64_t shell_holderID,
       std::make_unique<flutter::PointerDataPacket>(numTouchPoints);
   PointerData pointerData;
   pointerData.Clear();
+  pointerData.view_id = view_id_;
 
   // 获取 PointerData 状态类型并处理滑动累计值
   int32_t axisAction = dynamicGetAxisAction_ != nullptr
@@ -817,6 +821,7 @@ void OhosTouchProcessor::HandleMouseEvent(
       std::make_unique<flutter::PointerDataPacket>(numTouchPoints);
   PointerData pointerData;
   pointerData.Clear();
+  pointerData.view_id = view_id_;
   pointerData.embedder_id = mouseEvent.button;
   pointerData.time_stamp = mouseEvent.timestamp / MSEC_PER_SECOND;
   PointerData::Change change;
