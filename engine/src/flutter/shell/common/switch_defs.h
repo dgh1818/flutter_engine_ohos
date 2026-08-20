@@ -306,6 +306,10 @@ DEF_SWITCH(ImpellerAntialiasLines,
 DEF_SWITCH(ImpellerUseSDFs,
            "impeller-use-sdfs",
            "Whether to use SDFs for rendering in Impeller.")
+DEF_SWITCH(EnableGlyphRasterParallelization,
+           "enable-glyph-raster-parallelization",
+           "Enable parallel glyph rasterization on multiple worker threads. "
+           "Defaults to false.")
 DEF_SWITCHES_END
 
 }  // namespace flutter

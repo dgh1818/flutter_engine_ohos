@@ -4,6 +4,10 @@
 
 #include "impeller/renderer/backend/vulkan/blit_pass_vk.h"
 
+#include <algorithm>
+#include <vector>
+
+#include "flutter/fml/trace_event.h"
 #include "impeller/renderer/backend/vulkan/barrier_vk.h"
 #include "impeller/renderer/backend/vulkan/command_buffer_vk.h"
 #include "impeller/renderer/backend/vulkan/texture_vk.h"
@@ -12,6 +16,9 @@
 #include "vulkan/vulkan_structs.hpp"
 
 namespace impeller {
+
+// Cubemap textures have 6 faces, so the maximum valid slice index is 5.
+constexpr uint32_t kMaxCubeMapSliceIndex = 5u;
 
 static void InsertImageMemoryBarrier(const vk::CommandBuffer& cmd,
                                      const vk::Image& image,
@@ -233,6 +240,149 @@ bool BlitPassVK::ConvertTextureToShaderRead(
   }
 
   return texture_vk.SetLayout(barrier);
+}
+
+bool BlitPassVK::AddCopies(std::vector<BufferToTextureCopy> copies,
+                           std::shared_ptr<Texture> destination,
+                           std::string_view label,
+                           bool convert_to_read) {
+  (void)label;
+  if (!destination) {
+    VALIDATION_LOG << "Attempted to add texture blits with no destination.";
+    return false;
+  }
+
+  if (copies.empty()) {
+    return true;
+  }
+
+  ISize destination_size = destination->GetSize();
+  auto bytes_per_pixel =
+      BytesPerPixelForPixelFormat(destination->GetTextureDescriptor().format);
+  for (const auto& copy : copies) {
+    const IRect& destination_region = copy.destination_region;
+    if (destination_region.GetX() < 0 || destination_region.GetY() < 0 ||
+        destination_region.GetRight() > destination_size.width ||
+        destination_region.GetBottom() > destination_size.height) {
+      VALIDATION_LOG
+          << "Blit region cannot be larger than destination texture.";
+      return false;
+    }
+
+    auto bytes_per_region = destination_region.Area() * bytes_per_pixel;
+    if (copy.source.GetRange().length != bytes_per_region) {
+      VALIDATION_LOG
+          << "Attempted to add a texture blit with out of bounds access.";
+      return false;
+    }
+    if (copy.mip_level >= destination->GetMipCount()) {
+      VALIDATION_LOG << "Invalid value for mip_level: " << copy.mip_level
+                     << ". " << "The destination texture has "
+                     << destination->GetMipCount() << " mip levels.";
+      return false;
+    }
+    if (copy.slice > kMaxCubeMapSliceIndex) {
+      VALIDATION_LOG << "Invalid value for slice: " << copy.slice;
+      return false;
+    }
+  }
+
+  const auto& cmd_buffer = command_buffer_->GetCommandBuffer();
+  const auto& dst = TextureVK::Cast(*destination);
+
+  if (!command_buffer_->Track(destination)) {
+    return false;
+  }
+
+  BarrierVK dst_barrier;
+  dst_barrier.cmd_buffer = cmd_buffer;
+  dst_barrier.new_layout = vk::ImageLayout::eTransferDstOptimal;
+  dst_barrier.src_access = {};
+  dst_barrier.src_stage = vk::PipelineStageFlagBits::eTopOfPipe;
+  dst_barrier.dst_access =
+      vk::AccessFlagBits::eShaderRead | vk::AccessFlagBits::eTransferWrite;
+  dst_barrier.dst_stage = vk::PipelineStageFlagBits::eFragmentShader |
+                          vk::PipelineStageFlagBits::eTransfer;
+
+  if (!dst.SetLayout(dst_barrier)) {
+    VALIDATION_LOG << "Could not encode layout transition.";
+    return false;
+  }
+
+  struct BufferCopyGroup {
+    const DeviceBuffer* source = nullptr;
+    std::vector<vk::BufferImageCopy> copies;
+  };
+  std::vector<BufferCopyGroup> copies_by_buffer;
+  for (auto& copy : copies) {
+    const DeviceBuffer* source = copy.source.GetBuffer();
+    if (!source) {
+      VALIDATION_LOG << "Attempted to add a texture blit with no source.";
+      return false;
+    }
+
+    std::shared_ptr<const DeviceBuffer> source_buffer =
+        copy.source.TakeBuffer();
+    if (source_buffer && !command_buffer_->Track(source_buffer)) {
+      return false;
+    }
+
+    vk::BufferImageCopy image_copy;
+    image_copy.setBufferOffset(copy.source.GetRange().offset);
+    image_copy.setBufferRowLength(0);
+    image_copy.setBufferImageHeight(0);
+    image_copy.setImageSubresource(vk::ImageSubresourceLayers(
+        vk::ImageAspectFlagBits::eColor, copy.mip_level, copy.slice, 1));
+    image_copy.imageOffset.x = copy.destination_region.GetX();
+    image_copy.imageOffset.y = copy.destination_region.GetY();
+    image_copy.imageOffset.z = 0u;
+    image_copy.imageExtent.width = copy.destination_region.GetWidth();
+    image_copy.imageExtent.height = copy.destination_region.GetHeight();
+    image_copy.imageExtent.depth = 1u;
+
+    auto group = std::find_if(copies_by_buffer.begin(), copies_by_buffer.end(),
+                              [source](const BufferCopyGroup& group) {
+                                return group.source == source;
+                              });
+    if (group == copies_by_buffer.end()) {
+      BufferCopyGroup new_group;
+      new_group.source = source;
+      new_group.copies.push_back(image_copy);
+      copies_by_buffer.push_back(std::move(new_group));
+    } else {
+      group->copies.push_back(image_copy);
+    }
+  }
+
+  {
+    TRACE_EVENT2_INT("impeller", "BlitPassVK::AddCopies", "CopyCount",
+                     copies.size(), "BufferCount", copies_by_buffer.size());
+    for (const auto& group : copies_by_buffer) {
+      const auto& src = DeviceBufferVK::Cast(*group.source);
+      cmd_buffer.copyBufferToImage(src.GetBuffer(),         //
+                                   dst.GetImage(),          //
+                                   dst_barrier.new_layout,  //
+                                   group.copies             //
+      );
+    }
+  }
+
+  if (convert_to_read) {
+    BarrierVK barrier;
+    barrier.cmd_buffer = cmd_buffer;
+    barrier.src_access = vk::AccessFlagBits::eTransferWrite;
+    barrier.src_stage = vk::PipelineStageFlagBits::eTransfer;
+    barrier.dst_access = vk::AccessFlagBits::eShaderRead;
+    barrier.dst_stage = vk::PipelineStageFlagBits::eFragmentShader;
+
+    barrier.new_layout = vk::ImageLayout::eShaderReadOnlyOptimal;
+
+    if (!dst.SetLayout(barrier)) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 // |BlitPass|

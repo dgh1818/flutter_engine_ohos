@@ -6,6 +6,9 @@ import("//flutter/impeller/tools/impeller.gni")
 
 impeller_component("typographer_skia_backend") {
   sources = [
+    "glyph_atlas_parallelizer.cc",
+    "glyph_atlas_parallelizer.h",
+    "glyph_raster_worker.h",
     "text_frame_skia.cc",
     "text_frame_skia.h",
     "typeface_skia.cc",
@@ -18,5 +21,18 @@ impeller_component("typographer_skia_backend") {
     "//flutter/display_list",
     "//flutter/impeller/typographer",
     "//flutter/skia",
+  ]
+}
+
+impeller_component("glyph_raster_worker_unittests") {
+  testonly = true
+
+  sources = [ "glyph_raster_worker_unittests.cc" ]
+
+  deps = [
+    ":typographer_skia_backend",
+    "//flutter/fml",
+    "//flutter/testing",
+    "//third_party/googletest:gtest",
   ]
 }

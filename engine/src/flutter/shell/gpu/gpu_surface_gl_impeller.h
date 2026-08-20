@@ -9,6 +9,7 @@
 #include "flutter/flow/surface.h"
 #include "flutter/fml/macros.h"
 #include "flutter/fml/memory/weak_ptr.h"
+#include "flutter/impeller/base/flags.h"
 #include "flutter/impeller/display_list/aiks_context.h"
 #include "flutter/impeller/renderer/context.h"
 #include "flutter/shell/gpu/gpu_surface_gl_delegate.h"
@@ -19,7 +20,8 @@ class GPUSurfaceGLImpeller final : public Surface {
  public:
   explicit GPUSurfaceGLImpeller(GPUSurfaceGLDelegate* delegate,
                                 std::shared_ptr<impeller::Context> context,
-                                bool render_to_surface);
+                                bool render_to_surface,
+                                impeller::Flags flags = impeller::Flags{});
 
   // |Surface|
   ~GPUSurfaceGLImpeller() override;

@@ -251,6 +251,9 @@ struct Settings {
   // Whether to use SDFs for rendering in Impeller.
   bool impeller_use_sdfs = false;
 
+  // Whether to enable parallel glyph rasterization on multiple worker threads.
+  bool enable_glyph_raster_parallelization = false;
+
   // Log a warning during shell initialization if Impeller is not enabled.
   bool warn_on_impeller_opt_out = false;
 

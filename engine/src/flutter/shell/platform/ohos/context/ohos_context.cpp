@@ -48,4 +48,12 @@ void OHOSContext::SetImpellerContext(
   impeller_context_ = context;
 }
 
+const impeller::Flags& OHOSContext::GetImpellerFlags() const {
+  return impeller_flags_;
+}
+
+void OHOSContext::SetImpellerFlags(const impeller::Flags& flags) {
+  impeller_flags_ = flags;
+}
+
 }  // namespace flutter

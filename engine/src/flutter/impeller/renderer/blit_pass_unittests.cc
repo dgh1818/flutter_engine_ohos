@@ -14,6 +14,7 @@
 #include "impeller/core/formats.h"
 #include "impeller/core/texture_descriptor.h"
 #include "impeller/playground/playground_test.h"
+#include "impeller/renderer/blit_pass.h"
 #include "impeller/renderer/command_buffer.h"
 
 namespace impeller {
@@ -267,6 +268,206 @@ TEST_P(BlitPassTest, CanResizeTexturesPlayground) {
   builder.DrawImage(image, flutter::DlPoint(100.0, 100.0),
                     DlImageSampling::kNearestNeighbor, &paint);
   ASSERT_TRUE(OpenPlaygroundHere(builder.Build()));
+}
+
+TEST_P(BlitPassTest, AddCopiesWithMultipleRegions) {
+  auto context = GetContext();
+  auto cmd_buffer = context->CreateCommandBuffer();
+  auto blit_pass = cmd_buffer->CreateBlitPass();
+
+  TextureDescriptor dst_desc;
+  dst_desc.storage_mode = StorageMode::kDevicePrivate;
+  dst_desc.format = PixelFormat::kR8G8B8A8UNormInt;
+  dst_desc.size = {100, 100};
+  auto dst = context->GetResourceAllocator()->CreateTexture(dst_desc);
+
+  DeviceBufferDescriptor src_desc;
+  src_desc.size = 400;
+  src_desc.storage_mode = StorageMode::kHostVisible;
+  auto src1 = context->GetResourceAllocator()->CreateBuffer(src_desc);
+  auto src2 = context->GetResourceAllocator()->CreateBuffer(src_desc);
+
+  ASSERT_TRUE(dst);
+  ASSERT_TRUE(src1);
+  ASSERT_TRUE(src2);
+
+  std::vector<BufferToTextureCopy> copies;
+  copies.push_back({DeviceBuffer::AsBufferView(src1),
+                    IRect::MakeLTRB(0, 0, 10, 10), 0u, 0u});
+  copies.push_back({DeviceBuffer::AsBufferView(src2),
+                    IRect::MakeLTRB(10, 0, 20, 10), 0u, 0u});
+
+  EXPECT_TRUE(blit_pass->AddCopies(std::move(copies), dst));
+  EXPECT_TRUE(blit_pass->EncodeCommands());
+  EXPECT_TRUE(context->GetCommandQueue()->Submit({std::move(cmd_buffer)}).ok());
+}
+
+TEST_P(BlitPassTest, AddCopiesEmptyVectorReturnsTrue) {
+  auto context = GetContext();
+  auto cmd_buffer = context->CreateCommandBuffer();
+  auto blit_pass = cmd_buffer->CreateBlitPass();
+
+  TextureDescriptor dst_desc;
+  dst_desc.storage_mode = StorageMode::kDevicePrivate;
+  dst_desc.format = PixelFormat::kR8G8B8A8UNormInt;
+  dst_desc.size = {100, 100};
+  auto dst = context->GetResourceAllocator()->CreateTexture(dst_desc);
+
+  ASSERT_TRUE(dst);
+
+  std::vector<BufferToTextureCopy> copies;
+  EXPECT_TRUE(blit_pass->AddCopies(std::move(copies), dst));
+}
+
+TEST_P(BlitPassTest, AddCopiesWithInvalidSliceFails) {
+  ScopedValidationDisable scope;
+  auto context = GetContext();
+  auto cmd_buffer = context->CreateCommandBuffer();
+  auto blit_pass = cmd_buffer->CreateBlitPass();
+
+  TextureDescriptor dst_desc;
+  dst_desc.storage_mode = StorageMode::kDevicePrivate;
+  dst_desc.format = PixelFormat::kR8G8B8A8UNormInt;
+  dst_desc.size = {100, 100};
+  auto dst = context->GetResourceAllocator()->CreateTexture(dst_desc);
+
+  DeviceBufferDescriptor src_desc;
+  src_desc.size = 400;
+  src_desc.storage_mode = StorageMode::kHostVisible;
+  auto src = context->GetResourceAllocator()->CreateBuffer(src_desc);
+
+  ASSERT_TRUE(dst);
+  ASSERT_TRUE(src);
+
+  std::vector<BufferToTextureCopy> copies;
+  copies.push_back({DeviceBuffer::AsBufferView(src),
+                    IRect::MakeLTRB(0, 0, 10, 10), 0u, 25u});
+
+  EXPECT_FALSE(blit_pass->AddCopies(std::move(copies), dst));
+}
+
+TEST_P(BlitPassTest, AddCopiesWithInvalidMipLevelFails) {
+  ScopedValidationDisable scope;
+  auto context = GetContext();
+  auto cmd_buffer = context->CreateCommandBuffer();
+  auto blit_pass = cmd_buffer->CreateBlitPass();
+
+  TextureDescriptor dst_desc;
+  dst_desc.storage_mode = StorageMode::kDevicePrivate;
+  dst_desc.format = PixelFormat::kR8G8B8A8UNormInt;
+  dst_desc.size = {100, 100};
+  auto dst = context->GetResourceAllocator()->CreateTexture(dst_desc);
+
+  DeviceBufferDescriptor src_desc;
+  src_desc.size = 400;
+  src_desc.storage_mode = StorageMode::kHostVisible;
+  auto src = context->GetResourceAllocator()->CreateBuffer(src_desc);
+
+  ASSERT_TRUE(dst);
+  ASSERT_TRUE(src);
+
+  std::vector<BufferToTextureCopy> copies;
+  copies.push_back(
+      {DeviceBuffer::AsBufferView(src), IRect::MakeLTRB(0, 0, 10, 10), 1u, 0u});
+
+  EXPECT_FALSE(blit_pass->AddCopies(std::move(copies), dst));
+}
+
+TEST_P(BlitPassTest, AddCopiesWithOutOfBoundsRegionFails) {
+  ScopedValidationDisable scope;
+  auto context = GetContext();
+  auto cmd_buffer = context->CreateCommandBuffer();
+  auto blit_pass = cmd_buffer->CreateBlitPass();
+
+  TextureDescriptor dst_desc;
+  dst_desc.storage_mode = StorageMode::kDevicePrivate;
+  dst_desc.format = PixelFormat::kR8G8B8A8UNormInt;
+  dst_desc.size = {100, 100};
+  auto dst = context->GetResourceAllocator()->CreateTexture(dst_desc);
+
+  DeviceBufferDescriptor src_desc;
+  src_desc.size = 40000;
+  src_desc.storage_mode = StorageMode::kHostVisible;
+  auto src = context->GetResourceAllocator()->CreateBuffer(src_desc);
+
+  ASSERT_TRUE(dst);
+  ASSERT_TRUE(src);
+
+  std::vector<BufferToTextureCopy> copies;
+  copies.push_back({DeviceBuffer::AsBufferView(src),
+                    IRect::MakeLTRB(0, 0, 200, 200), 0u, 0u});
+
+  EXPECT_FALSE(blit_pass->AddCopies(std::move(copies), dst));
+}
+
+TEST_P(BlitPassTest, AddCopiesPartialFailureReturnsFalse) {
+  ScopedValidationDisable scope;
+  auto context = GetContext();
+  auto cmd_buffer = context->CreateCommandBuffer();
+  auto blit_pass = cmd_buffer->CreateBlitPass();
+
+  TextureDescriptor dst_desc;
+  dst_desc.storage_mode = StorageMode::kDevicePrivate;
+  dst_desc.format = PixelFormat::kR8G8B8A8UNormInt;
+  dst_desc.size = {100, 100};
+  auto dst = context->GetResourceAllocator()->CreateTexture(dst_desc);
+
+  DeviceBufferDescriptor valid_src_desc;
+  valid_src_desc.size = 400;
+  valid_src_desc.storage_mode = StorageMode::kHostVisible;
+  auto valid_src =
+      context->GetResourceAllocator()->CreateBuffer(valid_src_desc);
+
+  DeviceBufferDescriptor wrong_src_desc;
+  wrong_src_desc.size = 400;
+  wrong_src_desc.storage_mode = StorageMode::kHostVisible;
+  auto wrong_src =
+      context->GetResourceAllocator()->CreateBuffer(wrong_src_desc);
+
+  ASSERT_TRUE(dst);
+  ASSERT_TRUE(valid_src);
+  ASSERT_TRUE(wrong_src);
+
+  std::vector<BufferToTextureCopy> copies;
+  copies.push_back({DeviceBuffer::AsBufferView(valid_src),
+                    IRect::MakeLTRB(0, 0, 10, 10), 0u, 0u});
+  copies.push_back({DeviceBuffer::AsBufferView(wrong_src),
+                    IRect::MakeLTRB(0, 0, 10, 10), 0u, 25u});
+
+  EXPECT_FALSE(blit_pass->AddCopies(std::move(copies), dst));
+}
+
+TEST_P(BlitPassTest, AddCopiesWithMipmapTexture) {
+  auto context = GetContext();
+  auto cmd_buffer = context->CreateCommandBuffer();
+  auto blit_pass = cmd_buffer->CreateBlitPass();
+
+  TextureDescriptor dst_desc;
+  dst_desc.storage_mode = StorageMode::kDevicePrivate;
+  dst_desc.format = PixelFormat::kR8G8B8A8UNormInt;
+  dst_desc.size = {1000, 1000};
+  dst_desc.mip_count = 4;
+  auto dst = context->GetResourceAllocator()->CreateTexture(dst_desc);
+
+  DeviceBufferDescriptor src_desc;
+  src_desc.size = 4;
+  src_desc.storage_mode = StorageMode::kHostVisible;
+  auto src1 = context->GetResourceAllocator()->CreateBuffer(src_desc);
+  auto src2 = context->GetResourceAllocator()->CreateBuffer(src_desc);
+
+  ASSERT_TRUE(dst);
+  ASSERT_TRUE(src1);
+  ASSERT_TRUE(src2);
+
+  std::vector<BufferToTextureCopy> copies;
+  copies.push_back(
+      {DeviceBuffer::AsBufferView(src1), IRect::MakeLTRB(0, 0, 1, 1), 0u, 0u});
+  copies.push_back(
+      {DeviceBuffer::AsBufferView(src2), IRect::MakeLTRB(0, 0, 1, 1), 1u, 0u});
+
+  EXPECT_TRUE(blit_pass->AddCopies(std::move(copies), dst));
+  EXPECT_TRUE(blit_pass->EncodeCommands());
+  EXPECT_TRUE(context->GetCommandQueue()->Submit({std::move(cmd_buffer)}).ok());
 }
 
 }  // namespace testing
