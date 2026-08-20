@@ -1,0 +1,181 @@
+/*
+ * Copyright (c) 2026 Huawei Device Co., Ltd. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE_HW file.
+ */
+
+#ifndef FLUTTER_SHELL_PLATFORM_OHOS_EXTERNAL_VIEW_EMBEDDER_EXTERNAL_VIEW_EMBEDDER_H_
+#define FLUTTER_SHELL_PLATFORM_OHOS_EXTERNAL_VIEW_EMBEDDER_EXTERNAL_VIEW_EMBEDDER_H_
+
+#include <atomic>
+#include <memory>
+#include <mutex>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+
+#include "flutter/common/task_runners.h"
+#include "flutter/flow/embedded_views.h"
+#include "flutter/flow/surface.h"
+#include "flutter/shell/platform/ohos/context/ohos_context.h"
+#include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
+#include "flutter/shell/platform/ohos/surface/ohos_native_window.h"
+#include "flutter/shell/platform/ohos/surface/ohos_surface.h"
+
+namespace flutter {
+
+/// Allows to embed OpenHarmony native views into a Flutter application, in the
+/// "Hybrid Composition++" (HCPP) fashion.
+///
+/// The native platform view corresponding to |flutter::PlatformViewLayer| is
+/// hosted by ArkUI as an independent, system-composited layer
+/// (BuilderNode RENDER_TYPE_DISPLAY). The Flutter content below the lowest
+/// platform view is rendered to the main XComponent surface (the "background"
+/// slice), and the Flutter content above platform views is composited to a
+/// single transparent overlay XComponent surface (the "overlay" slice).
+///
+/// This mirrors the semantics of Android's |AndroidExternalViewEmbedder2|:
+/// - SurfaceControl              -> ArkUI RENDER_TYPE_DISPLAY node
+/// - overlay SurfaceControl      -> transparent overlay XComponent
+/// - SurfaceFlinger              -> ArkUI RenderService
+/// - JNI (onDisplayPlatformView) -> NAPI (OnDisplayPlatformViewHybrid)
+///
+class OHOSExternalViewEmbedder final : public ExternalViewEmbedder {
+ public:
+  OHOSExternalViewEmbedder(
+      const std::shared_ptr<OHOSContext>& ohos_context,
+      const std::shared_ptr<PlatformViewOHOSNapi>& napi_facade,
+      const std::shared_ptr<OhosSurfaceFactory>& surface_factory,
+      const TaskRunners& task_runners);
+
+  ~OHOSExternalViewEmbedder() override;
+
+  void PrerollCompositeEmbeddedView(
+      int64_t view_id,
+      std::unique_ptr<flutter::EmbeddedViewParams> params) override;
+
+  DlCanvas* CompositeEmbeddedView(int64_t view_id) override;
+
+  void SubmitFlutterView(
+      int64_t flutter_view_id,
+      GrDirectContext* context,
+      const std::shared_ptr<impeller::AiksContext>& aiks_context,
+      std::unique_ptr<SurfaceFrame> frame) override;
+
+  PostPrerollResult PostPrerollAction(
+      const fml::RefPtr<fml::RasterThreadMerger>& raster_thread_merger)
+      override;
+
+  DlCanvas* GetRootCanvas() override;
+
+  void BeginFrame(GrDirectContext* context,
+                  const fml::RefPtr<fml::RasterThreadMerger>&
+                      raster_thread_merger) override;
+
+  void PrepareFlutterView(DlISize frame_size,
+                          double device_pixel_ratio) override;
+
+  void CancelFrame() override;
+
+  void EndFrame(bool should_resubmit_frame,
+                const fml::RefPtr<fml::RasterThreadMerger>&
+                    raster_thread_merger) override;
+
+  bool SupportsDynamicThreadMerging() override;
+
+  void Teardown() override;
+
+  // Registers/updates the overlay XComponent's native window. Called from the
+  // NAPI layer once ArkUI has created the overlay surface. Passing nullptr
+  // clears it (overlay disabled -> graceful degrade to no-overlay).
+  void SetOverlayWindow(fml::RefPtr<OHOSNativeWindow> overlay_window);
+
+  // Clears the registered overlay window and destroys the cached overlay
+  // surfaces — everything that touches the overlay native window. Intended to
+  // run on the raster thread (and be synchronously waited for by the caller)
+  // when the overlay XComponent is being destroyed, so that the underlying
+  // OHNativeWindow can be unreferenced right after without racing in-flight
+  // raster uses.
+  void TearDownOverlayWindow();
+
+  // Gets the on-screen rect of a platform view, taking the mutator stack into
+  // account, in physical pixels relative to the Flutter view.
+  static DlRect GetViewRect(
+      int64_t view_id,
+      const std::unordered_map<int64_t, EmbeddedViewParams>& view_params);
+
+  struct FoldedMutators {
+    DlMatrix final_matrix;
+    std::vector<DlRect> clip_rects;
+    std::vector<DlRect> clip_rrect_bounds;
+    std::vector<float> clip_rrect_radii;
+    std::vector<DlRect> clip_path_bounds;
+    std::vector<std::vector<double>> clip_path_commands;
+    float opacity = 1.0f;
+  };
+  static FoldedMutators FoldMutatorsToFinal(
+      const EmbeddedViewParams& params);
+
+ private:
+  const std::shared_ptr<OHOSContext> ohos_context_;
+
+  // Allows to call methods in ArkTS via NAPI.
+  const std::shared_ptr<PlatformViewOHOSNapi> napi_facade_;
+
+  // Allows to create GPU surfaces for the overlay layer.
+  const std::shared_ptr<OhosSurfaceFactory> surface_factory_;
+
+  const TaskRunners task_runners_;
+  std::mutex overlay_mutex_;
+  fml::RefPtr<OHOSNativeWindow> overlay_window_;
+  std::atomic_bool overlay_window_dirty_{false};
+  fml::RefPtr<OHOSNativeWindow> applied_overlay_window_;
+  std::unique_ptr<OHOSSurface> overlay_ohos_surface_;
+  std::unique_ptr<Surface> overlay_gpu_surface_;
+  // Shared so PostTask lambdas can read/update it without capturing raw |this|.
+  std::shared_ptr<std::atomic_bool> overlay_layer_is_shown_ =
+      std::make_shared<std::atomic_bool>(false);
+  bool overlay_had_content_last_frame_ = false;
+  // Set while overlay regions are being dropped due to a missing overlay
+  // surface; used to log the error once per drop window instead of per frame.
+  bool overlay_drop_logged_ = false;
+
+  // The size of the root canvas (physical pixels).
+  DlISize frame_size_;
+
+  // The device pixel ratio used to size platform view layers.
+  double device_pixel_ratio_ = 1.0;
+
+  // The order of composition. Each entry is a unique platform view id.
+  std::vector<int64_t> composition_order_;
+
+  // The EmbedderViewSlice keyed by platform view id.
+  std::unordered_map<int64_t, std::unique_ptr<EmbedderViewSlice>> slices_;
+
+  // The params (size, position, mutator stack) keyed by platform view id.
+  std::unordered_map<int64_t, EmbeddedViewParams> view_params_;
+
+  // Platform views visible in the last frame.
+  std::unordered_set<int64_t> views_visible_last_frame_;
+
+  // Resets per-frame state.
+  void Reset();
+
+  // Whether the layer tree in the current frame has platform layers.
+  bool FrameHasPlatformLayers();
+
+  Surface* EnsureOverlaySurface(GrDirectContext* context);
+
+  // Destroys the overlay GPU surface (platform thread).
+  void DestroyOverlaySurface();
+
+  void ShowOverlayLayerIfNeeded();
+
+  void HideOverlayLayerIfNeeded();
+
+  FML_DISALLOW_COPY_AND_ASSIGN(OHOSExternalViewEmbedder);
+};
+
+}  // namespace flutter
+
+#endif  // FLUTTER_SHELL_PLATFORM_OHOS_EXTERNAL_VIEW_EMBEDDER_EXTERNAL_VIEW_EMBEDDER_H_

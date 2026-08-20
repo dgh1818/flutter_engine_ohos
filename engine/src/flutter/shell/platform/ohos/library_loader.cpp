@@ -211,6 +211,12 @@ static napi_value Init(napi_env env, napi_value exports) {
       DECLARE_NAPI_FUNCTION("nativeSetPipVisible",
                             flutter::PlatformViewOHOSNapi::nativeSetPipVisible),
       DECLARE_NAPI_FUNCTION(
+          "nativeIsHybridCompositionEnabled",
+          flutter::PlatformViewOHOSNapi::nativeIsHybridCompositionEnabled),
+      DECLARE_NAPI_FUNCTION(
+          "nativeDispatchTouchToEngine",
+          flutter::PlatformViewOHOSNapi::nativeDispatchTouchToEngine),
+      DECLARE_NAPI_FUNCTION(
           "nativeUpdateCurrentXComponentId",
           flutter::PlatformViewOHOSNapi::nativeUpdateCurrentXComponentId),
       DECLARE_NAPI_FUNCTION(

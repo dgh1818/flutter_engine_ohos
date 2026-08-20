@@ -55,6 +55,8 @@ const TIMESTAMP_PREFIX = "res_timestamp-";
 
 const ENABLE_IMPELLER_TAG = "enable_impeller";
 
+const ENABLE_OHOS_HCPP_TAG = "enable_ohos_hybrid_composition";
+
 const TRUE_STRING = "true";
 
 const BUILD_INFO_FILE_NAME = "buildinfo.json5";
@@ -105,6 +107,9 @@ export default class FlutterLoader {
   initStartTimestampMillis: number = 0;
   /** Whether Impeller rendering backend is enabled. */
   isEnableImpeller: boolean = false;
+
+  /** Whether OHOS Hybrid Composition (HCPP) platform view mode is enabled. */
+  isEnableHcpp: boolean = false;
 
   /**
    * Constructs a new FlutterLoader instance.
@@ -160,11 +165,14 @@ export default class FlutterLoader {
     if (this.flutterApplicationInfo!.isDebugMode) {
       this.copyResource(context)
     }
-    let buildInfoMap = this.getBuildInfo(this.context!); 
+    let buildInfoMap = this.getBuildInfo(this.context!);
     if (!buildInfoMap.has(ENABLE_IMPELLER_TAG) || buildInfoMap.get(ENABLE_IMPELLER_TAG) == TRUE_STRING) {
         this.isEnableImpeller = true;
     } else {
       this.isEnableImpeller = false;
+    }
+    if (buildInfoMap.get(ENABLE_OHOS_HCPP_TAG) == TRUE_STRING) {
+      this.isEnableHcpp = true;
     }
     this.initResult = new InitResult(
       `${context.filesDir}/`,
@@ -321,6 +329,17 @@ export default class FlutterLoader {
         Log.d(TAG, "Enable Impeller in Ohos.");
     } else {
       Log.d(TAG, "Do not find enableImpeller tag or enableImpeller tag set to false, enable Skia in Ohos.");
+    }
+
+    // HCPP is configured solely via buildinfo.json5, matching how Impeller is
+    // handled. Both the command-line path (`flutter run --enable-hcpp`, which
+    // flutter_tools writes into buildinfo.json5 at build time) and manual
+    // configuration (adding { "name": "enable_ohos_hybrid_composition",
+    // "value": "true" } to the buildinfo.json5 string array) are read in
+    // startInitialization via getBuildInfo().
+    if (this.isEnableHcpp == true) {
+      shellArgs.push("--enable-ohos-hybrid-composition");
+      Log.d(TAG, "Enable OHOS Hybrid Composition (HCPP) from buildinfo.json5.");
     }
 
     // Final initialization operation

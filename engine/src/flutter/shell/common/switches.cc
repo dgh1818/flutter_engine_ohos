@@ -517,6 +517,9 @@ Settings SettingsFromCommandLine(const fml::CommandLine& command_line,
   settings.enable_surface_control = command_line.HasOption(
       FlagForSwitch(Switch::EnableAndroidHcppAndSurfaceControl));
 
+  settings.enable_ohos_hybrid_composition = command_line.HasOption(
+      FlagForSwitch(Switch::EnableOhosHybridComposition));
+
   constexpr std::string_view kMergedThreadEnabled = "enabled";
   constexpr std::string_view kMergedThreadDisabled = "disabled";
   constexpr std::string_view kMergedThreadMergeAfterLaunch = "mergeAfterLaunch";

@@ -10,8 +10,10 @@
 #include <native_window/external_window.h>
 #include <stdint.h>
 #include <cstddef>
+#include <cstring>
 #include <functional>
 #include <utility>
+#include <vector>
 #include "accessibility/ohos_semantics_bridge.h"
 #include "fml/trace_event.h"
 #include "napi/platform_view_ohos_napi.h"
@@ -25,6 +27,27 @@ const int32_t OHOS_API_VERSION = OH_GetSdkApiVersion();
 bool g_isMouseLeftActive = false;
 double g_scrollDistance = 0.0;
 double g_resizeRate = 0.8;
+
+// HCPP overlay XComponent id convention: an overlay surface's id is
+// `<mainViewId>__overlay`. The native adapter routes its OHNativeWindow to
+// the engine that owns <mainViewId> (see SetHybridCompositionOverlayWindow),
+// without attaching it as the main Flutter surface.
+static constexpr const char* kOverlayIdSuffix = "__overlay";
+
+static bool IsOverlayId(const std::string& id) {
+  if (id.size() <= std::strlen(kOverlayIdSuffix)) {
+    return false;
+  }
+  return id.compare(id.size() - std::strlen(kOverlayIdSuffix),
+                    std::strlen(kOverlayIdSuffix), kOverlayIdSuffix) == 0;
+}
+
+static std::string StripOverlaySuffix(const std::string& id) {
+  if (!IsOverlayId(id)) {
+    return id;
+  }
+  return id.substr(0, id.size() - std::strlen(kOverlayIdSuffix));
+}
 
 XComponentAdapter XComponentAdapter::mXComponentAdapter;
 
@@ -166,6 +189,46 @@ XComponentBase* XComponentAdapter::GetXcomponentBase(const std::string& id) {
   return nullptr;
 }
 
+void XComponentAdapter::StoreHcppOverlayPendingWindow(
+    const std::string& overlay_id, void* window) {
+  std::lock_guard<std::mutex> lock(hcpp_overlay_pending_mutex_);
+  hcpp_overlay_pending_windows_[overlay_id] = window;
+  LOGI("HCPP overlay window stashed (owner not ready) id=%{public}s",
+       overlay_id.c_str());
+}
+
+void XComponentAdapter::ClearHcppOverlayPendingWindow(
+    const std::string& overlay_id) {
+  std::lock_guard<std::mutex> lock(hcpp_overlay_pending_mutex_);
+  hcpp_overlay_pending_windows_.erase(overlay_id);
+}
+
+void XComponentAdapter::FlushHcppOverlayPendingWindows(
+    const std::string& main_id) {
+  void* pending = nullptr;
+  {
+    std::lock_guard<std::mutex> lock(hcpp_overlay_pending_mutex_);
+    auto iter = hcpp_overlay_pending_windows_.find(main_id + kOverlayIdSuffix);
+    if (iter == hcpp_overlay_pending_windows_.end()) {
+      return;
+    }
+    pending = iter->second;
+    hcpp_overlay_pending_windows_.erase(iter);
+  }
+  XComponentBase* main = GetXcomponentBase(main_id);
+  if (main == nullptr || main->shellholder_ptr_ == nullptr) {
+    LOGE("HCPP overlay pending flush: owner gone id=%{public}s",
+         main_id.c_str());
+    return;
+  }
+  auto platform_view = main->shellholder_ptr_->GetPlatformView();
+  if (platform_view) {
+    platform_view->SetHybridCompositionOverlayWindow(pending);
+    LOGI("HCPP overlay window delivered (pending flush) main=%{public}s",
+         main_id.c_str());
+  }
+}
+
 void XComponentAdapter::SetCurrentXcomponentId(std::string id) {
   current_xcomponent_id_ = std::move(id);
 }
@@ -233,20 +296,29 @@ void OnSurfaceChangedCB(OH_NativeXComponent* component, void* window) {
 void OnSurfaceDestroyedCB(OH_NativeXComponent* component, void* window) {
   std::lock_guard<std::recursive_mutex> lock(
       XComponentAdapter::GetInstance()->xcomponentMap_mutex_);
-  for (auto it = XComponentAdapter::GetInstance()->xcomponetMap_.begin();
-       it != XComponentAdapter::GetInstance()->xcomponetMap_.end();) {
-    if (it->second->nativeXComponent_ == component) {
-      if (OHOS_API_VERSION < 15 &&
-          it->second ==
-              XComponentAdapter::GetInstance()->GetCurrentXcomponent()) {
-        XComponentAdapter::GetInstance()->SetCurrentXcomponentId("");
-      }
-      it->second->OnSurfaceDestroyed(component, window);
-      delete it->second;
-      it = XComponentAdapter::GetInstance()->xcomponetMap_.erase(it);
-    } else {
-      ++it;
+  // Two passes: run every matching OnSurfaceDestroyed FIRST, then delete.
+  // A page teardown destroys the main surface and its HCPP overlay in the
+  // same pass, and the overlay's teardown resolves its owning engine by
+  // scanning the map for the main entry — deleting mid-pass (std::map
+  // iterates "main" before "main__overlay") previously removed the main
+  // entry before the overlay's handler ran, skipping the overlay window
+  // teardown and leaving the engine on a freed OHNativeWindow.
+  std::vector<XComponentBase*> to_destroy;
+  for (auto& kv : XComponentAdapter::GetInstance()->xcomponetMap_) {
+    if (kv.second->nativeXComponent_ == component) {
+      to_destroy.push_back(kv.second);
     }
+  }
+  for (XComponentBase* entry : to_destroy) {
+    if (OHOS_API_VERSION < 15 &&
+        entry == XComponentAdapter::GetInstance()->GetCurrentXcomponent()) {
+      XComponentAdapter::GetInstance()->SetCurrentXcomponentId("");
+    }
+    entry->OnSurfaceDestroyed(component, window);
+  }
+  for (XComponentBase* entry : to_destroy) {
+    XComponentAdapter::GetInstance()->xcomponetMap_.erase(entry->id_);
+    delete entry;
   }
 }
 void DispatchTouchEventCB(OH_NativeXComponent* component, void* window) {
@@ -504,6 +576,10 @@ void XComponentBase::AttachFlutterEngine(std::string shellholderId) {
                                          width_, height_);
     is_surface_present_ = true;
   }
+  // HCPP: deliver any overlay window that arrived before this attach (the
+  // overlay XComponent's OnSurfaceCreated stashed it when the engine was
+  // not reachable yet). Fire-and-forget was previously a permanent drop.
+  XComponentAdapter::GetInstance()->FlushHcppOverlayPendingWindows(id_);
 }
 
 void XComponentBase::PreDraw(std::string shellholderId, int width, int height) {
@@ -629,6 +705,45 @@ XComponentBase::GetArkUIAccessibilityServiceProviderWithInstance(
   return provider;
 }
 
+// See ohos_xcomponent_adapter.h for the gating contract: an overlay is an
+// See ohos_xcomponent_adapter.h for the gating contract.
+bool XComponentBase::IsHcppOverlay() {
+  if (!IsOverlayId(id_)) {
+    return false;
+  }
+  XComponentBase* main = XComponentAdapter::GetInstance()->GetXcomponentBase(
+      StripOverlaySuffix(id_));
+  if (main == nullptr) {
+    return false;
+  }
+  if (main->shellholder_ptr_ == nullptr) {
+    // Registered but not attached yet — spawn/attach race. FlutterPage only
+    // creates the overlay XComponent after HCPP is confirmed on, so a
+    // registered main means a genuine overlay pair.
+    return true;
+  }
+  auto platform_view = main->shellholder_ptr_->GetPlatformView();
+  return platform_view && platform_view->IsHybridCompositionEnabled();
+}
+
+// Resolves the engine that owns this overlay via its main XComponent entry
+// (id with the "__overlay" suffix stripped). Returns an empty WeakPtr when
+// the main entry is gone or its engine is not attached — callers must treat
+// that as "no engine to talk to" instead of dereferencing a stale
+// shellholder. (The two-pass OnSurfaceDestroyedCB keeps the main entry
+// alive while overlay teardown runs in the same page-unload pass.)
+static fml::WeakPtr<PlatformViewOHOS> GetOverlayOwnerPlatformView(
+    const std::string& overlay_id) {
+  XComponentAdapter* adapter = XComponentAdapter::GetInstance();
+  std::lock_guard<std::recursive_mutex> lock(adapter->xcomponentMap_mutex_);
+  XComponentBase* main =
+      adapter->GetXcomponentBase(StripOverlaySuffix(overlay_id));
+  if (main == nullptr || main->shellholder_ptr_ == nullptr) {
+    return fml::WeakPtr<PlatformViewOHOS>();
+  }
+  return main->shellholder_ptr_->GetPlatformView();
+}
+
 void XComponentBase::OnSurfaceCreated(OH_NativeXComponent* component,
                                       void* window) {
   LOGD(
@@ -652,6 +767,35 @@ void XComponentBase::OnSurfaceCreated(OH_NativeXComponent* component,
   ret = OH_NativeWindow_NativeObjectReference(window_);
   if (ret) {
     LOGE("OH_NativeWindow_NativeObjectReference() failed, ret = %{public}d", ret);
+  }
+
+  // HCPP overlay XComponent: route its window to the engine that owns the
+  // main XComponent (id with "__overlay" stripped, see IsHcppOverlay). The
+  // overlay is NEVER attached as the main Flutter surface, so it must not
+  // run the main-surface setup below (SetNeedSoftKeyboard / SetNativeWindowOpt
+  // / accessibility provider / SurfaceCreated). The NativeObjectReference
+  // above is balanced by the unconditional NativeObjectUnreference in
+  // OnSurfaceDestroyed.
+  if (IsHcppOverlay()) {
+    auto platform_view = GetOverlayOwnerPlatformView(id_);
+    if (platform_view) {
+      // The platform view stashes the window when the HCPP embedder has not
+      // been created yet (shell still starting up) and pushes it on embedder
+      // creation, so an early overlay surface is no longer dropped.
+      platform_view->SetHybridCompositionOverlayWindow(window);
+      LOGI("HCPP overlay window registered id=%{public}s", id_.c_str());
+    } else {
+      // The owning engine's platform view is not reachable yet (shell still
+      // creating, or the main XComponent has not attached). Stash the window;
+      // FlushHcppOverlayPendingWindows delivers it as soon as the main
+      // XComponent attaches the engine. Without this, the fire-once
+      // OnSurfaceCreated would drop the window for the whole session and
+      // every overlay region above a platform view would be silently
+      // discarded.
+      XComponentAdapter::GetInstance()->StoreHcppOverlayPendingWindow(id_,
+                                                                      window);
+    }
+    return;
   }
 
   // This setting ensures that the soft keyboard does not automatically dismiss
@@ -708,6 +852,33 @@ void XComponentBase::OnSurfaceDestroyed(OH_NativeXComponent* component,
   if (window_ != window) {
     LOGE("OnSurfaceDestroyed with different window: %{public}p=>%{public}p",
          window_, window);
+  }
+  // HCPP overlay: tear the engine's borrow down BEFORE the underlying window
+  // is unreferenced below, otherwise the raster thread may dereference a freed
+  // OHNativeWindow. ClearHybridCompositionOverlayWindowSync drains every
+  // in-flight raster use (latch on the raster task runner, same pattern as
+  // NotifyDestroyed) and destroys the overlay GPU surfaces before returning.
+  // The owning engine is resolved via the main XComponent entry (id with the
+  // suffix stripped). The two-pass OnSurfaceDestroyedCB below keeps that
+  // entry alive while the overlay's teardown runs in the same page-unload
+  // pass — the pass ordering previously deleted the main entry first when
+  // the main surface unmounted before the overlay's, skipping this teardown
+  // and leaving the engine holding a dangling window (use-after-free).
+  // Note that the overlay's own XComponentBase is being deleted by the caller
+  // after this returns, so do not touch `this` members beyond window_/id_.
+  if (IsHcppOverlay()) {
+    auto platform_view = GetOverlayOwnerPlatformView(id_);
+    if (platform_view) {
+      platform_view->ClearHybridCompositionOverlayWindowSync();
+      LOGI("HCPP overlay window cleared id=%{public}s", id_.c_str());
+    } else {
+      LOGI("HCPP overlay destroy: owning engine gone, skip clear id=%{public}s",
+           id_.c_str());
+    }
+    // The overlay surface is gone; drop any stashed pending window (one
+    // delivered earlier this session is not affected — the embedder holds
+    // its own reference).
+    XComponentAdapter::GetInstance()->ClearHcppOverlayPendingWindow(id_);
   }
   if (window_) {
     int32_t ret = OH_NativeWindow_NativeObjectUnreference(window_);

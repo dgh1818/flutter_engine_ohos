@@ -287,6 +287,9 @@ class OhosDartBuilder implements OhosBuilder {
     if (ohosBuildInfo.enableImpellerFlag != null) {
       await setImpellerEnableFlag(ohosProject, ohosBuildInfo);
     }
+    if (ohosBuildInfo.enableHcppFlag != null) {
+      await setHcppEnableFlag(ohosProject, ohosBuildInfo);
+    }
 
     final String desAppSoPath = getAppSoPath(
       ohosRootPath,
