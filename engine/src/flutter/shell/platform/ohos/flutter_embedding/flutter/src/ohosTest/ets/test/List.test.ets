@@ -22,6 +22,9 @@ import BinaryCodecTest from './plugin/common/BinaryCodecTest.test';
 import PlatformViewRegistryImplTest from './plugin/platform/PlatformViewRegistryImplTest.test';
 import PlatformViewWrapperTest from './plugin/platform/PlatformViewWrapperTest.test';
 import PlatformViewsControllerTest from './plugin/platform/PlatformViewsControllerTest.test';
+import PlatformViewsControllerHybridTest from './plugin/platform/PlatformViewsControllerHybrid.test';
+import PlatformViewsControllerHcppTest from './plugin/platform/PlatformViewsControllerHcpp.test';
+import PlatformViewParamsUtilTest from './plugin/platform/PlatformViewParamsUtil.test';
 import RawPointerCoordTest from './plugin/platform/RawPointerCoordTest.test';
 import RootDvModelManagerTest from './plugin/platform/RootDvModelManagerTest.test';
 import ByteBufferTest from './plugin/util/ByteBufferTest.test';
@@ -44,11 +47,13 @@ import TouchEventTrackerTest from './embedding/ohos/TouchEventTrackerTest.test';
 import WindowInfoRepositoryCallbackAdapterWrapperTest
   from './embedding/ohos/WindowInfoRepositoryCallbackAdapterWrapperTest.test';
 import FlutterEngineTest from './embedding/engine/FlutterEngineTest.test';
+import FlutterEngineHybridTest from './embedding/engine/FlutterEngineHybrid.test';
 import FlutterEngineCacheTest from './embedding/engine/FlutterEngineCacheTest.test';
 import FlutterEngineConnectionRegistryTest from './embedding/engine/FlutterEngineConnectionRegistryTest.test';
 import FlutterEngineGroupCacheTest from './embedding/engine/FlutterEngineGroupCacheTest.test';
 import FlutterEngineGroupTest from './embedding/engine/FlutterEngineGroupTest.test';
 import FlutterNapiTest from './embedding/engine/FlutterNapiTest.test';
+import FlutterNapiHybridTest from './embedding/engine/FlutterNapiHybrid.test';
 import FlutterOverlaySurfaceTest from './embedding/engine/FlutterOverlaySurfaceTest.test';
 import FlutterShellArgsTest from './embedding/engine/FlutterShellArgsTest.test';
 import BinaryMessengerTest from './plugin/common/BinaryMessengerTest.test';
@@ -102,6 +107,7 @@ import navigationChannelTest from './embedding/engine/systemchannels/NavigationC
 import statusBarClickChannelTest from './embedding/engine/systemchannels/StatusBarClickChannel.test';
 import sensitiveContentChannelTest from './embedding/engine/systemchannels/SensitiveContentChannel.test';
 import platformViewsChannelTest from './embedding/engine/systemchannels/PlatformViewsChannel.test';
+import PlatformViewsChannelHybridTest from './embedding/engine/systemchannels/PlatformViewsChannelHybrid.test';
 import flutterAbilityLaunchConfigsTest from './embedding/ohos/FlutterAbilityLaunchConfigs.test';
 import platformViewInfoTest from './embedding/ohos/PlatformViewInfo.test';
 import keyboardMapTest from './embedding/ohos/KeyboardMap.test';
@@ -120,6 +126,7 @@ import TextUtilsTest from './plugin/editing/TextUtils.test';
 import FlutterEnginePreloadTest from './embedding/engine/FlutterEnginePreload.test';
 import FlutterPluginRegistryTest from './app/FlutterPluginRegistry.test';
 import FlutterCallbackInformationTest from './view/FlutterCallbackInformation.test';
+import FlutterViewHybridTest from './view/FlutterViewHybrid.test';
 
 export default function testsuite() {
   FlutterAbilityAndEntryDelegateTest();
@@ -131,6 +138,9 @@ export default function testsuite() {
   PlatformViewRegistryImplTest();
   PlatformViewWrapperTest();
   PlatformViewsControllerTest();
+  PlatformViewsControllerHybridTest();
+  PlatformViewsControllerHcppTest();
+  PlatformViewParamsUtilTest();
   RawPointerCoordTest();
   RootDvModelManagerTest();
   ByteBufferTest();
@@ -152,11 +162,13 @@ export default function testsuite() {
   TouchEventTrackerTest();
   WindowInfoRepositoryCallbackAdapterWrapperTest();
   FlutterEngineTest();
+  FlutterEngineHybridTest();
   FlutterEngineCacheTest();
   FlutterEngineConnectionRegistryTest();
   FlutterEngineGroupCacheTest();
   FlutterEngineGroupTest();
   FlutterNapiTest();
+  FlutterNapiHybridTest();
   FlutterOverlaySurfaceTest();
   FlutterShellArgsTest();
   BinaryMessengerTest();
@@ -208,6 +220,7 @@ export default function testsuite() {
   statusBarClickChannelTest();
   sensitiveContentChannelTest();
   platformViewsChannelTest();
+  PlatformViewsChannelHybridTest();
   flutterAbilityLaunchConfigsTest();
   platformViewInfoTest();
   keyboardMapTest();
@@ -226,4 +239,5 @@ export default function testsuite() {
   FlutterEnginePreloadTest();
   FlutterPluginRegistryTest();
   FlutterCallbackInformationTest();
+  FlutterViewHybridTest();
 }
