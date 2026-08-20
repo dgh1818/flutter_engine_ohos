@@ -85,6 +85,7 @@ body:
       description: |
         请用另一部手机录制性能问题的视频，以便我们直观了解发生了什么。
 
+        请勿在设备上录屏，因为录屏过程会影响 profile 运行的性能。
 
       value: |
         <details open>
@@ -131,7 +132,7 @@ body:
     attributes:
       label: 该问题是否仅在 Impeller 下可复现？
       description: |
-        请参阅 https://docs.flutter.dev/perf/impender 了解如何启用/禁用 Impeller。
+        请参阅 https://docs.flutter.dev/perf/impeller 了解如何启用/禁用 Impeller。
       options:
         - "不适用"
         - "是"
