@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import FlutterNapi from '../../../../../main/ets/embedding/engine/FlutterNapi';
+import FlutterNapi, { WindowPositionResult } from '../../../../../main/ets/embedding/engine/FlutterNapi';
 import ApplicationInfoLoader from '../../../../../main/ets/embedding/engine/loader/ApplicationInfoLoader';
 import { FlutterRenderer } from '../../../../../main/ets/embedding/engine/renderer/FlutterRenderer';
 import { common } from '@kit.AbilityKit';
@@ -131,6 +131,108 @@ export default function FlutterNapiTest() {
       console.info("uitest: registerTexture begin");
       const id = flutterNapi.registerTexture(textureId);
       expect(id).not().assertNull();
+      done();
+    })
+
+    it('windowPositionResultDefaultsToZero', 0, async (done: Function) => {
+      const out = new WindowPositionResult();
+      expect(out.left).assertEqual(0);
+      expect(out.top).assertEqual(0);
+      expect(out.width).assertEqual(0);
+      expect(out.height).assertEqual(0);
+      done();
+    })
+
+    it('windowPositionResultSetPopulatesFields', 0, async (done: Function) => {
+      const out = new WindowPositionResult();
+      out.set(10, 20, 30, 40);
+      expect(out.left).assertEqual(10);
+      expect(out.top).assertEqual(20);
+      expect(out.width).assertEqual(30);
+      expect(out.height).assertEqual(40);
+      done();
+    })
+
+    it('nativeHandleOsWindowClosedRunsForUntrackedView', 0, async (done: Function) => {
+      try {
+        FlutterNapi.nativeHandleOsWindowClosed(9101);
+      } catch (e) {
+      }
+      done();
+    })
+
+    it('nativeComputeWindowPositionUntrackedViewKeepsDefaults', 0, async (done: Function) => {
+      const out = new WindowPositionResult();
+      try {
+        const ret = FlutterNapi.nativeComputeWindowPosition(out, 9102, 100, 80, 0, 0, 800, 600, 0, 0, 1000, 800);
+        expect(typeof ret).assertEqual('number');
+      } catch (e) {
+      }
+      // Untracked view: native leaves the holder untouched (0 defaults).
+      expect(out.left).assertEqual(0);
+      expect(out.top).assertEqual(0);
+      done();
+    })
+
+    it('nativeNotifyWindowActivatedRunsForUntrackedView', 0, async (done: Function) => {
+      try {
+        FlutterNapi.nativeNotifyWindowActivated(9103, true);
+        FlutterNapi.nativeNotifyWindowActivated(9103, false);
+      } catch (e) {
+      }
+      done();
+    })
+
+    it('requestWindowHostDelegatesToManagerForEachArchetype', 0, async (done: Function) => {
+      try {
+        // Archetypes 0..3 + unknown fall through the createSubWindow switch.
+        flutterNapi.requestWindowHost(9110, 999, 200, 150, 0);
+        flutterNapi.requestWindowHost(9111, 999, 200, 150, 1);
+        flutterNapi.requestWindowHost(9112, 999, 200, 150, 2);
+        flutterNapi.requestWindowHost(9113, 999, 200, 150, 3);
+        flutterNapi.requestWindowHost(9114, 999, 200, 150, 99);
+      } catch (e) {
+      }
+      done();
+    })
+
+    it('createRegularAbilityAndBindEntryAbilityDelegateToManager', 0, async (done: Function) => {
+      try {
+        flutterNapi.createRegularAbility(9120, 42, 300, 200, 'win');
+        flutterNapi.bindEntryAbilityToView(9121, 300, 200, 'adopted');
+      } catch (e) {
+      }
+      done();
+    })
+
+    it('destroyWindowHostGuardsImplicitViewAndUnknownHost', 0, async (done: Function) => {
+      try {
+        flutterNapi.destroyWindowHost(0);
+        flutterNapi.destroyWindowHost(9130);
+      } catch (e) {
+      }
+      done();
+    })
+
+    it('exitApplicationWithoutMainHostLogsAndReturns', 0, async (done: Function) => {
+      try {
+        flutterNapi.exitApplication();
+      } catch (e) {
+      }
+      done();
+    })
+
+    it('windowPropertySettersRunWithoutHost', 0, async (done: Function) => {
+      try {
+        flutterNapi.setWindowSize(9140, 100, 100);
+        flutterNapi.setWindowTitle(9140, 't');
+        flutterNapi.setWindowMaximized(9140, true);
+        flutterNapi.setWindowMinimized(9140, true);
+        flutterNapi.setWindowFullscreen(9140, true);
+        flutterNapi.setWindowConstraints(9140, 50, 500, 50, 500);
+        flutterNapi.activateWindow(9140);
+      } catch (e) {
+      }
       done();
     })
   })

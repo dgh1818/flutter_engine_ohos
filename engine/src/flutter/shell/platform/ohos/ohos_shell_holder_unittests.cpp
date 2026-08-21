@@ -237,5 +237,14 @@ TEST(OHOSShellHolder, InitializeSystemFont) {
   SUCCEED();
 }
 
+TEST(OHOSShellHolder, GetWindowControllerIsCreatedForMainHolder) {
+  auto settings = MakeTestSettings();
+  auto napi_facade = std::make_shared<PlatformViewOHOSNapi>(nullptr);
+  auto holder =
+      std::make_unique<OHOSShellHolder>(settings, napi_facade, nullptr);
+  ASSERT_NE(holder->GetWindowController(), nullptr);
+  EXPECT_EQ(holder->GetWindowController()->GetNapiFacade(), napi_facade);
+}
+
 }  // namespace testing
 }  // namespace flutter

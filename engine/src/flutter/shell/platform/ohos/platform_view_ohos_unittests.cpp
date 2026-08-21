@@ -30,7 +30,8 @@ Settings MakeTestSettings() {
 }  // namespace
 
 // HCPP 默认关闭：开关未打开时 IsHybridCompositionEnabled() 为 false，
-// CreateExternalViewEmbedder() 返回 nullptr，走外部纹理 / TLHC 老路径。
+// CreateExternalViewEmbedder() 返回多窗口 OHOSWindowingViewEmbedder
+// （不再是 nullptr；HCPP embedder 仅在 hybrid_composition_enabled_ 时创建）。
 TEST(PlatformViewOHOSHcpp, DisabledByDefault) {
   auto settings = MakeTestSettings();
   EXPECT_FALSE(settings.enable_ohos_hybrid_composition);
@@ -46,7 +47,9 @@ TEST(PlatformViewOHOSHcpp, DisabledByDefault) {
   // CreateExternalViewEmbedder 在 PlatformViewOHOS 中是 private override，
   // 经基类 public 虚接口调用触发虚表分发。
   PlatformView* base_view = platform_view.get();
-  EXPECT_EQ(base_view->CreateExternalViewEmbedder(), nullptr);
+  auto embedder = base_view->CreateExternalViewEmbedder();
+  ASSERT_NE(embedder, nullptr);
+  EXPECT_EQ(embedder->CompositeEmbeddedView(1), nullptr);
 }
 
 // HCPP 以 Settings.enable_ohos_hybrid_composition 方式打开，但软件渲染后端
@@ -64,7 +67,9 @@ TEST(PlatformViewOHOSHcpp, DisabledWithSoftwareRenderingDespiteSettings) {
 
   EXPECT_FALSE(platform_view->IsHybridCompositionEnabled());
   PlatformView* base_view = platform_view.get();
-  EXPECT_EQ(base_view->CreateExternalViewEmbedder(), nullptr);
+  auto embedder = base_view->CreateExternalViewEmbedder();
+  ASSERT_NE(embedder, nullptr);
+  EXPECT_EQ(embedder->CompositeEmbeddedView(1), nullptr);
 }
 
 // HCPP 关闭时 overlay 窗口的生命周期方法必须安全：

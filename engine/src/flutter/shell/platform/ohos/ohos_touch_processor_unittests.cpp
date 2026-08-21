@@ -596,9 +596,17 @@ TEST(OhosTouchProcessorTest,
 
 TEST(OhosTouchProcessorTest, HandleTouchEventReturnsOnNullEvent) {
   OhosTouchProcessor processor;
-  // touchEvent == nullptr → early return, no crash
   processor.HandleTouchEvent(0, nullptr, nullptr);
   SUCCEED();
+}
+
+TEST(OhosTouchProcessorTest, SetViewIdStoresForPointerRouting) {
+  OhosTouchProcessor processor;
+  EXPECT_EQ(processor.view_id_, 0);
+  processor.SetViewId(5);
+  EXPECT_EQ(processor.view_id_, 5);
+  processor.SetViewId(0);
+  EXPECT_EQ(processor.view_id_, 0);
 }
 
 TEST(OhosTouchProcessorTest, HandleAxisEventReturnsOnNullEvent) {

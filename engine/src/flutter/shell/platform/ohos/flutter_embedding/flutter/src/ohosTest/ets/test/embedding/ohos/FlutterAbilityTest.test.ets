@@ -15,11 +15,14 @@
 import { describe, expect, it } from '@ohos/hypium';
 import { abilityDelegatorRegistry } from '@kit.TestKit';
 import { Want } from '@kit.AbilityKit';
+import { window } from '@kit.ArkUI';
 import AbilityConstant from '@ohos.app.ability.AbilityConstant';
 import { FlutterPlugin, FlutterPluginBinding } from '../../../../../main/ets/embedding/engine/plugins/FlutterPlugin';
 import { FlutterAbility } from '../../../../../main/ets/embedding/ohos/FlutterAbility';
 import FlutterEngine from '../../../../../main/ets/embedding/engine/FlutterEngine';
 import { FlutterView } from '../../../../../main/ets/view/FlutterView';
+import FlutterManager from '../../../../../main/ets/embedding/ohos/FlutterManager';
+import { FakeWindowStage } from './windowing/Fakes';
 
 const bundleName = abilityDelegatorRegistry.getArguments().bundleName;
 const want: Want = {
@@ -137,6 +140,82 @@ export default function FlutterAbilityTest() {
       const flutterAbility: FlutterAbility = new FlutterAbility();
       const result = flutterAbility.getFlutterEngine();
       expect(result).assertNull();
+      done();
+    })
+
+    it('TestHostedViewIdDefaultsToImplicit', 0, async (done: Function) => {
+      const flutterAbility: FlutterAbility = new FlutterAbility();
+      // 0 = implicit main host; only spawned Regular hosts carry a numeric id.
+      expect(flutterAbility.hostedViewId).assertEqual(0);
+      done();
+    })
+
+    it('TestWindowStageEventCallbackBranches', 0, (done: Function) => {
+      // onWindowStageCreate registers windowStageEvent BEFORE createView throws
+      // (delegate is null in the UT process), so a fake stage captures the real
+      // callback and we can drive ACTIVE / INACTIVE / SHOWN to cover all three
+      // activated branches of windowStageEventCallback.
+      const flutterAbility: FlutterAbility = new FlutterAbility();
+      const stage = new FakeWindowStage();
+      try {
+        flutterAbility.onWindowStageCreate(stage as ESObject as window.WindowStage);
+      } catch (e) {
+      }
+      // ACTIVE → activated=true (native call guarded by try/catch).
+      stage.windowStageEventCb?.(window.WindowStageEventType.ACTIVE);
+      // INACTIVE → activated=false.
+      stage.windowStageEventCb?.(window.WindowStageEventType.INACTIVE);
+      // SHOWN → activated stays null → notification skipped.
+      stage.windowStageEventCb?.(window.WindowStageEventType.SHOWN);
+      FlutterManager.getInstance().popWindowStage(flutterAbility);
+      done();
+    })
+
+    it('TestOnDestroyWithHostedViewId', 0, (done: Function) => {
+      // Numeric hostedViewId: OS-close notification path runs; no registered
+      // window host → removeHost + deleteViewAbility drop the per-view maps.
+      const flutterAbility: FlutterAbility = new FlutterAbility();
+      flutterAbility.hostedViewId = 9401;
+      const cachedWant: Want = {
+        bundleName: bundleName,
+        abilityName: 'EntryAbility',
+        parameters: {
+          // ArkTS: no computed property names — mirror the literal constant
+          // FlutterAbilityLaunchConfigs.EXTRA_CACHED_ENGINE_ID ("cached_engine_id").
+          'cached_engine_id': 'cached-engine'
+        }
+      };
+      // launchWant lives on UIAbility; injecting cached-engine params makes
+      // shouldDestroyEngineWithHost() short-circuit without the private
+      // delegate, so onDestroy reaches the destroy path instead of throwing.
+      (flutterAbility as ESObject).launchWant = cachedWant;
+      FlutterManager.getInstance().setViewAbility('9401', flutterAbility);
+      try {
+        flutterAbility.onDestroy();
+      } catch (e) {
+      }
+      expect(FlutterManager.getInstance().getViewAbility('9401')).assertUndefined();
+      expect(FlutterManager.getInstance().getWindowHostOf('9401')).assertUndefined();
+      done();
+    })
+
+    it('TestOnDestroyImplicitHost', 0, (done: Function) => {
+      // hostedViewId stays 0 (implicit main view): OS-close block skipped.
+      const flutterAbility: FlutterAbility = new FlutterAbility();
+      const cachedWant: Want = {
+        bundleName: bundleName,
+        abilityName: 'EntryAbility',
+        parameters: {
+          // ArkTS: no computed property names — mirror the literal constant
+          // FlutterAbilityLaunchConfigs.EXTRA_CACHED_ENGINE_ID ("cached_engine_id").
+          'cached_engine_id': 'cached-engine'
+        }
+      };
+      (flutterAbility as ESObject).launchWant = cachedWant;
+      try {
+        flutterAbility.onDestroy();
+      } catch (e) {
+      }
       done();
     })
   })

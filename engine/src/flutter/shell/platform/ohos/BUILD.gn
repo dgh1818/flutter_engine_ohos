@@ -213,6 +213,7 @@ executable("flutter_ohos_unittests") {
     "external_view_embedder/external_view_embedder_unittests.cpp",
     "image_lru_unittests.cpp",
     "message_loop_ohos_unittests.cpp",
+    "napi/platform_view_ohos_napi_unittests.cpp",
     "ohos_asset_provider_unittests.cpp",
     "ohos_color_space_unittests.cpp",
     "ohos_external_texture_unittests.cpp",
@@ -223,6 +224,7 @@ executable("flutter_ohos_unittests") {
     "ohos_touch_processor_unittests.cpp",
     "ohos_trace_event_unittests.cpp",
     "ohos_vsync_voting_mgr_unittests.cpp",
+    "ohos_xcomponent_adapter_unittests.cpp",
     "paths_ohos_unittests.cpp",
     "platform_message_handler_ohos_unittests.cpp",
     "platform_view_ohos_unittests.cpp",
@@ -230,6 +232,8 @@ executable("flutter_ohos_unittests") {
     "rasterizer_flags_ohos_unittests.cpp",
     "timerfd_unittests.cpp",
     "vsync_waiter_ohos_unittests.cpp",
+    "windowing/ohos_window_controller_unittests.cpp",
+    "windowing/ohos_window_unittests.cpp",
   ]
 
   public_configs = [ "//flutter:config" ]
