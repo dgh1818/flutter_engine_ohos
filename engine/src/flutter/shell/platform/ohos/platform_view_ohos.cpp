@@ -21,6 +21,7 @@
 #include "flutter/shell/platform/ohos/ohos_surface_gl_skia.h"
 #include "flutter/shell/platform/ohos/ohos_surface_software.h"
 #include "flutter/shell/platform/ohos/platform_message_response_ohos.h"
+#include "flutter/shell/platform/ohos/windowing/ohos_window_controller.h"
 #include "fml/trace_event.h"
 #include "lib/ui/semantics/semantics_node.h"
 #include "napi_common.h"
@@ -33,6 +34,7 @@
 #include "shell/platform/ohos/accessibility/ohos_semantics_node.h"
 #include "shell/platform/ohos/background_resource_cleanup.h"
 #include "shell/platform/ohos/context/ohos_context.h"
+#include "shell/platform/ohos/ohos_shell_holder.h"
 #include "shell/platform/ohos/ohos_surface_vulkan_impeller.h"
 
 namespace flutter {
@@ -93,7 +95,8 @@ PlatformViewOHOS::PlatformViewOHOS(
     PlatformView::Delegate& delegate,
     const flutter::TaskRunners& task_runners,
     const std::shared_ptr<PlatformViewOHOSNapi>& napi_facade,
-    bool use_software_rendering)
+    bool use_software_rendering,
+    OHOSShellHolder* shell_holder)
     : PlatformViewOHOS(
           delegate,
           task_runners,
@@ -103,23 +106,25 @@ PlatformViewOHOS::PlatformViewOHOS(
               delegate.OnPlatformViewGetSettings().ohos_rendering_api,
               delegate.OnPlatformViewGetSettings().enable_vulkan_validation,
               delegate.OnPlatformViewGetSettings().enable_opengl_gpu_tracing,
-              delegate.OnPlatformViewGetSettings().enable_vulkan_gpu_tracing)) {
-}
+              delegate.OnPlatformViewGetSettings().enable_vulkan_gpu_tracing),
+          shell_holder) {}
 
 PlatformViewOHOS::PlatformViewOHOS(
     PlatformView::Delegate& delegate,
     const flutter::TaskRunners& task_runners,
     const std::shared_ptr<PlatformViewOHOSNapi>& napi_facade,
-    const std::shared_ptr<flutter::OHOSContext>& ohos_context)
+    const std::shared_ptr<flutter::OHOSContext>& ohos_context,
+    OHOSShellHolder* shell_holder)
     : PlatformView(delegate, task_runners),
       napi_facade_(napi_facade),
+      shell_holder_(shell_holder),
       ohos_context_(ohos_context),
       platform_message_handler_(new PlatformMessageHandlerOHOS(
           napi_facade,
-          task_runners_.GetPlatformTaskRunner())) {
-  // HCPP is opt-in via settings and requires a GPU rendering backend. When
-  // disabled, CreateExternalViewEmbedder() returns nullptr and the external
-  // texture / TLHC path is used unchanged.
+          task_runners_.GetPlatformTaskRunner())),
+      ohos_weak_factory_(this) {
+  // HCPP requires a GPU backend; without it the multi-window per-view path
+  // is used (see CreateExternalViewEmbedder).
   hybrid_composition_enabled_ =
       delegate.OnPlatformViewGetSettings().enable_ohos_hybrid_composition &&
       ohos_context_ &&
@@ -218,6 +223,160 @@ void PlatformViewOHOS::NotifyCreate(
   }
 }
 
+bool PlatformViewOHOS::NotifyCreateForView(
+    int64_t view_id,
+    fml::RefPtr<OHOSNativeWindow> native_window,
+    double width,
+    double height) {
+  FML_DCHECK(view_id != kFlutterImplicitViewId);
+
+  if (!surface_factory_ || !ohos_context_ || !ohos_context_->IsValid()) {
+    FML_LOG(ERROR) << "NotifyCreateForView: engine context not ready for view "
+                   << view_id;
+    return false;
+  }
+
+  // EntryAbility-reuse: no implicit window ever attaches, so NotifyCreated —
+  // which installs the rasterizer's root surface — never ran; post it now.
+  // Idempotent via the atomic flag.
+  if (!ohos_surface_ && !implicit_view_notify_posted_.exchange(true)) {
+    auto weak_this = GetWeakPtr();
+    fml::TaskRunner::RunNowOrPostTask(task_runners_.GetRasterTaskRunner(),
+                                      [weak_this]() {
+                                        if (weak_this) {
+                                          weak_this->NotifyCreated();
+                                        }
+                                      });
+  }
+
+  auto ohos_surface = surface_factory_->CreateSurface();
+  if (!ohos_surface || !ohos_surface->IsValid()) {
+    FML_LOG(ERROR) << "NotifyCreateForView: invalid surface for view "
+                   << view_id;
+    return false;
+  }
+  std::shared_ptr<OHOSSurface> surface_shared(std::move(ohos_surface));
+  secondary_surfaces_[view_id] = surface_shared;
+
+  // Raster thread only: all GPU access and the embedder's registry live there.
+  OHOSContext* const context = ohos_context_.get();
+  bool surface_registered = false;
+  fml::AutoResetWaitableEvent latch;
+  fml::TaskRunner::RunNowOrPostTask(
+      task_runners_.GetRasterTaskRunner(),
+      [surface = surface_shared.get(), context, view_id,
+       embedder = external_view_embedder_, &surface_registered,
+       native_window = std::move(native_window), width, height, &latch]() {
+        if (native_window && width > 0 && height > 0) {
+          native_window->SetSize(static_cast<int>(width),
+                                 static_cast<int>(height));
+        }
+        bool ok = surface->SetDisplayWindow(native_window);
+        if (!ok) {
+          FML_LOG(ERROR) << "NotifyCreateForView: SetDisplayWindow failed";
+          latch.Signal();
+          return;
+        }
+        std::unique_ptr<Surface> gpu_surface =
+            surface->CreateGPUSurface(context->GetMainSkiaContext().get());
+        if (gpu_surface && !gpu_surface->IsValid()) {
+          gpu_surface.reset();
+        }
+        // Null embedder = HCPP enabled; the failure path below cleans up.
+        if (gpu_surface && embedder) {
+          embedder->RegisterViewSurface(view_id, std::move(gpu_surface));
+          surface_registered = true;
+        }
+        latch.Signal();
+      });
+  latch.Wait();
+
+  if (!surface_registered) {
+    FML_LOG(ERROR) << "NotifyCreateForView: failed to create GPU surface for "
+                      "view "
+                   << view_id;
+    secondary_surfaces_.erase(view_id);
+    return false;
+  }
+
+  // Use the base setter: the OHOS override rewrites physical size from the
+  // *main* window's display size and would mis-size a sub-window.
+  if (width > 0 && height > 0) {
+    ViewportMetrics view_metrics =
+        BuildViewMetricsForView(view_id, width, height);
+    PlatformView::SetViewportMetrics(view_id, view_metrics);
+  } else {
+    FML_LOG(WARNING) << "NotifyCreateForView: zero-size surface for view "
+                     << view_id << " (" << width << "x" << height
+                     << "), metrics not set";
+  }
+
+  return true;
+}
+
+void PlatformViewOHOS::NotifyDestroyForView(int64_t view_id) {
+  FML_DCHECK(view_id != kFlutterImplicitViewId);
+
+  auto it = secondary_surfaces_.find(view_id);
+  if (it == secondary_surfaces_.end()) {
+    return;
+  }
+  std::shared_ptr<OHOSSurface> surface = it->second;
+  secondary_surfaces_.erase(it);
+
+  if (external_view_embedder_) {
+    fml::TaskRunner::RunNowOrPostTask(
+        task_runners_.GetRasterTaskRunner(),
+        [embedder = external_view_embedder_, view_id]() {
+          embedder->UnregisterViewSurface(view_id);
+        });
+  }
+
+  // WAIT for teardown: the XComponent callback drops the native window right
+  // after this returns; a fire-and-forget task → UAF.
+  fml::AutoResetWaitableEvent latch;
+  fml::TaskRunner::RunNowOrPostTask(task_runners_.GetRasterTaskRunner(),
+                                    [surface, &latch]() {
+                                      surface->TeardownOnScreenContext();
+                                      latch.Signal();
+                                    });
+  latch.Wait();
+}
+
+void PlatformViewOHOS::AddViewForWindow(int64_t view_id) {
+  FML_DCHECK(view_id != kFlutterImplicitViewId);
+
+  // Shell::OnPlatformViewAddView DCHECKs the platform task runner; callers
+  // arrive on the UI thread, so hop over.
+  auto weak_this = GetWeakPtr();
+  task_runners_.GetPlatformTaskRunner()->PostTask([weak_this, view_id]() {
+    if (!weak_this) {
+      return;
+    }
+    weak_this->AddView(view_id, ViewportMetrics{}, [view_id](bool added) {
+      if (!added) {
+        FML_LOG(ERROR) << "Engine AddView failed for view " << view_id;
+      }
+    });
+  });
+}
+
+void PlatformViewOHOS::RemoveViewForWindow(int64_t view_id) {
+  FML_DCHECK(view_id != kFlutterImplicitViewId);
+
+  auto weak_this = GetWeakPtr();
+  task_runners_.GetPlatformTaskRunner()->PostTask([weak_this, view_id]() {
+    if (!weak_this) {
+      return;
+    }
+    weak_this->RemoveView(view_id, [view_id](bool removed) {
+      if (!removed) {
+        FML_LOG(ERROR) << "Engine RemoveView failed for view " << view_id;
+      }
+    });
+  });
+}
+
 void PlatformViewOHOS::Preload(int width, int height) {
   if (ohos_surface_ && !window_is_preload_) {
     LOGI("Preload start");
@@ -276,6 +435,55 @@ void PlatformViewOHOS::NotifySurfaceWindowChanged(
   }
 }
 
+void PlatformViewOHOS::NotifySurfaceChangedForView(
+    int64_t view_id,
+    fml::RefPtr<OHOSNativeWindow> native_window,
+    double width,
+    double height) {
+  auto it = secondary_surfaces_.find(view_id);
+  if (it == secondary_surfaces_.end()) {
+    FML_LOG(WARNING) << "NotifySurfaceChangedForView: no secondary surface "
+                     << "for view " << view_id << "; ignoring";
+    return;
+  }
+  auto surface = it->second;
+  if (surface && surface->IsValid()) {
+    fml::AutoResetWaitableEvent latch;
+    fml::TaskRunner::RunNowOrPostTask(
+        task_runners_.GetRasterTaskRunner(),
+        [&latch, surface, native_window = std::move(native_window), width,
+         height]() {
+          if (native_window && width > 0 && height > 0) {
+            native_window->SetSize(static_cast<int>(width),
+                                   static_cast<int>(height));
+          }
+          surface->SetDisplayWindow(native_window);
+          latch.Signal();
+        });
+    latch.Wait();
+  }
+
+  if (width > 0 && height > 0) {
+    ViewportMetrics view_metrics =
+        BuildViewMetricsForView(view_id, width, height);
+    PlatformView::SetViewportMetrics(view_id, view_metrics);
+  }
+}
+
+ViewportMetrics PlatformViewOHOS::BuildViewMetricsForView(
+    int64_t view_id,
+    double physical_width,
+    double physical_height) {
+  ViewportMetrics view_metrics = viewport_metrics_;
+  view_metrics.physical_width = physical_width;
+  view_metrics.physical_height = physical_height;
+  view_metrics.physical_min_width_constraint = physical_width;
+  view_metrics.physical_max_width_constraint = physical_width;
+  view_metrics.physical_min_height_constraint = physical_height;
+  view_metrics.physical_max_height_constraint = physical_height;
+  return view_metrics;
+}
+
 void PlatformViewOHOS::NotifyChanged(const DlISize& size) {
   LOGI("PlatformViewOHOS NotifyChanged enter");
   if (ohos_surface_) {
@@ -314,6 +522,11 @@ void PlatformViewOHOS::NotifyDestroyed() {
   fml::AutoResetWaitableEvent latch;
   fml::TaskRunner::RunNowOrPostTask(task_runners_.GetRasterTaskRunner(), [&]() {
     window_is_preload_ = false;
+    // Drop the surface before teardown so queued frames skip instead of
+    // acquiring from the swapchain torn down below.
+    if (external_view_embedder_) {
+      external_view_embedder_->UnregisterViewSurface(kFlutterImplicitViewId);
+    }
     // This function will internally call the GrContextDestroy of the external
     // texture, and within this callback, the graphic resources occupied by the
     // external texture will be released.
@@ -464,6 +677,15 @@ void PlatformViewOHOS::HandlePlatformMessage(
 // |PlatformView|
 void PlatformViewOHOS::OnPreEngineRestart() const {
   FML_DLOG(INFO) << "OnPreEngineRestart";
+  // Drop Dart-facing windowing state before the restarting isolate dangles
+  // its trampolines. GetWindowController() is null for spawned engines
+  // (their shell holder never creates one) — guard or hot-restart crashes
+  // dereferencing nullptr.
+  if (shell_holder_ != nullptr) {
+    if (auto* controller = shell_holder_->GetWindowController()) {
+      controller->OnPreEngineRestart();
+    }
+  }
   task_runners_.GetPlatformTaskRunner()->PostTask(
       fml::MakeCopyable([napi_facede = napi_facade_]() mutable {
         napi_facede->FlutterViewOnPreEngineRestart();
@@ -479,37 +701,69 @@ std::unique_ptr<VsyncWaiter> PlatformViewOHOS::CreateVSyncWaiter() {
 // |PlatformView|
 std::unique_ptr<Surface> PlatformViewOHOS::CreateRenderingSurface() {
   FML_DLOG(INFO) << "CreateRenderingSurface";
+  if (hybrid_composition_enabled_) {
+    // HCPP (unchanged): keep the real main-window GPU surface — the HCPP
+    // embedder composites its background slice onto it.
+    if (ohos_surface_ == nullptr) {
+      FML_DLOG(ERROR) << "CreateRenderingSurface Failed.ohos_surface_ is null ";
+      return nullptr;
+    }
+
+    LOGD("return CreateGPUSurface");
+    return ohos_surface_->CreateGPUSurface(
+        ohos_context_->GetMainSkiaContext().get());
+  }
+  // Multi-window: the implicit surface is a context-only root; the real
+  // main-window GPUSurface is registered with the raster-thread embedder.
+  // Both failure points honor the baseline nullptr contract (see
+  // PlatformView::NotifyCreated): a token root without a registered view-0
+  // surface would leave every frame skipping in SubmitFlutterView.
   if (ohos_surface_ == nullptr) {
-    FML_DLOG(ERROR) << "CreateRenderingSurface Failed.ohos_surface_ is null ";
+    FML_LOG(ERROR) << "CreateRenderingSurface Failed.ohos_surface_ is null ";
     return nullptr;
   }
-
-  LOGD("return CreateGPUSurface");
-  return ohos_surface_->CreateGPUSurface(
+  if (!external_view_embedder_) {
+    FML_LOG(ERROR)
+        << "CreateRenderingSurface Failed. windowing embedder is null ";
+    return nullptr;
+  }
+  auto main_surface = ohos_surface_->CreateGPUSurface(
       ohos_context_->GetMainSkiaContext().get());
+  if (!main_surface) {
+    FML_LOG(ERROR)
+        << "CreateRenderingSurface Failed. main GPU surface is invalid ";
+    return nullptr;
+  }
+  external_view_embedder_->RegisterViewSurface(kFlutterImplicitViewId,
+                                               std::move(main_surface));
+  return std::make_unique<OhosEmbedderRootSurface>(
+      ohos_context_ ? ohos_context_->GetImpellerContext() : nullptr);
 }
 
 // |PlatformView|
 std::shared_ptr<ExternalViewEmbedder>
 PlatformViewOHOS::CreateExternalViewEmbedder() {
-  if (!hybrid_composition_enabled_) {
-    // Preserve the external texture / TLHC composition path.
-    return nullptr;
-  }
-  if (!ohos_external_view_embedder_) {
-    ohos_external_view_embedder_ = std::make_shared<OHOSExternalViewEmbedder>(
-        ohos_context_, napi_facade_, surface_factory_, task_runners_);
-    // Deliver an overlay window that arrived before the embedder existed
-    // (see SetHybridCompositionOverlayWindow).
-    if (pending_overlay_window_ != nullptr) {
-      fml::RefPtr<OHOSNativeWindow> native_window =
-          fml::MakeRefCounted<OHOSNativeWindow>(
-              static_cast<OHNativeWindow*>(pending_overlay_window_), false);
-      ohos_external_view_embedder_->SetOverlayWindow(std::move(native_window));
-      pending_overlay_window_ = nullptr;
+  if (hybrid_composition_enabled_) {
+    // HCPP (unchanged): hybrid composition embedder.
+    if (!ohos_external_view_embedder_) {
+      ohos_external_view_embedder_ = std::make_shared<OHOSExternalViewEmbedder>(
+          ohos_context_, napi_facade_, surface_factory_, task_runners_);
+      // Deliver an overlay window that arrived before the embedder existed
+      // (see SetHybridCompositionOverlayWindow).
+      if (pending_overlay_window_ != nullptr) {
+        fml::RefPtr<OHOSNativeWindow> native_window =
+            fml::MakeRefCounted<OHOSNativeWindow>(
+                static_cast<OHNativeWindow*>(pending_overlay_window_), false);
+        ohos_external_view_embedder_->SetOverlayWindow(std::move(native_window));
+        pending_overlay_window_ = nullptr;
+      }
     }
+    return ohos_external_view_embedder_;
   }
-  return ohos_external_view_embedder_;
+  // Multi-window: per-view windowing embedder (see OHOSWindowingViewEmbedder).
+  FML_DLOG(INFO) << "CreateExternalViewEmbedder";
+  external_view_embedder_ = std::make_shared<OHOSWindowingViewEmbedder>();
+  return external_view_embedder_;
 }
 
 void PlatformViewOHOS::SetHybridCompositionOverlayWindow(void* window) {
@@ -1013,6 +1267,11 @@ void PlatformViewOHOS::SimulateTouchEvent(SemanticsNodeExtend* node) {
 
   pointerData.Clear();
   pointerData.embedder_id = 0;
+  // Route the synthetic tap to the view that owns the semantics node. The
+  // bridge serves a single ArkUI provider (the implicit main view's — see
+  // UpdateSemantics), so every node in the tree belongs to view 0; set it
+  // explicitly instead of relying on Clear()'s zero-default.
+  pointerData.view_id = kFlutterImplicitViewId;
   pointerData.change = PointerData::Change::kDown;
   pointerData.physical_y =
       (node->absoluteRect.fTop + node->absoluteRect.fBottom) / 2;

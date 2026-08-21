@@ -1,0 +1,63 @@
+
+{
+  "module": {
+    "name": "entry",
+    "type": "entry",
+    "description": "$string:module_desc",
+    "mainElement": "EntryAbility",
+    "srcEntry": "./ets/abilitystage/MyAbilityStage.ets",
+    "deviceTypes": [
+      "2in1"
+    ],
+    "deliveryWithInstall": true,
+    "installationFree": false,
+    "pages": "$profile:main_pages",
+    "abilities": [
+      {
+        "name": "EntryAbility",
+        "srcEntry": "./ets/entryability/EntryAbility.ets",
+        "description": "$string:EntryAbility_desc",
+        "icon": "$media:icon",
+        "label": "$string:EntryAbility_label",
+        "startWindowIcon": "$media:icon",
+        "startWindowBackground": "$color:start_window_background",
+        "exported": true,
+        // 窗口初始大小，单位 vp
+        "metadata": [
+          {
+            "name": "ohos.ability.window.width",
+            "value": "800"
+          },
+          {
+            "name": "ohos.ability.window.height",
+            "value": "600"
+          }
+        ],
+        "skills": [
+          {
+            "entities": [
+              "entity.system.home"
+            ],
+            "actions": [
+              "action.system.home"
+            ]
+          }
+        ]
+      },
+      {
+        "name": "RegularWindowAbility",
+        "srcEntry": "./ets/regularwindowability/RegularWindowAbility.ets",
+        "description": "$string:EntryAbility_desc",
+        "icon": "$media:icon",
+        "label": "$string:EntryAbility_label",
+        "startWindowIcon": "$media:icon",
+        "startWindowBackground": "$color:start_window_background",
+        "exported": false,
+        "launchType": "specified"
+      }
+    ],
+    "requestPermissions": [
+      {"name" :  "ohos.permission.INTERNET"},
+    ]
+  }
+}

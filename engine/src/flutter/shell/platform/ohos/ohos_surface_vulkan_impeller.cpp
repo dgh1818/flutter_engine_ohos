@@ -166,10 +166,8 @@ OHOSSurfaceVulkanImpeller::GetImpellerContext() {
 
 bool OHOSSurfaceVulkanImpeller::SetPresentInfo(
     const VulkanPresentInfo& present_info) {
-  if (!native_window_ || !native_window_->IsValid()) {
-    return false;
-  }
-
+  // Frame-damage tracing runs even during surface preload (native_window_
+  // unset): the multi-window partial-repaint workflow needs it every frame.
   if (present_info.frame_damage.has_value()) {
     DlIRect damage_rect = present_info.frame_damage.value();
     std::ostringstream oss;
@@ -183,11 +181,16 @@ bool OHOSSurfaceVulkanImpeller::SetPresentInfo(
                  "frame_damage", "no frame_damage");
   }
 
-  // pts upload
+  // Silent early returns — NO error log: this runs per frame per window, an
+  // ERROR would flood hilog; missing presentation_time is normal, not a fault.
+  if (!native_window_ || !native_window_->IsValid()) {
+    return false;
+  }
   if (!present_info.presentation_time.has_value()) {
     return false;
   }
 
+  // pts upload
   uint64_t present_time =
       present_info.presentation_time->ToEpochDelta().ToNanoseconds();
   OH_NativeWindow_NativeWindowHandleOpt(

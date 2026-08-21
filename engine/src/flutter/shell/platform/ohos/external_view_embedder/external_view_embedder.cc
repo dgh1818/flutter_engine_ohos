@@ -7,14 +7,18 @@
 #include "flutter/shell/platform/ohos/external_view_embedder/external_view_embedder.h"
 
 #include <algorithm>
+#include <utility>
 
 #include "flutter/display_list/dl_color.h"
 #include "flutter/display_list/geometry/dl_path.h"
 #include "flutter/flow/view_slicer.h"
+#include "flutter/fml/logging.h"
 #include "flutter/fml/make_copyable.h"
 #include "flutter/fml/trace_event.h"
+#include "flutter/impeller/display_list/aiks_context.h"
 #include "flutter/impeller/geometry/path_source.h"  // PathTransformer
 #include "flutter/impeller/geometry/round_superellipse.h"  // RoundSuperellipsePathSource
+#include "flutter/impeller/typographer/backends/skia/typographer_context_skia.h"
 
 namespace flutter {
 namespace {
@@ -646,6 +650,138 @@ void OHOSExternalViewEmbedder::HideOverlayLayerIfNeeded() {
     napi_facade_->HideOverlaySurfaceHybrid();
     overlay_layer_is_shown_->store(false);
   }
+}
+
+// Multi-window (Windowing) embedder — see the header comment.
+
+OhosEmbedderRootSurface::OhosEmbedderRootSurface(
+    std::shared_ptr<impeller::Context> impeller_context)
+    : impeller_context_(std::move(impeller_context)) {}
+
+std::unique_ptr<SurfaceFrame> OhosEmbedderRootSurface::AcquireFrame(
+    const DlISize& size) {
+  if (size.IsEmpty()) {
+    return nullptr;
+  }
+  // Token frame: no-op callbacks; the display-list fallback keeps
+  // Canvas() non-null.
+  SurfaceFrame::FramebufferInfo framebuffer_info;
+  framebuffer_info.supports_readback = true;
+  return std::make_unique<SurfaceFrame>(
+      nullptr,                                                // no skia surface
+      framebuffer_info,                                       //
+      [](SurfaceFrame&, DlCanvas*) -> bool { return true; },  // encode
+      [](SurfaceFrame&) -> bool { return true; },             // submit
+      size,                                                   // frame size
+      nullptr,  // no context switch
+      /*display_list_fallback=*/true);
+}
+
+std::shared_ptr<impeller::AiksContext> OhosEmbedderRootSurface::GetAiksContext()
+    const {
+  if (!aiks_context_ && impeller_context_) {
+    // Mirrors GPUSurfaceVulkanImpeller's construction; created at most once.
+    aiks_context_ = std::make_shared<impeller::AiksContext>(
+        impeller_context_, impeller::TypographerContextSkia::Make());
+  }
+  return aiks_context_;
+}
+
+OHOSWindowingViewEmbedder::OHOSWindowingViewEmbedder() = default;
+
+OHOSWindowingViewEmbedder::~OHOSWindowingViewEmbedder() = default;
+
+void OHOSWindowingViewEmbedder::RegisterViewSurface(
+    int64_t view_id,
+    std::unique_ptr<Surface> surface) {
+  if (!surface) {
+    UnregisterViewSurface(view_id);
+    return;
+  }
+  view_surfaces_[view_id] = std::move(surface);
+}
+
+void OHOSWindowingViewEmbedder::UnregisterViewSurface(int64_t view_id) {
+  view_surfaces_.erase(view_id);
+}
+
+void OHOSWindowingViewEmbedder::CollectView(int64_t view_id) {
+  view_surfaces_.erase(view_id);
+}
+
+DlCanvas* OHOSWindowingViewEmbedder::GetRootCanvas() {
+  return pending_builder_ ? pending_builder_.get() : nullptr;
+}
+
+void OHOSWindowingViewEmbedder::CancelFrame() {
+  pending_builder_ = nullptr;
+}
+
+void OHOSWindowingViewEmbedder::BeginFrame(
+    GrDirectContext* context,
+    const fml::RefPtr<fml::RasterThreadMerger>& raster_thread_merger) {
+  pending_builder_ = nullptr;
+  pending_size_ = {0, 0};
+}
+
+void OHOSWindowingViewEmbedder::PrepareFlutterView(DlISize frame_size,
+                                                   double device_pixel_ratio) {
+  // One recording per view, spanning PrepareFlutterView..SubmitFlutterView.
+  pending_size_ = frame_size;
+  // The layer tree performs branch culling, so no rtree is needed.
+  pending_builder_ = std::make_unique<DisplayListBuilder>(
+      DlRect::MakeSize(frame_size), /*prepare_rtree=*/false);
+}
+
+void OHOSWindowingViewEmbedder::SubmitFlutterView(
+    int64_t flutter_view_id,
+    GrDirectContext* context,
+    const std::shared_ptr<impeller::AiksContext>& aiks_context,
+    std::unique_ptr<SurfaceFrame> frame) {
+  TRACE_EVENT0("flutter", "OHOSWindowingViewEmbedder::SubmitFlutterView");
+
+  auto it = view_surfaces_.find(flutter_view_id);
+  if (it == view_surfaces_.end()) {
+    FML_DLOG(INFO) << "SubmitFlutterView: view " << flutter_view_id
+                   << " has no registered surface yet; skipping frame.";
+    frame->Submit();
+    return;
+  }
+
+  if (!pending_builder_) {
+    FML_DLOG(WARNING) << "SubmitFlutterView: no pending recording for view "
+                      << flutter_view_id << "; skipping frame.";
+    frame->Submit();
+    return;
+  }
+
+  // Replay the recording onto the view's real frame and submit.
+  auto view_frame = it->second->AcquireFrame(pending_size_);
+  if (!view_frame) {
+    FML_DLOG(INFO) << "SubmitFlutterView: no frame available for view "
+                   << flutter_view_id << "; skipping.";
+    frame->Submit();
+    return;
+  }
+  view_frame->Canvas()->DrawDisplayList(pending_builder_->Build());
+  // Carry the submit info (presentation time, damage) from the token root
+  // frame so the per-window present path sees it.
+  view_frame->set_submit_info(frame->submit_info());
+  view_frame->Submit();
+
+  // The root frame is a no-op token (see AcquireFrame above).
+  frame->Submit();
+}
+
+void OHOSWindowingViewEmbedder::EndFrame(
+    bool should_resubmit_frame,
+    const fml::RefPtr<fml::RasterThreadMerger>& raster_thread_merger) {
+  pending_builder_ = nullptr;
+}
+
+void OHOSWindowingViewEmbedder::Teardown() {
+  view_surfaces_.clear();
+  pending_builder_ = nullptr;
 }
 
 }  // namespace flutter

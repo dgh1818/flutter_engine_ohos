@@ -7,6 +7,7 @@
 
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'app/models.dart';
 import 'app/main_window.dart';
@@ -16,6 +17,13 @@ class MainControllerWindowDelegate with RegularWindowControllerDelegate {
   @override
   void onWindowDestroyed() {
     super.onWindowDestroyed();
+    // OHOS: closing the main window already routes through the native
+    // teardown (view-0 close → ExitApplication → terminateSelf via the
+    // Ability lifecycle); a raw exit(0) would bypass it. Other desktop
+    // platforms have no such chain — exit there.
+    if (defaultTargetPlatform == TargetPlatform.ohos) {
+      return;
+    }
     exit(0);
   }
 }
