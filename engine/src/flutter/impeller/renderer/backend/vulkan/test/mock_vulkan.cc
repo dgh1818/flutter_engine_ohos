@@ -260,26 +260,6 @@ VkResult vkEnumerateDeviceExtensionProperties(
     const char* pLayerName,
     uint32_t* pPropertyCount,
     VkExtensionProperties* pProperties) {
-#ifdef FML_OS_OHOS
-  // These must cover the required OHOS device extensions checked by
-  // CapabilitiesVK::GetEnabledDeviceExtensions, otherwise
-  // MockVulkanContextBuilder().Build() returns nullptr on OHOS.
-  static constexpr const char* kDeviceExtensions[] = {
-      "VK_KHR_swapchain",
-      "VK_OHOS_native_buffer",
-      "VK_KHR_sampler_ycbcr_conversion",
-      "VK_OHOS_external_memory",
-      "VK_EXT_queue_family_foreign",
-      "VK_KHR_dedicated_allocation",
-      "VK_KHR_external_semaphore_fd",
-  };
-#else
-  static constexpr const char* kDeviceExtensions[] = {
-      "VK_KHR_swapchain",
-  };
-#endif  // FML_OS_OHOS
-  constexpr uint32_t kDeviceExtensionCount =
-      sizeof(kDeviceExtensions) / sizeof(kDeviceExtensions[0]);
   if (!pProperties) {
     *pPropertyCount = GetMockVulkanState().device_extensions.size();
     return VK_SUCCESS;
@@ -1088,7 +1068,15 @@ PFN_vkVoidFunction GetMockVulkanProcAddress(VkInstance instance,
 
 MockVulkanContextBuilder::MockVulkanContextBuilder()
     : instance_extensions_({"VK_KHR_surface", "VK_MVK_macos_surface"}),
+#ifdef FML_OS_OHOS
+      device_extensions_(
+          {"VK_KHR_swapchain", "VK_OHOS_native_buffer",
+           "VK_KHR_sampler_ycbcr_conversion", "VK_OHOS_external_memory",
+           "VK_EXT_queue_family_foreign", "VK_KHR_dedicated_allocation",
+           "VK_KHR_external_semaphore_fd"}),
+#else
       device_extensions_({"VK_KHR_swapchain"}),
+#endif  // FML_OS_OHOS
       format_properties_callback_([](VkPhysicalDevice physicalDevice,
                                      VkFormat format,
                                      VkFormatProperties* pFormatProperties) {

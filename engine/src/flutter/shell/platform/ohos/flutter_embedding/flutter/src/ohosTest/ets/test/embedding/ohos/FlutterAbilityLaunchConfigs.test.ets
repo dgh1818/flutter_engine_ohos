@@ -86,6 +86,32 @@ export default function flutterAbilityLaunchConfigsTest() {
     });
   });
 
+  describe('FlutterAbilityLaunchConfigs.multiWindow', () => {
+    it('MULTI_WINDOW_ENGINE_CACHE_ID equals io.flutter.multi_window.engine', Level.LEVEL0, () => {
+      expect(FlutterAbilityLaunchConfigs.MULTI_WINDOW_ENGINE_CACHE_ID).assertEqual('io.flutter.multi_window.engine');
+    });
+
+    it('EXTRA_FLUTTER_VIEW_ID equals flutter_view_id', Level.LEVEL0, () => {
+      expect(FlutterAbilityLaunchConfigs.EXTRA_FLUTTER_VIEW_ID).assertEqual('flutter_view_id');
+    });
+
+    it('EXTRA_FLUTTER_WINDOW_REQUEST_ID equals flutter_window_request_id', Level.LEVEL0, () => {
+      expect(FlutterAbilityLaunchConfigs.EXTRA_FLUTTER_WINDOW_REQUEST_ID).assertEqual('flutter_window_request_id');
+    });
+
+    it('EXTRA_FLUTTER_PREFERRED_WIDTH equals flutter_preferred_width', Level.LEVEL0, () => {
+      expect(FlutterAbilityLaunchConfigs.EXTRA_FLUTTER_PREFERRED_WIDTH).assertEqual('flutter_preferred_width');
+    });
+
+    it('EXTRA_FLUTTER_PREFERRED_HEIGHT equals flutter_preferred_height', Level.LEVEL0, () => {
+      expect(FlutterAbilityLaunchConfigs.EXTRA_FLUTTER_PREFERRED_HEIGHT).assertEqual('flutter_preferred_height');
+    });
+
+    it('EXTRA_FLUTTER_WINDOW_TITLE equals flutter_window_title', Level.LEVEL0, () => {
+      expect(FlutterAbilityLaunchConfigs.EXTRA_FLUTTER_WINDOW_TITLE).assertEqual('flutter_window_title');
+    });
+  });
+
   describe('FlutterAbilityLaunchConfigs.BackgroundMode', () => {
     it('DEFAULT_BACKGROUND_MODE is 0 representing opaque', Level.LEVEL0, () => {
       expect(FlutterAbilityLaunchConfigs.DEFAULT_BACKGROUND_MODE).assertEqual(0);

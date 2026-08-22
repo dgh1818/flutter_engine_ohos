@@ -12,6 +12,7 @@ import 'package:flutter/src/widgets/_window.dart'
         DialogWindowControllerDelegate,
         PopupWindow,
         PopupWindowController,
+        PopupWindowControllerDelegate,
         RegularWindow,
         RegularWindowController,
         RegularWindowControllerDelegate,
@@ -19,6 +20,7 @@ import 'package:flutter/src/widgets/_window.dart'
         SatelliteWindowController,
         TooltipWindow,
         TooltipWindowController,
+        TooltipWindowControllerDelegate,
         WindowScope,
         WindowingOwner,
         createDefaultWindowingOwner;
@@ -164,6 +166,53 @@ class _StubPopupWindowController extends PopupWindowController {
   Offset get offsetFromParent => Offset.zero;
 }
 
+// Counts destroy() calls; no tester/binding needed because the delegate
+// callbacks under test only touch destroy().
+class _DestroyCountingTooltipWindowController extends TooltipWindowController {
+  _DestroyCountingTooltipWindowController() : super.empty();
+
+  int destroyCallCount = 0;
+
+  @override
+  void destroy() => destroyCallCount++;
+
+  @override
+  BaseWindowController get parent => throw UnimplementedError();
+
+  @override
+  Size get contentSize => Size.zero;
+
+  @override
+  void setConstraints(BoxConstraints constraints) {}
+
+  @override
+  void updatePosition({Rect? anchorRect, WindowPositioner? positioner}) {}
+}
+
+class _DestroyCountingPopupWindowController extends PopupWindowController {
+  _DestroyCountingPopupWindowController() : super.empty();
+
+  int destroyCallCount = 0;
+
+  @override
+  void destroy() => destroyCallCount++;
+
+  @override
+  BaseWindowController get parent => throw UnimplementedError();
+
+  @override
+  Size get contentSize => Size.zero;
+
+  @override
+  void setConstraints(BoxConstraints constraints) {}
+
+  @override
+  void updatePosition({Rect? anchorRect, WindowPositioner? positioner}) {}
+
+  @override
+  Offset get offsetFromParent => Offset.zero;
+}
+
 class _StubSatelliteWindowController extends SatelliteWindowController {
   _StubSatelliteWindowController({required this.tester}) : super.empty() {
     rootView = FakeView(tester.view);
@@ -230,6 +279,24 @@ void main() {
         );
       });
 
+      test('TooltipWindowControllerDelegate.onWindowCloseRequested throws UnsupportedError', () {
+        final controller = _DestroyCountingTooltipWindowController();
+        expect(
+          () => TooltipWindowControllerDelegate().onWindowCloseRequested(controller),
+          throwsUnsupportedError,
+        );
+        expect(controller.destroyCallCount, 0);
+      });
+
+      test('PopupWindowControllerDelegate.onWindowCloseRequested throws UnsupportedError', () {
+        final controller = _DestroyCountingPopupWindowController();
+        expect(
+          () => PopupWindowControllerDelegate().onWindowCloseRequested(controller),
+          throwsUnsupportedError,
+        );
+        expect(controller.destroyCallCount, 0);
+      });
+
       testWidgets('DialogWindow throws UnsupportedError', (WidgetTester tester) async {
         expect(
           () => DialogWindow(
@@ -281,6 +348,24 @@ void main() {
     group('isWindowingEnabled is true', () {
       setUp(() {
         isWindowingEnabled = true;
+      });
+
+      test('TooltipWindowControllerDelegate.onWindowCloseRequested destroys the window by default', () {
+        final controller = _DestroyCountingTooltipWindowController();
+        addTearDown(controller.dispose);
+
+        TooltipWindowControllerDelegate().onWindowCloseRequested(controller);
+
+        expect(controller.destroyCallCount, 1);
+      });
+
+      test('PopupWindowControllerDelegate.onWindowCloseRequested destroys the window by default', () {
+        final controller = _DestroyCountingPopupWindowController();
+        addTearDown(controller.dispose);
+
+        PopupWindowControllerDelegate().onWindowCloseRequested(controller);
+
+        expect(controller.destroyCallCount, 1);
       });
 
       testWidgets('RegularWindow does not throw', (WidgetTester tester) async {

@@ -4,26 +4,41 @@
  * found in the LICENSE_HW file.
  */
 
+#include "flutter/fml/build_config.h"  // IWYU pragma: keep  (defines FML_OS_OHOS)
+
+#if defined(FML_OS_OHOS)
+
 #include "flutter/shell/platform/ohos/external_view_embedder/external_view_embedder.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <cmath>
 #include <memory>
+#include <utility>
 #include <vector>
 
+#include "flutter/display_list/dl_builder.h"
 #include "flutter/display_list/dl_color.h"
 #include "flutter/display_list/dl_paint.h"
 #include "flutter/display_list/geometry/dl_geometry_types.h"
 #include "flutter/display_list/geometry/dl_path_builder.h"
 #include "flutter/flow/embedded_views.h"
 #include "flutter/flow/surface_frame.h"
+#include "flutter/fml/raster_thread_merger.h"
 #include "flutter/fml/synchronization/waitable_event.h"
 #include "flutter/fml/thread.h"
+#include "flutter/impeller/display_list/aiks_context.h"
+#include "flutter/impeller/renderer/backend/vulkan/test/mock_vulkan.h"
 #include "third_party/skia/include/core/SkSurface.h"
 
 namespace flutter {
 namespace testing {
+
+using ::testing::_;
+using ::testing::ByMove;
+using ::testing::NiceMock;
+using ::testing::Return;
 
 namespace {
 
@@ -890,5 +905,290 @@ TEST_F(OHOSExternalViewEmbedderFrameTest, TeardownDrainsOverlayState) {
   EXPECT_TRUE(submitted);
 }
 
+namespace {
+
+// The pure-virtual Surface interface the embedder stores per view; the
+// windowing embedder only ever calls AcquireFrame, so the rest are defaulted.
+class SurfaceMock : public Surface {
+ public:
+  MOCK_METHOD(bool, IsValid, (), (override));
+  MOCK_METHOD(std::unique_ptr<SurfaceFrame>, AcquireFrame, (const DlISize&),
+              (override));
+  MOCK_METHOD(DlMatrix, GetRootTransformation, (), (const, override));
+  MOCK_METHOD(GrDirectContext*, GetContext, (), (override));
+};
+
+// Builds a real SurfaceFrame (display-list fallback) whose encode/submit
+// callbacks are no-ops. |submitted| is flipped when Submit() runs; when
+// |captured_info| is non-null the frame's submit-info at submit time is copied
+// into it (used to observe SubmitFlutterView's submit-info carry-over).
+std::unique_ptr<SurfaceFrame> MakeTestFrame(
+    bool* submitted,
+    SurfaceFrame::SubmitInfo* captured_info = nullptr,
+    DlISize size = DlISize(800, 600)) {
+  SurfaceFrame::FramebufferInfo framebuffer_info;
+  framebuffer_info.supports_readback = true;
+  return std::make_unique<SurfaceFrame>(
+      nullptr, framebuffer_info,
+      [](SurfaceFrame&, DlCanvas*) { return true; },  // encode
+      [submitted, captured_info](SurfaceFrame& frame) {
+        if (submitted != nullptr) {
+          *submitted = true;
+        }
+        if (captured_info != nullptr) {
+          *captured_info = frame.submit_info();
+        }
+        return true;
+      },
+      size, nullptr, /*display_list_fallback=*/true);
+}
+
+}  // namespace
+
+// ---------------------------------------------------------------------------
+// OhosEmbedderRootSurface
+// ---------------------------------------------------------------------------
+
+TEST(OhosEmbedderRootSurfaceTest, SurfaceContractWithNoContext) {
+  OhosEmbedderRootSurface root(nullptr);
+  // Always-valid token surface.
+  EXPECT_TRUE(root.IsValid());
+  EXPECT_FALSE(root.EnableRasterCache());
+  // No Skia GPU context on this path.
+  EXPECT_EQ(root.GetContext(), nullptr);
+  // No root transformation.
+  EXPECT_EQ(root.GetRootTransformation(), DlMatrix());
+  // No impeller context -> no AiksContext (and no crash).
+  EXPECT_EQ(root.GetAiksContext(), nullptr);
+}
+
+TEST(OhosEmbedderRootSurfaceTest, AcquireFrameRejectsEmptySize) {
+  OhosEmbedderRootSurface root(nullptr);
+  EXPECT_EQ(root.AcquireFrame(DlISize(0, 0)), nullptr);
+}
+
+TEST(OhosEmbedderRootSurfaceTest, AcquireFrameReturnsSubmittableTokenFrame) {
+  OhosEmbedderRootSurface root(nullptr);
+  auto frame = root.AcquireFrame(DlISize(200, 100));
+  ASSERT_NE(frame, nullptr);
+  EXPECT_TRUE(frame->framebuffer_info().supports_readback);
+  // The display-list fallback keeps a recording canvas available.
+  EXPECT_NE(frame->Canvas(), nullptr);
+  EXPECT_TRUE(frame->Submit());
+  EXPECT_TRUE(frame->IsSubmitted());
+}
+
+TEST(OhosEmbedderRootSurfaceTest, GetAiksContextLazilyCreatedAndMemoized) {
+  impeller::testing::MockVulkanContextBuilder builder;
+  auto context = builder.Build();
+  ASSERT_NE(context, nullptr);
+
+  OhosEmbedderRootSurface root(context);
+  auto first = root.GetAiksContext();
+  ASSERT_NE(first, nullptr);
+  // Second call must not rebuild: same instance back.
+  EXPECT_EQ(root.GetAiksContext(), first);
+}
+
+// ---------------------------------------------------------------------------
+// OHOSWindowingViewEmbedder
+// ---------------------------------------------------------------------------
+
+TEST(OHOSWindowingViewEmbedderTest, GetRootCanvasTracksPendingBuilder) {
+  OHOSWindowingViewEmbedder embedder;
+  // No frame in flight yet.
+  EXPECT_EQ(embedder.GetRootCanvas(), nullptr);
+
+  embedder.PrepareFlutterView(DlISize(300, 200), /*device_pixel_ratio=*/2.0);
+  EXPECT_NE(embedder.GetRootCanvas(), nullptr);
+
+  embedder.CancelFrame();
+  EXPECT_EQ(embedder.GetRootCanvas(), nullptr);
+}
+
+TEST(OHOSWindowingViewEmbedderTest, BeginFrameResetsPendingState) {
+  OHOSWindowingViewEmbedder embedder;
+  embedder.PrepareFlutterView(DlISize(300, 200), 1.0);
+  EXPECT_NE(embedder.GetRootCanvas(), nullptr);
+
+  fml::RefPtr<fml::RasterThreadMerger> null_merger;
+  embedder.BeginFrame(nullptr, null_merger);
+  EXPECT_EQ(embedder.GetRootCanvas(), nullptr);
+
+  // A new frame after BeginFrame starts fresh.
+  embedder.PrepareFlutterView(DlISize(640, 480), 1.0);
+  EXPECT_NE(embedder.GetRootCanvas(), nullptr);
+}
+
+TEST(OHOSWindowingViewEmbedderTest, EndFrameClearsPendingBuilder) {
+  OHOSWindowingViewEmbedder embedder;
+  embedder.PrepareFlutterView(DlISize(300, 200), 1.0);
+  EXPECT_NE(embedder.GetRootCanvas(), nullptr);
+
+  fml::RefPtr<fml::RasterThreadMerger> null_merger;
+  embedder.EndFrame(/*should_resubmit_frame=*/false, null_merger);
+  EXPECT_EQ(embedder.GetRootCanvas(), nullptr);
+}
+
+TEST(OHOSWindowingViewEmbedderTest, RegisterViewSurfaceReplacesExisting) {
+  OHOSWindowingViewEmbedder embedder;
+  embedder.PrepareFlutterView(DlISize(300, 200), 1.0);
+
+  auto first = std::make_unique<NiceMock<SurfaceMock>>();
+  EXPECT_CALL(*first, AcquireFrame(_)).Times(0);
+  embedder.RegisterViewSurface(7, std::move(first));
+
+  // Re-registering the same view replaces the old surface: the new one is
+  // what SubmitFlutterView sees.
+  auto second = std::make_unique<NiceMock<SurfaceMock>>();
+  EXPECT_CALL(*second, AcquireFrame(DlISize(300, 200)))
+      .Times(1)
+      .WillOnce(Return(ByMove(std::unique_ptr<SurfaceFrame>())));
+  embedder.RegisterViewSurface(7, std::move(second));
+
+  bool token_submitted = false;
+  embedder.SubmitFlutterView(7, nullptr, nullptr,
+                             MakeTestFrame(&token_submitted));
+  EXPECT_TRUE(token_submitted);
+}
+
+TEST(OHOSWindowingViewEmbedderTest, RegisterNullSurfaceUnregisters) {
+  OHOSWindowingViewEmbedder embedder;
+  auto surface = std::make_unique<NiceMock<SurfaceMock>>();
+  embedder.RegisterViewSurface(7, std::move(surface));
+  embedder.RegisterViewSurface(7, nullptr);  // unregister
+
+  bool token_submitted = false;
+  embedder.SubmitFlutterView(7, nullptr, nullptr,
+                             MakeTestFrame(&token_submitted));
+  // No surface registered: the token frame is dropped without acquiring.
+  EXPECT_TRUE(token_submitted);
+}
+
+TEST(OHOSWindowingViewEmbedderTest, UnregisterAndCollectDropSurface) {
+  OHOSWindowingViewEmbedder embedder;
+
+  for (int64_t view : {1, 2}) {
+    auto surface = std::make_unique<NiceMock<SurfaceMock>>();
+    embedder.RegisterViewSurface(view, std::move(surface));
+  }
+
+  embedder.UnregisterViewSurface(1);
+  embedder.CollectView(2);
+
+  // Both dropped: submitting either view hits the unknown-surface path.
+  bool submitted = false;
+  embedder.SubmitFlutterView(1, nullptr, nullptr, MakeTestFrame(&submitted));
+  EXPECT_TRUE(submitted);
+  submitted = false;
+  embedder.SubmitFlutterView(2, nullptr, nullptr, MakeTestFrame(&submitted));
+  EXPECT_TRUE(submitted);
+}
+
+TEST(OHOSWindowingViewEmbedderTest, SubmitWithoutRegisteredSurface) {
+  OHOSWindowingViewEmbedder embedder;
+  embedder.PrepareFlutterView(DlISize(300, 200), 1.0);
+
+  bool token_submitted = false;
+  embedder.SubmitFlutterView(42, nullptr, nullptr,
+                             MakeTestFrame(&token_submitted));
+  EXPECT_TRUE(token_submitted);
+}
+
+TEST(OHOSWindowingViewEmbedderTest, SubmitWithoutPendingRecording) {
+  OHOSWindowingViewEmbedder embedder;
+  auto surface = std::make_unique<NiceMock<SurfaceMock>>();
+  // The surface must NOT be acquired: the frame is dropped at the missing
+  // recording check.
+  EXPECT_CALL(*surface, AcquireFrame(_)).Times(0);
+  embedder.RegisterViewSurface(7, std::move(surface));
+
+  // Prepare then cancel -> no pending builder at submit time.
+  embedder.PrepareFlutterView(DlISize(300, 200), 1.0);
+  embedder.CancelFrame();
+
+  bool token_submitted = false;
+  embedder.SubmitFlutterView(7, nullptr, nullptr,
+                             MakeTestFrame(&token_submitted));
+  EXPECT_TRUE(token_submitted);
+}
+
+TEST(OHOSWindowingViewEmbedderTest, SubmitWhenFrameUnavailable) {
+  OHOSWindowingViewEmbedder embedder;
+  auto surface = std::make_unique<NiceMock<SurfaceMock>>();
+  EXPECT_CALL(*surface, AcquireFrame(DlISize(300, 200)))
+      .Times(1)
+      .WillOnce(Return(ByMove(std::unique_ptr<SurfaceFrame>())));
+  embedder.RegisterViewSurface(7, std::move(surface));
+
+  embedder.PrepareFlutterView(DlISize(300, 200), 1.0);
+
+  bool token_submitted = false;
+  embedder.SubmitFlutterView(7, nullptr, nullptr,
+                             MakeTestFrame(&token_submitted));
+  EXPECT_TRUE(token_submitted);
+}
+
+TEST(OHOSWindowingViewEmbedderTest, SubmitReplaysRecordingAndCarriesSubmitInfo) {
+  OHOSWindowingViewEmbedder embedder;
+  auto surface = std::make_unique<NiceMock<SurfaceMock>>();
+  bool view_submitted = false;
+  SurfaceFrame::SubmitInfo view_info;
+  EXPECT_CALL(*surface, AcquireFrame(DlISize(300, 200)))
+      .Times(1)
+      .WillOnce(
+          Return(ByMove(MakeTestFrame(&view_submitted, &view_info))));
+  embedder.RegisterViewSurface(7, std::move(surface));
+
+  embedder.PrepareFlutterView(DlISize(300, 200), 1.0);
+  ASSERT_NE(embedder.GetRootCanvas(), nullptr);
+  // Record something into the pending builder so the replay is observable.
+  embedder.GetRootCanvas()->DrawRect(DlRect::MakeLTRB(0, 0, 10, 10),
+                                     DlPaint());
+
+  // Token frame carries presentation/damage info to be forwarded.
+  bool token_submitted = false;
+  auto token = MakeTestFrame(&token_submitted);
+  SurfaceFrame::SubmitInfo token_info;
+  token_info.frame_damage = DlIRect::MakeLTRB(1, 2, 3, 4);
+  token->set_submit_info(token_info);
+
+  embedder.SubmitFlutterView(7, nullptr, nullptr, std::move(token));
+
+  // The per-view frame was submitted with the token's submit-info carried over.
+  EXPECT_TRUE(view_submitted);
+  ASSERT_TRUE(view_info.frame_damage.has_value());
+  EXPECT_EQ(view_info.frame_damage.value(), DlIRect::MakeLTRB(1, 2, 3, 4));
+  // The token root frame is submitted too (no-op submit).
+  EXPECT_TRUE(token_submitted);
+}
+
+TEST(OHOSWindowingViewEmbedderTest, TeardownClearsSurfacesAndRecording) {
+  OHOSWindowingViewEmbedder embedder;
+  auto surface = std::make_unique<NiceMock<SurfaceMock>>();
+  embedder.RegisterViewSurface(7, std::move(surface));
+  embedder.PrepareFlutterView(DlISize(300, 200), 1.0);
+  ASSERT_NE(embedder.GetRootCanvas(), nullptr);
+
+  embedder.Teardown();
+  EXPECT_EQ(embedder.GetRootCanvas(), nullptr);
+
+  // The view surface is gone: submit hits the unknown-surface path.
+  bool token_submitted = false;
+  embedder.SubmitFlutterView(7, nullptr, nullptr,
+                             MakeTestFrame(&token_submitted));
+  EXPECT_TRUE(token_submitted);
+}
+
+// The base-class no-op overrides should be callable (pure Flutter windows:
+// no embedded platform views).
+TEST(OHOSWindowingViewEmbedderTest, EmbeddedViewOverridesAreNoOps) {
+  OHOSWindowingViewEmbedder embedder;
+  embedder.PrerollCompositeEmbeddedView(1, nullptr);
+  EXPECT_EQ(embedder.CompositeEmbeddedView(1), nullptr);
+}
+
 }  // namespace testing
 }  // namespace flutter
+
+#endif  // FML_OS_OHOS

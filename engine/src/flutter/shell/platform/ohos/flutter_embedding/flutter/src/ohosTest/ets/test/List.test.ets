@@ -127,6 +127,16 @@ import FlutterEnginePreloadTest from './embedding/engine/FlutterEnginePreload.te
 import FlutterPluginRegistryTest from './app/FlutterPluginRegistry.test';
 import FlutterCallbackInformationTest from './view/FlutterCallbackInformation.test';
 import FlutterViewHybridTest from './view/FlutterViewHybrid.test';
+import windowArchetypeTest from './embedding/ohos/windowing/WindowArchetype.test';
+import windowHostRegistryTest from './embedding/ohos/windowing/WindowHostRegistry.test';
+import flutterWindowHostTest from './embedding/ohos/windowing/FlutterWindowHost.test';
+import subWindowHostTest from './embedding/ohos/windowing/SubWindowHost.test';
+import anchoredWindowHostTest from './embedding/ohos/windowing/AnchoredWindowHost.test';
+import dialogWindowHostTest from './embedding/ohos/windowing/DialogWindowHost.test';
+import tooltipWindowHostTest from './embedding/ohos/windowing/TooltipWindowHost.test';
+import popupWindowHostTest from './embedding/ohos/windowing/PopupWindowHost.test';
+import abilityWindowHostTest from './embedding/ohos/windowing/AbilityWindowHost.test';
+import flutterViewTest from './view/FlutterView.test';
 
 export default function testsuite() {
   FlutterAbilityAndEntryDelegateTest();
@@ -240,4 +250,14 @@ export default function testsuite() {
   FlutterPluginRegistryTest();
   FlutterCallbackInformationTest();
   FlutterViewHybridTest();
+  windowArchetypeTest();
+  windowHostRegistryTest();
+  flutterWindowHostTest();
+  subWindowHostTest();
+  anchoredWindowHostTest();
+  dialogWindowHostTest();
+  tooltipWindowHostTest();
+  popupWindowHostTest();
+  abilityWindowHostTest();
+  flutterViewTest();
 }
