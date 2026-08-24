@@ -34,17 +34,17 @@ export default function PlatformViewTest() {
     })
 
     it('hcpp_dispatcher_fields_default_null', 0, () => {
-      expect(platformView.viewId).assertEqual(-1);
+      expect(platformView.ohosHcppViewId).assertEqual(-1);
       expect(platformView.touchDispatcher).assertNull();
       expect(platformView.axisDispatcher).assertNull();
       expect(platformView.injectedTimestamps.size).assertEqual(0);
-      platformView.viewId = 7;
+      platformView.ohosHcppViewId = 7;
       platformView.touchDispatcher = (_id: number, _event: TouchEvent): void => {
       };
       platformView.axisDispatcher = (_id: number, _event: AxisEvent): void => {
       };
       platformView.injectedTimestamps.set(1, 2);
-      expect(platformView.viewId).assertEqual(7);
+      expect(platformView.ohosHcppViewId).assertEqual(7);
       expect(platformView.touchDispatcher).not().assertNull();
       expect(platformView.axisDispatcher).not().assertNull();
       expect(platformView.injectedTimestamps.get(1)).assertEqual(2);

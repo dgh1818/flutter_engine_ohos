@@ -603,7 +603,7 @@ export default function PlatformViewsControllerHybridTest() {
       expect(controller.owns(viewId)).assertEqual(true);
       expect(factory.lastViewId).assertEqual(viewId);
       expect(factory.created).not().assertNull();
-      expect(factory.created!.viewId).assertEqual(viewId);
+      expect(factory.created!.ohosHcppViewId).assertEqual(viewId);
       expect(factory.created!.touchDispatcher).not().assertNull();
       expect(factory.created!.axisDispatcher).not().assertNull();
       expect(fakeView.getDVModel().children.length).assertEqual(1);

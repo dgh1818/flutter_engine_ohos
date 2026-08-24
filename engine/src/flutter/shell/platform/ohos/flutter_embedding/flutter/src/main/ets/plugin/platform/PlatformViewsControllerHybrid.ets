@@ -489,9 +489,9 @@ export default class PlatformViewsControllerHybrid implements HybridCompositionH
       platformView, "", 0, 0, request.logicalTop, request.logicalLeft, request.direction));
     this.nodeControllers.set(request.viewId, nodeController);
 
-    // 注入 viewId + touchDispatcher，让 DISPLAY 子树的 onTouch 把事件
+    // 注入 ohosHcppViewId + touchDispatcher，让 DISPLAY 子树的 onTouch 把事件
     // 转发回本控制器，经 ArkTS 坐标转换后注入引擎 Dart 竞技场。
-    platformView.viewId = request.viewId;
+    platformView.ohosHcppViewId = request.viewId;
     platformView.touchDispatcher = (vid: number, ev: TouchEvent) => {
       this.dispatchTouchToEngine(vid, ev);
     };
