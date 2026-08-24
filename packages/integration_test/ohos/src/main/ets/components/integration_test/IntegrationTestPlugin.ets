@@ -18,8 +18,10 @@ import {
   MethodResult,
 } from '@ohos/flutter_ohos';
 import UIAbility from '@ohos.app.ability.UIAbility';
+import window from '@ohos.window';
+import image from '@ohos.multimedia.image';
 
-const TAG = "IntegrationTestPlugin"
+const TAG = "IntegrationTestPlugin";
 
 export default class IntegrationTestPlugin implements MethodCallHandler, FlutterPlugin, AbilityAware {
   private static CHANNEL: string = "plugins.flutter.io/integration_test";
@@ -32,27 +34,10 @@ export default class IntegrationTestPlugin implements MethodCallHandler, Flutter
     return 'IntegrationTestPlugin';
   }
 
-  private methodCall: MethodCallHandler = {
-    onMethodCall(call: MethodCall, result: MethodResult) {
-      Log.w(TAG, 'flutter onMethodCall: 11 ' + JSON.stringify(call));
-      switch (call.method) {
-        case "allTestsFinished":
-          IntegrationTestPlugin.testResultsSetter.add(call.argument("results"));
-          result.success(null);
-          return;
-        case "captureScreenshot":
-        case "convertFlutterSurfaceToImage":
-        case "revertFlutterImage":
-        default:
-          result.notImplemented();
-      }
-    }
-  };
-
-  private attachedToEngine( unusedApplicationContext: Context,  messenger: BinaryMessenger): void {
-    Log.w(TAG, 'flutter IntegrationTestPlugin attachedToEngine');
+  private attachedToEngine(unusedApplicationContext: Context, messenger: BinaryMessenger): void {
+    Log.d(TAG, 'attachedToEngine');
     this.methodChannel = new MethodChannel(messenger, IntegrationTestPlugin.CHANNEL);
-    this.methodChannel.setMethodCallHandler(this.methodCall);
+    this.methodChannel.setMethodCallHandler(this);
   }
 
   onAttachedToEngine(binding: FlutterPluginBinding) {
@@ -60,33 +45,65 @@ export default class IntegrationTestPlugin implements MethodCallHandler, Flutter
   }
 
   onMethodCall(call: MethodCall, result: MethodResult) {
-    Log.w(TAG, 'flutter onMethodCall:' + JSON.stringify(call));
+    Log.d(TAG, 'onMethodCall: ' + call.method);
     switch (call.method) {
       case "allTestsFinished":
         IntegrationTestPlugin.testResultsSetter.add(call.argument("results"));
         result.success(null);
         return;
+      case "captureScreenshot":
+        this.captureScreenshot(result);
+        return;
       case "convertFlutterSurfaceToImage":
       case "revertFlutterImage":
-      case "captureScreenshot":
+        result.success(null);
+        return;
       default:
         result.notImplemented();
     }
   }
 
+  private async captureScreenshot(result: MethodResult): Promise<void> {
+    try {
+      const ability: UIAbility | null = this.flutterAbility;
+      if (!ability || !ability.context) {
+        result.error('Could not capture screenshot', 'Ability or context is null', null);
+        return;
+      }
+      const win: window.Window = await window.getLastWindow(ability.context);
+      const pixelMap: image.PixelMap = await win.snapshot();
+      try {
+        const packer: image.ImagePacker = image.createImagePacker();
+        try {
+          const buffer: ArrayBuffer = await packer.packToData(pixelMap, {
+            format: 'image/png',
+            quality: 100,
+          });
+          result.success(new Uint8Array(buffer));
+        } finally {
+          packer.release().catch((e: Object): void => Log.e(TAG, 'packer release failed: ' + JSON.stringify(e)));
+        }
+      } finally {
+        pixelMap.release().catch((e: Object): void => Log.e(TAG, 'pixelMap release failed: ' + JSON.stringify(e)));
+      }
+    } catch (err) {
+      result.error('Could not capture screenshot', JSON.stringify(err), null);
+    }
+  }
+
   onDetachedFromEngine(binding: FlutterPluginBinding) {
-    Log.w(TAG, 'flutter IntegrationTestPlugin onDetachedFromEngine');
+    Log.d(TAG, 'onDetachedFromEngine');
     this.methodChannel?.setMethodCallHandler(null);
     this.methodChannel = null;
   }
 
   onAttachedToAbility(binding: AbilityPluginBinding) {
-    Log.w(TAG, 'flutter IntegrationTestPlugin onAttachedToAbility');
+    Log.d(TAG, 'onAttachedToAbility');
     this.flutterAbility = binding.getAbility();
   }
 
   onDetachedFromAbility() {
-    Log.w(TAG, 'flutter IntegrationTestPlugin onDetachedFromAbility');
+    Log.d(TAG, 'onDetachedFromAbility');
     this.flutterAbility = null;
   }
 }
