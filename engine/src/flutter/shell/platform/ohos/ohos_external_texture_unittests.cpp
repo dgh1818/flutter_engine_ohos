@@ -21,6 +21,7 @@
 
 #include "flutter/shell/platform/ohos/ohos_external_texture_gl.h"
 #include "flutter/shell/platform/ohos/ohos_external_texture_vulkan.h"
+#include "flutter/shell/platform/ohos/test_stubs/unittest_x64/libc_wrapper_stub.h"
 #include "gtest/gtest.h"
 
 namespace flutter {
@@ -141,11 +142,20 @@ TEST_F(OhosExternalTextureTest, FdIsValidIdentifiesCharDevice) {
   EXPECT_FALSE(OHOSExternalTexture::FdIsValid(-1));
   EXPECT_FALSE(OHOSExternalTexture::FdIsValid(0));
 
+#if defined(OHOS_X64_UNITTEST)
+  UpdateFstatFunc([](int fd, struct stat* st) {
+    st->st_mode = S_IFCHR | 0666;
+    return 0;
+  });
+  EXPECT_TRUE(OHOSExternalTexture::FdIsValid(1));
+  UpdateFstatFunc(nullptr);
+#else
   // /dev/null is a character device, same file type as anon_inode:sync_file.
   int null_fd = open("/dev/null", O_RDONLY);
   ASSERT_GE(null_fd, 0);
   EXPECT_TRUE(OHOSExternalTexture::FdIsValid(null_fd));
   close(null_fd);
+#endif
 
   // A regular file must be rejected as a sync_file fd.
   const char* tmp_path = "/data/local/tmp/fd_is_valid_test.tmp";

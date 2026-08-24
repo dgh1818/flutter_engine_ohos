@@ -197,7 +197,6 @@ TEST_F(SemanticsTreeTest, UpdateWithNodesReturnsUpdatedNodes) {
   std::unordered_map<int32_t, SemanticsNode> nodes;
   SemanticsNode root;
   root.id = 0;
-  root.label = "Root";
   nodes[0] = root;
 
   auto updated = tree_.UpdateWithNodes(nodes);

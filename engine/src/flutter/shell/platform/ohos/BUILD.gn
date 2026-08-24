@@ -190,6 +190,22 @@ test_fixtures("flutter_ohos_fixtures") {
   fixtures = []
 }
 
+source_set("unittest_x64_stubs") {
+  testonly = true
+  sources = [
+    "test_stubs/unittest_x64/ace_colorspace_stub.cc",
+    "test_stubs/unittest_x64/ace_drawing_stub.cc",
+    "test_stubs/unittest_x64/ace_graphic_ndk_stub.cc",
+    "test_stubs/unittest_x64/ace_image_stub.cc",
+    "test_stubs/unittest_x64/ace_misc_ndk_stub.cc",
+    "test_stubs/unittest_x64/ace_napi_stub.cc",
+    "test_stubs/unittest_x64/ace_ndk_stub.cc",
+    "test_stubs/unittest_x64/ace_rawfile_stub.cc",
+    "test_stubs/unittest_x64/libc_wrapper_stub.cc",
+  ]
+  public_configs = [ "//flutter:config" ]
+}
+
 executable("flutter_ohos_unittests") {
   testonly = true
 
@@ -201,7 +217,6 @@ executable("flutter_ohos_unittests") {
     "//flutter/impeller/entity/contents/solid_color_contents_ohos_unittests.cc",
     "//flutter/impeller/renderer/backend/vulkan/blit_pass_vk_ohos_unittests.cc",
     "//flutter/impeller/renderer/backend/vulkan/gpu_flags_propagation_ohos_unittests.cc",
-    "//flutter/impeller/renderer/backend/vulkan/ohos/ohb_texture_source_vk_unittests.cc",
     "//flutter/impeller/renderer/backend/vulkan/qos_ohos_unittests.cc",
     "//flutter/impeller/renderer/backend/vulkan/surface_context_vk_ohos_unittests.cc",
     "//flutter/impeller/renderer/backend/vulkan/test/swapchain_ohos_unittests.cc",
@@ -220,8 +235,6 @@ executable("flutter_ohos_unittests") {
     "ohos_logger_unittests.cpp",
     "ohos_semantics_node_unittests.cpp",
     "ohos_semantics_tree_unittests.cpp",
-    "ohos_shell_holder_unittests.cpp",
-    "ohos_touch_processor_unittests.cpp",
     "ohos_trace_event_unittests.cpp",
     "ohos_vsync_voting_mgr_unittests.cpp",
     "ohos_xcomponent_adapter_unittests.cpp",
@@ -232,9 +245,17 @@ executable("flutter_ohos_unittests") {
     "rasterizer_flags_ohos_unittests.cpp",
     "timerfd_unittests.cpp",
     "vsync_waiter_ohos_unittests.cpp",
-    "windowing/ohos_window_controller_unittests.cpp",
     "windowing/ohos_window_unittests.cpp",
   ]
+
+  if (target_cpu != "x64" && target_cpu != "x86") {
+    sources += [
+      "//flutter/impeller/renderer/backend/vulkan/ohos/ohb_texture_source_vk_unittests.cc",
+      "ohos_shell_holder_unittests.cpp",
+      "ohos_touch_processor_unittests.cpp",
+      "windowing/ohos_window_controller_unittests.cpp",
+    ]
+  }
 
   public_configs = [ "//flutter:config" ]
 
@@ -247,6 +268,10 @@ executable("flutter_ohos_unittests") {
     # (library users should not do this)
     "FLUTTER_LINUX_COMPILATION",
   ]
+
+  if (target_cpu == "x64" || target_cpu == "x86") {
+    defines += [ "OHOS_X64_UNITTEST" ]
+  }
 
   deps = [
     ":flutter_ohos_fixtures",
@@ -266,29 +291,46 @@ executable("flutter_ohos_unittests") {
     "-static-libstdc++",
   ]
 
-  ldflags += [ "-lnative_window" ]
-  ldflags += [ "-lnative_buffer" ]
-  ldflags += [ "-lnative_drawing" ]
-  ldflags += [ "-lnative_vsync" ]
-  ldflags += [ "-lace_napi.z" ]
-  ldflags += [ "-lace_ndk.z" ]
-  ldflags += [ "-lhilog_ndk.z" ]
-  ldflags += [ "-luv" ]
-  ldflags += [ "-lrawfile.z" ]
-  ldflags += [ "-lEGL" ]
-  ldflags += [ "-lGLESv3" ]
-
-  ldflags += [ "-limage_ndk.z" ]
-  ldflags += [ "-lnative_image" ]
-
-  ldflags += [ "-lm" ]
-  ldflags += [ "-lpthread" ]
-  ldflags += [ "-lpixelmap_ndk.z" ]
-  ldflags += [ "-lpixelmap" ]
-  ldflags += [ "-limage_source" ]
-  ldflags += [ "-lqos" ]
-  ldflags += [ "-ldeviceinfo_ndk.z" ]
-  ldflags += [ "-lnative_color_space_manager" ]
+  if (target_cpu == "x64" || target_cpu == "x86") {
+    deps += [
+      ":unittest_x64_stubs",
+    ]
+    ldflags += [
+      "-Wl,--as-needed",
+      "-Wl,--wrap=open",
+      "-Wl,--wrap=fstat",
+      "-lhilog_ndk.z",
+      "-luv",
+      "-lEGL",
+      "-lGLESv3",
+      "-lm",
+      "-lpthread",
+    ]
+  } else {
+    ldflags += [
+      "-lnative_window",
+      "-lnative_buffer",
+      "-lnative_drawing",
+      "-lnative_vsync",
+      "-lace_napi.z",
+      "-lace_ndk.z",
+      "-lhilog_ndk.z",
+      "-luv",
+      "-lrawfile.z",
+      "-lEGL",
+      "-lGLESv3",
+      "-limage_ndk.z",
+      "-lnative_image",
+      "-lm",
+      "-lpthread",
+      "-lpixelmap_ndk.z",
+      "-lpixelmap",
+      "-limage_source",
+      "-lqos",
+      "-ldeviceinfo_ndk.z",
+      "-lnative_color_space_manager",
+    ]
+  }
 }
 
 shared_library("flutter_shell_native") {
