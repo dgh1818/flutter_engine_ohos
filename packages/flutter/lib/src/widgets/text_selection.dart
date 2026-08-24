@@ -2733,6 +2733,12 @@ class TextSelectionGestureDetectorBuilder {
     if (!delegate.selectionEnabled) {
       return;
     }
+    final TextEditingValue value = editableText.textEditingValue;
+    if (defaultTargetPlatform == TargetPlatform.ohos &&
+        value.composing.isValid &&
+        value.composing.isNormalized) {
+      return;
+    }
     switch (defaultTargetPlatform) {
       case TargetPlatform.iOS:
       case TargetPlatform.macOS:
@@ -2792,6 +2798,12 @@ class TextSelectionGestureDetectorBuilder {
   @protected
   void onSingleLongTapMoveUpdate(LongPressMoveUpdateDetails details) {
     if (!delegate.selectionEnabled) {
+      return;
+    }
+    final TextEditingValue value = editableText.textEditingValue;
+    if (defaultTargetPlatform == TargetPlatform.ohos &&
+        value.composing.isValid &&
+        value.composing.isNormalized) {
       return;
     }
     // Adjust the drag start offset for possible viewport offset changes.
@@ -2855,6 +2867,12 @@ class TextSelectionGestureDetectorBuilder {
   ///    callback.
   @protected
   void onSingleLongTapEnd(LongPressEndDetails details) {
+    final TextEditingValue value = editableText.textEditingValue;
+    if (defaultTargetPlatform == TargetPlatform.ohos &&
+        value.composing.isValid &&
+        value.composing.isNormalized) {
+      return;
+    }
     _onSingleLongTapEndOrCancel();
     if (shouldShowSelectionToolbar) {
       editableText.showToolbar();
@@ -2938,6 +2956,12 @@ class TextSelectionGestureDetectorBuilder {
   ///    callback.
   @protected
   void onDoubleTapDown(TapDragDownDetails details) {
+    final TextEditingValue value = editableText.textEditingValue;
+    if (defaultTargetPlatform == TargetPlatform.ohos &&
+        value.composing.isValid &&
+        value.composing.isNormalized) {
+      return;
+    }
     if (delegate.selectionEnabled) {
       renderEditable.selectWord(cause: SelectionChangedCause.doubleTap);
       if (shouldShowSelectionToolbar) {
@@ -3041,6 +3065,12 @@ class TextSelectionGestureDetectorBuilder {
   @protected
   void onTripleTapDown(TapDragDownDetails details) {
     if (!delegate.selectionEnabled) {
+      return;
+    }
+    final TextEditingValue value = editableText.textEditingValue;
+    if (defaultTargetPlatform == TargetPlatform.ohos &&
+        value.composing.isValid &&
+        value.composing.isNormalized) {
       return;
     }
     if (renderEditable.maxLines == 1) {

@@ -747,6 +747,18 @@ class RenderEditable extends RenderBox
         extentOffset: math.min(nextSelection.extentOffset, textLength),
       );
     }
+    final TextEditingValue value = textSelectionDelegate.textEditingValue;
+    if (defaultTargetPlatform == TargetPlatform.ohos &&
+        cause == SelectionChangedCause.drag &&
+        value.composing.isValid &&
+        value.composing.isNormalized) {
+      final int start = value.composing.start;
+      final int end = value.composing.end;
+      nextSelection = nextSelection.copyWith(
+        baseOffset: nextSelection.baseOffset.clamp(start, end),
+        extentOffset: nextSelection.extentOffset.clamp(start, end),
+      );
+    }
     _setTextEditingValue(
       textSelectionDelegate.textEditingValue.copyWith(selection: nextSelection),
       cause,
