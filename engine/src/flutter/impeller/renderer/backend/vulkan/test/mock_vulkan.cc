@@ -4,8 +4,12 @@
 
 #include "impeller/renderer/backend/vulkan/test/mock_vulkan.h"
 
+#include <algorithm>
+#include <atomic>
 #include <cstdint>
 #include <cstring>
+#include <optional>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -52,6 +56,42 @@ static ISize currentImageSize = ISize{1, 1};
 class MockDevice final {
  public:
   explicit MockDevice() : called_functions_(new std::vector<std::string>()) {}
+
+  void RecordAllocation(VkDeviceMemory memory, VkDeviceSize size) {
+    Lock lock(mapped_memories_mutex_);
+    allocation_sizes_[memory] = size;
+  }
+
+  uint8_t* MapMemory(VkDeviceMemory memory, VkDeviceSize requested) {
+    Lock lock(mapped_memories_mutex_);
+    // VMA maps with VK_WHOLE_SIZE; clamp to the real allocation size so
+    // the backing vector does not throw length_error on the huge value.
+    constexpr VkDeviceSize kMaxMockMapping = 64ull * 1024 * 1024;
+    VkDeviceSize size = requested;
+    auto it = allocation_sizes_.find(memory);
+    if (it != allocation_sizes_.end() &&
+        (requested > it->second || requested == VK_WHOLE_SIZE)) {
+      size = it->second;
+    }
+    if (size > kMaxMockMapping) {
+      size = kMaxMockMapping;
+    }
+    auto& block = mapped_memories_[memory];
+    if (!block) {
+      block = std::vector<uint8_t>(std::max<VkDeviceSize>(size, 1), 0);
+    }
+    return block->data();
+  }
+
+  void UnmapMemory(VkDeviceMemory memory) {
+    // Keep the backing store; the handle may be remapped before free.
+  }
+
+  void FreeMemory(VkDeviceMemory memory) {
+    Lock lock(mapped_memories_mutex_);
+    mapped_memories_.erase(memory);
+    allocation_sizes_.erase(memory);
+  }
 
   MockCommandBuffer* NewCommandBuffer() {
     auto buffer = std::make_unique<MockCommandBuffer>(called_functions_);
@@ -105,6 +145,13 @@ class MockDevice final {
   Mutex commmand_pools_mutex_;
   std::vector<std::unique_ptr<MockCommandPool>> command_pools_
       IPLR_GUARDED_BY(commmand_pools_mutex_);
+
+  Mutex mapped_memories_mutex_;
+  std::unordered_map<VkDeviceMemory,
+                     std::optional<std::vector<uint8_t>>>
+      mapped_memories_ IPLR_GUARDED_BY(mapped_memories_mutex_);
+  std::unordered_map<VkDeviceMemory, VkDeviceSize> allocation_sizes_
+      IPLR_GUARDED_BY(mapped_memories_mutex_);
 };
 
 struct MockVulkanState {
@@ -384,8 +431,37 @@ VkResult vkAllocateMemory(VkDevice device,
                           const VkMemoryAllocateInfo* pAllocateInfo,
                           const VkAllocationCallbacks* pAllocator,
                           VkDeviceMemory* pMemory) {
-  *pMemory = reinterpret_cast<VkDeviceMemory>(0xCAFEB0BA);
+  // Unique handle per allocation: MapMemory keeps one backing store per
+  // handle, so a shared constant handle would alias distinct allocations.
+  static std::atomic<uintptr_t> next_handle = 0xCAFEB000;
+  *pMemory = reinterpret_cast<VkDeviceMemory>(
+      next_handle.fetch_add(1, std::memory_order_relaxed));
+  MockDevice* mock_device = reinterpret_cast<MockDevice*>(device);
+  mock_device->RecordAllocation(*pMemory, pAllocateInfo->allocationSize);
   return VK_SUCCESS;
+}
+
+VkResult vkMapMemory(VkDevice device,
+                     VkDeviceMemory memory,
+                     VkDeviceSize offset,
+                     VkDeviceSize size,
+                     VkMemoryMapFlags flags,
+                     void** ppData) {
+  MockDevice* mock_device = reinterpret_cast<MockDevice*>(device);
+  *ppData = mock_device->MapMemory(memory, size);
+  return VK_SUCCESS;
+}
+
+void vkUnmapMemory(VkDevice device, VkDeviceMemory memory) {
+  MockDevice* mock_device = reinterpret_cast<MockDevice*>(device);
+  mock_device->UnmapMemory(memory);
+}
+
+void vkFreeMemory(VkDevice device,
+                  VkDeviceMemory memory,
+                  const VkAllocationCallbacks* pAllocator) {
+  MockDevice* mock_device = reinterpret_cast<MockDevice*>(device);
+  mock_device->FreeMemory(memory);
 }
 
 VkResult vkBindImageMemory(VkDevice device,
@@ -1060,6 +1136,12 @@ PFN_vkVoidFunction GetMockVulkanProcAddress(VkInstance instance,
     return reinterpret_cast<PFN_vkVoidFunction>(vkTrimCommandPool);
   } else if (strcmp("vkGetPipelineCacheData", pName) == 0) {
     return reinterpret_cast<PFN_vkVoidFunction>(vkGetPipelineCacheData);
+  } else if (strcmp("vkMapMemory", pName) == 0) {
+    return reinterpret_cast<PFN_vkVoidFunction>(vkMapMemory);
+  } else if (strcmp("vkUnmapMemory", pName) == 0) {
+    return reinterpret_cast<PFN_vkVoidFunction>(vkUnmapMemory);
+  } else if (strcmp("vkFreeMemory", pName) == 0) {
+    return reinterpret_cast<PFN_vkVoidFunction>(vkFreeMemory);
   }
   return noop;
 }

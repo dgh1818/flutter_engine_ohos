@@ -41,6 +41,7 @@
 #include <cstdint>
 #include <string>
 
+#ifndef OHOS_X64_UNITTEST
 extern "C" napi_status napi_get_cb_info(napi_env env,
                                         napi_callback_info /*info*/,
                                         size_t* argc,
@@ -73,12 +74,14 @@ extern "C" napi_status napi_create_int32(napi_env env,
   }
   return napi_ok;
 }
+#endif  // !OHOS_X64_UNITTEST
 
 namespace flutter {
 namespace testing {
 
 namespace {
 
+#ifndef OHOS_X64_UNITTEST
 // Stub napi marshaling functions with real N-API null-env semantics: N-API
 // validates env == nullptr first and returns napi_invalid_arg without touching
 // the out-param. The other functions called by these methods
@@ -121,6 +124,7 @@ extern "C" napi_status napi_get_boolean(napi_env env,
   }
   return napi_ok;
 }
+#endif  // !OHOS_X64_UNITTEST
 
 }  // namespace
 

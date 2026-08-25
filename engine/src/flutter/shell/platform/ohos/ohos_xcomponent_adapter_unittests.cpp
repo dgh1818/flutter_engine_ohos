@@ -131,6 +131,12 @@ TEST(ResolveSubViewRoutingTest, SubViewIdWithoutControllerStaysImplicit) {
   EXPECT_EQ(xc.sub_view_id_, 0);
 }
 
+#if defined(OHOS_X64_UNITTEST)
+TEST(ResolveSubViewRoutingTest, SubViewIdWithLiveControllerSkippedOnX64) {
+  GTEST_SKIP() << "Live OHOSShellHolder starts a debug JIT VM, which cannot "
+                  "mmap code pages in the x64 emulator shell domain.";
+}
+#else
 TEST(ResolveSubViewRoutingTest, SubViewIdWithLiveControllerRoutes) {
   // Real OHOSShellHolder (software rendering, null facade) + a controller that
   // tracks view 5 -> ResolveSubViewRouting flips to sub-view routing.
@@ -170,6 +176,7 @@ TEST(ResolveSubViewRoutingTest, SubViewIdWithLiveControllerRoutes) {
   EXPECT_FALSE(xc.is_sub_view_);
   EXPECT_EQ(xc.sub_view_id_, 0);
 }
+#endif  // !defined(OHOS_X64_UNITTEST)
 
 }  // namespace testing
 }  // namespace flutter

@@ -40,6 +40,15 @@ bool IsLibAvailable() {
   return access("/system/lib64/chipset-pub-sdk/libhisysevent.z.so", F_OK) == 0;
 }
 
+#if defined(OHOS_X64_UNITTEST)
+// x64 模拟器：libhisysevent.z.so 存在（IsLibAvailable()=true），但 hdc shell
+// 身份（u:r:sh:s0）无权向 hiview 发送事件，HiSysEvent_Write 返回 -5
+// （ERR_SENDFAIL）。root/特权身份返回 0。
+constexpr int kExpectedWriteRet = -5;
+#else
+constexpr int kExpectedWriteRet = 0;
+#endif
+
 }  // namespace
 
 // ===== HiSysEventWrite =====
@@ -47,7 +56,7 @@ bool IsLibAvailable() {
 TEST(HiSysEventWrite, ReturnsCorrectValueForValidInput) {
   int ret = HiSysEventWrite("test_scene", 100);
   if (IsLibAvailable()) {
-    EXPECT_EQ(ret, 0);
+    EXPECT_EQ(ret, kExpectedWriteRet);
   } else {
     EXPECT_EQ(ret, -1);
   }
@@ -65,7 +74,7 @@ TEST(HiSysEventWrite, HandlesNullName) {
 TEST(HiSysEventWrite, HandlesEmptyName) {
   int ret = HiSysEventWrite("", 0);
   if (IsLibAvailable()) {
-    EXPECT_EQ(ret, 0);
+    EXPECT_EQ(ret, kExpectedWriteRet);
   } else {
     EXPECT_EQ(ret, -1);
   }
@@ -74,7 +83,7 @@ TEST(HiSysEventWrite, HandlesEmptyName) {
 TEST(HiSysEventWrite, HandlesZeroTime) {
   int ret = HiSysEventWrite("scene", 0);
   if (IsLibAvailable()) {
-    EXPECT_EQ(ret, 0);
+    EXPECT_EQ(ret, kExpectedWriteRet);
   } else {
     EXPECT_EQ(ret, -1);
   }
@@ -83,7 +92,7 @@ TEST(HiSysEventWrite, HandlesZeroTime) {
 TEST(HiSysEventWrite, HandlesLargeTime) {
   int ret = HiSysEventWrite("scene", UINT64_MAX);
   if (IsLibAvailable()) {
-    EXPECT_EQ(ret, 0);
+    EXPECT_EQ(ret, kExpectedWriteRet);
   } else {
     EXPECT_EQ(ret, -1);
   }
@@ -93,7 +102,7 @@ TEST(HiSysEventWrite, MultipleCallsAreSafe) {
   for (int i = 0; i < 10; i++) {
     int ret = HiSysEventWrite("scene", i * 100);
     if (IsLibAvailable()) {
-      EXPECT_EQ(ret, 0);
+      EXPECT_EQ(ret, kExpectedWriteRet);
     } else {
       EXPECT_EQ(ret, -1);
     }

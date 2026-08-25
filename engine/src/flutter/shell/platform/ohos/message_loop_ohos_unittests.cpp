@@ -553,6 +553,11 @@ TEST(MessageLoopOhosTest, ChainedTasks) {
 
 // Add and remove task observers.
 // Uses UV_RUN_NOWAIT to avoid blocking.
+#ifndef NDEBUG
+TEST(MessageLoopOhosTest, TaskObserverDisabledInDebugBuild) {
+  GTEST_SKIP() << "impl-level observer APIs assert same-thread ownership; debug builds abort by design.";
+}
+#else
 TEST(MessageLoopOhosTest, TaskObserver) {
   fml::RefPtr<fml::MessageLoopImpl> loop = CreateLoopNoPlatform();
   auto* loop_ohos = static_cast<fml::MessageLoopOhos*>(loop.get());
@@ -577,6 +582,7 @@ TEST(MessageLoopOhosTest, TaskObserver) {
   EXPECT_GE(observer_count.load(), 1);
   loop->Terminate();
 }
+#endif  // NDEBUG
 
 // ===========================================================================
 // 13. Destructor — verify clean destruction

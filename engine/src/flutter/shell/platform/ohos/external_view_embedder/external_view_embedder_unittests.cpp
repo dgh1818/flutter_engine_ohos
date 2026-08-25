@@ -582,7 +582,9 @@ namespace {
 // 在 UT 中不会被触达 NDK 的路径调用。
 class FakeOHOSSurface : public OHOSSurface {
  public:
-  FakeOHOSSurface() : OHOSSurface(nullptr) {}
+  FakeOHOSSurface()
+      : OHOSSurface(std::make_shared<OHOSContext>(OHOSRenderingAPI::kSoftware)) {
+  }
 
   bool IsValid() const override { return true; }
   void TeardownOnScreenContext() override {}

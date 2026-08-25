@@ -7,6 +7,7 @@
 #include "flutter/fml/trace_event.h"
 
 #include <cstdint>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -37,22 +38,33 @@ struct HiTraceCall {
   int32_t task_id = 0;
 };
 
+// TRACE_EVENT0 fires on every ConcurrentMessageLoop worker wakeup, so
+// these stubs are hit from 12+ threads at once; the call log must be
+// mutex-guarded or vector growth double-frees.
+std::mutex& GetTraceCallsMutex() {
+  static std::mutex mutex;
+  return mutex;
+}
+
 std::vector<HiTraceCall>& GetTraceCalls() {
   static std::vector<HiTraceCall> calls;
   return calls;
 }
 
 void ClearTraceCalls() {
+  std::lock_guard<std::mutex> lock(GetTraceCallsMutex());
   GetTraceCalls().clear();
 }
 
 size_t TraceCallCount() {
+  std::lock_guard<std::mutex> lock(GetTraceCallsMutex());
   return GetTraceCalls().size();
 }
 
-const HiTraceCall& LastTraceCall() {
-  static const HiTraceCall kEmpty;
+const HiTraceCall LastTraceCall() {
+  std::lock_guard<std::mutex> lock(GetTraceCallsMutex());
   const auto& calls = GetTraceCalls();
+  static const HiTraceCall kEmpty;
   return calls.empty() ? kEmpty : calls.back();
 }
 
@@ -60,20 +72,24 @@ const HiTraceCall& LastTraceCall() {
 
 extern "C" {
 void OH_HiTrace_StartTrace(const char* name) {
+  std::lock_guard<std::mutex> lock(GetTraceCallsMutex());
   GetTraceCalls().push_back(
       {HiTraceCallType::kStartTrace, name ? name : "", 0});
 }
 
 void OH_HiTrace_FinishTrace(void) {
+  std::lock_guard<std::mutex> lock(GetTraceCallsMutex());
   GetTraceCalls().push_back({HiTraceCallType::kFinishTrace, "", 0});
 }
 
 void OH_HiTrace_StartAsyncTrace(const char* name, int32_t taskId) {
+  std::lock_guard<std::mutex> lock(GetTraceCallsMutex());
   GetTraceCalls().push_back(
       {HiTraceCallType::kStartAsyncTrace, name ? name : "", taskId});
 }
 
 void OH_HiTrace_FinishAsyncTrace(const char* name, int32_t taskId) {
+  std::lock_guard<std::mutex> lock(GetTraceCallsMutex());
   GetTraceCalls().push_back(
       {HiTraceCallType::kFinishAsyncTrace, name ? name : "", taskId});
 }
