@@ -56,27 +56,6 @@ export default function TextUtilsTest() {
       expect(FlutterTextUtils.getOffsetBefore(text, 3)).assertEqual(1);
     });
 
-    it('getImePreviewBackspaceDeleteRange_returns_plain_range_when_no_apostrophe_run', Level.LEVEL0, () => {
-      const text = 'abx';
-      const range = FlutterTextUtils.getImePreviewBackspaceDeleteRange(text, 3);
-      expect(range).not().assertNull();
-      expect(range!.delStart).assertEqual(2);
-      expect(range!.delEnd).assertEqual(3);
-    });
-
-    it('getImePreviewBackspaceDeleteRange_collapses_lone_apostrophe_preview', Level.LEVEL1, () => {
-      const text = "ab'";
-      const range = FlutterTextUtils.getImePreviewBackspaceDeleteRange(text, 3);
-      expect(range).not().assertNull();
-      expect(range!.delStart).assertEqual(1);
-      expect(range!.delEnd).assertEqual(2);
-    });
-
-    it('getOffsetAfterForImePreview_extends_over_apostrophe_run', Level.LEVEL1, () => {
-      const text = "ab''c";
-      expect(FlutterTextUtils.getOffsetAfterForImePreview(text, 2)).assertEqual(5);
-    });
-
     it('getOffsetAfter_returns_next_offset_for_ASCII_text', Level.LEVEL0, () => {
       const text = 'hello';
       expect(FlutterTextUtils.getOffsetAfter(text, 0)).assertEqual(1);
