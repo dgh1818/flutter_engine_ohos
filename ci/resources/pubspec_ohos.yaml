@@ -36,6 +36,7 @@ workspace:
   - dev/integration_tests/platform_interaction
   - dev/integration_tests/release_smoke_test
   - dev/integration_tests/spell_check
+  - dev/integration_tests/split_view
   - dev/integration_tests/ui
   - dev/integration_tests/web
   - dev/integration_tests/web_compile_tests
