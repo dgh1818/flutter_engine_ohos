@@ -6,13 +6,62 @@
 
 #include "ohos_semantics_node.h"
 #include <arkui/native_interface_accessibility.h>
+#include <dlfcn.h>
 #include <cassert>
+#include <cerrno>
+#include <cmath>
 #include <cstddef>
+#include <cstdlib>
 #include <vector>
 #include "flutter/shell/platform/ohos/ohos_logging.h"
 #include "ohos_semantics_tree.h"
 
 namespace flutter {
+namespace {
+
+// ArkUI's component identifier API accepts at most 1024 bytes.
+constexpr size_t K_ARK_UI_COMPONENT_IDENTIFIER_MAX_BYTES = 1024;
+
+using SetComponentIdentifier =
+    int32_t (*)(ArkUI_AccessibilityElementInfo* elementInfo,
+                const char* identifier);
+
+SetComponentIdentifier GetSetComponentIdentifier() {
+  static const SetComponentIdentifier setComponentIdentifier = [] {
+    void* const handle = dlopen("libace_ndk.z.so", RTLD_NOW | RTLD_LOCAL);
+    if (handle == nullptr) {
+      FML_LOG(WARNING) << "Failed to load libace_ndk.z.so for component "
+                       << "identifier support: " << dlerror();
+      return static_cast<SetComponentIdentifier>(nullptr);
+    }
+    const auto setter = reinterpret_cast<SetComponentIdentifier>(dlsym(
+        handle, "OH_ArkUI_AccessibilityElementInfoSetComponentIdentifier"));
+    if (setter == nullptr) {
+      FML_LOG(WARNING) << "Component identifier API is unavailable: "
+                       << dlerror();
+    }
+    return setter;
+  }();
+  return setComponentIdentifier;
+}
+
+bool ParseRangeValue(const std::string& value, double* result) {
+  if (value.empty()) {
+    return false;
+  }
+  char* end = nullptr;
+  errno = 0;
+  const double parsed = std::strtod(value.c_str(), &end);
+  if (errno == ERANGE || end == value.c_str() || *end != '\0' ||
+      !std::isfinite(parsed)) {
+    return false;
+  }
+  *result = parsed;
+  return true;
+}
+
+}  // namespace
+
 void SemanticsNodeExtend::FillElementInfo(
     ArkUI_AccessibilityElementInfo* info,
     bool accessibility_focus_maps_to_native_focused) {
@@ -117,13 +166,48 @@ void SemanticsNodeExtend::FillElementInfoWithContent(
     std::string hintText = GetHintText();
     std::string result = value.empty() ? hintText : "";
     OH_ArkUI_AccessibilityElementInfoSetAccessibilityText(info, result.c_str());
+    OH_ArkUI_AccessibilityElementInfoSetHintText(info, hintText.c_str());
     OH_ArkUI_AccessibilityElementInfoSetContents(info, value.c_str());
   } else {
     contentString = GetAccessibilityText();
     OH_ArkUI_AccessibilityElementInfoSetAccessibilityText(
         info, contentString.c_str());
     OH_ArkUI_AccessibilityElementInfoSetContents(info, contentString.c_str());
+    OH_ArkUI_AccessibilityElementInfoSetHintText(info, "");
   }
+
+  const auto setComponentIdentifier = GetSetComponentIdentifier();
+  if (setComponentIdentifier) {
+    const char* componentIdentifier =
+        identifier.size() <= K_ARK_UI_COMPONENT_IDENTIFIER_MAX_BYTES
+            ? identifier.c_str()
+            : "";
+    const int32_t result = setComponentIdentifier(info, componentIdentifier);
+    if (result != ARKUI_ACCESSIBILITY_NATIVE_RESULT_SUCCESSFUL) {
+      if (!componentIdentifierWriteFailed) {
+        FML_LOG(WARNING) << "Failed to update component identifier, result: "
+                         << result;
+      }
+      componentIdentifierWriteFailed = true;
+    } else {
+      componentIdentifierWriteFailed = false;
+    }
+  }
+
+  // ArkUI initializes range info to zeros and provides no separate clear API.
+  // Writing the default value clears a previously populated range.
+  ArkUI_AccessibleRangeInfo rangeInfo = {};
+  double minRangeValue = 0;
+  double maxRangeValue = 0;
+  double currentRangeValue = 0;
+  if (ParseRangeValue(minValue, &minRangeValue) &&
+      ParseRangeValue(maxValue, &maxRangeValue) &&
+      ParseRangeValue(value, &currentRangeValue) &&
+      minRangeValue <= currentRangeValue &&
+      currentRangeValue <= maxRangeValue) {
+    rangeInfo = {minRangeValue, maxRangeValue, currentRangeValue};
+  }
+  OH_ArkUI_AccessibilityElementInfoSetRangeInfo(info, &rangeInfo);
 }
 
 void SemanticsNodeExtend::FillElementInfoWithChildren(
@@ -210,6 +294,8 @@ void SemanticsNodeExtend::OHOSComponentTypeUpdate() {
     componentType = OHWidgetName::kSwitchWidgetName;
   } else if (HasAction(ACTIONS_::kIncrease) || HasAction(ACTIONS_::kDecrease)) {
     componentType = OHWidgetName::kSeekbarWidgetName;
+  } else if (role == SemanticsRole::kProgressBar) {
+    componentType = OHWidgetName::kProgressWidgetName;
   } else if (flags.hasImplicitScrolling) {
     componentType = OHWidgetName::kScrollWidgetName;
   } else if ((!label.empty() || !tooltip.empty() || !hint.empty())) {
@@ -430,6 +516,53 @@ void SemanticsNodeExtend::UpdateSelfRecursively(
   }
 }
 
+void SemanticsNodeExtend::UpdateContentWithNode(flutter::SemanticsNode& node) {
+  // tooltip may use for componentType
+  previousLabel = label;
+  const bool identifierChanged = identifier != node.identifier;
+  const bool identifierTooLong =
+      identifierChanged &&
+      node.identifier.size() > K_ARK_UI_COMPONENT_IDENTIFIER_MAX_BYTES;
+  const bool textFieldChanged = flags.isTextField != node.flags.isTextField;
+  if (value != node.value || label != node.label || hint != node.hint ||
+      tooltip != node.tooltip || minValue != node.minValue ||
+      maxValue != node.maxValue || role != node.role || identifierChanged ||
+      textFieldChanged) {
+    value = std::move(node.value);
+    label = std::move(node.label);
+    hint = std::move(node.hint);
+    tooltip = std::move(node.tooltip);
+    minValue = std::move(node.minValue);
+    maxValue = std::move(node.maxValue);
+    role = node.role;
+    identifier = std::move(node.identifier);
+    if (identifierTooLong) {
+      FML_LOG(WARNING) << "Cleared component identifier exceeding "
+                       << K_ARK_UI_COMPONENT_IDENTIFIER_MAX_BYTES
+                       << " bytes; received " << identifier.size() << " bytes.";
+    }
+    if ((!label.empty() || !tooltip.empty() || !hint.empty()) &&
+        componentType == OHWidgetName::kOtherWidgetName) {
+      componentType = OHWidgetName::kTextWidgetName;
+    }
+    contentChanged = true;
+  }
+}
+
+void SemanticsNodeExtend::UpdateScrollWithNode(flutter::SemanticsNode& node) {
+  previousScrollPosition = scrollPosition;
+  if (scrollIndex != node.scrollIndex ||
+      scrollChildren != node.scrollChildren) {
+    scrollPosition = node.scrollPosition;
+    scrollExtentMax = node.scrollExtentMax;
+    scrollExtentMin = node.scrollExtentMin;
+    scrollIndex = node.scrollIndex;
+    scrollChildren = node.scrollChildren;
+    scrollChanged = true;
+    // we need visible children num to update info.
+  }
+}
+
 void SemanticsNodeExtend::UpdateWithNode(flutter::SemanticsNode& node) {
   isExist = true;
 
@@ -438,20 +571,7 @@ void SemanticsNodeExtend::UpdateWithNode(flutter::SemanticsNode& node) {
     idChanged = true;
   }
 
-  // tooltip may use for componentType
-  previousLabel = label;
-  if (value != node.value || label != node.label || hint != node.hint ||
-      tooltip != node.tooltip) {
-    value = std::move(node.value);
-    label = std::move(node.label);
-    hint = std::move(node.hint);
-    tooltip = std::move(node.tooltip);
-    if ((!label.empty() || !tooltip.empty() || !hint.empty()) &&
-        componentType == OHWidgetName::kOtherWidgetName) {
-      componentType = OHWidgetName::kTextWidgetName;
-    }
-    contentChanged = true;
-  }
+  UpdateContentWithNode(node);
 
   // Check if any flag has changed by comparing each field
   bool flagsChanged =
@@ -525,17 +645,7 @@ void SemanticsNodeExtend::UpdateWithNode(flutter::SemanticsNode& node) {
     selectChanged = true;
   }
 
-  previousScrollPosition = scrollPosition;
-  if (scrollIndex != node.scrollIndex ||
-      scrollChildren != node.scrollChildren) {
-    scrollPosition = node.scrollPosition;
-    scrollExtentMax = node.scrollExtentMax;
-    scrollExtentMin = node.scrollExtentMin;
-    scrollIndex = node.scrollIndex;
-    scrollChildren = node.scrollChildren;
-    scrollChanged = true;
-    // we need visible children num to update info.
-  }
+  UpdateScrollWithNode(node);
 
   // childrenChanged is check in UpdateSelfRecursively
   // we need know which node is not exist
@@ -568,7 +678,6 @@ void SemanticsNodeExtend::UpdateWithNode(flutter::SemanticsNode& node) {
   textDirection = node.textDirection;
   childrenInHitTestOrder = std::move(node.childrenInHitTestOrder);
   customAccessibilityActions = std::move(node.customAccessibilityActions);
-  identifier = std::move(node.identifier);
 }
 
 }  // namespace flutter
