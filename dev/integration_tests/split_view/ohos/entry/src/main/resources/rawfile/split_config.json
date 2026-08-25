@@ -1,0 +1,10 @@
+{
+  "splitOptions": {
+    "enableWideWindowSplit": true,
+    "enableSquareWindowSplit": false,
+    "homePage": "/",
+    "fullScreenPages": ["/fullscreen"],
+    "enableReducedContainerSize": true,
+    "supportLandscapeFullscreen": true
+  }
+}
