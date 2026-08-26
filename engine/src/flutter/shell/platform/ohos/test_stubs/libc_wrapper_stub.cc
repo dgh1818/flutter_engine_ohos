@@ -10,17 +10,15 @@
 // function, so non-injecting tests keep real behavior. Same pattern as
 // base/startup/init test/mock/libs func_wrapper.cpp.
 
-#include "flutter/shell/platform/ohos/test_stubs/unittest_x64/libc_wrapper_stub.h"
-
+#include "flutter/shell/platform/ohos/test_stubs/libc_wrapper_stub.h"
 #include <fcntl.h>
-
 #include <stdarg.h>
 
 extern "C" {
 
-// Provided by the linker via -Wl,--wrap=open / -Wl,--wrap=fstat.
 int __real_open(const char* path, int flags, ...);
 int __real_fstat(int fd, struct stat* st);
+void* __real_dlopen(const char* filename, int flags);
 
 // ---- open ----
 static OpenFunc g_open = nullptr;
@@ -53,6 +51,20 @@ int __wrap_fstat(int fd, struct stat* st) {
     return g_fstat(fd, st);
   }
   return __real_fstat(fd, st);
+}
+
+static bool g_dlopen_force_fail = false;
+
+void UpdateDlopenForceFail(int force_fail) {
+  g_dlopen_force_fail = force_fail;
+}
+
+void* __wrap_dlopen(const char* filename, int flags) {
+  if (g_dlopen_force_fail) {
+    __real_dlopen("libflutter_ut_no_such_lib.so", flags);
+    return nullptr;
+  }
+  return __real_dlopen(filename, flags);
 }
 
 }  // extern "C"

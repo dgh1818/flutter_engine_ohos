@@ -6,7 +6,6 @@
 
 // Unit tests for OHOSWindowController (multi-window bookkeeping + FFI surface)
 // and the facade-touching OHOSWindow RequestWindowHost dispatch.
-//
 // Testability contract: a real OHOSShellHolder is constructed (software
 // rendering, null-env napi facade — same recipe as ohos_shell_holder_
 // unittests), then `#define private public` grants access to the holder's
@@ -16,22 +15,16 @@
 // `if (!facade)` branch — the ones a live environment never reaches without
 // a real engine — is exercised.
 
-#include "flutter/fml/build_config.h"  // IWYU pragma: keep  (defines FML_OS_OHOS)
-
-#if defined(FML_OS_OHOS)
-
 #define private public
 #include "flutter/shell/platform/ohos/ohos_shell_holder.h"
 #undef private
 
 #include <gtest/gtest.h>
-
 #include <cstdint>
 #include <cstdlib>
 #include <memory>
 #include <string>
 #include <utility>
-
 #include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
 #include "flutter/shell/platform/ohos/windowing/ohos_window_dialog.h"
 #include "flutter/shell/platform/ohos/windowing/ohos_window_popup.h"
@@ -896,4 +889,3 @@ TEST_F(OHOSWindowControllerTest, ControllerStateMutationsNoCrash) {
 }  // namespace testing
 }  // namespace flutter
 
-#endif  // FML_OS_OHOS

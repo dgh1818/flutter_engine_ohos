@@ -4,7 +4,6 @@
  * found in the LICENSE_HW file.
  */
 
-
 #include "ace/xcomponent/native_interface_xcomponent.h"
 #include "arkui/native_interface_accessibility.h"
 
@@ -13,6 +12,8 @@ namespace {
 char g_dummy_element_info;
 char g_dummy_event_info;
 
+int32_t g_fail_get_id_next = 0;
+
 }  // namespace
 
 extern "C" {
@@ -20,6 +21,11 @@ extern "C" {
 int32_t OH_NativeXComponent_GetXComponentId(OH_NativeXComponent* /*component*/,
                                             char* id,
                                             uint64_t* size) {
+  if (g_fail_get_id_next != 0) {
+    int32_t ret = g_fail_get_id_next;
+    g_fail_get_id_next = 0;
+    return ret;
+  }
   if (id != nullptr && size != nullptr && *size > 0) {
     id[0] = '\0';
     *size = 0;
@@ -177,18 +183,6 @@ int32_t OH_ArkUI_AccessibilityElementInfoSetParentId(
 int32_t OH_ArkUI_AccessibilityElementInfoSetComponentType(
     ArkUI_AccessibilityElementInfo* /*elementInfo*/,
     const char* /*componentType*/) {
-  return 0;
-}
-
-int32_t OH_ArkUI_AccessibilityElementInfoSetContents(
-    ArkUI_AccessibilityElementInfo* /*elementInfo*/,
-    const char* /*contents*/) {
-  return 0;
-}
-
-int32_t OH_ArkUI_AccessibilityElementInfoSetAccessibilityText(
-    ArkUI_AccessibilityElementInfo* /*elementInfo*/,
-    const char* /*accessibilityText*/) {
   return 0;
 }
 
@@ -376,3 +370,7 @@ extern "C" float OH_ArkUI_PointerEvent_GetDisplayY(const ArkUI_UIInputEvent* eve
 extern "C" double OH_ArkUI_AxisEvent_GetVerticalAxisValue(const ArkUI_UIInputEvent* event) { return 0.0; }
 extern "C" double OH_ArkUI_AxisEvent_GetHorizontalAxisValue(const ArkUI_UIInputEvent* event) { return 0.0; }
 extern "C" double OH_ArkUI_AxisEvent_GetPinchAxisScaleValue(const ArkUI_UIInputEvent* event) { return 0.0; }
+
+extern "C" void StubXcompFailNextGetXComponentId(int32_t ret) {
+  g_fail_get_id_next = ret;
+}

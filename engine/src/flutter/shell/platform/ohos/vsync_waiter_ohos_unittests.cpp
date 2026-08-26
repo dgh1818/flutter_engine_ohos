@@ -11,8 +11,8 @@
 #undef private
 
 #include <atomic>
+#include <dlfcn.h>
 #include <set>
-
 #include "flutter/common/task_runners.h"
 #include "flutter/flow/frame_timings.h"
 #include "flutter/fml/message_loop.h"
@@ -22,8 +22,27 @@
 #include "flutter/shell/platform/ohos/ohos_vsync_voting_mgr.h"
 #include "gtest/gtest.h"
 
+extern "C" int g_stub_sdk_api_version;
+
 namespace flutter {
 namespace testing {
+
+struct FakeDvsyncRecorder {
+  static int call_count;
+  static OH_NativeVSync* last_handle;
+  static bool last_enable;
+};
+
+int FakeDvsyncRecorder::call_count = 0;
+OH_NativeVSync* FakeDvsyncRecorder::last_handle = nullptr;
+bool FakeDvsyncRecorder::last_enable = false;
+
+int FakeDvsyncFunc(OH_NativeVSync* nativeVsync, bool enable) {
+  FakeDvsyncRecorder::call_count++;
+  FakeDvsyncRecorder::last_handle = nativeVsync;
+  FakeDvsyncRecorder::last_enable = enable;
+  return 0;
+}
 
 class VsyncWaiterOhosTest : public ::testing::Test {
  protected:
@@ -47,6 +66,10 @@ class VsyncWaiterOhosTest : public ::testing::Test {
 
     waiter_ =
         std::make_shared<VsyncWaiterOHOS>(task_runners, enable_frame_cache_);
+
+    FakeDvsyncRecorder::call_count = 0;
+    FakeDvsyncRecorder::last_handle = nullptr;
+    FakeDvsyncRecorder::last_enable = false;
   }
 
   void TearDown() override {
@@ -167,7 +190,7 @@ TEST_F(VsyncWaiterOhosTest, GetVsyncPeriodReturnsNonNegative) {
 }
 
 TEST_F(VsyncWaiterOhosTest, AwaitVSyncDoesNotCrash) {
-  waiter_->AwaitVSync();
+  EXPECT_NO_FATAL_FAILURE(waiter_->AwaitVSync());
 }
 
 TEST_F(VsyncWaiterOhosTest, EnableFrameCacheFlag) {
@@ -213,7 +236,7 @@ TEST_F(VsyncWaiterOhosTest, OnVsyncFromOHOSFrameCacheOffsetsTargetNotDeadline) {
   std::unique_ptr<FrameTimingsRecorder> captured_recorder;
 
   {
-    std::scoped_lock lock(ohos_waiter->callback_mutex_);
+    std::lock_guard<std::mutex> lock(ohos_waiter->callback_mutex_);
     ohos_waiter->callback_ =
         [&](std::unique_ptr<FrameTimingsRecorder> recorder) {
           captured_recorder = std::move(recorder);
@@ -244,6 +267,89 @@ TEST_F(VsyncWaiterOhosTest, OnVsyncFromOHOSFrameCacheOffsetsTargetNotDeadline) {
 
   PlatformViewOHOSNapi::display_refresh_rate = original_rate;
   PlatformViewOHOSNapi::all_refresh_rates = original_rates;
+}
+
+TEST_F(VsyncWaiterOhosTest, AwaitVSyncNullHandleReturnsEarly) {
+  auto saved = waiter_->vsync_handle_;
+  waiter_->vsync_handle_ = nullptr;
+  EXPECT_NO_FATAL_FAILURE(waiter_->AwaitVSync());
+  waiter_->vsync_handle_ = saved;
+}
+
+TEST_F(VsyncWaiterOhosTest, OnVsyncFromOHOSFirstCallSetsQos) {
+  VsyncWaiterOHOS::firstCall = true;
+  auto* weak_this = new std::weak_ptr<VsyncWaiter>();
+  EXPECT_NO_FATAL_FAILURE(
+      VsyncWaiterOHOS::OnVsyncFromOHOS(1'000'000'000, weak_this));
+  EXPECT_FALSE(VsyncWaiterOHOS::firstCall);
+  VsyncWaiterOHOS::firstCall = false;
+}
+
+TEST_F(VsyncWaiterOhosTest, OnVsyncFromOHOSNoCacheKeepsDeadlineEqualToTarget) {
+  VsyncWaiterOHOS::firstCall = false;
+  std::unique_ptr<FrameTimingsRecorder> captured_recorder;
+  {
+    std::lock_guard<std::mutex> lock(waiter_->callback_mutex_);
+    waiter_->callback_ = [&](std::unique_ptr<FrameTimingsRecorder> recorder) {
+      captured_recorder = std::move(recorder);
+    };
+  }
+  auto* weak_this = new std::weak_ptr<VsyncWaiter>(waiter_);
+
+  auto saved_handle = waiter_->vsync_handle_;
+  waiter_->vsync_handle_ = nullptr;
+
+  VsyncWaiterOHOS::OnVsyncFromOHOS(2'000'000'000, weak_this);
+
+  fml::MessageLoop::GetCurrent().RunExpiredTasksNow();
+  waiter_->vsync_handle_ = saved_handle;
+
+  ASSERT_NE(captured_recorder, nullptr);
+  EXPECT_EQ(captured_recorder->GetDartFrameDeadline(),
+            captured_recorder->GetVsyncTargetTime());
+}
+
+TEST_F(VsyncWaiterOhosTest, SetDvsyncSwitchApiVersionZeroQueriesSdk) {
+  waiter_->nativeDvsyncFunc_ = &FakeDvsyncFunc;
+  waiter_->handle_ = reinterpret_cast<void*>(0x1);
+  int saved_version = g_stub_sdk_api_version;
+  g_stub_sdk_api_version = 20;
+  waiter_->apiVersion_ = 0;
+  EXPECT_NO_FATAL_FAILURE(waiter_->SetDvsyncSwitch(true));
+  EXPECT_EQ(waiter_->apiVersion_, 20);
+  g_stub_sdk_api_version = saved_version;
+  if (waiter_->apiVersion_ >= 14) {
+    EXPECT_EQ(FakeDvsyncRecorder::call_count, 1);
+    EXPECT_EQ(FakeDvsyncRecorder::last_handle, waiter_->vsync_handle_);
+    EXPECT_TRUE(FakeDvsyncRecorder::last_enable);
+  }
+}
+
+TEST_F(VsyncWaiterOhosTest, SetDvsyncSwitchWithApi14LoadsLibrary) {
+  waiter_->nativeDvsyncFunc_ = &FakeDvsyncFunc;
+  waiter_->handle_ = nullptr;
+  waiter_->apiVersion_ = 14;
+  EXPECT_NO_FATAL_FAILURE(waiter_->SetDvsyncSwitch(true));
+  EXPECT_NE(waiter_->handle_, nullptr);
+  EXPECT_EQ(FakeDvsyncRecorder::call_count, 1);
+  EXPECT_NO_FATAL_FAILURE(waiter_->SetDvsyncSwitch(false));
+  EXPECT_EQ(FakeDvsyncRecorder::call_count, 2);
+  EXPECT_FALSE(FakeDvsyncRecorder::last_enable);
+  dlclose(waiter_->handle_);
+  waiter_->handle_ = nullptr;
+}
+
+TEST_F(VsyncWaiterOhosTest, SetDvsyncSwitchDlsymFailureReleasesHandle) {
+  void* libc_handle = dlopen("libc.so", RTLD_NOW);
+  ASSERT_NE(libc_handle, nullptr);
+
+  waiter_->handle_ = libc_handle;
+  waiter_->nativeDvsyncFunc_ = nullptr;
+  waiter_->apiVersion_ = 14;
+  EXPECT_NO_FATAL_FAILURE(waiter_->SetDvsyncSwitch(true));
+  EXPECT_EQ(waiter_->nativeDvsyncFunc_, nullptr);
+  EXPECT_EQ(waiter_->handle_, nullptr);
+  EXPECT_EQ(FakeDvsyncRecorder::call_count, 0);
 }
 
 }  // namespace testing

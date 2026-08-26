@@ -4,20 +4,13 @@
  * found in the LICENSE_HW file.
  */
 
-#include "flutter/fml/build_config.h"  // IWYU pragma: keep  (defines FML_OS_OHOS)
-
-#if defined(FML_OS_OHOS)
-
 #include "flutter/shell/platform/ohos/external_view_embedder/external_view_embedder.h"
-
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-
 #include <cmath>
 #include <memory>
 #include <utility>
 #include <vector>
-
 #include "flutter/display_list/dl_builder.h"
 #include "flutter/display_list/dl_color.h"
 #include "flutter/display_list/dl_paint.h"
@@ -1193,4 +1186,3 @@ TEST(OHOSWindowingViewEmbedderTest, EmbeddedViewOverridesAreNoOps) {
 }  // namespace testing
 }  // namespace flutter
 
-#endif  // FML_OS_OHOS

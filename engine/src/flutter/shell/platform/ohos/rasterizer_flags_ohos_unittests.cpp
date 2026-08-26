@@ -4,14 +4,9 @@
  * found in the LICENSE_HW file.
  */
 
-#include "flutter/fml/build_config.h"
-
-#if defined(FML_OS_OHOS)
-
 #include "flutter/common/settings.h"
 #include "flutter/impeller/base/flags.h"
 #include "flutter/shell/common/rasterizer.h"
-
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
@@ -88,4 +83,3 @@ TEST(RasterizerFlagsOhosTest,
 }  // namespace testing
 }  // namespace flutter
 
-#endif  // defined(FML_OS_OHOS)

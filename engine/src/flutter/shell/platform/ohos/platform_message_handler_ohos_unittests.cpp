@@ -7,12 +7,9 @@
 #define FML_USED_ON_EMBEDDER
 
 #include "flutter/shell/platform/ohos/platform_message_handler_ohos.h"
-
 #include <gtest/gtest.h>
-
 #include <memory>
 #include <string>
-
 #include "flutter/fml/mapping.h"
 #include "flutter/fml/memory/ref_counted.h"
 #include "flutter/fml/memory/ref_ptr.h"
@@ -57,13 +54,25 @@ class MockPlatformMessageResponse : public PlatformMessageResponse {
 class PlatformMessageHandlerOHOSTest : public ::testing::Test {
  protected:
   void SetUp() override {
+    loop_ = fml::MessageLoopImpl::Create(nullptr);
+    ASSERT_TRUE(loop_);
+    task_runner_ = fml::MakeRefCounted<fml::TaskRunner>(loop_);
     napi_facade_ = std::make_shared<PlatformViewOHOSNapi>(nullptr);
-    // Create a dummy task runner that doesn't actually run tasks
-    handler_ = std::make_unique<PlatformMessageHandlerOHOS>(
-        napi_facade_, fml::RefPtr<fml::TaskRunner>());
+    handler_ = std::make_unique<PlatformMessageHandlerOHOS>(napi_facade_,
+                                                            task_runner_);
+  }
+
+  void TearDown() override {
+    handler_.reset();
+    napi_facade_.reset();
+    task_runner_ = nullptr;
+    loop_->Terminate();
+    loop_ = nullptr;
   }
 
   std::shared_ptr<PlatformViewOHOSNapi> napi_facade_;
+  fml::RefPtr<fml::MessageLoopImpl> loop_;
+  fml::RefPtr<fml::TaskRunner> task_runner_;
   std::unique_ptr<PlatformMessageHandlerOHOS> handler_;
 };
 
@@ -90,36 +99,9 @@ TEST_F(PlatformMessageHandlerOHOSTest,
   SUCCEED();
 }
 
-// ===== The following tests use a real MessageLoop TaskRunner to cover happy path branches =====
-
-class PlatformMessageHandlerOHOSWithLoopTest : public ::testing::Test {
- protected:
-  void SetUp() override {
-    loop_ = fml::MessageLoopImpl::Create(nullptr);
-    ASSERT_TRUE(loop_);
-    task_runner_ = fml::MakeRefCounted<fml::TaskRunner>(loop_);
-    napi_facade_ = std::make_shared<PlatformViewOHOSNapi>(nullptr);
-    handler_ = std::make_unique<PlatformMessageHandlerOHOS>(napi_facade_,
-                                                            task_runner_);
-  }
-
-  void TearDown() override {
-    handler_.reset();
-    napi_facade_.reset();
-    task_runner_ = nullptr;
-    loop_->Terminate();
-    loop_ = nullptr;
-  }
-
-  std::shared_ptr<PlatformViewOHOSNapi> napi_facade_;
-  fml::RefPtr<fml::MessageLoopImpl> loop_;
-  fml::RefPtr<fml::TaskRunner> task_runner_;
-  std::unique_ptr<PlatformMessageHandlerOHOS> handler_;
-};
-
 // HandlePlatformMessage with a response should store the response into
 // pending_responses_ (covers if (auto response = message->response()) true branch)
-TEST_F(PlatformMessageHandlerOHOSWithLoopTest,
+TEST_F(PlatformMessageHandlerOHOSTest,
        HandlePlatformMessageWithResponseRegistersPending) {
   auto mock_response = MockPlatformMessageResponse::Create();
   auto message = std::make_unique<PlatformMessage>("test_channel",
@@ -139,7 +121,7 @@ TEST_F(PlatformMessageHandlerOHOSWithLoopTest,
 // Verifies: messages without a response are not registered, so subsequent
 // Invoke cannot find that id; but messages with a response (incrementing id)
 // can still be invoked normally.
-TEST_F(PlatformMessageHandlerOHOSWithLoopTest,
+TEST_F(PlatformMessageHandlerOHOSTest,
        HandlePlatformMessageWithoutResponseSkipsRegistration) {
   // id=1: message without response — should NOT be registered
   auto message_no_response = std::make_unique<PlatformMessage>(
@@ -163,7 +145,7 @@ TEST_F(PlatformMessageHandlerOHOSWithLoopTest,
 
 // InvokePlatformMessageResponseCallback finds the pending response and calls Complete
 // (covers happy path: response_id matches -> message_response->Complete)
-TEST_F(PlatformMessageHandlerOHOSWithLoopTest,
+TEST_F(PlatformMessageHandlerOHOSTest,
        InvokeResponseCallbackCompletesPendingResponse) {
   auto mock_response = MockPlatformMessageResponse::Create();
   auto message = std::make_unique<PlatformMessage>("test_channel",
@@ -181,7 +163,7 @@ TEST_F(PlatformMessageHandlerOHOSWithLoopTest,
 // InvokePlatformMessageEmptyResponseCallback finds the pending response and calls
 // CompleteEmpty (covers happy path: response_id matches ->
 // message_response->CompleteEmpty)
-TEST_F(PlatformMessageHandlerOHOSWithLoopTest,
+TEST_F(PlatformMessageHandlerOHOSTest,
        InvokeEmptyResponseCallbackCompletesPendingResponse) {
   auto mock_response = MockPlatformMessageResponse::Create();
   auto message = std::make_unique<PlatformMessage>("test_channel",
@@ -196,7 +178,7 @@ TEST_F(PlatformMessageHandlerOHOSWithLoopTest,
 // should not trigger the callback. First register a response (id=1), then
 // call with 0 to verify no trigger, and finally with the correct id=1 to
 // verify it does trigger.
-TEST_F(PlatformMessageHandlerOHOSWithLoopTest,
+TEST_F(PlatformMessageHandlerOHOSTest,
        InvokeResponseCallbackWithZeroIdDoesNotCompleteRegisteredResponse) {
   auto mock_response = MockPlatformMessageResponse::Create();
   auto message =
@@ -218,7 +200,7 @@ TEST_F(PlatformMessageHandlerOHOSWithLoopTest,
 // Zero-ID guard (Empty variant): even with a registered response, calling
 // InvokePlatformMessageEmptyResponseCallback with response_id=0 should not
 // trigger CompleteEmpty.
-TEST_F(PlatformMessageHandlerOHOSWithLoopTest,
+TEST_F(PlatformMessageHandlerOHOSTest,
        InvokeEmptyResponseCallbackWithZeroIdDoesNotCompleteRegisteredResponse) {
   auto mock_response = MockPlatformMessageResponse::Create();
   auto message =

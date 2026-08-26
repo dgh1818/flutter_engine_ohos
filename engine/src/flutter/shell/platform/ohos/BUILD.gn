@@ -190,18 +190,29 @@ test_fixtures("flutter_ohos_fixtures") {
   fixtures = []
 }
 
+source_set("unittest_stubs") {
+  testonly = true
+  sources = [
+    "test_stubs/ace_deviceinfo_stub.cc",
+    "test_stubs/ace_graphic_ndk_stub.cc",
+    "test_stubs/ace_napi_stub.cc",
+    "test_stubs/ace_rawfile_stub.cc",
+    "test_stubs/libc_wrapper_stub.cc",
+  ]
+  if (target_cpu == "x64" || target_cpu == "x86") {
+    defines = [ "OHOS_X64_UNITTEST" ]
+  }
+  public_configs = [ "//flutter:config" ]
+}
+
 source_set("unittest_x64_stubs") {
   testonly = true
   sources = [
     "test_stubs/unittest_x64/ace_colorspace_stub.cc",
     "test_stubs/unittest_x64/ace_drawing_stub.cc",
-    "test_stubs/unittest_x64/ace_graphic_ndk_stub.cc",
     "test_stubs/unittest_x64/ace_image_stub.cc",
     "test_stubs/unittest_x64/ace_misc_ndk_stub.cc",
-    "test_stubs/unittest_x64/ace_napi_stub.cc",
     "test_stubs/unittest_x64/ace_ndk_stub.cc",
-    "test_stubs/unittest_x64/ace_rawfile_stub.cc",
-    "test_stubs/unittest_x64/libc_wrapper_stub.cc",
   ]
   public_configs = [ "//flutter:config" ]
 }
@@ -213,6 +224,7 @@ executable("flutter_ohos_unittests") {
     #"testing/mock_texture_registrar.cc",
     "//flutter/fml/platform/ohos/hiappevent/ohos_hiappevent_unittests.cpp",
     "//flutter/fml/platform/ohos/hisysevent_c_unittests.cc",
+    "//flutter/fml/platform/ohos/napi_util_unittests.cc",
     "//flutter/impeller/display_list/paint_ohos_unittests.cc",
     "//flutter/impeller/entity/contents/solid_color_contents_ohos_unittests.cc",
     "//flutter/impeller/renderer/backend/vulkan/blit_pass_vk_ohos_unittests.cc",
@@ -223,18 +235,27 @@ executable("flutter_ohos_unittests") {
     "//flutter/impeller/renderer/backend/vulkan/vulkan_ohos_constants_unittests.cc",
     "//flutter/impeller/renderer/backend/vulkan/yuv_conversion_vk_ohos_unittests.cc",
     "//flutter/impeller/typographer/backends/skia/typographer_context_skia_ohos_unittests.cc",
+    "accessibility/multi_instance_xcomp_accessibility_unittests.cpp",
+    "accessibility/ohos_semantics_bridge_unittests.cpp",
     "context/ohos_context_unittests.cpp",
     "dynamic_library_loader_unittests.cpp",
     "external_view_embedder/external_view_embedder_unittests.cpp",
     "image_lru_unittests.cpp",
+    "library_loader_unittests.cpp",
     "message_loop_ohos_unittests.cpp",
     "napi/platform_view_ohos_napi_unittests.cpp",
     "ohos_asset_provider_unittests.cpp",
     "ohos_color_space_unittests.cpp",
+    "ohos_context_gl_skia_unittests.cpp",
+    "ohos_egl_surface_unittests.cpp",
     "ohos_external_texture_unittests.cpp",
+    "ohos_environment_gl_unittests.cpp",
+    "ohos_image_generator_unittests.cpp",
     "ohos_logger_unittests.cpp",
     "ohos_semantics_node_unittests.cpp",
     "ohos_semantics_tree_unittests.cpp",
+    "ohos_surface_gl_skia_unittests.cpp",
+    "ohos_surface_software_unittests.cpp",
     "ohos_trace_event_unittests.cpp",
     "ohos_vsync_voting_mgr_unittests.cpp",
     "ohos_xcomponent_adapter_unittests.cpp",
@@ -243,6 +264,8 @@ executable("flutter_ohos_unittests") {
     "platform_view_ohos_unittests.cpp",
     "qos_fallback_ohos_unittests.cpp",
     "rasterizer_flags_ohos_unittests.cpp",
+    "surface/ohos_native_window_unittests.cpp",
+    "surface/ohos_surface_unittests.cpp",
     "timerfd_unittests.cpp",
     "vsync_waiter_ohos_unittests.cpp",
     "windowing/ohos_window_unittests.cpp",
@@ -276,6 +299,7 @@ executable("flutter_ohos_unittests") {
   deps = [
     ":flutter_ohos_fixtures",
     ":flutter_ohos_sources",
+    ":unittest_stubs",
     "//flutter/impeller/renderer/backend/vulkan:mock_vulkan",
     "//flutter/runtime:libdart",
     "//flutter/shell/platform/embedder:embedder_headers",
@@ -299,6 +323,7 @@ executable("flutter_ohos_unittests") {
       "-Wl,--as-needed",
       "-Wl,--wrap=open",
       "-Wl,--wrap=fstat",
+      "-Wl,--wrap=dlopen",
       "-lhilog_ndk.z",
       "-luv",
       "-lEGL",
@@ -307,6 +332,32 @@ executable("flutter_ohos_unittests") {
       "-lpthread",
     ]
   } else {
+    ldflags += [
+      "-Wl,--wrap=open",
+      "-Wl,--wrap=fstat",
+      "-Wl,--wrap=dlopen",
+      "-Wl,--wrap=OH_NativeImage_AcquireNativeWindow",
+      "-Wl,--wrap=OH_NativeImage_AcquireNativeWindowBuffer",
+      "-Wl,--wrap=OH_NativeImage_Create",
+      "-Wl,--wrap=OH_NativeImage_Destroy",
+      "-Wl,--wrap=OH_NativeImage_ReleaseNativeWindowBuffer",
+      "-Wl,--wrap=OH_NativeImage_SetOnFrameAvailableListener",
+      "-Wl,--wrap=OH_NativeWindow_DestroyNativeWindowBuffer",
+      "-Wl,--wrap=OH_NativeWindow_NativeWindowAttachBuffer",
+      "-Wl,--wrap=OH_NativeWindow_NativeWindowFlushBuffer",
+      "-Wl,--wrap=OH_NativeWindow_NativeWindowRequestBuffer",
+      "-Wl,--wrap=OH_NativeWindow_GetBufferHandleFromNative",
+      "-Wl,--wrap=OH_NativeBuffer_FromNativeWindowBuffer",
+      "-Wl,--wrap=OH_NativeBuffer_Unreference",
+      "-Wl,--wrap=OH_NativeWindow_CreateNativeWindowBufferFromNativeBuffer",
+      "-Wl,--wrap=OH_PixelMap_GetImageInfo",
+      "-Wl,--wrap=OH_GetSdkApiVersion",
+      "-Wl,--wrap=OH_NativeImage_GetSurfaceId",
+      "-Wl,--wrap=OH_NativeImage_UnsetOnFrameAvailableListener",
+      "-Wl,--wrap=OH_NativeWindow_NativeObjectReference",
+      "-Wl,--wrap=OH_NativeWindow_NativeObjectUnreference",
+      "-Wl,--wrap=OH_NativeWindow_NativeWindowHandleOpt",
+    ]
     ldflags += [
       "-lnative_window",
       "-lnative_buffer",
