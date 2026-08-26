@@ -31,6 +31,14 @@ class OhosVsyncVotingMgrTest : public ::testing::Test {
     mgr_ = OhosVsyncVotingMgr::GetInstance();
     ASSERT_NE(mgr_, nullptr);
 
+    // Voting NDK is @since 20 and needs a loadable libnative_vsync.so: without
+    // it the ctor nulls the handle and every test below would fail in this
+    // SetUp. Skip on such systems instead.
+    if (mgr_->lib_native_vsync_handle_ == nullptr) {
+      GTEST_SKIP() << "libnative_vsync.so unavailable or lacks "
+                      "OH_NativeVSync_SetExpectedFrameRateRange (@since 20)";
+    }
+
     // Ensure LTPO is enabled for most tests.
     mgr_->ParseFramesCfg();
     EXPECT_EQ(mgr_->CheckVotingSwitchState(), LTPOSwitchState::LTPO_SWITCH_ON);

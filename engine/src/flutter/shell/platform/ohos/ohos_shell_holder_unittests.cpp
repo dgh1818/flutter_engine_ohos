@@ -252,37 +252,51 @@ TEST(OHOSShellHolder, GetWindowControllerIsCreatedForMainHolder) {
   EXPECT_EQ(holder->GetWindowController()->GetNapiFacade(), napi_facade);
 }
 
+#if FLUTTER_JIT_RUNTIME
 static Settings MakeNoKernelSettings() {
   auto settings = MakeTestSettings();
   settings.application_kernel_asset = "/nonexistent_ut_kernel_blob";
   return settings;
 }
+#endif  // FLUTTER_JIT_RUNTIME
 
 TEST(OHOSShellHolder, LaunchWithoutKernelBlobReturnsEarly) {
+#if !FLUTTER_JIT_RUNTIME
+  GTEST_SKIP() << "kernel-blob early return only exists in JIT runtimes";
+#else
   auto settings = MakeNoKernelSettings();
   auto napi_facade = std::make_shared<PlatformViewOHOSNapi>(nullptr);
   auto holder =
       std::make_unique<OHOSShellHolder>(settings, napi_facade, nullptr);
   ASSERT_TRUE(holder->IsValid());
   EXPECT_NO_FATAL_FAILURE(holder->Launch(nullptr, "main", "", {}));
+#endif
 }
 
 TEST(OHOSShellHolder, SpawnWithoutKernelBlobReturnsNull) {
+#if !FLUTTER_JIT_RUNTIME
+  GTEST_SKIP() << "kernel-blob early return only exists in JIT runtimes";
+#else
   auto settings = MakeNoKernelSettings();
   auto napi_facade = std::make_shared<PlatformViewOHOSNapi>(nullptr);
   auto holder =
       std::make_unique<OHOSShellHolder>(settings, napi_facade, nullptr);
   ASSERT_TRUE(holder->IsValid());
   EXPECT_EQ(holder->Spawn(napi_facade, "main", "", "", {}), nullptr);
+#endif
 }
 
 TEST(OHOSShellHolder, SpawnAsyncWithoutKernelBlobReturnsNull) {
+#if !FLUTTER_JIT_RUNTIME
+  GTEST_SKIP() << "kernel-blob early return only exists in JIT runtimes";
+#else
   auto settings = MakeNoKernelSettings();
   auto napi_facade = std::make_shared<PlatformViewOHOSNapi>(nullptr);
   auto holder =
       std::make_unique<OHOSShellHolder>(settings, napi_facade, nullptr);
   ASSERT_TRUE(holder->IsValid());
   EXPECT_EQ(holder->SpawnAsync(napi_facade, "main", "", "", {}), nullptr);
+#endif
 }
 
 TEST(OHOSShellHolder, DartMemoryMonitorCycle) {

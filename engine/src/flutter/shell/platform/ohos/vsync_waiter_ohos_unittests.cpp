@@ -330,6 +330,11 @@ TEST_F(VsyncWaiterOhosTest, SetDvsyncSwitchWithApi14LoadsLibrary) {
   waiter_->handle_ = nullptr;
   waiter_->apiVersion_ = 14;
   EXPECT_NO_FATAL_FAILURE(waiter_->SetDvsyncSwitch(true));
+  // Trimmed images (e.g. API17 emulator without libark_jsruntime.so) cannot
+  // load libnative_vsync.so at all; the load itself is this test's subject.
+  if (waiter_->handle_ == nullptr) {
+    GTEST_SKIP() << "libnative_vsync.so not loadable on this image";
+  }
   EXPECT_NE(waiter_->handle_, nullptr);
   EXPECT_EQ(FakeDvsyncRecorder::call_count, 1);
   EXPECT_NO_FATAL_FAILURE(waiter_->SetDvsyncSwitch(false));
