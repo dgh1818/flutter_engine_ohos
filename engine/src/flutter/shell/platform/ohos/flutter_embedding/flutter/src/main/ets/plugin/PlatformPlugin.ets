@@ -143,6 +143,14 @@ export default class PlatformPlugin {
    * Destroys the platform plugin and cleans up resources.
    */
   public destroy() {
+    if (this.callback.callbackId != null && this.callback.applicationContext != null) {
+      try {
+        this.callback.applicationContext?.off('environment', this.callback.callbackId);
+      } catch(e) {
+        Log.e(PlatformPlugin.TAG, "Failed to remove callback 'environment'. Cause: " + JSON.stringify(e));
+      }
+      this.callback.callbackId = null;
+    }
     this.callback.platformChannel?.setPlatformMessageHandler(null);
   }
 }
