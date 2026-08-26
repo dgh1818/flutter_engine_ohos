@@ -5,9 +5,7 @@
  */
 
 #include "flutter/fml/platform/ohos/dynamic_library_loader.h"
-
 #include <gtest/gtest.h>
-
 #include <cstring>
 
 namespace flutter {
@@ -144,6 +142,46 @@ TEST(DynamicLibraryLoaderTest, LoadSymbolsMixedRealAndMissingSymbols) {
   EXPECT_FALSE(loader.LoadSymbols(symbols));
   EXPECT_NE(real_func, nullptr);
   EXPECT_EQ(fake_func, nullptr);
+}
+
+TEST(DynamicLibraryLoaderTest, LoadSymbolsMinApiEqualToCurrentLoads) {
+  DynamicLibraryLoader loader(kLibName);
+  ASSERT_TRUE(loader.IsLoaded()) << kLibName << " not found on device";
+
+  void* func = nullptr;
+  std::vector<SymbolInfo> symbols = {
+      {kSymbolA, &func, DynamicLibraryLoader::GetApiVersion()},
+  };
+  EXPECT_TRUE(loader.LoadSymbols(symbols));
+  EXPECT_NE(func, nullptr);
+}
+
+TEST(DynamicLibraryLoaderTest, LoadSymbolsResetsNonNullTargetOnSkip) {
+  DynamicLibraryLoader loader(kLibName);
+  ASSERT_TRUE(loader.IsLoaded()) << kLibName << " not found on device";
+
+  void* target = reinterpret_cast<void*>(0x1234);
+  std::vector<SymbolInfo> symbols = {
+      {"dummy_symbol", &target, 99999},
+  };
+  EXPECT_FALSE(loader.LoadSymbols(symbols));
+  EXPECT_EQ(target, nullptr);
+}
+
+TEST(DynamicLibraryLoaderTest, GetApiVersionIsStableAcrossCalls) {
+  int first = DynamicLibraryLoader::GetApiVersion();
+  int second = DynamicLibraryLoader::GetApiVersion();
+  EXPECT_GT(first, 0);
+  EXPECT_EQ(first, second);
+}
+
+TEST(DynamicLibraryLoaderTest, DestructorClosesLoadedHandle) {
+  bool was_loaded = false;
+  EXPECT_NO_FATAL_FAILURE({
+    DynamicLibraryLoader loader("libc.so");
+    was_loaded = loader.IsLoaded();
+  });
+  EXPECT_TRUE(was_loaded);
 }
 
 }  // namespace testing

@@ -4,14 +4,20 @@
  * found in the LICENSE_HW file.
  */
 
-#include "flutter/shell/platform/ohos/ohos_shell_holder.h"
-
 #include <gtest/gtest.h>
 
+#include <chrono>
 #include <memory>
 #include <string>
+#include <thread>
+#include <unordered_map>
 
+#include "flutter/lib/ui/semantics/semantics_node.h"
 #include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
+
+#define private public
+#include "flutter/shell/platform/ohos/ohos_shell_holder.h"
+#undef private
 
 namespace flutter {
 namespace testing {
@@ -244,6 +250,90 @@ TEST(OHOSShellHolder, GetWindowControllerIsCreatedForMainHolder) {
       std::make_unique<OHOSShellHolder>(settings, napi_facade, nullptr);
   ASSERT_NE(holder->GetWindowController(), nullptr);
   EXPECT_EQ(holder->GetWindowController()->GetNapiFacade(), napi_facade);
+}
+
+static Settings MakeNoKernelSettings() {
+  auto settings = MakeTestSettings();
+  settings.application_kernel_asset = "/nonexistent_ut_kernel_blob";
+  return settings;
+}
+
+TEST(OHOSShellHolder, LaunchWithoutKernelBlobReturnsEarly) {
+  auto settings = MakeNoKernelSettings();
+  auto napi_facade = std::make_shared<PlatformViewOHOSNapi>(nullptr);
+  auto holder =
+      std::make_unique<OHOSShellHolder>(settings, napi_facade, nullptr);
+  ASSERT_TRUE(holder->IsValid());
+  EXPECT_NO_FATAL_FAILURE(holder->Launch(nullptr, "main", "", {}));
+}
+
+TEST(OHOSShellHolder, SpawnWithoutKernelBlobReturnsNull) {
+  auto settings = MakeNoKernelSettings();
+  auto napi_facade = std::make_shared<PlatformViewOHOSNapi>(nullptr);
+  auto holder =
+      std::make_unique<OHOSShellHolder>(settings, napi_facade, nullptr);
+  ASSERT_TRUE(holder->IsValid());
+  EXPECT_EQ(holder->Spawn(napi_facade, "main", "", "", {}), nullptr);
+}
+
+TEST(OHOSShellHolder, SpawnAsyncWithoutKernelBlobReturnsNull) {
+  auto settings = MakeNoKernelSettings();
+  auto napi_facade = std::make_shared<PlatformViewOHOSNapi>(nullptr);
+  auto holder =
+      std::make_unique<OHOSShellHolder>(settings, napi_facade, nullptr);
+  ASSERT_TRUE(holder->IsValid());
+  EXPECT_EQ(holder->SpawnAsync(napi_facade, "main", "", "", {}), nullptr);
+}
+
+TEST(OHOSShellHolder, DartMemoryMonitorCycle) {
+  auto settings = MakeTestSettings();
+  auto napi_facade = std::make_shared<PlatformViewOHOSNapi>(nullptr);
+  auto holder =
+      std::make_unique<OHOSShellHolder>(settings, napi_facade, nullptr);
+  ASSERT_TRUE(holder->IsValid());
+
+  holder->StopDartMemoryMonitor();
+  EXPECT_FALSE(holder->memory_monitor_running_);
+  EXPECT_NO_FATAL_FAILURE(
+      holder->ScheduleDartMemoryMonitor());  // stopped: early return
+
+  holder->memory_monitor_running_ = true;
+  EXPECT_NO_FATAL_FAILURE(holder->CheckDartHeapMemory());  // 0 < threshold
+  EXPECT_TRUE(holder->memory_monitor_running_);            // re-armed
+  holder->StopDartMemoryMonitor();
+  EXPECT_FALSE(holder->memory_monitor_running_);
+}
+
+TEST(OHOSShellHolder, ExecuteActionSyncGuards) {
+  auto settings = MakeTestSettings();
+  auto napi_facade = std::make_shared<PlatformViewOHOSNapi>(nullptr);
+  auto holder =
+      std::make_unique<OHOSShellHolder>(settings, napi_facade, nullptr);
+  ASSERT_TRUE(holder->IsValid());
+  EXPECT_EQ(holder->ExecuteAction(
+                1, ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_CLICK, nullptr),
+            ARKUI_ACCESSIBILITY_NATIVE_RESULT_FAILED);
+
+  static char provider_storage;
+  holder->SetAccessibilityProvider(
+      reinterpret_cast<ArkUI_AccessibilityProvider*>(&provider_storage));
+  SemanticsNode root;
+  root.id = 0;
+  SemanticsNode child;
+  child.id = 1;
+  root.childrenInTraversalOrder = {1};
+  std::unordered_map<int32_t, SemanticsNode> nodes;
+  nodes[0] = root;
+  nodes[1] = child;
+  {
+    std::lock_guard<std::mutex> lock(*holder->bridge_mutex_);
+    holder->bridge_->tree_.UpdateWithNodes(nodes);
+  }
+  EXPECT_EQ(holder->ExecuteAction(
+                99, ARKUI_ACCESSIBILITY_NATIVE_ACTION_TYPE_CLICK, nullptr),
+            ARKUI_ACCESSIBILITY_NATIVE_RESULT_FAILED);
+
+  holder->SetAccessibilityProvider(nullptr);
 }
 
 }  // namespace testing

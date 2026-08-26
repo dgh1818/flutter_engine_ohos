@@ -11,10 +11,8 @@
 #define protected public
 
 #include <cstring>
-
 #include <rawfile/raw_file.h>
 #include <rawfile/raw_file_manager.h>
-
 #include "flutter/shell/platform/ohos/ohos_asset_provider.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -149,7 +147,6 @@ TEST(OHOSAssetProvider, GetTypeReturnsApkAssetProviderForSharedPtr) {
 }
 
 // ===== operator== with non-OHOS AssetResolver =====
-//
 // NOTE: The static_cast<const AssetResolver&> below is required because this
 // engine is compiled with -std=c++20, which introduces rewritten operator
 // lookup rules (P1185R2 / P1630R1). When both sides of == override
@@ -197,7 +194,6 @@ TEST(OHOSAssetProvider, OperatorEqualsReturnsFalseWhenBothAreNonOHOS) {
 // ===== GetAsMapping with null handle =====
 // NDK docs guarantee OH_ResourceManager_OpenRawFile returns nullptr when mgr
 // is null, so we can safely test GetAsMapping's null pointer branch with a
-// null handle.
 
 // GetAsMapping should return nullptr when handle is null (default dir)
 TEST(OHOSAssetProvider, GetAsMappingReturnsNullWithNullHandle) {
@@ -232,26 +228,30 @@ TEST(OHOSAssetProvider, GetAsMappingReturnsNullWithNullSharedPtrImpl) {
   EXPECT_EQ(mapping, nullptr);
 }
 
-// ===== Indirectly test FileDescriptionMapping via stub NDK functions =====
 // FileDescriptionMapping is defined inside the .cpp and cannot be accessed
 // directly. But GetAsMapping() calls OH_ResourceManager_OpenRawFile, and if
-// it returns non-null, a FileDescriptionMapping is constructed. We define
-// same-name extern "C" stub functions to override the dynamic library
-// implementations, thereby indirectly testing FileDescriptionMapping's methods.
 
 static constexpr char kMockRawFileData[] = "Hello OHOS!";
 static constexpr size_t kMockRawFileSize = 12;  // strlen("Hello OHOS!") + 1
+
 static int s_open_raw_file_call_count = 0;
 static int s_close_raw_file_call_count = 0;
 static int s_read_raw_file_call_count = 0;
 static bool s_open_raw_file_return_null = false;
+static bool s_open_raw_file_fail_first = false;
+static const char* s_raw_file_data = kMockRawFileData;
+static size_t s_raw_file_size = kMockRawFileSize;
+static bool s_read_raw_file_return_negative = false;
 
 // Stub: OH_ResourceManager_OpenRawFile
 extern "C" RawFile* OH_ResourceManager_OpenRawFile(
     const NativeResourceManager* mgr,
     const char* fileName) {
-  s_open_raw_file_call_count++;
+  const int call_index = ++s_open_raw_file_call_count;
   if (s_open_raw_file_return_null || mgr == nullptr) {
+    return nullptr;
+  }
+  if (s_open_raw_file_fail_first && call_index == 1) {
     return nullptr;
   }
   // Return a non-null fake pointer indicating successful open
@@ -263,7 +263,7 @@ extern "C" long OH_ResourceManager_GetRawFileSize(RawFile* rawFile) {
   if (rawFile == nullptr) {
     return 0;
   }
-  return static_cast<long>(kMockRawFileSize);
+  return static_cast<long>(s_raw_file_size);
 }
 
 // Stub: OH_ResourceManager_ReadRawFile
@@ -271,11 +271,14 @@ extern "C" int OH_ResourceManager_ReadRawFile(const RawFile* rawFile,
                                               void* buf,
                                               size_t length) {
   s_read_raw_file_call_count++;
+  if (s_read_raw_file_return_negative) {
+    return -1;
+  }
   if (rawFile == nullptr || buf == nullptr) {
     return 0;
   }
-  size_t copy_len = length < kMockRawFileSize ? length : kMockRawFileSize;
-  memcpy(buf, kMockRawFileData, copy_len);
+  size_t copy_len = length < s_raw_file_size ? length : s_raw_file_size;
+  memcpy(buf, s_raw_file_data, copy_len);
   return static_cast<int>(copy_len);
 }
 
@@ -291,6 +294,10 @@ void ResetStubState() {
   s_close_raw_file_call_count = 0;
   s_read_raw_file_call_count = 0;
   s_open_raw_file_return_null = false;
+  s_open_raw_file_fail_first = false;
+  s_raw_file_data = kMockRawFileData;
+  s_raw_file_size = kMockRawFileSize;
+  s_read_raw_file_return_negative = false;
 }
 
 class StubStateResetter : public ::testing::EmptyTestEventListener {
@@ -305,21 +312,43 @@ struct StubStateResetterRegistrar {
   }
 } g_stub_resetter_registrar;
 
+static void RequireRawFileStubWorld() {}
+
+static int OpenRawFileCallCount() { return s_open_raw_file_call_count; }
+static int CloseRawFileCallCount() { return s_close_raw_file_call_count; }
+static int ReadRawFileCallCount() { return s_read_raw_file_call_count; }
+static void ForceAllOpensFail() { s_open_raw_file_return_null = true; }
+static void ForceFirstOpenFail() { s_open_raw_file_fail_first = true; }
+static void ForceNegativeReadResult() {
+  s_read_raw_file_return_negative = true;
+}
+static void SetStubRawFileSize(size_t size) { s_raw_file_size = size; }
+
+void SetRawFileStubContent(const char* data, size_t size) {
+  s_raw_file_data = (data != nullptr) ? data : kMockRawFileData;
+  s_raw_file_size = (data != nullptr) ? size : kMockRawFileSize;
+}
+
+void SetRawFileStubOpenFail(bool fail) {
+  s_open_raw_file_return_null = fail;
+}
 // ===== GetAsMapping success path: returns non-null Mapping =====
 
 // GetAsMapping should return non-null Mapping when handle is non-null and
 // OpenRawFile succeeds
 TEST(OHOSAssetProvider, GetAsMappingReturnsMappingWhenOpenSucceeds) {
+  RequireRawFileStubWorld();
   void* handle = reinterpret_cast<void*>(0x1234);
   OHOSAssetProvider provider(handle, "my_assets");
   auto mapping = provider.GetAsMapping("test.txt");
   ASSERT_NE(mapping, nullptr);
   // First OpenRawFile succeeds, should not fall back
-  EXPECT_EQ(s_open_raw_file_call_count, 1);
+  EXPECT_EQ(OpenRawFileCallCount(), 1);
 }
 
 // GetAsMapping's returned Mapping GetSize should return RawFileSize
 TEST(OHOSAssetProvider, GetAsMappingMappingGetSizeReturnsRawFileSize) {
+  RequireRawFileStubWorld();
   void* handle = reinterpret_cast<void*>(0x1234);
   OHOSAssetProvider provider(handle, "my_assets");
   auto mapping = provider.GetAsMapping("test.txt");
@@ -329,6 +358,7 @@ TEST(OHOSAssetProvider, GetAsMappingMappingGetSizeReturnsRawFileSize) {
 
 // GetAsMapping's returned Mapping GetMapping should return non-null pointer
 TEST(OHOSAssetProvider, GetAsMappingMappingGetMappingReturnsNonNull) {
+  RequireRawFileStubWorld();
   void* handle = reinterpret_cast<void*>(0x1234);
   OHOSAssetProvider provider(handle, "my_assets");
   auto mapping = provider.GetAsMapping("test.txt");
@@ -338,12 +368,13 @@ TEST(OHOSAssetProvider, GetAsMappingMappingGetMappingReturnsNonNull) {
 
 // GetAsMapping's returned Mapping GetMapping should contain the read file data
 TEST(OHOSAssetProvider, GetAsMappingMappingContainsFileData) {
+  RequireRawFileStubWorld();
   void* handle = reinterpret_cast<void*>(0x1234);
   OHOSAssetProvider provider(handle, "my_assets");
   auto mapping = provider.GetAsMapping("test.txt");
   ASSERT_NE(mapping, nullptr);
   // ReadFile was called during construction -> OH_ResourceManager_ReadRawFile
-  EXPECT_GT(s_read_raw_file_call_count, 0);
+  EXPECT_GT(ReadRawFileCallCount(), 0);
   const uint8_t* data = mapping->GetMapping();
   ASSERT_NE(data, nullptr);
   // Verify the content matches the data written by the stub
@@ -352,6 +383,7 @@ TEST(OHOSAssetProvider, GetAsMappingMappingContainsFileData) {
 
 // GetAsMapping's returned Mapping IsDontNeedSafe should return false
 TEST(OHOSAssetProvider, GetAsMappingMappingIsDontNeedSafeReturnsFalse) {
+  RequireRawFileStubWorld();
   void* handle = reinterpret_cast<void*>(0x1234);
   OHOSAssetProvider provider(handle, "my_assets");
   auto mapping = provider.GetAsMapping("test.txt");
@@ -361,41 +393,45 @@ TEST(OHOSAssetProvider, GetAsMappingMappingIsDontNeedSafeReturnsFalse) {
 
 // GetAsMapping's Mapping destructor should call OH_ResourceManager_CloseRawFile
 TEST(OHOSAssetProvider, GetAsMappingMappingDestructorClosesRawFile) {
+  RequireRawFileStubWorld();
   void* handle = reinterpret_cast<void*>(0x1234);
   OHOSAssetProvider provider(handle, "my_assets");
   {
     auto mapping = provider.GetAsMapping("test.txt");
     ASSERT_NE(mapping, nullptr);
-    EXPECT_EQ(s_close_raw_file_call_count, 0);
+    EXPECT_EQ(CloseRawFileCallCount(), 0);
   }  // mapping destructor
-  EXPECT_EQ(s_close_raw_file_call_count, 1);
+  EXPECT_EQ(CloseRawFileCallCount(), 1);
 }
 
 // GetAsMapping should fall back when first OpenRawFile fails
 TEST(OHOSAssetProvider, GetAsMappingFallbackWhenFirstOpenFails) {
+  RequireRawFileStubWorld();
   void* handle = reinterpret_cast<void*>(0x1234);
   OHOSAssetProvider provider(handle, "my_assets");
   // With custom dir, first try uses dir + "/" + name, second try uses name
   auto mapping = provider.GetAsMapping("test.txt");
   ASSERT_NE(mapping, nullptr);
   // First attempt succeeds, should not fall back
-  EXPECT_EQ(s_open_raw_file_call_count, 1);
+  EXPECT_EQ(OpenRawFileCallCount(), 1);
 }
 
 // GetAsMapping should return nullptr when both first and fallback opens fail
 TEST(OHOSAssetProvider, GetAsMappingReturnsNullWhenAllOpensFail) {
-  s_open_raw_file_return_null = true;
+  RequireRawFileStubWorld();
+  ForceAllOpensFail();
   void* handle = reinterpret_cast<void*>(0x1234);
   OHOSAssetProvider provider(handle, "my_assets");
   auto mapping = provider.GetAsMapping("test.txt");
   EXPECT_EQ(mapping, nullptr);
   // Should attempt twice: first with relativePath, then fallback asset_name
-  EXPECT_EQ(s_open_raw_file_call_count, 2);
+  EXPECT_EQ(OpenRawFileCallCount(), 2);
 }
 
 // GetAsMapping should correctly pass handle to OH_ResourceManager_OpenRawFile
 // when handle is non-null but treated as NativeResourceManager
 TEST(OHOSAssetProvider, GetAsMappingPassesHandleToOpenRawFile) {
+  RequireRawFileStubWorld();
   void* handle = reinterpret_cast<void*>(0xBEEF);
   OHOSAssetProvider provider(handle, "assets");
   auto mapping = provider.GetAsMapping("file.txt");
@@ -404,6 +440,7 @@ TEST(OHOSAssetProvider, GetAsMappingPassesHandleToOpenRawFile) {
 
 // GetAsMapping's returned Mapping GetSize should be consistent across calls
 TEST(OHOSAssetProvider, GetAsMappingMappingGetSizeConsistent) {
+  RequireRawFileStubWorld();
   void* handle = reinterpret_cast<void*>(0x1234);
   OHOSAssetProvider provider(handle, "my_assets");
   auto mapping = provider.GetAsMapping("test.txt");
@@ -416,6 +453,7 @@ TEST(OHOSAssetProvider, GetAsMappingMappingGetSizeConsistent) {
 
 // GetAsMapping's returned Mapping GetMapping should return the same pointer across calls
 TEST(OHOSAssetProvider, GetAsMappingMappingGetMappingConsistent) {
+  RequireRawFileStubWorld();
   void* handle = reinterpret_cast<void*>(0x1234);
   OHOSAssetProvider provider(handle, "my_assets");
   auto mapping = provider.GetAsMapping("test.txt");
@@ -423,6 +461,77 @@ TEST(OHOSAssetProvider, GetAsMappingMappingGetMappingConsistent) {
   const uint8_t* ptr1 = mapping->GetMapping();
   const uint8_t* ptr2 = mapping->GetMapping();
   EXPECT_EQ(ptr1, ptr2);
+}
+
+TEST(OHOSAssetProvider, MappingToleratesNegativeReadResult) {
+  RequireRawFileStubWorld();
+  ForceNegativeReadResult();
+  void* handle = reinterpret_cast<void*>(0x1234);
+  OHOSAssetProvider provider(handle, "my_assets");
+  auto mapping = provider.GetAsMapping("test.txt");
+  ASSERT_NE(mapping, nullptr);
+  EXPECT_EQ(ReadRawFileCallCount(), 1);
+  EXPECT_EQ(mapping->GetSize(), kMockRawFileSize);
+  const uint8_t* data = mapping->GetMapping();
+  ASSERT_NE(data, nullptr);
+  EXPECT_EQ(data[0], 0);
+}
+
+TEST(OHOSAssetProvider, ZeroSizeRawFileSkipsBufferAllocation) {
+  RequireRawFileStubWorld();
+  SetStubRawFileSize(0);
+  void* handle = reinterpret_cast<void*>(0x1234);
+  OHOSAssetProvider provider(handle, "my_assets");
+  {
+    auto mapping = provider.GetAsMapping("empty.bin");
+    ASSERT_NE(mapping, nullptr);
+    EXPECT_EQ(mapping->GetSize(), 0u);
+    EXPECT_EQ(mapping->GetMapping(), nullptr);
+    EXPECT_EQ(ReadRawFileCallCount(), 0);
+    EXPECT_EQ(CloseRawFileCallCount(), 0);
+  }
+  EXPECT_EQ(CloseRawFileCallCount(), 1);
+}
+
+TEST(OHOSAssetProvider, GetAsMappingFallbackSecondOpenSucceeds) {
+  RequireRawFileStubWorld();
+  ForceFirstOpenFail();
+  void* handle = reinterpret_cast<void*>(0x1234);
+  OHOSAssetProvider provider(handle, "my_assets");
+  auto mapping = provider.GetAsMapping("test.txt");
+  ASSERT_NE(mapping, nullptr);
+  EXPECT_EQ(OpenRawFileCallCount(), 2);
+  EXPECT_EQ(mapping->GetSize(), kMockRawFileSize);
+  const uint8_t* data = mapping->GetMapping();
+  ASSERT_NE(data, nullptr);
+  EXPECT_EQ(memcmp(data, kMockRawFileData, kMockRawFileSize), 0);
+}
+
+TEST(OHOSAssetProvider, MappingServesConfiguredContent) {
+  RequireRawFileStubWorld();
+  static const char kJson[] = "{\"SWITCH\":1}";
+  SetRawFileStubContent(kJson, sizeof(kJson) - 1);
+  void* handle = reinterpret_cast<void*>(0x1234);
+  OHOSAssetProvider provider(handle, "my_assets");
+  auto mapping = provider.GetAsMapping("framesconfig.json");
+  ASSERT_NE(mapping, nullptr);
+  EXPECT_EQ(mapping->GetSize(), sizeof(kJson) - 1);
+  EXPECT_EQ(memcmp(mapping->GetMapping(), kJson, sizeof(kJson) - 1), 0);
+}
+
+TEST(OHOSAssetProvider, HugeRawFileSizeMallocFailureKeepsBufferNull) {
+  RequireRawFileStubWorld();
+  SetStubRawFileSize(1ULL << 62);
+  void* handle = reinterpret_cast<void*>(0x1234);
+  OHOSAssetProvider provider(handle, "my_assets");
+  {
+    auto mapping = provider.GetAsMapping("huge.bin");
+    ASSERT_NE(mapping, nullptr);
+    EXPECT_EQ(mapping->GetSize(), 1ULL << 62);
+    EXPECT_EQ(mapping->GetMapping(), nullptr);
+    EXPECT_EQ(ReadRawFileCallCount(), 0);
+  }
+  EXPECT_EQ(CloseRawFileCallCount(), 1);
 }
 
 }  // namespace testing

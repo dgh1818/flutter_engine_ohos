@@ -4,12 +4,7 @@
  * found in the LICENSE_HW file.
  */
 
-#include "flutter/fml/build_config.h"
-
-#if defined(FML_OS_OHOS)
-
 #include <qos/qos.h>
-
 #include "flutter/fml/thread.h"
 #include "gtest/gtest.h"
 
@@ -71,4 +66,3 @@ TEST(QoSFallbackOhosTest, ThreadConfigSetterDoesNotCrash) {
 }  // namespace testing
 }  // namespace flutter
 
-#endif  // defined(FML_OS_OHOS)

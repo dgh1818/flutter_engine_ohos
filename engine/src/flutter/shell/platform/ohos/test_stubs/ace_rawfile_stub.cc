@@ -3,6 +3,7 @@
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE_HW file.
  */
+
 #include "rawfile/raw_file_manager.h"
 
 extern "C" {

@@ -5,11 +5,8 @@
  */
 
 #include "flutter/shell/platform/ohos/accessibility/ohos_semantics_node.h"
-
 #include <dlfcn.h>
-
 #include <gtest/gtest.h>
-
 #include "flutter/lib/ui/semantics/semantics_node.h"
 
 // The ArkUI NDK has no getters on ArkUI_AccessibilityElementInfo, so
@@ -85,7 +82,6 @@ class SemanticsNodeTest : public ::testing::Test {
 // ============================================================================
 // NOTE: This file uses the flutter3.41 SemanticsFlags API, which differs from
 // flutter3.35 due to an upstream (non-OHOS) refactor of semantics_flags.h:
-//
 //   - hasCheckedState (bool) + isChecked (bool)  -> isChecked (SemanticsCheckState)
 //   - hasToggledState (bool) + isToggled (bool)  -> isToggled (SemanticsTristate)
 //   - hasEnabledState (bool) + isEnabled (bool)  -> isEnabled (SemanticsTristate)
@@ -93,7 +89,6 @@ class SemanticsNodeTest : public ::testing::Test {
 //                                                  derives focusability from
 //                                                  other flags like isTextField)
 //   - isFocused (bool)                           -> isFocused (SemanticsTristate)
-//
 // flutter3.35 retains the old bool-pair API, so its test file uses
 // hasCheckedState/isToggled=true/isFocusable=true etc. directly. These
 // differences are intentional and should NOT be synced between branches.
@@ -2064,6 +2059,103 @@ TEST_F(SemanticsNodeTest, UpdateWithNodeKeepsIdentifierWhenOnlyValueChanged) {
   EXPECT_TRUE(node_.contentChanged);
   EXPECT_EQ(node_.identifier, "id");
   EXPECT_EQ(node_.value, "b");
+}
+
+TEST_F(SemanticsNodeTest, HasChangedLabelTrueWhenLabelEmptyPrevNonEmpty) {
+  node_.previousLabel = "old";
+  EXPECT_TRUE(node_.HasChangedLabel());
+}
+
+TEST_F(SemanticsNodeTest, HasChangedLabelTrueWhenLabelNonEmptyPrevEmpty) {
+  node_.label = "new";
+  EXPECT_TRUE(node_.HasChangedLabel());
+}
+
+TEST_F(SemanticsNodeTest, HasChangedLabelTrueWhenBothNonEmptyAndDifferent) {
+  node_.label = "new";
+  node_.previousLabel = "old";
+  EXPECT_TRUE(node_.HasChangedLabel());
+}
+
+TEST_F(SemanticsNodeTest, HasChangedLabelFalseWhenBothNonEmptyAndEqual) {
+  node_.label = "same";
+  node_.previousLabel = "same";
+  EXPECT_FALSE(node_.HasChangedLabel());
+}
+
+TEST_F(SemanticsNodeTest, IsFocusableTrueWhenPlatformViewNode) {
+  node_.platformViewId = 7;
+  EXPECT_TRUE(node_.IsFocusable());
+}
+
+TEST_F(SemanticsNodeTest, IsFocusableTrueWhenSelected) {
+  node_.flags.isSelected = SemanticsTristate::kTrue;
+  EXPECT_TRUE(node_.IsFocusable());
+  EXPECT_TRUE(node_.IsSelected());
+}
+
+TEST_F(SemanticsNodeTest, IsFocusableTrueWhenFocused) {
+  node_.flags.isFocused = SemanticsTristate::kTrue;
+  EXPECT_TRUE(node_.IsFocusable());
+  EXPECT_TRUE(node_.IsFocused());
+}
+
+TEST_F(SemanticsNodeTest, IsFocusableTrueWhenEnabledTristateSet) {
+  node_.flags.isEnabled = SemanticsTristate::kTrue;
+  EXPECT_TRUE(node_.IsFocusable());
+  EXPECT_TRUE(node_.IsEnabled());
+  node_.flags.isEnabled = SemanticsTristate::kFalse;
+  EXPECT_TRUE(node_.IsFocusable());
+  EXPECT_FALSE(node_.IsEnabled());
+}
+
+TEST_F(SemanticsNodeTest, IsFocusableTrueWhenInMutuallyExclusiveGroup) {
+  node_.flags.isInMutuallyExclusiveGroup = true;
+  EXPECT_TRUE(node_.IsFocusable());
+}
+
+TEST_F(SemanticsNodeTest, IsFocusableTrueWhenToggledStateSet) {
+  node_.flags.isToggled = SemanticsTristate::kFalse;
+  EXPECT_TRUE(node_.IsFocusable());
+}
+
+TEST_F(SemanticsNodeTest, IsFocusableTrueWhenSliderFlag) {
+  node_.flags.isSlider = true;
+  EXPECT_TRUE(node_.IsFocusable());
+  EXPECT_TRUE(node_.IsSlider());
+}
+
+TEST_F(SemanticsNodeTest, IsCheckableTrueWhenCheckStateNotNone) {
+  node_.flags.isChecked = SemanticsCheckState::kFalse;
+  EXPECT_TRUE(node_.IsCheckable());
+}
+
+TEST_F(SemanticsNodeTest, IsCheckedTrueWhenCheckStateTrue) {
+  node_.flags.isChecked = SemanticsCheckState::kTrue;
+  EXPECT_TRUE(node_.IsChecked());
+}
+
+TEST_F(SemanticsNodeTest, IsCheckedFalseWhenCheckStateMixedWithoutToggle) {
+  node_.flags.isChecked = SemanticsCheckState::kMixed;
+  EXPECT_FALSE(node_.IsChecked());
+}
+
+TEST_F(SemanticsNodeTest, IsPasswordFalseWhenTextFieldNotObscured) {
+  node_.flags.isTextField = true;
+  EXPECT_FALSE(node_.IsPassword());
+}
+
+TEST_F(SemanticsNodeTest, IsScrollableForEachSingleScrollAction) {
+  const SemanticsAction scroll_actions[] = {
+      SemanticsAction::kScrollLeft, SemanticsAction::kScrollRight,
+      SemanticsAction::kScrollUp, SemanticsAction::kScrollDown};
+  for (auto action : scroll_actions) {
+    SemanticsNodeExtend node;
+    node.id = 1;
+    node.actions = static_cast<int32_t>(action);
+    EXPECT_TRUE(node.IsScrollable());
+  }
+  EXPECT_FALSE(node_.IsScrollable());
 }
 
 }  // namespace testing

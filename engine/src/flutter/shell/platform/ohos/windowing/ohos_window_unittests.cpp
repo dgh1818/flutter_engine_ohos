@@ -4,30 +4,21 @@
  * found in the LICENSE_HW file.
  */
 
-// Unit tests for the OHOSWindow base class and its Regular/Dialog/Tooltip/
-// Popup subclasses.
-//
-// Only the controller-independent logic is exercised here (constructor params,
-// callbacks, geometry/constraints, title cache, birth sizing). The
-// facade-touching RequestWindowHost/RequestUiAbilityHost dispatch (base,
-// Regular, Dialog kUiAbility/kSubWindow, anchored) needs a real
-// OHOSWindowController whose GetNapiFacade() answers null, so those live in
-// ohos_window_controller_unittests.cpp — see the shared fixture there.
-
-#include "flutter/fml/build_config.h"  // IWYU pragma: keep  (defines FML_OS_OHOS)
-
-#if defined(FML_OS_OHOS)
-
 #include <gtest/gtest.h>
-
 #include <cstdint>
 #include <cstdlib>
-
+#include <memory>
+#include <new>
+#include <utility>
 #include "flutter/shell/platform/ohos/windowing/ohos_window.h"
 #include "flutter/shell/platform/ohos/windowing/ohos_window_dialog.h"
 #include "flutter/shell/platform/ohos/windowing/ohos_window_popup.h"
 #include "flutter/shell/platform/ohos/windowing/ohos_window_regular.h"
 #include "flutter/shell/platform/ohos/windowing/ohos_window_tooltip.h"
+
+#define private public
+#include "flutter/shell/platform/ohos/ohos_shell_holder.h"
+#undef private
 
 namespace flutter {
 namespace testing {
@@ -110,7 +101,37 @@ OHOSWindow::InitParams MakeParams(WindowType type = WindowType::kRegular,
   return params;
 }
 
-}  // namespace
+class FakeFacadeHolder {
+ public:
+  struct alignas(OHOSShellHolder) Storage {
+    unsigned char bytes[sizeof(OHOSShellHolder)];
+  };
+
+  FakeFacadeHolder() : storage_(new Storage{}) {
+    holder_ = reinterpret_cast<OHOSShellHolder*>(storage_);
+    new (&holder_->napi_facade_) std::shared_ptr<PlatformViewOHOSNapi>();
+    controller_ = std::make_unique<OHOSWindowController>(holder_);
+  }
+
+  ~FakeFacadeHolder() {
+    controller_.reset();
+    std::destroy_at(&holder_->napi_facade_);
+    delete storage_;
+  }
+
+  void SetFacade(std::shared_ptr<PlatformViewOHOSNapi> facade) {
+    holder_->napi_facade_ = std::move(facade);
+  }
+
+  OHOSWindowController* controller() const { return controller_.get(); }
+
+ private:
+  Storage* storage_;
+  OHOSShellHolder* holder_;
+  std::unique_ptr<OHOSWindowController> controller_;
+};
+
+}
 
 // ---------------------------------------------------------------------------
 // Construction + accessors
@@ -366,7 +387,83 @@ TEST(OHOSWindowTest, SubclassConstructionCarriesOwnType) {
   EXPECT_EQ(popup.type(), WindowType::kPopup);
 }
 
+TEST(OHOSWindowTest, RequestWindowHostWithoutFacadeEarlyReturns) {
+  FakeFacadeHolder holder;
+  EXPECT_EQ(holder.controller()->GetNapiFacade().get(), nullptr);
+  OHOSWindow window(holder.controller(),
+                    MakeParams(WindowType::kDialog,
+                               WindowHostKind::kSubWindow, 7, 3),
+                    {});
+  EXPECT_NO_FATAL_FAILURE(window.RequestWindowHost());
+}
+
+TEST(OHOSWindowTest, RequestWindowHostWithFacadeDispatches) {
+  FakeFacadeHolder holder;
+  auto facade = std::make_shared<PlatformViewOHOSNapi>(nullptr);
+  holder.SetFacade(facade);
+  EXPECT_EQ(holder.controller()->GetNapiFacade().get(), facade.get());
+
+  FlutterWindowCreationRequest request = {};
+  request.has_size = true;
+  request.size = {640.0, 480.0};
+  OHOSWindow window(holder.controller(),
+                    MakeParams(WindowType::kDialog,
+                               WindowHostKind::kSubWindow, 7, 3),
+                    request);
+  EXPECT_NO_FATAL_FAILURE(window.RequestWindowHost());
+}
+
+TEST(OHOSWindowTest, RequestUiAbilityHostWithoutFacadeEarlyReturns) {
+  FakeFacadeHolder holder;
+  EXPECT_EQ(holder.controller()->GetNapiFacade().get(), nullptr);
+  OHOSWindowRegular window(holder.controller(),
+                           MakeParams(WindowType::kRegular,
+                                      WindowHostKind::kUiAbility, 7, 0),
+                           {});
+  EXPECT_NO_FATAL_FAILURE(window.RequestWindowHost());
+}
+
+TEST(OHOSWindowTest, RequestUiAbilityHostAdoptsEntryAbilityWithSize) {
+  FakeFacadeHolder holder;
+  holder.SetFacade(std::make_shared<PlatformViewOHOSNapi>(nullptr));
+  ASSERT_NE(holder.controller()->GetNapiFacade(), nullptr);
+
+  FlutterWindowCreationRequest request = {};
+  request.has_size = true;
+  request.size = {800.0, 600.0};
+  OHOSWindowRegular window(
+      holder.controller(),
+      MakeParams(WindowType::kRegular, WindowHostKind::kUiAbility,
+                 kFlutterImplicitViewId, 0),
+      request);
+  EXPECT_NO_FATAL_FAILURE(window.RequestWindowHost());
+}
+
+TEST(OHOSWindowTest, RequestUiAbilityHostAdoptsEntryAbilityWithoutSize) {
+  FakeFacadeHolder holder;
+  holder.SetFacade(std::make_shared<PlatformViewOHOSNapi>(nullptr));
+  ASSERT_NE(holder.controller()->GetNapiFacade(), nullptr);
+
+  OHOSWindowRegular window(
+      holder.controller(),
+      MakeParams(WindowType::kRegular, WindowHostKind::kUiAbility,
+                 kFlutterImplicitViewId, 0),
+      {});
+  EXPECT_NO_FATAL_FAILURE(window.RequestWindowHost());
+}
+
+TEST(OHOSWindowTest, RequestUiAbilityHostCreatesRegularAbility) {
+  FakeFacadeHolder holder;
+  holder.SetFacade(std::make_shared<PlatformViewOHOSNapi>(nullptr));
+  ASSERT_NE(holder.controller()->GetNapiFacade(), nullptr);
+
+  OHOSWindowRegular window(holder.controller(),
+                           MakeParams(WindowType::kRegular,
+                                      WindowHostKind::kUiAbility, 7, 0),
+                           {});
+  EXPECT_NO_FATAL_FAILURE(window.RequestWindowHost());
+}
+
 }  // namespace testing
 }  // namespace flutter
 
-#endif  // FML_OS_OHOS

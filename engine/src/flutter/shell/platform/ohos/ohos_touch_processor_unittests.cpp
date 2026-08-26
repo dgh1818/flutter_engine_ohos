@@ -12,9 +12,7 @@
 
 #include "flutter/shell/platform/ohos/ohos_touch_processor.h"
 #include "flutter/shell/platform/ohos/ohos_shell_holder.h"
-
 #include <gtest/gtest.h>
-
 #include <cstring>
 #include <memory>
 #include <string>
@@ -706,12 +704,10 @@ TEST(OhosTouchProcessorTest, HandleTouchEventDroppedOnDuplicateDown) {
 }
 
 // ===== Strong stub definitions for NDK and napi functions =====
-//
 // These definitions are strong symbols in the main executable; at link time
 // they take precedence over the same symbols in the shared libraries
 // (standard ELF symbol interposition), allowing us to test functions that
 // depend on NDK/napi runtime without a real device environment.
-//
 // The stubs return safe default values and never dereference opaque pointers.
 
 namespace {
@@ -766,7 +762,33 @@ struct StubStateResetterRegistrar {
         new StubStateResetter());
   }
 } g_stub_resetter_registrar;
-}  // namespace
+
+// Helper to create Settings configured for software rendering (no GPU needed).
+static Settings MakeShellHolderTestSettings() {
+  Settings settings;
+  settings.ohos_rendering_api = OHOSRenderingAPI::kSoftware;
+  return settings;
+}
+
+// Helper to create a valid OHOSShellHolder for integration tests.
+// Returns the shell_holderID (raw pointer cast to int64_t).
+static int64_t CreateShellHolderForTest(
+    std::unique_ptr<OHOSShellHolder>& out_holder) {
+  auto settings = MakeShellHolderTestSettings();
+  auto napi_facade = std::make_shared<PlatformViewOHOSNapi>(nullptr);
+  out_holder = std::make_unique<OHOSShellHolder>(settings, napi_facade, nullptr);
+  EXPECT_TRUE(out_holder->IsValid());
+  return reinterpret_cast<int64_t>(out_holder.get());
+}
+
+// Helper to null out dynamic function pointers loaded via dlsym.
+// These point to real NDK functions that would crash on fake event pointers.
+// Setting them to nullptr makes the code take the safe fallback paths.
+#define NULL_OUT_DYNAMIC_PTRS(processor)        \
+  (processor).dynamicGetDeviceId_ = nullptr;    \
+  (processor).dynamicGetAxisAction_ = nullptr;  \
+  (processor).dynamicGetModifierKeyStates_ = nullptr;
+}
 
 // Stub OH_NativeXComponent touch point functions
 extern "C" int32_t OH_NativeXComponent_GetTouchPointToolType(
@@ -840,89 +862,11 @@ extern "C" double OH_ArkUI_AxisEvent_GetPinchAxisScaleValue(const ArkUI_UIInputE
   return g_stub_pinch_scale_value;
 }
 
-// Stub napi functions — these prevent crashes when PlatformViewOHOSNapi methods
-// are called with a null env_ (which is the case in unit tests since nativeAttach
-// is never called).
-extern "C" napi_status napi_open_handle_scope(napi_env env, napi_handle_scope* result) {
-  if (result) {
-    *result = reinterpret_cast<napi_handle_scope>(0x1);
-  }
-  return napi_ok;
-}
-
-extern "C" napi_status napi_close_handle_scope(napi_env env, napi_handle_scope scope) {
-  return napi_ok;
-}
-
-extern "C" napi_status napi_create_array(napi_env env, napi_value* result) {
-  if (result) {
-    *result = reinterpret_cast<napi_value>(0x2);
-  }
-  return napi_ok;
-}
-
-extern "C" napi_status napi_create_string_utf8(napi_env env, const char* str, size_t length, napi_value* result) {
-  if (result) {
-    *result = reinterpret_cast<napi_value>(0x3);
-  }
-  return napi_ok;
-}
-
-extern "C" napi_status napi_set_element(napi_env env, napi_value object, uint32_t index, napi_value value) {
-  return napi_ok;
-}
-
-extern "C" napi_status napi_get_reference_value(napi_env env, napi_ref ref, napi_value* result) {
-  if (result) {
-    *result = reinterpret_cast<napi_value>(0x4);
-  }
-  return napi_ok;
-}
-
-extern "C" napi_status napi_get_named_property(napi_env env, napi_value object, const char* name, napi_value* result) {
-  if (result) {
-    *result = reinterpret_cast<napi_value>(0x5);
-  }
-  return napi_ok;
-}
-
-extern "C" napi_status napi_call_function(napi_env env, napi_value recv, napi_value fn, size_t argc, const napi_value* argv, napi_value* result) {
-  return napi_ok;
-}
-
 // ===== OHOSShellHolder integration tests =====
 // These tests construct a real OHOSShellHolder (with software rendering) to
 // obtain a valid shell_holderID, then exercise the full Handle*Event paths
 // that were previously untestable. The NDK and napi stubs above ensure these
 // paths don't crash.
-
-namespace {
-// Helper to create Settings configured for software rendering (no GPU needed).
-static Settings MakeShellHolderTestSettings() {
-  Settings settings;
-  settings.ohos_rendering_api = OHOSRenderingAPI::kSoftware;
-  return settings;
-}
-
-// Helper to create a valid OHOSShellHolder for integration tests.
-// Returns the shell_holderID (raw pointer cast to int64_t).
-static int64_t CreateShellHolderForTest(
-    std::unique_ptr<OHOSShellHolder>& out_holder) {
-  auto settings = MakeShellHolderTestSettings();
-  auto napi_facade = std::make_shared<PlatformViewOHOSNapi>(nullptr);
-  out_holder = std::make_unique<OHOSShellHolder>(settings, napi_facade, nullptr);
-  EXPECT_TRUE(out_holder->IsValid());
-  return reinterpret_cast<int64_t>(out_holder.get());
-}
-
-// Helper to null out dynamic function pointers loaded via dlsym.
-// These point to real NDK functions that would crash on fake event pointers.
-// Setting them to nullptr makes the code take the safe fallback paths.
-#define NULL_OUT_DYNAMIC_PTRS(processor)        \
-  (processor).dynamicGetDeviceId_ = nullptr;    \
-  (processor).dynamicGetAxisAction_ = nullptr;  \
-  (processor).dynamicGetModifierKeyStates_ = nullptr;
-}  // namespace
 
 // ===== HandleTouchEvent full path with real OHOSShellHolder =====
 
