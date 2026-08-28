@@ -289,23 +289,23 @@ napi_value PlatformViewOHOSNapi::nativeInvokePlatformMessageResponseCallback(
   return nullptr;
 }
 
-/* void PlatformViewOHOSNapi::FlutterViewHandlePlatformMessageResponse(
-    int responseId,
-    std::unique_ptr<fml::Mapping> data) {
-
-}
- */
 PlatformViewOHOSNapi::PlatformViewOHOSNapi(napi_env env) {}
 PlatformViewOHOSNapi::~PlatformViewOHOSNapi() {
-  FML_DLOG(INFO) << "PlatformViewOHOSNapi Deconstruction";
+  FML_LOG(INFO) << "PlatformViewOHOSNapi Deconstruction";
   uint32_t result = 0;
   if (!ref_napi_obj_) {
-    FML_DLOG(ERROR) << "PlatformViewOHOSNapi ref_napi_obj_ is null !!!";
+    FML_LOG(ERROR) << "PlatformViewOHOSNapi ref_napi_obj_ is null !!!";
     return;
   }
-  napi_reference_unref(env_, ref_napi_obj_, &result);
-  FML_DLOG(INFO) << "PlatformViewOHOSNapi napi_reference_unref, result is "
-                 << result;
+  result = napi_delete_reference(env_, ref_napi_obj_);
+  ref_napi_obj_ = nullptr;
+  FML_LOG(INFO) << "PlatformViewOHOSNapi napi_delete_reference, result is "
+                << result;
+  if (result != napi_ok) {
+    FML_LOG(ERROR) << "PlatformViewOHOSNapi napi_delete_reference "
+                      "failed, result is "
+                   << result;
+  }
 }
 
 void PlatformViewOHOSNapi::FlutterViewHandlePlatformMessageResponse(
@@ -726,12 +726,12 @@ void PlatformViewOHOSNapi::FlutterViewOnPreEngineRestart() {
 }
 
 void PlatformViewOHOSNapi::OnDisplayPlatformViewHybrid(int64_t view_id,
-                                                  double x,
-                                                  double y,
-                                                  double width,
-                                                  double height,
-                                                  double view_width,
-                                                  double view_height) {
+                                                       double x,
+                                                       double y,
+                                                       double width,
+                                                       double height,
+                                                       double view_width,
+                                                       double view_height) {
   napi_handle_scope scope;
   napi_open_handle_scope(env_, &scope);
   napi_value argv[7] = {nullptr};
@@ -742,16 +742,16 @@ void PlatformViewOHOSNapi::OnDisplayPlatformViewHybrid(int64_t view_id,
   napi_create_double(env_, height, &argv[4]);
   napi_create_double(env_, view_width, &argv[5]);
   napi_create_double(env_, view_height, &argv[6]);
-  fml::napi::InvokeJsMethod(env_, ref_napi_obj_, "onDisplayPlatformViewHybrid", 7,
-                            argv);
+  fml::napi::InvokeJsMethod(env_, ref_napi_obj_, "onDisplayPlatformViewHybrid",
+                            7, argv);
   napi_close_handle_scope(env_, scope);
 }
 
 void PlatformViewOHOSNapi::OnDisplayOverlayHybrid(int64_t view_id,
-                                              double x,
-                                              double y,
-                                              double width,
-                                              double height) {
+                                                  double x,
+                                                  double y,
+                                                  double width,
+                                                  double height) {
   napi_handle_scope scope;
   napi_open_handle_scope(env_, &scope);
   napi_value argv[5] = {nullptr};
@@ -760,12 +760,14 @@ void PlatformViewOHOSNapi::OnDisplayOverlayHybrid(int64_t view_id,
   napi_create_double(env_, y, &argv[2]);
   napi_create_double(env_, width, &argv[3]);
   napi_create_double(env_, height, &argv[4]);
-  fml::napi::InvokeJsMethod(env_, ref_napi_obj_, "onDisplayOverlayHybrid", 5, argv);
+  fml::napi::InvokeJsMethod(env_, ref_napi_obj_, "onDisplayOverlayHybrid", 5,
+                            argv);
   napi_close_handle_scope(env_, scope);
 }
 
-void PlatformViewOHOSNapi::OnDisplayMutatorsHybrid(int64_t view_id,
-                                               const std::vector<double>& data) {
+void PlatformViewOHOSNapi::OnDisplayMutatorsHybrid(
+    int64_t view_id,
+    const std::vector<double>& data) {
   napi_handle_scope scope;
   napi_open_handle_scope(env_, &scope);
   napi_value argv[2] = {nullptr};
@@ -778,7 +780,8 @@ void PlatformViewOHOSNapi::OnDisplayMutatorsHybrid(int64_t view_id,
     napi_set_element(env_, array, i, v);
   }
   argv[1] = array;
-  fml::napi::InvokeJsMethod(env_, ref_napi_obj_, "onDisplayMutatorsHybrid", 2, argv);
+  fml::napi::InvokeJsMethod(env_, ref_napi_obj_, "onDisplayMutatorsHybrid", 2,
+                            argv);
   napi_close_handle_scope(env_, scope);
 }
 
@@ -787,10 +790,10 @@ void PlatformViewOHOSNapi::HidePlatformViewHybrid(int64_t view_id) {
   napi_open_handle_scope(env_, &scope);
   napi_value argv[1] = {nullptr};
   napi_create_int64(env_, view_id, &argv[0]);
-  fml::napi::InvokeJsMethod(env_, ref_napi_obj_, "hidePlatformViewHybrid", 1, argv);
+  fml::napi::InvokeJsMethod(env_, ref_napi_obj_, "hidePlatformViewHybrid", 1,
+                            argv);
   napi_close_handle_scope(env_, scope);
 }
-
 
 void PlatformViewOHOSNapi::ShowOverlaySurfaceHybrid() {
   napi_handle_scope scope;
@@ -811,14 +814,16 @@ void PlatformViewOHOSNapi::HideOverlaySurfaceHybrid() {
 void PlatformViewOHOSNapi::OnBeginFrameHybrid() {
   napi_handle_scope scope;
   napi_open_handle_scope(env_, &scope);
-  fml::napi::InvokeJsMethod(env_, ref_napi_obj_, "onBeginFrameHybrid", 0, nullptr);
+  fml::napi::InvokeJsMethod(env_, ref_napi_obj_, "onBeginFrameHybrid", 0,
+                            nullptr);
   napi_close_handle_scope(env_, scope);
 }
 
 void PlatformViewOHOSNapi::OnEndFrameHybrid() {
   napi_handle_scope scope;
   napi_open_handle_scope(env_, &scope);
-  fml::napi::InvokeJsMethod(env_, ref_napi_obj_, "onEndFrameHybrid", 0, nullptr);
+  fml::napi::InvokeJsMethod(env_, ref_napi_obj_, "onEndFrameHybrid", 0,
+                            nullptr);
   napi_close_handle_scope(env_, scope);
 }
 
@@ -899,13 +904,15 @@ napi_value PlatformViewOHOSNapi::nativeDispatchTouchToEngine(
     pd.physical_delta_y = 0.0;
     pd.time_stamp = TouchGetInt64(env, item, "time_stamp");
     pd.pointer_identifier = 0;
-    pd.signal_kind = static_cast<PointerData::SignalKind>(TouchGetInt(env, item, "signal_kind"));
+    pd.signal_kind = static_cast<PointerData::SignalKind>(
+        TouchGetInt(env, item, "signal_kind"));
     pd.scroll_delta_x = 0.0;
     pd.scroll_delta_y = 0.0;
     pd.pressure = TouchGetDouble(env, item, "pressure");
     pd.pressure_max = 1.0;
     pd.pressure_min = 0.0;
-    pd.kind = static_cast<PointerData::DeviceKind>(TouchGetInt(env, item, "kind"));
+    pd.kind =
+        static_cast<PointerData::DeviceKind>(TouchGetInt(env, item, "kind"));
     // Buttons align with HandleTouchEvent:236 — touch contact only while
     // down/move, cleared otherwise; mouse reads from the JS event.
     if (pd.kind == PointerData::DeviceKind::kMouse) {
@@ -1012,13 +1019,13 @@ void PlatformViewOHOSNapi::FlutterViewSetApplicationLocale(std::string locale) {
   napi_handle_scope scope;
   napi_open_handle_scope(env_, &scope);
   napi_value callbackParam[1];
-  napi_status status =
-      napi_create_string_utf8(env_, locale.c_str(), locale.size(), callbackParam);
+  napi_status status = napi_create_string_utf8(env_, locale.c_str(),
+                                               locale.size(), callbackParam);
   if (status != napi_ok) {
     FML_LOG(ERROR) << "napi_create_string_utf8 locale fail";
   }
-  status = fml::napi::InvokeJsMethod(env_, ref_napi_obj_, "onApplicationLocaleChanged",
-                                     1, callbackParam);
+  status = fml::napi::InvokeJsMethod(
+      env_, ref_napi_obj_, "onApplicationLocaleChanged", 1, callbackParam);
   if (status != napi_ok) {
     FML_LOG(ERROR) << "InvokeJsMethod onApplicationLocaleChanged fail";
   }
@@ -1648,7 +1655,7 @@ napi_value PlatformViewOHOSNapi::nativeSetViewportMetrics(
       std::vector<int>(displayFeaturesType.begin(), displayFeaturesType.end()),
       std::vector<int>(displayFeaturesState.begin(),
                        displayFeaturesState.end()),
-      0,  // Display ID
+      0,     // Display ID
       -1.0,  // physical_display_corner_radius_top_left
       -1.0,  // physical_display_corner_radius_top_right
       -1.0,  // physical_display_corner_radius_bottom_right
@@ -2655,10 +2662,9 @@ void PlatformViewOHOSNapi::SurfaceChanged(int64_t shell_holder,
   // EntryAbility window) reports its creation-time size forever while the
   // user resizes. width/height are PHYSICAL px; SetViewActualSize converts.
   if (auto* controller = OHOS_SHELL_HOLDER->GetWindowController()) {
-    controller->SetViewActualSize(kFlutterImplicitViewId,
-                                  static_cast<double>(width),
-                                  static_cast<double>(height),
-                                  display_density_pixels);
+    controller->SetViewActualSize(
+        kFlutterImplicitViewId, static_cast<double>(width),
+        static_cast<double>(height), display_density_pixels);
   }
 }
 
@@ -4064,7 +4070,7 @@ struct DestroyAsyncData {
   int64_t shell_holder;
   bool success;
   // Hold an extra reference to PlatformViewOHOSNapi so its destructor (which
-  // calls napi_reference_unref and thus touches the EcmaVM) is deferred to
+  // calls napi_delete_reference and thus touches the EcmaVM) is deferred to
   // DestroyAsyncCompleteWork on the JS thread, instead of running on the
   // NAPI worker thread inside DestroyAsyncExecuteWork.
   std::shared_ptr<PlatformViewOHOSNapi> napi_facade;
@@ -4192,7 +4198,7 @@ static void DestroyAsyncExecuteWork(napi_env env, void* data) {
     // Deleting the shell holder releases the OHOSShellHolder's and
     // PlatformViewOHOS's references to napi_facade. async_data->napi_facade
     // still holds one reference, keeping ~PlatformViewOHOSNapi (and its
-    // napi_reference_unref) from running on this worker thread.
+    // napi_delete_reference) from running on this worker thread.
     delete OHOS_SHELL_HOLDER;
     async_data->success = true;
   } else {
@@ -4216,7 +4222,7 @@ static void DestroyAsyncCompleteWork(napi_env env,
 
   napi_delete_async_work(env, async_data->work);
   // Release the last reference to PlatformViewOHOSNapi here so that
-  // ~PlatformViewOHOSNapi (which calls napi_reference_unref) runs on the
+  // ~PlatformViewOHOSNapi (which calls napi_delete_reference) runs on the
   // JS thread, satisfying the EcmaVM single-thread requirement.
   async_data->napi_facade.reset();
   delete async_data;
@@ -4252,7 +4258,7 @@ napi_value PlatformViewOHOSNapi::nativeDestroyAsync(napi_env env,
   async_data->success = false;
   // Take an extra shared_ptr to napi_facade on the JS thread. This defers
   // ~PlatformViewOHOSNapi to DestroyAsyncCompleteWork (also on JS thread),
-  // avoiding napi_reference_unref being called from the NAPI worker thread
+  // avoiding napi_delete_reference being called from the NAPI worker thread
   // (which would trigger "ecma vm cannot run in multi-thread!").
   if (shell_holder != 0) {
     async_data->napi_facade = OHOS_SHELL_HOLDER->GetNapiFacade();
