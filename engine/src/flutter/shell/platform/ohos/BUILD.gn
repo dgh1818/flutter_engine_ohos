@@ -280,7 +280,10 @@ executable("flutter_ohos_unittests") {
     ]
   }
 
-  public_configs = [ "//flutter:config" ]
+  public_configs = [
+    "//flutter:config",
+    "//flutter:export_dynamic_symbols",
+  ]
 
   include_dirs = [ "//flutter/third_party/vulkan-deps/spirv-headers/src/tools/buildHeaders/jsoncpp/dist/" ]
 
@@ -301,6 +304,7 @@ executable("flutter_ohos_unittests") {
     ":flutter_ohos_sources",
     ":unittest_stubs",
     "//flutter/impeller/renderer/backend/vulkan:mock_vulkan",
+    "//flutter/lib/snapshot",
     "//flutter/runtime:libdart",
     "//flutter/shell/platform/embedder:embedder_headers",
     "//flutter/shell/platform/embedder:embedder_test_utils",
