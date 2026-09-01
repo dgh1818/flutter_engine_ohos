@@ -26,6 +26,10 @@ bool GetSkColorType(int32_t buffer_format,
       *color_type = kRGBA_8888_SkColorType;
       *alpha_type = kPremul_SkAlphaType;
       return true;
+    case kPixelFmtRgba1010102:  // kPixelFmtRgba1010102
+      *color_type = kRGBA_1010102_SkColorType;
+      *alpha_type = kPremul_SkAlphaType;
+      return true;
     default:
       return false;
   }
@@ -107,8 +111,7 @@ sk_sp<SkSurface> OHOSSurfaceSoftware::AcquireBackingStore(const DlISize& size) {
     return nullptr;
   }
 
-  if (sk_surface_ != nullptr &&
-      sk_surface_->width() == size.width &&
+  if (sk_surface_ != nullptr && sk_surface_->width() == size.width &&
       sk_surface_->height() == size.height) {
     // The old and new surface sizes are the same. Nothing to do here.
     return sk_surface_;
@@ -159,7 +162,8 @@ bool OHOSSurfaceSoftware::PresentBackingStore(sk_sp<SkSurface> backing_store) {
       native_window_.get()->Gethandle(), &buffer, &fenceFd);
   if (ret != 0) {
     LOGE(
-        "OH_NativeWindow_NativeWindowRequestBuffer() failed in PresentBackingStore "
+        "OH_NativeWindow_NativeWindowRequestBuffer() failed in "
+        "PresentBackingStore "
         ":%{public}d",
         ret);
     return false;
@@ -169,7 +173,9 @@ bool OHOSSurfaceSoftware::PresentBackingStore(sk_sp<SkSurface> backing_store) {
       OH_NativeWindow_GetBufferHandleFromNative(buffer);
 
   if (bufferHandle == nullptr) {
-    LOGE("OH_NativeWindow_GetBufferHandleFromNative() failed in PresentBackingStore");
+    LOGE(
+        "OH_NativeWindow_GetBufferHandleFromNative() failed in "
+        "PresentBackingStore");
     OH_NativeWindow_DestroyNativeWindowBuffer(buffer);
     return false;
   }
@@ -238,7 +244,10 @@ bool OHOSSurfaceSoftware::PresentBackingStore(sk_sp<SkSurface> backing_store) {
   ret = OH_NativeWindow_NativeWindowFlushBuffer(
       native_window_.get()->Gethandle(), buffer, fenceFd, region);
   if (ret != 0) {
-    LOGE("OH_NativeWindow_NativeWindowFlushBuffer() failed in PresentBackingStore, ret = %{public}d", ret);
+    LOGE(
+        "OH_NativeWindow_NativeWindowFlushBuffer() failed in "
+        "PresentBackingStore, ret = %{public}d",
+        ret);
   } else {
     LOGI("PresentBackingStore flush Buffer :%{public}d", ret);
   }

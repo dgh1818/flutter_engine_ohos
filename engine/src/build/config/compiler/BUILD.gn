@@ -830,6 +830,10 @@ if (is_win) {
     default_warning_flags += [
       "-Wno-deprecated-volatile",
       "-Wno-ambiguous-reversed-operator",
+      # BiSheng diagnoses existing floating-point-to-integer conversions as
+      # errors while the project enables -Werror. Keep the warning visible,
+      # but allow the OHOS engine build to continue.
+      "-Wno-error=float-to-int-overflow",
     ]
   }
   if (!is_fuchsia && is_clang) {

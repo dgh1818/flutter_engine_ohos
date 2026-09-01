@@ -77,6 +77,22 @@ static std::optional<vk::SurfaceFormatKHR> ChooseSurfaceFormat(
     const std::vector<vk::SurfaceFormatKHR>& formats,
     PixelFormat preference) {
 #ifdef FML_OS_OHOS
+  // enable_hdr_ alone is the page-level HDR switch (viewer/player); the
+  // shader converts every source to the HLG output encoding.
+  if (impeller::Context::enable_hdr_) {
+    if (ToVKImageFormat(preference) == vk::Format::eA2B10G10R10UnormPack32) {
+      // The presentation profile is deliberately fixed to HLG. PQ is a source
+      // transfer function and is converted to the linear working space before
+      // the final HLG output transform; it must not switch the swapchain to PQ.
+      const auto color_space = vk::ColorSpaceKHR::eHdr10HlgEXT;
+      const auto vk_preference = vk::SurfaceFormatKHR{
+          vk::Format::eA2B10G10R10UnormPack32, color_space};
+      FML_LOG(ERROR) << "OHOS: requesting HDR swapchain color space "
+                     << vk::to_string(color_space);
+      return vk_preference;
+    }
+  }
+
   const auto colorspaceP3 = vk::ColorSpaceKHR::eDisplayP3NonlinearEXT;
   const auto colorspaceSrgb = vk::ColorSpaceKHR::eSrgbNonlinear;
   std::vector<vk::SurfaceFormatKHR> options = {
@@ -159,22 +175,40 @@ KHRSwapchainImplVK::KHRSwapchainImplVK(const std::shared_ptr<Context>& context,
     return;
   }
 
-const auto format = ChooseSurfaceFormat(
+  auto format = ChooseSurfaceFormat(
       formats, vk_context.GetCapabilities()->GetDefaultColorFormat());
+#ifdef FML_OS_OHOS
+  hdr_ = impeller::Context::enable_hdr_
+             ? 1
+             : 0;  // match the poll in khr_swapchain_vk.cc
+  if (hdr_ > kSDR && impeller::Context::enable_hdr_) {
+    format = ChooseSurfaceFormat(formats, PixelFormat::kB10G10R10A2UNorm);
+  } else {
+    format = ChooseSurfaceFormat(formats, PixelFormat::kR8G8B8A8UNormInt);
+  }
+#endif
   if (!format.has_value()) {
     VALIDATION_LOG << "Swapchain has no supported formats.";
     return;
   }
 #ifdef FML_OS_OHOS
   PixelFormat offscreen_format;
-  if (format.value().format == vk::Format::eA2B10G10R10UnormPack32) {
-    FML_LOG(INFO) << "OHOS: Swapchain uses A2B10G10R10UnormPack32 (wide gamut), "
-                  << "offscreen uses kR8G8B8A8UNormInt (high alpha precision)";
+  if (hdr_ > kSDR) {
+    // Preserve linear HDR headroom and alpha precision in filters/saveLayers.
+    // The final presentation remains the 10-bit HLG swapchain selected above.
+    offscreen_format = PixelFormat::kR16G16B16A16Float;
+    FML_LOG(INFO) << "OHOS: HDR offscreen uses linear "
+                     "kR16G16B16A16Float working buffers";
+  } else if (format.value().format == vk::Format::eA2B10G10R10UnormPack32) {
+    FML_LOG(INFO)
+        << "OHOS: Swapchain uses A2B10G10R10UnormPack32 (wide gamut), "
+        << "offscreen uses kR8G8B8A8UNormInt (high alpha precision)";
     offscreen_format = PixelFormat::kR8G8B8A8UNormInt;
   } else {
     offscreen_format = ToPixelFormat(format.value().format);
     FML_LOG(INFO) << "OHOS: Swapchain uses non-wide-gamut format, "
-                  << "offscreen uses same format: " << PixelFormatToString(offscreen_format);
+                  << "offscreen uses same format: "
+                  << PixelFormatToString(offscreen_format);
   }
   vk_context.SetOffscreenFormat(offscreen_format);
 #else
@@ -320,6 +354,9 @@ const auto format = ChooseSurfaceFormat(
   context_ = context;
   surface_ = std::move(surface);
   surface_format_ = swapchain_info.imageFormat;
+#ifdef FML_OS_OHOS
+  surface_color_space_ = swapchain_info.imageColorSpace;
+#endif
   swapchain_ = std::move(swapchain);
   transients_ = std::make_shared<SwapchainTransientsVK>(context, texture_desc,
                                                         enable_msaa);
@@ -338,6 +375,14 @@ KHRSwapchainImplVK::~KHRSwapchainImplVK() {
 
 const ISize& KHRSwapchainImplVK::GetSize() const {
   return size_;
+}
+
+int KHRSwapchainImplVK::GetHdr() const {
+  return hdr_;
+}
+
+void KHRSwapchainImplVK::SetHdr(int hdr) {
+  hdr_ = hdr;
 }
 
 std::optional<ISize> KHRSwapchainImplVK::GetCurrentUnderlyingSurfaceSize()
@@ -396,6 +441,12 @@ KHRSwapchainImplVK::DestroySwapchain() {
 vk::Format KHRSwapchainImplVK::GetSurfaceFormat() const {
   return surface_format_;
 }
+
+#ifdef FML_OS_OHOS
+vk::ColorSpaceKHR KHRSwapchainImplVK::GetSurfaceColorSpace() const {
+  return surface_color_space_;
+}
+#endif
 
 std::shared_ptr<Context> KHRSwapchainImplVK::GetContext() const {
   return context_.lock();

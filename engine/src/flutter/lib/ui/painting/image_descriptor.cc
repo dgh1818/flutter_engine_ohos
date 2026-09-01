@@ -8,8 +8,10 @@
 #include "flutter/fml/logging.h"
 #include "flutter/fml/trace_event.h"
 #include "flutter/lib/ui/painting/multi_frame_codec.h"
+#include "flutter/lib/ui/painting/ohos_color_space.h"
 #include "flutter/lib/ui/painting/single_frame_codec.h"
 #include "flutter/lib/ui/ui_dart_state.h"
+#include "include/core/SkColorSpace.h"
 #include "third_party/tonic/dart_binding_macros.h"
 #include "third_party/tonic/logging/dart_invoke.h"
 
@@ -32,6 +34,9 @@ ImageDescriptor::ImageInfo ImageDescriptor::CreateImageInfo(
       break;
     case kRGBA_F32_SkColorType:
       format = kRGBAFloat32;
+      break;
+    case kRGBA_1010102_SkColorType:
+      format = kRGBA1010102;
       break;
     case kGray_8_SkColorType:
       format = kGray8;
@@ -67,6 +72,9 @@ SkImageInfo ImageDescriptor::ToSkImageInfo(const ImageInfo& image_info) {
       break;
     case PixelFormat::kGray8:
       color_type = kGray_8_SkColorType;
+      break;
+    case PixelFormat::kRGBA1010102:
+      color_type = kRGBA_1010102_SkColorType;
       break;
     case PixelFormat::kR32Float:
       FML_DCHECK(false) << "not a supported skia format";
@@ -144,6 +152,8 @@ ImageDescriptor::PixelFormat toImageDescriptorPixelFormat(int val) {
       return ImageDescriptor::PixelFormat::kRGBAFloat32;
     case 3:
       return ImageDescriptor::PixelFormat::kR32Float;
+    case 4:
+      return ImageDescriptor::PixelFormat::kRGBA1010102;
     default:
       FML_DCHECK(false) << "unrecognized format";
       return ImageDescriptor::PixelFormat::kRGBA8888;
@@ -159,6 +169,11 @@ void ImageDescriptor::initRaw(Dart_Handle descriptor_handle,
                               int pixel_format) {
   ImageDescriptor::PixelFormat image_descriptor_pixel_format =
       toImageDescriptorPixelFormat(pixel_format);
+  sk_sp<SkColorSpace> color_space = SkColorSpace::MakeSRGB();
+  if (image_descriptor_pixel_format == PixelFormat::kRGBA1010102) {
+    color_space =
+        SkColorSpace::MakeRGB(SkNamedTransferFn::kHLG, SkNamedGamut::kRec2020);
+  }
   const ImageInfo image_info = {
       .width = static_cast<uint32_t>(width),
       .height = static_cast<uint32_t>(height),
@@ -166,7 +181,7 @@ void ImageDescriptor::initRaw(Dart_Handle descriptor_handle,
       .alpha_type = image_descriptor_pixel_format == PixelFormat::kRGBAFloat32
                         ? kUnpremul_SkAlphaType
                         : kPremul_SkAlphaType,
-      .color_space = SkColorSpace::MakeSRGB(),
+      .color_space = color_space,
   };
 
   auto descriptor = fml::MakeRefCounted<ImageDescriptor>(
@@ -219,7 +234,8 @@ bool ImageDescriptor::get_pixels(const SkPixmap& pixmap) const {
 }
 
 #if defined(FML_OS_OHOS) && IMPELLER_SUPPORTS_RENDERING
-std::unique_ptr<ExternalTextureSource> ImageDescriptor::CreateExternalTextureSource(
+std::unique_ptr<ExternalTextureSource>
+ImageDescriptor::CreateExternalTextureSource(
     const SkISize& decode_dimensions,
     unsigned int frame_index,
     std::optional<unsigned int> prior_frame) const {
@@ -240,6 +256,7 @@ int ImageDescriptor::bytesPerPixel() const {
     case kRGBA8888:
     case kBGRA8888:
     case kR32Float:
+    case kRGBA1010102:
       return 4;
     case kRGBAFloat32:
       return 16;
@@ -248,7 +265,11 @@ int ImageDescriptor::bytesPerPixel() const {
 
 uint32_t ImageDescriptor::get_colorspace() {
   if (!generator_) {
-    FML_DLOG(ERROR) << "Cannot get colorspace from null generator";
+#if defined(FML_OS_OHOS) && IMPELLER_SUPPORTS_RENDERING
+    if (image_info_.format == PixelFormat::kRGBA1010102) {
+      return ohos_color_space_internal::kBT2020HLG;
+    }
+#endif
     return 0;  // Return default value for safety
   }
   return generator_->GetColorSpace(0);

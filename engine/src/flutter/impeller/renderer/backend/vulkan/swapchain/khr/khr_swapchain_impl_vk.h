@@ -8,9 +8,11 @@
 #include <cstdint>
 #include <memory>
 
+#include "flutter/fml/build_config.h"
 #include "impeller/geometry/size.h"
 #include "impeller/renderer/backend/vulkan/swapchain/swapchain_transients_vk.h"
 #include "impeller/renderer/backend/vulkan/vk.h"
+#include "impeller/renderer/context.h"
 
 namespace impeller {
 
@@ -56,11 +58,17 @@ class KHRSwapchainImplVK final
 
   vk::Format GetSurfaceFormat() const;
 
+#ifdef FML_OS_OHOS
+  vk::ColorSpaceKHR GetSurfaceColorSpace() const;
+#endif
+
   std::shared_ptr<Context> GetContext() const;
 
   std::pair<vk::UniqueSurfaceKHR, vk::UniqueSwapchainKHR> DestroySwapchain();
 
   const ISize& GetSize() const;
+  int GetHdr() const;
+  void SetHdr(int hdr);
 
   void AddFinalCommandBuffer(std::shared_ptr<CommandBuffer> cmd_buffer);
 
@@ -78,6 +86,9 @@ class KHRSwapchainImplVK final
   std::weak_ptr<Context> context_;
   vk::UniqueSurfaceKHR surface_;
   vk::Format surface_format_ = vk::Format::eUndefined;
+#ifdef FML_OS_OHOS
+  vk::ColorSpaceKHR surface_color_space_ = vk::ColorSpaceKHR::eSrgbNonlinear;
+#endif
   vk::UniqueSwapchainKHR swapchain_;
   uint32_t current_image_index_ = 0;
   std::shared_ptr<SwapchainTransientsVK> transients_;
@@ -90,6 +101,8 @@ class KHRSwapchainImplVK final
   bool support_present_damage_ = false;
   bool enable_msaa_ = true;
   bool is_valid_ = false;
+
+  int hdr_ = 0;
 
   KHRSwapchainImplVK(const std::shared_ptr<Context>& context,
                      vk::UniqueSurfaceKHR surface,
@@ -106,6 +119,10 @@ class KHRSwapchainImplVK final
 
   KHRSwapchainImplVK& operator=(const KHRSwapchainImplVK&) = delete;
 };
+
+static constexpr int kHDRPQ = 2;
+static constexpr int kHDRHLG = 1;
+static constexpr int kSDR = 0;
 
 }  // namespace impeller
 

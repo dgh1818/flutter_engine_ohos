@@ -43,6 +43,7 @@ class ImageDescriptor : public RefCountedDartWrappable<ImageDescriptor> {
     kRGBAFloat32,
     kR32Float,
     kGray8,
+    kRGBA1010102,
   };
 
   struct ImageInfo {
@@ -137,7 +138,7 @@ class ImageDescriptor : public RefCountedDartWrappable<ImageDescriptor> {
       unsigned int frame_index = 0,
       std::optional<unsigned int> prior_frame = std::nullopt) const;
 #endif  // FML_OS_OHOS && IMPELLER_SUPPORTS_RENDERING
-  
+
   uint32_t get_colorspace();
 
   void dispose() {

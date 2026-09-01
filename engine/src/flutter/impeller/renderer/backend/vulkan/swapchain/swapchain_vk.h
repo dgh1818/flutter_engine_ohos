@@ -59,6 +59,10 @@ class SwapchainVK {
 
   virtual vk::Format GetSurfaceFormat() const = 0;
 
+#ifdef FML_OS_OHOS
+  virtual vk::ColorSpaceKHR GetSurfaceColorSpace() const = 0;
+#endif
+
   virtual void AddFinalCommandBuffer(
       std::shared_ptr<CommandBuffer> cmd_buffer) const = 0;
 

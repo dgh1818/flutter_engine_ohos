@@ -91,9 +91,9 @@ source_set("flutter_ohos_sources") {
 
   sources = [
     "./context/ohos_context.cpp",
+    "./external_view_embedder/external_view_embedder.cc",
     "./napi/platform_view_ohos_napi.cpp",
     "./surface/ohos_native_window.cpp",
-    "./external_view_embedder/external_view_embedder.cc",
     "./surface/ohos_snapshot_surface_producer.cpp",
     "./surface/ohos_surface.cpp",
     "./windowing/ohos_window.cpp",
@@ -112,6 +112,7 @@ source_set("flutter_ohos_sources") {
     "./accessibility/ohos_semantics_node.cpp",
     "./accessibility/ohos_semantics_tree.cpp",
     "image_lru.cpp",
+    "mpf_decoder.cpp",
     "ohos_context_gl_skia.cpp",
     "ohos_display.cpp",
     "ohos_egl_surface.cpp",
@@ -248,8 +249,8 @@ executable("flutter_ohos_unittests") {
     "ohos_color_space_unittests.cpp",
     "ohos_context_gl_skia_unittests.cpp",
     "ohos_egl_surface_unittests.cpp",
-    "ohos_external_texture_unittests.cpp",
     "ohos_environment_gl_unittests.cpp",
+    "ohos_external_texture_unittests.cpp",
     "ohos_image_generator_unittests.cpp",
     "ohos_logger_unittests.cpp",
     "ohos_semantics_node_unittests.cpp",
@@ -320,9 +321,7 @@ executable("flutter_ohos_unittests") {
   ]
 
   if (target_cpu == "x64" || target_cpu == "x86") {
-    deps += [
-      ":unittest_x64_stubs",
-    ]
+    deps += [ ":unittest_x64_stubs" ]
     ldflags += [
       "-Wl,--as-needed",
       "-Wl,--wrap=open",
@@ -383,6 +382,7 @@ executable("flutter_ohos_unittests") {
       "-limage_source",
       "-lqos",
       "-ldeviceinfo_ndk.z",
+      "-limage_processing",
       "-lnative_color_space_manager",
     ]
   }
@@ -429,6 +429,7 @@ shared_library("flutter_shell_native") {
   ldflags += [ "-lpixelmap" ]
   ldflags += [ "-limage_source" ]
   ldflags += [ "-lqos" ]
+  ldflags += [ "-limage_processing" ]
   ldflags += [ "-lnative_color_space_manager" ]
 
   public_configs = [ "//flutter:config" ]

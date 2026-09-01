@@ -24,9 +24,9 @@ namespace testing {
 
 // Each of the DisplayP3 family color spaces must map to kDisplayP3.
 TEST(OhosColorSpaceTest, DisplayP3MapsToDisplayP3) {
-  EXPECT_EQ(OhosColorSpaceToTextureColorSpace(
-                ohos_color_space_internal::kDisplayP3),
-            impeller::TextureColorSpace::kDisplayP3);
+  EXPECT_EQ(
+      OhosColorSpaceToTextureColorSpace(ohos_color_space_internal::kDisplayP3),
+      impeller::TextureColorSpace::kDisplayP3);
 }
 
 TEST(OhosColorSpaceTest, DisplayP3LimitMapsToDisplayP3) {
@@ -36,9 +36,9 @@ TEST(OhosColorSpaceTest, DisplayP3LimitMapsToDisplayP3) {
 }
 
 TEST(OhosColorSpaceTest, LinearP3MapsToDisplayP3) {
-  EXPECT_EQ(OhosColorSpaceToTextureColorSpace(
-                ohos_color_space_internal::kLinearP3),
-            impeller::TextureColorSpace::kDisplayP3);
+  EXPECT_EQ(
+      OhosColorSpaceToTextureColorSpace(ohos_color_space_internal::kLinearP3),
+      impeller::TextureColorSpace::kDisplayP3);
 }
 
 // ---------------------------------------------------------------------------
@@ -46,39 +46,38 @@ TEST(OhosColorSpaceTest, LinearP3MapsToDisplayP3) {
 // ---------------------------------------------------------------------------
 
 TEST(OhosColorSpaceTest, AdobeRGBMapsToExtendedSRGB) {
-  EXPECT_EQ(OhosColorSpaceToTextureColorSpace(
-                ohos_color_space_internal::kAdobeRGB),
-            impeller::TextureColorSpace::kExtendedSRGB);
+  EXPECT_EQ(
+      OhosColorSpaceToTextureColorSpace(ohos_color_space_internal::kAdobeRGB),
+      impeller::TextureColorSpace::kExtendedSRGB);
 }
 
 TEST(OhosColorSpaceTest, DciP3MapsToExtendedSRGB) {
-  EXPECT_EQ(OhosColorSpaceToTextureColorSpace(
-                ohos_color_space_internal::kDciP3),
-            impeller::TextureColorSpace::kExtendedSRGB);
+  EXPECT_EQ(
+      OhosColorSpaceToTextureColorSpace(ohos_color_space_internal::kDciP3),
+      impeller::TextureColorSpace::kExtendedSRGB);
 }
 
-TEST(OhosColorSpaceTest, BT2020HLGMapsToExtendedSRGB) {
-  EXPECT_EQ(OhosColorSpaceToTextureColorSpace(
-                ohos_color_space_internal::kBT2020HLG),
-            impeller::TextureColorSpace::kExtendedSRGB);
+TEST(OhosColorSpaceTest, BT2020HLGMapsToHLG) {
+  EXPECT_EQ(
+      OhosColorSpaceToTextureColorSpace(ohos_color_space_internal::kBT2020HLG),
+      impeller::TextureColorSpace::kHLG);
 }
 
-TEST(OhosColorSpaceTest, BT2020PQMapsToExtendedSRGB) {
-  EXPECT_EQ(OhosColorSpaceToTextureColorSpace(
-                ohos_color_space_internal::kBT2020PQ),
-            impeller::TextureColorSpace::kExtendedSRGB);
+TEST(OhosColorSpaceTest, BT2020PQMapsToPQ) {
+  EXPECT_EQ(
+      OhosColorSpaceToTextureColorSpace(ohos_color_space_internal::kBT2020PQ),
+      impeller::TextureColorSpace::kPQ);
 }
 
-TEST(OhosColorSpaceTest, P3HLGMapsToExtendedSRGB) {
-  EXPECT_EQ(OhosColorSpaceToTextureColorSpace(
-                ohos_color_space_internal::kP3HLG),
-            impeller::TextureColorSpace::kExtendedSRGB);
+TEST(OhosColorSpaceTest, P3HLGMapsToHLG) {
+  EXPECT_EQ(
+      OhosColorSpaceToTextureColorSpace(ohos_color_space_internal::kP3HLG),
+      impeller::TextureColorSpace::kHLG);
 }
 
-TEST(OhosColorSpaceTest, P3PQMapsToExtendedSRGB) {
-  EXPECT_EQ(OhosColorSpaceToTextureColorSpace(
-                ohos_color_space_internal::kP3PQ),
-            impeller::TextureColorSpace::kExtendedSRGB);
+TEST(OhosColorSpaceTest, P3PQMapsToPQ) {
+  EXPECT_EQ(OhosColorSpaceToTextureColorSpace(ohos_color_space_internal::kP3PQ),
+            impeller::TextureColorSpace::kPQ);
 }
 
 TEST(OhosColorSpaceTest, AdobeRGBLimitMapsToExtendedSRGB) {
@@ -87,28 +86,28 @@ TEST(OhosColorSpaceTest, AdobeRGBLimitMapsToExtendedSRGB) {
             impeller::TextureColorSpace::kExtendedSRGB);
 }
 
-TEST(OhosColorSpaceTest, BT2020HLGLimitMapsToExtendedSRGB) {
+TEST(OhosColorSpaceTest, BT2020HLGLimitMapsToHLG) {
   EXPECT_EQ(OhosColorSpaceToTextureColorSpace(
                 ohos_color_space_internal::kBT2020HLGLimit),
-            impeller::TextureColorSpace::kExtendedSRGB);
+            impeller::TextureColorSpace::kHLG);
 }
 
-TEST(OhosColorSpaceTest, BT2020PQLimitMapsToExtendedSRGB) {
+TEST(OhosColorSpaceTest, BT2020PQLimitMapsToPQ) {
   EXPECT_EQ(OhosColorSpaceToTextureColorSpace(
                 ohos_color_space_internal::kBT2020PQLimit),
-            impeller::TextureColorSpace::kExtendedSRGB);
+            impeller::TextureColorSpace::kPQ);
 }
 
-TEST(OhosColorSpaceTest, P3HLGLimitMapsToExtendedSRGB) {
-  EXPECT_EQ(OhosColorSpaceToTextureColorSpace(
-                ohos_color_space_internal::kP3HLGLimit),
-            impeller::TextureColorSpace::kExtendedSRGB);
+TEST(OhosColorSpaceTest, P3HLGLimitMapsToHLG) {
+  EXPECT_EQ(
+      OhosColorSpaceToTextureColorSpace(ohos_color_space_internal::kP3HLGLimit),
+      impeller::TextureColorSpace::kHLG);
 }
 
-TEST(OhosColorSpaceTest, P3PQLimitMapsToExtendedSRGB) {
-  EXPECT_EQ(OhosColorSpaceToTextureColorSpace(
-                ohos_color_space_internal::kP3PQLimit),
-            impeller::TextureColorSpace::kExtendedSRGB);
+TEST(OhosColorSpaceTest, P3PQLimitMapsToPQ) {
+  EXPECT_EQ(
+      OhosColorSpaceToTextureColorSpace(ohos_color_space_internal::kP3PQLimit),
+      impeller::TextureColorSpace::kPQ);
 }
 
 TEST(OhosColorSpaceTest, LinearBT2020MapsToExtendedSRGB) {

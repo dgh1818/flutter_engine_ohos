@@ -7,6 +7,7 @@
 #include "impeller/entity/contents/content_context.h"
 #include "impeller/entity/entity.h"
 #include "impeller/entity/geometry/geometry.h"
+#include "impeller/renderer/context.h"
 #include "impeller/renderer/render_pass.h"
 
 namespace impeller {
@@ -29,15 +30,13 @@ const Geometry* SolidColorContents::GetGeometry() const {
 }
 
 #ifdef FML_OS_OHOS
-void SolidColorContents::SetColorWithSpace(
-    Color color,
-    ColorSpace color_space) {
+void SolidColorContents::SetColorWithSpace(Color color,
+                                           ColorSpace color_space) {
   color_ = color;
   source_color_space_ = color_space;
 }
 
-void SolidColorContents::SetSourceColorSpace(
-    ColorSpace color_space) {
+void SolidColorContents::SetSourceColorSpace(ColorSpace color_space) {
   source_color_space_ = color_space;
 }
 
@@ -45,8 +44,7 @@ ColorSpace SolidColorContents::GetSourceColorSpace() const {
   return source_color_space_;
 }
 
-void SolidColorContents::SetTargetColorSpace(
-    ColorSpace color_space) {
+void SolidColorContents::SetTargetColorSpace(ColorSpace color_space) {
   target_color_space_ = color_space;
 }
 
@@ -84,7 +82,7 @@ bool SolidColorContents::Render(const ContentContext& renderer,
   auto& data_host_buffer = renderer.GetTransientsDataBuffer();
 
   VS::FrameInfo frame_info;
-  FS::FragInfo frag_info;
+  FS::FragInfo frag_info{};
   frag_info.color = GetColor().Premultiply() *
                     GetGeometry()->ComputeAlphaCoverage(entity.GetTransform());
 
@@ -97,6 +95,13 @@ bool SolidColorContents::Render(const ContentContext& renderer,
   frag_info.source_color_space = 0.0f;
   frag_info.target_color_space = 0.0f;
 #endif
+  // Encode SDR Flutter UI into HLG only when this pass writes directly to the
+  // final HDR presentation target. Offscreen/filter passes remain linear and
+  // are encoded once when their texture is composed into the swapchain.
+  const bool writes_hlg_swapchain =
+      impeller::Context::enable_hdr_ &&
+      pass.GetRenderTargetPixelFormat() == PixelFormat::kB10G10R10A2UNorm;
+  frag_info.output_mode = writes_hlg_swapchain ? 1 : 0;
 
   PipelineBuilderCallback pipeline_callback =
       [&renderer](ContentContextOptions options) {

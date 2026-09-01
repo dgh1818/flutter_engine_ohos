@@ -34,6 +34,11 @@ class KHRSwapchainVK final : public SwapchainVK {
   // |SwapchainVK|
   vk::Format GetSurfaceFormat() const override;
 
+#ifdef FML_OS_OHOS
+  // |SwapchainVK|
+  vk::ColorSpaceKHR GetSurfaceColorSpace() const override;
+#endif
+
   // |SwapchainVK|
   void UpdateSurfaceSize(const ISize& size) override;
 
@@ -55,6 +60,7 @@ class KHRSwapchainVK final : public SwapchainVK {
 
   std::shared_ptr<KHRSwapchainImplVK> impl_;
   ISize size_;
+  int hdr_ = 0;
   const bool enable_msaa_;
 
   KHRSwapchainVK(const std::shared_ptr<Context>& context,

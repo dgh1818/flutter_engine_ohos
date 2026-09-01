@@ -77,13 +77,12 @@ static constexpr bool kShouldUseMallocDeviceBuffer = false;
 
 #ifdef FML_OS_OHOS
 // [an optimization method]
-// By default, Android uses Skia rendering and OHOS platform uses Impeller rendering.
-// Whether on Android or OHOS platforms, in debug mode, rendering overrized images
-// by Impeller will take a long time.
-// But in release mode, the time for rendering on Android is short.
-// Anyway, it is an optimization method that OHOS platform can
-// use the pixelmap interface of the SDK
-// to scale overrized images and accelerate rendering.
+// By default, Android uses Skia rendering and OHOS platform uses Impeller
+// rendering. Whether on Android or OHOS platforms, in debug mode, rendering
+// overrized images by Impeller will take a long time. But in release mode, the
+// time for rendering on Android is short. Anyway, it is an optimization method
+// that OHOS platform can use the pixelmap interface of the SDK to scale
+// overrized images and accelerate rendering.
 static constexpr bool kNotScalePixels = true;
 #else
 static constexpr bool kNotScalePixels = false;
@@ -191,6 +190,14 @@ absl::StatusOr<SkImageInfo> CreateImageInfo(
         .makeColorType(target_skia_color_type.value())
         .makeAlphaType(alpha_type)
         .makeColorSpace(SkColorSpace::MakeSRGB());
+#ifdef FML_OS_OHOS
+  } else if (base_image_info.colorType() == kRGBA_1010102_SkColorType) {
+    return base_image_info.makeWH(decode_size.width(), decode_size.height())
+        .makeColorType(kRGBA_1010102_SkColorType)
+        .makeAlphaType(alpha_type)
+        .makeColorSpace(SkColorSpace::MakeRGB(SkNamedTransferFn::kHLG,
+                                              SkNamedGamut::kRec2020));
+#endif
   } else if (is_wide_gamut) {
     // Use 10-bit for opaque images (less memory: 4 bytes vs 8 bytes per pixel).
     // Use F16 for images with alpha channel.
@@ -357,6 +364,7 @@ std::optional<impeller::PixelFormat> ImageDecoderImpeller::ToPixelFormat(
     case kRGBA_F32_SkColorType:
       return impeller::PixelFormat::kR32G32B32A32Float;
     case kBGRA_1010102_SkColorType:
+    case kRGBA_1010102_SkColorType:
       return impeller::PixelFormat::kB10G10R10A2UNorm;
     default:
       return std::nullopt;
@@ -370,14 +378,13 @@ namespace {
 SkISize GetOhosDmaDecodeDimensions(ImageDescriptor* rawDescriptor,
                                    SkISize targetSize,
                                    impeller::ISize maxTextureSize) {
-  const SkISize sourceDimensions =
-      SkISize::Make(rawDescriptor->image_info().width,
-                    rawDescriptor->image_info().height);
-  const SkISize sourceWithinMaxTexture = SkISize::Make(
-      std::min(static_cast<int32_t>(maxTextureSize.width),
-               sourceDimensions.width()),
-      std::min(static_cast<int32_t>(maxTextureSize.height),
-               sourceDimensions.height()));
+  const SkISize sourceDimensions = SkISize::Make(
+      rawDescriptor->image_info().width, rawDescriptor->image_info().height);
+  const SkISize sourceWithinMaxTexture =
+      SkISize::Make(std::min(static_cast<int32_t>(maxTextureSize.width),
+                             sourceDimensions.width()),
+                    std::min(static_cast<int32_t>(maxTextureSize.height),
+                             sourceDimensions.height()));
   if (targetSize.isEmpty()) {
     return sourceWithinMaxTexture;
   }
@@ -602,6 +609,9 @@ ImageDecoderImpeller::UnsafeUploadTextureToPrivate(
     texture_descriptor.mip_count = 1;
   }
   const auto textureColorSpace = OhosColorSpaceToTextureColorSpace(colorspace);
+  FML_LOG(ERROR) << "HDRPhoto colorspace id=" << colorspace
+                 << " -> textureColorSpace="
+                 << static_cast<int>(textureColorSpace);
   texture_descriptor.color_space = textureColorSpace;
 
   auto dest_texture =
@@ -721,13 +731,13 @@ void ImageDecoderImpeller::UploadTextureToPrivate(
   gpu_disabled_switch->Execute(
       fml::SyncSwitch::Handlers()
           .SetIfFalse(
-          [&result, context, buffer, image_info, resize_info, colorspace] {
-            sk_sp<DlImage> image;
-            std::string decode_error;
-            std::tie(image, decode_error) = UnsafeUploadTextureToPrivate(
-                context, buffer, image_info, resize_info, colorspace);
-            result(image, decode_error);
-          })
+              [&result, context, buffer, image_info, resize_info, colorspace] {
+                sk_sp<DlImage> image;
+                std::string decode_error;
+                std::tie(image, decode_error) = UnsafeUploadTextureToPrivate(
+                    context, buffer, image_info, resize_info, colorspace);
+                result(image, decode_error);
+              })
           .SetIfTrue([&result, context, buffer, image_info, resize_info,
                       colorspace] {
             auto result_ptr = std::make_shared<ImageResult>(std::move(result));
@@ -825,81 +835,80 @@ void ImageDecoderImpeller::Decode(fml::RefPtr<ImageDescriptor> descriptor,
     });
   };
 
-  concurrent_task_runner_->PostTask(
-      [raw_descriptor,            //
-       context = context_.get(),  //
-       options,
-       io_runner = runners_.GetIOTaskRunner(),  //
-       result,
-       wide_gamut_enabled = wide_gamut_enabled_,  //
-       gpu_disabled_switch = gpu_disabled_switch_]() {
+  concurrent_task_runner_->PostTask([raw_descriptor,            //
+                                     context = context_.get(),  //
+                                     options,
+                                     io_runner = runners_.GetIOTaskRunner(),  //
+                                     result,
+                                     wide_gamut_enabled =
+                                         wide_gamut_enabled_,  //
+                                     gpu_disabled_switch =
+                                         gpu_disabled_switch_]() {
 #if FML_OS_IOS_SIMULATOR
-        // No-op backend.
-        if (!context) {
-          return;
-        }
+    // No-op backend.
+    if (!context) {
+      return;
+    }
 #endif  // FML_OS_IOS_SIMULATOR
 
-        if (!context) {
-          result(nullptr, "No Impeller context is available");
-          return;
-        }
+    if (!context) {
+      result(nullptr, "No Impeller context is available");
+      return;
+    }
 
 #if defined(FML_OS_OHOS) && IMPELLER_SUPPORTS_RENDERING
-        // OHOS-only zero-copy fast path: ask the descriptor whether it can
-        // hand us a GPU-resident texture wrapping platform-owned memory. Any
-        // failure silently falls through to the regular decompress + upload
-        // path below.
-        if (options.target_format == ImageDecoder::TargetPixelFormat::kDontCare) {
-          const SkISize target_size = SkISize::Make(
-              static_cast<int32_t>(options.target_width),
-              static_cast<int32_t>(options.target_height));
-          if (TryCreateOhosDmaImage(raw_descriptor, context, target_size,
-                                    result)) {
-            return;
-          }
-        }
+    // OHOS-only zero-copy fast path: ask the descriptor whether it can
+    // hand us a GPU-resident texture wrapping platform-owned memory. Any
+    // failure silently falls through to the regular decompress + upload
+    // path below.
+    if (options.target_format == ImageDecoder::TargetPixelFormat::kDontCare) {
+      const SkISize target_size =
+          SkISize::Make(static_cast<int32_t>(options.target_width),
+                        static_cast<int32_t>(options.target_height));
+      if (TryCreateOhosDmaImage(raw_descriptor, context, target_size, result)) {
+        return;
+      }
+    }
 #endif  // FML_OS_OHOS && IMPELLER_SUPPORTS_RENDERING
 
-        auto max_size_supported =
-            context->GetResourceAllocator()->GetMaxTextureSizeSupported();
+    auto max_size_supported =
+        context->GetResourceAllocator()->GetMaxTextureSizeSupported();
 
-        // Always decompress on the concurrent runner.
-        auto bitmap_result = DecompressTexture(
-            raw_descriptor, options, max_size_supported,
-            /*supports_wide_gamut=*/wide_gamut_enabled &&
-                context->GetCapabilities()->SupportsExtendedRangeFormats(),
-            context->GetCapabilities(), context->GetResourceAllocator());
-        if (!bitmap_result.ok()) {
-          result(nullptr, std::string(bitmap_result.status().message()));
-          return;
-        }
+    // Always decompress on the concurrent runner.
+    auto bitmap_result = DecompressTexture(
+        raw_descriptor, options, max_size_supported,
+        /*supports_wide_gamut=*/wide_gamut_enabled &&
+            context->GetCapabilities()->SupportsExtendedRangeFormats(),
+        context->GetCapabilities(), context->GetResourceAllocator());
+    if (!bitmap_result.ok()) {
+      result(nullptr, std::string(bitmap_result.status().message()));
+      return;
+    }
 
 #ifdef FML_OS_OHOS
-        auto colorspace2 = raw_descriptor->get_colorspace();
+    auto colorspace2 = raw_descriptor->get_colorspace();
 #else
-        auto colorspace2 = 0;
+    auto colorspace2 = 0;
 #endif
 
-        auto upload_texture_and_invoke_result = [result, context, bitmap_result,
-                                                 gpu_disabled_switch,
-                                                 colorspace2]() {
-          UploadTextureToPrivate(result, context,              //
+    auto upload_texture_and_invoke_result =
+        [result, context, bitmap_result, gpu_disabled_switch, colorspace2]() {
+          UploadTextureToPrivate(result, context,               //
                                  bitmap_result->device_buffer,  //
                                  bitmap_result->image_info,     //
                                  bitmap_result->resize_info,    //
-                                 gpu_disabled_switch,          //
-                                 colorspace2                   //
+                                 gpu_disabled_switch,           //
+                                 colorspace2                    //
           );
         };
-        // The I/O image uploads are not threadsafe on GLES.
-        if (context->GetBackendType() ==
-            impeller::Context::BackendType::kOpenGLES) {
-          io_runner->PostTask(upload_texture_and_invoke_result);
-        } else {
-          upload_texture_and_invoke_result();
-        }
-      });
+    // The I/O image uploads are not threadsafe on GLES.
+    if (context->GetBackendType() ==
+        impeller::Context::BackendType::kOpenGLES) {
+      io_runner->PostTask(upload_texture_and_invoke_result);
+    } else {
+      upload_texture_and_invoke_result();
+    }
+  });
 }
 
 ImpellerAllocator::ImpellerAllocator(

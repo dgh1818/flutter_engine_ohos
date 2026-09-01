@@ -40,9 +40,10 @@ constexpr uint32_t kDisplayP3ColorSpaces[] = {
 };
 
 constexpr uint32_t kExtendedSRGBColorSpaces[] = {
-    kAdobeRGB,      kDciP3,      kBT2020HLG,     kBT2020PQ,
-    kP3HLG,         kP3PQ,       kAdobeRGBLimit, kBT2020HLGLimit,
-    kBT2020PQLimit, kP3HLGLimit, kP3PQLimit,     kLinearBT2020,
+    kAdobeRGB,
+    kDciP3,
+    kAdobeRGBLimit,
+    kLinearBT2020,
 };
 
 template <std::size_t N>
@@ -55,6 +56,27 @@ inline impeller::TextureColorSpace TextureColorSpaceForOhos(
     uint32_t colorSpace) {
   if (ContainsColorSpace(colorSpace, kDisplayP3ColorSpaces)) {
     return impeller::TextureColorSpace::kDisplayP3;
+  }
+  // Keep the BT.2100 transfer function distinct so the HDR shader pipeline
+  // picks the correct EOTF (HLG vs PQ); the 10-bit container cannot express
+  // the difference on its own.
+  constexpr uint32_t kPqColorSpaces[] = {
+      kBT2020PQ,
+      kP3PQ,
+      kBT2020PQLimit,
+      kP3PQLimit,
+  };
+  constexpr uint32_t kHlgColorSpaces[] = {
+      kBT2020HLG,
+      kP3HLG,
+      kBT2020HLGLimit,
+      kP3HLGLimit,
+  };
+  if (ContainsColorSpace(colorSpace, kPqColorSpaces)) {
+    return impeller::TextureColorSpace::kPQ;
+  }
+  if (ContainsColorSpace(colorSpace, kHlgColorSpaces)) {
+    return impeller::TextureColorSpace::kHLG;
   }
   if (ContainsColorSpace(colorSpace, kExtendedSRGBColorSpaces)) {
     return impeller::TextureColorSpace::kExtendedSRGB;

@@ -468,7 +468,7 @@ fml::StatusOr<RenderTarget> MakeDownsampleSubpass(
           frame_info.texture_sampler_y_coord_scale =
               input_texture->GetYCoordScale();
 
-          TextureFillFragmentShader::FragInfo frag_info;
+          TextureFillFragmentShader::FragInfo frag_info{};
           frag_info.alpha = 1.0;
 
           const Quad& uvs = pass_args.uvs;

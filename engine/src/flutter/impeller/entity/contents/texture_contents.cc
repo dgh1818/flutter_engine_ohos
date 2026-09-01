@@ -17,6 +17,7 @@
 #include "impeller/entity/texture_fill_strict_src.frag.h"
 #include "impeller/entity/tiled_texture_fill_external.frag.h"
 #include "impeller/geometry/constants.h"
+#include "impeller/renderer/context.h"
 #include "impeller/renderer/render_pass.h"
 #include "impeller/renderer/vertex_buffer_builder.h"
 
@@ -225,8 +226,32 @@ bool TextureContents::Render(const ContentContext& renderer,
         renderer.GetContext()->GetSamplerLibrary()->GetSampler(sampler_desc));
 #endif  //  IMPELLER_ENABLE_OPENGLES
   } else {
-    FS::FragInfo frag_info;
+    FS::FragInfo frag_info{};
     frag_info.alpha = GetOpacity();
+    // Transfer function from the texture metadata: video surfaces carry
+    // kPQ/kHLG (OHOS native buffer color spaces); images default to sRGB.
+    switch (texture_->GetTextureDescriptor().color_space) {
+      case TextureColorSpace::kHLG:
+        frag_info.source_transfer = 1;
+        break;
+      case TextureColorSpace::kPQ:
+        frag_info.source_transfer = 2;
+        break;
+      default:
+        frag_info.source_transfer = 0;
+        break;
+    }
+    // Encode only when writing the final 10-bit HLG presentation target.
+    // Offscreen/filter passes use a different format and must not accumulate
+    // another HLG transfer every time their texture is sampled.
+    const bool writes_hlg_swapchain =
+        impeller::Context::enable_hdr_ &&
+        pass.GetRenderTargetPixelFormat() == PixelFormat::kB10G10R10A2UNorm;
+    frag_info.output_mode = writes_hlg_swapchain ? 1 : 0;
+    frag_info.source_primaries = texture_->GetTextureDescriptor().color_space ==
+                                         TextureColorSpace::kDisplayP3
+                                     ? 1
+                                     : 0;
     FS::BindFragInfo(pass, data_host_buffer.EmplaceUniform((frag_info)));
     FS::BindTextureSampler(
         pass, texture_,

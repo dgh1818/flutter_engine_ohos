@@ -31,6 +31,8 @@ std::optional<SkColorType> ToSkColorType(impeller::PixelFormat format) {
       return SkColorType::kBGRA_10101010_XR_SkColorType;
     case impeller::PixelFormat::kR32G32B32A32Float:
       return SkColorType::kRGBA_F32_SkColorType;
+    case impeller::PixelFormat::kB10G10R10A2UNorm:
+      return SkColorType::kRGBA_1010102_SkColorType;
     default:
       return std::nullopt;
   }
@@ -259,12 +261,22 @@ void ImageEncodingImpeller::ConvertImageToRaster(
 int ImageEncodingImpeller::GetColorSpace(
     const std::shared_ptr<impeller::Texture>& texture) {
   const impeller::TextureDescriptor& desc = texture->GetTextureDescriptor();
+  switch (desc.color_space) {
+    case impeller::TextureColorSpace::kExtendedSRGB:
+      return ColorSpace::kExtendedSRGB;
+    case impeller::TextureColorSpace::kDisplayP3:
+      return ColorSpace::kDisplayP3;
+    case impeller::TextureColorSpace::kPQ:
+    case impeller::TextureColorSpace::kHLG:
+    case impeller::TextureColorSpace::kSRGB:
+      break;
+  }
   switch (desc.format) {
     case impeller::PixelFormat::kB10G10R10XR:  // intentional_fallthrough
     case impeller::PixelFormat::kR16G16B16A16Float:
       return ColorSpace::kExtendedSRGB;
     case impeller::PixelFormat::kB10G10R10A2UNorm:
- 	    return ColorSpace::kDisplayP3;
+      return ColorSpace::kDisplayP3;
     default:
       return ColorSpace::kSRGB;
   }

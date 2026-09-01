@@ -11,11 +11,17 @@
 
 namespace impeller {
 
-  enum class TextureColorSpace {
- 	   kSRGB,
- 	   kExtendedSRGB,
- 	   kDisplayP3,
- 	 };
+enum class TextureColorSpace {
+  kSRGB,
+  kExtendedSRGB,
+  kDisplayP3,
+  // BT.2100 transfer functions carried by video surfaces (OHOS native buffer
+  // color spaces). Distinct values are required so the HDR shader pipeline can
+  // pick the correct transfer function; the 10-bit container alone cannot
+  // express HLG vs PQ.
+  kPQ,
+  kHLG,
+};
 
 //------------------------------------------------------------------------------
 /// @brief      Additional compression to apply to a texture. This value is

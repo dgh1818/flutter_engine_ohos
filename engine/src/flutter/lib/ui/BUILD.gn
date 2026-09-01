@@ -104,6 +104,8 @@ source_set("ui") {
     "painting/rrect.h",
     "painting/rsuperellipse.cc",
     "painting/rsuperellipse.h",
+    "painting/set_hdr.cc",
+    "painting/set_hdr.h",
     "painting/shader.cc",
     "painting/shader.h",
     "painting/single_frame_codec.cc",

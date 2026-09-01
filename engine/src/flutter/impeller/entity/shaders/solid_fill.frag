@@ -4,12 +4,15 @@
 
 precision mediump float;
 
+#include <impeller/color_transform.glsl>
 #include <impeller/types.glsl>
 
 uniform FragInfo {
   vec4 color;
   float source_color_space;
   float target_color_space;
+  // 0 = regular SDR/wide-gamut output, 1 = final 10-bit HLG swapchain.
+  int output_mode;
 }
 frag_info;
 
@@ -40,43 +43,35 @@ float linear_to_srgb_extended(float c) {
 }
 
 vec3 srgb_to_linear_vec3(vec3 color) {
-  return vec3(
-    srgb_to_linear(color.r),
-    srgb_to_linear(color.g),
-    srgb_to_linear(color.b)
-  );
+  return vec3(srgb_to_linear(color.r), srgb_to_linear(color.g),
+              srgb_to_linear(color.b));
 }
 
 vec3 linear_to_srgb_clamped_vec3(vec3 color) {
-  return vec3(
-    linear_to_srgb_clamped(color.r),
-    linear_to_srgb_clamped(color.g),
-    linear_to_srgb_clamped(color.b)
-  );
+  return vec3(linear_to_srgb_clamped(color.r), linear_to_srgb_clamped(color.g),
+              linear_to_srgb_clamped(color.b));
 }
 
 vec3 linear_to_srgb_extended_vec3(vec3 color) {
-  return vec3(
-    linear_to_srgb_extended(color.r),
-    linear_to_srgb_extended(color.g),
-    linear_to_srgb_extended(color.b)
-  );
+  return vec3(linear_to_srgb_extended(color.r),
+              linear_to_srgb_extended(color.g),
+              linear_to_srgb_extended(color.b));
 }
 // https://www.w3.org/TR/css-color-4/
 vec3 srgb_to_p3_linear(vec3 color) {
-  return vec3(
-    0.822461186547 * color.r + 0.177538013953 * color.g,
-    0.033191798446 * color.r + 0.966808201554 * color.g,
-    0.017055917378 * color.r + 0.072079544594 * color.g + 0.910864537928 * color.b
-  );
+  return vec3(0.822461186547 * color.r + 0.177538013953 * color.g,
+              0.033191798446 * color.r + 0.966808201554 * color.g,
+              0.017055917378 * color.r + 0.072079544594 * color.g +
+                  0.910864537928 * color.b);
 }
 
 vec3 p3_to_srgb_linear(vec3 color) {
-  return vec3(
-    1.306671048092539 * color.r - 0.298061942172353 * color.g + 0.213228303487995 * color.b,
-    -0.117390025596251 * color.r + 1.127722006101976 * color.g + 0.109727644608938 * color.b,
-    0.214813187718391 * color.r + 0.054268702864647 * color.g + 1.406898424029350 * color.b
-  );
+  return vec3(1.306671048092539 * color.r - 0.298061942172353 * color.g +
+                  0.213228303487995 * color.b,
+              -0.117390025596251 * color.r + 1.127722006101976 * color.g +
+                  0.109727644608938 * color.b,
+              0.214813187718391 * color.r + 0.054268702864647 * color.g +
+                  1.406898424029350 * color.b);
 }
 
 vec3 convert_srgb_family_to_p3(vec3 color) {
@@ -99,12 +94,24 @@ void main() {
   vec4 color = frag_info.color;
   int src_cs = int(frag_info.source_color_space + 0.5);
   int dst_cs = int(frag_info.target_color_space + 0.5);
-  
+
+  if (frag_info.output_mode == 1) {
+    // Flutter colors arrive premultiplied. Apply nonlinear transfer functions
+    // to the straight color, then premultiply again for the render pipeline.
+    highp float alpha = color.a;
+    highp vec3 straight = alpha > 0.0 ? vec3(color.rgb) / alpha : vec3(0.0);
+    highp vec3 working = src_cs == 2 ? DisplayP3ToBT2020(SRGBToLinear(straight))
+                                     : BT709ToBT2020(SRGBToLinear(straight));
+    color.rgb = vec3(Working203ToHLG(working) * alpha);
+    frag_color = color;
+    return;
+  }
+
   if (src_cs == dst_cs) {
     frag_color = color;
     return;
   }
-  
+
   if (src_cs < 2 && dst_cs == 2) {
     color.rgb = convert_srgb_family_to_p3(color.rgb);
   } else if (src_cs == 2 && dst_cs < 2) {
@@ -112,6 +119,6 @@ void main() {
   } else if (src_cs == 1 && dst_cs == 0) {
     color.rgb = clamp(color.rgb, 0.0, 1.0);
   }
-  
+
   frag_color = color;
 }

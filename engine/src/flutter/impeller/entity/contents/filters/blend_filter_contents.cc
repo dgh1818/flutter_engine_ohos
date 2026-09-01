@@ -576,7 +576,7 @@ static std::optional<Entity> PipelineBlend(
       frame_info.texture_sampler_y_coord_scale =
           input->texture->GetYCoordScale();
 
-      FS::FragInfo frag_info;
+      FS::FragInfo frag_info{};
       frag_info.alpha =
           absorb_opacity == ColorFilterContents::AbsorbOpacity::kYes
               ? input->opacity
@@ -707,7 +707,7 @@ std::optional<Entity> BlendFilterContents::CreateFramebufferAdvancedBlend(
       frame_info.texture_sampler_y_coord_scale =
           dst_snapshot->texture->GetYCoordScale();
 
-      FS::FragInfo frag_info;
+      FS::FragInfo frag_info{};
       frag_info.alpha = 1.0;
 
       std::array<VS::PerVertexData, 4> vertices = {
