@@ -292,8 +292,15 @@ export class EmbeddingNodeController extends NodeController {
       }
     }
 
-    // API 24+: prefer postInputEventWithStrategy, fallback to postTouchEvent on API 20	 
- 	  if (this.supportPostInputEventWithStrategy()) {
+    // HCPP wrappers (isPx=true, DISPLAY nodes) reinject through
+    // postInputEventWithStrategy: Web DOM hit testing and gesture
+    // competition on those nodes need the local-space-aligned strategy
+    // API.  TLHC texture views (isPx=false) must stay on postTouchEvent:
+    // their coordinates are BuilderNode-local, exactly what postTouchEvent
+    // expects, while the strategy API hit-tests in window coordinates and
+    // misses nodes below the top inset on API 24 (map renders but never
+    // receives touch; oh-3.41.9 reverted this same path for that reason).
+ 	  if (isPx && this.supportPostInputEventWithStrategy()) {
       this.alignToLocalSpace(event);
       return (this.builderNode as ESObject)?.postInputEventWithStrategy(event, CompetitionStrategy.DEFAULT) as boolean;
  	  }
