@@ -2,9 +2,17 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'package:file/memory.dart';
+import 'package:flutter_tools/src/base/file_system.dart';
+import 'package:flutter_tools/src/base/logger.dart';
+import 'package:flutter_tools/src/base/platform.dart';
 import 'package:flutter_tools/src/ohos/ohos_device_discovery.dart';
+import 'package:flutter_tools/src/ohos/ohos_sdk.dart';
+import 'package:flutter_tools/src/ohos/ohos_workflow.dart';
+import 'package:test/fake.dart';
 
 import '../../src/common.dart';
+import '../../src/context.dart';
 
 void main() {
   group('parseHdcDeviceOutput', () {
@@ -152,4 +160,200 @@ void main() {
       expect(diagnostics, isEmpty);
     });
   });
+
+  group('getDiagnostics', () {
+    OhosDevices buildDevices(ProcessManager processManager, {HarmonySdk? ohosSdk}) {
+      return OhosDevices(
+        ohosWorkflow: _FakeOhosWorkflow(),
+        processManager: processManager,
+        logger: BufferLogger.test(),
+        ohosSdk: ohosSdk,
+      );
+    }
+
+    testUsingContext(
+      'returns no diagnostics when hdc is unavailable, like Android',
+      () async {
+        final OhosDevices devices = buildDevices(FakeProcessManager.any());
+
+        expect(await devices.getDiagnostics(), isEmpty);
+      },
+      overrides: <Type, Generator>{
+        FileSystem: () => MemoryFileSystem.test(),
+        ProcessManager: () => FakeProcessManager.any(),
+        Platform: () => FakePlatform(),
+      },
+    );
+
+    testUsingContext(
+      'hints how to connect a device when hdc reports [Empty]',
+      () async {
+        final OhosDevices devices = buildDevices(
+          FakeProcessManager.list(<FakeCommand>[
+            const FakeCommand(
+              command: <String>['hdc', '-t', '', 'list', 'targets'],
+              stdout: '[Empty]\n',
+            ),
+          ]),
+          ohosSdk: _FakeHarmonySdk(),
+        );
+
+        final List<String> diagnostics = await devices.getDiagnostics();
+
+        expect(diagnostics, hasLength(1));
+        expect(diagnostics.single, contains('No HarmonyOS devices detected'));
+        expect(diagnostics.single, contains('USB debugging'));
+      },
+      overrides: <Type, Generator>{
+        FileSystem: () => MemoryFileSystem.test(),
+        ProcessManager: () => FakeProcessManager.any(),
+        Platform: () => FakePlatform(),
+      },
+    );
+
+    testUsingContext(
+      'hints authorization when hdc fails to connect',
+      () async {
+        final OhosDevices devices = buildDevices(
+          FakeProcessManager.list(<FakeCommand>[
+            const FakeCommand(
+              command: <String>['hdc', '-t', '', 'list', 'targets'],
+              stdout: '[Fail]Connect failed\n',
+            ),
+          ]),
+          ohosSdk: _FakeHarmonySdk(),
+        );
+
+        final List<String> diagnostics = await devices.getDiagnostics();
+
+        expect(diagnostics, hasLength(1));
+        expect(diagnostics.single, contains('Failed to connect to a HarmonyOS device'));
+        expect(diagnostics.single, contains('authorization'));
+      },
+      overrides: <Type, Generator>{
+        FileSystem: () => MemoryFileSystem.test(),
+        ProcessManager: () => FakeProcessManager.any(),
+        Platform: () => FakePlatform(),
+      },
+    );
+
+    testUsingContext(
+      'hints authorization for an unauthorized device line',
+      () async {
+        // Real `hdc list targets` output while the authorization dialog has not
+        // been accepted (see the parse tests above).
+        final OhosDevices devices = buildDevices(
+          FakeProcessManager.list(<FakeCommand>[
+            const FakeCommand(
+              command: <String>['hdc', '-t', '', 'list', 'targets'],
+              stdout: '63Q0226206003511\tUnauthorized\n',
+            ),
+          ]),
+          ohosSdk: _FakeHarmonySdk(),
+        );
+
+        final List<String> diagnostics = await devices.getDiagnostics();
+
+        expect(diagnostics, hasLength(1));
+        expect(diagnostics.single, contains('is not authorized'));
+        expect(diagnostics.single, contains('authorization dialog'));
+      },
+      overrides: <Type, Generator>{
+        FileSystem: () => MemoryFileSystem.test(),
+        ProcessManager: () => FakeProcessManager.any(),
+        Platform: () => FakePlatform(),
+      },
+    );
+
+    testUsingContext(
+      'hints restart for an offline device line',
+      () async {
+        final OhosDevices devices = buildDevices(
+          FakeProcessManager.list(<FakeCommand>[
+            const FakeCommand(
+              command: <String>['hdc', '-t', '', 'list', 'targets'],
+              stdout: 'Offline\n',
+            ),
+          ]),
+          ohosSdk: _FakeHarmonySdk(),
+        );
+
+        final List<String> diagnostics = await devices.getDiagnostics();
+
+        expect(diagnostics, hasLength(1));
+        expect(diagnostics.single, contains('is offline'));
+        expect(diagnostics.single, contains('hdc kill'));
+      },
+      overrides: <Type, Generator>{
+        FileSystem: () => MemoryFileSystem.test(),
+        ProcessManager: () => FakeProcessManager.any(),
+        Platform: () => FakePlatform(),
+      },
+    );
+
+    testUsingContext(
+      'surfaces stderr when hdc list targets fails',
+      () async {
+        final OhosDevices devices = buildDevices(
+          FakeProcessManager.list(<FakeCommand>[
+            const FakeCommand(
+              command: <String>['hdc', '-t', '', 'list', 'targets'],
+              exitCode: 1,
+              stderr: 'hdc server not running\n',
+            ),
+          ]),
+          ohosSdk: _FakeHarmonySdk(),
+        );
+
+        final List<String> diagnostics = await devices.getDiagnostics();
+
+        expect(diagnostics, hasLength(1));
+        expect(diagnostics.single, contains('`hdc list targets` failed'));
+        expect(diagnostics.single, contains('hdc server not running'));
+      },
+      overrides: <Type, Generator>{
+        FileSystem: () => MemoryFileSystem.test(),
+        ProcessManager: () => FakeProcessManager.any(),
+        Platform: () => FakePlatform(),
+      },
+    );
+
+    testUsingContext(
+      'mixed output yields a hint for the error line only',
+      () async {
+        final OhosDevices devices = buildDevices(
+          FakeProcessManager.list(<FakeCommand>[
+            const FakeCommand(
+              command: <String>['hdc', '-t', '', 'list', 'targets'],
+              stdout: '63Q0226206003511\n[Fail]Connect failed\n',
+            ),
+          ]),
+          ohosSdk: _FakeHarmonySdk(),
+        );
+
+        final List<String> diagnostics = await devices.getDiagnostics();
+
+        expect(diagnostics, hasLength(1));
+        expect(diagnostics.single, contains('Failed to connect to a HarmonyOS device'));
+      },
+      overrides: <Type, Generator>{
+        FileSystem: () => MemoryFileSystem.test(),
+        ProcessManager: () => FakeProcessManager.any(),
+        Platform: () => FakePlatform(),
+      },
+    );
+  });
+}
+
+class _FakeOhosWorkflow extends Fake implements OhosWorkflow {}
+
+class _FakeHarmonySdk extends Fake implements HarmonySdk {
+  @override
+  String get name => 'FakeHarmonySDK';
+
+  @override
+  String get sdkPath => '/fake/sdk';
+
+  @override
+  String? get hdcPath => 'hdc';
 }
