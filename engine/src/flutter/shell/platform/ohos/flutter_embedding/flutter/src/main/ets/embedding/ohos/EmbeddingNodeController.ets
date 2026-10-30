@@ -314,7 +314,7 @@ export class EmbeddingNodeController extends NodeController {
     // HCPP nodes use the strategy API for Web hit testing and gesture competition.
     // TLHC nodes must stay on postTouchEvent: the strategy API hit-tests in
     // window coordinates and misses touches below the top inset on API 24.
-    if (isPx && this.supportPostInputEventWithStrategy())
+    if (isPx && this.supportPostInputEventWithStrategy()) {
       this.alignWindowToLocalForHitTest(event);
       if ((this.builderNode as ESObject)?.postInputEventWithStrategy(event, CompetitionStrategy.DEFAULT)) {
         return true;
@@ -322,7 +322,7 @@ export class EmbeddingNodeController extends NodeController {
         Log.d(TAG, 'postInputEventWithStrategy failed, fallback to postTouchEvent');
         return this.builderNode?.postTouchEvent(event) as boolean;
       }
- 	  }
+    }
     return this.builderNode?.postTouchEvent(event) as boolean;
   }
 }
