@@ -14,6 +14,7 @@
  * It handles initialization, resource copying, and Dart VM configuration.
  */
 import FlutterShellArgs from '../FlutterShellArgs';
+import FlutterEngineFlags from '../FlutterEngineFlags';
 import FlutterNapi from '../FlutterNapi';
 import Log from '../../../util/Log';
 import FlutterApplicationInfo from './FlutterApplicationInfo';
@@ -275,12 +276,26 @@ export default class FlutterLoader {
     if (shellArgs == null) {
       shellArgs = new Array<string>();
     }
+
+    // Drop Want-provided flags that are not allowed in release builds, as
+    // on Android (flutter/flutter#182522), before embedding-internal args
+    // are appended.
+    const isRelease =
+      !(this.flutterApplicationInfo!.isDebugMode || this.flutterApplicationInfo!.isProfile);
+    shellArgs = FlutterEngineFlags.filterArgsForRelease(shellArgs, isRelease);
+
     shellArgs.push("--icu-symbol-prefix=_binary_icudtl_dat");
     shellArgs.push(
       "--icu-native-lib-path="
         + this.flutterApplicationInfo!.nativeLibraryDir
         + FILE_SEPARATOR + DEFAULT_LIBRARY
     );
+
+    // Add engine flags declared in the module.json5 metadata, merged in
+    // front of the Want args so the Want takes precedence (last-wins).
+    const metadata = ApplicationInfoLoader.getModuleMetadata();
+    const metadataArgs = FlutterEngineFlags.computeMetadataArgs(metadata, isRelease);
+    shellArgs = FlutterEngineFlags.mergeMetadataArgs(shellArgs, metadataArgs);
 
     let kernelPath: string = "";
     if (this.flutterApplicationInfo!.isDebugMode) {

@@ -171,5 +171,28 @@ export default function keyDataTest() {
       expect(decoded.deviceType).assertEqual(DeviceType.KHDMI);
       // expect(decoded.character).assertEqual('你');
     });
+
+    it('constructor throws when buffer size does not match charSize (corruption path)', Level.LEVEL1, () => {
+      // 7 fields * 8 bytes = 56 bytes of header. charSize is set to 0.
+      // Buffer size is 57 -> offset+charSize = 56 != 57 -> corruption branch hit.
+      const buf = new ArrayBuffer(57);
+      const view = new DataView(buf);
+      let offset: number = 0;
+      view.setBigInt64(offset, BigInt(0), true); offset += 8; // charSize = 0
+      view.setBigInt64(offset, BigInt(0), true); offset += 8; // timestamp
+      view.setBigInt64(offset, BigInt(0), true); offset += 8; // type
+      view.setBigInt64(offset, BigInt(0), true); offset += 8; // physicalKey
+      view.setBigInt64(offset, BigInt(0), true); offset += 8; // logicalKey
+      view.setBigInt64(offset, BigInt(0), true); offset += 8; // isSynthesized
+      view.setBigInt64(offset, BigInt(0), true); offset += 8; // deviceType
+      // After this, offset = 56. charSize = 0. 56 + 0 = 56 != 57 (buffer size).
+      let threw = false;
+      try {
+        new KeyData(buf);
+      } catch (e) {
+        threw = true;
+      }
+      expect(threw).assertEqual(true);
+    });
   });
 }

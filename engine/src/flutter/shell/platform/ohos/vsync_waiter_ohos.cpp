@@ -28,6 +28,9 @@ VsyncWaiterOHOS::VsyncWaiterOHOS(const flutter::TaskRunners& task_runners,
     : VsyncWaiter(task_runners), enable_frame_cache_(enable_frame_cache) {
   vsync_handle_ =
       OH_NativeVSync_Create("flutterSyncName", strlen(flutterSyncName));
+  if (vsync_handle_ == nullptr) {
+ 	  FML_LOG(ERROR) << "OH_NativeVSync_Create returned null";
+ 	}
   std::shared_ptr<OhosVsyncVotingMgr> vsync_voting_manager =
       OhosVsyncVotingMgr::GetInstance();
   if (vsync_voting_manager != nullptr) {
@@ -110,7 +113,8 @@ void VsyncWaiterOHOS::AwaitVSync() {
         int32_t ret = 0;
         if (0 != (ret = OH_NativeVSync_RequestFrameWithMultiCallback(
                       handle, &OnVsyncFromOHOS, weak_this))) {
-          FML_LOG(ERROR) << "AwaitVSync...failed:" << ret;
+          FML_LOG(ERROR)
+              << "OH_NativeVSync_RequestFrameWithMultiCallback failed: " << ret;
         }
       });
 }
@@ -181,7 +185,7 @@ void VsyncWaiterOHOS::SetDvsyncSwitch(bool enableDvsync) {
     apiVersion_ = OH_GetSdkApiVersion();
   }
   if (apiVersion_ < SUPPORT_API_VERSION) {
-    LOGI("current api version not support native dvsync!");
+    FML_LOG(INFO) << "current api version not support native dvsync!";
     return;
   }
   if (!handle_) {

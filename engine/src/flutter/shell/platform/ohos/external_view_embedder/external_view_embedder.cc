@@ -687,7 +687,9 @@ std::shared_ptr<impeller::AiksContext> OhosEmbedderRootSurface::GetAiksContext()
   return aiks_context_;
 }
 
-OHOSWindowingViewEmbedder::OHOSWindowingViewEmbedder() = default;
+OHOSWindowingViewEmbedder::OHOSWindowingViewEmbedder(
+    DidUpdateViewSizeCallback on_did_update_view_size)
+    : on_did_update_view_size_(std::move(on_did_update_view_size)) {}
 
 OHOSWindowingViewEmbedder::~OHOSWindowingViewEmbedder() = default;
 
@@ -701,12 +703,27 @@ void OHOSWindowingViewEmbedder::RegisterViewSurface(
   view_surfaces_[view_id] = std::move(surface);
 }
 
+void OHOSWindowingViewEmbedder::SetViewSizedToContent(int64_t view_id,
+                                                      bool sized_to_content) {
+  if (sized_to_content) {
+    sized_to_content_views_.insert(view_id);
+  } else {
+    sized_to_content_views_.erase(view_id);
+    last_reported_frame_size_.erase(view_id);
+  }
+}
+
 void OHOSWindowingViewEmbedder::UnregisterViewSurface(int64_t view_id) {
   view_surfaces_.erase(view_id);
+  // A re-registered view re-reports its first frame size (the map key is
+  // gone), matching win32's DidUpdateViewSize on the fresh surface.
+  last_reported_frame_size_.erase(view_id);
 }
 
 void OHOSWindowingViewEmbedder::CollectView(int64_t view_id) {
   view_surfaces_.erase(view_id);
+  sized_to_content_views_.erase(view_id);
+  last_reported_frame_size_.erase(view_id);
 }
 
 DlCanvas* OHOSWindowingViewEmbedder::GetRootCanvas() {
@@ -753,6 +770,24 @@ void OHOSWindowingViewEmbedder::SubmitFlutterView(
                       << flutter_view_id << "; skipping frame.";
     frame->Submit();
     return;
+  }
+
+  // Sized-to-content content-size report (win32 OnFrameGenerated ->
+  // DidUpdateViewSize parity): pending_size_ IS this view's Dart content
+  // size for the frame. Fires BEFORE the present attempts, like win32 —
+  // reporting after would deadlock at the birth size if AcquireFrame keeps
+  // failing at the grown size (no report => no window resize => no bigger
+  // surface ever). Only fires on change; win32 dedups in
+  // HostWindowTooltip::DidUpdateViewSize.
+  if (on_did_update_view_size_ &&
+      sized_to_content_views_.count(flutter_view_id) == 1) {
+    auto& last = last_reported_frame_size_[flutter_view_id];
+    if (last.first != pending_size_.width ||
+        last.second != pending_size_.height) {
+      last = {pending_size_.width, pending_size_.height};
+      on_did_update_view_size_(flutter_view_id, pending_size_.width,
+                               pending_size_.height);
+    }
   }
 
   // Replay the recording onto the view's real frame and submit.

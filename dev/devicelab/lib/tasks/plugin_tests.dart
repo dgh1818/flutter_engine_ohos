@@ -76,6 +76,9 @@ class PluginTest {
       if (runFlutterTest) {
         await plugin.runFlutterTest();
         if (!dartOnlyPlugin) {
+          if (buildTarget == 'hap') {
+            await injectOhosSigningConfig(plugin.example.rootPath);
+          }
           await plugin.example.runNativeTests(buildTarget);
           if (buildTarget == 'ios') {
             var runResult = false;
@@ -106,6 +109,9 @@ class PluginTest {
         section('Add plugins');
         await app.addPlugin('plugintest', pluginPath: path.join('..', 'plugintest'));
         await app.addPlugin('path_provider');
+        if (buildTarget == 'hap') {
+          await injectOhosSigningConfig(app.rootPath);
+        }
         section('Build app');
         await app.build(buildTarget, validateNativeBuildProject: !dartOnlyPlugin);
         if (cocoapodsTransitiveFlutterDependency) {
@@ -408,6 +414,10 @@ public class $pluginClass: NSObject, FlutterPlugin {
             0) {
           throw TaskResult.failure('Platform unit tests failed');
         }
+      case 'hap':
+        // OHOS native plugin unit tests are not wired to hvigor yet; the
+        // hap build above still compiles the native side.
+        print('OHOS native plugin unit tests are not wired up yet; skipping.');
     }
   }
 

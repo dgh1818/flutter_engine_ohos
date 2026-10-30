@@ -33,6 +33,15 @@ class XComponentBase {
   // only if the controller tracks it as LIVE (else white screen); STICKY.
   void ResolveSubViewRouting();
 
+  // Resolves the shellholder serving accessibility
+  // queries for this XComponent: its own when the engine is attached; for an
+  // HCPP overlay (never attaches an engine, see IsHcppOverlay) the owner
+  // engine's shellholder via the main XComponent entry. Under HCPP the
+  // overlay's registration is the only one that answers (the main stays
+  // unregistered — see EnsureA11yProviderRegistered), so this is the single
+  // query path into the engine's semantics tree.
+  OHOSShellHolder* ResolveShellholder();
+
   // dynamic load the needed accessibility symbols
   static std::unique_ptr<DynamicLibraryLoader> loader_;
   static constexpr char ARKUI_REGISTER_CALLBACK_WITH_INSTANCE[] =
@@ -66,6 +75,23 @@ class XComponentBase {
   // NOT an overlay — it must go through main-surface setup, otherwise it is
   // silently hijacked and white-screens in builds with HCPP off.
   bool IsHcppOverlay();
+
+  bool IsHcppMain();
+
+  // Registers this MAIN's provider when it is supposed to
+  // be registered (HCPP off; also covers a deferred surface that was created
+  // before attach, and a handback when the overlay goes away). Under HCPP the
+  // overlay's registration is the sole owner and the main stays unregistered
+  // on purpose. No-op for overlays, when already registered, or when the
+  // engine is not attached. Must be called with xcomponentMap_mutex_ held
+  // (recursive) — or from the map-lock-free OnSurfaceCreated path where
+  // shellholder_ptr_ is already resolved.
+  void EnsureA11yProviderRegistered();
+
+  // The provider registered by this main XComponent's
+  // overlay pair ("<id>__overlay"), or nullptr when absent/unregistered.
+  ArkUI_AccessibilityProvider* GetOverlayPairProvider();
+
   void OnDispatchTouchEvent(OH_NativeXComponent* component, void* window);
   void OnDispatchAxisEvent(OH_NativeXComponent* component,
                            ArkUI_UIInputEvent* event,
@@ -171,7 +197,7 @@ class XComponentAdapter {
   // Stashes an overlay window that arrived before its owning engine's
   // platform view existed (shell still creating).
   void StoreHcppOverlayPendingWindow(const std::string& overlay_id,
-                                      void* window);
+                                     void* window);
   // Delivers the stashed window of the overlay owned by |main_id| (i.e. the
   // "<main_id>__overlay" entry) to this engine's platform view. Called when
   // the main XComponent attaches the engine.

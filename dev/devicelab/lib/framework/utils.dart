@@ -16,6 +16,57 @@ import 'devices.dart';
 import 'host_agent.dart';
 import 'task_result.dart';
 
+/// IPC prefix used to distinguish protocol messages from regular stdout output.
+const String kIpcPrefix = 'DEVICELAB_IPC:';
+
+/// Injects OHOS signing configuration into a Flutter project's ohos directory.
+///
+/// Reads the signing config from the `OHOS_SIGNING_CONFIG` environment
+/// variable, which should point to a JSON file containing `signingConfigs`
+/// and optionally `bundleName`. This is required for OHOS projects created
+/// in temporary directories that don't have signing configured. No-op when
+/// the environment variable is unset or the file it points to is missing.
+Future<void> injectOhosSigningConfig(String projectPath) async {
+  final String? configPath = Platform.environment['OHOS_SIGNING_CONFIG'];
+  if (configPath == null || configPath.isEmpty) {
+    return;
+  }
+  final configFile = File(configPath);
+  if (!configFile.existsSync()) {
+    return;
+  }
+  final Map<String, dynamic> config;
+  try {
+    config = json.decode(configFile.readAsStringSync()) as Map<String, dynamic>;
+  } catch (error) {
+    throw StateError('Failed to parse OHOS signing config at "$configPath": $error');
+  }
+  if (config['signingConfigs'] is! List) {
+    throw StateError('OHOS signing config at "$configPath" has no "signingConfigs" list');
+  }
+
+  final bpFile = File(path.join(projectPath, 'ohos', 'build-profile.json5'));
+  if (bpFile.existsSync()) {
+    String content = bpFile.readAsStringSync();
+    final signingStr = '"signingConfigs": ${json.encode(config['signingConfigs'])}';
+    content = content.replaceAll(RegExp(r'"signingConfigs":\s*\[.*?\]', dotAll: true), signingStr);
+    bpFile.writeAsStringSync(content);
+  }
+
+  final bundleName = config['bundleName'] as String?;
+  if (bundleName != null && bundleName.isNotEmpty) {
+    final appFile = File(path.join(projectPath, 'ohos', 'AppScope', 'app.json5'));
+    if (appFile.existsSync()) {
+      String content = appFile.readAsStringSync();
+      content = content.replaceAll(
+        RegExp(r'"bundleName"\s*:\s*"[^"]*"'),
+        '"bundleName": "$bundleName"',
+      );
+      appFile.writeAsStringSync(content);
+    }
+  }
+}
+
 /// Virtual current working directory, which affect functions, such as [exec].
 String cwd = Directory.current.path;
 
@@ -284,6 +335,10 @@ Future<Process> startProcess(
 }) async {
   final command = '$executable ${arguments?.join(" ") ?? ""}';
   final String finalWorkingDirectory = workingDirectory ?? cwd;
+  // Child processes inherit the parent environment by default
+  // (Process.start defaults includeParentEnvironment to true); only the
+  // explicit overrides are listed so the log below does not dump the whole
+  // bot environment.
   final newEnvironment = <String, String>{
     ...?environment,
     'ANDROID_NDK_PATH': ?_discoverBestNdkPath(),
@@ -294,7 +349,6 @@ Future<Process> startProcess(
   if (bestNdkPath != null) {
     newEnvironment['ANDROID_NDK_PATH'] = bestNdkPath;
   }
-
   newEnvironment['BOT'] = isBot ? 'true' : 'false';
   newEnvironment['LANG'] = 'en_US.UTF-8';
   print('Executing "$command" in "$finalWorkingDirectory" with environment $newEnvironment');

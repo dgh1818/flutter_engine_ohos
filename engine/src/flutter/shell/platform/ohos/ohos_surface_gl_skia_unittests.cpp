@@ -47,10 +47,10 @@
 
 #define private public
 #define protected public
-#include "flutter/shell/platform/ohos/surface/ohos_surface.h"
-#include "flutter/shell/platform/ohos/ohos_egl_surface.h"
 #include "flutter/shell/platform/ohos/ohos_context_gl_skia.h"
+#include "flutter/shell/platform/ohos/ohos_egl_surface.h"
 #include "flutter/shell/platform/ohos/ohos_surface_gl_skia.h"
+#include "flutter/shell/platform/ohos/surface/ohos_surface.h"
 #undef private
 #undef protected
 
@@ -82,6 +82,8 @@ struct FakeEGLState {
   EGLBoolean choose_config_result = EGL_TRUE;
   EGLint choose_config_count = 1;
   bool choose_config_write_null = false;
+  int fail_choose_config_on_nth = 0;
+  int choose_config_calls = 0;
 
   int fail_create_context_on_nth = 0;
   int create_context_calls = 0;
@@ -137,12 +139,8 @@ class FakeEGL {
   ~FakeEGL() { g_egl.active = false; }
 };
 
-}
-}
-}
+}  // namespace fake_egl
 
-namespace flutter {
-namespace testing {
 namespace {
 
 class QuietLogs {
@@ -171,15 +169,15 @@ TaskRunners MakeTestTaskRunners() {
   return TaskRunners("ohos_gl_ut", runner, runner, runner, runner);
 }
 
-}
+}  // namespace
 
 class OhosSurfaceGLSkiaTest : public ::testing::Test {
  protected:
   void SetUp() override {
     guard_.emplace();
     fml::MessageLoop::EnsureInitializedForCurrentThread();
-    context_ = std::make_shared<OhosContextGLSkia>(
-        OHOSRenderingAPI::kOpenGLES, MakeTestTaskRunners());
+    context_ = std::make_shared<OhosContextGLSkia>(OHOSRenderingAPI::kOpenGLES,
+                                                   MakeTestTaskRunners());
     ASSERT_TRUE(context_->IsValid());
     surface_ = std::make_unique<OhosSurfaceGLSkia>(context_);
     ASSERT_TRUE(surface_->IsValid());
@@ -209,6 +207,27 @@ TEST_F(OhosSurfaceGLSkiaTest, ConstructionKeepsValidOffscreenSurface) {
   EXPECT_TRUE(surface_->IsValid());
 }
 
+TEST_F(OhosSurfaceGLSkiaTest, EmitsInfoLogs) {
+  fml::ScopedSetLogSettings loud({fml::kLogInfo});
+  OhosSurfaceGLSkia fresh(context_);
+  EXPECT_TRUE(fresh.IsValid());
+
+  auto window = fml::MakeRefCounted<OHOSNativeWindow>(kFakeNativeWindow);
+  ASSERT_TRUE(fresh.SetNativeWindow(window));
+  EXPECT_TRUE(fresh.OnScreenSurfaceResize(DlISize(800, 600)));
+
+  GrMockOptions mock_options;
+  auto gr_context = GrDirectContext::MakeMock(&mock_options);
+  ASSERT_NE(gr_context, nullptr);
+  auto gpu_surface = fresh.CreateGPUSurface(gr_context.get());
+  ASSERT_NE(gpu_surface, nullptr);
+
+  GraphicStubKnobGuard knob_guard;
+  OHNativeWindowBuffer* buffer =
+      reinterpret_cast<OHNativeWindowBuffer*>(0x7700);
+  EXPECT_TRUE(fresh.PaintOffscreenData(buffer, 3));
+}
+
 TEST_F(OhosSurfaceGLSkiaTest, TeardownOnScreenContextClearsWindowState) {
   auto window = fml::MakeRefCounted<OHOSNativeWindow>(kFakeNativeWindow);
   ASSERT_TRUE(surface_->SetNativeWindow(window));
@@ -233,9 +252,8 @@ TEST_F(OhosSurfaceGLSkiaTest, TeardownToleratesMissingBackingContext) {
 TEST_F(OhosSurfaceGLSkiaTest, OnScreenSurfaceResizeNeedsSurfaceAndWindow) {
   EXPECT_FALSE(surface_->OnScreenSurfaceResize(DlISize(640, 480)));
 
-  surface_->onscreen_surface_ =
-      std::make_unique<OhosEGLSurface>(kFakeSurfaceA, kFakeDisplay,
-                                       kFakeContextA);
+  surface_->onscreen_surface_ = std::make_unique<OhosEGLSurface>(
+      kFakeSurfaceA, kFakeDisplay, kFakeContextA);
   EXPECT_FALSE(surface_->OnScreenSurfaceResize(DlISize(640, 480)));
   surface_->onscreen_surface_ = nullptr;
 }
@@ -283,9 +301,9 @@ TEST_F(OhosSurfaceGLSkiaTest, ResourceContextMakeCurrentMapsStatus) {
 
 TEST_F(OhosSurfaceGLSkiaTest, ResourceContextClearCurrentUnbindsCompletely) {
   EXPECT_TRUE(surface_->ResourceContextClearCurrent());
-  EXPECT_EQ(g_egl.events.back(),
-            "MakeCurrent:" + HexPtr(EGL_NO_SURFACE) + "," +
-                HexPtr(EGL_NO_SURFACE) + "," + HexPtr(EGL_NO_CONTEXT));
+  EXPECT_EQ(g_egl.events.back(), "MakeCurrent:" + HexPtr(EGL_NO_SURFACE) + "," +
+                                     HexPtr(EGL_NO_SURFACE) + "," +
+                                     HexPtr(EGL_NO_CONTEXT));
   g_egl.make_current_result = EGL_FALSE;
   EXPECT_FALSE(surface_->ResourceContextClearCurrent());
   g_egl.make_current_result = EGL_TRUE;
@@ -423,8 +441,8 @@ TEST_F(OhosSurfaceGLSkiaTest, PresentSwapsBuffersWithAndWithoutTiming) {
   EXPECT_EQ(CountEvents("SwapBuffers"), 1u);
 
   surface_->native_window_ = fml::MakeRefCounted<OHOSNativeWindow>(nullptr);
-  auto time = fml::TimePoint::FromEpochDelta(
-      fml::TimeDelta::FromMilliseconds(5));
+  auto time =
+      fml::TimePoint::FromEpochDelta(fml::TimeDelta::FromMilliseconds(5));
   GLPresentInfo with_time{0u, damage, time, damage};
   EXPECT_TRUE(surface_->GLContextPresent(with_time));
   EXPECT_EQ(CountEvents("SwapBuffers"), 2u);
@@ -439,8 +457,8 @@ TEST_F(OhosSurfaceGLSkiaTest, PresentToleratesNativeWindowOptFailure) {
   auto window = fml::MakeRefCounted<OHOSNativeWindow>(kFakeNativeWindow);
   ASSERT_TRUE(surface_->SetNativeWindow(window));
   std::optional<DlIRect> damage = DlIRect::MakeLTRB(0, 0, 4, 4);
-  auto time = fml::TimePoint::FromEpochDelta(
-      fml::TimeDelta::FromMilliseconds(5));
+  auto time =
+      fml::TimePoint::FromEpochDelta(fml::TimeDelta::FromMilliseconds(5));
   GLPresentInfo info{0u, damage, time, damage};
   EXPECT_TRUE(surface_->GLContextPresent(info));
   g_stub_graphic_fail_mask = kStubFailWindowHandleOpt;
@@ -499,14 +517,13 @@ TEST_F(OhosSurfaceGLSkiaTest, GetGLInterfaceWorkaroundDancesWithNewContext) {
       dance.push_back(e);
     }
   }
-  EXPECT_EQ(dance,
-            (std::vector<std::string>{
-                "CreateContext",
-                "MakeCurrent:" + HexPtr(kFakeSurfaceA) + "," +
-                    HexPtr(kFakeSurfaceB) + "," + HexPtr(fresh),
-                "MakeCurrent:" + HexPtr(kFakeSurfaceA) + "," +
-                    HexPtr(kFakeSurfaceB) + "," + HexPtr(kFakeContextA),
-                "DestroyContext:" + HexPtr(fresh)}));
+  EXPECT_EQ(dance, (std::vector<std::string>{
+                       "CreateContext",
+                       "MakeCurrent:" + HexPtr(kFakeSurfaceA) + "," +
+                           HexPtr(kFakeSurfaceB) + "," + HexPtr(fresh),
+                       "MakeCurrent:" + HexPtr(kFakeSurfaceA) + "," +
+                           HexPtr(kFakeSurfaceB) + "," + HexPtr(kFakeContextA),
+                       "DestroyContext:" + HexPtr(fresh)}));
 }
 
 TEST_F(OhosSurfaceGLSkiaTest, CreateGPUSurfaceWrapsProvidedContext) {
@@ -596,9 +613,15 @@ TEST_F(OhosSurfaceGLSkiaTest, PaintOffscreenDataAttachesFlushesDestroys) {
 
   g_stub_graphic_fail_mask = kStubFailFlushBuffer;
   EXPECT_TRUE(surface_->PaintOffscreenData(buffer, 4));
+  g_stub_graphic_fail_mask = kStubFailAttachBuffer;
+  EXPECT_FALSE(surface_->PaintOffscreenData(buffer, 5));
+  {
+    fml::ScopedSetLogSettings quiet({fml::kLogFatal});
+    EXPECT_FALSE(surface_->PaintOffscreenData(buffer, 6));
+  }
 }
 
-TEST_F(OhosSurfaceGLSkiaTest, QuietSeverityAndContextInvalidLeg) {
+TEST_F(OhosSurfaceGLSkiaTest, ContextInvalidPath) {
   QuietLogs quiet;
   {
     OhosSurfaceGLSkia fresh(context_);
@@ -618,7 +641,7 @@ TEST_F(OhosSurfaceGLSkiaTest, QuietSeverityAndContextInvalidLeg) {
   EXPECT_TRUE(surface_->IsValid());
 }
 
-TEST_F(OhosSurfaceGLSkiaTest, QuietSeverityOnGpuSurfaceBootstrap) {
+TEST_F(OhosSurfaceGLSkiaTest, GpuSurfaceBootstrap) {
   QuietLogs quiet;
   auto window = fml::MakeRefCounted<OHOSNativeWindow>(kFakeNativeWindow);
   ASSERT_TRUE(surface_->SetNativeWindow(window));
@@ -636,7 +659,7 @@ TEST_F(OhosSurfaceGLSkiaTest, QuietSeverityOnGpuSurfaceBootstrap) {
   EXPECT_EQ(context_->GetMainSkiaContext(), nullptr);
 }
 
-TEST_F(OhosSurfaceGLSkiaTest, QuietSeverityOnResizePaths) {
+TEST_F(OhosSurfaceGLSkiaTest, ResizePaths) {
   QuietLogs quiet;
   EXPECT_FALSE(surface_->OnScreenSurfaceResize(DlISize(640, 480)));
 
@@ -651,7 +674,7 @@ TEST_F(OhosSurfaceGLSkiaTest, QuietSeverityOnResizePaths) {
   EXPECT_EQ(CountEvents("CreateWindowSurface"), creations + 1);
 }
 
-TEST_F(OhosSurfaceGLSkiaTest, QuietSeverityOnContextOps) {
+TEST_F(OhosSurfaceGLSkiaTest, ContextOps) {
   QuietLogs quiet;
   {
     g_egl.pbuffer_surface_fail = true;
@@ -662,9 +685,9 @@ TEST_F(OhosSurfaceGLSkiaTest, QuietSeverityOnContextOps) {
   }
 
   EXPECT_TRUE(surface_->ResourceContextClearCurrent());
-  EXPECT_EQ(g_egl.events.back(),
-            "MakeCurrent:" + HexPtr(EGL_NO_SURFACE) + "," +
-                HexPtr(EGL_NO_SURFACE) + "," + HexPtr(EGL_NO_CONTEXT));
+  EXPECT_EQ(g_egl.events.back(), "MakeCurrent:" + HexPtr(EGL_NO_SURFACE) + "," +
+                                     HexPtr(EGL_NO_SURFACE) + "," +
+                                     HexPtr(EGL_NO_CONTEXT));
 
   auto result = surface_->GLContextMakeCurrent();
   ASSERT_NE(result, nullptr);
@@ -690,7 +713,7 @@ TEST_F(OhosSurfaceGLSkiaTest, QuietSeverityOnContextOps) {
   EXPECT_EQ(fbo.fbo_id, 0u);
 }
 
-TEST_F(OhosSurfaceGLSkiaTest, QuietSeverityOnPaintOffscreen) {
+TEST_F(OhosSurfaceGLSkiaTest, PaintOffscreen) {
   QuietLogs quiet;
   GraphicStubKnobGuard knob_guard;
   surface_->native_window_ =
@@ -704,7 +727,7 @@ TEST_F(OhosSurfaceGLSkiaTest, QuietSeverityOnPaintOffscreen) {
   EXPECT_TRUE(surface_->PaintOffscreenData(buffer, 6));
 }
 
-TEST_F(OhosSurfaceGLSkiaTest, QuietSeverityOnGetGLInterfaceDance) {
+TEST_F(OhosSurfaceGLSkiaTest, GetGLInterface) {
   QuietLogs quiet;
   int created = g_egl.create_context_calls;
   EXPECT_EQ(surface_->GetGLInterface(), nullptr);
@@ -732,14 +755,13 @@ TEST_F(OhosSurfaceGLSkiaTest, QuietSeverityOnGetGLInterfaceDance) {
       dance.push_back(e);
     }
   }
-  EXPECT_EQ(dance,
-            (std::vector<std::string>{
-                "CreateContext",
-                "MakeCurrent:" + HexPtr(kFakeSurfaceA) + "," +
-                    HexPtr(kFakeSurfaceB) + "," + HexPtr(fresh),
-                "MakeCurrent:" + HexPtr(kFakeSurfaceA) + "," +
-                    HexPtr(kFakeSurfaceB) + "," + HexPtr(kFakeContextA),
-                "DestroyContext:" + HexPtr(fresh)}));
+  EXPECT_EQ(dance, (std::vector<std::string>{
+                       "CreateContext",
+                       "MakeCurrent:" + HexPtr(kFakeSurfaceA) + "," +
+                           HexPtr(kFakeSurfaceB) + "," + HexPtr(fresh),
+                       "MakeCurrent:" + HexPtr(kFakeSurfaceA) + "," +
+                           HexPtr(kFakeSurfaceB) + "," + HexPtr(kFakeContextA),
+                       "DestroyContext:" + HexPtr(fresh)}));
   g_egl.make_current_result = EGL_TRUE;
   g_egl.destroy_context_result = EGL_TRUE;
   g_egl.current_context = EGL_NO_CONTEXT;
@@ -802,7 +824,7 @@ TEST_F(OhosSurfaceGLSkiaTest, PresentSkipsTimingWhenWindowCleared) {
   EXPECT_EQ(CountEvents("SwapBuffers"), 1u);
 }
 
-TEST_F(OhosSurfaceGLSkiaTest, QuietSeverityOnSnapshotSurface) {
+TEST_F(OhosSurfaceGLSkiaTest, SnapshotSurface) {
   QuietLogs quiet;
   auto snapshot = surface_->CreateSnapshotSurface();
   ASSERT_NE(snapshot, nullptr);
@@ -811,5 +833,5 @@ TEST_F(OhosSurfaceGLSkiaTest, QuietSeverityOnSnapshotSurface) {
   EXPECT_FALSE(snapshot->IsValid());
 }
 
-}
-}
+}  // namespace testing
+}  // namespace flutter

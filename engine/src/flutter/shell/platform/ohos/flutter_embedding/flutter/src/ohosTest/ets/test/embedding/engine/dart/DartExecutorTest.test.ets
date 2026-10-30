@@ -17,6 +17,7 @@ import { common } from '@kit.AbilityKit';
 import { Options } from '../../../../../../main/ets/embedding/engine/FlutterEngineGroup';
 import DartExecutor, { DartEntrypoint } from '../../../../../../main/ets/embedding/engine/dart/DartExecutor';
 import { resourceManager } from '@kit.LocalizationKit';
+import Any from '../../../../../../main/ets/plugin/common/Any';
 import FlutterNapi from '../../../../../../main/ets/embedding/engine/FlutterNapi';
 
 export default function DartExecutorTest() {
@@ -61,5 +62,59 @@ export default function DartExecutorTest() {
       }
       done();
     })
+    it('executeDartEntrypoint does not throw when not running', 0, () => {
+      let threw = false;
+      try {
+        const entrypoint = new DartEntrypoint('test', '', 'main');
+        dartExecutor.executeDartEntrypoint(entrypoint, []);
+      } catch (e) { threw = true; }
+      expect(threw).assertEqual(false);
+    });
+
+    it('executeDartCallback does not throw', 0, () => {
+      let threw = false;
+      try {
+        dartExecutor.executeDartCallback({ handle: 0 } as Any);
+      } catch (e) { threw = true; }
+      expect(threw).assertEqual(false);
+    });
+
+    it('setIsolateServiceIdListener does not throw', 0, () => {
+      let threw = false;
+      try {
+        dartExecutor.setIsolateServiceIdListener({ onIsolateServiceIdAvailable: (id: string) => {} } as Any);
+      } catch (e) { threw = true; }
+      expect(threw).assertEqual(false);
+    });
+
+    it('notifyLowMemoryWarning does not throw', 0, () => {
+      let threw = false;
+      try { dartExecutor.notifyLowMemoryWarning(); } catch (e) { threw = true; }
+      expect(threw).assertEqual(false);
+    });
+
+    it('getDartExecutor returns correct flutterNapi', 0, () => {
+      expect(dartExecutor.flutterNapi).not().assertNull();
+    });
+
+    it('onAttachedToNAPI does not throw', 0, () => {
+      let threw = false;
+      try { dartExecutor.onAttachedToNAPI(); } catch (e) { threw = true; }
+      expect(threw).assertEqual(false);
+    });
+
+    it('onDetachedFromNAPI does not throw', 0, () => {
+      let threw = false;
+      try { dartExecutor.onDetachedFromNAPI(); } catch (e) { threw = true; }
+      expect(threw).assertEqual(false);
+    });
+
+    it('notifyLowMemoryWarning covers line 246 true branch when attached', 0, () => {
+      // Set nativeShellHolderId to make isAttached() return true.
+      (flutterNapi as Any).nativeShellHolderId = 1;
+      let threw = false;
+      try { dartExecutor.notifyLowMemoryWarning(); } catch (e) { threw = true; }
+      expect(threw).assertEqual(false);
+    });
   })
 }

@@ -5,7 +5,6 @@
  */
 
 import { AbilityStage, Want } from '@kit.AbilityKit';
-import { FlutterAbilityLaunchConfigs } from '@ohos/flutter_ohos';
 
 /**
  * Module-level AbilityStage, required for RegularWindowAbility's
@@ -20,9 +19,7 @@ export default class MyAbilityStage extends AbilityStage {
     const abilityName = want.abilityName ?? '';
     if (abilityName === 'RegularWindowAbility') {
       const params = (want.parameters ?? {}) as Record<string, Object>;
-      const instanceKey =
-        params['instanceKey'] ??
-        params[FlutterAbilityLaunchConfigs.EXTRA_FLUTTER_WINDOW_REQUEST_ID];
+      const instanceKey = params['instanceKey'];
       const keyStr = instanceKey != null ? String(instanceKey) : `${Date.now()}`;
       return `RegularWindowAbility_${keyStr}`;
     }

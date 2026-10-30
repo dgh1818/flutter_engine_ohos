@@ -14,6 +14,7 @@
 #include "flutter/fml/platform/ohos/dynamic_library_loader.h"
 #include "flutter/fml/task_runner.h"
 #include "flutter/lib/ui/window/platform_message.h"
+#include "flutter/shell/platform/ohos/windowing/ohos_window_types.h"
 #include "napi/native_api.h"
 
 // class for all c++ to call js function
@@ -64,20 +65,21 @@ class PlatformViewOHOSNapi {
   void FlutterViewOnPreEngineRestart();
 
   void OnDisplayPlatformViewHybrid(int64_t view_id,
+                                   double x,
+                                   double y,
+                                   double width,
+                                   double height,
+                                   double view_width,
+                                   double view_height);
+
+  void OnDisplayOverlayHybrid(int64_t view_id,
                               double x,
                               double y,
                               double width,
-                              double height,
-                              double view_width,
-                              double view_height);
+                              double height);
 
-  void OnDisplayOverlayHybrid(int64_t view_id,
-                         double x,
-                         double y,
-                         double width,
-                         double height);
-
-  void OnDisplayMutatorsHybrid(int64_t view_id, const std::vector<double>& data);
+  void OnDisplayMutatorsHybrid(int64_t view_id,
+                               const std::vector<double>& data);
 
   void HidePlatformViewHybrid(int64_t view_id);
 
@@ -89,26 +91,20 @@ class PlatformViewOHOSNapi {
 
   void OnEndFrameHybrid();
 
-  // Multi-window: ask the ETS host to create/destroy a sub-window for a
-  // non-implicit view. width/height are LOGICAL px.
-  void RequestWindowHost(int64_t view_id,
-                         int64_t parent_view_id,
-                         double width,
-                         double height,
-                         int32_t archetype);
-  // Regular window → real UIAbility host (startAbility-launched, cached
-  // engine); `title` is currently unused on this path.
-  void CreateRegularAbility(int64_t view_id,
-                            int64_t request_id,
-                            double width,
-                            double height,
-                            const std::string& title);
+  void CreateRegularWindow(int64_t view_id,
+                           const RegularWindowCreationRequest& request);
+  void CreateDialogWindow(int64_t view_id,
+                          const DialogWindowCreationRequest& request);
+  void CreateTooltipWindow(int64_t view_id,
+                           const TooltipWindowCreationRequest& request);
+  void CreatePopupWindow(int64_t view_id,
+                         const PopupWindowCreationRequest& request);
   // First Regular window → rebind the EntryAbility's main window surface to
   // `view_id` instead of spawning a sibling RegularWindowAbility.
   void BindEntryAbilityToView(int64_t view_id,
-                              double width,
-                              double height,
-                              const std::string& title);
+                              const RegularWindowCreationRequest& request);
+
+ public:
   void DestroyWindowHost(int64_t view_id);
   // View 0 → exit via ArkTS `exitApplication` (terminateSelf, full Ability
   // teardown — NOT a raw exit()); HandleWillClose fires first.
@@ -122,13 +118,25 @@ class PlatformViewOHOSNapi {
   void SetWindowFullscreen(int64_t view_id, bool fullscreen);
   // LOGICAL-px min/max (max 0 == unbounded); forwards to the ETS host so the
   // WM re-clamps live resizes, and mirrors the request copy used at birth.
+  // Win32 parity: the live SetConstraints path reuses the creation-request
+  // WindowConstraints wire type (window_manager.h), not a separate struct.
   void SetWindowConstraints(int64_t view_id,
-                            double min_width,
-                            double max_width,
-                            double min_height,
-                            double max_height);
+                            const WindowConstraints& constraints);
   // Brings the window to front (ETS focusWindow/activate path).
   void ActivateWindow(int64_t view_id);
+  // Dart updatePosition push for a TOOLTIP window: ETS re-runs the Dart
+  // positioner (which sees the freshly stored anchorRect/positioner) and
+  // moves the sub-window. Unknown/archetype-mismatched views no-op on the
+  // ETS side.
+  void UpdateTooltipPosition(int64_t view_id);
+  void UpdatePopupPosition(int64_t view_id);
+
+  // Content-size report for a sized-to-content view, win32
+  // FlutterWindowsViewSizingDelegate::DidUpdateViewSize parity, fired by the
+  // windowing embedder on frame size changes; callers must be on the
+  // platform/napi thread (post first, as OHOSExternalViewEmbedder does).
+  // width/height are PHYSICAL px.
+  void DidUpdateViewSize(int64_t view_id, double width, double height);
 
   flutter::locale resolveNativeLocale(
       std::vector<flutter::locale> supportedLocales);

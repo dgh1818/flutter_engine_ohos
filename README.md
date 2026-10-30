@@ -70,6 +70,43 @@ flutter_flutter/                 # 仓库根目录
 
 - [Flutter OH Engine构建指导](https://gitcode.com/openharmony-tpc/flutter_samples/blob/master/ohos/docs/03_environment/Flutter-OH-engine%E6%9E%84%E5%BB%BA%E6%8C%87%E5%AF%BC.md)
 
+#### 各平台产物下载
+
+**Windows**
+
+| Flutter 版本 | 架构 | Ref | 发布日期 | Dart 版本 |
+| :--- | :--- | :--- | :--- | :--- |
+| [3.41.9+ohos-1.0.2](https://repo.huaweicloud.com/flutter-ohos/flutter_infra_release/flutter/releases/stable/windows/flutter_windows_3.41.9+ohos-1.0.2.zip) | x64 | 62357a93 | 2026/9/30 | 3.11.5 |
+| [3.35.7+ohos-1.0.5](https://repo.huaweicloud.com/flutter-ohos/flutter_infra_release/flutter/releases/stable/windows/flutter_windows_3.35.7+ohos-1.0.5.zip) | x64 | 04d2008b | 2026/9/30 | 3.9.2 |
+| [3.27.4+ohos-1.0.9](https://repo.huaweicloud.com/flutter-ohos/flutter_infra_release/flutter/releases/stable/windows/flutter_windows_3.27.4+ohos-1.0.9.zip) | x64 | cdb95e38 | 2026/9/30 | 3.6.2 |
+| [3.22.3+ohos-1.1.6](https://repo.huaweicloud.com/flutter-ohos/flutter_infra_release/flutter/releases/stable/windows/flutter_windows_3.22.3+ohos-1.1.6.zip) | x64 | 7f8c5fa7 | 2026/9/30 | 3.4.4 |
+| [3.7.12-ohos-1.1.7](https://repo.huaweicloud.com/flutter-ohos/flutter_infra_release/flutter/releases/stable/windows/flutter_windows_3.7.12-ohos-1.1.7.zip) | x64 | 5deae4b9 | 2025/11/6 | 2.19.6 |
+
+**MacOS**
+
+| Flutter 版本 | 架构 | Ref | 发布日期 | Dart 版本 |
+| :--- | :--- | :--- | :--- | :--- |
+| [3.41.9+ohos-1.0.2](https://repo.huaweicloud.com/flutter-ohos/flutter_infra_release/flutter/releases/stable/macos/flutter_macos_3.41.9+ohos-1.0.2.zip) | x64 | 62357a93 | 2026/9/30 | 3.11.5 |
+| [3.41.9+ohos-1.0.2](https://repo.huaweicloud.com/flutter-ohos/flutter_infra_release/flutter/releases/stable/macos/flutter_macos_arm64_3.41.9+ohos-1.0.2.zip) | arm64 | 62357a93 | 2026/9/30 | 3.11.5 |
+| [3.35.7+ohos-1.0.5](https://repo.huaweicloud.com/flutter-ohos/flutter_infra_release/flutter/releases/stable/macos/flutter_macos_3.35.7+ohos-1.0.5.zip) | x64 | 04d2008b | 2026/9/30 | 3.9.2 |
+| [3.35.7+ohos-1.0.5](https://repo.huaweicloud.com/flutter-ohos/flutter_infra_release/flutter/releases/stable/macos/flutter_macos_arm64_3.35.7+ohos-1.0.5.zip) | arm64 | 04d2008b | 2026/9/30 | 3.9.2 |
+| [3.27.4+ohos-1.0.9](https://repo.huaweicloud.com/flutter-ohos/flutter_infra_release/flutter/releases/stable/macos/flutter_macos_3.27.4+ohos-1.0.9.zip) | x64 | cdb95e38 | 2026/9/30 | 3.6.2 |
+| [3.27.4+ohos-1.0.9](https://repo.huaweicloud.com/flutter-ohos/flutter_infra_release/flutter/releases/stable/macos/flutter_macos_arm64_3.27.4+ohos-1.0.9.zip) | arm64 | cdb95e38 | 2026/9/30 | 3.6.2 |
+| [3.22.3+ohos-1.1.6](https://repo.huaweicloud.com/flutter-ohos/flutter_infra_release/flutter/releases/stable/macos/flutter_macos_3.22.3+ohos-1.1.6.zip) | x64 | 7f8c5fa7 | 2026/9/30 | 3.4.4 |
+| [3.22.3+ohos-1.1.6](https://repo.huaweicloud.com/flutter-ohos/flutter_infra_release/flutter/releases/stable/macos/flutter_macos_arm64_3.22.3+ohos-1.1.6.zip) | arm64 | 7f8c5fa7 | 2026/9/30 | 3.4.4 |
+| [3.7.12-ohos-1.1.7](https://repo.huaweicloud.com/flutter-ohos/flutter_infra_release/flutter/releases/stable/macos/flutter_macos_3.7.12-ohos-1.1.7.zip) | x64 | 5deae4b9 | 2025/11/6 | 2.19.6 |
+| [3.7.12-ohos-1.1.7](https://repo.huaweicloud.com/flutter-ohos/flutter_infra_release/flutter/releases/stable/macos/flutter_macos_arm64_3.7.12-ohos-1.1.7.zip) | arm64 | 5deae4b9 | 2025/11/6 | 2.19.6 |
+
+**Linux**
+
+| Flutter 版本 | 架构 | Ref | 发布日期 | Dart 版本 |
+| :--- | :--- | :--- | :--- | :--- |
+| [3.41.9+ohos-1.0.2](https://repo.huaweicloud.com/flutter-ohos/flutter_infra_release/flutter/releases/stable/linux/flutter_linux_3.41.9+ohos-1.0.2.tar.xz) | x64 | 62357a93 | 2026/9/30 | 3.11.5 |
+| [3.35.7+ohos-1.0.5](https://repo.huaweicloud.com/flutter-ohos/flutter_infra_release/flutter/releases/stable/linux/flutter_linux_3.35.7+ohos-1.0.5.tar.xz) | x64 | 04d2008b | 2026/9/30 | 3.9.2 |
+| [3.27.4+ohos-1.0.9](https://repo.huaweicloud.com/flutter-ohos/flutter_infra_release/flutter/releases/stable/linux/flutter_linux_3.27.4+ohos-1.0.9.tar.xz) | x64 | cdb95e38 | 2026/9/30 | 3.6.2 |
+| [3.22.3+ohos-1.1.6](https://repo.huaweicloud.com/flutter-ohos/flutter_infra_release/flutter/releases/stable/linux/flutter_linux_3.22.3+ohos-1.1.6.tar.xz) | x64 | 7f8c5fa7 | 2026/9/30 | 3.4.4 |
+| [3.7.12-ohos-1.1.7](https://repo.huaweicloud.com/flutter-ohos/flutter_infra_release/flutter/releases/stable/linux/flutter_linux_3.7.12-ohos-1.1.7.tar.xz) | x64 | 5deae4b9 | 2025/11/6 | 2.19.6 |
+
 ## 升级指导
 
 请参见：[Flutter OH 版本升级指导](https://gitcode.com/openharmony-tpc/flutter_samples/blob/master/ohos/docs/10_appendix/Flutter-OH%E7%89%88%E6%9C%AC%E5%8D%87%E7%BA%A7%E6%8C%87%E5%AF%BC.md)
@@ -97,6 +134,7 @@ flutter_flutter/                 # 仓库根目录
 | pub        | 获取依赖           | `flutter pub get`                                            |
 | clean      | 清除项目依赖       | `flutter clean`                                              |
 | cache      | 清除全局缓存数据   | `flutter pub cache clean`                                    |
+| upgrade    | 升级SDK版本        | `flutter upgrade`                                            |
 
 ## 常见问题
 

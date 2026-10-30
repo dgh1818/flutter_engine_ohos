@@ -14,8 +14,18 @@
  */
 
 import { describe, expect, it } from '@ohos/hypium';
-import { FlutterRenderer } from '../../../../../../main/ets/embedding/engine/renderer/FlutterRenderer';
+import { FlutterRenderer, SurfaceTextureRegistryEntry } from '../../../../../../main/ets/embedding/engine/renderer/FlutterRenderer';
 import FlutterNapi from '../../../../../../main/ets/embedding/engine/FlutterNapi';
+
+class CountingNapi extends FlutterNapi {
+  unregisterCalls: number = 0;
+  lastTextureId: number = -1;
+  unregisterTexture(textureId: number): void {
+    this.unregisterCalls += 1;
+    this.lastTextureId = textureId;
+  }
+}
+
 export default function FlutterRendererTest() {
   describe('FlutterRendererTest', () => {
     it('TestCreateSurfaceTexture', 0, async (done: Function) => {
@@ -52,6 +62,50 @@ export default function FlutterRendererTest() {
       const textureId2 = flutterRenderer.registerPixelMap(pixelMap2);
       expect(textureId1).not().assertNull(); // 第一次调用
       expect(textureId2).not().assertNull(); // 第二次调用
+      done();
+    })
+  })
+
+  describe('SurfaceTextureRegistryEntryReleaseTest', () => {
+    it('TestReleaseWithoutNapiIsNoOp', 0, async (done: Function) => {
+      let entry = new SurfaceTextureRegistryEntry(9);
+      entry.release(); // 未注入 napi:静默 no-op,不应抛出异常
+      expect(entry.getTextureId()).assertEqual(9);
+      done();
+    })
+
+    it('TestReleaseForwardsUnregisterOnce', 0, async (done: Function) => {
+      let napi = new CountingNapi();
+      let entry = new SurfaceTextureRegistryEntry(7, napi);
+      entry.release();
+      expect(napi.unregisterCalls).assertEqual(1);
+      expect(napi.lastTextureId).assertEqual(7);
+      done();
+    })
+
+    it('TestSecondReleaseIsIdempotent', 0, async (done: Function) => {
+      let napi = new CountingNapi();
+      let entry = new SurfaceTextureRegistryEntry(8, napi);
+      entry.release();
+      entry.release(); // 第二次调用应被防重入挡住
+      expect(napi.unregisterCalls).assertEqual(1);
+      done();
+    })
+
+    it('TestReleaseWithRealNapiWithoutHolder', 0, async (done: Function) => {
+      let napi = new FlutterNapi(); // nativeShellHolderId 为 null
+      let entry = new SurfaceTextureRegistryEntry(11, napi);
+      entry.release(); // 底层应安全 return,不应抛出异常
+      expect(entry.getTextureId()).assertEqual(11);
+      done();
+    })
+
+    it('TestGettersAfterRelease', 0, async (done: Function) => {
+      let napi = new CountingNapi();
+      let entry = new SurfaceTextureRegistryEntry(12, napi);
+      entry.release();
+      expect(entry.getTextureId()).assertEqual(12);
+      expect(entry.getSurfaceId()).assertEqual(0);
       done();
     })
   })

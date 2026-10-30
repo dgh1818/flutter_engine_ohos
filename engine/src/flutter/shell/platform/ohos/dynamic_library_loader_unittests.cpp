@@ -4,28 +4,21 @@
  * found in the LICENSE_HW file.
  */
 
-#include "flutter/fml/platform/ohos/dynamic_library_loader.h"
 #include <gtest/gtest.h>
 #include <cstring>
+#include "flutter/fml/log_settings.h"
+#include "flutter/fml/platform/ohos/dynamic_library_loader.h"
 
 namespace flutter {
 namespace testing {
 
 namespace {
 
-#if defined(OHOS_X64_UNITTEST)
-constexpr const char* kLibName = "libc.so";
-constexpr const char* kSymbolA = "malloc";
-constexpr const char* kSymbolB = "free";
-constexpr const char* kSymbolC = "strlen";
-constexpr int kMinApi = 0;
-#else
 constexpr const char* kLibName = "libace_ndk.z.so";
 constexpr const char* kSymbolA = "OH_ArkUI_UIInputEvent_GetDeviceId";
 constexpr const char* kSymbolB = "OH_ArkUI_AxisEvent_GetAxisAction";
 constexpr const char* kSymbolC = "OH_ArkUI_UIInputEvent_GetModifierKeyStates";
 constexpr int kMinApi = 14;
-#endif
 
 }  // namespace
 
@@ -39,6 +32,9 @@ TEST(DynamicLibraryLoaderTest, LoadSystemLibrarySucceeds) {
 TEST(DynamicLibraryLoaderTest, LoadNonexistentLibraryFails) {
   DynamicLibraryLoader loader("libnonexistent_xyz123.so");
   EXPECT_FALSE(loader.IsLoaded());
+  fml::ScopedSetLogSettings quiet({fml::kLogFatal});
+  DynamicLibraryLoader again("libnonexistent_xyz123.so");
+  EXPECT_FALSE(again.IsLoaded());
 }
 
 // GetApiVersion should return a value greater than 0
@@ -67,9 +63,14 @@ TEST(DynamicLibraryLoaderTest, LoadSymbolsReturnsFalseForMissingSymbol) {
   };
   EXPECT_FALSE(loader.LoadSymbols(symbols));
   EXPECT_EQ(dummy_target, nullptr);
+  fml::ScopedSetLogSettings quiet({fml::kLogFatal});
+  dummy_target = nullptr;
+  EXPECT_FALSE(loader.LoadSymbols(symbols));
+  EXPECT_EQ(dummy_target, nullptr);
 }
 
-// LoadSymbols should skip and return false when minApi is higher than current API version
+// LoadSymbols should skip and return false when minApi is higher than current
+// API version
 TEST(DynamicLibraryLoaderTest, LoadSymbolsSkipsWhenApiTooLow) {
   DynamicLibraryLoader loader("libc.so");
   ASSERT_TRUE(loader.IsLoaded());
@@ -79,10 +80,15 @@ TEST(DynamicLibraryLoaderTest, LoadSymbolsSkipsWhenApiTooLow) {
   };
   EXPECT_FALSE(loader.LoadSymbols(symbols));
   EXPECT_EQ(dummy_target, nullptr);
+  fml::ScopedSetLogSettings quiet({fml::kLogFatal});
+  dummy_target = nullptr;
+  EXPECT_FALSE(loader.LoadSymbols(symbols));
+  EXPECT_EQ(dummy_target, nullptr);
 }
 
 // LoadSymbols should succeed loading a real symbol from libace_ndk.z.so
-// Using a symbol the engine actually loads: OH_ArkUI_UIInputEvent_GetDeviceId (minApi=14)
+// Using a symbol the engine actually loads: OH_ArkUI_UIInputEvent_GetDeviceId
+// (minApi=14)
 TEST(DynamicLibraryLoaderTest, LoadSymbolsSucceedsForRealAceNdkSymbol) {
   DynamicLibraryLoader loader(kLibName);
   ASSERT_TRUE(loader.IsLoaded()) << kLibName << " not found on device";
@@ -94,10 +100,14 @@ TEST(DynamicLibraryLoaderTest, LoadSymbolsSucceedsForRealAceNdkSymbol) {
 
   EXPECT_TRUE(loader.LoadSymbols(symbols));
   EXPECT_NE(symbol_a_func, nullptr);
+  fml::ScopedSetLogSettings quiet({fml::kLogFatal});
+  symbol_a_func = nullptr;
+  EXPECT_TRUE(loader.LoadSymbols(symbols));
+  EXPECT_NE(symbol_a_func, nullptr);
 }
 
-// LoadSymbols should succeed loading multiple real symbols, covering loop iteration branch
-// Using 3 symbols actually loaded by ohos_touch_processor.cpp
+// LoadSymbols should succeed loading multiple real symbols, covering loop
+// iteration branch Using 3 symbols actually loaded by ohos_touch_processor.cpp
 TEST(DynamicLibraryLoaderTest, LoadSymbolsSucceedsForMultipleRealSymbols) {
   DynamicLibraryLoader loader(kLibName);
   ASSERT_TRUE(loader.IsLoaded()) << kLibName << " not found on device";
@@ -117,7 +127,8 @@ TEST(DynamicLibraryLoaderTest, LoadSymbolsSucceedsForMultipleRealSymbols) {
   EXPECT_NE(symbol_c_func, nullptr);
 }
 
-// LoadSymbols with an empty vector should return true, covering loop skip branch
+// LoadSymbols with an empty vector should return true, covering loop skip
+// branch
 TEST(DynamicLibraryLoaderTest, LoadSymbolsReturnsTrueForEmptyVector) {
   DynamicLibraryLoader loader(kLibName);
   ASSERT_TRUE(loader.IsLoaded()) << kLibName << " not found on device";

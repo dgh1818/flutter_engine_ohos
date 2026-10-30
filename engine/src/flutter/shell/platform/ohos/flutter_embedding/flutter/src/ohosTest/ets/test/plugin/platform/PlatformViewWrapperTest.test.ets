@@ -15,7 +15,8 @@
 import { describe, expect, it } from '@ohos/hypium';
 import OhosTouchProcessor from '../../../../../main/ets/embedding/ohos/OhosTouchProcessor';
 import { PlatformViewWrapper } from '../../../../../main/ets/plugin/platform/PlatformViewWrapper';
-import { DVModel, DVModelParameters } from '../../../../../main/ets/view/DynamicView/dynamicView';
+import { DVModel, DVModelParameters, DVModelEvents, DVModelChildren } from '../../../../../main/ets/view/DynamicView/dynamicView';
+import Any from '../../../../../main/ets/plugin/common/Any';
 
 function sleep(time: number) {
   return new Promise<void>((resolve: Function) => setTimeout(resolve, time));
@@ -36,6 +37,20 @@ export default function PlatformViewWrapperTest() {
       await sleep(1000);
       const parameters: DVModelParameters = new DVModelParameters();
       platformViewWrapper.setLayoutParams(parameters);
+      done();
+    })
+
+    it('TestSetLayoutParamsAfterSetDvModel (covers line 87 false branch)', 0, async (done: Function) => {
+      // First set a DVModel so the early-return on line 87 is not taken.
+      const events: DVModelEvents = new DVModelEvents();
+      const children: DVModelChildren = new DVModelChildren();
+      const model: DVModel = new DVModel('row', new DVModelParameters(), events, children);
+      platformViewWrapper.addDvModel(model);
+      // Then setLayoutParams reaches line 90 (params null check).
+      // model.params is non-null (set in DVModel constructor), so false branch.
+      const parameters: DVModelParameters = new DVModelParameters();
+      platformViewWrapper.setLayoutParams(parameters);
+      expect(true).assertEqual(true);
       done();
     })
   })

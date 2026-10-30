@@ -92,6 +92,17 @@ for pkg in "${INIT_PACKAGES[@]}"; do
 done
 write_log "$LOG_FILE" "INFO" "Initialization completed!"
 
+log_step "Step 2.5/3: Pre-build unit test assets for packages/flutter"
+(
+  cd "$SCRIPT_DIR/../../packages/flutter"
+  flutter test --no-pub --reporter=compact test/physics/newton_test.dart >> "$LOG_FILE" 2>&1 || true
+)
+if [ -d "$SCRIPT_DIR/../../packages/flutter/build/unit_test_assets" ]; then
+    log_info "Unit test assets pre-built successfully"
+else
+    log_warn "Unit test assets pre-build may have failed, shards will build on demand"
+fi
+
 log_step "Step 3/3: Clean Flutter tool locks"
 clean_flutter_locks "$SCRIPT_DIR/../.."
 

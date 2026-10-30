@@ -20,6 +20,9 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  # The OHOS gate still drives test_driver/screenshot_test.dart (retired
+  # upstream in #115848); pinned to 3.x for the Image.data/getColor API.
+  image: ^3.3.0
 
 
 flutter:
@@ -27,4 +30,4 @@ flutter:
   assets:
     - assets/foo.png
 
-# PUBSPEC CHECKSUM: 77jv2r
+# PUBSPEC CHECKSUM: q6epqo

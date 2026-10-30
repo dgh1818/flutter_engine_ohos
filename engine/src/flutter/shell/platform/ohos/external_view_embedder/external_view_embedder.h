@@ -239,7 +239,15 @@ class OhosEmbedderRootSurface : public Surface {
 // runner only.
 class OHOSWindowingViewEmbedder : public ExternalViewEmbedder {
  public:
-  OHOSWindowingViewEmbedder();
+  // Notified on the RASTER thread whenever a sized-to-content view's frame
+  // size (= the Dart content size) changes; the receiver must hop threads
+  // itself. win32 parity: FlutterWindowsView::OnFrameGenerated ->
+  // sizing_delegate_->DidUpdateViewSize (flutter_windows_view.cc:174).
+  using DidUpdateViewSizeCallback =
+      std::function<void(int64_t view_id, double width, double height)>;
+
+  explicit OHOSWindowingViewEmbedder(
+      DidUpdateViewSizeCallback on_did_update_view_size = nullptr);
 
   ~OHOSWindowingViewEmbedder() override;
 
@@ -250,6 +258,12 @@ class OHOSWindowingViewEmbedder : public ExternalViewEmbedder {
   // Unregisters (and destroys) a view's surface. Raster task runner only;
   // must happen before the owning OHOSSurface is torn down.
   void UnregisterViewSurface(int64_t view_id);
+
+  // Marks a view as sized-to-content (tooltip; win32 is_sized_to_content
+  // parity): its per-frame content-size changes fire the ctor callback.
+  // Raster task runner only; call BEFORE RegisterViewSurface so the first
+  // frame's size is reported.
+  void SetViewSizedToContent(int64_t view_id, bool sized_to_content);
 
   // |ExternalViewEmbedder|
   // The engine is discarding this view; drop its surface too.
@@ -299,6 +313,15 @@ class OHOSWindowingViewEmbedder : public ExternalViewEmbedder {
  private:
   // Per-view on-screen surfaces keyed by view id.
   std::unordered_map<int64_t, std::unique_ptr<Surface>> view_surfaces_;
+
+  // Sized-to-content bookkeeping (win32 sizing_delegate parity): which views
+  // report content-size changes, and the last size reported per view (the
+  // change filter — win32 dedups in HostWindowTooltip::DidUpdateViewSize;
+  // keeping a copy here avoids crossing threads on unchanged frames).
+  DidUpdateViewSizeCallback on_did_update_view_size_;
+  std::unordered_set<int64_t> sized_to_content_views_;
+  std::unordered_map<int64_t, std::pair<double, double>>
+      last_reported_frame_size_;
 
   // Per-view recording state; reset in BeginFrame/EndFrame/CancelFrame.
   std::unique_ptr<DisplayListBuilder> pending_builder_;

@@ -44,5 +44,30 @@ export default function FlutterEngineGroupCacheTest() {
       }
       done();
     })
+
+    it('contains returns false for unknown id', 0, () => {
+      const r = flutterEngineGroupCache.contains('non-existent-group-xyz');
+      expect(r).assertEqual(false);
+    });
+
+    it('get returns null for unknown id', 0, () => {
+      const r = flutterEngineGroupCache.get('non-existent-group-xyz');
+      expect(r).assertNull();
+    });
+
+    it('put with undefined engineGroup does not throw', 0, () => {
+      let threw = false;
+      try { flutterEngineGroupCache.put('test-group-id', undefined); } catch (e) { threw = true; }
+      expect(threw).assertEqual(false);
+    });
+
+    it('put with engineGroup does not throw (covers if branch)', 0, () => {
+      let threw = false;
+      try {
+        const group = new FlutterEngineGroup();
+        flutterEngineGroupCache.put('test-group-with-engine', group);
+      } catch (e) { threw = true; }
+      expect(threw).assertEqual(false);
+    });
   })
 }

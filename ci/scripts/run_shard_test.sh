@@ -9,6 +9,8 @@
 #
 # Automatically retries on segfault (exit code -6/139) caused by concurrent
 # flutter test processes competing for shared cache under FLUTTER_ALREADY_LOCKED.
+# Also retries on asset write conflicts ("Could not write file to") when
+# parallel shards race on building build/unit_test_assets/shaders/*.spirv.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FLUTTER_ROOT="$SCRIPT_DIR/../.."
@@ -54,6 +56,7 @@ attempt=0
 exit_code=0
 
 while [ $attempt -le $MAX_RETRIES ]; do
+    log_offset=$(wc -c < "$LOG_FILE")
     run_test
     exit_code=$?
 
@@ -63,6 +66,16 @@ while [ $attempt -le $MAX_RETRIES ]; do
         if [ $attempt -le $MAX_RETRIES ]; then
             echo "[$(date +%H:%M:%S)] RETRY ($attempt/$MAX_RETRIES): SHARD=$SHARD SUBSHARD=$SUBSHARD (segfault exit=$exit_code)" | tee -a "$LOG_FILE"
             sleep 10
+            continue
+        fi
+    fi
+
+    # Asset write conflict: exit code 1 with "Could not write file to" in current attempt's log
+    if [ $exit_code -eq 1 ] && tail -c +$((log_offset + 1)) "$LOG_FILE" | grep -q "Could not write file to"; then
+        attempt=$((attempt + 1))
+        if [ $attempt -le $MAX_RETRIES ]; then
+            echo "[$(date +%H:%M:%S)] RETRY ($attempt/$MAX_RETRIES): SHARD=$SHARD SUBSHARD=$SUBSHARD (asset write conflict)" | tee -a "$LOG_FILE"
+            sleep 15
             continue
         fi
     fi

@@ -749,13 +749,11 @@ export class ListenableEditingState {
    */
   handleSelectByRangeEvent(range: inputMethod.Range): void {
     const notifySnap = this.captureEditingSnapshot();
-    if (range.start === 0) { // cursor index updated at the start pos of text
-      this.setSelectionStart(0);
-      this.setSelectionEnd(0);
-    } else { // cursor index updated at the end pos of text
-      this.setSelectionStart(this.getStringCache().length);
-      this.setSelectionEnd(this.getStringCache().length);
-    }
+    const len = this.getStringCache().length;
+    const start = Math.max(0, Math.min(range.start, len));
+    const end = Math.max(0, Math.min(range.end, len));
+    this.setSelectionStart(start);
+    this.setSelectionEnd(end);
     this.notifyListenersIfChangedSince(notifySnap);
   }
 

@@ -20,6 +20,11 @@ namespace impeller {
 using ONBProperties = vk::StructureChain<vk::NativeBufferPropertiesOHOS,
                                          vk::NativeBufferFormatPropertiesOHOS>;
 
+static bool IsOpaque(int32_t format) {
+  return format == static_cast<int32_t>(
+                       OH_NativeBuffer_Format::NATIVEBUFFER_PIXEL_FMT_RGBX_8888);
+}
+
 static PixelFormat ToPixelFormat(int32_t format) {
   if (format < 0 || format > NATIVEBUFFER_PIXEL_FMT_RGBA_1010102) {
     return PixelFormat::kR8G8B8A8UNormInt;
@@ -240,7 +245,8 @@ static vk::UniqueImageView CreateVkImageView(
     const vk::Device& device,
     const vk::Image& image,
     const vk::SamplerYcbcrConversion& yuv_conversion,
-    const vk::NativeBufferFormatPropertiesOHOS& onb_format) {
+    const vk::NativeBufferFormatPropertiesOHOS& onb_format,
+    int32_t native_buffer_format) {
   vk::StructureChain<vk::ImageViewCreateInfo, vk::SamplerYcbcrConversionInfo>
       view_chain;
   auto& view_info = view_chain.get();
@@ -251,6 +257,9 @@ static vk::UniqueImageView CreateVkImageView(
   view_info.components.g = vk::ComponentSwizzle::eIdentity;
   view_info.components.b = vk::ComponentSwizzle::eIdentity;
   view_info.components.a = vk::ComponentSwizzle::eIdentity;
+  if (IsOpaque(native_buffer_format)) {
+    view_info.components.a = vk::ComponentSwizzle::eOne;
+  }
   view_info.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
   view_info.subresourceRange.baseMipLevel = 0;
   view_info.subresourceRange.levelCount = 1;
@@ -328,8 +337,12 @@ OHBTextureSourceVK::OHBTextureSourceVK(
 
   auto yuv_conversion = CreateYUVConversion(*context, onb_format);
 
+  OH_NativeBuffer_Config nativebuffer_config;
+  OH_NativeBuffer_GetConfig(native_buffer, &nativebuffer_config);
+
   auto image_view = CreateVkImageView(
-      device, image.get(), yuv_conversion->GetConversion(), onb_format);
+      device, image.get(), yuv_conversion->GetConversion(), onb_format,
+      nativebuffer_config.format);
   if (!image_view) {
     FML_LOG(ERROR) << "CreateVkImageView failed";
     return;

@@ -59,6 +59,9 @@ static std::shared_ptr<impeller::Context> CreateImpellerContext(
 
   auto context = impeller::ContextVK::Create(std::move(settings));
 
+  if (!context) {
+ 	  FML_LOG(ERROR) << "ContextVK::Create returned null";
+ 	}
   if (!quiet) {
     if (context && impeller::CapabilitiesVK::Cast(*context->GetCapabilities())
                        .AreValidationsEnabled()) {

@@ -4,15 +4,16 @@
  * found in the LICENSE_HW file.
  */
 
-#include "flutter/shell/platform/ohos/surface/ohos_surface.h"
 #include <gtest/gtest.h>
 #include <cstdint>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <utility>
+#include "flutter/fml/log_settings.h"
 #include "flutter/shell/platform/ohos/context/ohos_context.h"
 #include "flutter/shell/platform/ohos/surface/ohos_native_window.h"
+#include "flutter/shell/platform/ohos/surface/ohos_surface.h"
 #include "flutter/shell/platform/ohos/test_stubs/ace_graphic_ndk_stub.h"
 
 namespace flutter {
@@ -125,7 +126,7 @@ class BranchFakeSurface : public OHOSSurface {
   int last_paint_fence_fd_ = -1;
 };
 
-}
+}  // namespace
 
 TEST(OHOSSurface, ConstructorKeepsContext) {
   auto context = MakeContext();
@@ -366,6 +367,29 @@ TEST(OHOSSurfaceBranch, PrepareSizeChangeRecreatesOffscreenWindow) {
   EXPECT_EQ(surface.set_window_count_, 3);
 }
 
+TEST(OHOSSurfaceBranch, LogSeverityReplayRemainingEdges) {
+  {
+    fml::ScopedSetLogSettings loud({fml::kLogInfo});
+    GraphicStubKnobGuard guard;
+    BranchFakeSurface surface(MakeContext());
+    ASSERT_TRUE(surface.PrepareOffscreenWindow(8, 16));
+    EXPECT_TRUE(surface.PrepareOffscreenWindow(8, 32));
+  }
+  {
+    fml::ScopedSetLogSettings quiet({fml::kLogFatal});
+    GraphicStubKnobGuard guard;
+    g_stub_graphic_fail_mask = kStubFailNativeImageCreate;
+    BranchFakeSurface created(MakeContext());
+    EXPECT_TRUE(created.PrepareOffscreenWindow(8, 16));
+    g_stub_graphic_fail_mask =
+        kStubAcquireBufferSuccess | kStubFailReleaseWindowBuffer;
+    BranchFakeSurface release(MakeContext());
+    ASSERT_TRUE(release.PrepareOffscreenWindow(8, 8));
+    OHOSSurface::OnFrameAvailable(&release);
+    OHOSSurface::OnFrameAvailable(&release);
+  }
+}
+
 TEST(OHOSSurfaceBranch, PrepareImageCreateFailureStillSucceeds) {
   GraphicStubKnobGuard guard;
   g_stub_graphic_fail_mask = kStubFailNativeImageCreate;
@@ -456,6 +480,16 @@ TEST(OHOSSurfaceBranch, SetDisplayWindowSameHandleSecondRefPtrResizes) {
   EXPECT_EQ(surface.last_resize_.height, 480);
   EXPECT_EQ(surface.set_window_count_, 1);
   EXPECT_FALSE(surface.NeedNewFrame());
+}
+
+TEST(OHOSSurfaceBranch, SetDisplayWindowSameHandleLoudInfo) {
+  fml::ScopedSetLogSettings loud({fml::kLogInfo});
+  GraphicStubKnobGuard guard;
+  g_stub_geometry_width = 640;
+  g_stub_geometry_height = 480;
+  BranchFakeSurface surface(MakeContext());
+  ASSERT_TRUE(surface.SetNativeWindow(MakeWindow(kHandleA)));
+  EXPECT_TRUE(surface.SetDisplayWindow(MakeWindow(kHandleA)));
 }
 
 TEST(OHOSSurfaceBranch, SetDisplayWindowStaleInvalidStoredWindowReplaces) {
@@ -595,6 +629,56 @@ TEST(OHOSSurfaceBranch, OnFrameAvailableNullImageStillAcquiresForPaint) {
   EXPECT_NE(surface.last_paint_buffer_, nullptr);
 }
 
+TEST(OHOSSurfaceBranch, OnFrameAvailableAcquireNonZeroRetWithBuffer) {
+  GraphicStubKnobGuard guard;
+  g_stub_graphic_fail_mask = kStubAcquireBufferFailWithBuffer;
+  FakeOHOSSurface surface(MakeContext());
+  ASSERT_TRUE(surface.PrepareOffscreenWindow(8, 8));
+  {
+    fml::ScopedSetLogSettings loud({fml::kLogInfo});
+    EXPECT_NO_FATAL_FAILURE(OHOSSurface::OnFrameAvailable(&surface));
+  }
+  {
+    fml::ScopedSetLogSettings quiet({fml::kLogFatal});
+    EXPECT_NO_FATAL_FAILURE(OHOSSurface::OnFrameAvailable(&surface));
+  }
+  std::lock_guard<std::mutex> lock(g_surface_alive_mutex);
+  EXPECT_TRUE(g_surface_is_alive[(uint64_t)&surface]);
+}
+
+TEST(OHOSSurfaceBranch, LogThresholdCoversPrepareAndFramePaths) {
+  GraphicStubKnobGuard guard;
+  g_stub_geometry_width = 8;
+  g_stub_geometry_height = 8;
+  {
+    fml::ScopedSetLogSettings loud({fml::kLogInfo});
+    FakeOHOSSurface surface(MakeContext());
+    ASSERT_TRUE(surface.PrepareOffscreenWindow(8, 8));
+    g_stub_graphic_fail_mask = kStubAcquireBufferSuccess;
+    OHOSSurface::OnFrameAvailable(&surface);
+    EXPECT_TRUE(surface.SetDisplayWindow(MakeWindow(kHandleA)));
+    surface.ReleaseOffscreenWindow();
+  }
+  {
+    fml::ScopedSetLogSettings quiet({fml::kLogFatal});
+    g_stub_graphic_fail_mask = kStubFailAcquireNativeWindow;
+    FakeOHOSSurface acquired(MakeContext());
+    EXPECT_FALSE(acquired.PrepareOffscreenWindow(8, 8));
+    g_stub_graphic_fail_mask = kStubFailWindowHandleOpt;
+    FakeOHOSSurface geometry(MakeContext());
+    EXPECT_FALSE(geometry.PrepareOffscreenWindow(8, 8));
+    g_stub_graphic_fail_mask = kStubFailFrameAvailableListener;
+    FakeOHOSSurface listener(MakeContext());
+    EXPECT_TRUE(listener.PrepareOffscreenWindow(8, 8));
+    g_stub_graphic_fail_mask =
+        kStubAcquireBufferSuccess | kStubFailReleaseWindowBuffer;
+    FakeOHOSSurface release(MakeContext());
+    ASSERT_TRUE(release.PrepareOffscreenWindow(8, 8));
+    OHOSSurface::OnFrameAvailable(&release);
+    release.ReleaseOffscreenWindow();
+  }
+}
+
 TEST(OHOSSurfaceBranch, DestructorErasesAliveEntryAndReleasesPendingBuffer) {
   GraphicStubKnobGuard guard;
   g_stub_graphic_fail_mask =
@@ -607,5 +691,5 @@ TEST(OHOSSurfaceBranch, DestructorErasesAliveEntryAndReleasesPendingBuffer) {
   EXPECT_FALSE(RegisteredAlive(surface));
 }
 
-}
-}
+}  // namespace testing
+}  // namespace flutter

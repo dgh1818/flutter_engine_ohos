@@ -2,8 +2,8 @@ import { describe, it, expect, Level } from '@ohos/hypium';
 import DartExecutor from '../../../../../../main/ets/embedding/engine/dart/DartExecutor';
 import FlutterNapi from '../../../../../../main/ets/embedding/engine/FlutterNapi';
 import SplitViewConfigSystemChannel from '../../../../../../main/ets/embedding/engine/systemchannels/SplitViewConfigSystemChannel';
-import resourceManager from '@ohos.resourceManager';
 import { common } from '@kit.AbilityKit';
+import { resourceManager } from '@kit.LocalizationKit';
 
 function createChannel(): SplitViewConfigSystemChannel {
   const flutterNapi: FlutterNapi = new FlutterNapi();
@@ -25,6 +25,16 @@ export default function splitViewConfigSystemChannelTest() {
     it('returnsEarlyWhenRawfileNotExist', Level.LEVEL1, () => {
       const channel: SplitViewConfigSystemChannel = createChannel();
       channel.sendConfigToFlutter();
+    });
+
+    it('does not throw when called multiple times', Level.LEVEL0, () => {
+      const channel: SplitViewConfigSystemChannel = createChannel();
+      let threw = false;
+      try {
+        channel.sendConfigToFlutter();
+        channel.sendConfigToFlutter();
+      } catch (e) { threw = true; }
+      expect(threw).assertEqual(false);
     });
   });
 }

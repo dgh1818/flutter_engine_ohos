@@ -5,10 +5,6 @@ dart/dart-sdk/linux-amd64
 	git_revision:9ac06cdd18015c83a25921e26912c96e3fbe22c2
 	kQHO7IWSgyqTlMF5sQShwKsh_v2nhtDq94BMQSmIfYUC
 
-dart/third_party/flutter/devtools
-	git_revision:fa063f322c03cc7a690d819db124c196a69cff56
-	jnk4ozU2qzyHPF9kkEliL7v7blRhxhor4rTTcud5yd4C
-
 flutter/android/embedding_bundle
 	last_updated:2025-10-15T09:53:03-0700
 	29hsyGsG23J-qab0FYTlIUMukPG8c6C2earNMV9H9dAC

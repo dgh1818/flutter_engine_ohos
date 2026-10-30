@@ -8,6 +8,7 @@
 #include <GLES2/gl2ext.h>
 #include <arkui/native_interface_accessibility.h>
 #include <native_image/native_image.h>
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <string>
@@ -166,7 +167,7 @@ PlatformViewOHOS::~PlatformViewOHOS() {
 
 void PlatformViewOHOS::NotifyCreate(
     fml::RefPtr<OHOSNativeWindow> native_window) {
-  LOGI("NotifyCreate start");
+  FML_LOG(INFO) << "NotifyCreate start";
 
   FML_LOG(WARNING) << "GpuReclaim: NotifyCreate, lifecycle="
                    << LifecycleStateToString(lifecycle_state_);
@@ -176,7 +177,7 @@ void PlatformViewOHOS::NotifyCreate(
 
   if (ohos_surface_) {
     InstallFirstFrameCallback();
-    LOGI("NotifyCreate start1");
+    FML_LOG(INFO) << "NotifyCreate start1";
     // We register these external textures with the engine again to ensure that
     // the screen is normal in the scenario of page jump and return (when there
     // is a detachEngine operation during page jump, there will be a
@@ -194,9 +195,11 @@ void PlatformViewOHOS::NotifyCreate(
         task_runners_.GetRasterTaskRunner(),
         [&, surface = ohos_surface_.get(),
          native_window = std::move(native_window)]() {
-          LOGI("NotifyCreate start4");
+          FML_LOG(INFO) << "NotifyCreate start4";
           bool set_window_result = surface->SetDisplayWindow(native_window);
           // Mark onscreen context as valid only after successful setup
+          LOGI("SetDisplayWindow result=%{public}d window=%{public}p",
+               set_window_result, native_window.get());
           if (set_window_result) {
             onscreen_context_valid_.store(true, std::memory_order_release);
             FML_LOG(WARNING) << "GpuReclaim: [Raster] NotifyCreate completed";
@@ -208,6 +211,8 @@ void PlatformViewOHOS::NotifyCreate(
           // Note that NotifyDestroyed will wait raster task, so platformview is
           // not deleted here.
           if (!window_is_preload_) {
+            LOGI("NotifyCreated called, onscreen_valid=%{public}d",
+                 onscreen_context_valid_.load(std::memory_order_acquire));
             PlatformView::NotifyCreated();
           } else if (surface->NeedNewFrame()) {
             PlatformView::ScheduleFrame();
@@ -235,7 +240,13 @@ bool PlatformViewOHOS::NotifyCreateForView(
     int64_t view_id,
     fml::RefPtr<OHOSNativeWindow> native_window,
     double width,
-    double height) {
+    double height,
+    bool sized_to_content,
+    bool has_constraints,
+    double min_width_constraint,
+    double max_width_constraint,
+    double min_height_constraint,
+    double max_height_constraint) {
   FML_DCHECK(view_id != kFlutterImplicitViewId);
 
   if (!surface_factory_ || !ohos_context_ || !ohos_context_->IsValid()) {
@@ -274,7 +285,12 @@ bool PlatformViewOHOS::NotifyCreateForView(
       task_runners_.GetRasterTaskRunner(),
       [surface = surface_shared.get(), context, view_id,
        embedder = external_view_embedder_, &surface_registered,
-       native_window = std::move(native_window), width, height, &latch]() {
+       native_window = std::move(native_window), width, height,
+       sized_to_content, &latch]() {
+        // Before RegisterViewSurface so the first frame's size is reported.
+        if (embedder) {
+          embedder->SetViewSizedToContent(view_id, sized_to_content);
+        }
         if (native_window && width > 0 && height > 0) {
           native_window->SetSize(static_cast<int>(width),
                                  static_cast<int>(height));
@@ -310,8 +326,14 @@ bool PlatformViewOHOS::NotifyCreateForView(
   // Use the base setter: the OHOS override rewrites physical size from the
   // *main* window's display size and would mis-size a sub-window.
   if (width > 0 && height > 0) {
+    ViewConstraintsPhysical constraints;
+    constraints.has_constraints = has_constraints;
+    constraints.min_width = min_width_constraint;
+    constraints.max_width = max_width_constraint;
+    constraints.min_height = min_height_constraint;
+    constraints.max_height = max_height_constraint;
     ViewportMetrics view_metrics =
-        BuildViewMetricsForView(view_id, width, height);
+        BuildViewMetricsForView(view_id, width, height, constraints);
     PlatformView::SetViewportMetrics(view_id, view_metrics);
   } else {
     FML_LOG(WARNING) << "NotifyCreateForView: zero-size surface for view "
@@ -351,24 +373,6 @@ void PlatformViewOHOS::NotifyDestroyForView(int64_t view_id) {
   latch.Wait();
 }
 
-void PlatformViewOHOS::AddViewForWindow(int64_t view_id) {
-  FML_DCHECK(view_id != kFlutterImplicitViewId);
-
-  // Shell::OnPlatformViewAddView DCHECKs the platform task runner; callers
-  // arrive on the UI thread, so hop over.
-  auto weak_this = GetWeakPtr();
-  task_runners_.GetPlatformTaskRunner()->PostTask([weak_this, view_id]() {
-    if (!weak_this) {
-      return;
-    }
-    weak_this->AddView(view_id, ViewportMetrics{}, [view_id](bool added) {
-      if (!added) {
-        FML_LOG(ERROR) << "Engine AddView failed for view " << view_id;
-      }
-    });
-  });
-}
-
 void PlatformViewOHOS::RemoveViewForWindow(int64_t view_id) {
   FML_DCHECK(view_id != kFlutterImplicitViewId);
 
@@ -387,7 +391,7 @@ void PlatformViewOHOS::RemoveViewForWindow(int64_t view_id) {
 
 void PlatformViewOHOS::Preload(int width, int height) {
   if (ohos_surface_ && !window_is_preload_) {
-    LOGI("Preload start");
+    FML_LOG(INFO) << "Preload start";
     InstallFirstFrameCallback(true);
 
     for (auto [texture_id, external_texture] : all_external_texture_) {
@@ -400,7 +404,7 @@ void PlatformViewOHOS::Preload(int width, int height) {
         task_runners_.GetRasterTaskRunner(),
         [&, surface = ohos_surface_.get(), width, height]() {
           TRACE_EVENT0("flutter", "surface:Preload");
-          LOGI("Preload PlatformViewOHOS");
+          FML_LOG(INFO) << "Preload PlatformViewOHOS";
           if (!window_is_preload_) {
             bool ret = surface->PrepareOffscreenWindow(width, height);
             if (ret) {
@@ -416,7 +420,7 @@ void PlatformViewOHOS::Preload(int width, int height) {
 
 void PlatformViewOHOS::NotifySurfaceWindowChanged(
     fml::RefPtr<OHOSNativeWindow> native_window) {
-  LOGI("PlatformViewOHOS NotifySurfaceWindowChanged enter");
+  FML_LOG(INFO) << "PlatformViewOHOS NotifySurfaceWindowChanged enter";
   TRACE_EVENT0("flutter", "NotifySurfaceWindowChanged");
   if (ohos_surface_) {
     fml::AutoResetWaitableEvent latch;
@@ -460,7 +464,12 @@ void PlatformViewOHOS::NotifySurfaceChangedForView(
     int64_t view_id,
     fml::RefPtr<OHOSNativeWindow> native_window,
     double width,
-    double height) {
+    double height,
+    bool has_constraints,
+    double min_width_constraint,
+    double max_width_constraint,
+    double min_height_constraint,
+    double max_height_constraint) {
   auto it = secondary_surfaces_.find(view_id);
   if (it == secondary_surfaces_.end()) {
     FML_LOG(WARNING) << "NotifySurfaceChangedForView: no secondary surface "
@@ -485,8 +494,17 @@ void PlatformViewOHOS::NotifySurfaceChangedForView(
   }
 
   if (width > 0 && height > 0) {
+    // A sized-to-content view keeps its constraint RANGE across resizes
+    // (win32 re-sends CreateWindowMetricsEvent with the original box
+    // constraints, only the bounds change).
+    ViewConstraintsPhysical constraints;
+    constraints.has_constraints = has_constraints;
+    constraints.min_width = min_width_constraint;
+    constraints.max_width = max_width_constraint;
+    constraints.min_height = min_height_constraint;
+    constraints.max_height = max_height_constraint;
     ViewportMetrics view_metrics =
-        BuildViewMetricsForView(view_id, width, height);
+        BuildViewMetricsForView(view_id, width, height, constraints);
     PlatformView::SetViewportMetrics(view_id, view_metrics);
   }
 }
@@ -494,19 +512,40 @@ void PlatformViewOHOS::NotifySurfaceChangedForView(
 ViewportMetrics PlatformViewOHOS::BuildViewMetricsForView(
     int64_t view_id,
     double physical_width,
-    double physical_height) {
+    double physical_height,
+    const ViewConstraintsPhysical& constraints) {
   ViewportMetrics view_metrics = viewport_metrics_;
   view_metrics.physical_width = physical_width;
   view_metrics.physical_height = physical_height;
-  view_metrics.physical_min_width_constraint = physical_width;
-  view_metrics.physical_max_width_constraint = physical_width;
-  view_metrics.physical_min_height_constraint = physical_height;
-  view_metrics.physical_max_height_constraint = physical_height;
+  if (constraints.has_constraints) {
+    // Sized-to-content (win32 GetConstraints parity): the content lays out
+    // within [smallest, min(biggest, display)]. v1 clamps biggest by the
+    // FULL display size — the work area (dock-excluded) isn't known on this
+    // side; the ETS positioner still constrains placement against the true
+    // work area, so only oversized-content layout differs slightly.
+    double max_w = constraints.max_width > 0
+                       ? constraints.max_width
+                       : viewport_metrics_.physical_width;
+    double max_h = constraints.max_height > 0
+                       ? constraints.max_height
+                       : viewport_metrics_.physical_height;
+    view_metrics.physical_min_width_constraint = constraints.min_width;
+    view_metrics.physical_max_width_constraint =
+        std::min(max_w, viewport_metrics_.physical_width);
+    view_metrics.physical_min_height_constraint = constraints.min_height;
+    view_metrics.physical_max_height_constraint =
+        std::min(max_h, viewport_metrics_.physical_height);
+  } else {
+    view_metrics.physical_min_width_constraint = physical_width;
+    view_metrics.physical_max_width_constraint = physical_width;
+    view_metrics.physical_min_height_constraint = physical_height;
+    view_metrics.physical_max_height_constraint = physical_height;
+  }
   return view_metrics;
 }
 
 void PlatformViewOHOS::NotifyChanged(const DlISize& size) {
-  LOGI("PlatformViewOHOS NotifyChanged enter");
+  FML_LOG(INFO) << "PlatformViewOHOS NotifyChanged enter";
   if (ohos_surface_) {
     fml::AutoResetWaitableEvent latch;
     fml::TaskRunner::RunNowOrPostTask(
@@ -533,7 +572,7 @@ void PlatformViewOHOS::UpdateDisplaySize(int width, int height) {
 
 // |PlatformView|
 void PlatformViewOHOS::NotifyDestroyed() {
-  LOGI("PlatformViewOHOS NotifyDestroyed enter");
+  FML_LOG(INFO) << "PlatformViewOHOS NotifyDestroyed enter";
 
   FML_LOG(WARNING) << "GpuReclaim: NotifyDestroyed begin, lifecycle="
                    << LifecycleStateToString(lifecycle_state_);
@@ -584,6 +623,18 @@ void PlatformViewOHOS::NotifyDestroyed() {
   cached_native_window_ = nullptr;
   SetSemanticsEnabled(false);
   FML_LOG(WARNING) << "GpuReclaim: NotifyDestroyed completed";
+}
+
+double PlatformViewOHOS::GetScreenToPlatformViewLayoutScale() const {
+  const double flutter_dpr = viewport_metrics_.device_pixel_ratio;
+  const double system_density = PlatformViewOHOSNapi::display_density_pixels;
+  // NaN-safe: NaN > 0.0 evaluates to false, so !(x > 0.0) covers NaN, zero
+  // and negative values, falling back to 1.0 and leaving forwarded pointer
+  // coordinates untouched.
+  if (!(flutter_dpr > 0.0) || !(system_density > 0.0)) {
+    return 1.0;
+  }
+  return system_density / flutter_dpr;
 }
 
 void PlatformViewOHOS::SetViewportMetrics(int64_t view_id,
@@ -749,9 +800,12 @@ std::unique_ptr<Surface> PlatformViewOHOS::CreateRenderingSurface() {
     return nullptr;
   }
   if (!external_view_embedder_) {
-    FML_LOG(ERROR)
-        << "CreateRenderingSurface Failed. windowing embedder is null ";
-    return nullptr;
+    // GL Skia baseline (pre-windowing behavior): no embedder — render
+    // directly into the main-window GPU surface. GrDirectContext stays
+    // reachable from the rasterizer root, which the GL external-texture
+    // (TLHC) path requires.
+    return ohos_surface_->CreateGPUSurface(
+        ohos_context_->GetMainSkiaContext().get());
   }
   auto main_surface = ohos_surface_->CreateGPUSurface(
       ohos_context_->GetMainSkiaContext().get());
@@ -780,15 +834,42 @@ PlatformViewOHOS::CreateExternalViewEmbedder() {
         fml::RefPtr<OHOSNativeWindow> native_window =
             fml::MakeRefCounted<OHOSNativeWindow>(
                 static_cast<OHNativeWindow*>(pending_overlay_window_), false);
-        ohos_external_view_embedder_->SetOverlayWindow(std::move(native_window));
+        ohos_external_view_embedder_->SetOverlayWindow(
+            std::move(native_window));
         pending_overlay_window_ = nullptr;
       }
     }
     return ohos_external_view_embedder_;
   }
   // Multi-window: per-view windowing embedder (see OHOSWindowingViewEmbedder).
+  // Non-Vulkan backends (GL Skia and software) keep the pre-windowing
+  // baseline: the token root (OhosEmbedderRootSurface) is Impeller-only —
+  // GetContext() is hardcoded nullptr and its frames never MakeCurrent the
+  // GL context, so TLHC external textures (OHOSExternalTextureGL) fail to
+  // bind and the RS texture-export chain breaks (AcquireNativeWindowBuffer
+  // 40601000 loop; WebView renders blank). Return no embedder here;
+  // CreateRenderingSurface then hands the rasterizer the real main-window
+  // GPU surface, matching 3.41 behavior.
+  if (!ohos_context_ ||
+      ohos_context_->RenderingApi() != OHOSRenderingAPI::kImpellerVulkan) {
+    return nullptr;
+  }
   FML_DLOG(INFO) << "CreateExternalViewEmbedder";
-  external_view_embedder_ = std::make_shared<OHOSWindowingViewEmbedder>();
+  external_view_embedder_ = std::make_shared<OHOSWindowingViewEmbedder>(
+      // Sized-to-content content-size report (win32 sizing_delegate parity):
+      // raster thread -> platform (napi) thread -> ETS host
+      // TooltipWindowHost.didUpdateViewSize. Same post-then-invoke pattern
+      // as OHOSExternalViewEmbedder's facade calls.
+      [task_runners = task_runners_,
+       napi_facade = napi_facade_](int64_t view_id, double width,
+                                   double height) {
+        task_runners.GetPlatformTaskRunner()->PostTask(
+            [napi_facade, view_id, width, height]() {
+              if (napi_facade) {
+                napi_facade->DidUpdateViewSize(view_id, width, height);
+              }
+            });
+      });
   return external_view_embedder_;
 }
 
@@ -860,7 +941,7 @@ sk_sp<GrDirectContext> PlatformViewOHOS::CreateResourceContext() const {
 
 // |PlatformView|
 void PlatformViewOHOS::ReleaseResourceContext() const {
-  LOGI("PlatformViewOHOS::ReleaseResourceContext");
+  FML_LOG(INFO) << "PlatformViewOHOS::ReleaseResourceContext";
   // IO thread will invoke glGetError() when exit.
   // It will bring lots of "Call To OpenGL ES API With No Current Context"
   // without gl context. So we don't clear current.
@@ -910,14 +991,13 @@ void PlatformViewOHOS::RequestDartDeferredLibrary(intptr_t loading_unit_id) {
 }
 
 void PlatformViewOHOS::InstallFirstFrameCallback(bool is_preload) {
-  FML_DLOG(INFO) << "InstallFirstFrameCallback";
+  LOGI("first-frame callback.");
   SetNextFrameCallback(
       [platform_view = GetWeakPtr(),
        platform_task_runner = task_runners_.GetPlatformTaskRunner(),
        is_preload]() {
         platform_task_runner->PostTask([platform_view, is_preload]() {
           // Back on Platform Task Runner.
-          FML_DLOG(INFO) << "install InstallFirstFrameCallback ";
           if (platform_view) {
             reinterpret_cast<PlatformViewOHOS*>(platform_view.get())
                 ->FireFirstFrameCallback(is_preload);
@@ -927,7 +1007,7 @@ void PlatformViewOHOS::InstallFirstFrameCallback(bool is_preload) {
 }
 
 void PlatformViewOHOS::FireFirstFrameCallback(bool is_preload) {
-  FML_DLOG(INFO) << "FlutterViewOnFirstFrame";
+  LOGI("first-frame fired");
   napi_facade_->FlutterViewOnFirstFrame(is_preload);
 }
 
@@ -1376,6 +1456,7 @@ void PlatformViewOHOS::OnSurfaceCreated() {
   // Reset frame gate and reclaim level independently to guarantee both states
   // are correct even if a prior abnormal path left them inconsistent.
   frame_gate_enabled_.store(false, std::memory_order_release);
+  LOGI("frame_gate enabled=false reason=SurfaceCreated");
   if (current_reclaim_level_ != GpuReclaimLevel::kRestore) {
     FML_LOG(WARNING) << "GpuReclaim: SurfaceCreated forcing restore from "
                      << ReclaimLevelToString(current_reclaim_level_);
@@ -1547,6 +1628,11 @@ void PlatformViewOHOS::ExecuteReclaimRestore() {
 
   // 2. Rebuild onscreen context if it was torn down
   if (!ShouldRebuildOnscreenContext()) {
+    LOGI(
+        "rebuild skipped, surface=%{public}s window=%{public}s "
+        "valid=%{public}d",
+        (ohos_surface_ ? "yes" : "no"), (cached_native_window_ ? "yes" : "no"),
+        onscreen_context_valid_.load(std::memory_order_acquire));
     return;
   }
   PostRebuildOnscreenContextTasks();
@@ -1571,8 +1657,8 @@ void PlatformViewOHOS::PostRebuildOnscreenContextTasks() {
         const bool set_window_result =
             surface_ptr && surface_ptr->SetDisplayWindow(native_window);
         if (!set_window_result) {
-          FML_LOG(ERROR)
-              << "GpuReclaim: [Raster] SetDisplayWindow failed during rebuild";
+          FML_LOG(ERROR) << "GpuReclaim: [Raster] rebuild SetDisplayWindow "
+                            "failed, no retry";
           return;
         }
         FML_LOG(WARNING) << "GpuReclaim: [Raster] Surface rebuild completed";
@@ -1608,6 +1694,7 @@ void PlatformViewOHOS::ExecuteReclaimAggressive() {
   // 1. Enable frame gate immediately to suppress external texture-driven frame
   //    scheduling while the app is in background.
   frame_gate_enabled_.store(true, std::memory_order_release);
+  LOGI("frame_gate enabled=true reason=ExecuteAggressive");
 
   // 2. Defer actual GPU teardown to allow async PiP detection to complete.
   //    OHOS has no synchronous PiP API available to the framework here -
@@ -1638,6 +1725,7 @@ void PlatformViewOHOS::ExecuteReclaimAggressive() {
           FML_LOG(WARNING)
               << "GpuReclaim: Deferred aggressive cancelled - PiP visible";
           self->frame_gate_enabled_.store(false, std::memory_order_release);
+          LOGI("frame_gate enabled=false reason=PiP_visible");
           self->current_reclaim_level_ = GpuReclaimLevel::kRestore;
           return;
         }
@@ -1660,6 +1748,7 @@ void PlatformViewOHOS::ExecuteReclaimAggressiveCore() {
 
   // 1. Mark context invalid BEFORE teardown
   onscreen_context_valid_.store(false, std::memory_order_release);
+  LOGI("frame_gate enabled=false reason=ExecuteAggressiveCore");
 
   // 2. Free GPU resources and teardown onscreen context (on Raster thread,
   // sync)

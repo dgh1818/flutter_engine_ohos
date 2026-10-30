@@ -249,20 +249,31 @@ Future<ui.Image> _drawImage() async {
     canvasSize.toInt(),
     (canvasSize + 0).toInt(),
   );
-  final ByteData? byteData = await image.toByteData(
-    format: ui.ImageByteFormat.rawExtendedRgba128,
-  );
-  final completer = Completer<ui.Image>();
-  ui.decodeImageFromPixels(
-    Uint8List.view(byteData!.buffer),
-    canvasSize.toInt(),
-    canvasSize.toInt(),
-    ui.PixelFormat.rgbaFloat32,
-    (ui.Image image) {
-      completer.complete(image);
-    },
-  );
-  return completer.future;
+  try {
+    final ByteData? byteData = await image.toByteData(
+      format: ui.ImageByteFormat.rawExtendedRgba128,
+    );
+    if (byteData != null) {
+      final Completer<ui.Image> completer = Completer<ui.Image>();
+      ui.decodeImageFromPixels(
+        Uint8List.view(byteData.buffer),
+        canvasSize.toInt(),
+        canvasSize.toInt(),
+        ui.PixelFormat.rgbaFloat32,
+        (ui.Image image) {
+          completer.complete(image);
+        },
+      );
+      return completer.future;
+    }
+  } catch (error) {
+    // rawExtendedRgba128 not supported on this platform; use original image.
+    // ignore: avoid_print
+    print(
+      'rawExtendedRgba128 float32 path unavailable ($error); using original image.',
+    );
+  }
+  return image;
 }
 
 class MyHomePage extends StatefulWidget {
@@ -284,23 +295,38 @@ class _MyHomePageState extends State<MyHomePage> {
       case Setup.image || Setup.blur:
         break;
       case Setup.canvasSaveLayer:
-        _loadCodecImage().then(
-          (ui.Image? value) => setState(() {
-            _image = value;
-          }),
-        );
+        _loadCodecImage()
+            .then(
+              (ui.Image? value) => setState(() {
+                _image = value;
+              }),
+            )
+            .catchError((Object error) {
+              // ignore: avoid_print
+              print('_loadCodecImage error: $error');
+            });
       case Setup.codecImage:
-        _loadCodecImage().then(
-          (ui.Image? value) => setState(() {
-            _image = value;
-          }),
-        );
+        _loadCodecImage()
+            .then(
+              (ui.Image? value) => setState(() {
+                _image = value;
+              }),
+            )
+            .catchError((Object error) {
+              // ignore: avoid_print
+              print('_loadCodecImage error: $error');
+            });
       case Setup.drawnImage:
-        _drawImage().then(
-          (ui.Image? value) => setState(() {
-            _image = value;
-          }),
-        );
+        _drawImage()
+            .then(
+              (ui.Image? value) => setState(() {
+                _image = value;
+              }),
+            )
+            .catchError((Object error) {
+              // ignore: avoid_print
+              print('_drawImage error: $error');
+            });
       case Setup.none ||
           Setup.container ||
           Setup.linearGradient ||

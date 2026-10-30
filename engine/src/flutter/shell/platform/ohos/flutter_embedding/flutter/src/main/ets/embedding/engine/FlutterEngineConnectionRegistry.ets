@@ -224,6 +224,15 @@ export default class FlutterEngineConnectionRegistry implements PluginRegistry, 
     return this.abilityPluginBinding?.onSaveState(reason, wantParam) ?? AbilityConstant.OnSaveResult.ALL_REJECT;
   }
 
+  /**
+   * Handles restore state requests from the ability.
+   * Distributes the plugin state to all registered OnSaveStateListener plugins.
+   * @param wantParam - Parameters containing the saved plugin state
+   */
+  onRestoreInstanceState(wantParam: Record<string, Object>): void {
+    this.abilityPluginBinding?.onRestoreInstanceState(wantParam);
+  }
+
   private detachFromAppComponent(): void {
     if (this.isAttachedToAbility()) {
       this.detachFromAbility();
@@ -358,6 +367,17 @@ class FlutterEngineAbilityPluginBinding implements AbilityPluginBinding {
       listener?.onSaveState(reason, wantParam)
     });
     return AbilityConstant.OnSaveResult.ALL_AGREE;
+  }
+
+  /**
+   * Notifies all registered listeners of a restore state request.
+   * Each listener can read its previously saved data from wantParam.
+   * @param wantParam - Parameters containing the saved plugin state
+   */
+  onRestoreInstanceState(wantParam: Record<string, Object>): void {
+    this.onSaveStateListeners.forEach((listener, key) => {
+      listener?.onRestoreInstanceState?.(wantParam)
+    });
   }
 }
 

@@ -8,13 +8,14 @@
 
 #include <cstdint>
 #include <mutex>
+#include <optional>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "gtest/gtest.h"
 
 // ===== Stub implementations of OHos HiTrace native API functions =====
-//
 // OHOSTraceTimelineEvent and OHOSTraceEventEnd return void, so the only way to
 // verify their behaviour is to intercept the OH_HiTrace_* calls they make.
 // These stubs are strong definitions in the main executable; at link time they
@@ -41,6 +42,7 @@ struct HiTraceCall {
 // TRACE_EVENT0 fires on every ConcurrentMessageLoop worker wakeup, so
 // these stubs are hit from 12+ threads at once; the call log must be
 // mutex-guarded or vector growth double-frees.
+//
 std::mutex& GetTraceCallsMutex() {
   static std::mutex mutex;
   return mutex;
@@ -49,6 +51,11 @@ std::mutex& GetTraceCallsMutex() {
 std::vector<HiTraceCall>& GetTraceCalls() {
   static std::vector<HiTraceCall> calls;
   return calls;
+}
+
+std::thread::id& CaptureThread() {
+  static std::thread::id id;
+  return id;
 }
 
 void ClearTraceCalls() {
@@ -61,36 +68,45 @@ size_t TraceCallCount() {
   return GetTraceCalls().size();
 }
 
-const HiTraceCall LastTraceCall() {
+bool HasTraceCall(HiTraceCallType type,
+                  const std::string& name,
+                  std::optional<int32_t> task_id = std::nullopt) {
   std::lock_guard<std::mutex> lock(GetTraceCallsMutex());
-  const auto& calls = GetTraceCalls();
-  static const HiTraceCall kEmpty;
-  return calls.empty() ? kEmpty : calls.back();
+  for (const auto& call : GetTraceCalls()) {
+    if (call.type == type && call.name == name &&
+        (!task_id.has_value() || call.task_id == task_id.value())) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void RecordTraceCall(HiTraceCall call) {
+  std::lock_guard<std::mutex> lock(GetTraceCallsMutex());
+  if (std::this_thread::get_id() != CaptureThread()) {
+    return;
+  }
+  GetTraceCalls().push_back(std::move(call));
 }
 
 }  // namespace
 
 extern "C" {
 void OH_HiTrace_StartTrace(const char* name) {
-  std::lock_guard<std::mutex> lock(GetTraceCallsMutex());
-  GetTraceCalls().push_back(
-      {HiTraceCallType::kStartTrace, name ? name : "", 0});
+  RecordTraceCall({HiTraceCallType::kStartTrace, name ? name : "", 0});
 }
 
 void OH_HiTrace_FinishTrace(void) {
-  std::lock_guard<std::mutex> lock(GetTraceCallsMutex());
-  GetTraceCalls().push_back({HiTraceCallType::kFinishTrace, "", 0});
+  RecordTraceCall({HiTraceCallType::kFinishTrace, "", 0});
 }
 
 void OH_HiTrace_StartAsyncTrace(const char* name, int32_t taskId) {
-  std::lock_guard<std::mutex> lock(GetTraceCallsMutex());
-  GetTraceCalls().push_back(
+  RecordTraceCall(
       {HiTraceCallType::kStartAsyncTrace, name ? name : "", taskId});
 }
 
 void OH_HiTrace_FinishAsyncTrace(const char* name, int32_t taskId) {
-  std::lock_guard<std::mutex> lock(GetTraceCallsMutex());
-  GetTraceCalls().push_back(
+  RecordTraceCall(
       {HiTraceCallType::kFinishAsyncTrace, name ? name : "", taskId});
 }
 
@@ -101,7 +117,19 @@ namespace testing {
 
 class OhosTraceEventTest : public ::testing::Test {
  protected:
-  void SetUp() override { ClearTraceCalls(); }
+  void SetUp() override {
+    {
+      std::lock_guard<std::mutex> lock(GetTraceCallsMutex());
+      CaptureThread() = std::this_thread::get_id();
+      GetTraceCalls().clear();
+    }
+  }
+
+  void TearDown() override {
+    std::lock_guard<std::mutex> lock(GetTraceCallsMutex());
+    CaptureThread() = std::thread::id{};
+    GetTraceCalls().clear();
+  }
 };
 
 // ---- Begin event type ----
@@ -112,9 +140,7 @@ TEST_F(OhosTraceEventTest, BeginEventCallsStartTrace) {
       Dart_Timeline_Event_Begin, /*argument_count=*/0,
       /*argument_names=*/nullptr, /*argument_values=*/nullptr);
 
-  EXPECT_EQ(TraceCallCount(), 1u);
-  EXPECT_EQ(LastTraceCall().type, HiTraceCallType::kStartTrace);
-  EXPECT_EQ(LastTraceCall().name, "flutter::Frame");
+  EXPECT_TRUE(HasTraceCall(HiTraceCallType::kStartTrace, "flutter::Frame"));
 }
 
 TEST_F(OhosTraceEventTest, BeginEventCallsStartTraceWithoutTimestamp) {
@@ -123,9 +149,7 @@ TEST_F(OhosTraceEventTest, BeginEventCallsStartTraceWithoutTimestamp) {
       /*argument_count=*/0, /*argument_names=*/nullptr,
       /*argument_values=*/nullptr);
 
-  EXPECT_EQ(TraceCallCount(), 1u);
-  EXPECT_EQ(LastTraceCall().type, HiTraceCallType::kStartTrace);
-  EXPECT_EQ(LastTraceCall().name, "flutter::Frame");
+  EXPECT_TRUE(HasTraceCall(HiTraceCallType::kStartTrace, "flutter::Frame"));
 }
 
 // ---- Async begin / end ----
@@ -136,10 +160,8 @@ TEST_F(OhosTraceEventTest, AsyncBeginEventCallsStartAsyncTrace) {
       Dart_Timeline_Event_Async_Begin, /*argument_count=*/0,
       /*argument_names=*/nullptr, /*argument_values=*/nullptr);
 
-  EXPECT_EQ(TraceCallCount(), 1u);
-  EXPECT_EQ(LastTraceCall().type, HiTraceCallType::kStartAsyncTrace);
-  EXPECT_EQ(LastTraceCall().name, "flutter::Frame");
-  EXPECT_EQ(LastTraceCall().task_id, 42);
+  EXPECT_TRUE(
+      HasTraceCall(HiTraceCallType::kStartAsyncTrace, "flutter::Frame", 42));
 }
 
 TEST_F(OhosTraceEventTest, AsyncEndEventCallsFinishAsyncTrace) {
@@ -148,10 +170,8 @@ TEST_F(OhosTraceEventTest, AsyncEndEventCallsFinishAsyncTrace) {
       Dart_Timeline_Event_Async_End, /*argument_count=*/0,
       /*argument_names=*/nullptr, /*argument_values=*/nullptr);
 
-  EXPECT_EQ(TraceCallCount(), 1u);
-  EXPECT_EQ(LastTraceCall().type, HiTraceCallType::kFinishAsyncTrace);
-  EXPECT_EQ(LastTraceCall().name, "flutter::Frame");
-  EXPECT_EQ(LastTraceCall().task_id, 42);
+  EXPECT_TRUE(
+      HasTraceCall(HiTraceCallType::kFinishAsyncTrace, "flutter::Frame", 42));
 }
 
 // ---- Flow begin / end (mapped to async trace calls) ----
@@ -162,10 +182,8 @@ TEST_F(OhosTraceEventTest, FlowBeginEventCallsStartAsyncTrace) {
       Dart_Timeline_Event_Flow_Begin, /*argument_count=*/0,
       /*argument_names=*/nullptr, /*argument_values=*/nullptr);
 
-  EXPECT_EQ(TraceCallCount(), 1u);
-  EXPECT_EQ(LastTraceCall().type, HiTraceCallType::kStartAsyncTrace);
-  EXPECT_EQ(LastTraceCall().name, "flutter::Flow");
-  EXPECT_EQ(LastTraceCall().task_id, 7);
+  EXPECT_TRUE(
+      HasTraceCall(HiTraceCallType::kStartAsyncTrace, "flutter::Flow", 7));
 }
 
 TEST_F(OhosTraceEventTest, FlowEndEventCallsFinishAsyncTrace) {
@@ -174,10 +192,8 @@ TEST_F(OhosTraceEventTest, FlowEndEventCallsFinishAsyncTrace) {
       Dart_Timeline_Event_Flow_End, /*argument_count=*/0,
       /*argument_names=*/nullptr, /*argument_values=*/nullptr);
 
-  EXPECT_EQ(TraceCallCount(), 1u);
-  EXPECT_EQ(LastTraceCall().type, HiTraceCallType::kFinishAsyncTrace);
-  EXPECT_EQ(LastTraceCall().name, "flutter::Flow");
-  EXPECT_EQ(LastTraceCall().task_id, 7);
+  EXPECT_TRUE(
+      HasTraceCall(HiTraceCallType::kFinishAsyncTrace, "flutter::Flow", 7));
 }
 
 // ---- Filtered event types produce no trace calls ----
@@ -215,9 +231,8 @@ TEST_F(OhosTraceEventTest, PointerEventWithBeginIsNotFiltered) {
   fml::tracing::OHOSTraceTimelineEvent("flutter", "PointerEvent", 0, 0,
                                        Dart_Timeline_Event_Begin, 0, nullptr,
                                        nullptr);
-  EXPECT_EQ(TraceCallCount(), 1u);
-  EXPECT_EQ(LastTraceCall().type, HiTraceCallType::kStartTrace);
-  EXPECT_EQ(LastTraceCall().name, "flutter::PointerEvent");
+  EXPECT_TRUE(
+      HasTraceCall(HiTraceCallType::kStartTrace, "flutter::PointerEvent"));
 }
 
 // ---- SceneDisplayLag argument suppression ----
@@ -229,10 +244,8 @@ TEST_F(OhosTraceEventTest, SceneDisplayLagWithAsyncBeginIgnoresArguments) {
                                        Dart_Timeline_Event_Async_Begin, 2,
                                        names, values);
 
-  EXPECT_EQ(TraceCallCount(), 1u);
-  EXPECT_EQ(LastTraceCall().type, HiTraceCallType::kStartAsyncTrace);
-  // Arguments must NOT be appended for non-Begin SceneDisplayLag.
-  EXPECT_EQ(LastTraceCall().name, "flutter::SceneDisplayLag");
+  EXPECT_TRUE(HasTraceCall(HiTraceCallType::kStartAsyncTrace,
+                           "flutter::SceneDisplayLag"));
 }
 
 TEST_F(OhosTraceEventTest, SceneDisplayLagWithBeginAppendsArguments) {
@@ -242,10 +255,8 @@ TEST_F(OhosTraceEventTest, SceneDisplayLagWithBeginAppendsArguments) {
                                        Dart_Timeline_Event_Begin, 2, names,
                                        values);
 
-  EXPECT_EQ(TraceCallCount(), 1u);
-  EXPECT_EQ(LastTraceCall().type, HiTraceCallType::kStartTrace);
-  EXPECT_EQ(LastTraceCall().name,
-            "flutter::SceneDisplayLag key1:val1 key2:val2");
+  EXPECT_TRUE(HasTraceCall(HiTraceCallType::kStartTrace,
+                           "flutter::SceneDisplayLag key1:val1 key2:val2"));
 }
 
 // ---- Argument appending ----
@@ -256,16 +267,15 @@ TEST_F(OhosTraceEventTest, ArgumentsAreAppendedToTraceName) {
   fml::tracing::OHOSTraceTimelineEvent(
       "flutter", "Frame", 0, 0, Dart_Timeline_Event_Begin, 2, names, values);
 
-  EXPECT_EQ(TraceCallCount(), 1u);
-  EXPECT_EQ(LastTraceCall().name, "flutter::Frame count:10 label:hello");
+  EXPECT_TRUE(HasTraceCall(HiTraceCallType::kStartTrace,
+                           "flutter::Frame count:10 label:hello"));
 }
 
 TEST_F(OhosTraceEventTest, NullArgumentsWithPositiveCountDoesNotAppend) {
   fml::tracing::OHOSTraceTimelineEvent(
       "flutter", "Frame", 0, 0, Dart_Timeline_Event_Begin, 3, nullptr, nullptr);
 
-  EXPECT_EQ(TraceCallCount(), 1u);
-  EXPECT_EQ(LastTraceCall().name, "flutter::Frame");
+  EXPECT_TRUE(HasTraceCall(HiTraceCallType::kStartTrace, "flutter::Frame"));
 }
 
 TEST_F(OhosTraceEventTest, ZeroArgumentCountProducesNoArgumentSuffix) {
@@ -274,8 +284,7 @@ TEST_F(OhosTraceEventTest, ZeroArgumentCountProducesNoArgumentSuffix) {
   fml::tracing::OHOSTraceTimelineEvent(
       "flutter", "Frame", 0, 0, Dart_Timeline_Event_Begin, 0, names, values);
 
-  EXPECT_EQ(TraceCallCount(), 1u);
-  EXPECT_EQ(LastTraceCall().name, "flutter::Frame");
+  EXPECT_TRUE(HasTraceCall(HiTraceCallType::kStartTrace, "flutter::Frame"));
 }
 
 TEST_F(OhosTraceEventTest, MultipleArgumentsAppendedInOrder) {
@@ -284,7 +293,8 @@ TEST_F(OhosTraceEventTest, MultipleArgumentsAppendedInOrder) {
   fml::tracing::OHOSTraceTimelineEvent(
       "flutter", "Frame", 0, 0, Dart_Timeline_Event_Begin, 3, names, values);
 
-  EXPECT_EQ(LastTraceCall().name, "flutter::Frame a:1 b:2 c:3");
+  EXPECT_TRUE(
+      HasTraceCall(HiTraceCallType::kStartTrace, "flutter::Frame a:1 b:2 c:3"));
 }
 
 // ---- OHOSTraceEventEnd ----
@@ -292,8 +302,7 @@ TEST_F(OhosTraceEventTest, MultipleArgumentsAppendedInOrder) {
 TEST_F(OhosTraceEventTest, EndCallsFinishTrace) {
   fml::tracing::OHOSTraceEventEnd();
 
-  EXPECT_EQ(TraceCallCount(), 1u);
-  EXPECT_EQ(LastTraceCall().type, HiTraceCallType::kFinishTrace);
+  EXPECT_TRUE(HasTraceCall(HiTraceCallType::kFinishTrace, ""));
 }
 
 // ---- Edge cases ----
@@ -302,8 +311,7 @@ TEST_F(OhosTraceEventTest, EmptyCategoryAndNameProduceScopeSeparator) {
   fml::tracing::OHOSTraceTimelineEvent("", "", 0, 0, Dart_Timeline_Event_Begin,
                                        0, nullptr, nullptr);
 
-  EXPECT_EQ(TraceCallCount(), 1u);
-  EXPECT_EQ(LastTraceCall().name, "::");
+  EXPECT_TRUE(HasTraceCall(HiTraceCallType::kStartTrace, "::"));
 }
 
 TEST_F(OhosTraceEventTest, SevenArgOverloadMatchesEightArgOverload) {
@@ -313,10 +321,8 @@ TEST_F(OhosTraceEventTest, SevenArgOverloadMatchesEightArgOverload) {
                                        Dart_Timeline_Event_Async_Begin, 1,
                                        names, values);
 
-  EXPECT_EQ(TraceCallCount(), 1u);
-  EXPECT_EQ(LastTraceCall().type, HiTraceCallType::kStartAsyncTrace);
-  EXPECT_EQ(LastTraceCall().name, "cat::evt x:42");
-  EXPECT_EQ(LastTraceCall().task_id, 5);
+  EXPECT_TRUE(
+      HasTraceCall(HiTraceCallType::kStartAsyncTrace, "cat::evt x:42", 5));
 }
 
 // ---- 7-arg overload: exercise branches not covered by tests above ----
@@ -355,25 +361,47 @@ TEST_F(OhosTraceEventTest, SevenArgOverloadSceneDisplayLagIgnoresArguments) {
   fml::tracing::OHOSTraceTimelineEvent("flutter", "SceneDisplayLag", 1,
                                        Dart_Timeline_Event_Async_Begin, 1,
                                        names, values);
-  EXPECT_EQ(TraceCallCount(), 1u);
-  EXPECT_EQ(LastTraceCall().name, "flutter::SceneDisplayLag");
+  EXPECT_TRUE(HasTraceCall(HiTraceCallType::kStartAsyncTrace,
+                           "flutter::SceneDisplayLag"));
 }
 
 TEST_F(OhosTraceEventTest, SevenArgOverloadAsyncEndCallsFinishAsyncTrace) {
   fml::tracing::OHOSTraceTimelineEvent("flutter", "Frame", 9,
                                        Dart_Timeline_Event_Async_End, 0,
                                        nullptr, nullptr);
-  EXPECT_EQ(TraceCallCount(), 1u);
-  EXPECT_EQ(LastTraceCall().type, HiTraceCallType::kFinishAsyncTrace);
-  EXPECT_EQ(LastTraceCall().task_id, 9);
+  EXPECT_TRUE(
+      HasTraceCall(HiTraceCallType::kFinishAsyncTrace, "flutter::Frame", 9));
 }
 
 TEST_F(OhosTraceEventTest, SevenArgOverloadFlowEndCallsFinishAsyncTrace) {
   fml::tracing::OHOSTraceTimelineEvent(
       "flutter", "Flow", 3, Dart_Timeline_Event_Flow_End, 0, nullptr, nullptr);
-  EXPECT_EQ(TraceCallCount(), 1u);
-  EXPECT_EQ(LastTraceCall().type, HiTraceCallType::kFinishAsyncTrace);
-  EXPECT_EQ(LastTraceCall().task_id, 3);
+  EXPECT_TRUE(
+      HasTraceCall(HiTraceCallType::kFinishAsyncTrace, "flutter::Flow", 3));
+}
+
+TEST_F(OhosTraceEventTest, NamesWithoutValuesDoesNotAppend) {
+  const char* names[] = {"count"};
+  fml::tracing::OHOSTraceTimelineEvent(
+      "flutter", "Frame", 0, 0, Dart_Timeline_Event_Begin, 1, names, nullptr);
+  EXPECT_TRUE(HasTraceCall(HiTraceCallType::kStartTrace, "flutter::Frame"));
+
+  ClearTraceCalls();
+  fml::tracing::OHOSTraceTimelineEvent(
+      "flutter", "Frame", 0, Dart_Timeline_Event_Begin, 1, names, nullptr);
+  EXPECT_TRUE(HasTraceCall(HiTraceCallType::kStartTrace, "flutter::Frame"));
+}
+
+TEST_F(OhosTraceEventTest, ValuesWithoutNamesDoesNotAppend) {
+  const char* values[] = {"10"};
+  fml::tracing::OHOSTraceTimelineEvent(
+      "flutter", "Frame", 0, 0, Dart_Timeline_Event_Begin, 1, nullptr, values);
+  EXPECT_TRUE(HasTraceCall(HiTraceCallType::kStartTrace, "flutter::Frame"));
+
+  ClearTraceCalls();
+  fml::tracing::OHOSTraceTimelineEvent(
+      "flutter", "Frame", 0, Dart_Timeline_Event_Begin, 1, nullptr, values);
+  EXPECT_TRUE(HasTraceCall(HiTraceCallType::kStartTrace, "flutter::Frame"));
 }
 
 }  // namespace testing

@@ -197,8 +197,8 @@ void XComponentAdapter::StoreHcppOverlayPendingWindow(
     void* window) {
   std::lock_guard<std::mutex> lock(hcpp_overlay_pending_mutex_);
   hcpp_overlay_pending_windows_[overlay_id] = window;
-  LOGI("HCPP overlay window stashed (owner not ready) id=%{public}s",
-       overlay_id.c_str());
+  FML_LOG(INFO) << "HCPP overlay window stashed (owner not ready) id="
+                << overlay_id;
 }
 
 void XComponentAdapter::ClearHcppOverlayPendingWindow(
@@ -228,8 +228,8 @@ void XComponentAdapter::FlushHcppOverlayPendingWindows(
   auto platform_view = main->shellholder_ptr_->GetPlatformView();
   if (platform_view) {
     platform_view->SetHybridCompositionOverlayWindow(pending);
-    LOGI("HCPP overlay window delivered (pending flush) main=%{public}s",
-         main_id.c_str());
+    FML_LOG(INFO) << "HCPP overlay window delivered (pending flush) main="
+                  << main_id;
   }
 }
 
@@ -637,7 +637,23 @@ void XComponentBase::AttachFlutterEngine(std::string shellholderId) {
   is_engine_attached_ = true;
   ResolveSubViewRouting();
   if (window_ != nullptr) {
-    if (provider_ != nullptr && shellholder_ptr_) {
+    EnsureA11yProviderRegistered();
+    if (IsHcppMain()) {
+      ArkUI_AccessibilityProvider* overlay_provider = GetOverlayPairProvider();
+      if (overlay_provider != nullptr) {
+        shellholder_ptr_->SetAccessibilityProvider(overlay_provider);
+        FML_LOG(INFO) << "HCPP overlay owns the a11y channel id=" << id_;
+      } else if (provider_ != nullptr) {
+        // Fallback: no overlay provider yet. On API<15 the overlay never
+        // registers, so this main's own provider (registered above — the
+        // EnsureA11yProviderRegistered gate skips deferral only when the
+        // overlay CAN own the channel, i.e. API>=15) is the only wiring
+        // this window will ever get; without it the engine's event channel
+        // stays null forever. On API>=15 this is a transient stopgap until
+        // the overlay's OnSurfaceCreated takes over.
+        shellholder_ptr_->SetAccessibilityProvider(provider_);
+      }
+    } else if (provider_ != nullptr) {
       shellholder_ptr_->SetAccessibilityProvider(provider_);
     }
     if (is_sub_view_) {
@@ -750,7 +766,8 @@ XComponentBase::GetArkUIAccessibilityServiceProvider(
     LOGE("OH_ArkUI_AccessibilityProviderRegisterCallback is failed");
     return nullptr;
   }
-  LOGI("XComponentBase::GetArkUIAccessibilityServiceProvider -> finished");
+  FML_LOG(INFO)
+      << "XComponentBase::GetArkUIAccessibilityServiceProvider -> finished";
   return provider;
 }
 
@@ -785,9 +802,9 @@ XComponentBase::GetArkUIAccessibilityServiceProviderWithInstance(
     LOGE("OH_ArkUI_AccessibilityProviderRegisterCallback is failed");
     return nullptr;
   }
-  LOGI(
-      "XComponentBase::GetArkUIAccessibilityServiceProviderWithInstance -> "
-      "finished");
+  FML_LOG(INFO)
+      << "XComponentBase::GetArkUIAccessibilityServiceProviderWithInstance -> "
+         "finished";
   return provider;
 }
 
@@ -810,6 +827,54 @@ bool XComponentBase::IsHcppOverlay() {
   }
   auto platform_view = main->shellholder_ptr_->GetPlatformView();
   return platform_view && platform_view->IsHybridCompositionEnabled();
+}
+
+bool XComponentBase::IsHcppMain() {
+  if (is_sub_view_ || shellholder_ptr_ == nullptr) {
+    return false;
+  }
+  auto platform_view = shellholder_ptr_->GetPlatformView();
+  return platform_view && platform_view->IsHybridCompositionEnabled();
+}
+
+void XComponentBase::EnsureA11yProviderRegistered() {
+  if (IsOverlayId(id_) || provider_ != nullptr ||
+      nativeXComponent_ == nullptr) {
+    return;
+  }
+
+  if (IsHcppMain() && OHOS_API_VERSION >= 15) {
+    FML_LOG(INFO) << "HCPP main stays out of a11y (overlay owns it) id=" << id_;
+    return;
+  }
+  provider_ = GetArkUIAccessibilityServiceProvider(nativeXComponent_);
+}
+
+ArkUI_AccessibilityProvider* XComponentBase::GetOverlayPairProvider() {
+  XComponentBase* overlay = XComponentAdapter::GetInstance()->GetXcomponentBase(
+      id_ + kOverlayIdSuffix);
+  return overlay != nullptr ? overlay->provider_ : nullptr;
+}
+
+// See header. Callers run under xcomponentMap_mutex_
+// (the accessibility WithInstance callbacks take it before dispatching);
+// GetXcomponentBase re-enters the same recursive mutex, so no extra lock.
+//
+// Under HCPP this is the single-registration shape: the
+// MAIN never registers a provider (no AAMS child tree at all — see
+// EnsureA11yProviderRegistered), so only the overlay's registration answers,
+// and it forwards to the owner engine's shellholder here. Both paths are
+// exercised (overlay under HCPP; a main for non-HCPP and sub-views).
+OHOSShellHolder* XComponentBase::ResolveShellholder() {
+  if (shellholder_ptr_ != nullptr) {
+    return shellholder_ptr_;
+  }
+  if (!IsOverlayId(id_)) {
+    return nullptr;
+  }
+  XComponentBase* main = XComponentAdapter::GetInstance()->GetXcomponentBase(
+      StripOverlaySuffix(id_));
+  return main != nullptr ? main->shellholder_ptr_ : nullptr;
 }
 
 // Resolves the engine that owns this overlay via its main XComponent entry
@@ -860,8 +925,11 @@ void XComponentBase::OnSurfaceCreated(OH_NativeXComponent* component,
   // main XComponent (id with "__overlay" stripped, see IsHcppOverlay). The
   // overlay is NEVER attached as the main Flutter surface, so it must not
   // run the main-surface setup below (SetNeedSoftKeyboard / SetNativeWindowOpt
-  // / accessibility provider / SurfaceCreated). The NativeObjectReference
-  // above is balanced by the unconditional NativeObjectUnreference in
+  // / SurfaceCreated). It DOES register its own accessibility provider (see
+  // the [hcpp-overlay-a11y] block inside this branch) — that registration
+  // forwards queries to the owner engine, it does not attach the provider to
+  // this surface as the main entry would. The NativeObjectReference above is
+  // balanced by the unconditional NativeObjectUnreference in
   // OnSurfaceDestroyed.
   if (IsHcppOverlay()) {
     auto platform_view = GetOverlayOwnerPlatformView(id_);
@@ -870,7 +938,7 @@ void XComponentBase::OnSurfaceCreated(OH_NativeXComponent* component,
       // been created yet (shell still starting up) and pushes it on embedder
       // creation, so an early overlay surface is no longer dropped.
       platform_view->SetHybridCompositionOverlayWindow(window);
-      LOGI("HCPP overlay window registered id=%{public}s", id_.c_str());
+      FML_LOG(INFO) << "HCPP overlay window registered id=" << id_;
     } else {
       // The owning engine's platform view is not reachable yet (shell still
       // creating, or the main XComponent has not attached). Stash the window;
@@ -881,6 +949,33 @@ void XComponentBase::OnSurfaceCreated(OH_NativeXComponent* component,
       // discarded.
       XComponentAdapter::GetInstance()->StoreHcppOverlayPendingWindow(id_,
                                                                       window);
+    }
+    // [hcpp-overlay-a11y] The overlay XComponent is a fullscreen sibling
+    // covering the main XComponent, so AAMS touch-exploration/hover hits it.
+    // Register its accessibility provider so a hit resolves to the engine's
+    // semantic tree: queries forward to the owner engine's shellholder via
+    // ResolveShellholder (this XComponent never attaches an engine itself).
+    // Equivalent of Android PlatformOverlayView's onAccessibilityHoverEvent
+    // -> accessibilityDelegate forwarding. API 15+ only: the WithInstance
+    // callbacks dispatch by instanceId (= this overlay's id), while the
+    // legacy global-callback path routes through GetCurrentXcomponent(),
+    // which is not precise enough for a sibling overlay.
+    if (OHOS_API_VERSION >= 15 && nativeXComponent_ != nullptr) {
+      provider_ = GetArkUIAccessibilityServiceProvider(nativeXComponent_);
+      FML_LOG(INFO) << "HCPP overlay a11y provider registered id=" << id_
+                    << " ok=" << (provider_ != nullptr);
+
+      if (provider_ != nullptr) {
+        XComponentAdapter* adapter = XComponentAdapter::GetInstance();
+        std::lock_guard<std::recursive_mutex> lock(
+            adapter->xcomponentMap_mutex_);
+        XComponentBase* main =
+            adapter->GetXcomponentBase(StripOverlaySuffix(id_));
+        if (main != nullptr && main->shellholder_ptr_ != nullptr) {
+          main->shellholder_ptr_->SetAccessibilityProvider(provider_);
+          FML_LOG(INFO) << "HCPP overlay owns the a11y channel id=" << id_;
+        }
+      }
     }
     return;
   }
@@ -899,13 +994,21 @@ void XComponentBase::OnSurfaceCreated(OH_NativeXComponent* component,
   if (ret) {
     LOGE("SetNativeWindowOpt failed:%{public}d", ret);
   }
+  LOGI("XComponent SurfaceCreated window=%{public}p engine_attached=%{public}d",
+       window, is_engine_attached_);
 
-  provider_ = GetArkUIAccessibilityServiceProvider(nativeXComponent_);
+  // [hcpp-overlay-a11y] Register only when the engine is attached (HCPP state
+  // known at that point); a surface created before attach defers to
+  // AttachFlutterEngine. Under HCPP the overlay's registration is the sole
+  // owner and this main XComponent stays out of the a11y system.
+  if (is_engine_attached_ || is_sub_view_) {
+    EnsureA11yProviderRegistered();
+  }
 
   if (is_engine_attached_) {
     if (provider_ != nullptr && shellholder_ptr_) {
       shellholder_ptr_->SetAccessibilityProvider(provider_);
-    } else {
+    } else if (!IsHcppMain()) {
       LOGE("OnSurfaceCreated AccessibilityProvider is nullptr");
     }
 
@@ -967,13 +1070,37 @@ void XComponentBase::OnSurfaceDestroyed(OH_NativeXComponent* component,
   // Note that the overlay's own XComponentBase is being deleted by the caller
   // after this returns, so do not touch `this` members beyond window_/id_.
   if (IsHcppOverlay()) {
+    // [hcpp-overlay-a11y] Hand the sole ownership back BEFORE this
+    // XComponentBase (and its provider) is destroyed: clear the engine's
+    // event channel so it cannot send through a dead registration, and if
+    // the owner engine no longer runs HCPP, register the main's provider so
+    // the a11y system is not left without a tree. NOTE: HCPP is a build-time
+    // fixed flag — an overlay existing already implies HCPP on, so the
+    // register-main branch below is UNREACHABLE today; it is kept only as a
+    // guard for a hypothetical runtime-toggleable future. While HCPP stays
+    // on, the overlay re-registers and re-takes the channel if its
+    // XComponent remounts.
+    if (provider_ != nullptr) {
+      XComponentAdapter* adapter = XComponentAdapter::GetInstance();
+      std::lock_guard<std::recursive_mutex> lock(adapter->xcomponentMap_mutex_);
+      XComponentBase* main =
+          adapter->GetXcomponentBase(StripOverlaySuffix(id_));
+      if (main != nullptr && main->shellholder_ptr_ != nullptr) {
+        main->shellholder_ptr_->SetAccessibilityProvider(nullptr);
+        main->EnsureA11yProviderRegistered();
+        if (main->provider_ != nullptr) {
+          main->shellholder_ptr_->SetAccessibilityProvider(main->provider_);
+        }
+        FML_LOG(INFO) << "HCPP overlay released the a11y channel id=" << id_;
+      }
+    }
     auto platform_view = GetOverlayOwnerPlatformView(id_);
     if (platform_view) {
       platform_view->ClearHybridCompositionOverlayWindowSync();
-      LOGI("HCPP overlay window cleared id=%{public}s", id_.c_str());
+      FML_LOG(INFO) << "HCPP overlay window cleared id=" << id_;
     } else {
-      LOGI("HCPP overlay destroy: owning engine gone, skip clear id=%{public}s",
-           id_.c_str());
+      FML_LOG(INFO)
+          << "HCPP overlay destroy: owning engine gone, skip clear id=" << id_;
     }
     // The overlay surface is gone; drop any stashed pending window (one
     // delivered earlier this session is not affected — the embedder holds
@@ -1012,7 +1139,7 @@ void XComponentBase::OnSurfaceDestroyed(OH_NativeXComponent* component,
     LOGE("OnSurfaceDestroyed with null window!");
   }
   window_ = nullptr;
-  LOGD("XComponentManger::OnSurfaceDestroyed");
+  LOGI("XComponent destroyed, id=%{public}s", shellholderId_.c_str());
 }
 
 void XComponentBase::OnDispatchTouchEvent(OH_NativeXComponent* component,
@@ -1148,8 +1275,8 @@ int32_t XComponentBase::FindAccessibilityNodeInfosById(
     ArkUI_AccessibilitySearchMode mode,
     int32_t requestId,
     ArkUI_AccessibilityElementInfoList* elementList) {
-  if (shellholder_ptr_) {
-    return shellholder_ptr_->FillNodesWithSearch(elementId, mode, elementList);
+  if (OHOSShellHolder* holder = ResolveShellholder()) {
+    return holder->FillNodesWithSearch(elementId, mode, elementList);
   } else {
     return ARKUI_ACCESSIBILITY_NATIVE_RESULT_FAILED;
   }
@@ -1160,9 +1287,8 @@ int32_t XComponentBase::FindAccessibilityNodeInfosByText(
     const char* text,
     int32_t requestId,
     ArkUI_AccessibilityElementInfoList* elementList) {
-  if (shellholder_ptr_) {
-    return shellholder_ptr_->FillNodesWithSearchText(elementId, text,
-                                                     elementList);
+  if (OHOSShellHolder* holder = ResolveShellholder()) {
+    return holder->FillNodesWithSearchText(elementId, text, elementList);
   } else {
     return ARKUI_ACCESSIBILITY_NATIVE_RESULT_FAILED;
   }
@@ -1173,8 +1299,8 @@ int32_t XComponentBase::FindFocusedAccessibilityNode(
     ArkUI_AccessibilityFocusType focusType,
     int32_t requestId,
     ArkUI_AccessibilityElementInfo* elementinfo) {
-  if (shellholder_ptr_) {
-    return shellholder_ptr_->FindFocusNode(elementId, focusType, elementinfo);
+  if (OHOSShellHolder* holder = ResolveShellholder()) {
+    return holder->FindFocusNode(elementId, focusType, elementinfo);
   } else {
     return ARKUI_ACCESSIBILITY_NATIVE_RESULT_FAILED;
   }
@@ -1185,9 +1311,8 @@ int32_t XComponentBase::FindNextFocusAccessibilityNode(
     ArkUI_AccessibilityFocusMoveDirection direction,
     int32_t requestId,
     ArkUI_AccessibilityElementInfo* elementinfo) {
-  if (shellholder_ptr_) {
-    return shellholder_ptr_->FindNextFocusNode(elementId, direction,
-                                               elementinfo);
+  if (OHOSShellHolder* holder = ResolveShellholder()) {
+    return holder->FindNextFocusNode(elementId, direction, elementinfo);
   } else {
     return ARKUI_ACCESSIBILITY_NATIVE_RESULT_FAILED;
   }
@@ -1198,16 +1323,16 @@ int32_t XComponentBase::ExecuteAccessibilityAction(
     ArkUI_Accessibility_ActionType action,
     ArkUI_AccessibilityActionArguments* actionArguments,
     int32_t requestId) {
-  if (shellholder_ptr_) {
-    return shellholder_ptr_->ExecuteAction(elementId, action, actionArguments);
+  if (OHOSShellHolder* holder = ResolveShellholder()) {
+    return holder->ExecuteAction(elementId, action, actionArguments);
   } else {
     return ARKUI_ACCESSIBILITY_NATIVE_RESULT_FAILED;
   }
 }
 
 int32_t XComponentBase::ClearFocusedFocusAccessibilityNode(int64_t id) {
-  if (shellholder_ptr_) {
-    return shellholder_ptr_->ClearAccessibilityFocus(id);
+  if (OHOSShellHolder* holder = ResolveShellholder()) {
+    return holder->ClearAccessibilityFocus(id);
   } else {
     return ARKUI_ACCESSIBILITY_NATIVE_RESULT_FAILED;
   }
@@ -1216,9 +1341,8 @@ int32_t XComponentBase::ClearFocusedFocusAccessibilityNode(int64_t id) {
 int32_t XComponentBase::GetAccessibilityNodeCursorPosition(int64_t elementId,
                                                            int32_t requestId,
                                                            int32_t* index) {
-  if (shellholder_ptr_) {
-    return shellholder_ptr_->GetAccessibilityNodeCursorPosition(elementId,
-                                                                index);
+  if (OHOSShellHolder* holder = ResolveShellholder()) {
+    return holder->GetAccessibilityNodeCursorPosition(elementId, index);
   } else {
     return ARKUI_ACCESSIBILITY_NATIVE_RESULT_FAILED;
   }

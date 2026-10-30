@@ -17,9 +17,15 @@ void StubNapiReset(void);
 void StubNapiSetValuetype(napi_valuetype t);
 void StubNapiSetString(const char* s);
 void StubNapiFailStringUtf8(napi_status s, int skip);
+void StubNapiFailCreateStringUtf8(napi_status s, int skip);
+void StubNapiFailCreateInt64(napi_status s);
+void StubNapiFailCreateInt32OnCall(int nth);
+void StubNapiFailCreateDoubleOnCall(int nth);
 void StubNapiSetArrayLength(uint32_t n);
 void StubNapiFailArrayLength(napi_status s);
-void StubNapiSetArrayLike(bool is_arraybuffer, bool is_array,
+void StubNapiFailGetElement(napi_status s);
+void StubNapiSetArrayLike(bool is_arraybuffer,
+                          bool is_array,
                           bool is_typedarray);
 void StubNapiSetArraybufferData(void* data, size_t len);
 void StubNapiSetCbArgc(size_t argc);
@@ -28,16 +34,34 @@ void StubNapiFailInt32OnCall(int nth);
 void StubNapiFailUint32OnCall(int nth);
 void StubNapiFailDoubleOnCall(int nth);
 void StubNapiFailBoolOnCall(int nth);
+void StubNapiSetBoolValue(bool value);
 void StubNapiFailGetBooleanOnCall(int nth);
 void StubNapiSetInt32Value(int32_t value);
 void StubNapiSetInt64Value(int64_t value);
+void StubNapiSetInt64Values(const int64_t* values, size_t count);
+int64_t StubNapiLastCreatedInt64(void);
 void StubNapiSetDoubleValue(double value);
 void StubNapiSetBigintLossless(bool lossless);
+void StubNapiFailBigintUint64(napi_status s);
+void StubNapiFailBigintInt64(napi_status s);
 void StubNapiFailReference(napi_status s);
+void StubNapiFailCreateReference(napi_status s);
+void StubNapiFailUvEventLoop(napi_status s);
+void StubNapiRunLastAsyncWork(void);
+void StubNapiFailUnwrap(napi_status s);
 void StubNapiFailCallFunction(napi_status s);
 void StubNapiFailNamedProperty(napi_status s);
+void StubNapiFailCbInfo(napi_status s);
+void StubNapiSetLastErrorNull(int enable);
+void StubNapiSetLastErrorMessageNull(int enable);
+void StubNapiSetExceptionPending(int enable);
 napi_module* StubNapiGetRegisteredModule(void);
 
+// Opt-in recording of the strings passed to napi_create_string_utf8.
+void StubNapiSetRecordStrings(int enable);
+size_t StubNapiRecordedStringCount(void);
+const char* StubNapiRecordedStringAt(size_t index);
+void StubNapiClearRecordedStrings(void);
 }
 
 #endif  // FLUTTER_SHELL_PLATFORM_OHOS_TESTING_ACE_NAPI_STUB_H_

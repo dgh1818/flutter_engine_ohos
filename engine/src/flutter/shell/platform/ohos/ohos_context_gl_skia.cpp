@@ -153,6 +153,9 @@ std::unique_ptr<OhosEGLSurface> OhosContextGLSkia::CreateOnscreenSurface(
     EGLSurface surface = eglCreateWindowSurface(
         display, config_,
         reinterpret_cast<EGLNativeWindowType>(window->handle()), attribs);
+    if (surface == EGL_NO_SURFACE) {
+ 	    FML_LOG(ERROR) << "eglCreateWindowSurface returned EGL_NO_SURFACE err=" << eglGetError();
+    }
     FML_LOG(INFO) << "create EGLSurface " << eglGetError() << "  " << surface
                   << "  " << context_;
     return std::make_unique<OhosEGLSurface>(surface, display, context_);
@@ -175,6 +178,9 @@ std::unique_ptr<OhosEGLSurface> OhosContextGLSkia::CreateOffscreenSurface()
   const EGLint attribs[] = {EGL_WIDTH, 1, EGL_HEIGHT, 1, EGL_NONE};
   FML_LOG(INFO) << "CreateOffscreenSurface 2";
   EGLSurface surface = eglCreatePbufferSurface(display, config_, attribs);
+  if (surface == EGL_NO_SURFACE) {
+ 	  FML_LOG(ERROR) << "eglCreatePbufferSurface returned EGL_NO_SURFACE err=" << eglGetError();
+ 	}
   FML_LOG(INFO) << "CreateOffscreenSurface 3";
   return std::make_unique<OhosEGLSurface>(surface, display, resource_context_);
 }
@@ -188,6 +194,9 @@ std::unique_ptr<OhosEGLSurface> OhosContextGLSkia::CreatePbufferSurface(
 
   FML_LOG(INFO) << "CreatePbufferSurface";
   EGLSurface surface = eglCreatePbufferSurface(display, config_, attribs);
+  if (surface == EGL_NO_SURFACE) {
+ 	  FML_LOG(ERROR) << "CreatePbufferSurface returned EGL_NO_SURFACE err=" << eglGetError();
+ 	}
   return std::make_unique<OhosEGLSurface>(surface, display, context_);
 }
 

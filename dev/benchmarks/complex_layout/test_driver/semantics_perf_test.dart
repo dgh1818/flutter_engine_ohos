@@ -20,15 +20,22 @@ void main() {
       // semantics tree in isolation. If accessibility services are on, the
       // semantics tree gets generated during the first frame and we can't
       // measure it in isolation.
-      final Process run = await Process.start(_adbPath(), const <String>[
-        'shell',
-        'settings',
-        'put',
-        'secure',
-        'enabled_accessibility_services',
-        'null',
-      ]);
-      await run.exitCode;
+      //
+      // Clearing requires adb and only matters on Android; hosts driving
+      // other targets (e.g. OHOS) have no adb and nothing to clear.
+      try {
+        final Process run = await Process.start(_adbPath(), const <String>[
+          'shell',
+          'settings',
+          'put',
+          'secure',
+          'enabled_accessibility_services',
+          'null',
+        ]);
+        await run.exitCode;
+      } on ProcessException {
+        // No adb on this host; nothing to clear for a non-Android target.
+      }
 
       driver = await FlutterDriver.connect(printCommunication: true);
     });

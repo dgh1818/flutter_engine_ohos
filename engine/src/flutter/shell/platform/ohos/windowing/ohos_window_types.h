@@ -8,52 +8,91 @@
 #define FLUTTER_SHELL_PLATFORM_OHOS_WINDOWING_OHOS_WINDOW_TYPES_H_
 
 #include <cstdint>
+#include <string>
 
 #include "shell/platform/common/windowing.h"
 
 namespace flutter {
 
-// Wire structs for the Dart FFI windowing contract. The Dart bindings in
-// `_window_ohos.dart` must line up field-for-field with these structs.
-
-struct FlutterWindowSize {
-  double width;
-  double height;
+// Window-creation request types, one per archetype.
+struct WindowSizeRequest {
+  bool has_preferred_view_size = false;
+  double preferred_view_width;
+  double preferred_view_height;
 };
 
-struct FlutterWindowRect {
+// Min/max content size constraints (LOGICAL px; max 0 = unbounded).
+struct WindowConstraints {
+  bool has_view_constraints = false;
+  double view_min_width;
+  double view_min_height;
+  double view_max_width;
+  double view_max_height;
+};
+
+// Guards the Dart FFI mirror `_Constraints` in
+// `packages/flutter/lib/src/widgets/_window_ohos.dart` (leading bool + 7
+// bytes padding + 4 doubles). Keep both sides in sync.
+static_assert(sizeof(WindowConstraints) == 40,
+              "Dart FFI struct _Constraints is out of sync");
+
+// Lifecycle notifications back into Dart; each is null-guarded.
+struct WindowLifecycleCallbacks {
+  void (*on_should_close)();
+  void (*on_will_close)();
+  void (*notify_listeners)();
+};
+
+// Coordinates are in physical pixels.
+struct WindowRect {
   double left;
   double top;
   double width;
   double height;
 };
 
-struct FlutterWindowConstraints {
-  double min_width;
-  double min_height;
-  double max_width;
-  double max_height;
+// Sizes are in physical pixels.
+struct WindowSize {
+  double width;
+  double height;
 };
 
-struct FlutterWindowCreationRequest {
-  bool has_size;
-  struct FlutterWindowSize size;
-  bool has_constraints;
-  struct FlutterWindowConstraints constraints;
-  // Authoritative "has a parent" discriminator (modal dialog / tooltip /
-  // popup). parent_view_id == 0 is a LEGITIMATE parent (view 0 is the adopted
-  // main window), so the id alone can NOT mean "no parent".
-  bool has_parent;
-  int64_t parent_view_id;
-  void (*on_should_close)();
-  void (*on_will_close)();
-  void (*notify_listeners)();
-  // Positioner for sized-to-content windows; coordinates are logical px.
-  FlutterWindowRect* (*on_get_window_position)(
-      const FlutterWindowSize& child_size,
-      const FlutterWindowRect& parent_rect,
-      const FlutterWindowRect& output_rect);
+constexpr int64_t kNoParentViewId = -1;
+
+struct RegularWindowCreationRequest {
+  WindowSizeRequest preferred_size;
+  WindowConstraints preferred_constraints;
+  const char* title;
+  WindowLifecycleCallbacks callbacks;
 };
+
+struct DialogWindowCreationRequest {
+  WindowSizeRequest preferred_size;
+  WindowConstraints preferred_constraints;
+  const char* title;
+  int64_t parent_view_id = kNoParentViewId;
+  WindowLifecycleCallbacks callbacks;
+};
+
+typedef WindowRect* (*GetWindowPositionCallback)(const WindowSize& child_size,
+                                                 const WindowRect& parent_rect,
+                                                 const WindowRect& output_rect);
+
+struct TooltipWindowCreationRequest {
+  WindowConstraints preferred_constraints;
+  int64_t parent_view_id = kNoParentViewId;
+  GetWindowPositionCallback get_position_callback;
+  WindowLifecycleCallbacks callbacks;
+};
+
+struct PopupWindowCreationRequest {
+  WindowConstraints preferred_constraints;
+  int64_t parent_view_id = kNoParentViewId;
+  GetWindowPositionCallback get_position_callback;
+  WindowLifecycleCallbacks callbacks;
+};
+
+// ---- Internal ----
 
 // The kind of OHOS host window: kUiAbility (task-center card; Regular and
 // *modeless* dialogs) vs kSubWindow (windowStage.createSubWindow; modal

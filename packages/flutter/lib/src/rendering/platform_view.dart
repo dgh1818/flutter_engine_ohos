@@ -312,6 +312,14 @@ class RenderOhosView extends PlatformViewRenderBox {
 
   bool _isDisposed = false;
 
+  /// The last local→global affine sent to the engine via the 'transform'
+  /// platform message, used to de-dupe sends.
+  List<double>? _lastPlatformViewTransform;
+
+  /// The offset last passed to [OhosViewController.setOffset], used to
+  /// restore plain offset positioning when a transform is cleared.
+  Offset? _lastPlatformViewOffset;
+
   /// The Ohos view controller for the Ohos view associated with this render object.
   @override
   OhosViewController get controller => _viewController;
@@ -328,6 +336,10 @@ class RenderOhosView extends PlatformViewRenderBox {
     _viewController.removeOnPlatformViewCreatedListener(_onPlatformViewCreated);
     super.controller = controller;
     _viewController = controller;
+    // The transform de-dupe state belongs to the previous viewId: a fresh
+    // view starts with nothing sent, even if its first affine is identical
+    // (e.g. identity), otherwise the de-dupe would swallow the message.
+    _lastPlatformViewTransform = null;
     _viewController.pointTransformer = (Offset offset) => globalToLocal(offset);
     _sizePlatformView();
     if (_viewController.isCreated) {
@@ -413,9 +425,10 @@ class RenderOhosView extends PlatformViewRenderBox {
       if (!_isDisposed) {
         if (attached) {
           // Extract the local→global affine transform and send it to the
-          // engine alongside the offset. This is the same matrix that
-          // globalToLocal/localToGlobal use (getTransformTo), so it is correct
-          // by construction for any rotation/scale/translation.
+          // engine as a separate 'transform' platform message right after
+          // the offset (see _updatePlatformViewTransform). This is the same
+          // matrix that globalToLocal/localToGlobal use (getTransformTo), so
+          // it is correct by construction for any rotation/scale/translation.
           //
           // The engine uses it to:
           //   1. detect the rotation robustly (the 2x2 part encodes it,
@@ -428,7 +441,7 @@ class RenderOhosView extends PlatformViewRenderBox {
           // perspective).  If perspective components matrixStorage[3],
           // matrixStorage[7], or matrixStorage[11] are non-zero, the 2D affine
           // approximation is invalid — the true mapping requires homogeneous
-          // division — so fall back to offset-only (the engine will skip touch
+          // division — so send null instead (the engine will skip touch
           // correction, matching the old pre-transform behaviour).
           final Float64List matrixStorage = getTransformTo(null).storage;
           final bool isAffine =
@@ -436,25 +449,103 @@ class RenderOhosView extends PlatformViewRenderBox {
               matrixStorage[7] == 0.0 &&
               matrixStorage[11] == 0.0 &&
               matrixStorage[15] == 1.0;
-          await _viewController.setOffset(
-            localToGlobal(Offset.zero),
-            transform: isAffine
-                ? <double>[
-                    matrixStorage[0],
-                    matrixStorage[4],
-                    matrixStorage[1],
-                    matrixStorage[5],
-                    matrixStorage[12],
-                    matrixStorage[13],
-                  ]
-                : null,
-          );
+          final Offset offset = localToGlobal(Offset.zero);
+          _lastPlatformViewOffset = offset;
+          await _viewController.setOffset(offset);
+          if (!_isDisposed) {
+            _updatePlatformViewTransform(
+              isAffine
+                  ? <double>[
+                      matrixStorage[0],
+                      matrixStorage[4],
+                      matrixStorage[1],
+                      matrixStorage[5],
+                      matrixStorage[12],
+                      matrixStorage[13],
+                    ]
+                  : null,
+            );
+          }
         }
         // Re-check after the await: the RenderObject may have been disposed
         // or detached while we were asynchronously waiting for setOffset.
         if (!_isDisposed) {
           _setOffset();
         }
+      }
+    });
+  }
+
+  // Sends the local→global affine to the engine as its own 'transform'
+  // platform message, right after the 'offset' message that
+  // [OhosViewController.setOffset] sends.  The engine uses it to detect
+  // rotation, position the native node at the rotated bounding box's visual
+  // top-left, and correct touch coordinates.
+  //
+  // This deliberately does not go through the controller interface (there is
+  // no OhosViewController.setTransform): implementations and generated mocks
+  // of that interface exist in downstream packages, and adding a member would
+  // break them at compile time (override signature mismatch) or run time
+  // (noSuchMethod returning null, which fails the implicit Future<void>
+  // cast).  The channel message and its engine-side handler are private to
+  // the framework/engine pair.
+  void _updatePlatformViewTransform(List<double>? transform) {
+    // Mirror the viewState guard in the controller's setOffset path: while the
+    // platform view is not created yet the engine drops the message silently,
+    // but the de-dupe cache below would still record it as sent — the freshly
+    // created view would then never receive its transform (the de-dupe
+    // swallows every re-send until the matrix actually changes).  Returning
+    // early keeps the cache untouched so the next frame retries.
+    if (!_viewController.isCreated) {
+      return;
+    }
+    // De-dupe by the last affine sent.  listEquals treats two nulls as equal,
+    // so a stable matrix (including staying null) is sent at most once.
+    if (listEquals<double>(transform, _lastPlatformViewTransform)) {
+      return;
+    }
+    // Clearing a previously sent affine must also restore the plain offset
+    // positioning: the engine's left/top may still hold the rotated bounding
+    // box corner computed from the last affine, and the next 'offset' message
+    // can be de-duped away when localToGlobal(Offset.zero) is unchanged (e.g.
+    // an ancestor gains perspective that does not move the origin projection).
+    final bool clearing = transform == null && _lastPlatformViewTransform != null;
+    _lastPlatformViewTransform = transform;
+    if (clearing) {
+      final Offset? offset = _lastPlatformViewOffset;
+      if (offset != null) {
+        _sendPlatformViewMessage('offset', <String, dynamic>{
+          'id': _viewController.viewId,
+          'top': offset.dy,
+          'left': offset.dx,
+        });
+      }
+    }
+    _sendPlatformViewMessage('transform', <String, dynamic>{
+      'id': _viewController.viewId,
+      'transform': transform,
+    });
+  }
+
+  // Sends a platform-view geometry message ('offset'/'transform') without
+  // awaiting the reply.  See _updatePlatformViewTransform for why the
+  // transform travels as its own message.
+  void _sendPlatformViewMessage(String method, Map<String, dynamic> arguments) {
+    SystemChannels.platform_views.invokeMethod<void>(method, arguments).catchError((Object e) {
+      // The engine and the framework ship as separate artifacts; when this
+      // runs against an engine build without the 'transform' handler, the
+      // reply is notImplemented, which surfaces as a MissingPluginException.
+      // That mismatch is expected and silently degrades rotation/touch
+      // correction.  Anything else is a real error; report it instead of
+      // crashing the per-frame loop or hiding it entirely.
+      if (e is! MissingPluginException) {
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: e,
+            library: 'rendering',
+            context: ErrorDescription('while sending the $method platform view message'),
+          ),
+        );
       }
     });
   }

@@ -39,7 +39,7 @@ TEST(QosOhosTest, FenceWaiterWorksAfterSetQosOnLowMemory) {
   auto fence = device.createFenceUnique({}).value;
   waiter->AddFence(std::move(fence), [&signal]() { signal.Signal(); });
 
-  signal.Wait();
+  ASSERT_FALSE(signal.WaitWithTimeout(fml::TimeDelta::FromSeconds(5)));
 }
 
 TEST(QosOhosTest, ResourceManagerReclaimsAfterSetQosOnLowMemory) {
@@ -61,7 +61,7 @@ TEST(QosOhosTest, ResourceManagerReclaimsAfterSetQosOnLowMemory) {
         manager, std::move(rattle));
   }
 
-  waiter.Wait();
+  ASSERT_FALSE(waiter.WaitWithTimeout(fml::TimeDelta::FromSeconds(5)));
 }
 
 }  // namespace testing

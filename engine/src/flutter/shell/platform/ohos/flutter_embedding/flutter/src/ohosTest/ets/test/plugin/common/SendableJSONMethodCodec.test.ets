@@ -14,6 +14,7 @@
  */
 import { describe, expect, it } from '@ohos/hypium';
 import SendableJSONMethodCodec from '../../../../../main/ets/plugin/common/SendableJSONMethodCodec';
+import FlutterException from '../../../../../main/ets/plugin/common/FlutterException';
 
 export default function SendableJSONMethodCodecTest() {
   describe('SendableJSONMethodCodecTest', () => {
@@ -35,6 +36,20 @@ export default function SendableJSONMethodCodecTest() {
         throw new Error('Expected an error to be thrown');
       } catch (e) {
         expect(e.message).assertContain('Invalid JSON')
+      }
+    })
+
+    it('throws FlutterException for an error envelope', 0, () => {
+      const encoded = codec.encodeErrorEnvelope('CODE', 'message', 'details');
+      try {
+        codec.decodeEnvelope(encoded);
+        throw new Error('Expected FlutterException to be thrown');
+      } catch (e) {
+        expect(e instanceof FlutterException).assertEqual(true);
+        const fe: FlutterException = e as FlutterException;
+        expect(fe.code).assertEqual('CODE');
+        expect(fe.message).assertEqual('message');
+        expect(fe.details).assertEqual('details');
       }
     })
   })

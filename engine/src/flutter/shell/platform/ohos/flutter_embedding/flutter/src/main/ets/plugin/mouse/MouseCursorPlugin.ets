@@ -46,6 +46,20 @@ export default class MouseCursorPlugin implements MouseCursorMethodHandler {
       Log.e(TAG, "setPointerStyle failed: windowId is invalid: " + this.windowId);
       return;
     }
+    if (kind === 'none') {
+      try {
+        pointer.setPointerVisibleSync(false);
+        Log.i(TAG, 'setPointerVisibleSync(false) success: kind=' + kind);
+      } catch (e) {
+        Log.e(TAG, 'setPointerVisibleSync(false) exception: kind=' + kind + ', error=' + JSON.stringify(e));
+      }
+      return;
+    }
+    try {
+      pointer.setPointerVisibleSync(true);
+    } catch (e) {
+      Log.e(TAG, 'setPointerVisibleSync(true) exception: kind=' + kind + ', error=' + JSON.stringify(e));
+    }
     let pointStyle: pointer.PointerStyle = this.resolveSystemCursor(kind);
     try {
       pointer.setPointerStyle(this.windowId, pointStyle, (err: Any) => {
@@ -75,18 +89,17 @@ export default class MouseCursorPlugin implements MouseCursorMethodHandler {
       this.systemCursorConstants.set("grabbing", pointer.PointerStyle.HAND_GRABBING);
       this.systemCursorConstants.set("help", pointer.PointerStyle.HELP);
       this.systemCursorConstants.set("move", pointer.PointerStyle.MOVE);
-      this.systemCursorConstants.set("none", pointer.PointerStyle.DEFAULT);
       this.systemCursorConstants.set("noDrop", pointer.PointerStyle.DEFAULT);
       this.systemCursorConstants.set("precise", pointer.PointerStyle.CROSS);
       this.systemCursorConstants.set("text", pointer.PointerStyle.TEXT_CURSOR);
-      this.systemCursorConstants.set("resizeColum", pointer.PointerStyle.NORTH_SOUTH);
+      this.systemCursorConstants.set("resizeColumn", pointer.PointerStyle.RESIZE_LEFT_RIGHT);
       this.systemCursorConstants.set("resizeDown", pointer.PointerStyle.SOUTH);
       this.systemCursorConstants.set("resizeDownLeft", pointer.PointerStyle.SOUTH_WEST);
       this.systemCursorConstants.set("resizeDownRight", pointer.PointerStyle.SOUTH_EAST);
       this.systemCursorConstants.set("resizeLeft", pointer.PointerStyle.WEST);
       this.systemCursorConstants.set("resizeLeftRight", pointer.PointerStyle.RESIZE_LEFT_RIGHT);
       this.systemCursorConstants.set("resizeRight", pointer.PointerStyle.EAST);
-      this.systemCursorConstants.set("resizeRow", pointer.PointerStyle.WEST_EAST);
+      this.systemCursorConstants.set("resizeRow", pointer.PointerStyle.RESIZE_UP_DOWN);
       this.systemCursorConstants.set("resizeUp", pointer.PointerStyle.NORTH);
       this.systemCursorConstants.set("resizeUpDown", pointer.PointerStyle.RESIZE_UP_DOWN);
       this.systemCursorConstants.set("resizeUpLeft", pointer.PointerStyle.NORTH_WEST);
@@ -117,10 +130,10 @@ export default class MouseCursorPlugin implements MouseCursorMethodHandler {
       this.systemCursorConstants.set("screenshotChoose", pointer.PointerStyle.SCREENSHOT_CHOOSE);
       this.systemCursorConstants.set("screenshotCursor", pointer.PointerStyle.SCREENSHOT_CURSOR);
     }
-    let pointStyle: pointer.PointerStyle = this.systemCursorConstants.get(kind);
-    if (pointStyle === null) {
+    if (!this.systemCursorConstants.hasKey(kind)) {
       return pointer.PointerStyle.DEFAULT;
     }
+    let pointStyle: pointer.PointerStyle = this.systemCursorConstants.get(kind);
     return pointStyle;
   }
 
@@ -129,6 +142,11 @@ export default class MouseCursorPlugin implements MouseCursorMethodHandler {
    * The MouseCursorPlugin instance should not be used after calling this.
    */
   destroy(): void {
+    try {
+      pointer.setPointerVisibleSync(true);
+    } catch (e) {
+      Log.e(TAG, 'setPointerVisibleSync(true) exception in destroy: error=' + JSON.stringify(e));
+    }
     this.mouseCursorChannel.setMethodHandler(null);
   }
 }

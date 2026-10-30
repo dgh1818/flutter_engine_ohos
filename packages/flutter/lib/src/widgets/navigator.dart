@@ -4661,6 +4661,14 @@ class NavigatorState extends State<Navigator> with TickerProviderStateMixin, Res
       entry = previous;
       previous = index > 0 ? _history[index - 1] : null;
     }
+    // Notify the OHOS flex overflow strategy that a route transition occurred.
+    // The strategy only resets DPR when this flag is true AND all tracked
+    // RenderFlex instances have been disposed, preventing both oscillation
+    // and premature resets on push.
+    if (defaultTargetPlatform == TargetPlatform.ohos) {
+      OhosFlexOverflowStrategy.notifyRouteChanged();
+    }
+
     // Informs navigator observers about route changes.
     _flushObserverNotifications();
 

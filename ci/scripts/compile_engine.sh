@@ -22,10 +22,10 @@ compile_engine() {
             exit 1
         fi
     else
-        readonly MODES=("debug" "profile" "release")
-        readonly BUILD_MODE=${MODES[$RANDOM % ${#MODES[@]}]}
+        readonly BUILD_MODE="profile"
         log_info "Compiling engine in $BUILD_MODE mode"
-        if ! run_cmd "./ohos -t $BUILD_MODE"; then
+        # Disable LTO temporarily
+        if ! run_cmd "./ohos -t $BUILD_MODE -g \"\\--coverage \\--no-lto\""; then
             log_error "Engine compilation failed for mode: $BUILD_MODE"
             exit 1
         fi
@@ -40,7 +40,7 @@ compile_engine() {
         run_cmd "save_mtime out $ARCHIVE_DIR/restore_mtimes.sh"
     fi
 
-    if [[ -d "out" ]]; then
+    if [[ -d "out" ]] && [[ -z "${PR_URL:-}" ]]; then
         (cp -a out/. "$ARCHIVE_DIR/out" &)
     fi
 }

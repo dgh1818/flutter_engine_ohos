@@ -5,118 +5,178 @@
  */
 
 import window from '@ohos.window';
+import { BusinessError } from '@ohos.base';
 import Log from '../../../util/Log';
-import { WindowArchetype } from './WindowArchetype';
+import { FlutterView } from '../../../view/FlutterView';
+import { FlutterWindowHost } from './FlutterWindowHost';
 import { WindowHostContext } from './WindowHostContext';
-import { SubWindowHost } from './SubWindowHost';
+import { DialogWindowCreationRequest,
+  WindowArchetype, WindowConstraints, WindowSizeRequest } from './WindowingUtils';
 
 const TAG = 'DialogWindowHost'
 
-/** @ohos.window symbols newer than the API-12 typedef this embedding
- * compiles against (dynamic @since 14, static @since 23). A direct
- * reference breaks SDK-12 builds and crashes on older devices, so use a
- * custom interface + typeof probe. */
-interface DialogSubWindowApi {
-  setWindowTitleMoveEnabled(enabled: boolean): void;
-  setSubWindowModal(isModal: boolean, modalityType: number): Promise<void>;
-  enableDrag(enable: boolean): Promise<void>;
-}
+const SUB_WINDOW_NAME_PREFIX: string = 'Dialog-';
 
-/** ModalityType.WINDOW_MODALITY (dynamic @since 14, static @since 23): the
- * enum namespace is not on the API-12 typedef, so use its literal value. */
-const WINDOW_MODALITY: number = 0;
+const NESTED_DIALOG_CASCADE_PX: number = 20;
+
 
 /**
- * MODAL dialog host (SubWindow path; modeless dialogs resolve to a
- * UIAbility host on the C++ side). Blocks the parent via
- * setSubWindowModal(WINDOW_MODALITY) after showWindow.
- *
- * Do NOT "help" the modality with setWindowTouchable(false) on the parent:
- * on PC multi-window builds a non-touchable window passes clicks through
- * to the window underneath instead of blocking them. setSubWindowModal
- * alone is the modality mechanism; WMS enforces it.
+ * MODAL dialog host (SubWindow path; a no-parent/modeless request is routed
+ * to a spawned RegularWindowHost in FlutterManager.createDialogWindow — this
+ * host always has a VALID parentViewId). 
  */
-export class DialogWindowHost extends SubWindowHost {
-  constructor(ctx: WindowHostContext,
-              viewId: number,
-              parentViewId: number,
-              width: number,
-              height: number) {
-    super(ctx, viewId, parentViewId, WindowArchetype.DIALOG, width, height);
+export class DialogWindowHost extends FlutterWindowHost {
+  protected readonly request: DialogWindowCreationRequest;
+  private readonly parentWnd: window.Window | undefined;
+
+  constructor(ctx: WindowHostContext, viewId: number, request: DialogWindowCreationRequest) {
+    super(ctx, viewId, request.parentViewId, request.title, WindowArchetype.DIALOG);
+    this.request = request;
+    this.parentWnd = ctx.getHostWindowByView(request.parentViewId)?.getWindow() ?? undefined;
+  }
+
+  async attach(): Promise<void> {
+    if (this.parentWnd === undefined) {
+      Log.e(TAG, `attach: no parent window for parentViewId=${this.parentViewId}`);
+      this.failAttach('attach: no parent window');
+      return;
+    }
+
+    const rect = this.getInitialRect(this.request.preferredSize, this.request.preferredConstraints, this.parentWnd);
+    rect.left -= NESTED_DIALOG_CASCADE_PX;
+    rect.top -= NESTED_DIALOG_CASCADE_PX; // offset the dialog to cascade from the parent window
+    const options: window.SubWindowOptions = {
+      title: this.title,
+      decorEnabled: false,
+      isModal: true,
+      modalityType: window.ModalityType.WINDOW_MODALITY,
+      maximizeSupported: false,
+    };
+    // 0×0 (no preferred size / no owner props) → omit; the system decides.
+    if (rect.width > 0 && rect.height > 0) {
+      options.windowRect = rect;
+    }
+
+    let subWindow: window.Window;
+    try {
+      subWindow = await this.parentWnd.createSubWindowWithOptions(
+        SUB_WINDOW_NAME_PREFIX + String(this.viewId), options);
+    } catch (e) {
+      const err = e as BusinessError;
+      Log.e(TAG, `createSubWindowWithOptions failed for ${String(this.viewId)}: ${JSON.stringify(err)}`);
+      this.failAttach('createSubWindowWithOptions');
+      return;
+    }
+    this.window = subWindow;
+
+    if (!this.viewAttachEngine()) {
+      return;
+    }
+
+    const storage = new LocalStorage();
+    storage.setOrCreate('viewId', String(this.viewId));
+    try {
+      await subWindow.loadContent(this.ctx.subWindowPage(), storage);
+      await subWindow.showWindow();
+      subWindow.on('windowEvent', (event: window.WindowEventType) => {
+        if (event === window.WindowEventType.WINDOW_DESTROYED) {
+          this.handleOsClosed();
+        }
+      });
+    } catch (e) {
+      const err = e as BusinessError;
+      Log.e(TAG, `loadContent/showWindow failed for ${String(this.viewId)}: ${JSON.stringify(err)}`);
+      this.failAttach('loadContent/showWindow');
+      return;
+    }
+  }
+
+  private viewAttachEngine(): boolean {
+    const parentView = this.ctx.getHostWindowByView(this.parentViewId)?.getFlutterView() ?? null;
+    if (parentView === null) {
+      Log.e(TAG, `viewAttachEngine: no parent view ${this.parentViewId} for sub-view ${String(this.viewId)}`);
+      this.failAttach('viewAttachEngine: no parent view');
+      return false;
+    }
+    let fv = this.ctx.getFlutterView(String(this.viewId));
+    if (fv === null) {
+      fv = new FlutterView(String(this.viewId), parentView.getContext());
+      this.ctx.registerFlutterView(String(this.viewId), fv);
+    }
+    // Attach to the SAME engine as the parent (single-engine, multi-view)
+    if (!fv.isAttachedToFlutterEngine()) {
+      const engine = parentView.getFlutterEngine();
+      if (engine === null) {
+        Log.e(TAG, `viewAttachEngine: parent view ${this.parentViewId} engine unavailable for sub-view ${String(this.viewId)}`);
+        this.failAttach('viewAttachEngine: no engine for parent view');
+        return false;
+      }
+      fv.attachToFlutterEngine(engine);
+    }
+    return true;
+  }
+
+  getInitialRect(preferred_size: WindowSizeRequest,
+                 constraints: WindowConstraints,
+                 owner_window: window.Window | undefined): window.Rect {
+    let owner_props: window.WindowProperties | undefined = undefined;
+    if (owner_window !== undefined) {
+      try {
+        owner_props = owner_window.getWindowProperties();
+      } catch (e) {
+        Log.w(TAG, `getInitialRect: owner properties unavailable for ${String(this.viewId)}: ` +
+          `${JSON.stringify(e)}`);
+      }
+    }
+    let smallest: window.Size | undefined = undefined;
+    let biggest: window.Size | undefined = undefined;
+    if (constraints.hasViewConstraints) {
+      smallest = { width: constraints.viewMinWidth, height: constraints.viewMinHeight };
+      biggest = { width: constraints.viewMaxWidth, height: constraints.viewMaxHeight };
+    }
+    const window_size = this.getWindowSizeForClientSize(
+      { width: preferred_size.preferredViewWidth, height: preferred_size.preferredViewHeight },
+      smallest, biggest, owner_window);
+    // Origin 0,0 == "system decides" (win32 CW_USEDEFAULT); only a known
+    // owner + a known size pin the dialog centered over the owner.
+    const window_origin: window.Position = { x: 0, y: 0 };
+    if (window_size !== undefined && owner_props !== undefined) {
+      const frame: window.Rect = owner_props.windowRect;
+      window_origin.x = Math.round(frame.left + (frame.width - window_size.width) * 0.5);
+      window_origin.y = Math.round(frame.top + (frame.height - window_size.height) * 0.5);
+    }
+    return { left: window_origin.x, top: window_origin.y,
+             width: window_size?.width ?? 0, height: window_size?.height ?? 0 };
   }
 
   /**
-   * Center on the parent view's OWN window (not the ability's main window,
-   * which would stack nested modals on top of each other); when the parent
-   * is itself a sub-window, add a left-up cascade per nesting level. All
-   * values are PHYSICAL px — no DPR scaling here.
+   * Late failures (load/resize/show) may leave an OS sub-window behind —
+   * destroy it so no hidden, never-rendering host lingers; early failures
+   * have no window yet and take the base path only.
    */
-  protected async placeInitial(subWindow: window.Window,
-                                        logicalW: number,
-                                        logicalH: number,
-                                        physW: number,
-                                        physH: number): Promise<void> {
-    const parentAbility = this.parentAbility;
-    if (!parentAbility) {
-      return;
+  protected failAttach(where: string): void {
+    if (this.window !== undefined) {
+      this.detachView();
+      this.closeHost();
     }
-    const windowStage = this.ctx.windowStageOf(parentAbility);
-    if (!windowStage) {
+    super.failAttach(where);
+  }
+
+  /** Drops the OS sub-window. Best-effort: the callback form is the only
+   * OS-level teardown for a SubWindow. */
+  protected closeHost(): void {
+    if (this.window === undefined) {
+      Log.w(TAG, `closeHost: no sub-window for ${String(this.viewId)} (already closed?)`);
       return;
     }
     try {
-      let parentRect: window.Rect = windowStage.getMainWindowSync().getWindowProperties().windowRect;
-      let cascade = 0;
-      const parentSub = this.ctx.subWindowOfView(String(this.parentViewId));
-      if (parentSub !== undefined) {
-        parentRect = parentSub.getWindowProperties().windowRect;
-        cascade = 40; // phys px, left-up per nesting level
-      }
-      const px = parentRect.left + Math.round((parentRect.width - physW) / 2) - cascade;
-      const py = parentRect.top + Math.round((parentRect.height - physH) / 2) - cascade;
-      await subWindow.moveWindowToAsync(px, py);
+      this.window.destroyWindow((err: BusinessError) => {
+        if (err && err.code) {
+          Log.w(TAG, `closeHost: destroyWindow failed for ${String(this.viewId)}: ${JSON.stringify(err)}`);
+        }
+      });
     } catch (e) {
-      Log.w(TAG, `subWindow modal center failed for ${this.viewIdStr}: ${JSON.stringify(e)}`);
-    }
-  }
-
-  /** Enable title-bar drag; probed (dynamic @since 14) — throws logged, not
-   * fatal (the page's startMoving drag strip covers builds without one). */
-  protected async prepareShow(subWindow: window.Window): Promise<void> {
-    const api = subWindow as DialogSubWindowApi;
-    if (typeof api.setWindowTitleMoveEnabled !== 'function') {
-      return;
-    }
-    try {
-      api.setWindowTitleMoveEnabled(true);
-    } catch (e) {
-      Log.w(TAG, `subWindow setWindowTitleMoveEnabled failed for ${this.viewIdStr}: ${JSON.stringify(e)}`);
-    }
-  }
-
-  /** Block the parent: setSubWindowModal(true, WINDOW_MODALITY) (dynamic
-   * @since 14), necessarily AFTER showWindow (showWindow excludes
-   * already-modal child windows); enableDrag(true) (dynamic @since 14,
-   * public @since 20) for border-drag resize. Both probed — on builds
-   * without them the dialog simply runs modeless (logged). */
-  protected async configureAfterShow(subWindow: window.Window): Promise<void> {
-    const api = subWindow as DialogSubWindowApi;
-    if (typeof api.setSubWindowModal === 'function') {
-      try {
-        await api.setSubWindowModal(true, WINDOW_MODALITY);
-        Log.i(TAG, `subWindow set modal (WINDOW_MODALITY) for viewId=${this.viewIdStr}`);
-      } catch (e) {
-        Log.w(TAG, `subWindow setSubWindowModal failed for ${this.viewIdStr}: ${JSON.stringify(e)}`);
-      }
-    } else {
-      Log.w(TAG, `setSubWindowModal unavailable (dynamic API 14+) for ${this.viewIdStr}: dialog is NOT modal`);
-    }
-    if (typeof api.enableDrag === 'function') {
-      try {
-        await api.enableDrag(true);
-      } catch (e) {
-        Log.w(TAG, `subWindow enableDrag failed for ${this.viewIdStr}: ${JSON.stringify(e)}`);
-      }
+      Log.w(TAG, `closeHost: destroyWindow threw for ${String(this.viewId)}: ${JSON.stringify(e)}`);
     }
   }
 }

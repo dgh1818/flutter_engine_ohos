@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:meta/meta.dart';
@@ -66,9 +67,15 @@ Future<Set<RunningProcessInfo>> windowsRunningProcesses(
 ) async {
   // PowerShell script to get the command line arguments and create time of a process.
   // See: https://docs.microsoft.com/en-us/windows/desktop/cimwin32prov/win32-process
+  //
+  // The output is serialized with `ConvertTo-Json` rather than formatted as a table so
+  // that the `CreationDate` is emitted as a locale-independent .NET JSON date (e.g.
+  // `/Date(1580000000000)/`) and the `CommandLine` is properly escaped. Parsing a
+  // `Format-Table` layout relied on a US-locale date format and broke on machines using
+  // other regional formats (e.g. `yyyy/M/d H:mm:ss`).
   final script = processName != null
-      ? '"Get-CimInstance Win32_Process -Filter \\"name=\'$processName\'\\" | Select-Object ProcessId,CreationDate,CommandLine | Format-Table -AutoSize | Out-String -Width 4096"'
-      : '"Get-CimInstance Win32_Process | Select-Object ProcessId,CreationDate,CommandLine | Format-Table -AutoSize | Out-String -Width 4096"';
+      ? '"Get-CimInstance Win32_Process -Filter \\"name=\'$processName\'\\" | Select-Object ProcessId,CreationDate,CommandLine | ConvertTo-Json -Depth 2"'
+      : '"Get-CimInstance Win32_Process | Select-Object ProcessId,CreationDate,CommandLine | ConvertTo-Json -Depth 2"';
   // TODO(ianh): Unfortunately, there doesn't seem to be a good way to get
   // ProcessManager to run this.
   final ProcessResult result = await Process.run('powershell -command $script', <String>[]);
@@ -78,66 +85,52 @@ Future<Set<RunningProcessInfo>> windowsRunningProcesses(
     print(result.stdout);
     return <RunningProcessInfo>{};
   }
-  return processPowershellOutput(result.stdout as String).toSet();
+  return parseWindowsProcessJson(result.stdout as String).toSet();
 }
 
-/// Parses the output of the PowerShell script from [windowsRunningProcesses].
+/// Parses the JSON output of the PowerShell script from [windowsRunningProcesses].
 ///
-/// E.g.:
-/// ProcessId CreationDate          CommandLine
-/// --------- ------------          -----------
-///      2904 3/11/2019 11:01:54 AM "C:\Program Files\Android\Android Studio\jre\bin\java.exe" -Xmx1536M -Dfile.encoding=windows-1252 -Duser.country=US -Duser.language=en -Duser.variant -cp C:\Users\win1\.gradle\wrapper\dists\gradle-4.10.2-all\9fahxiiecdb76a5g3aw9oi8rv\gradle-4.10.2\lib\gradle-launcher-4.10.2.jar org.gradle.launcher.daemon.bootstrap.GradleDaemon 4.10.2
+/// `ConvertTo-Json` serializes each process as an object with `ProcessId`,
+/// `CreationDate` and `CommandLine` fields. The `CreationDate` is a .NET JSON date in
+/// the form `/Date(<milliseconds since epoch>[+<offset>])/`. When there is exactly one
+/// process the output is a single object instead of an array.
 @visibleForTesting
-Iterable<RunningProcessInfo> processPowershellOutput(String output) sync* {
-  const int processIdHeaderSize = 'ProcessId'.length;
-  const int creationDateHeaderStart = processIdHeaderSize + 1;
-  late int creationDateHeaderEnd;
-  late int commandLineHeaderStart;
-  var inTableBody = false;
-  for (final String line in output.split('\n')) {
-    if (line.startsWith('ProcessId')) {
-      commandLineHeaderStart = line.indexOf('CommandLine');
-      creationDateHeaderEnd = commandLineHeaderStart - 1;
-    }
-    if (line.startsWith('--------- ------------')) {
-      inTableBody = true;
+Iterable<RunningProcessInfo> parseWindowsProcessJson(String output) sync* {
+  final String trimmed = output.trim();
+  if (trimmed.isEmpty) {
+    return;
+  }
+  final Object? decoded = jsonDecode(trimmed);
+  final List<Object?> entries;
+  if (decoded is List<Object?>) {
+    entries = decoded;
+  } else if (decoded is Map<Object?, Object?>) {
+    entries = <Object?>[decoded];
+  } else {
+    return;
+  }
+  for (final entry in entries) {
+    if (entry is! Map<Object?, Object?>) {
       continue;
     }
-    if (!inTableBody || line.isEmpty) {
+    final Object? pidValue = entry['ProcessId'];
+    final Object? dateValue = entry['CreationDate'];
+    final Object? cmdValue = entry['CommandLine'];
+    if (pidValue == null || dateValue == null || cmdValue == null) {
       continue;
     }
-    if (line.length < commandLineHeaderStart) {
+    final int pid = pidValue is int ? pidValue : int.parse(pidValue.toString());
+    final Match? match = _jsonDateRegExp.firstMatch(dateValue.toString());
+    if (match == null) {
       continue;
     }
-
-    // 3/11/2019 11:01:54 AM
-    // 12/11/2019 11:01:54 AM
-    String rawTime = line.substring(creationDateHeaderStart, creationDateHeaderEnd).trim();
-
-    if (rawTime[1] == '/') {
-      rawTime = '0$rawTime';
-    }
-    if (rawTime[4] == '/') {
-      rawTime = '${rawTime.substring(0, 3)}0${rawTime.substring(3)}';
-    }
-    final String year = rawTime.substring(6, 10);
-    final String month = rawTime.substring(3, 5);
-    final String day = rawTime.substring(0, 2);
-    String time = rawTime.substring(11, 19);
-    if (time[7] == ' ') {
-      time = '0$time'.trim();
-    }
-    if (rawTime.endsWith('PM')) {
-      final int hours = int.parse(time.substring(0, 2));
-      time = '${hours + 12}${time.substring(2)}';
-    }
-
-    final int pid = int.parse(line.substring(0, processIdHeaderSize).trim());
-    final DateTime creationDate = DateTime.parse('$year-$month-${day}T$time');
-    final String commandLine = line.substring(commandLineHeaderStart).trim();
-    yield RunningProcessInfo(pid, commandLine, creationDate);
+    final int millisSinceEpoch = int.parse(match.group(1)!);
+    final creationDate = DateTime.fromMillisecondsSinceEpoch(millisSinceEpoch);
+    yield RunningProcessInfo(pid, cmdValue.toString(), creationDate);
   }
 }
+
+final RegExp _jsonDateRegExp = RegExp(r'/Date\((-?\d+)(?:[+-]\d{4})?\)/');
 
 @visibleForTesting
 Future<Set<RunningProcessInfo>> posixRunningProcesses(

@@ -80,14 +80,24 @@ export interface WindowFocusChangedListener {
 }
 
 /**
- * Delegate interface for handling save state events.
+ * Delegate interface for handling save and restore state events.
+ *
+ * This interface follows the same design as Android's OnSaveInstanceStateListener,
+ * where save and restore are handled by the same listener to ensure they are paired.
  */
 export interface OnSaveStateListener {
   /**
-   * Invoked when the associated UIAbility saves and restores instance state.
+   * Invoked when the associated UIAbility saves instance state.
    * @param reason - The reason for saving state
    * @param wantParam - Parameters to save
    * @returns The result of the save state operation
    */
   onSaveState(reason: AbilityConstant.StateType, wantParam: Record<string, Object>): AbilityConstant.OnSaveResult;
+
+  /**
+   * Optionally invoked when the associated UIAbility restores instance state.
+   * Plugins can read their previously saved data from wantParam.
+   * @param wantParam - Parameters containing the saved plugin state
+   */
+  onRestoreInstanceState?(wantParam: Record<string, Object>): void;
 }

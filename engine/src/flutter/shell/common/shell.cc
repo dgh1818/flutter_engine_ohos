@@ -48,6 +48,13 @@
 #include "third_party/skia/include/core/SkGraphics.h"
 #include "third_party/tonic/common/log.h"
 
+#ifdef FML_OS_OHOS
+#include <hilog/log.h>
+#define OHOS_LOGI(...)                                                \
+  ((void)OH_LOG_Print(LOG_APP, LOG_INFO, 0x0000, "XComFlutterEngine", \
+                      __VA_ARGS__))
+#endif
+
 namespace flutter {
 
 constexpr char kSkiaChannel[] = "flutter/skia";
@@ -1139,6 +1146,10 @@ void Shell::OnPlatformViewSetViewportMetrics(int64_t view_id,
 
   if (!ValidateViewportMetrics(metrics)) {
     // Ignore invalid view-port metrics.
+    FML_LOG(WARNING) << "invalid viewport metrics dpr="
+                     << metrics.device_pixel_ratio
+                     << " w=" << metrics.physical_width
+                     << " h=" << metrics.physical_height;
     return;
   }
 
@@ -1418,6 +1429,9 @@ void Shell::OnAnimatorDraw(std::shared_ptr<FramePipeline> pipeline) {
 
           if (waiting_for_first_frame.load()) {
             waiting_for_first_frame.store(false);
+#ifdef FML_OS_OHOS
+            OHOS_LOGI("first-frame wait cleared");
+#endif
             waiting_for_first_frame_condition.notify_all();
           }
         }

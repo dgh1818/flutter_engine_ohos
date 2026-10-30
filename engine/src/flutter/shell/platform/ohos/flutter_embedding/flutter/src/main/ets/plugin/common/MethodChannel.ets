@@ -16,6 +16,7 @@ import Any from './Any';
 import MethodCall from './MethodCall';
 import MethodCodec from './MethodCodec';
 import StandardMethodCodec from './StandardMethodCodec';
+import FlutterException from './FlutterException';
 
 /**
  * A named channel for communicating with the Flutter application using asynchronous method calls.
@@ -174,7 +175,12 @@ export class IncomingResultHandler implements BinaryReply {
         try {
           this.callback.success(this.codec.decodeEnvelope(reply));
         } catch (e) {
-          this.callback.error(e.code, e.getMessage(), e.details);
+          if (e instanceof FlutterException) {
+            this.callback.error(e.code, e.message, e.details);
+          } else {
+            const errMsg = (e instanceof Error) ? (e.message ?? '') : String(e);
+            this.callback.error("error", errMsg, null);
+          }
         }
       }
     } catch (e) {
@@ -225,8 +231,8 @@ export class IncomingMethodCallHandler implements BinaryMessageHandler {
       });
     } catch (e) {
       Log.e(MethodChannel.TAG, "Failed to handle method call", e);
-      const errMsg = e instanceof Error ? (e.message ?? '') : String(e);
-      const errStack = e instanceof Error ? (e.stack ?? '') : '';
+      const errMsg = (e instanceof FlutterException || e instanceof Error) ? (e.message ?? '') : String(e);
+      const errStack = (e instanceof FlutterException || e instanceof Error) ? (e.stack ?? '') : '';
       reply.reply(this.codec.encodeErrorEnvelopeWithStacktrace("error", errMsg, null, errStack));
     }
   }

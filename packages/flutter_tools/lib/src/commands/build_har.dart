@@ -20,6 +20,8 @@ class BuildHarCommand extends BuildSubCommand {
     addBuildModeFlags(verboseHelp: verboseHelp);
     usesFlavorOption();
     usesPubOption();
+    usesBuildNumberOption();
+    usesBuildNameOption();
     addShrinkingFlag(verboseHelp: verboseHelp);
     addSplitDebugInfoOption();
     addDartObfuscationOption();

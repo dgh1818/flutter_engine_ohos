@@ -19,10 +19,12 @@ GPUSurfaceGLImpeller::GPUSurfaceGLImpeller(
     impeller::Flags flags)
     : weak_factory_(this) {
   if (delegate == nullptr) {
+    FML_LOG(ERROR) << "GPUSurfaceGLImpeller delegate is null";
     return;
   }
 
   if (!context || !context->IsValid()) {
+    FML_LOG(ERROR) << "GPUSurfaceGLImpeller context invalid";
     return;
   }
 
@@ -30,6 +32,7 @@ GPUSurfaceGLImpeller::GPUSurfaceGLImpeller(
       context, impeller::TypographerContextSkia::Make(flags));
 
   if (!aiks_context->IsValid()) {
+    FML_LOG(ERROR) << "GPUSurfaceGLImpeller aiks_context invalid";
     return;
   }
 

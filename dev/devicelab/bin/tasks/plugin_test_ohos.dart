@@ -1,0 +1,18 @@
+// Copyright (c) 2025 Huawei Device Co., Ltd. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE_HW file.
+
+import 'package:flutter_devicelab/framework/devices.dart';
+import 'package:flutter_devicelab/framework/framework.dart';
+import 'package:flutter_devicelab/tasks/plugin_tests.dart';
+
+Future<void> main() async {
+  deviceOperatingSystem = DeviceOperatingSystem.ohos;
+  await task(
+    combine(<TaskFunction>[
+      PluginTest('hap', <String>['--platforms=ohos']).call,
+      PluginTest('hap', <String>['--platforms=ohos'], dartOnlyPlugin: true).call,
+      PluginTest('hap', <String>['--platforms=ohos'], template: 'plugin_ffi').call,
+    ]),
+  );
+}

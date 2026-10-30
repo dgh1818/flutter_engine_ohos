@@ -713,7 +713,7 @@ class RenderFlex extends RenderBox
   FlexOverflowStrategy _overflowStrategy;
   set overflowStrategy(FlexOverflowStrategy value) {
     if (_overflowStrategy != value) {
-      _overflowStrategy.dispose();
+      _overflowStrategy.dispose(this);
       _overflowStrategy = value;
       markNeedsLayout();
     }
@@ -1485,7 +1485,7 @@ class RenderFlex extends RenderBox
   @override
   void dispose() {
     _clipRectLayer.layer = null;
-    _overflowStrategy.dispose();
+    _overflowStrategy.dispose(this);
     super.dispose();
   }
 

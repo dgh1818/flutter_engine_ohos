@@ -806,7 +806,18 @@ class VersionUpstreamValidator {
     'https://github.com/flutter/flutter.git',
     'git@github.com:flutter/flutter.git',
     'ssh://git@github.com/flutter/flutter.git',
+    'https://gitcode.com/CPF-Flutter/flutter_flutter.git',
+    'git@gitcode.com:CPF-Flutter/flutter_flutter.git',
+    'ssh://git@gitcode.com/CPF-Flutter/flutter_flutter.git',
+    'https://gitcode.com/openharmony-tpc/flutter_flutter.git',
+    'git@gitcode.com:openharmony-tpc/flutter_flutter.git',
+    'ssh://git@gitcode.com/openharmony-tpc/flutter_flutter.git',
   ];
+
+  /// Exposed for the OHOS upgrade command, which validates the 'origin'
+  /// remote directly (the tracked upstream is absent on a detached checkout,
+  /// for example a clone of a release tag).
+  static List<String> get standardRemotes => _standardRemotes;
 
   // Strips ".git" suffix from a given string, preferably an url.
   // For example, changes 'https://github.com/flutter/flutter.git' to 'https://github.com/flutter/flutter'.

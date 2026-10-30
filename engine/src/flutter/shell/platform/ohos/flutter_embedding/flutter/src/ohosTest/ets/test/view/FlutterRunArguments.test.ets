@@ -23,6 +23,15 @@ export default function FlutterRunArgumentsTest() {
     it('flutterRunArguments', 0, () => {
       const flutterRunArguments = new FlutterRunArguments(TAG, TAG, TAG)
       expect(flutterRunArguments.bundlePath).assertEqual(TAG)
+      expect(flutterRunArguments.entrypoint).assertEqual(TAG)
+      expect(flutterRunArguments.libraryPath).assertEqual(TAG)
+    })
+
+    it('empty paths are stored', 0, () => {
+      const args = new FlutterRunArguments('', 'main', '')
+      expect(args.bundlePath).assertEqual('')
+      expect(args.entrypoint).assertEqual('main')
+      expect(args.libraryPath).assertEqual('')
     })
   })
 }

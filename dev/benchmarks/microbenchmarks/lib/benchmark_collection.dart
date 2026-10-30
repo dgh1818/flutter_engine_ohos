@@ -125,6 +125,10 @@ Future<void> main() async {
 
   // Now we're just being paranoid here and letting the process churn through
   // log lines before handling the exit code.
+  // Also wait before exiting to allow `flutter run` to forward all remaining
+  // device logs (hilog on OHOS) to its stdout. Without this delay,
+  // exit(0) drops the VM service connection before all benchmark results
+  // are forwarded, resulting in incomplete data collection.
   await Future<void>.delayed(const Duration(seconds: 5));
   exit(0);
 }

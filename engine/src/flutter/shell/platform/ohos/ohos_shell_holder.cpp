@@ -224,17 +224,14 @@ OHOSShellHolder::OHOSShellHolder(
                 .enable_software_rendering,  // use software rendering
             this  // shell holder (windowing controller owner)
         );
-        LOGI("on_create_platform_view LOGI");
         FML_LOG(INFO) << "on_create_platform_view end";
         weak_platform_view = platform_view_OHOS->GetWeakPtr();
-        LOGI("on_create_platform_view LOGI2");
         FML_LOG(INFO) << "on_create_platform_view end1";
         // std::vector<std::unique_ptr<Display>> displays;
         // displays.push_back(std::make_unique<OHOSDisplay>(napi_facade));
         // FML_DLOG(INFO) << "on_create_platform_view LOGI3";
         // FML_LOG(INFO) << "on_create_platform_view end3---here";
         // shell.OnDisplayUpdates(std::move(displays));
-        LOGI("on_create_platform_view LOGI4");
         FML_LOG(INFO) << "on_create_platform_view end3";
         return platform_view_OHOS;
       };
@@ -285,7 +282,7 @@ OHOSShellHolder::OHOSShellHolder(
       }
     });
 
-    LOGI("shell_ end");
+    FML_LOG(INFO) << "shell_ end";
     shell_->RegisterImageDecoder(
         [](sk_sp<SkData> buffer) {
           return OHOSImageGenerator::MakeFromData(std::move(buffer));
@@ -412,6 +409,8 @@ std::unique_ptr<OHOSShellHolder> OHOSShellHolder::Spawn(
   if (!config) {
     // If the RunConfiguration was null, the kernel blob wasn't readable.
     // Fail the whole thing.
+    FML_LOG(ERROR)
+        << "BuildRunConfiguration failed (kernel/snapshot unreadable)";
     return nullptr;
   }
   // Spawned engine: the id belongs to the child shell's Dart isolate (which
@@ -539,7 +538,7 @@ std::optional<RunConfiguration> OHOSShellHolder::BuildRunConfiguration(
         fml::FileMapping::CreateReadOnly(
             GetSettings().application_kernel_asset);
     if (!kernel_blob) {
-      FML_DLOG(ERROR) << "Unable to load the kernel blob asset.";
+      FML_LOG(ERROR) << "Unable to load the kernel blob asset.";
       return std::nullopt;
     }
     FML_LOG(INFO) << "CreateForKernel.";

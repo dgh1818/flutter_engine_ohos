@@ -1,10 +1,37 @@
 import { describe, it, expect, Level } from '@ohos/hypium';
-import { IncomingMethodCallHandler, IncomingResultHandler, MethodCallHandler, MethodResult } from '../../../../../main/ets/plugin/common/MethodChannel';
-import { BinaryReply } from '../../../../../main/ets/plugin/common/BinaryMessenger';
+import MethodChannel, { IncomingMethodCallHandler, IncomingResultHandler, MethodCallHandler, MethodResult } from '../../../../../main/ets/plugin/common/MethodChannel';
+import { BinaryMessenger, BinaryMessageHandler, BinaryReply, TaskQueue, TaskQueueOptions } from '../../../../../main/ets/plugin/common/BinaryMessenger';
+import SendableBinaryMessageHandler from '../../../../../main/ets/plugin/common/SendableBinaryMessageHandler';
 import MethodCodec from '../../../../../main/ets/plugin/common/MethodCodec';
 import FlutterException from '../../../../../main/ets/plugin/common/FlutterException';
 import MethodCall from '../../../../../main/ets/plugin/common/MethodCall';
 import Any from '../../../../../main/ets/plugin/common/Any';
+
+class FakeTaskQueue implements TaskQueue {}
+
+class FakeMessenger implements BinaryMessenger {
+  handlerChannel: string = '';
+  capturedHandler: Object | null = null;
+  sendChannel: string = '';
+  sendMessage: ArrayBuffer | null = null;
+  capturedReplyCallback: Object | null = null;
+
+  makeBackgroundTaskQueue(options?: TaskQueueOptions): TaskQueue {
+    return new FakeTaskQueue();
+  }
+
+  send(channel: String, message: ArrayBuffer | null, callback?: BinaryReply | null): void {
+    this.sendChannel = channel as string;
+    this.sendMessage = message;
+    this.capturedReplyCallback = callback ?? null;
+  }
+
+  setMessageHandler(channel: String, handler: BinaryMessageHandler | SendableBinaryMessageHandler | null,
+    taskQueue?: TaskQueue, ...args: Object[]): void {
+    this.handlerChannel = channel as string;
+    this.capturedHandler = handler;
+  }
+}
 
 class FakeReply implements BinaryReply {
   replyData: ArrayBuffer | null = null;
@@ -67,11 +94,18 @@ class ThrowingHandler implements MethodCallHandler {
   }
 }
 
+class FlutterThrowingHandler implements MethodCallHandler {
+  onMethodCall(call: MethodCall, result: MethodResult): void {
+    throw new FlutterException('invalid_args', 'bad argument', 'extra');
+  }
+}
+
 class FakeMethodCodec implements MethodCodec {
   private successResult: Any = null;
   private errorCodec: string = '';
   private errorMessage: string = '';
   private errorDetails: Any = null;
+  capturedErrMsg: string = '';
 
   setSuccessResult(value: Any): void {
     this.successResult = value;
@@ -120,6 +154,7 @@ class FakeMethodCodec implements MethodCodec {
 
   encodeErrorEnvelopeWithStacktrace(errorCode: string, errorMessage: string, errorDetails: Any,
     errorStacktrace: string): ArrayBuffer {
+    this.capturedErrMsg = errorMessage;
     const buffer: ArrayBuffer = new ArrayBuffer(1);
     const view: Uint8Array = new Uint8Array(buffer);
     view[0] = 1;
@@ -192,6 +227,18 @@ export default function methodChannelTest() {
       expect(reply.replyData).not().assertNull();
     });
 
+    // Regression test: a handler throwing FlutterException must not degrade
+    // the error message to "[object Object]".
+    it('replies with real message when handler throws FlutterException', Level.LEVEL1, () => {
+      const handler = new FlutterThrowingHandler();
+      const wrapper = new IncomingMethodCallHandler(handler, codec);
+      const reply = new FakeReply();
+      wrapper.onMessage(codec.encodeMethodCall(new MethodCall('test', null)), reply);
+      expect(reply.replyData).not().assertNull();
+      expect(new Uint8Array(reply.replyData!)[0]).assertEqual(1);
+      expect(codec.capturedErrMsg).assertEqual('bad argument');
+    });
+
     it('passes correct method name to handler', Level.LEVEL1, () => {
       const handler = new SuccessHandler();
       handler.resultValue = null;
@@ -221,10 +268,69 @@ export default function methodChannelTest() {
       expect(result.successValue).assertEqual('result value');
     });
 
-    // SKIPPED: Source bug — IncomingResultHandler.reply calls e.getMessage()
-    // but FlutterException has no getMessage() method (only message property).
-    // This throws TypeError, caught by outer catch, callback.error never called.
-    // Fix: change e.getMessage() to e.message in IncomingResultHandler.reply
-    // Note: xit not available in current hypium runtime, test removed.
+    // Regression test for the e.getMessage() bug previously documented here.
+    it('calls error when reply is error envelope', Level.LEVEL1, () => {
+      const result = new FakeResult();
+      codec.setErrorInfo('ERR_CODE', 'something broke', 'detail info');
+      const handler = new IncomingResultHandler(result, codec);
+      const envelope = codec.encodeErrorEnvelope('ERR_CODE', 'something broke', 'detail info');
+      handler.reply(envelope);
+      expect(result.errorCalled).assertEqual(true);
+      expect(result.errorCode).assertEqual('ERR_CODE');
+      expect(result.errorMessage).assertEqual('something broke');
+      expect(result.errorDetails).assertEqual('detail info');
+    });
+  });
+
+  describe('MethodChannel.public_API', () => {
+    it('constructor stores name and codec', Level.LEVEL1, () => {
+      const messenger = new FakeMessenger();
+      const channel = new MethodChannel(messenger, 'myChannel', codec);
+      channel.invokeMethod('test', null);
+      expect(messenger.sendChannel).assertEqual('myChannel');
+    });
+
+    it('invokeMethod passes null callback when no callback provided', Level.LEVEL1, () => {
+      const messenger = new FakeMessenger();
+      const channel = new MethodChannel(messenger, 'c1', codec);
+      channel.invokeMethod('m', 'arg', undefined);
+      expect(messenger.capturedReplyCallback).assertEqual(null);
+    });
+
+    it('invokeMethod wraps callback in IncomingResultHandler when callback provided', Level.LEVEL1, () => {
+      const messenger = new FakeMessenger();
+      const channel = new MethodChannel(messenger, 'c2', codec);
+      const cb: MethodResult = new FakeResult();
+      channel.invokeMethod('m', 'arg', cb);
+      expect(messenger.capturedReplyCallback).not().assertEqual(null);
+      expect(messenger.capturedReplyCallback).not().assertEqual(cb);
+    });
+
+    it('setMethodCallHandler delegates to messenger with correct channel', Level.LEVEL1, () => {
+      const messenger = new FakeMessenger();
+      const channel = new MethodChannel(messenger, 'c3', codec);
+      channel.setMethodCallHandler(new SuccessHandler());
+      expect(messenger.handlerChannel).assertEqual('c3');
+      expect(messenger.capturedHandler).not().assertEqual(null);
+    });
+
+    it('setMethodCallHandler(null) deregisters', Level.LEVEL1, () => {
+      const messenger = new FakeMessenger();
+      const channel = new MethodChannel(messenger, 'c4', codec);
+      channel.setMethodCallHandler(null);
+      expect(messenger.capturedHandler).assertEqual(null);
+    });
+
+    it('resizeChannelBuffer does not throw under FakeMessenger', Level.LEVEL1, () => {
+      const messenger = new FakeMessenger();
+      const channel = new MethodChannel(messenger, 'c5', codec);
+      let threw = false;
+      try {
+        channel.resizeChannelBuffer(2048);
+      } catch (e) {
+        threw = true;
+      }
+      expect(threw).assertEqual(false);
+    });
   });
 }

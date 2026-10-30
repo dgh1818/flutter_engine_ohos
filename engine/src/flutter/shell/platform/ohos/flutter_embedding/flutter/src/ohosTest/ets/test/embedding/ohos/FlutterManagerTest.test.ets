@@ -15,8 +15,34 @@
 import { beforeAll, describe, expect, it } from '@ohos/hypium';
 import { window } from '@kit.ArkUI';
 import UIAbility from '@ohos.app.ability.UIAbility';
-import FlutterManager, { FullScreenListener } from '../../../../../main/ets/embedding/ohos/FlutterManager';
-import { FakeAbility, FakeRect, FakeWindow, FakeWindowStage } from './windowing/Fakes';
+import FlutterManager, { FullScreenListener, DragDropCallback } from '../../../../../main/ets/embedding/ohos/FlutterManager';
+import FlutterNapi from '../../../../../main/ets/embedding/engine/FlutterNapi';
+import { FlutterView } from '../../../../../main/ets/view/FlutterView';
+import { FakeAbility, regularRequest, dialogRequest, tooltipRequest, popupRequest } from './windowing/Fakes';
+import { WindowConstraints } from '../../../../../main/ets/embedding/ohos/windowing/WindowingUtils';
+import common from '@ohos.app.ability.common';
+import { Context } from '@kit.AbilityKit';
+
+/** Ability whose hostedViewId is 0 before the manager stamps it. */
+class HostedViewIdHolder {
+  hostedViewId: number = 0;
+  // bindEntryAbilityToView reads the view through this (real FlutterAbility
+  // carries it; the fake has none).
+  getFlutterView(): FlutterView | null {
+    return null;
+  }
+}
+class DragDropCallbackImpl implements DragDropCallback {
+  do(event: Object, extraParams: string): void {
+    // no-op
+  }
+}
+class TestFullScreenListener implements FullScreenListener {
+  useFullScreen(): boolean { return false; }
+  setUseFullScreen(_useFullScreen: boolean, _context?: Context | null | undefined): void {}
+  setUseFullScreenForFreeWindow(_useFullScreen: boolean, _context?: Context | null | undefined): void {}
+  onScreenStateChanged(_data: window.WindowStatusType): void {}
+}
 
 function sleep(time: number) {
   return new Promise<void>((resolve: Function) => setTimeout(resolve, time));
@@ -28,6 +54,12 @@ const uiAbility = flutterManager.getUIAbility(getContext());
 export default function FlutterManagerTest() {
   describe('FlutterManagerTest', () => {
     beforeAll(async () => {
+      // Skip beforeAll setup in JsUnit env (uiAbility is null when not in
+      // a UIAbility lifecycle). The it() tests below don't depend on
+      // beforeAll setup succeeding.
+      if (uiAbility === null || uiAbility === undefined) {
+        return;
+      }
       const windowStage = flutterManager.getWindowStage(uiAbility);
       await sleep(1000);
       flutterManager.pushWindowStage(uiAbility, windowStage);
@@ -38,12 +70,6 @@ export default function FlutterManagerTest() {
       await sleep(1000);
       flutterManager.popUIAbility(uiAbility);
 
-    })
-
-    it('TestGetFlutterViewList', 0, async (done: Function) => {
-      const result = flutterManager.getFlutterViewList();
-      expect(result).not().assertNull();
-      done();
     })
 
     it('TestSetFullScreenListener', 0, async (done: Function) => {
@@ -129,54 +155,74 @@ export default function FlutterManagerTest() {
 
     it('TestMultiWindowBookkeeping', 0, (done: Function) => {
       const ability = new FakeAbility() as ESObject as UIAbility;
-      // Non-oh_flutter_ id: no main-view stamp.
-      flutterManager.setViewAbility('9001', ability);
-      expect(flutterManager.getViewAbility('9001')).assertEqual(ability);
-      expect(flutterManager.resolveParentAbility(9001)).assertEqual(ability);
       // Implicit view 0 has no main view yet.
-      expect(flutterManager.resolveParentAbility(0)).assertUndefined();
-      expect(flutterManager.mainFlutterViewId()).assertUndefined();
-      expect(flutterManager.sharedEngine()).assertNull();
-      expect(flutterManager.windowStageOf(ability)).assertUndefined();
-      expect(flutterManager.subWindowOfView('9001')).assertUndefined();
-      expect(flutterManager.getWindowHostOf('9001')).assertUndefined();
-      flutterManager.deleteViewAbility('9001');
-      expect(flutterManager.getViewAbility('9001')).assertUndefined();
+      expect(flutterManager.getHostWindowByView(0)).assertUndefined();
+      expect(flutterManager.getWindowStage(ability)).assertUndefined();
+      expect(flutterManager.getHostWindowByView(9001)).assertUndefined();
       done();
     })
 
-    it('TestRegisterViewAbilityStampsMainViewId', 0, (done: Function) => {
-      const ability = new FakeAbility() as ESObject as UIAbility;
-      // oh_flutter_ prefix stamps the implicit main-view id.
-      flutterManager.registerViewAbility('oh_flutter_2', ability);
-      expect(flutterManager.mainFlutterViewId()).assertEqual('oh_flutter_2');
-      expect(flutterManager.resolveParentAbility(0)).assertEqual(ability);
-      flutterManager.deleteViewAbility('oh_flutter_2');
-      // Stale main id but cleared ability lookup: still resolves to undefined.
-      expect(flutterManager.resolveParentAbility(0)).assertUndefined();
+    it('TestRegisterViewAbilityAdoptsView0', 0, (done: Function) => {
+      const holder = new HostedViewIdHolder();
+      const ability = holder as ESObject as UIAbility;
+      flutterManager.pushUIAbility(ability);
+      try {
+        flutterManager.registerViewAbility(0, ability);
+        expect(flutterManager.getAbilityByView(0) === ability).assertTrue();
+        // Registration adopts view 0's window; with no windowStage (UT env)
+        // the adopted host fails attach and removes itself — nothing dangles.
+        expect(flutterManager.getHostWindowByView(0)).assertUndefined();
+      } finally {
+        flutterManager.popUIAbility(ability);
+      }
       done();
     })
 
     it('TestRegisterViewAbilityStampsHostedViewId', 0, (done: Function) => {
       const holder = new HostedViewIdHolder();
       const ability = holder as ESObject as UIAbility;
-      flutterManager.registerViewAbility('9501', ability);
-      expect(holder.hostedViewId).assertEqual(9501);
-      flutterManager.deleteViewAbility('9501');
-      // A holder already stamped keeps its id (stamp only when 0).
-      holder.hostedViewId = 7;
-      flutterManager.registerViewAbility('9502', ability);
-      expect(holder.hostedViewId).assertEqual(7);
-      flutterManager.deleteViewAbility('9502');
+      try {
+        flutterManager.registerViewAbility(9501, ability);
+        expect(holder.hostedViewId).assertEqual(9501);
+        // A later registration re-stamps (no guard — the registrar owns the id).
+        flutterManager.registerViewAbility(9502, ability);
+        expect(holder.hostedViewId).assertEqual(9502);
+        expect(flutterManager.getAbilityByView(9502) === ability).assertTrue();
+      } finally {
+        flutterManager.popUIAbility(ability);
+      }
       done();
     })
 
-    it('TestSetRegularWindowAbilityName', 0, (done: Function) => {
-      flutterManager.setRegularWindowAbilityName('MyRegularWindow');
-      expect(flutterManager.regularWindowAbilityName()).assertEqual('MyRegularWindow');
-      // Empty name is ignored.
-      flutterManager.setRegularWindowAbilityName('');
-      expect(flutterManager.regularWindowAbilityName()).assertEqual('MyRegularWindow');
+    it('TestGetAbilityByViewIdMapBookkeeping', 0, (done: Function) => {
+      // viewId→ability bookkeeping: the first 0-registrar is the main
+      // ability; a spawned registration keys its own numeric id; a later
+      // 0-registration cannot clobber the incumbent. Entries live for the
+      // process (view ids are monotonic — a dead ability's entry is inert).
+      const main = new HostedViewIdHolder();
+      const mainAbility = main as ESObject as UIAbility;
+      const spawned = new HostedViewIdHolder();
+      const spawnedAbility = spawned as ESObject as UIAbility;
+      flutterManager.pushUIAbility(mainAbility);
+      flutterManager.pushUIAbility(spawnedAbility);
+      // Isolation: entries live for the process, so earlier suites may have
+      // recorded the implicit view id already — and this test must not leak
+      // its own registrations into later suites either.
+      flutterManager.deleteViewAbility(0);
+      flutterManager.deleteViewAbility(9801);
+      try {
+        flutterManager.registerViewAbility(0, mainAbility);
+        expect(flutterManager.getAbilityByView(0) === mainAbility).assertTrue();
+        flutterManager.registerViewAbility(9801, spawnedAbility);
+        expect(flutterManager.getAbilityByView(9801) === spawnedAbility).assertTrue();
+        flutterManager.registerViewAbility(0, spawnedAbility);
+        expect(flutterManager.getAbilityByView(0) === mainAbility).assertTrue();
+      } finally {
+        flutterManager.deleteViewAbility(0);
+        flutterManager.deleteViewAbility(9801);
+        flutterManager.popUIAbility(mainAbility);
+        flutterManager.popUIAbility(spawnedAbility);
+      }
       done();
     })
 
@@ -188,59 +234,62 @@ export default function FlutterManagerTest() {
       done();
     })
 
-    it('TestCreateSubWindowArchetypeSwitch', 0, (done: Function) => {
+    it('TestCreateWindowPerArchetype', 0, (done: Function) => {
       // No parent ability resolves in the UT process → every host fails attach
-      // cleanly and removes itself. Covers the archetype switch + default.
+      // cleanly and removes itself. Covers all four per-archetype creators
+      // (dialog: both the modal parent set and the modeless sentinel).
       try {
-        flutterManager.createSubWindow(9101, 999, 200, 150, 0);
-        flutterManager.createSubWindow(9102, 999, 200, 150, 1);
-        flutterManager.createSubWindow(9103, 999, 200, 150, 2);
-        flutterManager.createSubWindow(9104, 999, 200, 150, 3);
-        flutterManager.createSubWindow(9105, 999, 200, 150, 99);
+        flutterManager.createRegularWindow(9101, regularRequest(200, 150, 'host'));
+        flutterManager.createDialogWindow(9102, dialogRequest(999, 200, 150, 'dialog'));
+        flutterManager.createDialogWindow(9103, dialogRequest(-1, 200, 150, 'modeless'));
+        flutterManager.createTooltipWindow(9104, tooltipRequest(999));
+        flutterManager.createPopupWindow(9105, popupRequest(999));
       } catch (e) {
       }
-      expect(flutterManager.getWindowHostOf('9101')).assertUndefined();
+      expect(flutterManager.getHostWindowByView(9101)).assertUndefined();
       done();
     })
 
-    it('TestCreateRegularAbilityAndBindEntry', 0, (done: Function) => {
+    it('TestCreateRegularWindowAndBindEntry', 0, (done: Function) => {
       try {
-        flutterManager.createRegularAbilityWindow(9110, 42, 300, 200, 'win');
-        flutterManager.bindEntryAbilityToView(9111, 300, 200, 'adopted');
+        flutterManager.createRegularWindow(9110, regularRequest(300, 200, 'win'));
+        flutterManager.bindEntryAbilityToView(9111, regularRequest(300, 200, 'adopted'));
       } catch (e) {
       }
       done();
     })
 
     it('TestWindowPropertySettersNoHost', 0, (done: Function) => {
+      // The napi setters resolve the host via getHostWindowByView(); an untracked view
+      // resolves to undefined and the call is a logged no-op.
+      const flutterNapi = new FlutterNapi();
       try {
-        flutterManager.setWindowSize(9201, 100, 100);
-        flutterManager.setWindowTitle(9201, 't');
-        flutterManager.setWindowMaximized(9201, true);
-        flutterManager.setWindowMinimized(9201, true);
-        flutterManager.setWindowFullscreen(9201, true);
-        flutterManager.setWindowConstraints(9201, 50, 500, 50, 500);
-        flutterManager.activateWindow(9201);
+        expect(flutterManager.getHostWindowByView(9201)).assertUndefined();
+        flutterNapi.setWindowSize(9201, 100, 100);
+        flutterNapi.setWindowTitle(9201, 't');
+        flutterNapi.setWindowMaximized(9201, true);
+        flutterNapi.setWindowMinimized(9201, true);
+        flutterNapi.setWindowFullscreen(9201, true);
+        const constraints = new WindowConstraints();
+        constraints.hasViewConstraints = true;
+        constraints.viewMinWidth = 50;
+        constraints.viewMinHeight = 50;
+        constraints.viewMaxWidth = 500;
+        constraints.viewMaxHeight = 500;
+        flutterNapi.setWindowConstraints(9201, constraints);
+        flutterNapi.activateWindow(9201);
       } catch (e) {
       }
       done();
     })
 
     it('TestDestroyWindowHostGuards', 0, (done: Function) => {
+      const flutterNapi = new FlutterNapi();
       try {
-        flutterManager.destroyWindowHost(0);
-        flutterManager.destroyWindowHost(9202);
+        flutterNapi.destroyWindowHost(0);
+        flutterNapi.destroyWindowHost(9202);
       } catch (e) {
       }
-      done();
-    })
-
-    it('TestRestoreParentForeground', 0, (done: Function) => {
-      // No parent → early return.
-      flutterManager.restoreParentForeground(undefined, '9203');
-      // Parent without a registered windowStage → log and return.
-      const ability = new FakeAbility() as ESObject as UIAbility;
-      flutterManager.restoreParentForeground(ability, '9203');
       done();
     })
 
@@ -270,104 +319,126 @@ export default function FlutterManagerTest() {
       done();
     })
 
-    it('TestDensityPixels', 0, (done: Function) => {
-      const dpr = flutterManager.densityPixels();
-      expect(typeof dpr).assertEqual('number');
-      expect(dpr > 0).assertTrue();
+    // NOTE: TestDensityPixels was dropped — the manager no longer carries a
+    // density accessor (the seam moved to FlutterWindowHost.densityPixels).
+
+    // NOTE: ensureParentRectListener / ensureSubWindowRectListener (and the
+    // throttled reanchor path) were removed by the upstream windowing-anchor
+    // refactor in oh-3.44.9-dev; the specs covering them are dropped here.
+
+    it('TestRemoveHostDoesNotThrow', 0, (done: Function) => {
+      // Registered and unknown numeric viewId removals (covers removeHost only).
+      flutterManager.removeHost(9302);
+      flutterManager.removeHost(9303);
       done();
     })
 
-    it('TestEnsureParentRectListenerRegistersAndReuses', 0, (done: Function) => {
-      const ability = new FakeAbility() as ESObject as UIAbility;
-      const fakeWindow = new FakeWindow();
-      const stage = new FakeWindowStage();
-      stage.mainWindow = fakeWindow as ESObject as window.Window;
-      const stageWin = stage as ESObject as window.WindowStage;
-      flutterManager.ensureParentRectListener(ability, stageWin);
-      expect(fakeWindow.rectChangeCb).not().assertNull();
-      // Second registration for the same ability is a no-op.
-      flutterManager.ensureParentRectListener(ability, stageWin);
-      flutterManager.popWindowStage(ability);
+    it('TestDragCallbacksAccessors', 0, async (done: Function) => {
+      const enterCbs = flutterManager.getDragEnterCbs();
+      const moveCbs = flutterManager.getDragMoveCbs();
+      const leaveCbs = flutterManager.getDragLeaveCbs();
+      const dropCbs = flutterManager.getDropCbs();
+      expect(enterCbs).not().assertNull();
+      expect(moveCbs).not().assertNull();
+      expect(leaveCbs).not().assertNull();
+      expect(dropCbs).not().assertNull();
       done();
     })
 
-    it('TestEnsureParentRectListenerOnThrows', 0, (done: Function) => {
-      const ability = new FakeAbility() as ESObject as UIAbility;
-      const fakeWindow = new FakeWindow();
-      fakeWindow.onThrows = true;
-      const stage = new FakeWindowStage();
-      stage.mainWindow = fakeWindow as ESObject as window.Window;
+    it('TestAddRemoveDragCallbacks', 0, async (done: Function) => {
+      const cb: DragDropCallback = new DragDropCallbackImpl();
+      const enterId = flutterManager.addDragEnterCb(cb);
+      const moveId = flutterManager.addDragMoveCb(cb);
+      const leaveId = flutterManager.addDragLeaveCb(cb);
+      const dropId = flutterManager.addDropCb(cb);
+      flutterManager.removeDragEnterCb(enterId);
+      flutterManager.removeDragMoveCb(moveId);
+      flutterManager.removeDragLeaveCb(leaveId);
+      flutterManager.removeDropCb(dropId);
+      done();
+    })
+
+    it('TestHasFlutterView', 0, async (done: Function) => {
+      const result = flutterManager.hasFlutterView('non-existent-view');
+      expect(result).assertFalse();
+      done();
+    })
+
+    it('TestGetFlutterViewById', 0, async (done: Function) => {
+      const view = flutterManager.getFlutterView('non-existent-view');
+      expect(view).assertNull();
+      done();
+    })
+
+    it('TestDeleteFlutterView', 0, async (done: Function) => {
+      let threw = false;
+      try { flutterManager.deleteFlutterView('non-existent'); } catch (e) { threw = true; }
+      expect(threw).assertEqual(false);
+      done();
+    })
+
+    it('TestGetUIAbility with no context', 0, () => {
+      const ability = flutterManager.getUIAbility();
+      expect(ability).not().assertNull();
+    })
+
+    it('TestGetUIAbility with context', 0, () => {
+      const ctx = getContext();
+      const ability = flutterManager.getUIAbility(ctx);
+      expect(ability).not().assertNull();
+    })
+
+    it('TestGetWindowId does not throw', 0, () => {
+      const ctx = getContext();
+      let threw = false;
+      try { flutterManager.getWindowId(getContext()); } catch (e) { threw = true; }
+      expect(threw).assertEqual(false);
+    })
+
+    it('TestGetNextFlutterViewId returns string', 0, () => {
+      const id = flutterManager.getNextFlutterViewId();
+      expect(typeof id).assertEqual('string');
+    })
+
+    it('TestSetSpecificSystemBarEnabled does not throw with non-existent view', 0, () => {
+      let threw = false;
       try {
-        flutterManager.ensureParentRectListener(ability, stage as ESObject as window.WindowStage);
-      } catch (e) {
-      }
-      flutterManager.popWindowStage(ability);
-      done();
+        flutterManager.setSpecificSystemBarEnabled('non-existent', 'status', true);
+      } catch (e) { threw = true; }
+      expect(threw).assertEqual(false);
     })
 
-    it('TestEnsureParentRectListenerGetMainThrows', 0, (done: Function) => {
-      const ability = new FakeAbility() as ESObject as UIAbility;
-      const stage = new FakeWindowStage();
-      stage.getMainThrows = true;
+    it('TestHandleWindowDecorSafeArea does not throw', 0, () => {
+      const ctx = getContext();
+      let threw = false;
       try {
-        flutterManager.ensureParentRectListener(ability, stage as ESObject as window.WindowStage);
-      } catch (e) {
-      }
-      flutterManager.popWindowStage(ability);
-      done();
+        flutterManager.handleWindowDecorSafeArea('non-existent', ctx);
+      } catch (e) { threw = true; }
+      expect(threw).assertEqual(false);
     })
 
-    it('TestParentMoveReanchorThrottles', 0, async (done: Function) => {
-      const ability = new FakeAbility() as ESObject as UIAbility;
-      const fakeWindow = new FakeWindow();
-      const stage = new FakeWindowStage();
-      stage.mainWindow = fakeWindow as ESObject as window.Window;
-      flutterManager.ensureParentRectListener(ability, stage as ESObject as window.WindowStage);
-      // First move: elapsed >= throttle → run immediately.
-      const rect = new FakeRect(10, 20, 100, 200) as ESObject as window.RectChangeOptions;
-      fakeWindow.rectChangeCb?.(rect);
-      // Second + third moves within 50ms → trailing run scheduled / dropped.
-      fakeWindow.rectChangeCb?.(rect);
-      fakeWindow.rectChangeCb?.(rect);
-      await sleep(80);
-      flutterManager.popWindowStage(ability);
-      done();
+    it('TestSetFullScreenChangeListener does not throw', 0, () => {
+      let threw = false;
+      try {
+        const listener: FullScreenListener = new TestFullScreenListener();
+        flutterManager.setFullScreenListener(listener);
+      } catch (e) { threw = true; }
+      expect(threw).assertEqual(false);
     })
 
-    it('TestEnsureSubWindowRectListenerUnknownParent', 0, (done: Function) => {
-      // No sub-window host for the parent view → early return.
-      flutterManager.ensureSubWindowRectListener(9301);
-      flutterManager.ensureSubWindowRectListener(9301);
-      done();
+    it('TestPopUIAbility does not throw', 0, () => {
+      let threw = false;
+      try { const ctx = getContext();
+      const ability = flutterManager.getUIAbility(ctx);
+      if (ability) { flutterManager.popUIAbility(ability); } } catch (e) { threw = true; }
+      expect(threw).assertEqual(false);
     })
 
-    it('TestRemoveHostReleasesSubWindowRectListener', 0, (done: Function) => {
-      // Numeric viewId → releaseSubWindowRectListener (no listener → early return).
-      flutterManager.removeHost('9302');
-      // Non-numeric viewId → skips the release path entirely.
-      flutterManager.removeHost('oh_flutter_9302');
-      done();
-    })
-
-    it('TestReleaseParentRectListenerViaPopWindowStage', 0, async (done: Function) => {
-      const ability = new FakeAbility() as ESObject as UIAbility;
-      const fakeWindow = new FakeWindow();
-      const stage = new FakeWindowStage();
-      stage.mainWindow = fakeWindow as ESObject as window.Window;
-      const stageWin = stage as ESObject as window.WindowStage;
-      flutterManager.pushWindowStage(ability, stageWin);
-      flutterManager.ensureParentRectListener(ability, stageWin);
-      // Prime abilityKey + throttled reanchor state so pop releases the maps.
-      const rect = new FakeRect(0, 0, 100, 100) as ESObject as window.RectChangeOptions;
-      fakeWindow.rectChangeCb?.(rect);
-      await sleep(80);
-      flutterManager.popWindowStage(ability);
-      done();
+    it('TestIsWindowDecorSafeAreaAvoidSupported does not throw', 0, () => {
+      const ctx = getContext();
+      let threw = false;
+      try { flutterManager.isWindowDecorSafeAreaAvoidSupported(ctx); } catch (e) { threw = true; }
+      expect(threw).assertEqual(false);
     })
   })
-}
-
-/** Ability whose hostedViewId is 0 before the manager stamps it. */
-class HostedViewIdHolder {
-  hostedViewId: number = 0;
 }

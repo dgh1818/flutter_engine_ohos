@@ -198,6 +198,10 @@ export const nativeDispatchEmptyPlatformMessage: (nativeShellHolderId: number, c
  * @param displayFeaturesBounds - Array of display feature bounds
  * @param displayFeaturesType - Array of display feature types
  * @param displayFeaturesState - Array of display feature states
+ * @param displayCornerRadiusTopLeft - Optional top-left display corner radius in physical pixels; -1 means unavailable (flutter/flutter#179219)
+ * @param displayCornerRadiusTopRight - Optional top-right display corner radius in physical pixels; -1 means unavailable
+ * @param displayCornerRadiusBottomRight - Optional bottom-right display corner radius in physical pixels; -1 means unavailable
+ * @param displayCornerRadiusBottomLeft - Optional bottom-left display corner radius in physical pixels; -1 means unavailable
  */
 export const nativeSetViewportMetrics: (nativeShellHolderId: number, devicePixelRatio: number, physicalWidth: number
                                         , physicalHeight: number, physicalPaddingTop: number, physicalPaddingRight: number
@@ -205,7 +209,9 @@ export const nativeSetViewportMetrics: (nativeShellHolderId: number, devicePixel
                                         , physicalViewInsetRight: number, physicalViewInsetBottom: number, physicalViewInsetLeft: number
                                         , systemGestureInsetTop: number, systemGestureInsetRight: number, systemGestureInsetBottom: number
                                         , systemGestureInsetLeft: number, physicalTouchSlop: number, displayFeaturesBounds: Array<number>
-                                        , displayFeaturesType: Array<number>, displayFeaturesState: Array<number>) => void;
+                                        , displayFeaturesType: Array<number>, displayFeaturesState: Array<number>
+                                        , displayCornerRadiusTopLeft?: number, displayCornerRadiusTopRight?: number
+                                        , displayCornerRadiusBottomRight?: number, displayCornerRadiusBottomLeft?: number) => void;
 
 /**
  * Gets the system languages and populates the provided array.

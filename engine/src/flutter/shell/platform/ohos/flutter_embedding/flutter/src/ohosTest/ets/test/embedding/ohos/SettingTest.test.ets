@@ -34,5 +34,18 @@ export default function SettingTest() {
       expect(result).not().assertNull();
       done();
     })
+
+    it('TestGetTextScaleFactor returns AppStorage value when set', 0, () => {
+      AppStorage.setOrCreate<number>('fontSizeScale', 1.5);
+      const result: number = settings.getTextScaleFactor();
+      expect(result).assertEqual(1.5);
+      AppStorage.delete('fontSizeScale');
+    });
+
+    it('TestGetTextScaleFactor returns 1.0 when AppStorage unset (default branch)', 0, () => {
+      AppStorage.delete('fontSizeScale');
+      const result: number = settings.getTextScaleFactor();
+      expect(result).assertEqual(1.0);
+    });
   })
 }

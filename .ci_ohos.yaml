@@ -8,6 +8,9 @@
 # Default is 2 (go up 2 levels from root_dir)
 work_dir_levels: 2
 
+# Target branch for runIf incremental diff
+target_branch: oh-3.44.9-dev
+
 # Environment variables
 env_vars:
   # PATH components - appended in order
@@ -104,7 +107,7 @@ preparation_steps:
   - name: Prepare Flutter
     script: ci/scripts/prepare_project.sh
     description: Prepare Flutter project and sync to target branch
-    args: ["flutter_flutter", "oh-3.44.9-dev"]
+    args: ["flutter_flutter", "$TARGET_BRANCH"]
     required: true
 
   - name: Record Flutter Commit ID
@@ -113,18 +116,12 @@ preparation_steps:
     args: ["flutter_flutter"]
     required: true
 
-  - name: Prepare Tester
-    script: ci/scripts/prepare_tester.sh
-    description: Prepare Tester project and sync to target branch
-    args: ["main"]
-    required: true
-
 # Compilation steps - executed in order
 compilation_steps:
   - name: Pack Flutter
     script: ci/scripts/pack_flutter.sh
     description: Pack Flutter SDK
-    args: ["oh-3.44.9-dev"]
+    args: ["$TARGET_BRANCH"]
     required: true
 
   - name: Install dependencies
@@ -136,19 +133,19 @@ compilation_steps:
   - name: Patch sysroot scripts
     script: ci/scripts/replace_in_file.sh
     description: Replacing download URL in sysroot scripts
-    args: ["flutter_flutter/engine/src/build/linux/sysroot_scripts/sysroots.json", "s|https://commondatastorage.googleapis.com|file:///home/tools/Flutter/repo/binary|g"]
+    args: ["engine/src/build/linux/sysroot_scripts/sysroots.json", "s|https://commondatastorage.googleapis.com|file:///home/tools/Flutter/repo/binary|g"]
     required: true
 
   - name: Patch emsdk packages URL
     script: ci/scripts/replace_in_file.sh
     description: Replacing emsdk packages download URL with local path
-    args: ["flutter_flutter/engine/src/flutter/prebuilts/emsdk/emsdk.py", "s|https://storage.googleapis.com/webassembly/emscripten-releases-builds/deps/|file:///home/tools/Flutter/repo/binary/webassembly/emscripten-releases-builds/deps/|g"]
+    args: ["engine/src/flutter/prebuilts/emsdk/emsdk.py", "s|https://storage.googleapis.com/webassembly/emscripten-releases-builds/deps/|file:///home/tools/Flutter/repo/binary/webassembly/emscripten-releases-builds/deps/|g"]
     required: true
 
   - name: Patch emsdk releases download URL
     script: ci/scripts/replace_in_file.sh
     description: Replacing emsdk releases download URL with local path
-    args: ["flutter_flutter/engine/src/flutter/prebuilts/emsdk/emsdk_manifest.json", "s|https://storage.googleapis.com/webassembly/emscripten-releases-builds/|file:///home/tools/Flutter/repo/binary/webassembly/emscripten-releases-builds/|g"]
+    args: ["engine/src/flutter/prebuilts/emsdk/emsdk_manifest.json", "s|https://storage.googleapis.com/webassembly/emscripten-releases-builds/|file:///home/tools/Flutter/repo/binary/webassembly/emscripten-releases-builds/|g"]
     required: true
 
   - name: Running gclient hooks
@@ -160,13 +157,13 @@ compilation_steps:
   - name: Skip unittests
     script: ci/scripts/replace_in_file.sh
     description: Skip running unit tests
-    args: ["flutter_flutter/engine/src/flutter/testing/testing.gni", "s|enable_unittests = current_toolchain == host_toolchain \\|\\| is_fuchsia \\|\\| is_mac|enable_unittests = false|g"]
+    args: ["engine/src/flutter/testing/testing.gni", "s|enable_unittests = current_toolchain == host_toolchain \\|\\| is_fuchsia \\|\\| is_mac|enable_unittests = false|g"]
     required: true
 
   - name: Check Build Mode
     script: ci/scripts/check_build_mode.sh
     description: Check Build Mode
-    args: ["flutter_flutter", "flutter_flutter/engine/src", "oh-3.44.9-dev", "flutter_flutter"]
+    args: ["flutter_flutter", "flutter_flutter/engine/src", "$TARGET_BRANCH", "flutter_flutter"]
     required: true
 
   - name: Restoring Engine mTimes
@@ -181,22 +178,56 @@ compilation_steps:
     args: ["flutter_flutter/engine"]
     required: true
 
+  - name: Engine Dart Analyze
+    script: ci/scripts/engine_analyze.sh
+    description: >
+      Run dart analyze on the Flutter engine source tree (excluding Web SDK).
+    required: true
+
+  - name: Engine Format Check
+    script: engine/src/flutter/ci/format.sh
+    description: >
+      Run 7 format checks (dart, gn, java, python, whitespace, header,
+      clang) on changed engine files via bin/format.dart.
+    required: true
+
+  - name: Engine Pylint
+    script: engine/src/flutter/ci/pylint.sh
+    description: >
+      Run pylint on Python files in the engine source
+      (ci/, impeller/, sky/, tools/, testing/).
+    required: true
+
+  - name: Engine clang-tidy
+    script: engine/src/flutter/ci/clang_tidy.sh
+    description: >
+      Run clang-tidy on changed C/C++ files.
+      Incremental: only runs when .h/.c/.cc/.cpp files change.
+    required: true
+    runIf: "**/*.{h,c,cc,cpp}"
+
   - name: Compile Web SDK
     script: ci/scripts/compile_web.sh
     description: Compile Web SDK
     args: ["flutter_flutter/engine"]
     required: true
 
-  - name: Compile Tester
-    script: ci/scripts/compile_tester.sh
-    description: Compiling Tester
+  - name: Compile Hello World
+    script: ci/scripts/compile_hello_world.sh
+    description: "Compiling the hello_world example (ArkTS unit test entry: lib/main_ohos.dart)"
     args: ["flutter_flutter/engine"]
+    required: true
+
+  - name: Prepare Tests
+    script: ci/scripts/prepare_tests.sh
+    description: Clone testcases, generate PR info, move tests to archive, and collect hello_world flutter_assets + native libs into resource/ for unit test
+    args: ["https://gitcode.com/CPF-Flutter/tests.git", "flutter_UT", "$TARGET_BRANCH"]
     required: true
 
   - name: Upload to cloud
     script: ci/scripts/upload_to_cloud.sh
     description: Upload build artifacts to cloud storage
-    args: ["oh-3.44.9-dev"]
+    args: ["$TARGET_BRANCH"]
     required: true
 
   - name: Publish
@@ -215,4 +246,88 @@ test_steps:
   - name: Unit Tests (Parallel Shards)
     script: ci/scripts/run_parallel_shards.sh
     description: Run all unit tests in parallel shard groups (single machine)
+    required: true
+
+# prepare for Integration Gate Test
+integration_gate_steps:
+  - name: Prepare Tests
+    script: ci/scripts/prepare_tests.sh
+    description: Clone flutter_gate testcases, generate PR info and move tests to archive directory for integration gate test
+    args: ["https://gitcode.com/CPF-Flutter/tests.git", "flutter_gate", "$TARGET_BRANCH"]
+    required: true
+
+# prepare for Daily Integration Test
+daily_integration_steps:
+  - name: Prepare Tests
+    script: ci/scripts/prepare_tests.sh
+    description: Clone flutter_daily_integration testcases and move tests to archive directory for daily integration test
+    args: ["https://gitcode.com/CPF-Flutter/tests.git", "flutter_daily_integration", "$TARGET_BRANCH"]
+    required: true
+
+# prepare for Daily Memory Test
+daily_memory_steps:
+  - name: Prepare Tests
+    script: ci/scripts/prepare_tests.sh
+    description: Clone flutter_daily_memory testcases and move tests to archive directory for daily memory test
+    args: ["https://gitcode.com/CPF-Flutter/tests.git", "flutter_daily_memory", "$TARGET_BRANCH"]
+    required: true
+
+# prepare for Daily Perf Test
+daily_perf_steps:
+  - name: Prepare Tests
+    script: ci/scripts/prepare_tests.sh
+    description: Clone flutter_daily_perf testcases and move tests to archive directory for daily perf test
+    args: ["https://gitcode.com/CPF-Flutter/tests.git", "flutter_daily_perf", "$TARGET_BRANCH"]
+    required: true
+
+# Customer Testing
+customer_steps:
+  - name: Customer Testing (Upstream)
+    script: ci/scripts/run_customer_testing.sh
+    description: Run upstream customer_testing suite (~10min) with OHOS patches applied to detect fork-introduced regressions.
+    required: true
+
+# mac-arm64 build & publish (Apple Silicon local runner):
+# env check -> sync -> engine sed patches -> parallel host builds -> package
+# -> upload to OBS. Engine-side patches stay in the tree (idempotent, re-applied
+# each run); upload_template.json is created and removed by the publish step.
+# Usage: sh ci/ohos_ci_runner.sh mac_arm64_build [--publish]
+# Publishing is opt-in: only a run with --publish uploads to OBS.
+# All steps of one run share the log dir engine/outputs/mac_arm64/<run-id>/.
+mac_arm64_build_steps:
+  - name: Check mac-arm64 Environment
+    script: ci/scripts/mac_arm64/mac_arm64_check_env.sh
+    description: Verify arm64 (Apple Silicon) host
+    required: true
+
+  - name: Sync Repos (mac-arm64)
+    script: ci/scripts/mac_arm64/mac_arm64_sync.sh
+    description: git fetch + git reset --hard to remote tip + gclient sync -f -D -v
+    required: true
+
+  - name: Skip unittests (mac-arm64)
+    script: ci/scripts/replace_in_file.sh
+    description: Skip running unit tests
+    args: ["engine/src/flutter/testing/testing.gni", "s|enable_unittests = current_toolchain == host_toolchain \\|\\| is_fuchsia \\|\\| is_mac|enable_unittests = false|g"]
+    required: true
+
+  - name: Patch Logger.swift (mac-arm64)
+    script: ci/scripts/replace_in_file.sh
+    description: Replace vsyslog/getVaList for new Apple Swift toolchains
+    args: ["engine/src/flutter/shell/platform/darwin/common/framework/Source/Logger.swift", "s|message\\.withCString { vsyslog(LOG_ALERT, \"%s\", getVaList(\\[$0\\])) }|fputs(message + \"\\\\n\", stderr)|"]
+    required: true
+
+  - name: Build Host Engine (mac-arm64)
+    script: ci/scripts/mac_arm64/mac_arm64_build.sh
+    description: Build host_debug_arm64 + host_release_arm64 in parallel via ./ohos
+    required: true
+
+  - name: Package (mac-arm64)
+    script: ci/scripts/mac_arm64/mac_arm64_package.sh
+    description: Zip dart-sdk (darwin-arm64) and artifacts
+    required: true
+
+  - name: Upload and Publish (mac-arm64)
+    script: ci/scripts/mac_arm64/mac_arm64_publish.sh
+    description: Upload dart-sdk and artifacts to OBS cloud (upload_dart_sdk + auto_compile) - opt-in, only with --publish
     required: true

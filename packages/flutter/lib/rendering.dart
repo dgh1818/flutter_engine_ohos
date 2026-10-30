@@ -46,6 +46,7 @@ export 'src/rendering/decorated_sliver.dart';
 export 'src/rendering/editable.dart';
 export 'src/rendering/error.dart';
 export 'src/rendering/flex.dart';
+export 'src/rendering/flex_overflow_strategy.dart';
 export 'src/rendering/flow.dart';
 export 'src/rendering/image.dart';
 export 'src/rendering/image_filter_config.dart';

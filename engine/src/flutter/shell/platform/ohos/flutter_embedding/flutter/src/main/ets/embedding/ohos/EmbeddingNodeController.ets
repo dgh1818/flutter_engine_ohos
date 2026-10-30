@@ -203,19 +203,26 @@ export class EmbeddingNodeController extends NodeController {
   }
  	 
  	/**
- 	 * postInputEventWithStrategy reads GlobalLocation (window/display) for hit test and Web DOM.
- 	 * When PlatformView has a non-zero layout offset, Flutter provides correct local x/y but
- 	 * window/display/screen still carry window-global coords, which shifts Web hits by layoutTop.
- 	 * Align all coordinate fields to PlatformView-local space before posting.
+   * The hit testing of postInputEventWithStrategy / postInputEvent requires
+   * the window field of the event to be in node-local coordinates (the
+   * official offsetC = offsetA + offsetB, where offsetA of the BuilderNode
+   * relative to its parent NodeContainer is 0, so offsetC == offsetB ==
+   * local x/y). Passing screen-global coordinates makes the hit test fail:
+   * touch events fall back to postTouchEvent where window/screen get
+   * remapped to local, while mouse/axis events are dropped outright
+   * because they have no fallback.
+   *
+   * Therefore only windowX/windowY are aligned to the local x/y at the
+   * posting layer to keep the hit test working, while displayX/displayY
+   * and screenX/screenY keep the screen-global coordinates (including the
+   * PlatformView layout offset) and are passed through to the platform
+   * view, matching the semantics of Android rawX/rawY and iOS
+   * location(in: window).
  	 */
- 	private alignToLocalSpace(event: TouchEvent): void {
+  private alignWindowToLocalForHitTest(event: TouchEvent): void {
     const alignTouch = (touch: TouchObject) => {
-      touch.displayX = touch.x;
-      touch.displayY = touch.y;
       touch.windowX = touch.x;
       touch.windowY = touch.y;
-      touch.screenX = touch.x;
-      touch.screenY = touch.y;
     };
  	  for (let i = 0; i < event.changedTouches.length; i++) {
       alignTouch(event.changedTouches[i]);
@@ -231,6 +238,14 @@ export class EmbeddingNodeController extends NodeController {
    * @param event - The mouse event to post
    */
   postMouseEvent(event: MouseEvent) {
+    // Same as touch events: the hit test requires window to be in
+    // node-local coordinates while display/screen keep global coordinates.
+    // The construction layer previously assigned local coordinates to
+    // window/display, and posting a global window directly would drop the
+    // whole event through a failed hit test (the mouse path has no
+    // fallback).
+    event.windowX = event.x;
+    event.windowY = event.y;
     if (this.supportPostInputEventWithStrategy()) {
       (this.builderNode as ESObject)?.postInputEventWithStrategy(event, CompetitionStrategy.DEFAULT);
     } else if (typeof (this.builderNode as ESObject)?.postInputEvent === 'function') {
@@ -244,6 +259,10 @@ export class EmbeddingNodeController extends NodeController {
    * @param event - The axis event to post
    */
   postAxisEvent(event: AxisEvent) {
+    // Same as mouse events: the hit test requires window to be in
+    // node-local coordinates.
+    event.windowX = event.x;
+    event.windowY = event.y;
     if (this.supportPostInputEventWithStrategy()) {
       (this.builderNode as ESObject)?.postInputEventWithStrategy(event, CompetitionStrategy.DEFAULT);
     } else if (typeof (this.builderNode as ESObject)?.postInputEvent === 'function') {
@@ -292,17 +311,17 @@ export class EmbeddingNodeController extends NodeController {
       }
     }
 
-    // HCPP wrappers (isPx=true, DISPLAY nodes) reinject through
-    // postInputEventWithStrategy: Web DOM hit testing and gesture
-    // competition on those nodes need the local-space-aligned strategy
-    // API.  TLHC texture views (isPx=false) must stay on postTouchEvent:
-    // their coordinates are BuilderNode-local, exactly what postTouchEvent
-    // expects, while the strategy API hit-tests in window coordinates and
-    // misses nodes below the top inset on API 24 (map renders but never
-    // receives touch; oh-3.41.9 reverted this same path for that reason).
- 	  if (isPx && this.supportPostInputEventWithStrategy()) {
-      this.alignToLocalSpace(event);
-      return (this.builderNode as ESObject)?.postInputEventWithStrategy(event, CompetitionStrategy.DEFAULT) as boolean;
+    // HCPP nodes use the strategy API for Web hit testing and gesture competition.
+    // TLHC nodes must stay on postTouchEvent: the strategy API hit-tests in
+    // window coordinates and misses touches below the top inset on API 24.
+    if (isPx && this.supportPostInputEventWithStrategy())
+      this.alignWindowToLocalForHitTest(event);
+      if ((this.builderNode as ESObject)?.postInputEventWithStrategy(event, CompetitionStrategy.DEFAULT)) {
+        return true;
+      } else if (typeof (this.builderNode as ESObject)?.postTouchEvent === 'function') {
+        Log.d(TAG, 'postInputEventWithStrategy failed, fallback to postTouchEvent');
+        return this.builderNode?.postTouchEvent(event) as boolean;
+      }
  	  }
     return this.builderNode?.postTouchEvent(event) as boolean;
   }

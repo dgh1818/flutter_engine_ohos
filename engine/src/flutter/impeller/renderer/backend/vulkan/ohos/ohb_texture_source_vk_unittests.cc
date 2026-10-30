@@ -54,8 +54,8 @@ std::shared_ptr<ContextVK> CreateContext() {
 
 // Allocate a real OH_NativeBuffer with the given dimensions and format.
 OH_NativeBuffer* AllocNativeBuffer(int32_t width,
-                                    int32_t height,
-                                    int32_t format) {
+                                   int32_t height,
+                                   int32_t format) {
   OH_NativeBuffer_Config config;
   config.width = width;
   config.height = height;
@@ -88,6 +88,32 @@ TEST(OHBTextureSourceVKTest, NullBufferYieldsInvalid) {
   context->Shutdown();
 }
 
+// RGBX_8888 is treated as opaque: alpha swizzle is forced to eOne (15582302).
+TEST(OHBTextureSourceVKTest, CanImportRGBX8888) {
+  auto context = CreateContext();
+  ASSERT_TRUE(context);
+
+  OH_NativeBuffer* native_buffer =
+      AllocNativeBuffer(16, 16, NATIVEBUFFER_PIXEL_FMT_RGBX_8888);
+  if (native_buffer == nullptr) {
+    GTEST_SKIP() << "Device does not support RGBX_8888 native buffers.";
+  }
+  OHNativeWindowBuffer* window_buffer =
+      OH_NativeWindow_CreateNativeWindowBufferFromNativeBuffer(native_buffer);
+  ASSERT_NE(window_buffer, nullptr);
+
+  OHBTextureSourceVK source(context, window_buffer, TextureColorSpace::kSRGB);
+  EXPECT_TRUE(source.IsValid()) << "RGBX_8888 buffer should be importable";
+  EXPECT_EQ(source.GetYUVConversion(), nullptr);
+  EXPECT_NE(source.GetImage(), vk::Image{});
+  EXPECT_NE(source.GetImageView(), vk::ImageView{});
+  EXPECT_NE(source.GetRenderTargetView(), vk::ImageView{});
+
+  OH_NativeWindow_DestroyNativeWindowBuffer(window_buffer);
+  OH_NativeBuffer_Unreference(native_buffer);
+  context->Shutdown();
+}
+
 // Constructing with a real RGBA_8888 native buffer yields a valid source.
 TEST(OHBTextureSourceVKTest, CanImportRGBA8888) {
   auto context = CreateContext();
@@ -101,8 +127,7 @@ TEST(OHBTextureSourceVKTest, CanImportRGBA8888) {
       OH_NativeWindow_CreateNativeWindowBufferFromNativeBuffer(native_buffer);
   ASSERT_NE(window_buffer, nullptr);
 
-  OHBTextureSourceVK source(context, window_buffer,
-                            TextureColorSpace::kSRGB);
+  OHBTextureSourceVK source(context, window_buffer, TextureColorSpace::kSRGB);
   EXPECT_TRUE(source.IsValid());
   // An RGBA_8888 buffer has a known vk::Format, so no YUV conversion is
   // needed.
@@ -130,9 +155,9 @@ TEST(OHBTextureSourceVKTest, AcceptsAllTextureColorSpaces) {
   auto context = CreateContext();
   ASSERT_TRUE(context);
 
-  for (auto color_space : {TextureColorSpace::kSRGB,
-                            TextureColorSpace::kDisplayP3,
-                            TextureColorSpace::kExtendedSRGB}) {
+  for (auto color_space :
+       {TextureColorSpace::kSRGB, TextureColorSpace::kDisplayP3,
+        TextureColorSpace::kExtendedSRGB}) {
     OH_NativeBuffer* native_buffer =
         AllocNativeBuffer(8, 8, NATIVEBUFFER_PIXEL_FMT_RGBA_8888);
     ASSERT_NE(native_buffer, nullptr);
@@ -141,7 +166,8 @@ TEST(OHBTextureSourceVKTest, AcceptsAllTextureColorSpaces) {
     ASSERT_NE(window_buffer, nullptr);
 
     OHBTextureSourceVK source(context, window_buffer, color_space);
-    EXPECT_TRUE(source.IsValid()) << "color_space=" << static_cast<int>(color_space);
+    EXPECT_TRUE(source.IsValid())
+        << "color_space=" << static_cast<int>(color_space);
 
     OH_NativeWindow_DestroyNativeWindowBuffer(window_buffer);
     OH_NativeBuffer_Unreference(native_buffer);
@@ -255,6 +281,63 @@ TEST(OHBTextureSourceVKTest, CanImportYUVFormat) {
   // created and attached.
   EXPECT_NE(source.GetYUVConversion(), nullptr)
       << "YUV format should require a YUV conversion";
+
+  OH_NativeWindow_DestroyNativeWindowBuffer(window_buffer);
+  OH_NativeBuffer_Unreference(native_buffer);
+  context->Shutdown();
+}
+
+// usage without HW_RENDER skips the ColorAttachment bit.
+TEST(OHBTextureSourceVKTest, ImportWithoutHwRenderUsage) {
+  auto context = CreateContext();
+  ASSERT_TRUE(context);
+
+  OH_NativeBuffer_Config config{};
+  config.width = 8;
+  config.height = 8;
+  config.format = NATIVEBUFFER_PIXEL_FMT_RGBA_8888;
+  config.usage = NATIVEBUFFER_USAGE_CPU_READ | NATIVEBUFFER_USAGE_CPU_WRITE;
+  config.stride = 0;
+  OH_NativeBuffer* native_buffer = OH_NativeBuffer_Alloc(&config);
+  if (native_buffer == nullptr) {
+    GTEST_SKIP() << "Device rejected CPU-only native buffer usage.";
+  }
+  OHNativeWindowBuffer* window_buffer =
+      OH_NativeWindow_CreateNativeWindowBufferFromNativeBuffer(native_buffer);
+  ASSERT_NE(window_buffer, nullptr);
+
+  OHBTextureSourceVK source(context, window_buffer, TextureColorSpace::kSRGB);
+  EXPECT_TRUE(source.IsValid());
+
+  OH_NativeWindow_DestroyNativeWindowBuffer(window_buffer);
+  OH_NativeBuffer_Unreference(native_buffer);
+  context->Shutdown();
+}
+
+// format outside the known PixelFormat range walks ToPixelFormat's fallback.
+TEST(OHBTextureSourceVKTest, ImportUnknownNativeBufferFormat) {
+  auto context = CreateContext();
+  ASSERT_TRUE(context);
+
+  OH_NativeBuffer_Config config{};
+  config.width = 8;
+  config.height = 8;
+  config.format = NATIVEBUFFER_PIXEL_FMT_RGBA_1010102 + 8;
+  config.usage = NATIVEBUFFER_USAGE_HW_RENDER | NATIVEBUFFER_USAGE_CPU_READ |
+                 NATIVEBUFFER_USAGE_CPU_WRITE;
+  config.stride = 0;
+  OH_NativeBuffer* native_buffer = OH_NativeBuffer_Alloc(&config);
+  if (native_buffer == nullptr) {
+    GTEST_SKIP() << "Device rejected unknown native buffer format.";
+  }
+  OHNativeWindowBuffer* window_buffer =
+      OH_NativeWindow_CreateNativeWindowBufferFromNativeBuffer(native_buffer);
+  ASSERT_NE(window_buffer, nullptr);
+
+  OHBTextureSourceVK source(context, window_buffer, TextureColorSpace::kSRGB);
+  // Import may fail on an unsupported format; the constructor still walks
+  // ToPixelFormat's out-of-range / default legs.
+  EXPECT_NO_FATAL_FAILURE((void)source.IsValid());
 
   OH_NativeWindow_DestroyNativeWindowBuffer(window_buffer);
   OH_NativeBuffer_Unreference(native_buffer);

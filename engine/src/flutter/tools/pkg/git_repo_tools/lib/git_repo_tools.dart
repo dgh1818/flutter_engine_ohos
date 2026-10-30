@@ -2,11 +2,22 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'dart:io' as io show Directory, File, stdout;
+import 'dart:io' as io show Directory, File, Platform, stdout;
 
 import 'package:path/path.dart' as path;
 import 'package:process/process.dart';
 import 'package:process_runner/process_runner.dart';
+
+/// The default base branch to diff against when computing changed files.
+///
+/// OHOS fork uses 'oh-3.44.9-dev' as the main branch instead of 'main'.
+/// In CI the [kTargetBranchEnv] environment variable (set by the runner from
+/// `.ci_ohos.yaml`'s `target_branch`) takes precedence so the branch name is
+/// defined in a single place; local development falls back to this default.
+const String kDefaultBaseBranch = 'oh-3.44.9-dev';
+
+/// Environment variable that overrides [kDefaultBaseBranch] in CI.
+const String kTargetBranchEnv = 'TARGET_BRANCH';
 
 /// Utility methods for working with a git repository.
 final class GitRepo {
@@ -120,19 +131,45 @@ final class GitRepo {
   }
 
   Future<void> _fetch(ProcessRunner processRunner) async {
-    final ProcessRunnerResult fetchResult = await processRunner.runProcess(<String>[
-      'git',
-      'fetch',
-      'upstream',
-      'main',
-    ], failOk: true);
-    if (fetchResult.exitCode != 0) {
-      if (verbose) {
-        logSink.writeln('git fetch upstream main failed, using origin main');
-        logSink.writeln('Output:\n${fetchResult.stdout}');
+    final String baseBranch = io.Platform.environment[kTargetBranchEnv] ?? kDefaultBaseBranch;
+    // Try remotes in priority order so that a misconfigured `upstream` (e.g.
+    // pointing at the official Flutter repo, which lacks the OHOS base branch)
+    // does not crash local tools: if a remote is not configured or the fetch
+    // fails, the next candidate is attempted instead. The candidate list
+    // mirrors `bin/format.dart`'s `_getDiffBaseRevision`.
+    const candidates = <String>['upstream', 'gitcode', 'origin'];
+    ProcessRunnerResult? lastFetchResult;
+    String? lastRemote;
+    for (final remote in candidates) {
+      final ProcessRunnerResult remoteResult = await processRunner.runProcess(<String>[
+        'git',
+        'remote',
+        'get-url',
+        remote,
+      ], failOk: true);
+      if (remoteResult.exitCode != 0) {
+        continue;
       }
-      await processRunner.runProcess(<String>['git', 'fetch', 'origin', 'main']);
+      lastRemote = remote;
+      lastFetchResult = await processRunner.runProcess(<String>[
+        'git',
+        'fetch',
+        remote,
+        baseBranch,
+      ], failOk: true);
+      if (lastFetchResult.exitCode == 0) {
+        return;
+      }
+      if (verbose) {
+        logSink.writeln('git fetch $remote $baseBranch failed:');
+        logSink.writeln(lastFetchResult.stderr);
+      }
     }
+    throw ProcessRunnerException(
+      'Failed to fetch $baseBranch from any configured remote '
+      '(last tried: $lastRemote).',
+      result: lastFetchResult,
+    );
   }
 
   List<io.File> _gitOutputToList(ProcessRunnerResult result) {

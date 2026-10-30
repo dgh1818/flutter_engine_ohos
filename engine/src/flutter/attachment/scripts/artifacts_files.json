@@ -1,18 +1,18 @@
 {
   "darwin-arm64": {
-    "src/out/host_release/gen/flutter/build/archives/LICENSE.artifacts.md": "LICENSE.artifacts.md",
+    "src/out/host_release_arm64/gen/flutter/build/archives/LICENSE.artifacts.md": "LICENSE.artifacts.md",
     "src/flutter/lib/gpu/": "flutter_gpu",
-    "src/out/host_release/flutter_tester": "flutter_tester",
-    "src/out/host_release/frontend_server_aot.dart.snapshot": "frontend_server_aot.dart.snapshot",
-    "src/out/host_release/gen_snapshot": "gen_snapshot",
-    "src/out/host_release/icudtl.dat": "icudtl.dat",
-    "src/out/host_release/impellerc": "impellerc",
-    "src/out/host_debug/gen/flutter/lib/snapshot/isolate_snapshot.bin": "isolate_snapshot.bin",
-    "src/out/host_release/libpath_ops.dylib": "libpath_ops.dylib",
-    "src/out/host_release/libtessellator.dylib": "libtessellator.dylib",
-    "src/out/host_release/shader_lib/": "shader_lib",
-    "src/out/host_debug/gen/flutter/lib/snapshot/vm_isolate_snapshot.bin": "vm_isolate_snapshot.bin",
-    "src/out/host_release/gen/const_finder.dart.snapshot": "const_finder.dart.snapshot"
+    "src/out/host_release_arm64/flutter_tester": "flutter_tester",
+    "src/out/host_release_arm64/frontend_server_aot.dart.snapshot": "frontend_server_aot.dart.snapshot",
+    "src/out/host_release_arm64/gen_snapshot": "gen_snapshot",
+    "src/out/host_release_arm64/icudtl.dat": "icudtl.dat",
+    "src/out/host_release_arm64/impellerc": "impellerc",
+    "src/out/host_debug_arm64/gen/flutter/lib/snapshot/isolate_snapshot.bin": "isolate_snapshot.bin",
+    "src/out/host_release_arm64/libpath_ops.dylib": "libpath_ops.dylib",
+    "src/out/host_release_arm64/libtessellator.dylib": "libtessellator.dylib",
+    "src/out/host_release_arm64/shader_lib/": "shader_lib",
+    "src/out/host_debug_arm64/gen/flutter/lib/snapshot/vm_isolate_snapshot.bin": "vm_isolate_snapshot.bin",
+    "src/out/host_release_arm64/gen/const_finder.dart.snapshot": "const_finder.dart.snapshot"
 
   },
   "darwin-x64": {

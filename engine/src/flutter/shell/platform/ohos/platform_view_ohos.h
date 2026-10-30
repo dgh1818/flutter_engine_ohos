@@ -59,6 +59,19 @@ class OhosSurfaceFactoryImpl : public OhosSurfaceFactory {
   const std::shared_ptr<OHOSContext>& ohos_context_;
 };
 
+/// Sized-to-content metrics constraints, PHYSICAL px (win32
+/// CreateWindowMetricsEvent's has_constraints/min/max parity). max 0 =
+/// unbounded (clamped to the display size in BuildViewMetricsForView).
+/// Namespace scope: a class-internal NSDMI struct can't serve as a default
+/// argument of the same class's member declarations.
+struct ViewConstraintsPhysical {
+  bool has_constraints = false;
+  double min_width = 0;
+  double max_width = 0;
+  double min_height = 0;
+  double max_height = 0;
+};
+
 class PlatformViewOHOS final : public PlatformView {
  public:
   PlatformViewOHOS(PlatformView::Delegate& delegate,
@@ -79,19 +92,25 @@ class PlatformViewOHOS final : public PlatformView {
 
   /// @brief Attaches a non-implicit view's OHNativeWindow as a new render
   ///        target; on false the caller must tear the window down.
+  ///        `sized_to_content` (win32 is_sized_to_content parity) registers
+  ///        the view for per-frame content-size reports and constraint-range
+  ///        metrics; `constraints` (PHYSICAL px) is the metrics constraint
+  ///        range when `has_constraints` (else metrics pin min=max=size).
   bool NotifyCreateForView(int64_t view_id,
                            fml::RefPtr<OHOSNativeWindow> native_window,
                            double width,
-                           double height);
+                           double height,
+                           bool sized_to_content = false,
+                           bool has_constraints = false,
+                           double min_width_constraint = 0,
+                           double max_width_constraint = 0,
+                           double min_height_constraint = 0,
+                           double max_height_constraint = 0);
 
   /// @brief Tears down a non-implicit view's surface (paired with RemoveView).
   void NotifyDestroyForView(int64_t view_id);
 
-  /// @brief Adds a non-implicit view (posts to the platform task runner);
-  ///        surface bound later via `NotifyCreateForView`.
-  void AddViewForWindow(int64_t view_id);
-
-  /// @brief Removes a non-implicit view (paired with AddViewForWindow).
+  /// @brief Removes a non-implicit view.
   void RemoveViewForWindow(int64_t view_id);
 
   void Preload(int width, int height);
@@ -100,10 +119,18 @@ class PlatformViewOHOS final : public PlatformView {
 
   /// @brief Per-view NotifySurfaceWindowChanged: rebuilds the swapchain and
   ///        metrics; skipping it leaves the view on a dead window (black screen).
+  ///        `constraints` (PHYSICAL px) keeps a sized-to-content view's
+  ///        metrics constraint RANGE across resizes (win32 re-sends
+  ///        CreateWindowMetricsEvent with the original box constraints).
   void NotifySurfaceChangedForView(int64_t view_id,
                                    fml::RefPtr<OHOSNativeWindow> native_window,
                                    double width,
-                                   double height);
+                                   double height,
+                                   bool has_constraints = false,
+                                   double min_width_constraint = 0,
+                                   double max_width_constraint = 0,
+                                   double min_height_constraint = 0,
+                                   double max_height_constraint = 0);
 
   void NotifyChanged(const DlISize& size);
 
@@ -115,6 +142,24 @@ class PlatformViewOHOS final : public PlatformView {
    * @param height
    */
   void UpdateDisplaySize(int width, int height);
+
+  /**
+   * @brief Scale factor converting physical screen pixels into the ArkUI
+   * layout-pixel space that embedded platform views use.
+   *
+   * The ArkTS embedding decodes platform-view touch packets with the system
+   * display density (vp2px), while the platform-view nodes are laid out from
+   * Flutter logical dimensions and are composited at
+   * flutter_dpr / system_density of their layout size. When a custom DPI
+   * scale (flutter/displaymetrics 'updateDpiScale') makes the Flutter DPR
+   * diverge from the system density, raw screen pixels no longer match the
+   * node layout space and pointer coordinates must be mapped before being
+   * forwarded to the ArkTS embedding.
+   *
+   * @return system_density / flutter_dpr, or 1.0 when they are equal or
+   *         either value is unavailable.
+   */
+  double GetScreenToPlatformViewLayoutScale() const;
 
   // |PlatformView|
   void NotifyDestroyed() override;
@@ -193,7 +238,9 @@ class PlatformViewOHOS final : public PlatformView {
   void OnAxisEvent(const std::shared_ptr<std::string[]>& axisPacketString,
                    const int& size);
 
-  void RunTask(OhosThreadType type, const fml::closure& task, int64_t millis = 0);
+  void RunTask(OhosThreadType type,
+               const fml::closure& task,
+               int64_t millis = 0);
 
   void SetSemanticsBridge(std::shared_ptr<SemanticsBridge> bridge,
                           std::shared_ptr<std::mutex> mutex);
@@ -401,11 +448,16 @@ class PlatformViewOHOS final : public PlatformView {
   /// @param  task  The closure to run on the raster thread.
   void RunOnRasterAndWait(fml::closure task);
 
-  /// @brief  Per-view ViewportMetrics: every view pins its constraints to
-  ///         the surface size.
-  ViewportMetrics BuildViewMetricsForView(int64_t view_id,
-                                          double physical_width,
-                                          double physical_height);
+  /// @brief  Per-view ViewportMetrics: constraints pin to the surface size,
+  ///         EXCEPT sized-to-content views (tooltip), whose metrics carry
+  ///         the request's constraint RANGE so Dart content can size itself
+  ///         (win32 GetConstraints' sized-to-content branch). See
+  ///         ViewConstraintsPhysical (namespace scope, above).
+  ViewportMetrics BuildViewMetricsForView(
+      int64_t view_id,
+      double physical_width,
+      double physical_height,
+      const ViewConstraintsPhysical& constraints = {});
 
   /// @brief  Attempts to free Skia GPU resources.
   static void TryFreeSkiaGpuResources(

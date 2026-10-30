@@ -5,6 +5,7 @@ import SendableBinaryMessageHandler from '../../../../../main/ets/plugin/common/
 import MethodCodec from '../../../../../main/ets/plugin/common/MethodCodec';
 import MethodCall from '../../../../../main/ets/plugin/common/MethodCall';
 import Any from '../../../../../main/ets/plugin/common/Any';
+import FlutterException from '../../../../../main/ets/plugin/common/FlutterException';
 
 class FakeTaskQueue implements TaskQueue {}
 
@@ -44,6 +45,7 @@ class FakeStreamHandler implements StreamHandler {
   cancelCalled: boolean = false;
   capturedSink: EventSink | null = null;
   shouldThrow: boolean = false;
+  throwOnCancel: boolean = false;
 
   onListen(args: Any, events: EventSink): void {
     this.listenCalled = true;
@@ -55,10 +57,24 @@ class FakeStreamHandler implements StreamHandler {
 
   onCancel(args: Any): void {
     this.cancelCalled = true;
+    if (this.throwOnCancel) {
+      throw new Error('cancel handler error');
+    }
+  }
+}
+
+class FlutterThrowingStreamHandler implements StreamHandler {
+  onListen(args: Any, events: EventSink): void {
+    throw new FlutterException('invalid_args', 'bad stream argument', 'extra');
+  }
+
+  onCancel(args: Any): void {
   }
 }
 
 class FakeMethodCodec implements MethodCodec {
+  capturedErrMsg: string = '';
+
   encodeMethodCall(methodCall: MethodCall): ArrayBuffer {
     const method: string = methodCall.method;
     const buffer: ArrayBuffer = new ArrayBuffer(method.length + 1);
@@ -88,6 +104,7 @@ class FakeMethodCodec implements MethodCodec {
   }
 
   encodeErrorEnvelope(errorCode: string, errorMessage: string, errorDetails: Any): ArrayBuffer {
+    this.capturedErrMsg = errorMessage;
     const buffer: ArrayBuffer = new ArrayBuffer(1);
     const view: Uint8Array = new Uint8Array(buffer);
     view[0] = 1;
@@ -213,6 +230,58 @@ export default function eventChannelTest() {
       handler.onMessage(message, reply);
 
       expect(reply.replyData).assertNull();
+    });
+
+    // Regression test: a handler throwing from onListen must not degrade the
+    // error message to "[object Object]".
+    it('replies with error envelope carrying real message when onListen throws', Level.LEVEL1, () => {
+      const messenger = new FakeMessenger();
+      const streamHandler = new FakeStreamHandler();
+      streamHandler.shouldThrow = true;
+      const channel = new EventChannel(messenger, 'test_channel', codec);
+      channel.setStreamHandler(streamHandler);
+
+      const handler: BinaryMessageHandler = messenger.capturedHandler as BinaryMessageHandler;
+      const reply = new FakeReply();
+      handler.onMessage(codec.encodeMethodCall(new MethodCall('listen', null)), reply);
+
+      expect(reply.replyData).not().assertNull();
+      expect(new Uint8Array(reply.replyData!)[0]).assertEqual(1);
+      expect(codec.capturedErrMsg).assertEqual('stream handler error');
+    });
+
+    // Regression test: a handler throwing from onCancel must not degrade the
+    // error message to "[object Object]".
+    it('replies with error envelope carrying real message when onCancel throws', Level.LEVEL1, () => {
+      const messenger = new FakeMessenger();
+      const streamHandler = new FakeStreamHandler();
+      streamHandler.throwOnCancel = true;
+      const channel = new EventChannel(messenger, 'test_channel', codec);
+      channel.setStreamHandler(streamHandler);
+
+      const handler: BinaryMessageHandler = messenger.capturedHandler as BinaryMessageHandler;
+      handler.onMessage(codec.encodeMethodCall(new MethodCall('listen', null)), new FakeReply());
+
+      const reply = new FakeReply();
+      handler.onMessage(codec.encodeMethodCall(new MethodCall('cancel', null)), reply);
+
+      expect(reply.replyData).not().assertNull();
+      expect(new Uint8Array(reply.replyData!)[0]).assertEqual(1);
+      expect(codec.capturedErrMsg).assertEqual('cancel handler error');
+    });
+
+    it('replies with real message when onListen throws FlutterException', Level.LEVEL1, () => {
+      const messenger = new FakeMessenger();
+      const streamHandler = new FlutterThrowingStreamHandler();
+      const channel = new EventChannel(messenger, 'test_channel', codec);
+      channel.setStreamHandler(streamHandler);
+
+      const handler: BinaryMessageHandler = messenger.capturedHandler as BinaryMessageHandler;
+      const reply = new FakeReply();
+      handler.onMessage(codec.encodeMethodCall(new MethodCall('listen', null)), reply);
+
+      expect(reply.replyData).not().assertNull();
+      expect(codec.capturedErrMsg).assertEqual('bad stream argument');
     });
   });
 

@@ -10,16 +10,18 @@
 #include "flutter/shell/platform/ohos/vsync_waiter_ohos.h"
 #undef private
 
-#include <atomic>
 #include <dlfcn.h>
+#include <atomic>
 #include <set>
 #include "flutter/common/task_runners.h"
 #include "flutter/flow/frame_timings.h"
+#include "flutter/fml/log_settings.h"
 #include "flutter/fml/message_loop.h"
 #include "flutter/fml/time/time_delta.h"
 #include "flutter/fml/time/time_point.h"
 #include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
 #include "flutter/shell/platform/ohos/ohos_vsync_voting_mgr.h"
+#include "flutter/shell/platform/ohos/test_stubs/ace_graphic_ndk_stub.h"
 #include "gtest/gtest.h"
 
 extern "C" int g_stub_sdk_api_version;
@@ -73,6 +75,7 @@ class VsyncWaiterOhosTest : public ::testing::Test {
   }
 
   void TearDown() override {
+    g_stub_vsync_request_fail = 0;
     PlatformViewOHOSNapi::display_refresh_rate = original_refresh_rate_;
     PlatformViewOHOSNapi::all_refresh_rates = original_all_rates_;
     waiter_.reset();
@@ -184,6 +187,13 @@ TEST_F(VsyncWaiterOhosTest, SetDvsyncSwitchLowApiVersion) {
   EXPECT_EQ(waiter_->nativeDvsyncFunc_, nullptr);
 }
 
+TEST_F(VsyncWaiterOhosTest, SetDvsyncSwitchLowApiVersionLoudInfo) {
+  fml::ScopedSetLogSettings loud({fml::kLogInfo});
+  waiter_->apiVersion_ = 10;
+  waiter_->SetDvsyncSwitch(true);
+  EXPECT_EQ(waiter_->handle_, nullptr);
+}
+
 TEST_F(VsyncWaiterOhosTest, GetVsyncPeriodReturnsNonNegative) {
   int64_t period = waiter_->GetVsyncPeriod();
   EXPECT_GE(period, 0);
@@ -212,7 +222,27 @@ TEST_F(VsyncWaiterOhosTest, ConsumePendingCallbackExpiredWeakPtrNoCrash) {
 }
 
 TEST_F(VsyncWaiterOhosTest, OnVsyncFromOHOSNullDataNoCrash) {
-  EXPECT_NO_FATAL_FAILURE(VsyncWaiterOHOS::OnVsyncFromOHOS(0, nullptr));
+  {
+    fml::ScopedSetLogSettings loud({fml::kLogInfo});
+    EXPECT_NO_FATAL_FAILURE(VsyncWaiterOHOS::OnVsyncFromOHOS(0, nullptr));
+  }
+  {
+    fml::ScopedSetLogSettings quiet({fml::kLogFatal});
+    EXPECT_NO_FATAL_FAILURE(VsyncWaiterOHOS::OnVsyncFromOHOS(0, nullptr));
+  }
+}
+
+TEST_F(VsyncWaiterOhosTest, AwaitVSyncRequestFrameFailureLogs) {
+  g_stub_vsync_request_fail = 1;
+  {
+    fml::ScopedSetLogSettings loud({fml::kLogInfo});
+    EXPECT_NO_FATAL_FAILURE(waiter_->AwaitVSync());
+  }
+  {
+    fml::ScopedSetLogSettings quiet({fml::kLogFatal});
+    EXPECT_NO_FATAL_FAILURE(waiter_->AwaitVSync());
+  }
+  g_stub_vsync_request_fail = 0;
 }
 
 TEST_F(VsyncWaiterOhosTest, OnVsyncFromOHOSFrameCacheOffsetsTargetNotDeadline) {
@@ -330,12 +360,7 @@ TEST_F(VsyncWaiterOhosTest, SetDvsyncSwitchWithApi14LoadsLibrary) {
   waiter_->handle_ = nullptr;
   waiter_->apiVersion_ = 14;
   EXPECT_NO_FATAL_FAILURE(waiter_->SetDvsyncSwitch(true));
-  // Trimmed images (e.g. API17 emulator without libark_jsruntime.so) cannot
-  // load libnative_vsync.so at all; the load itself is this test's subject.
-  if (waiter_->handle_ == nullptr) {
-    GTEST_SKIP() << "libnative_vsync.so not loadable on this image";
-  }
-  EXPECT_NE(waiter_->handle_, nullptr);
+  ASSERT_NE(waiter_->handle_, nullptr);
   EXPECT_EQ(FakeDvsyncRecorder::call_count, 1);
   EXPECT_NO_FATAL_FAILURE(waiter_->SetDvsyncSwitch(false));
   EXPECT_EQ(FakeDvsyncRecorder::call_count, 2);

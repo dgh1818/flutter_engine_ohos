@@ -14,6 +14,7 @@
 #include <native_window/external_window.h>
 #include <algorithm>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <memory>
 #include <mutex>
@@ -89,41 +90,14 @@ static OhosDecodingOptionsPtr CreateOhosDecodingOptions(int width,
   return opts;
 }
 
-}  // namespace
-
-#if IMPELLER_SUPPORTS_RENDERING
-namespace {
-
-/// Holds every native handle whose lifetime must outlive the resulting
-/// `impeller::Texture`.
-struct DmaTextureContext {
-  std::shared_ptr<OHOSImageGenerator::PixelMapOHOS> pixelmap;
-  OH_NativeBuffer* native_buffer = nullptr;
-  OHNativeWindowBuffer* window_buffer = nullptr;
-
-  ~DmaTextureContext() {
-    if (window_buffer != nullptr) {
-      OH_NativeWindow_DestroyNativeWindowBuffer(window_buffer);
-      window_buffer = nullptr;
-    }
-    if (native_buffer != nullptr) {
-      OH_NativeBuffer_Unreference(native_buffer);
-      native_buffer = nullptr;
-    }
-  }
-};
-
 constexpr size_t kChunkTagSize = 4;
 constexpr size_t kGifSignatureSize = 6;
-constexpr size_t kPngSignatureSize = 8;
 constexpr size_t kMaxEncodedHeaderSearchBytes = 32 * 1024;
 constexpr char kGif87aSignature[] = "GIF87a";
 constexpr char kGif89aSignature[] = "GIF89a";
-constexpr char kPngSignature[] = "\x89PNG\r\n\x1A\n";
 constexpr char kRiffSignature[] = "RIFF";
 constexpr char kWebpSignature[] = "WEBP";
 constexpr char kWebpAnimationChunk[] = "ANIM";
-constexpr char kPngAnimationChunk[] = "acTL";
 
 static bool DataStartsWith(const sk_sp<SkData>& data,
                            const char* pattern,
@@ -154,20 +128,207 @@ static bool DataContains(const sk_sp<SkData>& data,
   return false;
 }
 
+// Little-endian integer readers used by the container parsers below.
+static constexpr size_t kLeUint16Bytes = 2;
+static constexpr size_t kLeUint32Bytes = 4;
+static constexpr unsigned int kBitsPerByte = 8;
+
+static uint16_t ReadUint16Le(const uint8_t* bytes) {
+  uint16_t value = 0;
+  for (size_t i = 0; i < kLeUint16Bytes; ++i) {
+    value = static_cast<uint16_t>(value | (bytes[i] << (kBitsPerByte * i)));
+  }
+  return value;
+}
+
+static uint32_t ReadUint32Le(const uint8_t* bytes) {
+  uint32_t value = 0;
+  for (size_t i = 0; i < kLeUint32Bytes; ++i) {
+    value |= static_cast<uint32_t>(bytes[i]) << (kBitsPerByte * i);
+  }
+  return value;
+}
+
 static bool IsGifEncodedData(const sk_sp<SkData>& data) {
   return DataStartsWith(data, kGif87aSignature, kGifSignatureSize) ||
          DataStartsWith(data, kGif89aSignature, kGifSignatureSize);
-}
-
-static bool IsAnimatedPngEncodedData(const sk_sp<SkData>& data) {
-  return DataStartsWith(data, kPngSignature, kPngSignatureSize) &&
-         DataContains(data, kPngAnimationChunk, kChunkTagSize);
 }
 
 static bool IsAnimatedWebPEncodedData(const sk_sp<SkData>& data) {
   return DataStartsWith(data, kRiffSignature, kChunkTagSize) &&
          DataContains(data, kWebpSignature, kChunkTagSize) &&
          DataContains(data, kWebpAnimationChunk, kChunkTagSize);
+}
+
+}  // namespace
+
+// Parses the total play count of an animated GIF from its NETSCAPE2.0 /
+// ANIMEXTS1.0 looping application extension.
+//
+// Format reference (GIF89a spec, "Application Extension"): the block is
+//   0x21 extension introducer, 0xFF application extension label,
+//   0x0B block size, an 11-byte application identifier + authentication
+//   code ("NETSCAPE2.0" or "ANIMEXTS1.0"), then data sub-blocks. The loop
+//   count is the first sub-block (size 3, id 0x01) as a little-endian
+//   16-bit value, where 0 means infinite and a wire value of N means
+//   "repeat N times after the first play", so the total play count is
+//   N + 1. When the extension is absent the frames play exactly once.
+//
+// This mirrors the Wuffs decoder used by Skia on Android/iOS
+// (SkWuffsCodec::onGetRepetitionCount -> wuffs decode_gif.wuffs):
+//   https://www.w3.org/Graphics/GIF/spec-gif89a.txt
+//   http://www.vurdalakov.net/misc/gif/netscape-looping-application-extension
+constexpr uint8_t kGifExtensionIntroducer = 0x21;
+constexpr size_t kGifExtensionLabelIndex = 1;
+constexpr size_t kGifExtensionBlockSizeIndex = 2;
+constexpr uint8_t kGifApplicationExtensionLabel = 0xFF;
+constexpr uint8_t kGifApplicationBlockSize = 0x0B;
+constexpr uint8_t kGifLoopSubBlockSize = 0x03;
+constexpr uint8_t kGifLoopSubBlockId = 0x01;
+constexpr size_t kGifLoopSubBlockIdIndex = 1;
+constexpr size_t kGifApplicationIdSize = 11;
+constexpr size_t kGifApplicationIdOffset = 3;
+constexpr size_t kGifLoopSubBlockHeaderSize = 2;  // sub-block size + id
+constexpr size_t kGifLoopCountSize = 2;           // 16-bit little-endian
+constexpr size_t kGifLoopSubBlockOffset =
+    kGifApplicationIdOffset + kGifApplicationIdSize;
+constexpr size_t kGifLoopCountOffset =
+    kGifLoopSubBlockOffset + kGifLoopSubBlockHeaderSize;
+constexpr size_t kGifLoopExtensionSize =
+    kGifLoopCountOffset + kGifLoopCountSize;
+
+int OHOSImageGenerator::ParseGifLoopCount(const sk_sp<SkData>& data) {
+  constexpr char kNetscape2Id[] = "NETSCAPE2.0";
+  constexpr char kAnimexts1Id[] = "ANIMEXTS1.0";
+  if (!data || !data->data()) {
+    return 1;
+  }
+  const auto* bytes = static_cast<const uint8_t*>(data->data());
+  const size_t limit = std::min(data->size(), kMaxEncodedHeaderSearchBytes);
+  if (limit < kGifLoopExtensionSize) {
+    return 1;
+  }
+  // As in the Wuffs decoder, the last looping extension seen wins.
+  int play_count = 1;
+  for (size_t i = 0; i + kGifLoopExtensionSize <= limit; i++) {
+    if (bytes[i] != kGifExtensionIntroducer ||
+        bytes[i + kGifExtensionLabelIndex] != kGifApplicationExtensionLabel ||
+        bytes[i + kGifExtensionBlockSizeIndex] != kGifApplicationBlockSize) {
+      continue;
+    }
+    const char* app_id =
+        reinterpret_cast<const char*>(bytes + i + kGifApplicationIdOffset);
+    if (memcmp(app_id, kNetscape2Id, kGifApplicationIdSize) != 0 &&
+        memcmp(app_id, kAnimexts1Id, kGifApplicationIdSize) != 0) {
+      continue;
+    }
+    if (bytes[i + kGifLoopSubBlockOffset] != kGifLoopSubBlockSize ||
+        bytes[i + kGifLoopSubBlockOffset + kGifLoopSubBlockIdIndex] !=
+            kGifLoopSubBlockId) {
+      continue;
+    }
+    const int loop = ReadUint16Le(bytes + i + kGifLoopCountOffset);
+    play_count = loop == 0 ? 0 : loop + 1;
+  }
+  return play_count;
+}
+
+// Parses the total play count of an animated WebP from its ANIM chunk.
+//
+// Format reference (WebP container spec): a RIFF container starts with
+//   "RIFF" <32-bit LE size> "WEBP"
+// followed by chunks of
+//   <4-byte tag> <32-bit LE payload size> <payload> [1 pad byte if odd]
+// The ANIM chunk payload is a 32-bit background color followed by a 16-bit
+// little-endian loop count, where the value is the total number of plays
+// and 0 means infinite. Chunks are walked structurally so that metadata
+// payloads whose bytes happen to contain the ANIM tag cannot be mistaken
+// for the real chunk.
+//
+// This mirrors the libwebp demuxer used by Skia on Android/iOS
+// (SkWebpCodec::onGetRepetitionCount -> WebPDemuxGetI(WEBP_FF_LOOP_COUNT)):
+//   (see the WebP RIFF container specification, ANIM chunk)
+constexpr size_t kRiffHeaderSize = 12;  // "RIFF" + 32-bit size + "WEBP"
+constexpr size_t kChunkSizeFieldSize = 4;
+constexpr size_t kChunkHeaderSize = kChunkTagSize + kChunkSizeFieldSize;
+constexpr size_t kAnimBackgroundColorSize = 4;
+constexpr size_t kAnimLoopCountSize = 2;
+constexpr size_t kAnimPayloadSize =
+    kAnimBackgroundColorSize + kAnimLoopCountSize;
+constexpr size_t kRiffChunkAlignment =
+    2;  // RIFF chunks are padded to even sizes
+
+int OHOSImageGenerator::ParseWebpAnimLoopCount(const sk_sp<SkData>& data) {
+  if (!data || !data->data() || data->size() < kRiffHeaderSize) {
+    return -1;
+  }
+  const auto* bytes = static_cast<const uint8_t*>(data->data());
+  const size_t size = data->size();
+  if (memcmp(bytes, kRiffSignature, kChunkTagSize) != 0 ||
+      memcmp(bytes + kRiffHeaderSize - kChunkTagSize, kWebpSignature,
+             kChunkTagSize) != 0) {
+    return -1;
+  }
+  size_t offset = kRiffHeaderSize;
+  while (offset + kChunkHeaderSize + kAnimPayloadSize <= size) {
+    const uint32_t chunk_size = ReadUint32Le(bytes + offset + kChunkTagSize);
+    const size_t payload = offset + kChunkHeaderSize;
+    if (chunk_size > size - payload) {
+      return -1;  // Corrupt or truncated chunk.
+    }
+    if (memcmp(bytes + offset, kWebpAnimationChunk, kChunkTagSize) == 0) {
+      if (chunk_size < kAnimPayloadSize) {
+        return -1;
+      }
+      return ReadUint16Le(bytes + payload + kAnimBackgroundColorSize);
+    }
+    offset = payload + chunk_size + (chunk_size % kRiffChunkAlignment);
+  }
+  return -1;
+}
+
+// Returns the total play count of the encoded animation parsed from the raw
+// data (0 = infinite, >0 = total plays), or -1 when the data is not a
+// supported animation or its loop metadata cannot be parsed.
+int OHOSImageGenerator::ParseEncodedPlayCount(const sk_sp<SkData>& data) {
+  if (IsGifEncodedData(data)) {
+    return ParseGifLoopCount(data);
+  }
+  if (IsAnimatedWebPEncodedData(data)) {
+    return ParseWebpAnimLoopCount(data);
+  }
+  return -1;
+}
+
+#if IMPELLER_SUPPORTS_RENDERING
+namespace {
+
+/// Holds every native handle whose lifetime must outlive the resulting
+/// `impeller::Texture`.
+struct DmaTextureContext {
+  std::shared_ptr<OHOSImageGenerator::PixelMapOHOS> pixelmap;
+  OH_NativeBuffer* native_buffer = nullptr;
+  OHNativeWindowBuffer* window_buffer = nullptr;
+
+  ~DmaTextureContext() {
+    if (window_buffer != nullptr) {
+      OH_NativeWindow_DestroyNativeWindowBuffer(window_buffer);
+      window_buffer = nullptr;
+    }
+    if (native_buffer != nullptr) {
+      OH_NativeBuffer_Unreference(native_buffer);
+      native_buffer = nullptr;
+    }
+  }
+};
+
+constexpr size_t kPngSignatureSize = 8;
+constexpr char kPngSignature[] = "\x89PNG\r\n\x1A\n";
+constexpr char kPngAnimationChunk[] = "acTL";
+
+static bool IsAnimatedPngEncodedData(const sk_sp<SkData>& data) {
+  return DataStartsWith(data, kPngSignature, kPngSignatureSize) &&
+         DataContains(data, kPngAnimationChunk, kChunkTagSize);
 }
 
 static bool IsUnsupportedDmaEncodedData(const sk_sp<SkData>& data) {
@@ -409,9 +570,11 @@ static void ResolveEncodedOrigin(char* data,
 
 OHOSImageGenerator::OHOSImageGenerator(OH_ImageSourceNative* image_source,
                                        const sk_sp<SkData>& data,
-                                       bool unsupportedDmaEncodedData)
+                                       bool unsupportedDmaEncodedData,
+                                       int playCount)
     : image_source_(image_source),
       data_(data),
+      play_count_(playCount),
       unsupported_dma_encoded_data_(unsupportedDmaEncodedData) {
   OH_ImageSource_Info* info = nullptr;
   OH_ImageSourceInfo_Create(&info);
@@ -504,7 +667,15 @@ unsigned int OHOSImageGenerator::GetFrameCount() const {
 }
 
 unsigned int OHOSImageGenerator::GetPlayCount() const {
-  return frame_count_ == 1 ? 1 : kInfinitePlayCount;
+  if (frame_count_ == 1) {
+    return 1;
+  }
+  if (play_count_ <= 0) {
+    // Loop count unknown (property read failed or no loop extension) or
+    // infinite - keep the legacy infinite-loop behavior.
+    return kInfinitePlayCount;
+  }
+  return static_cast<unsigned int>(play_count_);
 }
 
 const ImageGenerator::FrameInfo OHOSImageGenerator::GetFrameInfo(
@@ -767,10 +938,15 @@ std::shared_ptr<ImageGenerator> OHOSImageGenerator::MakeFromData(
     isHeldSkData = false;
   }
 
+  // Resolve the animation loop count from the encoded data while it is
+  // still available here; the constructor cannot rely on data_ because the
+  // copy path releases it.
+  const int playCount = ParseEncodedPlayCount(data);
+
   // Preventing data from being released by the system
   std::shared_ptr<OHOSImageGenerator> generator(new OHOSImageGenerator(
       image_source, isHeldSkData ? data : sk_sp<SkData>(),
-      unsupportedDmaEncodedData));
+      unsupportedDmaEncodedData, playCount));
 
   if (!generator->has_mpf_gainmap_) {
     generator->InitMpfGainmap(data);

@@ -502,6 +502,7 @@ class PlatformMethodCallback implements MethodCallHandler {
             Log.d(PlatformMethodCallback.TAG, "setEnabledSystemUIMode args:" + args as string);
             let mode: SystemUiMode = this.decodeSystemUiMode(args as string)
             this.platform.platformMessageHandler.showSystemUiMode(mode);
+            result.success(null);
           } catch (err) {
             Log.e(PlatformMethodCallback.TAG, "setEnabledSystemUIMode err:" + JSON.stringify(err));
             result.error("error", JSON.stringify(err), null);

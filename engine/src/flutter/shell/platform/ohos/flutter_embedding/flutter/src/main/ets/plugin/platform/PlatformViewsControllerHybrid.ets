@@ -355,6 +355,9 @@ export default class PlatformViewsControllerHybrid implements HybridCompositionH
    * 叠加到 top，让 PV 平移近似跟随。负值=顶部挤压(start 侧)。vp 单位(Dart 逻辑像素≈OHOS vp)。
    */
   private overscrollOffsets: Map<number, number> = new Map();
+  // [wrapper-touch-block] 触摸完整性门：DOWN 因首帧几何未到被丢弃的 view 集合，
+  // 其后续 MOVE/UP 连带丢弃到下一个 DOWN（防残缺指针流进 Dart 竞技场）。dispose 清。
+  private orphanedTouchViews: Set<number> = new Set();
   // 本帧已收到的 overlay rect，onDisplayOverlayHybrid 逐条 push，onEndFrameHybrid flush 到 AppStorage。
   private pendingOverlayRects: OverlayRect[] = [];
   /**
@@ -365,9 +368,6 @@ export default class PlatformViewsControllerHybrid implements HybridCompositionH
    */
   private frameDisplayOrder: number[] = [];
   private flutterNapi: FlutterNapi | null = null;
-  // hover 返投的 enter/exit 配对跟踪（dispatchHoverToEngine 防御 converter
-  // kRemove 对未知 device 的解引用）。鼠标 device 全局唯一，bool 足够。
-  private hoverInjected: boolean = false;
   /**
    * hover 配对跟踪（键 = overlay rect 的 viewId，值 = 该 rect 是否已注入 enter）。
    * 按 rect 跟踪后：exit 仅在"该 rect 确实 enter 过 且 没有其他 rect 仍处于
@@ -516,9 +516,19 @@ export default class PlatformViewsControllerHybrid implements HybridCompositionH
         "top": bootstrapTop,
         // HCPP 打标：buildNodeContainer 的 clip 仅对 HCPP wrapper 生效。
         // 无此标的纹理模式 wrapper 保持基础版本无 clip 行为。
-        "hcpp": true
+        "hcpp": true,
+        // [wrapper-touch-block] 恒 true：hitTestBehavior(Block) 截断触摸进原生；
+        // 截住的触摸经 events 通道的 onTouch 注入引擎（Flutter 竞技场接手）。
+        "touchBlock": true
       },
-      {},
+      {
+        // [wrapper-touch-block] 触摸注入走 events 通道（dynamicView 以 getEvents
+        // 直挂 onTouch，与既有 onClick 模式一致，避免 ESObject 函数类型 as 断言）；
+        // viewId 经闭包捕获，不经 params 传递。
+        "onTouch": (event: TouchEvent) => {
+          this.dispatchTouchToEngine(request.viewId, event);
+        }
+      },
       undefined));
     const wrapper = new PlatformViewWrapper();
     wrapper.addDvModel(dvModel);
@@ -542,6 +552,7 @@ export default class PlatformViewsControllerHybrid implements HybridCompositionH
     platformView.touchDispatcher = null;
     platformView.axisDispatcher = null;
     platformView.injectedTimestamps.clear();
+    this.orphanedTouchViews.delete(viewId);
     this.platformViews.delete(viewId);
     this.viewInfos.delete(viewId);
 
@@ -559,6 +570,8 @@ export default class PlatformViewsControllerHybrid implements HybridCompositionH
     this.viewWrappers.delete(viewId);
     this.displayOffsets.delete(viewId);
     this.overscrollOffsets.delete(viewId);
+    // 清 hover enter 残留，该 rect 的 Block 节点随 dispose清除
+    this.hoverInjectedRects.delete(viewId);
 
     try {
       platformView.dispose();
@@ -1395,8 +1408,20 @@ export default class PlatformViewsControllerHybrid implements HybridCompositionH
       return;
     }
     if (this.displayOffsets.get(viewId) == undefined) {
-      // 首帧几何未到，view 尚未显示，丢弃(后续 move 会补上)。
+      // 首帧几何未到，view 尚未显示，丢弃。DOWN 丢弃后必须连带丢弃该 view 后续
+      // MOVE/UP/CANCEL——无 DOWN 的残缺指针流会给 Dart 手势竞技场喂孤儿序列，
+      // 直到下一个 DOWN 才重新放行（触摸完整性门）。
+      if (event.type === TouchType.Down) {
+        this.orphanedTouchViews.add(viewId);
+      }
       return;
+    }
+    if (this.orphanedTouchViews.has(viewId)) {
+      if (event.type === TouchType.Down) {
+        this.orphanedTouchViews.delete(viewId);
+      } else {
+        return;
+      }
     }
     const dpr = display.getDefaultDisplaySync().densityPixels;
 
@@ -1504,7 +1529,6 @@ export default class PlatformViewsControllerHybrid implements HybridCompositionH
     // （兄弟 rect 已 enter）exit 吞掉，由兄弟的 kHover 维持引擎悬停态。
     if (isHover) {
       this.hoverInjectedRects.add(viewId);
-      this.hoverInjected = true;
     } else {
       if (!this.hoverInjectedRects.has(viewId)) {
         // 本 rect 无配对 enter；若全局也无任何活跃 enter，则必须拦下
@@ -1517,7 +1541,6 @@ export default class PlatformViewsControllerHybrid implements HybridCompositionH
         // 悬停态迁到新位置；注入 remove 会误杀其 MouseRegion。
         return;
       }
-      this.hoverInjected = false;
     }
 
     const item: TouchDataItem = {
@@ -1813,7 +1836,6 @@ export default class PlatformViewsControllerHybrid implements HybridCompositionH
     for (let viewId of Array.from(this.platformViews.keys())) {
       this.dispose(viewId);
     }
-    this.hoverInjected = false;
     this.hoverInjectedRects.clear();
     this.frameDisplayOrder = [];
     // 本引擎（或 isolate restart 后）不再持有 rects，清掉自己的 slice

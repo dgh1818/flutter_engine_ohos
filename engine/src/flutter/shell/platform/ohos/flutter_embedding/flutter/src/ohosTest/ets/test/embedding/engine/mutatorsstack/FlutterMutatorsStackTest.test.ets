@@ -13,8 +13,10 @@
  * limitations under the License.
  */
 
-import { FlutterMutatorsStack } from '../../../../../../main/ets/embedding/engine/mutatorsstack/FlutterMutatorsStack';
+import { FlutterMutatorsStack, FlutterMutator } from '../../../../../../main/ets/embedding/engine/mutatorsstack/FlutterMutatorsStack';
 import { describe, expect, it } from '@ohos/hypium';
+import matrix4 from '@ohos.matrix4';
+import Any from '../../../../../../main/ets/plugin/common/Any';
 export default function FlutterMutatorsStackTest() {
   describe('FlutterMutatorsStackTest', () => {
     it('TestPushClipPath', 0, async (done: Function) => {
@@ -79,6 +81,22 @@ export default function FlutterMutatorsStackTest() {
     it('TestFlutterMutatorsStack3', 0, async (done: Function) => {
       let flutterMutatorStack = new FlutterMutatorsStack();
       expect(flutterMutatorStack.getFinalClippingRects().length).assertEqual(0);
+      done();
+    })
+
+    it('TestPushTransformWithInvalidLengthDoesNotThrow (covers line 139 true branch)', 0, async (done: Function) => {
+      // 5 elements is not 16, so pushTransform returns early at line 140.
+      const values = [1, 0, 0, 0, 0];
+      let flutterMutatorStack = new FlutterMutatorsStack();
+      let threw = false;
+      try {
+        flutterMutatorStack.pushTransform(values);
+      } catch (e) {
+        threw = true;
+      }
+      expect(threw).assertEqual(false);
+      // No mutator added because the function returned early.
+      expect(flutterMutatorStack.getMutators().length).assertEqual(0);
       done();
     })
   })

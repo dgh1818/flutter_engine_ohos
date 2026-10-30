@@ -4,9 +4,10 @@
  * found in the LICENSE_HW file.
  */
 
-#include "flutter/shell/platform/ohos/surface/ohos_native_window.h"
 #include <gtest/gtest.h>
+#include "flutter/fml/log_settings.h"
 #include "flutter/fml/memory/ref_counted.h"
+#include "flutter/shell/platform/ohos/surface/ohos_native_window.h"
 #include "flutter/shell/platform/ohos/test_stubs/ace_graphic_ndk_stub.h"
 
 namespace flutter {
@@ -18,6 +19,7 @@ OHOSNativeWindow::Handle kFakeHandle =
 }
 
 TEST(OHOSNativeWindow, ValidWindowExposesHandleAndIsValid) {
+  fml::ScopedSetLogSettings loud({fml::kLogInfo});
   auto window = fml::MakeRefCounted<OHOSNativeWindow>(kFakeHandle);
   EXPECT_TRUE(window->IsValid());
   EXPECT_EQ(window->Gethandle(), kFakeHandle);
@@ -57,6 +59,12 @@ TEST(OHOSNativeWindow, GetSizeFailureReturnsZero) {
   DlISize size = window->GetSize();
   EXPECT_EQ(size.width, 0);
   EXPECT_EQ(size.height, 0);
+  {
+    fml::ScopedSetLogSettings quiet({fml::kLogFatal});
+    size = window->GetSize();
+    EXPECT_EQ(size.width, 0);
+    EXPECT_EQ(size.height, 0);
+  }
 }
 
 TEST(OHOSNativeWindow, SetSizeCallsHandleOptSuccessAndFailure) {
@@ -67,11 +75,15 @@ TEST(OHOSNativeWindow, SetSizeCallsHandleOptSuccessAndFailure) {
   EXPECT_NO_FATAL_FAILURE(window->SetSize(100, 200));
   g_stub_graphic_fail_mask = kStubFailWindowHandleOpt;
   EXPECT_NO_FATAL_FAILURE(window->SetSize(100, 200));
+  {
+    fml::ScopedSetLogSettings quiet({fml::kLogFatal});
+    EXPECT_NO_FATAL_FAILURE(window->SetSize(100, 200));
+  }
   g_stub_graphic_fail_mask = 0;
   DlISize size = window->GetSize();
   EXPECT_EQ(size.width, 640);
   EXPECT_EQ(size.height, 480);
 }
 
-}
-}
+}  // namespace testing
+}  // namespace flutter

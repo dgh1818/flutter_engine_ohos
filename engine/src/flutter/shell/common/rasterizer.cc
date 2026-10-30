@@ -49,6 +49,10 @@
 #ifdef FML_OS_OHOS
 #include "flutter/fml/platform/ohos/hisysevent_c.h"
 #include "flutter/fml/platform/ohos/hiappevent/ohos_hiappevent.h"
+#include <hilog/log.h>
+#define OHOS_LOGI(...)                                                \
+  ((void)OH_LOG_Print(LOG_APP, LOG_INFO, 0x0000, "XComFlutterEngine", \
+                      __VA_ARGS__))
 #endif
 
 namespace flutter {
@@ -87,6 +91,9 @@ void Rasterizer::SetImpellerContext(
 
 void Rasterizer::Setup(std::unique_ptr<Surface> surface) {
   surface_ = std::move(surface);
+#ifdef FML_OS_OHOS
+  OHOS_LOGI("Rasterizer::Setup done.");
+#endif
 
   if (max_cache_bytes_.has_value()) {
     SetResourceCacheMaxBytes(max_cache_bytes_.value(),
@@ -503,6 +510,11 @@ Rasterizer::DoDrawResult Rasterizer::DoDraw(
     return DoDrawResult{DoDrawStatus::kDone};
   }
   if (!surface_) {
+    static bool logged = false;
+    if (!logged) {
+      FML_LOG(ERROR) << "rasterizer no surface, frame dropped (kNotSetUp)";
+      logged = true;
+    }
     return DoDrawResult{DoDrawStatus::kNotSetUp};
   }
 
@@ -701,6 +713,7 @@ Rasterizer::DoDrawResult Rasterizer::DrawToSurfaces(
         fml::SyncSwitch::Handlers()
             .SetIfTrue([&] {
               result.status = DoDrawStatus::kGpuUnavailable;
+              FML_LOG(ERROR) << "GPU unavailable (sync switch), frame dropped";
               frame_timings_recorder.RecordRasterStart(fml::TimePoint::Now());
               frame_timings_recorder.RecordRasterEnd();
             })
@@ -831,6 +844,7 @@ DrawSurfaceStatus Rasterizer::DrawToSurfaceUnsafe(
   // frame after calling `BeginFrame` as this operation resets the GL context.
   auto frame = surface_->AcquireFrame(layer_tree.frame_size());
   if (frame == nullptr) {
+    FML_LOG(ERROR) << "AcquireFrame returned null.";
     return DrawSurfaceStatus::kFailed;
   }
 
@@ -853,7 +867,10 @@ DrawSurfaceStatus Rasterizer::DrawToSurfaceUnsafe(
       raster_thread_merger_,            // thread merger
       surface_->GetAiksContext().get()  // aiks context
   );
-  if (compositor_frame) {
+  if (!compositor_frame) {
+ 	  FML_LOG(ERROR) << "compositor AcquireFrame failed";
+ 	  return DrawSurfaceStatus::kFailed;
+ 	}
     NOT_SLIMPELLER(compositor_context_->raster_cache().BeginFrame());
 
     std::unique_ptr<FrameDamage> damage;
@@ -934,7 +951,6 @@ DrawSurfaceStatus Rasterizer::DrawToSurfaceUnsafe(
       FML_CHECK(frame_status == RasterStatus::kSuccess);
       return DrawSurfaceStatus::kSuccess;
     }
-  }
 
   return DrawSurfaceStatus::kFailed;
 }

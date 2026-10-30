@@ -139,7 +139,8 @@ bool OhosSurfaceGLSkia::SetNativeWindow(fml::RefPtr<OHOSNativeWindow> window) {
   // Create the onscreen surface.
   FML_LOG(INFO) << "SetNativeWindow create onscreensurface";
   onscreen_surface_ = GLContextPtr()->CreateOnscreenSurface(window);
-  if (!onscreen_surface_->IsValid()) {
+  if (!onscreen_surface_ || !onscreen_surface_->IsValid()) {
+ 	  FML_LOG(ERROR) << "SetNativeWindow onscreen_surface invalid";
     return false;
   }
   if (need_current) {

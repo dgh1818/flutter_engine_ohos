@@ -16,7 +16,7 @@ vars = {
   'skia_git': 'https://skia.googlesource.com',
   'llvm_git': 'https://llvm.googlesource.com',
   'ohos_git': 'https://gitcode.com/openharmony-sig',
-  'skia_revision': '5043adf37da6b0ef2711cb1e2f925633d3baf62a',
+  'skia_revision': 'eee3b92dc39367e7f14917eae331a358a1276b98',
 
   # WARNING: DO NOT EDIT canvaskit_cipd_instance MANUALLY
   # See `lib/web_ui/README.md` for how to roll CanvasKit to a new version.
@@ -68,7 +68,6 @@ vars = {
   'dart_binaryen_rev': '58de22cdfd0ccb38ce68632695c0493c587af932',
   'dart_boringssl_rev': 'b0ae229f686f2be70689584d1e1c6a727a2cdfab',
   'dart_core_rev': '347df4b546f315fc1ff69c6e65f2a023b0263b1d',
-  'dart_devtools_rev': 'fa063f322c03cc7a690d819db124c196a69cff56',
   'dart_ecosystem_rev': '6b2164f8f57583a7bcaa32341eaa219efd8fd2d3',
   'dart_http_rev': '6bfe07f26384637fad6d1713de9ba9d2bb5d8c88',
   'dart_i18n_rev': 'de7e11b7cc231d8daf6e49dc12690d7339241691',
@@ -299,7 +298,7 @@ deps = {
    Var('chromium_git') + '/external/github.com/WebAssembly/binaryen.git' + '@' + Var('dart_binaryen_rev'),
 
   'engine/src/flutter/third_party/dart/third_party/devtools':
-   {'dep_type': 'cipd', 'packages': [{'package': 'dart/third_party/flutter/devtools', 'version': 'git_revision:fa063f322c03cc7a690d819db124c196a69cff56'}]},
+   'https://gitcode.com/CPF-Flutter/devtools_artifacts.git' + '@' + '12a9d93a47942214218ce0f4dcbce39e8d83a4e8',
 
   'engine/src/flutter/third_party/dart/third_party/perfetto/src':
    Var('chromium_git') + '/external/github.com/google/perfetto' + '@' + Var('dart_perfetto_rev'),

@@ -6,6 +6,7 @@ import 'package:args/command_runner.dart';
 import 'package:file/memory.dart';
 import 'package:flutter_tools/src/base/file_system.dart';
 import 'package:flutter_tools/src/base/io.dart';
+import 'package:flutter_tools/src/base/logger.dart';
 import 'package:flutter_tools/src/base/platform.dart';
 import 'package:flutter_tools/src/base/time.dart';
 import 'package:flutter_tools/src/cache.dart';
@@ -13,6 +14,7 @@ import 'package:flutter_tools/src/commands/upgrade.dart';
 import 'package:flutter_tools/src/context_runner.dart';
 import 'package:flutter_tools/src/convert.dart';
 import 'package:flutter_tools/src/globals.dart' as globals;
+import 'package:flutter_tools/src/ohos/ohos_upgrade.dart';
 import 'package:flutter_tools/src/persistent_tool_state.dart';
 import 'package:flutter_tools/src/runner/flutter_command.dart';
 import 'package:flutter_tools/src/version.dart';
@@ -311,6 +313,7 @@ void main() {
         ProcessManager: () => processManager,
         Platform: () => fakePlatform,
       },
+      skip: true, // OHOS not supported
     );
 
     testUsingContext(
@@ -344,6 +347,7 @@ void main() {
         ProcessManager: () => processManager,
         Platform: () => fakePlatform,
       },
+      skip: true, // OHOS not supported
     );
 
     testUsingContext(
@@ -377,6 +381,7 @@ void main() {
         ProcessManager: () => processManager,
         Platform: () => fakePlatform,
       },
+      skip: true, // OHOS not supported
     );
 
     testUsingContext(
@@ -409,6 +414,7 @@ void main() {
         ProcessManager: () => processManager,
         Platform: () => fakePlatform,
       },
+      skip: true, // OHOS not supported
     );
 
     testUsingContext(
@@ -819,6 +825,534 @@ void main() {
         );
       });
     });
+  });
+  group('parseStableTag', () {
+    test('parses a stable tag with the -ohos- spelling', () {
+      expect(OhosUpgrade.parseStableTag('3.35.8-ohos-1.0.4'), <int>[3, 35, 0, 8, 1, 0, 4, 1]);
+    });
+
+    test('parses a stable tag with the +ohos- spelling', () {
+      expect(OhosUpgrade.parseStableTag('3.44.9+ohos-1.0.0'), <int>[3, 44, 1, 9, 1, 0, 0, 1]);
+      expect(OhosUpgrade.parseStableTag('3.41.9+ohos-1.0.2'), <int>[3, 41, 1, 9, 1, 0, 2, 1]);
+    });
+
+    test('rejects pre-release suffixes', () {
+      expect(OhosUpgrade.parseStableTag('3.35.8-ohos-1.0.4-beta'), isNull);
+      expect(OhosUpgrade.parseStableTag('3.35.8-ohos-1.0.2-debug'), isNull);
+      expect(OhosUpgrade.parseStableTag('3.44.9+ohos-0.0.1-canary1'), isNull);
+    });
+
+    test('rejects tags without an ohos version segment', () {
+      expect(OhosUpgrade.parseStableTag('3.7.12-ohos'), isNull);
+      expect(OhosUpgrade.parseStableTag('3.35.8'), isNull);
+      expect(OhosUpgrade.parseStableTag('github.com/flutter/flutter/3.22.0'), isNull);
+    });
+  });
+
+  group('parseLooseVersion', () {
+    test('parses a pre-release version ignoring its suffix', () {
+      expect(OhosUpgrade.parseLooseVersion('3.44.9+ohos-0.0.1-canary1'), <int>[
+        3,
+        44,
+        1,
+        9,
+        0,
+        0,
+        1,
+        0,
+      ]);
+      expect(OhosUpgrade.parseLooseVersion('3.35.8-ohos-1.0.4-beta'), <int>[
+        3,
+        35,
+        0,
+        8,
+        1,
+        0,
+        4,
+        0,
+      ]);
+    });
+
+    test('returns null for a version without an ohos segment', () {
+      expect(OhosUpgrade.parseLooseVersion('3.47.2'), isNull);
+      expect(OhosUpgrade.parseLooseVersion('3.35.8'), isNull);
+      expect(OhosUpgrade.parseLooseVersion('3.35.8-ohos-1.0.4'), <int>[3, 35, 0, 8, 1, 0, 4, 1]);
+    });
+
+    test('returns null for empty or unrecognized input', () {
+      expect(OhosUpgrade.parseLooseVersion(''), isNull);
+      expect(OhosUpgrade.parseLooseVersion('unknown'), isNull);
+    });
+
+    test('returns null for the unknown framework version', () {
+      expect(OhosUpgrade.parseLooseVersion('0.0.0-unknown'), isNull);
+    });
+  });
+
+  group('compareVersions', () {
+    test('compares flutter segments before ohos segments', () {
+      expect(
+        OhosUpgrade.compareVersions(
+          <int>[3, 41, 0, 10, 1, 0, 1, 1],
+          <int>[3, 44, 1, 9, 0, 0, 1, 0],
+        ),
+        isNegative,
+      );
+      expect(
+        OhosUpgrade.compareVersions(<int>[3, 35, 0, 8, 2, 0, 0, 1], <int>[3, 35, 0, 8, 1, 9, 9, 1]),
+        isPositive,
+      );
+      expect(
+        OhosUpgrade.compareVersions(<int>[3, 35, 0, 8, 1, 0, 4, 1], <int>[3, 35, 0, 8, 1, 0, 4, 1]),
+        isZero,
+      );
+      // A stable release outranks its own pre-releases.
+      expect(
+        OhosUpgrade.compareVersions(<int>[3, 44, 1, 9, 0, 0, 1, 1], <int>[3, 44, 1, 9, 0, 0, 1, 0]),
+        isPositive,
+      );
+    });
+
+    test('prefers the current +ohos naming over the legacy -ohos one', () {
+      // 3.41.9+ohos-1.0.2 (current naming) outranks 3.41.10-ohos-1.0.1
+      // (legacy naming) at the same major.minor, even though the legacy
+      // flutter patch number is larger.
+      expect(
+        OhosUpgrade.compareVersions(
+          <int>[3, 41, 0, 10, 1, 0, 1, 1],
+          <int>[3, 41, 1, 9, 1, 0, 2, 1],
+        ),
+        isNegative,
+      );
+      expect(
+        OhosUpgrade.compareVersions(<int>[3, 22, 0, 4, 1, 1, 5, 1], <int>[3, 22, 1, 3, 1, 1, 6, 1]),
+        isNegative,
+      );
+      // Different major.minor lines still compare by the flutter version.
+      expect(
+        OhosUpgrade.compareVersions(
+          <int>[3, 41, 0, 10, 1, 0, 1, 1],
+          <int>[3, 44, 1, 9, 0, 0, 1, 1],
+        ),
+        isNegative,
+      );
+    });
+
+    test('still compares the flutter patch within the same naming', () {
+      expect(
+        OhosUpgrade.compareVersions(<int>[3, 41, 1, 9, 1, 0, 2, 1], <int>[3, 41, 1, 9, 1, 0, 3, 1]),
+        isNegative,
+      );
+      expect(
+        OhosUpgrade.compareVersions(<int>[3, 35, 0, 7, 1, 0, 5, 1], <int>[3, 35, 0, 8, 1, 0, 4, 1]),
+        isNegative,
+      );
+    });
+  });
+
+  group('fetchLatestStableTag', () {
+    late FakeProcessManager processManager;
+
+    setUp(() {
+      processManager = FakeProcessManager.empty();
+    });
+
+    testUsingContext(
+      'returns the newest stable tag, preferring the peeled revision',
+      () async {
+        processManager.addCommands(<FakeCommand>[
+          const FakeCommand(
+            command: <String>['git', 'ls-remote', '--tags', 'origin'],
+            stdout:
+                'aaa100\trefs/tags/3.35.8-ohos-1.0.4\n'
+                'aaa101\trefs/tags/3.35.8-ohos-1.0.4^{}\n'
+                'bbb200\trefs/tags/3.41.10-ohos-1.0.0\n'
+                'bbb201\trefs/tags/3.41.10-ohos-1.0.0^{}\n'
+                'ccc300\trefs/tags/3.41.10-ohos-1.0.1\n'
+                'ccc301\trefs/tags/3.41.10-ohos-1.0.1^{}\n'
+                'ddd400\trefs/tags/3.44.9+ohos-0.0.1-canary1\n'
+                'eee500\trefs/tags/github.com/flutter/flutter/3.22.0\n',
+          ),
+        ]);
+
+        final ({String tag, String revision}) latest = await OhosUpgrade().fetchLatestStableTag(
+          workingDirectory: '/flutter',
+        );
+
+        expect(latest.tag, '3.41.10-ohos-1.0.1');
+        expect(latest.revision, 'ccc301');
+        expect(processManager, hasNoRemainingExpectations);
+      },
+      overrides: <Type, Generator>{
+        ProcessManager: () => processManager,
+        Platform: () => FakePlatform(),
+      },
+    );
+
+    testUsingContext(
+      'prefers the +ohos naming over the -ohos one when both are stable',
+      () async {
+        processManager.addCommands(<FakeCommand>[
+          const FakeCommand(
+            command: <String>['git', 'ls-remote', '--tags', 'origin'],
+            stdout:
+                'ccc300\trefs/tags/3.41.10-ohos-1.0.1\n'
+                'ccc301\trefs/tags/3.41.10-ohos-1.0.1^{}\n'
+                'fff600\trefs/tags/3.41.9+ohos-1.0.2\n'
+                'fff601\trefs/tags/3.41.9+ohos-1.0.2^{}\n',
+          ),
+        ]);
+
+        final ({String tag, String revision}) latest = await OhosUpgrade().fetchLatestStableTag(
+          workingDirectory: '/flutter',
+        );
+
+        expect(latest.tag, '3.41.9+ohos-1.0.2');
+        expect(latest.revision, 'fff601');
+        expect(processManager, hasNoRemainingExpectations);
+      },
+      overrides: <Type, Generator>{
+        ProcessManager: () => processManager,
+        Platform: () => FakePlatform(),
+      },
+    );
+
+    testUsingContext(
+      'throws tool exit when the remote cannot be queried',
+      () async {
+        processManager.addCommands(<FakeCommand>[
+          const FakeCommand(
+            command: <String>['git', 'ls-remote', '--tags', 'origin'],
+            exception: ProcessException('git', <String>[
+              'ls-remote',
+              '--tags',
+              'origin',
+            ], 'fatal: unable to access'),
+          ),
+        ]);
+
+        await expectLater(
+          () => OhosUpgrade().fetchLatestStableTag(workingDirectory: '/flutter'),
+          throwsToolExit(),
+        );
+        expect(processManager, hasNoRemainingExpectations);
+      },
+      overrides: <Type, Generator>{
+        ProcessManager: () => processManager,
+        Platform: () => FakePlatform(),
+      },
+    );
+
+    testUsingContext(
+      'throws tool exit when the remote has no stable tag',
+      () async {
+        processManager.addCommands(<FakeCommand>[
+          const FakeCommand(command: <String>['git', 'ls-remote', '--tags', 'origin']),
+        ]);
+
+        await expectLater(
+          () => OhosUpgrade().fetchLatestStableTag(workingDirectory: '/flutter'),
+          throwsToolExit(
+            message: 'Unable to upgrade Flutter: no OHOS stable release tag found on the remote.',
+          ),
+        );
+        expect(processManager, hasNoRemainingExpectations);
+      },
+      overrides: <Type, Generator>{
+        ProcessManager: () => processManager,
+        Platform: () => FakePlatform(),
+      },
+    );
+  });
+
+  group('currentVersion', () {
+    late FakeProcessManager processManager;
+
+    setUp(() {
+      processManager = FakeProcessManager.empty();
+    });
+
+    testUsingContext(
+      'uses the OHOS release tag pointing at HEAD',
+      () async {
+        processManager.addCommands(<FakeCommand>[
+          const FakeCommand(
+            command: <String>['git', 'tag', '--points-at', 'HEAD'],
+            stdout: '3.35.8-ohos-1.0.4\n',
+          ),
+        ]);
+
+        final List<int>? version = await OhosUpgrade().currentVersion(
+          workingDirectory: '/flutter',
+          localVersion: FakeFlutterVersion(),
+        );
+
+        expect(version, <int>[3, 35, 0, 8, 1, 0, 4, 1]);
+        expect(processManager, hasNoRemainingExpectations);
+      },
+      overrides: <Type, Generator>{
+        ProcessManager: () => processManager,
+        Platform: () => FakePlatform(),
+      },
+    );
+
+    testUsingContext(
+      'falls back to the cached framework version when HEAD has no tag',
+      () async {
+        processManager.addCommands(<FakeCommand>[
+          const FakeCommand(command: <String>['git', 'tag', '--points-at', 'HEAD']),
+        ]);
+
+        final List<int>? version = await OhosUpgrade().currentVersion(
+          workingDirectory: '/flutter',
+          localVersion: FakeFlutterVersion(frameworkVersion: '3.41.10-ohos-1.0.1'),
+        );
+
+        expect(version, <int>[3, 41, 0, 10, 1, 0, 1, 1]);
+        expect(processManager, hasNoRemainingExpectations);
+      },
+      overrides: <Type, Generator>{
+        ProcessManager: () => processManager,
+        Platform: () => FakePlatform(),
+      },
+    );
+  });
+
+  group('fetchLatestVersion', () {
+    late FakeProcessManager processManager;
+
+    setUp(() {
+      processManager = FakeProcessManager.empty();
+    });
+
+    testUsingContext(
+      'returns the local version without fetching when the target is not newer',
+      () async {
+        // The latest stable tag on the remote is 3.41.10-ohos-1.0.1 while the
+        // current checkout is a newer pre-release (3.44.9+ohos-0.0.1-canary1);
+        // the SDK must not downgrade and must not fetch the older tag.
+        processManager.addCommands(<FakeCommand>[
+          const FakeCommand(
+            command: <String>['git', 'remote', 'get-url', 'origin'],
+            stdout: 'https://gitcode.com/CPF-Flutter/flutter_flutter.git',
+          ),
+          const FakeCommand(
+            command: <String>['git', 'ls-remote', '--tags', 'origin'],
+            stdout:
+                'ccc300\trefs/tags/3.41.10-ohos-1.0.1\n'
+                'ccc301\trefs/tags/3.41.10-ohos-1.0.1^{}\n',
+          ),
+          const FakeCommand(
+            command: <String>['git', 'tag', '--points-at', 'HEAD'],
+            stdout: '3.44.9+ohos-0.0.1-canary1\n',
+          ),
+        ]);
+        final localVersion = FakeFlutterVersion(frameworkVersion: '3.44.9+ohos-0.0.1-canary1');
+
+        final FlutterVersion version = await OhosUpgrade().fetchLatestVersion(
+          workingDirectory: '/flutter',
+          localVersion: localVersion,
+        );
+
+        expect(version, same(localVersion));
+        expect(processManager, hasNoRemainingExpectations);
+      },
+      overrides: <Type, Generator>{
+        ProcessManager: () => processManager,
+        Platform: () => FakePlatform(),
+      },
+    );
+
+    testUsingContext(
+      'upgrades a pre-release checkout to the stable tag with the same version',
+      () async {
+        // The current checkout is 3.44.9+ohos-0.0.1-canary1 while the newest
+        // stable tag is its own promotion, 3.44.9+ohos-0.0.1; the stable tag
+        // must outrank the pre-release instead of reporting up to date.
+        const revision = 'bbb4567abc';
+        processManager.addCommands(<FakeCommand>[
+          const FakeCommand(
+            command: <String>['git', 'remote', 'get-url', 'origin'],
+            stdout: 'https://gitcode.com/CPF-Flutter/flutter_flutter.git',
+          ),
+          const FakeCommand(
+            command: <String>['git', 'ls-remote', '--tags', 'origin'],
+            stdout: 'bbb4567abc\trefs/tags/3.44.9+ohos-0.0.1\n',
+          ),
+          const FakeCommand(
+            command: <String>['git', 'tag', '--points-at', 'HEAD'],
+            stdout: '3.44.9+ohos-0.0.1-canary1\n',
+          ),
+          const FakeCommand(
+            command: <String>['git', 'fetch', 'origin', 'tag', '3.44.9+ohos-0.0.1', '--no-tags'],
+          ),
+          const FakeCommand(
+            command: <String>['git', 'tag', '--points-at', revision],
+            stdout: '3.44.9+ohos-0.0.1\n',
+          ),
+        ]);
+        final localVersion = FakeFlutterVersion(frameworkVersion: '3.44.9+ohos-0.0.1-canary1');
+
+        final FlutterVersion version = await OhosUpgrade().fetchLatestVersion(
+          workingDirectory: '/flutter',
+          localVersion: localVersion,
+        );
+
+        expect(version.frameworkRevision, revision);
+        expect(version.frameworkVersion, '3.44.9+ohos-0.0.1');
+        expect(processManager, hasNoRemainingExpectations);
+      },
+      overrides: <Type, Generator>{
+        ProcessManager: () => processManager,
+        Platform: () => FakePlatform(),
+      },
+    );
+
+    testUsingContext(
+      'fetchLatestVersion fetches the target tag and returns the new version',
+      () async {
+        const revision = 'adaf911c35';
+        processManager.addCommands(<FakeCommand>[
+          const FakeCommand(
+            command: <String>['git', 'remote', 'get-url', 'origin'],
+            stdout: 'https://gitcode.com/CPF-Flutter/flutter_flutter.git',
+          ),
+          const FakeCommand(
+            command: <String>['git', 'ls-remote', '--tags', 'origin'],
+            stdout:
+                'tagobj01\trefs/tags/3.41.10-ohos-1.0.1\n'
+                'adaf911c35\trefs/tags/3.41.10-ohos-1.0.1^{}\n',
+          ),
+          const FakeCommand(
+            command: <String>['git', 'tag', '--points-at', 'HEAD'],
+            stdout: '3.35.8-ohos-1.0.4\n',
+          ),
+          const FakeCommand(
+            command: <String>['git', 'fetch', 'origin', 'tag', '3.41.10-ohos-1.0.1', '--no-tags'],
+          ),
+          const FakeCommand(
+            command: <String>['git', 'tag', '--points-at', revision],
+            stdout: '3.41.10-ohos-1.0.1\n',
+          ),
+        ]);
+        final upgrade = OhosUpgrade();
+        final localVersion = FakeFlutterVersion(frameworkVersion: '3.35.8-ohos-1.0.4');
+
+        final FlutterVersion version = await upgrade.fetchLatestVersion(
+          workingDirectory: '/flutter',
+          localVersion: localVersion,
+        );
+
+        expect(version.frameworkRevision, revision);
+        expect(version.frameworkVersion, '3.41.10-ohos-1.0.1');
+        expect(upgrade.latestTag, '3.41.10-ohos-1.0.1');
+        expect(processManager, hasNoRemainingExpectations);
+      },
+      overrides: <Type, Generator>{
+        ProcessManager: () => processManager,
+        Platform: () => FakePlatform(),
+      },
+    );
+
+    testUsingContext(
+      'throws tool exit when the target tag cannot be fetched',
+      () async {
+        processManager.addCommands(<FakeCommand>[
+          const FakeCommand(
+            command: <String>['git', 'remote', 'get-url', 'origin'],
+            stdout: 'https://gitcode.com/CPF-Flutter/flutter_flutter.git',
+          ),
+          const FakeCommand(
+            command: <String>['git', 'ls-remote', '--tags', 'origin'],
+            stdout: 'adaf911c35\trefs/tags/3.41.10-ohos-1.0.1\n',
+          ),
+          const FakeCommand(
+            command: <String>['git', 'tag', '--points-at', 'HEAD'],
+            stdout: '3.35.8-ohos-1.0.4\n',
+          ),
+          const FakeCommand(
+            command: <String>['git', 'fetch', 'origin', 'tag', '3.41.10-ohos-1.0.1', '--no-tags'],
+            exception: ProcessException('git', <String>[
+              'fetch',
+              'origin',
+              'tag',
+              '3.41.10-ohos-1.0.1',
+            ], 'fatal: unable to access'),
+          ),
+        ]);
+        final localVersion = FakeFlutterVersion(frameworkVersion: '3.35.8-ohos-1.0.4');
+
+        await expectLater(
+          () => OhosUpgrade().fetchLatestVersion(
+            workingDirectory: '/flutter',
+            localVersion: localVersion,
+          ),
+          throwsToolExit(),
+        );
+        expect(processManager, hasNoRemainingExpectations);
+      },
+      overrides: <Type, Generator>{
+        ProcessManager: () => processManager,
+        Platform: () => FakePlatform(),
+      },
+    );
+
+    testUsingContext(
+      'throws tool exit when the origin remote is not a standard OHOS remote',
+      () async {
+        processManager.addCommand(
+          const FakeCommand(
+            command: <String>['git', 'remote', 'get-url', 'origin'],
+            stdout: 'https://example.com/flutter.git',
+          ),
+        );
+
+        await expectLater(
+          () => OhosUpgrade().fetchLatestVersion(
+            workingDirectory: '/flutter',
+            localVersion: FakeFlutterVersion(frameworkVersion: '3.35.8-ohos-1.0.4'),
+          ),
+          throwsToolExit(),
+        );
+        expect(processManager, hasNoRemainingExpectations);
+      },
+      overrides: <Type, Generator>{
+        ProcessManager: () => processManager,
+        Platform: () => FakePlatform(),
+      },
+    );
+
+    final logger = BufferLogger.test();
+
+    testUsingContext(
+      'flutterUpgradeContinue prints guidance when the follow-up fails',
+      () async {
+        processManager.addCommand(
+          FakeCommand(
+            command: <String>[
+              globals.fs.path.join('bin', 'flutter'),
+              'upgrade',
+              '--continue',
+              '--continue-started-at',
+              '2026-01-01T00:00:00.000Z',
+              '--no-version-check',
+            ],
+            exitCode: 1,
+          ),
+        );
+        await (UpgradeCommandRunner()..workingDirectory = '/flutter').flutterUpgradeContinue(
+          startedAt: DateTime.utc(2026),
+        );
+
+        expect(logger.statusText, contains('Run "flutter precache"'));
+        expect(processManager, hasNoRemainingExpectations);
+      },
+      overrides: <Type, Generator>{
+        ProcessManager: () => processManager,
+        Platform: () => FakePlatform(),
+        Logger: () => logger,
+      },
+    );
   });
 }
 

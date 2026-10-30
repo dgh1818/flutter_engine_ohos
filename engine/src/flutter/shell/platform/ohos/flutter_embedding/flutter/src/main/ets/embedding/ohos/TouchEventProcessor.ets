@@ -291,16 +291,27 @@ export default class TouchEventProcessor {
     return touchPointEventPacket;
   }
 
-  private constructCustomTouchEventImpl(touchPacket: TouchPacket): CustomTouchEvent {
+  private constructCustomTouchEventImpl(touchPacket: TouchPacket, top: number, left: number): CustomTouchEvent {
+    // The global fields (display/window/screen) must be derived from the
+    // local x/y plus the view layout offset (i.e. Flutter-viewport-global
+    // coordinates, the same space the local x/y and the affine transform
+    // translation live in) instead of the packet's screenX/screenY:
+    // on windowed devices (e.g. desktops) the native touch packet
+    // reports screenX/screenY relative to the window top-left (including
+    // the modal title bar) while x/y are XComponent(Flutter viewport)
+    // relative, so using screenX/screenY shifts every global coordinate -
+    // and the affine touch correction that recomputes x/y from them - by
+    // the title bar height. On full-screen devices both spaces coincide,
+    // so this is a no-op there.
     let changes1: CustomTouchObject = new CustomTouchObject(
       touchPacket.touchEvent.type,
       touchPacket.touchEvent.id,
-      touchPacket.touchEvent.screenX,
-      touchPacket.touchEvent.screenY,
-      touchPacket.touchEvent.screenX,
-      touchPacket.touchEvent.screenY,
-      touchPacket.touchEvent.screenX,
-      touchPacket.touchEvent.screenY,
+      touchPacket.touchEvent.x + left,
+      touchPacket.touchEvent.y + top,
+      touchPacket.touchEvent.x + left,
+      touchPacket.touchEvent.y + top,
+      touchPacket.touchEvent.x + left,
+      touchPacket.touchEvent.y + top,
       touchPacket.touchEvent.x,
       touchPacket.touchEvent.y
     );
@@ -311,12 +322,12 @@ export default class TouchEventProcessor {
       let touchesItem: CustomTouchObject = new CustomTouchObject(
         touchPacket.touchEvent.touchPoints[i].type,
         touchPacket.touchEvent.touchPoints[i].id,
-        touchPacket.touchEvent.touchPoints[i].screenX,
-        touchPacket.touchEvent.touchPoints[i].screenY,
-        touchPacket.touchEvent.touchPoints[i].screenX,
-        touchPacket.touchEvent.touchPoints[i].screenY,
-        touchPacket.touchEvent.touchPoints[i].screenX,
-        touchPacket.touchEvent.touchPoints[i].screenY,
+        touchPacket.touchEvent.touchPoints[i].x + left,
+        touchPacket.touchEvent.touchPoints[i].y + top,
+        touchPacket.touchEvent.touchPoints[i].x + left,
+        touchPacket.touchEvent.touchPoints[i].y + top,
+        touchPacket.touchEvent.touchPoints[i].x + left,
+        touchPacket.touchEvent.touchPoints[i].y + top,
         touchPacket.touchEvent.touchPoints[i].x,
         touchPacket.touchEvent.touchPoints[i].y
       );
@@ -349,7 +360,7 @@ export default class TouchEventProcessor {
     let densityPixels: number = display.getDefaultDisplaySync().densityPixels;
 
     let touchPacket: TouchPacket = this.decodeTouchPacket(strings, densityPixels, top, left);
-    let customTouchEvent: CustomTouchEvent = this.constructCustomTouchEventImpl(touchPacket);
+    let customTouchEvent: CustomTouchEvent = this.constructCustomTouchEventImpl(touchPacket, top, left);
     return customTouchEvent;
   }
 
@@ -421,8 +432,12 @@ export default class TouchEventProcessor {
 
         let offset: number = 0;
         const action: number = parseFloat(strings[offset++]);
-        const x: number = vp2px((parseInt(strings[offset++])) / densityPixels - left);
-        const y: number = vp2px((parseInt(strings[offset++])) / densityPixels - top);
+        // Same basis as decodeMousePacket: the packet x/y carry layout px
+        // (logical * densityPixels), so convert the vp offset with
+        // densityPixels instead of the vp2px() round-trip, which uses the
+        // window density and diverges on windowed devices.
+        const x: number = parseFloat(strings[offset++]) - left * densityPixels;
+        const y: number = parseFloat(strings[offset++]) - top * densityPixels;
         const windowX: number = vp2px(parseFloat(strings[offset++]) / densityPixels);
         const windowY: number = vp2px(parseFloat(strings[offset++]) / densityPixels);
         const displayX: number = vp2px(parseFloat(strings[offset++]) / densityPixels);
@@ -430,12 +445,15 @@ export default class TouchEventProcessor {
         const scroll: number = parseFloat(strings[offset++]);
 
         // Construct AxisEvent data
+        // The C++ axis packet already carries decoded windowX/windowY
+        // (window-global coordinates); the AxisEvent previously lost the
+        // view offset by wrongly assigning local x/y to them.
         const axisEvent: AxisEvent = {
           action: action,
           x: x,
           y: y,
-          windowX: x,
-          windowY: y,
+          windowX: windowX,
+          windowY: windowY,
           displayX: displayX,
           displayY: displayY,
           scrollStep: scroll,
@@ -444,7 +462,7 @@ export default class TouchEventProcessor {
 
         let nodeController = params['nodeController'] as EmbeddingNodeController;
         nodeController.postAxisEvent(axisEvent);
-      }      
+      }
     });
   }
   
@@ -461,6 +479,9 @@ export default class TouchEventProcessor {
       for (let index = length - 1; index >= 0; index--) {
         let dvModel = value.getDVModel().children[index]
         let params = dvModel.getLayoutParams() as Record<string, ESObject>;
+        if (params['hcpp'] === true) {
+          continue;
+        }
         let left = params['left'] as number ?? 0;
         let top = params['top'] as number ?? 0;
         let down = params['down'] as boolean ?? false;
@@ -517,10 +538,19 @@ export default class TouchEventProcessor {
 
   private decodeMousePacket(strings: Array<string>, densityPixels: number, top: number, left: number): MousePacket {
     let offset: number = 0;
-    let x: number = vp2px((parseInt(strings[offset++])) / densityPixels - left);
-    let y: number = vp2px((parseInt(strings[offset++])) / densityPixels - top);
-    let screenX: number = vp2px(parseFloat(strings[offset++]) / densityPixels);
-    let screenY: number = vp2px(parseFloat(strings[offset++]) / densityPixels);
+    // The mouse packet strings carry layout pixels (the C++ side maps
+    // screen pixels onto the platform-view layout space before sending),
+    // while left/top are Flutter logical (vp). Convert the offset with the
+    // same densityPixels (layout px = logical * system density) instead of
+    // the previous vp -> vp2px() round-trip: vp2px() uses the window
+    // density, which is only guaranteed to match densityPixels on
+    // full-screen devices, so the round-trip is not always the identity.
+    // screenX/screenY are display-global physical pixels and are passed
+    // through unchanged.
+    let x: number = (parseFloat(strings[offset++])) - left * densityPixels;
+    let y: number = (parseFloat(strings[offset++])) - top * densityPixels;
+    let screenX: number = parseFloat(strings[offset++]);
+    let screenY: number = parseFloat(strings[offset++]);
     let timestamp: number = parseFloat(strings[offset++]);
     let action: number = parseFloat(strings[offset++]);
     let button: number = parseFloat(strings[offset++]);
@@ -540,13 +570,17 @@ export default class TouchEventProcessor {
 
   private constructMouseEventImpl(mousePacket: MousePacket): MouseEvent {
     // Construct MouseEvent data
+    // displayX/windowX must carry global coordinates: MousePacket already
+    // decodes screenX/screenY (screen-global physical pixels), while the
+    // local coordinates mousePacket.x/y were wrongly used before, which
+    // made window/display equal to local for the platform view.
     const mouseEvent: MouseEvent = {
       button: mousePacket.button,
       action: mousePacket.action,
-      displayX: mousePacket.x,
-      displayY: mousePacket.y,
-      windowX: mousePacket.x,
-      windowY: mousePacket.y,
+      displayX: mousePacket.screenX,
+      displayY: mousePacket.screenY,
+      windowX: mousePacket.screenX,
+      windowY: mousePacket.screenY,
       screenX: mousePacket.screenX,
       screenY: mousePacket.screenY,
       x: mousePacket.x,
@@ -566,7 +600,6 @@ export default class TouchEventProcessor {
   /** Construct the MouseEvent and return. */
   public constructMouseEvent(strings: Array<string>, top: number, left: number): MouseEvent {
     let densityPixels: number = display.getDefaultDisplaySync().densityPixels;
-
     let mousePacket: MousePacket = this.decodeMousePacket(strings, densityPixels, top, left);
     let mouseEvent: MouseEvent = this.constructMouseEventImpl(mousePacket);
     return mouseEvent;
@@ -578,6 +611,10 @@ export default class TouchEventProcessor {
    * @param strings - Array of string values representing mouse event data
    */
   public postMouseEvent(strings: Array<string>) {
+    // Same density basis as decodeMousePacket (system display density):
+    // the hit test below must convert the vp bounds with the same
+    // densityPixels instead of vp2px() (window density).
+    const densityPixels: number = display.getDefaultDisplaySync().densityPixels;
     FlutterManager.getInstance().getFlutterViewList().forEach((value) => {
       if (!value.getActive()) {
         return
@@ -596,7 +633,8 @@ export default class TouchEventProcessor {
         if (synthesized) {
           // 已合成 Press，Release 直接分发；Move 仅在 view 内分发，避免离开时边界外坐标误触发 mouseleave
           if (mouseEvent.action == MouseAction.Release ||
-            (mouseEvent.action == MouseAction.Move && this.checkHitPlatformViewByLocal(mouseEvent, params))) {
+            (mouseEvent.action == MouseAction.Move &&
+              this.checkHitPlatformViewByLocal(mouseEvent, params, densityPixels))) {
             let nodeController = params['nodeController'] as EmbeddingNodeController;
             nodeController.postMouseEvent(mouseEvent);
           }
@@ -617,7 +655,7 @@ export default class TouchEventProcessor {
           nodeController.postMouseEvent(mouseEvent);
           break;
         } else if (mouseEvent.button != 0 && mouseEvent.action != MouseAction.Press &&
-          this.checkHitPlatformViewByLocal(mouseEvent, params)) {
+          this.checkHitPlatformViewByLocal(mouseEvent, params, densityPixels)) {
           // 跨区域按键拖入：down 恒为 false，webview 未收到 Press 会拒绝 Release。
           // 拖入瞬间合成 Press 补发，置 synthesized=true 使后续 Release 正常分发。
           // 排除 action==Press：区域内直接点击应走缓存分支由 Dart drain，避免双发 Press。
@@ -661,16 +699,20 @@ export default class TouchEventProcessor {
 
   /**
    * Checks whether the mouse cursor is within the PlatformView bounds.
-   * mouseEvent.x/y are local px; params['width'/'height'] are vp, converted via vp2px.
+   * mouseEvent.x/y are local layout px (logical * densityPixels, the system
+   * density - see decodeMousePacket); params['width'/'height'] are vp and
+   * must be converted with the same densityPixels. vp2px() uses the window
+   * density, which diverges from the system density on windowed devices.
    */
-  private checkHitPlatformViewByLocal(mouseEvent: MouseEvent, params: Record<string, ESObject>): boolean {
+  private checkHitPlatformViewByLocal(mouseEvent: MouseEvent, params: Record<string, ESObject>,
+    densityPixels: number): boolean {
     const viewWidth = params['width'] as number ?? 0;
     const viewHeight = params['height'] as number ?? 0;
     if (viewWidth <= 0 || viewHeight <= 0) {
       return false;
     }
-    return mouseEvent.x >= 0 && mouseEvent.x <= vp2px(viewWidth) &&
-      mouseEvent.y >= 0 && mouseEvent.y <= vp2px(viewHeight);
+    return mouseEvent.x >= 0 && mouseEvent.x <= viewWidth * densityPixels &&
+      mouseEvent.y >= 0 && mouseEvent.y <= viewHeight * densityPixels;
   }
 
   /**

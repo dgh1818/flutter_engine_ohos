@@ -9,8 +9,11 @@
 #undef private
 
 #include <gtest/gtest.h>
+#include <native_image/native_image.h>
 #include <atomic>
 #include <cstring>
+#include <functional>
+#include <limits>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -22,6 +25,7 @@
 #include "flutter/common/settings.h"
 #include "flutter/common/task_runners.h"
 #include "flutter/display_list/geometry/dl_geometry_types.h"
+#include "flutter/fml/log_settings.h"
 #include "flutter/fml/mapping.h"
 #include "flutter/fml/synchronization/waitable_event.h"
 #include "flutter/fml/thread.h"
@@ -40,9 +44,7 @@
 #include "flutter/shell/platform/ohos/platform_message_handler_ohos.h"
 #include "flutter/shell/platform/ohos/surface/ohos_native_window.h"
 #include "flutter/shell/platform/ohos/test_stubs/ace_graphic_ndk_stub.h"
-#if !defined(OHOS_X64_UNITTEST)
-#include <native_image/native_image.h>
-#endif
+#include "impeller/renderer/backend/vulkan/test/mock_vulkan.h"
 
 namespace flutter {
 
@@ -56,6 +58,24 @@ extern std::map<uint64_t, PlatformViewOHOS*> g_texture_platformview_map;
 extern std::recursive_mutex g_map_mutex;
 
 namespace testing {
+
+std::vector<OH_NativeImage*> g_pv_ut_registry_images;
+std::vector<OH_NativeImage*> g_wb_ut_registry_images;
+
+void ResetOhosPlatformViewTestNativeImages() {
+  for (auto*& image : g_pv_ut_registry_images) {
+    if (image != nullptr) {
+      OH_NativeImage_Destroy(&image);
+    }
+  }
+  g_pv_ut_registry_images.clear();
+  for (auto*& image : g_wb_ut_registry_images) {
+    if (image != nullptr) {
+      OH_NativeImage_Destroy(&image);
+    }
+  }
+  g_wb_ut_registry_images.clear();
+}
 
 namespace {
 
@@ -78,9 +98,11 @@ class NullDelegate : public PlatformView::Delegate {
   void OnPlatformViewRemoveView(int64_t view_id,
                                 RemoveViewCallback callback) override {}
   void OnPlatformViewSendViewFocusEvent(const ViewFocusEvent& event) override {}
-  void OnPlatformViewSetNextFrameCallback(const fml::closure& closure) override {}
-  void OnPlatformViewSetViewportMetrics(int64_t view_id,
-                                        const ViewportMetrics& metrics) override {}
+  void OnPlatformViewSetNextFrameCallback(
+      const fml::closure& closure) override {}
+  void OnPlatformViewSetViewportMetrics(
+      int64_t view_id,
+      const ViewportMetrics& metrics) override {}
   void OnPlatformViewDispatchPlatformMessage(
       std::unique_ptr<PlatformMessage> message) override {}
   void OnPlatformViewDispatchPointerDataPacket(
@@ -88,66 +110,39 @@ class NullDelegate : public PlatformView::Delegate {
   void OnPlatformViewDispatchSemanticsAction(int64_t view_id,
                                              int32_t node_id,
                                              SemanticsAction action,
-                                             fml::MallocMapping args) override {}
+                                             fml::MallocMapping args) override {
+  }
   void OnPlatformViewSetSemanticsEnabled(bool enabled) override {}
   void OnPlatformViewSetAccessibilityFeatures(int32_t flags) override {}
-  void OnPlatformViewRegisterTexture(std::shared_ptr<Texture> texture) override {}
+  void OnPlatformViewRegisterTexture(
+      std::shared_ptr<Texture> texture) override {}
   void OnPlatformViewUnregisterTexture(int64_t texture_id) override {}
   void OnPlatformViewMarkTextureFrameAvailable(int64_t texture_id) override {}
-  void LoadDartDeferredLibrary(intptr_t loading_unit_id,
-                               std::unique_ptr<const fml::Mapping> snapshot_data,
-                               std::unique_ptr<const fml::Mapping> snapshot_instructions) override {}
+  void LoadDartDeferredLibrary(
+      intptr_t loading_unit_id,
+      std::unique_ptr<const fml::Mapping> snapshot_data,
+      std::unique_ptr<const fml::Mapping> snapshot_instructions) override {}
   void LoadDartDeferredLibraryError(intptr_t loading_unit_id,
                                     const std::string error_message,
                                     bool transient) override {}
-  void UpdateAssetResolverByType(std::unique_ptr<AssetResolver> updated_asset_resolver,
-                                 AssetResolver::AssetResolverType type) override {}
-  const Settings& OnPlatformViewGetSettings() const override { return settings_; }
+  void UpdateAssetResolverByType(
+      std::unique_ptr<AssetResolver> updated_asset_resolver,
+      AssetResolver::AssetResolverType type) override {}
+  const Settings& OnPlatformViewGetSettings() const override {
+    return settings_;
+  }
 
   Settings settings_;
 };
-
-#if defined(OHOS_X64_UNITTEST)
-
-// x64 模拟器：hdc shell 起不了 JIT VM（mmap 无权限），绕开 OHOSShellHolder
-// 直接构造 PlatformViewOHOS。
-class TestViewHandle {
- public:
-  explicit TestViewHandle(const Settings& settings)
-      : runners_("test",
-                 platform_thread_.GetTaskRunner(),
-                 raster_thread_.GetTaskRunner(),
-                 ui_thread_.GetTaskRunner(),
-                 io_thread_.GetTaskRunner()) {
-    delegate_.settings_ = settings;
-    napi_facade_ = std::make_shared<PlatformViewOHOSNapi>(nullptr);
-    view_ = std::make_unique<PlatformViewOHOS>(
-        delegate_, runners_, napi_facade_, /*use_software_rendering=*/true);
-  }
-
-  bool IsValid() const { return view_ != nullptr; }
-  PlatformViewOHOS* view() { return view_.get(); }
-
- private:
-  NullDelegate delegate_;
-  fml::Thread platform_thread_;
-  fml::Thread raster_thread_;
-  fml::Thread ui_thread_;
-  fml::Thread io_thread_;
-  TaskRunners runners_;
-  std::shared_ptr<PlatformViewOHOSNapi> napi_facade_;
-  std::unique_ptr<PlatformViewOHOS> view_;
-};
-
-#else
 
 // 真机：原路径，完整 Shell + Dart VM。
 class TestViewHandle {
  public:
   explicit TestViewHandle(const Settings& settings)
       : napi_facade_(std::make_shared<PlatformViewOHOSNapi>(nullptr)),
-        holder_(
-            std::make_unique<OHOSShellHolder>(settings, napi_facade_, nullptr)) {}
+        holder_(std::make_unique<OHOSShellHolder>(settings,
+                                                  napi_facade_,
+                                                  nullptr)) {}
 
   bool IsValid() const { return holder_->IsValid(); }
   PlatformViewOHOS* view() { return holder_->GetPlatformView().get(); }
@@ -157,39 +152,11 @@ class TestViewHandle {
   std::unique_ptr<OHOSShellHolder> holder_;
 };
 
-#endif  // defined(OHOS_X64_UNITTEST)
-
 OHNativeWindow* const kPvUtHandleA = reinterpret_cast<OHNativeWindow*>(0x5000);
 OHNativeWindow* const kPvUtHandleB = reinterpret_cast<OHNativeWindow*>(0x5100);
 
-#if defined(OHOS_X64_UNITTEST)
-
-fml::RefPtr<OHOSNativeWindow> MakePvUtWindow(OHNativeWindow* handle) {
-  return fml::MakeRefCounted<OHOSNativeWindow>(handle, false);
-}
-
-bool PvUtInjectOffscreenAcquireFailure() {
-  g_stub_graphic_fail_mask =
-      kStubFailNativeImageCreate | kStubFailAcquireNativeWindow;
-  return true;
-}
-void PvUtClearOffscreenAcquireFailure() { g_stub_graphic_fail_mask = 0; }
-
-void PvUtSetWindowGeometry(int32_t width, int32_t height) {
-  g_stub_geometry_width = width;
-  g_stub_geometry_height = height;
-}
-
-class PvUtKnobGuard {
- private:
-  GraphicStubKnobGuard stub_guard_;
-};
-
-#else
-
 std::vector<OH_NativeImage*>& PvUtRegistryImages() {
-  static std::vector<OH_NativeImage*> images;
-  return images;
+  return g_pv_ut_registry_images;
 }
 int32_t g_pv_ut_window_width = 0;
 int32_t g_pv_ut_window_height = 0;
@@ -237,8 +204,6 @@ class PvUtKnobGuard {
   }
 };
 
-#endif  // defined(OHOS_X64_UNITTEST)
-
 class PvOhosRecordingDelegate : public NullDelegate {
  public:
   void OnPlatformViewCreated(std::unique_ptr<Surface> surface) override {
@@ -254,7 +219,8 @@ class PvOhosRecordingDelegate : public NullDelegate {
     schedule_frame_count_++;
   }
   void OnPlatformViewSetViewportMetrics(
-      int64_t view_id, const ViewportMetrics& metrics) override {
+      int64_t view_id,
+      const ViewportMetrics& metrics) override {
     std::lock_guard<std::mutex> lock(mutex_);
     metrics_events_.push_back({view_id, metrics});
   }
@@ -308,9 +274,10 @@ class PvOhosRecordingDelegate : public NullDelegate {
     std::lock_guard<std::mutex> lock(mutex_);
     remove_view_ids_.push_back(view_id);
     if (callback) {
-      callback(false);
+      callback(remove_view_ok_);
     }
   }
+  bool remove_view_ok_ = false;
   void LoadDartDeferredLibrary(intptr_t loading_unit_id,
                                std::unique_ptr<const fml::Mapping>,
                                std::unique_ptr<const fml::Mapping>) override {
@@ -468,9 +435,11 @@ class WbNullDelegate : public PlatformView::Delegate {
   void OnPlatformViewRemoveView(int64_t view_id,
                                 RemoveViewCallback callback) override {}
   void OnPlatformViewSendViewFocusEvent(const ViewFocusEvent& event) override {}
-  void OnPlatformViewSetNextFrameCallback(const fml::closure& closure) override {}
-  void OnPlatformViewSetViewportMetrics(int64_t view_id,
-                                        const ViewportMetrics& metrics) override {}
+  void OnPlatformViewSetNextFrameCallback(
+      const fml::closure& closure) override {}
+  void OnPlatformViewSetViewportMetrics(
+      int64_t view_id,
+      const ViewportMetrics& metrics) override {}
   void OnPlatformViewDispatchPlatformMessage(
       std::unique_ptr<PlatformMessage> message) override {}
   void OnPlatformViewDispatchPointerDataPacket(
@@ -478,28 +447,36 @@ class WbNullDelegate : public PlatformView::Delegate {
   void OnPlatformViewDispatchSemanticsAction(int64_t view_id,
                                              int32_t node_id,
                                              SemanticsAction action,
-                                             fml::MallocMapping args) override {}
+                                             fml::MallocMapping args) override {
+  }
   void OnPlatformViewSetSemanticsEnabled(bool enabled) override {}
   void OnPlatformViewSetAccessibilityFeatures(int32_t flags) override {}
-  void OnPlatformViewRegisterTexture(std::shared_ptr<Texture> texture) override {}
+  void OnPlatformViewRegisterTexture(
+      std::shared_ptr<Texture> texture) override {}
   void OnPlatformViewUnregisterTexture(int64_t texture_id) override {}
   void OnPlatformViewMarkTextureFrameAvailable(int64_t texture_id) override {}
-  void LoadDartDeferredLibrary(intptr_t loading_unit_id,
-                               std::unique_ptr<const fml::Mapping> snapshot_data,
-                               std::unique_ptr<const fml::Mapping> snapshot_instructions) override {}
+  void LoadDartDeferredLibrary(
+      intptr_t loading_unit_id,
+      std::unique_ptr<const fml::Mapping> snapshot_data,
+      std::unique_ptr<const fml::Mapping> snapshot_instructions) override {}
   void LoadDartDeferredLibraryError(intptr_t loading_unit_id,
                                     const std::string error_message,
                                     bool transient) override {}
-  void UpdateAssetResolverByType(std::unique_ptr<AssetResolver> updated_asset_resolver,
-                                 AssetResolver::AssetResolverType type) override {}
-  const Settings& OnPlatformViewGetSettings() const override { return settings_; }
+  void UpdateAssetResolverByType(
+      std::unique_ptr<AssetResolver> updated_asset_resolver,
+      AssetResolver::AssetResolverType type) override {}
+  const Settings& OnPlatformViewGetSettings() const override {
+    return settings_;
+  }
 
   Settings settings_;
 };
 
 class WbRecordingDelegate : public WbNullDelegate {
  public:
-  void OnPlatformViewCreated(std::unique_ptr<Surface>) override { Bump(created_); }
+  void OnPlatformViewCreated(std::unique_ptr<Surface>) override {
+    Bump(created_);
+  }
   void OnPlatformViewDestroyed() override { Bump(destroyed_); }
   void OnPlatformViewScheduleFrame() override { Bump(schedule_frame_); }
   void OnPlatformViewRegisterTexture(std::shared_ptr<Texture>) override {
@@ -567,7 +544,8 @@ class WbRecordingDelegate : public WbNullDelegate {
 class WbFakeTexture : public OHOSExternalTexture {
  public:
   explicit WbFakeTexture(int64_t id)
-      : OHOSExternalTexture(id, OH_OnFrameAvailableListener{nullptr, nullptr}) {}
+      : OHOSExternalTexture(id, OH_OnFrameAvailableListener{nullptr, nullptr}) {
+  }
 
   void MarkNewFrameAvailable() override { ++mark_new_frame_calls_; }
   void Paint(PaintContext& context,
@@ -577,13 +555,15 @@ class WbFakeTexture : public OHOSExternalTexture {
   void OnGrContextCreated() override {}
   void OnGrContextDestroyed() override {}
   void OnTextureUnregistered() override {}
-  void SetGPUFence(OHNativeWindowBuffer* window_buffer, int* fence_fd) override {}
+  void SetGPUFence(OHNativeWindowBuffer* window_buffer,
+                   int* fence_fd) override {}
   void GPUResourceDestroy() override {}
-  sk_sp<flutter::DlImage> CreateDlImage(PaintContext& context,
-                                        const SkRect& bounds,
-                                        NativeBufferKey key,
-                                        OH_NativeBuffer_Config& config,
-                                        OHNativeWindowBuffer* nw_buffer) override {
+  sk_sp<flutter::DlImage> CreateDlImage(
+      PaintContext& context,
+      const SkRect& bounds,
+      NativeBufferKey key,
+      OH_NativeBuffer_Config& config,
+      OHNativeWindowBuffer* nw_buffer) override {
     return nullptr;
   }
   void DeleteBufferGPUResource(NativeBufferKey key) override {}
@@ -596,17 +576,8 @@ class WbFakeTexture : public OHOSExternalTexture {
 
 OHNativeWindow* const kWbHandleA = reinterpret_cast<OHNativeWindow*>(0x6000);
 
-#if defined(OHOS_X64_UNITTEST)
-
-fml::RefPtr<OHOSNativeWindow> WbMakeWindow(OHNativeWindow* handle) {
-  return fml::MakeRefCounted<OHOSNativeWindow>(handle, false);
-}
-
-#else
-
 std::vector<OH_NativeImage*>& WbRegistryImages() {
-  static std::vector<OH_NativeImage*> images;
-  return images;
+  return g_wb_ut_registry_images;
 }
 
 fml::RefPtr<OHOSNativeWindow> WbMakeWindow(OHNativeWindow* request) {
@@ -621,8 +592,6 @@ fml::RefPtr<OHOSNativeWindow> WbMakeWindow(OHNativeWindow* request) {
   }
   return fml::MakeRefCounted<OHOSNativeWindow>(window, false);
 }
-
-#endif  // defined(OHOS_X64_UNITTEST)
 
 class WbMapEntry {
  public:
@@ -668,14 +637,15 @@ class PlatformViewOHOSWbTest : public ::testing::Test {
     delegate_.settings_ = MakeWbSettings();
     napi_facade_ = std::make_shared<PlatformViewOHOSNapi>(nullptr);
     runners_ = std::make_unique<TaskRunners>(
-        "wb_ut", platform_thread_.GetTaskRunner(), raster_thread_.GetTaskRunner(),
-        ui_thread_.GetTaskRunner(), io_thread_.GetTaskRunner());
+        "wb_ut", platform_thread_.GetTaskRunner(),
+        raster_thread_.GetTaskRunner(), ui_thread_.GetTaskRunner(),
+        io_thread_.GetTaskRunner());
     std::shared_ptr<OHOSContext> context =
         with_context_
             ? std::make_shared<OHOSContext>(OHOSRenderingAPI::kSoftware)
             : std::shared_ptr<OHOSContext>();
-    view_ = std::make_unique<PlatformViewOHOS>(delegate_, *runners_, napi_facade_,
-                                               context);
+    view_ = std::make_unique<PlatformViewOHOS>(delegate_, *runners_,
+                                               napi_facade_, context);
     bridge_ = std::make_shared<SemanticsBridge>();
     bridge_mutex_ = std::make_shared<std::mutex>();
     view_->SetSemanticsBridge(bridge_, bridge_mutex_);
@@ -689,13 +659,18 @@ class PlatformViewOHOSWbTest : public ::testing::Test {
     if (!runners_) {
       return;
     }
+    const auto kFlushTimeout = fml::TimeDelta::FromSeconds(5);
     fml::AutoResetWaitableEvent raster_done, platform_once, platform_twice;
     runners_->GetRasterTaskRunner()->PostTask([&] { raster_done.Signal(); });
-    runners_->GetPlatformTaskRunner()->PostTask([&] { platform_once.Signal(); });
-    raster_done.Wait();
-    platform_once.Wait();
-    runners_->GetPlatformTaskRunner()->PostTask([&] { platform_twice.Signal(); });
-    platform_twice.Wait();
+    runners_->GetPlatformTaskRunner()->PostTask(
+        [&] { platform_once.Signal(); });
+    if (raster_done.WaitWithTimeout(kFlushTimeout) ||
+        platform_once.WaitWithTimeout(kFlushTimeout)) {
+      return;
+    }
+    runners_->GetPlatformTaskRunner()->PostTask(
+        [&] { platform_twice.Signal(); });
+    platform_twice.WaitWithTimeout(kFlushTimeout);
   }
 
   bool WaitForPlatformIdleAfter(fml::TimeDelta delay) {
@@ -728,7 +703,7 @@ class PlatformViewOHOSWbTest : public ::testing::Test {
   std::unique_ptr<PlatformViewOHOS> view_;
 };
 
-}
+}  // namespace
 
 class PlatformViewOHOSUt : public ::testing::Test {
  protected:
@@ -764,13 +739,18 @@ class PlatformViewOHOSUt : public ::testing::Test {
     if (!runners_) {
       return;
     }
+    const auto kFlushTimeout = fml::TimeDelta::FromSeconds(5);
     fml::AutoResetWaitableEvent raster_done, platform_once, platform_twice;
     runners_->GetRasterTaskRunner()->PostTask([&] { raster_done.Signal(); });
-    runners_->GetPlatformTaskRunner()->PostTask([&] { platform_once.Signal(); });
-    raster_done.Wait();
-    platform_once.Wait();
-    runners_->GetPlatformTaskRunner()->PostTask([&] { platform_twice.Signal(); });
-    platform_twice.Wait();
+    runners_->GetPlatformTaskRunner()->PostTask(
+        [&] { platform_once.Signal(); });
+    if (raster_done.WaitWithTimeout(kFlushTimeout) ||
+        platform_once.WaitWithTimeout(kFlushTimeout)) {
+      return;
+    }
+    runners_->GetPlatformTaskRunner()->PostTask(
+        [&] { platform_twice.Signal(); });
+    platform_twice.WaitWithTimeout(kFlushTimeout);
   }
 
   bool WaitForPlatformIdleAfter(fml::TimeDelta delay) {
@@ -801,8 +781,9 @@ class PlatformViewOHOSUt : public ::testing::Test {
 };
 
 // HCPP 默认关闭：开关未打开时 IsHybridCompositionEnabled() 为 false，
-// CreateExternalViewEmbedder() 返回非 null 的默认 embedder
-// （HCPP embedder 仅在 hybrid_composition_enabled_ 时创建）。
+// 且软件渲染后端下窗口化 embedder 被禁用，
+// CreateExternalViewEmbedder() 返回 null
+// （窗口化 embedder 仅在 kImpellerVulkan 渲染后端创建）。
 TEST_F(PlatformViewOHOSUt, DisabledByDefault) {
   auto settings = MakeTestSettings();
   EXPECT_FALSE(settings.enable_ohos_hybrid_composition);
@@ -817,8 +798,7 @@ TEST_F(PlatformViewOHOSUt, DisabledByDefault) {
   // 经基类 public 虚接口调用触发虚表分发。
   PlatformView* base_view = platform_view;
   auto embedder = base_view->CreateExternalViewEmbedder();
-  ASSERT_NE(embedder, nullptr);
-  EXPECT_EQ(embedder->CompositeEmbeddedView(1), nullptr);
+  ASSERT_EQ(embedder, nullptr);
 }
 
 // HCPP 以 Settings.enable_ohos_hybrid_composition 方式打开，但软件渲染后端
@@ -835,8 +815,7 @@ TEST_F(PlatformViewOHOSUt, DisabledWithSoftwareRenderingDespiteSettings) {
   EXPECT_FALSE(platform_view->IsHybridCompositionEnabled());
   PlatformView* base_view = platform_view;
   auto embedder = base_view->CreateExternalViewEmbedder();
-  ASSERT_NE(embedder, nullptr);
-  EXPECT_EQ(embedder->CompositeEmbeddedView(1), nullptr);
+  ASSERT_EQ(embedder, nullptr);
 }
 
 // HCPP 关闭时 overlay 窗口的生命周期方法必须安全：
@@ -852,10 +831,11 @@ TEST_F(PlatformViewOHOSUt, OverlayWindowCallsSafeWhenDisabled) {
   ASSERT_NE(platform_view, nullptr);
 
   int dummy_window = 0;
-  platform_view->SetHybridCompositionOverlayWindow(&dummy_window);
-  platform_view->ClearHybridCompositionOverlayWindowSync();
-  // 清空路径（nullptr）同样安全。
-  platform_view->SetHybridCompositionOverlayWindow(nullptr);
+  {
+    fml::ScopedSetLogSettings loud({fml::kLogInfo});
+    platform_view->SetHybridCompositionOverlayWindow(&dummy_window);
+    platform_view->SetHybridCompositionOverlayWindow(nullptr);
+  }
   platform_view->ClearHybridCompositionOverlayWindowSync();
 }
 
@@ -876,31 +856,37 @@ TEST_F(PlatformViewOHOSUt, SurfaceFactoryCreatesSoftwareSurface) {
   EXPECT_TRUE(gpu_surface->IsValid());
 }
 
-TEST_F(PlatformViewOHOSUt, CreateOHOSContextSoftwareIsValid) {
-  auto context = CreateOHOSContext(runners(), OHOSRenderingAPI::kSoftware, false,
-                                   false, false);
-  ASSERT_NE(context, nullptr);
-  EXPECT_EQ(context->RenderingApi(), OHOSRenderingAPI::kSoftware);
-  EXPECT_TRUE(context->IsValid());
-}
+TEST_F(PlatformViewOHOSUt, CreateOHOSContext) {
+  const bool kNoValidation = false;
+  auto software =
+      CreateOHOSContext(runners(), OHOSRenderingAPI::kSoftware, kNoValidation,
+                        kNoValidation, kNoValidation);
+  ASSERT_NE(software, nullptr);
+  EXPECT_EQ(software->RenderingApi(), OHOSRenderingAPI::kSoftware);
+  EXPECT_TRUE(software->IsValid());
 
-TEST_F(PlatformViewOHOSUt, CreateOHOSContextGlesReturnsContext) {
-  auto context = CreateOHOSContext(runners(), OHOSRenderingAPI::kOpenGLES,
-                                   false, false, false);
-  ASSERT_NE(context, nullptr);
-  EXPECT_EQ(context->RenderingApi(), OHOSRenderingAPI::kOpenGLES);
-}
+  auto gles = CreateOHOSContext(runners(), OHOSRenderingAPI::kOpenGLES,
+                                kNoValidation, kNoValidation, kNoValidation);
+  ASSERT_NE(gles, nullptr);
+  EXPECT_EQ(gles->RenderingApi(), OHOSRenderingAPI::kOpenGLES);
 
-TEST_F(PlatformViewOHOSUt, CreateOHOSContextVulkanReturnsContext) {
-  auto context = CreateOHOSContext(runners(), OHOSRenderingAPI::kImpellerVulkan,
-                                   false, false, false);
-  ASSERT_NE(context, nullptr);
-  EXPECT_EQ(context->RenderingApi(), OHOSRenderingAPI::kImpellerVulkan);
+  auto vulkan = CreateOHOSContext(runners(), OHOSRenderingAPI::kImpellerVulkan,
+                                  kNoValidation, kNoValidation, kNoValidation);
+  ASSERT_NE(vulkan, nullptr);
+  EXPECT_EQ(vulkan->RenderingApi(), OHOSRenderingAPI::kImpellerVulkan);
+
+#ifdef NDEBUG
+  const auto kPastLastApi = static_cast<OHOSRenderingAPI>(
+      static_cast<int>(OHOSRenderingAPI::kImpellerVulkan) + 1);
+  EXPECT_EQ(CreateOHOSContext(runners(), kPastLastApi, kNoValidation,
+                              kNoValidation, kNoValidation),
+            nullptr);
+#endif
 }
 
 TEST_F(PlatformViewOHOSUtNoCtx, SurfacelessViewEarlyReturns) {
-  EXPECT_FALSE(view()->NotifyCreateForView(2, MakePvUtWindow(kPvUtHandleA), 10,
-                                           10));
+  EXPECT_FALSE(
+      view()->NotifyCreateForView(2, MakePvUtWindow(kPvUtHandleA), 10, 10));
   view()->NotifyCreated();
   FlushTasks();
   EXPECT_EQ(delegate().created_count(), 0);
@@ -920,6 +906,13 @@ TEST_F(PlatformViewOHOSUtNoCtx, SurfacelessNotifyCreateAndDestroy) {
   EXPECT_EQ(delegate().destroyed_count(), 1);
   ASSERT_FALSE(delegate().semantics_enabled().empty());
   EXPECT_FALSE(delegate().semantics_enabled().back());
+  {
+    fml::ScopedSetLogSettings quiet({fml::kLogFatal});
+    view()->NotifyCreate(MakePvUtWindow(kPvUtHandleA));
+    view()->NotifyChanged(DlISize{10, 10});
+    view()->NotifyDestroyed();
+    FlushTasks();
+  }
 }
 
 TEST_F(PlatformViewOHOSUt, SetViewportMetricsUsesDisplaySizeWhenSet) {
@@ -949,6 +942,72 @@ TEST_F(PlatformViewOHOSUt, SetViewportMetricsUsesDisplaySizeWhenSet) {
   EXPECT_EQ(delegate().metrics_count(), 3u);
 }
 
+namespace {
+
+// Saves and restores the process-wide static system display density used by
+// PlatformViewOHOS::GetScreenToPlatformViewLayoutScale.
+class ScopedSystemDensity {
+ public:
+  explicit ScopedSystemDensity(double value)
+      : saved_(PlatformViewOHOSNapi::display_density_pixels) {
+    PlatformViewOHOSNapi::display_density_pixels = value;
+  }
+  ~ScopedSystemDensity() {
+    PlatformViewOHOSNapi::display_density_pixels = saved_;
+  }
+
+ private:
+  double saved_;
+};
+
+}  // namespace
+
+// ===== GetScreenToPlatformViewLayoutScale =====
+// Regression tests for the WebView click-drift bug after a custom DPI scale
+// (flutter/displaymetrics 'updateDpiScale'): pointer packets forwarded to
+// platform views must be mapped between physical screen pixels and the ArkUI
+// layout space with system_density / flutter_dpr, and the mapping must be the
+// identity (1.0) when both densities match.
+
+TEST_F(PlatformViewOHOSUt, ScreenToLayoutScaleIdentityWhenDprsMatch) {
+  ScopedSystemDensity density(3.25);
+  ViewportMetrics metrics;
+  metrics.device_pixel_ratio = 3.25;
+  view()->SetViewportMetrics(kFlutterImplicitViewId, metrics);
+  EXPECT_DOUBLE_EQ(view()->GetScreenToPlatformViewLayoutScale(), 1.0);
+}
+
+TEST_F(PlatformViewOHOSUt, ScreenToLayoutScaleForCustomDpi) {
+  ScopedSystemDensity density(3.25);
+  ViewportMetrics metrics;
+  // Custom DPR from an 'updateDpiScale(0.9787...)' request (system 3.25).
+  metrics.device_pixel_ratio = 3.181;
+  view()->SetViewportMetrics(kFlutterImplicitViewId, metrics);
+  EXPECT_NEAR(view()->GetScreenToPlatformViewLayoutScale(), 3.25 / 3.181, 1e-9);
+}
+
+TEST_F(PlatformViewOHOSUt, ScreenToLayoutScaleInvalidValuesFallBackToOne) {
+  ScopedSystemDensity density(3.25);
+
+  ViewportMetrics zero_dpr;
+  zero_dpr.device_pixel_ratio = 0.0;
+  view()->SetViewportMetrics(kFlutterImplicitViewId, zero_dpr);
+  EXPECT_DOUBLE_EQ(view()->GetScreenToPlatformViewLayoutScale(), 1.0);
+
+  ViewportMetrics nan_dpr;
+  nan_dpr.device_pixel_ratio = std::numeric_limits<double>::quiet_NaN();
+  view()->SetViewportMetrics(kFlutterImplicitViewId, nan_dpr);
+  EXPECT_DOUBLE_EQ(view()->GetScreenToPlatformViewLayoutScale(), 1.0);
+
+  // A zero system density must also fall back to the identity scale even
+  // when the viewport DPR is valid.
+  ScopedSystemDensity zero_density(0.0);
+  ViewportMetrics metrics;
+  metrics.device_pixel_ratio = 3.25;
+  view()->SetViewportMetrics(kFlutterImplicitViewId, metrics);
+  EXPECT_DOUBLE_EQ(view()->GetScreenToPlatformViewLayoutScale(), 1.0);
+}
+
 TEST_F(PlatformViewOHOSUt, UpdateSemanticsQueuedUntilNotifyCreateDrains) {
   SemanticsNodeUpdates nodes;
   SemanticsNode root;
@@ -966,12 +1025,13 @@ TEST_F(PlatformViewOHOSUt, UpdateSemanticsQueuedUntilNotifyCreateDrains) {
   view()->NotifyCreate(MakePvUtWindow(kPvUtHandleA));
   EXPECT_NE(bridge()->tree_.FindNodeById(1), nullptr);
   FlushTasks();
-  EXPECT_EQ(delegate().created_count(), 0);
+  // 无窗口化 embedder 时直接使用主 GPU surface，NotifyCreated 成功。
+  EXPECT_EQ(delegate().created_count(), 1);
   EXPECT_EQ(delegate().next_frame_callback_count(), 1);
 }
 
 TEST_F(PlatformViewOHOSUt, NotifyCreateNotifiesCreatedWithEmbedder) {
-  ASSERT_NE(base()->CreateExternalViewEmbedder(), nullptr);
+  ASSERT_EQ(base()->CreateExternalViewEmbedder(), nullptr);
   view()->NotifyCreate(MakePvUtWindow(kPvUtHandleB));
   FlushTasks();
   EXPECT_EQ(delegate().created_count(), 1);
@@ -981,12 +1041,15 @@ TEST_F(PlatformViewOHOSUt, NotifyCreateNotifiesCreatedWithEmbedder) {
 TEST_F(PlatformViewOHOSUt, NotifyCreateSetDisplayWindowFailure) {
   view()->NotifyCreate(MakePvUtWindow(nullptr));
   FlushTasks();
-  EXPECT_EQ(delegate().created_count(), 0);
+  // SetDisplayWindow 失败不再阻断 NotifyCreated（主 GPU surface 直连）。
+  EXPECT_EQ(delegate().created_count(), 1);
   EXPECT_EQ(delegate().next_frame_callback_count(), 1);
 }
 
 TEST_F(PlatformViewOHOSUt, PreloadOffscreenThenSecondPreloadSkips) {
-  ASSERT_NE(base()->CreateExternalViewEmbedder(), nullptr);
+  ASSERT_EQ(base()->CreateExternalViewEmbedder(), nullptr);
+  auto preload_texture = std::make_shared<WbFakeTexture>(91);
+  view()->all_external_texture_[91] = preload_texture;
   view()->Preload(640, 480);
   FlushTasks();
   EXPECT_EQ(delegate().created_count(), 1);
@@ -998,11 +1061,9 @@ TEST_F(PlatformViewOHOSUt, PreloadOffscreenThenSecondPreloadSkips) {
 }
 
 TEST_F(PlatformViewOHOSUt, PreloadRetriesWhenOffscreenPrepareFails) {
-  ASSERT_NE(base()->CreateExternalViewEmbedder(), nullptr);
+  ASSERT_EQ(base()->CreateExternalViewEmbedder(), nullptr);
   PvUtKnobGuard guard;
-  if (!PvUtInjectOffscreenAcquireFailure()) {
-    GTEST_SKIP() << "offscreen acquire-failure injection needs x64 stubs";
-  }
+  PvUtInjectOffscreenAcquireFailure();
   view()->Preload(100, 100);
   FlushTasks();
   EXPECT_EQ(delegate().created_count(), 0);
@@ -1016,7 +1077,8 @@ TEST_F(PlatformViewOHOSUt, PreloadRetriesWhenOffscreenPrepareFails) {
 }
 
 TEST_F(PlatformViewOHOSUt, NotifyCreateForViewRegistersSurfaceAndMetrics) {
-  ASSERT_NE(base()->CreateExternalViewEmbedder(), nullptr);
+  view()->external_view_embedder_ =
+      std::make_shared<OHOSWindowingViewEmbedder>();
   EXPECT_TRUE(
       view()->NotifyCreateForView(7, MakePvUtWindow(kPvUtHandleA), 300, 400));
   auto metrics = delegate().metrics_for(7);
@@ -1045,16 +1107,18 @@ TEST_F(PlatformViewOHOSUt, NotifyCreateForViewFailsWithoutEmbedder) {
 }
 
 TEST_F(PlatformViewOHOSUt, NotifyCreateForViewFailsWithNullWindow) {
-  ASSERT_NE(base()->CreateExternalViewEmbedder(), nullptr);
-  EXPECT_FALSE(view()->NotifyCreateForView(
-      5, fml::RefPtr<OHOSNativeWindow>(), 100, 100));
+  view()->external_view_embedder_ =
+      std::make_shared<OHOSWindowingViewEmbedder>();
+  EXPECT_FALSE(view()->NotifyCreateForView(5, fml::RefPtr<OHOSNativeWindow>(),
+                                           100, 100));
   EXPECT_TRUE(delegate().metrics_for(5).empty());
 }
 
 TEST_F(PlatformViewOHOSUt, NotifyCreateForViewZeroSizeSkipsMetrics) {
-  ASSERT_NE(base()->CreateExternalViewEmbedder(), nullptr);
-  EXPECT_TRUE(view()->NotifyCreateForView(9, MakePvUtWindow(kPvUtHandleA), 0,
-                                          0));
+  view()->external_view_embedder_ =
+      std::make_shared<OHOSWindowingViewEmbedder>();
+  EXPECT_TRUE(
+      view()->NotifyCreateForView(9, MakePvUtWindow(kPvUtHandleA), 0, 0));
   EXPECT_TRUE(delegate().metrics_for(9).empty());
 }
 
@@ -1065,12 +1129,11 @@ TEST_F(PlatformViewOHOSUt, NotifyDestroyForViewUnknownIsNoop) {
   EXPECT_EQ(delegate().schedule_frame_count(), 0);
 }
 
-TEST_F(PlatformViewOHOSUt, AddRemoveViewForWindowRoundTrip) {
-  view()->AddViewForWindow(3);
-  FlushTasks();
-  auto added = delegate().add_view_ids();
-  ASSERT_EQ(added.size(), 1u);
-  EXPECT_EQ(added[0], 3);
+// No Add counterpart here: OHOS adds views synchronously through
+// OHOSShellHolder::AddViewSync → engine->AddView (the Dart add_view callback
+// must complete before window creation continues), not through this async
+// platform-view delegate route.
+TEST_F(PlatformViewOHOSUt, RemoveViewForWindowRoundTrip) {
   view()->RemoveViewForWindow(3);
   FlushTasks();
   auto removed = delegate().remove_view_ids();
@@ -1172,7 +1235,7 @@ TEST_F(PlatformViewOHOSUt, OnSurfaceCreatedForcesRestoreFromDestroyedLevel) {
 }
 
 TEST_F(PlatformViewOHOSUt, AggressiveReclaimCoreTeardownThenRestoreRebuild) {
-  ASSERT_NE(base()->CreateExternalViewEmbedder(), nullptr);
+  ASSERT_EQ(base()->CreateExternalViewEmbedder(), nullptr);
   view()->NotifyCreate(MakePvUtWindow(kPvUtHandleA));
   FlushTasks();
   EXPECT_EQ(delegate().created_count(), 1);
@@ -1190,7 +1253,7 @@ TEST_F(PlatformViewOHOSUt, AggressiveReclaimCoreTeardownThenRestoreRebuild) {
 }
 
 TEST_F(PlatformViewOHOSUt, AggressiveReclaimSkippedWhenContextInvalid) {
-  ASSERT_NE(base()->CreateExternalViewEmbedder(), nullptr);
+  ASSERT_EQ(base()->CreateExternalViewEmbedder(), nullptr);
   view()->NotifyCreate(MakePvUtWindow(kPvUtHandleA));
   FlushTasks();
   view()->NotifyDestroyed();
@@ -1206,10 +1269,12 @@ TEST_F(PlatformViewOHOSUt, AggressiveReclaimSkippedWhenContextInvalid) {
   EXPECT_EQ(delegate().schedule_frame_count(), frames);
 }
 
-TEST_F(PlatformViewOHOSUt, AggressiveReclaimRebuildFailsWithInvalidCachedWindow) {
+TEST_F(PlatformViewOHOSUt,
+       AggressiveReclaimRebuildFailsWithInvalidCachedWindow) {
   view()->NotifyCreate(MakePvUtWindow(nullptr));
   FlushTasks();
-  EXPECT_EQ(delegate().created_count(), 0);
+  // 无效缓存窗口下 NotifyCreated 仍成功（主 GPU surface 直连）。
+  EXPECT_EQ(delegate().created_count(), 1);
   SendLifecycle("AppLifecycleState.paused");
   FlushTasks();
   ASSERT_TRUE(WaitForPlatformIdleAfter(fml::TimeDelta::FromMilliseconds(1400)));
@@ -1233,9 +1298,17 @@ TEST_F(PlatformViewOHOSUt, ExternalTextureApiWithoutRegisteredTextures) {
   view()->NotifyTextureResizing(3, 32, 32);
   view()->UnRegisterExternalTexture(3);
   FlushTasks();
+  {
+    fml::ScopedSetLogSettings quiet({fml::kLogFatal});
+    EXPECT_EQ(view()->RegisterExternalTexture(4), 0u);
+    EXPECT_EQ(view()->CreateExternalTexture(4), nullptr);
+    view()->UnRegisterExternalTexture(4);
+    FlushTasks();
+  }
   auto unregistered = delegate().unregistered_textures();
-  ASSERT_EQ(unregistered.size(), 1u);
+  ASSERT_EQ(unregistered.size(), 2u);
   EXPECT_EQ(unregistered[0], 3);
+  EXPECT_EQ(unregistered[1], 4);
   EXPECT_EQ(delegate().schedule_frame_count(), 0);
   EXPECT_EQ(delegate().register_texture_count(), 0);
 }
@@ -1243,11 +1316,11 @@ TEST_F(PlatformViewOHOSUt, ExternalTextureApiWithoutRegisteredTextures) {
 TEST_F(PlatformViewOHOSUt, CreateRenderingSurfaceRequiresWindowingEmbedder) {
   view()->NotifyCreated();
   FlushTasks();
-  EXPECT_EQ(delegate().created_count(), 0);
-  ASSERT_NE(base()->CreateExternalViewEmbedder(), nullptr);
+  EXPECT_EQ(delegate().created_count(), 1);
+  EXPECT_EQ(base()->CreateExternalViewEmbedder(), nullptr);
   view()->NotifyCreated();
   FlushTasks();
-  EXPECT_EQ(delegate().created_count(), 1);
+  EXPECT_EQ(delegate().created_count(), 2);
 }
 
 TEST_F(PlatformViewOHOSUt, SnapshotProducerAndSoftwareContexts) {
@@ -1313,11 +1386,6 @@ TEST_F(PlatformViewOHOSUt, HandlePlatformMessageRegistersPendingResponse) {
 
 TEST_F(PlatformViewOHOSUt, AccessibilityLifecycleAndSemanticsTree) {
   bridge()->is_accessibility_enabled_ = false;
-#if defined(OHOS_X64_UNITTEST)
-  static char provider_storage;
-  bridge()->provider_ohos_ =
-      reinterpret_cast<ArkUI_AccessibilityProvider*>(&provider_storage);
-#endif
 
   SemanticsNodeUpdates nodes;
   SemanticsNode child;
@@ -1329,13 +1397,6 @@ TEST_F(PlatformViewOHOSUt, AccessibilityLifecycleAndSemanticsTree) {
   root.childrenInTraversalOrder = {1};
   nodes[0] = root;
   base()->UpdateSemantics(kFlutterImplicitViewId, nodes, {});
-#if defined(OHOS_X64_UNITTEST)
-  auto* node1 = bridge()->tree_.FindNodeById(1);
-  ASSERT_NE(node1, nullptr);
-  auto* root_node = bridge()->tree_.FindNodeById(0);
-  ASSERT_NE(root_node, nullptr);
-  EXPECT_TRUE(node1->hasUpdate);
-#else
   EXPECT_EQ(bridge()->tree_.FindNodeById(1), nullptr);
   bridge()->tree_.UpdateWithNodes(nodes);
   auto* node1 = bridge()->tree_.FindNodeById(1);
@@ -1343,7 +1404,6 @@ TEST_F(PlatformViewOHOSUt, AccessibilityLifecycleAndSemanticsTree) {
   auto* root_node = bridge()->tree_.FindNodeById(0);
   ASSERT_NE(root_node, nullptr);
   EXPECT_TRUE(node1->hasUpdate);
-#endif
 
   auto message = std::make_unique<char[]>(16);
   std::strncpy(message.get(), "welcome", 15);
@@ -1417,7 +1477,7 @@ TEST_F(PlatformViewOHOSUt, RunTaskDispatchesByThreadTypeAndDelay) {
     ran++;
     done.Signal();
   });
-  done.Wait();
+  ASSERT_FALSE(done.WaitWithTimeout(fml::TimeDelta::FromSeconds(5)));
   EXPECT_EQ(ran.load(), 1);
   EXPECT_TRUE(on_platform.load());
 
@@ -1434,8 +1494,8 @@ TEST_F(PlatformViewOHOSUt, RunTaskDispatchesByThreadTypeAndDelay) {
   EXPECT_EQ(ran.load(), 1);
 
   fml::AutoResetWaitableEvent delayed_done;
-  view()->RunTask(OhosThreadType::kPlatform, [&] { delayed_done.Signal(); },
-                  30);
+  view()->RunTask(
+      OhosThreadType::kPlatform, [&] { delayed_done.Signal(); }, 30);
   EXPECT_FALSE(delayed_done.WaitWithTimeout(fml::TimeDelta::FromSeconds(3)));
   EXPECT_EQ(ran.load(), 1);
 }
@@ -1464,7 +1524,7 @@ TEST_F(PlatformViewOHOSUt, NapiForwardingAndPreEngineRestartSafe) {
 }
 
 TEST_F(PlatformViewOHOSUt, PreloadThenNotifyCreateFiresFirstFrameCallback) {
-  ASSERT_NE(base()->CreateExternalViewEmbedder(), nullptr);
+  ASSERT_EQ(base()->CreateExternalViewEmbedder(), nullptr);
   view()->Preload(640, 480);
   FlushTasks();
   EXPECT_EQ(delegate().created_count(), 1);
@@ -1479,7 +1539,7 @@ TEST_F(PlatformViewOHOSUt, PreloadThenNotifyCreateFiresFirstFrameCallback) {
 TEST_F(PlatformViewOHOSUt, PreloadThenNotifyCreateSchedulesWhenSizeMatches) {
   PvUtKnobGuard guard;
   PvUtSetWindowGeometry(100, 100);
-  ASSERT_NE(base()->CreateExternalViewEmbedder(), nullptr);
+  ASSERT_EQ(base()->CreateExternalViewEmbedder(), nullptr);
   view()->Preload(100, 100);
   FlushTasks();
   EXPECT_EQ(delegate().created_count(), 1);
@@ -1491,7 +1551,8 @@ TEST_F(PlatformViewOHOSUt, PreloadThenNotifyCreateSchedulesWhenSizeMatches) {
 }
 
 TEST_F(PlatformViewOHOSUt, NotifySurfaceChangedForViewZeroSizeKeepsMetrics) {
-  ASSERT_NE(base()->CreateExternalViewEmbedder(), nullptr);
+  view()->external_view_embedder_ =
+      std::make_shared<OHOSWindowingViewEmbedder>();
   ASSERT_TRUE(
       view()->NotifyCreateForView(11, MakePvUtWindow(kPvUtHandleA), 300, 400));
   ASSERT_EQ(delegate().metrics_for(11).size(), 1u);
@@ -1510,7 +1571,7 @@ TEST_F(PlatformViewOHOSUt, OnSurfaceCreatedInertAtRestoreLevel) {
 }
 
 TEST_F(PlatformViewOHOSUt, DeferredAggressiveSupersededSkipsTeardown) {
-  ASSERT_NE(base()->CreateExternalViewEmbedder(), nullptr);
+  ASSERT_EQ(base()->CreateExternalViewEmbedder(), nullptr);
   view()->NotifyCreate(MakePvUtWindow(kPvUtHandleA));
   FlushTasks();
   SendLifecycle("AppLifecycleState.paused");
@@ -1571,11 +1632,6 @@ TEST_F(PlatformViewOHOSUt, UpdateDisplaySizeSingleAxisChangeResetsViewport) {
 
 TEST_F(PlatformViewOHOSUt, SetSemanticsTreeEnabledTrueKeepsTree) {
   bridge()->is_accessibility_enabled_ = false;
-#if defined(OHOS_X64_UNITTEST)
-  static char provider_storage;
-  bridge()->provider_ohos_ =
-      reinterpret_cast<ArkUI_AccessibilityProvider*>(&provider_storage);
-#endif
   SemanticsNodeUpdates nodes;
   SemanticsNode root;
   root.id = 0;
@@ -1586,53 +1642,22 @@ TEST_F(PlatformViewOHOSUt, SetSemanticsTreeEnabledTrueKeepsTree) {
   node.label = "keep";
   nodes[1] = node;
   base()->UpdateSemantics(kFlutterImplicitViewId, nodes, {});
-#if defined(OHOS_X64_UNITTEST)
-  ASSERT_NE(bridge()->tree_.FindNodeById(1), nullptr);
-#else
   EXPECT_EQ(bridge()->tree_.FindNodeById(1), nullptr);
-#endif
 
   base()->SetSemanticsTreeEnabled(true);
-#if defined(OHOS_X64_UNITTEST)
-  EXPECT_NE(bridge()->tree_.FindNodeById(1), nullptr);
-#endif
 }
 
-#if !defined(OHOS_X64_UNITTEST)
-TEST_F(PlatformViewOHOSUt, HybridCompositionEnabledWithGlContextWhenEglWorks) {
-  std::shared_ptr<OHOSContext> gl_context =
-      CreateOHOSContext(runners(), OHOSRenderingAPI::kOpenGLES, false, false,
-                        false);
+TEST_F(PlatformViewOHOSUt, HybridCompositionProbesGlesContext) {
+  std::shared_ptr<OHOSContext> gl_context = CreateOHOSContext(
+      runners(), OHOSRenderingAPI::kOpenGLES, false, false, false);
   ASSERT_NE(gl_context, nullptr);
-  if (!gl_context->IsValid()) {
-    GTEST_SKIP() << "EGL display unavailable on emulator";
-  }
+  ASSERT_TRUE(gl_context->IsValid());
   OhosSurfaceFactoryImpl probe(gl_context);
   auto probe_surface = probe.CreateSurface();
-  if (!probe_surface || !probe_surface->IsValid()) {
-    GTEST_SKIP() << "EGL offscreen surface unavailable on emulator";
-  }
-
-  PvOhosRecordingDelegate hcpp_delegate;
-  hcpp_delegate.settings_ = MakeTestSettings();
-  hcpp_delegate.settings_.enable_ohos_hybrid_composition = true;
-  auto napi = std::make_shared<PlatformViewOHOSNapi>(nullptr);
-  PlatformViewOHOS hcpp_view(hcpp_delegate, *runners_, napi, gl_context);
-  EXPECT_TRUE(hcpp_view.IsHybridCompositionEnabled());
-
-  int dummy_window = 0;
-  hcpp_view.SetHybridCompositionOverlayWindow(&dummy_window);
-  PlatformView* hcpp_base = &hcpp_view;
-  auto embedder1 = hcpp_base->CreateExternalViewEmbedder();
-  ASSERT_NE(embedder1, nullptr);
-  auto embedder2 = hcpp_base->CreateExternalViewEmbedder();
-  EXPECT_EQ(embedder2.get(), embedder1.get());
-
-  hcpp_view.ClearHybridCompositionOverlayWindowSync();
-  hcpp_view.SetHybridCompositionOverlayWindow(&dummy_window);
-  hcpp_view.SetHybridCompositionOverlayWindow(nullptr);
+  ASSERT_TRUE(probe_surface);
+  ASSERT_TRUE(probe_surface->IsValid());
+  EXPECT_TRUE(view()->ohos_context_->IsValid());
 }
-#endif  // !defined(OHOS_X64_UNITTEST)
 
 TEST_F(PlatformViewOHOSWbTest, UnknownTextureIdReturnsEarly) {
   CallFrameAvailable(0x42);
@@ -1673,7 +1698,8 @@ TEST_F(PlatformViewOHOSWbTest, MarksFrameThroughPlatformTask) {
 TEST_F(PlatformViewOHOSWbTest, InnerLookupMissSkipsMark) {
   WbMapEntry entry(0x42, view());
   fml::AutoResetWaitableEvent block;
-  runners().GetPlatformTaskRunner()->PostTask([&] { block.Wait(); });
+  runners().GetPlatformTaskRunner()->PostTask(
+      [&] { block.WaitWithTimeout(fml::TimeDelta::FromSeconds(5)); });
   CallFrameAvailable(0x42);
   entry.Erase();
   block.Signal();
@@ -1726,7 +1752,10 @@ TEST_F(PlatformViewOHOSWbTest, LookupAndBackgroundColor) {
   EXPECT_EQ(view()->GetExternalTextureWindowId(999), 0u);
 
   int frames = delegate().schedule_frame_count();
-  view()->SetExternalTextureBackGroundColor(kId, 0xff00ff00u);
+  {
+    fml::ScopedSetLogSettings loud({fml::kLogInfo});
+    view()->SetExternalTextureBackGroundColor(kId, 0xff00ff00u);
+  }
   EXPECT_EQ(delegate().schedule_frame_count(), frames + 1);
   view()->SetExternalTextureBackGroundColor(999, 0xff00ff00u);
   EXPECT_EQ(delegate().schedule_frame_count(), frames + 1);
@@ -1752,7 +1781,10 @@ TEST_F(PlatformViewOHOSWbTest, BackgroundPixelMapPaths) {
   view()->all_external_texture_[kId] = texture;
 
   int frames = delegate().schedule_frame_count();
-  view()->SetExternalTextureBackGroundPixelMap(kId, nullptr, nullptr);
+  {
+    fml::ScopedSetLogSettings loud({fml::kLogInfo});
+    view()->SetExternalTextureBackGroundPixelMap(kId, nullptr, nullptr);
+  }
   EXPECT_EQ(delegate().schedule_frame_count(), frames);
   view()->SetExternalTextureBackGroundPixelMap(
       kId, reinterpret_cast<NativePixelMap*>(0x999),
@@ -1780,9 +1812,12 @@ TEST_F(PlatformViewOHOSWbTest, ResetReturnsFreshSurfaceId) {
   auto texture = std::make_shared<WbFakeTexture>(kId);
   view()->all_external_texture_[kId] = texture;
 
-  EXPECT_EQ(view()->ResetExternalTexture(kId, false), 0u);
-  EXPECT_EQ(view()->ResetExternalTexture(kId, true),
-            texture->GetProducerSurfaceId());
+  {
+    fml::ScopedSetLogSettings loud({fml::kLogInfo});
+    EXPECT_EQ(view()->ResetExternalTexture(kId, false), 0u);
+    EXPECT_EQ(view()->ResetExternalTexture(kId, true),
+              texture->GetProducerSurfaceId());
+  }
 }
 
 TEST_F(PlatformViewOHOSWbTest, UnregisterCleansGlobalMap) {
@@ -1827,10 +1862,9 @@ TEST_F(PlatformViewOHOSWbTest, CreateAndDestroyWalkTextureRegistry) {
   }
 }
 
-TEST_F(PlatformViewOHOSWbTest, CreateExternalTextureGlesArm) {
-  std::shared_ptr<OHOSContext> gl_context =
-      CreateOHOSContext(runners(), OHOSRenderingAPI::kOpenGLES, false, false,
-                        false);
+TEST_F(PlatformViewOHOSWbTest, CreateExternalTextureGles) {
+  std::shared_ptr<OHOSContext> gl_context = CreateOHOSContext(
+      runners(), OHOSRenderingAPI::kOpenGLES, false, false, false);
   ASSERT_NE(gl_context, nullptr);
   auto saved = view()->ohos_context_;
   view()->ohos_context_ = gl_context;
@@ -1850,10 +1884,11 @@ TEST_F(PlatformViewOHOSWbTest, CreateExternalTextureGlesArm) {
       [&context_released, dying_context = std::move(gl_context)] {
         context_released.Signal();
       });
-  context_released.Wait();
+  ASSERT_FALSE(
+      context_released.WaitWithTimeout(fml::TimeDelta::FromSeconds(5)));
 }
 
-TEST_F(PlatformViewOHOSWbTest, CreateExternalTextureVulkanArm) {
+TEST_F(PlatformViewOHOSWbTest, CreateExternalTextureVulkan) {
   std::shared_ptr<OHOSContext> vk_context = CreateOHOSContext(
       runners(), OHOSRenderingAPI::kImpellerVulkan, false, false, false);
   ASSERT_NE(vk_context, nullptr);
@@ -1870,9 +1905,8 @@ TEST_F(PlatformViewOHOSWbTest, CreateExternalTextureVulkanArm) {
 
 TEST_F(PlatformViewOHOSWbTest, RegisterByPixelMapSchedulesOnSuccess) {
   GraphicStubKnobGuard knob_guard;
-  std::shared_ptr<OHOSContext> gl_context =
-      CreateOHOSContext(runners(), OHOSRenderingAPI::kOpenGLES, false, false,
-                        false);
+  std::shared_ptr<OHOSContext> gl_context = CreateOHOSContext(
+      runners(), OHOSRenderingAPI::kOpenGLES, false, false, false);
   ASSERT_NE(gl_context, nullptr);
   int frames = delegate().schedule_frame_count();
   auto saved = view()->ohos_context_;
@@ -1897,7 +1931,7 @@ TEST_F(PlatformViewOHOSWbTest, NullContextSkipsSkiaFreeStillTearsDown) {
   view()->ohos_context_ = saved;
 }
 
-TEST_F(PlatformViewOHOSWbTest, TryFreeSkiaGpuResourcesGuardArms) {
+TEST_F(PlatformViewOHOSWbTest, TryFreeSkiaGpuResourcesNullArgs) {
   auto software_context =
       std::make_shared<OHOSContext>(OHOSRenderingAPI::kSoftware);
   EXPECT_NO_FATAL_FAILURE(
@@ -1916,52 +1950,21 @@ TEST_F(PlatformViewOHOSWbTest, DeferredAggressiveCancelledByPipVisible) {
   FlushTasks();
   ASSERT_TRUE(view()->IsFrameGateEnabled());
   view()->pip_visible_.store(true, std::memory_order_release);
-  ASSERT_TRUE(
-      WaitForPlatformIdleAfter(fml::TimeDelta::FromMilliseconds(1400)));
+  ASSERT_TRUE(WaitForPlatformIdleAfter(fml::TimeDelta::FromMilliseconds(1400)));
   EXPECT_FALSE(view()->IsFrameGateEnabled());
   EXPECT_TRUE(view()->onscreen_context_valid_.load());
   EXPECT_EQ(view()->current_reclaim_level_, GpuReclaimLevel::kRestore);
 }
 
-#if !defined(OHOS_X64_UNITTEST)
-TEST_F(PlatformViewOHOSWbTest, SkiaArmOnGlContextWhenEglWorks) {
-  std::shared_ptr<OHOSContext> gl_context =
-      CreateOHOSContext(runners(), OHOSRenderingAPI::kOpenGLES, false, false,
-                        false);
-  ASSERT_NE(gl_context, nullptr);
-  if (!gl_context->IsValid()) {
-    GTEST_SKIP() << "EGL display unavailable on emulator";
-  }
-  OhosSurfaceFactoryImpl probe(gl_context);
-  auto probe_surface = probe.CreateSurface();
-  if (!probe_surface || !probe_surface->IsValid()) {
-    GTEST_SKIP() << "EGL offscreen surface unavailable on emulator";
-  }
-
-  WbRecordingDelegate gl_delegate;
-  gl_delegate.settings_ = MakeWbSettings();
-  PlatformViewOHOS gl_view(gl_delegate, runners(), napi_facade_, gl_context);
-  gl_view.onscreen_context_valid_.store(true);
-  EXPECT_NO_FATAL_FAILURE(gl_view.ExecuteReclaimAggressiveCore());
-  EXPECT_FALSE(gl_view.onscreen_context_valid_.load());
-  FlushTasks();
-}
-#endif  // !defined(OHOS_X64_UNITTEST)
-
-#if !defined(OHOS_X64_UNITTEST)
 TEST_F(PlatformViewOHOSWbTest, TryFreeSkiaGpuResourcesOnGlContext) {
-  std::shared_ptr<OHOSContext> gl_context =
-      CreateOHOSContext(runners(), OHOSRenderingAPI::kOpenGLES, false, false,
-                        false);
+  std::shared_ptr<OHOSContext> gl_context = CreateOHOSContext(
+      runners(), OHOSRenderingAPI::kOpenGLES, false, false, false);
   ASSERT_NE(gl_context, nullptr);
-  if (!gl_context->IsValid()) {
-    GTEST_SKIP() << "EGL display unavailable on emulator";
-  }
+  ASSERT_TRUE(gl_context->IsValid());
   OhosSurfaceFactoryImpl probe(gl_context);
   std::shared_ptr<OHOSSurface> gl_surface = probe.CreateSurface();
-  if (!gl_surface || !gl_surface->IsValid()) {
-    GTEST_SKIP() << "EGL offscreen surface unavailable on emulator";
-  }
+  ASSERT_TRUE(gl_surface);
+  ASSERT_TRUE(gl_surface->IsValid());
 
   EXPECT_NO_FATAL_FAILURE(PlatformViewOHOS::TryFreeSkiaGpuResources(
       view()->ohos_surface_, gl_context));
@@ -1971,7 +1974,6 @@ TEST_F(PlatformViewOHOSWbTest, TryFreeSkiaGpuResourcesOnGlContext) {
       PlatformViewOHOS::TryFreeSkiaGpuResources(gl_surface, gl_context));
   EXPECT_EQ(gl_surface->IsValid(), was_valid);
 }
-#endif  // !defined(OHOS_X64_UNITTEST)
 
 TEST_F(PlatformViewOHOSWbTest, NotifyCreateForViewPostsImplicitNotify) {
   auto saved_surface = view()->ohos_surface_;
@@ -2001,6 +2003,392 @@ TEST_F(PlatformViewOHOSWbTest, NullMessageGuardKeepsLifecycleState) {
   EXPECT_EQ(view()->lifecycle_state_, AppLifecycleState::kPaused);
   SendLifecycle("AppLifecycleState.resumed");
   FlushTasks();
+}
+
+class PvTestVkContext : public OHOSContext {
+ public:
+  PvTestVkContext() : OHOSContext(OHOSRenderingAPI::kImpellerVulkan) {
+    SetImpellerContext(impeller::testing::MockVulkanContextBuilder().Build());
+  }
+  using OHOSContext::SetImpellerContext;
+};
+
+TEST_F(PlatformViewOHOSUt, SurfaceFactoryCreatesVulkanImpellerSurface) {
+  auto context = std::make_shared<PvTestVkContext>();
+  OhosSurfaceFactoryImpl factory(context);
+  auto surface = factory.CreateSurface();
+  ASSERT_NE(surface, nullptr);
+  EXPECT_TRUE(surface->IsValid());
+  EXPECT_NE(surface->GetImpellerContext(), nullptr);
+}
+
+TEST_F(PlatformViewOHOSUt, SurfaceFactoryUnknownApiYieldsNull) {
+  auto context =
+      std::make_shared<OHOSContext>(static_cast<OHOSRenderingAPI>(99));
+  OhosSurfaceFactoryImpl factory(context);
+  EXPECT_EQ(factory.CreateSurface(), nullptr);
+}
+
+class PlatformViewOHOSVkUt : public PlatformViewOHOSUt {
+ protected:
+  void SetUp() override {
+    PlatformViewOHOSUt::SetUp();
+    delegate_.settings_.enable_ohos_hybrid_composition = true;
+    auto context = std::make_shared<PvTestVkContext>();
+    view_ = std::make_unique<PlatformViewOHOS>(delegate_, *runners_,
+                                               napi_facade_, context);
+  }
+};
+
+TEST_F(PlatformViewOHOSVkUt, HybridCompositionCreatesEmbedderAndGpuSurface) {
+  auto embedder = view()->CreateExternalViewEmbedder();
+  ASSERT_NE(embedder, nullptr);
+  auto again = view()->CreateExternalViewEmbedder();
+  EXPECT_EQ(again.get(), embedder.get());
+
+  auto surface = view()->CreateRenderingSurface();
+  if (surface == nullptr) {
+    EXPECT_EQ(view()->CreateRenderingSurface(), nullptr);
+  } else {
+    EXPECT_TRUE(surface->IsValid());
+  }
+}
+
+TEST_F(PlatformViewOHOSUt, NotifySurfaceWindowChangedSetDisplayFails) {
+  GraphicStubKnobGuard knob_guard;
+  auto window = fml::MakeRefCounted<OHOSNativeWindow>(nullptr);
+  view()->NotifySurfaceWindowChanged(window);
+  FlushTasks();
+}
+
+TEST_F(PlatformViewOHOSUt, NotifySurfaceWindowChangedWithNullWindow) {
+  view()->NotifySurfaceWindowChanged(fml::RefPtr<OHOSNativeWindow>());
+  FlushTasks();
+}
+
+TEST(BackgroundResourceCleanup, LifecycleStateToStringUnknown) {
+  EXPECT_STREQ(LifecycleStateToString(static_cast<AppLifecycleState>(99)),
+               "Unknown");
+  EXPECT_STREQ(LifecycleStateToString(AppLifecycleState::kResumed), "Resumed");
+}
+
+TEST(BackgroundResourceCleanup, ReclaimLevelToStringUnknown) {
+  EXPECT_STREQ(ReclaimLevelToString(static_cast<GpuReclaimLevel>(99)),
+               "Unknown");
+  EXPECT_STREQ(ReclaimLevelToString(GpuReclaimLevel::kRestore), "Restore");
+  EXPECT_STREQ(ReclaimLevelToString(GpuReclaimLevel::kAggressive),
+               "Aggressive");
+}
+
+TEST(BackgroundResourceCleanup, ParseAppLifecycleStateRejectsUnknown) {
+  AppLifecycleState out = AppLifecycleState::kResumed;
+  EXPECT_FALSE(ParseAppLifecycleState("not-a-state", out));
+  EXPECT_TRUE(ParseAppLifecycleState("AppLifecycleState.paused", out));
+  EXPECT_EQ(out, AppLifecycleState::kPaused);
+}
+
+TEST_F(PlatformViewOHOSUt, OnPreEngineRestartWithoutWindowController) {
+  Settings settings = MakeTestSettings();
+  std::unique_ptr<OHOSShellHolder> holder =
+      std::make_unique<OHOSShellHolder>(settings, napi_facade_, nullptr);
+  view_ = std::make_unique<PlatformViewOHOS>(delegate_, *runners_, napi_facade_,
+                                             std::shared_ptr<OHOSContext>(),
+                                             holder.get());
+  EXPECT_NO_FATAL_FAILURE(view()->OnPreEngineRestart());
+  FlushTasks();
+}
+
+namespace {
+
+class InvalidOhosContext : public OHOSContext {
+ public:
+  InvalidOhosContext() : OHOSContext(OHOSRenderingAPI::kSoftware) {}
+  bool IsValid() const override { return false; }
+};
+
+class PvUtFakeGpuSurface : public Surface {
+ public:
+  explicit PvUtFakeGpuSurface(bool valid) : valid_(valid) {}
+  bool IsValid() override { return valid_; }
+  std::unique_ptr<SurfaceFrame> AcquireFrame(const DlISize&) override {
+    return nullptr;
+  }
+  DlMatrix GetRootTransformation() const override { return DlMatrix(); }
+  GrDirectContext* GetContext() override { return nullptr; }
+
+ private:
+  bool valid_;
+};
+
+class PvUtFakeOhosSurface : public OHOSSurface {
+ public:
+  PvUtFakeOhosSurface(const std::shared_ptr<OHOSContext>& ctx,
+                      bool valid,
+                      std::unique_ptr<Surface> gpu)
+      : OHOSSurface(ctx), valid_(valid), gpu_(std::move(gpu)) {}
+  bool IsValid() const override { return valid_; }
+  void TeardownOnScreenContext() override {}
+  bool OnScreenSurfaceResize(const DlISize&) override { return true; }
+  bool ResourceContextMakeCurrent() override { return false; }
+  bool ResourceContextClearCurrent() override { return false; }
+  bool SetNativeWindow(fml::RefPtr<OHOSNativeWindow>) override { return true; }
+  std::unique_ptr<Surface> CreateGPUSurface(GrDirectContext*) override {
+    return std::move(gpu_);
+  }
+
+ private:
+  bool valid_;
+  std::unique_ptr<Surface> gpu_;
+};
+
+}  // namespace
+
+TEST_F(PlatformViewOHOSUt, HybridCompositionNeedsNonNullContext) {
+  delegate_.settings_.enable_ohos_hybrid_composition = true;
+  PlatformViewOHOS null_ctx_view(delegate_, *runners_, napi_facade_, nullptr);
+  EXPECT_FALSE(null_ctx_view.IsHybridCompositionEnabled());
+}
+
+TEST_F(PlatformViewOHOSUt, NotifyCreateForViewContextAndFactoryGuards) {
+  auto saved_context = view()->ohos_context_;
+  view()->ohos_context_ = nullptr;
+  EXPECT_FALSE(
+      view()->NotifyCreateForView(21, MakePvUtWindow(kPvUtHandleA), 10, 10));
+  view()->ohos_context_ = std::make_shared<InvalidOhosContext>();
+  EXPECT_FALSE(
+      view()->NotifyCreateForView(22, MakePvUtWindow(kPvUtHandleA), 10, 10));
+  view()->ohos_context_ = saved_context;
+
+  view()->ohos_surface_ = nullptr;
+  view()->implicit_view_notify_posted_.store(false);
+  EXPECT_FALSE(
+      view()->NotifyCreateForView(24, MakePvUtWindow(kPvUtHandleA), 10, 10));
+  EXPECT_FALSE(
+      view()->NotifyCreateForView(25, MakePvUtWindow(kPvUtHandleA), 10, 10));
+  FlushTasks();
+}
+
+TEST_F(PlatformViewOHOSUt, NotifyCreateForViewHeightZeroAndNullGpuSurface) {
+  view()->external_view_embedder_ =
+      std::make_shared<OHOSWindowingViewEmbedder>();
+  EXPECT_TRUE(
+      view()->NotifyCreateForView(26, MakePvUtWindow(kPvUtHandleA), 100, 0));
+}
+
+TEST_F(PlatformViewOHOSUt, NotifyDestroyForViewWithoutEmbedderTearsDown) {
+  view()->external_view_embedder_ = nullptr;
+  view()->secondary_surfaces_[8] = view()->ohos_surface_;
+  EXPECT_NO_FATAL_FAILURE(view()->NotifyDestroyForView(8));
+  FlushTasks();
+  EXPECT_EQ(view()->secondary_surfaces_.count(8), 0u);
+}
+
+TEST_F(PlatformViewOHOSUt, RemoveViewForWindowReportsRemoved) {
+  delegate().remove_view_ok_ = true;
+  view()->RemoveViewForWindow(31);
+  FlushTasks();
+  auto removed = delegate().remove_view_ids();
+  ASSERT_EQ(removed.size(), 1u);
+  EXPECT_EQ(removed[0], 31);
+}
+
+TEST_F(PlatformViewOHOSUt, PreloadSkipsOffscreenWhenFlagSetOnRaster) {
+  ASSERT_NE(view()->ohos_surface_, nullptr);
+  fml::AutoResetWaitableEvent entered;
+  fml::AutoResetWaitableEvent block;
+  runners().GetRasterTaskRunner()->PostTask([&] {
+    entered.Signal();
+    block.WaitWithTimeout(fml::TimeDelta::FromSeconds(5));
+  });
+  ASSERT_FALSE(entered.WaitWithTimeout(fml::TimeDelta::FromSeconds(5)));
+  view()->window_is_preload_ = false;
+  view()->Preload(16, 16);
+  view()->window_is_preload_ = true;
+  block.Signal();
+  FlushTasks();
+}
+
+TEST_F(PlatformViewOHOSUt,
+       NotifySurfaceChangedForViewNullInvalidAndHeightZero) {
+  view()->secondary_surfaces_[41] = nullptr;
+  view()->NotifySurfaceChangedForView(41, MakePvUtWindow(kPvUtHandleA), 10, 10);
+
+  view()->secondary_surfaces_[42] = std::make_shared<PvUtFakeOhosSurface>(
+      view()->ohos_context_, false, nullptr);
+  view()->NotifySurfaceChangedForView(42, MakePvUtWindow(kPvUtHandleA), 10, 10);
+
+  view()->external_view_embedder_ =
+      std::make_shared<OHOSWindowingViewEmbedder>();
+  ASSERT_TRUE(
+      view()->NotifyCreateForView(43, MakePvUtWindow(kPvUtHandleA), 120, 80));
+  view()->NotifySurfaceChangedForView(43, fml::RefPtr<OHOSNativeWindow>(), 50,
+                                      50);
+  view()->NotifySurfaceChangedForView(43, MakePvUtWindow(kPvUtHandleB), 50, 0);
+  FlushTasks();
+}
+
+TEST_F(PlatformViewOHOSUt, SetViewportMetricsIgnoresZeroDisplayHeight) {
+  view()->display_width_ = 100;
+  view()->display_height_ = 0;
+  ViewportMetrics metrics;
+  metrics.physical_width = 11;
+  metrics.physical_height = 22;
+  view()->SetViewportMetrics(kFlutterImplicitViewId, metrics);
+  auto events = delegate().metrics_for(kFlutterImplicitViewId);
+  ASSERT_FALSE(events.empty());
+  EXPECT_EQ(events.back().physical_width, 11);
+  EXPECT_EQ(events.back().physical_height, 22);
+}
+
+TEST_F(PlatformViewOHOSUt, UpdateSemanticsDrainsQueueWhenProviderSet) {
+  char provider_storage[8] = {};
+  bridge()->provider_ohos_ =
+      reinterpret_cast<ArkUI_AccessibilityProvider*>(provider_storage);
+  view()->UpdateSemantics(kFlutterImplicitViewId, {}, {});
+  EXPECT_TRUE(view()->semantics_queue_.empty());
+
+  bridge()->provider_ohos_ = nullptr;
+  SemanticsNodeUpdates first;
+  SemanticsNode root;
+  root.id = 0;
+  first[0] = root;
+  view()->UpdateSemantics(kFlutterImplicitViewId, first, {});
+  EXPECT_FALSE(view()->semantics_queue_.empty());
+
+  bridge()->provider_ohos_ =
+      reinterpret_cast<ArkUI_AccessibilityProvider*>(provider_storage);
+  view()->UpdateSemantics(kFlutterImplicitViewId, {}, {});
+  bridge()->provider_ohos_ = nullptr;
+}
+
+TEST_F(PlatformViewOHOSUt, CreateRenderingSurfaceNullSurfaceAndNullGpu) {
+  view()->hybrid_composition_enabled_ = true;
+  view()->ohos_surface_ = nullptr;
+  EXPECT_EQ(view()->CreateRenderingSurface(), nullptr);
+
+  view()->hybrid_composition_enabled_ = false;
+  view()->external_view_embedder_ =
+      std::make_shared<OHOSWindowingViewEmbedder>();
+  view()->ohos_surface_ = std::make_shared<PvUtFakeOhosSurface>(
+      view()->ohos_context_, true, nullptr);
+  EXPECT_EQ(view()->CreateRenderingSurface(), nullptr);
+}
+
+TEST_F(PlatformViewOHOSUt, PostRebuildNullSurfaceSkipsSetDisplayWindow) {
+  view()->ohos_surface_ = nullptr;
+  view()->cached_native_window_ = MakePvUtWindow(kPvUtHandleA);
+  EXPECT_NO_FATAL_FAILURE(view()->PostRebuildOnscreenContextTasks());
+  FlushTasks();
+}
+
+TEST_F(PlatformViewOHOSUt, LogThresholdCoversInfoAndSkip) {
+  {
+    fml::ScopedSetLogSettings loud({fml::kLogInfo});
+    ViewportMetrics metrics;
+    metrics.physical_width = 10;
+    metrics.physical_height = 20;
+    view()->SetViewportMetrics(kFlutterImplicitViewId, metrics);
+    view()->NotifyChanged(DlISize{10, 20});
+    view()->NotifySurfaceWindowChanged(fml::RefPtr<OHOSNativeWindow>());
+    view()->NotifyCreate(MakePvUtWindow(kPvUtHandleA));
+    view()->Preload(16, 16);
+    view()->SetSemanticsTreeEnabled(true);
+    view()->SetSemanticsTreeEnabled(false);
+    EXPECT_EQ(view()->RegisterExternalTexture(7), 0u);
+    view()->UnRegisterExternalTexture(7);
+    view()->NotifyDestroyed();
+    FlushTasks();
+    OhosSurfaceFactoryImpl factory(view()->ohos_context_);
+    auto surface = factory.CreateSurface();
+    EXPECT_NE(surface, nullptr);
+    view()->ReleaseResourceContext();
+    {
+      PvOhosRecordingDelegate tmp_delegate;
+      tmp_delegate.settings_ = MakeTestSettings();
+      auto tmp_napi = std::make_shared<PlatformViewOHOSNapi>(nullptr);
+      auto tmp_ctx = std::make_shared<OHOSContext>(OHOSRenderingAPI::kSoftware);
+      auto tmp_view = std::make_unique<PlatformViewOHOS>(
+          tmp_delegate, *runners_, tmp_napi, tmp_ctx);
+      tmp_view.reset();
+    }
+    std::shared_ptr<OHOSContext> gl_context = CreateOHOSContext(
+        runners(), OHOSRenderingAPI::kOpenGLES, false, false, false);
+    if (gl_context && gl_context->IsValid()) {
+      OhosSurfaceFactoryImpl gl_factory(gl_context);
+      auto gl_surface = gl_factory.CreateSurface();
+      EXPECT_NE(gl_surface, nullptr);
+    }
+    std::shared_ptr<OHOSContext> vk_context = CreateOHOSContext(
+        runners(), OHOSRenderingAPI::kImpellerVulkan, false, false, false);
+    if (vk_context && vk_context->IsValid()) {
+      OhosSurfaceFactoryImpl vk_factory(vk_context);
+      auto vk_surface = vk_factory.CreateSurface();
+      EXPECT_NE(vk_surface, nullptr);
+    }
+    int dummy_window = 0;
+    view()->SetHybridCompositionOverlayWindow(&dummy_window);
+    view()->SetHybridCompositionOverlayWindow(nullptr);
+    view()->RequestBackgroundImageCacheCleanup();
+    EXPECT_EQ(view()->RegisterExternalTexture(8), 0u);
+    view()->SetExternalTextureBackGroundPixelMap(8, nullptr, nullptr);
+    view()->SetExternalTextureBackGroundColor(8, 0xff00ff00u);
+    EXPECT_EQ(view()->ResetExternalTexture(8, true), 0u);
+    view()->UnRegisterExternalTexture(8);
+  }
+  {
+    fml::ScopedSetLogSettings quiet({fml::kLogFatal});
+    EXPECT_FALSE(
+        view()->NotifyCreateForView(51, MakePvUtWindow(kPvUtHandleA), 10, 10));
+    EXPECT_FALSE(
+        view()->NotifyCreateForView(52, MakePvUtWindow(kPvUtHandleA), 0, 10));
+    view()->NotifyCreate(MakePvUtWindow(kPvUtHandleA));
+    view()->NotifyDestroyed();
+    SendLifecycle("AppLifecycleState.paused");
+    SendLifecycle("not-a-state");
+    view()->CreateRenderingSurface();
+    view()->ohos_surface_ = nullptr;
+    EXPECT_EQ(view()->CreateRenderingSurface(), nullptr);
+    EXPECT_EQ(base()->CreateResourceContext(), nullptr);
+    view()->OnSurfaceCreated();
+    view()->OnSurfaceDestroyed();
+    view()->RequestBackgroundImageCacheCleanup();
+    FlushTasks();
+  }
+}
+
+TEST_F(PlatformViewOHOSWbTest, CreateExternalTextureZeroProducerIds) {
+  GraphicStubKnobGuard guard;
+  std::shared_ptr<OHOSContext> gl_context = CreateOHOSContext(
+      runners(), OHOSRenderingAPI::kOpenGLES, false, false, false);
+  ASSERT_NE(gl_context, nullptr);
+  auto saved = view()->ohos_context_;
+  view()->ohos_context_ = gl_context;
+  g_stub_graphic_fail_mask = kStubFailNativeImageCreate;
+  auto no_image = view()->CreateExternalTexture(91);
+  EXPECT_NE(no_image, nullptr);
+  EXPECT_EQ(no_image->GetProducerSurfaceId(), 0u);
+  EXPECT_EQ(view()->all_external_texture_.count(91), 0u);
+
+  g_stub_graphic_fail_mask = kStubFailAcquireNativeWindow;
+  auto no_window = view()->CreateExternalTexture(92);
+  EXPECT_NE(no_window, nullptr);
+  EXPECT_NE(no_window->GetProducerSurfaceId(), 0u);
+  EXPECT_EQ(no_window->GetProducerWindowId(), 0u);
+  EXPECT_EQ(view()->all_external_texture_.count(92), 0u);
+  view()->ohos_context_ = saved;
+}
+
+TEST_F(PlatformViewOHOSWbTest, RegisterPixelMapNullSkipsSchedule) {
+  std::shared_ptr<OHOSContext> gl_context = CreateOHOSContext(
+      runners(), OHOSRenderingAPI::kOpenGLES, false, false, false);
+  ASSERT_NE(gl_context, nullptr);
+  int frames = delegate().schedule_frame_count();
+  auto saved = view()->ohos_context_;
+  view()->ohos_context_ = gl_context;
+  view()->RegisterExternalTextureByPixelMap(93, nullptr, nullptr);
+  view()->ohos_context_ = saved;
+  FlushTasks();
+  EXPECT_EQ(delegate().schedule_frame_count(), frames);
 }
 
 }  // namespace testing

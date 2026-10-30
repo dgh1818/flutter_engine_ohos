@@ -370,11 +370,27 @@ void checkOhosSignedInfo(OhosProject ohosProject) {
   final String buildProfileConfig = buildProfile.readAsStringSync();
   final dynamic obj = JSON5.parse(buildProfileConfig);
   final dynamic signingConfigs = obj['app']?['signingConfigs'];
-  if (signingConfigs is List && signingConfigs.isEmpty) {
-    throwToolExit(
-      '请通过DevEco Studio打开ohos工程后配置调试签名(File -> Project Structure -> Signing Configs 勾选Automatically generate signature)',
-    );
+
+  if (signingConfigs is List && signingConfigs.isNotEmpty) {
+    return;
   }
+
+  final File signConfigFile = globals.fs.file(
+    globals.fs.path.join(ohosProject.ohosRoot.path, '.sign', 'sign-config.json5'),
+  );
+
+  if (signConfigFile.existsSync()) {
+    final String signConfigContent = signConfigFile.readAsStringSync();
+    final dynamic signObj = JSON5.parse(signConfigContent);
+    final dynamic signConfigs = signObj['signingConfigs'];
+    if (signConfigs is List && signConfigs.isNotEmpty) {
+      return;
+    }
+  }
+
+  throwToolExit(
+    '请通过DevEco Studio打开ohos工程后配置调试签名(File -> Project Structure -> Signing Configs 勾选Automatically generate signature)',
+  );
 }
 
 /// flutter_ohos 编译，有hvigor插件，在插件中调用flutter编译命令
@@ -508,6 +524,8 @@ class OhosHvigorBuilder implements OhosBuilder {
     }
 
     final Status status = _logger.startProgress('Running Hvigor task assembleHar...');
+
+    updateLocalProperties(project: project, buildInfo: ohosBuildInfo.buildInfo);
 
     parseData(project, _logger);
 

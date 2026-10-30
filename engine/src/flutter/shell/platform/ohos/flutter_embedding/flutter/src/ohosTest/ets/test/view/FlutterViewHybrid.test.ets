@@ -99,6 +99,31 @@ class StubFlutterEngine {
   }
 }
 
+/**
+ * Cleans up a view that received a stub engine via field injection.
+ * The FlutterView constructor registers window/display listeners that outlive
+ * the it() block. If such a leaked view keeps a StubFlutterEngine attached,
+ * a later system display change (e.g. LTPO refresh-rate switch) runs
+ * displayChangeCallback -> getFlutterNapi()?.updateDensity(...) on the stub,
+ * whose napi lacks updateDensity, throwing a fatal TypeError that kills the
+ * whole test app (TestFinished-ResultCode -1 / App died).
+ *
+ * NOTE: view.detachFromFlutterEngine() cannot be used here — it calls
+ * flutterEngine?.getPlatformViewsController(), which the stub does not
+ * implement, so it throws before nulling the engine. Null the field directly
+ * and unregister the leaked listeners instead.
+ */
+function cleanupStubView(view: FlutterView): void {
+  const anyView: Any = view as Any;
+  anyView.flutterEngine = null;
+  try {
+    anyView['unRegisterDefaultCallbacks']();
+  } catch (e) {
+    // Best-effort: the engine field is already cleared above, which alone
+    // stops every engine-accessing callback from touching the stub.
+  }
+}
+
 export default function FlutterViewHybridTest() {
   describe('FlutterViewHybridTest', () => {
     it('isHybridCompositionEnabled_false_when_detached', 0, () => {
@@ -119,6 +144,7 @@ export default function FlutterViewHybridTest() {
       expect(view.isHybridCompositionEnabled()).assertTrue();
       engine.napi.hybridEnabled = false;
       expect(view.isHybridCompositionEnabled()).assertFalse();
+      cleanupStubView(view);
     })
 
     it('isHybridCompositionEnabled_loader_fallback_all_flag_combos', 0, () => {
@@ -144,6 +170,7 @@ export default function FlutterViewHybridTest() {
       engine.loader.isEnableHcpp = true;
       engine.loader.isEnableImpeller = true;
       expect(view.isHybridCompositionEnabled()).assertTrue();
+      cleanupStubView(view);
     })
 
     it('dispatchTouchToEngineHybrid_safe_when_detached', 0, () => {
@@ -180,6 +207,7 @@ export default function FlutterViewHybridTest() {
       expect(engine.hybrid!.hoverValues.length).assertEqual(2);
       expect(engine.hybrid!.hoverValues[0]).assertTrue();
       expect(engine.hybrid!.hoverValues[1]).assertFalse();
+      cleanupStubView(view);
     })
 
     it('dispatchAxisToEngineHybrid_forwards_when_engine_attached', 0, () => {
@@ -190,6 +218,7 @@ export default function FlutterViewHybridTest() {
       anyView.flutterEngine = engine;
       view.dispatchAxisToEngineHybrid(8, makeAxisEvent());
       expect(engine.hybrid!.axisCalls).assertEqual(1);
+      cleanupStubView(view);
     })
 
     it('dispatchTouchToEngineHybrid_forwards_when_engine_attached', 0, () => {
@@ -200,6 +229,7 @@ export default function FlutterViewHybridTest() {
       anyView.flutterEngine = engine;
       view.dispatchTouchToEngineHybrid(9, makeTouchEvent());
       expect(engine.hybrid!.touchCalls).assertEqual(1);
+      cleanupStubView(view);
     })
 
     it('dispatch_hybrid_safe_when_engine_has_no_controller', 0, () => {
@@ -213,6 +243,7 @@ export default function FlutterViewHybridTest() {
       view.dispatchHoverToEngineHybrid(1, true, makeHoverEvent());
       view.dispatchAxisToEngineHybrid(1, makeAxisEvent());
       expect(view.isAttachedToFlutterEngine()).assertTrue();
+      cleanupStubView(view);
     })
   })
 }

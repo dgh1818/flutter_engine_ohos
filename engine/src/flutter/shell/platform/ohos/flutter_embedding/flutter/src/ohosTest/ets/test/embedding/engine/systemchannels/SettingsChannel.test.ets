@@ -15,13 +15,28 @@
 
 import { describe, expect, it } from '@ohos/hypium';
 import { resourceManager } from '@kit.LocalizationKit';
-import SettingsChannel from '../../../../../../main/ets/embedding/engine/systemchannels/SettingsChannel';
+import SettingsChannel, { PlatformBrightness } from '../../../../../../main/ets/embedding/engine/systemchannels/SettingsChannel';
 import FlutterNapi from '../../../../../../main/ets/embedding/engine/FlutterNapi';
 import DartExecutor from '../../../../../../main/ets/embedding/engine/dart/DartExecutor';
 
 export default function SettingsChannelUnitTest() {
   describe('SettingsChannelTest', () => {
     it("SettingsChannel_startMessage", 0, startMessage);
+    it('PlatformBrightness values', 0, () => {
+      expect(PlatformBrightness.LIGHT).assertEqual('light');
+      expect(PlatformBrightness.DARK).assertEqual('dark');
+    });
+    it('message builder chain then send', 0, () => {
+      const channel = getSettingsChannel();
+      const builder = channel.startMessage()
+        .setTextScaleFactor(1.5)
+        .setNativeSpellCheckServiceDefined(true)
+        .setBrieflyShowPassword(true)
+        .setAlwaysUse24HourFormat(true)
+        .setPlatformBrightness(PlatformBrightness.DARK);
+      expect(builder).not().assertNull();
+      builder.send();
+    });
   })
 }
 

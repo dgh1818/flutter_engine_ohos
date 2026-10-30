@@ -126,6 +126,9 @@ export default class JSONMethodCodec implements MethodCodec {
       }
       throw new Error("Invalid envelope: " + json);
     } catch (e) {
+      if (e instanceof FlutterException) {
+        throw e;
+      }
       throw new Error("Invalid JSON");
     }
   }

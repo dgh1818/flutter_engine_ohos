@@ -10,17 +10,6 @@ extern "C" {
 
 int g_stub_sdk_api_version = -1;
 
-#if defined(OHOS_X64_UNITTEST)
-
-int OH_GetSdkApiVersion(void) {
-  if (g_stub_sdk_api_version < 0) {
-    return 20;
-  }
-  return g_stub_sdk_api_version;
-}
-
-#else  // !defined(OHOS_X64_UNITTEST)
-
 int __real_OH_GetSdkApiVersion(void);
 
 int __wrap_OH_GetSdkApiVersion(void) {
@@ -29,7 +18,4 @@ int __wrap_OH_GetSdkApiVersion(void) {
   }
   return g_stub_sdk_api_version;
 }
-
-#endif  // defined(OHOS_X64_UNITTEST)
-
 }

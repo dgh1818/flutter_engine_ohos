@@ -43,17 +43,25 @@ void main() {
       tearDownAll(_FakeLibflutter.instance.dispose);
     }
 
-    test('returns true when OHOS_WindowingSupported reports support', () {
-      _FakeLibflutter.instance.flag.value = 1;
+    test(
+      'returns true when OHOS_WindowingSupported reports support',
+      () {
+        _FakeLibflutter.instance.flag.value = 1;
 
-      expect(ohosWindowingSupported, isTrue);
-    }, skip: fakeAvailable ? false : skipReason);
+        expect(ohosWindowingSupported, isTrue);
+      },
+      skip: fakeAvailable ? false : skipReason, // Skip is intended.
+    );
 
-    test('returns false when OHOS_WindowingSupported reports no support', () {
-      _FakeLibflutter.instance.flag.value = 0;
+    test(
+      'returns false when OHOS_WindowingSupported reports no support',
+      () {
+        _FakeLibflutter.instance.flag.value = 0;
 
-      expect(ohosWindowingSupported, isFalse);
-    }, skip: fakeAvailable ? false : skipReason);
+        expect(ohosWindowingSupported, isFalse);
+      },
+      skip: fakeAvailable ? false : skipReason, // Skip is intended.
+    );
 
     test('re-reads the native symbol on every access', () {
       _FakeLibflutter.instance.flag.value = 1;
@@ -61,7 +69,7 @@ void main() {
 
       _FakeLibflutter.instance.flag.value = 0;
       expect(ohosWindowingSupported, isFalse);
-    }, skip: fakeAvailable ? false : skipReason);
+    }, skip: fakeAvailable ? false : skipReason); // Skip is intended.
   });
 }
 

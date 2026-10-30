@@ -7,6 +7,7 @@ import SendableMethodCallHandler from '../../../../../main/ets/plugin/common/Sen
 import { MethodResult } from '../../../../../main/ets/plugin/common/MethodChannel';
 import MethodCall from '../../../../../main/ets/plugin/common/MethodCall';
 import Any from '../../../../../main/ets/plugin/common/Any';
+import FlutterException from '../../../../../main/ets/plugin/common/FlutterException';
 
 class FakeTaskQueue implements TaskQueue {}
 
@@ -67,6 +68,12 @@ class FakeResult implements MethodResult {
 
 @Sendable
 class FakeSendableMethodCodec implements SendableMethodCodec {
+  errorCode: string = '';
+  errorMessage: string = '';
+  errorDetails: string = '';
+  capturedErrMsg: string = '';
+  capturedErrStack: string = '';
+
   encodeMethodCall(methodCall: MethodCall): ArrayBuffer {
     const method: string = methodCall.method;
     const buffer: ArrayBuffer = new ArrayBuffer(method.length + 1);
@@ -104,6 +111,8 @@ class FakeSendableMethodCodec implements SendableMethodCodec {
 
   encodeErrorEnvelopeWithStacktrace(errorCode: string, errorMessage: string, errorDetails: Any,
     errorStacktrace: string): ArrayBuffer {
+    this.capturedErrMsg = errorMessage;
+    this.capturedErrStack = errorStacktrace;
     const buffer: ArrayBuffer = new ArrayBuffer(1);
     const view: Uint8Array = new Uint8Array(buffer);
     view[0] = 1;
@@ -111,7 +120,11 @@ class FakeSendableMethodCodec implements SendableMethodCodec {
   }
 
   decodeEnvelope(envelope: ArrayBuffer): Any {
-    return null;
+    const view: Uint8Array = new Uint8Array(envelope);
+    if (view[0] === 0) {
+      return null;
+    }
+    throw new FlutterException(this.errorCode, this.errorMessage, this.errorDetails);
   }
 }
 
@@ -129,6 +142,22 @@ class SuccessSendableHandler implements SendableMethodCallHandler {
 class NotImplementedSendableHandler implements SendableMethodCallHandler {
   onMethodCall(call: MethodCall, result: MethodResult, ...args: Object[]): void {
     result.notImplemented();
+  }
+}
+
+@Sendable
+class ThrowingSendableHandler implements SendableMethodCallHandler {
+  onMethodCall(call: MethodCall, result: MethodResult, ...args: Object[]): void {
+    throw new Error('sendable handler exception');
+  }
+}
+
+@Sendable
+class FlutterThrowingSendableHandler implements SendableMethodCallHandler {
+  onMethodCall(call: MethodCall, result: MethodResult, ...args: Object[]): void {
+    const e: FlutterException = new FlutterException('invalid_args', 'bad argument', 'extra');
+    e.stack = 'simulated stack';
+    throw e;
   }
 }
 
@@ -216,10 +245,28 @@ export default function backgroundMethodChannelTest() {
       expect(reply.replyData!.byteLength).assertEqual(0);
     });
 
-    // SKIPPED: Source bug — catch block calls e.getMessage() which doesn't exist
-    // on Error (should be e.message). Throws TypeError: undefined is not callable.
-    // Fix: change e.getMessage() to e.message in IncomingSendableMethodCallHandler.onMessage
-    // Note: xit not available in current hypium runtime, test removed.
+    // Regression test for the e.getMessage() bug previously documented here.
+    it('replies with error envelope when handler throws exception', Level.LEVEL1, () => {
+      const handler = new ThrowingSendableHandler();
+      const wrapper = new IncomingSendableMethodCallHandler(handler, codec);
+      const reply = new FakeReply();
+      wrapper.onMessage(codec.encodeMethodCall(new MethodCall('test', null)), reply);
+      expect(reply.replyData).not().assertNull();
+      expect(new Uint8Array(reply.replyData!)[0]).assertEqual(1);
+    });
+
+    // Regression test: a handler throwing FlutterException must not degrade the
+    // error message to "[object Object]" nor drop its stack.
+    it('replies with real message and stack when handler throws FlutterException', Level.LEVEL1, () => {
+      const handler = new FlutterThrowingSendableHandler();
+      const wrapper = new IncomingSendableMethodCallHandler(handler, codec);
+      const reply = new FakeReply();
+      wrapper.onMessage(codec.encodeMethodCall(new MethodCall('test', null)), reply);
+      expect(reply.replyData).not().assertNull();
+      expect(new Uint8Array(reply.replyData!)[0]).assertEqual(1);
+      expect(codec.capturedErrMsg).assertEqual('bad argument');
+      expect(codec.capturedErrStack).assertEqual('simulated stack');
+    });
   });
 
   describe('IncomingSendableResultHandler.reply', () => {
@@ -236,6 +283,21 @@ export default function backgroundMethodChannelTest() {
       const envelope = codec.encodeSuccessEnvelope(null);
       handler.reply(envelope);
       expect(result.successCalled).assertEqual(true);
+    });
+
+    // Regression test for the error envelope path of reply().
+    it('calls error when reply is error envelope', Level.LEVEL1, () => {
+      const result = new FakeResult();
+      codec.errorCode = 'ERR_CODE';
+      codec.errorMessage = 'something broke';
+      codec.errorDetails = 'detail info';
+      const handler = new IncomingSendableResultHandler(result, codec);
+      const envelope = codec.encodeErrorEnvelope('ERR_CODE', 'something broke', 'detail info');
+      handler.reply(envelope);
+      expect(result.errorCalled).assertEqual(true);
+      expect(result.errorCode).assertEqual('ERR_CODE');
+      expect(result.errorMessage).assertEqual('something broke');
+      expect(result.errorDetails).assertEqual('detail info');
     });
   });
 }

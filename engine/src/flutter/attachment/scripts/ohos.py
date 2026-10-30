@@ -39,7 +39,7 @@ logging.basicConfig(
 def safeGetPath(filePath, isDirectory=True):
   createPath = (filePath if isDirectory else os.path.abspath(os.path.join(filePath, os.pardir)))
   if not os.path.exists(createPath):
-    os.makedirs(createPath)
+    os.makedirs(createPath, exist_ok=True)
   return os.path.abspath(filePath)
 
 
@@ -184,7 +184,8 @@ def engineConfig(buildInfo, args):
     )
   OPT = "--unoptimized " if buildInfo.unoptimized else ""
   LTO = "--no-lto " if buildInfo.buildType == "debug" else ""
-  UNUSE_BISHENG = "--unuse-bisheng" if (args.unuse_bisheng or args.llvm18) else ""
+  UNUSE_BISHENG = "--unuse-bisheng " if (args.unuse_bisheng or args.llvm18) else ""
+  USE_CCACHE = "--ccache " if args.use_ccache else ""
 
   runCommand(
       "%s " % os.path.join("src", "flutter", "tools", "gn") + "--ohos " +
@@ -192,21 +193,21 @@ def engineConfig(buildInfo, args):
       LTO + unixCommand + "--no-goma " + "--no-prebuilt-dart-sdk " + "--full-dart-sdk " +
       "--embedder-for-target " + "--disable-desktop-embeddings " + "--no-build-embedder-examples " +
       "--ohos-api-int %s " % args.ohos_api_int + "--verbose " +
-      ("--llvm18 " if args.llvm18 else "") +
-      UNUSE_BISHENG +
+      ("--llvm18 " if args.llvm18 else "") + UNUSE_BISHENG + USE_CCACHE +
       args.gn_extra_param.replace("\\", ""),
-      checkCode=False,
+      checkCode=True,
       timeout=600,
   )
 
 
 # 执行engine编译操作
-def engineCompile(buildInfo):
+def engineCompile(buildInfo, args):
   command = "ninja -C %s default " % os.path.join("src", "out", getOutput(buildInfo))
   if IS_WINDOWS and buildInfo.buildType != "debug":
     command += "flutter/build/archives:archive_win_gen_snapshot "
-  if not IS_WINDOWS:
+  if not IS_WINDOWS and "--coverage" in (args.gn_extra_param or ""):
     command += "flutter/shell/platform/ohos:flutter_ohos_unittests "
+    command += "flutter/shell/platform/ohos:flutter_ohos_app_test "
   runCommand(command)
 
 
@@ -331,8 +332,18 @@ def addParseParam(parser):
   )
   parser.add_argument("--host-cpu", type=str, choices=['x64', 'arm64'], default="x64")
   parser.add_argument("--unoptimized", action="store_true", help="Build unoptimized version.")
-  parser.add_argument("--unuse-bisheng", action="store_true", help="Build without BiSheng compiler.")
-  parser.add_argument("--llvm18", action="store_true", help="Use LLVM 18 instead of default LLVM 15 (BiSheng).")
+  parser.add_argument(
+      "--unuse-bisheng", action="store_true", help="Build without BiSheng compiler."
+  )
+  parser.add_argument(
+      "--llvm18", action="store_true", help="Use LLVM 18 instead of default LLVM 15 (BiSheng)."
+  )
+  parser.add_argument(
+      "--use-ccache",
+      action="store_true",
+      help="Enable ccache for compilation. Requires ccache to be installed. "
+      "Not supported for host engine builds on Windows.",
+  )
 
 
 def updateCode(args):
@@ -361,12 +372,17 @@ def buildLocalEngine(buildType, args):
   extraParam = args.gn_extra_param
   osName = platform.system().lower()
   hostAppend = f"--mac-cpu {args.host_cpu} " if osName == "darwin" else ""
+  useCcache = "--ccache " if args.use_ccache and not IS_WINDOWS else ""
+  if args.use_ccache and IS_WINDOWS:
+    logging.warning(
+        "ccache is not supported on Windows, ignoring --use-ccache for host engine builds"
+    )
   runCommand(
       "%s " % os.path.join("src", "flutter", "tools", "gn") + "--runtime-mode %s " % buildType +
       OPT + LTO + "--no-goma " + "--no-prebuilt-dart-sdk " + "--full-dart-sdk " +
       "--disable-desktop-embeddings " + "--no-build-embedder-examples " + "--verbose " +
-      hostAppend + extraParam.replace("\\", ""),
-      checkCode=False,
+      hostAppend + useCcache + extraParam.replace("\\", ""),
+      checkCode=True,
       timeout=600,
   )
   append1 = "_unopt" if args.unoptimized else ""
@@ -398,7 +414,7 @@ def buildByNameAndType(args):
       elif "har" == buildName:
         harBuild(buildInfo, args)
       elif "compile" == buildName:
-        engineCompile(buildInfo)
+        engineCompile(buildInfo, args)
       elif "zip" == buildName:
         zipFiles(buildInfo, False, args)
       elif "zip2" == buildName:

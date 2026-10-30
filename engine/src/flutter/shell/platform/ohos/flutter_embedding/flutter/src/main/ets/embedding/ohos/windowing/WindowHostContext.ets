@@ -7,7 +7,7 @@
 import UIAbility from '@ohos.app.ability.UIAbility';
 import window from '@ohos.window';
 import { FlutterView } from '../../../view/FlutterView';
-import FlutterEngine from '../../engine/FlutterEngine';
+import { FlutterWindowHost } from './FlutterWindowHost';
 
 /**
  * The slice of FlutterManager the window-host classes need. Hosts depend
@@ -16,17 +16,10 @@ import FlutterEngine from '../../engine/FlutterEngine';
  * OHOSWindowController accessors the OHOSWindow hierarchy uses.
  */
 export interface WindowHostContext {
-  /** Resolves the UIAbility whose WindowStage owns a parent view's children. */
-  resolveParentAbility(parentViewId: number): UIAbility | undefined;
-
   /** The WindowStage of an ability, or undefined if it has none registered. */
-  windowStageOf(ability: UIAbility): window.WindowStage | undefined;
+  getWindowStage(ability: UIAbility): window.WindowStage | undefined;
 
-  /** The FlutterView id string of the main (EntryAbility) window = view 0. */
-  mainFlutterViewId(): string | undefined;
-
-  /** The shared FlutterEngine of the single-engine, multi-view model. */
-  sharedEngine(): FlutterEngine | null;
+  getAbilityByView(viewId: number): UIAbility | undefined;
 
   getFlutterView(viewId: string): FlutterView | null;
 
@@ -34,31 +27,15 @@ export interface WindowHostContext {
 
   deleteFlutterView(viewId: string, flutterView?: FlutterView): void;
 
-  setViewAbility(viewId: string, ability: UIAbility): void;
+  /** The UIAbility class name SPAWNED regular hosts launch (configurable
+   * by the app; the ability must be declared in its module.json5 with
+   * launchType "specified"). Same config-surface pattern as subWindowPage. */
+  spawnedAbilityName(): string;
 
-  getViewAbility(viewId: string): UIAbility | undefined;
-
-  deleteViewAbility(viewId: string): void;
-
-  /** The sub-window of a view, or undefined when it has no SubWindow host
-   * (UIAbility-backed or not materialized yet). */
-  subWindowOfView(viewId: string): window.Window | undefined;
-
-  /** The display density (DPR); 1.0 when unavailable. */
-  densityPixels(): number;
-
-  /** Registers the per-parent windowRectChange listener (parent moved →
-   * re-anchor its anchored sub-windows); idempotent per ability. */
-  ensureParentRectListener(ability: UIAbility, stage: window.WindowStage): void;
-
-  /** Same for a SUB-WINDOW parent (dialog moved → re-anchor its anchored
-   * children); idempotent per parent view id, no-op while the parent's
-   * sub-window has not materialized yet. */
-  ensureSubWindowRectListener(parentViewId: number): void;
-
-  /** Re-activates a parent after a child SubWindow closed (WMS does not
-   * reliably hand foreground back). Best-effort, logged. */
-  restoreParentForeground(ability: UIAbility | undefined, closedViewId: string): void;
+  /** The window host of a view (numeric id; 0 = the implicit main view), or
+   * undefined when its host has not materialized (or already tore down) —
+   * each host carries its own OS-window handle (getWindow). */
+  getHostWindowByView(viewId: number): FlutterWindowHost | undefined;
 
   /** Focus push for a sub-window host: windowEvent WINDOW_ACTIVE↔
    * WINDOW_INACTIVE translated to the view's activation flag and handed to
@@ -67,12 +44,11 @@ export interface WindowHostContext {
   notifyWindowActivated(viewId: number, activated: boolean): void;
 
   /** Removes a host from the registry (idempotent). */
-  removeHost(viewIdStr: string): void;
+  removeHost(viewId: number): void;
 
-  /** The UIAbility class name launched for spawned Regular / modeless-Dialog
-   * hosts. App-configurable because the ability is APP code — the embedding
-   * cannot ship it in the HAR. */
-  regularWindowAbilityName(): string;
+  /** Drops the view's ability record so destroyed UIAbilities are not held
+   * (idempotent; sub-window views without an ability are a no-op). */
+  deleteViewAbility(viewId: number): void;
 
   /** The ArkUI page loaded into SubWindow hosts. App-configurable because
    * the page is APP code; must satisfy the FlutterManager.subWindowPage

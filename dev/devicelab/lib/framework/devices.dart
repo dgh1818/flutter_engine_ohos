@@ -56,6 +56,7 @@ enum DeviceOperatingSystem {
   ios,
   linux,
   macos,
+  ohos,
   webServer,
   windows,
 }
@@ -81,6 +82,8 @@ abstract class DeviceDiscovery {
         return LinuxDeviceDiscovery();
       case DeviceOperatingSystem.macos:
         return MacosDeviceDiscovery();
+      case DeviceOperatingSystem.ohos:
+        return OhosDeviceDiscovery();
       case DeviceOperatingSystem.webServer:
         return WebServerDeviceDiscovery();
       case DeviceOperatingSystem.windows:
@@ -1462,7 +1465,345 @@ class FuchsiaDevice extends Device {
   Future<void> awaitDevice() async {}
 }
 
-/// Path to the `adb` executable.
+class OhosDeviceDiscovery implements DeviceDiscovery {
+  factory OhosDeviceDiscovery() {
+    return _instance ??= OhosDeviceDiscovery._();
+  }
+
+  OhosDeviceDiscovery._();
+
+  static OhosDeviceDiscovery? _instance;
+  OhosDevice? _workingDevice;
+
+  @override
+  Future<OhosDevice> get workingDevice async {
+    if (_workingDevice == null) {
+      if (Platform.environment.containsKey(DeviceIdEnvName)) {
+        final String deviceId = Platform.environment[DeviceIdEnvName]!;
+        await chooseWorkingDeviceById(deviceId);
+        return _workingDevice!;
+      }
+      await chooseWorkingDevice();
+    }
+    return _workingDevice!;
+  }
+
+  @override
+  Future<void> chooseWorkingDevice() async {
+    final List<OhosDevice> allDevices = (await discoverDevices())
+        .map<OhosDevice>((String id) => OhosDevice(deviceId: id))
+        .toList();
+
+    if (allDevices.isEmpty) {
+      throw const DeviceException('No OHOS devices detected');
+    }
+
+    _workingDevice = allDevices[math.Random().nextInt(allDevices.length)];
+    print('Device chosen: $_workingDevice');
+  }
+
+  @override
+  Future<void> chooseWorkingDeviceById(String deviceId) async {
+    final String? matchedId = _findMatchId(await discoverDevices(), deviceId);
+    if (matchedId != null) {
+      _workingDevice = OhosDevice(deviceId: matchedId);
+      print('Choose device by ID: $matchedId');
+      return;
+    }
+    throw DeviceException(
+      'Device with ID $deviceId is not found for operating system: '
+      '$deviceOperatingSystem',
+    );
+  }
+
+  @override
+  Future<List<String>> discoverDevices() async {
+    final String output = await eval(hdcPath, <String>['list', 'targets']);
+    final results = <String>[];
+    for (final String line in output.trim().split('\n')) {
+      final String trimmed = line.trim();
+      if (trimmed.isNotEmpty && !trimmed.contains('[Empty]') && !trimmed.contains('Offline')) {
+        results.add(trimmed);
+      }
+    }
+    return results;
+  }
+
+  @override
+  Future<Map<String, HealthCheckResult>> checkDevices() async {
+    final results = <String, HealthCheckResult>{};
+    for (final String deviceId in await discoverDevices()) {
+      results['ohos-device-$deviceId'] = HealthCheckResult.success();
+    }
+    return results;
+  }
+
+  @override
+  Future<void> performPreflightTasks() async {}
+}
+
+class OhosDevice extends Device {
+  OhosDevice({required this.deviceId});
+
+  @override
+  final String deviceId;
+
+  @override
+  Future<void> toggleFixedPerformanceMode(bool enable) async {
+    await hdcShellExec('power-shell', <String>['setmode', if (enable) '602' else '600']);
+  }
+
+  Future<String> _getPowerState() async {
+    return hdcShellEval('hidumper', <String>['-s', 'PowerManagerService', '-a', '-s']);
+  }
+
+  @override
+  Future<bool> isAwake() async {
+    final String output = await _getPowerState();
+    return output.contains('Current State: AWAKE');
+  }
+
+  @override
+  Future<bool> isAsleep() async {
+    final String output = await _getPowerState();
+    return output.contains('Current State: SLEEP');
+  }
+
+  @override
+  Future<void> wakeUp() async {
+    await hdcShellExec('power-shell', <String>['wakeup']);
+  }
+
+  @override
+  Future<void> sendToSleep() async {
+    await hdcShellExec('power-shell', <String>['suspend']);
+  }
+
+  @override
+  Future<void> home() async {
+    await hdcShellExec('uitest', <String>['uiInput', 'keyEvent', 'Home']);
+  }
+
+  @override
+  Future<void> togglePower() async {
+    await hdcShellExec('uitest', <String>['uiInput', 'keyEvent', 'Power']);
+  }
+
+  @override
+  Future<void> unlock() async {
+    await wakeUp();
+    await hdcShellExec('uitest', <String>[
+      'uiInput',
+      'dircFling',
+      '2', // direction: up (0=left, 1=right, 2=up, 3=down)
+      '40000', // velocity
+      '10', // steps
+    ]);
+  }
+
+  @override
+  Future<void> tap(int x, int y) async {
+    await hdcShellExec('uitest', <String>['uiInput', 'click', '$x', '$y']);
+  }
+
+  @override
+  Future<void> reboot() async {
+    await hdc(<String>['shell', 'reboot']);
+  }
+
+  @override
+  Future<void> stop(String packageName) async {
+    await hdcShellExec('aa', <String>['force-stop', packageName]);
+  }
+
+  @override
+  Future<Map<String, dynamic>> getMemoryStats(String packageName) async {
+    final String pidOutput = await hdcShellEval('pidof', <String>[packageName]);
+    final String? pid = pidOutput.trim().split(' ').firstOrNull;
+    if (pid == null || pid.isEmpty) {
+      return <String, dynamic>{};
+    }
+    final String output = await hdcShellEval('hidumper', <String>['--mem', pid]);
+    final Match? match = RegExp(r'^\s*Total\s+(\d+)\s', multiLine: true).firstMatch(output);
+    if (match != null) {
+      return <String, dynamic>{'total_kb': int.parse(match.group(1)!)};
+    }
+    return <String, dynamic>{};
+  }
+
+  @override
+  Future<void> clearLogs() async {
+    await hdc(<String>['shell', 'hilog', '-r'], canFail: true);
+  }
+
+  @override
+  Stream<String> get logcat {
+    final stdoutDone = Completer<void>();
+    final stderrDone = Completer<void>();
+    final processDone = Completer<void>();
+    final abort = Completer<void>();
+    var aborted = false;
+    late final StreamController<String> stream;
+    stream = StreamController<String>(
+      onListen: () async {
+        await clearLogs();
+        final Process process = await startProcess(hdcPath, <String>['-t', deviceId, 'hilog']);
+        process.stdout
+            .transform<String>(const Utf8Decoder(allowMalformed: true))
+            .transform<String>(const LineSplitter())
+            .listen(
+              (String line) {
+                print('hdc hilog: $line');
+                if (!stream.isClosed) {
+                  stream.sink.add(line);
+                }
+              },
+              onDone: () {
+                stdoutDone.complete();
+              },
+            );
+        process.stderr
+            .transform<String>(const Utf8Decoder(allowMalformed: true))
+            .transform<String>(const LineSplitter())
+            .listen(
+              (String line) {
+                print('hdc hilog stderr: $line');
+              },
+              onDone: () {
+                stderrDone.complete();
+              },
+            );
+        unawaited(
+          process.exitCode.then<void>((int exitCode) {
+            print('hdc hilog process terminated with exit code $exitCode');
+            if (!aborted) {
+              stream.addError(DeviceException('hdc hilog failed with exit code $exitCode.\n'));
+              processDone.complete();
+            }
+          }),
+        );
+        await Future.any<dynamic>(<Future<dynamic>>[
+          Future.wait<void>(<Future<void>>[
+            stdoutDone.future,
+            stderrDone.future,
+            processDone.future,
+          ]),
+          abort.future,
+        ]);
+        aborted = true;
+        print('terminating hdc hilog');
+        process.kill();
+        print('closing hilog stream');
+        await stream.close();
+      },
+      onCancel: () {
+        if (!aborted) {
+          print('hdc hilog aborted');
+          aborted = true;
+          abort.complete();
+        }
+      },
+    );
+    return stream.stream;
+  }
+
+  @override
+  bool get canStreamLogs => true;
+
+  bool _abortedLogging = false;
+  Process? _loggingProcess;
+
+  @override
+  Future<void> startLoggingToSink(IOSink sink, {bool clear = true}) async {
+    if (clear) {
+      await hdc(<String>['shell', 'hilog', '-r'], canFail: true);
+    }
+    _loggingProcess = await startProcess(hdcPath, <String>['-t', deviceId, 'hilog']);
+    _loggingProcess!.stdout.transform<String>(const Utf8Decoder(allowMalformed: true)).listen((
+      String line,
+    ) {
+      sink.write(line);
+    });
+    _loggingProcess!.stderr.transform<String>(const Utf8Decoder(allowMalformed: true)).listen((
+      String line,
+    ) {
+      sink.write(line);
+    });
+    unawaited(
+      _loggingProcess!.exitCode.then<void>((int exitCode) {
+        if (!_abortedLogging) {
+          sink.writeln('hdc hilog failed with exit code $exitCode.\n');
+        }
+      }),
+    );
+  }
+
+  @override
+  Future<void> stopLoggingToSink() async {
+    if (_loggingProcess != null) {
+      _abortedLogging = true;
+      _loggingProcess!.kill();
+      await _loggingProcess!.exitCode;
+    }
+  }
+
+  @override
+  Future<void> awaitDevice() async {}
+
+  Future<void> hdcShellExec(
+    String command,
+    List<String> arguments, {
+    Map<String, String>? environment,
+    bool silent = false,
+  }) async {
+    await hdc(<String>['shell', command, ...arguments], environment: environment, silent: silent);
+  }
+
+  Future<String> hdcShellEval(
+    String command,
+    List<String> arguments, {
+    Map<String, String>? environment,
+    bool silent = false,
+  }) {
+    return hdc(<String>['shell', command, ...arguments], environment: environment, silent: silent);
+  }
+
+  Future<String> hdc(
+    List<String> arguments, {
+    Map<String, String>? environment,
+    bool silent = false,
+    bool canFail = false,
+  }) {
+    return eval(
+      hdcPath,
+      <String>['-t', deviceId, ...arguments],
+      environment: environment,
+      printStdout: !silent,
+      printStderr: !silent,
+      canFail: canFail,
+    );
+  }
+
+  @override
+  String toString() => 'OhosDevice($deviceId)';
+}
+
+/// Path to the `hdc` executable.
+String get hdcPath {
+  const hdc = 'hdc';
+  if (canRun(hdc)) {
+    return hdc;
+  }
+  final String? devecoSdkHome = Platform.environment['DEVECO_SDK_HOME'];
+  if (devecoSdkHome != null) {
+    final String p = path.join(devecoSdkHome, 'default', 'openharmony', 'toolchains', 'hdc');
+    if (canRun(p)) {
+      return path.absolute(p);
+    }
+  }
+  throw const DeviceException('hdc not found. Set DEVECO_SDK_HOME or add hdc to PATH.');
+}
+
 String get adbPath {
   final String? androidHome =
       Platform.environment['ANDROID_HOME'] ?? Platform.environment['ANDROID_SDK_ROOT'];

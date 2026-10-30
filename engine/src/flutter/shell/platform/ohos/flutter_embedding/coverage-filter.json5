@@ -1,0 +1,34 @@
+{
+  // ArkTS test coverage scope: exclude "zero-hit + zero-branch" pure interface/abstract/event-source
+  // class files (they have no executable bodies in unit tests, so they should not be part of the
+  // coverage denominator).
+  // Matching rule: performs String.includes() substring matching on the normalized module.moduleId;
+  //               backslashes are converted to forward slashes, glob is not supported.
+  // Note: do not write this as a directory prefix, otherwise sibling files with real runtime data
+  //       will be incorrectly excluded.
+  "exclude": [
+    "src/main/ets/component/FlutterComponent.ets",
+    "src/main/ets/component/XComponentStruct.ets",
+    "src/main/ets/embedding/engine/dart/PlatformMessageHandler.ets",
+    "src/main/ets/embedding/engine/plugins/PluginRegistry.ets",
+    "src/main/ets/embedding/engine/plugins/ability/AbilityAware.ets",
+    "src/main/ets/embedding/engine/plugins/ability/AbilityControlSurface.ets",
+    "src/main/ets/embedding/engine/plugins/ability/AbilityPluginBinding.ets",
+    "src/main/ets/embedding/engine/renderer/FlutterUiDisplayListener.ets",
+    "src/main/ets/embedding/engine/workers/PlatformChannelWorker.ets",
+    "src/main/ets/embedding/ohos/ExclusiveAppComponent.ets",
+    "src/main/ets/embedding/ohos/FlutterEngineConfigurator.ets",
+    "src/main/ets/embedding/ohos/FlutterEngineProvider.ets",
+    "src/main/ets/embedding/ohos/OhosTouchProcessor.ets",
+    "src/main/ets/plugin/common/MessageCodec.ets",
+    "src/main/ets/plugin/common/MethodCodec.ets",
+    "src/main/ets/plugin/common/SendableBinaryMessageHandler.ets",
+    "src/main/ets/plugin/common/SendableMessageCodec.ets",
+    "src/main/ets/plugin/common/SendableMessageHandler.ets",
+    "src/main/ets/plugin/common/SendableMethodCallHandler.ets",
+    "src/main/ets/plugin/common/SendableMethodCodec.ets",
+    "src/main/ets/plugin/platform/PlatformViewRegistry.ets",
+    "src/main/ets/view/TextureRegistry.ets"
+  ],
+  "include": []
+}

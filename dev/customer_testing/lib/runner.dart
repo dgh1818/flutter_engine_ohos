@@ -89,6 +89,20 @@ Future<bool> runTests({
     try {
       assert(instructions.fetch.isNotEmpty);
       for (final String fetchCommand in instructions.fetch) {
+        // OHOS: When cloning from a mirror that may be shallow, the pinned
+        // commit may not be present in the clone. If this is a checkout
+        // command, try to fetch the SHA first. Fetch failure is ignored —
+        // the checkout may still succeed if the clone already has the commit.
+        final checkoutRegExp = RegExp(r'checkout ([0-9a-f]{7,40})\s*$');
+        final Match? match = checkoutRegExp.firstMatch(fetchCommand);
+        if (match != null) {
+          final String sha = match.group(1)!;
+          final String fetchOriginCommand = fetchCommand.replaceFirst(
+            'checkout $sha',
+            'fetch origin $sha',
+          );
+          await shell(fetchOriginCommand, checkout, verbose: verbose, silentFailure: true);
+        }
         success = await shell(
           fetchCommand,
           checkout,

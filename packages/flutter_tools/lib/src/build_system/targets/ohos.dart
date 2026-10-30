@@ -8,6 +8,7 @@ import '../../artifacts.dart';
 import '../../base/build.dart';
 import '../../base/deferred_component.dart';
 import '../../build_info.dart';
+import '../../devfs.dart';
 import '../../globals.dart' as globals show xcode;
 import '../../isolated/native_assets/dart_hook_result.dart';
 import '../build_system.dart';
@@ -323,6 +324,11 @@ abstract class OhosAssetBundle extends Target {
       targetPlatform: TargetPlatform.ohos,
       buildMode: buildMode,
       flavor: environment.defines[kFlavor],
+      additionalContent: <String, DevFSContent>{
+        'NativeAssetsManifest.json': DevFSFileContent(
+          environment.buildDir.childFile('native_assets.json'),
+        ),
+      },
     );
     final depfileService = DepfileService(
       fileSystem: environment.fileSystem,

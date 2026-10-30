@@ -67,5 +67,30 @@ export default function LifecycleChannelTest() {
       lifecycleChannel.aWindowIsFocused();
       expect(basicMessageChannelMock.send).not().assertEqual(1);
     })
+
+    it('should skip when newState equals lastFlutterState (true branch of line 111)', 0, () => {
+      // First call: appIsInactive (state=INACTIVE) with focus=true → newState=INACTIVE, sent, lastFlutterState=INACTIVE
+      lifecycleChannel.appIsInactive();
+      lifecycleChannel.aWindowIsFocused();
+
+      // Reset tracking between calls.
+      // Set lastOhosState='resumed' so that noWindowsAreFocused() sends (state='resumed', hasFocus=false).
+      // Set lastFlutterState='inactive' so the next newState=INACTIVE matches and triggers line 111 true.
+      (lifecycleChannel as Any).lastOhosState = 'AppLifecycleState.resumed';
+      (lifecycleChannel as Any).lastFocus = true;
+      (lifecycleChannel as Any).lastFlutterState = 'AppLifecycleState.inactive';
+
+      // Second call: noWindowsAreFocused → lastFocus=false, sendState(RESUMED, false)
+      // Line 98: 'resumed'==state AND false==lastFocus(true) → AND false. False branch, proceed.
+      // Line 103: state==RESUMED, true. Line 104: hasFocus=false → newState=INACTIVE.
+      // Line 111: INACTIVE == 'inactive' → TRUE branch, return.
+      let threw = false;
+      try {
+        lifecycleChannel.noWindowsAreFocused();
+      } catch (e) {
+        threw = true;
+      }
+      expect(threw).assertEqual(false);
+    });
   })
 }

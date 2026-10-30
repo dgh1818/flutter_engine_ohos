@@ -54,6 +54,13 @@ export default function SendableStandardMessageCodecTest() {
 
     })
 
+    it('testEncodeDecodeNegativeBigInt', 0, () => {
+      const value = BigInt('-295147905179352825856'); // -2^68
+      const encoded = codec.encodeMessage(value);
+      const decoded: Any = codec.decodeMessage(encoded);
+      expect(decoded).assertEqual(value);
+    })
+
     it('testEncodeDecodeUint8Array', 0, () => {
       const uint8Array = new Uint8Array([1, 2, 3, 4, 5]);
       const encodedArray = codec.encodeMessage(uint8Array);

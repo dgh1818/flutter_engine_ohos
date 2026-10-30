@@ -95,10 +95,6 @@ export default function flutterAbilityLaunchConfigsTest() {
       expect(FlutterAbilityLaunchConfigs.EXTRA_FLUTTER_VIEW_ID).assertEqual('flutter_view_id');
     });
 
-    it('EXTRA_FLUTTER_WINDOW_REQUEST_ID equals flutter_window_request_id', Level.LEVEL0, () => {
-      expect(FlutterAbilityLaunchConfigs.EXTRA_FLUTTER_WINDOW_REQUEST_ID).assertEqual('flutter_window_request_id');
-    });
-
     it('EXTRA_FLUTTER_PREFERRED_WIDTH equals flutter_preferred_width', Level.LEVEL0, () => {
       expect(FlutterAbilityLaunchConfigs.EXTRA_FLUTTER_PREFERRED_WIDTH).assertEqual('flutter_preferred_width');
     });

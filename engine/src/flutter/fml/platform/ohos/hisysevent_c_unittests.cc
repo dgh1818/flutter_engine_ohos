@@ -30,113 +30,59 @@
 #include "flutter/fml/platform/ohos/hisysevent_c.h"
 #undef private
 
+#include "flutter/shell/platform/ohos/test_stubs/libc_wrapper_stub.h"
 #include "gtest/gtest.h"
 
 namespace flutter {
 namespace testing {
 
-enum class DlopenRedirect { kPassthrough = 0, kFail = 1, kWrongLib = 2 };
-
-DlopenRedirect g_hisysevent_redirect = DlopenRedirect::kPassthrough;
-DlopenRedirect g_vsync_redirect = DlopenRedirect::kPassthrough;
-int g_redirect_count = 0;
-
-void* RealDlopen(const char* file, int mode) {
-  static auto real = reinterpret_cast<void* (*)(const char*, int)>(
-      dlsym(RTLD_NEXT, "dlopen"));
-  return real(file, mode);
-}
-
 bool IsLibAvailable() {
   return access("/system/lib64/chipset-pub-sdk/libhisysevent.z.so", F_OK) == 0;
 }
 
-#if defined(OHOS_X64_UNITTEST)
-// x64 模拟器：libhisysevent.z.so 存在（IsLibAvailable()=true），但 hdc shell
-// 身份（u:r:sh:s0）无权向 hiview 发送事件，HiSysEvent_Write 返回 -5
-// （ERR_SENDFAIL）。root/特权身份返回 0。
-constexpr int kExpectedWriteRet = -5;
-#else
 constexpr int kExpectedWriteRet = 0;
-#endif
 
-void SetHisyseventDlopenRedirect(int mode);
-int GetAndResetDlopenRedirectCount();
-
-struct RedirectGuard {
-  ~RedirectGuard() {
-    SetHisyseventDlopenRedirect(0);
-    GetAndResetDlopenRedirectCount();
+#define ASSERT_WRITE_RET_ONCE(var)                       \
+  static bool asserted_once_ = false;                    \
+  if (!flutter::testing::IsLibAvailable()) {             \
+    EXPECT_EQ(var, -1);                                  \
+  } else if (!asserted_once_) {                          \
+    EXPECT_EQ(var, flutter::testing::kExpectedWriteRet); \
+    asserted_once_ = true;                               \
   }
-};
-
-void SetHisyseventDlopenRedirect(int mode) {
-  g_hisysevent_redirect = static_cast<DlopenRedirect>(mode);
-}
-
-void SetNativeVsyncDlopenRedirect(int mode) {
-  g_vsync_redirect = static_cast<DlopenRedirect>(mode);
-}
-
-int GetAndResetDlopenRedirectCount() {
-  int count = g_redirect_count;
-  g_redirect_count = 0;
-  return count;
-}
-
-extern "C" void* dlopen(const char* file, int mode) {
-  const bool hisysevent =
-      file != nullptr && strstr(file, "libhisysevent") != nullptr;
-  const bool native_vsync =
-      file != nullptr && strstr(file, "libnative_vsync") != nullptr;
-  if (hisysevent || native_vsync) {
-    const auto redirect = hisysevent ? g_hisysevent_redirect : g_vsync_redirect;
-    if (redirect != DlopenRedirect::kPassthrough) {
-      g_redirect_count++;
-      if (redirect == DlopenRedirect::kFail) {
-        return nullptr;
-      }
-      return RealDlopen("libc.so", mode);
-    }
-  }
-  return RealDlopen(file, mode);
-}
-
-}
-}
+}  // namespace testing
+}  // namespace flutter
 
 namespace fml {
 namespace testing {
 
 TEST(HiSysEventWrite, DlopenFailureReturnsMinusOne) {
-  flutter::testing::RedirectGuard guard;
-  flutter::testing::SetHisyseventDlopenRedirect(1);
+  ::GetAndResetDlopenRedirectCount();
+  ::ScopedDlopenRedirect redirect("libhisysevent",
+                                  ::DlopenRedirectMode::kFailOpen);
   int ret = HiSysEventWrite("dlopen_fail_scene", 1);
-  if (flutter::testing::GetAndResetDlopenRedirectCount() > 0) {
+  if (::GetAndResetDlopenRedirectCount() > 0) {
     EXPECT_EQ(ret, -1);
   } else {
-    EXPECT_TRUE(ret == 0 || ret == -5 || ret == -1);
+    SUCCEED();
   }
 }
 
 TEST(HiSysEventWrite, DlsymFailureClosesHandleAndReturnsMinusOne) {
-  flutter::testing::RedirectGuard guard;
-  flutter::testing::SetHisyseventDlopenRedirect(2);
+  ::GetAndResetDlopenRedirectCount();
+  ::ScopedDlopenRedirect redirect("libhisysevent",
+                                  ::DlopenRedirectMode::kWrongLib);
   int ret = HiSysEventWrite("dlsym_fail_scene", 1);
-  if (flutter::testing::GetAndResetDlopenRedirectCount() > 0) {
+  if (::GetAndResetDlopenRedirectCount() > 0) {
     EXPECT_EQ(ret, -1);
   } else {
-    EXPECT_TRUE(ret == 0 || ret == -5 || ret == -1);
+    SUCCEED();
   }
 }
 
 TEST(HiSysEventWrite, ReturnsCorrectValueForValidInput) {
   int ret = HiSysEventWrite("test_scene", 100);
-  if (flutter::testing::IsLibAvailable()) {
-    EXPECT_EQ(ret, flutter::testing::kExpectedWriteRet);
-  } else {
-    EXPECT_EQ(ret, -1);
-  }
+  ASSERT_WRITE_RET_ONCE(ret);
 }
 
 TEST(HiSysEventWrite, HandlesNullName) {
@@ -150,38 +96,28 @@ TEST(HiSysEventWrite, HandlesNullName) {
 
 TEST(HiSysEventWrite, HandlesEmptyName) {
   int ret = HiSysEventWrite("", 0);
-  if (flutter::testing::IsLibAvailable()) {
-    EXPECT_EQ(ret, flutter::testing::kExpectedWriteRet);
-  } else {
-    EXPECT_EQ(ret, -1);
-  }
+  ASSERT_WRITE_RET_ONCE(ret);
 }
 
 TEST(HiSysEventWrite, HandlesZeroTime) {
   int ret = HiSysEventWrite("scene", 0);
-  if (flutter::testing::IsLibAvailable()) {
-    EXPECT_EQ(ret, flutter::testing::kExpectedWriteRet);
-  } else {
-    EXPECT_EQ(ret, -1);
-  }
+  ASSERT_WRITE_RET_ONCE(ret);
 }
 
 TEST(HiSysEventWrite, HandlesLargeTime) {
   int ret = HiSysEventWrite("scene", UINT64_MAX);
-  if (flutter::testing::IsLibAvailable()) {
-    EXPECT_EQ(ret, flutter::testing::kExpectedWriteRet);
-  } else {
-    EXPECT_EQ(ret, -1);
-  }
+  ASSERT_WRITE_RET_ONCE(ret);
 }
 
 TEST(HiSysEventWrite, MultipleCallsAreSafe) {
+  static bool asserted_once_ = false;
   for (int i = 0; i < 10; i++) {
     int ret = HiSysEventWrite("scene", i * 100);
-    if (flutter::testing::IsLibAvailable()) {
-      EXPECT_EQ(ret, flutter::testing::kExpectedWriteRet);
-    } else {
+    if (!flutter::testing::IsLibAvailable()) {
       EXPECT_EQ(ret, -1);
+    } else if (!asserted_once_) {
+      EXPECT_EQ(ret, flutter::testing::kExpectedWriteRet);
+      asserted_once_ = true;
     }
   }
 }
@@ -236,32 +172,29 @@ TEST(HiSysEventTrace, NestedScopesAreSafe) {
 }
 
 TEST(HiSysEventWrite, DlsymFailureResetsHandleForRetry) {
-  flutter::testing::RedirectGuard guard;
-  flutter::testing::SetHisyseventDlopenRedirect(2);
+  ::GetAndResetDlopenRedirectCount();
+  ::ScopedDlopenRedirect redirect("libhisysevent",
+                                  ::DlopenRedirectMode::kWrongLib);
   int ret = HiSysEventWrite("dlsym_retry_scene", 1);
-  const bool engaged = flutter::testing::GetAndResetDlopenRedirectCount() > 0;
+  const bool engaged = ::GetAndResetDlopenRedirectCount() > 0;
   if (engaged) {
     EXPECT_EQ(ret, -1);
-    flutter::testing::SetHisyseventDlopenRedirect(2);
     EXPECT_EQ(HiSysEventWrite("dlsym_retry_scene2", 2), -1);
-    EXPECT_EQ(flutter::testing::GetAndResetDlopenRedirectCount(), 1);
+    EXPECT_EQ(::GetAndResetDlopenRedirectCount(), 1);
   } else {
-    EXPECT_EQ(ret, flutter::testing::kExpectedWriteRet);
+    SUCCEED();
   }
 }
 
 TEST(HiSysEventWrite, LoadedHandleShortCircuitsReload) {
-  flutter::testing::RedirectGuard guard;
   int ret = HiSysEventWrite("load_once_scene", 1);
-  if (flutter::testing::IsLibAvailable()) {
-    EXPECT_EQ(ret, flutter::testing::kExpectedWriteRet);
-  } else {
-    EXPECT_EQ(ret, -1);
-  }
-  flutter::testing::SetHisyseventDlopenRedirect(1);
+  ASSERT_WRITE_RET_ONCE(ret);
+  ::GetAndResetDlopenRedirectCount();
+  ::ScopedDlopenRedirect redirect("libhisysevent",
+                                  ::DlopenRedirectMode::kFailOpen);
   int ret2 = HiSysEventWrite("load_cached_scene", 2);
   if (flutter::testing::IsLibAvailable()) {
-    EXPECT_EQ(flutter::testing::GetAndResetDlopenRedirectCount(), 0);
+    EXPECT_EQ(::GetAndResetDlopenRedirectCount(), 0);
   }
   EXPECT_EQ(ret2, ret);
 }

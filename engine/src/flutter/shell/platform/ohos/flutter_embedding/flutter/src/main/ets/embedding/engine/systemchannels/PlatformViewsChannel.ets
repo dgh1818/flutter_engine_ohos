@@ -189,20 +189,40 @@ export default class PlatformViewsChannel {
   offset(call: MethodCall, result: MethodResult): void {
     const offsetArgs: Map<string, Any> = call.args;
     try {
-      // Optional local→global affine [invScaleX, invShearY, invTx, invShearX, invScaleY, invTy] sent by the framework
-      // (getTransformTo). Absent on old Dart sides; null/undefined keeps the
-      // plain x-left / y-top offset and touch behavior.
-      // Normalize null → undefined so downstream checks only need !== undefined.
-      const rawTransform: Any | undefined = offsetArgs.get("transform");
-      const transform: Array<number> | undefined = (rawTransform != null && rawTransform !== undefined) ? rawTransform as Array<number> : undefined;
       this.handler?.offset(
         offsetArgs.get("id"),
         offsetArgs.get("top"),
-        offsetArgs.get("left"),
-        transform);
+        offsetArgs.get("left"));
       result.success(null);
     } catch (err) {
       Log.e(TAG, "offset failed", err);
+      result.error("error", err, null);
+    }
+  }
+
+  /**
+   * Handles the standalone platform view affine transform message.
+   * @param call - The method call containing the transform parameters
+   * @param result - The result callback to send a response
+   */
+  transform(call: MethodCall, result: MethodResult): void {
+    const transformArgs: Map<string, Any> = call.args;
+    try {
+      // Optional local→global affine [scaleX, shearY, shearX, scaleY, translateX, translateY]
+      // sent by the framework (getTransformTo) as its own message right after
+      // 'offset', straight from the render object (the controller interface is
+      // deliberately left untouched so downstream mocks keep working).
+      // null clears the engine-side transform (plain offset positioning, no
+      // touch correction).
+      // Normalize null → undefined so downstream checks only need !== undefined.
+      const rawTransform: Any | undefined = transformArgs.get("transform");
+      const transform: Array<number> | undefined = (rawTransform != null && rawTransform !== undefined) ? rawTransform as Array<number> : undefined;
+      this.handler?.transform(
+        transformArgs.get("id"),
+        transform);
+      result.success(null);
+    } catch (err) {
+      Log.e(TAG, "transform failed", err);
       result.error("error", err, null);
     }
   }
@@ -380,10 +400,21 @@ export interface PlatformViewsHandler {
    * @param viewId - The ID of the platform view
    * @param top - The new top offset
    * @param left - The new left offset
-   * @param transform - Optional local→global affine [invScaleX, invShearY, invTx, invShearX, invScaleY, invTy]
-   *                    Used to detect rotation, position rotated views, and correct touch coords.
    */
-  offset(viewId: number, top: number, left: number, transform?: Array<number>): void;
+  offset(viewId: number, top: number, left: number): void;
+
+  /**
+   * The Flutter application would like to update the local→global affine
+   * transform of an existing platform {@code View}. Sent as its own message
+   * right after 'offset', straight from the framework's render object, so
+   * the public setOffset override signature stays unchanged for downstream
+   * implementations and mocks.
+   * @param viewId - The ID of the platform view
+   * @param transform - Optional local→global affine [scaleX, shearY, shearX, scaleY, translateX, translateY]
+   *                    Used to detect rotation, position rotated views, and correct touch coords;
+   *                    undefined/null clears it.
+   */
+  transform(viewId: number, transform?: Array<number>): void;
 
   /**
    * The user touched a platform view within Flutter.
@@ -652,6 +683,10 @@ class ParsingCallback implements MethodCallHandler {
       }
       case "offset": {
         this.platformChannel?.offset(call, result);
+        break;
+      }
+      case "transform": {
+        this.platformChannel?.transform(call, result);
         break;
       }
       case "touch": {

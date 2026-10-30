@@ -90,7 +90,7 @@ OHOSSurfaceGLImpeller::OHOSSurfaceGLImpeller(
       reactor_worker_(std::make_shared<ReactorWorker>()) {
   auto display = std::make_unique<impeller::egl::Display>();
   if (!display->IsValid()) {
-    FML_DLOG(ERROR) << "Could not create EGL display.";
+    FML_LOG(ERROR) << "Could not create EGL display.";
     return;
   }
 
@@ -104,39 +104,39 @@ OHOSSurfaceGLImpeller::OHOSSurfaceGLImpeller(
   desc.surface_type = impeller::egl::SurfaceType::kWindow;
   auto onscreen_config = display->ChooseConfig(desc);
   if (!onscreen_config) {
-    FML_DLOG(ERROR) << "Could not choose onscreen config.";
+    FML_LOG(ERROR) << "Could not choose onscreen config.";
     return;
   }
 
   desc.surface_type = impeller::egl::SurfaceType::kPBuffer;
   auto offscreen_config = display->ChooseConfig(desc);
   if (!offscreen_config) {
-    FML_DLOG(ERROR) << "Could not choose offscreen config.";
+    FML_LOG(ERROR) << "Could not choose offscreen config.";
     return;
   }
 
   auto onscreen_context = display->CreateContext(*onscreen_config, nullptr);
   if (!onscreen_context) {
-    FML_DLOG(ERROR) << "Could not create onscreen context.";
+    FML_LOG(ERROR) << "Could not create onscreen context.";
     return;
   }
 
   auto offscreen_context =
       display->CreateContext(*offscreen_config, onscreen_context.get());
   if (!offscreen_context) {
-    FML_DLOG(ERROR) << "Could not create offscreen context.";
+    FML_LOG(ERROR) << "Could not create offscreen context.";
     return;
   }
 
   auto offscreen_surface =
       display->CreatePixelBufferSurface(*offscreen_config, 1u, 1u);
   if (!offscreen_surface) {
-    FML_DLOG(ERROR) << "Could not create offscreen surface.";
+    FML_LOG(ERROR) << "Could not create offscreen surface.";
     return;
   }
 
   if (!offscreen_context->MakeCurrent(*offscreen_surface)) {
-    FML_DLOG(ERROR) << "Could not make offscreen context current.";
+    FML_LOG(ERROR) << "Could not make offscreen context current.";
     return;
   }
 
@@ -144,12 +144,12 @@ OHOSSurfaceGLImpeller::OHOSSurfaceGLImpeller(
       CreateImpellerContext(reactor_worker_, enable_gpu_tracing);
 
   if (!impeller_context) {
-    FML_DLOG(ERROR) << "Could not create Impeller context.";
+    FML_LOG(ERROR) << "Could not create Impeller context.";
     return;
   }
 
   if (!offscreen_context->ClearCurrent()) {
-    FML_DLOG(ERROR) << "Could not clear offscreen context.";
+    FML_LOG(ERROR) << "Could not clear offscreen context.";
     return;
   }
 
@@ -168,7 +168,7 @@ OHOSSurfaceGLImpeller::OHOSSurfaceGLImpeller(
       };
   if (!onscreen_context->AddLifecycleListener(listener).has_value() ||
       !offscreen_context->AddLifecycleListener(listener).has_value()) {
-    FML_DLOG(ERROR) << "Could not add lifecycle listeners";
+    FML_LOG(ERROR) << "Could not add lifecycle listeners";
   }
 
   display_ = std::move(display);
@@ -326,7 +326,7 @@ bool OHOSSurfaceGLImpeller::
   auto onscreen_surface = display_->CreateWindowSurface(
       *onscreen_config_, (EGLNativeWindowType)native_window_->Gethandle());
   if (!onscreen_surface) {
-    FML_DLOG(ERROR) << "Could not create onscreen surface.";
+    FML_LOG(ERROR) << "Could not create onscreen surface.";
     return false;
   }
   onscreen_surface_ = std::move(onscreen_surface);

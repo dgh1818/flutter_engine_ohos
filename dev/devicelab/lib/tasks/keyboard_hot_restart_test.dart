@@ -82,7 +82,9 @@ TaskFunction createKeyboardHotRestartTest({
               section('Wait until keyboard is visible');
               state = TestState.waitUntilKeyboardOpen;
             } else if (state == TestState.waitUntilKeyboardOpen) {
-              if (!line.contains('flutter: Keyboard is open')) {
+              // Match the bare message: OHOS hilog prints it without the
+              // 'flutter: ' console prefix.
+              if (!line.contains('Keyboard is open')) {
                 return;
               }
 
@@ -104,7 +106,7 @@ TaskFunction createKeyboardHotRestartTest({
               section('Wait until the keyboard is no longer visible');
               state = TestState.waitUntilKeyboardClosed;
             } else if (state == TestState.waitUntilKeyboardClosed) {
-              if (!line.contains('flutter: Keyboard is closed')) {
+              if (!line.contains('Keyboard is closed')) {
                 return;
               }
 

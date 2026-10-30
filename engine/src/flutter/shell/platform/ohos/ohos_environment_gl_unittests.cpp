@@ -4,40 +4,30 @@
  * found in the LICENSE_HW file.
  */
 
-#include "flutter/shell/platform/ohos/ohos_environment_gl.h"
 #include <gtest/gtest.h>
 #include "flutter/fml/memory/ref_counted.h"
+#include "flutter/shell/platform/ohos/ohos_environment_gl.h"
 
 namespace flutter {
 namespace testing {
 
-#if !defined(OHOS_X64_UNITTEST)
 TEST(OhosEnvironmentGL, CreatesValidDisplay) {
   auto environment = fml::MakeRefCounted<OhosEnvironmentGL>();
-  if (environment->Display() == EGL_NO_DISPLAY) {
-    GTEST_SKIP() << "EGL display unavailable on emulator";
-  }
+  ASSERT_NE(environment->Display(), EGL_NO_DISPLAY);
   EXPECT_TRUE(environment->IsValid());
 }
-#endif  // !defined(OHOS_X64_UNITTEST)
 
-#if !defined(OHOS_X64_UNITTEST)
 TEST(OhosEnvironmentGL, DisplayHandleIsStableAcrossInstances) {
   EGLDisplay first_display = EGL_NO_DISPLAY;
   {
     auto environment = fml::MakeRefCounted<OhosEnvironmentGL>();
     first_display = environment->Display();
-    if (first_display == EGL_NO_DISPLAY) {
-      GTEST_SKIP() << "EGL display unavailable on emulator";
-    }
+    ASSERT_NE(first_display, EGL_NO_DISPLAY);
   }
   auto second = fml::MakeRefCounted<OhosEnvironmentGL>();
-  if (second->Display() == EGL_NO_DISPLAY) {
-    GTEST_SKIP() << "EGL display unavailable on emulator";
-  }
+  ASSERT_NE(second->Display(), EGL_NO_DISPLAY);
   EXPECT_EQ(second->Display(), first_display);
 }
-#endif  // !defined(OHOS_X64_UNITTEST)
 
-}
-}
+}  // namespace testing
+}  // namespace flutter

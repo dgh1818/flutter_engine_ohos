@@ -559,9 +559,9 @@ void OhosHiappEventDDL::OnScrollStart() {
 
   const uint64_t cur_frame_number =
       last_frame_number_.load(std::memory_order_relaxed);
-  scroll_start_frame_.store(cur_frame_number, std::memory_order_relaxed);
+  scroll_start_frame_.store(cur_frame_number + 1, std::memory_order_relaxed);
   // Init end = start, so totalFrames is at least 1 if we flush immediately.
-  scroll_end_frame_.store(cur_frame_number, std::memory_order_relaxed);
+  scroll_end_frame_.store(cur_frame_number + 1, std::memory_order_relaxed);
 
   // Record scroll start UTC time
   auto now = std::chrono::system_clock::now();

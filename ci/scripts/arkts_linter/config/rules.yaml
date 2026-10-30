@@ -1,0 +1,475 @@
+# Copyright (c) 2025 Huawei Device Co., Ltd. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE_HW file.
+
+# ArkTS 门禁规则配置
+# 严重级别: CRITICAL, NORMAL, HINT
+# CWE: Common Weakness Enumeration 编号
+
+rules:
+  # ==================== 严重级别规则 ====================
+  "图片资源打开后未及时释放导致资源泄漏":
+    level: CRITICAL
+    cwe: ""
+    pattern: 'image\.createImageSource|createPixelMap'
+    check_release: true
+    suggestion: "图片资源使用完成后释放"
+
+  "数据库资源打开后未释放导致资源泄漏":
+    level: CRITICAL
+    cwe: ""
+    pattern: 'rdbStore|resultSet|querySql'
+    check_close: true
+    suggestion: "数据库不再使用需要关闭资源"
+
+  "socket连接或rcp会话打开后未关闭导致资源泄漏":
+    level: CRITICAL
+    cwe: ""
+    pattern: 'new\s+(TCPSocket|Socket|rcp\.Session)|rcp\.createSession\(|socket\.construct\w+SocketInstance'
+    check_close: true
+    suggestion: "资源使用完要及时关闭"
+
+  # ==================== 一般级别规则 - 安全类 ====================
+  "SecH_ATs_HW_CBG_CS_privacyManager_OpenHarmony":
+    level: NORMAL
+    cwe: ""
+    pattern: 'privacyManager\.startUsingPermission|startUsingPermission'
+    check_catch: true
+    suggestion: "调用StartUsingPermission时，启动失败应进行错误处理"
+
+  "SecH_ATs_HW_CBG_CS_unsafe_encryption_OpenHarmony":
+    level: NORMAL
+    cwe: ""
+    pattern: 'createAsyKeyGenerator\([''"]MD5[''"]\)'
+    unsafe_algorithms: ["MD5", "SHA1", "DES"]
+    suggestion: "使用合规的安全加密算法，如：AES256、SHA256、RSA2048"
+
+  "禁止打印工作密钥":
+    level: NORMAL
+    cwe: "532"
+    pattern: 'Logger\.(info|print|debug).*(key|password|secret|token)'
+    sensitive_keywords: ["key", "password", "secret", "token", "priKey"]
+    suggestion: "明文打印工作密钥，需要匿名化处理"
+
+  "隐式启动应用组件禁止携带严重级别数据":
+    level: NORMAL
+    cwe: ""
+    pattern: 'startAbility.*implicitWant'
+    check_sensitive_data: true
+    suggestion: "隐式启动应用组件时，携带严重级别数据或敏感数据"
+
+  "SecH_ATs_HW_CBG_CS_promise_catch_OpenHarmony":
+    level: NORMAL
+    cwe: ""
+    pattern: '\.then\(|fetch\(|axios\.'
+    check_catch: true
+    suggestion: "同时使用try-catch和.catch捕获异常，await异常时使用try-catch"
+
+  "SecH_ATs_HW_CBG_CS_JavaScriptProxy_ST_AT_OpenHarmony":
+    level: NORMAL
+    cwe: ""
+    pattern: 'javaScriptProxy'
+    forbidden_methods: ["getServiceToken", "getAccessToken"]
+    suggestion: "接口不要传ServiceToken或AccessToken"
+
+  "SecH_ATs_HW_CBG_CS_JavaScriptProxy_url_OpenHarmony":
+    level: NORMAL
+    cwe: ""
+    pattern: 'getLastJavascriptProxyCallingFrameUrl|getUrl\(\)'
+    check_url_method: true
+    suggestion: "使用getLastJavascriptProxyCallingFrameUrl获取url"
+
+  "SecH_ATs_HW_CBG_CS_HardCode_OpenHarmony":
+    level: NORMAL
+    cwe: ""
+    pattern: 'https?://'
+    check_hardcode: true
+    suggestion: "避免url、口令、密钥等硬编码在代码中"
+
+  "禁止使用不安全的MD5密码算法":
+    level: NORMAL
+    cwe: "327"
+    pattern: 'MD5|md5'
+    unsafe_algorithms: ["MD5"]
+    suggestion: "使用不安全的MD5密码算法，建议使用其他安全算法"
+
+  "禁止密钥硬编码":
+    level: NORMAL
+    cwe: "321"
+    pattern: '(password|secret|token|SERVER_URL|CACHE_EXPIRE_TIME)\s*[:=]\s*[''"][^''"]+[''"]|const\s*\[\s*\w*SERVER_URL\w*\s*,|\[\s*[''"]https?://[^''"]+[''"]'
+    check_hardcode: true
+    suggestion: "避免client_secret等敏感密钥硬编码"
+
+  "禁止日志打印敏感信息":
+    level: NORMAL
+    cwe: "532"
+    pattern: '(Logger|console|hilog)\.(info|error|warn|debug).*(deviceInfo|userinfo|password)'
+    sensitive_keywords: ["deviceInfo", "userinfo", "password", "jws"]
+    suggestion: "日志或控制台打印敏感信息,jws 验证、安全框架、设备 id、位置信息等"
+
+  "禁止日志明文打印私钥":
+    level: NORMAL
+    cwe: "532"
+    pattern: 'Logger\.(info|print).*(priKey|privateKey)'
+    sensitive_keywords: ["priKey", "privateKey"]
+    suggestion: "明文打印私钥，需要匿名化处理"
+
+  "JSON.parse解析外部入参,未捕获异常":
+    level: NORMAL
+    cwe: "248"
+    pattern: 'JSON\.parse\('
+    check_try_catch: true
+    suggestion: "JSON.parse(want.parameters.xxxx),未捕获异常，使用`try..catch..`捕获"
+
+  "JSON.stringify(want)未捕获异常":
+    level: NORMAL
+    cwe: "248"
+    pattern: 'JSON\.stringify\('
+    check_try_catch: true
+    suggestion: "JSON.stringify(want)未捕获异常"
+
+  "文件流没有关闭或者没有在finally中关闭":
+    level: NORMAL
+    cwe: "775"
+    pattern: 'fs\.open|fileIo\.open'
+    check_finally: true
+    suggestion: "文件流没有关闭或者没有在finally中关闭"
+
+  "G.WST.01 禁止在 localStorage和sessionStorage中存储敏感数据":
+    level: NORMAL
+    cwe: "312"
+    pattern: '(localStorage|sessionStorage)\.setItem'
+    sensitive_keywords: ["token", "jwt", "password", "secret"]
+    suggestion: "禁止在 localStorage和sessionStorage中存储敏感数据"
+
+  "G.WSQ.01 禁止在 Web SQL database和Indexed database数据库中存储敏感数据":
+    level: NORMAL
+    cwe: "312"
+    pattern: '(openDatabase|indexedDB)'
+    check_websql: true
+    suggestion: "建议不在database存储敏感数据"
+
+  # ==================== 提示级别规则 - 代码规范 ====================
+  "G.NAM.01 类名、枚举名、命名空间和构造器函数应采用大驼峰风格命名":
+    level: HINT
+    cwe: "1099"
+    pattern: '^(class|interface|enum|namespace)\s+([a-z][a-zA-Z0-9]*)'
+    naming_convention: "UpperCamelCase"
+    suggestion: "类名、枚举名、命名空间和构造器函数应采用大驼峰风格命名"
+
+  "G.NAM.02 函数应采用小驼峰风格命名":
+    level: HINT
+    cwe: "1099"
+    pattern: 'function\s+([A-Z][a-zA-Z0-9]*)|function\s+([a-z][a-zA-Z0-9]*_[a-zA-Z0-9_]*)'
+    naming_convention: "lowerCamelCase"
+    suggestion: "函数的命名通常是动词或动词短语，采用小驼峰命名"
+
+  "G.TYP.01 禁止省略浮点数小数点前后的 0":
+    level: NORMAL
+    cwe: "1076"
+    pattern: '[^\d]\.\d+|\d+\.[^\d]'
+    check_float: true
+    suggestion: "禁止省略浮点数小数点前后的 0"
+
+  "G.TYP.02 判断变量是否为NaN时必须使用 isNaN() 方法":
+    level: NORMAL
+    cwe: "1024"
+    pattern: '==\s*NaN|!=\s*NaN'
+    use_isnan: true
+    suggestion: "建议使用 Number.isNaN() 或 全局的 isNaN() 方法来判断一个值是否为 NaN"
+
+  "G.TYP.04 建议字符串使用单引号":
+    level: HINT
+    cwe: "1076"
+    pattern: '"[^"]*"'
+    prefer_single_quotes: true
+    suggestion: "建议字符串使用单引号"
+
+  "G.DCL.06 使用字面量风格的声明":
+    level: NORMAL
+    cwe: "665"
+    pattern: 'new\s+(Boolean|Array|Number|String|Object)\('
+    use_literal: true
+    suggestion: "建议使用字面量风格的声明，如 Boolean、Array、Object"
+
+  "G.FMT.02 行宽不超过120个字符":
+    level: HINT
+    cwe: "1078"
+    pattern: '.{121,}'
+    max_line_length: 120
+    suggestion: "建议参考IDE使用超长行上超长语句、表达式、注释以及注释行，超过120个字符需要进行换行处理"
+
+  "G.FMT.03 表达式换行须保持一致性，运算符放行末":
+    level: HINT
+    cwe: "1078"
+    pattern: '\n\s*(\|\||&&|\+\+|--|\+|-|\*|\/|%|==|!=|===|!==|>|<|>=|<=|\?|:)'
+    operator_at_line_start: true
+    description: "表达式换行时，运算符应放在行末而不是行首"
+    suggestion: "换行时，运算符应放在行末，这与常用的格式检查工具的默认规则一致"
+
+  "G.FMT.04 对象字面量属性超过4个，需要都换行":
+    level: HINT
+    cwe: "1078"
+    pattern: '\{[^}]*,[^}]*,[^}]*,[^}]*,[^}]*\}'
+    max_object_properties: 4
+    suggestion: "对象字面量属性超过4个的时候，建议统一换行"
+
+  "G.FMT.09 建议 if、for、do、while 等语句的执行体加大括号 {}":
+    level: HINT
+    cwe: "1078"
+    pattern: '(if|for|while|do)\s*\([^)]+\)\s*[^\{\s;]'
+    require_braces: true
+    suggestion: "建议 if、for、do、while 等语句的执行体加大括号 {}，一是为了实际开发中因为省略大括号而导致的错误，二是降低代码的阅读难度"
+
+  "G.FMT.06 把else/catch 放在 if/try代码块关闭括号的同一行":
+    level: HINT
+    cwe: "1078"
+    pattern: '\}\s*\n\s*(else|catch)'
+    else_catch_same_line: true
+    multiline_match: true
+    suggestion: "编写条件语句时，建议将 else 放在 if 代码块关闭括号的同一行。同样，在编写异常处理语句时，建议将 catch 放在 try 代码块关闭括号的同一行"
+
+  "G.FMT.10 大括号{和语句在同一行":
+    level: HINT
+    cwe: "1078"
+    pattern: '(function|if|for|while|switch|try)\s*[^{]*\n\s*\{'
+    brace_same_line: true
+    multiline_match: true
+    suggestion: "大括号{应位于控制语句的同一行的位置"
+
+  "G.FMT.12 switch语句的case和default 须缩进一层":
+    level: HINT
+    cwe: "1114"
+    pattern: 'switch\s*\([^)]+\)\s*\{\s*\n\s*(case|default)'
+    switch_indent: true
+    multiline_match: true
+    check_indentation: true
+    suggestion: "参考正确示例"
+
+  "G.OTH.03 不用的代码段直接删除，不要注释掉":
+    level: NORMAL
+    cwe: "546"
+    pattern: '//\s*(const|let|var|function|class|import|export)'
+    check_commented_code: true
+    suggestion: "删除不用的注释代码"
+
+  "G.OTH.05 禁止代码中包含公网地址":
+    level: HINT
+    cwe: "547"
+    pattern: 'https?://(?!localhost|127\.0\.0\.1|.*\.local)'
+    check_public_url: true
+    suggestion: "禁止代码中包含公网地址"
+
+  "G.CTL.06 不要在控制性条件表达式中执行赋值操作":
+    level: NORMAL
+    cwe: "1120"
+    pattern: '(if|while)\s*\([^)]*[^=!<>]=[^=]|\([^)]*[^=!<>]=[^=)]*\)'
+    check_assignment_in_condition: true
+    suggestion: "不要在控制性条件表达式中执行赋值操作"
+
+  "G.CTL.06_ServiceExtensionAbility":
+    level: NORMAL
+    cwe: "1120"
+    pattern: 'extends\s+ServiceExtensionAbility'
+    check_onconnect_missing: true
+    suggestion: "ServiceExtensionAbility需要显式实现onConnect"
+
+  "G.ERR.03 不要使用return、break、continue或抛出异常使finally块非正常结束":
+    level: NORMAL
+    cwe: "584"
+    pattern: 'finally\s*\{[^}]*\b(return|break|continue|throw)\b'
+    check_finally_jump: true
+    multiline_match: true
+    suggestion: "避免finally块中使用return、break、continue、throw语句"
+
+  "G.EXT.02 避免使用ESObject":
+    level: HINT
+    cwe: "1076"
+    pattern: ':\s*ESObject'
+    avoid_esobject: true
+    suggestion: "建议去除ESOBJECT类型"
+
+  # ==================== 补充缺失的规则 ====================
+  "G.NAM.01 类名、枚举名、命名空间名采用UpperCamelCase风格 [OpenHarmony]":
+    level: HINT
+    cwe: "1099"
+    pattern: '^(class|interface|enum|namespace)\s+([a-z][a-zA-Z0-9]*)'
+    naming_convention: "UpperCamelCase"
+    suggestion: "类名、枚举名、命名空间名采用UpperCamelCase风格"
+
+  "G.NAM.02 变量名、方法名、参数名采用lowerCamelCase风格 [OpenHarmony]":
+    level: HINT
+    cwe: "1099"
+    pattern: '^(let|const|var)\s+([A-Z][a-zA-Z0-9]*)\s*='
+    naming_convention: "lowerCamelCase"
+    suggestion: "函数的命名采用小驼峰命名"
+
+  "G.NAM.03 变量应采用小驼峰风格命名":
+    level: HINT
+    cwe: "1099"
+    pattern: '^(let|const|var)\s+([A-Z][a-zA-Z0-9]*|[a-z][a-zA-Z0-9]*_[a-zA-Z0-9_]+)\s*='
+    naming_convention: "lowerCamelCase"
+    exclude_patterns: ['^(let|const|var)\s+(num|isOk|a1|a2|a3|obj|obj2)\s*=']
+    suggestion: "变量的命名通常是名词或名词短语，应采用小驼峰命名"
+
+  "G.NAM.04 避免使用否定的布尔变量名":
+    level: HINT
+    cwe: "1099"
+    pattern: '^(let|const|var)\s+(isNo[A-Z]|isNot[A-Z]|isnt[A-Z]|no[A-Z]|not[A-Z])\w*\s*[:=]'
+    check_negative_bool: true
+    suggestion: "避免使用否定的布尔变量名"
+
+  "G.TYP.08 数组遍历优先使用 Array 对象方法 [OpenHarmony]":
+    level: HINT
+    cwe: "129"
+    pattern: 'for\s*\(\s*let\s+\w+\s*=\s*0\s*;\s*\w+\s*<\s*\w+\.length'
+    use_array_methods: true
+    suggestion: "数组遍历优先使用 Array 对象方法"
+
+  "G.TYP.08 数组遍历优先使用 Array 对象方法":
+    level: HINT
+    cwe: "129"
+    pattern: 'for\s*\(\s*let\s+\w+\s*=\s*0\s*;\s*\w+\s*<\s*\w+\.length'
+    use_array_methods: true
+    suggestion: "数组遍历优先使用 Array 对象方法"
+
+  "G.FMT.11 条件语句和循环语句的实现必须使用大括号":
+    level: HINT
+    cwe: "1078"
+    pattern: '(if|for|while)\s*\([^)]+\)\s*(?!\s*\{)'
+    require_braces_always: true
+    suggestion: "建议 if、for、do、while 等语句的执行体加大括号"
+
+  "G.EXT.01 建议添加类属性的可访问修饰符":
+    level: HINT
+    cwe: "1126"
+    pattern: '^\s+\w+\s*:\s*\w+'
+    check_access_modifier: true
+    in_class_only: true
+    suggestion: "建议选取适当的可访问性修饰符，以增强的安全性、可读性"
+
+  "G.EXT.03 使用T[]表示数组类型":
+    level: HINT
+    cwe: "1076"
+    pattern: ':\s*Array<'
+    use_array_literal: true
+    suggestion: "数组类型建议使用T[]来表示"
+
+  "G.VAR.03 多个变量定义和赋值语句不允许写在一行":
+    level: NORMAL
+    cwe: "1076"
+    pattern: '(let|const|var)\s+\w+\s*=\s*[^,;]+,\s*(let|const|var)?\s*\w+\s*=|;\s*(let|const|var)\s+\w+\s*='
+    multiple_vars_one_line: true
+    suggestion: "Refer to the description."
+
+  "SecH_ATs_HW_CBG_CS_throw_error_OpenHarmony":
+    level: NORMAL
+    cwe: ""
+    pattern: 'throw\s+new\s+\w+'
+    check_throws_doc: true
+    suggestion: "在函数抛出异常时，添加异常注释"
+
+  "SecH_ATs_HW_CBG_CS_rpc_reclaim_OpenHarmony":
+    level: NORMAL
+    cwe: ""
+    pattern: 'rpc\.MessageSequence\.create'
+    check_reclaim: true
+    suggestion: "释放不再使用的MessageSequence对象"
+
+  "SecH_ATs_HW_CBG_CS_web_javaScript_check_OpenHarmony":
+    level: NORMAL
+    cwe: ""
+    pattern: 'runJavaScript\('
+    check_js_validate: true
+    suggestion: "外部输入需要校验，可通过runJavaScript或runJavaScriptExt异步执行JS脚本"
+
+  "SecH_ATs_HW_CBG_CS_web_configCookieSync_OpenHarmony":
+    level: NORMAL
+    cwe: ""
+    pattern: 'configCookieSync\('
+    check_url_validate: true
+    suggestion: "在使用configCookieSync之前校验外部传入URL的合法性"
+
+  "SecH_ATs_HW_CBG_CS_onOverrideUrlLoading_OpenHarmony":
+    level: NORMAL
+    cwe: ""
+    pattern: 'onOverrideUrlLoading'
+    check_no_business_logic: true
+    suggestion: "onOverrideUrlLoading是不可信的回调函数，不要在onOverrideUrlLoading中任何业务逻辑"
+
+  "SecH_ATs_HW_CBG_CS_onInterceptRequest_url_OpenHarmony":
+    level: NORMAL
+    cwe: ""
+    pattern: 'onInterceptRequest'
+    check_path_validate: true
+    suggestion: "响应资源需要通过event.request.getRequestUrl打开本地文件，需要对event.request.getRequestUrl进行路径校验，判断是否存在../，防止目录跨越"
+
+  "SecH_ATs_HW_CBG_CS_ServiceExtensionAbility_OpenHarmony":
+    level: NORMAL
+    cwe: ""
+    pattern: 'extends\s+ServiceExtensionAbility'
+    check_onconnect: true
+    suggestion: "ServiceExtensionAbility需要显式实现onConnect"
+
+  "SecH_ATs_HW_CBG_CS_unsafe_TLS_OpenHarmony":
+    level: NORMAL
+    cwe: ""
+    pattern: 'TlsV1\.[01]|TLS_DH_anon'
+    unsafe_tls: true
+    suggestion: "1. 使用rcp设置的时候，需要指定对应的版本套件，不要忽略\n2. 不使用不安全的http.createHttp()，改为rcp.createSession()\n3. 使用密码安全规范中推荐的套件标准"
+
+  "SecH_ATs_HW_CBG_CS_print_Sensitive_OpenHarmony":
+    level: NORMAL
+    cwe: ""
+    pattern: '(logger|console)\.(info|debug|warn|error).*(password|deviceId|secret)'
+    print_sensitive: true
+    suggestion: "日志中不打印任何关键敏感信息"
+
+  "SecH_ATs_HW_CBG_CS_No_Debug_OpenHarmony":
+    level: NORMAL
+    cwe: ""
+    pattern: 'setWebDebuggingAccess\(true\)'
+    no_debug: true
+    suggestion: "建议将setWebDebuggingAccess参数设为false"
+
+  "SecH_ATs_HW_CBG_CS_Unencrypted_Path_OpenHarmony":
+    level: NORMAL
+    cwe: ""
+    pattern: '[''"](/sdcard/|/storage/|/data/app/)'
+    unencrypted_path: true
+    suggestion: "敏感数据存储到加密存储路径中"
+
+  "SecH_ATs_HW_CBG_CS_web_onPermissionRequest_OpenHarmony":
+    level: NORMAL
+    cwe: ""
+    pattern: 'onPermissionRequest'
+    check_permission: true
+    suggestion: "应显式向用户请求授权（使用AlertDialog）"
+
+  "SecH_ATs_HW_CBG_CS_Storage_Sensitive_OpenHarmony":
+    level: NORMAL
+    cwe: ""
+    pattern: '(preferences\.put|localStorage\.setOrCreate).*(password|secret|token|key|sessionId)'
+    storage_sensitive: true
+    suggestion: "需存储到加密存储中再存储"
+
+  "SecH_ATs_HW_CBG_CS_JavaScriptProxy_runJavaScript_OpenHarmony":
+    level: NORMAL
+    cwe: ""
+    pattern: 'runJavaScript\('
+    check_js_injection: true
+    suggestion: "建议JavaScriptProxy只提供runJavaScript或runJavaScriptExt等代码执行功能"
+
+  "SecH_ATs_HW_CBG_CS_JavaScriptProxy_permission_OpenHarmony":
+    level: NORMAL
+    cwe: ""
+    pattern: 'javaScriptProxy\s*\(\s*\{'
+    check_js_permission: true
+    suggestion: "在注册JavaScriptProxy时添加permission属性"
+
+  "onRemoteMessageRequest中继攻击校验":
+    level: NORMAL
+    cwe: ""
+    pattern: 'onRemoteMessageRequest'
+    check_token_validate: true
+    suggestion: "在onRemoteMessageRequest方法中，要使用readInterfaceToken方法读取InterfaceToken，并进行校验"

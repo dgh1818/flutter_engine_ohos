@@ -16,36 +16,46 @@ import { describe, expect, it } from '@ohos/hypium';
 import { TouchEventId, TouchEventTracker } from '../../../../../main/ets/embedding/ohos/TouchEventTracker';
 import { TouchEvent } from '@ohos.multimodalInput.touchEvent';
 
-export default function TouchEventTrackerTest() {
-  const touchEventTracker: TouchEventTracker = new TouchEventTracker();
+/** Marker carried through the (cast) TouchEvent so pop results can be verified. */
+class MarkedTouch {
+  v: number = 0;
+}
 
+export default function TouchEventTrackerTest() {
   describe('TouchEventTrackerTest', () => {
 
-    it('getInstance', 0, async (done: Function) => {
-      console.info("uitest: getInstance begin");
-      const getInstance: TouchEventTracker  = TouchEventTracker.getInstance();
-      expect(getInstance).not().assertNull();
-      done();
+    it('getInstance returns same singleton on repeated calls', 0, () => {
+      const first: TouchEventTracker = TouchEventTracker.getInstance();
+      const second: TouchEventTracker = TouchEventTracker.getInstance();
+      expect(first).assertEqual(second);
     })
 
-    it('track', 0, async (done: Function) => {
-      console.info("uitest: decodeTouchPacket begin");
-      const event: TouchEvent | null = null;
-      if(event) {
-        const decodeTouchPacket: TouchEventId = touchEventTracker.track(event);
-        expect(decodeTouchPacket).not().assertNull();
-      }
-      done();
+    it('track assigns monotonically increasing ids', 0, () => {
+      const tracker: TouchEventTracker = new TouchEventTracker();
+      const e: MarkedTouch = new MarkedTouch();
+      const id1: TouchEventId = tracker.track(e as ESObject as TouchEvent);
+      const id2: TouchEventId = tracker.track(e as ESObject as TouchEvent);
+      expect(id2.getId()).assertLarger(id1.getId());
     })
 
-    it('pop', 0, async (done: Function) => {
-      console.info("uitest: pop begin");
-      const eventId: TouchEventId | null = null;
-      if(eventId) {
-        const tuchEvent: TouchEvent = touchEventTracker.pop(eventId);
-        expect(tuchEvent).not().assertNull();
-      }
-      done();
+    it('pop returns newest event and discards older ones', 0, () => {
+      const tracker: TouchEventTracker = new TouchEventTracker();
+      const e1: MarkedTouch = new MarkedTouch();
+      e1.v = 1;
+      const e2: MarkedTouch = new MarkedTouch();
+      e2.v = 2;
+      tracker.track(e1 as ESObject as TouchEvent);
+      const id2: TouchEventId = tracker.track(e2 as ESObject as TouchEvent);
+      const popped: TouchEvent = tracker.pop(id2);
+      expect((popped as ESObject as MarkedTouch).v).assertEqual(2);
+      const rePop: TouchEvent = tracker.pop(id2);
+      expect(rePop).assertUndefined();
+    })
+
+    it('pop with untracked id returns undefined', 0, () => {
+      const tracker: TouchEventTracker = new TouchEventTracker();
+      const popped: TouchEvent = tracker.pop(TouchEventId.from(999));
+      expect(popped).assertUndefined();
     })
   })
 }

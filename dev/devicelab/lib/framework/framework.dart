@@ -60,6 +60,11 @@ Future<TaskResult> task(TaskFunction task, {ProcessManager? processManager}) asy
   });
 
   final runner = _TaskRunner(task, processManager);
+
+  if (Platform.environment.containsKey('FLUTTER_DEVICELAB_IPC')) {
+    return runner.runViaIpc();
+  }
+
   runner.keepVmAliveUntilTaskRunRequested();
   return runner.whenDone;
 }
@@ -133,6 +138,96 @@ class _TaskRunner {
 
   /// Signals that this task runner finished running the task.
   Future<TaskResult> get whenDone => _completer.future;
+
+  static const String _ipcPrefix = kIpcPrefix;
+
+  static final StreamController<Map<String, dynamic>> _ipcInputStream =
+      StreamController<Map<String, dynamic>>.broadcast();
+
+  static bool _ipcStdinListening = false;
+
+  static StreamSubscription<String>? _ipcStdinSubscription;
+
+  void _startIpcStdinListener() {
+    if (_ipcStdinListening) {
+      return;
+    }
+    _ipcStdinListening = true;
+    _ipcStdinSubscription = stdin
+        .transform<String>(const Utf8Decoder())
+        .transform<String>(const LineSplitter())
+        .listen(
+          (String line) {
+            if (line.startsWith(_ipcPrefix)) {
+              final String jsonStr = line.substring(_ipcPrefix.length);
+              try {
+                _ipcInputStream.add(json.decode(jsonStr) as Map<String, dynamic>);
+              } catch (e) {
+                stderr.writeln('Failed to parse IPC message: $jsonStr ($e)');
+              }
+            }
+          },
+          onDone: () {
+            _ipcInputStream.close();
+          },
+          onError: (Object error) {
+            stderr.writeln('IPC stdin error: $error');
+            _ipcInputStream.close();
+          },
+        );
+  }
+
+  Future<TaskResult> runViaIpc() async {
+    _taskStarted = true;
+    _startIpcStdinListener();
+
+    await _sendIpcMessage(<String, dynamic>{'type': 'ready'});
+
+    final Map<String, dynamic> runMessage = await _ipcInputStream.stream
+        .firstWhere((Map<String, dynamic> m) => m['type'] == 'run')
+        .timeout(const Duration(seconds: 120));
+
+    final Map<String, dynamic> args =
+        (runMessage['args'] as Map<String, dynamic>?) ?? <String, dynamic>{};
+    final Duration? taskTimeout = args.containsKey('timeoutInMinutes')
+        ? Duration(minutes: int.parse(args['timeoutInMinutes'] as String))
+        : null;
+    final runFlutterConfig = args['runFlutterConfig'] != 'false';
+    final runProcessCleanup = args['runProcessCleanup'] != 'false';
+    final localEngine = args['localEngine'] as String?;
+    final localEngineHost = args['localEngineHost'] as String?;
+
+    final TaskResult result = await run(
+      taskTimeout,
+      runProcessCleanup: runProcessCleanup,
+      runFlutterConfig: runFlutterConfig,
+      localEngine: localEngine,
+      localEngineHost: localEngineHost,
+    );
+
+    await _sendIpcMessage(<String, dynamic>{'type': 'result', 'data': result.toJson()});
+
+    await _ipcInputStream.stream
+        .firstWhere((Map<String, dynamic> m) => m['type'] == 'ack')
+        .timeout(const Duration(seconds: 30));
+
+    _startTaskTimeout?.cancel();
+    _taskResultReceivedTimeout?.cancel();
+    // Complete the completer for Dart-level consistency before exit, even
+    // though exit(0) below terminates the process and the future's value
+    // will never be observed by the caller.
+    if (!_completer.isCompleted) {
+      _completer.complete(result);
+    }
+    await _ipcStdinSubscription?.cancel();
+    await _ipcInputStream.close();
+    exit(0);
+  }
+
+  Future<void> _sendIpcMessage(Map<String, dynamic> message) async {
+    stdout.writeln('$_ipcPrefix${json.encode(message)}');
+    await stdout.flush();
+  }
 
   Future<TaskResult> run(
     Duration? taskTimeout, {

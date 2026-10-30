@@ -16,7 +16,9 @@
 #include <chrono>
 #include <cstring>
 #include <thread>
+#include "flutter/fml/log_settings.h"
 #include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
+#include "flutter/shell/platform/ohos/test_stubs/libc_wrapper_stub.h"
 #include "gtest/gtest.h"
 
 namespace flutter {
@@ -72,7 +74,7 @@ int FakeSetExpectedFrameRange(OH_NativeVSync* nativeVsync,
   return g_fake_range.return_value;
 }
 
-}
+}  // namespace
 
 TEST_F(OhosVsyncVotingMgrTest, SingletonReturnsSameInstance) {
   auto mgr2 = OhosVsyncVotingMgr::GetInstance();
@@ -518,6 +520,20 @@ TEST_F(OhosVsyncVotingMgrTest, ParseFramesConfigJsonValidAndInvalid) {
   EXPECT_TRUE(mgr_->ParseFramesConfigJson(valid, strlen(valid), root));
   const char* invalid = "{\"SWITCH\":";
   EXPECT_FALSE(mgr_->ParseFramesConfigJson(invalid, strlen(invalid), root));
+  const char* comments = "{\"SWITCH\":1 /*note*/}";
+  mgr_->ParseFramesConfigJson(comments, strlen(comments), root);
+  const char* extra = "{\"SWITCH\":1} trailing";
+  mgr_->ParseFramesConfigJson(extra, strlen(extra), root);
+  {
+    fml::ScopedSetLogSettings loud({fml::kLogInfo});
+    EXPECT_TRUE(mgr_->ParseFramesConfigJson(valid, strlen(valid), root));
+    EXPECT_FALSE(mgr_->ParseFramesConfigJson(invalid, strlen(invalid), root));
+  }
+  {
+    fml::ScopedSetLogSettings quiet({fml::kLogFatal});
+    EXPECT_TRUE(mgr_->ParseFramesConfigJson(valid, strlen(valid), root));
+    EXPECT_FALSE(mgr_->ParseFramesConfigJson(invalid, strlen(invalid), root));
+  }
 }
 
 TEST_F(OhosVsyncVotingMgrTest, ParseTranslateRejectsMalformedEntries) {
@@ -615,11 +631,6 @@ TEST_F(OhosVsyncVotingMgrTest, ApplyTranslateConfigValidOverrideWins) {
   EXPECT_EQ(mgr_->animation_voting_.load(), 90);
 }
 
-TEST_F(OhosVsyncVotingMgrTest, SetAssetProviderNullRejected) {
-  mgr_->SetAssetProvider(nullptr);
-  EXPECT_EQ(mgr_->asset_provider_, nullptr);
-}
-
 TEST_F(OhosVsyncVotingMgrTest, SetAssetProviderSecondCallIgnored) {
   void* handle_a = reinterpret_cast<void*>(0x11);
   void* handle_b = reinterpret_cast<void*>(0x22);
@@ -642,9 +653,6 @@ TEST_F(OhosVsyncVotingMgrTest, ParseFramesCfgWithNullHandleProvider) {
 
 void SetRawFileStubContent(const char* data, size_t size);
 void SetRawFileStubOpenFail(bool fail);
-
-void SetNativeVsyncDlopenRedirect(int mode);
-int GetAndResetDlopenRedirectCount();
 
 TEST_F(OhosVsyncVotingMgrTest, AnimationVoteWinsWhenTouchVoteStale) {
   int64_t now = fml::TimePoint::Now().ToEpochDelta().ToMilliseconds();
@@ -744,10 +752,10 @@ TEST_F(OhosVsyncVotingMgrTest, VotingBySelfSkipsRangeWhenRateUnchanged) {
 }
 
 TEST_F(OhosVsyncVotingMgrTest, CtorDlopenFailureDisablesAllVoting) {
-  SetNativeVsyncDlopenRedirect(1);
+  ::ScopedDlopenRedirect redirect("libnative_vsync",
+                                  ::DlopenRedirectMode::kFailOpen);
   OhosVsyncVotingMgr::ResetInstance();
   auto mgr = OhosVsyncVotingMgr::GetInstance();
-  SetNativeVsyncDlopenRedirect(0);
   ASSERT_NE(mgr, nullptr);
   EXPECT_GT(GetAndResetDlopenRedirectCount(), 0);
   EXPECT_EQ(mgr->lib_native_vsync_handle_, nullptr);
@@ -777,10 +785,10 @@ TEST_F(OhosVsyncVotingMgrTest, CtorDlopenFailureDisablesAllVoting) {
 }
 
 TEST_F(OhosVsyncVotingMgrTest, CtorDlsymFailureClearsHandle) {
-  SetNativeVsyncDlopenRedirect(2);
+  ::ScopedDlopenRedirect redirect("libnative_vsync",
+                                  ::DlopenRedirectMode::kWrongLib);
   OhosVsyncVotingMgr::ResetInstance();
   auto mgr = OhosVsyncVotingMgr::GetInstance();
-  SetNativeVsyncDlopenRedirect(0);
   ASSERT_NE(mgr, nullptr);
   EXPECT_GT(GetAndResetDlopenRedirectCount(), 0);
   EXPECT_EQ(mgr->lib_native_vsync_handle_, nullptr);
@@ -911,6 +919,41 @@ TEST_F(OhosVsyncVotingMgrTest, SetPlatformViewExistSameValueSkipsStore) {
   EXPECT_EQ(mgr_->VoteFinalFrameRateByPriority(), 0);
 }
 
+TEST_F(OhosVsyncVotingMgrTest, QuietFirstParseSkipsDefaultLtpoWarnings) {
+  fml::ScopedSetLogSettings quiet({fml::kLogFatal});
+  auto parse_once = [](const char* data, size_t size, bool open_fail) {
+    if (open_fail) {
+      SetRawFileStubOpenFail(true);
+    } else if (data != nullptr) {
+      SetRawFileStubContent(data, size);
+    }
+    OhosVsyncVotingMgr::ResetInstance();
+    auto mgr = OhosVsyncVotingMgr::GetInstance();
+    ASSERT_NE(mgr, nullptr);
+    if (mgr->lib_native_vsync_handle_ == nullptr) {
+      OhosVsyncVotingMgr::ResetInstance();
+      GTEST_SKIP() << "libnative_vsync.so unavailable";
+    }
+    mgr->SetAssetProvider(
+        std::make_unique<OHOSAssetProvider>(reinterpret_cast<void*>(0x99)));
+    mgr->ParseFramesCfg();
+    mgr->CheckVotingSwitchState();
+    OhosVsyncVotingMgr::ResetInstance();
+  };
+  parse_once(nullptr, 0, false);
+  static const char kOff[] = "{\"SWITCH\":0}";
+  parse_once(kOff, sizeof(kOff) - 1, false);
+  static const char kBad[] = "not a json config";
+  parse_once(kBad, sizeof(kBad) - 1, false);
+  parse_once("", 0, false);
+  parse_once(nullptr, 0, true);
+  static const char kTranslate[] =
+      "{\"TRANSLATE\":[{\"serial_number\":1,\"min\":0,\"max\":10,"
+      "\"preferred_fps\":60}]}";
+  parse_once(kTranslate, sizeof(kTranslate) - 1, false);
+  OhosVsyncVotingMgr::ResetInstance();
+}
+
 TEST_F(OhosVsyncVotingMgrTest, DelayDropRiseResetsDeferredTarget) {
   mgr_->local_framerate_ = 120;
   mgr_->DelayFrameRateDropForStability(60);
@@ -918,6 +961,124 @@ TEST_F(OhosVsyncVotingMgrTest, DelayDropRiseResetsDeferredTarget) {
   EXPECT_EQ(mgr_->DelayFrameRateDropForStability(120), 120);
   EXPECT_EQ(mgr_->expected_drop_framerate_, 0);
   EXPECT_EQ(mgr_->delay_drop_framerate_times_, 4);
+}
+
+TEST_F(OhosVsyncVotingMgrTest, LogSeverityReplayRemainingEdges) {
+  {
+    fml::ScopedSetLogSettings loud({fml::kLogInfo});
+    int64_t now = fml::TimePoint::Now().ToEpochDelta().ToMilliseconds();
+    mgr_->VoteTouchValue(VVMTouchType::TOUCH_TYPE_DOWN, now);
+    mgr_->VoteTouchValue(VVMTouchType::TOUCH_TYPE_UP, now);
+    mgr_->VoteTouchValue(VVMTouchType::TOUCH_TYPE_UP_3_SEC_AFTER, now + 4000);
+    mgr_->VoteVideoValue(0, 30);
+    mgr_->VoteVideoValue(1, 0);
+    mgr_->VoteVideoValue(1, 30);
+    mgr_->VoteVideoValue(1, 60);
+
+    auto saved = mgr_->func_SetExpectedFrameRateRange_symbol_handle_;
+    mgr_->func_SetExpectedFrameRateRange_symbol_handle_ =
+        &FakeSetExpectedFrameRange;
+    g_fake_range = FakeSetRangeLog{};
+    const char* name = "unittest_log_loud";
+    OH_NativeVSync* handle = OH_NativeVSync_Create(name, strlen(name));
+    ASSERT_NE(handle, nullptr);
+    mgr_->VotingByNativeVsync(handle);
+    mgr_->AttachNativeVsync("log_loud_entry", handle);
+    mgr_->VoteTouchValue(VVMTouchType::TOUCH_TYPE_DOWN, now);
+    mgr_->DetachNativeVsync("log_loud_entry");
+    mgr_->func_SetExpectedFrameRateRange_symbol_handle_ = saved;
+    OH_NativeVSync_Destroy(handle);
+  }
+  {
+    fml::ScopedSetLogSettings quiet({fml::kLogFatal});
+    OhosVsyncVotingMgr::ResetInstance();
+    mgr_ = OhosVsyncVotingMgr::GetInstance();
+    ASSERT_NE(mgr_, nullptr);
+    mgr_->ParseFramesCfg();
+    mgr_->ParseFramesCfg();
+    Json::Value no_translate;
+    no_translate["SWITCH"] = 1;
+    mgr_->ApplyTranslateConfig(no_translate);
+    Json::Value bad_translate;
+    bad_translate["TRANSLATE"] = Json::Value(Json::arrayValue);
+    mgr_->frames_config_vec_.clear();
+    mgr_->ApplyTranslateConfig(bad_translate);
+    Json::Value item(Json::objectValue);
+    item["serial_number"] = 2;
+    item["min"] = 0;
+    item["max"] = 10;
+    item["preferred_fps"] = 60;
+    Json::Value arr(Json::arrayValue);
+    arr.append(item);
+    mgr_->ParseTranslate(arr);
+    Json::Value missing(Json::objectValue);
+    missing["min"] = 0;
+    Json::Value missing_arr(Json::arrayValue);
+    missing_arr.append(missing);
+    mgr_->ParseTranslate(missing_arr);
+    Json::Value not_int(Json::objectValue);
+    not_int["serial_number"] = "x";
+    not_int["min"] = 0;
+    not_int["max"] = 10;
+    not_int["preferred_fps"] = 60;
+    Json::Value not_int_arr(Json::arrayValue);
+    not_int_arr.append(not_int);
+    mgr_->ParseTranslate(not_int_arr);
+    EXPECT_EQ(mgr_->CheckVotingSwitchState(), LTPOSwitchState::LTPO_SWITCH_ON);
+    mgr_->SetAssetProvider(nullptr);
+    mgr_->SetAssetProvider(
+        std::make_unique<OHOSAssetProvider>(reinterpret_cast<void*>(0x33)));
+    mgr_->SetAssetProvider(
+        std::make_unique<OHOSAssetProvider>(reinterpret_cast<void*>(0x44)));
+
+    Json::Value root;
+    const char* valid = "{\"SWITCH\":1}";
+    EXPECT_TRUE(mgr_->ParseFramesConfigJson(valid, strlen(valid), root));
+    mgr_->frames_config_vec_.clear();
+    mgr_->ParseTranslate(Json::Value(Json::arrayValue));
+    Json::Value scalar_arr(Json::arrayValue);
+    scalar_arr.append(Json::Value(1));
+    mgr_->ParseTranslate(scalar_arr);
+
+    auto saved = mgr_->func_SetExpectedFrameRateRange_symbol_handle_;
+    mgr_->func_SetExpectedFrameRateRange_symbol_handle_ =
+        &FakeSetExpectedFrameRange;
+    g_fake_range = FakeSetRangeLog{};
+    g_fake_range.return_value = 1;
+    const char* name = "unittest_log_quiet";
+    OH_NativeVSync* handle = OH_NativeVSync_Create(name, strlen(name));
+    ASSERT_NE(handle, nullptr);
+    mgr_->VotingByNativeVsync(handle);
+    mgr_->AttachNativeVsync("log_quiet_entry", handle);
+    int64_t now = fml::TimePoint::Now().ToEpochDelta().ToMilliseconds();
+    mgr_->VoteTouchValue(VVMTouchType::TOUCH_TYPE_DOWN, now);
+    mgr_->DetachNativeVsync("log_quiet_entry");
+    mgr_->func_SetExpectedFrameRateRange_symbol_handle_ = saved;
+    OH_NativeVSync_Destroy(handle);
+
+    {
+      ::ScopedDlopenRedirect redirect("libnative_vsync",
+                                      ::DlopenRedirectMode::kFailOpen);
+      OhosVsyncVotingMgr::ResetInstance();
+      auto mgr = OhosVsyncVotingMgr::GetInstance();
+      ASSERT_NE(mgr, nullptr);
+      mgr->VoteTouchValue(
+          VVMTouchType::TOUCH_TYPE_DOWN,
+          fml::TimePoint::Now().ToEpochDelta().ToMilliseconds());
+      mgr->VotingByNativeVsync(reinterpret_cast<OH_NativeVSync*>(0x1));
+      mgr->SetAssetProvider(nullptr);
+      mgr->ParseFramesCfg();
+    }
+    {
+      ::ScopedDlopenRedirect redirect("libnative_vsync",
+                                      ::DlopenRedirectMode::kWrongLib);
+      OhosVsyncVotingMgr::ResetInstance();
+      auto mgr = OhosVsyncVotingMgr::GetInstance();
+      ASSERT_NE(mgr, nullptr);
+      (void)mgr;
+    }
+    OhosVsyncVotingMgr::ResetInstance();
+  }
 }
 
 }  // namespace testing

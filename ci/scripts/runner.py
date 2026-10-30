@@ -4,25 +4,64 @@
 # found in the LICENSE_HW file.
 
 import os
+import re
 import sys
 import subprocess
 import time
 import yaml
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
 from logger import Logger
 
 
 class Runner:
     """Prepare runner that reads YAML config and executes steps"""
 
-    def __init__(self, config_file: str):
-        self.config_file = Path(config_file)
+    def __init__(self, config_file: Optional[str] = None):
         self.root_dir = Path(__file__).parent.parent.parent
+        self.config_file = Path(config_file) if config_file else self.root_dir / '.ci_ohos.yaml'
         self.work_dir: Path = None  # Will be set after loading config
         self.config: Dict[str, Any] = {}
         self.success_count = 0
         self.fail_count = 0
+        self._changed_files_cache: Optional[List[str]] = None
+
+    @staticmethod
+    def _expand_braces(pattern: str) -> List[str]:
+        """Expand brace patterns like {h,c,cc} into multiple patterns."""
+        match = re.search(r'\{([^}]+)\}', pattern)
+        if not match:
+            return [pattern]
+        options = match.group(1).split(',')
+        pre, post = pattern[:match.start()], pattern[match.end():]
+        result: List[str] = []
+        for opt in options:
+            result.extend(Runner._expand_braces(pre + opt + post))
+        return result
+
+    @staticmethod
+    def _glob_to_regex(pattern: str) -> str:
+        """Convert a glob pattern (with ** support) to a regex string."""
+        parts: List[str] = []
+        i = 0
+        while i < len(pattern):
+            if pattern[i:i + 2] == '**':
+                i += 2
+                if i < len(pattern) and pattern[i] == '/':
+                    parts.append('(?:.*/)?')
+                    i += 1
+                else:
+                    parts.append('.*')
+            elif pattern[i] == '*':
+                parts.append('[^/]*')
+                i += 1
+            elif pattern[i] == '?':
+                parts.append('[^/]')
+                i += 1
+            else:
+                parts.append(re.escape(pattern[i]))
+                i += 1
+        return '^' + ''.join(parts) + '$'
 
     def load_config(self) -> bool:
         """Load and parse YAML configuration"""
@@ -57,6 +96,14 @@ class Runner:
         # Set PROJECT_DIR first (not from config)
         os.environ['WORK_DIR'] = str(self.work_dir)
         Logger.info(f"Set WORK_DIR={self.work_dir}")
+
+        # Set TARGET_BRANCH from config (used by runIf and as $TARGET_BRANCH in step args)
+        target_branch = self._get_target_branch()
+        if not target_branch:
+            Logger.error("Missing 'target_branch' in .ci_ohos.yaml")
+            return False
+        os.environ['TARGET_BRANCH'] = target_branch
+        Logger.info(f"Set TARGET_BRANCH={target_branch}")
 
         env_vars = self.config.get('env_vars', {})
 
@@ -95,6 +142,12 @@ class Runner:
         args = step.get('args', [])
         required = step.get('required', True)
 
+        # Check runIf condition (incremental trigger)
+        run_if = step.get('runIf')
+        if run_if and not self._should_run_step(run_if):
+            Logger.info(f"⏭ {name} skipped (runIf: no matching changed files)")
+            return True
+
         Logger.step(f"Executing: {name}")
 
         script_path = self.root_dir / script
@@ -112,8 +165,9 @@ class Runner:
         try:
             cmd = ['bash', str(script_path)]
             if args:
-                cmd.extend(args)
-                Logger.info(f"Arguments: {args}")
+                expanded_args = [os.path.expandvars(str(arg)) for arg in args]
+                cmd.extend(expanded_args)
+                Logger.info(f"Arguments: {expanded_args}")
 
             result = subprocess.run(
                 cmd,
@@ -188,19 +242,98 @@ class Runner:
 
         return 0
 
+    # ------------------------------------------------------------------
+    # runIf support: conditional step execution based on changed files
+    # ------------------------------------------------------------------
+
+    def _get_target_branch(self) -> Optional[str]:
+        """Get the target branch for diff comparison from config, or None."""
+        return self.config.get('target_branch')
+
+    def _get_changed_files(self) -> Optional[List[str]]:
+        """Get list of files changed relative to the target branch.
+
+        Returns paths relative to the flutter_flutter repo root, or None if
+        they could not be determined (callers should fail-open).
+        Results are cached for the duration of a run.
+        """
+        if self._changed_files_cache is not None:
+            return self._changed_files_cache
+
+        target_branch = self._get_target_branch()
+        repo_dir = self.work_dir / 'third_party' / 'flutter_flutter'
+        diff_ref = f'gitcode/{target_branch}'
+
+        try:
+            result = subprocess.run(
+                ['git', 'diff', '--name-only', '--diff-filter=d', f'{diff_ref}...HEAD'],
+                cwd=str(repo_dir),
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if result.returncode == 0:
+                files = [f.strip() for f in result.stdout.splitlines() if f.strip()]
+                self._changed_files_cache = files
+                Logger.info(f"Changed files ({len(files)}) vs {diff_ref}")
+                return files
+            else:
+                Logger.warn(f"git diff failed (rc={result.returncode}): {result.stderr.strip()}")
+        except Exception as e:
+            Logger.warn(f"Failed to get changed files: {e}")
+
+        self._changed_files_cache = None
+        return self._changed_files_cache
+
+    def _should_run_step(self, run_if) -> bool:
+        """Check if a step should run based on the runIf glob condition.
+
+        - In daily builds (no PR_URL), always returns True.
+        - In PR builds, returns True only if at least one changed file
+          matches any of the runIf glob patterns.
+        """
+        # Daily build: always run
+        if not os.environ.get('PR_URL'):
+            return True
+
+        changed_files = self._get_changed_files()
+        if changed_files is None:
+            Logger.warn("Changed files unknown; running step (fail-open)")
+            return True
+        if not changed_files:
+            return False
+
+        patterns = run_if if isinstance(run_if, list) else [run_if]
+        for file_path in changed_files:
+            if self._match_any_pattern(file_path, patterns):
+                return True
+
+        return False
+
+    def _match_any_pattern(self, file_path: str, patterns: List[str]) -> bool:
+        """Check if file_path matches any glob pattern (with brace expansion)."""
+        for pattern in patterns:
+            for expanded in self._expand_braces(pattern):
+                regex = self._glob_to_regex(expanded)
+                if re.match(regex, file_path):
+                    return True
+        return False
+
 
 def main():
-    """Main entry point"""
+    """Main entry point.
+
+    Usage: runner.py <stage>
+      stage - preparation | compilation | test | integration_gate |
+              daily_integration | daily_memory | daily_perf | customer | mac_arm64_build
+    """
     if len(sys.argv) > 1:
         stage = sys.argv[1]
     else:
         Logger.error("Stage not provided")
         sys.exit(1)
 
-    script_dir = Path(__file__).parent.parent.parent
-    config_file = script_dir / '.ci_ohos.yaml'
-
-    runner = Runner(str(config_file))
+    runner = Runner()
     sys.exit(runner.run(stage))
 
 

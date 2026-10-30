@@ -12,11 +12,12 @@ class NewGalleryPerfTest extends PerfTest {
     super.enableImpeller,
     super.timeoutSeconds,
     super.forceOpenGLES,
+    List<String> createPlatforms = const <String>['android', 'ios', 'web'],
   }) : super(
          '${flutterDirectory.path}/dev/integration_tests/new_gallery',
          'test_driver/transitions_perf.dart',
          timelineFileName,
-         createPlatforms: <String>['android', 'ios', 'web', 'macos'],
+         createPlatforms: createPlatforms,
          enableMergedPlatformThread: true,
        );
 }

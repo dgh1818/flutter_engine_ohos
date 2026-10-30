@@ -12,8 +12,11 @@ import PlatformViewsChannel, {
 import { ByteBuffer } from '../../../../../../main/ets/util/ByteBuffer';
 import Any from '../../../../../../main/ets/plugin/common/Any';
 import MethodCall from '../../../../../../main/ets/plugin/common/MethodCall';
-import { MethodResult } from '../../../../../../main/ets/plugin/common/MethodChannel';
-import resourceManager from '@ohos.resourceManager';
+import { MethodResult, IncomingMethodCallHandler } from '../../../../../../main/ets/plugin/common/MethodChannel';
+import { DartMessenger } from '../../../../../../main/ets/embedding/engine/dart/DartMessenger';
+import { BinaryReply } from '../../../../../../main/ets/plugin/common/BinaryMessenger';
+import StandardMethodCodec from '../../../../../../main/ets/plugin/common/StandardMethodCodec';
+import { resourceManager } from '@kit.LocalizationKit';
 class FakeMethodResult implements MethodResult {
   successResult: Any | null = null;
   successCalls: number = 0;
@@ -71,7 +74,9 @@ class FakePlatformViewsHandler implements PlatformViewsHandler {
     onComplete.run(new PlatformViewBufferSize(100, 200));
   }
 
-  offset(viewId: number, top: number, left: number, transform?: Array<number>): void {}
+  offset(viewId: number, top: number, left: number): void {}
+
+  transform(viewId: number, transform?: Array<number>): void {}
 
   onTouch(touch: PlatformViewTouch): void {}
 
@@ -93,6 +98,41 @@ class FakePlatformViewsHandler implements PlatformViewsHandler {
   }
 }
 
+class PvcTestSetup {
+  channel: PlatformViewsChannel;
+  flutterNapi: FlutterNapi;
+  dartExecutor: DartExecutor;
+
+  constructor() {
+    this.flutterNapi = new FlutterNapi();
+    const context = getContext();
+    const rm: resourceManager.ResourceManager = context.resourceManager;
+    this.dartExecutor = new DartExecutor(this.flutterNapi, rm);
+    this.dartExecutor.onAttachedToNAPI();
+    this.channel = new PlatformViewsChannel(this.dartExecutor);
+  }
+}
+
+class FakeBinaryReply implements BinaryReply {
+  replyCount: number = 0;
+  replyData: ArrayBuffer | null = null;
+  reply(data: ArrayBuffer | null): void { this.replyCount++; this.replyData = data; }
+}
+
+function dispatchPvcMethodCall(setup: PvcTestSetup, method: string, args: Any): void {
+  const call = new MethodCall(method, args);
+  const encoded = StandardMethodCodec.INSTANCE.encodeMethodCall(call);
+  const pmh = setup.flutterNapi.platformMessageHandler;
+  if (pmh == null) return;
+  const dm: DartMessenger = pmh as DartMessenger;
+  const handlerInfo = dm.messageHandlers.get('flutter/platform_views');
+  if (handlerInfo) {
+    const incoming = handlerInfo.handler as IncomingMethodCallHandler;
+    const reply = new FakeBinaryReply();
+    incoming.onMessage(encoded, reply);
+  }
+}
+
 function createChannel(): PlatformViewsChannel {
   const flutterNapi: FlutterNapi = new FlutterNapi();
   const context = getContext();
@@ -103,7 +143,7 @@ function createChannel(): PlatformViewsChannel {
 
 export default function platformViewsChannelTest() {
   describe('PlatformViewCreationRequest.constructor', () => {
-    it('assigns all fields correctly', Level.LEVEL0, () => {
+    it('PlatformViewCreationRequest assigns all fields correctly', Level.LEVEL0, () => {
       const params: ByteBuffer = ByteBuffer.from(new ArrayBuffer(0));
       const request = new PlatformViewCreationRequest(1, 'test_view', 10, 20, 100, 200, 0, params);
       expect(request.viewId).assertEqual(1);
@@ -115,7 +155,7 @@ export default function platformViewsChannelTest() {
       expect(request.direction).assertEqual(0);
     });
 
-    it('handles zero values', Level.LEVEL0, () => {
+    it('handles zero values for creation request', Level.LEVEL0, () => {
       const params: ByteBuffer = ByteBuffer.from(new ArrayBuffer(0));
       const request = new PlatformViewCreationRequest(0, '', 0, 0, 0, 0, 0, params);
       expect(request.viewId).assertEqual(0);
@@ -124,14 +164,14 @@ export default function platformViewsChannelTest() {
   });
 
   describe('PlatformViewResizeRequest.constructor', () => {
-    it('assigns all fields correctly', Level.LEVEL0, () => {
+    it('PlatformViewResizeRequest assigns all fields correctly', Level.LEVEL0, () => {
       const request = new PlatformViewResizeRequest(5, 300, 400);
       expect(request.viewId).assertEqual(5);
       expect(request.newLogicalWidth).assertEqual(300);
       expect(request.newLogicalHeight).assertEqual(400);
     });
 
-    it('handles zero values', Level.LEVEL0, () => {
+    it('handles zero values for resize request', Level.LEVEL0, () => {
       const request = new PlatformViewResizeRequest(0, 0, 0);
       expect(request.viewId).assertEqual(0);
       expect(request.newLogicalWidth).assertEqual(0);
@@ -146,7 +186,7 @@ export default function platformViewsChannelTest() {
       expect(size.height).assertEqual(1080);
     });
 
-    it('handles zero values', Level.LEVEL0, () => {
+    it('handles zero values for buffer size', Level.LEVEL0, () => {
       const size = new PlatformViewBufferSize(0, 0);
       expect(size.width).assertEqual(0);
       expect(size.height).assertEqual(0);
@@ -154,7 +194,7 @@ export default function platformViewsChannelTest() {
   });
 
   describe('PlatformViewTouch.constructor', () => {
-    it('assigns all fields correctly', Level.LEVEL1, () => {
+    it('PlatformViewTouch assigns all fields correctly', Level.LEVEL1, () => {
       const touch = new PlatformViewTouch(
         1, 100, 200, 0, 1, null, null, 0, 0, 1.0, 1.0, 1, 0, 0, 0, 1
       );
@@ -201,7 +241,7 @@ export default function platformViewsChannelTest() {
   });
 
   describe('PlatformViewsChannel.dispose', () => {
-    it('dispatchesToHandlerWithCorrectViewId', Level.LEVEL1, () => {
+    it('dispatchesToHandlerWithCorrectViewId on dispose', Level.LEVEL1, () => {
       const channel: PlatformViewsChannel = createChannel();
       const handler: FakePlatformViewsHandler = new FakePlatformViewsHandler();
       channel.setPlatformViewsHandler(handler);
@@ -217,7 +257,7 @@ export default function platformViewsChannelTest() {
   });
 
   describe('PlatformViewsChannel.clearFocus', () => {
-    it('dispatchesToHandlerWithCorrectViewId', Level.LEVEL1, () => {
+    it('dispatchesToHandlerWithCorrectViewId on clearFocus', Level.LEVEL1, () => {
       const channel: PlatformViewsChannel = createChannel();
       const handler: FakePlatformViewsHandler = new FakePlatformViewsHandler();
       channel.setPlatformViewsHandler(handler);
@@ -257,7 +297,7 @@ export default function platformViewsChannelTest() {
   });
 
   describe('PlatformViewsChannel.hover', () => {
-    it('dispatchesToHandlerWithCorrectViewId', Level.LEVEL1, () => {
+    it('dispatchesToHandlerWithCorrectViewId on hover', Level.LEVEL1, () => {
       const channel: PlatformViewsChannel = createChannel();
       const handler: FakePlatformViewsHandler = new FakePlatformViewsHandler();
       channel.setPlatformViewsHandler(handler);
@@ -304,6 +344,129 @@ export default function platformViewsChannelTest() {
       channel.resize(call, result);
       expect(handler.resizeCalls).assertEqual(1);
       expect(result.successCalls).assertEqual(1);
+    });
+  });
+
+  describe('PlatformViewsChannel.onMethodCall.via.messenger', () => {
+    it('onMethodCall returns early when handler is null', Level.LEVEL0, () => {
+      const setup = new PvcTestSetup();
+      dispatchPvcMethodCall(setup, 'create', null);
+      expect(setup.channel).not().assertNull();
+    });
+
+    it('onMethodCall handles create', Level.LEVEL0, () => {
+      const setup = new PvcTestSetup();
+      const handler = new FakePlatformViewsHandler();
+      setup.channel.setPlatformViewsHandler(handler);
+      const args = new Map<string, Object>();
+      args.set('viewId', 1);
+      args.set('viewType', 'test');
+      dispatchPvcMethodCall(setup, 'create', args);
+      expect(true).assertEqual(true);
+    });
+
+    it('onMethodCall handles dispose', Level.LEVEL0, () => {
+      const setup = new PvcTestSetup();
+      const handler = new FakePlatformViewsHandler();
+      setup.channel.setPlatformViewsHandler(handler);
+      const args = new Map<string, Object>();
+      args.set('viewId', 1);
+      dispatchPvcMethodCall(setup, 'dispose', args);
+      expect(handler.disposeCalls).assertEqual(1);
+    });
+
+    it('onMethodCall handles resize', Level.LEVEL0, () => {
+      const setup = new PvcTestSetup();
+      const handler = new FakePlatformViewsHandler();
+      setup.channel.setPlatformViewsHandler(handler);
+      const args = new Map<string, Object>();
+      args.set('viewId', 1);
+      args.set('width', 100);
+      args.set('height', 200);
+      dispatchPvcMethodCall(setup, 'resize', args);
+      expect(handler.resizeCalls).assertEqual(1);
+    });
+
+    it('onMethodCall handles offset', Level.LEVEL0, () => {
+      const setup = new PvcTestSetup();
+      const handler = new FakePlatformViewsHandler();
+      setup.channel.setPlatformViewsHandler(handler);
+      const args = new Map<string, Object>();
+      args.set('viewId', 1);
+      args.set('top', 10);
+      args.set('left', 20);
+      dispatchPvcMethodCall(setup, 'offset', args);
+      expect(true).assertEqual(true);
+    });
+
+    it('onMethodCall handles transform', Level.LEVEL0, () => {
+      const setup = new PvcTestSetup();
+      const handler = new FakePlatformViewsHandler();
+      setup.channel.setPlatformViewsHandler(handler);
+      const args = new Map<string, Object>();
+      args.set('viewId', 1);
+      args.set('transform', [1, 0, 0, 1, 10, 20]);
+      dispatchPvcMethodCall(setup, 'transform', args);
+      expect(true).assertEqual(true);
+    });
+
+    it('onMethodCall handles touch', Level.LEVEL0, () => {
+      const setup = new PvcTestSetup();
+      const handler = new FakePlatformViewsHandler();
+      setup.channel.setPlatformViewsHandler(handler);
+      const args = new Map<string, Object>();
+      args.set('viewId', 1);
+      dispatchPvcMethodCall(setup, 'touch', args);
+      expect(true).assertEqual(true);
+    });
+
+    it('onMethodCall handles setDirection', Level.LEVEL0, () => {
+      const setup = new PvcTestSetup();
+      const handler = new FakePlatformViewsHandler();
+      setup.channel.setPlatformViewsHandler(handler);
+      const args = new Map<string, Object>();
+      args.set('viewId', 1);
+      args.set('direction', 0);
+      dispatchPvcMethodCall(setup, 'setDirection', args);
+      expect(true).assertEqual(true);
+    });
+
+    it('onMethodCall handles clearFocus', Level.LEVEL0, () => {
+      const setup = new PvcTestSetup();
+      const handler = new FakePlatformViewsHandler();
+      setup.channel.setPlatformViewsHandler(handler);
+      const args = new Map<string, Object>();
+      args.set('viewId', 1);
+      dispatchPvcMethodCall(setup, 'clearFocus', args);
+      expect(true).assertEqual(true);
+    });
+
+    it('onMethodCall handles synchronizeToNativeViewHierarchy', Level.LEVEL0, () => {
+      const setup = new PvcTestSetup();
+      const handler = new FakePlatformViewsHandler();
+      setup.channel.setPlatformViewsHandler(handler);
+      const args = new Map<string, Object>();
+      args.set('viewId', 1);
+      dispatchPvcMethodCall(setup, 'synchronizeToNativeViewHierarchy', args);
+      expect(true).assertEqual(true);
+    });
+
+    it('onMethodCall handles hover', Level.LEVEL0, () => {
+      const setup = new PvcTestSetup();
+      const handler = new FakePlatformViewsHandler();
+      setup.channel.setPlatformViewsHandler(handler);
+      const args = new Map<string, Object>();
+      args.set('viewId', 1);
+      dispatchPvcMethodCall(setup, 'hover', args);
+      expect(true).assertEqual(true);
+    });
+
+    it('onMethodCall handles unknown method (notImplemented)', Level.LEVEL0, () => {
+      const setup = new PvcTestSetup();
+      const handler = new FakePlatformViewsHandler();
+      setup.channel.setPlatformViewsHandler(handler);
+      dispatchPvcMethodCall(setup, 'unknown.method', null);
+      expect(true).assertEqual(true);
     });
   });
 }

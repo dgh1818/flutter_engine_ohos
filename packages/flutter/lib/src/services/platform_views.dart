@@ -2072,11 +2072,7 @@ abstract class OhosViewController extends PlatformViewController {
   ///
   /// On Ohos, this allows the Ohos native view to draw the a11y highlights in the same
   /// location on the screen as the platform view widget in the Flutter framework.
-  ///
-  /// [transform], when provided, is the local→global affine of the platform view。
-  /// The engine uses it to detect rotation, position the native node for rotated boxes, and correct
-  /// touch coordinates. Null on callers that do not supply a transform.
-  Future<void> setOffset(Offset off, {List<double>? transform});
+  Future<void> setOffset(Offset off);
 
   /// Returns the texture entry id that the Ohos view is rendering into.
   ///
@@ -2290,8 +2286,8 @@ class SurfaceOhosViewController extends OhosViewController {
   }
 
   @override
-  Future<void> setOffset(Offset off, {List<double>? transform}) {
-    return _internals.setOffset(off, viewId: viewId, viewState: _state, transform: transform);
+  Future<void> setOffset(Offset off) {
+    return _internals.setOffset(off, viewId: viewId, viewState: _state);
   }
 }
 
@@ -2343,8 +2339,8 @@ class ExpensiveOhosViewController extends OhosViewController {
   }
 
   @override
-  Future<void> setOffset(Offset off, {List<double>? transform}) {
-    return _internals.setOffset(off, viewId: viewId, viewState: _state, transform: transform);
+  Future<void> setOffset(Offset off) {
+    return _internals.setOffset(off, viewId: viewId, viewState: _state);
   }
 }
 
@@ -2404,8 +2400,8 @@ class TextureOhosViewController extends OhosViewController {
   }
 
   @override
-  Future<void> setOffset(Offset off, {List<double>? transform}) {
-    return _internals.setOffset(off, viewId: viewId, viewState: _state, transform: transform);
+  Future<void> setOffset(Offset off) {
+    return _internals.setOffset(off, viewId: viewId, viewState: _state);
   }
 }
 
@@ -2450,12 +2446,7 @@ abstract class _OhosViewControllerInternals {
 
   Future<Size> setSize(Size size, {required int viewId, required _OhosViewState viewState});
 
-  Future<void> setOffset(
-    Offset offset, {
-    required int viewId,
-    required _OhosViewState viewState,
-    List<double>? transform,
-  });
+  Future<void> setOffset(Offset offset, {required int viewId, required _OhosViewState viewState});
 
   Future<void> sendDisposeMessage({required int viewId});
 }
@@ -2465,9 +2456,6 @@ class _TextureOhosViewControllerInternals extends _OhosViewControllerInternals {
 
   /// The current offset of the platform view.
   Offset _offset = Offset.zero;
-
-  /// The last local→global affine sent to the engine, used to de-dupe sends.
-  List<double>? _transform;
 
   @override
   int? textureId;
@@ -2502,13 +2490,8 @@ class _TextureOhosViewControllerInternals extends _OhosViewControllerInternals {
     Offset offset, {
     required int viewId,
     required _OhosViewState viewState,
-    List<double>? transform,
   }) async {
-    if (transform != null && listEquals<double>(transform, _transform) && offset == _offset) {
-      return;
-    }
-    // No transform (old Dart side): dedup by offset alone.
-    if (transform == null && offset == _offset && _transform == null) {
+    if (offset == _offset) {
       return;
     }
 
@@ -2520,13 +2503,11 @@ class _TextureOhosViewControllerInternals extends _OhosViewControllerInternals {
     }
 
     _offset = offset;
-    _transform = transform;
 
     await SystemChannels.platform_views.invokeMethod<void>('offset', <String, dynamic>{
       'id': viewId,
       'top': offset.dy,
       'left': offset.dx,
-      'transform': transform,
     });
   }
 
@@ -2554,12 +2535,7 @@ class _HybridOhosViewControllerInternals extends _OhosViewControllerInternals {
   }
 
   @override
-  Future<void> setOffset(
-    Offset offset, {
-    required int viewId,
-    required _OhosViewState viewState,
-    List<double>? transform,
-  }) {
+  Future<void> setOffset(Offset offset, {required int viewId, required _OhosViewState viewState}) {
     throw UnimplementedError('Not supported for hybrid composition.');
   }
 

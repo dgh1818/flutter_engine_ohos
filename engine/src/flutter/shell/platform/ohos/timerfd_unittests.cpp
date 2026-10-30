@@ -41,17 +41,18 @@ class TimerfdTest : public ::testing::Test {
 
 // Normal path: set a future time point, should successfully rearm the timer
 TEST_F(TimerfdTest, TimerRearmFutureTimePointSucceeds) {
-  auto future_time = fml::TimePoint::Now() +
-                    fml::TimeDelta::FromMilliseconds(100);
+  auto future_time =
+      fml::TimePoint::Now() + fml::TimeDelta::FromMilliseconds(100);
   EXPECT_TRUE(fml::TimerRearm(fd_, future_time));
 }
 
-// SOURCE BUG (fml/platform/ohos/timerfd.cc:48): `spec.it_interval = spec.it_value`
-// makes the timer periodic, contradicting the "single expiry" comment. For a
-// zero/past time point (nano_secs clamped to 1), it_interval={0,1} causes the
-// timer to fire every nanosecond, so fire_count can be >>1. The correct fix
-// is to set it_interval={0,0} (or delete the line), but the source is not
-// modified in this commit. This test documents the buggy behavior.
+// SOURCE BUG (fml/platform/ohos/timerfd.cc:48): `spec.it_interval =
+// spec.it_value` makes the timer periodic, contradicting the "single expiry"
+// comment. For a zero/past time point (nano_secs clamped to 1),
+// it_interval={0,1} causes the timer to fire every nanosecond, so fire_count
+// can be >>1. The correct fix is to set it_interval={0,0} (or delete the line),
+// but the source is not modified in this commit. This test documents the buggy
+// behavior.
 TEST_F(TimerfdTest, TimerRearmZeroTimePointClampsToOneNanosecond) {
   auto zero_time = fml::TimePoint::FromEpochDelta(fml::TimeDelta::Zero());
   EXPECT_TRUE(fml::TimerRearm(fd_, zero_time));
@@ -59,38 +60,28 @@ TEST_F(TimerfdTest, TimerRearmZeroTimePointClampsToOneNanosecond) {
   // BUG: fire_count may be >>1 due to periodic it_interval. Should be 1.
   uint64_t fire_count = 0;
   ssize_t size = ::read(fd_, &fire_count, sizeof(uint64_t));
-#if defined(OHOS_X64_UNITTEST)
-  EXPECT_EQ(size, -1);
-  EXPECT_EQ(fire_count, 0u);
-#else
   EXPECT_EQ(size, static_cast<ssize_t>(sizeof(uint64_t)));
   EXPECT_GT(fire_count, 0u);  // BUG: should be EXPECT_EQ(fire_count, 1u)
-#endif
 }
 
 // SOURCE BUG (same as above): it_interval = it_value makes timer periodic.
 // For a past time point, fire_count may be >>1. Should be 1.
 TEST_F(TimerfdTest, TimerRearmPastTimePointTriggersImmediately) {
-  auto past_time = fml::TimePoint::Now() -
-                   fml::TimeDelta::FromMilliseconds(1000);
+  auto past_time =
+      fml::TimePoint::Now() - fml::TimeDelta::FromMilliseconds(1000);
   EXPECT_TRUE(fml::TimerRearm(fd_, past_time));
 
   uint64_t fire_count = 0;
   ssize_t size = ::read(fd_, &fire_count, sizeof(uint64_t));
-#if defined(OHOS_X64_UNITTEST)
-  EXPECT_EQ(size, -1);
-  EXPECT_EQ(fire_count, 0u);
-#else
   EXPECT_EQ(size, static_cast<ssize_t>(sizeof(uint64_t)));
   EXPECT_GT(fire_count, 0u);  // BUG: should be EXPECT_EQ(fire_count, 1u)
-#endif
 }
 
 // Error handling: invalid fd, TimerRearm should return false
 TEST_F(TimerfdTest, TimerRearmInvalidFdReturnsFalse) {
   int invalid_fd = -1;
-  auto future_time = fml::TimePoint::Now() +
-                    fml::TimeDelta::FromMilliseconds(100);
+  auto future_time =
+      fml::TimePoint::Now() + fml::TimeDelta::FromMilliseconds(100);
   EXPECT_FALSE(fml::TimerRearm(invalid_fd, future_time));
 }
 
@@ -100,8 +91,8 @@ TEST_F(TimerfdTest, TimerRearmClosedFdReturnsFalse) {
   ASSERT_GE(closed_fd, 0);
   ::close(closed_fd);
 
-  auto future_time = fml::TimePoint::Now() +
-                    fml::TimeDelta::FromMilliseconds(100);
+  auto future_time =
+      fml::TimePoint::Now() + fml::TimeDelta::FromMilliseconds(100);
   EXPECT_FALSE(fml::TimerRearm(closed_fd, future_time));
 }
 
@@ -118,11 +109,11 @@ TEST_F(TimerfdTest, TimerDrainAfterExpiryReturnsTrue) {
   EXPECT_TRUE(fml::TimerDrain(fd_));
 }
 
-// Boundary condition: when timer has not expired, TimerDrain on non-blocking fd should return false
+// Boundary condition: when timer has not expired, TimerDrain on non-blocking fd
+// should return false
 TEST_F(TimerfdTest, TimerDrainBeforeExpiryReturnsFalse) {
   // Set a far future time point to ensure timer has not fired
-  auto far_future = fml::TimePoint::Now() +
-                    fml::TimeDelta::FromSeconds(60);
+  auto far_future = fml::TimePoint::Now() + fml::TimeDelta::FromSeconds(60);
   ASSERT_TRUE(fml::TimerRearm(fd_, far_future));
 
   // Read immediately without waiting (non-blocking fd, read returns EAGAIN)

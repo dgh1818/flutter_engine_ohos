@@ -6,6 +6,7 @@
  */
 
 #include "flutter/shell/platform/ohos/ohos_environment_gl.h"
+#include "flutter/fml/logging.h"
 #include "fml/trace_event.h"
 
 namespace flutter {
@@ -17,11 +18,13 @@ OhosEnvironmentGL::OhosEnvironmentGL()
   display_ = eglGetDisplay(EGL_DEFAULT_DISPLAY);
 
   if (display_ == EGL_NO_DISPLAY) {
+    FML_LOG(ERROR) << "eglGetDisplay failed";
     return;
   }
 
   // Initialize the display connection.
   if (eglInitialize(display_, nullptr, nullptr) != EGL_TRUE) {
+    FML_LOG(ERROR) << "eglInitialize failed";
     return;
   }
 

@@ -180,9 +180,25 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
    * @param want - The Want object containing restoration data
    */
   onRestoreInstanceState(want: Want) {
-    let frameworkState: Uint8Array = this.getRestorationData(want.parameters as Record<string, Object>);
+    const wantParam: Record<string, Object> | undefined = want.parameters as Record<string, Object> | undefined;
+    Log.i(TAG, 'onRestoreInstanceState. Giving framework and plugins an opportunity to restore state.');
+    this.ensureAlive();
+    // 1. framework state → Flutter RestorationChannel
+    let frameworkState: Uint8Array = this.getRestorationData(wantParam);
     if (this.host?.shouldRestoreAndSaveState()) {
       this.flutterEngine?.getRestorationChannel()?.setRestorationData(frameworkState);
+    }
+    // 2. plugin state → distribute to all OnSaveStateListener plugins
+    if (this.host?.shouldAttachEngineToAbility()) {
+      let pluginState: Record<string, Object> = {};
+      const savedPluginState: Object | undefined = wantParam?.[PLUGINS_RESTORATION_BUNDLE_KEY];
+      if (savedPluginState != undefined && typeof savedPluginState == 'object') {
+        pluginState = savedPluginState as Record<string, Object>;
+        Log.i(TAG, 'onRestoreInstanceState: found plugin state, keys=' + Object.keys(pluginState));
+      } else {
+        Log.i(TAG, 'onRestoreInstanceState: no plugin state found in wantParam');
+      }
+      this.flutterEngine?.getAbilityControlSurface()?.onRestoreInstanceState?.(pluginState);
     }
   }
 
@@ -191,7 +207,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
    * @param wantParam - The Want parameters containing restoration data
    * @returns The restoration data as a Uint8Array
    */
-  private getRestorationData(wantParam: Record<string, Object>): Uint8Array {
+  private getRestorationData(wantParam: Record<string, Object> | undefined): Uint8Array {
     let result: Uint8Array = new Uint8Array(1).fill(0);
     if (wantParam == null) {
       return result;

@@ -15,6 +15,22 @@
 
 import { describe, expect, it } from '@ohos/hypium';
 import { FlutterMutatorView } from '../../../../../../main/ets/embedding/engine/mutatorsstack/FlutterMutatorView';
+import { DVModel } from '../../../../../../main/ets/view/DynamicView/dynamicView';
+import Any from '../../../../../../main/ets/plugin/common/Any';
+
+class DVModelParam {
+  compType: string;
+  children: Array<Any>;
+  attributes: Any;
+  events: Any;
+
+  constructor(compType: string, children: Array<Any>, attributes: Any, events: Any) {
+    this.compType = compType;
+    this.children = children;
+    this.attributes = attributes;
+    this.events = events;
+  }
+}
 
 export default function FlutterMutatorViewTest() {
   describe('FlutterMutatorViewTest', () => {
@@ -24,5 +40,33 @@ export default function FlutterMutatorViewTest() {
       expect(dvModel).not().assertNull();
       done();
     })
-  })
+
+    it('TestGetDvModelReturnsSameInstanceOnSecondCall', 0, () => {
+      const v = new FlutterMutatorView();
+      const a = v.getDvModel();
+      const b = v.getDvModel();
+      expect(a === b).assertEqual(true);
+    });
+
+    it('TestSetOnDescendantFocusChangeListenerDoesNotThrow', 0, () => {
+      const v = new FlutterMutatorView();
+      let threw = false;
+      try { v.setOnDescendantFocusChangeListener(() => {}, () => {}); } catch (e) { threw = true; }
+      expect(threw).assertEqual(false);
+    });
+
+    it('TestGetDvModelFromSecondViewReturnsDifferent', 0, () => {
+      const v1 = new FlutterMutatorView();
+      const v2 = new FlutterMutatorView();
+      expect(v1.getDvModel() === v2.getDvModel()).assertEqual(false);
+    });
+  });
+
+  describe('DVModelParam.mirror', () => {
+    it('default ctor assigns fields', 0, () => {
+      const p = new DVModelParam('row', [], {}, {});
+      expect(p.compType).assertEqual('row');
+      expect(p.children.length).assertEqual(0);
+    });
+  });
 }

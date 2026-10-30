@@ -6,18 +6,24 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-# 通用文件替换函数
-# 参数: $1=文件相对路径, $2=sed替换表达式
+# Generic in-place file replacement helper.
+# Args: $1=file path relative to repo root, $2=sed replacement expression
 replace_in_file() {
     local file_rel_path="$1"
     local sed_expr="$2"
 
-    WORK_DIR=$(pwd)
-    PROJECT_DIR="$WORK_DIR/third_party"
-    local target_file="$PROJECT_DIR/$file_rel_path"
+    # repo root, self-locating: works under the CI work_dir/third_party
+    # layout and a plain local checkout alike
+    local repo_root="$(cd "$SCRIPT_DIR/../.." && pwd)"
+    local target_file="$repo_root/$file_rel_path"
 
     if [[ -f "$target_file" ]]; then
-        run_cmd "sed -i '$sed_expr' $target_file"
+        # BSD sed (macOS) needs an explicit empty -i suffix
+        if [[ "$(uname)" == "Darwin" ]]; then
+            run_cmd "sed -i '' '$sed_expr' $target_file"
+        else
+            run_cmd "sed -i '$sed_expr' $target_file"
+        fi
     fi
 }
 

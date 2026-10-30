@@ -8,6 +8,17 @@
         "compatibleSdkVersion": "5.1.0(18)",
         "runtimeOS": "HarmonyOS"
       }
+    ],
+    "buildModeSet": [
+      {
+        "name": "debug"
+      },
+      {
+        "name": "profile"
+      },
+      {
+        "name": "release"
+      }
     ]
   },
   "modules": [

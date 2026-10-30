@@ -413,12 +413,8 @@ export default class PlatformViewsController implements PlatformViewsHandler {
    * @param viewId - The ID of the platform view
    * @param top - The top offset
    * @param left - The left offset
-   * @param transform - Optional local→global affine [invScaleX, invShearY, invTx, invShearX, invScaleY, invTy]
-   *                    supplied by the framework via getTransformTo. Used to detect rotation,
-   *                    position rotated views at their visual top-left, and
-   *                    correct touch coordinates.
    */
-  offset(viewId: number, top: number, left: number, transform?: Array<number>): void {
+  offset(viewId: number, top: number, left: number): void {
     Log.i(TAG, `Offset is id${viewId}, t:${top}, l:${left}`);
 
     let viewWrapper = this.viewWrappers.get(viewId)
@@ -447,11 +443,9 @@ export default class PlatformViewsController implements PlatformViewsHandler {
         }
       }
       // Preserve NaN in left/top so the invisible state is detectable on
-      // subsequent frames.  Do NOT fall through to the transform branch: even
-      // if Dart sends a transform (it will be all-zeros for a singular
-      // getTransformTo), applyTransformOffset would compute non-NaN posLeft/
-      // posTop (e.g. 0,0), overwriting the NaN marker and breaking the
-      // visibility detection on later frames.
+      // subsequent frames.  Also drop the touch correction here; transform()
+      // re-checks the NaN marker before applying a transform, so an affine
+      // arriving for an invisible view cannot overwrite the marker either.
       let paramsRecord = params! as Record<string, Any>;
       paramsRecord['affineTransform'] = undefined;
       this.setParams(params!, "left", left);
@@ -459,17 +453,57 @@ export default class PlatformViewsController implements PlatformViewsHandler {
       return;
     }
 
-    let paramsRecord = params! as Record<string, Any>;
+    this.setParams(params!, "left", left);
+    this.setParams(params!, "top", top);
+  }
+
+  /**
+   * Handles the standalone 'transform' platform message: the framework sends
+   * the local→global affine separately from 'offset', straight from the
+   * framework's render object, so rotation support can be added without
+   * changing the setOffset override signature that downstream packages
+   * implement and mock.
+   *
+   * Positioning is derived entirely from the affine (its translation part
+   * equals the most recently stored offset), applying the same rotation
+   * positioning + touch-correction derivation as before.
+   *
+   * @param viewId - The ID of the platform view
+   * @param transform - Optional local→global affine [scaleX, shearY, shearX, scaleY, translateX, translateY];
+   *                    undefined/null (or shorter than 6) clears rotation positioning and touch correction
+   */
+  transform(viewId: number, transform?: Array<number>): void {
+    Log.i(TAG, `Transform is id${viewId}, t:${transform}`);
+
+    let viewWrapper = this.viewWrappers.get(viewId)
+    if (viewWrapper === undefined) {
+      return;
+    }
+
+    let params: DVModelParameters | undefined = viewWrapper?.getDvModel()!.params;
+    if (!params) {
+      return;
+    }
+
+    let paramsRecord = params as Record<string, Any>;
     if (transform !== undefined && transform.length >= 6) {
-      // Framework supplied the local→global affine. Use it to position the
-      // native node at the rotated bounding box's visual top-left and to
-      // derive the global→local transform used for touch correction.
-      this.applyTransformOffset(top, left, params!, transform);
+      // The offset side may have just marked this view invisible by storing
+      // NaN in left/top.  Never overwrite that NaN marker (it drives
+      // visibility detection on later frames); just drop the touch
+      // correction, same as the NaN branch of offset().
+      let left: number | undefined = this.getParams(params, "left");
+      let top: number | undefined = this.getParams(params, "top");
+      if (left !== undefined && Number.isNaN(left) && top !== undefined && Number.isNaN(top)) {
+        paramsRecord['affineTransform'] = undefined;
+        return;
+      }
+      // applyTransformOffset repositions the native node from the affine
+      // alone (its translation part equals the offset just sent).
+      this.applyTransformOffset(params, transform);
     } else {
-      // No transform (old Dart side): plain offset, no rotation handling.
+      // null / too-short affine: clear rotation positioning and touch
+      // correction; positioning falls back to the last plain 'offset' values.
       paramsRecord['affineTransform'] = undefined;
-      this.setParams(params!, "left", left);
-      this.setParams(params!, "top", top);
     }
   }
 
@@ -490,7 +524,7 @@ export default class PlatformViewsController implements PlatformViewsHandler {
    * @param params - The layout parameters to update
    * @param transform - The local→global affine [scaleX, shearY, shearX, scaleY, translateX, translateY]
    */
-  private applyTransformOffset(top: number, left: number, params: DVModelParameters, transform: Array<number>): void {
+  private applyTransformOffset(params: DVModelParameters, transform: Array<number>): void {
     // Local→global affine: gx = scaleX·lx + shearY·ly + translateX , gy = shearX·lx + scaleY·ly + translateY
     let scaleX     = transform[0];
     let shearY     = transform[1];
@@ -508,8 +542,9 @@ export default class PlatformViewsController implements PlatformViewsHandler {
         !Number.isFinite(scaleY) || !Number.isFinite(translateX) || !Number.isFinite(translateY)) {
       let paramsRecord = params as Record<string, Any>;
       paramsRecord['affineTransform'] = undefined;
-      this.setParams(params, "left", left);
-      this.setParams(params, "top", top);
+      // With non-finite input the translation is unusable too; keep the
+      // current position rather than writing NaN.  (Purely defensive: the
+      // Dart side sends a clearing null for such matrices.)
       return;
     }
 
@@ -522,8 +557,12 @@ export default class PlatformViewsController implements PlatformViewsHandler {
     if (Math.abs(det) < 1e-9) {
       let paramsRecord = params as Record<string, Any>;
       paramsRecord['affineTransform'] = undefined;
-      this.setParams(params, "left", left);
-      this.setParams(params, "top", top);
+      // Degenerate affine: position by the affine's own translation (the
+      // plain offset), NOT the caller-provided left/top — those may still be
+      // the previous frame's rotated bounding box corner because the plain
+      // 'offset' message can be de-duped away by the framework.
+      this.setParams(params, "left", translateX);
+      this.setParams(params, "top", translateY);
       return;
     }
 

@@ -15,6 +15,19 @@ let storage = LocalStorage.getShared()
 @Component
 struct FlutterWindowPage {
   @LocalStorageLink('viewId') viewId: string = "";
+  @LocalStorageLink('surfaceWidth') surfaceWidth: number = 0;
+  @LocalStorageLink('surfaceHeight') surfaceHeight: number = 0;
+  @LocalStorageLink('windowWidth') windowWidth: number = 0;
+  @LocalStorageLink('windowHeight') windowHeight: number = 0;
+  @LocalStorageLink('contentWidth') contentWidth: number = 0;
+  @LocalStorageLink('contentHeight') contentHeight: number = 0;
+
+  private fitScale(content: number, win: number): number {
+    if (content <= 0 || win <= 0 || win >= content) {
+      return 1;
+    }
+    return win / content;
+  }
 
   build() {
     Column() {
@@ -25,5 +38,13 @@ struct FlutterWindowPage {
       // the first frame instead of flipping to the default black.
       FlutterPage({ viewId: this.viewId, xComponentColor: Color.Transparent })
     }
+    .width(this.surfaceWidth > 0 ? `${this.surfaceWidth}px` : '100%')
+    .height(this.surfaceHeight > 0 ? `${this.surfaceHeight}px` : '100%')
+    .scale({
+      x: this.fitScale(this.contentWidth, this.windowWidth),
+      y: this.fitScale(this.contentHeight, this.windowHeight),
+      centerX: 0,
+      centerY: 0,
+    })
   }
 }

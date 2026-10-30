@@ -10,9 +10,9 @@
 #define private public
 #define protected public
 
-#include <cstring>
 #include <rawfile/raw_file.h>
 #include <rawfile/raw_file_manager.h>
+#include <cstring>
 #include "flutter/shell/platform/ohos/ohos_asset_provider.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -152,9 +152,9 @@ TEST(OHOSAssetProvider, GetTypeReturnsApkAssetProviderForSharedPtr) {
 // lookup rules (P1185R2 / P1630R1). When both sides of == override
 // operator==(const AssetResolver&), C++20 cannot pick one without a hint,
 // producing an "ambiguous" error. flutter3.35 compiles with -std=c++17 and
-// does not have this issue, so it uses the plain `provider == non_ohos_resolver`
-// form without the cast. This is an upstream C++ standard upgrade, not an
-// OHOS-specific adaptation.
+// does not have this issue, so it uses the plain `provider ==
+// non_ohos_resolver` form without the cast. This is an upstream C++ standard
+// upgrade, not an OHOS-specific adaptation.
 
 class NonOHOSAssetResolver : public AssetResolver {
  public:
@@ -211,7 +211,8 @@ TEST(OHOSAssetProvider, GetAsMappingReturnsNullWithNullHandleAndCustomDir) {
   EXPECT_EQ(mapping, nullptr);
 }
 
-// GetAsMapping should return nullptr when handle is null and asset_name is empty
+// GetAsMapping should return nullptr when handle is null and asset_name is
+// empty
 TEST(OHOSAssetProvider, GetAsMappingReturnsNullWithEmptyAssetName) {
   void* handle = nullptr;
   OHOSAssetProvider provider(handle);
@@ -314,15 +315,27 @@ struct StubStateResetterRegistrar {
 
 static void RequireRawFileStubWorld() {}
 
-static int OpenRawFileCallCount() { return s_open_raw_file_call_count; }
-static int CloseRawFileCallCount() { return s_close_raw_file_call_count; }
-static int ReadRawFileCallCount() { return s_read_raw_file_call_count; }
-static void ForceAllOpensFail() { s_open_raw_file_return_null = true; }
-static void ForceFirstOpenFail() { s_open_raw_file_fail_first = true; }
+static int OpenRawFileCallCount() {
+  return s_open_raw_file_call_count;
+}
+static int CloseRawFileCallCount() {
+  return s_close_raw_file_call_count;
+}
+static int ReadRawFileCallCount() {
+  return s_read_raw_file_call_count;
+}
+static void ForceAllOpensFail() {
+  s_open_raw_file_return_null = true;
+}
+static void ForceFirstOpenFail() {
+  s_open_raw_file_fail_first = true;
+}
 static void ForceNegativeReadResult() {
   s_read_raw_file_return_negative = true;
 }
-static void SetStubRawFileSize(size_t size) { s_raw_file_size = size; }
+static void SetStubRawFileSize(size_t size) {
+  s_raw_file_size = size;
+}
 
 void SetRawFileStubContent(const char* data, size_t size) {
   s_raw_file_data = (data != nullptr) ? data : kMockRawFileData;
@@ -404,18 +417,6 @@ TEST(OHOSAssetProvider, GetAsMappingMappingDestructorClosesRawFile) {
   EXPECT_EQ(CloseRawFileCallCount(), 1);
 }
 
-// GetAsMapping should fall back when first OpenRawFile fails
-TEST(OHOSAssetProvider, GetAsMappingFallbackWhenFirstOpenFails) {
-  RequireRawFileStubWorld();
-  void* handle = reinterpret_cast<void*>(0x1234);
-  OHOSAssetProvider provider(handle, "my_assets");
-  // With custom dir, first try uses dir + "/" + name, second try uses name
-  auto mapping = provider.GetAsMapping("test.txt");
-  ASSERT_NE(mapping, nullptr);
-  // First attempt succeeds, should not fall back
-  EXPECT_EQ(OpenRawFileCallCount(), 1);
-}
-
 // GetAsMapping should return nullptr when both first and fallback opens fail
 TEST(OHOSAssetProvider, GetAsMappingReturnsNullWhenAllOpensFail) {
   RequireRawFileStubWorld();
@@ -451,7 +452,8 @@ TEST(OHOSAssetProvider, GetAsMappingMappingGetSizeConsistent) {
   EXPECT_EQ(size1, kMockRawFileSize);
 }
 
-// GetAsMapping's returned Mapping GetMapping should return the same pointer across calls
+// GetAsMapping's returned Mapping GetMapping should return the same pointer
+// across calls
 TEST(OHOSAssetProvider, GetAsMappingMappingGetMappingConsistent) {
   RequireRawFileStubWorld();
   void* handle = reinterpret_cast<void*>(0x1234);

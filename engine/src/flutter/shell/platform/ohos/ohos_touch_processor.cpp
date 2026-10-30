@@ -37,7 +37,80 @@ constexpr double DEFAULT_DENSITY = 1.0;
 
 constexpr int PLATFORM_AXIS_EVENT_MIN_API_VERSION = 20;
 
-constexpr int MAX_PACKAGE_SIZE = 1024;
+constexpr int AXIS_PACKET_FIELD_COUNT = 8;
+
+namespace {
+
+// Physical screen pixels -> ArkUI platform-view layout pixels.
+//
+// Embedded platform-view nodes are laid out from Flutter logical dimensions
+// (interpreted as vp, so multiplied by the system display density) and are
+// then composited at flutter_dpr / system_density of that layout size. The
+// ArkTS embedding decodes forwarded pointer packets with the system density
+// (vp2px), so the packets must carry layout pixels instead of raw screen
+// pixels. When a custom DPI scale (flutter/displaymetrics 'updateDpiScale')
+// makes the Flutter DPR diverge from the system density, this maps screen
+// pixels onto the layout space; it returns 1.0 (identity) when they match.
+double GetScreenToLayoutScale(int64_t shellHolderID) {
+  auto ohos_shell_holder = reinterpret_cast<OHOSShellHolder*>(shellHolderID);
+  if (ohos_shell_holder == nullptr) {
+    return 1.0;
+  }
+  auto platform_view = ohos_shell_holder->GetPlatformView();
+  if (!platform_view) {
+    return 1.0;
+  }
+  return platform_view->GetScreenToPlatformViewLayoutScale();
+}
+
+}  // namespace
+
+// static
+OH_NativeXComponent_TouchEvent OhosTouchProcessor::ScaleTouchEventCoordinates(
+    const OH_NativeXComponent_TouchEvent& event,
+    double scale) {
+  OH_NativeXComponent_TouchEvent scaled = event;
+  if (scale != 1.0) {
+    scaled.x = static_cast<float>(scaled.x * scale);
+    scaled.y = static_cast<float>(scaled.y * scale);
+    scaled.screenX = static_cast<float>(scaled.screenX * scale);
+    scaled.screenY = static_cast<float>(scaled.screenY * scale);
+    for (uint32_t i = 0; i < scaled.numPoints; ++i) {
+      scaled.touchPoints[i].x =
+          static_cast<float>(scaled.touchPoints[i].x * scale);
+      scaled.touchPoints[i].y =
+          static_cast<float>(scaled.touchPoints[i].y * scale);
+      scaled.touchPoints[i].screenX =
+          static_cast<float>(scaled.touchPoints[i].screenX * scale);
+      scaled.touchPoints[i].screenY =
+          static_cast<float>(scaled.touchPoints[i].screenY * scale);
+    }
+  }
+  return scaled;
+}
+
+std::shared_ptr<std::string[]> OhosTouchProcessor::BuildScaledAxisPacket(
+    ArkUI_UIInputEvent* event,
+    double scale,
+    double delta_value) const {
+  std::vector<std::string> temp_strings = {
+      std::to_string(dynamicGetAxisAction_ != nullptr
+                         ? dynamicGetAxisAction_(event)
+                         : UI_TOUCH_EVENT_ACTION_CANCEL),
+      std::to_string(OH_ArkUI_PointerEvent_GetX(event) * scale),
+      std::to_string(OH_ArkUI_PointerEvent_GetY(event) * scale),
+      std::to_string(OH_ArkUI_PointerEvent_GetWindowX(event) * scale),
+      std::to_string(OH_ArkUI_PointerEvent_GetWindowY(event) * scale),
+      std::to_string(OH_ArkUI_PointerEvent_GetDisplayX(event) * scale),
+      std::to_string(OH_ArkUI_PointerEvent_GetDisplayY(event) * scale),
+      std::to_string(delta_value)};
+  auto unique_package = std::make_unique<std::string[]>(temp_strings.size());
+  std::shared_ptr<std::string[]> package(std::move(unique_package));
+  for (size_t i = 0; i < temp_strings.size(); i++) {
+    package[i] = temp_strings[i];
+  }
+  return package;
+}
 
 PointerData::Change OhosTouchProcessor::getPointerChangeForAction(
     int maskedAction) {
@@ -400,26 +473,11 @@ void OhosTouchProcessor::HandleScaleEvent(int64_t shell_holderID,
     // 由于接口原因，api20以上才支持
     return;
   }
-  int offset = 0;
-  std::vector<std::string> tempStrings = {
-      std::to_string(dynamicGetAxisAction_ != nullptr
-                         ? dynamicGetAxisAction_(event)
-                         : UI_TOUCH_EVENT_ACTION_CANCEL),
-      std::to_string(OH_ArkUI_PointerEvent_GetX(event)),
-      std::to_string(OH_ArkUI_PointerEvent_GetY(event)),
-      std::to_string(OH_ArkUI_PointerEvent_GetWindowX(event)),
-      std::to_string(OH_ArkUI_PointerEvent_GetWindowY(event)),
-      std::to_string(OH_ArkUI_PointerEvent_GetDisplayX(event)),
-      std::to_string(OH_ArkUI_PointerEvent_GetDisplayY(event)),
-      std::to_string(OH_ArkUI_AxisEvent_GetVerticalAxisValue(event))};
-
-  size_t length = tempStrings.size();
-  auto unique_package = std::make_unique<std::string[]>(length);
-  std::shared_ptr<std::string[]> package = std::move(unique_package);
-  for (size_t i = 0; i < length; i++) {
-    package[offset++] = tempStrings[i];
-  }
-  ohos_shell_holder->GetPlatformView()->OnAxisEvent(package, length);
+  auto package =
+      BuildScaledAxisPacket(event, GetScreenToLayoutScale(shell_holderID),
+                            OH_ArkUI_AxisEvent_GetVerticalAxisValue(event));
+  ohos_shell_holder->GetPlatformView()->OnAxisEvent(package,
+                                                    AXIS_PACKET_FIELD_COUNT);
   return;
 }
 
@@ -434,35 +492,11 @@ void OhosTouchProcessor::PlatformViewOnAxisEvent(int64_t shell_holderID,
     return;
   }
 
-  int offset = 0;
-  std::vector<std::string> temp_strings = {
-      std::to_string(dynamicGetAxisAction_ != nullptr
-                         ? dynamicGetAxisAction_(event)
-                         : UI_TOUCH_EVENT_ACTION_CANCEL),
-      std::to_string(OH_ArkUI_PointerEvent_GetX(event)),
-      std::to_string(OH_ArkUI_PointerEvent_GetY(event)),
-      std::to_string(OH_ArkUI_PointerEvent_GetWindowX(event)),
-      std::to_string(OH_ArkUI_PointerEvent_GetWindowY(event)),
-      std::to_string(OH_ArkUI_PointerEvent_GetDisplayX(event)),
-      std::to_string(OH_ArkUI_PointerEvent_GetDisplayY(event)),
-      std::to_string(result_scroll_delta_y)  // Mouse scroll step value
-  };
-
-  size_t length = temp_strings.size();
-  if (length == 0 || length > MAX_PACKAGE_SIZE) {
-    FML_LOG(ERROR) << "OhosTouchProcessor::PlatformViewOnAxisEvent Axis event "
-                      "data length is abnormal: "
-                   << length;
-    return;
-  }
-  auto unique_package = std::make_unique<std::string[]>(length);
-  std::shared_ptr<std::string[]> package(std::move(unique_package));
-  for (size_t i = 0; i < length; i++) {
-    package[offset++] = temp_strings[i];
-  }
-
+  auto package = BuildScaledAxisPacket(
+      event, GetScreenToLayoutScale(shell_holderID), result_scroll_delta_y);
   auto ohos_shell_holder = reinterpret_cast<OHOSShellHolder*>(shell_holderID);
-  ohos_shell_holder->GetPlatformView()->OnAxisEvent(package, length);
+  ohos_shell_holder->GetPlatformView()->OnAxisEvent(package,
+                                                    AXIS_PACKET_FIELD_COUNT);
   return;
 }
 
@@ -596,26 +630,11 @@ void OhosTouchProcessor::HandlePanZooomEvent(int64_t shell_holderID,
     // 由于接口原因，api20以上才支持
     return;
   }
-  int offset = 0;
-  std::vector<std::string> tempStrings = {
-      std::to_string(dynamicGetAxisAction_ != nullptr
-                         ? dynamicGetAxisAction_(event)
-                         : UI_TOUCH_EVENT_ACTION_CANCEL),
-      std::to_string(OH_ArkUI_PointerEvent_GetX(event)),
-      std::to_string(OH_ArkUI_PointerEvent_GetY(event)),
-      std::to_string(OH_ArkUI_PointerEvent_GetWindowX(event)),
-      std::to_string(OH_ArkUI_PointerEvent_GetWindowY(event)),
-      std::to_string(OH_ArkUI_PointerEvent_GetDisplayX(event)),
-      std::to_string(OH_ArkUI_PointerEvent_GetDisplayY(event)),
-      std::to_string(OH_ArkUI_AxisEvent_GetVerticalAxisValue(event))};
-
-  size_t length = tempStrings.size();
-  auto unique_package = std::make_unique<std::string[]>(length);
-  std::shared_ptr<std::string[]> package = std::move(unique_package);
-  for (size_t i = 0; i < length; i++) {
-    package[offset++] = tempStrings[i];
-  }
-  ohos_shell_holder->GetPlatformView()->OnAxisEvent(package, length);
+  auto package =
+      BuildScaledAxisPacket(event, GetScreenToLayoutScale(shell_holderID),
+                            OH_ArkUI_AxisEvent_GetVerticalAxisValue(event));
+  ohos_shell_holder->GetPlatformView()->OnAxisEvent(package,
+                                                    AXIS_PACKET_FIELD_COUNT);
   return;
 }
 
@@ -637,9 +656,13 @@ void OhosTouchProcessor::PlatformViewOnTouchEvent(
     FML_LOG(ERROR) << "OH_NativeXComponent_GetTouchPointTiltY failed, ret="
                    << ret;
   }
+  // Map screen pixels onto the platform-view layout space before packaging;
+  // the copy stays alive until packagePacketData() has serialized it.
+  OH_NativeXComponent_TouchEvent scaledEvent = ScaleTouchEventCoordinates(
+      *touchEvent, GetScreenToLayoutScale(shellHolderID));
   std::unique_ptr<OhosTouchProcessor::TouchPacket> touchPacket =
       std::make_unique<OhosTouchProcessor::TouchPacket>();
-  touchPacket->touchEventInput = touchEvent;
+  touchPacket->touchEventInput = &scaledEvent;
   touchPacket->toolTypeInput = toolType;
   touchPacket->tiltX = tiltX;
   touchPacket->tiltY = tiltY;
@@ -878,10 +901,16 @@ void OhosTouchProcessor::HandleMouseEvent(
     return;
   }
   int offset = 0;
+  // Map screen pixels onto the platform-view layout space (identity unless a
+  // custom DPI scale is active).
+  const double mouse_layout_scale = GetScreenToLayoutScale(shell_holderID);
   std::vector<std::string> tempStrings = {
-      std::to_string(mouseEvent.x),         std::to_string(mouseEvent.y),
-      std::to_string(mouseEvent.screenX),   std::to_string(mouseEvent.screenY),
-      std::to_string(mouseEvent.timestamp), std::to_string(mouseEvent.action),
+      std::to_string(mouseEvent.x * mouse_layout_scale),
+      std::to_string(mouseEvent.y * mouse_layout_scale),
+      std::to_string(mouseEvent.screenX * mouse_layout_scale),
+      std::to_string(mouseEvent.screenY * mouse_layout_scale),
+      std::to_string(mouseEvent.timestamp),
+      std::to_string(mouseEvent.action),
       std::to_string(mouseEvent.button)};
 
   size_t length = tempStrings.size();
@@ -928,9 +957,12 @@ void OhosTouchProcessor::HandleVirtualTouchEvent(
         << "OH_NativeXComponent_GetTouchPointTiltY (virtual touch) failed, ret="
         << ret;
   }
+  // Map screen pixels onto the platform-view layout space before packaging.
+  OH_NativeXComponent_TouchEvent scaledEvent = ScaleTouchEventCoordinates(
+      *touchEvent, GetScreenToLayoutScale(shell_holderID));
   std::unique_ptr<OhosTouchProcessor::TouchPacket> touchPacket =
       std::make_unique<OhosTouchProcessor::TouchPacket>();
-  touchPacket->touchEventInput = touchEvent;
+  touchPacket->touchEventInput = &scaledEvent;
   touchPacket->toolTypeInput = toolType;
   touchPacket->tiltX = tiltX;
   touchPacket->tiltY = tiltY;

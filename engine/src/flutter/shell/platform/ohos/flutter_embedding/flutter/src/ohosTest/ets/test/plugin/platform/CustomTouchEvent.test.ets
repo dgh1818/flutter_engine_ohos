@@ -3,7 +3,7 @@ import { CustomTouchEvent, CustomTouchObject } from '../../../../../main/ets/plu
 
 export default function customTouchEventTest() {
   describe('CustomTouchObject.constructor', () => {
-    it('assigns all fields correctly', Level.LEVEL0, () => {
+    it('CustomTouchObject assigns all fields correctly', Level.LEVEL0, () => {
       const obj = new CustomTouchObject(0, 1, 10, 20, 30, 40, 50, 60, 70, 80);
       expect(obj.type).assertEqual(0);
       expect(obj.id).assertEqual(1);
@@ -26,7 +26,7 @@ export default function customTouchEventTest() {
   });
 
   describe('CustomTouchEvent.constructor', () => {
-    it('assigns all fields correctly', Level.LEVEL0, () => {
+    it('CustomTouchEvent assigns all fields correctly', Level.LEVEL0, () => {
       const touches: CustomTouchObject[] = new Array<CustomTouchObject>();
       const changed: CustomTouchObject[] = new Array<CustomTouchObject>();
       const event = new CustomTouchEvent(0, touches, changed, 1000, 0, 0.5, 10, 20, 0);
@@ -87,7 +87,7 @@ export default function customTouchEventTest() {
   });
 
   describe('CustomTouchEvent.getModifierKeyState', () => {
-    it('throws not implemented', Level.LEVEL1, () => {
+    it('throws not implemented on getModifierKeyState', Level.LEVEL1, () => {
       const touches: CustomTouchObject[] = new Array<CustomTouchObject>();
       const changed: CustomTouchObject[] = new Array<CustomTouchObject>();
       const event = new CustomTouchEvent(0, touches, changed, 0, 0, 0, 0, 0, 0);
@@ -102,7 +102,7 @@ export default function customTouchEventTest() {
   });
 
   describe('CustomTouchEvent.getHistoricalPoints', () => {
-    it('throws not implemented', Level.LEVEL1, () => {
+    it('throws not implemented on getHistoricalPoints', Level.LEVEL1, () => {
       const touches: CustomTouchObject[] = new Array<CustomTouchObject>();
       const changed: CustomTouchObject[] = new Array<CustomTouchObject>();
       const event = new CustomTouchEvent(0, touches, changed, 0, 0, 0, 0, 0, 0);

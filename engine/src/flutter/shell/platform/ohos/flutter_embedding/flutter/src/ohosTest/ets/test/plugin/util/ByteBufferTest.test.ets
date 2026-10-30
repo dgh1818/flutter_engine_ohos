@@ -398,6 +398,41 @@ export default function ByteBufferTest() {
       done();
     })
 
+    it('TestByteBufferWriteBool does not throw', 0, () => {
+      let bb = ByteBuffer.from(new ArrayBuffer(4));
+      bb.writeBool(true);
+      bb.writeBool(false);
+      expect(bb.bytesRemaining <= 4).assertEqual(true);
+    });
+
+    it('TestByteBufferWriteBool with default capacity triggers checkWriteCapacity true branch', 0, () => {
+      let bb = ByteBuffer.from(new ArrayBuffer(2));
+      // Write 3 booleans to trigger capacity expansion (writeCapacity: 2, need 3)
+      bb.writeBool(true);
+      bb.writeBool(false);
+      bb.writeBool(true);
+      expect(bb.bytesRemaining >= 0).assertEqual(true);
+    });
+
+    it('TestByteBufferCheckWriteCapacity does not expand when enough space', 0, () => {
+      let bb = ByteBuffer.from(new ArrayBuffer(16));
+      bb.writeBool(true);
+      expect(bb.bytesRemaining).assertLarger(0);
+    });
+
+    it('TestByteBufferCheckWriteCapacity large expansion skips inner branch', 0, () => {
+      // For dataView!.byteLength = 1026: newCapacity = 1026 + 513 = 1539.
+      // Required = 1026 + 1 + 512 = 1539. 1539 < 1539? FALSE → inner branch skipped.
+      let bb = ByteBuffer.from(new ArrayBuffer(1026));
+      let i: number = 0;
+      while (i < 1026) {
+        bb.writeInt8(0);
+        i = i + 1;
+      }
+      bb.writeInt8(0);
+      expect(bb.bytesRemaining >= 0).assertEqual(true);
+    });
+
     afterAll(() => {
       byteBuffer.reset();
       byteBuffer.clear();

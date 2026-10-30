@@ -28,8 +28,18 @@ export default function FlutterOverlaySurfaceTest() {
     it('getId', 0, async (done: Function) => {
       console.info("uitest: getId begin");
       const id = flutterOverlaySurface.getId();
-      expect(id).not().assertNull();
+      expect(id).assertEqual(2356);
       done();
+    })
+
+    it('zero id is stored', 0, () => {
+      const overlay = new FlutterOverlaySurface(0);
+      expect(overlay.getId()).assertEqual(0);
+    })
+
+    it('negative id is stored', 0, () => {
+      const overlay = new FlutterOverlaySurface(-3);
+      expect(overlay.getId()).assertEqual(-3);
     })
   })
 }

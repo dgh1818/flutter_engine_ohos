@@ -98,6 +98,9 @@ export class FlutterAbility extends UIAbility implements Host {
     this.delegate = new FlutterAbilityAndEntryDelegate(this);
     this?.delegate?.onAttach(this.context);
     Log.i(TAG, 'onAttach end');
+    // Sync the system font weight scale on cold start, mirroring onConfigurationUpdate
+    this.delegate?.getFlutterNapi()?.setFontWeightScale(this.context.config.fontWeightScale == undefined ? 0 :
+    this.context.config.fontWeightScale);
     this?.delegate?.platformPlugin?.setUIAbilityContext(this.context);
     this?.delegate?.onRestoreInstanceState(want);
 
@@ -134,13 +137,13 @@ export class FlutterAbility extends UIAbility implements Host {
       } catch (e) {
         Log.w(TAG, `nativeHandleOsWindowClosed failed for view ${this.hostedViewId}: ${JSON.stringify(e)}`);
       }
-      const host = FlutterManager.getInstance().getWindowHostOf(String(this.hostedViewId));
+      const host = FlutterManager.getInstance().getHostWindowByView(this.hostedViewId);
       if (host) {
         host.handleOsClosed();
       } else {
-        // No host: still drop the per-view maps so nothing dangles.
-        FlutterManager.getInstance().removeHost(String(this.hostedViewId));
-        FlutterManager.getInstance().deleteViewAbility(String(this.hostedViewId));
+        // No host: still drop the registry entries so nothing dangles.
+        FlutterManager.getInstance().removeHost(this.hostedViewId);
+        FlutterManager.getInstance().deleteViewAbility(this.hostedViewId);
       }
     }
 
@@ -204,20 +207,14 @@ export class FlutterAbility extends UIAbility implements Host {
    */
   onWindowStageCreate(windowStage: window.WindowStage) {
     FlutterManager.getInstance().pushWindowStage(this, windowStage);
+    const rawViewId = this.launchWant.parameters?.[FlutterAbilityLaunchConfigs.EXTRA_FLUTTER_VIEW_ID];
+    FlutterManager.getInstance().registerViewAbility(rawViewId != null ? Number(rawViewId) : 0, this);
     this.delegate?.initWindow();
     this.mainWindow = windowStage.getMainWindowSync();
     try {
       windowStage.on('windowStageEvent', this.windowStageEventCallback);
       this.flutterView = this.delegate!!.createView(this.context)
       Log.i(TAG, 'onWindowStageCreate:' + this.flutterView!!.getId());
-      // Record this UIAbility as the host of the main (implicit) view.
-      FlutterManager.getInstance().registerViewAbility(this.flutterView!!.getId(), this);
-      // Stamp own numeric view id for OS-close notification (onDestroy);
-      // non-numeric main id skipped (its close = app exit).
-      const numericViewId = Number(this.flutterView!!.getId());
-      if (!Number.isNaN(numericViewId) && numericViewId > 0) {
-        this.hostedViewId = numericViewId;
-      }
       let storage: LocalStorage = new LocalStorage();
       storage.setOrCreate("viewId", this.flutterView!!.getId())
       windowStage.loadContent(this.pagePath(), storage, (err, data) => {
@@ -226,6 +223,7 @@ export class FlutterAbility extends UIAbility implements Host {
           return;
         }
         this.flutterView?.onWindowCreated();
+        this.applyWindowTitle();
 
         Log.i(TAG, 'Succeeded in loading the content. Data: %{public}s', JSON.stringify(data) ?? '');
       });
@@ -443,6 +441,29 @@ export class FlutterAbility extends UIAbility implements Host {
       return this.launchWant.parameters![FlutterAbilityLaunchConfigs.EXTRA_INITIAL_ROUTE] as string;
     }
     return ""
+  }
+
+  // Window title from the launch want (SPAWNED Regular windows: put there by
+  // RegularWindowHost.attachSpawned). The EntryAbility main window's title is
+  // NOT set for now — setWindowTitle on it never took effect on device.
+  protected applyWindowTitle(win?: window.Window): void {
+    const title =
+      this.launchWant.parameters![FlutterAbilityLaunchConfigs.EXTRA_FLUTTER_WINDOW_TITLE] as string | undefined;
+    this.pushWindowTitle(title ?? '', win);
+  }
+
+  // Single push point: empty titles and missing windows are no-ops, rejections are logged.
+  private pushWindowTitle(title: string, win?: window.Window): void {
+    if (title === '') {
+      return;
+    }
+    const w = win ?? this.mainWindow;
+    if (!w) {
+      return;
+    }
+    w.setWindowTitle(title).catch((e: Object) => {
+      Log.w(TAG, `setWindowTitle "${title}" failed: ${JSON.stringify(e)}`);
+    });
   }
 
   /**

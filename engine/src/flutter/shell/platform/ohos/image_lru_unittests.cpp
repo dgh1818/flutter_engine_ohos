@@ -4,9 +4,13 @@
  * found in the LICENSE_HW file.
  */
 
+#define private public
 #include "flutter/shell/platform/ohos/image_lru.h"
+#undef private
 
 #include "display_list/image/dl_image.h"
+#include "flutter/fml/log_settings.h"
+#include "fml/time/time_point.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "third_party/skia/include/core/SkImage.h"
@@ -166,7 +170,8 @@ TEST_F(ImageLruTest, AddImageEvictsLRUWhenFull) {
   auto image = MakeTestImage();
   // Fill the cache exactly to kMaxQueueSize; nothing is evicted.
   for (auto i = 1u; i <= kMaxQueueSize; i++) {
-    EXPECT_EQ(lru_.AddImage(image, default_config_, i), 0u) << "iteration " << i;
+    EXPECT_EQ(lru_.AddImage(image, default_config_, i), 0u)
+        << "iteration " << i;
   }
   // Adding one more evicts key 1 (the LRU, since it was inserted first and
   // never accessed).
@@ -233,13 +238,36 @@ TEST_F(ImageLruTest, AddThenFindRoundTrips) {
 TEST_F(ImageLruTest, ReaddingSameKeyDoesNotGrowCache) {
   auto image = MakeTestImage();
   for (auto i = 0u; i < kMaxQueueSize + 10; i++) {
-    ASSERT_EQ(lru_.AddImage(image, default_config_, 1), 0u) << "iteration " << i;
+    ASSERT_EQ(lru_.AddImage(image, default_config_, 1), 0u)
+        << "iteration " << i;
   }
   // Only one entry should exist; adding a different key should not evict
   // anything because the cache has only 1 entry.
   EXPECT_EQ(lru_.AddImage(image, default_config_, 2), 0u);
   // The original key 1 should still be present.
   EXPECT_EQ(lru_.FindImage(1, default_config_, nullptr), image);
+}
+
+TEST_F(ImageLruTest, TryDeleteOldestOnEmptyReturnsZero) {
+  EXPECT_EQ(lru_.TryDeleteOldest(1), 0u);
+}
+
+TEST_F(ImageLruTest, TryDeleteOldestEvictsExpiredTimestamp) {
+  auto image = MakeTestImage();
+  ASSERT_EQ(lru_.AddImage(image, default_config_, 7), 0u);
+  ASSERT_FALSE(lru_.image_lists_.empty());
+  lru_.image_lists_.back().timestamp = 0;
+  const int64_t now = fml::TimePoint::Now().ToEpochDelta().ToMilliseconds();
+  EXPECT_EQ(lru_.TryDeleteOldest(now), 7u);
+  EXPECT_EQ(lru_.FindImage(7, default_config_, nullptr), nullptr);
+
+  ASSERT_EQ(lru_.AddImage(image, default_config_, 8), 0u);
+  ASSERT_FALSE(lru_.image_lists_.empty());
+  lru_.image_lists_.back().timestamp = 0;
+  {
+    fml::ScopedSetLogSettings quiet({fml::kLogFatal});
+    EXPECT_EQ(lru_.TryDeleteOldest(now), 8u);
+  }
 }
 
 }  // namespace testing

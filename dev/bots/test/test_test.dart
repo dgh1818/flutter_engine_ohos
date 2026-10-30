@@ -51,6 +51,7 @@ void main() {
         '1.2.3-5.0.pre.12',
         '3.35.8-ohos-0.0.3',
         '3.22.1-ohos-1.0.0',
+        '3.44.9+ohos-0.0.1-canary1',
       ];
       for (final version in valid_versions) {
         final fs.File file = fileSystem.file('version');

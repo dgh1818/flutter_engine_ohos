@@ -22,5 +22,26 @@ export default function FlutterApplicationInfoTest() {
       expect(flutterApplicationInfo).not().assertNull();
       done();
     })
+
+    it('null fields fall back to defaults', 0, () => {
+      const info = new FlutterApplicationInfo(null, null, null, null, null, '/libs', true);
+      expect(info.aotSharedLibraryName).assertEqual('libapp.so');
+      expect(info.vmSnapshotData).assertEqual('vm_snapshot_data');
+      expect(info.isolateSnapshotData).assertEqual('isolate_snapshot_data');
+      expect(info.flutterAssetsDir).assertEqual('flutter_assets');
+      expect(info.domainNetworkPolicy).assertEqual('');
+      expect(info.nativeLibraryDir).assertEqual('/libs');
+      expect(info.automaticallyRegisterPlugins).assertEqual(true);
+    })
+
+    it('provided fields are stored', 0, () => {
+      const info = new FlutterApplicationInfo('a.so', 'vm', 'iso', 'assets', 'policy', '/n', false);
+      expect(info.aotSharedLibraryName).assertEqual('a.so');
+      expect(info.vmSnapshotData).assertEqual('vm');
+      expect(info.isolateSnapshotData).assertEqual('iso');
+      expect(info.flutterAssetsDir).assertEqual('assets');
+      expect(info.domainNetworkPolicy).assertEqual('policy');
+      expect(info.automaticallyRegisterPlugins).assertEqual(false);
+    })
   })
 }

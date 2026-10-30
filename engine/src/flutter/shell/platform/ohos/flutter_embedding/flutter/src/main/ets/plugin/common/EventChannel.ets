@@ -13,6 +13,7 @@ import { BinaryMessageHandler, BinaryMessenger, BinaryReply, TaskQueue } from '.
 import Any from './Any';
 import MethodCodec from './MethodCodec';
 import StandardMethodCodec from './StandardMethodCodec';
+import FlutterException from './FlutterException';
 
 const TAG = "EventChannel#";
 
@@ -204,7 +205,8 @@ class IncomingStreamRequestHandler implements BinaryMessageHandler {
     } catch (e) {
       this.activeSink.set(null);
       Log.e(TAG + this.name, "Failed to open event stream", e);
-      callback.reply(this.codec.encodeErrorEnvelope("error", e.getMessage(), null));
+      const errMsg: string = (e instanceof FlutterException || e instanceof Error) ? (e.message ?? '') : String(e);
+      callback.reply(this.codec.encodeErrorEnvelope("error", errMsg, null));
     }
   }
 
@@ -221,7 +223,8 @@ class IncomingStreamRequestHandler implements BinaryMessageHandler {
         callback.reply(this.codec.encodeSuccessEnvelope(null));
       } catch (e) {
         Log.e(TAG + this.name, "Failed to close event stream", e);
-        callback.reply(this.codec.encodeErrorEnvelope("error", e.getMessage(), null));
+        const errMsg: string = (e instanceof FlutterException || e instanceof Error) ? (e.message ?? '') : String(e);
+        callback.reply(this.codec.encodeErrorEnvelope("error", errMsg, null));
       }
     } else {
       callback.reply(this.codec.encodeErrorEnvelope("error", "No active stream to cancel", null));

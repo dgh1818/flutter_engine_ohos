@@ -156,8 +156,10 @@ Future<TaskResult> rerunTask(
   return result;
 }
 
-/// Runs a task in a separate Dart VM and collects the result using the VM
-/// service protocol.
+/// Runs a task in a separate Dart VM and collects the result.
+///
+/// Uses stdin/stdout IPC protocol when Dart 3.9+ does not support
+/// --enable-vm-service. Falls back to VM service protocol when available.
 ///
 /// [taskName] is the name of the task. The corresponding task executable is
 /// expected to be found under `bin/tasks`.
@@ -196,11 +198,11 @@ Future<TaskResult> runTask(
 
   stdout.writeln('Starting process for task: [$taskName]');
 
+  final bool useIpc = _shouldUseIpc();
   final Process runner = await startProcess(
     dartBin,
     <String>[
-      '--enable-vm-service=0', // zero causes the system to choose a free port
-      '--no-pause-isolates-on-exit',
+      if (!useIpc) ...<String>['--enable-vm-service=0', '--no-pause-isolates-on-exit'],
       '-DbuildMode=$buildMode',
       if (localEngine != null) '-DlocalEngine=$localEngine',
       if (localEngineHost != null) '-DlocalEngineHost=$localEngineHost',
@@ -209,7 +211,10 @@ Future<TaskResult> runTask(
       taskExecutable,
       ...?taskArgs,
     ],
-    environment: <String, String>{DeviceIdEnvName: ?deviceId},
+    environment: <String, String>{
+      DeviceIdEnvName: ?deviceId,
+      if (useIpc) 'FLUTTER_DEVICELAB_IPC': '1',
+    },
   );
 
   var runnerFinished = false;
@@ -221,12 +226,23 @@ Future<TaskResult> runTask(
   );
 
   final uri = Completer<Uri>();
+  final ipcMessages = StreamController<Map<String, dynamic>>.broadcast();
 
   final StreamSubscription<String> stdoutSub = runner.stdout
       .transform<String>(const Utf8Decoder())
       .transform<String>(const LineSplitter())
       .listen((String line) {
-        if (!uri.isCompleted) {
+        if (useIpc && line.startsWith(kIpcPrefix)) {
+          final String jsonStr = line.substring(kIpcPrefix.length);
+          try {
+            final message = json.decode(jsonStr) as Map<String, dynamic>;
+            ipcMessages.add(message);
+          } catch (e) {
+            stderr.writeln('Failed to parse IPC message: $jsonStr');
+          }
+          return;
+        }
+        if (!useIpc && !uri.isCompleted) {
           final Uri? serviceUri = parseServiceUri(
             line,
             prefix: RegExp('The Dart VM service is listening on '),
@@ -248,23 +264,23 @@ Future<TaskResult> runTask(
       });
 
   try {
-    final ConnectionResult result = await _connectToRunnerIsolate(await uri.future);
-    print('[$taskName] Connected to VM server.');
-    isolateParams = isolateParams == null
-        ? <String, String>{}
-        : Map<String, String>.of(isolateParams);
-    isolateParams['runProcessCleanup'] = terminateStrayDartProcesses.toString();
-    final VmService service = result.vmService;
-    final String isolateId = result.isolate.id!;
-    final Map<String, dynamic> taskResultJson = (await service.callServiceExtension(
-      'ext.cocoonRunTask',
-      args: isolateParams,
-      isolateId: isolateId,
-    )).json!;
-    // Notify the task process that the task result has been received and it
-    // can proceed to shutdown.
-    await _acknowledgeTaskResultReceived(service: service, isolateId: isolateId);
-    final taskResult = TaskResult.fromJson(taskResultJson);
+    final TaskResult taskResult;
+    if (useIpc) {
+      taskResult = await _runTaskViaIpc(
+        taskName: taskName,
+        runner: runner,
+        ipcMessages: ipcMessages.stream,
+        isolateParams: isolateParams,
+        terminateStrayDartProcesses: terminateStrayDartProcesses,
+      );
+    } else {
+      taskResult = await _runTaskViaVmService(
+        taskName: taskName,
+        vmServiceUri: await uri.future,
+        isolateParams: isolateParams,
+        terminateStrayDartProcesses: terminateStrayDartProcesses,
+      );
+    }
     final int exitCode = await runner.exitCode;
     print('[$taskName] Process terminated with exit code $exitCode.');
     return taskResult;
@@ -274,11 +290,127 @@ Future<TaskResult> runTask(
   } finally {
     if (!runnerFinished) {
       print('[$taskName] Terminating process...');
-      runner.kill(ProcessSignal.sigkill);
+      // On Windows, Process.kill() without a signal argument performs a
+      // forceful termination equivalent to SIGKILL, since Windows does not
+      // support POSIX signals. On other platforms, use SIGKILL explicitly.
+      if (Platform.isWindows) {
+        runner.kill();
+      } else {
+        runner.kill(ProcessSignal.sigkill);
+      }
     }
     await stdoutSub.cancel();
     await stderrSub.cancel();
+    await ipcMessages.close();
   }
+}
+
+bool? _shouldUseIpcCache;
+
+bool _shouldUseIpc() {
+  return _shouldUseIpcCache ??= () {
+    try {
+      final String dartBinPath = dartBin;
+      final ProcessResult result = Process.runSync(dartBinPath, <String>['run', '--help']);
+      final helpText = result.stdout as String;
+      return !helpText.contains('--enable-vm-service');
+    } catch (_) {
+      // If dart binary is unavailable or fails, fall back to VM service mode.
+      return false;
+    }
+  }();
+}
+
+Future<TaskResult> _runTaskViaIpc({
+  required String taskName,
+  required Process runner,
+  required Stream<Map<String, dynamic>> ipcMessages,
+  required Map<String, String>? isolateParams,
+  required bool terminateStrayDartProcesses,
+}) async {
+  await ipcMessages
+      .firstWhere((Map<String, dynamic> m) => m['type'] == 'ready')
+      .timeout(const Duration(seconds: 120));
+  print('[$taskName] Received ready signal via IPC.');
+
+  isolateParams = isolateParams == null
+      ? <String, String>{}
+      : Map<String, String>.of(isolateParams);
+  isolateParams['runProcessCleanup'] = terminateStrayDartProcesses.toString();
+  // IPC mode runs the task in a separate process; the child skips the
+  // flutter config step (the flag is a no-op in this branch, and the parent
+  // does not run it either).
+  isolateParams['runFlutterConfig'] = 'false';
+
+  final String runJson = json.encode(<String, dynamic>{'type': 'run', 'args': isolateParams});
+  try {
+    runner.stdin.writeln('$kIpcPrefix$runJson');
+    await runner.stdin.flush();
+  } on SocketException catch (e) {
+    print('[$taskName] Failed to send IPC run message: $e (process may have exited)');
+    rethrow;
+  }
+
+  // Align the result wait timeout with the child's task timeout plus a buffer
+  // for result transmission and ack confirmation, so the parent does not time
+  // out before the child's own task timeout expires.
+  final resultTimeout = isolateParams.containsKey('timeoutInMinutes')
+      ? Duration(minutes: int.parse(isolateParams['timeoutInMinutes']!) + 5)
+      : const Duration(minutes: 60);
+  // The child exits without sending a 'result' when run() throws a
+  // non-timeout exception (for example a DeviceException from
+  // device.home(), which framework.dart's run() does not catch). Race the
+  // result wait against process exit so we fail fast instead of idling
+  // until resultTimeout.
+  final Map<String, dynamic> resultMessage =
+      await Future.any<Map<String, dynamic>>(<Future<Map<String, dynamic>>>[
+        ipcMessages
+            .firstWhere((Map<String, dynamic> m) => m['type'] == 'result')
+            .timeout(resultTimeout),
+        runner.exitCode.then<Map<String, dynamic>>((int exitCode) {
+          throw Exception(
+            '[$taskName] Task runner exited before reporting a result (exit code $exitCode).',
+          );
+        }),
+      ]);
+  print('[$taskName] Received result via IPC.');
+
+  final taskResult = TaskResult.fromJson(resultMessage['data'] as Map<String, dynamic>);
+
+  final String ackJson = json.encode(<String, dynamic>{'type': 'ack'});
+  try {
+    runner.stdin.writeln('$kIpcPrefix$ackJson');
+    await runner.stdin.flush();
+  } on SocketException catch (e) {
+    print('[$taskName] Failed to send IPC ack message: $e (process may have exited)');
+    rethrow;
+  }
+
+  return taskResult;
+}
+
+Future<TaskResult> _runTaskViaVmService({
+  required String taskName,
+  required Uri vmServiceUri,
+  required Map<String, String>? isolateParams,
+  required bool terminateStrayDartProcesses,
+}) async {
+  final ConnectionResult result = await _connectToRunnerIsolate(vmServiceUri);
+  print('[$taskName] Connected to VM server.');
+  isolateParams = isolateParams == null
+      ? <String, String>{}
+      : Map<String, String>.of(isolateParams);
+  isolateParams['runProcessCleanup'] = terminateStrayDartProcesses.toString();
+  final VmService service = result.vmService;
+  final String isolateId = result.isolate.id!;
+  final Map<String, dynamic> taskResultJson = (await service.callServiceExtension(
+    'ext.cocoonRunTask',
+    args: isolateParams,
+    isolateId: isolateId,
+  )).json!;
+  await _acknowledgeTaskResultReceived(service: service, isolateId: isolateId);
+  final taskResult = TaskResult.fromJson(taskResultJson);
+  return taskResult;
 }
 
 Future<ConnectionResult> _connectToRunnerIsolate(Uri vmServiceUri) async {

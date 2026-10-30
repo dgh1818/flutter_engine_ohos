@@ -13,38 +13,58 @@ import 'common.dart';
 
 void main() {
   test('Parse PowerShell result', () {
-    const powershellOutput = r'''
-
-ProcessId CreationDate         CommandLine
---------- ------------         -----------
-     6552 3/7/2019 5:00:27 PM  "C:\tools\dart-sdk\bin\dart.exe" .\bin\agent.dart ci
-     6553 3/7/2019 10:00:27 PM "C:\tools\dart-sdk1\bin\dart.exe" .\bin\agent.dart ci
-     6554 3/7/2019 11:00:27 AM "C:\tools\dart-sdk2\bin\dart.exe" .\bin\agent.dart ci
-
-
-''';
-    final List<RunningProcessInfo> results = processPowershellOutput(powershellOutput).toList();
+    final t1 = DateTime(2019, 7, 3, 17, 0, 27);
+    final t2 = DateTime(2019, 7, 3, 22, 0, 27);
+    final t3 = DateTime(2019, 7, 3, 11, 0, 27);
+    final String powershellOutput = jsonEncode(<Object>[
+      <String, Object>{
+        'ProcessId': 6552,
+        'CreationDate': '/Date(${t1.millisecondsSinceEpoch})/',
+        'CommandLine': r'"C:\tools\dart-sdk\bin\dart.exe" .\bin\agent.dart ci',
+      },
+      <String, Object>{
+        'ProcessId': 6553,
+        'CreationDate': '/Date(${t2.millisecondsSinceEpoch})/',
+        'CommandLine': r'"C:\tools\dart-sdk1\bin\dart.exe" .\bin\agent.dart ci',
+      },
+      <String, Object>{
+        'ProcessId': 6554,
+        'CreationDate': '/Date(${t3.millisecondsSinceEpoch})/',
+        'CommandLine': r'"C:\tools\dart-sdk2\bin\dart.exe" .\bin\agent.dart ci',
+      },
+    ]);
+    final List<RunningProcessInfo> results = parseWindowsProcessJson(powershellOutput).toList();
     expect(results.length, 3);
     expect(
       results,
       equals(<RunningProcessInfo>[
-        RunningProcessInfo(
-          6552,
-          r'"C:\tools\dart-sdk\bin\dart.exe" .\bin\agent.dart ci',
-          DateTime(2019, 7, 3, 17, 0, 27),
-        ),
-        RunningProcessInfo(
-          6553,
-          r'"C:\tools\dart-sdk1\bin\dart.exe" .\bin\agent.dart ci',
-          DateTime(2019, 7, 3, 22, 0, 27),
-        ),
-        RunningProcessInfo(
-          6554,
-          r'"C:\tools\dart-sdk2\bin\dart.exe" .\bin\agent.dart ci',
-          DateTime(2019, 7, 3, 11, 0, 27),
-        ),
+        RunningProcessInfo(6552, r'"C:\tools\dart-sdk\bin\dart.exe" .\bin\agent.dart ci', t1),
+        RunningProcessInfo(6553, r'"C:\tools\dart-sdk1\bin\dart.exe" .\bin\agent.dart ci', t2),
+        RunningProcessInfo(6554, r'"C:\tools\dart-sdk2\bin\dart.exe" .\bin\agent.dart ci', t3),
       ]),
     );
+  });
+
+  test('Parse PowerShell result (single object)', () {
+    final t1 = DateTime(2019, 7, 3, 17, 0, 27);
+    final String powershellOutput = jsonEncode(<String, Object>{
+      'ProcessId': 6552,
+      'CreationDate': '/Date(${t1.millisecondsSinceEpoch})/',
+      'CommandLine': r'"C:\tools\dart-sdk\bin\dart.exe" .\bin\agent.dart ci',
+    });
+    final List<RunningProcessInfo> results = parseWindowsProcessJson(powershellOutput).toList();
+    expect(results.length, 1);
+    expect(
+      results,
+      equals(<RunningProcessInfo>[
+        RunningProcessInfo(6552, r'"C:\tools\dart-sdk\bin\dart.exe" .\bin\agent.dart ci', t1),
+      ]),
+    );
+  });
+
+  test('Parse PowerShell result (empty)', () {
+    expect(parseWindowsProcessJson('').toList(), isEmpty);
+    expect(parseWindowsProcessJson('   ').toList(), isEmpty);
   });
 
   test('Parse Posix output', () {

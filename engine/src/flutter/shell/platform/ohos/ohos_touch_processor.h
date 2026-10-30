@@ -76,7 +76,8 @@ class OhosTouchProcessor {
   float accumulatedPanY_ = 0.0;
   float accumulatedScale_ = 1.0;
 
-  // Store the last mouse position for sending a final move event before leave event
+  // Store the last mouse position for sending a final move event before leave
+  // event
   double lastMouseX_ = -1.0;
   double lastMouseY_ = -1.0;
   int64_t lastMouseTimestamp_ = 0;
@@ -94,6 +95,17 @@ class OhosTouchProcessor {
   int32_t (*dynamicGetAxisAction_)(ArkUI_UIInputEvent*);
   int32_t (*dynamicGetModifierKeyStates_)(ArkUI_UIInputEvent*, uint64_t*);
 
+  // Returns a copy of |event| whose coordinate fields (x/y/screenX/screenY of
+  // the main event and of every touch point) are multiplied by |scale|, to
+  // map physical screen pixels onto the platform-view layout space used by
+  // the ArkTS embedding. Non-coordinate fields are preserved. Returns the
+  // event unchanged (aside from the copy) when |scale| == 1.0. Pure helper
+  // split out for unit testing; see PlatformViewOnTouchEvent for the full
+  // pipeline.
+  static OH_NativeXComponent_TouchEvent ScaleTouchEventCoordinates(
+      const OH_NativeXComponent_TouchEvent& event,
+      double scale);
+
  private:
   std::shared_ptr<std::string[]> packagePacketData(
       std::unique_ptr<OhosTouchProcessor::TouchPacket> touchPacket);
@@ -108,6 +120,20 @@ class OhosTouchProcessor {
   void PlatformViewOnAxisEvent(int64_t shellHolderID,
                                ArkUI_UIInputEvent* event,
                                double result_scroll_delta_y);
+
+  // Builds the 8-field axis packet forwarded to the ArkTS embedding via
+  // OnAxisEvent: [0] action, [1] x, [2] y, [3] windowX, [4] windowY,
+  // [5] displayX, [6] displayY, [7] delta. The six coordinate fields are
+  // mapped from physical screen pixels onto the platform-view layout space
+  // by multiplying by |scale| (see GetScreenToLayoutScale in the .cpp). The
+  // delta is a scroll/zoom value, not a coordinate, and is passed through
+  // unscaled. Shared by HandleScaleEvent, HandlePanZooomEvent and
+  // PlatformViewOnAxisEvent so the packet layout and the coordinate scaling
+  // cannot drift apart between event types.
+  std::shared_ptr<std::string[]> BuildScaledAxisPacket(
+      ArkUI_UIInputEvent* event,
+      double scale,
+      double delta_value) const;
 
   bool shouldDropTouchEvent(OH_NativeXComponent_TouchEvent* touchEvent);
   std::set<int32_t> activeFingerIds_;

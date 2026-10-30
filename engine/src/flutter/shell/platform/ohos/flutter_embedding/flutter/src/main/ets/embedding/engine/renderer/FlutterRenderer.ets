@@ -55,7 +55,7 @@ export class FlutterRenderer implements TextureRegistry {
    * @returns A SurfaceTextureEntry containing the registered texture information
    */
   registerTexture(textureId: number): SurfaceTextureEntry {
-    let surfaceTextureRegistryEntry = new SurfaceTextureRegistryEntry(textureId);
+    let surfaceTextureRegistryEntry = new SurfaceTextureRegistryEntry(textureId, this.flutterNapi);
     let surfaceId = this.flutterNapi.registerTexture(textureId);
     Log.i(TAG, "registerTexture, surfaceId=" + surfaceId);
     surfaceTextureRegistryEntry.setSurfaceId(surfaceId);
@@ -190,6 +190,7 @@ export class FlutterRenderer implements TextureRegistry {
  * This class holds information about a texture including its ID, surface ID, and native window information.
  */
 export class SurfaceTextureRegistryEntry implements SurfaceTextureEntry {
+  private flutterNapi: FlutterNapi | null = null;
   private textureId: number = 0;
   private surfaceId: number = 0;
   private nativeWindowId: number = 0;
@@ -199,9 +200,11 @@ export class SurfaceTextureRegistryEntry implements SurfaceTextureEntry {
   /**
    * Constructs a new SurfaceTextureRegistryEntry instance.
    * @param id - The texture ID
+   * @param flutterNapi - (optional) The FlutterNapi instance for native communication
    */
-  constructor(id: number) {
+  constructor(id: number, flutterNapi?: FlutterNapi) {
     this.textureId = id;
+    this.flutterNapi = flutterNapi ?? null;
   }
 
   /**
@@ -264,6 +267,13 @@ export class SurfaceTextureRegistryEntry implements SurfaceTextureEntry {
    * Releases this texture entry and frees associated resources.
    */
   release() {
-    throw new Error('Method not implemented.');
+    if (this.released) {
+      return;
+    }
+    Log.d(TAG, "Releasing a SurfaceTexture (" + this.textureId + ").");
+    if (this.flutterNapi) {
+      this.flutterNapi.unregisterTexture(this.textureId);
+    }
+    this.released = true;
   }
 }

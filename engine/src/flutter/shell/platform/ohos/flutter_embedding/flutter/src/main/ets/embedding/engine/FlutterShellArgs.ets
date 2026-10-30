@@ -116,7 +116,7 @@ export default class FlutterShellArgs {
 
     let dart_flags: Object = want.parameters![FlutterShellArgs.ARG_KEY_DART_FLAGS];
     if (dart_flags != undefined) {
-      flutterShellArgs.add(FlutterShellArgs.ARG_DART_FLAGS + (msaa as string));
+      flutterShellArgs.add(FlutterShellArgs.ARG_DART_FLAGS + (dart_flags as string).trim());
     }
     return flutterShellArgs;
   }

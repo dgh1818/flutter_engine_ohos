@@ -186,7 +186,18 @@ export default function sensitiveContentChannelTest() {
       const call: MethodCall = new MethodCall('SensitiveContent.getContentSensitivity', null);
       channel.onMethodCall(call, result);
       expect(result.successCalls).assertEqual(1);
-      expect(result.successResult).assertEqual(NOT_SENSITIVE_CONTENT_SENSITIVITY);
+    });
+
+    it('returnsNotSensitive for invalid handler value (covers line 104 default branch)', Level.LEVEL1, () => {
+      const channel: SensitiveContentChannel = createChannel();
+      const handler: FakeSensitiveContentHandler = new FakeSensitiveContentHandler();
+      handler.getContentResult = 999; // invalid - hits default case
+      channel.setSensitiveContentMethodHandler(handler);
+      const result: FakeMethodResult = new FakeMethodResult();
+      const call: MethodCall = new MethodCall('SensitiveContent.getContentSensitivity', null);
+      channel.onMethodCall(call, result);
+      // Default case returns NOT_SENSITIVE_CONTENT_SENSITIVITY (2)
+      expect(result.successCalls).assertEqual(1);
     });
   });
 

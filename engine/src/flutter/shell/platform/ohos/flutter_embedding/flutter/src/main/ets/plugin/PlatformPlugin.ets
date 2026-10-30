@@ -97,7 +97,7 @@ export default class PlatformPlugin {
         const paddingHeight = (titleButtonRect && titleButtonRect.height > 0) ? titleButtonRect.height : 0;
         this.callback.flutterView?.setPaddingTop(vp2px(paddingHeight));
       } else {
-        this.callback.flutterView?.setPaddingTop(0);
+        this.callback.flutterView?.setPaddingTop(undefined);
       }
     }
 
@@ -455,6 +455,14 @@ export class PlatformPluginCallback implements PlatformMessageHandler {
     }
     this.showBarOrNavigation = uiConfig;
     this.platform?.updateSystemUiOverlays();
+    // Explicitly set paddingTop based on mode:
+    // - immersive/leanBack/immersiveSticky: status bar hidden → paddingTop=0 (no avoidance needed)
+    // - edgeToEdge: status bar visible → paddingTop=undefined (use systemAvoidArea for avoidance)
+    if (mode == SystemUiMode.IMMERSIVE_STICKY || mode == SystemUiMode.IMMERSIVE || mode == SystemUiMode.LEAN_BACK) {
+      this.flutterView?.setPaddingTop(0);
+    } else if (mode == SystemUiMode.EDGE_TO_EDGE) {
+      this.flutterView?.setPaddingTop(undefined);
+    }
   }
 
   /**
@@ -555,6 +563,20 @@ export class PlatformPluginCallback implements PlatformMessageHandler {
     }
     this.showBarOrNavigation = uiConfig;
     this.platform?.updateSystemUiOverlays();
+
+    // Only set padding explicitly when updateSystemUiOverlays skipped the padding
+    // block (non-freeform-window or empty overlays), to avoid overwriting the
+    // title-button padding that updateSystemUiOverlays already set in freeform
+    // multi-window mode.
+    const isWindowDecorSupported = FlutterManager.getInstance()
+      .isWindowDecorSafeAreaAvoidSupported(this.context);
+    if (!isWindowDecorSupported || this.showBarOrNavigation.length === 0) {
+      if (uiConfig.includes('status')) {
+        this.flutterView?.setPaddingTop(undefined);
+      } else {
+        this.flutterView?.setPaddingTop(0);
+      }
+    }
   }
 
   /**

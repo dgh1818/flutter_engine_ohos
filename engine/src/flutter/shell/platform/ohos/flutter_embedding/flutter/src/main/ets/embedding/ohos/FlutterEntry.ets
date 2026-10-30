@@ -84,6 +84,9 @@ export default class FlutterEntry implements Host {
       //this.flutterView?.preDraw();
       //Log.d(TAG, "XComponent aboutToAppear predraw");
       Log.i(TAG, 'onAttach end');
+      // Sync the system font weight scale on cold start, mirroring onConfigurationUpdated
+      const fontWeightScale = this.uiAbility?.context.config.fontWeightScale;
+      this.delegate?.getFlutterNapi()?.setFontWeightScale(fontWeightScale == undefined ? 0 : fontWeightScale);
       this?.delegate?.platformPlugin?.setUIAbilityContext(this.uiAbility!!.context);
       this.delegate?.onWindowStageCreate()
       this.windowStage?.on('windowStageEvent', this.windowStageEventCallback);

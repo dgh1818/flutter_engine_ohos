@@ -40,7 +40,9 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include "flutter/fml/log_settings.h"
 #include "flutter/fml/platform/ohos/dynamic_library_loader.h"
+#include "flutter/shell/platform/ohos/test_stubs/libc_wrapper_stub.h"
 #include "gtest/gtest.h"
 
 #define private public
@@ -133,7 +135,7 @@ void ResetFakeLog() {
   GetFakeLog() = FakeProcessorLog{};
 }
 
-}
+}  // namespace
 
 // ===== Strong stub definitions of OHos native API functions =====
 // These definitions are strong symbols in the main executable; at link time
@@ -143,8 +145,7 @@ void ResetFakeLog() {
 extern "C" {
 ParamList OH_HiAppEvent_CreateParamList(void) {
   GetCallLog().create_paramlist_count++;
-  return GetCallLog().create_paramlist_return_null ? nullptr
-                                                   : FakeParamList();
+  return GetCallLog().create_paramlist_return_null ? nullptr : FakeParamList();
 }
 
 void OH_HiAppEvent_DestroyParamList(ParamList list) {
@@ -282,6 +283,8 @@ class OhosHiappEventTest : public ::testing::Test {
   void SetUp() override {
     ResetCallLog();
     ResetFakeLog();
+    redirect_ = std::make_unique<::ScopedDlopenRedirect>(
+        "libhiappevent", ::DlopenRedirectMode::kFailOpen);
     // Reset global atomic state
     ScrollStatus.store(-1);
     scroll_start_frame_.store(0);
@@ -290,6 +293,8 @@ class OhosHiappEventTest : public ::testing::Test {
     scroll_end_time_utc_ms.store(0);
     last_frame_number_.store(0);
   }
+
+  std::unique_ptr<::ScopedDlopenRedirect> redirect_;
 
   // Helper: create a MissedFrameInfo with specified duration
   static MissedFrameInfo MakeFrameInfo(int64_t duration_us,
@@ -377,8 +382,8 @@ TEST_F(OhosHiappEventTest, OnScrollStartRecordsFrameIds) {
   OhosHiappEventDDL ddl;
   ddl.UpdateLastFrameNumber(100);
   ddl.OnScrollStart();
-  EXPECT_EQ(scroll_start_frame_.load(), 100u);
-  EXPECT_EQ(scroll_end_frame_.load(), 100u);
+  EXPECT_EQ(scroll_start_frame_.load(), 101u);
+  EXPECT_EQ(scroll_end_frame_.load(), 101u);
 }
 
 TEST_F(OhosHiappEventTest, OnScrollStartRecordsTimestamp) {
@@ -994,6 +999,83 @@ TEST_F(OhosHiappEventTest, WriteScrolledFrameSingleFrameWindow) {
   EXPECT_EQ(GetInt64Param("startTime"), static_cast<int64_t>(4000));
   EXPECT_EQ(GetInt64Param("endTime"), static_cast<int64_t>(4100));
   EXPECT_EQ(scroll_start_frame_.load(), 0u);
+}
+
+TEST_F(OhosHiappEventTest, ReplaysAlreadyCoveredLogEdges) {
+  fml::ScopedSetLogSettings quiet({fml::kLogFatal});
+  OhosHiappEventDDL ddl;
+  ddl.isInit_ = true;
+  ddl.Init();
+  ddl.apiVersion_ = 19;
+  ddl.isInit_ = false;
+  ddl.Init();
+
+  ddl.ReportScrollJANKEvent(MakeFrameInfo(100));
+  for (int i = 0; i < 11; i++) {
+    ddl.ReportJANKEvent(MakeFrameInfo(60000, 1, static_cast<uint64_t>(i)));
+  }
+
+  OhosHiappEventDDL empty;
+  EXPECT_EQ(empty.WriteSingleFrame(), -1);
+  EXPECT_EQ(empty.WriteStatisticFrame(), -1);
+  EXPECT_EQ(empty.WriteScrolledFrame(), -1);
+
+  GetCallLog().create_paramlist_return_null = true;
+  OhosHiappEventDDL null_list;
+  null_list.missed_frame_infos.push_back(MakeFrameInfo(60000));
+  EXPECT_EQ(null_list.WriteSingleFrame(), -1);
+  EXPECT_EQ(null_list.WriteStatisticFrame(), -1);
+  OhosHiappEventDDL null_scroll;
+  null_scroll.missed_frame_infos_scroll.push_back(MakeFrameInfo(60000));
+  EXPECT_EQ(null_scroll.WriteScrolledFrame(), -1);
+  GetCallLog().create_paramlist_return_null = false;
+
+  OhosHiappEventDDL bad_time;
+  MissedFrameInfo info = MakeFrameInfo(60000);
+  info.raster_finish_time_micros = 0;
+  bad_time.missed_frame_infos.push_back(info);
+  EXPECT_EQ(bad_time.WriteSingleFrame(), -1);
+
+  GetCallLog().write_return_value = 7;
+  OhosHiappEventDDL write_err;
+  write_err.missed_frame_infos.push_back(MakeFrameInfo(60000));
+  EXPECT_EQ(write_err.WriteSingleFrame(), 7);
+  write_err.missed_frame_infos.push_back(MakeFrameInfo(60000));
+  EXPECT_EQ(write_err.WriteStatisticFrame(), 7);
+  write_err.missed_frame_infos_scroll.push_back(MakeFrameInfo(60000));
+  EXPECT_EQ(write_err.WriteScrolledFrame(), 7);
+  GetCallLog().write_return_value = 0;
+
+  OhosHiappEventDDL not_valid;
+  not_valid.isValid_ = false;
+  not_valid.FlushAllIn(OhosHiappEventFlag::kSingleFlag);
+
+  OhosHiappEventDDL proc_null;
+  InstallFakes(proc_null);
+  GetFakeLog().create_return_null = true;
+  proc_null.missed_frame_infos.push_back(MakeFrameInfo(60000));
+  proc_null.FlushAllIn(OhosHiappEventFlag::kSingleFlag);
+  GetFakeLog().create_return_null = false;
+
+  OhosHiappEventDDL bad_id;
+  InstallFakes(bad_id);
+  GetFakeLog().add_return = 0;
+  bad_id.missed_frame_infos.push_back(MakeFrameInfo(60000));
+  bad_id.FlushAllIn(OhosHiappEventFlag::kSingleFlag);
+  GetFakeLog().add_return = 5;
+
+  OhosHiappEventDDL unknown;
+  InstallFakes(unknown);
+  unknown.missed_frame_infos.push_back(MakeFrameInfo(60000));
+  unknown.FlushAllIn(static_cast<OhosHiappEventFlag>(99));
+
+  OhosHiappEventDDL mem_missing;
+  mem_missing.reportFrameworkMemAnomaly_ = nullptr;
+  mem_missing.ReportMemoryUsage(1024 * 1024, 1024 * 1024);
+
+  OhosHiappEventDDL mem_ok;
+  InstallFakes(mem_ok);
+  mem_ok.ReportMemoryUsage(1024 * 1024, 1024 * 1024);
 }
 
 }  // namespace testing

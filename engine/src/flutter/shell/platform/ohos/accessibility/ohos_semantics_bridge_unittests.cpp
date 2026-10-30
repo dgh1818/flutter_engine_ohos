@@ -4,13 +4,14 @@
  * found in the LICENSE_HW file.
  */
 
-#include "flutter/shell/platform/ohos/accessibility/ohos_semantics_bridge.h"
 #include <gtest/gtest.h>
 #include <cstdio>
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
+#include "flutter/fml/log_settings.h"
 #include "flutter/lib/ui/semantics/semantics_node.h"
+#include "flutter/shell/platform/ohos/accessibility/ohos_semantics_bridge.h"
 
 namespace flutter {
 namespace testing {
@@ -19,12 +20,7 @@ class SemanticsBridgeTest : public ::testing::Test {
  protected:
   SemanticsBridge bridge_;
 
-  void SetUp() override {
-    bridge_.is_accessibility_enabled_ = true;
-#if defined(OHOS_X64_UNITTEST)
-    bridge_.provider_ohos_ = MakeProvider();
-#endif
-  }
+  void SetUp() override { bridge_.is_accessibility_enabled_ = true; }
 
   ArkUI_AccessibilityElementInfo* MakeInfo() {
     return OH_ArkUI_CreateAccessibilityElementInfo();
@@ -72,9 +68,6 @@ TEST_F(SemanticsBridgeTest, SendSemanticsEventRespectsEnabledState) {
       node1, ARKUI_ACCESSIBILITY_NATIVE_EVENT_TYPE_CLICKED, nullptr);
   EXPECT_FALSE(node1->hasUpdate);
 
-#if defined(OHOS_X64_UNITTEST)
-  bridge_.provider_ohos_ = MakeProvider();
-#endif
   bridge_.SendSemanticsEvent(
       node1, ARKUI_ACCESSIBILITY_NATIVE_EVENT_TYPE_FOCUS_NODE_UPDATE, nullptr);
   EXPECT_FALSE(node1->hasUpdate);
@@ -121,7 +114,8 @@ TEST_F(SemanticsBridgeTest, UpdateNodeTreeSendsScrolledEventAndClearsFlag) {
   EXPECT_FALSE(scroller_node->hasUpdate);
 }
 
-TEST_F(SemanticsBridgeTest, UpdateNodeTreeKeepsScrollChangedWhenEndIndexInvalid) {
+TEST_F(SemanticsBridgeTest,
+       UpdateNodeTreeKeepsScrollChangedWhenEndIndexInvalid) {
   SemanticsNodeUpdates nodes;
   SemanticsNode scroller;
   scroller.id = 1;
@@ -264,8 +258,8 @@ TEST_F(SemanticsBridgeTest, FindFocusNodeSuccessAndFailure) {
   bridge_.UpdateNodeTree(nodes);
 
   auto* info = MakeInfo();
-  EXPECT_EQ(bridge_.FindFocusNode(0, ARKUI_ACCESSIBILITY_NATIVE_FOCUS_TYPE_INPUT,
-                                  info),
+  EXPECT_EQ(bridge_.FindFocusNode(
+                0, ARKUI_ACCESSIBILITY_NATIVE_FOCUS_TYPE_INPUT, info),
             ARKUI_ACCESSIBILITY_NATIVE_RESULT_SUCCESSFUL);
   ASSERT_TRUE(bridge_.tree_.SetAccessibilityFocusNode(1));
   EXPECT_EQ(bridge_.FindFocusNode(
@@ -274,6 +268,13 @@ TEST_F(SemanticsBridgeTest, FindFocusNodeSuccessAndFailure) {
   EXPECT_EQ(bridge_.FindFocusNode(
                 999, ARKUI_ACCESSIBILITY_NATIVE_FOCUS_TYPE_ACCESSIBILITY, info),
             ARKUI_ACCESSIBILITY_NATIVE_RESULT_FAILED);
+  {
+    fml::ScopedSetLogSettings quiet({fml::kLogFatal});
+    EXPECT_EQ(
+        bridge_.FindFocusNode(
+            999, ARKUI_ACCESSIBILITY_NATIVE_FOCUS_TYPE_ACCESSIBILITY, info),
+        ARKUI_ACCESSIBILITY_NATIVE_RESULT_FAILED);
+  }
 }
 
 TEST_F(SemanticsBridgeTest, FindNextFocusNodeSuccessAndFailure) {
@@ -296,6 +297,12 @@ TEST_F(SemanticsBridgeTest, FindNextFocusNodeSuccessAndFailure) {
   EXPECT_EQ(bridge_.FindNextFocusNode(
                 999, ARKUI_ACCESSIBILITY_NATIVE_DIRECTION_FORWARD, info),
             ARKUI_ACCESSIBILITY_NATIVE_RESULT_FAILED);
+  {
+    fml::ScopedSetLogSettings quiet({fml::kLogFatal});
+    EXPECT_EQ(bridge_.FindNextFocusNode(
+                  999, ARKUI_ACCESSIBILITY_NATIVE_DIRECTION_FORWARD, info),
+              ARKUI_ACCESSIBILITY_NATIVE_RESULT_FAILED);
+  }
 }
 
 TEST_F(SemanticsBridgeTest, FillNodesWithSearchTextResults) {
@@ -314,6 +321,11 @@ TEST_F(SemanticsBridgeTest, FillNodesWithSearchTextResults) {
             ARKUI_ACCESSIBILITY_NATIVE_RESULT_SUCCESSFUL);
   EXPECT_EQ(bridge_.FillNodesWithSearchText(999, "match", list),
             ARKUI_ACCESSIBILITY_NATIVE_RESULT_FAILED);
+  {
+    fml::ScopedSetLogSettings quiet({fml::kLogFatal});
+    EXPECT_EQ(bridge_.FillNodesWithSearchText(999, "match", list),
+              ARKUI_ACCESSIBILITY_NATIVE_RESULT_FAILED);
+  }
 }
 
 TEST_F(SemanticsBridgeTest, FillNodesWithSearchResults) {
@@ -330,30 +342,36 @@ TEST_F(SemanticsBridgeTest, FillNodesWithSearchResults) {
   bridge_.UpdateNodeTree(nodes);
   auto* list = MakeList();
 
+  EXPECT_EQ(
+      bridge_.FillNodesWithSearch(
+          0, ARKUI_ACCESSIBILITY_NATIVE_SEARCH_MODE_PREFETCH_CURRENT, list),
+      ARKUI_ACCESSIBILITY_NATIVE_RESULT_SUCCESSFUL);
+  EXPECT_EQ(
+      bridge_.FillNodesWithSearch(
+          0, ARKUI_ACCESSIBILITY_NATIVE_SEARCH_MODE_PREFETCH_CHILDREN, list),
+      ARKUI_ACCESSIBILITY_NATIVE_RESULT_SUCCESSFUL);
+  EXPECT_EQ(
+      bridge_.FillNodesWithSearch(
+          1, ARKUI_ACCESSIBILITY_NATIVE_SEARCH_MODE_PREFETCH_SIBLINGS, list),
+      ARKUI_ACCESSIBILITY_NATIVE_RESULT_SUCCESSFUL);
   EXPECT_EQ(bridge_.FillNodesWithSearch(
-                0, ARKUI_ACCESSIBILITY_NATIVE_SEARCH_MODE_PREFETCH_CURRENT,
-                list),
-            ARKUI_ACCESSIBILITY_NATIVE_RESULT_SUCCESSFUL);
-  EXPECT_EQ(bridge_.FillNodesWithSearch(
-                0, ARKUI_ACCESSIBILITY_NATIVE_SEARCH_MODE_PREFETCH_CHILDREN,
-                list),
-            ARKUI_ACCESSIBILITY_NATIVE_RESULT_SUCCESSFUL);
-  EXPECT_EQ(bridge_.FillNodesWithSearch(
-                1, ARKUI_ACCESSIBILITY_NATIVE_SEARCH_MODE_PREFETCH_SIBLINGS,
-                list),
-            ARKUI_ACCESSIBILITY_NATIVE_RESULT_SUCCESSFUL);
-  EXPECT_EQ(bridge_.FillNodesWithSearch(
-                1,
-                ARKUI_ACCESSIBILITY_NATIVE_SEARCH_MODE_PREFETCH_PREDECESSORS,
+                1, ARKUI_ACCESSIBILITY_NATIVE_SEARCH_MODE_PREFETCH_PREDECESSORS,
                 list),
             ARKUI_ACCESSIBILITY_NATIVE_RESULT_SUCCESSFUL);
   EXPECT_EQ(bridge_.FillNodesWithSearch(
                 0, static_cast<ArkUI_AccessibilitySearchMode>(999), list),
             ARKUI_ACCESSIBILITY_NATIVE_RESULT_FAILED);
-  EXPECT_EQ(bridge_.FillNodesWithSearch(
-                999, ARKUI_ACCESSIBILITY_NATIVE_SEARCH_MODE_PREFETCH_CURRENT,
-                list),
-            ARKUI_ACCESSIBILITY_NATIVE_RESULT_FAILED);
+  EXPECT_EQ(
+      bridge_.FillNodesWithSearch(
+          999, ARKUI_ACCESSIBILITY_NATIVE_SEARCH_MODE_PREFETCH_CURRENT, list),
+      ARKUI_ACCESSIBILITY_NATIVE_RESULT_FAILED);
+  {
+    fml::ScopedSetLogSettings quiet({fml::kLogFatal});
+    EXPECT_EQ(
+        bridge_.FillNodesWithSearch(
+            999, ARKUI_ACCESSIBILITY_NATIVE_SEARCH_MODE_PREFETCH_CURRENT, list),
+        ARKUI_ACCESSIBILITY_NATIVE_RESULT_FAILED);
+  }
 }
 
 TEST_F(SemanticsBridgeTest, ClearAccessibilityFocusBranches) {
@@ -390,6 +408,11 @@ TEST_F(SemanticsBridgeTest, ClearAccessibilityFocusBranches) {
 TEST_F(SemanticsBridgeTest, GainAccessibilityFocusBranches) {
   EXPECT_EQ(bridge_.GainAccessibilityFocus(999, nullptr),
             ARKUI_ACCESSIBILITY_NATIVE_RESULT_FAILED);
+  {
+    fml::ScopedSetLogSettings quiet({fml::kLogFatal});
+    EXPECT_EQ(bridge_.GainAccessibilityFocus(999, nullptr),
+              ARKUI_ACCESSIBILITY_NATIVE_RESULT_FAILED);
+  }
 
   SemanticsNodeUpdates nodes;
   SemanticsNode child;
@@ -445,6 +468,11 @@ TEST_F(SemanticsBridgeTest, GetAccessibilityNodeCursorPositionResults) {
   EXPECT_EQ(bridge_.GetAccessibilityNodeCursorPosition(999, &index),
             ARKUI_ACCESSIBILITY_NATIVE_RESULT_FAILED);
   EXPECT_EQ(index, 12345);
+  {
+    fml::ScopedSetLogSettings quiet({fml::kLogFatal});
+    EXPECT_EQ(bridge_.GetAccessibilityNodeCursorPosition(999, &index),
+              ARKUI_ACCESSIBILITY_NATIVE_RESULT_FAILED);
+  }
 }
 
 TEST_F(SemanticsBridgeTest, OnTapAndOnLongPressClearHasUpdate) {
@@ -494,5 +522,56 @@ TEST_F(SemanticsBridgeTest, OnTooltipAndStateChange) {
   EXPECT_EQ(bridge_.GetNodeById(999), nullptr);
 }
 
+TEST_F(SemanticsBridgeTest, UpdateNodeTreeScrollSkipsDeadChildren) {
+  SemanticsNodeUpdates nodes;
+  SemanticsNode scroller;
+  scroller.id = 1;
+  scroller.scrollChildren = 3;
+  scroller.scrollIndex = 0;
+  scroller.childrenInTraversalOrder = {2, 3, 99};
+  nodes[1] = scroller;
+  SemanticsNode visible_child;
+  visible_child.id = 2;
+  nodes[2] = visible_child;
+  SemanticsNode hidden_child;
+  hidden_child.id = 3;
+  hidden_child.flags.isHidden = true;
+  nodes[3] = hidden_child;
+  BuildRootWithChildren(nodes, {1});
+  EXPECT_NO_FATAL_FAILURE(bridge_.UpdateNodeTree(nodes));
+  auto* ghost = bridge_.tree_.FindNodeById(99);
+  EXPECT_EQ(ghost, nullptr);
 }
+
+TEST_F(SemanticsBridgeTest, UpdateNodeTreeSelectActionWithoutSelectionChange) {
+  SemanticsNodeUpdates nodes;
+  SemanticsNode child;
+  child.id = 1;
+  nodes[1] = child;
+  BuildRootWithChildren(nodes, {1});
+  bridge_.UpdateNodeTree(nodes);
+
+  auto* node1 = bridge_.tree_.FindNodeById(1);
+  ASSERT_NE(node1, nullptr);
+  node1->performSelectAction = true;
+  node1->selectChanged = false;
+
+  SemanticsNodeUpdates again;
+  SemanticsNode same;
+  same.id = 1;
+  again[1] = same;
+  BuildRootWithChildren(again, {1});
+  bridge_.UpdateNodeTree(again);
+  EXPECT_TRUE(node1->performSelectAction);
+  EXPECT_FALSE(node1->selectChanged);
 }
+
+TEST_F(SemanticsBridgeTest, SendSemanticsEventAnnounceWithNullMessage) {
+  bridge_.SendSemanticsEvent(
+      nullptr, ARKUI_ACCESSIBILITY_NATIVE_EVENT_TYPE_ANNOUNCE_FOR_ACCESSIBILITY,
+      nullptr);
+  SUCCEED();
+}
+
+}  // namespace testing
+}  // namespace flutter

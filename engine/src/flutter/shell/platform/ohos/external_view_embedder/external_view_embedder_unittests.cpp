@@ -4,10 +4,15 @@
  * found in the LICENSE_HW file.
  */
 
+#define private public
 #include "flutter/shell/platform/ohos/external_view_embedder/external_view_embedder.h"
+#undef private
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <algorithm>
+#include <atomic>
 #include <cmath>
+#include <cstdint>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -18,11 +23,13 @@
 #include "flutter/display_list/geometry/dl_path_builder.h"
 #include "flutter/flow/embedded_views.h"
 #include "flutter/flow/surface_frame.h"
+#include "flutter/fml/log_settings.h"
 #include "flutter/fml/raster_thread_merger.h"
 #include "flutter/fml/synchronization/waitable_event.h"
 #include "flutter/fml/thread.h"
 #include "flutter/impeller/display_list/aiks_context.h"
 #include "flutter/impeller/renderer/backend/vulkan/test/mock_vulkan.h"
+#include "flutter/shell/platform/ohos/test_stubs/ace_graphic_ndk_stub.h"
 #include "third_party/skia/include/core/SkSurface.h"
 
 namespace flutter {
@@ -77,8 +84,9 @@ void ExpectRectNear(const DlRect& rect,
 
 TEST(OHOSExternalViewEmbedderStatic, GetViewRectReturnsFinalBoundingRect) {
   std::unordered_map<int64_t, EmbeddedViewParams> view_params;
-  view_params.emplace(1, MakeParams(DlMatrix::MakeTranslation(DlVector3(10, 20, 0)),
-                                    DlSize(100, 50), MutatorsStack()));
+  view_params.emplace(
+      1, MakeParams(DlMatrix::MakeTranslation(DlVector3(10, 20, 0)),
+                    DlSize(100, 50), MutatorsStack()));
   DlRect rect = OHOSExternalViewEmbedder::GetViewRect(1, view_params);
   ExpectRectNear(rect, 10, 20, 100, 50);
 }
@@ -89,9 +97,10 @@ TEST(OHOSExternalViewEmbedderStatic, GetViewRectUnknownViewIsFatal) {
   // 正常路径语义，未知 id 的致命行为由引擎调用约定保证（调用方只传
   // Preroll 登记过的 view id）。
   std::unordered_map<int64_t, EmbeddedViewParams> view_params;
-  view_params.emplace(7, MakeParams(DlMatrix(), DlSize(30, 20),
-                                    MutatorsStack()));
-  EXPECT_NO_FATAL_FAILURE(OHOSExternalViewEmbedder::GetViewRect(7, view_params));
+  view_params.emplace(7,
+                      MakeParams(DlMatrix(), DlSize(30, 20), MutatorsStack()));
+  EXPECT_NO_FATAL_FAILURE(
+      OHOSExternalViewEmbedder::GetViewRect(7, view_params));
 }
 
 //------------------------------------------------------------------------------
@@ -161,8 +170,7 @@ TEST(OHOSExternalViewEmbedderStatic, FoldClipRectAfterTranslate) {
   ExpectRectNear(folded.clip_rects[0], 10, 20, 50, 40);
 }
 
-TEST(OHOSExternalViewEmbedderStatic,
-     FoldMultipleTransformsAccumulateInOrder) {
+TEST(OHOSExternalViewEmbedderStatic, FoldMultipleTransformsAccumulateInOrder) {
   MutatorsStack stack;
   stack.PushTransform(DlMatrix::MakeScale(DlVector2(2, 2)));
   stack.PushTransform(DlMatrix::MakeTranslation(DlVector3(10, 20, 0)));
@@ -243,6 +251,20 @@ TEST(OHOSExternalViewEmbedderStatic, FoldClipPathSerializesVerbCommands) {
   EXPECT_DOUBLE_EQ(commands[12], kPathVerbClose);
 }
 
+TEST(OHOSExternalViewEmbedderStatic, FoldShearExcludedFromClipPathRoot) {
+  DlMatrix shear;
+  shear.m[4] = 0.5f;
+  MutatorsStack stack;
+  stack.PushTransform(shear);
+  stack.PushClipPath(MakeTrianglePath());
+  EmbeddedViewParams params =
+      MakeParams(DlMatrix(), DlSize(100, 100), std::move(stack));
+
+  auto folded = OHOSExternalViewEmbedder::FoldMutatorsToFinal(params);
+  ASSERT_EQ(folded.clip_path_bounds.size(), 1u);
+  ExpectRectNear(folded.clip_path_bounds[0], 0, 0, 100, 50);
+}
+
 TEST(OHOSExternalViewEmbedderStatic,
      FoldRotationExcludedFromClipPathSerialization) {
   MutatorsStack stack;
@@ -299,8 +321,8 @@ TEST(OHOSExternalViewEmbedderStatic,
 
 TEST(OHOSExternalViewEmbedderStatic, FoldClipRSESerializesToPathCommands) {
   MutatorsStack stack;
-  stack.PushClipRSE(DlRoundSuperellipse::MakeRectRadius(
-      DlRect::MakeXYWH(0, 0, 100, 50), 20));
+  stack.PushClipRSE(
+      DlRoundSuperellipse::MakeRectRadius(DlRect::MakeXYWH(0, 0, 100, 50), 20));
   EmbeddedViewParams params =
       MakeParams(DlMatrix(), DlSize(100, 100), std::move(stack));
 
@@ -334,11 +356,22 @@ TEST(OHOSExternalViewEmbedderStatic, FoldClipPathCircleElevatesConicToCubic) {
     int verb = static_cast<int>(commands[i]);
     int argc;
     switch (verb) {
-      case 0: argc = 0; break;  // CLOSE
-      case 1: argc = 2; break;  // MOVE
-      case 2: argc = 2; break;  // LINE
-      case 3: argc = 4; break;  // QUAD
-      case 4: argc = 6; has_cubic = true; break;  // CUBIC
+      case 0:
+        argc = 0;
+        break;  // CLOSE
+      case 1:
+        argc = 2;
+        break;  // MOVE
+      case 2:
+        argc = 2;
+        break;  // LINE
+      case 3:
+        argc = 4;
+        break;  // QUAD
+      case 4:
+        argc = 6;
+        has_cubic = true;
+        break;  // CUBIC
       default:
         FAIL() << "unknown verb " << verb << " at " << i;
         return;
@@ -452,8 +485,8 @@ TEST_F(OHOSExternalViewEmbedderTest, CompositeUnknownViewReturnsNull) {
 TEST_F(OHOSExternalViewEmbedderTest, PrerollCreatesSliceForComposite) {
   EmbeddedViewParams params =
       MakeParams(DlMatrix(), DlSize(100, 50), MutatorsStack());
-  embedder_->PrerollCompositeEmbeddedView(1,
-                                          std::make_unique<EmbeddedViewParams>(params));
+  embedder_->PrerollCompositeEmbeddedView(
+      1, std::make_unique<EmbeddedViewParams>(params));
   DlCanvas* canvas = embedder_->CompositeEmbeddedView(1);
   EXPECT_NE(canvas, nullptr);
 }
@@ -461,8 +494,8 @@ TEST_F(OHOSExternalViewEmbedderTest, PrerollCreatesSliceForComposite) {
 TEST_F(OHOSExternalViewEmbedderTest, CancelFrameDropsSlices) {
   EmbeddedViewParams params =
       MakeParams(DlMatrix(), DlSize(100, 50), MutatorsStack());
-  embedder_->PrerollCompositeEmbeddedView(1,
-                                          std::make_unique<EmbeddedViewParams>(params));
+  embedder_->PrerollCompositeEmbeddedView(
+      1, std::make_unique<EmbeddedViewParams>(params));
   ASSERT_NE(embedder_->CompositeEmbeddedView(1), nullptr);
 
   embedder_->CancelFrame();
@@ -472,8 +505,8 @@ TEST_F(OHOSExternalViewEmbedderTest, CancelFrameDropsSlices) {
 TEST_F(OHOSExternalViewEmbedderTest, PrepareFlutterViewDropsSlices) {
   EmbeddedViewParams params =
       MakeParams(DlMatrix(), DlSize(100, 50), MutatorsStack());
-  embedder_->PrerollCompositeEmbeddedView(1,
-                                          std::make_unique<EmbeddedViewParams>(params));
+  embedder_->PrerollCompositeEmbeddedView(
+      1, std::make_unique<EmbeddedViewParams>(params));
   ASSERT_NE(embedder_->CompositeEmbeddedView(1), nullptr);
 
   embedder_->PrepareFlutterView(DlISize(200, 100), 2.0);
@@ -485,13 +518,13 @@ TEST_F(OHOSExternalViewEmbedderTest, EndFrameIsSafeAfterPreroll) {
   // 此处验证调用安全且后续帧仍可正常 Preroll/Composite。
   EmbeddedViewParams params =
       MakeParams(DlMatrix(), DlSize(100, 50), MutatorsStack());
-  embedder_->PrerollCompositeEmbeddedView(1,
-                                          std::make_unique<EmbeddedViewParams>(params));
+  embedder_->PrerollCompositeEmbeddedView(
+      1, std::make_unique<EmbeddedViewParams>(params));
   embedder_->EndFrame(false, nullptr);
 
   embedder_->PrepareFlutterView(DlISize(200, 100), 1.0);
-  embedder_->PrerollCompositeEmbeddedView(2,
-                                          std::make_unique<EmbeddedViewParams>(params));
+  embedder_->PrerollCompositeEmbeddedView(
+      2, std::make_unique<EmbeddedViewParams>(params));
   EXPECT_NE(embedder_->CompositeEmbeddedView(2), nullptr);
 }
 
@@ -508,8 +541,7 @@ TEST_F(OHOSExternalViewEmbedderTest, OverlayWindowTeardownWithoutSurface) {
 }
 
 TEST_F(OHOSExternalViewEmbedderTest, PostPrerollActionReturnsSuccess) {
-  EXPECT_EQ(embedder_->PostPrerollAction(nullptr),
-            PostPrerollResult::kSuccess);
+  EXPECT_EQ(embedder_->PostPrerollAction(nullptr), PostPrerollResult::kSuccess);
 }
 
 TEST_F(OHOSExternalViewEmbedderTest, PrerollSameParamsTwiceSkipsCacheUpdate) {
@@ -560,8 +592,13 @@ TEST_F(OHOSExternalViewEmbedderTest, SetOverlayWindowStoresAndDeduplicates) {
   embedder_->SetOverlayWindow(window);
   // 再次设置同一窗口：走"未变化"早退分支。
   embedder_->SetOverlayWindow(window);
-  // 注：Show/HideOverlayLayerIfNeeded 为 private 且产品代码无调用者
-  // （预留接口），无法也不应从测试触达。
+}
+
+TEST_F(OHOSExternalViewEmbedderTest, ShowAndHideOverlayLayerHelpers) {
+  embedder_->ShowOverlayLayerIfNeeded();
+  embedder_->ShowOverlayLayerIfNeeded();
+  embedder_->HideOverlayLayerIfNeeded();
+  embedder_->HideOverlayLayerIfNeeded();
 }
 
 //------------------------------------------------------------------------------
@@ -570,14 +607,42 @@ TEST_F(OHOSExternalViewEmbedderTest, SetOverlayWindowStoresAndDeduplicates) {
 
 namespace {
 
-// OHOSSurface 的桩实现：SetDisplayWindow 是具体（非虚）实现，对 invalid
-// window（handle=null 的 fake）在 IsValid() 检查处安全早退，因此桩的虚方法
-// 在 UT 中不会被触达 NDK 的路径调用。
+struct OverlayGpuKnobs {
+  std::atomic<bool> acquire_null{false};
+};
+
+class FakeOverlayGpuSurface : public Surface {
+ public:
+  explicit FakeOverlayGpuSurface(std::shared_ptr<OverlayGpuKnobs> knobs)
+      : knobs_(std::move(knobs)) {}
+
+  bool IsValid() override { return true; }
+  std::unique_ptr<SurfaceFrame> AcquireFrame(const DlISize& size) override {
+    if (knobs_ && knobs_->acquire_null.load()) {
+      return nullptr;
+    }
+    const int w = std::max(size.width, 1);
+    const int h = std::max(size.height, 1);
+    sk_sp<SkSurface> sk_surface =
+        SkSurfaces::Raster(SkImageInfo::MakeN32Premul(w, h), 0, nullptr);
+    return std::make_unique<SurfaceFrame>(
+        std::move(sk_surface), SurfaceFrame::FramebufferInfo{},
+        [](SurfaceFrame&, DlCanvas*) { return true; },
+        [](SurfaceFrame&) { return true; }, size);
+  }
+  DlMatrix GetRootTransformation() const override { return {}; }
+  GrDirectContext* GetContext() override { return nullptr; }
+
+ private:
+  std::shared_ptr<OverlayGpuKnobs> knobs_;
+};
+
 class FakeOHOSSurface : public OHOSSurface {
  public:
-  FakeOHOSSurface()
-      : OHOSSurface(std::make_shared<OHOSContext>(OHOSRenderingAPI::kSoftware)) {
-  }
+  FakeOHOSSurface(bool create_gpu, std::shared_ptr<OverlayGpuKnobs> knobs)
+      : OHOSSurface(std::make_shared<OHOSContext>(OHOSRenderingAPI::kSoftware)),
+        create_gpu_(create_gpu),
+        knobs_(std::move(knobs)) {}
 
   bool IsValid() const override { return true; }
   void TeardownOnScreenContext() override {}
@@ -585,28 +650,38 @@ class FakeOHOSSurface : public OHOSSurface {
   bool ResourceContextMakeCurrent() override { return true; }
   bool ResourceContextClearCurrent() override { return true; }
   bool SetNativeWindow(fml::RefPtr<OHOSNativeWindow> window) override {
-    return true;
+    return window && window->IsValid();
   }
   std::unique_ptr<Surface> CreateGPUSurface(
       GrDirectContext* gr_context) override {
-    return nullptr;
+    if (!create_gpu_) {
+      return nullptr;
+    }
+    return std::make_unique<FakeOverlayGpuSurface>(knobs_);
   }
+
+ private:
+  bool create_gpu_ = false;
+  std::shared_ptr<OverlayGpuKnobs> knobs_;
 };
 
 class FakeSurfaceFactory : public OhosSurfaceFactory {
  public:
-  enum class Mode { kReturnNull, kReturnFake };
-  explicit FakeSurfaceFactory(Mode mode) : mode_(mode) {}
+  enum class Mode { kReturnNull, kReturnFake, kReturnGpu };
+  explicit FakeSurfaceFactory(Mode mode,
+                              std::shared_ptr<OverlayGpuKnobs> knobs = nullptr)
+      : mode_(mode), knobs_(std::move(knobs)) {}
 
   std::unique_ptr<OHOSSurface> CreateSurface() override {
     if (mode_ == Mode::kReturnNull) {
       return nullptr;
     }
-    return std::make_unique<FakeOHOSSurface>();
+    return std::make_unique<FakeOHOSSurface>(mode_ == Mode::kReturnGpu, knobs_);
   }
 
  private:
   Mode mode_;
+  std::shared_ptr<OverlayGpuKnobs> knobs_;
 };
 
 }  // namespace
@@ -636,8 +711,8 @@ class OHOSExternalViewEmbedderFrameTest : public ::testing::Test {
 
   // CPU raster surface + 可观测 submit 的 SurfaceFrame。
   std::unique_ptr<SurfaceFrame> MakeFrame(bool* submitted) {
-    sk_sp<SkSurface> sk_surface = SkSurfaces::Raster(
-        SkImageInfo::MakeN32Premul(200, 200), 0, nullptr);
+    sk_sp<SkSurface> sk_surface =
+        SkSurfaces::Raster(SkImageInfo::MakeN32Premul(200, 200), 0, nullptr);
     *submitted = false;
     return std::make_unique<SurfaceFrame>(
         std::move(sk_surface), SurfaceFrame::FramebufferInfo{},
@@ -676,11 +751,16 @@ class OHOSExternalViewEmbedderFrameTest : public ::testing::Test {
     return fml::MakeRefCounted<OHOSNativeWindow>(nullptr, true);
   }
 
+  fml::RefPtr<OHOSNativeWindow> MakeValidWindow(uintptr_t handle) {
+    return fml::MakeRefCounted<OHOSNativeWindow>(
+        reinterpret_cast<OHNativeWindow*>(handle));
+  }
+
   void WaitIdle() {
     fml::AutoResetWaitableEvent latch;
     task_runners_->GetPlatformTaskRunner()->PostTask(
         [&latch]() { latch.Signal(); });
-    latch.Wait();
+    latch.WaitWithTimeout(fml::TimeDelta::FromSeconds(5));
   }
 
   std::unique_ptr<fml::Thread> thread_;
@@ -885,6 +965,182 @@ TEST_F(OHOSExternalViewEmbedderFrameTest, SubmitAppliesViewportClipDiff) {
   EXPECT_TRUE(submitted);
 }
 
+TEST_F(OHOSExternalViewEmbedderFrameTest,
+       SubmitViewportIgnoresNonRectMutators) {
+  MakeEmbedder(std::make_unique<FakeSurfaceFactory>(
+      FakeSurfaceFactory::Mode::kReturnNull));
+  embedder_->PrepareFlutterView(DlISize(200, 200), 1.0);
+
+  MutatorsStack stack;
+  stack.PushTransform(DlMatrix::MakeTranslation(DlVector3(4, 4, 0)));
+  stack.PushOpacity(180);
+  stack.PushClipRRect(
+      DlRoundRect::MakeRectRadius(DlRect::MakeXYWH(0, 0, 90, 90), 6));
+  PrerollView(1, 0, 0, std::move(stack));
+
+  bool submitted = false;
+  embedder_->SubmitFlutterView(0, nullptr, nullptr, MakeFrame(&submitted));
+  WaitIdle();
+  EXPECT_TRUE(submitted);
+}
+
+TEST_F(OHOSExternalViewEmbedderFrameTest, SubmitPacksClipMutatorsToNapi) {
+  MakeEmbedder(std::make_unique<FakeSurfaceFactory>(
+      FakeSurfaceFactory::Mode::kReturnNull));
+  embedder_->PrepareFlutterView(DlISize(200, 200), 1.0);
+
+  MutatorsStack stack;
+  stack.PushClipRRect(
+      DlRoundRect::MakeRectRadius(DlRect::MakeXYWH(8, 8, 60, 50), 4));
+  stack.PushClipPath(MakeTrianglePath());
+  PrerollView(1, 0, 0, std::move(stack));
+
+  bool submitted = false;
+  embedder_->SubmitFlutterView(0, nullptr, nullptr, MakeFrame(&submitted));
+  WaitIdle();
+  EXPECT_TRUE(submitted);
+}
+
+TEST_F(OHOSExternalViewEmbedderFrameTest,
+       SubmitValidOverlayRendersShowsClearsAndRebinds) {
+  GraphicStubKnobGuard guard;
+  g_stub_geometry_width = 200;
+  g_stub_geometry_height = 200;
+  auto knobs = std::make_shared<OverlayGpuKnobs>();
+
+  MakeEmbedder(std::make_unique<FakeSurfaceFactory>(
+      FakeSurfaceFactory::Mode::kReturnGpu, knobs));
+  embedder_->PrepareFlutterView(DlISize(200, 200), 1.0);
+
+  auto window_a = MakeValidWindow(0x1000);
+  embedder_->SetOverlayWindow(window_a);
+
+  PrerollView(1, 0, 0);
+  PrerollView(2, 10, 10);
+  bool submitted_1 = false;
+  embedder_->SubmitFlutterView(0, nullptr, nullptr, MakeFrame(&submitted_1));
+  WaitIdle();
+  EXPECT_TRUE(submitted_1);
+  EXPECT_NE(embedder_->overlay_gpu_surface_.get(), nullptr);
+  EXPECT_TRUE(embedder_->overlay_layer_is_shown_->load());
+
+  embedder_->PrepareFlutterView(DlISize(200, 200), 1.0);
+  PrerollView(1, 0, 0);
+  PrerollView(2, 10, 10);
+  bool submitted_2 = false;
+  embedder_->SubmitFlutterView(0, nullptr, nullptr, MakeFrame(&submitted_2));
+  WaitIdle();
+  EXPECT_TRUE(submitted_2);
+  EXPECT_TRUE(embedder_->overlay_layer_is_shown_->load());
+
+  embedder_->PrepareFlutterView(DlISize(200, 200), 1.0);
+  PrerollView(1, 0, 0, MutatorsStack(), /*paint_content=*/false);
+  PrerollView(2, 10, 10);
+  PrerollView(3, 20, 20, MutatorsStack(), false);
+  bool submitted_mid = false;
+  embedder_->SubmitFlutterView(0, nullptr, nullptr, MakeFrame(&submitted_mid));
+  WaitIdle();
+  EXPECT_TRUE(submitted_mid);
+  EXPECT_TRUE(embedder_->overlay_layer_is_shown_->load());
+
+  embedder_->PrepareFlutterView(DlISize(200, 200), 1.0);
+  PrerollView(1, 0, 0, MutatorsStack(), /*paint_content=*/false);
+  bool submitted_no_overlay = false;
+  embedder_->SubmitFlutterView(0, nullptr, nullptr,
+                               MakeFrame(&submitted_no_overlay));
+  WaitIdle();
+  EXPECT_TRUE(submitted_no_overlay);
+  EXPECT_FALSE(embedder_->overlay_layer_is_shown_->load());
+
+  embedder_->PrepareFlutterView(DlISize(200, 200), 1.0);
+  PrerollView(1, 0, 0, MutatorsStack(), /*paint_content=*/false);
+  bool submitted_need_clear_false = false;
+  embedder_->SubmitFlutterView(0, nullptr, nullptr,
+                               MakeFrame(&submitted_need_clear_false));
+  WaitIdle();
+  EXPECT_TRUE(submitted_need_clear_false);
+
+  embedder_->SetOverlayWindow(MakeValidWindow(0x2000));
+  embedder_->PrepareFlutterView(DlISize(200, 200), 1.0);
+  PrerollView(1, 0, 0);
+  PrerollView(2, 10, 10);
+  bool submitted_3 = false;
+  embedder_->SubmitFlutterView(0, nullptr, nullptr, MakeFrame(&submitted_3));
+  WaitIdle();
+  EXPECT_TRUE(submitted_3);
+
+  embedder_->PrepareFlutterView(DlISize(300, 300), 1.0);
+  PrerollView(1, 0, 0);
+  PrerollView(2, 10, 10);
+  bool submitted_resize = false;
+  embedder_->SubmitFlutterView(0, nullptr, nullptr,
+                               MakeFrame(&submitted_resize));
+  WaitIdle();
+  EXPECT_TRUE(submitted_resize);
+
+  embedder_->PrepareFlutterView(DlISize(300, 300), 1.0);
+  bool submitted_empty_ok = false;
+  embedder_->SubmitFlutterView(0, nullptr, nullptr,
+                               MakeFrame(&submitted_empty_ok));
+  WaitIdle();
+  EXPECT_TRUE(submitted_empty_ok);
+
+  embedder_->PrepareFlutterView(DlISize(300, 300), 1.0);
+  PrerollView(1, 0, 0);
+  PrerollView(2, 10, 10);
+  bool submitted_again = false;
+  embedder_->SubmitFlutterView(0, nullptr, nullptr,
+                               MakeFrame(&submitted_again));
+  WaitIdle();
+  EXPECT_TRUE(submitted_again);
+
+  knobs->acquire_null.store(true);
+  embedder_->PrepareFlutterView(DlISize(300, 300), 1.0);
+  bool submitted_empty = false;
+  embedder_->SubmitFlutterView(0, nullptr, nullptr,
+                               MakeFrame(&submitted_empty));
+  WaitIdle();
+  EXPECT_TRUE(submitted_empty);
+
+  embedder_->PrepareFlutterView(DlISize(300, 300), 1.0);
+  PrerollView(1, 0, 0);
+  PrerollView(2, 10, 10);
+  bool submitted_null_frame = false;
+  embedder_->SubmitFlutterView(0, nullptr, nullptr,
+                               MakeFrame(&submitted_null_frame));
+  WaitIdle();
+  EXPECT_TRUE(submitted_null_frame);
+}
+
+TEST_F(OHOSExternalViewEmbedderFrameTest, OverlayLogsDoNotCrash) {
+  fml::ScopedSetLogSettings quiet({fml::kLogFatal});
+
+  MakeEmbedder(std::make_unique<FakeSurfaceFactory>(
+      FakeSurfaceFactory::Mode::kReturnFake));
+  embedder_->SetOverlayWindow(MakeFakeWindow());
+  embedder_->PrepareFlutterView(DlISize(200, 200), 1.0);
+  PrerollView(1, 0, 0);
+  PrerollView(2, 10, 10);
+  bool submitted_drop = false;
+  embedder_->SubmitFlutterView(0, nullptr, nullptr, MakeFrame(&submitted_drop));
+  WaitIdle();
+  EXPECT_TRUE(submitted_drop);
+
+  GraphicStubKnobGuard guard;
+  g_stub_geometry_width = 200;
+  g_stub_geometry_height = 200;
+  MakeEmbedder(std::make_unique<FakeSurfaceFactory>(
+      FakeSurfaceFactory::Mode::kReturnGpu));
+  embedder_->PrepareFlutterView(DlISize(200, 200), 1.0);
+  embedder_->SetOverlayWindow(MakeValidWindow(0x3000));
+  PrerollView(1, 0, 0);
+  PrerollView(2, 10, 10);
+  bool submitted_gpu = false;
+  embedder_->SubmitFlutterView(0, nullptr, nullptr, MakeFrame(&submitted_gpu));
+  WaitIdle();
+  EXPECT_TRUE(submitted_gpu);
+}
+
 TEST_F(OHOSExternalViewEmbedderFrameTest, TeardownDrainsOverlayState) {
   MakeEmbedder(std::make_unique<FakeSurfaceFactory>(
       FakeSurfaceFactory::Mode::kReturnFake));
@@ -907,7 +1163,9 @@ namespace {
 class SurfaceMock : public Surface {
  public:
   MOCK_METHOD(bool, IsValid, (), (override));
-  MOCK_METHOD(std::unique_ptr<SurfaceFrame>, AcquireFrame, (const DlISize&),
+  MOCK_METHOD(std::unique_ptr<SurfaceFrame>,
+              AcquireFrame,
+              (const DlISize&),
               (override));
   MOCK_METHOD(DlMatrix, GetRootTransformation, (), (const, override));
   MOCK_METHOD(GrDirectContext*, GetContext, (), (override));
@@ -1124,22 +1382,21 @@ TEST(OHOSWindowingViewEmbedderTest, SubmitWhenFrameUnavailable) {
   EXPECT_TRUE(token_submitted);
 }
 
-TEST(OHOSWindowingViewEmbedderTest, SubmitReplaysRecordingAndCarriesSubmitInfo) {
+TEST(OHOSWindowingViewEmbedderTest,
+     SubmitReplaysRecordingAndCarriesSubmitInfo) {
   OHOSWindowingViewEmbedder embedder;
   auto surface = std::make_unique<NiceMock<SurfaceMock>>();
   bool view_submitted = false;
   SurfaceFrame::SubmitInfo view_info;
   EXPECT_CALL(*surface, AcquireFrame(DlISize(300, 200)))
       .Times(1)
-      .WillOnce(
-          Return(ByMove(MakeTestFrame(&view_submitted, &view_info))));
+      .WillOnce(Return(ByMove(MakeTestFrame(&view_submitted, &view_info))));
   embedder.RegisterViewSurface(7, std::move(surface));
 
   embedder.PrepareFlutterView(DlISize(300, 200), 1.0);
   ASSERT_NE(embedder.GetRootCanvas(), nullptr);
   // Record something into the pending builder so the replay is observable.
-  embedder.GetRootCanvas()->DrawRect(DlRect::MakeLTRB(0, 0, 10, 10),
-                                     DlPaint());
+  embedder.GetRootCanvas()->DrawRect(DlRect::MakeLTRB(0, 0, 10, 10), DlPaint());
 
   // Token frame carries presentation/damage info to be forwarded.
   bool token_submitted = false;
@@ -1183,6 +1440,125 @@ TEST(OHOSWindowingViewEmbedderTest, EmbeddedViewOverridesAreNoOps) {
   EXPECT_EQ(embedder.CompositeEmbeddedView(1), nullptr);
 }
 
+// ---------------------------------------------------------------------------
+// OHOSWindowingViewEmbedder: sized-to-content frame-size reports
+// (win32 OnFrameGenerated -> DidUpdateViewSize parity)
+// ---------------------------------------------------------------------------
+
+namespace {
+
+struct ReportedSize {
+  int64_t view_id = -1;
+  double width = 0;
+  double height = 0;
+};
+
+}  // namespace
+
+TEST(OHOSWindowingViewEmbedderTest,
+     SizedToContentViewReportsSizeOnlyOnChange) {
+  ReportedSize reported;
+  OHOSWindowingViewEmbedder embedder(
+      [&](int64_t view_id, double width, double height) {
+        reported = {view_id, width, height};
+      });
+
+  auto surface = std::make_unique<NiceMock<SurfaceMock>>();
+  EXPECT_CALL(*surface, AcquireFrame(_))
+      .Times(3)
+      // InvokeWithoutArgs: a fresh frame per call (Return(ByMove) would be
+      // moved-from after the first invocation).
+      .WillRepeatedly(::testing::InvokeWithoutArgs(
+          []() { return MakeTestFrame(nullptr); }));
+  embedder.RegisterViewSurface(7, std::move(surface));
+  embedder.SetViewSizedToContent(7, true);
+
+  // Frame 1: 300x200 — first report.
+  embedder.PrepareFlutterView(DlISize(300, 200), 1.0);
+  embedder.SubmitFlutterView(7, nullptr, nullptr, MakeTestFrame(nullptr));
+  EXPECT_EQ(reported.view_id, 7);
+  EXPECT_EQ(reported.width, 300);
+  EXPECT_EQ(reported.height, 200);
+
+  // Frame 2: same size — deduped, no report.
+  reported = {};
+  embedder.PrepareFlutterView(DlISize(300, 200), 1.0);
+  embedder.SubmitFlutterView(7, nullptr, nullptr, MakeTestFrame(nullptr));
+  EXPECT_EQ(reported.view_id, -1);
+
+  // Frame 3: content grew — reported again.
+  embedder.PrepareFlutterView(DlISize(320, 210), 1.0);
+  embedder.SubmitFlutterView(7, nullptr, nullptr, MakeTestFrame(nullptr));
+  EXPECT_EQ(reported.view_id, 7);
+  EXPECT_EQ(reported.width, 320);
+  EXPECT_EQ(reported.height, 210);
+}
+
+TEST(OHOSWindowingViewEmbedderTest, NonSizedToContentViewNeverReports) {
+  ReportedSize reported;
+  OHOSWindowingViewEmbedder embedder(
+      [&](int64_t view_id, double width, double height) {
+        reported = {view_id, width, height};
+      });
+
+  auto surface = std::make_unique<NiceMock<SurfaceMock>>();
+  EXPECT_CALL(*surface, AcquireFrame(_))
+      .Times(2)
+      .WillRepeatedly(::testing::InvokeWithoutArgs(
+          []() { return MakeTestFrame(nullptr); }));
+  embedder.RegisterViewSurface(9, std::move(surface));
+  // NOT marked sized-to-content (regular/dialog parity): silent.
+
+  embedder.PrepareFlutterView(DlISize(300, 200), 1.0);
+  embedder.SubmitFlutterView(9, nullptr, nullptr, MakeTestFrame(nullptr));
+  embedder.PrepareFlutterView(DlISize(500, 400), 1.0);
+  embedder.SubmitFlutterView(9, nullptr, nullptr, MakeTestFrame(nullptr));
+  EXPECT_EQ(reported.view_id, -1);
+}
+
+TEST(OHOSWindowingViewEmbedderTest,
+     UnregisterAndCollectResetSizeReportingState) {
+  ReportedSize reported;
+  OHOSWindowingViewEmbedder embedder(
+      [&](int64_t view_id, double width, double height) {
+        reported = {view_id, width, height};
+      });
+
+  auto surface = std::make_unique<NiceMock<SurfaceMock>>();
+  EXPECT_CALL(*surface, AcquireFrame(_))
+      .Times(1)
+      .WillOnce(::testing::InvokeWithoutArgs([]() { return MakeTestFrame(nullptr); }));
+  embedder.RegisterViewSurface(7, std::move(surface));
+  embedder.SetViewSizedToContent(7, true);
+  embedder.PrepareFlutterView(DlISize(300, 200), 1.0);
+  embedder.SubmitFlutterView(7, nullptr, nullptr, MakeTestFrame(nullptr));
+  EXPECT_EQ(reported.view_id, 7);
+
+  // Unregister drops the last-size memory: the next submit re-reports even
+  // at the same size (fresh surface, win32 parity).
+  reported = {};
+  embedder.UnregisterViewSurface(7);
+  auto surface2 = std::make_unique<NiceMock<SurfaceMock>>();
+  EXPECT_CALL(*surface2, AcquireFrame(_))
+      .Times(1)
+      .WillOnce(::testing::InvokeWithoutArgs([]() { return MakeTestFrame(nullptr); }));
+  embedder.RegisterViewSurface(7, std::move(surface2));
+  embedder.PrepareFlutterView(DlISize(300, 200), 1.0);
+  embedder.SubmitFlutterView(7, nullptr, nullptr, MakeTestFrame(nullptr));
+  EXPECT_EQ(reported.view_id, 7);
+
+  // CollectView drops BOTH the flag and the memory.
+  reported = {};
+  embedder.CollectView(7);
+  auto surface3 = std::make_unique<NiceMock<SurfaceMock>>();
+  EXPECT_CALL(*surface3, AcquireFrame(_))
+      .Times(1)
+      .WillOnce(::testing::InvokeWithoutArgs([]() { return MakeTestFrame(nullptr); }));
+  embedder.RegisterViewSurface(7, std::move(surface3));
+  embedder.PrepareFlutterView(DlISize(300, 200), 1.0);
+  embedder.SubmitFlutterView(7, nullptr, nullptr, MakeTestFrame(nullptr));
+  EXPECT_EQ(reported.view_id, -1);
+}
+
 }  // namespace testing
 }  // namespace flutter
-

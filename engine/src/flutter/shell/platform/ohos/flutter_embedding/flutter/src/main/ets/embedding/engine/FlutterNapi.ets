@@ -4,7 +4,7 @@
 * found in the LICENSE_KHZG file.
 */
 
-import flutter from 'libflutter.so';
+import flutter, { WindowPositionResult as NativeWindowPositionResult } from 'libflutter.so';
 import common from '@ohos.app.ability.common';
 import Log from '../../util/Log';
 import resourceManager from '@ohos.resourceManager';
@@ -17,7 +17,11 @@ import LocalizationPlugin from '../../plugin/localization/LocalizationPlugin';
 import i18n from '@ohos.i18n';
 import Any from '../../plugin/common/Any';
 import FlutterManager from '../ohos/FlutterManager';
+import { DialogWindowCreationRequest, PopupWindowCreationRequest,
+  RegularWindowCreationRequest, TooltipWindowCreationRequest,
+  WindowConstraints } from '../ohos/windowing/WindowingUtils';
 import deviceInfo from '@ohos.deviceInfo';
+import window from '@ohos.window';
 import TouchEventProcessor from '../ohos/TouchEventProcessor';
 import BuildProfile from '../../../../../BuildProfile';
 import { Action } from '../engine/systemchannels/AccessibilityChannel';
@@ -69,9 +73,7 @@ export interface HybridCompositionHandler {
   onEndFrameHybrid(): void;
 }
 
-/** Result holder for a computed window position; native populates it by
- * invoking its `set` method (InvokeJsMethod). All fields are LOGICAL px. */
-export class WindowPositionResult {
+export class WindowPositionResult implements NativeWindowPositionResult {
   left: number = 0;
   top: number = 0;
   width: number = 0;
@@ -151,6 +153,7 @@ export default class FlutterNapi {
    * @param densityPixels - The pixel density value (dots per inch)
    */
   updateDensity(densityPixels: number) {
+    Log.i(TAG, "updateDensity called: " + densityPixels);
     flutter.nativeUpdateDensity(densityPixels);
   }
 
@@ -318,11 +321,11 @@ export default class FlutterNapi {
    * placement. Caller scales to physical px for moveWindowTo.
    */
   static nativeComputeWindowPosition(out: WindowPositionResult, viewId: number,
-    childW: number, childH: number,
-    parentLeft: number, parentTop: number, parentW: number, parentH: number,
-    workLeft: number, workTop: number, workW: number, workH: number): number {
-    return flutter.nativeComputeWindowPosition(out, viewId, childW, childH,
-      parentLeft, parentTop, parentW, parentH, workLeft, workTop, workW, workH);
+    childSize: window.Size, parentRect: window.Rect, workArea: window.Rect): number {
+    return flutter.nativeComputeWindowPosition(out, viewId,
+      childSize.width, childSize.height,
+      parentRect.left, parentRect.top, parentRect.width, parentRect.height,
+      workArea.left, workArea.top, workArea.width, workArea.height);
   }
 
   /**
@@ -471,6 +474,10 @@ export default class FlutterNapi {
    * @param displayFeaturesBounds - Array of display feature bounds
    * @param displayFeaturesType - Array of display feature types
    * @param displayFeaturesState - Array of display feature states
+   * @param displayCornerRadiusTopLeft - Top-left display corner radius in physical pixels; defaults to -1 (unavailable) when omitted
+   * @param displayCornerRadiusTopRight - Top-right display corner radius in physical pixels; defaults to -1 (unavailable) when omitted
+   * @param displayCornerRadiusBottomRight - Bottom-right display corner radius in physical pixels; defaults to -1 (unavailable) when omitted
+   * @param displayCornerRadiusBottomLeft - Bottom-left display corner radius in physical pixels; defaults to -1 (unavailable) when omitted
    */
   setViewportMetrics(devicePixelRatio: number, physicalWidth: number
     , physicalHeight: number, physicalPaddingTop: number, physicalPaddingRight: number
@@ -478,7 +485,9 @@ export default class FlutterNapi {
     , physicalViewInsetRight: number, physicalViewInsetBottom: number, physicalViewInsetLeft: number
     , systemGestureInsetTop: number, systemGestureInsetRight: number, systemGestureInsetBottom: number
     , systemGestureInsetLeft: number, physicalTouchSlop: number, displayFeaturesBounds: Array<number>
-    , displayFeaturesType: Array<number>, displayFeaturesState: Array<number>): void {
+    , displayFeaturesType: Array<number>, displayFeaturesState: Array<number>
+    , displayCornerRadiusTopLeft: number = -1, displayCornerRadiusTopRight: number = -1
+    , displayCornerRadiusBottomRight: number = -1, displayCornerRadiusBottomLeft: number = -1): void {
     if (this.isAttached()) {
       if (!this.nativeShellHolderId) {
         Log.e(TAG, "setViewportMetrics this.nativeShellHolderId = " + this.nativeShellHolderId)
@@ -502,7 +511,11 @@ export default class FlutterNapi {
         physicalTouchSlop,
         displayFeaturesBounds,
         displayFeaturesType,
-        displayFeaturesState);
+        displayFeaturesState,
+        displayCornerRadiusTopLeft,
+        displayCornerRadiusTopRight,
+        displayCornerRadiusBottomRight,
+        displayCornerRadiusBottomLeft);
     }
   }
 
@@ -684,35 +697,29 @@ export default class FlutterNapi {
     });
   }
 
-  /**
-   * Native entry (InvokeJsMethod "requestWindowHost"): create a sub-window
-   * host for a non-implicit view. width/height are the LOGICAL preferred
-   * size (0 = sized-to-content); archetype is
-   * OHOSWindowController::WindowType.
-   */
-  requestWindowHost(viewId: number,
-                    parentViewId: number,
-                    width: number,
-                    height: number,
-                    archetype: number): void {
-    Log.i(TAG, `requestWindowHost viewId=${viewId} parentViewId=${parentViewId}` +
-      ` size=${width}x${height} archetype=${archetype}`);
-    FlutterManager.getInstance().createSubWindow(
-      viewId, parentViewId, width, height, archetype);
+  // Native entries (InvokeJsMethod), one per archetype — the same names as
+  // the C++ facade. req carries the creation fields (preferred size / constraints / title /
+  // parentViewId, LOGICAL px), field-for-field with the C++ structs in
+  // ohos_window_types.h.
+
+  createRegularWindow(viewId: number, req: RegularWindowCreationRequest): void {
+    FlutterManager.getInstance().createRegularWindow(viewId, req);
   }
 
-  /** Native entry (InvokeJsMethod "createRegularAbility"): launch a Regular
-   * window as its own UIAbility so it gets a task-center card (contrast
-   * requestWindowHost, the SubWindow path). */
-  createRegularAbility(viewId: number,
-                       requestId: number,
-                       width: number,
-                       height: number,
-                       title: string): void {
-    Log.i(TAG, `createRegularAbility viewId=${viewId} requestId=${requestId}` +
-      ` size=${width}x${height} title="${title}"`);
-    FlutterManager.getInstance().createRegularAbilityWindow(
-      viewId, requestId, width, height, title);
+  /** Dialog: modal (parentViewId set) → SubWindow; modeless (sentinel) →
+   * UIAbility spawn. */
+  createDialogWindow(viewId: number, req: DialogWindowCreationRequest): void {
+    FlutterManager.getInstance().createDialogWindow(viewId, req);
+  }
+
+  /** Tooltip: anchored, parent-bound SubWindow. */
+  createTooltipWindow(viewId: number, req: TooltipWindowCreationRequest): void {
+    FlutterManager.getInstance().createTooltipWindow(viewId, req);
+  }
+
+  /** Popup: anchored, parent-bound SubWindow. */
+  createPopupWindow(viewId: number, req: PopupWindowCreationRequest): void {
+    FlutterManager.getInstance().createPopupWindow(viewId, req);
   }
 
   /**
@@ -720,66 +727,125 @@ export default class FlutterNapi {
    * EntryAbility's pre-created main window as the surface host for the
    * FIRST Dart-requested Regular window — the first RegularWindow IS the
    * main window, keeping `main.dart` identical across platforms.
-   * Subsequent Regular windows use createRegularAbility.
+   * Subsequent Regular windows use createRegularWindow.
    */
-  bindEntryAbilityToView(viewId: number,
-                         width: number,
-                         height: number,
-                         title: string): void {
-    Log.i(TAG, `bindEntryAbilityToView viewId=${viewId}` +
-      ` size=${width}x${height} title="${title}"`);
-    FlutterManager.getInstance().bindEntryAbilityToView(
-      viewId, width, height, title);
+  bindEntryAbilityToView(viewId: number, req: RegularWindowCreationRequest): void {
+    FlutterManager.getInstance().bindEntryAbilityToView(viewId, req);
+  }
+
+  /** Native entry (InvokeJsMethod "updateTooltipPosition"): Dart pushed a
+   * fresh anchorRect/positioner (controller.updatePosition) — re-run the
+   * positioner and move the tooltip sub-window. */
+  updateTooltipPosition(viewId: number): void {
+    FlutterManager.getInstance().updateTooltipPosition(viewId);
+  }
+
+  updatePopupPosition(viewId: number): void {
+    FlutterManager.getInstance().updatePopupPosition(viewId);
+  }
+
+  /** Native entry (InvokeJsMethod "didUpdateViewSize"): the raster thread
+   * reported a sized-to-content view's new content size (PHYSICAL px;
+   * win32 HostWindowTooltip::DidUpdateViewSize parity). */
+  didUpdateViewSize(viewId: number, width: number, height: number): void {
+    FlutterManager.getInstance().didUpdateViewSize(viewId, width, height);
   }
 
   /** Native entry (InvokeJsMethod "destroyWindowHost"): tear down the OS
    * window host when Dart closes it (controller.destroy()). */
   destroyWindowHost(viewId: number): void {
-    Log.i(TAG, `destroyWindowHost viewId=${viewId}`);
-    FlutterManager.getInstance().destroyWindowHost(viewId);
+    Log.d(TAG, `destroyWindowHost viewId=${viewId}`);
+    const host = FlutterManager.getInstance().getHostWindowByView(viewId);
+    if (!host) {
+      Log.w(TAG, `destroyWindowHost: no host for ${viewId} (already closed?)`);
+      return;
+    }
+    host.destroy();
   }
 
   exitApplication(): void {
-    Log.i(TAG, `exitApplication`);
+    Log.d(TAG, `exitApplication`);
     FlutterManager.getInstance().exitApplication();
   }
 
   setWindowSize(viewId: number, width: number, height: number): void {
-    Log.i(TAG, `setWindowSize viewId=${viewId} size=${width}x${height}`);
-    FlutterManager.getInstance().setWindowSize(viewId, width, height);
+    Log.d(TAG, `setWindowSize viewId=${viewId} size=${width}x${height}`);
+    const host = FlutterManager.getInstance().getHostWindowByView(viewId);
+    if (!host) {
+      Log.e(TAG, `setWindowSize: no window for viewId=${viewId}`);
+      return;
+    }
+    host.setWindowSize(width, height);
   }
 
   setWindowTitle(viewId: number, title: string): void {
-    Log.i(TAG, `setWindowTitle viewId=${viewId} title="${title}"`);
-    FlutterManager.getInstance().setWindowTitle(viewId, title);
+    Log.d(TAG, `setWindowTitle viewId=${viewId} title="${title}"`);
+    const host = FlutterManager.getInstance().getHostWindowByView(viewId);
+    if (!host) {
+      Log.e(TAG, `setWindowTitle: no window for viewId=${viewId}`);
+      return;
+    }
+    host.setWindowTitle(title);
   }
 
   setWindowMaximized(viewId: number, maximized: boolean): void {
-    Log.i(TAG, `setWindowMaximized viewId=${viewId} maximized=${maximized}`);
-    FlutterManager.getInstance().setWindowMaximized(viewId, maximized);
+    Log.d(TAG, `setWindowMaximized viewId=${viewId} maximized=${maximized}`);
+    const host = FlutterManager.getInstance().getHostWindowByView(viewId);
+    if (!host) {
+      Log.e(TAG, `setWindowMaximized: no window for viewId=${viewId}`);
+      return;
+    }
+    host.setWindowMaximized(maximized);
   }
 
   setWindowMinimized(viewId: number, minimized: boolean): void {
-    Log.i(TAG, `setWindowMinimized viewId=${viewId} minimized=${minimized}`);
-    FlutterManager.getInstance().setWindowMinimized(viewId, minimized);
+    Log.d(TAG, `setWindowMinimized viewId=${viewId} minimized=${minimized}`);
+    const host = FlutterManager.getInstance().getHostWindowByView(viewId);
+    if (!host) {
+      Log.e(TAG, `setWindowMinimized: no window for viewId=${viewId}`);
+      return;
+    }
+    host.setWindowMinimized(minimized);
   }
 
   setWindowFullscreen(viewId: number, fullscreen: boolean): void {
-    Log.i(TAG, `setWindowFullscreen viewId=${viewId} fullscreen=${fullscreen}`);
-    FlutterManager.getInstance().setWindowFullscreen(viewId, fullscreen);
+    Log.d(TAG, `setWindowFullscreen viewId=${viewId} fullscreen=${fullscreen}`);
+    const host = FlutterManager.getInstance().getHostWindowByView(viewId);
+    if (!host) {
+      Log.e(TAG, `setWindowFullscreen: no window for viewId=${viewId}`);
+      return;
+    }
+    host.setWindowFullscreen(fullscreen);
   }
 
   // LOGICAL-px runtime constraint update (max 0 == unbounded).
-  setWindowConstraints(viewId: number, minWidth: number, maxWidth: number,
-                       minHeight: number, maxHeight: number): void {
-    Log.i(TAG, `setWindowConstraints viewId=${viewId} min=${minWidth}x${minHeight} max=${maxWidth}x${maxHeight}`);
-    FlutterManager.getInstance().setWindowConstraints(viewId, minWidth, maxWidth, minHeight, maxHeight);
+  setWindowConstraints(viewId: number, constraints: WindowConstraints): void {
+    // Wrap the raw napi object (creation bridges do the same).
+    const c = new WindowConstraints(constraints);
+    Log.d(TAG, `setWindowConstraints viewId=${viewId} ${c.toString()}`);
+    const host = FlutterManager.getInstance().getHostWindowByView(viewId);
+    if (!host) {
+      Log.e(TAG, `setWindowConstraints: no window for viewId=${viewId}`);
+      return;
+    }
+    const limits: window.WindowLimits = {
+      minWidth: c.viewMinWidth,
+      minHeight: c.viewMinHeight,
+      maxWidth: c.viewMaxWidth,
+      maxHeight: c.viewMaxHeight
+    };
+    host.setWindowLimits(limits);
   }
 
   // Brings the window to front.
   activateWindow(viewId: number): void {
-    Log.i(TAG, `activateWindow viewId=${viewId}`);
-    FlutterManager.getInstance().activateWindow(viewId);
+    Log.d(TAG, `activateWindow viewId=${viewId}`);
+    const host = FlutterManager.getInstance().getHostWindowByView(viewId);
+    if (!host) {
+      Log.e(TAG, `activateWindow: no window for viewId=${viewId}`);
+      return;
+    }
+    host.activate();
   }
 
   /**

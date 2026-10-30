@@ -4,211 +4,267 @@
  * found in the LICENSE_HW file.
  */
 
-import window from '@ohos.window';
 import UIAbility from '@ohos.app.ability.UIAbility';
+import window from '@ohos.window';
+import display from '@ohos.display';
 import Log from '../../../util/Log';
-import FlutterNapi from '../../engine/FlutterNapi';
 import { FlutterView } from '../../../view/FlutterView';
-import { WindowArchetype } from './WindowArchetype';
+import FlutterNapi from '../../engine/FlutterNapi';
 import { WindowHostContext } from './WindowHostContext';
+import { WindowArchetype } from './WindowingUtils';
 
 const TAG = 'FlutterWindowHost'
 
-/** WM-side constraint push — newer than the API-12 Window typedef this
- * embedding compiles against; probed at runtime, clamp-only fallback.
- * Extends Window so the cast below type-checks under strict ArkTS (which
- * forbids unknown and non-overlapping casts). */
-interface WindowConstraintsApi extends window.Window {
-  setWindowConstraints(minWidth: number, maxWidth: number, minHeight: number, maxHeight: number): Promise<void>;
-}
-
 /**
  * Base class of the per-archetype window hosts — the ETS counterpart of
- * the C++ OHOSWindow hierarchy; each host owns the OS-window lifecycle of
- * ONE engine view. Hosts reach manager services only through
- * WindowHostContext so the manager can import host classes without an
- * import cycle.
+ * the C++ OHOSWindow hierarchy. Identity fields only (the C++ OHOSWindow
+ * field ctor); sizing/lifecycle arrive in later steps.
  */
 export abstract class FlutterWindowHost {
   protected readonly ctx: WindowHostContext;
   readonly viewId: number;
-  readonly viewIdStr: string;
   readonly parentViewId: number;
   readonly archetype: WindowArchetype;
-  /** Requested LOGICAL size (0 = unconstrained / sized-to-content). */
-  protected readonly requestedWidth: number;
-  protected readonly requestedHeight: number;
-  /** The UIAbility whose WindowStage parents this window (SubWindow path). */
-  protected parentAbility: UIAbility | undefined;
+  readonly title: string;
+
+  /** The OS window this host materialized (Dialog/Tooltip/Popup: the created
+   * SubWindow; Regular ADOPTED: the claimed EntryAbility main window)
+  */
+  protected window: window.Window | undefined;
 
   constructor(ctx: WindowHostContext,
               viewId: number,
               parentViewId: number,
-              archetype: WindowArchetype,
-              width: number,
-              height: number) {
+              title: string,
+              archetype: WindowArchetype) {
     this.ctx = ctx;
     this.viewId = viewId;
-    this.viewIdStr = String(viewId);
     this.parentViewId = parentViewId;
+    this.title = title;
     this.archetype = archetype;
-    this.requestedWidth = width;
-    this.requestedHeight = height;
   }
 
-  /** Materializes the OS window host (async internally). */
-  abstract attach(): void;
+  private flutterView: FlutterView | null = null;
 
-  /**
-   * Attach failed after C++ CreateWindow already handed the view id to
-   * Dart (so the Dart controller believes its window exists). Report via
-   * the OS-close channel — native fires the same teardown a real OS close
-   * does, so Dart `destroyed` flips and unregister runs — then drop this
-   * host's bookkeeping (idempotent; native no-ops if Dart already tore it
-   * down).
-   */
-  protected failAttach(where: string): void {
-    try {
-      FlutterNapi.nativeHandleOsWindowClosed(this.viewId);
-    } catch (e) {
-      Log.w(TAG, `${where}: nativeHandleOsWindowClosed failed for ${this.viewIdStr}: ${JSON.stringify(e)}`);
-    }
+  setFlutterView(flutterView: FlutterView): void {
+    this.flutterView = flutterView;
+  }
+
+  getFlutterView(): FlutterView | null {
+    return this.flutterView;
+  }
+
+  /** The UIAbility backing this host, when it has one (SPAWNED Regular /
+   * modeless Dialog; set by the manager from registerViewAbility). */
+  protected ability: UIAbility | undefined;
+
+  setAbility(ability: UIAbility): void {
+    this.ability = ability;
+  }
+
+  /** Sets the OS window directly (the shared mount primitive — pushed by
+   * registerViewAbility for SPAWNED hosts and used by attachMainWindow for
+   * the ADOPTED view-0 host; undefined is a no-op). Callers resolve the
+   * windowStage → main-window conversion and its failures. */
+  setWindow(window: window.Window | undefined): void {
+    this.window = window;
+  }
+
+  /** Materializes the OS window host (async: the OS window is created, the
+   * view attached to the shared engine, the page loaded, the window shown). */
+  abstract attach(): Promise<void>;
+
+  /** The OHOS Window backing this view, or null before the host materializes
+   * or after teardown. */
+  getWindow(): window.Window | null {
+    return this.window ?? null;
+  }
+
+  /** Dart-visible destroy (napi destroyWindowHost): synchronous native
+   * detach, drop bookkeeping, then the per-host closeHost() teardown
+   * (subwindow destroyWindow / SPAWNED ability terminateSelf). Idempotent —
+   * the WINDOW_DESTROYED → handleOsClosed chain may re-run parts. */
+  destroy(): void {
+    this.detachView();
+    this.cleanupBookkeeping();
+    this.closeHost();
+  }
+
+  /** Per-host OS teardown, run LAST on the destroy path. Subclass hooks:
+   * subwindow hosts drop their sub-window, RegularWindowHost terminates a
+   * SPAWNED ability. Base no-op — hosts whose OS window dies with the view
+   * (OS-close path) need nothing. */
+  protected closeHost(): void {
+  }
+
+  /** Ability-level cascade close (cascadeCloseChildren): synchronous native
+   * detach FIRST (crash-safety), then the destroy path's teardown. */
+  closeForCascade(parentAbility: UIAbility): void {
+    this.detachView();
+    this.cleanupBookkeeping();
+    this.closeHostForCascade(parentAbility);
+  }
+
+  /** Cascade variant of closeHost (the cascade parent is spared). */
+  protected closeHostForCascade(_parentAbility: UIAbility): void {
+    this.closeHost();
+  }
+
+  /** OS-initiated destruction: report to native (Dart `destroyed` flips and
+   * unregister runs), detach, drop bookkeeping. */
+  handleOsClosed(): void {
+    FlutterNapi.nativeHandleOsWindowClosed(this.viewId);
+    this.detachView();
     this.cleanupBookkeeping();
   }
 
-  /** The OHOS Window backing this view, or null before the host
-   * materializes or after teardown. */
-  abstract resolveWindow(): window.Window | null;
-
-  /** The FlutterView registered for this view id, if any. */
-  protected currentFlutterView(): FlutterView | null {
-    return this.ctx.getFlutterView(this.viewIdStr);
+  /** Density of the given window's display (physical px per logical px);
+   * 1.0 when the display is unavailable. Protected seam: tests override to
+   * a fixed factor. */
+  protected densityPixels(win: window.Window | undefined): number {
+    try {
+      const displayId = win?.getWindowProperties()?.displayId;
+      return display.getDisplayByIdSync(displayId ?? -1).densityPixels;
+    } catch (e) {
+      Log.w(TAG, `densityPixels: display unavailable: ${JSON.stringify(e)}`);
+      return 1.0;
+    }
   }
 
-  /** Synchronous native detach (clears the XComponent engine/surface flags
-   * inline); idempotent, guarded natively. */
-  detachView(where: string): void {
-    const fv = this.currentFlutterView();
+  protected getWindowSizeForClientSize(client_size: window.Size,
+                                       smallest: window.Size | undefined,
+                                       biggest: window.Size | undefined,
+                                       owner_window: window.Window | undefined = undefined):
+    window.Size | undefined {
+    if (client_size.width <= 0 || client_size.height <= 0) {
+      return undefined;
+    }
+    const scale = this.densityPixels(owner_window);
+    let width = Math.round(client_size.width * scale);
+    let height = Math.round(client_size.height * scale);
+    // Apply size constraints.
+    if (smallest !== undefined) {
+      const min_physical_size = this.ClampToVirtualScreen(
+        { width: smallest.width * scale, height: smallest.height * scale });
+      width = Math.max(width, min_physical_size.width);
+      height = Math.max(height, min_physical_size.height);
+    }
+    if (biggest !== undefined) {
+      const max_physical_size = this.ClampToVirtualScreen(
+        { width: biggest.width * scale, height: biggest.height * scale });
+      width = Math.min(width, max_physical_size.width);
+      height = Math.min(height, max_physical_size.height);
+    }
+    return { width: width, height: height };
+  }
+
+  protected ClampToVirtualScreen(size: window.Size): window.Size {
+    try {
+      const screen = display.getDefaultDisplaySync();
+      return { width: Math.min(Math.max(size.width, 0), screen.width),
+               height: Math.min(Math.max(size.height, 0), screen.height) };
+    } catch (e) {
+      Log.w(TAG, `ClampToVirtualScreen: display unavailable: ${JSON.stringify(e)}`);
+      return size;
+    }
+  }
+
+  detachView(): void {
+    const fv = this.getFlutterView();
     if (fv) {
       try {
         fv.detachFromFlutterEngine();
       } catch (e) {
-        Log.w(TAG, `${where}: detach failed for ${this.viewIdStr}: ${JSON.stringify(e)}`);
+        Log.w(TAG, `detachFromFlutterEngine threw for ${String(this.viewId)}: ${JSON.stringify(e)}`);
       }
     }
   }
 
-  /** Dart-initiated teardown (controller.destroy() → napi
-   * "destroyWindowHost"): detach, then closeHost(), then bookkeeping. */
-  destroy(): void {
-    this.detachView('destroyWindowHost');
-    this.closeHost();
-    this.cleanupBookkeeping();
-  }
-
-  /** OS-level teardown (Dart-initiated path): SubWindow destroyWindow +
-   * parent-foreground restore; Ability terminateSelf. */
-  protected abstract closeHost(): void;
-
-  /** Parent closing → children close with it. Detach FIRST (crash-safety:
-   * no live XComponent may reference the soon-to-be-freed holder). */
-  closeForCascade(parentAbility: UIAbility): void {
-    this.detachView('cascadeCloseChildren');
-    this.closeHostForCascade(parentAbility);
-    this.cleanupBookkeeping();
-  }
-
-  /** OS-level teardown for the cascade path (no parent-foreground restore —
-   * the parent itself is dying). */
-  protected abstract closeHostForCascade(parentAbility: UIAbility): void;
-
-  /**
-   * OS-initiated destruction (sub-window WINDOW_DESTROYED): detach +
-   * bookkeeping cleanup. SubWindowHost overrides to notify native first;
-   * ability hosts never reach this (their close path is
-   * FlutterAbility.onDestroy → native directly).
-   */
-  handleOsClosed(): void {
-    this.detachView('handleOsClosed');
-    this.cleanupBookkeeping();
-  }
-
   /** Drops this view's manager/registry bookkeeping (idempotent). */
   protected cleanupBookkeeping(): void {
-    this.ctx.deleteViewAbility(this.viewIdStr);
-    const fv = this.currentFlutterView();
+    const fv = this.getFlutterView();
     if (fv != null) {
-      this.ctx.deleteFlutterView(this.viewIdStr, fv);
+      this.ctx.deleteFlutterView(String(this.viewId), fv);
     }
-    this.ctx.removeHost(this.viewIdStr);
+    this.ctx.removeHost(this.viewId);
+    this.ctx.deleteViewAbility(this.viewId);
   }
 
-  // ---- Runtime window-property mutations ----------------------------------
-  // width/height are LOGICAL px (Dart space); @ohos.window Window.resize()
-  // takes PHYSICAL px, so scale by DPR. Fire-and-forget; errors logged.
-
-  /** Latest LOGICAL-px size constraints (max 0 == unbounded). Seeded empty;
-   * setConstraints (Dart Window.setConstraints) updates them live so later
-   * setWindowSize calls clamp against the CURRENT range. */
-  private constraintMinW: number = 0;
-  private constraintMaxW: number = 0;
-  private constraintMinH: number = 0;
-  private constraintMaxH: number = 0;
-
-  private clampToConstraints(v: number, min: number, max: number): number {
-    let r = v;
-    if (min > 0 && r < min) {
-      r = min;
+  /** Attach failed after C++ CreateWindow already handed the view id to
+   * Dart: report via the OS-close channel so Dart `destroyed` flips and
+   * unregister runs, then drop this host's bookkeeping. */
+  protected failAttach(where: string): void {
+    try {
+      FlutterNapi.nativeHandleOsWindowClosed(this.viewId);
+    } catch (e) {
+      Log.w(TAG, `${where}: nativeHandleOsWindowClosed failed for ${String(this.viewId)}: ${JSON.stringify(e)}`);
     }
-    if (max > 0 && r > max) {
-      r = max;
-    }
-    return r;
+    this.cleanupBookkeeping();
   }
+
+  protected getDecorHeightPx(win: window.Window | undefined): number {
+    if (win === undefined) {
+      return 0;
+    }
+    try {
+      const decorVp = win.getWindowDecorHeight();
+      return Math.round(decorVp * this.densityPixels(win));
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  private windowLimits: window.WindowLimits = {
+    maxWidth: 0,
+    maxHeight: 0,
+    minWidth: 0,
+    minHeight: 0,
+  };
 
   setWindowSize(width: number, height: number): void {
-    const win = this.resolveWindow();
-    if (!win) {
-      Log.e(TAG, `setWindowSize: no window for viewId=${this.viewId}`);
+    if (!this.window) {
+      Log.e(TAG, `setWindowSize: no window for viewId=${String(this.viewId)}`);
       return;
     }
-    if (width <= 0 || height <= 0) {
+    const minW = this.windowLimits.minWidth ?? 0;
+    const minH = this.windowLimits.minHeight ?? 0;
+    const maxW = this.windowLimits.maxWidth ?? 0;
+    const maxH = this.windowLimits.maxHeight ?? 0;
+    let smallest: window.Size | undefined = undefined;
+    let biggest: window.Size | undefined = undefined;
+    if (minW > 0 || minH > 0) {
+      smallest = { width: minW, height: minH };
+    }
+    if (maxW > 0 || maxH > 0) {
+      biggest = { width: maxW, height: maxH };
+    }
+    const size = this.getWindowSizeForClientSize({ width: width, height: height },
+      smallest, biggest, this.window);
+    if (size === undefined) {
       return;
     }
-    width = this.clampToConstraints(width, this.constraintMinW, this.constraintMaxW);
-    height = this.clampToConstraints(height, this.constraintMinH, this.constraintMaxH);
-    const dpr = this.ctx.densityPixels();
-    const physW = Math.round(width * dpr);
-    const physH = Math.round(height * dpr);
-    win.resize(physW, physH).catch((e: Object) => {
-      Log.e(TAG, `setWindowSize failed viewId=${this.viewId}: ${JSON.stringify(e)}`);
+    // Client → outer frame: keep Dart's content height under the title bar.
+    size.height += this.getDecorHeightPx(this.window);
+    this.window.resize(size.width, size.height).catch((e: Object) => {
+      Log.w(TAG, `setWindowSize failed viewId=${String(this.viewId)}: ${JSON.stringify(e)}`);
     });
   }
 
-  /** Runtime SetConstraints (LOGICAL px; max 0 == unbounded). Stores the
-   * range for host-side clamping and pushes it to the WM when the symbol
-   * exists (newer than the API-12 typedef this embedding compiles against —
-   * probe first, degrade to clamp-only otherwise). */
-  setWindowConstraints(minWidth: number,
-                       maxWidth: number,
-                       minHeight: number,
-                       maxHeight: number): void {
-    this.constraintMinW = minWidth;
-    this.constraintMaxW = maxWidth;
-    this.constraintMinH = minHeight;
-    this.constraintMaxH = maxHeight;
-    const win = this.resolveWindow();
-    if (!win) {
-      Log.e(TAG, `setWindowConstraints: no window for viewId=${this.viewId}`);
+  setWindowLimits(limits: window.WindowLimits): void {
+    this.windowLimits = limits;
+    if (!this.window) {
+      Log.e(TAG, `setWindowLimits: no window for viewId=${String(this.viewId)}`);
       return;
     }
-    const api = win as WindowConstraintsApi;
-    if (typeof api.setWindowConstraints !== 'function') {
-      Log.i(TAG, `setWindowConstraints: WM API unavailable for viewId=${this.viewId}; host-side clamp only`);
-      return;
-    }
-    api.setWindowConstraints(minWidth, maxWidth, minHeight, maxHeight).catch((e: Object) => {
-      Log.w(TAG, `setWindowConstraints failed viewId=${this.viewId}: ${JSON.stringify(e)}`);
+    const dpr = this.densityPixels(this.window);
+    const phys: window.WindowLimits = {
+      maxWidth: Math.round((limits.maxWidth ?? 0) * dpr),
+      maxHeight: Math.round((limits.maxHeight ?? 0) * dpr),
+      minWidth: Math.round((limits.minWidth ?? 0) * dpr),
+      minHeight: Math.round((limits.minHeight ?? 0) * dpr),
+    };
+    this.window.setWindowLimits(phys).catch((e: Object) => {
+      Log.w(TAG, `setWindowLimits failed viewId=${String(this.viewId)}: ${JSON.stringify(e)}`);
     });
   }
 
@@ -216,59 +272,60 @@ export abstract class FlutterWindowHost {
    * activateWindow). showWindow re-raises an existing window without
    * recreating it; best-effort. */
   activate(): void {
-    const win = this.resolveWindow();
-    if (!win) {
-      Log.e(TAG, `activate: no window for viewId=${this.viewId}`);
+    if (!this.window) {
+      Log.e(TAG, `activate: no window for viewId=${String(this.viewId)}`);
       return;
     }
-    win.showWindow().catch((e: Object) => {
-      Log.w(TAG, `activate failed viewId=${this.viewId}: ${JSON.stringify(e)}`);
+    this.window.showWindow().catch((e: Object) => {
+      Log.w(TAG, `activate failed viewId=${String(this.viewId)}: ${JSON.stringify(e)}`);
     });
   }
 
-  setWindowTitle(title: string): void {
-    const win = this.resolveWindow();
-    if (!win) {
-      Log.e(TAG, `setWindowTitle: no window for viewId=${this.viewId}`);
-      return;
-    }
-    win.setWindowTitle(title).catch((e: Object) => {
-      Log.e(TAG, `setWindowTitle failed viewId=${this.viewId}: ${JSON.stringify(e)}`);
-    });
+  setWindowTitle(title?: string): void {
+    // Base no-op; hosts with an OS titlebar (dialog / ability) override
   }
 
   setWindowMaximized(maximized: boolean): void {
-    const win = this.resolveWindow();
-    if (!win) {
-      Log.e(TAG, `setWindowMaximized: no window for viewId=${this.viewId}`);
+    if (maximized && this.archetype === WindowArchetype.DIALOG) {
+      // Win32 dialogs carry no WS_MAXIMIZEBOX (host_window_dialog.cc):
+      // the maximize direction is refused; restore stays reachable.
+      Log.w(TAG, `setWindowMaximized: dialogs cannot be maximized (viewId=${String(this.viewId)})`);
       return;
     }
-    const op = maximized ? win.maximize() : win.restore();
+    if (!this.window) {
+      Log.e(TAG, `setWindowMaximized: no window for viewId=${String(this.viewId)}`);
+      return;
+    }
+    const op = maximized ? this.window.maximize() : this.window.restore();
     op.catch((e: Object) => {
-      Log.w(TAG, `setWindowMaximized failed viewId=${this.viewId}: ${JSON.stringify(e)}`);
+      Log.w(TAG, `setWindowMaximized failed viewId=${String(this.viewId)}: ${JSON.stringify(e)}`);
     });
   }
 
   setWindowMinimized(minimized: boolean): void {
-    const win = this.resolveWindow();
-    if (!win) {
-      Log.e(TAG, `setWindowMinimized: no window for viewId=${this.viewId}`);
+    if (!this.window) {
+      Log.e(TAG, `setWindowMinimized: no window for viewId=${String(this.viewId)}`);
       return;
     }
-    const op = minimized ? win.minimize() : win.restore();
+    const op = minimized ? this.window.minimize() : this.window.restore();
     op.catch((e: Object) => {
-      Log.w(TAG, `setWindowMinimized failed viewId=${this.viewId}: ${JSON.stringify(e)}`);
+      Log.w(TAG, `setWindowMinimized failed viewId=${String(this.viewId)}: ${JSON.stringify(e)}`);
     });
   }
 
   setWindowFullscreen(fullscreen: boolean): void {
-    const win = this.resolveWindow();
-    if (!win) {
-      Log.e(TAG, `setWindowFullscreen: no window for viewId=${this.viewId}`);
+    if (this.archetype === WindowArchetype.DIALOG) {
+      // HostWindowDialog::SetFullscreen is a hard no-op — dialogs never go
+      // fullscreen (win32 host_window_dialog.cc; DialogCanNeverBeFullscreen).
+      Log.w(TAG, `setWindowFullscreen: no-op for dialog (viewId=${String(this.viewId)})`);
       return;
     }
-    win.setFullScreen(fullscreen).catch((e: Object) => {
-      Log.w(TAG, `setWindowFullscreen failed viewId=${this.viewId}: ${JSON.stringify(e)}`);
+    if (!this.window) {
+      Log.e(TAG, `setWindowFullscreen: no window for viewId=${String(this.viewId)}`);
+      return;
+    }
+    this.window.setFullScreen(fullscreen).catch((e: Object) => {
+      Log.w(TAG, `setWindowFullscreen failed viewId=${String(this.viewId)}: ${JSON.stringify(e)}`);
     });
   }
 }

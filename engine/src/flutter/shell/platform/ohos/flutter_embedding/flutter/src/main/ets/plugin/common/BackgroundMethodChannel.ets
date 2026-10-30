@@ -15,6 +15,7 @@ import SendableStandardMethodCodec from './SendableStandardMethodCodec';
 import SendableMethodCallHandler from './SendableMethodCallHandler'
 import SendableMethodCodec from './SendableMethodCodec'
 import SendableBinaryMessageHandler from './SendableBinaryMessageHandler'
+import FlutterException from './FlutterException';
 
 /**
  * A named channel for communicating with Flutter using asynchronous method calls on background threads.
@@ -130,7 +131,12 @@ export class IncomingSendableResultHandler implements BinaryReply {
         try {
           this.callback.success(this.codec.decodeEnvelope(reply));
         } catch (e) {
-          this.callback.error(e.code, e.getMessage(), e.details);
+          if (e instanceof FlutterException) {
+            this.callback.error(e.code, e.message, e.details);
+          } else {
+            const errMsg = (e instanceof Error) ? (e.message ?? '') : String(e);
+            this.callback.error("error", errMsg, null);
+          }
         }
       }
     } catch (e) {
@@ -179,7 +185,12 @@ export class IncomingSendableMethodCallHandler implements SendableBinaryMessageH
           }
         }, ...args);
     } catch (e) {
-      reply.reply(this.codec.encodeErrorEnvelopeWithStacktrace("error", e.getMessage(), null, e));
+      // Duck-typed extraction: in the @Sendable taskpool worker, module-scope
+      // imports such as FlutterException are unavailable at runtime.
+      const errDetail = e as Error;
+      const errMsg: string = e instanceof Error ? (e.message ?? '') : (errDetail.message ?? String(e));
+      const errStack: string = e instanceof Error ? (e.stack ?? '') : (errDetail.stack ?? '');
+      reply.reply(this.codec.encodeErrorEnvelopeWithStacktrace("error", errMsg, null, errStack));
     }
   }
 }

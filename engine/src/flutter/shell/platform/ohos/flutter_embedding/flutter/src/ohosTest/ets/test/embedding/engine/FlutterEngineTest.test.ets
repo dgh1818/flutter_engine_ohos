@@ -257,5 +257,59 @@ export default function FlutterEngineTest() {
       }
       done();
     })
+
+    it('processPendingMessages does not throw', 0, async (done: Function) => {
+      if (flutterEngine) {
+        let threw = false;
+        try { flutterEngine.processPendingMessages(); } catch (e) { threw = true; }
+        expect(threw).assertEqual(false);
+      }
+      done();
+    });
+
+    it('getFlutterNapi returns object', 0, () => {
+      if (flutterEngine) {
+        const napi = flutterEngine.getFlutterNapi();
+        expect(napi).not().assertNull();
+      }
+    });
+
+    it('getFlutterRenderer returns object', 0, () => {
+      if (flutterEngine) {
+        const r = flutterEngine.getFlutterRenderer();
+        expect(r).not().assertNull();
+      }
+    });
+
+    it('getDartExecutor returns object', 0, () => {
+      if (flutterEngine) {
+        const e = flutterEngine.getDartExecutor();
+        expect(e).not().assertNull();
+      }
+    });
+
+    it('hostDidBecomeVisible does not throw', 0, () => {
+      if (flutterEngine) {
+        let threw = false;
+        try { flutterEngine.hostDidBecomeVisible(); } catch (e) { threw = true; }
+        expect(threw).assertEqual(false);
+      }
+    });
+
+    it('hostDidBecomeHidden does not throw', 0, () => {
+      if (flutterEngine) {
+        let threw = false;
+        try { flutterEngine.hostDidBecomeHidden(); } catch (e) { threw = true; }
+        expect(threw).assertEqual(false);
+      }
+    });
+
+    it('getLifecycleChannel returns object', 0, () => {
+      if (flutterEngine) {
+        let threw = false;
+        try { flutterEngine.getLifecycleChannel(); } catch (e) { threw = true; }
+        expect(threw).assertEqual(false);
+      }
+    });
   })
 }

@@ -26,6 +26,9 @@ OHOSSurfaceVulkanImpeller::OHOSSurfaceVulkanImpeller(
   auto& context_vk =
       impeller::ContextVK::Cast(*ohos_context->GetImpellerContext());
   surface_context_vk_ = context_vk.CreateSurfaceContext();
+  if (!surface_context_vk_) {
+    FML_LOG(ERROR) << "CreateSurfaceContext returned null";
+ 	}
 }
 
 OHOSSurfaceVulkanImpeller::~OHOSSurfaceVulkanImpeller() {}
@@ -113,6 +116,9 @@ bool OHOSSurfaceVulkanImpeller::SetNativeWindow(
     surface_context_vk_->SetIsPreload(native_window_->IsPreload());
     bool result = surface_context_vk_->SetWindowSurface(
         std::move(surface), impeller::ISize{size.width, size.height});
+    if (!result) {
+      FML_LOG(ERROR) << "SetWindowSurface failed";
+    }
     surface_context_vk_->SetIsPreload(false);
     return result;
   }

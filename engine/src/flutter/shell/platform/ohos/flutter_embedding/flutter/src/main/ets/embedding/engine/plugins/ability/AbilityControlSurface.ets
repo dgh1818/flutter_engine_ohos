@@ -45,4 +45,12 @@ export default interface ActivityControlSurface {
    * @returns The result of the save state operation
    */
   onSaveState(reason: AbilityConstant.StateType, wantParam: Record<string, Object>): AbilityConstant.OnSaveResult;
+
+  /**
+   * Handles restore state requests from the ability.
+   * Distributes the plugin state (previously saved via onSaveState) to all registered OnSaveStateListeners.
+   * This method is optional for compatibility with existing AbilityControlSurface implementations.
+   * @param wantParam - Parameters containing the saved plugin state
+   */
+  onRestoreInstanceState?(wantParam: Record<string, Object>): void;
 }

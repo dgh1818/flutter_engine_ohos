@@ -324,6 +324,12 @@ export struct DynamicView {
         radius: this.getParams(this.params, "rectRadius") ?
           this.getParams(this.params, "rectRadius") : 0
       })) : null)
+      .hitTestBehavior(this.getParams(this.params, "touchBlock") === true ?
+        HitTestMode.Block : HitTestMode.Default)
+      // [wrapper-touch-block] 截住触摸的注入出口：controller 经 events 通道下发
+      // onTouch（viewId 闭包捕获），无此事件的 wrapper（纹理模式）getEvents 得
+      // undefined，等价未挂——与 common_attrs 的 onClick 同一模式。
+      .onTouch(this.getEvents(this.events, "onTouch"))
   }
 
   @Builder

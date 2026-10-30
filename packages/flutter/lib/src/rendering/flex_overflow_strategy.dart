@@ -8,6 +8,7 @@ import 'dart:async';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 /// Data class to hold screen information
@@ -25,18 +26,84 @@ class ScreenInfo {
   final bool isHeightChanged;
 }
 
+/// Immutable snapshot of [OhosFlexOverflowStrategy]'s internal state.
+///
+/// Used solely by tests to verify intermediate state that cannot be observed
+/// through the public API alone (e.g. timer flags, instance tracking counts).
+@visibleForTesting
+class OhosFlexOverflowDebugState {
+  /// Creates a snapshot of the current overflow strategy state.
+  const OhosFlexOverflowDebugState({
+    required this.isReportingOverflow,
+    required this.lastScaleFactor,
+    required this.lastScreenHeight,
+    required this.lastViewInsetsBottom,
+    required this.hasSuppressedInitialKeyboardOverflow,
+    required this.hasSuppressedInitialEditingOverflow,
+    required this.overflowingInstanceCount,
+    required this.frameSampleCount,
+    required this.hasPendingOverflowTimer,
+    required this.hasSuppressedOverflowTimer,
+    required this.suppressionExpired,
+    required this.confirmationExpired,
+    required this.routeChanged,
+  });
+
+  /// Whether a DPR shrink has been committed and is currently active.
+  final bool isReportingOverflow;
+
+  /// The last scale factor reported to the native side via [SystemChannels.displayMetrics].
+  final double lastScaleFactor;
+
+  /// The last sampled physical screen height in device pixels.
+  final double lastScreenHeight;
+
+  /// The last sampled bottom view inset (keyboard) in device pixels.
+  final double lastViewInsetsBottom;
+
+  /// Whether the initial keyboard-open overflow suppression has fired.
+  final bool hasSuppressedInitialKeyboardOverflow;
+
+  /// Whether the initial editing-time overflow suppression has fired.
+  final bool hasSuppressedInitialEditingOverflow;
+
+  /// Number of [RenderFlex] instances currently tracked as overflowing.
+  final int overflowingInstanceCount;
+
+  /// Number of overflow samples collected in the current frame buffer.
+  final int frameSampleCount;
+
+  /// Whether the 180ms confirmation timer is currently running.
+  final bool hasPendingOverflowTimer;
+
+  /// Whether the 600ms suppression timer is currently running.
+  final bool hasSuppressedOverflowTimer;
+
+  /// Whether the suppression timer has expired (overflow persists past 600ms).
+  final bool suppressionExpired;
+
+  /// Whether the confirmation timer has expired (overflow persists past 180ms).
+  final bool confirmationExpired;
+
+  /// Whether a route change has been signalled since the last DPR reset.
+  final bool routeChanged;
+}
+
 /// Strategy interface for handling overflow in flex layouts
 abstract class FlexOverflowStrategy {
   /// Handles overflow for the given flex render object
   void handleOverflow(RenderFlex renderFlex, double actualSize, double allocatedSize);
 
-  /// Called when the render object is disposed
-  void dispose();
+  /// Called when the render object is disposed.
+  ///
+  /// [renderFlex] is the instance being disposed, so the strategy can
+  /// precisely remove it from any tracking sets.
+  void dispose(RenderFlex renderFlex);
 }
 
 /// Creates the default overflow strategy based on the platform
 FlexOverflowStrategy createDefaultOverflowStrategy(Axis direction) {
-  if (direction == Axis.vertical && defaultTargetPlatform == TargetPlatform.ohos && kReleaseMode) {
+  if (OhosFlexOverflowStrategy.isFlexOverflowEnabled && direction == Axis.vertical) {
     return OhosFlexOverflowStrategy();
   } else {
     return DefaultFlexOverflowStrategy();
@@ -51,7 +118,7 @@ class DefaultFlexOverflowStrategy implements FlexOverflowStrategy {
   }
 
   @override
-  void dispose() {
+  void dispose(RenderFlex renderFlex) {
     // No-op for default implementation
   }
 }
@@ -113,34 +180,111 @@ class OhosFlexOverflowStrategy implements FlexOverflowStrategy {
     defaultValue: true,
   );
 
-  // Global tracking of all overflowing RenderFlex instances
-  static final Set<WeakReference<RenderFlex>> _overflowingInstances = <WeakReference<RenderFlex>>{};
-  // Root Flexes that are still inside the confirmation window.
-  static final Set<WeakReference<RenderFlex>> _pendingOverflowInstances =
-      <WeakReference<RenderFlex>>{};
-  // Local state for each strategy instance
-  bool _isReportingOverflow = false;
-  double _lastScreenHeight = 0.0;
-  double _lastScaleFactor = 1.0;
-  double _lastViewInsetsBottom = 0.0;
-  bool _hasSuppressedInitialKeyboardOverflow = false;
-  bool _hasSuppressedInitialEditingOverflow = false;
-  DateTime? _initialOverflowSuppressionDeadline;
-  Timer? _suppressedOverflowTimer;
-  WeakReference<RenderFlex>? _suppressedOverflowRenderFlex;
-  double _suppressedScaleFactor = 1.0;
-  Timer? _pendingOverflowTimer;
-  WeakReference<RenderFlex>? _pendingOverflowRenderFlex;
-  double _pendingScaleFactor = 1.0;
+  /// Combined feature gate: the flex overflow adaptation is enabled only
+  /// when the compile-time toggle ([_kEnableFlexOverflow]), the runtime
+  /// gate ([kReleaseMode]), and the platform check
+  /// ([defaultTargetPlatform] == [TargetPlatform.ohos]) are all true.
+  ///
+  /// Initialized once at class load. Tests override it via
+  /// [debugDynamicDpiEnabled] and reset via [resetState].
+  static bool isFlexOverflowEnabled =
+      _kEnableFlexOverflow && kReleaseMode && defaultTargetPlatform == TargetPlatform.ohos;
 
-  /// Initializes the strategy state
-  void _initializeState() {
+  /// Test-only override for [isFlexOverflowEnabled].
+  ///
+  /// Set to `true` in tests that need to exercise the release-mode-only
+  /// code paths (e.g. [notifyRouteChanged]) without running in an actual
+  /// release build. Reset via [resetState].
+  @visibleForTesting
+  static bool get debugDynamicDpiEnabled => isFlexOverflowEnabled;
+  @visibleForTesting
+  static set debugDynamicDpiEnabled(bool value) => isFlexOverflowEnabled = value;
+
+  // Global tracking of all overflowing RenderFlex instances. Used solely by
+  // [dispose] to detect when every tracked instance has been removed, which
+  // gates the DPR reset.
+  static final Set<WeakReference<RenderFlex>> _overflowingInstances = <WeakReference<RenderFlex>>{};
+
+  // ── Per-frame aggregation state ──────────────────────────────────────
+  // Scale factors keyed by RenderFlex instance. Only overflowing instances
+  // are stored; a non-overflow result removes the entry. The post-frame
+  // callback reads all entries and issues at most one _reportFlexOverflow per
+  // frame (the minimum scale across all overflowing instances). Entries
+  // persist across frames so that timer-scheduled frames (which may not
+  // trigger performLayout) still see the last known overflow state. Entries
+  // are removed by [dispose] or when the instance stops overflowing.
+  static final Map<RenderFlex, double> _frameSamples = <RenderFlex, double>{};
+  static bool _frameAggregationScheduled = false;
+
+  // ── Centralised state ───────────────────────────────────────────────
+  static bool _isReportingOverflow = false;
+  static double _lastScreenHeight = 0.0;
+  static double _lastScaleFactor = 1.0;
+  static double _lastViewInsetsBottom = 0.0;
+  static bool _hasSuppressedInitialKeyboardOverflow = false;
+  static bool _hasSuppressedInitialEditingOverflow = false;
+  static DateTime? _initialOverflowSuppressionDeadline;
+  static Timer? _suppressedOverflowTimer;
+  static Timer? _pendingOverflowTimer;
+  // Flags set by timer callbacks. The next _aggregateAndReport pass checks
+  // them to decide whether to advance to the next phase (confirmation or
+  // commit). This avoids accessing RenderFlex state from timer callbacks.
+  static bool _suppressionExpired = false;
+  static bool _confirmationExpired = false;
+
+  // ── Route-change tracking ───────────────────────────────────────────
+  // Set by the navigation layer (via [notifyRouteChanged]) whenever a
+  // push/pop/replace/remove occurs. DPR reset requires this flag to be true
+  // AND all tracked instances to be disposed, preventing premature resets.
+  static bool _routeChanged = false;
+
+  /// Called by the navigation layer to signal that a route transition
+  /// (push/pop/replace/remove) has occurred.
+  ///
+  /// This is a no-op when the flex overflow feature is disabled (via
+  /// `ENABLE_FLEX_OVERFLOW`) or not in release mode, matching the conditions
+  /// in [createDefaultOverflowStrategy].
+  static void notifyRouteChanged() {
+    if (!isFlexOverflowEnabled) {
+      return;
+    }
+    _routeChanged = true;
+    // Reset per-page suppression flags so they don't leak to the new page.
+    // Without this, a suppression that fired on the previous page (but never
+    // committed a DPR shrink) would prevent the same suppression from firing
+    // on the new page.
+    _hasSuppressedInitialKeyboardOverflow = false;
+    _hasSuppressedInitialEditingOverflow = false;
+    _initialOverflowSuppressionDeadline = null;
+    // Cancel any running timers and clear their expiry flags. Otherwise a
+    // suppression timer started on the previous page would continue running
+    // and fire on the new page, prematurely setting _suppressionExpired and
+    // bypassing the suppression phase. Similarly, a confirmation timer from
+    // the previous page could fire and trigger an unwanted DPR shrink on the
+    // new page.
     _suppressedOverflowTimer?.cancel();
     _suppressedOverflowTimer = null;
-    _suppressedOverflowRenderFlex = null;
     _pendingOverflowTimer?.cancel();
     _pendingOverflowTimer = null;
-    _pendingOverflowRenderFlex = null;
+    _suppressionExpired = false;
+    _confirmationExpired = false;
+  }
+
+  /// Initializes the strategy state.
+  ///
+  /// All state is static (centralised), so this only needs to run once for
+  /// the first instance. Subsequent instances reuse the existing global
+  /// state.
+  static bool _stateInitialized = false;
+  void _initializeState() {
+    if (_stateInitialized) {
+      return;
+    }
+    _stateInitialized = true;
+    _suppressedOverflowTimer?.cancel();
+    _suppressedOverflowTimer = null;
+    _pendingOverflowTimer?.cancel();
+    _pendingOverflowTimer = null;
     _isReportingOverflow = false;
     _lastScreenHeight = 0.0;
     _lastScaleFactor = 1.0;
@@ -148,18 +292,18 @@ class OhosFlexOverflowStrategy implements FlexOverflowStrategy {
     _hasSuppressedInitialKeyboardOverflow = false;
     _hasSuppressedInitialEditingOverflow = false;
     _initialOverflowSuppressionDeadline = null;
-    _suppressedScaleFactor = 1.0;
-    _pendingScaleFactor = 1.0;
+    _suppressionExpired = false;
+    _confirmationExpired = false;
   }
 
   /// Checks if overflow handling should be triggered
   bool _shouldHandleOverflow(RenderFlex renderFlex) {
-    return _kEnableFlexOverflow && _isOhos && _isRootVerticalFlex(renderFlex);
+    return isFlexOverflowEnabled && _isRootVerticalFlex(renderFlex);
   }
 
   /// Gets screen information for overflow calculations
   ScreenInfo _getScreenInfo() {
-    final ui.FlutterView view = ui.PlatformDispatcher.instance.views.first;
+    final ui.FlutterView view = ServicesBinding.instance.platformDispatcher.views.first;
     return ScreenInfo(
       height: view.physicalSize.height,
       viewInsetsBottom: view.viewInsets.bottom,
@@ -176,18 +320,6 @@ class OhosFlexOverflowStrategy implements FlexOverflowStrategy {
     return clampDouble(scale, _kMinScaleFactor, 1.0);
   }
 
-  /// Determines if overflow should be reported
-  bool _shouldReportOverflow(RenderFlex renderFlex, ScreenInfo screenInfo, double scale) {
-    // Only report overflow under the following conditions:
-    // 1. There is overflow
-    // 2. Never reported before, or screen height has changed
-    // 3. Scale is within valid range and smaller than previous scale
-    return _getOverflowStatus(renderFlex) &&
-        (!_isReportingOverflow ||
-            screenInfo.isHeightChanged ||
-            (scale >= _kMinScaleFactor && scale < _lastScaleFactor));
-  }
-
   /// Gets the overflow status from RenderFlex
   bool _getOverflowStatus(RenderFlex renderFlex) {
     // Use the public getter to check overflow status
@@ -200,38 +332,200 @@ class OhosFlexOverflowStrategy implements FlexOverflowStrategy {
     _lastViewInsetsBottom = screenInfo.viewInsetsBottom;
   }
 
-  /// Handles the overflow logic in a post-frame callback
+  /// Collects this instance's overflow scale into [_frameSamples] for
+  /// per-frame aggregation.
+  ///
+  /// Each [RenderFlex.performLayout] calls this at the end. The computed
+  /// scale is stored in [_frameSamples] and a single post-frame callback
+  /// is registered. The callback aggregates all samples — taking the
+  /// minimum scale across all overflowing instances — and issues at most
+  /// one [_reportFlexOverflow] per frame. This ensures that when multiple
+  /// root Columns overflow in the same frame, only a single DPR report is
+  /// sent.
   void _onPostFrame(RenderFlex renderFlex, double actualSize, double allocatedSize) {
     final ScreenInfo screenInfo = _getScreenInfo();
     final double scale = _calculateScale(screenInfo, actualSize, allocatedSize);
+    final bool hasOverflow = _getOverflowStatus(renderFlex);
 
-    if (_shouldReportOverflow(renderFlex, screenInfo, scale)) {
-      if (_shouldSuppressInitialKeyboardOverflow(screenInfo)) {
+    if (hasOverflow) {
+      _frameSamples[renderFlex] = scale;
+    } else {
+      // No overflow this frame: remove the entry so that
+      // _aggregateAndReport sees the current (non-overflowing) state.
+      _frameSamples.remove(renderFlex);
+    }
+
+    _scheduleAggregation();
+  }
+
+  /// Schedules a single [_aggregateAndReport] pass via a post-frame callback.
+  ///
+  /// This is the **sole** scheduling point for aggregation. Both
+  /// [_onPostFrame] (during layout) and [dispose] (when the last tracked
+  /// instance is removed) call this method. The [_frameAggregationScheduled]
+  /// guard ensures at most one callback is registered per frame, regardless
+  /// of how many trigger sites call this.
+  ///
+  /// Having a single scheduling method (rather than each call site
+  /// independently registering callbacks) makes it clear that there is one
+  /// aggregation pass per frame, not two independent entry points that
+  /// could conflict.
+  void _scheduleAggregation() {
+    if (_frameAggregationScheduled) {
+      return;
+    }
+    _frameAggregationScheduled = true;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      _frameAggregationScheduled = false;
+      _aggregateAndReport();
+    });
+  }
+
+  /// Aggregates all stored samples and issues at most one overflow report.
+  ///
+  /// Runs in a post-frame callback. It examines all stored samples,
+  /// determines the minimum scale among overflowing instances, and runs
+  /// the decision logic (suppress / confirm / commit / reset) exactly
+  /// once. Samples persist across frames, so even timer-scheduled frames
+  /// that do not trigger [performLayout] can still evaluate overflow state.
+  void _aggregateAndReport() {
+    final ScreenInfo screenInfo = _getScreenInfo();
+
+    // Height changed (fold/unfold/rotation): native side already reset DPR.
+    // Clear Dart-side scaling state so future overflow can be re-detected.
+    // _frameSamples is intentionally NOT cleared — old samples persist so
+    // timer-scheduled empty frames still see overflow; the next
+    // performLayout will overwrite them with fresh values.
+    if (screenInfo.isHeightChanged) {
+      _suppressedOverflowTimer?.cancel();
+      _suppressedOverflowTimer = null;
+      _pendingOverflowTimer?.cancel();
+      _pendingOverflowTimer = null;
+      _suppressionExpired = false;
+      _confirmationExpired = false;
+      _overflowingInstances.clear();
+      _isReportingOverflow = false;
+      _lastScaleFactor = 1.0;
+      _hasSuppressedInitialKeyboardOverflow = false;
+      _hasSuppressedInitialEditingOverflow = false;
+      _initialOverflowSuppressionDeadline = null;
+    }
+
+    // Collect scales of all attached overflowing instances.
+    final overflowingScales = <double>[];
+    for (final MapEntry<RenderFlex, double> entry in _frameSamples.entries) {
+      if (entry.key.attached) {
+        overflowingScales.add(entry.value);
+      }
+    }
+
+    // Compute the minimum scale among all overflowing instances.
+    final double minScale = overflowingScales.isEmpty
+        ? 1.0
+        : overflowingScales.reduce((double a, double b) => a < b ? a : b);
+
+    // Determine whether any overflow should be reported.
+    final bool shouldReport =
+        overflowingScales.isNotEmpty &&
+        (!_isReportingOverflow ||
+            screenInfo.isHeightChanged ||
+            (minScale >= _kMinScaleFactor && minScale < _lastScaleFactor));
+
+    if (shouldReport) {
+      if (screenInfo.isHeightChanged) {
+        // Screen height changed (fold/unfold/rotation) — commit
+        // immediately. Screen changes are the target scenario for this
+        // feature: the native side has already reset DPR, and the app
+        // needs the scaled DPR applied as fast as possible to avoid
+        // visible overflow during the transition. Waiting 180ms here
+        // would cause a noticeable flash of overflow content.
+        _commitOverflowReport(screenInfo, minScale);
+      } else if (_confirmationExpired) {
+        // 180ms confirmation window has elapsed and overflow persists.
+        _confirmationExpired = false;
+        _commitOverflowReport(screenInfo, minScale);
+      } else if (_suppressionExpired) {
+        // 600ms suppression window has elapsed and overflow persists.
+        // Advance to the 180ms confirmation phase.
+        _suppressionExpired = false;
+        _startConfirmationTimer();
+      } else if (_shouldSuppressInitialKeyboardOverflow(screenInfo)) {
+        // First keyboard-open overflow on a fresh page: suppress once,
+        // extend the 600ms deadline, and start the suppression timer.
+        // This absorbs the transient layout jitter from the keyboard
+        // transition (viewInsets 0 → non-zero) without committing a
+        // DPR shrink.
         _hasSuppressedInitialKeyboardOverflow = true;
         _extendInitialOverflowSuppressionWindow();
-        _deferSuppressedOverflow(renderFlex, scale);
+        _startSuppressionTimer();
       } else if (_shouldSuppressInitialEditingOverflow(screenInfo)) {
+        // First editing-time overflow after the keyboard has settled:
+        // suppress once, extend the 600ms deadline, and start the
+        // suppression timer. The first SearchAnchor editing update can
+        // still overlap with the initial settled keyboard layout even
+        // when the keyboard-open suppression did not fire.
         _hasSuppressedInitialEditingOverflow = true;
         _extendInitialOverflowSuppressionWindow();
-        _deferSuppressedOverflow(renderFlex, scale);
+        _startSuppressionTimer();
       } else if (_shouldSuppressInitialOverflowCooldown(screenInfo)) {
-        _deferSuppressedOverflow(renderFlex, scale);
-      } else if (_shouldConfirmOverflowBeforeReporting(screenInfo)) {
-        _scheduleOverflowReport(renderFlex, scale);
-      } else {
-        _commitOverflowReport(renderFlex, screenInfo, scale);
+        // 600ms cooldown: keep the suppression timer running but do NOT
+        // extend the deadline. The cooldown is a fixed window that lets
+        // the initial suppression expire so real overflow can eventually
+        // be detected. Extending here would make the deadline never
+        // arrive, trapping the strategy in perpetual suppression.
+        _startSuppressionTimer();
+      } else if (_pendingOverflowTimer == null) {
+        _startConfirmationTimer();
       }
-    } else {
+    } else if (overflowingScales.isEmpty) {
+      // No instance is overflowing this frame — cancel all timers and clear
+      // flags so transient pulses don't carry over.
       _cancelPendingOverflowReport();
+      _cancelSuppressionTimer();
+      // Reset DPR when a route transition occurred and all tracked
+      // overflowing instances have been disposed. This covers the case
+      // where the overflowing route was popped: its RenderFlex is disposed
+      // and removed from [_overflowingInstances] by [dispose]. The set
+      // becomes empty and the reset fires here.
+      //
+      // The [_overflowingInstances.isEmpty] check is essential to prevent
+      // the oscillation loop. Without it, the following cycle occurs:
+      //
+      //   overflow → shrink DPR → layout changes → SearchAnchor's
+      //   PopupRoute is dismissed → notifyRouteChanged re-arms
+      //   _routeChanged → overflow disappears (DPR already shrunk) →
+      //   reset DPR → overflow recurs → repeat.
+      //
+      // The root cause is that SearchAnchor uses PopupRoute internally.
+      // A DPR shrink can dismiss the PopupRoute, which triggers
+      // notifyRouteChanged as a *side effect* of the shrink — not a
+      // genuine user navigation. The [_overflowingInstances.isEmpty]
+      // check ensures the reset only fires when the overflowing
+      // RenderFlex has truly been disposed (a real route pop), not when
+      // it is still attached but merely stopped overflowing because of
+      // the DPR shrink.
+      //
+      // Known limitation: if a non-disposed RenderFlex (e.g. the home
+      // page Column that overflowed when the keyboard was open on a
+      // pushed detail page) is still attached but no longer overflowing,
+      // it stays in [_overflowingInstances] because only [dispose]
+      // removes entries. In this case the reset will not fire and the
+      // scaled DPR will leak until the RenderFlex is eventually disposed.
+      // This is accepted as a trade-off to avoid the SearchAnchor
+      // oscillation, which is the more severe user-visible issue.
+      if (_isReportingOverflow && _overflowingInstances.isEmpty && _routeChanged) {
+        _overflowingInstances.clear();
+        _reportFlexOverflow(_kResetDpiScale);
+        _isReportingOverflow = false;
+        _lastScaleFactor = 1.0;
+        _hasSuppressedInitialKeyboardOverflow = false;
+        _hasSuppressedInitialEditingOverflow = false;
+        _initialOverflowSuppressionDeadline = null;
+        _routeChanged = false;
+      }
     }
 
     _updateScreenState(screenInfo);
-  }
-
-  /// Returns true when the first overflow should survive a confirmation window
-  /// before mutating viewport DPR.
-  bool _shouldConfirmOverflowBeforeReporting(ScreenInfo screenInfo) {
-    return !screenInfo.isHeightChanged;
   }
 
   /// Suppresses the first keyboard-open overflow once on a fresh page.
@@ -276,150 +570,92 @@ class OhosFlexOverflowStrategy implements FlexOverflowStrategy {
     _initialOverflowSuppressionDeadline = DateTime.now().add(_kInitialOverflowSuppressionCooldown);
   }
 
-  /// Defers a suppressed overflow and rechecks it once the suppression window
-  /// ends, so genuine release-mode overflow adaptation is delayed rather than
-  /// dropped outright.
-  void _deferSuppressedOverflow(RenderFlex renderFlex, double scale) {
-    _cancelPendingOverflowReport();
-    final RenderFlex? previousSuppressedRenderFlex = _suppressedOverflowRenderFlex?.target;
-    if (previousSuppressedRenderFlex != null && previousSuppressedRenderFlex != renderFlex) {
-      _removePendingInstance(previousSuppressedRenderFlex);
+  /// Starts (or keeps) the 600ms suppression timer.
+  ///
+  /// The timer callback only sets [_suppressionExpired] = true; it does not
+  /// access any RenderFlex. The next [_aggregateAndReport] pass checks the
+  /// flag and, if overflow persists, advances to the 180ms confirmation
+  /// phase.
+  void _startSuppressionTimer() {
+    if (_suppressedOverflowTimer != null) {
+      return; // already running
     }
-    _suppressedScaleFactor = scale < _suppressedScaleFactor ? scale : _suppressedScaleFactor;
-    _suppressedOverflowRenderFlex = WeakReference<RenderFlex>(renderFlex);
-    _addPendingInstance(renderFlex);
-
     final DateTime? deadline = _initialOverflowSuppressionDeadline;
     final Duration delay = deadline == null ? Duration.zero : deadline.difference(DateTime.now());
-    _suppressedOverflowTimer?.cancel();
     _suppressedOverflowTimer = Timer(delay.isNegative ? Duration.zero : delay, () {
-      final RenderFlex? suppressedRenderFlex = _suppressedOverflowRenderFlex?.target;
       _suppressedOverflowTimer = null;
-      _suppressedOverflowRenderFlex = null;
-      final double suppressedScale = _suppressedScaleFactor;
-      _suppressedScaleFactor = 1.0;
-      if (suppressedRenderFlex == null) {
-        return;
-      }
-      if (!suppressedRenderFlex.attached) {
-        _removePendingInstance(suppressedRenderFlex);
-        return;
-      }
-
-      final ScreenInfo screenInfo = _getScreenInfo();
-      final DateTime? currentDeadline = _initialOverflowSuppressionDeadline;
-      if (currentDeadline != null && DateTime.now().isBefore(currentDeadline)) {
-        _deferSuppressedOverflow(suppressedRenderFlex, suppressedScale);
-        return;
-      }
-      _removePendingInstance(suppressedRenderFlex);
-      if (!_shouldReportOverflow(suppressedRenderFlex, screenInfo, suppressedScale)) {
-        return;
-      }
-
-      if (_shouldConfirmOverflowBeforeReporting(screenInfo)) {
-        _scheduleOverflowReport(suppressedRenderFlex, suppressedScale);
-      } else {
-        _commitOverflowReport(suppressedRenderFlex, screenInfo, suppressedScale);
-      }
+      _suppressionExpired = true;
+      _scheduleAggregation();
+      SchedulerBinding.instance.ensureVisualUpdate();
     });
   }
 
-  /// Schedules a one-shot confirmation for the initial overflow report.
-  void _scheduleOverflowReport(RenderFlex renderFlex, double scale) {
-    _pendingScaleFactor = scale < _pendingScaleFactor ? scale : _pendingScaleFactor;
-    final RenderFlex? previousPendingRenderFlex = _pendingOverflowRenderFlex?.target;
-    if (previousPendingRenderFlex != null && previousPendingRenderFlex != renderFlex) {
-      _removePendingInstance(previousPendingRenderFlex);
-    }
-    _pendingOverflowRenderFlex = WeakReference<RenderFlex>(renderFlex);
+  /// Starts (or keeps) the 180ms confirmation timer.
+  ///
+  /// The timer callback only sets [_confirmationExpired] = true; it does not
+  /// access any RenderFlex. The next [_aggregateAndReport] pass checks the
+  /// flag and, if overflow persists, commits the DPR shrink using the current
+  /// frame's minScale.
+  void _startConfirmationTimer() {
     if (_pendingOverflowTimer != null) {
-      _addPendingInstance(renderFlex);
-      return;
+      return; // already running
     }
-
-    _addPendingInstance(renderFlex);
     _pendingOverflowTimer = Timer(_kOverflowReportConfirmation, () {
       _pendingOverflowTimer = null;
-      final RenderFlex? pendingRenderFlex = _pendingOverflowRenderFlex?.target;
-      _pendingOverflowRenderFlex = null;
-      if (pendingRenderFlex == null) {
-        return;
-      }
-      _removePendingInstance(pendingRenderFlex);
-      if (!pendingRenderFlex.attached) {
-        return;
-      }
-
-      final ScreenInfo screenInfo = _getScreenInfo();
-      // The confirmation window intentionally preserves the smallest overflow
-      // ratio observed during the window. This is conservative, but it avoids
-      // dropping a persistent overflow just because the transient checks are
-      // delayed on OHOS release builds.
-      final double scale = _pendingScaleFactor;
-      if (!_shouldReportOverflow(pendingRenderFlex, screenInfo, scale)) {
-        return;
-      }
-      _commitOverflowReport(pendingRenderFlex, screenInfo, scale);
+      _confirmationExpired = true;
+      _scheduleAggregation();
+      SchedulerBinding.instance.ensureVisualUpdate();
     });
   }
 
-  /// Commits a confirmed overflow report and updates the global tracking state.
-  void _commitOverflowReport(RenderFlex renderFlex, ScreenInfo screenInfo, double scale) {
-    _cancelSuppressedOverflowReport();
-    final bool isAlreadyTracked = _overflowingInstances.any(
-      (WeakReference<RenderFlex> weakRef) => weakRef.target == renderFlex,
-    );
-    if (!isAlreadyTracked) {
-      _overflowingInstances.add(WeakReference<RenderFlex>(renderFlex));
-    }
+  /// Commits a confirmed overflow report and updates the global tracking
+  /// state.
+  ///
+  /// Reports the current frame's [minScale] and tracks all
+  /// currently-overflowing instances in [_overflowingInstances] so that
+  /// [dispose] can detect when every instance has been removed.
+  void _commitOverflowReport(ScreenInfo screenInfo, double minScale) {
+    _cancelSuppressionTimer();
+    _cancelPendingOverflowReport();
+    _trackOverflowingInstances();
     _isReportingOverflow = true;
-    _reportFlexOverflow(scale);
-    _lastScaleFactor = scale;
+    _reportFlexOverflow(minScale);
+    _lastScaleFactor = minScale;
+    // Consume any pending route-change flag: we are now scaling for the
+    // current page, so a future overflow-disappear should NOT trigger a
+    // reset unless a *new* navigation occurs.
+    _routeChanged = false;
     _updateScreenState(screenInfo);
   }
 
-  void _addPendingInstance(RenderFlex renderFlex) {
-    final bool isAlreadyTracked = _pendingOverflowInstances.any(
-      (WeakReference<RenderFlex> weakRef) => weakRef.target == renderFlex,
-    );
-    if (!isAlreadyTracked) {
-      _pendingOverflowInstances.add(WeakReference<RenderFlex>(renderFlex));
+  /// Adds every attached overflowing instance from the current frame's
+  /// samples to [_overflowingInstances]. Called at commit time so that
+  /// [dispose] can later detect when all tracked instances are gone.
+  void _trackOverflowingInstances() {
+    for (final RenderFlex renderFlex in _frameSamples.keys) {
+      if (renderFlex.attached) {
+        final bool isAlreadyTracked = _overflowingInstances.any(
+          (WeakReference<RenderFlex> weakRef) => weakRef.target == renderFlex,
+        );
+        if (!isAlreadyTracked) {
+          _overflowingInstances.add(WeakReference<RenderFlex>(renderFlex));
+        }
+      }
     }
   }
 
-  void _removePendingInstance(RenderFlex renderFlex) {
-    _pendingOverflowInstances.removeWhere(
-      (WeakReference<RenderFlex> weakRef) => weakRef.target == null || weakRef.target == renderFlex,
-    );
-  }
-
-  /// Clears any overflow report that has not been committed yet.
+  /// Cancels the 180ms confirmation timer and clears its flag.
   void _cancelPendingOverflowReport() {
-    final RenderFlex? pendingRenderFlex = _pendingOverflowRenderFlex?.target;
     _pendingOverflowTimer?.cancel();
     _pendingOverflowTimer = null;
-    _pendingOverflowRenderFlex = null;
-    _pendingScaleFactor = 1.0;
-    if (pendingRenderFlex != null) {
-      _removePendingInstance(pendingRenderFlex);
-    }
-    _pendingOverflowInstances.removeWhere(
-      (WeakReference<RenderFlex> weakRef) =>
-          weakRef.target == null || weakRef.target?.attached == false,
-    );
-    _cleanupOverflowTrackingAndMaybeReset();
+    _confirmationExpired = false;
   }
 
-  void _cancelSuppressedOverflowReport() {
-    final RenderFlex? suppressedRenderFlex = _suppressedOverflowRenderFlex?.target;
+  /// Cancels the 600ms suppression timer and clears its flag.
+  void _cancelSuppressionTimer() {
     _suppressedOverflowTimer?.cancel();
     _suppressedOverflowTimer = null;
-    _suppressedOverflowRenderFlex = null;
-    _suppressedScaleFactor = 1.0;
-    if (suppressedRenderFlex != null) {
-      _removePendingInstance(suppressedRenderFlex);
-    }
+    _suppressionExpired = false;
   }
 
   /// Reports flex overflow by updating DPI through system channel
@@ -432,9 +668,6 @@ class OhosFlexOverflowStrategy implements FlexOverflowStrategy {
       // Silently handle overflow report failures
     }
   }
-
-  /// Checks if the current platform is OHOS
-  bool get _isOhos => defaultTargetPlatform == TargetPlatform.ohos;
 
   // Check if it's a root vertical Flex (Column)
   bool _isRootVerticalFlex(RenderFlex renderFlex) {
@@ -462,33 +695,81 @@ class OhosFlexOverflowStrategy implements FlexOverflowStrategy {
     if (!_shouldHandleOverflow(renderFlex)) {
       return;
     }
+    // Collect this instance's overflow sample into the frame buffer.
+    // The actual decision and reporting happens once per frame in
+    // _aggregateAndReport, via a post-frame callback.
     _onPostFrame(renderFlex, actualSize, allocatedSize);
   }
 
   @override
-  void dispose() {
-    _cancelSuppressedOverflowReport();
-    _cancelPendingOverflowReport();
-    if (!_isReportingOverflow) {
-      return;
-    }
-
-    _lastScreenHeight = 0;
-    _isReportingOverflow = false;
-    _cleanupOverflowTrackingAndMaybeReset();
-  }
-
-  void _cleanupOverflowTrackingAndMaybeReset() {
+  void dispose(RenderFlex renderFlex) {
+    // Remove the disposed RenderFlex from the sample map and tracking set.
+    _frameSamples.remove(renderFlex);
     _overflowingInstances.removeWhere(
       (WeakReference<RenderFlex> weakRef) =>
-          weakRef.target == null || weakRef.target?.attached == false,
+          weakRef.target == null || identical(weakRef.target, renderFlex),
     );
-    _pendingOverflowInstances.removeWhere(
-      (WeakReference<RenderFlex> weakRef) =>
-          weakRef.target == null || weakRef.target?.attached == false,
-    );
-    if (_overflowingInstances.isEmpty && _pendingOverflowInstances.isEmpty) {
-      _reportFlexOverflow(_kResetDpiScale);
+
+    // Schedule a final aggregation pass to reset DPR when all tracked
+    // instances are gone. [ensureVisualUpdate] is needed because dispose
+    // may run outside of a frame — [addPostFrameCallback] alone does not
+    // schedule a frame, so without this the callback could never fire and
+    // the scaled DPR would leak.
+    if (_isReportingOverflow && _overflowingInstances.isEmpty) {
+      _scheduleAggregation();
+      SchedulerBinding.instance.ensureVisualUpdate();
     }
+  }
+
+  /// Returns an immutable snapshot of all internal state for testing.
+  ///
+  /// This is the sole testing entry point for inspecting private state.
+  /// It provides an atomic read of every field so tests can verify
+  /// intermediate states (timer flags, instance counts, suppression flags)
+  /// that are not observable through the public API.
+  @visibleForTesting
+  static OhosFlexOverflowDebugState get debugState => OhosFlexOverflowDebugState(
+    isReportingOverflow: _isReportingOverflow,
+    lastScaleFactor: _lastScaleFactor,
+    lastScreenHeight: _lastScreenHeight,
+    lastViewInsetsBottom: _lastViewInsetsBottom,
+    hasSuppressedInitialKeyboardOverflow: _hasSuppressedInitialKeyboardOverflow,
+    hasSuppressedInitialEditingOverflow: _hasSuppressedInitialEditingOverflow,
+    overflowingInstanceCount: _overflowingInstances.length,
+    frameSampleCount: _frameSamples.length,
+    hasPendingOverflowTimer: _pendingOverflowTimer != null,
+    hasSuppressedOverflowTimer: _suppressedOverflowTimer != null,
+    suppressionExpired: _suppressionExpired,
+    confirmationExpired: _confirmationExpired,
+    routeChanged: _routeChanged,
+  );
+
+  /// Resets all static state to initial values.
+  ///
+  /// This is intended for testing only. It clears all tracking sets,
+  /// cancels timers, and resets all flags so that each test starts with
+  /// a clean slate.
+  @visibleForTesting
+  static void resetState() {
+    _stateInitialized = false;
+    isFlexOverflowEnabled =
+        _kEnableFlexOverflow && kReleaseMode && defaultTargetPlatform == TargetPlatform.ohos;
+    _suppressedOverflowTimer?.cancel();
+    _suppressedOverflowTimer = null;
+    _pendingOverflowTimer?.cancel();
+    _pendingOverflowTimer = null;
+    _overflowingInstances.clear();
+    _frameSamples.clear();
+    _frameAggregationScheduled = false;
+    _isReportingOverflow = false;
+    _lastScreenHeight = 0.0;
+    _lastScaleFactor = 1.0;
+    _lastViewInsetsBottom = 0.0;
+    _hasSuppressedInitialKeyboardOverflow = false;
+    _hasSuppressedInitialEditingOverflow = false;
+    _initialOverflowSuppressionDeadline = null;
+    _suppressionExpired = false;
+    _confirmationExpired = false;
+    _routeChanged = false;
   }
 }

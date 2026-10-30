@@ -1,0 +1,13 @@
+/node_modules
+/oh_modules
+/local.properties
+/.idea
+**/build
+/.hvigor
+**/.cxx
+/.appanalyzer
+*.har
+*.hsp
+entry/libs/**/*.so
+.omc/
+.omc/

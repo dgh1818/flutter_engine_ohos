@@ -20,6 +20,14 @@ TaskFunction createAndroidRunReleaseTest() {
   return AndroidRunOutputTest(release: true).call;
 }
 
+TaskFunction createOhosRunDebugTest() {
+  return OhosRunOutputTest(release: false).call;
+}
+
+TaskFunction createOhosRunReleaseTest() {
+  return OhosRunOutputTest(release: true).call;
+}
+
 TaskFunction createLinuxRunDebugTest() {
   return DesktopRunOutputTest(
     '${flutterDirectory.path}/dev/integration_tests/ui',
@@ -177,6 +185,76 @@ class AndroidRunOutputTest extends RunOutputTask {
         line.contains('applies the Kotlin Gradle Plugin') ||
         line.contains('Please migrate your app to Built-in Kotlin') ||
         line.trim().isEmpty;
+  }
+}
+
+class OhosRunOutputTest extends RunOutputTask {
+  OhosRunOutputTest({required super.release})
+    : super('${flutterDirectory.path}/dev/integration_tests/ui', 'lib/main.dart');
+
+  @override
+  bool isExpectedStderr(String line) => true;
+
+  @override
+  Future<void> prepare(String deviceId) async {
+    print('uninstalling...');
+    final Process uninstall = await startFlutter(
+      'install',
+      options: <String>['--suppress-analytics', '--uninstall-only', '-d', deviceId, '-v'],
+      isBot: false,
+    );
+    uninstall.stdout.transform<String>(utf8.decoder).transform<String>(const LineSplitter()).listen(
+      (String line) {
+        print('uninstall:stdout: $line');
+      },
+    );
+    uninstall.stderr.transform<String>(utf8.decoder).transform<String>(const LineSplitter()).listen(
+      (String line) {
+        print('uninstall:stderr: $line');
+      },
+    );
+    if (await uninstall.exitCode != 0) {
+      throw 'flutter install --uninstall-only failed.';
+    }
+  }
+
+  @override
+  TaskResult verify(List<String> stdout, List<String> stderr) {
+    _findNextMatcherInList(
+      stdout,
+      (String line) =>
+          line.startsWith('Launching $testTarget on ') &&
+          line.endsWith(' in ${release ? 'release' : 'debug'} mode...'),
+      'Launching $testTarget on',
+    );
+
+    _findNextMatcherInList(
+      stdout,
+      (String line) => line.contains('Running Hvigor task assembleHap'),
+      'Running Hvigor task assembleHap',
+    );
+
+    _findNextMatcherInList(
+      stdout,
+      (String line) =>
+          line.contains('Built') &&
+          (line.contains('build/ohos/hap/') || line.contains(r'build\ohos\hap\')),
+      'Built build/ohos/hap/',
+    );
+
+    _findNextMatcherInList(
+      stdout,
+      (String line) => line.contains('Quit (terminate the application on the device).'),
+      'q Quit (terminate the application on the device)',
+    );
+
+    _findNextMatcherInList(
+      stdout,
+      (String line) => line == 'Application finished.',
+      'Application finished.',
+    );
+
+    return TaskResult.success(null);
   }
 }
 

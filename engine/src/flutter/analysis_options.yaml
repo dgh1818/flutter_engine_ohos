@@ -17,6 +17,9 @@ analyzer:
     - prebuilts
     - third_party
     - shell/platform/fuchsia
+    # OHOS does not use the Web backend; skip Web SDK analysis.
+    - lib/web_ui
+    - web_sdk
 
 linter:
   rules:

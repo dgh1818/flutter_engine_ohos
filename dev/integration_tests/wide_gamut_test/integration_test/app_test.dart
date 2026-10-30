@@ -68,6 +68,70 @@ List<double> _deepRed = <double>[1.0931, -0.2268, -0.1501];
   return (foundColor, closestColor);
 }
 
+(bool, List<double>) _findRGBA8888Color(
+  Uint8List bytes,
+  int width,
+  int height,
+  List<double> color, {
+  required double epsilon,
+}) {
+  expect(bytes.lengthInBytes, width * height * 4);
+  final double r = color[0].clamp(0.0, 1.0);
+  final double g = color[1].clamp(0.0, 1.0);
+  final double b = color[2].clamp(0.0, 1.0);
+  var foundColor = false;
+  double minDistance = double.infinity;
+  var closestColor = <double>[0, 0, 0];
+  for (var i = 0; i < bytes.lengthInBytes; i += 4) {
+    final double red = bytes[i] / 255.0;
+    final double green = bytes[i + 1] / 255.0;
+    final double blue = bytes[i + 2] / 255.0;
+    if (_isAlmost(red, r, epsilon) &&
+        _isAlmost(green, g, epsilon) &&
+        _isAlmost(blue, b, epsilon)) {
+      foundColor = true;
+    }
+    final double currentDistance = _distanceSquared(red, green, blue, color);
+    if (currentDistance < minDistance) {
+      minDistance = currentDistance;
+      closestColor = <double>[red, green, blue];
+    }
+  }
+  return (foundColor, closestColor);
+}
+
+(bool, List<double>) _findBGRA8888Color(
+  Uint8List bytes,
+  int width,
+  int height,
+  List<double> color, {
+  required double epsilon,
+}) {
+  expect(bytes.lengthInBytes, width * height * 4);
+  final double r = color[0].clamp(0.0, 1.0);
+  final double g = color[1].clamp(0.0, 1.0);
+  final double b = color[2].clamp(0.0, 1.0);
+  var foundColor = false;
+  double minDistance = double.infinity;
+  var closestColor = <double>[0, 0, 0];
+  for (var i = 0; i < bytes.lengthInBytes; i += 4) {
+    final double blue = bytes[i] / 255.0;
+    final double green = bytes[i + 1] / 255.0;
+    final double red = bytes[i + 2] / 255.0;
+    if (_isAlmost(red, r, epsilon) &&
+        _isAlmost(green, g, epsilon) &&
+        _isAlmost(blue, b, epsilon)) {
+      foundColor = true;
+    }
+    final double currentDistance = _distanceSquared(red, green, blue, color);
+    if (currentDistance < minDistance) {
+      minDistance = currentDistance;
+      closestColor = <double>[red, green, blue];
+    }
+  }
+  return (foundColor, closestColor);
+}
+
 (bool, List<double>) _findColor(
   List<dynamic> result,
   List<double> color, {
@@ -76,16 +140,34 @@ List<double> _deepRed = <double>[1.0931, -0.2268, -0.1501];
   expect(result, isNotNull);
   expect(result.length, 4);
   final [int width, int height, String format, Uint8List bytes] = result;
-  if (format != 'MTLPixelFormatBGRA10_XR') {
-    throw UnsupportedError('Unsupported pixel format: $format');
+  switch (format) {
+    case 'MTLPixelFormatBGRA10_XR':
+      return _findBGRA10Color(
+        bytes,
+        width,
+        height,
+        color,
+        epsilon: epsilon ?? _bgra10Epsilon,
+      );
+    case 'RGBA_8888':
+      return _findRGBA8888Color(
+        bytes,
+        width,
+        height,
+        color,
+        epsilon: epsilon ?? 0.01,
+      );
+    case 'BGRA_8888':
+      return _findBGRA8888Color(
+        bytes,
+        width,
+        height,
+        color,
+        epsilon: epsilon ?? 0.01,
+      );
+    default:
+      throw UnsupportedError('Unsupported pixel format: $format');
   }
-  return _findBGRA10Color(
-    bytes,
-    width,
-    height,
-    color,
-    epsilon: epsilon ?? _bgra10Epsilon,
-  );
 }
 
 class _HasColor extends Matcher {
