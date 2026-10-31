@@ -163,6 +163,16 @@ class ImageGenerator {
       unsigned int frame_index = 0,
       std::optional<unsigned int> prior_frame = std::nullopt) = 0;
 
+  // OHOS fork (AI HDR): per-generator decode policy (0 = preserve,
+  // 1 = aiHdrAuto).  Default: upstream behavior, ignored.  Kept outside the
+  // FML_OS_OHOS guard so host builds see it too.
+  virtual void SetDynamicRangePolicy(int32_t dynamic_range_policy) {}
+
+  // OHOS fork (AI HDR): whether the device can actually execute the SDR ->
+  // HLG conversion (self test verified).  Requests are downgraded to plain
+  // SDR on devices where it cannot.
+  virtual bool IsDynamicRangePolicySupported() const { return false; }
+
 #if defined(FML_OS_OHOS) && IMPELLER_SUPPORTS_RENDERING
   /// @brief      OHOS-only optional fast-path that lets the generator hand
   ///             back a GPU-resident texture without ever materializing the
@@ -171,7 +181,8 @@ class ImageGenerator {
   virtual std::unique_ptr<ExternalTextureSource> CreateExternalTextureSource(
       const SkISize& decode_dimensions,
       unsigned int frame_index = 0,
-      std::optional<unsigned int> prior_frame = std::nullopt) {
+      std::optional<unsigned int> prior_frame = std::nullopt,
+      int32_t dynamic_range_policy = 0) {
     return nullptr;
   }
 #endif  // FML_OS_OHOS && IMPELLER_SUPPORTS_RENDERING

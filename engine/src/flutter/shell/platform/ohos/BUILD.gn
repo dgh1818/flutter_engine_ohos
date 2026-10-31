@@ -108,6 +108,7 @@ source_set("flutter_ohos_sources") {
     "./accessibility/ohos_semantics_bridge.cpp",
     "./accessibility/ohos_semantics_node.cpp",
     "./accessibility/ohos_semantics_tree.cpp",
+    "ai_hdr_processor.cpp",
     "image_lru.cpp",
     "mpf_decoder.cpp",
     "ohos_context_gl_skia.cpp",

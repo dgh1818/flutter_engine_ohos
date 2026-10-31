@@ -18,7 +18,8 @@ class SingleFrameCodec : public Codec {
   SingleFrameCodec(const fml::RefPtr<ImageDescriptor>& descriptor,
                    uint32_t target_width,
                    uint32_t target_height,
-                   ImageDecoder::TargetPixelFormat destination_format);
+                   ImageDecoder::TargetPixelFormat destination_format,
+                   int32_t dynamic_range_policy = 0);
 
   ~SingleFrameCodec() override;
 
@@ -38,6 +39,7 @@ class SingleFrameCodec : public Codec {
   uint32_t target_width_;
   uint32_t target_height_;
   ImageDecoder::TargetPixelFormat target_format_;
+  int32_t dynamic_range_policy_ = 0;
   fml::RefPtr<CanvasImage> cached_image_;
   std::vector<tonic::DartPersistentValue> pending_callbacks_;
 

@@ -211,6 +211,8 @@ typedef CanvasPath Path;
   V(ImageDescriptor, dispose)                    \
   V(ImageDescriptor, height)                     \
   V(ImageDescriptor, instantiateCodec)           \
+  V(ImageDescriptor, instantiateCodecWithDynamicRange) \
+  V(ImageDescriptor, instantiateHdrCodec)        \
   V(ImageDescriptor, width)                      \
   V(ImageFilter, initBlur)                       \
   V(ImageFilter, initDilate)                     \

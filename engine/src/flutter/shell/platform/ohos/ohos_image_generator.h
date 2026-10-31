@@ -95,10 +95,23 @@ class OHOSImageGenerator : public ImageGenerator {
   uint32_t GetColorSpace(unsigned int frame_index) override;
 
 #if defined(FML_OS_OHOS) && IMPELLER_SUPPORTS_RENDERING
+  using ImageGenerator::CreateExternalTextureSource;
   std::unique_ptr<ExternalTextureSource> CreateExternalTextureSource(
       const SkISize& decode_dimensions,
       unsigned int frame_index,
-      std::optional<unsigned int> prior_frame) override;
+      std::optional<unsigned int> prior_frame,
+      int32_t dynamic_range_policy) override;
+
+  // OHOS fork (AI HDR).
+  void SetDynamicRangePolicy(int32_t dynamic_range_policy) override;
+
+  // OHOS fork (AI HDR).
+
+  void ComputeOriginImageInfo();
+
+  // OHOS fork (AI HDR).
+  int32_t dynamic_range_policy_ = 0;
+  bool ai_hdr_active_ = false;
 #endif  // FML_OS_OHOS && IMPELLER_SUPPORTS_RENDERING
 
   static std::shared_ptr<ImageGenerator> MakeFromData(sk_sp<SkData> data);
@@ -159,7 +172,8 @@ class OHOSImageGenerator : public ImageGenerator {
   std::shared_ptr<PixelMapOHOS> CreatePixelMap(int width,
                                                int height,
                                                int frame_index,
-                                               bool preferDma = false);
+                                               bool preferDma = false,
+                                               bool decodeHdr = false);
 
   bool CreateDmaPixelMap(OH_DecodingOptions* opts,
                          OH_PixelmapNative** pixelmap,

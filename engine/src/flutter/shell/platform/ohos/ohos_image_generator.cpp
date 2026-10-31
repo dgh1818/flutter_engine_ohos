@@ -6,6 +6,10 @@
 
 #include "ohos_image_generator.h"
 
+#include <hilog/log.h>
+
+#include "ai_hdr_processor.h"
+
 #include <multimedia/image_framework/image/image_common.h>
 #include <multimedia/image_framework/image/image_source_native.h>
 #include <multimedia/image_framework/image/pixelmap_native.h>
@@ -66,7 +70,7 @@ static OhosDecodingOptionsPtr CreateOhosDecodingOptions(int width,
                                                         int height,
                                                         int frameIndex,
                                                         float rotateDegree,
-                                                        bool isHdr) {
+                                                        bool decodeHdr) {
   OH_DecodingOptions* rawOpts = nullptr;
   Image_ErrorCode errCode = OH_DecodingOptions_Create(&rawOpts);
   if (errCode != IMAGE_SUCCESS || rawOpts == nullptr) {
@@ -76,7 +80,7 @@ static OhosDecodingOptionsPtr CreateOhosDecodingOptions(int width,
   OhosDecodingOptionsPtr opts(rawOpts);
   Image_Size size = {(uint32_t)width, (uint32_t)height};
   OH_DecodingOptions_SetDesiredSize(opts.get(), &size);
-  if (!impeller::Context::enable_hdr_ || !isHdr) {
+  if (!decodeHdr) {
     OH_DecodingOptions_SetPixelFormat(opts.get(), PIXEL_FORMAT_RGBA_8888);
     OH_DecodingOptions_SetDesiredDynamicRange(opts.get(),
                                               IMAGE_DYNAMIC_RANGE_SDR);
@@ -365,6 +369,10 @@ class OhosExternalTextureSourceImpl final : public ExternalTextureSource {
     label << "ui.Image(OHOS DMABuf " << pixelmap_->width_ << "x"
           << pixelmap_->height_ << ")";
     texture->SetLabel(label.str());
+    FML_LOG(ERROR) << "OHOS DMA: texture imported " << pixelmap_->width_ << "x"
+                   << pixelmap_->height_ << " fmt=" << pixelmap_->pixel_format_
+                   << " stride=" << pixelmap_->row_stride_
+                   << " cs=" << pixelmap_->color_space_;
     return texture;
   }
 
@@ -404,8 +412,8 @@ class OhosExternalTextureSourceImpl final : public ExternalTextureSource {
     Image_ErrorCode err = OH_PixelmapNative_GetNativeBuffer(
         pixelmap_->pixelmap_, &holder->native_buffer);
     if (err != IMAGE_SUCCESS || holder->native_buffer == nullptr) {
-      FML_LOG(INFO) << "OHOS DMA: OH_PixelmapNative_GetNativeBuffer failed ("
-                    << err << ")";
+      FML_LOG(ERROR) << "OHOS DMA: OH_PixelmapNative_GetNativeBuffer failed ("
+                     << err << ")";
       return nullptr;
     }
 
@@ -413,7 +421,7 @@ class OhosExternalTextureSourceImpl final : public ExternalTextureSource {
         OH_NativeWindow_CreateNativeWindowBufferFromNativeBuffer(
             holder->native_buffer);
     if (holder->window_buffer == nullptr) {
-      FML_LOG(INFO)
+      FML_LOG(ERROR)
           << "OHOS DMA: failed to wrap native buffer in window buffer";
       return nullptr;
     }
@@ -429,7 +437,7 @@ class OhosExternalTextureSourceImpl final : public ExternalTextureSource {
     auto texture_source = std::make_shared<impeller::OHBTextureSourceVK>(
         context_vk, holder->window_buffer, textureColorSpace);
     if (!texture_source->IsValid()) {
-      FML_LOG(INFO)
+      FML_LOG(ERROR)
           << "OHOS DMA: OHBTextureSourceVK rejected the native buffer ("
           << pixelmap_->width_ << "x" << pixelmap_->height_ << " fmt "
           << pixelmap_->pixel_format_ << ")";
@@ -576,13 +584,9 @@ OHOSImageGenerator::OHOSImageGenerator(OH_ImageSourceNative* image_source,
       data_(data),
       play_count_(playCount),
       unsupported_dma_encoded_data_(unsupportedDmaEncodedData) {
-  OH_ImageSource_Info* info = nullptr;
-  OH_ImageSourceInfo_Create(&info);
-  if (info == nullptr) {
-    FML_LOG(ERROR) << "OH_ImageSourceInfo_Create() failed, returned nullptr";
-    return;
-  }
-
+  // One-shot vendor VPE capability probe for the AI HDR feature (no-op
+  // after the first image decode).
+  ai_hdr::ProbeAndLogCapabilities();
   Image_String key;
   key.data = (char*)OHOS_IMAGE_PROPERTY_ORIENTATION;
   key.size = strlen(OHOS_IMAGE_PROPERTY_ORIENTATION);
@@ -596,34 +600,7 @@ OHOSImageGenerator::OHOSImageGenerator(OH_ImageSourceNative* image_source,
     free(value.data);
   }
 
-  uint32_t width = 0, height = 0;
-  OH_ImageSourceNative_GetImageInfo(image_source, 0, info);
-  OH_ImageSourceInfo_GetWidth(info, &width);
-  OH_ImageSourceInfo_GetHeight(info, &height);
-  OH_ImageSourceInfo_GetDynamicRange(info, &is_hdr_);
-  if (!is_hdr_) {
-    InitMpfInfo();
-  }
-  OH_ImageSourceInfo_Release(info);
-  FML_LOG(INFO) << "Image info: width=" << width << ", height=" << height
-                << ", is_hdr=" << is_hdr_;
-
-  const bool use_hdr = is_hdr_ && impeller::Context::enable_hdr_;
-  const SkColorType color_type =
-      use_hdr ? kRGBA_1010102_SkColorType : kRGBA_8888_SkColorType;
-  const SkAlphaType alpha_type =
-      use_hdr ? kOpaque_SkAlphaType : kPremul_SkAlphaType;
-  if (rotate_degree_ == 90.f || rotate_degree_ == 270.f) {
-    origin_image_info_ =
-        SkImageInfo::Make(height, width, color_type, alpha_type);
-  } else {
-    origin_image_info_ =
-        SkImageInfo::Make(width, height, color_type, alpha_type);
-  }
-  if (use_hdr) {
-    origin_image_info_ = origin_image_info_.makeColorSpace(
-        SkColorSpace::MakeRGB(SkNamedTransferFn::kHLG, SkNamedGamut::kRec2020));
-  }
+  ComputeOriginImageInfo();
 
   // this is used for gif.
   OH_ImageSourceNative_GetFrameCount(image_source, &frame_count_);
@@ -744,10 +721,62 @@ bool OHOSImageGenerator::GetPixels(const SkImageInfo& info,
         TryComposeMpfGainmap(info, pixels, row_bytes, frame_index)) {
       return true;
     }
-    image_pixelmap = CreatePixelMap(info.width(), info.height(), frame_index);
+    // OHOS fork (AI HDR): the VPE requires DMA-resident input on both sides,
+    // so the AI HDR decode runs with preferDma; ConvertSdrToHlg swaps the
+    // decoded SDR pixels for VPE-converted BT.2020 HLG ones and falls back
+    // to SDR when the conversion fails.
+    image_pixelmap = CreatePixelMap(
+        info.width(), info.height(), frame_index,
+        /*preferDma=*/ai_hdr_active_,
+        /*decodeHdr=*/
+        is_hdr_ && info.colorType() == kRGBA_1010102_SkColorType);
+    if (image_pixelmap && ai_hdr_active_) {
+      // The AI HDR input is the SDR RGBA8888 decode; the converted HLG pixels
+      // can only land in an HLG-shaped (1010102) destination, which the
+      // refreshed descriptor info provides when the surface is HDR.  An SDR
+      // destination keeps the SDR decode.
+      FML_LOG(ERROR) << "AiHdr: GetPixels dst is 1010102="
+                     << (info.colorType() == kRGBA_1010102_SkColorType);
+    }
+    if (image_pixelmap && ai_hdr_active_ &&
+        info.colorType() == kRGBA_1010102_SkColorType) {
+      if (auto* hlg = ai_hdr::ConvertSdrToHlg(
+              image_pixelmap->pixelmap_,
+              image_pixelmap->allocator_type_ == IMAGE_ALLOCATOR_TYPE_DMA)) {
+        // Wrap the converted pixelmap in a fresh PixelMapOHOS so width,
+        // height and row stride describe the HLG buffer (1010102, 64-aligned
+        // stride), not the stale SDR decode metadata. Replacing the shared
+        // wrapper releases the SDR PixelMap exactly once in its destructor.
+        image_pixelmap =
+            std::make_shared<PixelMapOHOS>(hlg, IMAGE_ALLOCATOR_TYPE_DMA);
+        image_pixelmap->setColorSpace(9);  // BT2020_HLG
+        FML_LOG(ERROR) << "AiHdr: GetPixels converted to HLG "
+                       << image_pixelmap->width_ << "x"
+                       << image_pixelmap->height_
+                       << " stride=" << image_pixelmap->row_stride_
+                       << " fmt=" << image_pixelmap->pixel_format_;
+      } else {
+        FML_LOG(ERROR) << "AiHdr: GetPixels conversion failed, SDR fallback";
+      }
+    }
   }
 
   if (image_pixelmap) {
+    const int32_t expected_pixel_format =
+        info.colorType() == kRGBA_1010102_SkColorType
+            ? PIXEL_FORMAT_RGBA_1010102
+            : PIXEL_FORMAT_RGBA_8888;
+    if (image_pixelmap->pixel_format_ != expected_pixel_format) {
+      // Both formats occupy four bytes per pixel, so allowing a mismatch does
+      // not fail the byte-size checks: it silently interprets RGBA8888 words
+      // as RGBA1010102 (or vice versa), which appears as a garbled HDR image.
+      FML_LOG(ERROR) << "OHOS image decode format mismatch: actual="
+                     << image_pixelmap->pixel_format_
+                     << " expected=" << expected_pixel_format
+                     << " ai_hdr_active=" << ai_hdr_active_
+                     << " is_hdr=" << is_hdr_;
+      return false;
+    }
     // OH_PixelmapNative_ReadPixels() needs a buffer large enough for the
     // PixelMap's physical row stride, not just width * bytes-per-pixel.
     // Keep this aligned with the working 3.41 OHOS path.
@@ -881,7 +910,10 @@ std::unique_ptr<ExternalTextureSource>
 OHOSImageGenerator::CreateExternalTextureSource(
     const SkISize& decode_dimensions,
     unsigned int frame_index,
-    std::optional<unsigned int> prior_frame) {
+    std::optional<unsigned int> prior_frame,
+    int32_t dynamic_range_policy) {
+  FML_LOG(ERROR) << "AiHdr: decode policy=" << dynamic_range_policy;
+
   if (!CanCreateDmaPixelMap(decode_dimensions, prior_frame)) {
     return nullptr;
   }
@@ -891,17 +923,108 @@ OHOSImageGenerator::CreateExternalTextureSource(
   constexpr bool kPreferDma = true;
   auto pixelmap =
       CreatePixelMap(decode_dimensions.width(), decode_dimensions.height(),
-                     static_cast<int>(frame_index), kPreferDma);
+                     static_cast<int>(frame_index), kPreferDma,
+                     /*decodeHdr=*/false);
   if (!IsValidDmaPixelMap(pixelmap, decode_dimensions)) {
     return nullptr;
   }
   LogAcceptedDmaPixelMap(pixelmap);
+  // OHOS fork (AI HDR): swap the decoded SDR DMA pixelmap for a VPE-converted
+  // BT.2020 HLG one before wrapping; the texture color space then flows from
+  // the converted pixelmap itself.  Falls back to SDR on failure.
+  if (ai_hdr_active_) {
+    if (auto* hlg = ai_hdr::ConvertSdrToHlg(pixelmap->pixelmap_, true)) {
+      // Replacing the shared wrapper releases the SDR PixelMap exactly once.
+      // Calling OH_PixelmapNative_Release here as well would leave the old
+      // wrapper holding a freed pointer and double-release it on destruction.
+      pixelmap = std::make_shared<PixelMapOHOS>(hlg, IMAGE_ALLOCATOR_TYPE_DMA);
+      // ColorSpaceName::BT2020_HLG: drives the HLG texture color space at
+      // import (id 9), without which the converted image renders as SDR.
+      pixelmap->setColorSpace(9);
+      FML_LOG(ERROR) << "AiHdr: DMA pixelmap converted to HLG "
+                     << pixelmap->width_ << "x" << pixelmap->height_
+                     << " stride=" << pixelmap->row_stride_
+                     << " colorspace=" << pixelmap->color_space_;
+    } else {
+      FML_LOG(ERROR) << "AiHdr: DMA conversion failed, SDR fallback";
+    }
+  }
   return std::make_unique<OhosExternalTextureSourceImpl>(std::move(pixelmap));
 }
 #endif  // IMPELLER_SUPPORTS_RENDERING
 
+// OHOS fork (AI HDR): (re)derives the origin image info.  Called from the
+// constructor and again when a decode request switches the dynamic range
+// policy, so HLG 10-bit images are reported like native HDR ones.
+void OHOSImageGenerator::ComputeOriginImageInfo() {
+  OH_ImageSource_Info* info = nullptr;
+  OH_ImageSourceInfo_Create(&info);
+  if (info == nullptr) {
+    FML_LOG(ERROR) << "OH_ImageSourceInfo_Create() failed, returned nullptr";
+    return;
+  }
+
+  uint32_t width = 0, height = 0;
+  OH_ImageSourceNative_GetImageInfo(image_source_, 0, info);
+  OH_ImageSourceInfo_GetWidth(info, &width);
+  OH_ImageSourceInfo_GetHeight(info, &height);
+  OH_ImageSourceInfo_GetDynamicRange(info, &is_hdr_);
+  if (!is_hdr_) {
+    InitMpfInfo();
+  }
+  OH_ImageSourceInfo_Release(info);
+  FML_LOG(INFO) << "Image info: width=" << width << ", height=" << height
+                << ", is_hdr=" << is_hdr_;
+
+  ai_hdr_active_ = dynamic_range_policy_ == 1 && !is_hdr_ &&
+                   !has_mpf_gainmap_ && ai_hdr::IsSdrToHlgSupported();
+  // Policy 1 is an explicit viewer request: decode HLG regardless of the
+  // current surface state so the app can flip the surface exactly when HLG
+  // content is ready (an early HLG surface renders the SDR hero/transition
+  // frames white).  Policy 0 keeps the surface-gated timeline behavior.
+  const bool use_hdr =
+      (dynamic_range_policy_ == 1)
+          ? (is_hdr_ || ai_hdr_active_)
+          : ((is_hdr_ || ai_hdr_active_) && impeller::Context::enable_hdr_);
+  const SkColorType color_type =
+      use_hdr ? kRGBA_1010102_SkColorType : kRGBA_8888_SkColorType;
+  const SkAlphaType alpha_type =
+      use_hdr ? kOpaque_SkAlphaType : kPremul_SkAlphaType;
+  if (rotate_degree_ == 90.f || rotate_degree_ == 270.f) {
+    origin_image_info_ =
+        SkImageInfo::Make(height, width, color_type, alpha_type);
+  } else {
+    origin_image_info_ =
+        SkImageInfo::Make(width, height, color_type, alpha_type);
+  }
+  if (use_hdr) {
+    origin_image_info_ = origin_image_info_.makeColorSpace(
+        SkColorSpace::MakeRGB(SkNamedTransferFn::kHLG, SkNamedGamut::kRec2020));
+  }
+}
+
+void OHOSImageGenerator::SetDynamicRangePolicy(int32_t dynamic_range_policy) {
+  if (dynamic_range_policy == dynamic_range_policy_) {
+    return;
+  }
+  // Native HDR content needs no VPE: honor the viewer request regardless of
+  // the self test so its decode format does not depend on the current
+  // surface state.  AI HDR on SDR content requires a working conversion;
+  // devices failing the self test display those requests as plain SDR.
+  if (dynamic_range_policy != 0 && !is_hdr_ && !ai_hdr::IsSdrToHlgSupported()) {
+    FML_LOG(ERROR) << "AiHdr: policy coerced to 0 (device unsupported)";
+    dynamic_range_policy = 0;
+  }
+  dynamic_range_policy_ = dynamic_range_policy;
+  // The image info depends on the policy (HLG 10-bit vs SDR 8-bit).
+  ComputeOriginImageInfo();
+  FML_LOG(ERROR) << "AiHdr: policy=" << dynamic_range_policy
+                 << " ai_hdr_active=" << ai_hdr_active_;
+}
+
 std::shared_ptr<ImageGenerator> OHOSImageGenerator::MakeFromData(
     sk_sp<SkData> data) {
+  FML_LOG(ERROR) << "AiHdrProbe: OHOSImageGenerator::MakeFromData entered";
   // Return directly if the image data is empty.
   if (!data->data() || !data->size()) {
     return nullptr;
@@ -964,9 +1087,10 @@ std::shared_ptr<OHOSImageGenerator::PixelMapOHOS>
 OHOSImageGenerator::CreatePixelMap(int width,
                                    int height,
                                    int frame_index,
-                                   bool preferDma) {
+                                   bool preferDma,
+                                   bool decodeHdr) {
   auto opts = CreateOhosDecodingOptions(width, height, frame_index,
-                                        rotate_degree_, is_hdr_);
+                                        rotate_degree_, decodeHdr);
   if (!opts) {
     return nullptr;
   }
@@ -1078,28 +1202,47 @@ Image_ErrorCode OHOSImageGenerator::PixelMapOHOS::ReadPixels(
     uint8_t* dst_buffer,
     uint32_t buffer_size,
     uint32_t row_stride) {
-  if (pixelmap_ == nullptr || row_stride < width_ * RBGA8888_BYTES) {
+  const uint32_t min_row_bytes = width_ * RBGA8888_BYTES;
+  if (pixelmap_ == nullptr || dst_buffer == nullptr ||
+      row_stride < min_row_bytes || row_stride_ < min_row_bytes ||
+      static_cast<uint64_t>(buffer_size) <
+          static_cast<uint64_t>(row_stride_) * height_) {
     return IMAGE_BAD_PARAMETER;
+  }
+  if (pixel_format_ == PIXEL_FORMAT_RGBA_1010102 ||
+      row_stride_ != min_row_bytes || row_stride != min_row_bytes) {
+    FML_LOG(ERROR) << "OHOS PixelMap ReadPixels layout: " << width_ << "x"
+                   << height_ << " format=" << pixel_format_
+                   << " physical_stride=" << row_stride_
+                   << " compact_stride=" << min_row_bytes
+                   << " skia_row_bytes=" << row_stride
+                   << " read_capacity=" << buffer_size;
   }
   Image_ErrorCode ret_code = IMAGE_SUCCESS;
   uint8_t* temp_dst_buffer = dst_buffer;
 
   std::unique_ptr<uint8_t[]> tempBuffer;
-  if (row_stride > width_ * RBGA8888_BYTES) {
+  const bool needs_staging =
+      row_stride_ != min_row_bytes || row_stride != min_row_bytes;
+  if (needs_staging) {
     tempBuffer = std::make_unique<uint8_t[]>(buffer_size);
     temp_dst_buffer = tempBuffer.get();
   }
-  if (temp_dst_buffer != NULL) {
+  if (temp_dst_buffer != nullptr) {
     size_t dst_size = buffer_size;
     ret_code =
         OH_PixelmapNative_ReadPixels(pixelmap_, temp_dst_buffer, &dst_size);
   }
-  if (row_stride > width_ * RBGA8888_BYTES && temp_dst_buffer != nullptr) {
+  if (needs_staging && temp_dst_buffer != nullptr) {
     if (ret_code == IMAGE_SUCCESS) {
-      for (int i = 0; i < int(height_); i++) {
-        memcpy(dst_buffer + row_stride * i,
-               temp_dst_buffer + (width_ * RBGA8888_BYTES) * i,
-               width_ * RBGA8888_BYTES);
+      // OpenHarmony PixelMap::ReadPixels strips allocator padding and writes
+      // tightly packed rows. The PixelMap's physical row_stride_ is only the
+      // source storage pitch; using it to walk this temporary output skips
+      // bytes between rows and produces a garbled image whenever DMA rows are
+      // padded. Re-stride from tight ReadPixels output into Skia's rowBytes.
+      for (uint32_t i = 0; i < height_; i++) {
+        memcpy(dst_buffer + row_stride * i, temp_dst_buffer + min_row_bytes * i,
+               min_row_bytes);
       }
     }
   }

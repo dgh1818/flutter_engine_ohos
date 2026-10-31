@@ -8981,6 +8981,16 @@ base class ImmutableBuffer extends NativeFieldWrapperClass1 {
   external void _dispose();
 }
 
+/// OHOS fork (AI HDR): per-decode-request dynamic range handling.
+enum ImageDynamicRangePolicy {
+  /// Upstream behavior: decode without touching the dynamic range.
+  preserve,
+
+  /// Convert SDR input to BT.2020 HLG via the vendor VPE; fall back to SDR
+  /// when the conversion is unsupported or fails.
+  aiHdrAuto,
+}
+
 /// A descriptor of data that can be turned into an [Image] via a [Codec].
 ///
 /// Use this class to determine the height, width, and byte size of image data
@@ -9047,6 +9057,17 @@ abstract class ImageDescriptor {
     int? targetWidth,
     int? targetHeight,
     TargetPixelFormat targetFormat = TargetPixelFormat.dontCare,
+  });
+
+  /// OHOS fork (AI HDR): like [instantiateCodec], but the decode request
+  /// carries a dynamic range policy.  With [ImageDynamicRangePolicy.aiHdrAuto]
+  /// an SDR input is converted to BT.2020 HLG by the engine; unsupported or
+  /// failing conversions fall back to SDR.
+  Future<Codec> instantiateCodecWithDynamicRange({
+    int? targetWidth,
+    int? targetHeight,
+    TargetPixelFormat targetFormat = TargetPixelFormat.dontCare,
+    required ImageDynamicRangePolicy dynamicRangePolicy,
   });
 }
 
@@ -9157,6 +9178,53 @@ base class _NativeImageDescriptor extends NativeFieldWrapperClass1 implements Im
     int targetWidth,
     int targetHeight,
     int targetFormat,
+  );
+
+  @override
+  Future<Codec> instantiateCodecWithDynamicRange({
+    int? targetWidth,
+    int? targetHeight,
+    TargetPixelFormat targetFormat = TargetPixelFormat.dontCare,
+    required ImageDynamicRangePolicy dynamicRangePolicy,
+  }) async {
+    if (targetWidth != null && targetWidth <= 0) {
+      targetWidth = null;
+    }
+    if (targetHeight != null && targetHeight <= 0) {
+      targetHeight = null;
+    }
+
+    if (targetWidth == null && targetHeight == null) {
+      targetWidth = width;
+      targetHeight = height;
+    } else if (targetWidth == null && targetHeight != null) {
+      targetWidth = (targetHeight * (width / height)).round();
+    } else if (targetHeight == null && targetWidth != null) {
+      targetHeight = targetWidth ~/ (width / height);
+    }
+    assert(targetWidth != null);
+    assert(targetHeight != null);
+
+    final Codec codec = _NativeCodec._();
+    _instantiateCodecWithDynamicRange(
+      codec,
+      targetWidth!,
+      targetHeight!,
+      targetFormat.index,
+      dynamicRangePolicy.index,
+    );
+    return codec;
+  }
+
+  @Native<Void Function(Pointer<Void>, Handle, Int32, Int32, Int32, Int32)>(
+    symbol: 'ImageDescriptor::instantiateHdrCodec',
+  )
+  external void _instantiateCodecWithDynamicRange(
+    Codec outCodec,
+    int targetWidth,
+    int targetHeight,
+    int targetFormat,
+    int dynamicRangePolicy,
   );
 
   @override

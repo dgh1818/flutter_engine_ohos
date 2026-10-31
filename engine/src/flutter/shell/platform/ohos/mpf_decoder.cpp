@@ -551,6 +551,9 @@ OH_PixelmapNative* CopyPixelmapToDmaRGBA8888(OH_PixelmapNative* src) {
     return nullptr;
   }
 
+  const size_t tight_size = static_cast<size_t>(tight_stride) * info.height;
+  // ReadPixels requires allocation-sized capacity but strips DMA row padding
+  // from packed RGB output. The first tight_size bytes are contiguous rows.
   std::vector<uint8_t> src_buf(static_cast<size_t>(info.row_stride) *
                                info.height);
   size_t src_size = src_buf.size();
@@ -616,11 +619,9 @@ OH_PixelmapNative* CopyPixelmapToDmaRGBA8888(OH_PixelmapNative* src) {
 
   std::vector<uint8_t> dst_buf(
       static_cast<size_t>(dst_info.row_stride) * info.height, 0);
-  for (uint32_t y = 0; y < info.height; y++) {
-    memcpy(dst_buf.data() + static_cast<size_t>(dst_info.row_stride) * y,
-           src_buf.data() + static_cast<size_t>(info.row_stride) * y,
-           tight_stride);
-  }
+  // WritePixels consumes matching tightly packed rows and inserts the DMA
+  // padding internally; its size argument is capacity, not source pitch.
+  memcpy(dst_buf.data(), src_buf.data(), tight_size);
 
   Image_ErrorCode wret =
       OH_PixelmapNative_WritePixels(dst_pm, dst_buf.data(), dst_buf.size());
@@ -647,6 +648,7 @@ OH_PixelmapNative* ExpandSingleChannelToDmaRGBA8888(OH_PixelmapNative* src) {
     return nullptr;
   }
 
+  const uint32_t src_tight_stride = info.width;
   std::vector<uint8_t> src_buf(static_cast<size_t>(info.row_stride) *
                                info.height);
   size_t src_size = src_buf.size();
@@ -720,9 +722,8 @@ OH_PixelmapNative* ExpandSingleChannelToDmaRGBA8888(OH_PixelmapNative* src) {
       static_cast<size_t>(dst_info.row_stride) * info.height, 0);
   for (uint32_t y = 0; y < info.height; y++) {
     const uint8_t* src_row =
-        src_buf.data() + static_cast<size_t>(info.row_stride) * y;
-    uint8_t* dst_row =
-        dst_buf.data() + static_cast<size_t>(dst_info.row_stride) * y;
+        src_buf.data() + static_cast<size_t>(src_tight_stride) * y;
+    uint8_t* dst_row = dst_buf.data() + static_cast<size_t>(tight_stride) * y;
     for (uint32_t x = 0; x < info.width; x++) {
       const uint8_t v = src_row[x];
       uint8_t* dst_px = dst_row + static_cast<size_t>(x) * kRgba8888Bytes;
@@ -791,8 +792,12 @@ bool ComposeGainmapToRGBA1010102(OH_PixelmapNative* sdr,
     return false;
   }
 
-  const size_t tight_size = static_cast<size_t>(tight_stride) * sdr_info.height;
-  std::vector<uint8_t> sdr_buf(tight_size);
+  // ReadPixels checks the caller's capacity against the PixelMap's physical
+  // allocation size, but writes packed RGB rows contiguously. Allocate using
+  // the physical stride for the contract and walk the returned bytes using
+  // tight_stride below.
+  std::vector<uint8_t> sdr_buf(static_cast<size_t>(sdr_info.row_stride) *
+                               sdr_info.height);
   size_t sdr_size = sdr_buf.size();
   Image_ErrorCode sdr_ret =
       OH_PixelmapNative_ReadPixels(sdr, sdr_buf.data(), &sdr_size);
@@ -801,7 +806,8 @@ bool ComposeGainmapToRGBA1010102(OH_PixelmapNative* sdr,
     return false;
   }
 
-  std::vector<uint8_t> gain_buf(tight_size);
+  std::vector<uint8_t> gain_buf(static_cast<size_t>(gain_info.row_stride) *
+                                gain_info.height);
   size_t gain_size = gain_buf.size();
   Image_ErrorCode gain_ret =
       OH_PixelmapNative_ReadPixels(gainmap, gain_buf.data(), &gain_size);
@@ -1277,23 +1283,22 @@ bool ComposeMpfGainmap(const MpfGainmapComposeInput& input,
     return false;
   }
 
-  ImageProcessing_ErrorCode proc_ret =
-      OH_ImageProcessing_InitializeEnvironment();
-  if (proc_ret != IMAGE_PROCESSING_SUCCESS) {
-    FML_LOG(ERROR) << "[MPF] ImageProcessing init failed:" << proc_ret;
-    if (color_space_sdr != nullptr && color_space_hdr != nullptr) {
-      OH_NativeColorSpaceManager_Destroy(color_space_sdr);
-      OH_NativeColorSpaceManager_Destroy(color_space_hdr);
-    }
-    return false;
-  }
+  // OHOS fork (AI HDR): the VPE environment is process-global; initialize it
+  // once and never deinitialize so concurrent users (AI HDR conversions)
+  // keep it alive. Repeated Initialize calls error out once the init-once
+  // probe has run, and a Deinit here would break them in return.
+  static std::once_flag env_once;
+  std::call_once(env_once, [] {
+    ImageProcessing_ErrorCode env = OH_ImageProcessing_InitializeEnvironment();
+    FML_LOG(ERROR) << "[MPF] ImageProcessing init -> " << static_cast<int>(env);
+  });
+  ImageProcessing_ErrorCode proc_ret = IMAGE_PROCESSING_SUCCESS;
 
   OH_ImageProcessing* instance = nullptr;
   proc_ret =
       OH_ImageProcessing_Create(&instance, IMAGE_PROCESSING_TYPE_COMPOSITION);
   if (proc_ret != IMAGE_PROCESSING_SUCCESS || instance == nullptr) {
     FML_LOG(ERROR) << "[MPF] ImageProcessing create failed:" << proc_ret;
-    OH_ImageProcessing_DeinitializeEnvironment();
     if (color_space_sdr != nullptr && color_space_hdr != nullptr) {
       OH_NativeColorSpaceManager_Destroy(color_space_sdr);
       OH_NativeColorSpaceManager_Destroy(color_space_hdr);
@@ -1309,7 +1314,6 @@ bool ComposeMpfGainmap(const MpfGainmapComposeInput& input,
   }
 
   OH_ImageProcessing_Destroy(instance);
-  OH_ImageProcessing_DeinitializeEnvironment();
 
   if (color_space_sdr != nullptr && color_space_hdr != nullptr) {
     OH_NativeColorSpaceManager_Destroy(color_space_sdr);

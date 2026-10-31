@@ -6,6 +6,11 @@
  */
 
 #include "flutter/shell/platform/ohos/ohos_shell_holder.h"
+
+#include <hilog/log.h>
+#include <thread>
+
+#include "flutter/shell/platform/ohos/ai_hdr_processor.h"
 #include "flutter/common/constants.h"
 #include "flutter/fml/native_library.h"
 #include "flutter/fml/platform/ohos/hiappevent/ohos_hiappevent.h"
@@ -292,6 +297,16 @@ OHOSShellHolder::OHOSShellHolder(
         1);
 
     FML_DLOG(INFO) << "Registered ohos image decoder";
+
+    // One-shot vendor VPE AI HDR capability probe; engine startup is the
+    // most reliable trigger (does not depend on any image decode path).
+    // Runs on its own thread: InitializeEnvironment touches the GPU env and
+    // must never block the platform thread during engine bring-up.
+    std::thread([]() {
+      FML_LOG(ERROR) << "AiHdrProbe: probe thread entered";
+      ai_hdr::ProbeAndLogCapabilities();
+      FML_LOG(ERROR) << "AiHdrProbe: probe thread done";
+    }).detach();
   }
 
   platform_view_ = weak_platform_view;

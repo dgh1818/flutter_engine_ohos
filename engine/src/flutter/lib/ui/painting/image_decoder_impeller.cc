@@ -403,7 +403,8 @@ SkISize GetOhosDmaDecodeDimensions(ImageDescriptor* rawDescriptor,
 bool TryCreateOhosDmaImage(ImageDescriptor* rawDescriptor,
                            const std::shared_ptr<impeller::Context>& context,
                            SkISize targetSize,
-                           const ImageDecoder::ImageResult& result) {
+                           const ImageDecoder::ImageResult& result,
+                           int32_t dynamic_range_policy) {
   if (!rawDescriptor->is_compressed() ||
       context->GetBackendType() != impeller::Context::BackendType::kVulkan) {
     return false;
@@ -412,8 +413,8 @@ bool TryCreateOhosDmaImage(ImageDescriptor* rawDescriptor,
       context->GetResourceAllocator()->GetMaxTextureSizeSupported();
   const SkISize decodeDimensions =
       GetOhosDmaDecodeDimensions(rawDescriptor, targetSize, maxTextureSize);
-  auto externalSource =
-      rawDescriptor->CreateExternalTextureSource(decodeDimensions);
+  auto externalSource = rawDescriptor->CreateExternalTextureSource(
+      decodeDimensions, 0, std::nullopt, dynamic_range_policy);
   if (!externalSource) {
     FML_LOG(INFO) << "OHOS DMA: regular image decode path selected "
                      "(fast path unavailable)";
@@ -865,7 +866,8 @@ void ImageDecoderImpeller::Decode(fml::RefPtr<ImageDescriptor> descriptor,
       const SkISize target_size =
           SkISize::Make(static_cast<int32_t>(options.target_width),
                         static_cast<int32_t>(options.target_height));
-      if (TryCreateOhosDmaImage(raw_descriptor, context, target_size, result)) {
+      if (TryCreateOhosDmaImage(raw_descriptor, context, target_size, result,
+                                options.dynamic_range_policy)) {
         return;
       }
     }

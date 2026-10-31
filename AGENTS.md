@@ -20,6 +20,10 @@ This rule does NOT apply to modifying an existing symbol's implementation (signa
 
 ## OHOS Flutter Engine WSL-first build and synchronization
 
+- Keep all 3.44.9 OHOS/HDR source changes on the existing WSL branch oh-3.44.9-dev-hdr; do not create task branches. Before merging any existing branch, compare its commit-only history and inspect the worktree and stashes; never assume changes were integrated.
+
+CRITICAL: ALWAYS build the Engine with `./ohos -t release`, run from `/home/dgh18/engine_3.44.9/engine` (the directory containing the `ohos` script). Never build with raw `ninja`/`gn`/`autoninja` invocations or hand-picked out directories: the script pins the WSL OpenHarmony SDK, toolchain and release args, and artifacts from any other build path must be treated as untrusted and never installed or synced.
+
 For OHOS/HDR Engine work, follow this order and keep the WSL checkout as the source of truth:
 
 - Modify `/home/dgh18/engine_3.44.9` in Ubuntu WSL first. Do not make the initial Engine change in the Windows mirror or in a copied staging directory.
@@ -27,6 +31,8 @@ For OHOS/HDR Engine work, follow this order and keep the WSL checkout as the sou
 - Do not copy any Engine artifact into the Windows FVM cache before the WSL build has completed successfully.
 - After a successful WSL `./ohos -t release`, verify and record hashes before copying the matching build outputs into `F:\fvm\versions\custom_3.44.9\bin\cache`, including the OHOS Engine/HAR and any produced `dill`, `sky_engine`, or modified Dart framework artifacts. Copy only the corresponding files from that build; do not overwrite unrelated Flutter/Dart snapshots. Keep `F:\immich_ohos\mobile\ohos\har\flutter.har` synchronized for app builds when it is the selected app Engine artifact.
 - Only after the WSL artifacts pass validation, synchronize the modified WSL source files (including this `AGENTS.md`) into `F:\flutter_engine_ohos_3.44.9` for future Windows host builds. Preserve unrelated Windows-side dirty changes; never reset the checkout or overwrite files outside the explicitly synchronized file set.
+- After the modified WSL source files have been synchronized into F:\flutter_engine_ohos_3.44.9, compile the Windows host release with F:\flutter_engine_ohos_3.44.9\engine\src\flutter\bin\et.bat build --config host_release. This Windows host-tool build is separate from the WSL OHOS target build and must use the Windows host toolchain, not the DevEco OHOS SDK. Verify the exit status and output timestamps, sizes, and SHA256 before copying host artifacts.
+- After a successful host build, synchronize engine\src\out\host_release\gen_snapshot.exe into F:\fvm\versions\custom_3.44.9\bin\cache\artifacts\engine\ohos-arm64-release\windows-x64\gen_snapshot.exe. Record source and destination paths, timestamps, sizes, and SHA256; this is the Windows host executable used by the FVM OHOS release build.
 - Every artifact/source synchronization must record source and destination paths, timestamps, sizes, and SHA256. Run the app's FVM build and device installation/runtime validation as separate gates.
 - Only after the Engine artifacts have been copied and verified may the Windows-side OpenHarmony SDK be used to compile `immich_ohos`; that Windows SDK step is for the app, not for the Engine.
 - If the Engine build succeeds but FVM/app/device validation is incomplete, report the work as unverified rather than complete.

@@ -47,6 +47,10 @@ class ImageDecoder {
     uint32_t target_width = 0;
     uint32_t target_height = 0;
     TargetPixelFormat target_format = TargetPixelFormat::kDontCare;
+    // OHOS fork (AI HDR): per-decode-request dynamic range handling.
+    // 0 = preserve (upstream behavior), 1 = aiHdrAuto (convert SDR input
+    // to BT.2020 HLG).  Additive field; defaults keep upstream behavior.
+    int32_t dynamic_range_policy = 0;
   };
 
   // Takes an image descriptor and returns a handle to a texture resident on the

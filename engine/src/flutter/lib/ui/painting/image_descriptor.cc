@@ -223,6 +223,53 @@ void ImageDescriptor::instantiateCodec(Dart_Handle codec_handle,
   ui_codec->AssociateWithDartWrapper(codec_handle);
 }
 
+// OHOS fork (AI HDR): identical to instantiateCodec, but the created codec
+// tags its single decode request with a dynamic range policy (0 = preserve,
+// 1 = aiHdrAuto).  Multi-frame codecs ignore the policy and keep upstream
+// behavior.
+void ImageDescriptor::instantiateHdrCodec(Dart_Handle codec_handle,
+                                          int32_t target_width,
+                                          int32_t target_height,
+                                          int32_t destination_format,
+                                          int32_t dynamic_range_policy) {
+  FML_LOG(ERROR) << "AiHdr: codec policy=" << dynamic_range_policy;
+  fml::RefPtr<Codec> ui_codec;
+  if (!generator_ || generator_->GetFrameCount() == 1) {
+    // The descriptor's generator is created per decode request, so tagging
+    // it here keeps the policy per-request in practice.
+    if (generator_) {
+      generator_->SetDynamicRangePolicy(dynamic_range_policy);
+      // The generator recomputes its image info for the requested policy
+      // (e.g. HLG 1010102 for AI HDR); refresh the descriptor cache, which
+      // was captured at construction time with the default (SDR) policy, so
+      // the decode bitmap is allocated in the destination format.
+      image_info_ = CreateImageInfo(generator_->GetInfo());
+    }
+    ui_codec = fml::MakeRefCounted<SingleFrameCodec>(
+        static_cast<fml::RefPtr<ImageDescriptor>>(this),      //
+        target_width,                                         //
+        target_height,                                        //
+        ToImageDecoderTargetPixelFormat(destination_format),  //
+        dynamic_range_policy);
+  } else {
+    ui_codec = fml::MakeRefCounted<MultiFrameCodec>(generator_);
+  }
+  ui_codec->AssociateWithDartWrapper(codec_handle);
+}
+
+// OHOS fork (AI HDR): the FFI symbol name is 'instantiateCodecWithDynamicRange'
+// to match the Dart @Native binding compiled into the framework dill; the
+// implementation lives in instantiateHdrCodec.
+void ImageDescriptor::instantiateCodecWithDynamicRange(
+    Dart_Handle codec_handle,
+    int32_t target_width,
+    int32_t target_height,
+    int32_t destination_format,
+    int32_t dynamic_range_policy) {
+  instantiateHdrCodec(codec_handle, target_width, target_height,
+                      destination_format, dynamic_range_policy);
+}
+
 sk_sp<SkImage> ImageDescriptor::image() const {
   return generator_->GetImage();
 }
@@ -238,12 +285,13 @@ std::unique_ptr<ExternalTextureSource>
 ImageDescriptor::CreateExternalTextureSource(
     const SkISize& decode_dimensions,
     unsigned int frame_index,
-    std::optional<unsigned int> prior_frame) const {
+    std::optional<unsigned int> prior_frame,
+    int32_t dynamic_range_policy) const {
   if (!generator_) {
     return nullptr;
   }
-  return generator_->CreateExternalTextureSource(decode_dimensions, frame_index,
-                                                 prior_frame);
+  return generator_->CreateExternalTextureSource(
+      decode_dimensions, frame_index, prior_frame, dynamic_range_policy);
 }
 #endif  // FML_OS_OHOS && IMPELLER_SUPPORTS_RENDERING
 
