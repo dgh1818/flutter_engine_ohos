@@ -82,38 +82,30 @@ export default function ohosAutoFillHelperTest() {
       expect(OhosAutoFillHelper.hintToAutoFillType('username')).assertEqual(2);
       expect(OhosAutoFillHelper.hintToAutoFillType('newUsername')).assertEqual(2);
     });
-    it('maps emailAddress hint', Level.LEVEL1, () => {
-      expect(OhosAutoFillHelper.hintToAutoFillType('emailAddress')).assertEqual(16);
+    it('maps emailAddress hint to USER_NAME (email acts as the account)', Level.LEVEL1, () => {
+      expect(OhosAutoFillHelper.hintToAutoFillType('emailAddress')).assertEqual(2);
     });
-    it('maps phoneNumber / phoneNumberDevice hint', Level.LEVEL1, () => {
-      expect(OhosAutoFillHelper.hintToAutoFillType('phoneNumber')).assertEqual(13);
-      expect(OhosAutoFillHelper.hintToAutoFillType('phoneNumberDevice')).assertEqual(13);
+    it('maps phoneNumber / phoneNumberDevice / phoneNational hints to USER_NAME', Level.LEVEL1, () => {
+      expect(OhosAutoFillHelper.hintToAutoFillType('phoneNumber')).assertEqual(2);
+      expect(OhosAutoFillHelper.hintToAutoFillType('phoneNumberDevice')).assertEqual(2);
+      expect(OhosAutoFillHelper.hintToAutoFillType('phoneNational')).assertEqual(2);
     });
-    it('maps phoneCountryCode hint', Level.LEVEL1, () => {
-      expect(OhosAutoFillHelper.hintToAutoFillType('phoneCountryCode')).assertEqual(14);
+    it('returns UNSPECIFIED for phoneCountryCode (not an account field)', Level.LEVEL1, () => {
+      expect(OhosAutoFillHelper.hintToAutoFillType('phoneCountryCode')).assertEqual(0);
     });
-    it('maps phoneNational / fullPhoneNumber hint', Level.LEVEL1, () => {
-      expect(OhosAutoFillHelper.hintToAutoFillType('phoneNational')).assertEqual(15);
-      expect(OhosAutoFillHelper.hintToAutoFillType('fullPhoneNumber')).assertEqual(15);
-    });
-    it('maps streetAddress / fullStreetAddress hint', Level.LEVEL1, () => {
-      expect(OhosAutoFillHelper.hintToAutoFillType('streetAddress')).assertEqual(4);
-      expect(OhosAutoFillHelper.hintToAutoFillType('fullStreetAddress')).assertEqual(4);
-    });
-    it('maps addressLocality / addressRegion / addressCountry / postalCode hints', Level.LEVEL1, () => {
-      expect(OhosAutoFillHelper.hintToAutoFillType('addressLocality')).assertEqual(7);
-      expect(OhosAutoFillHelper.hintToAutoFillType('addressRegion')).assertEqual(8);
-      expect(OhosAutoFillHelper.hintToAutoFillType('addressCountry')).assertEqual(9);
-      expect(OhosAutoFillHelper.hintToAutoFillType('postalCode')).assertEqual(6);
-    });
-    it('maps personName / personGivenName / personFamilyName hints', Level.LEVEL1, () => {
-      expect(OhosAutoFillHelper.hintToAutoFillType('personName')).assertEqual(10);
-      expect(OhosAutoFillHelper.hintToAutoFillType('personGivenName')).assertEqual(12);
-      expect(OhosAutoFillHelper.hintToAutoFillType('personFamilyName')).assertEqual(11);
-    });
-    it('maps creditCardNumber / nickname hints', Level.LEVEL1, () => {
-      expect(OhosAutoFillHelper.hintToAutoFillType('creditCardNumber')).assertEqual(17);
-      expect(OhosAutoFillHelper.hintToAutoFillType('nickname')).assertEqual(24);
+    it('returns UNSPECIFIED for address / person / card / nickname hints', Level.LEVEL1, () => {
+      expect(OhosAutoFillHelper.hintToAutoFillType('streetAddress')).assertEqual(0);
+      expect(OhosAutoFillHelper.hintToAutoFillType('fullStreetAddress')).assertEqual(0);
+      expect(OhosAutoFillHelper.hintToAutoFillType('addressLocality')).assertEqual(0);
+      expect(OhosAutoFillHelper.hintToAutoFillType('addressRegion')).assertEqual(0);
+      expect(OhosAutoFillHelper.hintToAutoFillType('addressCountry')).assertEqual(0);
+      expect(OhosAutoFillHelper.hintToAutoFillType('postalCode')).assertEqual(0);
+      expect(OhosAutoFillHelper.hintToAutoFillType('personName')).assertEqual(0);
+      expect(OhosAutoFillHelper.hintToAutoFillType('personGivenName')).assertEqual(0);
+      expect(OhosAutoFillHelper.hintToAutoFillType('personFamilyName')).assertEqual(0);
+      expect(OhosAutoFillHelper.hintToAutoFillType('creditCardNumber')).assertEqual(0);
+      expect(OhosAutoFillHelper.hintToAutoFillType('nickname')).assertEqual(0);
+      expect(OhosAutoFillHelper.hintToAutoFillType('fullPhoneNumber')).assertEqual(0);
     });
     it('returns UNSPECIFIED for unknown hint', Level.LEVEL1, () => {
       expect(OhosAutoFillHelper.hintToAutoFillType('notARealHint')).assertEqual(0);
@@ -276,6 +268,31 @@ export default function ohosAutoFillHelperTest() {
       const vd: OhosViewData = makeViewData(nodes);
       expect(OhosAutoFillHelper.validateSaveViewData(vd)).assertEqual('ok');
     });
+    it('returns ok when username + newPassword (registration form)', Level.LEVEL1, () => {
+      const nodes: Array<OhosPageNodeInfo> = new Array<OhosPageNodeInfo>(
+        makePageNode(0, 2, 'alice'),   // USERNAME with value
+        makePageNode(1, 3, 's3cret!'), // NEW_PASSWORD with value
+      );
+      const vd: OhosViewData = makeViewData(nodes);
+      expect(OhosAutoFillHelper.validateSaveViewData(vd)).assertEqual('ok');
+    });
+    it('issue #3035 regression: email-hint account + password passes save validation', Level.LEVEL1, () => {
+      const cfgs: Map<string, Configuration> = new Map<string, Configuration>();
+      const cfgE: Configuration = makeConfig(makeAutofill('e', new Array<string>('emailAddress'), ''));
+      cfgs.set('e', cfgE);
+      const cfgP: Configuration = makeConfig(makeAutofill('p', new Array<string>('password'), ''));
+      cfgs.set('p', cfgP);
+      const texts: Map<string, string> = new Map<string, string>();
+      texts.set('e', 'a@b.com');
+      texts.set('p', 'secret');
+      const m: Map<string, number> = new Map<string, number>();
+      m.set('e', 0);
+      m.set('p', 1);
+      const vd = OhosAutoFillHelper.buildViewDataForSave(makeHostInfo(), cfgs, texts, m, 'e', null, null);
+      // email hint must be declared as USER_NAME on the node
+      expect(vd.pageNodeInfos[0].autoFillType).assertEqual(2);
+      expect(OhosAutoFillHelper.validateSaveViewData(vd)).assertEqual('ok');
+    });
     it('returns missing_username_value when no username value', Level.LEVEL1, () => {
       const nodes: Array<OhosPageNodeInfo> = new Array<OhosPageNodeInfo>(
         makePageNode(0, 2, ''),        // USERNAME empty
@@ -305,7 +322,7 @@ export default function ohosAutoFillHelperTest() {
       const nodes: Array<OhosPageNodeInfo> = new Array<OhosPageNodeInfo>(
         makePageNode(0, 2, 'alice'),
         makePageNode(1, 1, ''),         // empty value, should be skipped
-        makePageNode(2, 16, 'a@b.com'),
+        makePageNode(2, 2, 'a@b.com'),
       );
       const vd: OhosViewData = makeViewData(nodes);
       const m: Map<number, string> = OhosAutoFillHelper.parseFillResult(vd as Any);
