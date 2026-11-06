@@ -10,13 +10,13 @@
 #include <hilog/log.h>
 #include <thread>
 
-#include "flutter/shell/platform/ohos/ai_hdr_processor.h"
 #include "flutter/common/constants.h"
 #include "flutter/fml/native_library.h"
 #include "flutter/fml/platform/ohos/hiappevent/ohos_hiappevent.h"
 #include "flutter/shell/common/rasterizer.h"
 #include "flutter/shell/common/run_configuration.h"
 #include "flutter/shell/common/thread_host.h"
+#include "flutter/shell/platform/ohos/ai_hdr_processor.h"
 #include "flutter/shell/platform/ohos/ohos_display.h"
 #include "flutter/shell/platform/ohos/ohos_vsync_voting_mgr.h"
 

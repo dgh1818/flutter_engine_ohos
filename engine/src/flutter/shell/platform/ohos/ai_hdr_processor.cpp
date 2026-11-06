@@ -1,10 +1,10 @@
 #include "flutter/shell/platform/ohos/ai_hdr_processor.h"
 
+#include <unistd.h>
 #include <condition_variable>
 #include <cstdio>
 #include <cstring>
 #include <mutex>
-#include <unistd.h>
 #include <vector>
 
 #include <multimedia/image_framework/image/image_common.h>
@@ -463,10 +463,10 @@ OH_PixelmapNative* ConvertSdrToHlg(OH_PixelmapNative* sdr, bool source_is_dma) {
   uint32_t src_h = 0;
   uint32_t src_stride = 0;
   int32_t src_format = 0;
-  const bool src_aligned = AiHdrGetPixelmapInfo(sdr, &src_w, &src_h, &src_stride,
-                                                &src_format) &&
-                           src_format == PIXEL_FORMAT_RGBA_8888 &&
-                           (src_stride % kAiHdrRowStrideAlignment) == 0;
+  const bool src_aligned =
+      AiHdrGetPixelmapInfo(sdr, &src_w, &src_h, &src_stride, &src_format) &&
+      src_format == PIXEL_FORMAT_RGBA_8888 &&
+      (src_stride % kAiHdrRowStrideAlignment) == 0;
   if (!source_is_dma || !src_aligned) {
     if (source_is_dma) {
       FML_LOG(ERROR) << "AiHdr: DMA input stride " << src_stride
@@ -578,8 +578,8 @@ OH_PixelmapNative* ConvertSdrToHlg(OH_PixelmapNative* sdr, bool source_is_dma) {
       usleep(100 * 1000);
     }
     OH_ImageProcessing* processor = nullptr;
-    err = OH_ImageProcessing_Create(&processor,
-                                    IMAGE_PROCESSING_TYPE_COLOR_SPACE_CONVERSION);
+    err = OH_ImageProcessing_Create(
+        &processor, IMAGE_PROCESSING_TYPE_COLOR_SPACE_CONVERSION);
     if (err == IMAGE_PROCESSING_SUCCESS && processor != nullptr) {
       err = OH_ImageProcessing_ConvertColorSpace(processor, dma_src, hlg);
       converted = (err == IMAGE_PROCESSING_SUCCESS);

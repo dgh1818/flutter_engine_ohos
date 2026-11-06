@@ -83,10 +83,10 @@ class ImageDescriptor : public RefCountedDartWrappable<ImageDescriptor> {
 
   // OHOS fork (AI HDR): see instantiateCodecWithDynamicRange impl.
   void instantiateCodecWithDynamicRange(Dart_Handle codec_handle,
-                                               int32_t target_width,
-                                               int32_t target_height,
-                                               int32_t destination_format,
-                                               int32_t dynamic_range_policy);
+                                        int32_t target_width,
+                                        int32_t target_height,
+                                        int32_t destination_format,
+                                        int32_t dynamic_range_policy);
   void instantiateHdrCodec(Dart_Handle codec,
                            int32_t target_width,
                            int32_t target_height,

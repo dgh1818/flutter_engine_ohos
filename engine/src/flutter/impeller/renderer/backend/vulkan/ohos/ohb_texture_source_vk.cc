@@ -21,8 +21,9 @@ using ONBProperties = vk::StructureChain<vk::NativeBufferPropertiesOHOS,
                                          vk::NativeBufferFormatPropertiesOHOS>;
 
 static bool IsOpaque(int32_t format) {
-  return format == static_cast<int32_t>(
-                       OH_NativeBuffer_Format::NATIVEBUFFER_PIXEL_FMT_RGBX_8888);
+  return format ==
+         static_cast<int32_t>(
+             OH_NativeBuffer_Format::NATIVEBUFFER_PIXEL_FMT_RGBX_8888);
 }
 
 static PixelFormat ToPixelFormat(int32_t format) {
@@ -346,9 +347,9 @@ OHBTextureSourceVK::OHBTextureSourceVK(
   OH_NativeBuffer_Config nativebuffer_config;
   OH_NativeBuffer_GetConfig(native_buffer, &nativebuffer_config);
 
-  auto image_view = CreateVkImageView(
-      device, image.get(), yuv_conversion->GetConversion(), onb_format,
-      nativebuffer_config.format);
+  auto image_view =
+      CreateVkImageView(device, image.get(), yuv_conversion->GetConversion(),
+                        onb_format, nativebuffer_config.format);
   if (!image_view) {
     FML_LOG(ERROR) << "CreateVkImageView failed";
     return;
