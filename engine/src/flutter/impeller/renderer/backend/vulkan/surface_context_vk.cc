@@ -115,6 +115,10 @@ bool SurfaceContextVK::SetSwapchain(std::shared_ptr<SwapchainVK> swapchain) {
   return true;
 }
 
+bool SurfaceContextVK::HasValidSwapchain() const {
+  return swapchain_ && swapchain_->IsValid();
+}
+
 void SurfaceContextVK::ClearSwapchain() {
   swapchain_changed_ = true;
   swapchain_ = nullptr;

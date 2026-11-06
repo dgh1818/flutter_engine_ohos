@@ -480,7 +480,7 @@ export class FlutterAbility extends UIAbility implements Host {
    */
   shouldDestroyEngineWithHost(): boolean {
     if ((this.getCachedEngineId() != null && this.getCachedEngineId().length > 0) ||
-    this.delegate!!.isFlutterEngineFromHost()) {
+      this.delegate?.isFlutterEngineFromHost() === true) {
       // Only destroy a cached engine if explicitly requested by app developer.
       return false;
     }

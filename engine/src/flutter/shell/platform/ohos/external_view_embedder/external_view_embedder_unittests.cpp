@@ -645,6 +645,7 @@ class FakeOHOSSurface : public OHOSSurface {
         knobs_(std::move(knobs)) {}
 
   bool IsValid() const override { return true; }
+  bool HasValidOnscreenContext() const override { return true; }
   void TeardownOnScreenContext() override {}
   bool OnScreenSurfaceResize(const DlISize& size) override { return true; }
   bool ResourceContextMakeCurrent() override { return true; }
@@ -1455,8 +1456,7 @@ struct ReportedSize {
 
 }  // namespace
 
-TEST(OHOSWindowingViewEmbedderTest,
-     SizedToContentViewReportsSizeOnlyOnChange) {
+TEST(OHOSWindowingViewEmbedderTest, SizedToContentViewReportsSizeOnlyOnChange) {
   ReportedSize reported;
   OHOSWindowingViewEmbedder embedder(
       [&](int64_t view_id, double width, double height) {
@@ -1527,7 +1527,8 @@ TEST(OHOSWindowingViewEmbedderTest,
   auto surface = std::make_unique<NiceMock<SurfaceMock>>();
   EXPECT_CALL(*surface, AcquireFrame(_))
       .Times(1)
-      .WillOnce(::testing::InvokeWithoutArgs([]() { return MakeTestFrame(nullptr); }));
+      .WillOnce(::testing::InvokeWithoutArgs(
+          []() { return MakeTestFrame(nullptr); }));
   embedder.RegisterViewSurface(7, std::move(surface));
   embedder.SetViewSizedToContent(7, true);
   embedder.PrepareFlutterView(DlISize(300, 200), 1.0);
@@ -1541,7 +1542,8 @@ TEST(OHOSWindowingViewEmbedderTest,
   auto surface2 = std::make_unique<NiceMock<SurfaceMock>>();
   EXPECT_CALL(*surface2, AcquireFrame(_))
       .Times(1)
-      .WillOnce(::testing::InvokeWithoutArgs([]() { return MakeTestFrame(nullptr); }));
+      .WillOnce(::testing::InvokeWithoutArgs(
+          []() { return MakeTestFrame(nullptr); }));
   embedder.RegisterViewSurface(7, std::move(surface2));
   embedder.PrepareFlutterView(DlISize(300, 200), 1.0);
   embedder.SubmitFlutterView(7, nullptr, nullptr, MakeTestFrame(nullptr));
@@ -1553,7 +1555,8 @@ TEST(OHOSWindowingViewEmbedderTest,
   auto surface3 = std::make_unique<NiceMock<SurfaceMock>>();
   EXPECT_CALL(*surface3, AcquireFrame(_))
       .Times(1)
-      .WillOnce(::testing::InvokeWithoutArgs([]() { return MakeTestFrame(nullptr); }));
+      .WillOnce(::testing::InvokeWithoutArgs(
+          []() { return MakeTestFrame(nullptr); }));
   embedder.RegisterViewSurface(7, std::move(surface3));
   embedder.PrepareFlutterView(DlISize(300, 200), 1.0);
   embedder.SubmitFlutterView(7, nullptr, nullptr, MakeTestFrame(nullptr));

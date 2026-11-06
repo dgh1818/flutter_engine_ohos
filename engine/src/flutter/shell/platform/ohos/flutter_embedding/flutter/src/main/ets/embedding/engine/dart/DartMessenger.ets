@@ -75,6 +75,7 @@ export class DartMessenger implements BinaryMessenger, PlatformMessageHandler {
    * @param handler - The message handler, or null to remove the handler
    * @param taskQueue - Optional task queue for processing messages
    * @param args - Additional arguments to pass to the handler
+   * @throws {Error} if the task queue is unrecognized
    */
   setMessageHandler(channel: String, handler: BinaryMessageHandler | SendableBinaryMessageHandler | null,
     taskQueue?: TaskQueue, ...args: Object[]): void {
@@ -264,7 +265,7 @@ class Reply implements BinaryReply {
   /**
    * Sends a reply back to Dart.
    * @param reply - The reply data as an ArrayBuffer, or null for an empty reply
-   * @throws Error if reply has already been submitted
+   * @throws {Error} if reply has already been submitted
    */
   reply(reply: ArrayBuffer | null) {
     if (this.done) {

@@ -65,6 +65,7 @@ struct NapiStubState {
   bool pending_async = false;
   napi_status fail_string_utf8 = napi_ok;
   int fail_string_utf8_skip = 0;
+  napi_status fail_create_array = napi_ok;
   napi_status fail_array_length = napi_ok;
   napi_status fail_get_element = napi_ok;
   napi_status fail_is_arraybuffer = napi_ok;
@@ -82,6 +83,7 @@ struct NapiStubState {
   napi_status fail_unwrap = napi_ok;
   napi_status fail_named_property = napi_ok;
   napi_status fail_call_function = napi_ok;
+  size_t call_function_count = 0;
   napi_status fail_cb_info = napi_ok;
   int last_error_null = 0;
   int last_error_message_null = 0;
@@ -715,8 +717,7 @@ extern "C" napi_status napi_close_handle_scope(napi_env env,
   return napi_ok;
 }
 
-extern "C" napi_status napi_create_object(napi_env env, napi_value* result)
-{
+extern "C" napi_status napi_create_object(napi_env env, napi_value* result) {
   if (env == nullptr) {
     return napi_invalid_arg;
   }
@@ -728,6 +729,11 @@ extern "C" napi_status napi_create_object(napi_env env, napi_value* result)
 }
 
 extern "C" napi_status napi_create_array(napi_env env, napi_value* result) {
+  if (g_napi_stub.fail_create_array != napi_ok) {
+    napi_status s = g_napi_stub.fail_create_array;
+    g_napi_stub.fail_create_array = napi_ok;
+    return s;
+  }
   if (result) {
     *result = reinterpret_cast<napi_value>(0x2);
   }
@@ -769,8 +775,7 @@ extern "C" napi_status napi_set_element(napi_env env,
 extern "C" napi_status napi_set_named_property(napi_env env,
                                                napi_value object,
                                                const char* name,
-                                               napi_value value)
-{
+                                               napi_value value) {
   if (env == nullptr) {
     return napi_invalid_arg;
   }
@@ -812,6 +817,7 @@ extern "C" napi_status napi_call_function(napi_env env,
                                           size_t argc,
                                           const napi_value* argv,
                                           napi_value* result) {
+  g_napi_stub.call_function_count++;
   if (g_napi_stub.fail_call_function != napi_ok) {
     napi_status s = g_napi_stub.fail_call_function;
     g_napi_stub.fail_call_function = napi_ok;
@@ -1010,6 +1016,10 @@ extern "C" void StubNapiFailCreateStringUtf8(napi_status s, int skip) {
   g_napi_stub.fail_create_string_utf8_skip = skip;
 }
 
+extern "C" void StubNapiFailCreateArray(napi_status s) {
+  g_napi_stub.fail_create_array = s;
+}
+
 extern "C" void StubNapiFailArrayLength(napi_status s) {
   g_napi_stub.fail_array_length = s;
 }
@@ -1048,6 +1058,10 @@ extern "C" void StubNapiFailNamedProperty(napi_status s) {
 
 extern "C" void StubNapiFailCallFunction(napi_status s) {
   g_napi_stub.fail_call_function = s;
+}
+
+extern "C" size_t StubNapiCallFunctionCount(void) {
+  return g_napi_stub.call_function_count;
 }
 
 extern "C" void StubNapiFailCbInfo(napi_status s) {

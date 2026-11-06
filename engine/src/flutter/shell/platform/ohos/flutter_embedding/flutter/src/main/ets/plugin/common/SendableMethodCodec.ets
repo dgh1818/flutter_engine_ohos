@@ -76,7 +76,7 @@ export default interface SendableMethodCodec extends ISendable {
    *
    * @param envelope - The binary encoding of a result envelope as an {@link ArrayBuffer}
    * @returns The enveloped result value
-   * @throws FlutterException if the envelope was an error envelope
+   * @throws {FlutterException} if the envelope was an error envelope
    */
   decodeEnvelope(envelope: ArrayBuffer): Any;
 }

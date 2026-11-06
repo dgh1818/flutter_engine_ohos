@@ -142,8 +142,10 @@ export default function navigationChannelTest() {
       args.set('activity', 'push');
       args.set('status', 'start');
       args.set('routeName', '/home');
-      dispatchNavMethodCall(setup, 'reportNavigatorActivity', args);
+      const reply = dispatchNavMethodCall(setup, 'reportNavigatorActivity', args);
       expect(setup.channel).not().assertNull();
+      expect(reply.replyCount).assertEqual(1);
+      expect(reply.replyData).not().assertNull();
     });
 
     it('reportNavigatorActivity with push finish', Level.LEVEL0, () => {
@@ -151,8 +153,10 @@ export default function navigationChannelTest() {
       const args = new Map<string, string>();
       args.set('activity', 'push');
       args.set('status', 'finish');
-      dispatchNavMethodCall(setup, 'reportNavigatorActivity', args);
+      const reply = dispatchNavMethodCall(setup, 'reportNavigatorActivity', args);
       expect(setup.channel).not().assertNull();
+      expect(reply.replyCount).assertEqual(1);
+      expect(reply.replyData).not().assertNull();
     });
 
     it('reportNavigatorActivity with pop start', Level.LEVEL0, () => {
@@ -160,8 +164,10 @@ export default function navigationChannelTest() {
       const args = new Map<string, string>();
       args.set('activity', 'pop');
       args.set('status', 'start');
-      dispatchNavMethodCall(setup, 'reportNavigatorActivity', args);
+      const reply = dispatchNavMethodCall(setup, 'reportNavigatorActivity', args);
       expect(setup.channel).not().assertNull();
+      expect(reply.replyCount).assertEqual(1);
+      expect(reply.replyData).not().assertNull();
     });
 
     it('reportNavigatorActivity with pop finish', Level.LEVEL0, () => {
@@ -169,20 +175,26 @@ export default function navigationChannelTest() {
       const args = new Map<string, string>();
       args.set('activity', 'pop');
       args.set('status', 'finish');
-      dispatchNavMethodCall(setup, 'reportNavigatorActivity', args);
+      const reply = dispatchNavMethodCall(setup, 'reportNavigatorActivity', args);
       expect(setup.channel).not().assertNull();
+      expect(reply.replyCount).assertEqual(1);
+      expect(reply.replyData).not().assertNull();
     });
 
     it('reportNavigatorActivity with null args returns success', Level.LEVEL0, () => {
       const setup = new NavTestSetup();
-      dispatchNavMethodCall(setup, 'reportNavigatorActivity', null);
+      const reply = dispatchNavMethodCall(setup, 'reportNavigatorActivity', null);
       expect(setup.channel).not().assertNull();
+      expect(reply.replyCount).assertEqual(1);
+      expect(reply.replyData).not().assertNull();
     });
 
     it('reportNavigatorActivity with non-Map args returns success', Level.LEVEL0, () => {
       const setup = new NavTestSetup();
-      dispatchNavMethodCall(setup, 'reportNavigatorActivity', 'not-a-map');
+      const reply = dispatchNavMethodCall(setup, 'reportNavigatorActivity', 'not-a-map');
       expect(setup.channel).not().assertNull();
+      expect(reply.replyCount).assertEqual(1);
+      expect(reply.replyData).not().assertNull();
     });
 
     it('reportNavigatorActivity with missing activity field', Level.LEVEL0, () => {
@@ -191,6 +203,8 @@ export default function navigationChannelTest() {
       args.set('status', 'start');
       const reply = dispatchNavMethodCall(setup, 'reportNavigatorActivity', args);
       expect(setup.channel).not().assertNull();
+      expect(reply.replyCount).assertEqual(1);
+      expect(reply.replyData).not().assertNull();
     });
 
     it('reportNavigatorActivity with missing status field', Level.LEVEL0, () => {
@@ -199,6 +213,8 @@ export default function navigationChannelTest() {
       args.set('activity', 'push');
       const reply = dispatchNavMethodCall(setup, 'reportNavigatorActivity', args);
       expect(setup.channel).not().assertNull();
+      expect(reply.replyCount).assertEqual(1);
+      expect(reply.replyData).not().assertNull();
     });
 
     it('reportNavigatorActivity with unknown activity throws', Level.LEVEL0, () => {
@@ -208,6 +224,9 @@ export default function navigationChannelTest() {
       args.set('status', 'start');
       const reply = dispatchNavMethodCall(setup, 'reportNavigatorActivity', args);
       expect(setup.channel).not().assertNull();
+      // The handler throws; IncomingMethodCallHandler replies an error envelope once.
+      expect(reply.replyCount).assertEqual(1);
+      expect(reply.replyData).not().assertNull();
     });
 
     it('reportNavigatorActivity with unknown status throws', Level.LEVEL0, () => {
@@ -217,32 +236,44 @@ export default function navigationChannelTest() {
       args.set('status', 'unknown');
       const reply = dispatchNavMethodCall(setup, 'reportNavigatorActivity', args);
       expect(setup.channel).not().assertNull();
+      // The handler throws; IncomingMethodCallHandler replies an error envelope once.
+      expect(reply.replyCount).assertEqual(1);
+      expect(reply.replyData).not().assertNull();
     });
 
     it('routeInformationUpdated does not throw', Level.LEVEL0, () => {
       const setup = new NavTestSetup();
       const args = new Map<string, string>();
       args.set('uri', '/page/1');
-      dispatchNavMethodCall(setup, 'routeInformationUpdated', args);
+      const reply = dispatchNavMethodCall(setup, 'routeInformationUpdated', args);
       expect(setup.channel).not().assertNull();
+      expect(reply.replyCount).assertEqual(1);
+      expect(reply.replyData).not().assertNull();
     });
 
     it('routeInformationUpdated with null args (covers line 184 true branch)', Level.LEVEL0, () => {
       const setup = new NavTestSetup();
-      dispatchNavMethodCall(setup, 'routeInformationUpdated', null);
+      const reply = dispatchNavMethodCall(setup, 'routeInformationUpdated', null);
       expect(setup.channel).not().assertNull();
+      expect(reply.replyCount).assertEqual(1);
+      expect(reply.replyData).not().assertNull();
     });
 
     it('routeInformationUpdated with non-Map args (covers line 184 true branch)', Level.LEVEL0, () => {
       const setup = new NavTestSetup();
-      dispatchNavMethodCall(setup, 'routeInformationUpdated', 'not_a_map');
+      const reply = dispatchNavMethodCall(setup, 'routeInformationUpdated', 'not_a_map');
       expect(setup.channel).not().assertNull();
+      expect(reply.replyCount).assertEqual(1);
+      expect(reply.replyData).not().assertNull();
     });
 
-    it('unknown method returns notImplemented', Level.LEVEL0, () => {
+    it('unknown method returns success', Level.LEVEL0, () => {
       const setup = new NavTestSetup();
-      dispatchNavMethodCall(setup, 'unknown.method', null);
+      const reply = dispatchNavMethodCall(setup, 'unknown.method', null);
       expect(setup.channel).not().assertNull();
+      // The default branch replies success(null), not notImplemented.
+      expect(reply.replyCount).assertEqual(1);
+      expect(reply.replyData).not().assertNull();
     });
   });
 }

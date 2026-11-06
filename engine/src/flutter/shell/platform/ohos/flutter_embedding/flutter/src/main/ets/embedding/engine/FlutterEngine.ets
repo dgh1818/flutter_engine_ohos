@@ -202,6 +202,10 @@ export default class FlutterEngine implements EngineLifecycleListener {
     Log.d(TAG, "Call init finished.")
   }
 
+  /**
+   * Attaches this engine to its native NAPI object.
+   * @throws {Error} if the engine fails to attach to its native reference
+   */
   private attachToNapi(): void {
     Log.d(TAG, "Attaching to NAPI.");
     this.flutterNapi.attachToNative();
@@ -220,7 +224,7 @@ export default class FlutterEngine implements EngineLifecycleListener {
    * @param platformViewsController - The platform views controller
    * @param waitForRestorationData - Whether to wait for restoration data
    * @returns The spawned FlutterEngine instance
-   * @throws Error if this engine is not fully constructed
+   * @throws {Error} if this engine is not fully constructed
    */
   spawn(context: common.Context,
     dartEntrypoint: DartEntrypoint,
@@ -259,7 +263,7 @@ export default class FlutterEngine implements EngineLifecycleListener {
    * @param platformViewsController - The platform views controller
    * @param waitForRestorationData - Whether to wait for restoration data
    * @returns The spawned FlutterEngine instance
-   * @throws Error if this engine is not fully constructed
+   * @throws {Error} if this engine is not fully constructed
    */
   spawnAsync(context: common.Context,
     dartEntrypoint: DartEntrypoint,

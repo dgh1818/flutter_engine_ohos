@@ -9,6 +9,8 @@
 #include "impeller/entity/contents/content_context.h"
 #include "impeller/entity/tiled_texture_fill.frag.h"
 #include "impeller/entity/tiled_texture_fill_external.frag.h"
+#include "impeller/geometry/color.h"
+#include "impeller/renderer/context.h"
 #include "impeller/renderer/render_pass.h"
 
 namespace impeller {
@@ -192,12 +194,49 @@ bool TiledTextureContents::Render(const ContentContext& renderer,
         pass.SetCommandLabel("TextureFill");
 #endif  // IMPELLER_DEBUG
 
+#ifdef FML_OS_OHOS
+        // Mirror TextureContents::Render: on wide-gamut swapchains the
+        // working color space is Display P3, so convert the texture data
+        // from its declared color space to the render target color space.
+        const float target_color_space =
+            static_cast<float>(renderer.GetTargetColorSpace());
+        float source_color_space = static_cast<float>(ColorSpace::kSRGB);
+        switch (texture_->GetTextureDescriptor().color_space) {
+          case TextureColorSpace::kDisplayP3:
+            source_color_space = static_cast<float>(ColorSpace::kDisplayP3);
+            break;
+          case TextureColorSpace::kExtendedSRGB:
+            source_color_space = static_cast<float>(ColorSpace::kExtendedSRGB);
+            break;
+          case TextureColorSpace::kSRGB:
+            break;
+          default:
+            source_color_space = target_color_space;
+            break;
+        }
+        // Color filter intermediates and render target textures (save
+        // layers) already hold data in the working color space.
+        const bool writes_hlg_swapchain =
+            impeller::Context::enable_hdr_ &&
+            pass.GetRenderTargetPixelFormat() == PixelFormat::kB10G10R10A2UNorm;
+        if (writes_hlg_swapchain || color_filter_ ||
+            (texture_->GetTextureDescriptor().usage &
+             TextureUsage::kRenderTarget)) {
+          source_color_space = target_color_space;
+        }
+#else
+        float source_color_space = 0.0f;
+        float target_color_space = 0.0f;
+#endif
+
         FS::FragInfo frag_info;
         frag_info.x_tile_mode = static_cast<Scalar>(x_tile_mode_);
         frag_info.y_tile_mode = static_cast<Scalar>(y_tile_mode_);
         frag_info.alpha =
             GetOpacityFactor() *
             GetGeometry()->ComputeAlphaCoverage(entity.GetTransform());
+        frag_info.source_color_space = source_color_space;
+        frag_info.target_color_space = target_color_space;
         FS::BindFragInfo(pass, data_host_buffer.EmplaceUniform(frag_info));
 
         if (color_filter_) {

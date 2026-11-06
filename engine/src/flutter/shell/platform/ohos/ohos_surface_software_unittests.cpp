@@ -129,11 +129,13 @@ TEST(OHOSSurfaceSoftware, SetNativeWindowRejectsNullAndInvalid) {
   OHOSSurfaceSoftware surface(MakeSoftwareContext());
   EXPECT_FALSE(surface.SetNativeWindow(fml::RefPtr<OHOSNativeWindow>()));
   EXPECT_FALSE(surface.SetNativeWindow(MakeWindow(nullptr)));
+  EXPECT_FALSE(surface.HasValidOnscreenContext());
 }
 
 TEST(OHOSSurfaceSoftware, SetNativeWindowAcceptsValidWindow) {
   OHOSSurfaceSoftware surface(MakeSoftwareContext());
   EXPECT_TRUE(surface.SetNativeWindow(MakeWindow(kFakeWindowHandle)));
+  EXPECT_TRUE(surface.HasValidOnscreenContext());
 }
 
 TEST(OHOSSurfaceSoftware, AcquireBackingStoreCreatesAndCaches) {

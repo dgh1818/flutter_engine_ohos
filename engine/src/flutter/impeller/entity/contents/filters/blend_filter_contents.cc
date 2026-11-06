@@ -709,6 +709,10 @@ std::optional<Entity> BlendFilterContents::CreateFramebufferAdvancedBlend(
 
       FS::FragInfo frag_info{};
       frag_info.alpha = 1.0;
+      // The uniform struct is copied as a whole, so these must be explicit;
+      // equal sRGB values keep the legacy no-conversion behavior.
+      frag_info.source_color_space = 0.0f;
+      frag_info.target_color_space = 0.0f;
 
       std::array<VS::PerVertexData, 4> vertices = {
           VS::PerVertexData{{0, 0}, {0, 0}},

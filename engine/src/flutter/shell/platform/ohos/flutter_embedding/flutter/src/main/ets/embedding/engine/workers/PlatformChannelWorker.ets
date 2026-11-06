@@ -22,8 +22,17 @@ const workerPort: ThreadWorkerGlobalScope = worker.workerPort;
  */
 workerPort.onmessage = async (e: MessageEvents) => {
   let data: TaskState = e.data;
-  let result: ArrayBuffer | null = await handleMessage(data.handler, data.message, data.args);
-  workerPort.postMessage(result, [result]);
+  try {
+    let result: ArrayBuffer | null = await handleMessage(data.handler, data.message, data.args);
+    if (result === null) {
+      workerPort.postMessage(result);
+    } else {
+      workerPort.postMessage(result, [result]);
+    }
+  } catch (err) {
+    Log.e(TAG, 'Failed to handle message: ', err);
+    workerPort.postMessage(null);
+  }
 }
 
 /**
@@ -64,7 +73,7 @@ async function handleMessage(handler: SendableBinaryMessageHandler,
         }
       }, ...args);
     } catch (e) {
-      reject(null);
+      reject(e);
       Log.e(TAG, "Oops! Failed to handle message in the background: ", e);
     }
   });

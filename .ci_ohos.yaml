@@ -331,3 +331,76 @@ mac_arm64_build_steps:
     script: ci/scripts/mac_arm64/mac_arm64_publish.sh
     description: Upload dart-sdk and artifacts to OBS cloud (upload_dart_sdk + auto_compile) - opt-in, only with --publish
     required: true
+
+# mac-x86 build & publish pipeline; publishing is opt-in via --publish.
+mac_x86_build_steps:
+  - name: Check mac-x86 Environment
+    script: ci/scripts/mac_x86/mac_x86_check_env.sh
+    description: Verify x86_64 host
+    required: true
+
+  - name: Sync Repos (mac-x86)
+    script: ci/scripts/mac_x86/mac_x86_sync.sh
+    description: git fetch + git reset --hard to remote tip + gclient sync -f -D -v
+    required: true
+
+  - name: Skip unittests (mac-x86)
+    script: ci/scripts/replace_in_file.sh
+    description: Skip running unit tests
+    args: ["engine/src/flutter/testing/testing.gni", "s|enable_unittests = current_toolchain == host_toolchain \\|\\| is_fuchsia \\|\\| is_mac|enable_unittests = false|g"]
+    required: true
+
+  - name: Patch Logger.swift (mac-x86)
+    script: ci/scripts/replace_in_file.sh
+    description: Replace vsyslog/getVaList for new Apple Swift toolchains
+    args: ["engine/src/flutter/shell/platform/darwin/common/framework/Source/Logger.swift", "s|message\\.withCString { vsyslog(LOG_ALERT, \"%s\", getVaList(\\[$0\\])) }|fputs(message + \"\\\\n\", stderr)|"]
+    required: true
+
+  - name: Build Engine Artifacts (mac-x86)
+    script: ci/scripts/mac_x86/mac_x86_build.sh
+    description: Build host_release + host_debug + 6 ohos gen_snapshot configs in parallel via ./ohos
+    required: true
+
+  - name: Package (mac-x86)
+    script: ci/scripts/mac_x86/mac_x86_package.sh
+    description: Zip dart-sdk (darwin-x64) and artifacts
+    required: true
+
+  - name: Upload and Publish (mac-x86)
+    script: ci/scripts/mac_x86/mac_x86_publish.sh
+    description: Upload dart-sdk and artifacts to OBS cloud (upload_dart_sdk + auto_compile) - opt-in, only with --publish
+    required: true
+
+# windows build & publish pipeline; publishing is opt-in via --publish,
+# --no-sync skips the sync step.
+windows_build_steps:
+  - name: Check windows Environment
+    script: ci/scripts/windows/windows_check_env.sh
+    description: Verify a Windows host running under Git Bash
+    required: true
+
+  - name: Sync Repos (windows)
+    script: ci/scripts/windows/windows_sync.sh
+    description: git fetch + git reset --hard to remote tip + gclient sync -f -D -v (skipped with --no-sync)
+    required: true
+
+  - name: Skip unittests (windows)
+    script: ci/scripts/replace_in_file.sh
+    description: Skip running unit tests
+    args: ["engine/src/flutter/testing/testing.gni", "s|enable_unittests = current_toolchain == host_toolchain \\|\\| is_fuchsia \\|\\| is_mac|enable_unittests = false|g"]
+    required: true
+
+  - name: Build Engine (windows)
+    script: ci/scripts/windows/windows_build.sh
+    description: 6 targeted parallel builds - host_release, host_debug snapshot, ohos arm64/x64 release/profile gen_snapshot
+    required: true
+
+  - name: Package (windows)
+    script: ci/scripts/windows/windows_package.sh
+    description: Zip dart-sdk (windows-x64) and artifacts
+    required: true
+
+  - name: Upload and Publish (windows)
+    script: ci/scripts/windows/windows_publish.sh
+    description: Upload dart-sdk and artifacts to OBS cloud (upload_dart_sdk + auto_compile) - opt-in, only with --publish
+    required: true

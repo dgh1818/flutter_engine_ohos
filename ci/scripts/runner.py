@@ -5,6 +5,7 @@
 
 import os
 import re
+import shutil
 import sys
 import subprocess
 import time
@@ -12,6 +13,15 @@ import yaml
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from logger import Logger
+
+# Windows consoles default to a non-UTF-8 code page; force UTF-8 so the
+# logger's check marks do not crash the runner (no-op on POSIX).
+if os.name == 'nt':
+    for _stream in (sys.stdout, sys.stderr):
+        try:
+            _stream.reconfigure(encoding='utf-8')
+        except AttributeError:
+            pass
 
 
 class Runner:
@@ -125,9 +135,10 @@ class Runner:
                 expanded = os.path.expandvars(path)
                 path_components.append(expanded)
 
-            # Filter out empty paths and join with colon
+            # Filter out empty paths and join with the platform-specific
+            # separator (';' on Windows, ':' on POSIX).
             path_components = [p for p in path_components if p and p != '']
-            new_path = ':'.join(path_components)
+            new_path = os.pathsep.join(path_components)
 
             os.environ['PATH'] = new_path
             Logger.info(f"Set PATH")
@@ -163,7 +174,12 @@ class Runner:
         Logger.info(description)
 
         try:
-            cmd = ['bash', str(script_path)]
+            # On Windows a bare 'bash' resolves to the WSL stub before
+            # PATH is consulted; resolve the interpreter explicitly there.
+            bash_exe = 'bash'
+            if os.name == 'nt':
+                bash_exe = shutil.which('bash') or 'bash'
+            cmd = [bash_exe, str(script_path)]
             if args:
                 expanded_args = [os.path.expandvars(str(arg)) for arg in args]
                 cmd.extend(expanded_args)
@@ -325,7 +341,8 @@ def main():
 
     Usage: runner.py <stage>
       stage - preparation | compilation | test | integration_gate |
-              daily_integration | daily_memory | daily_perf | customer | mac_arm64_build
+              daily_integration | daily_memory | daily_perf | customer |
+              mac_arm64_build | mac_x86_build | windows_build
     """
     if len(sys.argv) > 1:
         stage = sys.argv[1]

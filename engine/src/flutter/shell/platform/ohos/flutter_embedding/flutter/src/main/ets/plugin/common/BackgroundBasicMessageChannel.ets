@@ -12,7 +12,6 @@ import { BinaryMessenger } from './BinaryMessenger';
 import SendableBinaryMessageHandler from './SendableBinaryMessageHandler'
 import SendableMessageCodec from './SendableMessageCodec';
 import SendableMessageHandler from './SendableMessageHandler';
-import StringUtils from '../../util/StringUtils';
 
 /**
  * A named channel for communicating with Flutter using basic, asynchronous message passing
@@ -159,7 +158,9 @@ class IncomingSendableMessageHandler<T> implements SendableBinaryMessageHandler 
         });
     } catch (e) {
       Log.e('WARNNING', "Failed to handle message: ", e);
-      callback.reply(StringUtils.stringToArrayBuffer(""));
+      // A zero-length non-null buffer is dropped by the engine before
+      // delivery; reply null so Dart always receives an (empty) reply.
+      callback.reply(null);
     }
   }
 }

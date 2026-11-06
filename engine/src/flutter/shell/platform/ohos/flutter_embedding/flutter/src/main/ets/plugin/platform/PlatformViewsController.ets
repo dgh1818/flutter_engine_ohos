@@ -775,7 +775,7 @@ export default class PlatformViewsController implements PlatformViewsHandler {
   /**
    * Synchronizes the native view hierarchy.
    * @param yes - Whether to synchronize
-   * @throws Error as this method is not implemented
+   * @throws {Error} as this method is not implemented
    */
   synchronizeToNativeViewHierarchy(yes: boolean): void {
     throw new Error('Method not implemented.');
@@ -785,6 +785,7 @@ export default class PlatformViewsController implements PlatformViewsHandler {
    * Creates a platform view for texture layer composition mode.
    * @param request - The platform view creation request
    * @returns The texture ID for the created view
+   * @throws {Error} if the request is invalid or the view cannot be created
    */
   public createForTextureLayer(request: PlatformViewCreationRequest): number {
     this.ensureValidRequest(request);
@@ -820,7 +821,7 @@ export default class PlatformViewsController implements PlatformViewsHandler {
   /**
    * Ensures that a platform view creation request is valid.
    * @param request - The request to validate
-   * @throws Error if the request is invalid
+   * @throws {Error} if the request is invalid
    * @private
    */
   private ensureValidRequest(request: PlatformViewCreationRequest): void {
@@ -837,7 +838,7 @@ export default class PlatformViewsController implements PlatformViewsHandler {
    * Creates a platform view instance from a factory.
    * @param request - The platform view creation request
    * @returns The created PlatformView instance
-   * @throws Error if the factory is not found or creation fails
+   * @throws {Error} if the factory is not found or creation fails
    * @private
    */
   private createPlatformView(request: PlatformViewCreationRequest): PlatformView {
@@ -1296,6 +1297,13 @@ export default class PlatformViewsController implements PlatformViewsHandler {
     platformView.onFlutterViewAttached(this.flutterView!.getDVModel());
     this.platformViews.set(surfaceId, platformView!);
   }
+
+  /**
+   * Ensures that the controller is attached to a FlutterView.
+   * @param action - The action being attempted, used in the error message
+   * @throws {Error} if the FlutterView is detached
+   * @private
+   */
   private ensureFlutterViewAttached(action: string): void {
     if (this.flutterView == null) {
       throw new Error("Cannot " + action + " while FlutterView is detached from PlatformViewsController.");

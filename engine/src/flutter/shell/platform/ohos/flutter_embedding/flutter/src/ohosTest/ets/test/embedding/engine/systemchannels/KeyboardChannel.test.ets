@@ -70,7 +70,9 @@ export default function keyboardChannelTest() {
       const result: FakeMethodResult = new FakeMethodResult();
       const call: MethodCall = new MethodCall('getKeyboardState', null);
       channel.onMethodCall(call, result);
-      expect(result.successCalls).assertEqual(0);
+      expect(result.successCalls).assertEqual(1);
+      expect(result.successResult instanceof Map).assertTrue();
+      expect((result.successResult as Map<number, number>).size).assertEqual(0);
       expect(result.notImplCalls).assertEqual(0);
     });
   });

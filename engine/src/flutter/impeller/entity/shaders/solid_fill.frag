@@ -59,19 +59,17 @@ vec3 linear_to_srgb_extended_vec3(vec3 color) {
 }
 // https://www.w3.org/TR/css-color-4/
 vec3 srgb_to_p3_linear(vec3 color) {
-  return vec3(0.822461186547 * color.r + 0.177538013953 * color.g,
-              0.033191798446 * color.r + 0.966808201554 * color.g,
-              0.017055917378 * color.r + 0.072079544594 * color.g +
-                  0.910864537928 * color.b);
+  return vec3(0.822461968714 * color.r + 0.177538031286 * color.g,
+              0.033194198851 * color.r + 0.966805801149 * color.g,
+              0.017082630721 * color.r + 0.072397440664 * color.g +
+                  0.910519928615 * color.b);
 }
 
 vec3 p3_to_srgb_linear(vec3 color) {
-  return vec3(1.306671048092539 * color.r - 0.298061942172353 * color.g +
-                  0.213228303487995 * color.b,
-              -0.117390025596251 * color.r + 1.127722006101976 * color.g +
-                  0.109727644608938 * color.b,
-              0.214813187718391 * color.r + 0.054268702864647 * color.g +
-                  1.406898424029350 * color.b);
+  return vec3(1.224940176281 * color.r - 0.224940176281 * color.g,
+              -0.042056954710 * color.r + 1.042056954710 * color.g,
+              -0.019637554590 * color.r - 0.078636045551 * color.g +
+                  1.098273600141 * color.b);
 }
 
 vec3 convert_srgb_family_to_p3(vec3 color) {

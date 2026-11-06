@@ -57,6 +57,10 @@ bool OhosSurfaceGLSkia::IsValid() const {
   return offscreen_surface_ && GLContextPtr()->IsValid();
 }
 
+bool OhosSurfaceGLSkia::HasValidOnscreenContext() const {
+  return onscreen_surface_ && onscreen_surface_->IsValid();
+}
+
 std::unique_ptr<Surface> OhosSurfaceGLSkia::CreateGPUSurface(
     GrDirectContext* gr_context) {
   if (gr_context) {
@@ -140,7 +144,7 @@ bool OhosSurfaceGLSkia::SetNativeWindow(fml::RefPtr<OHOSNativeWindow> window) {
   FML_LOG(INFO) << "SetNativeWindow create onscreensurface";
   onscreen_surface_ = GLContextPtr()->CreateOnscreenSurface(window);
   if (!onscreen_surface_ || !onscreen_surface_->IsValid()) {
- 	  FML_LOG(ERROR) << "SetNativeWindow onscreen_surface invalid";
+    FML_LOG(ERROR) << "SetNativeWindow onscreen_surface invalid";
     return false;
   }
   if (need_current) {
@@ -158,7 +162,8 @@ bool OhosSurfaceGLSkia::PaintOffscreenData(OHNativeWindowBuffer* buffer,
   int ret =
       OH_NativeWindow_NativeWindowAttachBuffer(onscreen_nativewindow, buffer);
   if (ret != 0) {
-    FML_LOG(ERROR) << "OH_NativeWindow_NativeWindowAttachBuffer() failed in PaintOffscreenData, ret = "
+    FML_LOG(ERROR) << "OH_NativeWindow_NativeWindowAttachBuffer() failed in "
+                      "PaintOffscreenData, ret = "
                    << ret;
     return false;
   }
@@ -166,7 +171,8 @@ bool OhosSurfaceGLSkia::PaintOffscreenData(OHNativeWindowBuffer* buffer,
   ret = OH_NativeWindow_NativeWindowFlushBuffer(onscreen_nativewindow, buffer,
                                                 fence_fd, {});
   if (ret != 0) {
-    FML_LOG(ERROR) << "OH_NativeWindow_NativeWindowFlushBuffer() failed in PaintOffscreenData, ret = "
+    FML_LOG(ERROR) << "OH_NativeWindow_NativeWindowFlushBuffer() failed in "
+                      "PaintOffscreenData, ret = "
                    << ret;
   }
   FML_LOG(INFO) << "PaintOffscreenData " << buffer;

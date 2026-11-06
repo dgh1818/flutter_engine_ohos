@@ -96,7 +96,8 @@ export default function sensitiveContentChannelTest() {
       const result: FakeMethodResult = new FakeMethodResult();
       const call: MethodCall = new MethodCall('SensitiveContent.isSupported', null);
       channel.onMethodCall(call, result);
-      expect(result.successCalls).assertEqual(0);
+      expect(result.successCalls).assertEqual(1);
+      expect(result.successResult).assertNull();
       expect(result.notImplCalls).assertEqual(0);
     });
   });

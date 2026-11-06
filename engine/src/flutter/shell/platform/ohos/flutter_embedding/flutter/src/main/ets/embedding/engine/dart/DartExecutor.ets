@@ -279,7 +279,7 @@ export class DartEntrypoint {
   /**
    * Creates a default DartEntrypoint using the main function.
    * @returns A DartEntrypoint configured with the default main entrypoint
-   * @throws Error if FlutterLoader is not initialized
+   * @throws {Error} if FlutterLoader is not initialized
    */
   static createDefault() {
     const flutterLoader = FlutterInjector.getInstance().getFlutterLoader();

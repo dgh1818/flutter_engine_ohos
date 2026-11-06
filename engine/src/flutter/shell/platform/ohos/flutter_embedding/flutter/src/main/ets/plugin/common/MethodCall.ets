@@ -41,8 +41,8 @@ export default class MethodCall {
   /**
    * Gets an argument value by key.
    * @param key - The argument key
-   * @returns The argument value, or null if not found
-   * @throws Error if the args cannot be cast to a Map or Object
+   * @returns The argument value, or null if args is null, or undefined if the key is not found
+   * @throws {Error} if the args cannot be cast to a Map or Object
    */
   argument(key: string): Any {
     if (this.args == null) {
@@ -60,7 +60,7 @@ export default class MethodCall {
    * Checks if an argument exists for the given key.
    * @param key - The argument key to check
    * @returns True if the argument exists, false otherwise
-   * @throws Error if the args cannot be cast to a Map or Object
+   * @throws {Error} if the args cannot be cast to a Map or Object
    */
   hasArgument(key: string): boolean {
     if (this.args == null) {

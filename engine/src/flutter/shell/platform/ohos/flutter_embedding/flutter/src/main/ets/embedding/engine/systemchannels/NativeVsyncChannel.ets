@@ -56,6 +56,7 @@ export default class NativeVsyncChannel implements MethodCallHandler {
                     // Whether to enable DVsync
                     let isEnable: boolean = call.argument('isEnable');
                     this.flutterNapi.SetDVsyncSwitch(isEnable);
+                    result.success(null);
                     break;
                 case "sendVelocity":
                     // Send animation velocity
@@ -64,6 +65,7 @@ export default class NativeVsyncChannel implements MethodCallHandler {
                     if (type == "translate") {
                     FlutterNapi.animationVoting(AnimationVotingType.TRANSLATE, velocity);
                     }
+                    result.success(null);
                     break;
                 case "checkLTPOSwitchStatus":
                     // Check LTPO switch state

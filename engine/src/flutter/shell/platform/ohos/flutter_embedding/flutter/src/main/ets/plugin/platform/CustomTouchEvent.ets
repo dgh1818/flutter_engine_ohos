@@ -65,7 +65,7 @@ export class CustomTouchEvent implements TouchEvent {
    * Gets the modifier key state.
    * @param keys - Array of key names to check
    * @returns True if any of the keys are pressed
-   * @throws Error as this method is not implemented
+   * @throws {Error} as this method is not implemented
    */
   getModifierKeyState(keys: string[]): boolean {
     throw new Error('Method not implemented.');
@@ -77,7 +77,7 @@ export class CustomTouchEvent implements TouchEvent {
   /**
    * Gets historical touch points.
    * @returns Array of historical points
-   * @throws Error as this method is not implemented
+   * @throws {Error} as this method is not implemented
    */
   getHistoricalPoints(): HistoricalPoint[] {
     throw new Error('Method not implemented.');

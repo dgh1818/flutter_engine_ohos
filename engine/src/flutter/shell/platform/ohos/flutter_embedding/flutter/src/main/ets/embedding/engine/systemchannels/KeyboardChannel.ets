@@ -29,6 +29,7 @@ export default class KeyboardChannel implements MethodCallHandler {
   onMethodCall(call: MethodCall, result: MethodResult): void {
     if (this.handler == null) {
       Log.i(KeyboardChannel.TAG, "KeyboardMethodHandler is null");
+      result.success(new Map());
       return;
     }
 

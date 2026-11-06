@@ -6,6 +6,7 @@
 
 import { describe, it, expect, Level } from '@ohos/hypium';
 import TouchEventProcessor from '../../../../../main/ets/embedding/ohos/TouchEventProcessor';
+import FlutterManager from '../../../../../main/ets/embedding/ohos/FlutterManager';
 import Any from '../../../../../main/ets/plugin/common/Any';
 import { CustomTouchEvent, CustomTouchObject } from '../../../../../main/ets/plugin/platform/CustomTouchEvent';
 import display from '@ohos.display';
@@ -33,6 +34,27 @@ function makeEvent(touches: Array<CustomTouchObject>, changed: Array<CustomTouch
     0,         // tiltY
     0          // sourceTool
   );
+}
+
+/** Duck-typed FlutterView for the FlutterManager registry. */
+class FakeProcView {
+  active: boolean = true;
+  children: Any[] = [];
+  getActive(): boolean { return this.active; }
+  getDVModel(): Any {
+    const dv: Any = { children: this.children };
+    return dv;
+  }
+}
+
+/** Records events delivered through the node controller. */
+class PostRecorder {
+  touchEvents: CustomTouchEvent[] = [];
+  mouseEvents: MouseEvent[] = [];
+  axisEvents: AxisEvent[] = [];
+  postEvent(e: CustomTouchEvent, isPx: boolean): boolean { this.touchEvents.push(e); return true; }
+  postMouseEvent(e: MouseEvent): void { this.mouseEvents.push(e); }
+  postAxisEvent(e: AxisEvent): void { this.axisEvents.push(e); }
 }
 
 export default function touchEventProcessorTest() {
@@ -324,6 +346,14 @@ export default function touchEventProcessorTest() {
     return arr;
   };
 
+  const installView = (key: string, view: FakeProcView): void => {
+    (FlutterManager.getInstance().getFlutterViewList() as Any).set(key, view);
+  };
+
+  const removeView = (key: string): void => {
+    (FlutterManager.getInstance().getFlutterViewList() as Any).delete(key);
+  };
+
   describe('TouchEventProcessor.constructCustomTouchEvent', () => {
     it('parses a single-point packet into a CustomTouchEvent', Level.LEVEL0, () => {
       const density: number = display.getDefaultDisplaySync().densityPixels;
@@ -372,6 +402,123 @@ export default function touchEventProcessorTest() {
       expect(Math.abs(evt.touches[0].windowY - 55) < 1e-6).assertEqual(true);
       expect(Math.abs(evt.touches[0].screenX - 35) < 1e-6).assertEqual(true);
       expect(Math.abs(evt.touches[0].screenY - 55) < 1e-6).assertEqual(true);
+    });
+  });
+
+  describe('TouchEventProcessor.postMouseEvent', () => {
+    const mkMouseStrings = (action: number, button: number): Array<string> => [
+      String((30 + 10)),   // x (raw int px)
+      String((40 + 20)),   // y
+      '100',               // screenX
+      '50',                // screenY
+      '99',                // timestamp
+      String(action),
+      String(button)
+    ];
+
+    const mkMouseChild = (params: Record<string, Any>): Any => ({
+      getLayoutParams: (): Record<string, Any> => params,
+      params: params,
+      compType: 'NodeContainer',
+      children: []
+    } as Any);
+
+    it('release while another view is down is dispatched to the down view, not the topmost', Level.LEVEL1, () => {
+      const view = new FakeProcView();
+      const downRecorder = new PostRecorder();
+      const topRecorder = new PostRecorder();
+      const downParams: Record<string, Any> = {
+        'down': true,
+        'nodeController': downRecorder,
+        'left': 0,
+        'top': 0,
+        'width': 100,
+        'height': 100
+      };
+      const topParams: Record<string, Any> = {
+        'nodeController': topRecorder,
+        'left': 0,
+        'top': 0,
+        'width': 100,
+        'height': 100
+      };
+      view.children.push(mkMouseChild(downParams));
+      view.children.push(mkMouseChild(topParams));
+      installView('tep-mouse-anyviewdown', view);
+      try {
+        TouchEventProcessor.getInstance().postMouseEvent(mkMouseStrings(2, 1));
+        expect(downRecorder.mouseEvents.length).assertEqual(1);
+        expect(downRecorder.mouseEvents[0].action).assertEqual(2);
+        expect(topRecorder.mouseEvents.length).assertEqual(0);
+      } finally {
+        removeView('tep-mouse-anyviewdown');
+      }
+    });
+
+    it('release while another view is mouseDownSynthesized is dispatched to that view, not the topmost', Level.LEVEL1, () => {
+      const view = new FakeProcView();
+      const synthRecorder = new PostRecorder();
+      const topRecorder = new PostRecorder();
+      const synthParams: Record<string, Any> = {
+        'mouseDownSynthesized': true,
+        'nodeController': synthRecorder,
+        'left': 0,
+        'top': 0,
+        'width': 100,
+        'height': 100,
+        'mouseEvent': []
+      };
+      const topParams: Record<string, Any> = {
+        'nodeController': topRecorder,
+        'left': 0,
+        'top': 0,
+        'width': 100,
+        'height': 100
+      };
+      view.children.push(mkMouseChild(synthParams));
+      view.children.push(mkMouseChild(topParams));
+      installView('tep-mouse-anyviewsynth', view);
+      try {
+        TouchEventProcessor.getInstance().postMouseEvent(mkMouseStrings(2, 1));
+        expect(synthRecorder.mouseEvents.length).assertEqual(1);
+        expect(synthRecorder.mouseEvents[0].action).assertEqual(2);
+        expect(topRecorder.mouseEvents.length).assertEqual(0);
+        expect(synthParams['mouseDownSynthesized']).assertEqual(false);
+        expect(synthParams['mouseEvent']).assertUndefined();
+      } finally {
+        removeView('tep-mouse-anyviewsynth');
+      }
+    });
+
+    it('cross-region release with no view down still synthesizes into the topmost view', Level.LEVEL1, () => {
+      const view = new FakeProcView();
+      const bottomRecorder = new PostRecorder();
+      const topRecorder = new PostRecorder();
+      const bottomParams: Record<string, Any> = {
+        'nodeController': bottomRecorder,
+        'left': 0,
+        'top': 0,
+        'width': 100,
+        'height': 100
+      };
+      const topParams: Record<string, Any> = {
+        'nodeController': topRecorder,
+        'left': 0,
+        'top': 0,
+        'width': 100,
+        'height': 100
+      };
+      view.children.push(mkMouseChild(bottomParams));
+      view.children.push(mkMouseChild(topParams));
+      installView('tep-mouse-crossregion', view);
+      try {
+        TouchEventProcessor.getInstance().postMouseEvent(mkMouseStrings(2, 1));
+        expect(topRecorder.mouseEvents.length).assertEqual(2);
+        expect(topParams['mouseDownSynthesized']).assertEqual(false);
+        expect(bottomRecorder.mouseEvents.length).assertEqual(0);
+      } finally {
+        removeView('tep-mouse-crossregion');
+      }
     });
   });
 

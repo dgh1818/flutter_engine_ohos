@@ -29,6 +29,7 @@ export default class SensitiveContentChannel implements MethodCallHandler {
   onMethodCall(call: MethodCall, result: MethodResult): void {
     if (this.sensitiveContentMethodHandler == null) {
       // No SensitiveContentChannel registered, call not forwarded to sensitive content API.
+      result.success(null);
       return;
     }
     let method: string = call.method;

@@ -16,6 +16,7 @@
 #include "impeller/entity/texture_fill.vert.h"
 #include "impeller/entity/texture_fill_strict_src.frag.h"
 #include "impeller/entity/tiled_texture_fill_external.frag.h"
+#include "impeller/geometry/color.h"
 #include "impeller/geometry/constants.h"
 #include "impeller/renderer/context.h"
 #include "impeller/renderer/render_pass.h"
@@ -150,6 +151,39 @@ bool TextureContents::Render(const ContentContext& renderer,
   }
 #endif  // IMPELLER_DEBUG
 
+  // The unified HDR presentation target is already encoded by our HLG path.
+  // Do not apply the upstream SDR/P3 conversion a second time to that pass.
+  const bool writes_hlg_swapchain =
+      impeller::Context::enable_hdr_ &&
+      pass.GetRenderTargetPixelFormat() == PixelFormat::kB10G10R10A2UNorm;
+
+#ifdef FML_OS_OHOS
+  const float target_color_space =
+      static_cast<float>(renderer.GetTargetColorSpace());
+  float source_color_space = static_cast<float>(ColorSpace::kSRGB);
+  switch (texture_->GetTextureDescriptor().color_space) {
+    case TextureColorSpace::kDisplayP3:
+      source_color_space = static_cast<float>(ColorSpace::kDisplayP3);
+      break;
+    case TextureColorSpace::kExtendedSRGB:
+      source_color_space = static_cast<float>(ColorSpace::kExtendedSRGB);
+      break;
+    case TextureColorSpace::kSRGB:
+      break;
+    default:
+      // HDR transfer functions are handled separately, not as SDR sRGB/P3.
+      source_color_space = target_color_space;
+      break;
+  }
+  if (writes_hlg_swapchain ||
+      (texture_->GetTextureDescriptor().usage & TextureUsage::kRenderTarget)) {
+    source_color_space = target_color_space;
+  }
+#else
+  const float source_color_space = 0.0f;
+  const float target_color_space = 0.0f;
+#endif
+
   auto pipeline_options = OptionsFromPassAndEntity(pass, entity);
   if (!stencil_enabled_) {
     pipeline_options.stencil_mode = ContentContextOptions::StencilMode::kIgnore;
@@ -196,6 +230,8 @@ bool TextureContents::Render(const ContentContext& renderer,
       frag_info.source_rect = Vector4(strict_texture_coords.GetLTRB());
     }
     frag_info.alpha = GetOpacity();
+    frag_info.source_color_space = source_color_space;
+    frag_info.target_color_space = target_color_space;
     FSStrict::BindFragInfo(pass, data_host_buffer.EmplaceUniform((frag_info)));
     FSStrict::BindTextureSampler(
         pass, texture_,
@@ -254,18 +290,17 @@ bool TextureContents::Render(const ContentContext& renderer,
     // Encode only when writing the final 10-bit HLG presentation target.
     // Offscreen/filter passes use a different format and must not accumulate
     // another HLG transfer every time their texture is sampled.
-    const bool writes_hlg_swapchain =
-        impeller::Context::enable_hdr_ &&
-        pass.GetRenderTargetPixelFormat() == PixelFormat::kB10G10R10A2UNorm;
     frag_info.output_mode = writes_hlg_swapchain ? 1 : 0;
-    const auto source_color_space =
+    const auto texture_color_space =
         texture_->GetTextureDescriptor().color_space;
     frag_info.source_primaries =
-        (source_color_space == TextureColorSpace::kDisplayP3 ||
-         source_color_space == TextureColorSpace::kDisplayP3HLG ||
-         source_color_space == TextureColorSpace::kDisplayP3PQ)
+        (texture_color_space == TextureColorSpace::kDisplayP3 ||
+         texture_color_space == TextureColorSpace::kDisplayP3HLG ||
+         texture_color_space == TextureColorSpace::kDisplayP3PQ)
             ? 1
             : 0;
+    frag_info.source_color_space = source_color_space;
+    frag_info.target_color_space = target_color_space;
     FS::BindFragInfo(pass, data_host_buffer.EmplaceUniform((frag_info)));
     FS::BindTextureSampler(
         pass, texture_,

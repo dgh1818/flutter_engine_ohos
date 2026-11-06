@@ -185,7 +185,7 @@ export default function backgroundBasicMessageChannelTest() {
       expect(reply.replyData).not().assertNull();
     });
 
-    it('sends empty buffer when handler throws', Level.LEVEL1, () => {
+    it('replies null when handler throws', Level.LEVEL1, () => {
       const messenger = new FakeMessenger();
       const handler = new ThrowingSendableMessageHandler();
       const channel = new BackgroundBasicMessageChannel<string>(messenger, 'test_channel', codec);
@@ -195,8 +195,9 @@ export default function backgroundBasicMessageChannelTest() {
       const reply = new FakeReply();
       binaryHandler.onMessage(codec.encodeMessage('trigger'), reply);
 
-      expect(reply.replyData).not().assertNull();
-      expect(reply.replyData!.byteLength).assertEqual(0);
+      // A zero-length non-null buffer is dropped by the engine before
+      // delivery; the catch path must reply null so Dart always gets a reply.
+      expect(reply.replyData).assertNull();
     });
   });
 }

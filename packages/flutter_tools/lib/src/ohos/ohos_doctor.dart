@@ -55,7 +55,7 @@ class OhosValidator extends DoctorValidator {
   final bool isWindows = globals.platform.isWindows;
 
   @override
-  Future<ValidationResult> validate() async {
+  Future<ValidationResult> validateImpl() async {
     ValidationType validationType = ValidationType.success;
     final messages = <ValidationMessage>[];
 
@@ -125,10 +125,5 @@ class OhosValidator extends DoctorValidator {
     }
     final String firstLine = (result.stdout as String).split('\n').first.trim();
     return _VersionInfo(firstLine);
-  }
-
-  @override
-  Future<ValidationResult> validateImpl() async {
-    return super.validate();
   }
 }

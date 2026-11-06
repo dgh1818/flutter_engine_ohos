@@ -112,14 +112,14 @@ class FakeBinaryReply implements BinaryReply {
   reply(data: ArrayBuffer | null): void { this.replyCount++; this.replyData = data; }
 }
 
-function dispatchPlatformMethodCall(channel: PlatformChannel, method: string, args: Any): void {
+function dispatchPlatformMethodCall(channel: PlatformChannel, method: string, args: Any): FakeBinaryReply | null {
   const call = new MethodCall(method, args);
   const encoded = JSONMethodCodec.INSTANCE.encodeMethodCall(call);
   const napi = channel.flutterNapi;
   const pmh = napi.platformMessageHandler;
   if (pmh == null) {
     // platformMessageHandler not set; can't dispatch
-    return;
+    return null;
   }
   const dm: DartMessenger = pmh as DartMessenger;
   const handlerInfo = dm.messageHandlers.get('flutter/platform');
@@ -127,7 +127,9 @@ function dispatchPlatformMethodCall(channel: PlatformChannel, method: string, ar
     const incoming = handlerInfo.handler as IncomingMethodCallHandler;
     const reply = new FakeBinaryReply();
     incoming.onMessage(encoded, reply);
+    return reply;
   }
+  return null;
 }
 
 export default function platformChannelTest() {
@@ -385,19 +387,32 @@ export default function platformChannelTest() {
 
   describe('PlatformChannel.onMethodCall.via.messenger', () => {
 
-    it('onMethodCall returns early when platformMessageHandler is null', Level.LEVEL0, () => {
+    it('onMethodCall replies when platformMessageHandler is null', Level.LEVEL0, () => {
       const channel = getPlatformChannel();
-      dispatchPlatformMethodCall(channel, 'SystemSound.play', SoundType.CLICK);
-      expect(channel).not().assertNull();
+      const reply = dispatchPlatformMethodCall(channel, 'SystemSound.play', SoundType.CLICK);
+      expect(reply).not().assertNull();
+      if (reply != null) {
+        // The null-handler early return must reply exactly once; a success
+        // envelope carries non-null data (notImplemented would reply null).
+        expect(reply.replyCount).assertEqual(1);
+        expect(reply.replyData).not().assertNull();
+      }
     });
 
     it('onMethodCall handles SystemSound.play', Level.LEVEL0, () => {
       const channel = getPlatformChannel();
       const handler = new FakeHandler();
       channel.setPlatformMessageHandler(handler);
-      dispatchPlatformMethodCall(channel, 'SystemSound.play', SoundType.CLICK);
-      // Source: SystemSound.play case is a break stub, handler not called yet
+      const reply = dispatchPlatformMethodCall(channel, 'SystemSound.play', SoundType.CLICK);
+      // Source: SystemSound.play still does not invoke the handler (stub),
+      // but it must reply exactly once; a success envelope carries non-null
+      // data (notImplemented would reply null).
       expect(handler.playSystemSoundCalls).assertEqual(0);
+      expect(reply).not().assertNull();
+      if (reply != null) {
+        expect(reply.replyCount).assertEqual(1);
+        expect(reply.replyData).not().assertNull();
+      }
     });
 
     it('onMethodCall handles HapticFeedback.vibrate', Level.LEVEL0, () => {
@@ -535,20 +550,49 @@ export default function platformChannelTest() {
       expect(handler.setClipboardDataCalls).assertEqual(1);
     });
 
+    it('onMethodCall handles Clipboard.hasStrings (replies exactly once)', Level.LEVEL0, async (done: Function) => {
+      const channel = getPlatformChannel();
+      const handler = new FakeHandler();
+      channel.setPlatformMessageHandler(handler);
+      const reply = dispatchPlatformMethodCall(channel, 'Clipboard.hasStrings', null);
+      // hasStrings replies from the system pasteboard hasData() promise; the
+      // resolve and reject branches both reply exactly once with a success
+      // envelope. Poll until the reply arrives (bounded) instead of a fixed
+      // sleep so the test stays deterministic on slow devices.
+      const deadline = Date.now() + 5000;
+      while (reply != null && reply.replyCount == 0 && Date.now() < deadline) {
+        await new Promise<void>((resolve: Function) => setTimeout(resolve, 50));
+      }
+      expect(reply).not().assertNull();
+      if (reply != null) {
+        expect(reply.replyCount).assertEqual(1);
+        expect(reply.replyData).not().assertNull();
+      }
+      done();
+    });
+
     it('onMethodCall handles Scroll.Activity START', Level.LEVEL0, () => {
       const channel = getPlatformChannel();
       const handler = new FakeHandler();
       channel.setPlatformMessageHandler(handler);
-      dispatchPlatformMethodCall(channel, 'Scroll.Activity', ScrollActivity.START);
-      expect(channel).not().assertNull();
+      const reply = dispatchPlatformMethodCall(channel, 'Scroll.Activity', ScrollActivity.START);
+      expect(reply).not().assertNull();
+      if (reply != null) {
+        expect(reply.replyCount).assertEqual(1);
+        expect(reply.replyData).not().assertNull();
+      }
     });
 
     it('onMethodCall handles Scroll.Activity END', Level.LEVEL0, () => {
       const channel = getPlatformChannel();
       const handler = new FakeHandler();
       channel.setPlatformMessageHandler(handler);
-      dispatchPlatformMethodCall(channel, 'Scroll.Activity', ScrollActivity.END);
-      expect(channel).not().assertNull();
+      const reply = dispatchPlatformMethodCall(channel, 'Scroll.Activity', ScrollActivity.END);
+      expect(reply).not().assertNull();
+      if (reply != null) {
+        expect(reply.replyCount).assertEqual(1);
+        expect(reply.replyData).not().assertNull();
+      }
     });
 
     it('onMethodCall handles Scroll.type', Level.LEVEL0, () => {
@@ -557,8 +601,12 @@ export default function platformChannelTest() {
       channel.setPlatformMessageHandler(handler);
       const type = new Map<string, Object>();
       type.set('type', '_PagePosition');
-      dispatchPlatformMethodCall(channel, 'Scroll.type', type);
-      expect(channel).not().assertNull();
+      const reply = dispatchPlatformMethodCall(channel, 'Scroll.type', type);
+      expect(reply).not().assertNull();
+      if (reply != null) {
+        expect(reply.replyCount).assertEqual(1);
+        expect(reply.replyData).not().assertNull();
+      }
     });
 
     it('onMethodCall handles unknown method (notImplemented)', Level.LEVEL0, () => {

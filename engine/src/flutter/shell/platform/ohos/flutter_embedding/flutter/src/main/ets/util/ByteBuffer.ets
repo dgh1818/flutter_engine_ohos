@@ -766,6 +766,7 @@ export class ByteBuffer {
    * @param value - The string value
    * @param byteEncoding - The byte encoding
    * @returns The byte length.
+   * @throws {TypeError} if the encoding is not utf-8
    */
   setString(byteOffset: number, value: string, byteEncoding?: string, write?: boolean): number {
     if (byteEncoding && byteEncoding !== "utf-8") {

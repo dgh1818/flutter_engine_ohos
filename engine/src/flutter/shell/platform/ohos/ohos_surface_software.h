@@ -24,6 +24,8 @@ class OHOSSurfaceSoftware final : public OHOSSurface,
 
   bool IsValid() const override;
 
+  bool HasValidOnscreenContext() const override;
+
   // |OHOSSurface|
   bool ResourceContextMakeCurrent() override;
 

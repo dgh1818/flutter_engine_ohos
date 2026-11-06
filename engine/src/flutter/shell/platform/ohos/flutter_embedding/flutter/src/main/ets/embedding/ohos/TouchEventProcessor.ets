@@ -620,6 +620,23 @@ export default class TouchEventProcessor {
         return
       }
       let length = value.getDVModel().children.length
+      // A real press that the framework hit-tested into one of the platform
+      // views has set that view's params['down']. In that case the pending
+      // Release/Moves belong to that view via the 'down' branch below, and
+      // the cross-region drag-in branch must not engage: the packet's button
+      // field uses the native bitmask (left = 1, right = 2, middle = 4), so a
+      // left-button Release also satisfies `button != 0`; engaging here would
+      // synthesize a Press+Release into the first (topmost) overlapping view
+      // and `break` would steal the Release from the pressed view, killing
+      // clicks on every non-topmost (older) platform view.
+      let anyViewDown = false;
+      for (let i = 0; i < length; i++) {
+        const p = value.getDVModel().children[i].getLayoutParams() as Record<string, ESObject>;
+        if ((p['down'] as boolean ?? false) || (p['mouseDownSynthesized'] as boolean ?? false)) {
+          anyViewDown = true;
+          break;
+        }
+      }
       for (let index = length - 1; index >= 0; index--) {
         const dvModel = value.getDVModel().children[index]
         const params = dvModel.getLayoutParams() as Record<string, ESObject>;
@@ -654,7 +671,7 @@ export default class TouchEventProcessor {
           let nodeController = params['nodeController'] as EmbeddingNodeController;
           nodeController.postMouseEvent(mouseEvent);
           break;
-        } else if (mouseEvent.button != 0 && mouseEvent.action != MouseAction.Press &&
+        } else if (!anyViewDown && mouseEvent.button != 0 && mouseEvent.action != MouseAction.Press &&
           this.checkHitPlatformViewByLocal(mouseEvent, params, densityPixels)) {
           // 跨区域按键拖入：down 恒为 false，webview 未收到 Press 会拒绝 Release。
           // 拖入瞬间合成 Press 补发，置 synthesized=true 使后续 Release 正常分发。

@@ -47,6 +47,10 @@ bool OHOSSurfaceSoftware::IsValid() const {
   return true;
 }
 
+bool OHOSSurfaceSoftware::HasValidOnscreenContext() const {
+  return native_window_ && native_window_->IsValid();
+}
+
 // |OHOSSurface|
 bool OHOSSurfaceSoftware::ResourceContextMakeCurrent() {
   return false;
@@ -180,8 +184,7 @@ bool OHOSSurfaceSoftware::PresentBackingStore(sk_sp<SkSurface> backing_store) {
     return false;
   }
   FML_LOG(INFO) << "BufferHandle.fd:" << bufferHandle->fd
-                << ",w:" << bufferHandle->width
-                << ",h:" << bufferHandle->height
+                << ",w:" << bufferHandle->width << ",h:" << bufferHandle->height
                 << ",stride:" << bufferHandle->stride
                 << ",format:" << bufferHandle->format
                 << ",usage:" << bufferHandle->usage

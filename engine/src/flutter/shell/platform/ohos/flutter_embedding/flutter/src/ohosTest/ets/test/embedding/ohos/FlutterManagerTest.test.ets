@@ -44,7 +44,7 @@ class TestFullScreenListener implements FullScreenListener {
   onScreenStateChanged(_data: window.WindowStatusType): void {}
 }
 
-function sleep(time: number) {
+function sleep(time: number): Promise<void> {
   return new Promise<void>((resolve: Function) => setTimeout(resolve, time));
 }
 

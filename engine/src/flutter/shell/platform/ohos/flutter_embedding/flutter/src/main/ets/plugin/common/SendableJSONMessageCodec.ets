@@ -52,7 +52,7 @@ export default class SendableJSONMessageCodec implements SendableMessageCodec<Ob
    * Decodes a binary message from JSON format.
    * @param message - The binary message to decode, possibly null
    * @returns The decoded message object
-   * @throws Error if the JSON is invalid
+   * @throws {Error} if the JSON is invalid
    */
   decodeMessage(message: ArrayBuffer | null): Any {
     if (message == null) {

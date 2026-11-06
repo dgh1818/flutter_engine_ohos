@@ -4,8 +4,8 @@
  * found in the LICENSE_HW file.
  */
 
-#ifndef FLUTTER_SHELL_PLATFORM_OHOS_TESTING_ACE_NAPI_STUB_H_
-#define FLUTTER_SHELL_PLATFORM_OHOS_TESTING_ACE_NAPI_STUB_H_
+#ifndef FLUTTER_SHELL_PLATFORM_OHOS_TEST_STUBS_ACE_NAPI_STUB_H_
+#define FLUTTER_SHELL_PLATFORM_OHOS_TEST_STUBS_ACE_NAPI_STUB_H_
 
 #include <stdint.h>
 #include "napi/native_api.h"
@@ -18,6 +18,7 @@ void StubNapiSetValuetype(napi_valuetype t);
 void StubNapiSetString(const char* s);
 void StubNapiFailStringUtf8(napi_status s, int skip);
 void StubNapiFailCreateStringUtf8(napi_status s, int skip);
+void StubNapiFailCreateArray(napi_status s);
 void StubNapiFailCreateInt64(napi_status s);
 void StubNapiFailCreateInt32OnCall(int nth);
 void StubNapiFailCreateDoubleOnCall(int nth);
@@ -50,6 +51,8 @@ void StubNapiFailUvEventLoop(napi_status s);
 void StubNapiRunLastAsyncWork(void);
 void StubNapiFailUnwrap(napi_status s);
 void StubNapiFailCallFunction(napi_status s);
+// Number of napi_call_function invocations since the last StubNapiReset().
+size_t StubNapiCallFunctionCount(void);
 void StubNapiFailNamedProperty(napi_status s);
 void StubNapiFailCbInfo(napi_status s);
 void StubNapiSetLastErrorNull(int enable);
@@ -64,4 +67,4 @@ const char* StubNapiRecordedStringAt(size_t index);
 void StubNapiClearRecordedStrings(void);
 }
 
-#endif  // FLUTTER_SHELL_PLATFORM_OHOS_TESTING_ACE_NAPI_STUB_H_
+#endif  // FLUTTER_SHELL_PLATFORM_OHOS_TEST_STUBS_ACE_NAPI_STUB_H_

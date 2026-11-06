@@ -53,7 +53,7 @@ export default class StandardMethodCodec implements MethodCodec {
    * Decodes a method call from binary format.
    * @param methodCall - The binary message to decode
    * @returns The decoded MethodCall
-   * @throws Error if the method call is corrupted
+   * @throws {Error} if the method call is corrupted
    */
   decodeMethodCall(methodCall: ArrayBuffer): MethodCall {
     const buffer = ByteBuffer.from(methodCall);
@@ -104,6 +104,7 @@ export default class StandardMethodCodec implements MethodCodec {
    * @param errorDetails - Error details, possibly null
    * @param errorStacktrace - The platform stacktrace, possibly null
    * @returns The encoded envelope as an ArrayBuffer
+   * @throws {Error} if a value cannot be encoded
    */
   encodeErrorEnvelopeWithStacktrace(errorCode: string, errorMessage: string, errorDetails: Any,
     errorStacktrace: string): ArrayBuffer {
@@ -124,8 +125,8 @@ export default class StandardMethodCodec implements MethodCodec {
    * Decodes a result envelope from binary format.
    * @param envelope - The binary envelope to decode
    * @returns The decoded result value
-   * @throws FlutterException if the envelope contains an error
-   * @throws Error if the envelope is corrupted
+   * @throws {FlutterException} if the envelope contains an error
+   * @throws {Error} if the envelope is corrupted
    */
   decodeEnvelope(envelope: ArrayBuffer): Any {
     const buffer = ByteBuffer.from(envelope);

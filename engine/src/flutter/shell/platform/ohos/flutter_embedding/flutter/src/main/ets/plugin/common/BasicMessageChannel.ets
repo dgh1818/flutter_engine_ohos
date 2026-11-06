@@ -14,7 +14,6 @@ import { BinaryReply } from './BinaryMessenger';
 import { TaskQueue } from './BinaryMessenger';
 import MessageCodec from './MessageCodec';
 import { BinaryMessenger } from './BinaryMessenger';
-import StringUtils from '../../util/StringUtils';
 
 /**
  * A named channel for communicating with the Flutter application using basic, asynchronous message
@@ -194,7 +193,9 @@ class IncomingMessageHandler<T> implements BinaryMessageHandler {
         });
     } catch (e) {
       Log.e(BasicMessageChannel.TAG, "Failed to handle message", e);
-      callback.reply(StringUtils.stringToArrayBuffer(""));
+      // A zero-length non-null buffer is dropped by the engine before
+      // delivery; reply null so Dart always receives an (empty) reply.
+      callback.reply(null);
     }
   }
 }

@@ -37,6 +37,7 @@ export default class KeyData {
   /**
    * Constructs a new KeyData instance.
    * @param buffer - Optional ArrayBuffer to deserialize key data from
+   * @throws {Error} if the buffer contains corrupted key data
    */
   constructor(buffer?: ArrayBuffer) {
     if (buffer !== undefined) {

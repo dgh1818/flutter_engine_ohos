@@ -272,10 +272,9 @@ void InsertNapiWindow(OHOSWindowController* controller,
 WindowRect g_napi_position_rect{1.0, 2.0, 3.0, 4.0};
 
 WindowRect* NapiOnGetWindowPosition(const WindowSize&,
-                                           const WindowRect&,
-                                           const WindowRect&) {
-  auto* out =
-      static_cast<WindowRect*>(malloc(sizeof(WindowRect)));
+                                    const WindowRect&,
+                                    const WindowRect&) {
+  auto* out = static_cast<WindowRect*>(malloc(sizeof(WindowRect)));
   *out = g_napi_position_rect;
   return out;
 }
@@ -400,7 +399,8 @@ TEST_F(PlatformViewOHOSNapiTest, WindowingCalloutsCompleteMarshaling) {
     facade.SetWindowMaximized(9401, true);
     facade.SetWindowMinimized(9401, false);
     facade.SetWindowFullscreen(9401, true);
-    facade.SetWindowConstraints(9401, WindowConstraints{true, 320.0, 240.0, 640.0, 480.0});
+    facade.SetWindowConstraints(
+        9401, WindowConstraints{true, 320.0, 240.0, 640.0, 480.0});
     facade.ActivateWindow(9401);
   };
   EXPECT_NO_FATAL_FAILURE(body());
@@ -457,6 +457,31 @@ TEST_F(PlatformViewOHOSNapiTest, PlatformMessageCalloutsComplete) {
   }
 }
 
+// Regression test for the napi_create_int64 failure branch: when encoding the
+// reponse_id (or the first-frame flag) fails, the callout must close the
+// handle scope and return without invoking JS — no napi_call_function at all.
+TEST_F(PlatformViewOHOSNapiTest, CreateInt64FailureSkipsJsCallInViewCallbacks) {
+  PlatformViewOHOSNapi::env_ = FakeNapiEnv();
+  PlatformViewOHOSNapi facade(nullptr);
+  StubNapiFailCreateInt64(kStubFailure);
+  EXPECT_NO_FATAL_FAILURE(
+      { facade.FlutterViewHandlePlatformMessageResponse(9, nullptr); });
+  StubNapiFailCreateInt64(kStubFailure);
+  EXPECT_NO_FATAL_FAILURE(facade.FlutterViewOnFirstFrame(true));
+  EXPECT_EQ(StubNapiCallFunctionCount(), 0u);
+}
+
+// Regression test for the napi_create_string_utf8 failure branch: when
+// encoding the locale fails, SetApplicationLocale must close the handle scope
+// and return without invoking JS — no napi_call_function at all.
+TEST_F(PlatformViewOHOSNapiTest, SetLocaleCreateStringUtf8FailureSkipsJsCall) {
+  PlatformViewOHOSNapi::env_ = FakeNapiEnv();
+  PlatformViewOHOSNapi facade(nullptr);
+  StubNapiFailCreateStringUtf8(kStubFailure, 0);
+  EXPECT_NO_FATAL_FAILURE(facade.FlutterViewSetApplicationLocale("zh-Hans-CN"));
+  EXPECT_EQ(StubNapiCallFunctionCount(), 0u);
+}
+
 TEST_F(PlatformViewOHOSNapiTest, InputEventCalloutsCompleteAndNullPacket) {
   PlatformViewOHOSNapi::env_ = FakeNapiEnv();
   PlatformViewOHOSNapi facade(nullptr);
@@ -477,6 +502,44 @@ TEST_F(PlatformViewOHOSNapiTest, InputEventCalloutsCompleteAndNullPacket) {
     StubNapiFailCallFunction(kStubFailure);
     facade.FlutterViewOnAxisEvent(packets, 2);
   });
+}
+
+// Regression test for the napi_create_array / napi_create_string_utf8 failure
+// branches in the input-event callouts: when building the packet array fails,
+// the callout must close the handle scope and return without invoking JS —
+// no napi_call_function at all.
+TEST_F(PlatformViewOHOSNapiTest, DisplayMutatorsCreateFailureSkipsJsCall) {
+  PlatformViewOHOSNapi::env_ = FakeNapiEnv();
+  PlatformViewOHOSNapi facade(nullptr);
+  const std::vector<double> data = {1.5, 2.5};
+  StubNapiFailCreateInt64(kStubFailure);
+  EXPECT_NO_FATAL_FAILURE(facade.OnDisplayMutatorsHybrid(1, data));
+  StubNapiFailCreateArray(kStubFailure);
+  EXPECT_NO_FATAL_FAILURE(facade.OnDisplayMutatorsHybrid(1, data));
+  StubNapiFailCreateDoubleOnCall(1);
+  EXPECT_NO_FATAL_FAILURE(facade.OnDisplayMutatorsHybrid(1, data));
+  EXPECT_EQ(StubNapiCallFunctionCount(), 0u);
+}
+
+TEST_F(PlatformViewOHOSNapiTest, InputEventCreateFailureSkipsJsCall) {
+  PlatformViewOHOSNapi::env_ = FakeNapiEnv();
+  PlatformViewOHOSNapi facade(nullptr);
+  auto packets = std::shared_ptr<std::string[]>(new std::string[2]);
+  packets[0] = "{\"change\":0}";
+  packets[1] = "{\"change\":1}";
+  StubNapiFailCreateArray(kStubFailure);
+  EXPECT_NO_FATAL_FAILURE(facade.FlutterViewOnTouchEvent(packets, 2));
+  StubNapiFailCreateArray(kStubFailure);
+  EXPECT_NO_FATAL_FAILURE(facade.FlutterViewOnMouseEvent(packets, 2));
+  StubNapiFailCreateArray(kStubFailure);
+  EXPECT_NO_FATAL_FAILURE(facade.FlutterViewOnAxisEvent(packets, 2));
+  StubNapiFailCreateStringUtf8(kStubFailure, 0);
+  EXPECT_NO_FATAL_FAILURE(facade.FlutterViewOnTouchEvent(packets, 2));
+  StubNapiFailCreateStringUtf8(kStubFailure, 0);
+  EXPECT_NO_FATAL_FAILURE(facade.FlutterViewOnMouseEvent(packets, 2));
+  StubNapiFailCreateStringUtf8(kStubFailure, 0);
+  EXPECT_NO_FATAL_FAILURE(facade.FlutterViewOnAxisEvent(packets, 2));
+  EXPECT_EQ(StubNapiCallFunctionCount(), 0u);
 }
 
 TEST_F(PlatformViewOHOSNapiTest, CalloutsInvokeJsMethodFailureBranches) {
@@ -2396,7 +2459,9 @@ TEST_F(PlatformViewOHOSNapiTest, SurfaceCreatedCachesNativeWindow) {
   auto platform_view = holder->GetPlatformView().get();
   ASSERT_NE(platform_view->cached_native_window_.get(), nullptr);
   EXPECT_EQ(platform_view->cached_native_window_->handle(), window);
-  EXPECT_TRUE(platform_view->onscreen_context_valid_.load());
+  platform_view->RunOnRasterAndWait([&] {
+    EXPECT_TRUE(platform_view->ohos_surface_->HasValidOnscreenContext());
+  });
   g_graphic_stub.engaged = 0;
   EXPECT_TRUE(holder->IsValid());
 }
@@ -2855,7 +2920,8 @@ TEST_F(PlatformViewOHOSNapiTest, NativeComputeWindowPositionStages) {
       PlatformViewOHOSNapi::nativeComputeWindowPosition(env, nullptr));
 
   constexpr int64_t kView = 7;
-  InsertNapiWindow(holder->GetWindowController(), kView, RegularWindowCreationRequest{});
+  InsertNapiWindow(holder->GetWindowController(), kView,
+                   RegularWindowCreationRequest{});
   StubNapiSetInt64Value(kView);
   EXPECT_NO_FATAL_FAILURE(
       PlatformViewOHOSNapi::nativeComputeWindowPosition(env, nullptr));
@@ -2903,7 +2969,8 @@ TEST_F(PlatformViewOHOSNapiTest, NativeNotifyWindowActivatedStages) {
   EXPECT_EQ(PlatformViewOHOSNapi::nativeNotifyWindowActivated(env, nullptr),
             nullptr);
   constexpr int64_t kView = 8;
-  InsertNapiWindow(holder->GetWindowController(), kView, RegularWindowCreationRequest{});
+  InsertNapiWindow(holder->GetWindowController(), kView,
+                   RegularWindowCreationRequest{});
   StubNapiSetInt64Value(kView);
   StubNapiSetBoolValue(true);
   EXPECT_EQ(PlatformViewOHOSNapi::nativeNotifyWindowActivated(env, nullptr),

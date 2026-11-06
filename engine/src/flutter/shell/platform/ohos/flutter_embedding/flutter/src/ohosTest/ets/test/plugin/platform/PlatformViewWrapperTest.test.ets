@@ -18,7 +18,7 @@ import { PlatformViewWrapper } from '../../../../../main/ets/plugin/platform/Pla
 import { DVModel, DVModelParameters, DVModelEvents, DVModelChildren } from '../../../../../main/ets/view/DynamicView/dynamicView';
 import Any from '../../../../../main/ets/plugin/common/Any';
 
-function sleep(time: number) {
+function sleep(time: number): Promise<void> {
   return new Promise<void>((resolve: Function) => setTimeout(resolve, time));
 }
 

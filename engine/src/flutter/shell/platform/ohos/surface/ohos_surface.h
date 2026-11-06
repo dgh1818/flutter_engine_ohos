@@ -23,6 +23,10 @@ class OHOSSurface {
  public:
   virtual ~OHOSSurface();
   virtual bool IsValid() const = 0;
+
+  // Queries the current window rendering resources. Raster thread only.
+  virtual bool HasValidOnscreenContext() const = 0;
+
   virtual void TeardownOnScreenContext() = 0;
 
   virtual bool OnScreenSurfaceResize(const DlISize& size) = 0;

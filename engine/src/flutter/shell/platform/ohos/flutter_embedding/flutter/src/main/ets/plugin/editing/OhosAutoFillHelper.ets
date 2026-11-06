@@ -363,6 +363,17 @@ export class OhosAutoFillHelper {
     return map;
   }
 
+  /**
+   * Builds the view data payload for an autofill session.
+   * @param hostInfo - The autofill host info
+   * @param configuration - The input configuration
+   * @param nodeIdMap - Map of unique identifiers to node ids
+   * @param focusedFieldRect - The focused field rect, possibly null
+   * @param pageRect - The page rect, possibly null
+   * @param fieldRects - Optional map of field rects
+   * @returns The built OhosViewData
+   * @throws {Error} if the configuration has no autofill section
+   */
   static buildViewData(
     hostInfo: AutoFillHostInfo,
     configuration: Configuration,

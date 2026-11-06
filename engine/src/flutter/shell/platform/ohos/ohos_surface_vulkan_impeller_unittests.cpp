@@ -5,19 +5,21 @@
  */
 
 #include "flutter/shell/platform/ohos/ohos_context_vulkan_impeller.h"
-#include "flutter/shell/platform/ohos/ohos_surface_vulkan_impeller.h"
 
 #include <gtest/gtest.h>
 
 #include <memory>
 
 #include "flutter/display_list/geometry/dl_geometry_types.h"
+#include "flutter/fml/concurrent_message_loop.h"
 #include "flutter/fml/log_settings.h"
 #include "flutter/fml/memory/ref_ptr.h"
 #include "flutter/fml/time/time_delta.h"
 #include "flutter/fml/time/time_point.h"
 #include "flutter/impeller/renderer/backend/vulkan/surface_context_vk.h"
+#include "flutter/shell/gpu/gpu_surface_vulkan_impeller.h"
 #include "flutter/shell/platform/ohos/context/ohos_context.h"
+#include "flutter/shell/platform/ohos/ohos_surface_vulkan_impeller.h"
 #include "flutter/shell/platform/ohos/surface/ohos_native_window.h"
 #include "flutter/shell/platform/ohos/surface/ohos_surface.h"
 #include "flutter/shell/platform/ohos/test_stubs/ace_graphic_ndk_stub.h"
@@ -27,8 +29,9 @@ namespace flutter {
 namespace testing {
 namespace {
 
+char kFakeNativeWindowStorage;
 OHNativeWindow* const kFakeNativeWindow =
-    reinterpret_cast<OHNativeWindow*>(0x1100);
+    reinterpret_cast<OHNativeWindow*>(&kFakeNativeWindowStorage);
 
 class QuietLogs {
  public:
@@ -118,6 +121,38 @@ TEST_F(OhosSurfaceVulkanImpellerTest, TeardownClearsNativeWindow) {
   ASSERT_NE(surface_->native_window().get(), nullptr);
   EXPECT_NO_FATAL_FAILURE(surface_->TeardownOnScreenContext());
   EXPECT_EQ(surface_->native_window().get(), nullptr);
+}
+
+TEST_F(OhosSurfaceVulkanImpellerTest, TeardownToleratesMissingSurfaceContext) {
+  surface_->surface_context_vk_.reset();
+  surface_->native_window() =
+      fml::MakeRefCounted<OHOSNativeWindow>(kFakeNativeWindow);
+  surface_->is_surface_preload_ = true;
+
+  EXPECT_NO_FATAL_FAILURE(surface_->TeardownOnScreenContext());
+  EXPECT_NO_FATAL_FAILURE(surface_->TeardownOnScreenContext());
+  EXPECT_EQ(surface_->native_window().get(), nullptr);
+  EXPECT_FALSE(surface_->is_surface_preload_);
+  EXPECT_FALSE(surface_->HasValidOnscreenContext());
+}
+
+TEST_F(OhosSurfaceVulkanImpellerTest, OnscreenValidityTracksSwapchain) {
+  auto context = surface_->SurfaceContext();
+  ASSERT_NE(context, nullptr);
+  EXPECT_FALSE(surface_->HasValidOnscreenContext());
+  impeller::testing::SetSwapchainImageSize({100, 100});
+  ASSERT_TRUE(context->SetWindowSurface({}, {100, 100}));
+  EXPECT_TRUE(surface_->HasValidOnscreenContext());
+
+  context->TeardownSwapchain();
+  EXPECT_FALSE(surface_->HasValidOnscreenContext());
+  ASSERT_TRUE(context->SetWindowSurface({}, {100, 100}));
+  EXPECT_TRUE(surface_->HasValidOnscreenContext());
+
+  surface_->TeardownOnScreenContext();
+  surface_->TeardownOnScreenContext();
+  EXPECT_FALSE(surface_->HasValidOnscreenContext());
+  EXPECT_TRUE(surface_->IsValid());
 }
 
 TEST_F(OhosSurfaceVulkanImpellerTest, OnScreenSurfaceResizeUpdatesSize) {

@@ -4,6 +4,7 @@
 
 precision mediump float;
 
+#include <impeller/color_space.glsl>
 #include <impeller/color_transform.glsl>
 #include <impeller/constants.glsl>
 #include <impeller/types.glsl>
@@ -24,6 +25,8 @@ uniform FragInfo {
   int source_primaries;
   // Limited-range RGB samples have nominal 10-bit code values 64..940.
   int source_limited_10bit;
+  float source_color_space;
+  float target_color_space;
 }
 frag_info;
 
@@ -61,16 +64,18 @@ highp vec3 FromLinearWorking(highp vec3 working) {
 void main() {
   f16vec4 sampled =
       texture(texture_sampler, v_texture_coords, float16_t(kDefaultMipBias));
-  highp vec3 color = vec3(sampled.rgb);
   if (frag_info.output_mode == 1) {
+    highp vec3 color = vec3(sampled.rgb);
     if (frag_info.source_limited_10bit == 1) {
       color = clamp((color * 1023.0 - 64.0) / 876.0, 0.0, 1.0);
     }
     highp vec3 working = ToLinearWorking(color);
-    // Working-space 1.0 (203-nit SDR/graphics white) maps to HLG signal 0.75.
-    // The scaling is performed before the inverse EOTF so shadows and
-    // midtones retain the SDR appearance inside the HLG presentation.
     color = FromLinearWorking(working);
+    frag_color =
+        f16vec4(f16vec3(color), sampled.a * float16_t(frag_info.alpha));
+  } else {
+    frag_color = f16vec4(IPConvertColorSpace(vec4(sampled) * frag_info.alpha,
+                                             frag_info.source_color_space,
+                                             frag_info.target_color_space));
   }
-  frag_color = f16vec4(f16vec3(color), sampled.a * float16_t(frag_info.alpha));
 }

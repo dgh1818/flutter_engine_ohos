@@ -27,6 +27,20 @@
 namespace {
 int g_fake_create_sync_native_fd = -1;
 
+// Valid addressable storage for fake handles: integer-to-pointer casts are UB
+// if the callee ever dereferences them, while &storage is always legal.
+char g_fake_display_storage;
+char g_fake_sync_storage;
+char g_fake_image_storage;
+char g_fake_buffer_storage;
+EGLDisplay const kFakeDisplay =
+    reinterpret_cast<EGLDisplay>(&g_fake_display_storage);
+EGLSyncKHR const kFakeSync = reinterpret_cast<EGLSyncKHR>(&g_fake_sync_storage);
+EGLImageKHR const kFakeImage =
+    reinterpret_cast<EGLImageKHR>(&g_fake_image_storage);
+OHNativeWindowBuffer* const kFakeBuffer =
+    reinterpret_cast<OHNativeWindowBuffer*>(&g_fake_buffer_storage);
+
 EGLSyncKHR FakeCreateSyncNoSync(EGLDisplay, EGLenum, const EGLint*) {
   return EGL_NO_SYNC_KHR;
 }
@@ -41,7 +55,7 @@ EGLSyncKHR FakeCreateSyncValid(EGLDisplay, EGLenum, const EGLint* attribs) {
       }
     }
   }
-  return reinterpret_cast<EGLSyncKHR>(0x2);
+  return kFakeSync;
 }
 EGLint FakeWaitSync(EGLDisplay, EGLSyncKHR, EGLint) {
   return EGL_TRUE;
@@ -64,7 +78,7 @@ EGLImageKHR FakeCreateImageValid(EGLDisplay,
                                  EGLenum,
                                  EGLClientBuffer,
                                  const EGLint*) {
-  return reinterpret_cast<EGLImageKHR>(0x3);
+  return kFakeImage;
 }
 }  // namespace
 
@@ -191,7 +205,7 @@ class ScopedUnsignaledFence {
 
 TEST_F(OhosExternalTextureGLTest, WaitGPUFenceClosesSignalledFence) {
   OHOSExternalTextureGL texture(15, OH_OnFrameAvailableListener{});
-  g_current_display_override = reinterpret_cast<EGLDisplay>(0x1);
+  g_current_display_override = kFakeDisplay;
   int fd = MakeSignalledFenceFd();
   ASSERT_GT(fd, 0);
   int keep = dup(fd);
@@ -203,7 +217,7 @@ TEST_F(OhosExternalTextureGLTest, WaitGPUFenceClosesSignalledFence) {
 
 TEST_F(OhosExternalTextureGLTest, WaitGPUFenceClosesFdWhenProcMissing) {
   OHOSExternalTextureGL texture(16, OH_OnFrameAvailableListener{});
-  g_current_display_override = reinterpret_cast<EGLDisplay>(0x1);
+  g_current_display_override = kFakeDisplay;
   OHOSExternalTextureGL::eglCreateSyncKHR_ = nullptr;
   OHOSExternalTextureGL::eglWaitSyncKHR_ = nullptr;
   OHOSExternalTextureGL::eglDestroySyncKHR_ = nullptr;
@@ -220,7 +234,7 @@ TEST_F(OhosExternalTextureGLTest, WaitGPUFenceClosesFdWhenProcMissing) {
 
 TEST_F(OhosExternalTextureGLTest, WaitGPUFenceClosesFdWhenSyncCreateFails) {
   OHOSExternalTextureGL texture(17, OH_OnFrameAvailableListener{});
-  g_current_display_override = reinterpret_cast<EGLDisplay>(0x1);
+  g_current_display_override = kFakeDisplay;
   OHOSExternalTextureGL::eglCreateSyncKHR_ = FakeCreateSyncNoSync;
   OHOSExternalTextureGL::eglWaitSyncKHR_ = FakeWaitSync;
 
@@ -236,7 +250,7 @@ TEST_F(OhosExternalTextureGLTest, WaitGPUFenceClosesFdWhenSyncCreateFails) {
 
 TEST_F(OhosExternalTextureGLTest, WaitGPUFenceStoresSyncAndWaits) {
   OHOSExternalTextureGL texture(18, OH_OnFrameAvailableListener{});
-  g_current_display_override = reinterpret_cast<EGLDisplay>(0x1);
+  g_current_display_override = kFakeDisplay;
   OHOSExternalTextureGL::eglCreateSyncKHR_ = FakeCreateSyncValid;
   OHOSExternalTextureGL::eglWaitSyncKHR_ = FakeWaitSync;
   OHOSExternalTextureGL::eglDestroySyncKHR_ = FakeDestroySync;
@@ -248,8 +262,7 @@ TEST_F(OhosExternalTextureGLTest, WaitGPUFenceStoresSyncAndWaits) {
   g_fake_create_sync_native_fd = -1;
   texture.WaitGPUFence(fence_fd);
   EXPECT_EQ(texture.gl_resources_.size(), 1u);
-  EXPECT_EQ(texture.gl_resources_[texture.now_key_].wait_sync.get(),
-            reinterpret_cast<EGLSyncKHR>(0x2));
+  EXPECT_EQ(texture.gl_resources_[texture.now_key_].wait_sync.get(), kFakeSync);
   EXPECT_EQ(g_fake_create_sync_native_fd, fence_fd);
   texture.GPUResourceDestroy();
   EXPECT_EQ(texture.gl_resources_.size(), 0u);
@@ -279,11 +292,11 @@ TEST_F(OhosExternalTextureGLTest, CreateEGLImageFailurePaths) {
 
   EXPECT_FALSE(texture.CreateEGLImage(nullptr).is_valid());
 
-  g_current_display_override = reinterpret_cast<EGLDisplay>(0x1);
+  g_current_display_override = kFakeDisplay;
   EXPECT_FALSE(texture.CreateEGLImage(nullptr).is_valid());
 
   OHOSExternalTextureGL::eglCreateImageKHR_ = nullptr;
-  auto* fake_buffer = reinterpret_cast<OHNativeWindowBuffer*>(0x10);
+  auto* fake_buffer = kFakeBuffer;
   EXPECT_FALSE(texture.CreateEGLImage(fake_buffer).is_valid());
 
   OHOSExternalTextureGL::eglCreateImageKHR_ = FakeCreateImageNoImage;
@@ -295,67 +308,61 @@ TEST_F(OhosExternalTextureGLTest, CreateEGLImageFailurePaths) {
   OHOSExternalTextureGL::eglDestroyImageKHR_ = FakeDestroyImage;
   auto created = texture.CreateEGLImage(fake_buffer);
   EXPECT_TRUE(created.is_valid());
-  EXPECT_EQ(created.get().image, reinterpret_cast<EGLImageKHR>(0x3));
+  EXPECT_EQ(created.get().image, kFakeImage);
   created = OHOSUniqueEGLImageKHR();
 }
 
 TEST_F(OhosExternalTextureGLTest, SetGPUFenceFailsWhenBufferConvertFails) {
   OHOSExternalTextureGL texture(22, OH_OnFrameAvailableListener{});
-  g_current_display_override = reinterpret_cast<EGLDisplay>(0x1);
+  g_current_display_override = kFakeDisplay;
   GraphicStubKnobGuard guard;
   UpdateFromNativeWindowBufferFail(1);
   int fd = -1;
-  texture.SetGPUFence(reinterpret_cast<OHNativeWindowBuffer*>(0x10), &fd);
+  texture.SetGPUFence(kFakeBuffer, &fd);
   EXPECT_EQ(fd, -1);
   fml::ScopedSetLogSettings quiet({fml::kLogFatal});
-  texture.SetGPUFence(reinterpret_cast<OHNativeWindowBuffer*>(0x10), &fd);
+  texture.SetGPUFence(kFakeBuffer, &fd);
   EXPECT_EQ(fd, -1);
 }
 
 TEST_F(OhosExternalTextureGLTest, SetGPUFenceLogsWhenSyncProcsMissing) {
   OHOSExternalTextureGL texture(23, OH_OnFrameAvailableListener{});
-  g_current_display_override = reinterpret_cast<EGLDisplay>(0x1);
+  g_current_display_override = kFakeDisplay;
   GraphicStubKnobGuard guard;
   OHOSExternalTextureGL::eglCreateSyncKHR_ = nullptr;
   OHOSExternalTextureGL::eglDupNativeFenceFDANDROID_ = nullptr;
   OHOSExternalTextureGL::eglDestroySyncKHR_ = nullptr;
   int fd = -1;
-  texture.SetGPUFence(reinterpret_cast<OHNativeWindowBuffer*>(0x10), &fd);
+  texture.SetGPUFence(kFakeBuffer, &fd);
   EXPECT_EQ(fd, -1);
   fml::ScopedSetLogSettings quiet({fml::kLogFatal});
-  texture.SetGPUFence(reinterpret_cast<OHNativeWindowBuffer*>(0x10), &fd);
+  texture.SetGPUFence(kFakeBuffer, &fd);
   EXPECT_EQ(fd, -1);
 }
 
 TEST_F(OhosExternalTextureGLTest, TraitsFreeNullAndValidDestroyProcs) {
-  impeller::EGLImageKHRWithDisplay image{reinterpret_cast<EGLImageKHR>(0x3),
-                                         reinterpret_cast<EGLDisplay>(0x1)};
+  impeller::EGLImageKHRWithDisplay image{kFakeImage, kFakeDisplay};
   OHOSExternalTextureGL::eglDestroyImageKHR_ = nullptr;
   EXPECT_NO_FATAL_FAILURE(OHOSEGLImageKHRWithDisplayTraits::Free(image));
   OHOSExternalTextureGL::eglDestroyImageKHR_ = FakeDestroyImage;
   EXPECT_NO_FATAL_FAILURE(OHOSEGLImageKHRWithDisplayTraits::Free(image));
 
   OHOSExternalTextureGL::eglDestroySyncKHR_ = nullptr;
-  EXPECT_NO_FATAL_FAILURE(
-      EGLSyncKHRTraits::Free(reinterpret_cast<EGLSyncKHR>(0x2)));
-  g_current_display_override = reinterpret_cast<EGLDisplay>(0x1);
+  EXPECT_NO_FATAL_FAILURE(EGLSyncKHRTraits::Free(kFakeSync));
+  g_current_display_override = kFakeDisplay;
   OHOSExternalTextureGL::eglDestroySyncKHR_ = FakeDestroySync;
-  EXPECT_NO_FATAL_FAILURE(
-      EGLSyncKHRTraits::Free(reinterpret_cast<EGLSyncKHR>(0x2)));
+  EXPECT_NO_FATAL_FAILURE(EGLSyncKHRTraits::Free(kFakeSync));
 }
 
 TEST_F(OhosExternalTextureGLTest, CreateEGLImageOnFailures) {
   OHOSExternalTextureGL texture(25, OH_OnFrameAvailableListener{});
   fml::ScopedSetLogSettings quiet({fml::kLogFatal});
-  g_current_display_override = reinterpret_cast<EGLDisplay>(0x1);
+  g_current_display_override = kFakeDisplay;
   OHOSExternalTextureGL::eglCreateImageKHR_ = nullptr;
-  EXPECT_FALSE(
-      texture.CreateEGLImage(reinterpret_cast<OHNativeWindowBuffer*>(0x10))
-          .is_valid());
+  EXPECT_FALSE(texture.CreateEGLImage(kFakeBuffer).is_valid());
   OHOSExternalTextureGL::eglCreateImageKHR_ = FakeCreateImageValid;
   OHOSExternalTextureGL::eglDestroyImageKHR_ = FakeDestroyImage;
-  auto created =
-      texture.CreateEGLImage(reinterpret_cast<OHNativeWindowBuffer*>(0x10));
+  auto created = texture.CreateEGLImage(kFakeBuffer);
   EXPECT_TRUE(created.is_valid());
   created = OHOSUniqueEGLImageKHR();
 }
@@ -363,7 +370,7 @@ TEST_F(OhosExternalTextureGLTest, CreateEGLImageOnFailures) {
 TEST_F(OhosExternalTextureGLTest, EglGetErrorLogsDoNotCrash) {
   fml::ScopedSetLogSettings quiet({fml::kLogFatal});
   OHOSExternalTextureGL texture(26, OH_OnFrameAvailableListener{});
-  g_current_display_override = reinterpret_cast<EGLDisplay>(0x1);
+  g_current_display_override = kFakeDisplay;
   GraphicStubKnobGuard guard;
   UpdateFromNativeWindowBufferFail(0);
   OHOSExternalTextureGL::eglCreateSyncKHR_ = FakeCreateSyncValid;
@@ -373,13 +380,12 @@ TEST_F(OhosExternalTextureGLTest, EglGetErrorLogsDoNotCrash) {
   OHOSExternalTextureGL::eglCreateImageKHR_ = FakeCreateImageValid;
   OHOSExternalTextureGL::eglDestroyImageKHR_ = FakeDestroyImage;
   int fd = -1;
-  texture.SetGPUFence(reinterpret_cast<OHNativeWindowBuffer*>(0x10), &fd);
+  texture.SetGPUFence(kFakeBuffer, &fd);
 
   ScopedUnsignaledFence fence;
   ASSERT_GT(fence.get(), 0);
   texture.WaitGPUFence(fence.get());
-  auto created =
-      texture.CreateEGLImage(reinterpret_cast<OHNativeWindowBuffer*>(0x10));
+  auto created = texture.CreateEGLImage(kFakeBuffer);
   EXPECT_TRUE(created.is_valid());
   created = OHOSUniqueEGLImageKHR();
 }

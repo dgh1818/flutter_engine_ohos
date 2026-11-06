@@ -232,6 +232,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
   /**
    * Initializes the FlutterEngine.
    * Checks for cached engines, engine groups, or creates a new engine.
+   * @throws {Error} if a cached engine or engine group id has no entry in its cache
    */
   setupFlutterEngine() {
     // First, check if the host wants to use a cached FlutterEngine.
@@ -530,7 +531,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
 
   /**
    * Ensures the delegate is still alive.
-   * @throws Error if the delegate has been destroyed
+   * @throws {Error} if the delegate has been destroyed
    */
   ensureAlive() {
     if (this.isHost && this.host == null) {
@@ -556,7 +557,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
 
   /**
    * Detaches from the Flutter engine.
-   * @throws Error if the engine should not be detached
+   * @throws {Error} if the engine should not be detached
    */
   detachFromFlutterEngine() {
     if (this.host?.shouldDestroyEngineWithHost()) {
@@ -578,7 +579,7 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
   /**
    * Gets the app component (UIAbility).
    * @returns The UIAbility instance
-   * @throws Error if the ability is null
+   * @throws {Error} if the ability is null
    */
   getAppComponent(): UIAbility {
     const ability = this.host?.getAbility();

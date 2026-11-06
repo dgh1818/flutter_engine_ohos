@@ -321,6 +321,8 @@ void PlatformViewOHOSNapi::FlutterViewHandlePlatformMessageResponse(
   status = napi_create_int64(env_, reponse_id, callbackParam);
   if (status != napi_ok) {
     FML_DLOG(ERROR) << "napi_create_int64 reponse_id fail";
+    napi_close_handle_scope(env_, scope);
+    return;
   }
 
   if (data == nullptr) {
@@ -402,6 +404,8 @@ void PlatformViewOHOSNapi::FlutterViewOnFirstFrame(bool is_preload) {
   napi_status status = napi_create_int64(env_, is_preload, callbackParam);
   if (status != napi_ok) {
     FML_DLOG(ERROR) << "napi_create_int64 firstframe fail ";
+    napi_close_handle_scope(env_, scope);
+    return;
   }
   status = fml::napi::InvokeJsMethod(env_, ref_napi_obj_, "onFirstFrame", 1,
                                      callbackParam);
@@ -1091,17 +1095,32 @@ void PlatformViewOHOSNapi::OnDisplayMutatorsHybrid(
   napi_handle_scope scope;
   napi_open_handle_scope(env_, &scope);
   napi_value argv[2] = {nullptr};
-  napi_create_int64(env_, view_id, &argv[0]);
+  napi_status status = napi_create_int64(env_, view_id, &argv[0]);
+  if (status != napi_ok) {
+    FML_LOG(ERROR) << "napi_create_int64 err " << status;
+    napi_close_handle_scope(env_, scope);
+    return;
+  }
   napi_value array;
-  napi_create_array(env_, &array);
+  status = napi_create_array(env_, &array);
+  if (status != napi_ok) {
+    FML_LOG(ERROR) << "napi_create_array err " << status;
+    napi_close_handle_scope(env_, scope);
+    return;
+  }
   for (size_t i = 0; i < data.size(); ++i) {
     napi_value v;
-    napi_create_double(env_, data[i], &v);
+    status = napi_create_double(env_, data[i], &v);
+    if (status != napi_ok) {
+      FML_LOG(ERROR) << "napi_create_double err " << status;
+      napi_close_handle_scope(env_, scope);
+      return;
+    }
     napi_set_element(env_, array, i, v);
   }
   argv[1] = array;
-  fml::napi::InvokeJsMethod(env_, ref_napi_obj_, "onDisplayMutatorsHybrid", 2,
-                            argv);
+  status = fml::napi::InvokeJsMethod(env_, ref_napi_obj_,
+                                     "onDisplayMutatorsHybrid", 2, argv);
   napi_close_handle_scope(env_, scope);
 }
 
@@ -1343,6 +1362,8 @@ void PlatformViewOHOSNapi::FlutterViewSetApplicationLocale(std::string locale) {
                                                locale.size(), callbackParam);
   if (status != napi_ok) {
     FML_LOG(ERROR) << "napi_create_string_utf8 locale fail";
+    napi_close_handle_scope(env_, scope);
+    return;
   }
   status = fml::napi::InvokeJsMethod(
       env_, ref_napi_obj_, "onApplicationLocaleChanged", 1, callbackParam);
@@ -1362,17 +1383,27 @@ void PlatformViewOHOSNapi::FlutterViewOnTouchEvent(
   napi_handle_scope scope;
   napi_open_handle_scope(env_, &scope);
   napi_value arrayString;
-  napi_create_array(env_, &arrayString);
+  napi_status status = napi_create_array(env_, &arrayString);
+  if (status != napi_ok) {
+    FML_LOG(ERROR) << "napi_create_array err " << status;
+    napi_close_handle_scope(env_, scope);
+    return;
+  }
 
   for (int i = 0; i < size; ++i) {
     napi_value stringItem;
-    napi_create_string_utf8(env_, touchPacketString[i].c_str(), -1,
-                            &stringItem);
+    status = napi_create_string_utf8(env_, touchPacketString[i].c_str(), -1,
+                                     &stringItem);
+    if (status != napi_ok) {
+      FML_LOG(ERROR) << "napi_create_string_utf8 err " << status;
+      napi_close_handle_scope(env_, scope);
+      return;
+    }
     napi_set_element(env_, arrayString, i, stringItem);
   }
 
-  napi_status status = fml::napi::InvokeJsMethod(
-      env_, ref_napi_obj_, "onTouchEvent", 1, &arrayString);
+  status = fml::napi::InvokeJsMethod(env_, ref_napi_obj_, "onTouchEvent", 1,
+                                     &arrayString);
   if (status != napi_ok) {
     FML_LOG(ERROR) << "InvokeJsMethod onTouchEvent fail";
   }
@@ -1389,17 +1420,27 @@ void PlatformViewOHOSNapi::FlutterViewOnMouseEvent(
   napi_handle_scope scope;
   napi_open_handle_scope(env_, &scope);
   napi_value arrayString;
-  napi_create_array(env_, &arrayString);
+  napi_status status = napi_create_array(env_, &arrayString);
+  if (status != napi_ok) {
+    FML_LOG(ERROR) << "napi_create_array err " << status;
+    napi_close_handle_scope(env_, scope);
+    return;
+  }
 
   for (int i = 0; i < size; ++i) {
     napi_value stringItem;
-    napi_create_string_utf8(env_, mousePacketString[i].c_str(), -1,
-                            &stringItem);
+    status = napi_create_string_utf8(env_, mousePacketString[i].c_str(), -1,
+                                     &stringItem);
+    if (status != napi_ok) {
+      FML_LOG(ERROR) << "napi_create_string_utf8 err " << status;
+      napi_close_handle_scope(env_, scope);
+      return;
+    }
     napi_set_element(env_, arrayString, i, stringItem);
   }
 
-  napi_status status = fml::napi::InvokeJsMethod(
-      env_, ref_napi_obj_, "onMouseEvent", 1, &arrayString);
+  status = fml::napi::InvokeJsMethod(env_, ref_napi_obj_, "onMouseEvent", 1,
+                                     &arrayString);
   napi_close_handle_scope(env_, scope);
   if (status != napi_ok) {
     FML_LOG(ERROR) << "InvokeJsMethod onMouseEvent fail";
@@ -1416,16 +1457,27 @@ void PlatformViewOHOSNapi::FlutterViewOnAxisEvent(
   napi_handle_scope scope;
   napi_open_handle_scope(env_, &scope);
   napi_value arrayString;
-  napi_create_array(env_, &arrayString);
+  napi_status status = napi_create_array(env_, &arrayString);
+  if (status != napi_ok) {
+    FML_LOG(ERROR) << "napi_create_array err " << status;
+    napi_close_handle_scope(env_, scope);
+    return;
+  }
 
   for (int i = 0; i < size; ++i) {
     napi_value stringItem;
-    napi_create_string_utf8(env_, axisPacketString[i].c_str(), -1, &stringItem);
+    status = napi_create_string_utf8(env_, axisPacketString[i].c_str(), -1,
+                                     &stringItem);
+    if (status != napi_ok) {
+      FML_LOG(ERROR) << "napi_create_string_utf8 err " << status;
+      napi_close_handle_scope(env_, scope);
+      return;
+    }
     napi_set_element(env_, arrayString, i, stringItem);
   }
 
-  napi_status status = fml::napi::InvokeJsMethod(
-      env_, ref_napi_obj_, "onAxisEvent", 1, &arrayString);
+  status = fml::napi::InvokeJsMethod(env_, ref_napi_obj_, "onAxisEvent", 1,
+                                     &arrayString);
   napi_close_handle_scope(env_, scope);
   if (status != napi_ok) {
     FML_LOG(ERROR) << "InvokeJsMethod onAxisEvent fail";
@@ -3443,12 +3495,33 @@ napi_value PlatformViewOHOSNapi::nativeLookupCallbackInformation(
   }
 
   napi_value callbackParam[3];
-  napi_create_string_utf8(env, cbInfo->name.c_str(), NAPI_AUTO_LENGTH,
-                          &callbackParam[0]);
-  napi_create_string_utf8(env, cbInfo->class_name.c_str(), NAPI_AUTO_LENGTH,
-                          &callbackParam[1]);
-  napi_create_string_utf8(env, cbInfo->library_path.c_str(), NAPI_AUTO_LENGTH,
-                          &callbackParam[2]);
+  ret = napi_create_string_utf8(env, cbInfo->name.c_str(), NAPI_AUTO_LENGTH,
+                                &callbackParam[0]);
+  if (ret != napi_ok) {
+    LOGE("napi_create_string_utf8 name err %{public}d", ret);
+    napi_delete_reference(env, callbck_napi_obj);
+    napi_create_int32(env, -1, &result);
+    napi_close_handle_scope(env, scope);
+    return result;
+  }
+  ret = napi_create_string_utf8(env, cbInfo->class_name.c_str(),
+                                NAPI_AUTO_LENGTH, &callbackParam[1]);
+  if (ret != napi_ok) {
+    LOGE("napi_create_string_utf8 class_name err %{public}d", ret);
+    napi_delete_reference(env, callbck_napi_obj);
+    napi_create_int32(env, -1, &result);
+    napi_close_handle_scope(env, scope);
+    return result;
+  }
+  ret = napi_create_string_utf8(env, cbInfo->library_path.c_str(),
+                                NAPI_AUTO_LENGTH, &callbackParam[2]);
+  if (ret != napi_ok) {
+    LOGE("napi_create_string_utf8 library_path err %{public}d", ret);
+    napi_delete_reference(env, callbck_napi_obj);
+    napi_create_int32(env, -1, &result);
+    napi_close_handle_scope(env, scope);
+    return result;
+  }
 
   ret = fml::napi::InvokeJsMethod(env, callbck_napi_obj, "init", 3,
                                   callbackParam);
@@ -3521,12 +3594,33 @@ napi_value PlatformViewOHOSNapi::nativeLookupCallbackInformationBigInt(
   }
 
   napi_value callbackParam[3];
-  napi_create_string_utf8(env, cbInfo->name.c_str(), NAPI_AUTO_LENGTH,
-                          &callbackParam[0]);
-  napi_create_string_utf8(env, cbInfo->class_name.c_str(), NAPI_AUTO_LENGTH,
-                          &callbackParam[1]);
-  napi_create_string_utf8(env, cbInfo->library_path.c_str(), NAPI_AUTO_LENGTH,
-                          &callbackParam[2]);
+  ret = napi_create_string_utf8(env, cbInfo->name.c_str(), NAPI_AUTO_LENGTH,
+                                &callbackParam[0]);
+  if (ret != napi_ok) {
+    LOGE("napi_create_string_utf8 name err %{public}d", ret);
+    napi_delete_reference(env, callbck_napi_obj);
+    napi_create_int32(env, -1, &result);
+    napi_close_handle_scope(env, scope);
+    return result;
+  }
+  ret = napi_create_string_utf8(env, cbInfo->class_name.c_str(),
+                                NAPI_AUTO_LENGTH, &callbackParam[1]);
+  if (ret != napi_ok) {
+    LOGE("napi_create_string_utf8 class_name err %{public}d", ret);
+    napi_delete_reference(env, callbck_napi_obj);
+    napi_create_int32(env, -1, &result);
+    napi_close_handle_scope(env, scope);
+    return result;
+  }
+  ret = napi_create_string_utf8(env, cbInfo->library_path.c_str(),
+                                NAPI_AUTO_LENGTH, &callbackParam[2]);
+  if (ret != napi_ok) {
+    LOGE("napi_create_string_utf8 library_path err %{public}d", ret);
+    napi_delete_reference(env, callbck_napi_obj);
+    napi_create_int32(env, -1, &result);
+    napi_close_handle_scope(env, scope);
+    return result;
+  }
 
   ret = fml::napi::InvokeJsMethod(env, callbck_napi_obj, "init", 3,
                                   callbackParam);

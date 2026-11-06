@@ -36,6 +36,7 @@ export default class MouseCursorChannel implements MethodCallHandler {
       // if no explicit mouseCursorMethodHandler has been registered then we don't
       // need to formed this call to an API. Return
       Log.e(TAG, "mouseCursorMethodHandler is null")
+      result.success(null);
       return;
     }
 
@@ -56,6 +57,7 @@ export default class MouseCursorChannel implements MethodCallHandler {
           result.success(true);
           break;
         default:
+          result.notImplemented();
           break;
       }
     } catch (error) {

@@ -55,6 +55,16 @@ class FakeMessageCodec implements MessageCodec<string> {
   }
 }
 
+class ThrowingDecodeCodec implements MessageCodec<string> {
+  encodeMessage(message: string): ArrayBuffer {
+    return new ArrayBuffer(0);
+  }
+
+  decodeMessage(message: ArrayBuffer | null): string {
+    throw new Error('decode error');
+  }
+}
+
 class FakeMessageHandler implements MessageHandler<string> {
   receivedMessage: string = '';
   capturedReply: Reply<string> | null = null;
@@ -176,7 +186,7 @@ export default function basicMessageChannelTest() {
       expect(reply.replyData).not().assertNull();
     });
 
-    it('sends empty buffer when handler throws', Level.LEVEL1, () => {
+    it('replies null when handler throws', Level.LEVEL1, () => {
       const messenger = new FakeMessenger();
       const handler = new FakeMessageHandler();
       handler.shouldThrow = true;
@@ -187,8 +197,25 @@ export default function basicMessageChannelTest() {
       const reply = new FakeReply();
       binaryHandler.onMessage(codec.encodeMessage('trigger'), reply);
 
-      expect(reply.replyData).not().assertNull();
-      expect(reply.replyData!.byteLength).assertEqual(0);
+      // A zero-length non-null buffer is dropped by the engine before
+      // delivery; the catch path must reply null so Dart always gets a reply.
+      expect(reply.replyData).assertNull();
+    });
+
+    it('replies null when decoding throws', Level.LEVEL1, () => {
+      const messenger = new FakeMessenger();
+      const handler = new FakeMessageHandler();
+      const channel = new BasicMessageChannel<string>(messenger, 'test_channel', new ThrowingDecodeCodec());
+      channel.setMessageHandler(handler);
+
+      const binaryHandler: BinaryMessageHandler = messenger.capturedHandler as BinaryMessageHandler;
+      const reply = new FakeReply();
+      binaryHandler.onMessage(new ArrayBuffer(2), reply);
+
+      // Decoding failed, so the handler must not run and the catch path
+      // replies null instead of a zero-length buffer the engine would drop.
+      expect(handler.receivedMessage).assertEqual('');
+      expect(reply.replyData).assertNull();
     });
   });
 

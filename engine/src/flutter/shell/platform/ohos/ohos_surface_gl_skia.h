@@ -29,6 +29,8 @@ class OhosSurfaceGLSkia final : public GPUSurfaceGLDelegate,
   // |OhosSurface|
   bool IsValid() const override;
 
+  bool HasValidOnscreenContext() const override;
+
   // |OhosSurface|
   std::unique_ptr<Surface> CreateGPUSurface(
       GrDirectContext* gr_context) override;

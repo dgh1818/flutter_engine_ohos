@@ -283,12 +283,15 @@ TEST_F(OhosSurfaceGLImpellerTest, CreateGPUSurfaceNeedsImpellerContext) {
 
 TEST_F(OhosSurfaceGLImpellerTest, TeardownClearsOnscreenSurface) {
   InstallEglMembers(surface_.get());
+  EXPECT_FALSE(surface_->HasValidOnscreenContext());
   surface_->onscreen_surface_ = surface_->display_->CreateWindowSurface(
       *surface_->onscreen_config_, (EGLNativeWindowType)kFakeNativeWindow);
   ASSERT_NE(surface_->onscreen_surface_, nullptr);
+  EXPECT_TRUE(surface_->HasValidOnscreenContext());
   size_t makes = CountEvents("MakeCurrent");
   surface_->TeardownOnScreenContext();
   EXPECT_EQ(surface_->onscreen_surface_, nullptr);
+  EXPECT_FALSE(surface_->HasValidOnscreenContext());
   EXPECT_GT(CountEvents("MakeCurrent"), makes);
 }
 

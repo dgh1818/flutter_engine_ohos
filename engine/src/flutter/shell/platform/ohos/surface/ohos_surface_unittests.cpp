@@ -42,6 +42,9 @@ class FakeOHOSSurface : public OHOSSurface {
       : OHOSSurface(context) {}
 
   bool IsValid() const override { return true; }
+  bool HasValidOnscreenContext() const override {
+    return native_window_ && native_window_->IsValid();
+  }
   void TeardownOnScreenContext() override { ++teardown_count_; }
   bool OnScreenSurfaceResize(const DlISize& size) override {
     ++resize_count_;
@@ -92,6 +95,9 @@ class BranchFakeSurface : public OHOSSurface {
       : OHOSSurface(context) {}
 
   bool IsValid() const override { return true; }
+  bool HasValidOnscreenContext() const override {
+    return native_window_ && native_window_->IsValid();
+  }
   void TeardownOnScreenContext() override {}
   bool OnScreenSurfaceResize(const DlISize& size) override {
     ++resize_count_;

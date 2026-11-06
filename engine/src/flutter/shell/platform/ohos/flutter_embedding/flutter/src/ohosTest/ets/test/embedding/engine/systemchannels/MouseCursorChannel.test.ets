@@ -75,7 +75,8 @@ export default function mouseCursorChannelTest() {
       args.set('kind', 'pointer');
       const call: MethodCall = new MethodCall('activateSystemCursor', args);
       channel.onMethodCall(call, result);
-      expect(result.successCalls).assertEqual(0);
+      expect(result.successCalls).assertEqual(1);
+      expect(result.successResult).assertNull();
       expect(result.notImplCalls).assertEqual(0);
     });
   });
@@ -98,7 +99,7 @@ export default function mouseCursorChannelTest() {
   });
 
   describe('MouseCursorChannel.onMethodCall.unknown', () => {
-    it('doesNothingForUnknownMethod', Level.LEVEL1, () => {
+    it('callsNotImplementedForUnknownMethod', Level.LEVEL1, () => {
       const channel: MouseCursorChannel = createChannel();
       const handler: FakeMouseCursorHandler = new FakeMouseCursorHandler();
       channel.setMethodHandler(handler);
@@ -106,7 +107,7 @@ export default function mouseCursorChannelTest() {
       const call: MethodCall = new MethodCall('unknown.method', null);
       channel.onMethodCall(call, result);
       expect(result.successCalls).assertEqual(0);
-      expect(result.notImplCalls).assertEqual(0);
+      expect(result.notImplCalls).assertEqual(1);
     });
   });
 

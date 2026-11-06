@@ -28,7 +28,7 @@ OHOSSurfaceVulkanImpeller::OHOSSurfaceVulkanImpeller(
   surface_context_vk_ = context_vk.CreateSurfaceContext();
   if (!surface_context_vk_) {
     FML_LOG(ERROR) << "CreateSurfaceContext returned null";
- 	}
+  }
 }
 
 OHOSSurfaceVulkanImpeller::~OHOSSurfaceVulkanImpeller() {}
@@ -36,6 +36,10 @@ OHOSSurfaceVulkanImpeller::~OHOSSurfaceVulkanImpeller() {}
 // |OHOSSurface|
 bool OHOSSurfaceVulkanImpeller::IsValid() const {
   return is_valid_;
+}
+
+bool OHOSSurfaceVulkanImpeller::HasValidOnscreenContext() const {
+  return surface_context_vk_ && surface_context_vk_->HasValidSwapchain();
 }
 
 // |OHOSSurface|
@@ -68,7 +72,9 @@ void OHOSSurfaceVulkanImpeller::TeardownOnScreenContext() {
   // We should do samething as OhosSurfaceGLSkia.
   // If a new engine attaches while the previous detached engine is still not
   // destroyed, it may cause a stall if the swapchain is not cleared.
-  surface_context_vk_->ClearSwapchain();
+  if (surface_context_vk_) {
+    surface_context_vk_->ClearSwapchain();
+  }
   native_window_ = nullptr;
   is_surface_preload_ = false;
 }

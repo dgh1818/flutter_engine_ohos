@@ -198,6 +198,10 @@ bool AtlasContents::Render(const ContentContext& renderer,
 
     FS::FragInfo frag_info{};
     frag_info.alpha = alpha_;
+    // The uniform struct is copied as a whole, so these must be explicit;
+    // equal sRGB values keep the legacy no-conversion behavior.
+    frag_info.source_color_space = 0.0f;
+    frag_info.target_color_space = 0.0f;
     FS::BindFragInfo(pass, data_host_buffer.EmplaceUniform((frag_info)));
     FS::BindTextureSampler(pass, geometry_->GetAtlas(), dst_sampler);
     return pass.Draw().ok();

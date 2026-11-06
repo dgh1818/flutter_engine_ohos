@@ -111,6 +111,7 @@ export default class StandardMessageCodec implements MessageCodec<Any> {
    * @param stream - The ByteBuffer to write to
    * @param value - The value to write
    * @returns The ByteBuffer stream
+   * @throws {Error} if a value is of an unsupported type
    */
   writeValue(stream: ByteBuffer, value: Any): Any {
     const isTopLevel = this._visited === null;
@@ -134,6 +135,13 @@ export default class StandardMessageCodec implements MessageCodec<Any> {
     return stream;
   }
 
+  /**
+   * Writes a value to the byte buffer, guarding against circular references.
+   * @param stream - The ByteBuffer to write to
+   * @param value - The value to write
+   * @param visited - The set of visited objects for circular reference detection
+   * @throws {Error} if a circular reference or an unsupported value is encountered
+   */
   private writeValueInternal(stream: ByteBuffer, value: Any, visited: Set<ESObject>): void {
     if (value == null || value == undefined) {
       stream.writeInt8(StandardMessageCodec.NULL);
@@ -361,7 +369,7 @@ export default class StandardMessageCodec implements MessageCodec<Any> {
    * @param type - The type code to read
    * @param buffer - The ByteBuffer to read from
    * @returns The decoded value
-   * @throws Error if the type is unknown or the message is corrupted
+   * @throws {Error} if the type is unknown or the message is corrupted
    */
   readValueOfType(type: number, buffer: ByteBuffer): Any {
     let result: Any;

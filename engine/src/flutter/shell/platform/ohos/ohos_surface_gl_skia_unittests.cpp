@@ -229,14 +229,17 @@ TEST_F(OhosSurfaceGLSkiaTest, EmitsInfoLogs) {
 }
 
 TEST_F(OhosSurfaceGLSkiaTest, TeardownOnScreenContextClearsWindowState) {
+  EXPECT_FALSE(surface_->HasValidOnscreenContext());
   auto window = fml::MakeRefCounted<OHOSNativeWindow>(kFakeNativeWindow);
   ASSERT_TRUE(surface_->SetNativeWindow(window));
   ASSERT_NE(surface_->GetOnscreenSurface(), nullptr);
+  EXPECT_TRUE(surface_->HasValidOnscreenContext());
   g_egl.events.clear();
 
   surface_->TeardownOnScreenContext();
   EXPECT_EQ(surface_->GetOnscreenSurface(), nullptr);
   EXPECT_EQ(surface_->native_window_.get(), nullptr);
+  EXPECT_FALSE(surface_->HasValidOnscreenContext());
   EXPECT_EQ(CountEvents("MakeCurrent"), 0u);
 }
 

@@ -15,11 +15,13 @@ namespace {
 constexpr int32_t kXcompError = OH_NATIVEXCOMPONENT_RESULT_BAD_PARAMETER;
 
 napi_env FakeEnv() {
-  return reinterpret_cast<napi_env>(0x1);
+  static char storage;
+  return reinterpret_cast<napi_env>(&storage);
 }
 
 napi_value FakeExports() {
-  return reinterpret_cast<napi_value>(0x2);
+  static char storage;
+  return reinterpret_cast<napi_value>(&storage);
 }
 
 TEST(LibraryLoaderTest, RegisteredModuleMetadata) {

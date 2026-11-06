@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'package:meta/meta.dart';
 import 'package:process/process.dart';
 
 import '../base/common.dart';
@@ -71,15 +72,41 @@ class OhosDevices extends PollingDeviceDiscovery {
   @override
   bool get canListAnything => _ohosWorkflow.canListDevices;
 
-  void _parseHdcDeviceOutput(String text, {List<OhosDevice>? devices, List<String>? diagnostics}) {
-    // return empty if do not discovery any devices
-    if (text.contains('[Empty]') || text.contains('connect failed')) {
-      diagnostics?.add(text);
-      return;
-    }
+  static final RegExp _kTargetLinePattern = RegExp(
+    r'^(?:\d{1,3}(?:\.\d{1,3}){3}:\d+|[0-9A-Za-z:_-]{4,})$',
+  );
 
-    for (final String line in text.trim().split('\n')) {
-      final String deviceId = line.trim();
+  // hdc status words that would otherwise look like connect keys.
+  static const Set<String> _kStatusLines = <String>{'offline', 'unauthorized', 'unknown'};
+
+  /// Parses the output of `hdc list targets` into [deviceIds] (valid target
+  /// lines) and [diagnostics] (error/status lines), never treating a
+  /// non-device line as a device.
+  @visibleForTesting
+  static void parseHdcDeviceOutput(
+    String text, {
+    List<String>? deviceIds,
+    List<String>? diagnostics,
+  }) {
+    for (final String rawLine in text.trim().split('\n')) {
+      final String line = rawLine.trim();
+      if (line.isEmpty) {
+        continue;
+      }
+      final bool isTargetLine =
+          _kTargetLinePattern.hasMatch(line) && !_kStatusLines.contains(line.toLowerCase());
+      if (isTargetLine) {
+        deviceIds?.add(line);
+      } else {
+        diagnostics?.add(line);
+      }
+    }
+  }
+
+  void _parseHdcDeviceOutput(String text, {List<OhosDevice>? devices, List<String>? diagnostics}) {
+    final deviceIds = <String>[];
+    parseHdcDeviceOutput(text, deviceIds: deviceIds, diagnostics: diagnostics);
+    for (final deviceId in deviceIds) {
       devices?.add(
         OhosDevice(
           deviceId,

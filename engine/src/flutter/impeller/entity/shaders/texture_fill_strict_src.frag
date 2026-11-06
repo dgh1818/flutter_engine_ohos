@@ -4,6 +4,7 @@
 
 precision mediump float;
 
+#include <impeller/color_space.glsl>
 #include <impeller/constants.glsl>
 #include <impeller/types.glsl>
 
@@ -12,6 +13,8 @@ uniform f16sampler2D texture_sampler;
 uniform FragInfo {
   vec4 source_rect;
   float alpha;
+  float source_color_space;
+  float target_color_space;
 }
 frag_info;
 
@@ -26,5 +29,7 @@ void main() {
                                    frag_info.source_rect.w));
   f16vec4 sampled =
       texture(texture_sampler, texture_coords, float16_t(kDefaultMipBias));
-  frag_color = sampled * float16_t(frag_info.alpha);
+  frag_color = f16vec4(IPConvertColorSpace(vec4(sampled) * frag_info.alpha,
+                                           frag_info.source_color_space,
+                                           frag_info.target_color_space));
 }

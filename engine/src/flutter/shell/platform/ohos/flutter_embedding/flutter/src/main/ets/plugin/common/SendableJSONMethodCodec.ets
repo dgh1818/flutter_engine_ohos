@@ -35,7 +35,7 @@ export default class SendableJSONMethodCodec implements SendableMethodCodec {
    * Encodes a method call into JSON binary format.
    * @param methodCall - The MethodCall to encode
    * @returns The encoded method call as an ArrayBuffer
-   * @throws Error if encoding fails
+   * @throws {Error} if encoding fails
    */
   encodeMethodCall(methodCall: MethodCall): ArrayBuffer {
     try {
@@ -53,7 +53,7 @@ export default class SendableJSONMethodCodec implements SendableMethodCodec {
    * Decodes a method call from JSON binary format.
    * @param message - The binary message to decode
    * @returns The decoded MethodCall
-   * @throws Error if decoding fails or the message is invalid
+   * @throws {Error} if decoding fails or the message is invalid
    */
   decodeMethodCall(message: ArrayBuffer): MethodCall {
     try {
@@ -108,8 +108,8 @@ export default class SendableJSONMethodCodec implements SendableMethodCodec {
    * Decodes a result envelope from JSON binary format.
    * @param envelope - The binary envelope to decode
    * @returns The decoded result value
-   * @throws FlutterException if the envelope contains an error
-   * @throws Error if the envelope is invalid
+   * @throws {FlutterException} if the envelope contains an error
+   * @throws {Error} if the envelope is invalid
    */
   decodeEnvelope(envelope: ArrayBuffer): Any {
     try {

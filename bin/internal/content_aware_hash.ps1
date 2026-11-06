@@ -78,7 +78,13 @@ if (($currentBranch -ne "main") -and
 #    NOTE: Out-String adds a new line; so Out-File -NoNewline strips that.
 # 3. Out-File -NoNewline -Encoding ascii outputs 8bit ascii
 # 4. git hash-object with stdin from a pipeline consumes UTF-16, so consume
-#.   the contents of hash.txt
-(git -C "$flutterRoot" ls-tree "$baseRef" -- $trackedFiles | Out-String) -replace "`r`n", "`n"  | Out-File -NoNewline -Encoding ascii hash.txt
-git hash-object hash.txt
-Remove-Item hash.txt
+#.   the contents of the temp file
+# Use a per-process temp file so concurrent invocations don't race on a fixed
+# filename in CWD.
+$tempHashFile = [System.IO.Path]::GetTempFileName()
+try {
+    (git -C "$flutterRoot" ls-tree "$baseRef" -- $trackedFiles | Out-String) -replace "`r`n", "`n"  | Out-File -NoNewline -Encoding ascii $tempHashFile
+    git hash-object $tempHashFile
+} finally {
+    Remove-Item -LiteralPath $tempHashFile -ErrorAction SilentlyContinue
+}

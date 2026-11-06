@@ -162,6 +162,7 @@ export class FlutterRenderer implements TextureRegistry {
   /**
    * Called when the system needs to trim memory.
    * @param level - The memory trim level
+   * @throws {Error} as this method is not implemented
    */
   onTrimMemory(level: number) {
     throw new Error('Method not implemented.');

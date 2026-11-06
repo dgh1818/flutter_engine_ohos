@@ -65,9 +65,9 @@ export default function nativeVsyncChannelTest() {
       const args: Map<string, Any> = new Map();
       args.set('isEnable', true);
       const call: MethodCall = new MethodCall('isEnable', args);
-      // In test env, FlutterNapi.SetDVsyncSwitch may throw or be a no-op.
-      // The source's success path doesn't call any result method - so we
-      // just verify no throw.
+      // In test env, FlutterNapi.SetDVsyncSwitch may throw or be a no-op;
+      // either way the channel must reply exactly once: success on the
+      // no-throw path, error when the native call throws.
       let threw = false;
       try {
         channel.onMethodCall(call, result);
@@ -75,6 +75,10 @@ export default function nativeVsyncChannelTest() {
         threw = true;
       }
       expect(threw).assertEqual(false);
+      expect(result.successCalls + result.errorCalls + result.notImplCalls).assertEqual(1);
+      if (result.successCalls === 1) {
+        expect(result.successResult).assertNull();
+      }
     });
 
     it('handles isEnable with false', Level.LEVEL1, () => {
@@ -90,6 +94,10 @@ export default function nativeVsyncChannelTest() {
         threw = true;
       }
       expect(threw).assertEqual(false);
+      expect(result.successCalls + result.errorCalls + result.notImplCalls).assertEqual(1);
+      if (result.successCalls === 1) {
+        expect(result.successResult).assertNull();
+      }
     });
   });
 
@@ -108,6 +116,10 @@ export default function nativeVsyncChannelTest() {
         threw = true;
       }
       expect(threw).assertEqual(false);
+      expect(result.successCalls + result.errorCalls + result.notImplCalls).assertEqual(1);
+      if (result.successCalls === 1) {
+        expect(result.successResult).assertNull();
+      }
     });
 
     it('handles sendVelocity with non-translate type (covers line 64 false branch)', Level.LEVEL1, () => {
@@ -124,6 +136,10 @@ export default function nativeVsyncChannelTest() {
         threw = true;
       }
       expect(threw).assertEqual(false);
+      expect(result.successCalls + result.errorCalls + result.notImplCalls).assertEqual(1);
+      if (result.successCalls === 1) {
+        expect(result.successResult).assertNull();
+      }
     });
   });
 

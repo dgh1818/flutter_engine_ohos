@@ -110,6 +110,7 @@ export default class SendableStandardMessageCodec implements SendableMessageCode
    * @param stream - The ByteBuffer to write to
    * @param value - The value to write
    * @returns The ByteBuffer stream
+   * @throws {Error} if a value is of an unsupported type
    */
   writeValue(stream: ByteBuffer, value: Any): Any {
     if (value == null || value == undefined) {
@@ -304,7 +305,7 @@ export default class SendableStandardMessageCodec implements SendableMessageCode
    * @param type - The type code to read
    * @param buffer - The ByteBuffer to read from
    * @returns The decoded value
-   * @throws Error if the type is unknown or the message is corrupted
+   * @throws {Error} if the type is unknown or the message is corrupted
    */
   readValueOfType(type: number, buffer: ByteBuffer): Any {
     let result: Any;

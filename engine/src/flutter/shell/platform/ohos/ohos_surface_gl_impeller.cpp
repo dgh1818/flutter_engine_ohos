@@ -191,6 +191,10 @@ bool OHOSSurfaceGLImpeller::IsValid() const {
   return is_valid_;
 }
 
+bool OHOSSurfaceGLImpeller::HasValidOnscreenContext() const {
+  return onscreen_surface_ && onscreen_surface_->IsValid();
+}
+
 // OHOSSurface
 std::unique_ptr<Surface> OHOSSurfaceGLImpeller::CreateGPUSurface(
     GrDirectContext* gr_context) {

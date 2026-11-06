@@ -705,6 +705,53 @@ class PlatformViewOHOSWbTest : public ::testing::Test {
 
 }  // namespace
 
+// Uses the software rendering surface while modelling a releasable window
+// resource for the platform view's reclaim/restore tests.
+class ReclaimTestSurface : public OHOSSurface {
+ public:
+  ReclaimTestSurface(const std::shared_ptr<OHOSContext>& context,
+                     std::shared_ptr<OHOSSurface> delegate,
+                     fml::RefPtr<fml::TaskRunner> raster_runner)
+      : OHOSSurface(context),
+        delegate_(std::move(delegate)),
+        raster_runner_(std::move(raster_runner)) {}
+
+  bool IsValid() const override { return delegate_->IsValid(); }
+  bool HasValidOnscreenContext() const override {
+    EXPECT_TRUE(raster_runner_->RunsTasksOnCurrentThread());
+    return native_window_ && native_window_->IsValid();
+  }
+  void TeardownOnScreenContext() override {
+    EXPECT_TRUE(raster_runner_->RunsTasksOnCurrentThread());
+    ++teardown_count;
+    native_window_ = nullptr;
+    delegate_->TeardownOnScreenContext();
+  }
+  bool SetNativeWindow(fml::RefPtr<OHOSNativeWindow> window) override {
+    EXPECT_TRUE(raster_runner_->RunsTasksOnCurrentThread());
+    ++create_count;
+    native_window_ = std::move(window);
+    return delegate_->SetNativeWindow(native_window_);
+  }
+  bool OnScreenSurfaceResize(const DlISize& size) override {
+    ++resize_count;
+    return delegate_->OnScreenSurfaceResize(size);
+  }
+  bool ResourceContextMakeCurrent() override { return false; }
+  bool ResourceContextClearCurrent() override { return false; }
+  std::unique_ptr<Surface> CreateGPUSurface(GrDirectContext* context) override {
+    return delegate_->CreateGPUSurface(context);
+  }
+
+  int create_count = 0;
+  int resize_count = 0;
+  int teardown_count = 0;
+
+ private:
+  std::shared_ptr<OHOSSurface> delegate_;
+  fml::RefPtr<fml::TaskRunner> raster_runner_;
+};
+
 class PlatformViewOHOSUt : public ::testing::Test {
  protected:
   explicit PlatformViewOHOSUt(bool with_context = true)
@@ -1236,6 +1283,11 @@ TEST_F(PlatformViewOHOSUt, OnSurfaceCreatedForcesRestoreFromDestroyedLevel) {
 
 TEST_F(PlatformViewOHOSUt, AggressiveReclaimCoreTeardownThenRestoreRebuild) {
   ASSERT_EQ(base()->CreateExternalViewEmbedder(), nullptr);
+  FlushTasks();
+  auto surface = std::make_shared<ReclaimTestSurface>(
+      view()->ohos_context_, view()->ohos_surface_,
+      runners().GetRasterTaskRunner());
+  view()->ohos_surface_ = surface;
   view()->NotifyCreate(MakePvUtWindow(kPvUtHandleA));
   FlushTasks();
   EXPECT_EQ(delegate().created_count(), 1);
@@ -1252,7 +1304,137 @@ TEST_F(PlatformViewOHOSUt, AggressiveReclaimCoreTeardownThenRestoreRebuild) {
   EXPECT_GT(delegate().schedule_frame_count(), frames_before);
 }
 
-TEST_F(PlatformViewOHOSUt, AggressiveReclaimSkippedWhenContextInvalid) {
+TEST_F(PlatformViewOHOSUt, ReclaimDecisionPreservesLifecycleAndPipPolicy) {
+  const AppLifecycleState states[] = {
+      AppLifecycleState::kResumed, AppLifecycleState::kInactive,
+      AppLifecycleState::kHidden, AppLifecycleState::kPaused,
+      AppLifecycleState::kDetached};
+  for (auto old_state : states) {
+    for (auto new_state : states) {
+      for (bool pip_visible : {false, true}) {
+        for (auto level :
+             {GpuReclaimLevel::kRestore, GpuReclaimLevel::kAggressive}) {
+          view()->pip_visible_.store(pip_visible);
+          view()->current_reclaim_level_ = level;
+          const bool restore = pip_visible ||
+                               new_state == AppLifecycleState::kResumed ||
+                               new_state == AppLifecycleState::kInactive;
+          const auto expected = restore
+                                    ? GpuReclaimDecision::kRestore
+                                    : (level == GpuReclaimLevel::kAggressive
+                                           ? GpuReclaimDecision::kNoChange
+                                           : GpuReclaimDecision::kAggressive);
+          EXPECT_EQ(view()->EvaluateReclaimLevel(old_state, new_state),
+                    expected);
+        }
+      }
+    }
+  }
+}
+
+TEST_F(PlatformViewOHOSUt, RestoreObservesEarlierRasterCreation) {
+  FlushTasks();
+  auto surface = std::make_shared<ReclaimTestSurface>(
+      view()->ohos_context_, view()->ohos_surface_,
+      runners().GetRasterTaskRunner());
+  view()->ohos_surface_ = surface;
+  auto window = MakePvUtWindow(kPvUtHandleA);
+  view()->cached_native_window_ = window;
+
+  fml::AutoResetWaitableEvent raster_ready;
+  fml::AutoResetWaitableEvent allow_create;
+  runners().GetRasterTaskRunner()->PostTask([&] {
+    raster_ready.Signal();
+    allow_create.Wait();
+    EXPECT_TRUE(surface->SetDisplayWindow(window));
+  });
+  raster_ready.Wait();
+  view()->ExecuteReclaimRestore();
+  allow_create.Signal();
+  FlushTasks();
+
+  EXPECT_EQ(surface->create_count, 1);
+  EXPECT_EQ(surface->resize_count, 0);
+  EXPECT_EQ(delegate().schedule_frame_count(), 0);
+}
+
+TEST_F(PlatformViewOHOSUt, RestoreRebuildsMissingResourcesAtRestoreLevel) {
+  constexpr int kInitialCreateCount = 1;
+  constexpr int kExpectedCreateCount = 2;
+  FlushTasks();
+  auto surface = std::make_shared<ReclaimTestSurface>(
+      view()->ohos_context_, view()->ohos_surface_,
+      runners().GetRasterTaskRunner());
+  view()->ohos_surface_ = surface;
+  view()->NotifyCreate(MakePvUtWindow(kPvUtHandleA));
+  FlushTasks();
+  ASSERT_EQ(surface->create_count, kInitialCreateCount);
+
+  view()->RunOnRasterAndWait([&] { surface->TeardownOnScreenContext(); });
+  ASSERT_EQ(view()->current_reclaim_level_, GpuReclaimLevel::kRestore);
+  SendLifecycle("AppLifecycleState.resumed");
+  FlushTasks();
+  EXPECT_EQ(surface->create_count, kExpectedCreateCount);
+  EXPECT_EQ(delegate().schedule_frame_count(), 1);
+  view()->RunOnRasterAndWait(
+      [&] { EXPECT_TRUE(surface->HasValidOnscreenContext()); });
+
+  const int teardown_count = surface->teardown_count;
+  SendLifecycle("AppLifecycleState.inactive");
+  SendLifecycle("AppLifecycleState.resumed");
+  FlushTasks();
+  EXPECT_EQ(surface->create_count, kExpectedCreateCount);
+  EXPECT_EQ(surface->resize_count, 0);
+  EXPECT_EQ(surface->teardown_count, teardown_count);
+  EXPECT_EQ(delegate().schedule_frame_count(), 1);
+}
+
+TEST_F(PlatformViewOHOSUt, QueuedRestoresRebuildOnlyOnce) {
+  FlushTasks();
+  auto surface = std::make_shared<ReclaimTestSurface>(
+      view()->ohos_context_, view()->ohos_surface_,
+      runners().GetRasterTaskRunner());
+  view()->ohos_surface_ = surface;
+  view()->cached_native_window_ = MakePvUtWindow(kPvUtHandleA);
+
+  fml::AutoResetWaitableEvent raster_ready;
+  fml::AutoResetWaitableEvent allow_restore;
+  runners().GetRasterTaskRunner()->PostTask([&] {
+    raster_ready.Signal();
+    allow_restore.Wait();
+  });
+  raster_ready.Wait();
+  SendLifecycle("AppLifecycleState.inactive");
+  SendLifecycle("AppLifecycleState.resumed");
+  allow_restore.Signal();
+  FlushTasks();
+
+  EXPECT_EQ(surface->create_count, 1);
+  EXPECT_EQ(surface->resize_count, 0);
+  EXPECT_EQ(delegate().schedule_frame_count(), 1);
+}
+
+TEST_F(PlatformViewOHOSUt, ReclaimCoreToleratesRepeatedTeardown) {
+  constexpr int kExpectedTeardownCount = 2;
+  FlushTasks();
+  auto surface = std::make_shared<ReclaimTestSurface>(
+      view()->ohos_context_, view()->ohos_surface_,
+      runners().GetRasterTaskRunner());
+  view()->ohos_surface_ = surface;
+  auto window = MakePvUtWindow(kPvUtHandleA);
+  view()->RunOnRasterAndWait([&] {
+    ASSERT_TRUE(surface->SetDisplayWindow(window));
+    EXPECT_TRUE(surface->HasValidOnscreenContext());
+  });
+
+  view()->ExecuteReclaimAggressiveCore();
+  view()->ExecuteReclaimAggressiveCore();
+  EXPECT_EQ(surface->teardown_count, kExpectedTeardownCount);
+  view()->RunOnRasterAndWait(
+      [&] { EXPECT_FALSE(surface->HasValidOnscreenContext()); });
+}
+
+TEST_F(PlatformViewOHOSUt, AggressiveReclaimAfterNotifyDestroyed) {
   ASSERT_EQ(base()->CreateExternalViewEmbedder(), nullptr);
   view()->NotifyCreate(MakePvUtWindow(kPvUtHandleA));
   FlushTasks();
@@ -1262,7 +1444,7 @@ TEST_F(PlatformViewOHOSUt, AggressiveReclaimSkippedWhenContextInvalid) {
 
   SendLifecycle("AppLifecycleState.paused");
   FlushTasks();
-  EXPECT_FALSE(view()->IsFrameGateEnabled());
+  EXPECT_TRUE(view()->IsFrameGateEnabled());
   int frames = delegate().schedule_frame_count();
   SendLifecycle("AppLifecycleState.resumed");
   FlushTasks();
@@ -1585,6 +1767,48 @@ TEST_F(PlatformViewOHOSUt, DeferredAggressiveSupersededSkipsTeardown) {
   SendLifecycle("AppLifecycleState.paused");
   FlushTasks();
   EXPECT_TRUE(view()->IsFrameGateEnabled());
+}
+
+TEST_F(PlatformViewOHOSUt, SurfaceRecreationCancelsDeferredAggressiveTeardown) {
+  constexpr int kExpectedCreateCount = 2;
+  FlushTasks();
+  auto surface = std::make_shared<ReclaimTestSurface>(
+      view()->ohos_context_, view()->ohos_surface_,
+      runners().GetRasterTaskRunner());
+  view()->ohos_surface_ = surface;
+
+  // Keep the transition on the platform thread, before its delayed task runs.
+  fml::AutoResetWaitableEvent recreated;
+  runners().GetPlatformTaskRunner()->PostTask([&] {
+    view()->NotifyCreate(MakePvUtWindow(kPvUtHandleA));
+    view()->OnSurfaceCreated();
+    SendLifecycle("AppLifecycleState.resumed");
+    SendLifecycle("AppLifecycleState.paused");
+    view()->OnSurfaceDestroyed();
+    view()->NotifyDestroyed();
+    view()->NotifyCreate(MakePvUtWindow(kPvUtHandleB));
+    view()->OnSurfaceCreated();
+    SendLifecycle("AppLifecycleState.resumed");
+    recreated.Signal();
+  });
+  recreated.Wait();
+  FlushTasks();
+  ASSERT_EQ(surface->create_count, kExpectedCreateCount);
+  const int teardown_count = surface->teardown_count;
+
+  ASSERT_TRUE(WaitForPlatformIdleAfter(fml::TimeDelta::FromMilliseconds(1400)));
+  EXPECT_EQ(surface->teardown_count, teardown_count);
+  view()->RunOnRasterAndWait(
+      [&] { EXPECT_TRUE(surface->HasValidOnscreenContext()); });
+
+  // A later background transition must still reclaim the replacement surface.
+  runners().GetPlatformTaskRunner()->PostTask(
+      [&] { SendLifecycle("AppLifecycleState.paused"); });
+  FlushTasks();
+  ASSERT_TRUE(WaitForPlatformIdleAfter(fml::TimeDelta::FromMilliseconds(1400)));
+  EXPECT_EQ(surface->teardown_count, teardown_count + 1);
+  view()->RunOnRasterAndWait(
+      [&] { EXPECT_FALSE(surface->HasValidOnscreenContext()); });
 }
 
 TEST_F(PlatformViewOHOSUt, DeferredAggressiveCoreSkipsAfterNotifyDestroyed) {
@@ -1924,9 +2148,9 @@ TEST_F(PlatformViewOHOSWbTest, RegisterByPixelMapSchedulesOnSuccess) {
 TEST_F(PlatformViewOHOSWbTest, NullContextSkipsSkiaFreeStillTearsDown) {
   auto saved = view()->ohos_context_;
   view()->ohos_context_ = nullptr;
-  view()->onscreen_context_valid_.store(true);
   view()->ExecuteReclaimAggressiveCore();
-  EXPECT_FALSE(view()->onscreen_context_valid_.load());
+  view()->RunOnRasterAndWait(
+      [&] { EXPECT_FALSE(view()->ohos_surface_->HasValidOnscreenContext()); });
   EXPECT_TRUE(view()->ohos_surface_->IsValid());
   view()->ohos_context_ = saved;
 }
@@ -1946,13 +2170,23 @@ TEST_F(PlatformViewOHOSWbTest, TryFreeSkiaGpuResourcesNullArgs) {
 }
 
 TEST_F(PlatformViewOHOSWbTest, DeferredAggressiveCancelledByPipVisible) {
+  FlushTasks();
+  auto surface = std::make_shared<ReclaimTestSurface>(
+      view()->ohos_context_, view()->ohos_surface_,
+      runners().GetRasterTaskRunner());
+  view()->ohos_surface_ = surface;
+  auto window = MakePvUtWindow(kPvUtHandleA);
+  view()->RunOnRasterAndWait(
+      [&] { ASSERT_TRUE(surface->SetDisplayWindow(window)); });
   SendLifecycle("AppLifecycleState.paused");
   FlushTasks();
   ASSERT_TRUE(view()->IsFrameGateEnabled());
   view()->pip_visible_.store(true, std::memory_order_release);
   ASSERT_TRUE(WaitForPlatformIdleAfter(fml::TimeDelta::FromMilliseconds(1400)));
   EXPECT_FALSE(view()->IsFrameGateEnabled());
-  EXPECT_TRUE(view()->onscreen_context_valid_.load());
+  EXPECT_EQ(surface->teardown_count, 0);
+  view()->RunOnRasterAndWait(
+      [&] { EXPECT_TRUE(surface->HasValidOnscreenContext()); });
   EXPECT_EQ(view()->current_reclaim_level_, GpuReclaimLevel::kRestore);
 }
 
@@ -2127,6 +2361,7 @@ class PvUtFakeOhosSurface : public OHOSSurface {
                       std::unique_ptr<Surface> gpu)
       : OHOSSurface(ctx), valid_(valid), gpu_(std::move(gpu)) {}
   bool IsValid() const override { return valid_; }
+  bool HasValidOnscreenContext() const override { return valid_; }
   void TeardownOnScreenContext() override {}
   bool OnScreenSurfaceResize(const DlISize&) override { return true; }
   bool ResourceContextMakeCurrent() override { return false; }
