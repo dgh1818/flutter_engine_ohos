@@ -51,18 +51,20 @@ static TextureColorSpace ToTextureColorSpace(
   switch (color_space) {
     case OH_COLORSPACE_BT2020_PQ_FULL:
     case OH_COLORSPACE_BT2020_PQ_LIMIT:
+    case OH_COLORSPACE_DISPLAY_BT2020_PQ:
+      return TextureColorSpace::kBT2020PQ;
     case OH_COLORSPACE_P3_PQ_FULL:
     case OH_COLORSPACE_P3_PQ_LIMIT:
     case OH_COLORSPACE_DISPLAY_P3_PQ:
-    case OH_COLORSPACE_DISPLAY_BT2020_PQ:
-      return TextureColorSpace::kPQ;
+      return TextureColorSpace::kDisplayP3PQ;
     case OH_COLORSPACE_BT2020_HLG_FULL:
     case OH_COLORSPACE_BT2020_HLG_LIMIT:
+    case OH_COLORSPACE_DISPLAY_BT2020_HLG:
+      return TextureColorSpace::kBT2020HLG;
     case OH_COLORSPACE_P3_HLG_FULL:
     case OH_COLORSPACE_P3_HLG_LIMIT:
     case OH_COLORSPACE_DISPLAY_P3_HLG:
-    case OH_COLORSPACE_DISPLAY_BT2020_HLG:
-      return TextureColorSpace::kHLG;
+      return TextureColorSpace::kDisplayP3HLG;
     default:
       return TextureColorSpace::kSRGB;
   }
@@ -70,7 +72,8 @@ static TextureColorSpace ToTextureColorSpace(
 
 static TextureDescriptor CreateTextureDescriptorFromNativeWindowBuffer(
     OHNativeWindowBuffer* native_window_buffer,
-    TextureColorSpace color_space) {
+    TextureColorSpace color_space,
+    bool color_range_limited) {
   OH_NativeBuffer_Config nativebuffer_config;
   OH_NativeBuffer* native_buffer;
   TextureDescriptor descriptor;
@@ -117,6 +120,7 @@ static TextureDescriptor CreateTextureDescriptorFromNativeWindowBuffer(
   descriptor.storage_mode = StorageMode::kDevicePrivate;
   descriptor.type = TextureType::kTexture2D;
   descriptor.color_space = descriptor_color_space;
+  descriptor.color_range_limited = color_range_limited;
   descriptor.mip_count = 1;
   descriptor.sample_count = SampleCount::kCount1;
   descriptor.compression_type = CompressionType::kLossless;
@@ -283,10 +287,12 @@ static vk::UniqueImageView CreateVkImageView(
 OHBTextureSourceVK::OHBTextureSourceVK(
     const std::shared_ptr<ContextVK>& context,
     OHNativeWindowBuffer* native_window_buffer,
-    TextureColorSpace color_space)
+    TextureColorSpace color_space,
+    bool color_range_limited)
     : TextureSourceVK(
           CreateTextureDescriptorFromNativeWindowBuffer(native_window_buffer,
-                                                        color_space)) {
+                                                        color_space,
+                                                        color_range_limited)) {
   is_valid_ = false;
   if (!native_window_buffer) {
     return;

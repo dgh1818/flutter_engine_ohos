@@ -228,13 +228,23 @@ bool TextureContents::Render(const ContentContext& renderer,
   } else {
     FS::FragInfo frag_info{};
     frag_info.alpha = GetOpacity();
-    // Transfer function from the texture metadata: video surfaces carry
-    // kPQ/kHLG (OHOS native buffer color spaces); images default to sRGB.
+    const auto& source_descriptor = texture_->GetTextureDescriptor();
+    frag_info.source_limited_10bit =
+        source_descriptor.color_range_limited &&
+                source_descriptor.format == PixelFormat::kB10G10R10A2UNorm
+            ? 1
+            : 0;
+    // Use the decoded image or video texture metadata for the transfer.
+    // SDR textures use the default sRGB transfer.
     switch (texture_->GetTextureDescriptor().color_space) {
       case TextureColorSpace::kHLG:
+      case TextureColorSpace::kBT2020HLG:
+      case TextureColorSpace::kDisplayP3HLG:
         frag_info.source_transfer = 1;
         break;
       case TextureColorSpace::kPQ:
+      case TextureColorSpace::kBT2020PQ:
+      case TextureColorSpace::kDisplayP3PQ:
         frag_info.source_transfer = 2;
         break;
       default:
@@ -248,10 +258,14 @@ bool TextureContents::Render(const ContentContext& renderer,
         impeller::Context::enable_hdr_ &&
         pass.GetRenderTargetPixelFormat() == PixelFormat::kB10G10R10A2UNorm;
     frag_info.output_mode = writes_hlg_swapchain ? 1 : 0;
-    frag_info.source_primaries = texture_->GetTextureDescriptor().color_space ==
-                                         TextureColorSpace::kDisplayP3
-                                     ? 1
-                                     : 0;
+    const auto source_color_space =
+        texture_->GetTextureDescriptor().color_space;
+    frag_info.source_primaries =
+        (source_color_space == TextureColorSpace::kDisplayP3 ||
+         source_color_space == TextureColorSpace::kDisplayP3HLG ||
+         source_color_space == TextureColorSpace::kDisplayP3PQ)
+            ? 1
+            : 0;
     FS::BindFragInfo(pass, data_host_buffer.EmplaceUniform((frag_info)));
     FS::BindTextureSampler(
         pass, texture_,

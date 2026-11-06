@@ -195,8 +195,8 @@ absl::StatusOr<SkImageInfo> CreateImageInfo(
     return base_image_info.makeWH(decode_size.width(), decode_size.height())
         .makeColorType(kRGBA_1010102_SkColorType)
         .makeAlphaType(alpha_type)
-        .makeColorSpace(SkColorSpace::MakeRGB(SkNamedTransferFn::kHLG,
-                                              SkNamedGamut::kRec2020));
+        // PixelMap metadata is read after decode; do not assume HLG here.
+        .makeColorSpace(nullptr);
 #endif
   } else if (is_wide_gamut) {
     // Use 10-bit for opaque images (less memory: 4 bytes vs 8 bytes per pixel).
@@ -614,6 +614,8 @@ ImageDecoderImpeller::UnsafeUploadTextureToPrivate(
                  << " -> textureColorSpace="
                  << static_cast<int>(textureColorSpace);
   texture_descriptor.color_space = textureColorSpace;
+  texture_descriptor.color_range_limited =
+      OhosColorSpaceIsLimitedHdr(colorspace);
 
   auto dest_texture =
       context->GetResourceAllocator()->CreateTexture(texture_descriptor);
@@ -655,6 +657,8 @@ ImageDecoderImpeller::UnsafeUploadTextureToPrivate(
     impeller::TextureDescriptor resize_desc;
     resize_desc.storage_mode = impeller::StorageMode::kDevicePrivate;
     resize_desc.format = image_info.format;
+    resize_desc.color_space = texture_descriptor.color_space;
+    resize_desc.color_range_limited = texture_descriptor.color_range_limited;
     resize_desc.size = {resize_info->width(), resize_info->height()};
     resize_desc.mip_count = resize_desc.size.MipCount();
     resize_desc.usage = impeller::TextureUsage::kShaderRead;

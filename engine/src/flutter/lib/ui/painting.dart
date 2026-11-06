@@ -1823,6 +1823,34 @@ enum ColorSpace {
   displayP3,
 }
 
+/// The HDR color encoding of decoded image pixels, when known.
+///
+/// Unlike [ColorSpace], these values include the HDR transfer function.
+/// They describe the decoded pixels, which may differ from the encoded source.
+/// This OHOS extension is reported by [Image.hdrColorSpace].
+enum ImageHdrColorSpace {
+  /// The HDR transfer function is not known. This does not prove SDR.
+  unknown,
+
+  /// BT.2020 primaries with the HLG transfer function.
+  bt2020Hlg,
+
+  /// BT.2020 primaries with the PQ transfer function.
+  bt2020Pq,
+
+  /// Display P3 primaries with the HLG transfer function.
+  displayP3Hlg,
+
+  /// Display P3 primaries with the PQ transfer function.
+  displayP3Pq,
+
+  /// HLG transfer function with unknown primaries.
+  hlg,
+
+  /// PQ transfer function with unknown primaries.
+  pq,
+}
+
 int _colorSpaceToIndex(ColorSpace colorSpace) {
   switch (colorSpace) {
     case ColorSpace.sRGB:
@@ -2098,6 +2126,18 @@ class Image {
     }
   }
 
+  /// HDR color information for the decoded pixels when available.
+  ///
+  /// [ImageHdrColorSpace.unknown] also covers images without recognized HDR
+  /// metadata and backends that cannot report it.
+  ImageHdrColorSpace get hdrColorSpace {
+    final int index = _image.hdrColorSpace;
+    if (index < 0 || index >= ImageHdrColorSpace.values.length) {
+      throw UnsupportedError('Unrecognized HDR color space: $index');
+    }
+    return ImageHdrColorSpace.values[index];
+  }
+
   /// If asserts are enabled, returns the [StackTrace]s of each open handle from
   /// [clone], in creation order.
   ///
@@ -2270,6 +2310,9 @@ base class _Image extends NativeFieldWrapperClass1 {
 
   @Native<Int32 Function(Pointer<Void>)>(symbol: 'Image::colorSpace')
   external int get colorSpace;
+
+  @Native<Int32 Function(Pointer<Void>)>(symbol: 'Image::hdrColorSpace')
+  external int get hdrColorSpace;
 
   @override
   String toString() => '[$width\u00D7$height]';

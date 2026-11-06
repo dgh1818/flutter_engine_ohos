@@ -435,7 +435,8 @@ class OhosExternalTextureSourceImpl final : public ExternalTextureSource {
     const auto textureColorSpace =
         OhosColorSpaceToTextureColorSpace(pixelmap_->color_space_);
     auto texture_source = std::make_shared<impeller::OHBTextureSourceVK>(
-        context_vk, holder->window_buffer, textureColorSpace);
+        context_vk, holder->window_buffer, textureColorSpace,
+        OhosColorSpaceIsLimitedHdr(pixelmap_->color_space_));
     if (!texture_source->IsValid()) {
       FML_LOG(ERROR)
           << "OHOS DMA: OHBTextureSourceVK rejected the native buffer ("
@@ -798,6 +799,9 @@ bool OHOSImageGenerator::GetPixels(const SkImageInfo& info,
                      << to_string();
       return false;
     }
+    // Record the PixelMap that actually produced these pixels. AI HDR may
+    // have replaced the original SDR PixelMap after its metadata was read.
+    cached_colorspaces_[frame_index] = image_pixelmap->color_space_;
     if (image_pixelmap && buffer_size <= kMaxGlobalCacheSize &&
         total_cached_bytes_.load(std::memory_order_relaxed) <=
             kMaxGlobalCacheSize - buffer_size) {
@@ -997,10 +1001,7 @@ void OHOSImageGenerator::ComputeOriginImageInfo() {
     origin_image_info_ =
         SkImageInfo::Make(width, height, color_type, alpha_type);
   }
-  if (use_hdr) {
-    origin_image_info_ = origin_image_info_.makeColorSpace(
-        SkColorSpace::MakeRGB(SkNamedTransferFn::kHLG, SkNamedGamut::kRec2020));
-  }
+  // HDR PixelMap primaries and transfer are identified after decode.
 }
 
 void OHOSImageGenerator::SetDynamicRangePolicy(int32_t dynamic_range_policy) {
@@ -1275,6 +1276,9 @@ bool OHOSImageGenerator::TryComposeMpfGainmapInternal(const SkImageInfo& info,
   if (ComposeMpfGainmap(compose_input, &compose_result) &&
       compose_result.success) {
     if (!compose_result.used_vpe) {
+      // CPU gainmap composition encodes HLG, but does not identify the
+      // source primaries as BT.2020.
+      cached_colorspaces_[0] = ohos_color_space_internal::kHlgUnknownPrimaries;
       return true;
     }
 
@@ -1287,6 +1291,21 @@ bool OHOSImageGenerator::TryComposeMpfGainmapInternal(const SkImageInfo& info,
       Image_ErrorCode read_err = hdr_wrapper->ReadPixels(
           static_cast<uint8_t*>(pixels), buffer_size, row_bytes);
       if (read_err == IMAGE_SUCCESS) {
+        // Read the actual VPE output metadata instead of inferring it from
+        // the requested pixel format.
+        uint32_t output_color_space = 0;
+        OH_NativeColorSpaceManager* output_manager = nullptr;
+        const auto output_result = OH_PixelmapNative_GetColorSpaceNative(
+            hdr_wrapper->pixelmap_, &output_manager);
+        if (output_manager != nullptr) {
+          if (output_result == IMAGE_SUCCESS) {
+            output_color_space =
+                OH_NativeColorSpaceManager_GetColorSpaceName(output_manager);
+          }
+          OH_NativeColorSpaceManager_Destroy(output_manager);
+        }
+        hdr_wrapper->setColorSpace(output_color_space);
+        cached_colorspaces_[0] = output_color_space;
         if (frame_count_ > 1 &&
             total_cached_bytes_ <= kMaxGlobalCacheSize - buffer_size) {
           cached_pixelmaps_[0] = hdr_wrapper;
@@ -1360,8 +1379,6 @@ void OHOSImageGenerator::InitMpfGainmap(const sk_sp<SkData>& data) {
   origin_image_info_ =
       SkImageInfo::Make(origin_image_info_.width(), origin_image_info_.height(),
                         kRGBA_1010102_SkColorType, kOpaque_SkAlphaType);
-  origin_image_info_ = origin_image_info_.makeColorSpace(
-      SkColorSpace::MakeRGB(SkNamedTransferFn::kHLG, SkNamedGamut::kRec2020));
   if (!impeller::Context::enable_hdr_) {
     FML_LOG(ERROR) << "[MPF] HDR composition requested but HDR is disabled.";
   }

@@ -27,6 +27,17 @@ enum ColorSpace {
   kDisplayP3,
 };
 
+// Must be kept in sync with ImageHdrColorSpace in painting.dart.
+enum class ImageHdrColorSpace {
+  kUnknown,
+  kBT2020HLG,
+  kBT2020PQ,
+  kDisplayP3HLG,
+  kDisplayP3PQ,
+  kHLG,
+  kPQ,
+};
+
 class CanvasImage final : public RefCountedDartWrappable<CanvasImage> {
   DEFINE_WRAPPERTYPEINFO();
   FML_FRIEND_MAKE_REF_COUNTED(CanvasImage);
@@ -62,6 +73,8 @@ class CanvasImage final : public RefCountedDartWrappable<CanvasImage> {
   }
 
   int colorSpace();
+
+  int hdrColorSpace();
 
  private:
   CanvasImage();

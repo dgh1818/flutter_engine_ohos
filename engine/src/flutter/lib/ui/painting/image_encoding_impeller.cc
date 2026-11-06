@@ -268,6 +268,10 @@ int ImageEncodingImpeller::GetColorSpace(
       return ColorSpace::kDisplayP3;
     case impeller::TextureColorSpace::kPQ:
     case impeller::TextureColorSpace::kHLG:
+    case impeller::TextureColorSpace::kBT2020PQ:
+    case impeller::TextureColorSpace::kBT2020HLG:
+    case impeller::TextureColorSpace::kDisplayP3PQ:
+    case impeller::TextureColorSpace::kDisplayP3HLG:
     case impeller::TextureColorSpace::kSRGB:
       break;
   }
@@ -280,6 +284,29 @@ int ImageEncodingImpeller::GetColorSpace(
     default:
       return ColorSpace::kSRGB;
   }
+}
+
+int ImageEncodingImpeller::GetHdrColorSpace(
+    const std::shared_ptr<impeller::Texture>& texture) {
+  switch (texture->GetTextureDescriptor().color_space) {
+    case impeller::TextureColorSpace::kBT2020HLG:
+      return static_cast<int>(ImageHdrColorSpace::kBT2020HLG);
+    case impeller::TextureColorSpace::kBT2020PQ:
+      return static_cast<int>(ImageHdrColorSpace::kBT2020PQ);
+    case impeller::TextureColorSpace::kDisplayP3HLG:
+      return static_cast<int>(ImageHdrColorSpace::kDisplayP3HLG);
+    case impeller::TextureColorSpace::kDisplayP3PQ:
+      return static_cast<int>(ImageHdrColorSpace::kDisplayP3PQ);
+    case impeller::TextureColorSpace::kHLG:
+      return static_cast<int>(ImageHdrColorSpace::kHLG);
+    case impeller::TextureColorSpace::kPQ:
+      return static_cast<int>(ImageHdrColorSpace::kPQ);
+    case impeller::TextureColorSpace::kSRGB:
+    case impeller::TextureColorSpace::kExtendedSRGB:
+    case impeller::TextureColorSpace::kDisplayP3:
+      return static_cast<int>(ImageHdrColorSpace::kUnknown);
+  }
+  return static_cast<int>(ImageHdrColorSpace::kUnknown);
 }
 
 }  // namespace flutter

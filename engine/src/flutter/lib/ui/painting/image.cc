@@ -51,6 +51,15 @@ int CanvasImage::colorSpace() {
   return ColorSpace::kSRGB;
 }
 
+int CanvasImage::hdrColorSpace() {
+#if IMPELLER_SUPPORTS_RENDERING
+  if (image_ && image_->impeller_texture()) {
+    return ImageEncodingImpeller::GetHdrColorSpace(image_->impeller_texture());
+  }
+#endif  // IMPELLER_SUPPORTS_RENDERING
+  return static_cast<int>(ImageHdrColorSpace::kUnknown);
+}
+
 }  // namespace flutter
 
 namespace flutter {

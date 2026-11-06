@@ -22,6 +22,8 @@ uniform FragInfo {
   // Source primaries: 0 = BT.709, 1 = Display P3 (D65). Picks the correct
   // linear -> BT.2020 gamut matrix.
   int source_primaries;
+  // Limited-range RGB samples have nominal 10-bit code values 64..940.
+  int source_limited_10bit;
 }
 frag_info;
 
@@ -31,16 +33,21 @@ out f16vec4 frag_color;
 
 // Source texture color -> linear BT.2020 working space (203-nit ref white).
 highp vec3 ToLinearWorking(highp vec3 color) {
+  highp vec3 linear_color;
   if (frag_info.source_transfer == 1) {
-    return HLGToWorking203(color);
-  }
-  if (frag_info.source_transfer == 2) {
-    return PQToLinear(color);
+    linear_color = HLGToWorking203(color);
+  } else if (frag_info.source_transfer == 2) {
+    linear_color = PQToLinear(color);
+  } else {
+    linear_color = SRGBToLinear(color);
   }
   if (frag_info.source_primaries == 1) {
-    return DisplayP3ToBT2020(SRGBToLinear(color));
+    return DisplayP3ToBT2020(linear_color);
   }
-  return BT709ToBT2020(SRGBToLinear(color));
+  if (frag_info.source_transfer != 0) {
+    return linear_color;
+  }
+  return BT709ToBT2020(linear_color);
 }
 
 // Linear BT.2020 working space -> output surface encoding.
@@ -56,6 +63,9 @@ void main() {
       texture(texture_sampler, v_texture_coords, float16_t(kDefaultMipBias));
   highp vec3 color = vec3(sampled.rgb);
   if (frag_info.output_mode == 1) {
+    if (frag_info.source_limited_10bit == 1) {
+      color = clamp((color * 1023.0 - 64.0) / 876.0, 0.0, 1.0);
+    }
     highp vec3 working = ToLinearWorking(color);
     // Working-space 1.0 (203-nit SDR/graphics white) maps to HLG signal 0.75.
     // The scaling is performed before the inverse EOTF so shadows and

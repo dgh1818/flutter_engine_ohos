@@ -13,6 +13,12 @@ void main() {
     expect(image.runtimeType.toString(), equals('Image'));
     image.dispose();
   });
+
+  test('image without HDR metadata reports unknown', () async {
+    final Image image = await _createImage();
+    expect(image.hdrColorSpace, ImageHdrColorSpace.unknown);
+    image.dispose();
+  });
 }
 
 Future<Image> _createImage() => _createPicture().toImage(10, 10);

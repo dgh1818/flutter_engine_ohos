@@ -60,24 +60,24 @@ TEST(OhosColorSpaceTest, DciP3MapsToExtendedSRGB) {
 TEST(OhosColorSpaceTest, BT2020HLGMapsToHLG) {
   EXPECT_EQ(
       OhosColorSpaceToTextureColorSpace(ohos_color_space_internal::kBT2020HLG),
-      impeller::TextureColorSpace::kHLG);
+      impeller::TextureColorSpace::kBT2020HLG);
 }
 
 TEST(OhosColorSpaceTest, BT2020PQMapsToPQ) {
   EXPECT_EQ(
       OhosColorSpaceToTextureColorSpace(ohos_color_space_internal::kBT2020PQ),
-      impeller::TextureColorSpace::kPQ);
+      impeller::TextureColorSpace::kBT2020PQ);
 }
 
 TEST(OhosColorSpaceTest, P3HLGMapsToHLG) {
   EXPECT_EQ(
       OhosColorSpaceToTextureColorSpace(ohos_color_space_internal::kP3HLG),
-      impeller::TextureColorSpace::kHLG);
+      impeller::TextureColorSpace::kDisplayP3HLG);
 }
 
 TEST(OhosColorSpaceTest, P3PQMapsToPQ) {
   EXPECT_EQ(OhosColorSpaceToTextureColorSpace(ohos_color_space_internal::kP3PQ),
-            impeller::TextureColorSpace::kPQ);
+            impeller::TextureColorSpace::kDisplayP3PQ);
 }
 
 TEST(OhosColorSpaceTest, AdobeRGBLimitMapsToExtendedSRGB) {
@@ -89,25 +89,48 @@ TEST(OhosColorSpaceTest, AdobeRGBLimitMapsToExtendedSRGB) {
 TEST(OhosColorSpaceTest, BT2020HLGLimitMapsToHLG) {
   EXPECT_EQ(OhosColorSpaceToTextureColorSpace(
                 ohos_color_space_internal::kBT2020HLGLimit),
-            impeller::TextureColorSpace::kHLG);
+            impeller::TextureColorSpace::kBT2020HLG);
 }
 
 TEST(OhosColorSpaceTest, BT2020PQLimitMapsToPQ) {
   EXPECT_EQ(OhosColorSpaceToTextureColorSpace(
                 ohos_color_space_internal::kBT2020PQLimit),
-            impeller::TextureColorSpace::kPQ);
+            impeller::TextureColorSpace::kBT2020PQ);
 }
 
 TEST(OhosColorSpaceTest, P3HLGLimitMapsToHLG) {
   EXPECT_EQ(
       OhosColorSpaceToTextureColorSpace(ohos_color_space_internal::kP3HLGLimit),
-      impeller::TextureColorSpace::kHLG);
+      impeller::TextureColorSpace::kDisplayP3HLG);
 }
 
 TEST(OhosColorSpaceTest, P3PQLimitMapsToPQ) {
   EXPECT_EQ(
       OhosColorSpaceToTextureColorSpace(ohos_color_space_internal::kP3PQLimit),
-      impeller::TextureColorSpace::kPQ);
+      impeller::TextureColorSpace::kDisplayP3PQ);
+}
+
+TEST(OhosColorSpaceTest, IdentifiesLimitedRangeHdr) {
+  EXPECT_TRUE(
+      OhosColorSpaceIsLimitedHdr(ohos_color_space_internal::kBT2020HLGLimit));
+  EXPECT_TRUE(
+      OhosColorSpaceIsLimitedHdr(ohos_color_space_internal::kBT2020PQLimit));
+  EXPECT_TRUE(
+      OhosColorSpaceIsLimitedHdr(ohos_color_space_internal::kP3HLGLimit));
+  EXPECT_TRUE(
+      OhosColorSpaceIsLimitedHdr(ohos_color_space_internal::kP3PQLimit));
+  EXPECT_FALSE(
+      OhosColorSpaceIsLimitedHdr(ohos_color_space_internal::kBT2020HLG));
+  EXPECT_FALSE(
+      OhosColorSpaceIsLimitedHdr(ohos_color_space_internal::kBT2020PQ));
+  EXPECT_FALSE(
+      OhosColorSpaceIsLimitedHdr(ohos_color_space_internal::kDisplayP3));
+}
+
+TEST(OhosColorSpaceTest, GeneratedHlgKeepsUnknownPrimaries) {
+  EXPECT_EQ(OhosColorSpaceToTextureColorSpace(
+                ohos_color_space_internal::kHlgUnknownPrimaries),
+            impeller::TextureColorSpace::kHLG);
 }
 
 TEST(OhosColorSpaceTest, LinearBT2020MapsToExtendedSRGB) {

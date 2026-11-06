@@ -191,6 +191,33 @@ using ::testing::Invoke;
 using ::testing::InvokeArgument;
 using ::testing::Return;
 
+TEST(ImageEncodingImpellerTest, HdrColorSpaceUsesMetadataNotPixelFormat) {
+  using TextureColorSpace = impeller::TextureColorSpace;
+  const std::pair<TextureColorSpace, ImageHdrColorSpace> cases[] = {
+      {TextureColorSpace::kSRGB, ImageHdrColorSpace::kUnknown},
+      {TextureColorSpace::kExtendedSRGB, ImageHdrColorSpace::kUnknown},
+      {TextureColorSpace::kDisplayP3, ImageHdrColorSpace::kUnknown},
+      {TextureColorSpace::kBT2020HLG, ImageHdrColorSpace::kBT2020HLG},
+      {TextureColorSpace::kBT2020PQ, ImageHdrColorSpace::kBT2020PQ},
+      {TextureColorSpace::kDisplayP3HLG, ImageHdrColorSpace::kDisplayP3HLG},
+      {TextureColorSpace::kDisplayP3PQ, ImageHdrColorSpace::kDisplayP3PQ},
+      {TextureColorSpace::kHLG, ImageHdrColorSpace::kHLG},
+      {TextureColorSpace::kPQ, ImageHdrColorSpace::kPQ},
+  };
+  for (const auto format : {impeller::PixelFormat::kB10G10R10A2UNorm,
+                            impeller::PixelFormat::kR16G16B16A16Float,
+                            impeller::PixelFormat::kR8G8B8A8UNormInt}) {
+    for (const auto& entry : cases) {
+      impeller::TextureDescriptor descriptor;
+      descriptor.format = format;
+      descriptor.color_space = entry.first;
+      const auto texture = std::make_shared<MockTexture>(descriptor);
+      EXPECT_EQ(ImageEncodingImpeller::GetHdrColorSpace(texture),
+                static_cast<int>(entry.second));
+    }
+  }
+}
+
 namespace {
 std::shared_ptr<impeller::Context> MakeConvertDlImageToSkImageContext(
     std::vector<uint8_t>& buffer) {

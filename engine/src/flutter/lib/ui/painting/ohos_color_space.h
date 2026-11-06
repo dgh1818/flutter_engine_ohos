@@ -32,6 +32,8 @@ constexpr uint32_t kP3HLGLimit = 21;
 constexpr uint32_t kP3PQLimit = 22;
 constexpr uint32_t kLinearP3 = 23;
 constexpr uint32_t kLinearBT2020 = 25;
+// Internal marker for generated HLG pixels when primaries are not known.
+constexpr uint32_t kHlgUnknownPrimaries = 0x7fffff00u;
 
 constexpr uint32_t kDisplayP3ColorSpaces[] = {
     kDisplayP3,
@@ -60,22 +62,23 @@ inline impeller::TextureColorSpace TextureColorSpaceForOhos(
   // Keep the BT.2100 transfer function distinct so the HDR shader pipeline
   // picks the correct EOTF (HLG vs PQ); the 10-bit container cannot express
   // the difference on its own.
-  constexpr uint32_t kPqColorSpaces[] = {
-      kBT2020PQ,
-      kP3PQ,
-      kBT2020PQLimit,
-      kP3PQLimit,
-  };
-  constexpr uint32_t kHlgColorSpaces[] = {
-      kBT2020HLG,
-      kP3HLG,
-      kBT2020HLGLimit,
-      kP3HLGLimit,
-  };
-  if (ContainsColorSpace(colorSpace, kPqColorSpaces)) {
-    return impeller::TextureColorSpace::kPQ;
+  constexpr uint32_t kBT2020PqColorSpaces[] = {kBT2020PQ, kBT2020PQLimit};
+  constexpr uint32_t kBT2020HlgColorSpaces[] = {kBT2020HLG, kBT2020HLGLimit};
+  constexpr uint32_t kP3PqColorSpaces[] = {kP3PQ, kP3PQLimit};
+  constexpr uint32_t kP3HlgColorSpaces[] = {kP3HLG, kP3HLGLimit};
+  if (ContainsColorSpace(colorSpace, kBT2020PqColorSpaces)) {
+    return impeller::TextureColorSpace::kBT2020PQ;
   }
-  if (ContainsColorSpace(colorSpace, kHlgColorSpaces)) {
+  if (ContainsColorSpace(colorSpace, kBT2020HlgColorSpaces)) {
+    return impeller::TextureColorSpace::kBT2020HLG;
+  }
+  if (ContainsColorSpace(colorSpace, kP3PqColorSpaces)) {
+    return impeller::TextureColorSpace::kDisplayP3PQ;
+  }
+  if (ContainsColorSpace(colorSpace, kP3HlgColorSpaces)) {
+    return impeller::TextureColorSpace::kDisplayP3HLG;
+  }
+  if (colorSpace == kHlgUnknownPrimaries) {
     return impeller::TextureColorSpace::kHLG;
   }
   if (ContainsColorSpace(colorSpace, kExtendedSRGBColorSpaces)) {
@@ -86,6 +89,16 @@ inline impeller::TextureColorSpace TextureColorSpaceForOhos(
 #endif  // FML_OS_OHOS
 
 }  // namespace ohos_color_space_internal
+
+inline bool OhosColorSpaceIsLimitedHdr(uint32_t colorSpace) {
+#ifdef FML_OS_OHOS
+  using namespace ohos_color_space_internal;
+  return colorSpace == kBT2020HLGLimit || colorSpace == kBT2020PQLimit ||
+         colorSpace == kP3HLGLimit || colorSpace == kP3PQLimit;
+#else
+  return false;
+#endif
+}
 
 inline impeller::TextureColorSpace OhosColorSpaceToTextureColorSpace(
     uint32_t colorSpace) {

@@ -171,8 +171,8 @@ void ImageDescriptor::initRaw(Dart_Handle descriptor_handle,
       toImageDescriptorPixelFormat(pixel_format);
   sk_sp<SkColorSpace> color_space = SkColorSpace::MakeSRGB();
   if (image_descriptor_pixel_format == PixelFormat::kRGBA1010102) {
-    color_space =
-        SkColorSpace::MakeRGB(SkNamedTransferFn::kHLG, SkNamedGamut::kRec2020);
+    // Raw 10-bit pixels do not carry a transfer function.
+    color_space = nullptr;
   }
   const ImageInfo image_info = {
       .width = static_cast<uint32_t>(width),
@@ -313,12 +313,8 @@ int ImageDescriptor::bytesPerPixel() const {
 
 uint32_t ImageDescriptor::get_colorspace() {
   if (!generator_) {
-#if defined(FML_OS_OHOS) && IMPELLER_SUPPORTS_RENDERING
-    if (image_info_.format == PixelFormat::kRGBA1010102) {
-      return ohos_color_space_internal::kBT2020HLG;
-    }
-#endif
-    return 0;  // Return default value for safety
+    // A 10-bit pixel format alone does not identify primaries or transfer.
+    return 0;
   }
   return generator_->GetColorSpace(0);
 }

@@ -15,12 +15,14 @@ enum class TextureColorSpace {
   kSRGB,
   kExtendedSRGB,
   kDisplayP3,
-  // BT.2100 transfer functions carried by video surfaces (OHOS native buffer
-  // color spaces). Distinct values are required so the HDR shader pipeline can
-  // pick the correct transfer function; the 10-bit container alone cannot
-  // express HLG vs PQ.
+  // HDR transfer functions and, when known, their source primaries. The
+  // 10-bit pixel format alone cannot distinguish HLG, PQ or SDR.
   kPQ,
   kHLG,
+  kBT2020PQ,
+  kBT2020HLG,
+  kDisplayP3PQ,
+  kDisplayP3HLG,
 };
 
 //------------------------------------------------------------------------------
@@ -55,6 +57,8 @@ struct TextureDescriptor {
   size_t mip_count = 1u;  // Size::MipCount is usually appropriate.
   TextureUsageMask usage = TextureUsage::kShaderRead;
   TextureColorSpace color_space = TextureColorSpace::kSRGB;
+  // True only when RGB samples still use 10-bit limited-range coding.
+  bool color_range_limited = false;
   SampleCount sample_count = SampleCount::kCount1;
   CompressionType compression_type = CompressionType::kLossless;
 
