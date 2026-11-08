@@ -63,6 +63,8 @@ struct RegularWindowCreationRequest {
   WindowSizeRequest preferred_size;
   WindowConstraints preferred_constraints;
   const char* title;
+  bool sized_to_content = false;
+  bool resizable = true;
   WindowLifecycleCallbacks callbacks;
 };
 
@@ -70,6 +72,8 @@ struct DialogWindowCreationRequest {
   WindowSizeRequest preferred_size;
   WindowConstraints preferred_constraints;
   const char* title;
+  bool sized_to_content = false;
+  bool resizable = true;
   int64_t parent_view_id = kNoParentViewId;
   WindowLifecycleCallbacks callbacks;
 };

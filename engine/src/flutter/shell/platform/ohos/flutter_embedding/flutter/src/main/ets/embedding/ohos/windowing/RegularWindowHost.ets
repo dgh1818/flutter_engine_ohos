@@ -11,10 +11,11 @@ import StartOptions from '@ohos.app.ability.StartOptions';
 import Log from '../../../util/Log';
 import { FlutterAbility } from '../FlutterAbility';
 import FlutterAbilityLaunchConfigs from '../FlutterAbilityLaunchConfigs';
-import { FlutterWindowHost } from './FlutterWindowHost';
+import { FlutterHostWindowSized } from './FlutterHostWindowSized';
 import { WindowHostContext } from './WindowHostContext';
 import { DialogWindowCreationRequest, IMPLICIT_VIEW_ID, NO_PARENT_VIEW_ID,
-  RegularWindowCreationRequest, WindowArchetype } from './WindowingUtils';
+  RegularWindowCreationRequest, WindowArchetype, WindowConstraints,
+  WindowSizeRequest } from './WindowingUtils';
 
 const TAG = 'RegularWindowHost'
 
@@ -34,7 +35,7 @@ export enum AbilityHostMode {
  * HostWindowDialog with no owner == an overlapped window spawned like a
  * regular one — the DIALOG archetype only marks Dart-side semantics).
  */
-export class RegularWindowHost extends FlutterWindowHost {
+export class RegularWindowHost extends FlutterHostWindowSized {
   private readonly mode: AbilityHostMode;
   // SPAWNED hosts take Regular (task-center card) or Dialog (modeless —
   // the sentinel parent case) requests; ADOPTED takes Regular.
@@ -57,7 +58,8 @@ export class RegularWindowHost extends FlutterWindowHost {
               ability?: UIAbility) {
     // A UIAbility host has no parent window (kNoParentViewId on the C++
     // side for Regular; the modeless dialog's sentinel parent is -1 anyway).
-    super(ctx, viewId, NO_PARENT_VIEW_ID, request.title, archetype);
+    super(ctx, viewId, NO_PARENT_VIEW_ID, request.title, archetype,
+      request.sizedToContent, request.resizable, request.preferredConstraints);
     this.mode = mode;
     this.request = request;
     this.ability = ability;
@@ -119,15 +121,49 @@ export class RegularWindowHost extends FlutterWindowHost {
     this.applyPreferredSize();
   }
 
-  /** Applies the request's preferred size to the adopted main window
-   * (no-op without a meaningful preference). */
+  setWindow(win: window.Window | undefined): void {
+    super.setWindow(win);
+    this.setWindowStyleForResizable();
+  }
+
   private applyPreferredSize(): void {
+    if (this.request.sizedToContent) {
+      return;
+    }
     const size = this.request.preferredSize;
     if (!size.hasPreferredViewSize ||
         size.preferredViewWidth <= 0 || size.preferredViewHeight <= 0) {
       return;
     }
     this.setWindowSize(size.preferredViewWidth, size.preferredViewHeight);
+  }
+
+  getInitialRect(preferred_size: WindowSizeRequest,
+                 constraints: WindowConstraints,
+                 owner_window: window.Window | undefined): window.Rect {
+    const clientSize: window.Size = this.request.sizedToContent
+      ? {
+          width: constraints.hasViewConstraints && constraints.viewMinWidth > 0 ? constraints.viewMinWidth : 1,
+          height: constraints.hasViewConstraints && constraints.viewMinHeight > 0 ? constraints.viewMinHeight : 1,
+        }
+      : { width: preferred_size.preferredViewWidth, height: preferred_size.preferredViewHeight };
+    let smallest: window.Size | undefined = undefined;
+    let biggest: window.Size | undefined = undefined;
+    if (constraints.hasViewConstraints) {
+      if (constraints.viewMinWidth > 0 || constraints.viewMinHeight > 0) {
+        smallest = { width: constraints.viewMinWidth, height: constraints.viewMinHeight };
+      }
+      if (constraints.viewMaxWidth > 0 || constraints.viewMaxHeight > 0) {
+        biggest = { width: constraints.viewMaxWidth, height: constraints.viewMaxHeight };
+      }
+    }
+    const window_size = this.getWindowSizeForClientSize(clientSize, smallest, biggest, owner_window);
+    if (window_size === undefined) {
+      return { left: 0, top: 0, width: 0, height: 0 };
+    }
+    // Client → outer frame: include the title-bar height.
+    window_size.height += this.getDecorHeightPx(owner_window);
+    return { left: 0, top: 0, width: window_size.width, height: window_size.height };
   }
 
   /** SPAWN path: startAbility the configured RegularWindowAbility with the
@@ -159,15 +195,7 @@ export class RegularWindowHost extends FlutterWindowHost {
     };
     const startOptions: StartOptions = {};
     const constraints = this.request.preferredConstraints;
-    let smallest: window.Size | undefined = undefined;
-    let biggest: window.Size | undefined = undefined;
     if (constraints.hasViewConstraints) {
-      if (constraints.viewMinWidth > 0 || constraints.viewMinHeight > 0) {
-        smallest = { width: constraints.viewMinWidth, height: constraints.viewMinHeight };
-      }
-      if (constraints.viewMaxWidth > 0 || constraints.viewMaxHeight > 0) {
-        biggest = { width: constraints.viewMaxWidth, height: constraints.viewMaxHeight };
-      }
       const minTrack = this.ClampToVirtualScreen(
         { width: constraints.viewMinWidth, height: constraints.viewMinHeight });
       const maxTrack = this.ClampToVirtualScreen(
@@ -185,14 +213,12 @@ export class RegularWindowHost extends FlutterWindowHost {
         startOptions.maxWindowHeight = maxTrack.height;
       }
     }
-    const size = this.getWindowSizeForClientSize(
-      { width: this.request.preferredSize.preferredViewWidth,
-        height: this.request.preferredSize.preferredViewHeight },
-      smallest, biggest, mainHost?.getWindow() ?? undefined);
-    if (size !== undefined) {
-      startOptions.windowWidth = size.width;
-      startOptions.windowHeight = size.height +
-        this.getDecorHeightPx(mainHost?.getWindow() ?? undefined);
+
+    const rect = this.getInitialRect(
+      this.request.preferredSize, constraints, mainHost?.getWindow() ?? undefined);
+    if (rect.width > 0 && rect.height > 0) {
+      startOptions.windowWidth = rect.width;
+      startOptions.windowHeight = rect.height; // decor already included
     }
     try {
       await launcher.context.startAbility(want, startOptions);

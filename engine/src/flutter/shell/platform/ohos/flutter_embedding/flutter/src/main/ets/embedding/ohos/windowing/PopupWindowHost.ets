@@ -10,7 +10,7 @@ import { BusinessError } from '@ohos.base';
 import Log from '../../../util/Log';
 import { FlutterView } from '../../../view/FlutterView';
 import FlutterNapi, { WindowPositionResult } from '../../engine/FlutterNapi';
-import { FlutterWindowHost } from './FlutterWindowHost';
+import { FlutterHostWindowSized } from './FlutterHostWindowSized';
 import { WindowHostContext } from './WindowHostContext';
 import { BirthPlacement } from './TooltipWindowHost';
 import { PopupWindowCreationRequest, WindowArchetype } from './WindowingUtils';
@@ -23,7 +23,7 @@ const kBirthOffscreenPx: number = -10000;
 
 /** A parent-bound, decoration-free, never-focusable SubWindow anchored by
  * the positioner and sized to its content (tooltip parity). */
-export class PopupWindowHost extends FlutterWindowHost {
+export class PopupWindowHost extends FlutterHostWindowSized {
   protected readonly request: PopupWindowCreationRequest;
 
   private contentWidthPx: number = 0;
@@ -49,7 +49,8 @@ export class PopupWindowHost extends FlutterWindowHost {
    * @param request - Creation fields (constraints + owning view)
    */
   constructor(ctx: WindowHostContext, viewId: number, request: PopupWindowCreationRequest) {
-    super(ctx, viewId, request.parentViewId, '', WindowArchetype.POPUP);
+    super(ctx, viewId, request.parentViewId, '', WindowArchetype.POPUP,
+      true, false, request.preferredConstraints);
     this.request = request;
   }
 
@@ -200,7 +201,7 @@ export class PopupWindowHost extends FlutterWindowHost {
       const props = parentWnd.getWindowProperties();
       const frame = props.windowRect;
       const dr = props.drawableRect;
-      const wa = await this.workAreaPhysical();
+      const wa = await this.getWorkArea();
       const childPhysical: window.Size =
         this.contentWidthPx > 0 && this.contentHeightPx > 0
           ? { width: this.contentWidthPx, height: this.contentHeightPx }
@@ -227,21 +228,6 @@ export class PopupWindowHost extends FlutterWindowHost {
     }
   }
 
-  /** Screen work area in physical px. */
-  protected async workAreaPhysical(): Promise<window.Rect> {
-    const disp = display.getDefaultDisplaySync();
-    try {
-      const wa = await disp.getAvailableArea();
-      if (wa.width > 0 && wa.height > 0) {
-        return wa;
-      }
-    } catch (e) {
-      Log.w(TAG, `getAvailableArea failed: ${JSON.stringify(e)}; ` +
-        `constraining against the FULL display instead`);
-    }
-    return { left: 0, top: 0, width: disp.width, height: disp.height };
-  }
-
   protected computePlacement(pos: WindowPositionResult,
                              childSize: window.Size,
                              parentRect: window.Rect,
@@ -250,13 +236,7 @@ export class PopupWindowHost extends FlutterWindowHost {
       pos, this.viewId, childSize, parentRect, workArea) === 0;
   }
 
-  /** Content-size report (PHYSICAL px, napi didUpdateViewSize): records the
-   * new content size past the tolerance guard, follows the render surface,
-   * and re-runs the positioner. */
-  didUpdateViewSize(widthPx: number, heightPx: number): void {
-    if (widthPx === this.contentWidthPx && heightPx === this.contentHeightPx) {
-      return;
-    }
+  protected applyContentSize(widthPx: number, heightPx: number): void {
     this.contentWidthPx = widthPx;
     this.contentHeightPx = heightPx;
     this.surfaceStorage?.setOrCreate('contentWidth', widthPx);

@@ -76,7 +76,7 @@ class PlatformViewOHOSNapiTest : public ::testing::Test {
 };
 
 RegularWindowCreationRequest MakeHostRequest() {
-  RegularWindowCreationRequest request;
+  RegularWindowCreationRequest request = {};
   request.preferred_size.has_preferred_view_size = true;
   request.preferred_size.preferred_view_width = 640.0;
   request.preferred_size.preferred_view_height = 480.0;
@@ -85,7 +85,14 @@ RegularWindowCreationRequest MakeHostRequest() {
 }
 
 DialogWindowCreationRequest MakeDialogHostRequest() {
-  return DialogWindowCreationRequest{};
+  // Valid by the OHOSWindow ctor contract (preferred size or
+  // sized-to-content); the {} zero-init keeps the marshaled reads (title,
+  // constraint doubles) defined.
+  DialogWindowCreationRequest request = {};
+  request.preferred_size.has_preferred_view_size = true;
+  request.preferred_size.preferred_view_width = 640.0;
+  request.preferred_size.preferred_view_height = 480.0;
+  return request;
 }
 
 TooltipWindowCreationRequest MakeTooltipHostRequest() {
@@ -249,10 +256,10 @@ std::unique_ptr<OHOSShellHolder> MakeSoftwareHolder() {
       settings, std::make_shared<PlatformViewOHOSNapi>(nullptr), nullptr);
 }
 
-void InsertNapiWindow(OHOSWindowController* controller,
-                      int64_t view_id,
-                      const RegularWindowCreationRequest& request =
-                          RegularWindowCreationRequest{}) {
+void InsertNapiWindow(
+    OHOSWindowController* controller,
+    int64_t view_id,
+    const RegularWindowCreationRequest& request = MakeHostRequest()) {
   void* host_handle = OHOSWindowController::HandleForViewId(view_id);
   std::lock_guard<std::mutex> lock(controller->windows_mutex_);
   controller->windows_[host_handle] =
@@ -2261,7 +2268,7 @@ TEST_F(PlatformViewOHOSNapiTest, HandleOsWindowClosedTearsDownSeededWindow) {
   auto holder = MakeSoftwareHolder();
   OHOSWindowController* controller = holder->GetWindowController();
   ASSERT_NE(controller, nullptr);
-  InsertNapiWindow(controller, 0, RegularWindowCreationRequest{});
+  InsertNapiWindow(controller, 0);
   void* const handle = OHOSWindowController::HandleForViewId(0);
   ASSERT_EQ(controller->windows_.count(handle), 1u);
   // The stub feeds the seeded window's view id: the call routes to
@@ -2918,8 +2925,7 @@ TEST_F(PlatformViewOHOSNapiTest, NativeComputeWindowPositionStages) {
       PlatformViewOHOSNapi::nativeComputeWindowPosition(env, nullptr));
 
   constexpr int64_t kView = 7;
-  InsertNapiWindow(holder->GetWindowController(), kView,
-                   RegularWindowCreationRequest{});
+  InsertNapiWindow(holder->GetWindowController(), kView);
   StubNapiSetInt64Value(kView);
   EXPECT_NO_FATAL_FAILURE(
       PlatformViewOHOSNapi::nativeComputeWindowPosition(env, nullptr));
@@ -2967,8 +2973,7 @@ TEST_F(PlatformViewOHOSNapiTest, NativeNotifyWindowActivatedStages) {
   EXPECT_EQ(PlatformViewOHOSNapi::nativeNotifyWindowActivated(env, nullptr),
             nullptr);
   constexpr int64_t kView = 8;
-  InsertNapiWindow(holder->GetWindowController(), kView,
-                   RegularWindowCreationRequest{});
+  InsertNapiWindow(holder->GetWindowController(), kView);
   StubNapiSetInt64Value(kView);
   StubNapiSetBoolValue(true);
   EXPECT_EQ(PlatformViewOHOSNapi::nativeNotifyWindowActivated(env, nullptr),

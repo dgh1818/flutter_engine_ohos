@@ -754,8 +754,13 @@ TEST_F(XComponentAdapterTest, ResolveSubViewRoutingWithLiveControllerRoutes) {
   // Register view 5 directly (CreateWindow's non-first path needs a live
   // engine's AddViewSync, which is out of UT reach).
   void* const host_handle = OHOSWindowController::HandleForViewId(5);
-  controller->windows_[host_handle] =
-      std::make_unique<OHOSWindow>(5, RegularWindowCreationRequest{});
+  RegularWindowCreationRequest request = {};
+  // Valid by the OHOSWindow ctor contract (preferred size or
+  // sized-to-content).
+  request.preferred_size.has_preferred_view_size = true;
+  request.preferred_size.preferred_view_width = 100.0;
+  request.preferred_size.preferred_view_height = 100.0;
+  controller->windows_[host_handle] = std::make_unique<OHOSWindow>(5, request);
 
   xc.ResolveSubViewRouting();
   EXPECT_TRUE(xc.is_sub_view_);

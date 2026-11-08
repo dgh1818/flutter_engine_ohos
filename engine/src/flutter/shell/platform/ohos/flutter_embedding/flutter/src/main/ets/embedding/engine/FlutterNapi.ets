@@ -337,6 +337,10 @@ export default class FlutterNapi {
     flutter.nativeNotifyWindowActivated(viewId, activated);
   }
 
+  static nativeSetViewSizedToContent(viewId: number, sizedToContent: boolean): void {
+    flutter.nativeSetViewSizedToContent(viewId, sizedToContent);
+  }
+
   /**
    * Notifies the Flutter engine of a low memory warning.
    */

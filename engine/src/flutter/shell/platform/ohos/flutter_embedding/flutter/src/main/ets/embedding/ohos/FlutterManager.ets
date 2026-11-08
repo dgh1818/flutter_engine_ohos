@@ -17,6 +17,7 @@ import PiPVisibilityBridge from './PiPVisibilityBridge';
 import FlutterNapi from '../engine/FlutterNapi';
 import { WindowHostContext } from './windowing/WindowHostContext';
 import { FlutterWindowHost } from './windowing/FlutterWindowHost';
+import { FlutterHostWindowSized } from './windowing/FlutterHostWindowSized';
 import { DialogWindowCreationRequest, IMPLICIT_VIEW_ID, NO_PARENT_VIEW_ID,
   numericViewId, PopupWindowCreationRequest, RegularWindowCreationRequest,
   TooltipWindowCreationRequest,
@@ -420,11 +421,13 @@ export default class FlutterManager implements WindowHostContext {
   }
 
   /** Raster content-size report (napi didUpdateViewSize, PHYSICAL px;
-   * win32 HostWindowTooltip::DidUpdateViewSize parity): re-place the
-   * sized-to-content tooltip/popup. Unknown or other views no-op. */
+   * win32 HostWindowSized::DidUpdateViewSize parity): re-place the
+   * sized-to-content tooltip/popup and re-size a sized-to-content
+   * regular/dialog window to its rendered content. Unknown or other views
+   * no-op. */
   didUpdateViewSize(viewId: number, width: number, height: number): void {
     const host = this.windowHosts.get(viewId);
-    if (host instanceof TooltipWindowHost || host instanceof PopupWindowHost) {
+    if (host instanceof FlutterHostWindowSized) {
       host.didUpdateViewSize(width, height);
     }
   }
@@ -509,6 +512,33 @@ export default class FlutterManager implements WindowHostContext {
   setSpawnedAbilityName(name: string): void {
     if (name && name.length > 0) {
       this.regularWindowAbilityName = name;
+    }
+  }
+
+  /**
+   * OS-close report (WindowHostContext): forwards to native so Dart
+   * `destroyed` flips and unregister runs. Routed through the context seam
+   * (not a direct FlutterNapi import in FlutterWindowHost) to keep the
+   * host-module import graph acyclic.
+   */
+  notifyOsWindowClosed(viewId: number): void {
+    try {
+      FlutterNapi.nativeHandleOsWindowClosed(viewId);
+    } catch (e) {
+      Log.w(TAG, `notifyOsWindowClosed(${viewId}) napi failed: ${JSON.stringify(e)}`);
+    }
+  }
+
+  /**
+   * Sized-to-content flag clear (WindowHostContext): forwards to native
+   * after a resize lands. Routed through the context seam to keep the
+   * host-module import graph acyclic.
+   */
+  setViewSizedToContent(viewId: number, sizedToContent: boolean): void {
+    try {
+      FlutterNapi.nativeSetViewSizedToContent(viewId, sizedToContent);
+    } catch (e) {
+      Log.w(TAG, `setViewSizedToContent(${viewId}) napi failed: ${JSON.stringify(e)}`);
     }
   }
 

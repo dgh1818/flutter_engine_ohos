@@ -52,7 +52,7 @@ class TestTooltipHost extends TooltipWindowHost {
     return false;
   }
 
-  protected async workAreaPhysical(): Promise<window.Rect> {
+  protected async getWorkArea(): Promise<window.Rect> {
     return this.workAreaPhysicalRect;
   }
 

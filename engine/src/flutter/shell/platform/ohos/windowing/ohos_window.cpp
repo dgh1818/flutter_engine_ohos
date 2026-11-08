@@ -9,39 +9,69 @@
 #include <cstdlib>
 #include <utility>
 
+#include "flutter/fml/logging.h"
+
 namespace flutter {
 
 OHOSWindow::OHOSWindow(int64_t view_id) : view_id_(view_id) {}
 
+static WindowConstraints ConstraintsForRequest(
+    const WindowConstraints& preferred_constraints,
+    bool sized_to_content) {
+  if (preferred_constraints.has_view_constraints) {
+    return preferred_constraints;
+  }
+  if (sized_to_content) {
+    WindowConstraints unbounded = {};
+    unbounded.has_view_constraints = true;
+    return unbounded;  // min 0, max 0 == unbounded.
+  }
+  return preferred_constraints;
+}
+
 // Regular: preferred size + title + callbacks, never a positioner.
+// sized_to_content (RegularWindowController.sizedToContent; Dart derives
+// it from `size == null`, win32 parity)
 OHOSWindow::OHOSWindow(int64_t view_id,
                        const RegularWindowCreationRequest& request)
     : OHOSWindow(view_id) {
   callbacks_ = request.callbacks;
+  FML_DCHECK(request.sized_to_content ||
+             request.preferred_size.has_preferred_view_size);
   has_preferred_size_ = request.preferred_size.has_preferred_view_size;
   preferred_size_ = {request.preferred_size.preferred_view_width,
                      request.preferred_size.preferred_view_height};
+  sized_to_content_ = request.sized_to_content;
+  constraints_ =
+      ConstraintsForRequest(request.preferred_constraints, sized_to_content_);
+  has_constraints_ = constraints_.has_view_constraints;
   // Seeded synchronously inside CreateWindow, while the request's Dart-side
   // `title` pointer is still alive.
   title_cache_ = request.title != nullptr ? request.title : "";
 }
 
 // Dialog: same seeds as Regular (no positioner; parentage is the ETS host's
-// concern).
+// concern), including the sized_to_content flag.
 OHOSWindow::OHOSWindow(int64_t view_id,
                        const DialogWindowCreationRequest& request)
     : OHOSWindow(view_id) {
   callbacks_ = request.callbacks;
+  FML_DCHECK(request.sized_to_content ||
+             request.preferred_size.has_preferred_view_size);
   has_preferred_size_ = request.preferred_size.has_preferred_view_size;
   preferred_size_ = {request.preferred_size.preferred_view_width,
                      request.preferred_size.preferred_view_height};
+  sized_to_content_ = request.sized_to_content;
+  constraints_ =
+      ConstraintsForRequest(request.preferred_constraints, sized_to_content_);
+  has_constraints_ = constraints_.has_view_constraints;
   title_cache_ = request.title != nullptr ? request.title : "";
 }
 
-// Tooltip: positioner + callbacks; no preferred size, no title. The only
-// sized-to-content archetype (win32 HostWindowTooltip parity): the view's
-// content lays out within the request's constraint RANGE and the host
-// window follows the per-frame content size.
+// Tooltip: positioner + callbacks; no preferred size, no title. Always
+// sized to content (win32 HostWindowTooltip parity): the view's content
+// lays out within the request's constraint RANGE and the host window
+// follows the per-frame content size.
 OHOSWindow::OHOSWindow(int64_t view_id,
                        const TooltipWindowCreationRequest& request)
     : OHOSWindow(view_id) {

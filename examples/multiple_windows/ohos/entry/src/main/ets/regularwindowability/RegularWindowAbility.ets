@@ -15,6 +15,7 @@ import {
   FlutterView,
   FlutterNapi,
   Log,
+  WindowArchetype,
 } from '@ohos/flutter_ohos';
 
 const TAG = 'RegularWindowAbility';
@@ -121,16 +122,6 @@ export default class RegularWindowAbility extends FlutterAbility {
       }
 
       const main = windowStage.getMainWindowSync();
-      if (this.windowTitle.length > 0) {
-        try {
-          main.setWindowTitle(this.windowTitle)
-            .catch((e: Object) => {
-              Log.w(TAG, `setWindowTitle rejected: ${JSON.stringify(e)}`);
-            });
-        } catch (e) {
-          Log.w(TAG, `setWindowTitle failed: ${JSON.stringify(e)}`);
-        }
-      }
       // viewId in LocalStorage lets FlutterPage resolve this view.
       const storage: LocalStorage = new LocalStorage();
       storage.setOrCreate('viewId', viewIdStr);
@@ -141,6 +132,25 @@ export default class RegularWindowAbility extends FlutterAbility {
           return;
         }
         this.regularFlutterView?.onWindowCreated();
+        // App-side window title: the official setWindowTitle call, made from
+        // the loadContent completion — the documented lifecycle point. Pushes
+        // before loadContent are rejected by WMSDecor with "uicontent is
+        // empty" (the window's UIContent does not exist yet).
+        if (this.windowTitle.length > 0) {
+          main.setWindowTitle(this.windowTitle)
+            .catch((e: Object) => {
+              Log.w(TAG, `setWindowTitle rejected: ${JSON.stringify(e)}`);
+            });
+        }
+        const host = FlutterManager.getInstance()
+          .getHostWindowByView(this.flutterViewNumericId);
+        if (host !== undefined && host.archetype === WindowArchetype.DIALOG) {
+          try {
+            main.setWindowTitleButtonVisible(false, true, true);
+          } catch (e) {
+            Log.w(TAG, `setWindowTitleButtonVisible rejected: ${JSON.stringify(e)}`);
+          }
+        }
       });
     } catch (exception) {
       Log.e(TAG, `onWindowStageCreate failed: ${JSON.stringify(exception)}`);

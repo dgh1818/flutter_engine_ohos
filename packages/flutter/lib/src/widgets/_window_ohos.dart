@@ -95,15 +95,14 @@ class WindowingOwnerOHOS extends WindowingOwner {
     BoxConstraints? constraints,
     required bool resizable,
     String? title,
-    bool decorated = true,
   }) {
     final controller = RegularWindowControllerOHOS(
       owner: this,
       delegate: delegate,
-      preferredSize: size,
-      preferredConstraints: constraints,
+      size: size,
+      constraints: constraints,
       title: title,
-      decorated: decorated,
+      resizable: resizable,
     );
     return controller;
   }
@@ -116,16 +115,15 @@ class WindowingOwnerOHOS extends WindowingOwner {
     required bool resizable,
     BaseWindowController? parent,
     String? title,
-    bool decorated = true,
   }) {
     final controller = DialogWindowControllerOHOS(
       owner: this,
       delegate: delegate,
-      preferredSize: size,
-      preferredConstraints: constraints,
+      size: size,
+      constraints: constraints,
       parent: parent,
       title: title,
-      decorated: decorated,
+      resizable: resizable,
     );
     return controller;
   }
@@ -315,24 +313,27 @@ class RegularWindowControllerOHOS extends RegularWindowController with _WindowCo
   RegularWindowControllerOHOS({
     required WindowingOwnerOHOS owner,
     required RegularWindowControllerDelegate delegate,
-    required Size? preferredSize,
-    BoxConstraints? preferredConstraints,
+    Size? size,
+    BoxConstraints? constraints,
     String? title,
-    bool decorated = true, // ignore: avoid_unused_constructor_parameters
+    required bool resizable,
   }) : _delegate = delegate,
        super.empty() {
     _initController(owner);
     final Pointer<NativeFunction<Void Function()>> osc = _onShouldClose.nativeFunction;
     final Pointer<NativeFunction<Void Function()>> owc = _onWillClose.nativeFunction;
     final Pointer<NativeFunction<Void Function()>> onl = _onNotifyListeners.nativeFunction;
+    final sizedToContent = size == null;
 
     final FlutterView flutterView;
     var viewId = -1;
     try {
       viewId = _OHOSPlatformInterface.createRegularWindow(
-        preferredSize: preferredSize,
-        preferredConstraints: preferredConstraints,
+        preferredSize: size,
+        preferredConstraints: constraints,
         title: title,
+        sizedToContent: sizedToContent,
+        resizable: resizable,
         onShouldClose: osc,
         onWillClose: owc,
         onNotifyListeners: onl,
@@ -477,23 +478,27 @@ class DialogWindowControllerOHOS extends DialogWindowController with _WindowCont
   DialogWindowControllerOHOS({
     required WindowingOwnerOHOS owner,
     required DialogWindowControllerDelegate delegate,
-    required Size? preferredSize,
-    this.parent,
-    BoxConstraints? preferredConstraints,
+    Size? size,
+    BoxConstraints? constraints,
     String? title,
-    bool decorated = true, // ignore: avoid_unused_constructor_parameters
+    BaseWindowController? parent,
+    required bool resizable,
   }) : _delegate = delegate,
+       parent = parent,
        super.empty() {
     _initController(owner);
+    final sizedToContent = size == null;
 
     final FlutterView flutterView;
     var viewId = -1;
     try {
       viewId = _OHOSPlatformInterface.createDialogWindow(
-        preferredSize: preferredSize,
-        preferredConstraints: preferredConstraints,
+        preferredSize: size,
+        preferredConstraints: constraints,
         parentViewId: parent?.rootView.viewId,
         title: title,
+        sizedToContent: sizedToContent,
+        resizable: resizable,
         onShouldClose: _onShouldClose.nativeFunction,
         onWillClose: _onWillClose.nativeFunction,
         onNotifyListeners: _onNotifyListeners.nativeFunction,
@@ -675,7 +680,7 @@ class TooltipWindowControllerOHOS extends TooltipWindowController with _WindowCo
     final Pointer<_Rect> result = _allocator.allocate<_Rect>(sizeOf<_Rect>());
     try {
       final double scale = rootView.devicePixelRatio == 0 ? 1.0 : rootView.devicePixelRatio;
-      final Rect scaledAnchorRect = Rect.fromLTWH(
+      final scaledAnchorRect = Rect.fromLTWH(
         _anchorRect.left * scale,
         _anchorRect.top * scale,
         _anchorRect.width * scale,
@@ -837,7 +842,7 @@ class PopupWindowControllerOHOS extends PopupWindowController with _WindowContro
     final Pointer<_Rect> result = _allocator.allocate<_Rect>(sizeOf<_Rect>());
     try {
       final double scale = rootView.devicePixelRatio == 0 ? 1.0 : rootView.devicePixelRatio;
-      final Rect scaledAnchorRect = Rect.fromLTWH(
+      final scaledAnchorRect = Rect.fromLTWH(
         _anchorRect.left * scale,
         _anchorRect.top * scale,
         _anchorRect.width * scale,
@@ -967,17 +972,21 @@ class _OHOSPlatformInterface {
     required Size? preferredSize,
     BoxConstraints? preferredConstraints,
     String? title,
+    required bool sizedToContent,
+    required bool resizable,
     required Pointer<NativeFunction<Void Function()>> onShouldClose,
     required Pointer<NativeFunction<Void Function()>> onWillClose,
     required Pointer<NativeFunction<Void Function()>> onNotifyListeners,
   }) {
-    final Pointer<_Utf8> titlePointer = title?.toNativeUtf8() ?? nullptr;
+    final Pointer<_Utf8> titlePointer = (title ?? 'Regular window').toNativeUtf8();
     final Pointer<_RegularWindowCreationRequest> request =
         _allocator<_RegularWindowCreationRequest>();
     request.ref
       ..preferredSize.from(preferredSize)
       ..preferredConstraints.from(preferredConstraints)
       ..title = titlePointer
+      ..sizedToContent = sizedToContent
+      ..resizable = resizable
       ..callbacks.onShouldClose = onShouldClose
       ..callbacks.onWillClose = onWillClose
       ..callbacks.onNotifyListeners = onNotifyListeners;
@@ -1007,16 +1016,20 @@ class _OHOSPlatformInterface {
     BoxConstraints? preferredConstraints,
     int? parentViewId,
     String? title,
+    required bool sizedToContent,
+    required bool resizable,
     required Pointer<NativeFunction<Void Function()>> onShouldClose,
     required Pointer<NativeFunction<Void Function()>> onWillClose,
     required Pointer<NativeFunction<Void Function()>> onNotifyListeners,
   }) {
-    final Pointer<_Utf8> titlePointer = title?.toNativeUtf8() ?? nullptr;
+    final Pointer<_Utf8> titlePointer = (title ?? 'Dialog window').toNativeUtf8();
     final Pointer<_DialogWindowCreationRequest> request =
         _allocator<_DialogWindowCreationRequest>();
     request.ref
       ..preferredSize.from(preferredSize)
       ..preferredConstraints.from(preferredConstraints)
+      ..sizedToContent = sizedToContent
+      ..resizable = resizable
       ..parentViewId = parentViewId ?? _kNoParentViewId
       ..title = titlePointer
       ..callbacks.onShouldClose = onShouldClose
@@ -1344,6 +1357,13 @@ final class _RegularWindowCreationRequest extends Struct {
   external _WindowSizeRequest preferredSize;
   external _WindowConstraintsRequest preferredConstraints;
   external Pointer<_Utf8> title;
+
+  @Bool()
+  external bool sizedToContent;
+
+  @Bool()
+  external bool resizable;
+
   external _WindowLifecycleCallbacks callbacks;
 }
 
@@ -1353,6 +1373,12 @@ final class _DialogWindowCreationRequest extends Struct {
   external _WindowSizeRequest preferredSize;
   external _WindowConstraintsRequest preferredConstraints;
   external Pointer<_Utf8> title;
+
+  @Bool()
+  external bool sizedToContent;
+
+  @Bool()
+  external bool resizable;
 
   @Int64()
   external int parentViewId;

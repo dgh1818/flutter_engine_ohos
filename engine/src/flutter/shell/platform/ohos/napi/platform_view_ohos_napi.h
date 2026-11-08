@@ -368,6 +368,9 @@ class PlatformViewOHOSNapi {
   static napi_value nativeNotifyWindowActivated(napi_env env,
                                                 napi_callback_info info);
 
+  static napi_value nativeSetViewSizedToContent(napi_env env,
+                                                napi_callback_info info);
+
   static napi_value nativeUnicodeIsEmoji(napi_env env, napi_callback_info info);
 
   static napi_value nativeUnicodeIsEmojiModifier(napi_env env,
