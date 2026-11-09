@@ -20,6 +20,11 @@ napi_extended_error_info g_error_info = {
     napi_ok,
 };
 
+// System libraries loaded at runtime may self-register napi modules whose
+// register call resolves to this stub's exported symbol, so every
+// registration is kept instead of only the latest one.
+constexpr size_t kMaxRegisteredNapiModules = 16;
+
 struct NapiStubState {
   napi_valuetype valuetype = napi_undefined;
   bool force_valuetype = false;
@@ -88,7 +93,8 @@ struct NapiStubState {
   int last_error_null = 0;
   int last_error_message_null = 0;
   int exception_pending = 0;
-  napi_module* registered_module = nullptr;
+  std::array<napi_module*, kMaxRegisteredNapiModules> registered_modules = {};
+  size_t registered_module_count = 0;
   std::array<void*, 128> live_arraybuffer_data = {};
   size_t live_arraybuffer_count = 0;
 };
@@ -107,7 +113,13 @@ std::vector<std::string> g_recorded_strings;
 extern "C" {
 
 void napi_module_register(napi_module* mod) {
-  g_napi_stub.registered_module = mod;
+  // The flutter entry module registers first, at process startup, so it
+  // always has a slot even if registrations from system libraries overflow.
+  if (mod == nullptr || g_napi_stub.registered_module_count >=
+                            g_napi_stub.registered_modules.size()) {
+    return;
+  }
+  g_napi_stub.registered_modules[g_napi_stub.registered_module_count++] = mod;
 }
 
 napi_status napi_get_last_error_info(napi_env /*env*/,
@@ -830,9 +842,14 @@ extern "C" void StubNapiReset(void) {
   for (size_t i = 0; i < g_napi_stub.live_arraybuffer_count; i++) {
     ::operator delete(g_napi_stub.live_arraybuffer_data[i]);
   }
-  napi_module* mod = g_napi_stub.registered_module;
+  // Registrations made by the entry module and system libraries are process
+  // lifetime state; a per-test reset must not drop them.
+  const std::array<napi_module*, kMaxRegisteredNapiModules> modules =
+      g_napi_stub.registered_modules;
+  const size_t count = g_napi_stub.registered_module_count;
   g_napi_stub = NapiStubState{};
-  g_napi_stub.registered_module = mod;
+  g_napi_stub.registered_modules = modules;
+  g_napi_stub.registered_module_count = count;
   g_record_strings = false;
   g_recorded_strings.clear();
 }
@@ -1080,6 +1097,18 @@ extern "C" void StubNapiSetExceptionPending(int enable) {
   g_napi_stub.exception_pending = enable;
 }
 
+// Return the flutter entry module even when runtime-loaded system libraries
+// have self-registered their own napi modules afterwards.
 extern "C" napi_module* StubNapiGetRegisteredModule(void) {
-  return g_napi_stub.registered_module;
+  napi_module* last = nullptr;
+  for (size_t i = 0; i < g_napi_stub.registered_module_count; i++) {
+    napi_module* mod = g_napi_stub.registered_modules[i];
+    last = mod;
+    if (mod->nm_modname != nullptr && strcmp(mod->nm_modname, "flutter") == 0) {
+      return mod;
+    }
+  }
+  // No flutter entry registered: fall back to the most recent one, matching
+  // the previous single-slot behavior.
+  return last;
 }
