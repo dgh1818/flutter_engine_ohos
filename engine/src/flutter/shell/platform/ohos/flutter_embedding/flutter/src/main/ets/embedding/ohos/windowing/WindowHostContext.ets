@@ -44,6 +44,17 @@ export interface WindowHostContext {
    * each host carries its own OS-window handle (getWindow). */
   getHostWindowByView(viewId: number): FlutterWindowHost | undefined;
 
+  /** Reports an OS-initiated window destruction to native (Dart `destroyed`
+   * flips and unregister runs). Routed through this seam so window-host
+   * modules need no runtime import of the napi bridge (import-cycle guard:
+   * FlutterNapi → FlutterManager → hosts → FlutterWindowHost). */
+  notifyOsWindowClosed(viewId: number): void;
+
+  /** Clears the native sized-to-content reflow flag after a resize lands.
+   * Routed through this seam (import-cycle guard: FlutterNapi →
+   * FlutterManager → host subclasses → FlutterHostWindowSized). */
+  setViewSizedToContent(viewId: number, sizedToContent: boolean): void;
+
   /** Focus push for a sub-window host: windowEvent WINDOW_ACTIVE↔
    * WINDOW_INACTIVE translated to the view's activation flag and handed to
    * native (cached for the Dart `isActivated` query; a CHANGED flag also

@@ -558,6 +558,26 @@ bool MarshalRegularWindowRequest(napi_env env,
     FML_DLOG(ERROR) << "napi_set_named_property title fail ";
     return false;
   }
+  status = napi_get_boolean(env, request.sized_to_content, &value);
+  if (status != napi_ok) {
+    FML_DLOG(ERROR) << "napi_get_boolean sizedToContent fail ";
+    return false;
+  }
+  status = napi_set_named_property(env, *out, "sizedToContent", value);
+  if (status != napi_ok) {
+    FML_DLOG(ERROR) << "napi_set_named_property sizedToContent fail ";
+    return false;
+  }
+  status = napi_get_boolean(env, request.resizable, &value);
+  if (status != napi_ok) {
+    FML_DLOG(ERROR) << "napi_get_boolean resizable fail ";
+    return false;
+  }
+  status = napi_set_named_property(env, *out, "resizable", value);
+  if (status != napi_ok) {
+    FML_DLOG(ERROR) << "napi_set_named_property resizable fail ";
+    return false;
+  }
   return true;
 }
 
@@ -596,6 +616,26 @@ bool MarshalDialogWindowRequest(napi_env env,
   status = napi_set_named_property(env, *out, "title", value);
   if (status != napi_ok) {
     FML_DLOG(ERROR) << "napi_set_named_property title fail ";
+    return false;
+  }
+  status = napi_get_boolean(env, request.sized_to_content, &value);
+  if (status != napi_ok) {
+    FML_DLOG(ERROR) << "napi_get_boolean sizedToContent fail ";
+    return false;
+  }
+  status = napi_set_named_property(env, *out, "sizedToContent", value);
+  if (status != napi_ok) {
+    FML_DLOG(ERROR) << "napi_set_named_property sizedToContent fail ";
+    return false;
+  }
+  status = napi_get_boolean(env, request.resizable, &value);
+  if (status != napi_ok) {
+    FML_DLOG(ERROR) << "napi_get_boolean resizable fail ";
+    return false;
+  }
+  status = napi_set_named_property(env, *out, "resizable", value);
+  if (status != napi_ok) {
+    FML_DLOG(ERROR) << "napi_set_named_property resizable fail ";
     return false;
   }
   status = napi_create_int64(env, request.parent_view_id, &value);
@@ -3005,9 +3045,6 @@ void PlatformViewOHOSNapi::NotifyCreateForView(int64_t shell_holder,
   FML_DCHECK(view_id != kFlutterImplicitViewId);
   auto native_window = fml::MakeRefCounted<OHOSNativeWindow>(
       static_cast<OHNativeWindow*>(window));
-  // win32 is_sized_to_content parity: a sized-to-content view
-  // (tooltip/popup) reports per-frame content sizes AND its metrics carry
-  // the request's constraint RANGE instead of a pinned size.
   const bool sized_to_content =
       OHOS_SHELL_HOLDER->GetWindowController()->IsViewSizedToContent(view_id);
   WindowConstraints logical_constraints = {};
@@ -3844,6 +3881,41 @@ napi_value PlatformViewOHOSNapi::nativeNotifyWindowActivated(
 
   if (auto* controller = flutter::OHOSWindowController::ForView(view_id)) {
     controller->SetViewActivated(view_id, activated);
+  }
+
+  napi_close_handle_scope(env, scope);
+  return nullptr;
+}
+
+napi_value PlatformViewOHOSNapi::nativeSetViewSizedToContent(
+    napi_env env,
+    napi_callback_info info) {
+  size_t argc = 2;
+  napi_value args[2] = {nullptr};
+  napi_handle_scope scope;
+  napi_open_handle_scope(env, &scope);
+  napi_status ret = napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+  if (ret != napi_ok || argc < 2) {
+    FML_DLOG(ERROR) << "nativeSetViewSizedToContent napi_get_cb_info error";
+    napi_close_handle_scope(env, scope);
+    return nullptr;
+  }
+  int64_t view_id = 0;
+  bool sized_to_content = false;
+  if (napi_get_value_int64(env, args[0], &view_id) != napi_ok) {
+    FML_DLOG(ERROR) << "nativeSetViewSizedToContent view_id parse failed";
+    napi_close_handle_scope(env, scope);
+    return nullptr;
+  }
+  if (napi_get_value_bool(env, args[1], &sized_to_content) != napi_ok) {
+    FML_DLOG(ERROR)
+        << "nativeSetViewSizedToContent sized_to_content parse failed";
+    napi_close_handle_scope(env, scope);
+    return nullptr;
+  }
+
+  if (auto* controller = flutter::OHOSWindowController::ForView(view_id)) {
+    controller->SetViewSizedToContent(view_id, sized_to_content);
   }
 
   napi_close_handle_scope(env, scope);

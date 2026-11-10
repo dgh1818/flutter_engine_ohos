@@ -48,12 +48,22 @@ Settings MakeTestSettings() {
   return settings;
 }
 
+// Valid by the OHOSWindow ctor contract (preferred size or
+// sized-to-content) — tests that don't care about sizing use these.
 RegularWindowCreationRequest MakeRegularRequest() {
-  return RegularWindowCreationRequest{};
+  RegularWindowCreationRequest request = {};
+  request.preferred_size.has_preferred_view_size = true;
+  request.preferred_size.preferred_view_width = 100.0;
+  request.preferred_size.preferred_view_height = 100.0;
+  return request;
 }
 
 DialogWindowCreationRequest MakeDialogRequest() {
-  return DialogWindowCreationRequest{};
+  DialogWindowCreationRequest request = {};
+  request.preferred_size.has_preferred_view_size = true;
+  request.preferred_size.preferred_view_width = 100.0;
+  request.preferred_size.preferred_view_height = 100.0;
+  return request;
 }
 
 TooltipWindowCreationRequest MakeTooltipRequest() {
@@ -64,13 +74,12 @@ PopupWindowCreationRequest MakePopupRequest() {
   return PopupWindowCreationRequest{};
 }
 
-void* InsertWindow(OHOSWindowController* controller,
-                   int64_t view_id,
-                   const RegularWindowCreationRequest& request =
-                       RegularWindowCreationRequest{}) {
+void* InsertWindow(
+    OHOSWindowController* controller,
+    int64_t view_id,
+    const RegularWindowCreationRequest& request = MakeRegularRequest()) {
   void* handle = OHOSWindowController::HandleForViewId(view_id);
-  controller->windows_[handle] =
-      std::make_unique<OHOSWindow>(view_id, request);
+  controller->windows_[handle] = std::make_unique<OHOSWindow>(view_id, request);
   return handle;
 }
 
@@ -79,8 +88,7 @@ void* InsertWindow(OHOSWindowController* controller,
                    int64_t view_id,
                    const TooltipWindowCreationRequest& request) {
   void* handle = OHOSWindowController::HandleForViewId(view_id);
-  controller->windows_[handle] =
-      std::make_unique<OHOSWindow>(view_id, request);
+  controller->windows_[handle] = std::make_unique<OHOSWindow>(view_id, request);
   return handle;
 }
 
@@ -120,13 +128,12 @@ struct PositionerConfig {
 PositionerConfig* g_positioner = nullptr;
 
 WindowRect* OnGetWindowPosition(const WindowSize& child_size,
-                                       const WindowRect& parent_rect,
-                                       const WindowRect& output_rect) {
+                                const WindowRect& parent_rect,
+                                const WindowRect& output_rect) {
   if (g_positioner == nullptr || g_positioner->return_null) {
     return nullptr;
   }
-  WindowRect* out =
-      static_cast<WindowRect*>(malloc(sizeof(WindowRect)));
+  WindowRect* out = static_cast<WindowRect*>(malloc(sizeof(WindowRect)));
   *out = g_positioner->rect;
   return out;
 }
@@ -358,8 +365,7 @@ TEST_F(OHOSWindowControllerTest, GetContentSizeFallsBackToRequestSize) {
   EXPECT_EQ(size.height, 480.0);
 
   // Unknown window -> zero.
-  WindowSize zero =
-      controller_->GetContentSize(reinterpret_cast<void*>(0x123));
+  WindowSize zero = controller_->GetContentSize(reinterpret_cast<void*>(0x123));
   EXPECT_EQ(zero.width, 0.0);
   EXPECT_EQ(zero.height, 0.0);
 }
@@ -871,7 +877,8 @@ TEST_F(OHOSWindowControllerTest, ControllerStateMutationsNoCrash) {
 }
 
 TEST_F(OHOSWindowControllerTest, GetContentSizeWithoutRequestSizeIsZero) {
-  auto request = MakeRegularRequest();
+  RegularWindowCreationRequest request = {};
+  request.sized_to_content = true;
   EXPECT_EQ(controller_->CreateRegularWindow(&request), 0);
   WindowSize size =
       controller_->GetContentSize(controller_->GetHandleForView(0));

@@ -8,8 +8,9 @@ import UIAbility from '@ohos.app.ability.UIAbility';
 import window from '@ohos.window';
 import display from '@ohos.display';
 import Log from '../../../util/Log';
-import { FlutterView } from '../../../view/FlutterView';
-import FlutterNapi from '../../engine/FlutterNapi';
+// Type-only import: keeps the runtime module graph acyclic
+// (FlutterView → FlutterManager → windowing hosts → FlutterWindowHost).
+import type { FlutterView } from '../../../view/FlutterView';
 import { WindowHostContext } from './WindowHostContext';
 import { WindowArchetype } from './WindowingUtils';
 
@@ -117,7 +118,9 @@ export abstract class FlutterWindowHost {
   /** OS-initiated destruction: report to native (Dart `destroyed` flips and
    * unregister runs), detach, drop bookkeeping. */
   handleOsClosed(): void {
-    FlutterNapi.nativeHandleOsWindowClosed(this.viewId);
+    // Routed through the context seam: a direct FlutterNapi import here
+    // would close the cycle FlutterNapi → FlutterManager → hosts → this class.
+    this.ctx.notifyOsWindowClosed(this.viewId);
     this.detachView();
     this.cleanupBookkeeping();
   }
@@ -208,9 +211,9 @@ export abstract class FlutterWindowHost {
    * unregister runs, then drop this host's bookkeeping. */
   protected failAttach(where: string): void {
     try {
-      FlutterNapi.nativeHandleOsWindowClosed(this.viewId);
+      this.ctx.notifyOsWindowClosed(this.viewId);
     } catch (e) {
-      Log.w(TAG, `${where}: nativeHandleOsWindowClosed failed for ${String(this.viewId)}: ${JSON.stringify(e)}`);
+      Log.w(TAG, `${where}: notifyOsWindowClosed failed for ${String(this.viewId)}: ${JSON.stringify(e)}`);
     }
     this.cleanupBookkeeping();
   }

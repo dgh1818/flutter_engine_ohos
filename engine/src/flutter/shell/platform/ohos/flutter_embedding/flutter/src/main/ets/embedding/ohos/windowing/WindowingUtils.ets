@@ -53,6 +53,8 @@ export const NO_PARENT_VIEW_ID: number = -1;
  * allocated by the engine (every other id starts at 1). */
 export const IMPLICIT_VIEW_ID: number = 0;
 
+export const NESTED_DIALOG_CASCADE_PX: number = 20;
+
 /** C++ WindowSizeRequest. */
 export class WindowSizeRequest {
   /** Whether the creator expressed any size preference at all. */
@@ -107,6 +109,47 @@ export class WindowConstraints {
   }
 }
 
+export class BoxConstraints {
+  private readonly smallestSize: window.Size;
+  private readonly biggestSize: window.Size;
+
+  /** @param smallest - Min size, or undefined for 0x0
+   *  @param biggest - Max size, or undefined for unbounded */
+  constructor(smallest: window.Size | undefined, biggest: window.Size | undefined) {
+    this.smallestSize = smallest !== undefined ? smallest : { width: 0, height: 0 };
+    this.biggestSize = biggest !== undefined ? biggest :
+      { width: Number.POSITIVE_INFINITY, height: Number.POSITIVE_INFINITY };
+  }
+
+  smallest(): window.Size {
+    return this.smallestSize;
+  }
+
+  biggest(): window.Size {
+    return this.biggestSize;
+  }
+
+  /** Whether |size| lies within [smallest, biggest]. */
+  isSatisfiedBy(size: window.Size): boolean {
+    return this.smallest().width <= size.width &&
+      size.width <= this.biggest().width &&
+      this.smallest().height <= size.height &&
+      size.height <= this.biggest().height;
+  }
+
+  static fromWindowConstraints(c: WindowConstraints): BoxConstraints {
+    let smallest: window.Size | undefined = undefined;
+    let biggest: window.Size | undefined = undefined;
+    if (c.hasViewConstraints) {
+      smallest = { width: c.viewMinWidth, height: c.viewMinHeight };
+      if (c.viewMaxWidth > 0 && c.viewMaxHeight > 0) {
+        biggest = { width: c.viewMaxWidth, height: c.viewMaxHeight };
+      }
+    }
+    return new BoxConstraints(smallest, biggest);
+  }
+}
+
 /** C++ RegularWindowCreationRequest. */
 export class RegularWindowCreationRequest {
   /** Birth size preference, or none. */
@@ -115,12 +158,16 @@ export class RegularWindowCreationRequest {
   readonly preferredConstraints: WindowConstraints;
   /** Window title (may be empty). */
   readonly title: string;
+  readonly sizedToContent: boolean;
+  readonly resizable: boolean;
 
   /** Defensive copy-constructor: defaults every field when raw is undefined. */
   constructor(raw?: RegularWindowCreationRequest) {
     this.preferredSize = new WindowSizeRequest(raw?.preferredSize);
     this.preferredConstraints = new WindowConstraints(raw?.preferredConstraints);
     this.title = raw?.title ?? '';
+    this.sizedToContent = raw?.sizedToContent ?? false;
+    this.resizable = raw?.resizable ?? true;
   }
 }
 
@@ -133,6 +180,8 @@ export class DialogWindowCreationRequest {
   readonly preferredConstraints: WindowConstraints;
   /** Window title (may be empty). */
   readonly title: string;
+  readonly sizedToContent: boolean;
+  readonly resizable: boolean;
   /** Owning view; NO_PARENT_VIEW_ID routes to the modeless spawn path. */
   readonly parentViewId: number;
 
@@ -141,6 +190,8 @@ export class DialogWindowCreationRequest {
     this.preferredSize = new WindowSizeRequest(raw?.preferredSize);
     this.preferredConstraints = new WindowConstraints(raw?.preferredConstraints);
     this.title = raw?.title ?? '';
+    this.sizedToContent = raw?.sizedToContent ?? false;
+    this.resizable = raw?.resizable ?? true;
     this.parentViewId = raw?.parentViewId ?? NO_PARENT_VIEW_ID;
   }
 }
