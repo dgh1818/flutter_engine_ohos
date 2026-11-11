@@ -21,8 +21,9 @@ import { inputDevice } from '@kit.InputKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { PointerDeviceKind } from '../../embedding/ohos/OhosTouchProcessor';
 import deviceInfo from '@ohos.deviceInfo';
+import process from '@ohos.process';
 import KeyEventChannel from '../../embedding/engine/systemchannels/KeyEventChannel';
-import { appManager, autoFillManager, bundleManager } from '@kit.AbilityKit';
+import { appManager, autoFillManager } from '@kit.AbilityKit';
 import { PreviewEditingState, isPreviewTextSupported } from './PreviewEditingState';
 import ArrayList from '@ohos.util.ArrayList';
 import { TextEditingDelta } from './TextEditingDelta';
@@ -781,11 +782,8 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
 
   private async detachIfBackground(): Promise<boolean> {
     try {
-      const bundleFlags = bundleManager.BundleFlag.GET_BUNDLE_INFO_WITH_APPLICATION;
-      const bundleInfo: bundleManager.BundleInfo  = await bundleManager.getBundleInfoForSelf(bundleFlags);
       const currentInfo = await appManager.getRunningProcessInformation();
-      const targetBundleName = bundleInfo?.name;
-      const currentProcess = currentInfo.find(info => info.bundleNames?.includes(targetBundleName));
+      const currentProcess = currentInfo.find(info => info.pid === process.pid);
       // STATE_FOREGROUND: process in foreground; when UI is focused and visible the state is often STATE_ACTIVE.
       // See HarmonyOS appManager ProcessState docs.
       if (
