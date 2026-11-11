@@ -25,10 +25,13 @@ let hostAbilityName: string = 'EntryAbility';
 /** AutoFillTriggerType.AUTO_REQUEST; literal for API levels without kit export. */
 const AUTOFILL_TRIGGER_AUTO_REQUEST = 0;
 
+// The system autoFillManager.AutoFillType enum only defines four values on current
+// devices (see AutoFillType.d.ts); sending any other number is rejected with error 401.
 const AUTOFILL_TYPE_UNSPECIFIED = 0;
 const AUTOFILL_TYPE_PASSWORD = 1;
 const AUTOFILL_TYPE_USER_NAME = 2;
 const AUTOFILL_TYPE_NEW_PASSWORD = 3;
+// Types below are not supported on current systems yet; do not map hints to them for now.
 const AUTOFILL_TYPE_FULL_STREET_ADDRESS = 4;
 const AUTOFILL_TYPE_HOUSE_NUMBER = 5;
 const AUTOFILL_TYPE_DISTRICT_ADDRESS = 6;
@@ -205,46 +208,40 @@ export class OhosAutoFillHelper {
     return value as autoFillManager.AutoFillType;
   }
 
+  // Hints arrive here already normalized by TextInputChannel.translateAutofillHint
+  // (Flutter 'email' -> 'emailAddress', 'telephoneNumber' -> 'phoneNumber', ...).
   static hintToAutoFillType(hint: string): number {
     switch (hint) {
       case 'password':
         return AUTOFILL_TYPE_PASSWORD;
       case 'newPassword':
         return AUTOFILL_TYPE_NEW_PASSWORD;
+      // Email and phone numbers act as the account of a credential form and must be
+      // declared as USER_NAME (current systems expose no EMAIL/PHONE AutoFillType).
       case 'username':
       case 'newUsername':
-        return AUTOFILL_TYPE_USER_NAME;
       case 'emailAddress':
-        return AUTOFILL_TYPE_EMAIL_ADDRESS;
       case 'phoneNumber':
       case 'phoneNumberDevice':
-        return AUTOFILL_TYPE_PHONE_NUMBER;
-      case 'phoneCountryCode':
-        return AUTOFILL_TYPE_PHONE_COUNTRY_CODE;
       case 'phoneNational':
+        return AUTOFILL_TYPE_USER_NAME;
+      // The hints below have AutoFillType values of their own (see constants above),
+      // but current systems do not support those types yet; map them to UNSPECIFIED
+      // so requests stay legal instead of being rejected with error 401.
+      case 'phoneCountryCode':
       case 'fullPhoneNumber':
-        return AUTOFILL_TYPE_FULL_PHONE_NUMBER;
       case 'streetAddress':
       case 'fullStreetAddress':
-        return AUTOFILL_TYPE_FULL_STREET_ADDRESS;
       case 'addressLocality':
-        return AUTOFILL_TYPE_CITY_ADDRESS;
       case 'addressRegion':
-        return AUTOFILL_TYPE_PROVINCE_ADDRESS;
       case 'addressCountry':
-        return AUTOFILL_TYPE_COUNTRY_ADDRESS;
       case 'postalCode':
-        return AUTOFILL_TYPE_DISTRICT_ADDRESS;
       case 'personName':
-        return AUTOFILL_TYPE_PERSON_FULL_NAME;
       case 'personGivenName':
-        return AUTOFILL_TYPE_PERSON_FIRST_NAME;
       case 'personFamilyName':
-        return AUTOFILL_TYPE_PERSON_LAST_NAME;
       case 'creditCardNumber':
-        return AUTOFILL_TYPE_BANK_CARD_NUMBER;
       case 'nickname':
-        return AUTOFILL_TYPE_NICKNAME;
+        return AUTOFILL_TYPE_UNSPECIFIED;
       default:
         return AUTOFILL_TYPE_UNSPECIFIED;
     }
@@ -487,7 +484,10 @@ export class OhosAutoFillHelper {
       if (node.autoFillType === AUTOFILL_TYPE_USER_NAME && node.value.length > 0) {
         hasUsername = true;
       }
-      if (node.autoFillType === AUTOFILL_TYPE_PASSWORD && node.value.length > 0) {
+      // Registration forms carry NEW_PASSWORD instead of PASSWORD; the system vault
+      // saves both (custom new passwords still pop the save prompt).
+      if ((node.autoFillType === AUTOFILL_TYPE_PASSWORD ||
+        node.autoFillType === AUTOFILL_TYPE_NEW_PASSWORD) && node.value.length > 0) {
         hasPassword = true;
       }
     }
