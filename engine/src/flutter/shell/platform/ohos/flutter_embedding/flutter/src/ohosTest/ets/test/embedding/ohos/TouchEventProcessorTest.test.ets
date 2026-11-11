@@ -52,7 +52,9 @@ class PostRecorder {
   touchEvents: CustomTouchEvent[] = [];
   mouseEvents: MouseEvent[] = [];
   axisEvents: AxisEvent[] = [];
-  postEvent(e: CustomTouchEvent, isPx: boolean): boolean { this.touchEvents.push(e); return true; }
+  /** Value postEvent reports as the ArkUI hit-test consumption result. */
+  consumed: boolean = true;
+  postEvent(e: CustomTouchEvent, isPx: boolean): boolean { this.touchEvents.push(e); return this.consumed; }
   postMouseEvent(e: MouseEvent): void { this.mouseEvents.push(e); }
   postAxisEvent(e: AxisEvent): void { this.axisEvents.push(e); }
 }
@@ -518,6 +520,99 @@ export default function touchEventProcessorTest() {
         expect(bottomRecorder.mouseEvents.length).assertEqual(0);
       } finally {
         removeView('tep-mouse-crossregion');
+      }
+    });
+  });
+
+  describe('TouchEventProcessor.postTouchEvent.dispatch', () => {
+    // Everything the two dispatch tests need is declared inside this block so
+    // the suite stays self-contained regardless of where the file's other
+    // packet/view helpers are scoped.
+    const installView = (key: string, view: FakeProcView): void => {
+      (FlutterManager.getInstance().getFlutterViewList() as Any).set(key, view);
+    };
+
+    const removeView = (key: string): void => {
+      (FlutterManager.getInstance().getFlutterViewList() as Any).delete(key);
+    };
+
+    const mkTouchChild = (params: Record<string, Any>): Any => ({
+      getLayoutParams: (): Record<string, Any> => params,
+      params: params,
+      compType: 'NodeContainer',
+      children: []
+    } as Any);
+
+    // Touch packet layout produced by the C++ side (see decodeTouchPacket):
+    // numPoint, changed id/screenX/screenY/x/y/type/size/force/deviceId/timeStamp,
+    // per-point id/screenX/screenY/x/y/type/size/force/deviceId/isPressed, then
+    // toolType/tiltX/tiltY. Coordinates are raw px strings; decoding divides
+    // them by the display density, which does not affect dispatch.
+    const buildTouchPacket = (): Array<string> => ['1', '7', '100', '50', '40', '60', '0', '1.5', '0.6', '9', '12345',
+      '7', '100', '50', '40', '60', '0', '1.5', '0.6', '9', '1', '2', '3', '4'];
+
+    it('stops dispatching at the first consuming view (issue #2500)', Level.LEVEL1, () => {
+      const view = new FakeProcView();
+      const bottomRecorder = new PostRecorder();
+      const topRecorder = new PostRecorder();
+      const bottomParams: Record<string, Any> = {
+        'down': true,
+        'nodeController': bottomRecorder,
+        'left': 0,
+        'top': 0,
+        'width': 100,
+        'height': 100
+      };
+      const topParams: Record<string, Any> = {
+        'down': true,
+        'nodeController': topRecorder,
+        'left': 0,
+        'top': 0,
+        'width': 100,
+        'height': 100
+      };
+      view.children.push(mkTouchChild(bottomParams));
+      view.children.push(mkTouchChild(topParams));
+      installView('tep-touch-consume', view);
+      try {
+        TouchEventProcessor.getInstance().postTouchEvent(buildTouchPacket());
+        expect(topRecorder.touchEvents.length).assertEqual(1);
+        expect(bottomRecorder.touchEvents.length).assertEqual(0);
+      } finally {
+        removeView('tep-touch-consume');
+      }
+    });
+
+    it('continues to the lower down view when the top view does not consume', Level.LEVEL1, () => {
+      const view = new FakeProcView();
+      const bottomRecorder = new PostRecorder();
+      const topRecorder = new PostRecorder();
+      topRecorder.consumed = false;
+      const bottomParams: Record<string, Any> = {
+        'down': true,
+        'nodeController': bottomRecorder,
+        'left': 0,
+        'top': 0,
+        'width': 100,
+        'height': 100
+      };
+      const topParams: Record<string, Any> = {
+        'down': true,
+        'nodeController': topRecorder,
+        'left': 0,
+        'top': 0,
+        'width': 100,
+        'height': 100
+      };
+      view.children.push(mkTouchChild(bottomParams));
+      view.children.push(mkTouchChild(topParams));
+      installView('tep-touch-continue', view);
+      try {
+        TouchEventProcessor.getInstance().postTouchEvent(buildTouchPacket());
+        expect(topRecorder.touchEvents.length).assertEqual(1);
+        expect(bottomRecorder.touchEvents.length).assertEqual(1);
+      } finally {
+        removeView('tep-touch-continue');
       }
     });
   });
