@@ -117,6 +117,93 @@ void main() {
     });
   });
 
+  // Regression test for the OHOS "sticky hover" bug: when the mouse leaves a
+  // platform view, the controller must notify the platform to clear the hover
+  // flag. Without this, mouse/axis events from a foreground window kept being
+  // forwarded to a platform view in a background window.
+  test('RenderOhosView sends unhover message when the mouse exits the view', () async {
+    final platformViewCalls = <MethodCall>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform_views,
+      (MethodCall call) async {
+        platformViewCalls.add(call);
+        switch (call.method) {
+          case 'create':
+            // TextureOhosViewController casts the create response to int.
+            return 0;
+          case 'resize':
+            return <Object?, Object?>{'width': 800, 'height': 600};
+          default:
+            return null;
+        }
+      },
+    );
+    addTearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform_views,
+        null,
+      );
+    });
+
+    final OhosViewController controller = PlatformViewsService.initOhosView(
+      id: 0,
+      viewType: 'webview',
+      layoutDirection: TextDirection.ltr,
+    );
+    final renderOhosView = RenderOhosView(
+      viewController: controller,
+      hitTestBehavior: PlatformViewHitTestBehavior.opaque,
+      gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+        Factory<VerticalDragGestureRecognizer>(() {
+          return VerticalDragGestureRecognizer();
+        }),
+      },
+    );
+    layout(renderOhosView);
+    pumpFrame();
+    // Flush the asynchronous 'create' channel message.
+    await _flushAsyncChannelCalls();
+
+    // The mouse enters the view.
+    RendererBinding.instance.platformDispatcher.onPointerDataPacket!(
+      ui.PointerDataPacket(
+        data: <ui.PointerData>[
+          _pointerData(ui.PointerChange.add, Offset.zero),
+          _pointerData(ui.PointerChange.hover, const Offset(10, 10)),
+        ],
+      ),
+    );
+    // Flush the asynchronous 'hover' channel message.
+    await _flushAsyncChannelCalls();
+
+    expect(
+      platformViewCalls,
+      containsOnce(
+        isA<MethodCall>()
+            .having((MethodCall call) => call.method, 'method', 'hover')
+            .having((MethodCall call) => call.arguments, 'arguments', 0),
+      ),
+    );
+
+    // The mouse leaves the view.
+    RendererBinding.instance.platformDispatcher.onPointerDataPacket!(
+      ui.PointerDataPacket(
+        data: <ui.PointerData>[_pointerData(ui.PointerChange.remove, const Offset(10, 10))],
+      ),
+    );
+    // Flush the asynchronous unhover channel message.
+    await _flushAsyncChannelCalls();
+
+    expect(
+      platformViewCalls,
+      containsOnce(
+        isA<MethodCall>()
+            .having((MethodCall call) => call.method, 'method', 'hover')
+            .having((MethodCall call) => call.arguments, 'arguments', -1),
+      ),
+    );
+  });
+
   // Regression test for https://github.com/flutter/flutter/issues/69431
   test('multi-finger touch test', () {
     final viewsController = FakeAndroidPlatformViewsController();
@@ -593,6 +680,15 @@ ui.PointerData _pointerData(
     kind: kind,
     device: device,
   );
+}
+
+// Flushes pending microtasks so that asynchronous platform channel messages
+// (e.g. 'hover' sent by OhosViewController.sendHoverEvent) are recorded by
+// the mock handler before the assertions run.
+Future<void> _flushAsyncChannelCalls() async {
+  for (var i = 0; i < 10; i++) {
+    await null;
+  }
 }
 
 class _EmptyPainter extends CustomPainter {
