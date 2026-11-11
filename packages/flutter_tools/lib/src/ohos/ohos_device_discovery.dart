@@ -72,6 +72,53 @@ class OhosDevices extends PollingDeviceDiscovery {
   @override
   bool get canListAnything => _ohosWorkflow.canListDevices;
 
+  @override
+  Future<List<String>> getDiagnostics() async {
+    if (_doesNotHaveHdc()) {
+      return const <String>[];
+    }
+
+    final RunResult result = await _processUtils.run(
+      getHdcCommandCompat(_ohosSdk!, '', <String>['list', 'targets']),
+    );
+    if (result.exitCode != 0) {
+      return <String>['`hdc list targets` failed: ${result.stderr.trim()}'];
+    }
+    final lines = <String>[];
+    parseHdcDeviceOutput(result.stdout, diagnostics: lines);
+    // Translate raw hdc status/error lines into actionable hints, mirroring
+    // how AndroidDevices.getDiagnostics reports adb device states.
+    return <String>[for (final String line in lines) _hdcLineHint(line)];
+  }
+
+  // Maps a raw non-device line from `hdc list targets` to a hint with
+  // troubleshooting steps, in the spirit of the adb diagnostics.
+  static String _hdcLineHint(String line) {
+    final String lowerCaseLine = line.toLowerCase();
+    if (line.contains('[Empty]')) {
+      return 'No HarmonyOS devices detected (`hdc list targets` returned empty).\n'
+          '1. Connect the phone over USB and enable Developer options > USB debugging.\n'
+          '2. On first connection, accept the debugging authorization dialog on the device.\n'
+          '3. For wireless debugging, run `hdc tconn <ip>:<port>`.\n'
+          '4. If no device shows up, run `hdc kill && hdc start`, then `hdc list targets` again.';
+    }
+    if (lowerCaseLine.contains('connect failed')) {
+      return 'Failed to connect to a HarmonyOS device: $line\n'
+          'This usually means the debugging authorization was not granted. Revoke USB debugging '
+          'authorization in Developer options, reconnect the device, and accept the authorization '
+          'dialog; or run `hdc kill && hdc start` and retry.';
+    }
+    if (lowerCaseLine.contains('unauthorized')) {
+      return 'A HarmonyOS device is not authorized: $line\n'
+          'You might need to check your device for an authorization dialog.';
+    }
+    if (lowerCaseLine.contains('offline')) {
+      return 'A HarmonyOS device is offline: $line\n'
+          'Run `hdc kill && hdc start`, then reconnect the device.';
+    }
+    return line;
+  }
+
   static final RegExp _kTargetLinePattern = RegExp(
     r'^(?:\d{1,3}(?:\.\d{1,3}){3}:\d+|[0-9A-Za-z:_-]{4,})$',
   );
