@@ -58,4 +58,25 @@ TEST(LibraryLoaderTest, InitToleratesNapiPropertyLookupFailure) {
   EXPECT_EQ(result, exports);
 }
 
+napi_value FakeSystemModuleInit(napi_env, napi_value exports) {
+  return exports;
+}
+
+TEST(LibraryLoaderTest, RegistryKeepsFlutterModuleWhenSystemLibraryRegisters) {
+  // A system library may self-register its own napi module after the flutter
+  // entry module has registered at process startup; the lookup must keep
+  // returning the flutter module, not the most recent registration. The decoy
+  // is static because the registry keeps pointers for the process lifetime.
+  static napi_module system_module = {};
+  system_module.nm_version = 1;
+  system_module.nm_filename = "libsystem_example.so";
+  system_module.nm_register_func = FakeSystemModuleInit;
+  system_module.nm_modname = "data.unifiedDataChannel";
+  napi_module_register(&system_module);
+
+  napi_module* mod = StubNapiGetRegisteredModule();
+  ASSERT_NE(mod, nullptr);
+  EXPECT_EQ(std::string(mod->nm_modname), "flutter");
+}
+
 }  // namespace
