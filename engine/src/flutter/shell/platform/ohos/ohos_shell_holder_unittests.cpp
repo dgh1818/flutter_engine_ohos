@@ -29,6 +29,7 @@
 #include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
 
 #define private public
+#include "flutter/lib/ui/painting/image_generator_registry.h"
 #include "flutter/shell/platform/ohos/ohos_shell_holder.h"
 #undef private
 
@@ -561,6 +562,69 @@ TEST(OHOSShellHolder, BuildRunConfigurationFullChain) {
   auto args_only = holder->BuildRunConfiguration("", "", {"--x", "--y"});
   EXPECT_TRUE(args_only.has_value());
 #endif
+}
+
+// Verify that ConfigureShell with a null shell pointer is a safe no-op:
+// it returns without crashing and without corrupting an existing shell.
+TEST(OHOSShellHolder, ConfigureShellWithNull) {
+  // Calling with nullptr must not crash.
+  OHOSShellHolder::ConfigureShell(nullptr);
+
+  // A pre-existing valid shell must remain unaffected by a null call.
+  auto settings = MakeTestSettings();
+  auto napi_facade = std::make_shared<PlatformViewOHOSNapi>(nullptr);
+  auto holder =
+      std::make_unique<OHOSShellHolder>(settings, napi_facade, nullptr);
+  ASSERT_TRUE(holder->IsValid());
+
+  auto engine = holder->shell_->GetEngine();
+  ASSERT_TRUE(engine);
+  auto registry = engine->GetImageGeneratorRegistry();
+  ASSERT_TRUE(registry);
+  size_t factories_before = registry->image_generator_factories_.size();
+
+  OHOSShellHolder::ConfigureShell(nullptr);
+
+  EXPECT_TRUE(holder->IsValid());
+  EXPECT_EQ(registry->image_generator_factories_.size(), factories_before)
+      << "Null ConfigureShell call must not alter the registry";
+}
+
+// Verify that ConfigureShell registers the OHOS image decoder on the shell's
+// ImageGeneratorRegistry. The primary constructor already calls ConfigureShell
+// internally, so after construction the registry should contain the
+// OHOSImageGenerator factory in addition to the two built-in factories
+// (APNG and BuiltinSkiaCodec).
+TEST(OHOSShellHolder, ConfigureShellRegistersImageDecoder) {
+  auto settings = MakeTestSettings();
+  auto napi_facade = std::make_shared<PlatformViewOHOSNapi>(nullptr);
+  auto holder =
+      std::make_unique<OHOSShellHolder>(settings, napi_facade, nullptr);
+  ASSERT_TRUE(holder->IsValid());
+  ASSERT_TRUE(holder->shell_ != nullptr);
+
+  // merged_platform_ui_thread defaults to kEnabled, so the current (platform)
+  // thread is also the UI thread. RegisterImageDecoder's RunNowOrPostTask
+  // therefore executes synchronously during construction.
+  auto engine = holder->shell_->GetEngine();
+  ASSERT_TRUE(engine);
+  auto registry = engine->GetImageGeneratorRegistry();
+  ASSERT_TRUE(registry);
+
+  // After construction, the registry should have 3 factories:
+  //   1. APNGImageGenerator      (priority 2, registered by registry ctor)
+  //   2. BuiltinSkiaCodec         (priority 0, registered by registry ctor)
+  //   3. OHOSImageGenerator       (priority 1, registered by ConfigureShell)
+  size_t factories_before = registry->image_generator_factories_.size();
+  EXPECT_EQ(factories_before, 3u)
+      << "Expected 3 factories after construction (APNG + Skia + OHOS)";
+
+  // Calling ConfigureShell again should add another OHOSImageGenerator
+  // factory, bringing the total to 4.
+  OHOSShellHolder::ConfigureShell(holder->shell_.get());
+  size_t factories_after = registry->image_generator_factories_.size();
+  EXPECT_EQ(factories_after, 4u)
+      << "Expected 4 factories after explicit ConfigureShell call";
 }
 
 }  // namespace testing

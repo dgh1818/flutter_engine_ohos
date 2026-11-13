@@ -276,22 +276,7 @@ OHOSShellHolder::OHOSShellHolder(
       );
   FML_DLOG(INFO) << "shell create end";
   if (shell_) {
-    shell_->GetDartVM()->GetConcurrentMessageLoop()->PostTaskToAllWorkers([]() {
-      if (::setpriority(PRIO_PROCESS, gettid(), 1) != 0) {
-        FML_DLOG(ERROR) << "Failed to set Workers task runner priority";
-      }
-    });
-
-    FML_LOG(INFO) << "shell_ end";
-    shell_->RegisterImageDecoder(
-        [](sk_sp<SkData> buffer) {
-          return OHOSImageGenerator::MakeFromData(std::move(buffer));
-        },
-        // OHOS's PixelMap decoding supports hardware decoding, offering higher
-        // performance compared to Skia decoding.
-        1);
-
-    FML_DLOG(INFO) << "Registered ohos image decoder";
+    ConfigureShell(shell_.get());
   }
 
   platform_view_ = weak_platform_view;
@@ -420,7 +405,16 @@ std::unique_ptr<OHOSShellHolder> OHOSShellHolder::Spawn(
   std::unique_ptr<flutter::Shell> shell =
       shell_->Spawn(std::move(config.value()), initial_route,
                     on_create_platform_view, on_create_rasterizer);
-
+  // Register the OHOS image decoder after Spawn returns. At this point the
+  // spawned shell has completed Setup() (is_set_up_ == true), so the DCHECKs
+  // in RegisterImageDecoder are satisfied. ConfigureShell handles thread
+  // safety: if called on the platform thread (sync Spawn), it calls
+  // RegisterImageDecoder directly; if called on a worker thread (SpawnAsync),
+  // it posts to the platform thread and blocks on a latch until completion,
+  // ensuring the Shell pointer is never dereferenced after destruction.
+  if (shell) {
+    ConfigureShell(shell.get());
+  }
   std::unique_ptr<OHOSShellHolder> spawned(new OHOSShellHolder(
       GetSettings(), napi_facade, thread_host_, std::move(shell),
       asset_provider_->Clone(), weak_platform_view));
@@ -459,6 +453,49 @@ void OHOSShellHolder::NotifyLowMemoryWarning() {
     return;
   }
   shell_->NotifyLowMemoryWarning();
+}
+
+// static
+void OHOSShellHolder::ConfigureShell(Shell* shell) {
+  if (!shell) {
+    return;
+  }
+
+  // PostTaskToAllWorkers is safe from any thread.
+  shell->GetDartVM()->GetConcurrentMessageLoop()->PostTaskToAllWorkers([]() {
+    if (::setpriority(PRIO_PROCESS, gettid(), 1) != 0) {
+      FML_DLOG(ERROR) << "Failed to set Workers task runner priority";
+    }
+  });
+
+  // Shell::RegisterImageDecoder DCHECKs that it is called on the platform
+  // thread. When already on the platform thread (primary constructor, sync
+  // Spawn), call it directly. When on a worker thread (SpawnAsync path),
+  // post the task to the platform thread and block on a latch until it
+  // completes — this avoids capturing a raw Shell* across an async boundary
+  // that could outlive the Shell if it is destroyed before the platform
+  // thread processes the queued task.
+  auto platform_runner = shell->GetTaskRunners().GetPlatformTaskRunner();
+  auto register_ohos_decoder = [shell]() {
+    shell->RegisterImageDecoder(
+        [](sk_sp<SkData> buffer) {
+          return OHOSImageGenerator::MakeFromData(std::move(buffer));
+        },
+        // OHOS's PixelMap decoding supports hardware decoding, offering
+        // higher performance compared to Skia decoding.
+        1);
+    FML_LOG(INFO) << "Registered ohos image decoder";
+  };
+  if (platform_runner->RunsTasksOnCurrentThread()) {
+    register_ohos_decoder();
+  } else {
+    fml::AutoResetWaitableEvent latch;
+    platform_runner->PostTask([&latch, &register_ohos_decoder]() {
+      register_ohos_decoder();
+      latch.Signal();
+    });
+    latch.Wait();
+  }
 }
 
 void OHOSShellHolder::Launch(
