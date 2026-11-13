@@ -19,10 +19,10 @@ $OverrideInstallMode copy
 fuchsia/third_party/clang/linux-amd64 git_revision:80743bd43fd5b38fedc503308e7a652e23d3ec93
 
 @Subdir engine/src/flutter/prebuilts/linux-arm64/dart-sdk
-flutter/dart-sdk/linux-arm64 git_revision:b530c21f7de367b94fb04787bfed9d8e989d75e8
+flutter/dart-sdk/linux-arm64 git_revision:416e33b0ffaef062a60ec966bb8c82ed2b83f128
 
 @Subdir engine/src/flutter/prebuilts/linux-x64/dart-sdk
-flutter/dart-sdk/linux-amd64 git_revision:b530c21f7de367b94fb04787bfed9d8e989d75e8
+flutter/dart-sdk/linux-amd64 git_revision:416e33b0ffaef062a60ec966bb8c82ed2b83f128
 
 @Subdir engine/src/flutter/prebuilts/linux-x64/esbuild
 flutter/tools/esbuild/linux-amd64 0.19.5
