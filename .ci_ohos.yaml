@@ -9,7 +9,7 @@
 work_dir_levels: 2
 
 # Target branch for runIf incremental diff
-target_branch: oh-3.47.7-dev
+target_branch: oh-3.47.9-dev
 
 # Environment variables
 env_vars:
