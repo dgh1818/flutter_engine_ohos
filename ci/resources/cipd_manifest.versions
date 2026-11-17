@@ -18,12 +18,12 @@ flutter/android/sdk/all/linux-amd64
 	oeq2Nm9DvEBf9UMFIeDgbKsRd1IKFhi2owYdmZvE5gwC
 
 flutter/dart-sdk/linux-amd64
-	git_revision:b530c21f7de367b94fb04787bfed9d8e989d75e8
-	Uydp5gLJ3rjJNoUgDnsFx8PrUeT-aZuYpb0Nw6rUE0YC
+	git_revision:416e33b0ffaef062a60ec966bb8c82ed2b83f128
+	mz3Rmx4eImaVfE_lZ5M8_z45XvOydcRJKrZBYldTcngC
 
 flutter/dart-sdk/linux-arm64
-	git_revision:b530c21f7de367b94fb04787bfed9d8e989d75e8
-	8IQXRlo4oOuHkUXjMVLb3sDc1ujfIv3cU4g65PoPsnkC
+	git_revision:416e33b0ffaef062a60ec966bb8c82ed2b83f128
+	lZIXp8Wb4XaRac2kkdy6X4eL7jROhhntj81Eec5AsiwC
 
 flutter/flutter_font_fallbacks
 	44bd38be0bc8c189a397ca6dd6f737746a9e0c6117b96a8f84f1edf6acd1206b

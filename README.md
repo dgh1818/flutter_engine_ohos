@@ -16,7 +16,7 @@ Flutter SDK & Engine 仓库
 
 ## 仓库说明
 
-本仓库是 **[Flutter SDK](https://github.com/flutter/flutter)** 和 **[Flutter Engine](https://github.com/flutter/flutter/tree/master/engine)** 的 **OpenHarmony** 适配版本，当前版本分支基于 Flutter 官方社区 [![Flutter Version](https://img.shields.io/badge/Flutter-3.47.7-blue?logo=flutter)](https://github.com/flutter/flutter/commit/abaf9c523780a608bd46686fd5e53740a07077f8) 构建，由 OpenHarmony-Flutter 团队维护。开发者可使用熟悉的 Flutter 技术栈开发 OpenHarmony 应用，也可基于本仓库源码构建支持 OpenHarmony 的 Flutter Engine。
+本仓库是 **[Flutter SDK](https://github.com/flutter/flutter)** 和 **[Flutter Engine](https://github.com/flutter/flutter/tree/master/engine)** 的 **OpenHarmony** 适配版本，当前版本分支基于 Flutter 官方社区 [![Flutter Version](https://img.shields.io/badge/Flutter-3.47.9-blue?logo=flutter)](https://github.com/flutter/flutter/commit/c197ca5199e9ee5661e865596c9c07294dfab51c) 构建，由 OpenHarmony-Flutter 团队维护。开发者可使用熟悉的 Flutter 技术栈开发 OpenHarmony 应用，也可基于本仓库源码构建支持 OpenHarmony 的 Flutter Engine。
 
 ## 版本规划与分支策略
 
@@ -43,7 +43,7 @@ Flutter SDK & Engine 仓库
 
 ## 仓库结构
 
-Flutter 3.47.7 版本，Engine 源码已合并到仓库的 `engine/` 目录下，无需再单独克隆 Engine 仓库。
+Flutter 3.47.9 版本，Engine 源码已合并到仓库的 `engine/` 目录下，无需再单独克隆 Engine 仓库。
 
 ```json
 flutter_flutter/                 # 仓库根目录

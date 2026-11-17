@@ -135,9 +135,9 @@ dependency_overrides:
     git:
       url: https://gitcode.com/CPF-Flutter/fluttertpc_dart_native
       path: pkgs/code_assets
-      ref: flutter_3.47.7_deps
+      ref: flutter_3.47.9_deps
   hooks_runner:
     git:
       url: https://gitcode.com/CPF-Flutter/fluttertpc_dart_native
       path: pkgs/hooks_runner
-      ref: flutter_3.47.7_deps
+      ref: flutter_3.47.9_deps
