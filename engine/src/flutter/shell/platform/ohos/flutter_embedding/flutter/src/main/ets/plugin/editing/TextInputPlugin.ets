@@ -60,8 +60,13 @@ export default class TextInputPlugin implements EditingStateWatcher {
     this.textInputChannel = textInputChannel;
     this.keyEventChannel = keyEventChannel;
     // viewId is used for requestFocus
-    this.mTextInputHandler = new TextInputMethodHandlerImpl(this, viewId, flutterViewContext);
-    this.textInputChannel.setTextInputMethodHandler(this.mTextInputHandler);
+    this.mTextInputHandler = new TextInputMethodHandlerImpl(this, viewId, flutterViewContext, textInputChannel);
+    // The accessor lets the channel route key-driven edits to the ACTIVE
+    // handler's editable without adding a required method to the exported
+    // TextInputMethodHandler interface (no downstream breaking change). It
+    // reads mEditable at call time — setClient replaces the instance.
+    this.textInputChannel.registerTextInputMethodHandler(this.mTextInputHandler, viewId,
+      (): ListenableEditingState => this.mTextInputHandler.mEditable);
   }
 
   /**
@@ -118,6 +123,20 @@ export default class TextInputPlugin implements EditingStateWatcher {
    * @returns The current ListenableEditingState instance
    */
   getEditingState() {
+    // Route key-driven text mutations to the channel-ACTIVE handler's editable.
+    // On a shared (cached) engine, TextInput.setClient lands on the stack-top
+    // handler — which may belong to ANOTHER view than the one whose window
+    // currently owns keyboard focus. The focused field's client state lives in
+    // the active handler, so key inserts must go there too, otherwise digits
+    // typed in the focused view are inserted into a stale editable and the
+    // framework silently drops them (stale clientId).
+    const active = this.textInputChannel.textInputMethodHandler;
+    if (active !== null && active !== this.mTextInputHandler) {
+      const state = this.textInputChannel.getActiveEditingState();
+      if (state !== null && state !== undefined) {
+        return state;
+      }
+    }
     return this.mTextInputHandler.mEditable;
   }
 
@@ -164,10 +183,28 @@ export default class TextInputPlugin implements EditingStateWatcher {
    * Destroys the text input plugin, hiding the keyboard and cleaning up resources.
    */
   destroy() {
-    // Since the Dart side no longer listens to the lifecycle,
-    // the keyboard must be explicitly hidden before the engine is destroyed.
-    this.mTextInputHandler.hide();
-    this.textInputChannel.setTextInputMethodHandler(null);
+    // Only the channel-ACTIVE handler may drive the process-wide IMC here:
+    // inputMethodController is a process-level singleton, so a background
+    // view's hide() would detach the shared IME session and unfocus the
+    // XComponent — collapsing the keyboard of the ACTIVE view the user is
+    // typing in. The last surviving handler is by definition active, so the
+    // original "hide the keyboard before the engine goes away" contract
+    // still holds for single-view teardown.
+    if (this.textInputChannel.textInputMethodHandler === this.mTextInputHandler) {
+      this.mTextInputHandler.hide();
+    } else {
+      // Non-active teardown: unsubscribe this handler's own IMC callbacks.
+      // They are guarded no-ops by now, but leaving them subscribed on the
+      // singleton controller would keep the destroyed plugin's closures
+      // alive (off() only removes THIS handler's callback instances; the
+      // active handler's subscriptions are different instances).
+      this.mTextInputHandler.cancelListenKeyBoardEvent();
+    }
+    // Release instead of nulling the engine-global handler slot: on a shared
+    // (cached) engine with other views still attached, the channel re-activates
+    // the previous view's handler (with its view context) so text input keeps
+    // working for them; with no survivors the slot is cleared as before.
+    this.textInputChannel.releaseTextInputMethodHandler(this.mTextInputHandler);
   }
 }
 
@@ -199,6 +236,8 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     { textInputType: inputMethod.TextInputType.TEXT, enterKeyType: inputMethod.EnterKeyType.NONE };
   private keyboardFocusState: boolean = false;
   private focusViewId: string = "";
+  /** The channel this handler is registered on (injected; optional for tests). */
+  private owningChannel: TextInputChannel | undefined;
   private suppressNextHideForPhysicalPlatformView: boolean = false;
   private pendingTeardownPlatformViewClientId: number = -1;
   // Record the type of soft keyboard that was triggered last time
@@ -256,7 +295,8 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
    * @param viewId - The view ID for focus management
    * @param flutterViewContext - Optional page-level UIContext used by autoFillManager APIs
    */
-  constructor(plugin: TextInputPlugin | Any, viewId: string, flutterViewContext?: UIContext) {
+  constructor(plugin: TextInputPlugin | Any, viewId: string, flutterViewContext?: UIContext,
+    owningChannel?: TextInputChannel) {
     this.textConfig = {
       inputAttribute: this.inputAttribute
     };
@@ -266,11 +306,28 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     this.inputTarget = new InputTarget(Type.NO_TARGET, 0);
     this.focusViewId = viewId;
     this.flutterViewContext = flutterViewContext;
+    this.owningChannel = owningChannel;
     this.currentImeName = inputMethod.getCurrentInputMethod().name;
   }
 
   setFlutterViewContext(flutterViewContext: UIContext): void {
     this.flutterViewContext = flutterViewContext;
+  }
+
+  /**
+   * Whether this handler is the channel-active one. The IMC (input method
+   * controller) is a process-wide singleton and every handler's
+   * listenKeyBoardEvent() subscribes its own callbacks; without this guard,
+   * events fan out to stale handlers of detached views whose edits target
+   * stale clientIds (silently dropped by the framework). The owning channel is
+   * injected by TextInputPlugin's constructor to avoid reflective private
+   * field access.
+   */
+  private isActiveHandler(): boolean {
+    if (this.owningChannel === undefined || this.owningChannel === null) {
+      return true;
+    }
+    return this.owningChannel.textInputMethodHandler === this;
   }
 
   /**
@@ -849,6 +906,16 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
         }
 
         if(focusState && isPhysicalKeyboard && this.keyboardFocusState) {
+          // Re-check inside the async callback: the handler may have been
+          // superseded by another view's attach while the device list query
+          // was in flight. detach()/attach() operate on the process-wide IMC
+          // singleton, so a stale callback here would tear down and rebind
+          // the shared IME session with THIS handler's config, collapsing
+          // the newly-active view's keyboard (same race class as
+          // sendKeyboardStatusCallback's in-callback guard).
+          if (!this.isActiveHandler()) {
+            return;
+          }
           this.cancelListenKeyBoardEvent();
           this.inputMethodController.detach().then(async () =>{
             await this.attach(true);
@@ -1071,10 +1138,16 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   }
 
   private setPreviewTextCallback = (text: string, range: inputMethod.Range) => {
+    if (!this.isActiveHandler()) {
+      return;
+    }
     this.mEditable.handleInsertPreviewTextEvent(text, range);
   }
 
   private finishPreviewTextCallback = () => {
+    if (!this.isActiveHandler()) {
+      return;
+    }
     // Clear staging first, then compose → take the fallback path → composing=-1
     this.mEditable.clearPreviewAndComposingState();
     const displayState = PreviewEditingState.composeDisplayState(this.mEditable);
@@ -1090,18 +1163,30 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   }
 
   private insertTextCallback = (text: string) => {
+    if (!this.isActiveHandler()) {
+      return;
+    }
     this.mEditable.handleInsertTextEvent(text);
   }
 
   private deleteLeftCallback = (length: number) => {
+    if (!this.isActiveHandler()) {
+      return;
+    }
     this.mEditable.handleDeleteEvent(false, length, this.configuration?.enableDeltaModel);
   }
 
   private deleteRightCallback = (length: number) => {
+    if (!this.isActiveHandler()) {
+      return;
+    }
     this.mEditable.handleDeleteEvent(true, length, this.configuration?.enableDeltaModel);
   }
 
   private sendFunctionKeyCallback = (functionKey: inputMethod.FunctionKey) => {
+    if (!this.isActiveHandler()) {
+      return;
+    }
     if (functionKey.enterKeyType == inputMethod.EnterKeyType.NEWLINE) {
       // insertText callback does not deliver newline; handle it here.
       this.mEditable.handleNewlineEvent();
@@ -1137,6 +1222,9 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
 
   private sendKeyboardStatusCallback = (state: inputMethod.KeyboardStatus) => {
     // Since API 20, tapping the field with physical keyboard can show soft keyboard; avoid onConnectionClosed then or the field stops accepting input.
+    if (!this.isActiveHandler()) {
+      return;
+    }
     try {
       inputDevice.getDeviceList((Error: Error, ids: Array<number>) => {
         for (let i = 0; i < ids.length; i++) {
@@ -1145,6 +1233,14 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
             type === inputDevice.KeyboardType.DIGITAL_KEYBOARD) {
             return;
           }
+        }
+        // Re-check inside the async callback: the handler may have been
+        // superseded by another view's attach while the device list query
+        // was in flight. applyKeyboardStatus(HIDE) -> onConnectionClosed
+        // hides the channel's CURRENT active handler, so a stale callback
+        // here would wrongly collapse the keyboard of the newly focused view.
+        if (!this.isActiveHandler()) {
+          return;
         }
         this.applyKeyboardStatus(state);
       })
@@ -1159,36 +1255,57 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
 
   // obtain the range to update cursor idx to start/end of text cache
   private selectByRangeCallback = (range: inputMethod.Range) => {
+    if (!this.isActiveHandler()) {
+      return;
+    }
     this.mEditable.handleSelectByRangeEvent(range);
   }
 
   // move cursor postion with left, right, up and down in editing widget
   private moveCursorCallback = (direction: inputMethod.Direction) => {
+    if (!this.isActiveHandler()) {
+      return;
+    }
     this.mEditable.handleMoveCursorEvent(direction);
   }
 
   // handle extend clipboard actions, like 'select all', 'cut', 'copy' and 'paste'
   private handleExtendActionCallback = (action: inputMethod.ExtendAction) => {
+    if (!this.isActiveHandler()) {
+      return;
+    }
     this.mEditable.handleExtendActionEvent(action);
   }
 
   // text selection range changed with cursor direction movement
   private selectByMovementCallback = (movement: inputMethod.Movement) => {
+    if (!this.isActiveHandler()) {
+      return;
+    }
     this.mEditable.handleSelectByMovementEvent(movement);
   }
 
   // return the left-side text string of current cursor index ("abc|345" -> return "abc")
   private getLeftTextOfCursorCallback = (length: number) : string => {
+    if (!this.isActiveHandler()) {
+      return '';
+    }
     return this.mEditable.getLeftTextOfCursor(length);
   }
 
   // return the right-side text string of current cursor index ("abc|345" -> return "345")
   private getRightTextOfCursorCallback = (length: number) : string => {
+    if (!this.isActiveHandler()) {
+      return '';
+    }
     return this.mEditable.getRightTextOfCursor(length);
   }
 
   // return the current cursor index of editing text
   private getTextIndexAtCursorCallback = () => {
+    if (!this.isActiveHandler()) {
+      return 0;
+    }
     return this.mEditable.getSelectionStart();
   }
 
