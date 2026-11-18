@@ -1938,6 +1938,15 @@ class _OhosMotionEventConverter {
       event is! PointerDownEvent && event is! PointerUpEvent;
 }
 
+/// A view id that is guaranteed to match no registered platform view.
+///
+/// Platform view ids are allocated by [PlatformViewsService] from an
+/// increasing counter starting at 0, so any negative id is invalid. The
+/// OHOS embedding's `hover` handler uses single-selection semantics: an id
+/// matching no registered wrapper clears the hover flag on every wrapper.
+/// Sending this id therefore acts as an "unhover all" request.
+const int _kUnhoverAllPlatformViewsId = -1;
+
 /// Base controller for an embedded OHOS platform view.
 abstract class OhosViewController extends PlatformViewController {
   OhosViewController._({
@@ -2216,6 +2225,22 @@ abstract class OhosViewController extends PlatformViewController {
   /// Dispatches the current pointer state as a hover event to the platform.
   Future<void> sendHoverEvent() {
     return SystemChannels.platform_views.invokeMethod<void>('hover', viewId);
+  }
+
+  /// Dispatches an unhover notification that clears the platform-side hover
+  /// flag.
+  ///
+  /// The OHOS embedding gates mouse and axis event forwarding to an embedded
+  /// platform view on a "hover" flag. The flag is set when the cursor enters
+  /// the view, but nothing cleared it when the cursor left, so the flag
+  /// stayed true forever ("sticky hover"). In multi-window apps this caused
+  /// mouse wheel events aimed at the foreground window to also scroll a
+  /// platform view in a background window.
+  ///
+  /// See [_kUnhoverAllPlatformViewsId] for how the message is interpreted
+  /// on the platform side.
+  Future<void> sendUnhoverEvent() {
+    return SystemChannels.platform_views.invokeMethod<void>('hover', _kUnhoverAllPlatformViewsId);
   }
 
   /// Disposes the Ohos view.
