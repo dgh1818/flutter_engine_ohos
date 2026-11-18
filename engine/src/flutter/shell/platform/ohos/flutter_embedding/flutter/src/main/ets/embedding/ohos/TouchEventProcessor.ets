@@ -682,11 +682,24 @@ export default class TouchEventProcessor {
           let nodeController = params['nodeController'] as EmbeddingNodeController;
           nodeController.postMouseEvent(mouseEvent);
           break;
-        } else if (!anyViewDown && mouseEvent.button != 0 && mouseEvent.action != MouseAction.Press &&
+        } else if (!anyViewDown && params['hover'] && mouseEvent.button != 0 && mouseEvent.action != MouseAction.Press &&
           this.checkHitPlatformViewByLocal(mouseEvent, params, densityPixels)) {
           // 跨区域按键拖入：down 恒为 false，webview 未收到 Press 会拒绝 Release。
           // 拖入瞬间合成 Press 补发，置 synthesized=true 使后续 Release 正常分发。
           // 排除 action==Press：区域内直接点击应走缓存分支由 Dart drain，避免双发 Press。
+          // Hover gate: the NAPI mouse packet carries no window affinity and
+          // postMouseEvent broadcasts to every active FlutterView, so
+          // checkHitPlatformViewByLocal evaluates "event-window coordinates
+          // minus this window's platform-view offset" in a mixed coordinate
+          // space — a click or drag release in another window can numerically
+          // land inside this view and get synthesized into a full click.
+          // params['hover'] is maintained by the framework MouseTracker (set
+          // on enter, cleared on exit via the hover(-1) unhover notification,
+          // see flutter_flutter #3126) and is only true while the cursor is
+          // physically over this view, so it serves as the missing "the event
+          // belongs to this window" check. Same-window drag-in keeps working:
+          // the cursor is over the view while dragging in, so hover is already
+          // true by the time the release arrives.
           let nodeController = params['nodeController'] as EmbeddingNodeController;
           let originalAction = mouseEvent.action;
           mouseEvent.action = MouseAction.Press;

@@ -492,7 +492,7 @@ export default function touchEventProcessorTest() {
       }
     });
 
-    it('cross-region release with no view down still synthesizes into the topmost view', Level.LEVEL1, () => {
+    it('cross-region release with no view down synthesizes into the topmost hovered view', Level.LEVEL1, () => {
       const view = new FakeProcView();
       const bottomRecorder = new PostRecorder();
       const topRecorder = new PostRecorder();
@@ -503,12 +503,16 @@ export default function touchEventProcessorTest() {
         'width': 100,
         'height': 100
       };
+      // Same-window drag-in: by the time the release arrives the cursor is
+      // over the topmost view, so the framework has set params['hover'] on
+      // it (and only on it) via the hover channel.
       const topParams: Record<string, Any> = {
         'nodeController': topRecorder,
         'left': 0,
         'top': 0,
         'width': 100,
-        'height': 100
+        'height': 100,
+        'hover': true
       };
       view.children.push(mkMouseChild(bottomParams));
       view.children.push(mkMouseChild(topParams));
@@ -520,6 +524,63 @@ export default function touchEventProcessorTest() {
         expect(bottomRecorder.mouseEvents.length).assertEqual(0);
       } finally {
         removeView('tep-mouse-crossregion');
+      }
+    });
+
+    it('release with hover false does not synthesize and is cached (cross-window click leak)', Level.LEVEL1, () => {
+      // Multi-window: the cursor is over another window, so params['hover']
+      // is false on this window's platform view even though the mixed-space
+      // coordinates numerically hit it. The synthesis branch must not engage;
+      // the release falls through to the pending-event cache instead of
+      // being fabricated into a full click.
+      const view = new FakeProcView();
+      const recorder = new PostRecorder();
+      const params: Record<string, Any> = {
+        'nodeController': recorder,
+        'left': 0,
+        'top': 0,
+        'width': 100,
+        'height': 100
+      };
+      view.children.push(mkMouseChild(params));
+      installView('tep-mouse-hovergate-off', view);
+      try {
+        TouchEventProcessor.getInstance().postMouseEvent(mkMouseStrings(2, 1));
+        expect(recorder.mouseEvents.length).assertEqual(0);
+        expect(params['mouseDownSynthesized'] ?? false).assertEqual(false);
+        const cache = params['mouseEvent'] as Array<MouseEvent>;
+        expect(cache.length).assertEqual(1);
+      } finally {
+        removeView('tep-mouse-hovergate-off');
+      }
+    });
+
+    it('press with hover true is cached instead of synthesized', Level.LEVEL1, () => {
+      // A direct in-window click starts with a Press while the cursor is
+      // over the view (hover true). The synthesis branch must still skip
+      // Press events: they belong to the cache branch that the framework
+      // drains on the channel DOWN, otherwise the view would receive a
+      // double Press.
+      const view = new FakeProcView();
+      const recorder = new PostRecorder();
+      const params: Record<string, Any> = {
+        'nodeController': recorder,
+        'left': 0,
+        'top': 0,
+        'width': 100,
+        'height': 100,
+        'hover': true
+      };
+      view.children.push(mkMouseChild(params));
+      installView('tep-mouse-hoverpress', view);
+      try {
+        TouchEventProcessor.getInstance().postMouseEvent(mkMouseStrings(1, 1));
+        expect(recorder.mouseEvents.length).assertEqual(0);
+        expect(params['mouseDownSynthesized'] ?? false).assertEqual(false);
+        const cache = params['mouseEvent'] as Array<MouseEvent>;
+        expect(cache.length).assertEqual(1);
+      } finally {
+        removeView('tep-mouse-hoverpress');
       }
     });
   });
