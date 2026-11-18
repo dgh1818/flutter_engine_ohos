@@ -16,6 +16,7 @@ import TextInputChannel, {
   TextEditState,
   TextInputMethodHandler,
 } from '../../../../../../main/ets/embedding/engine/systemchannels/TextInputChannel';
+import { ListenableEditingState } from '../../../../../../main/ets/plugin/editing/ListenableEditingState';
 import Any from '../../../../../../main/ets/plugin/common/Any';
 import { MethodResult } from '../../../../../../main/ets/plugin/common/MethodChannel';
 import MethodCall from '../../../../../../main/ets/plugin/common/MethodCall';
@@ -401,6 +402,104 @@ export default function textInputChannelTest() {
         threw = true;
       }
       expect(threw).assertEqual(false);
+    });
+  });
+
+  describe('TextInputChannel.registerReleaseTextInputMethodHandler', () => {
+    it('register makes the latest registered handler active', Level.LEVEL1, () => {
+      const channel = getTextInputChannel();
+      const first = new FakeTextInputHandler();
+      const second = new FakeTextInputHandler();
+      channel.registerTextInputMethodHandler(first, 'view_a');
+      channel.registerTextInputMethodHandler(second, 'view_b');
+      expect(channel.textInputMethodHandler === second).assertTrue();
+    });
+
+    it('release of the top handler re-activates the previous one', Level.LEVEL1, () => {
+      const channel = getTextInputChannel();
+      const first = new FakeTextInputHandler();
+      const second = new FakeTextInputHandler();
+      channel.registerTextInputMethodHandler(first, 'view_a');
+      channel.registerTextInputMethodHandler(second, 'view_b');
+      channel.releaseTextInputMethodHandler(second);
+      expect(channel.textInputMethodHandler === first).assertTrue();
+    });
+
+    it('release of a non-top handler keeps the active handler and its callback', Level.LEVEL1, () => {
+      const channel = getTextInputChannel();
+      const first = new FakeTextInputHandler();
+      const second = new FakeTextInputHandler();
+      channel.registerTextInputMethodHandler(first, 'view_a');
+      channel.registerTextInputMethodHandler(second, 'view_b');
+      const callbackBefore = channel.textInputCallback;
+      channel.releaseTextInputMethodHandler(first);
+      expect(channel.textInputMethodHandler === second).assertTrue();
+      // Releasing a non-top entry must NOT rebuild the active callback:
+      // activateTopEntry would discard the live cursorPosition /
+      // editInputPosition / pendingEditingState of the active view.
+      expect(channel.textInputCallback === callbackBefore).assertTrue();
+    });
+
+    it('setTextInputMethodHandler(null) clears all registrations', Level.LEVEL1, () => {
+      const channel = getTextInputChannel();
+      const first = new FakeTextInputHandler();
+      const second = new FakeTextInputHandler();
+      channel.registerTextInputMethodHandler(first, 'view_a');
+      channel.registerTextInputMethodHandler(second, 'view_b');
+      channel.setTextInputMethodHandler(null);
+      expect(channel.textInputMethodHandler === null).assertTrue();
+      // Releasing an already-cleared handler is a no-op and must not resurrect it.
+      channel.releaseTextInputMethodHandler(first);
+      expect(channel.textInputMethodHandler === null).assertTrue();
+    });
+
+    it('re-registering the same handler keeps a single entry', Level.LEVEL1, () => {
+      const channel = getTextInputChannel();
+      const first = new FakeTextInputHandler();
+      const second = new FakeTextInputHandler();
+      channel.registerTextInputMethodHandler(first, 'view_a');
+      channel.registerTextInputMethodHandler(second, 'view_b');
+      channel.registerTextInputMethodHandler(first, 'view_a');
+      expect(channel.textInputMethodHandler === first).assertTrue();
+      // A duplicate entry would leave `first` active even after this release.
+      channel.releaseTextInputMethodHandler(first);
+      expect(channel.textInputMethodHandler === second).assertTrue();
+    });
+
+    it('register restores the viewId context of the re-activated handler', Level.LEVEL1, () => {
+      const channel = getTextInputChannel();
+      const first = new FakeTextInputHandler();
+      const second = new FakeTextInputHandler();
+      channel.registerTextInputMethodHandler(first, 'view_a');
+      channel.registerTextInputMethodHandler(second, 'view_b');
+      channel.releaseTextInputMethodHandler(second);
+      expect(channel.textInputMethodHandler === first).assertTrue();
+      expect(channel.textInputCallback !== null).assertTrue();
+      // The re-activated handler's viewId context must be restored onto the
+      // callback: setCursorPosition bails when viewId is empty, silently
+      // breaking caret/autofill rect computation in multi-window scenarios.
+      expect(channel.textInputCallback?.viewId).assertEqual('view_a');
+    });
+
+    it('getActiveEditingState returns the active entry accessor state', Level.LEVEL1, () => {
+      const channel = getTextInputChannel();
+      const first = new FakeTextInputHandler();
+      const second = new FakeTextInputHandler();
+      const stateA: ListenableEditingState = new ListenableEditingState(null, 0);
+      const stateB: ListenableEditingState = new ListenableEditingState(null, 0);
+      channel.registerTextInputMethodHandler(first, 'view_a', (): ListenableEditingState => stateA);
+      channel.registerTextInputMethodHandler(second, 'view_b', (): ListenableEditingState => stateB);
+      expect(channel.getActiveEditingState() === stateB).assertTrue();
+      channel.releaseTextInputMethodHandler(second);
+      expect(channel.getActiveEditingState() === stateA).assertTrue();
+    });
+
+    it('getActiveEditingState is null without an accessor or registration', Level.LEVEL1, () => {
+      const channel = getTextInputChannel();
+      const first = new FakeTextInputHandler();
+      expect(channel.getActiveEditingState() === null).assertTrue();
+      channel.registerTextInputMethodHandler(first, 'view_a');
+      expect(channel.getActiveEditingState() === null).assertTrue();
     });
   });
 
