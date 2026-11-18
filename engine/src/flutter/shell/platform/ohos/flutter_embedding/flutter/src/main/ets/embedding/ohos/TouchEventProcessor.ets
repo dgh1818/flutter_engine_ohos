@@ -501,7 +501,7 @@ export default class TouchEventProcessor {
           if (nodeController == undefined) {
             continue;
           }
-          nodeController.postEvent(touchEvent);
+          let consumed = nodeController.postEvent(touchEvent);
           this.rememberPostedTouchEvent(params, touchEvent);
           // Keep the text-input handoff check on the same path that delivers
           // touch events to ArkUI. postTouchEvent can run more than once for a
@@ -511,6 +511,17 @@ export default class TouchEventProcessor {
             params['textInputHandoffOnTouch'] as TextInputHandoffOnTouch | undefined;
           if (textInputHandoffOnTouch != undefined) {
             textInputHandoffOnTouch(touchEvent.type == TouchType.Down);
+          }
+          // 'down' is per-view state, so multiple platform views can be
+          // active at once (multi-touch on non-overlapping views, or a
+          // translucent overlap). Posting must stop at the first view whose
+          // ArkUI hit test consumes the event: continuing duplicates the
+          // event on every lower active view (issue #2500), while breaking
+          // unconditionally would starve non-overlapping lower views of
+          // their own pointers (a non-consuming view means the touch point
+          // is outside its bounds, so the next lower view is tried).
+          if (consumed) {
+            break;
           }
         } else {
           // If the touch event type is OH_NATIVEXCOMPONENT_DOWN and there is only one finger, this is the next tap, so clear the previous data
