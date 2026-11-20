@@ -2099,6 +2099,24 @@ TEST(BackgroundResourceCleanup, ParseAppLifecycleStateRejectsUnknown) {
   EXPECT_EQ(out, AppLifecycleState::kPaused);
 }
 
+TEST_F(PlatformViewOHOSUt, OnPreEngineRestartResetsInspectorSidecar) {
+  constexpr double kRestartFontSize = 20;
+  SemanticsNodeUpdates nodes;
+  SemanticsNode root;
+  root.id = 0;
+  nodes[0] = root;
+  bridge_->UpdateNodeTree(nodes);
+  bridge_->ApplyInspectorSidecar({42, 1, {{0, 18, 0}}});
+  fml::AutoResetWaitableEvent done;
+  runners_->GetPlatformTaskRunner()->PostTask([&] {
+    base()->OnPreEngineRestart();
+    bridge_->ApplyInspectorSidecar({1, 1, {{0, kRestartFontSize, 0}}});
+    done.Signal();
+  });
+  ASSERT_FALSE(done.WaitWithTimeout(fml::TimeDelta::FromSeconds(5)));
+  EXPECT_EQ(bridge_->tree_.FindNodeById(0)->fontSize, kRestartFontSize);
+}
+
 TEST_F(PlatformViewOHOSUt, OnPreEngineRestartWithoutWindowController) {
   Settings settings = MakeTestSettings();
   std::unique_ptr<OHOSShellHolder> holder =

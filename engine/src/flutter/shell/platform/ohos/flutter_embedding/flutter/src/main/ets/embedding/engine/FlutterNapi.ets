@@ -149,6 +149,35 @@ export default class FlutterNapi {
   }
 
   /**
+   * Registers the inspector tree getter for this engine instance.
+   * On systems >= 26.1.0 ArkUI invokes the getter while assembling the
+   * inspector tree and merges the Flutter subtree into the output consumed
+   * by DevEco Inspector / getInspectorTree(); below 26.1.0 it is a no-op
+   * with a native-side warning. Must be called on the UI thread.
+   * @param frameNode - the host XComponent's FrameNode
+   *   (this.getUIContext().getFrameNodeById(<xcomponent id>))
+   */
+  registerInspectorTreeGetter(frameNode: object): void {
+    if (this.nativeShellHolderId == null) {
+      Log.e(TAG, 'registerInspectorTreeGetter fail, not attached');
+      return;
+    }
+    flutter.nativeRegisterInspectorTreeGetter(this.nativeShellHolderId, frameNode);
+  }
+
+  /**
+   * Unregisters the inspector tree getter registered by
+   * registerInspectorTreeGetter; call before the engine detaches.
+   * @param frameNode - the same FrameNode passed at registration
+   */
+  unregisterInspectorTreeGetter(frameNode: object): void {
+    if (this.nativeShellHolderId == null) {
+      return;
+    }
+    flutter.nativeUnregisterInspectorTreeGetter(this.nativeShellHolderId, frameNode);
+  }
+
+  /**
    * Updates the pixel density of the display.
    * @param densityPixels - The pixel density value (dots per inch)
    */
