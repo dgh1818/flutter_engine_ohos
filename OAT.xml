@@ -193,10 +193,13 @@
             <filefilter name="copyrightPolicyFilter" desc="Filters for copyright header policies">
                 <filteritem type="filename" name="packages/integration_test/ohos/hvigorw*" desc="Build Files"/>
                 <filteritem type="filename" name="*.version" desc="version Files"/>
+                <filteritem type="filepath" name="engine/src/flutter/impeller/entity/shaders/sdf_functions.glsl" desc="上游Flutter着色器，包含Flutter及第三方MIT版权，不做侵入式修改"/>
+                <filteritem type="filepath" name="engine/src/flutter/web_sdk/list_dart_files.py" desc="上游Dart构建脚本，保留原始版权头，不做侵入式修改"/>
             </filefilter>
             <filefilter name="defaultPolicyFilter" desc="Filters for LICENSE file policies">
                 <filteritem type="filename" name="packages/integration_test/ohos/hvigorw" desc="Build Files"/>
                 <filteritem type="filename" name="*.version" desc="version Files"/>
+                <filteritem type="filepath" name="engine/src/flutter/tools/licenses_cpp/data/licenses/boost_file.txt" desc="上游Flutter许可证匹配模板，不参与编译，无需执行许可证兼容性及许可头检查"/>
             </filefilter>
         </filefilterlist>
     </oatconfig>
