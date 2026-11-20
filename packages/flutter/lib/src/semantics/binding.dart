@@ -7,6 +7,8 @@
 /// @docImport 'semantics.dart';
 library;
 
+import 'dart:convert';
+import 'dart:io' show Platform;
 import 'dart:ui' as ui show AccessibilityFeatures, SemanticsActionEvent, SemanticsUpdateBuilder;
 
 import 'package:flutter/foundation.dart';
@@ -14,8 +16,23 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import 'debug.dart';
+import 'semantics.dart';
 
 export 'dart:ui' show AccessibilityFeatures, SemanticsActionEvent, SemanticsUpdateBuilder;
+
+/// Overrides the OHOS inspector platform check in debug tests only.
+@visibleForTesting
+bool? debugOhosSemanticsEnabledOverride;
+
+/// Whether OHOS inspector semantics attributes should be collected.
+bool get ohosSemanticsEnabled {
+  bool enabled = !kIsWeb && Platform.operatingSystem == 'ohos';
+  assert(() {
+    enabled = debugOhosSemanticsEnabledOverride ?? enabled;
+    return true;
+  }());
+  return enabled;
+}
 
 /// The glue between the semantics layer and the Flutter engine.
 mixin SemanticsBinding on BindingBase {
@@ -53,6 +70,46 @@ mixin SemanticsBinding on BindingBase {
   /// [runApp] or [WidgetsFlutterBinding.ensureInitialized].
   static SemanticsBinding get instance => BindingBase.checkInstance(_instance);
   static SemanticsBinding? _instance;
+
+  /// Experimental observer for OHOS semantics attribute updates.
+  void Function(int viewId, Map<int, (double?, int?)> nodes)? onOhosSemanticsAttributes;
+
+  /// Sends the attributes for a semantics update without affecting that update.
+  void sendOhosSemanticsAttributes(int viewId, SemanticsOwner owner) {
+    final Map<int, (double?, int?)>? nodes = owner.ohosSemanticsAttributes;
+    if (nodes == null) {
+      return;
+    }
+    try {
+      onOhosSemanticsAttributes?.call(viewId, nodes);
+    } catch (_) {
+      // The experimental observer must never block normal semantics updates.
+    }
+    try {
+      final String message = jsonEncode(<String, Object>{
+        'version': 1,
+        'viewId': viewId,
+        'epoch': owner.ohosSemanticsEpoch,
+        'sequence': owner.nextOhosSemanticsSequence(),
+        'nodes': <Map<String, Object?>>[
+          for (final entry in nodes.entries)
+            <String, Object?>{
+              'id': entry.key,
+              'fontSize': entry.value.$1,
+              'backgroundColor': entry.value.$2,
+            },
+        ],
+      });
+      ServicesBinding.instance.defaultBinaryMessenger
+          .send(
+            'flutter/ohos_inspector_sidecar_experiment',
+            const StringCodec().encodeMessage(message),
+          )
+          ?.ignore();
+    } catch (_) {
+      // Serialization or transport errors must not block normal semantics.
+    }
+  }
 
   /// Whether semantics information must be collected.
   ///

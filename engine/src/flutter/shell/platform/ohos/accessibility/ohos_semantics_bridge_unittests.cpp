@@ -12,6 +12,7 @@
 #include "flutter/fml/log_settings.h"
 #include "flutter/lib/ui/semantics/semantics_node.h"
 #include "flutter/shell/platform/ohos/accessibility/ohos_semantics_bridge.h"
+#include "flutter/shell/platform/ohos/accessibility/ohos_semantics_inspector.h"
 
 namespace flutter {
 namespace testing {
@@ -44,6 +45,116 @@ class SemanticsBridgeTest : public ::testing::Test {
     nodes[0] = root;
   }
 };
+
+TEST_F(SemanticsBridgeTest, InspectorSidecarUpdatesSnapshotAndRejectsStale) {
+  constexpr double kInitialFontSize = 14.5;
+  constexpr double kStaleFontSize = 22;
+  constexpr uint64_t kNextSequence = 2;
+  bridge_.inspector_snapshot_ = std::make_shared<InspectorSnapshot>();
+  SemanticsNodeUpdates nodes;
+  SemanticsNode child;
+  child.id = 1;
+  nodes[1] = child;
+  BuildRootWithChildren(nodes, {1});
+  bridge_.UpdateNodeTree(nodes);
+
+  InspectorSidecarUpdate update{1, 1, {{1, kInitialFontSize, 0xff123456}}};
+  bridge_.ApplyInspectorSidecar(update);
+  EXPECT_NE(bridge_.inspector_snapshot_->Read()->find("\"fontSize\": 14.5"),
+            std::string::npos);
+  EXPECT_NE(bridge_.inspector_snapshot_->Read()->find("#FF123456"),
+            std::string::npos);
+  update.sequence = 0;
+  update.nodes[0].font_size = kStaleFontSize;
+  bridge_.ApplyInspectorSidecar(update);
+  EXPECT_EQ(bridge_.tree_.FindNodeById(1)->fontSize, kInitialFontSize);
+  update.sequence = kNextSequence;
+  update.nodes[0].font_size = std::nan("");
+  update.nodes[0].background_color = -1;
+  bridge_.ApplyInspectorSidecar(update);
+  EXPECT_EQ(bridge_.inspector_snapshot_->Read()->find("fontSize"),
+            std::string::npos);
+  EXPECT_EQ(bridge_.inspector_snapshot_->Read()->find("backgroundColor"),
+            std::string::npos);
+}
+
+TEST_F(SemanticsBridgeTest, InspectorSidecarBuffersNewNodeAndClearsOnEpoch) {
+  constexpr uint64_t kNextEpoch = 2;
+  constexpr uint64_t kNextSequence = 2;
+  constexpr double kBufferedFontSize = 16;
+  constexpr double kIgnoredFontSize = 20;
+  constexpr double kNewEpochFontSize = 21;
+  bridge_.inspector_snapshot_ = std::make_shared<InspectorSnapshot>();
+  bridge_.ApplyInspectorSidecar({1, 1, {{1, kBufferedFontSize, 0xffabcdef}}});
+  SemanticsNodeUpdates nodes;
+  SemanticsNode child;
+  child.id = 1;
+  nodes[1] = child;
+  BuildRootWithChildren(nodes, {1});
+  bridge_.UpdateNodeTree(nodes);
+  ASSERT_NE(bridge_.tree_.FindNodeById(1), nullptr);
+  EXPECT_EQ(bridge_.tree_.FindNodeById(1)->fontSize, kBufferedFontSize);
+  bridge_.UpdateNodeTree(nodes);
+  EXPECT_EQ(bridge_.tree_.FindNodeById(1)->fontSize, kBufferedFontSize);
+  bridge_.ApplyInspectorSidecar({kNextEpoch, 1, {}});
+  EXPECT_TRUE(std::isnan(bridge_.tree_.FindNodeById(1)->fontSize));
+  EXPECT_EQ(bridge_.tree_.FindNodeById(1)->backgroundColor, -1);
+  bridge_.ApplyInspectorSidecar({1, 100, {{1, 99, 0}}});
+  EXPECT_TRUE(std::isnan(bridge_.tree_.FindNodeById(1)->fontSize));
+  bridge_.ApplyInspectorSidecar(
+      {kNextEpoch, kNextSequence, {{1, kIgnoredFontSize, 0}}});
+  bridge_.ClearInspectorSidecar();
+  bridge_.ApplyInspectorSidecar({kNextEpoch, 3, {{1, 99, 0}}});
+  EXPECT_TRUE(std::isnan(bridge_.tree_.FindNodeById(1)->fontSize));
+  bridge_.ApplyInspectorSidecar({3, 1, {{1, kNewEpochFontSize, 0}}});
+  EXPECT_EQ(bridge_.tree_.FindNodeById(1)->fontSize, kNewEpochFontSize);
+}
+
+TEST_F(SemanticsBridgeTest, InspectorSidecarWaitsForNodesAcrossQueuedUpdates) {
+  constexpr int kSecondNodeId = 2;
+  constexpr uint64_t kSecondSequence = 2;
+  constexpr double kFirstFontSize = 12;
+  constexpr double kSecondFontSize = 18;
+  bridge_.ApplyInspectorSidecar({1, 1, {{1, kFirstFontSize, 0}}});
+  bridge_.ApplyInspectorSidecar(
+      {1, kSecondSequence, {{kSecondNodeId, kSecondFontSize, 0xffabcdef}}});
+  SemanticsNodeUpdates first;
+  SemanticsNode one;
+  one.id = 1;
+  first[1] = one;
+  BuildRootWithChildren(first, {1});
+  bridge_.UpdateNodeTree(first);
+  ASSERT_NE(bridge_.tree_.FindNodeById(1), nullptr);
+  EXPECT_EQ(bridge_.tree_.FindNodeById(1)->fontSize, kFirstFontSize);
+  SemanticsNodeUpdates second;
+  SemanticsNode two;
+  two.id = kSecondNodeId;
+  second[kSecondNodeId] = two;
+  BuildRootWithChildren(second, {1, kSecondNodeId});
+  bridge_.UpdateNodeTree(second);
+  ASSERT_NE(bridge_.tree_.FindNodeById(kSecondNodeId), nullptr);
+  EXPECT_EQ(bridge_.tree_.FindNodeById(kSecondNodeId)->fontSize,
+            kSecondFontSize);
+  EXPECT_EQ(bridge_.tree_.FindNodeById(kSecondNodeId)->backgroundColor,
+            0xffabcdef);
+}
+
+TEST_F(SemanticsBridgeTest, InspectorSidecarDoesNotSurviveNodeRemoval) {
+  SemanticsNodeUpdates nodes;
+  SemanticsNode child;
+  child.id = 1;
+  nodes[1] = child;
+  BuildRootWithChildren(nodes, {1});
+  bridge_.UpdateNodeTree(nodes);
+  bridge_.ApplyInspectorSidecar({1, 1, {{1, 12, 0}}});
+  SemanticsNodeUpdates remove;
+  BuildRootWithChildren(remove, {});
+  bridge_.UpdateNodeTree(remove);
+  EXPECT_EQ(bridge_.tree_.FindNodeById(1), nullptr);
+  bridge_.UpdateNodeTree(nodes);
+  ASSERT_NE(bridge_.tree_.FindNodeById(1), nullptr);
+  EXPECT_TRUE(std::isnan(bridge_.tree_.FindNodeById(1)->fontSize));
+}
 
 TEST_F(SemanticsBridgeTest, SendSemanticsEventRespectsEnabledState) {
   SemanticsNodeUpdates nodes;

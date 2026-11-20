@@ -11,6 +11,7 @@ import 'dart:io' show Platform;
 import 'dart:ui' as ui show FlutterView, Scene, SceneBuilder, SemanticsUpdate;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
 import 'binding.dart';
@@ -381,6 +382,10 @@ class RenderView extends RenderObject with RenderObjectWithChildMixin<RenderBox>
   /// A [ui.SemanticsUpdate] is produced by a [SemanticsOwner] during the
   /// [EnginePhase.flushSemantics] phase.
   void updateSemantics(ui.SemanticsUpdate update) {
+    final SemanticsOwner? semanticsOwner = owner?.semanticsOwner;
+    if (semanticsOwner != null) {
+      SemanticsBinding.instance.sendOhosSemanticsAttributes(_view.viewId, semanticsOwner);
+    }
     _view.updateSemantics(update);
   }
 

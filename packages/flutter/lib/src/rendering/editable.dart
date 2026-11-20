@@ -1341,6 +1341,14 @@ class RenderEditable extends RenderBox
   @override
   void describeSemanticsConfiguration(SemanticsConfiguration config) {
     super.describeSemanticsConfiguration(config);
+    // A11y automation-test attribute (OHOS Inspector `$attrs`): the
+    // effective font size of this editable text, in logical pixels. When an
+    // ambient style exists without an explicit font size, fall back to the
+    // framework default (14.0); no style at all leaves it unreported.
+    if (ohosSemanticsEnabled) {
+      final TextStyle? style = _textPainter.text!.style;
+      config.fontSize = style == null ? null : (style.fontSize ?? 14.0);
+    }
     _semanticsInfo = _textPainter.text!.getSemanticsInformation();
     // TODO(chunhtai): the macOS does not provide a public API to support text
     // selections across multiple semantics nodes. Remove this platform check

@@ -17,6 +17,8 @@ typedef SemanticsNodeUpdateObservation = ({
   String hint,
   List<StringAttribute>? hintAttributes,
   Int32List childrenInTraversalOrder,
+  Int32List childrenInHitTestOrder,
+  Int32List additionalActions,
   Float64List transform,
 });
 
@@ -85,6 +87,60 @@ void main() {
     expect(SemanticsUpdateBuilderSpy.observations[1]!.childrenInTraversalOrder.length, 0);
     expect(SemanticsUpdateBuilderSpy.observations[1]!.label, 'outer\ninner-updated\ntext');
 
+    SemanticsUpdateBuilderSpy.observations.clear();
+    handle.dispose();
+  });
+
+  testWidgets('Custom action additions, replacements and removals update payload and routing', (
+    WidgetTester tester,
+  ) async {
+    final SemanticsHandle handle = tester.ensureSemantics();
+    const first = CustomSemanticsAction(label: 'First');
+    const second = CustomSemanticsAction(label: 'Second');
+    final int firstId = CustomSemanticsAction.getIdentifier(first);
+    final int secondId = CustomSemanticsAction.getIdentifier(second);
+    var firstCalls = 0;
+    var secondCalls = 0;
+
+    Future<void> pumpActions(Map<CustomSemanticsAction, VoidCallback> actions) async {
+      SemanticsUpdateBuilderSpy.observations.clear();
+      SemanticsUpdateBuilderSpy.actionLabels.clear();
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Semantics(
+            container: true,
+            label: 'target',
+            customSemanticsActions: actions,
+            child: const SizedBox(width: 20, height: 20),
+          ),
+        ),
+      );
+    }
+
+    await pumpActions(<CustomSemanticsAction, VoidCallback>{});
+    final int nodeId = tester.getSemantics(find.bySemanticsLabel('target')).id;
+    final SemanticsOwner owner = tester.binding.pipelineOwner.semanticsOwner!;
+
+    await pumpActions(<CustomSemanticsAction, VoidCallback>{first: () => firstCalls++});
+    expect(SemanticsUpdateBuilderSpy.observations[nodeId]!.additionalActions, <int>[firstId]);
+    expect(SemanticsUpdateBuilderSpy.actionLabels, <int, String?>{firstId: 'First'});
+    owner.performAction(nodeId, SemanticsAction.customAction, firstId);
+    expect(firstCalls, 1);
+
+    await pumpActions(<CustomSemanticsAction, VoidCallback>{second: () => secondCalls++});
+    expect(SemanticsUpdateBuilderSpy.observations[nodeId]!.additionalActions, <int>[secondId]);
+    expect(SemanticsUpdateBuilderSpy.actionLabels, <int, String?>{secondId: 'Second'});
+    owner.performAction(nodeId, SemanticsAction.customAction, firstId);
+    owner.performAction(nodeId, SemanticsAction.customAction, secondId);
+    expect(firstCalls, 1);
+    expect(secondCalls, 1);
+
+    await pumpActions(<CustomSemanticsAction, VoidCallback>{});
+    expect(SemanticsUpdateBuilderSpy.observations[nodeId]!.additionalActions, isEmpty);
+    expect(SemanticsUpdateBuilderSpy.actionLabels, isEmpty);
+    owner.performAction(nodeId, SemanticsAction.customAction, secondId);
+    expect(secondCalls, 1);
     SemanticsUpdateBuilderSpy.observations.clear();
     handle.dispose();
   });
@@ -278,6 +334,7 @@ class SemanticsUpdateBuilderSpy extends Fake implements ui.SemanticsUpdateBuilde
 
   static Map<int, SemanticsNodeUpdateObservation> observations =
       <int, SemanticsNodeUpdateObservation>{};
+  static final Map<int, String?> actionLabels = <int, String?>{};
 
   @override
   void updateNode({
@@ -324,6 +381,8 @@ class SemanticsUpdateBuilderSpy extends Fake implements ui.SemanticsUpdateBuilde
     required ui.Locale? locale,
     required String minValue,
     required String maxValue,
+    double fontSize = double.nan,
+    int backgroundColor = -1,
   }) {
     // Makes sure we don't send the same id twice.
     assert(!observations.containsKey(id));
@@ -335,13 +394,17 @@ class SemanticsUpdateBuilderSpy extends Fake implements ui.SemanticsUpdateBuilde
       value: value,
       valueAttributes: valueAttributes,
       childrenInTraversalOrder: childrenInTraversalOrder,
+      childrenInHitTestOrder: childrenInHitTestOrder,
+      additionalActions: additionalActions,
       transform: transform,
     );
   }
 
   @override
-  void updateCustomAction({required int id, String? label, String? hint, int overrideId = -1}) =>
-      _builder.updateCustomAction(id: id, label: label, hint: hint, overrideId: overrideId);
+  void updateCustomAction({required int id, String? label, String? hint, int overrideId = -1}) {
+    actionLabels[id] = label;
+    _builder.updateCustomAction(id: id, label: label, hint: hint, overrideId: overrideId);
+  }
 
   @override
   ui.SemanticsUpdate build() => _builder.build();
