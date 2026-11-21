@@ -12,6 +12,7 @@
 #include "flutter/shell/common/rasterizer.h"
 #include "flutter/shell/common/run_configuration.h"
 #include "flutter/shell/common/thread_host.h"
+#include "flutter/shell/platform/ohos/accessibility/ohos_semantics_inspector.h"
 #include "flutter/shell/platform/ohos/ohos_display.h"
 #include "flutter/shell/platform/ohos/ohos_vsync_voting_mgr.h"
 
@@ -322,6 +323,15 @@ OHOSShellHolder::~OHOSShellHolder() {
   thread_host_.reset();
   napi_facade_.reset();
   shell_ = nullptr;
+}
+
+std::shared_ptr<InspectorSnapshot> OHOSShellHolder::GetInspectorSnapshot() {
+  std::lock_guard<std::mutex> lock(*bridge_mutex_);
+  if (!bridge_->inspector_snapshot_) {
+    bridge_->inspector_snapshot_ = std::make_shared<InspectorSnapshot>();
+    PublishInspectorSnapshot(bridge_.get());
+  }
+  return bridge_->inspector_snapshot_;
 }
 
 bool OHOSShellHolder::IsValid() const {

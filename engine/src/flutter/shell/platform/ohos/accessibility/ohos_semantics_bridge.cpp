@@ -4,16 +4,76 @@
  * found in the LICENSE_HW file.
  */
 
-
 #include "ohos_semantics_bridge.h"
 #include <arkui/native_interface_accessibility.h>
 #include <cassert>
 #include <string>
+#include "ohos_semantics_inspector.h"
 
 namespace flutter {
+namespace {
+
+constexpr size_t kMaxPendingSidecarNodes = 10000;
+
+}  // namespace
+
+void SemanticsBridge::ApplyInspectorSidecar(
+    const InspectorSidecarUpdate& update) {
+  if (has_sidecar_order_ &&
+      (update.epoch < sidecar_epoch_ ||
+       (update.epoch == sidecar_epoch_ &&
+        (sidecar_epoch_retired_ || update.sequence <= sidecar_sequence_)))) {
+    return;
+  }
+  if (!has_sidecar_order_ || update.epoch > sidecar_epoch_) {
+    tree_.ClearInspectorAttributes();
+    pending_sidecar_nodes_.clear();
+    sidecar_epoch_retired_ = false;
+  }
+  has_sidecar_order_ = true;
+  sidecar_epoch_ = update.epoch;
+  sidecar_sequence_ = update.sequence;
+  for (const auto& value : update.nodes) {
+    auto* node = tree_.FindNodeById(value.id);
+    if (node) {
+      node->fontSize = value.font_size;
+      node->backgroundColor = value.background_color;
+    } else if (pending_sidecar_nodes_.size() < kMaxPendingSidecarNodes ||
+               pending_sidecar_nodes_.count(value.id)) {
+      pending_sidecar_nodes_[value.id] = value;
+    }
+  }
+  PublishInspectorSnapshot(this);
+}
+
+void SemanticsBridge::ClearInspectorSidecar() {
+  pending_sidecar_nodes_.clear();
+  tree_.ClearInspectorAttributes();
+  sidecar_epoch_retired_ = has_sidecar_order_;
+}
+
+void SemanticsBridge::ResetInspectorSidecar() {
+  ClearInspectorSidecar();
+  has_sidecar_order_ = false;
+  sidecar_epoch_retired_ = false;
+  sidecar_epoch_ = 0;
+  sidecar_sequence_ = 0;
+  PublishInspectorSnapshot(this);
+}
 
 void SemanticsBridge::UpdateNodeTree(flutter::SemanticsNodeUpdates& nodes) {
   auto update_nodes = tree_.UpdateWithNodes(nodes);
+  for (auto it = pending_sidecar_nodes_.begin();
+       it != pending_sidecar_nodes_.end();) {
+    if (auto* node = tree_.FindNodeById(it->first)) {
+      node->fontSize = it->second.font_size;
+      node->backgroundColor = it->second.background_color;
+      it = pending_sidecar_nodes_.erase(it);
+    } else {
+      ++it;
+    }
+  }
+  PublishInspectorSnapshot(this);
 
   for (auto node : update_nodes) {
     // if node perform scroll
@@ -114,7 +174,8 @@ void SemanticsBridge::SendSemanticsEvent(SemanticsNodeExtend* node,
   if (provider_ohos_) {
     auto callback = [](int32_t errorCode) {
       if (errorCode != ARKUI_ACCESSIBILITY_NATIVE_RESULT_SUCCESSFUL) {
-        FML_LOG(ERROR) << "SendSemanticsEvent callback-> errorCode =" << errorCode;
+        FML_LOG(ERROR) << "SendSemanticsEvent callback-> errorCode ="
+                       << errorCode;
       }
     };
     OH_ArkUI_SendAccessibilityAsyncEvent(provider_ohos_, event, callback);
@@ -137,7 +198,8 @@ int32_t SemanticsBridge::FindFocusNode(int32_t id,
     node->FillElementInfo(info, accessibility_focus_maps_to_native_focused);
     return ARKUI_ACCESSIBILITY_NATIVE_RESULT_SUCCESSFUL;
   } else {
-    FML_LOG(ERROR) << "FindFocusNode failed, id:" << id << ", focusType:" << (int32_t)focusType;
+    FML_LOG(ERROR) << "FindFocusNode failed, id:" << id
+                   << ", focusType:" << (int32_t)focusType;
     return ARKUI_ACCESSIBILITY_NATIVE_RESULT_FAILED;
   }
 }
@@ -151,7 +213,8 @@ int32_t SemanticsBridge::FindNextFocusNode(
     node->FillElementInfo(info, true);
     return ARKUI_ACCESSIBILITY_NATIVE_RESULT_SUCCESSFUL;
   } else {
-    FML_LOG(ERROR) << "FindNextFocusNode failed, id:" << id << ", direction:" << (int32_t)direction;
+    FML_LOG(ERROR) << "FindNextFocusNode failed, id:" << id
+                   << ", direction:" << (int32_t)direction;
     return ARKUI_ACCESSIBILITY_NATIVE_RESULT_FAILED;
   }
 }
@@ -163,7 +226,8 @@ int32_t SemanticsBridge::FillNodesWithSearchText(
   if (tree_.FillNodesWithSearchText(id, text, list)) {
     return ARKUI_ACCESSIBILITY_NATIVE_RESULT_SUCCESSFUL;
   } else {
-    FML_LOG(ERROR) << "FillNodesWithSearchText failed, id:" << id << ", text:" << (text ? text : "null");
+    FML_LOG(ERROR) << "FillNodesWithSearchText failed, id:" << id
+                   << ", text:" << (text ? text : "null");
     return ARKUI_ACCESSIBILITY_NATIVE_RESULT_FAILED;
   }
 }
@@ -175,7 +239,8 @@ int32_t SemanticsBridge::FillNodesWithSearch(
   if (tree_.FillNodesWithSearch(id, mode, list)) {
     return ARKUI_ACCESSIBILITY_NATIVE_RESULT_SUCCESSFUL;
   } else {
-    FML_LOG(ERROR) << "FillNodesWithSearch failed, id:" << id << ", mode:" << (int32_t)mode;
+    FML_LOG(ERROR) << "FillNodesWithSearch failed, id:" << id
+                   << ", mode:" << (int32_t)mode;
     return ARKUI_ACCESSIBILITY_NATIVE_RESULT_FAILED;
   }
 }
@@ -232,7 +297,8 @@ int32_t SemanticsBridge::GetAccessibilityNodeCursorPosition(int64_t elementId,
     *index = node->textSelectionBase;
     return ARKUI_ACCESSIBILITY_NATIVE_RESULT_SUCCESSFUL;
   } else {
-    FML_LOG(ERROR) << "GetAccessibilityNodeCursorPosition failed, elementId:" << elementId;
+    FML_LOG(ERROR) << "GetAccessibilityNodeCursorPosition failed, elementId:"
+                   << elementId;
     return ARKUI_ACCESSIBILITY_NATIVE_RESULT_FAILED;
   }
 }

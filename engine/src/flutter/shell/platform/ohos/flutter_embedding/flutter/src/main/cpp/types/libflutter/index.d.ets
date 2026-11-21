@@ -290,6 +290,8 @@ export const nativeDestroyAsync: (
  * @param textureId - The ID of the texture to unregister
  */
 export const nativeUnregisterTexture: (nativeShellHolderId: number, textureId: number) => void;
+export const nativeRegisterInspectorTreeGetter: (nativeShellHolderId: number, frameNode: object) => void;
+export const nativeUnregisterInspectorTreeGetter: (nativeShellHolderId: number, frameNode: object) => void;
 
 /**
  * Registers a PixelMap as a texture in the Flutter engine.
