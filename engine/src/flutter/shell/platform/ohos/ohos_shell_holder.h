@@ -91,6 +91,8 @@ class OHOSShellHolder {
 
   void SetAccessibilityProvider(ArkUI_AccessibilityProvider* provider);
 
+  std::shared_ptr<InspectorSnapshot> GetInspectorSnapshot();
+
   int32_t FindFocusNode(int32_t id,
                         ArkUI_AccessibilityFocusType focusType,
                         ArkUI_AccessibilityElementInfo* info);

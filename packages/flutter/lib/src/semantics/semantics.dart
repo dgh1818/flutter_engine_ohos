@@ -36,7 +36,7 @@ import 'package:flutter/painting.dart' show MatrixUtils, TransformProperty;
 import 'package:flutter/services.dart';
 import 'package:vector_math/vector_math_64.dart';
 
-import 'binding.dart' show SemanticsBinding;
+import 'binding.dart' show SemanticsBinding, ohosSemanticsEnabled;
 import 'semantics_event.dart';
 
 export 'dart:ui'
@@ -112,9 +112,8 @@ typedef SemanticsUpdateCallback = void Function(SemanticsUpdate update);
 ///
 /// Use [ChildSemanticsConfigurationsResultBuilder] to generate the return
 /// value.
-typedef ChildSemanticsConfigurationsDelegate = ChildSemanticsConfigurationsResult Function(
-  List<SemanticsConfiguration>,
-);
+typedef ChildSemanticsConfigurationsDelegate =
+    ChildSemanticsConfigurationsResult Function(List<SemanticsConfiguration>);
 
 /// Controls how accessibility focus is blocked.
 ///
@@ -1062,6 +1061,8 @@ class SemanticsData with Diagnosticable {
     required this.attributedDecreasedValue,
     required this.attributedHint,
     required this.tooltip,
+    this.fontSize,
+    this.backgroundColor,
     required this.textDirection,
     required this.rect,
     required this.textSelection,
@@ -1115,6 +1116,14 @@ class SemanticsData with Diagnosticable {
          linkUrl == null || flagsCollection.isLink,
          'A SemanticsData object with a linkUrl must have the isLink flag set to true',
        );
+
+  /// The font size (in logical pixels) reported for a11y automation testing,
+  /// or null when the owning node carries no text style information.
+  final double? fontSize;
+
+  /// The solid background color (0xAARRGGBB) reported for a11y automation
+  /// testing, or null when no solid background applies.
+  final int? backgroundColor;
 
   /// A bit field of [SemanticsFlag]s that apply to this node.
   @Deprecated(
@@ -1453,6 +1462,8 @@ class SemanticsData with Diagnosticable {
     }
     properties.add(StringProperty('minValue', minValue, defaultValue: null));
     properties.add(StringProperty('maxValue', maxValue, defaultValue: null));
+    properties.add(DoubleProperty('fontSize', fontSize, defaultValue: null));
+    properties.add(IntProperty('backgroundColor', backgroundColor, defaultValue: null));
   }
 
   @override
@@ -1493,7 +1504,9 @@ class SemanticsData with Diagnosticable {
         other.traversalParentIdentifier == traversalParentIdentifier &&
         other.traversalChildIdentifier == traversalChildIdentifier &&
         other.minValue == minValue &&
-        other.maxValue == maxValue;
+        other.maxValue == maxValue &&
+        other.fontSize == fontSize &&
+        other.backgroundColor == backgroundColor;
   }
 
   @override
@@ -1533,6 +1546,8 @@ class SemanticsData with Diagnosticable {
       traversalChildIdentifier,
       minValue,
       maxValue,
+      fontSize,
+      backgroundColor,
     ),
   );
 
@@ -3368,11 +3383,16 @@ class SemanticsNode with DiagnosticableTreeMixin {
         _traversalParentIdentifier != config._traversalParentIdentifier ||
         _minValue != config._minValue ||
         _maxValue != config._maxValue ||
+        _fontSize != config.fontSize ||
+        _backgroundColor != config.backgroundColor ||
         !mapEquals<CustomSemanticsAction, VoidCallback>(
           _customSemanticsActions,
           config._customSemanticsActions,
         );
   }
+
+  double? _fontSize;
+  int? _backgroundColor;
 
   // TAGS, LABELS, ACTIONS
 
@@ -3747,6 +3767,8 @@ class SemanticsNode with DiagnosticableTreeMixin {
     _attributedDecreasedValue = config.attributedDecreasedValue;
     _attributedHint = config.attributedHint;
     _tooltip = config.tooltip;
+    _fontSize = config.fontSize;
+    _backgroundColor = config.backgroundColor;
     _hintOverrides = config.hintOverrides;
     _flags = config._flags;
     _textDirection = config.textDirection;
@@ -3837,6 +3859,8 @@ class SemanticsNode with DiagnosticableTreeMixin {
     final customSemanticsActionIds = <int>{};
     String? minValue = _minValue;
     String? maxValue = _maxValue;
+    double? fontSize = _fontSize;
+    int? backgroundColor = _backgroundColor;
     for (final CustomSemanticsAction action in _customSemanticsActions.keys) {
       customSemanticsActionIds.add(CustomSemanticsAction.getIdentifier(action));
     }
@@ -3872,6 +3896,8 @@ class SemanticsNode with DiagnosticableTreeMixin {
         platformViewId ??= node._platformViewId;
         maxValueLength ??= node._maxValueLength;
         currentValueLength ??= node._currentValueLength;
+        fontSize ??= node._fontSize;
+        backgroundColor ??= node._backgroundColor;
         linkUrl ??= node._linkUrl;
         headingLevel = _mergeHeadingLevels(
           sourceLevel: node._headingLevel,
@@ -4000,6 +4026,8 @@ class SemanticsNode with DiagnosticableTreeMixin {
       locale: locale,
       minValue: minValue,
       maxValue: maxValue,
+      fontSize: fontSize,
+      backgroundColor: backgroundColor,
     );
   }
 
@@ -4085,9 +4113,14 @@ class SemanticsNode with DiagnosticableTreeMixin {
     return Int32List.fromList(children.reversed.map<int>((SemanticsNode node) => node.id).toList());
   }
 
-  void _addToUpdate(SemanticsUpdateBuilder builder, Set<int> customSemanticsActionIdsUpdate) {
+  void _addToUpdate(
+    SemanticsUpdateBuilder builder,
+    Set<int> customSemanticsActionIdsUpdate,
+    Map<int, (double?, int?)>? ohosAttributes,
+  ) {
     assert(_dirty);
     final SemanticsData data = getSemanticsData();
+    ohosAttributes?[id] = (data.fontSize, data.backgroundColor);
     assert(() {
       final FlutterError? error = _DebugSemanticsRoleChecks._checkSemanticsData(this);
       if (error != null) {
@@ -4899,6 +4932,20 @@ class SemanticsOwner extends ChangeNotifier {
   /// after the [SemanticsUpdate] has been build, but before the [SemanticsOwner]'s
   /// listeners have been notified.
   final SemanticsUpdateCallback onSemanticsUpdate;
+
+  /// The attributes serialized alongside the current OHOS semantics update.
+  Map<int, (double?, int?)>? get ohosSemanticsAttributes => _ohosSemanticsAttributes;
+  Map<int, (double?, int?)>? _ohosSemanticsAttributes;
+
+  static int _nextOhosSemanticsEpoch = 0;
+
+  /// Identifies this owner's semantics tree for the OHOS inspector.
+  late final int ohosSemanticsEpoch = ++_nextOhosSemanticsEpoch;
+  int _ohosSemanticsSequence = 0;
+
+  /// Returns the next sequence number for this owner's OHOS updates.
+  int nextOhosSemanticsSequence() => ++_ohosSemanticsSequence;
+
   final Set<SemanticsNode> _dirtyNodes = <SemanticsNode>{};
   final Map<int, SemanticsNode> _nodes = <int, SemanticsNode>{};
   final Set<SemanticsNode> _detachedNodes = <SemanticsNode>{};
@@ -5059,6 +5106,9 @@ class SemanticsOwner extends ChangeNotifier {
 
     visitedNodes.sort((SemanticsNode a, SemanticsNode b) => a.depth - b.depth);
     final SemanticsUpdateBuilder builder = SemanticsBinding.instance.createSemanticsUpdateBuilder();
+    final Map<int, (double?, int?)>? ohosAttributes = ohosSemanticsEnabled
+        ? <int, (double?, int?)>{}
+        : null;
 
     for (final node in visitedNodes) {
       // TODO(QuncCccccc): Add an assert that each non-root node has a
@@ -5078,7 +5128,7 @@ class SemanticsOwner extends ChangeNotifier {
       // which happens e.g. when the node is no longer contributing
       // semantics).
       if (node._dirty && node.attached) {
-        node._addToUpdate(builder, customSemanticsActionIds);
+        node._addToUpdate(builder, customSemanticsActionIds, ohosAttributes);
       }
     }
     _dirtyNodes.clear();
@@ -5091,7 +5141,12 @@ class SemanticsOwner extends ChangeNotifier {
         overrideId: action.action?.index ?? -1,
       );
     }
-    onSemanticsUpdate(builder.build());
+    _ohosSemanticsAttributes = ohosAttributes;
+    try {
+      onSemanticsUpdate(builder.build());
+    } finally {
+      _ohosSemanticsAttributes = null;
+    }
     notifyListeners();
   }
 
@@ -5315,6 +5370,32 @@ class SemanticsConfiguration {
   // SEMANTIC ANNOTATIONS
   // These will end up on [SemanticsNode]s generated from
   // [SemanticsConfiguration]s.
+
+  /// The font size (in logical pixels) of the text rendered by the owning
+  /// [RenderObject], if any.
+  ///
+  /// Collected automatically from text render objects for accessibility
+  /// automation testing (reported via OHOS Inspector `$attrs`). `null` when
+  /// this configuration has no text style information.
+  double? get fontSize => _fontSize;
+  double? _fontSize;
+  set fontSize(double? value) {
+    _fontSize = value;
+    _hasBeenAnnotated = true;
+  }
+
+  /// The solid background color (0xAARRGGBB) painted behind the owning
+  /// [RenderObject], if any.
+  ///
+  /// Collected automatically from colored/decorated boxes for accessibility
+  /// automation testing (reported via OHOS Inspector `$attrs`). `null` when
+  /// no solid background color applies (e.g. gradients are not reported).
+  int? get backgroundColor => _backgroundColor;
+  int? _backgroundColor;
+  set backgroundColor(int? value) {
+    _backgroundColor = value;
+    _hasBeenAnnotated = true;
+  }
 
   /// Whether this configuration is empty.
   ///
@@ -6847,6 +6928,8 @@ class SemanticsConfiguration {
     _platformViewId ??= child._platformViewId;
     _maxValueLength ??= child._maxValueLength;
     _currentValueLength ??= child._currentValueLength;
+    _fontSize ??= child._fontSize;
+    _backgroundColor ??= child._backgroundColor;
     // A node cannot have both `_traversalChildIdentifier` and
     // `_traversalParentIdentifier` not null.
     if (_traversalChildIdentifier == null) {
@@ -6944,6 +7027,8 @@ class SemanticsConfiguration {
       .._accessibilityFocusBlockType = _accessibilityFocusBlockType
       .._hintOverrides = _hintOverrides
       .._tooltip = _tooltip
+      .._fontSize = _fontSize
+      .._backgroundColor = _backgroundColor
       .._flags = _flags
       .._tagsForChildren = _tagsForChildren
       .._textSelection = _textSelection

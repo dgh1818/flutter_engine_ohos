@@ -24,6 +24,7 @@ class SemanticsTree {
   SemanticsNodeExtend* FindNodeById(int32_t id);
   SemanticsNodeExtend* GetOrAddNode(int32_t id);
   void RemoveNode(int32_t id);
+  void ClearInspectorAttributes();
   bool SetAccessibilityFocusNode(int32_t id);
   void ClearAccessibilityFocusNode();
 

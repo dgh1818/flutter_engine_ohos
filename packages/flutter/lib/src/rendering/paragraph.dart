@@ -41,10 +41,8 @@ typedef _TextBoundaryAtPosition = _TextBoundaryRecord Function(TextPosition posi
 
 /// Signature for a function that determines the [_TextBoundaryRecord] at the given
 /// [TextPosition], for the given [String].
-typedef _TextBoundaryAtPositionInText = _TextBoundaryRecord Function(
-  TextPosition position,
-  String text,
-);
+typedef _TextBoundaryAtPositionInText =
+    _TextBoundaryRecord Function(TextPosition position, String text);
 
 const String _kEllipsis = '\u2026';
 
@@ -1260,6 +1258,14 @@ class RenderParagraph extends RenderBox
       }
       config.attributedLabel = _cachedAttributedLabels![0];
       config.textDirection = textDirection;
+      // A11y automation-test attribute (OHOS Inspector `$attrs`): the
+      // effective font size of this paragraph, in logical pixels. When an
+      // ambient style exists without an explicit font size, fall back to the
+      // framework default (14.0); no style at all leaves it unreported.
+      if (ohosSemanticsEnabled) {
+        final TextStyle? style = text.style;
+        config.fontSize = style == null ? null : (style.fontSize ?? 14.0);
+      }
     }
   }
 

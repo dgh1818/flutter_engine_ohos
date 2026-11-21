@@ -10,16 +10,34 @@
 #include "ohos_semantics_tree.h"
 
 namespace flutter {
+class InspectorSnapshot;
+
+struct InspectorSidecarNode {
+  int32_t id;
+  double font_size;
+  int64_t background_color;
+};
+
+struct InspectorSidecarUpdate {
+  uint64_t epoch;
+  uint64_t sequence;
+  std::vector<InspectorSidecarNode> nodes;
+};
+
 class SemanticsBridge {
  public:
   SemanticsBridge() = default;
 
   SemanticsTree tree_;
+  std::shared_ptr<InspectorSnapshot> inspector_snapshot_;
   ArkUI_AccessibilityProvider* provider_ohos_ = nullptr;
   ArkUI_AccessibilityProvider* old_provider_ohos_ = nullptr;
   bool is_accessibility_enabled_ = false;
   bool has_navigationed_ = false;
   void UpdateNodeTree(flutter::SemanticsNodeUpdates& nodes);
+  void ApplyInspectorSidecar(const InspectorSidecarUpdate& update);
+  void ClearInspectorSidecar();
+  void ResetInspectorSidecar();
   void UpdateFocusedNode();
   SemanticsNodeExtend* GetNodeById(int32_t id);
 
@@ -54,6 +72,13 @@ class SemanticsBridge {
   void OnTooltip(std::unique_ptr<char[]>& message);
   void OnAccessibilityStateChange(bool state);
   void OnAccessibilityNavigation(bool is_nav);
+
+ private:
+  bool has_sidecar_order_ = false;
+  uint64_t sidecar_epoch_ = 0;
+  uint64_t sidecar_sequence_ = 0;
+  bool sidecar_epoch_retired_ = false;
+  std::unordered_map<int32_t, InspectorSidecarNode> pending_sidecar_nodes_;
 };
 }  // namespace flutter
 #endif  // FLUTTER_SHELL_PLATFORM_OHOS_ACCESSIBILITY_OHOS_SEMANTICS_BRIDGE_H_

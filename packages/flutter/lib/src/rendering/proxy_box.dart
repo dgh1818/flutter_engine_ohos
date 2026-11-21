@@ -2416,6 +2416,22 @@ class RenderDecoratedBox extends RenderProxyBox {
     _painter = null;
     _decoration = value;
     markNeedsPaint();
+    if (ohosSemanticsEnabled) {
+      markNeedsSemanticsUpdate();
+    }
+  }
+
+  @override
+  void describeSemanticsConfiguration(SemanticsConfiguration config) {
+    super.describeSemanticsConfiguration(config);
+    // A11y automation-test attribute (OHOS Inspector `$attrs`): solid
+    // background color only; gradients/images have no single-color value.
+    final Decoration currentDecoration = _decoration;
+    if (ohosSemanticsEnabled &&
+        currentDecoration is BoxDecoration &&
+        currentDecoration.color != null) {
+      config.backgroundColor = currentDecoration.color!.value;
+    }
   }
 
   /// Whether to paint the box decoration behind or in front of the child.

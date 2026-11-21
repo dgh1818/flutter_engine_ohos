@@ -6,7 +6,6 @@
 
 #define FML_USED_ON_EMBEDDER
 
-#include "flutter/shell/platform/ohos/platform_message_handler_ohos.h"
 #include <gtest/gtest.h>
 #include <memory>
 #include <string>
@@ -17,7 +16,9 @@
 #include "flutter/fml/task_runner.h"
 #include "flutter/lib/ui/window/platform_message.h"
 #include "flutter/lib/ui/window/platform_message_response.h"
+#include "flutter/shell/platform/ohos/accessibility/ohos_semantics_inspector.h"
 #include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
+#include "flutter/shell/platform/ohos/platform_message_handler_ohos.h"
 
 namespace flutter {
 namespace testing {
@@ -32,7 +33,8 @@ class MockPlatformMessageResponse : public PlatformMessageResponse {
   void Complete(std::unique_ptr<fml::Mapping> data) override {
     is_complete_called_ = true;
     if (data) {
-      complete_data_ = std::string(data->GetMapping(), data->GetMapping() + data->GetSize());
+      complete_data_ =
+          std::string(data->GetMapping(), data->GetMapping() + data->GetSize());
     }
   }
 
@@ -76,23 +78,114 @@ class PlatformMessageHandlerOHOSTest : public ::testing::Test {
   std::unique_ptr<PlatformMessageHandlerOHOS> handler_;
 };
 
+TEST(InspectorSidecarTest, ValidatesBoundedMessages) {
+  const std::string valid =
+      R"({"version":1,"viewId":0,"epoch":1,"sequence":2,"nodes":[)"
+      R"({"id":7,"fontSize":12.5,"backgroundColor":4279312947}]})";
+  EXPECT_TRUE(ValidateInspectorSidecar(valid.data(), valid.size()));
+  const std::string nullable =
+      R"({"version":1,"viewId":0,"epoch":1,"sequence":2,"nodes":[{"id":7,"fontSize":null,"backgroundColor":null}]})";
+  EXPECT_TRUE(ValidateInspectorSidecar(nullable.data(), nullable.size()));
+  const std::string wrong_version =
+      R"({"version":2,"viewId":0,"epoch":1,"sequence":2,"nodes":[]})";
+  EXPECT_FALSE(
+      ValidateInspectorSidecar(wrong_version.data(), wrong_version.size()));
+  const std::string duplicate_id =
+      R"({"version":1,"viewId":0,"epoch":1,"sequence":2,"nodes":[)"
+      R"({"id":7,"fontSize":1,"backgroundColor":null},)"
+      R"({"id":7,"fontSize":2,"backgroundColor":null}]})";
+  EXPECT_FALSE(
+      ValidateInspectorSidecar(duplicate_id.data(), duplicate_id.size()));
+  const std::string malformed =
+      R"({"version":1,"viewId":0,"epoch":1,"sequence":2,"nodes":[{"id":7,"fontSize":"x","backgroundColor":null}]})";
+  EXPECT_FALSE(ValidateInspectorSidecar(malformed.data(), malformed.size()));
+  const std::string oversized(1024 * 1024 + 1, ' ');
+  EXPECT_FALSE(ValidateInspectorSidecar(oversized.data(), oversized.size()));
+  EXPECT_FALSE(ValidateInspectorSidecar(nullptr, 0));
+  const std::string other_view =
+      R"({"version":1,"viewId":1,"epoch":1,"sequence":2,"nodes":[]})";
+  EXPECT_FALSE(ValidateInspectorSidecar(other_view.data(), other_view.size()));
+  InspectorSidecarUpdate parsed;
+  ASSERT_TRUE(ParseInspectorSidecar(valid.data(), valid.size(), &parsed));
+  ASSERT_EQ(parsed.nodes.size(), 1u);
+  EXPECT_EQ(parsed.epoch, 1u);
+  EXPECT_EQ(parsed.sequence, 2u);
+  EXPECT_EQ(parsed.nodes[0].id, 7);
+  EXPECT_DOUBLE_EQ(parsed.nodes[0].font_size, 12.5);
+  EXPECT_EQ(parsed.nodes[0].background_color, 4279312947);
+  ASSERT_TRUE(ParseInspectorSidecar(nullable.data(), nullable.size(), &parsed));
+  EXPECT_TRUE(std::isnan(parsed.nodes[0].font_size));
+  EXPECT_EQ(parsed.nodes[0].background_color, -1);
+}
+
+TEST_F(PlatformMessageHandlerOHOSTest, InspectorSidecarCompletesResponse) {
+  auto response = MockPlatformMessageResponse::Create();
+  auto message = std::make_unique<PlatformMessage>(
+      "flutter/ohos_inspector_sidecar_experiment", response);
+  handler_->HandlePlatformMessage(std::move(message));
+  EXPECT_TRUE(response->is_complete_empty_called());
+}
+
+TEST_F(PlatformMessageHandlerOHOSTest, RestartRejectsQueuedOldSidecar) {
+  constexpr double kFirstFontSize = 11;
+  constexpr double kRestartFontSize = 20;
+  auto bridge = std::make_shared<SemanticsBridge>();
+  auto mutex = std::make_shared<std::mutex>();
+  bridge->inspector_snapshot_ = std::make_shared<InspectorSnapshot>();
+  SemanticsNodeUpdates nodes;
+  SemanticsNode root;
+  root.id = 0;
+  nodes[0] = root;
+  bridge->UpdateNodeTree(nodes);
+  handler_->SetSemanticsBridge(bridge, mutex);
+  const auto send = [this](const std::string& json) {
+    auto data = fml::MallocMapping::Copy(
+        reinterpret_cast<const uint8_t*>(json.data()), json.size());
+    handler_->HandlePlatformMessage(std::make_unique<PlatformMessage>(
+        "flutter/ohos_inspector_sidecar_experiment", std::move(data), nullptr));
+  };
+  send(
+      R"({"version":1,"viewId":0,"epoch":42,"sequence":1,"nodes":[{"id":0,"fontSize":11,"backgroundColor":0}]})");
+  task_runner_->PostTask([&] {
+    EXPECT_EQ(bridge->tree_.FindNodeById(0)->fontSize, kFirstFontSize);
+    send(
+        R"({"version":1,"viewId":0,"epoch":43,"sequence":1,"nodes":[{"id":0,"fontSize":99,"backgroundColor":0}]})");
+    handler_->OnPreEngineRestart();
+    EXPECT_TRUE(std::isnan(bridge->tree_.FindNodeById(0)->fontSize));
+    EXPECT_EQ(bridge->inspector_snapshot_->Read()->find("fontSize"),
+              std::string::npos);
+    task_runner_->PostTask([&] {
+      EXPECT_TRUE(std::isnan(bridge->tree_.FindNodeById(0)->fontSize));
+      send(
+          R"({"version":1,"viewId":0,"epoch":1,"sequence":1,"nodes":[{"id":0,"fontSize":20,"backgroundColor":0}]})");
+      task_runner_->PostTask([&] {
+        EXPECT_EQ(bridge->tree_.FindNodeById(0)->fontSize, kRestartFontSize);
+        loop_->Terminate();
+      });
+    });
+  });
+  loop_->Run();
+}
+
 // DoesHandlePlatformMessageOnPlatformThread should return true
 TEST_F(PlatformMessageHandlerOHOSTest,
        DoesHandlePlatformMessageOnPlatformThreadReturnsTrue) {
   EXPECT_TRUE(handler_->DoesHandlePlatformMessageOnPlatformThread());
 }
 
-// InvokePlatformMessageResponseCallback with non-existent response_id should return early
+// InvokePlatformMessageResponseCallback with non-existent response_id should
+// return early
 TEST_F(PlatformMessageHandlerOHOSTest,
        InvokeResponseCallbackWithUnknownIdReturnsEarly) {
-  auto mapping = fml::MallocMapping::Copy(
-      reinterpret_cast<const uint8_t*>("hello"), 5);
+  auto mapping =
+      fml::MallocMapping::Copy(reinterpret_cast<const uint8_t*>("hello"), 5);
   handler_->InvokePlatformMessageResponseCallback(
       999, std::make_unique<fml::MallocMapping>(std::move(mapping)));
   SUCCEED();
 }
 
-// InvokePlatformMessageEmptyResponseCallback with non-existent response_id should return early
+// InvokePlatformMessageEmptyResponseCallback with non-existent response_id
+// should return early
 TEST_F(PlatformMessageHandlerOHOSTest,
        InvokeEmptyResponseCallbackWithUnknownIdReturnsEarly) {
   handler_->InvokePlatformMessageEmptyResponseCallback(999);
@@ -100,17 +193,18 @@ TEST_F(PlatformMessageHandlerOHOSTest,
 }
 
 // HandlePlatformMessage with a response should store the response into
-// pending_responses_ (covers if (auto response = message->response()) true branch)
+// pending_responses_ (covers if (auto response = message->response()) true
+// branch)
 TEST_F(PlatformMessageHandlerOHOSTest,
        HandlePlatformMessageWithResponseRegistersPending) {
   auto mock_response = MockPlatformMessageResponse::Create();
-  auto message = std::make_unique<PlatformMessage>("test_channel",
-                                                    mock_response);
+  auto message =
+      std::make_unique<PlatformMessage>("test_channel", mock_response);
   // PostTask only enqueues without executing; napi_env=nullptr won't crash
   handler_->HandlePlatformMessage(std::move(message));
   // response_id starts at 1; verify Invoke can find the pending response
-  auto mapping = fml::MallocMapping::Copy(
-      reinterpret_cast<const uint8_t*>("data"), 4);
+  auto mapping =
+      fml::MallocMapping::Copy(reinterpret_cast<const uint8_t*>("data"), 4);
   handler_->InvokePlatformMessageResponseCallback(
       1, std::make_unique<fml::MallocMapping>(std::move(mapping)));
   EXPECT_TRUE(mock_response->is_complete_called());
@@ -143,31 +237,32 @@ TEST_F(PlatformMessageHandlerOHOSTest,
   EXPECT_TRUE(mock_response->is_complete_empty_called());
 }
 
-// InvokePlatformMessageResponseCallback finds the pending response and calls Complete
-// (covers happy path: response_id matches -> message_response->Complete)
+// InvokePlatformMessageResponseCallback finds the pending response and calls
+// Complete (covers happy path: response_id matches ->
+// message_response->Complete)
 TEST_F(PlatformMessageHandlerOHOSTest,
        InvokeResponseCallbackCompletesPendingResponse) {
   auto mock_response = MockPlatformMessageResponse::Create();
-  auto message = std::make_unique<PlatformMessage>("test_channel",
-                                                    mock_response);
+  auto message =
+      std::make_unique<PlatformMessage>("test_channel", mock_response);
   handler_->HandlePlatformMessage(std::move(message));
 
-  auto mapping = fml::MallocMapping::Copy(
-      reinterpret_cast<const uint8_t*>("hello"), 5);
+  auto mapping =
+      fml::MallocMapping::Copy(reinterpret_cast<const uint8_t*>("hello"), 5);
   handler_->InvokePlatformMessageResponseCallback(
       1, std::make_unique<fml::MallocMapping>(std::move(mapping)));
   EXPECT_TRUE(mock_response->is_complete_called());
   EXPECT_EQ(mock_response->complete_data(), "hello");
 }
 
-// InvokePlatformMessageEmptyResponseCallback finds the pending response and calls
-// CompleteEmpty (covers happy path: response_id matches ->
+// InvokePlatformMessageEmptyResponseCallback finds the pending response and
+// calls CompleteEmpty (covers happy path: response_id matches ->
 // message_response->CompleteEmpty)
 TEST_F(PlatformMessageHandlerOHOSTest,
        InvokeEmptyResponseCallbackCompletesPendingResponse) {
   auto mock_response = MockPlatformMessageResponse::Create();
-  auto message = std::make_unique<PlatformMessage>("test_channel",
-                                                    mock_response);
+  auto message =
+      std::make_unique<PlatformMessage>("test_channel", mock_response);
   handler_->HandlePlatformMessage(std::move(message));
 
   handler_->InvokePlatformMessageEmptyResponseCallback(1);
@@ -190,8 +285,8 @@ TEST_F(PlatformMessageHandlerOHOSTest,
   EXPECT_FALSE(mock_response->is_complete_called());
 
   // Correct id=1 should trigger the callback
-  auto mapping = fml::MallocMapping::Copy(
-      reinterpret_cast<const uint8_t*>("data"), 4);
+  auto mapping =
+      fml::MallocMapping::Copy(reinterpret_cast<const uint8_t*>("data"), 4);
   handler_->InvokePlatformMessageResponseCallback(
       1, std::make_unique<fml::MallocMapping>(std::move(mapping)));
   EXPECT_TRUE(mock_response->is_complete_called());
