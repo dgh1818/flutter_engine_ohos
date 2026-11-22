@@ -31,6 +31,32 @@ class FakeSurfaceControl : public SurfaceControl {
   bool RemoveFromParent() const override { return true; }
 };
 
+TEST(AndroidAHBSwapchainTest,
+     AHBSwapchainNoFenceWaitAfterAcquireNextImageFailure) {
+  bool wait_for_fences_called = false;
+  auto const context =
+      MockVulkanContextBuilder()
+          .SetDeviceExtensions(kAndroidDeviceExtensions)
+          .SetAcquireNextImageCallback(
+              [](VkDevice, VkSwapchainKHR, uint64_t, VkSemaphore, VkFence,
+                 uint32_t*) -> VkResult { return VK_ERROR_SURFACE_LOST_KHR; })
+          .SetWaitForFencesCallback([&](VkDevice, uint32_t, const VkFence*,
+                                        VkBool32, uint64_t) -> VkResult {
+            wait_for_fences_called = true;
+            return VK_SUCCESS;
+          })
+          .Build();
+
+  auto ahb_swapchain = std::shared_ptr<AHBSwapchainVK>(new AHBSwapchainVK(
+      context, std::make_shared<FakeSurfaceControl>(), {}, {100, 100}, false));
+
+  auto image = ahb_swapchain->AcquireNextDrawable();
+  EXPECT_FALSE(image);
+
+  ahb_swapchain->AcquireNextDrawable();
+  EXPECT_FALSE(wait_for_fences_called);
+}
+
 TEST(AndroidAHBSwapchainTest, AHBSwapchainDtorCallsWaitIdle) {
   const auto context = MockVulkanContextBuilder()
                            .SetDeviceExtensions(kAndroidDeviceExtensions)

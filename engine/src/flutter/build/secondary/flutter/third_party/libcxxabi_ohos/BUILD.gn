@@ -54,7 +54,7 @@ source_set("libcxxabi") {
   # No translation units in the engine are built with exceptions. But, using
   # Objective-C exceptions requires some infrastructure setup for exceptions.
   # Build support for the same in cxxabi on Darwin.
-  if (is_mac || is_ios) {
+  if (is_mac || is_ios || is_ohos) {
     configs -= [ "//build/config/gcc:no_exceptions" ]
     sources += [
       "src/cxa_exception.cpp",

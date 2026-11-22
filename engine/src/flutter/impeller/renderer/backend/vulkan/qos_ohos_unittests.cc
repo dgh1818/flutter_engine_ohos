@@ -37,7 +37,8 @@ TEST(QosOhosTest, FenceWaiterWorksAfterSetQosOnLowMemory) {
 
   auto signal = fml::ManualResetWaitableEvent();
   auto fence = device.createFenceUnique({}).value;
-  waiter->AddFence(std::move(fence), [&signal]() { signal.Signal(); });
+  waiter->AddFence(std::move(fence), [](vk::Fence) { return fml::Status(); },
+                   [&signal]() { signal.Signal(); });
 
   ASSERT_FALSE(signal.WaitWithTimeout(fml::TimeDelta::FromSeconds(5)));
 }

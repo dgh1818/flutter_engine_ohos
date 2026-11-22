@@ -51,7 +51,6 @@ import 'persistent_tool_state.dart';
 import 'pre_run_validator.dart';
 import 'project.dart';
 import 'reporting/crash_reporting.dart';
-import 'reporting/reporting.dart';
 import 'runner/local_engine.dart';
 import 'version.dart';
 
@@ -78,7 +77,6 @@ OhosSdk? get ohosSdk => context.get<OhosSdk>();
 HmosSdk? get hmosSdk => context.get<HmosSdk>();
 HarmonySdk? get harmonySdk => context.get<HarmonySdk>();
 FlutterVersion get flutterVersion => context.get<FlutterVersion>()!;
-Usage get flutterUsage => context.get<Usage>()!;
 XcodeProjectInterpreter? get xcodeProjectInterpreter => context.get<XcodeProjectInterpreter>();
 XCDevice? get xcdevice => context.get<XCDevice>();
 Xcode? get xcode => context.get<Xcode>();

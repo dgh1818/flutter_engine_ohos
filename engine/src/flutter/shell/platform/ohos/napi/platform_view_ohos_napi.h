@@ -257,6 +257,16 @@ class PlatformViewOHOSNapi {
   static napi_value nativeRegisterTexture(napi_env env,
                                           napi_callback_info info);
 
+  // Inspector tree getter registration (a11y automation-test attributes).
+  // ArkTS passes the host XComponent's FrameNode; the node handle is derived
+  // via OH_ArkUI_GetNodeHandleFromNapiValue and the getter is registered on
+  // the holder's semantics bridge. No-op with a warning below API 26.1.0.
+  static napi_value nativeRegisterInspectorTreeGetter(napi_env env,
+                                                      napi_callback_info info);
+  static napi_value nativeUnregisterInspectorTreeGetter(
+      napi_env env,
+      napi_callback_info info);
+
   static napi_value nativeGetTextureWindowId(napi_env env,
                                              napi_callback_info info);
   static napi_value nativeGetTextureWindowPtr(napi_env env,
@@ -366,6 +376,9 @@ class PlatformViewOHOSNapi {
   // INACTIVE). Args: view_id (int64), activated (bool). Caches the flag for
   // the Dart `isActivated` query and pings notify_listeners on change.
   static napi_value nativeNotifyWindowActivated(napi_env env,
+                                                napi_callback_info info);
+
+  static napi_value nativeSetViewSizedToContent(napi_env env,
                                                 napi_callback_info info);
 
   static napi_value nativeUnicodeIsEmoji(napi_env env, napi_callback_info info);

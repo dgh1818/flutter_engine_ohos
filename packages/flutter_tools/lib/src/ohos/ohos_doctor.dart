@@ -104,6 +104,22 @@ class OhosValidator extends DoctorValidator {
     } else {
       messages.add(ValidationMessage(_userMessages.hvigorwPath(hvigorPathString)));
     }
+
+    /// check hdc (HarmonyOS device connector), mirroring how the Android
+    /// toolchain relies on the SDK's adb binary
+    // hdcPath is a computed getter that scans the SDK directory; read it once.
+    final String? hdcPath = _hosSdk?.hdcPath;
+    if (_hosSdk != null && hdcPath != null && _processManager.canRun(hdcPath)) {
+      messages.add(ValidationMessage('hdc - HarmonyOS device connector at $hdcPath'));
+    } else if (_hosSdk != null) {
+      validationType = ValidationType.missing;
+      messages.add(
+        ValidationMessage.error(
+          'hdc not found or not executable under ${_hosSdk.sdkPath}; '
+          'check your OpenHarmony SDK installation',
+        ),
+      );
+    }
     return ValidationResult(validationType, messages);
   }
 

@@ -15,7 +15,6 @@ import '../build_info.dart';
 import '../cache.dart';
 import '../globals.dart' as globals;
 import '../project.dart';
-import '../reporting/reporting.dart';
 import 'ohos_sdk.dart';
 
 const String FLAVOR_DEFAULT = 'default';
@@ -108,12 +107,6 @@ void writeLocalProperties(File properties) {
 }
 
 void exitWithNoSdkMessage() {
-  BuildEvent(
-    'unsupported-project',
-    type: 'hvigor',
-    eventError: 'hos-sdk-not-found',
-    flutterUsage: globals.flutterUsage,
-  ).send();
   throwToolExit(
     '${globals.logger.terminal.warningMark} No Hmos SDK found. '
     'Try setting the HOS_SDK_HOME environment variable.',

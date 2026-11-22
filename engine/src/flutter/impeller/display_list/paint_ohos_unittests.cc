@@ -5,13 +5,15 @@
  */
 
 // OHOS-only assertion for the FML_OS_OHOS branch in Paint::CreateContents
-// (paint.cc:68): solid-color paints must propagate Paint::source_color_space
+// (paint.cc): solid-color paints must propagate Paint::source_color_space
 // into SolidColorContents via SetColorWithSpace. Registered only in
 // flutter_ohos_unittests; the guard keeps this file an empty translation
 // unit on non-OHOS builds.
 #include "flutter/fml/build_config.h"
 
+#include "flutter/impeller/renderer/testing/mocks.h"
 #include "impeller/display_list/paint.h"
+#include "impeller/entity/contents/content_context.h"
 #include "impeller/entity/contents/solid_color_contents.h"
 #include "impeller/entity/geometry/geometry.h"
 
@@ -27,10 +29,30 @@ TEST(PaintOhosTest, SolidColorContentsUsesSourceColorSpace) {
   paint.color = Color::Red();
   paint.source_color_space = ColorSpace::kDisplayP3;
 
+  // Paint::CreateContents now takes a ContentContext as its first argument.
+  // Build one over a mock Context: IsValid() == false makes the
+  // ContentContext constructor return before any backend work, and the
+  // solid-color path below never reads the renderer anyway.
+  auto context = std::make_shared<MockImpellerContext>();
+  auto capabilities =
+      std::shared_ptr<const Capabilities>(std::make_shared<MockCapabilities>());
+  auto device_buffer =
+      std::make_shared<MockDeviceBuffer>(DeviceBufferDescriptor{});
+  auto allocator = std::make_shared<MockAllocator>();
+  ON_CALL(*allocator, OnCreateBuffer(::testing::_))
+      .WillByDefault(::testing::Return(device_buffer));
+  ON_CALL(*context, GetResourceAllocator())
+      .WillByDefault(::testing::Return(allocator));
+  ON_CALL(*context, GetCapabilities())
+      .WillByDefault(::testing::ReturnRef(capabilities));
+  ON_CALL(*context, IsValid()).WillByDefault(::testing::Return(false));
+
+  ContentContext renderer(context, nullptr);
+
   // With no color_source set, CreateContents produces SolidColorContents.
   auto geom = Geometry::MakeCover();
   std::shared_ptr<ColorSourceContents> contents =
-      paint.CreateContents(geom.get());
+      paint.CreateContents(renderer, geom.get());
   ASSERT_TRUE(contents != nullptr);
   ASSERT_TRUE(contents->IsSolidColor());
 

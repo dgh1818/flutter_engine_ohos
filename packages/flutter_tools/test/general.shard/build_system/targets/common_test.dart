@@ -14,6 +14,7 @@ import 'package:flutter_tools/src/build_system/targets/common.dart';
 import 'package:flutter_tools/src/build_system/targets/ios.dart';
 import 'package:flutter_tools/src/compile.dart';
 import 'package:flutter_tools/src/convert.dart';
+import 'package:flutter_tools/src/features.dart';
 import 'package:flutter_tools/src/ios/xcodeproj.dart';
 import 'package:flutter_tools/src/project.dart';
 import 'package:test/fake.dart';
@@ -21,6 +22,7 @@ import 'package:test/fake.dart';
 import '../../../src/common.dart';
 import '../../../src/context.dart';
 import '../../../src/fake_process_manager.dart';
+import '../../../src/fakes.dart';
 
 const kBoundaryKey = '4d2d9609-c662-4571-afde-31410f96caa6';
 const kElfAot = '--snapshot_kind=app-aot-elf';
@@ -47,7 +49,7 @@ void main() {
       fileSystem.currentDirectory,
       defines: <String, String>{
         kBuildMode: BuildMode.profile.cliName,
-        kTargetPlatform: getNameForTargetPlatform(TargetPlatform.android_arm),
+        kTargetPlatform: TargetPlatform.android_arm.getName(),
       },
       inputs: <String, String>{},
       artifacts: artifacts,
@@ -60,7 +62,7 @@ void main() {
       fileSystem.currentDirectory,
       defines: <String, String>{
         kBuildMode: BuildMode.profile.cliName,
-        kTargetPlatform: getNameForTargetPlatform(TargetPlatform.ios),
+        kTargetPlatform: TargetPlatform.ios.getName(),
       },
       inputs: <String, String>{},
       artifacts: artifacts,
@@ -71,15 +73,15 @@ void main() {
     iosEnvironment.buildDir.createSync(recursive: true);
   });
 
-  testWithoutContext('KernelSnapshot throws error if missing build mode', () async {
+  testUsingContext('KernelSnapshot throws error if missing build mode', () async {
     androidEnvironment.defines.remove(kBuildMode);
     expect(
       const KernelSnapshot().build(androidEnvironment),
       throwsA(isA<MissingDefineException>()),
     );
-  });
+  }, overrides: <Type, Generator>{FeatureFlags: () => TestFeatureFlags()});
 
-  testWithoutContext('KernelSnapshot handles null result from kernel compilation', () async {
+  testUsingContext('KernelSnapshot handles null result from kernel compilation', () async {
     fileSystem.file('.dart_tool/package_config.json')
       ..createSync(recursive: true)
       ..writeAsStringSync('{"configVersion": 2, "packages":[]}');
@@ -119,9 +121,9 @@ void main() {
 
     await expectLater(() => const KernelSnapshot().build(androidEnvironment), throwsException);
     expect(processManager, hasNoRemainingExpectations);
-  });
+  }, overrides: <Type, Generator>{FeatureFlags: () => TestFeatureFlags()});
 
-  testWithoutContext('KernelSnapshot does use track widget creation on profile builds', () async {
+  testUsingContext('KernelSnapshot does use track widget creation on profile builds', () async {
     fileSystem.file('.dart_tool/package_config.json')
       ..createSync(recursive: true)
       ..writeAsStringSync('{"configVersion": 2, "packages":[]}');
@@ -162,9 +164,9 @@ void main() {
     await const KernelSnapshot().build(androidEnvironment);
 
     expect(processManager, hasNoRemainingExpectations);
-  });
+  }, overrides: <Type, Generator>{FeatureFlags: () => TestFeatureFlags()});
 
-  testWithoutContext(
+  testUsingContext(
     'KernelSnapshot correctly handles an empty string in ExtraFrontEndOptions',
     () async {
       fileSystem.file('.dart_tool/package_config.json')
@@ -208,9 +210,10 @@ void main() {
 
       expect(processManager, hasNoRemainingExpectations);
     },
+    overrides: <Type, Generator>{FeatureFlags: () => TestFeatureFlags()},
   );
 
-  testWithoutContext('KernelSnapshot correctly forwards FrontendServerStarterPath', () async {
+  testUsingContext('KernelSnapshot correctly forwards FrontendServerStarterPath', () async {
     fileSystem.file('.dart_tool/package_config.json')
       ..createSync(recursive: true)
       ..writeAsStringSync('{"configVersion": 2, "packages":[]}');
@@ -254,9 +257,9 @@ void main() {
     );
 
     expect(processManager, hasNoRemainingExpectations);
-  });
+  }, overrides: <Type, Generator>{FeatureFlags: () => TestFeatureFlags()});
 
-  testWithoutContext('KernelSnapshot correctly forwards ExtraFrontEndOptions', () async {
+  testUsingContext('KernelSnapshot correctly forwards ExtraFrontEndOptions', () async {
     fileSystem.file('.dart_tool/package_config.json')
       ..createSync(recursive: true)
       ..writeAsStringSync('{"configVersion": 2, "packages":[]}');
@@ -301,9 +304,9 @@ void main() {
     );
 
     expect(processManager, hasNoRemainingExpectations);
-  });
+  }, overrides: <Type, Generator>{FeatureFlags: () => TestFeatureFlags()});
 
-  testWithoutContext('KernelSnapshot can disable track-widget-creation on debug builds', () async {
+  testUsingContext('KernelSnapshot can disable track-widget-creation on debug builds', () async {
     fileSystem.file('.dart_tool/package_config.json')
       ..createSync(recursive: true)
       ..writeAsStringSync('{"configVersion": 2, "packages":[]}');
@@ -348,7 +351,7 @@ void main() {
     );
 
     expect(processManager, hasNoRemainingExpectations);
-  });
+  }, overrides: <Type, Generator>{FeatureFlags: () => TestFeatureFlags()});
 
   testUsingContext(
     'KernelSnapshot forces platform linking on debug for darwin target platforms',
@@ -390,7 +393,7 @@ void main() {
 
       await const KernelSnapshot().build(
         androidEnvironment
-          ..defines[kTargetPlatform] = getNameForTargetPlatform(TargetPlatform.darwin)
+          ..defines[kTargetPlatform] = TargetPlatform.darwin.getName()
           ..defines[kBuildMode] = BuildMode.debug.cliName
           ..defines[kTrackWidgetCreation] = 'false',
       );
@@ -484,7 +487,7 @@ void main() {
 
       await const KernelSnapshot().build(
         iosEnvironment
-          ..defines[kTargetPlatform] = getNameForTargetPlatform(TargetPlatform.ios)
+          ..defines[kTargetPlatform] = TargetPlatform.ios.getName()
           ..defines[kBuildMode] = BuildMode.debug.cliName
           ..defines[kFlavor] = 'strawberry'
           ..defines[kXcodeConfiguration] = 'Debug-chocolate'
@@ -541,7 +544,7 @@ void main() {
 
       await const KernelSnapshot().build(
         iosEnvironment
-          ..defines[kTargetPlatform] = getNameForTargetPlatform(TargetPlatform.darwin)
+          ..defines[kTargetPlatform] = TargetPlatform.darwin.getName()
           ..defines[kBuildMode] = BuildMode.debug.cliName
           ..defines[kFlavor] = 'strawberry'
           ..defines[kXcodeConfiguration] = 'Debug-chocolate'
@@ -597,7 +600,7 @@ void main() {
 
       await const KernelSnapshot().build(
         iosEnvironment
-          ..defines[kTargetPlatform] = getNameForTargetPlatform(TargetPlatform.darwin)
+          ..defines[kTargetPlatform] = TargetPlatform.darwin.getName()
           ..defines[kBuildMode] = BuildMode.debug.cliName
           ..defines[kDartDefines] = base64Encode(utf8.encode('FLUTTER_APP_FLAVOR=vanilla'))
           ..defines[kFlavor] = 'strawberry'
@@ -613,64 +616,7 @@ void main() {
     },
   );
 
-  testUsingContext(
-    'KernelSnapshot does not add kAppFlavor twice to Dart defines',
-    () async {
-      fileSystem.file('.dart_tool/package_config.json')
-        ..createSync(recursive: true)
-        ..writeAsStringSync('{"configVersion": 2, "packages":[]}');
-      final String build = iosEnvironment.buildDir.path;
-      final String flutterPatchedSdkPath = artifacts.getArtifactPath(
-        Artifact.flutterPatchedSdkPath,
-        platform: TargetPlatform.darwin,
-        mode: BuildMode.debug,
-      );
-      processManager.addCommands(<FakeCommand>[
-        FakeCommand(
-          command: <String>[
-            artifacts.getArtifactPath(Artifact.engineDartAotRuntime),
-            artifacts.getArtifactPath(Artifact.frontendServerSnapshotForEngineDartSdk),
-            '--sdk-root',
-            '$flutterPatchedSdkPath/',
-            '--target=flutter',
-            '--no-print-incremental-dependencies',
-            '-D$kAppFlavor=strawberry',
-            ...buildModeOptions(BuildMode.debug, <String>[]),
-            '--packages',
-            '/.dart_tool/package_config.json',
-            '--output-dill',
-            '$build/app.dill',
-            '--depfile',
-            '$build/kernel_snapshot_program.d',
-            '--incremental',
-            '--initialize-from-dill',
-            '$build/app.dill',
-            '--verbosity=error',
-            'file:///lib/main.dart',
-          ],
-          stdout: 'result $kBoundaryKey\n$kBoundaryKey\n$kBoundaryKey $build/app.dill 0\n',
-        ),
-      ]);
-
-      await const KernelSnapshot().build(
-        iosEnvironment
-          ..defines[kTargetPlatform] = getNameForTargetPlatform(TargetPlatform.darwin)
-          ..defines[kBuildMode] = BuildMode.debug.cliName
-          ..defines[kDartDefines] = base64Encode(utf8.encode('FLUTTER_APP_FLAVOR=vanilla'))
-          ..defines[kFlavor] = 'strawberry'
-          ..defines[kTrackWidgetCreation] = 'false',
-      );
-
-      expect(processManager, hasNoRemainingExpectations);
-    },
-    overrides: <Type, Generator>{
-      Platform: () => macPlatform,
-      FileSystem: () => fileSystem,
-      ProcessManager: () => processManager,
-    },
-  );
-
-  testWithoutContext('KernelSnapshot does use track widget creation on debug builds', () async {
+  testUsingContext('KernelSnapshot does use track widget creation on debug builds', () async {
     fileSystem.file('.dart_tool/package_config.json')
       ..createSync(recursive: true)
       ..writeAsStringSync('{"configVersion": 2, "packages":[]}');
@@ -678,7 +624,7 @@ void main() {
       fileSystem.currentDirectory,
       defines: <String, String>{
         kBuildMode: BuildMode.debug.cliName,
-        kTargetPlatform: getNameForTargetPlatform(TargetPlatform.android_arm),
+        kTargetPlatform: TargetPlatform.android_arm.getName(),
       },
       processManager: processManager,
       artifacts: artifacts,
@@ -723,7 +669,7 @@ void main() {
     await const KernelSnapshot().build(testEnvironment);
 
     expect(processManager, hasNoRemainingExpectations);
-  });
+  }, overrides: <Type, Generator>{FeatureFlags: () => TestFeatureFlags()});
 
   testUsingContext('AotElfProfile Produces correct output directory', () async {
     final String build = androidEnvironment.buildDir.path;
@@ -864,7 +810,7 @@ void main() {
             kMachoDylibAot,
             '--macho=$build/arm64/App.framework/App',
             '--macho-object=$build/arm64/app.o',
-            '--macho-min-os-version=13.0',
+            '--macho-min-os-version=15.0',
             '--macho-rpath=@executable_path/Frameworks,@loader_path/Frameworks',
             '--macho-install-name=@rpath/App.framework/App',
             '$build/app.dill',

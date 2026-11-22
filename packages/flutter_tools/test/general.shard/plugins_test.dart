@@ -4,6 +4,7 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:file/file.dart';
 import 'package:file/memory.dart';
@@ -27,6 +28,7 @@ import 'package:flutter_tools/src/platform_plugins.dart';
 import 'package:flutter_tools/src/plugins.dart';
 import 'package:flutter_tools/src/project.dart';
 import 'package:flutter_tools/src/version.dart';
+import 'package:package_config/package_config.dart';
 import 'package:test/fake.dart';
 import 'package:yaml/yaml.dart';
 
@@ -476,6 +478,36 @@ dependencies:
             pluginsFileContents.indexOf('plugin_c'),
             lessThan(pluginsFileContents.indexOf('plugin_d')),
           );
+        },
+        overrides: <Type, Generator>{
+          FileSystem: () => fs,
+          ProcessManager: () => FakeProcessManager.any(),
+          Pub: ThrowingPub.new,
+        },
+      );
+
+      testUsingContext(
+        'does not crash when a plugin pubspec.yaml is not valid UTF-8',
+        () async {
+          // Regression test for https://github.com/flutter/flutter/issues/188970.
+          final List<Directory> pluginDirs = createFakePlugins(fs, <String>[
+            'good_plugin',
+            'bad_plugin',
+          ]);
+          // Write bytes that are not valid UTF-8, so readAsString throws a FileSystemException.
+          pluginDirs[1].childFile('pubspec.yaml').writeAsBytesSync(
+            Uint8List.fromList(<int>[0xff, 0xfe, 0xfd]),
+          );
+
+          // The tool must not crash when a plugin's pubspec.yaml cannot be read.
+          final Future<List<Plugin>> pluginsFuture = findPlugins(flutterProject);
+          await expectLater(pluginsFuture, completes);
+
+          // The unreadable plugin is skipped, but the readable one is still found.
+          final List<Plugin> plugins = await pluginsFuture;
+          final pluginNames = <String>[for (final Plugin plugin in plugins) plugin.name];
+          expect(pluginNames, contains('good_plugin'));
+          expect(pluginNames, isNot(contains('bad_plugin')));
         },
         overrides: <Type, Generator>{
           FileSystem: () => fs,
@@ -1941,6 +1973,71 @@ flutter:
           FeatureFlags: () => featureFlags,
         },
       );
+
+      testUsingContext(
+        'createPluginSymlinks repairs broken symlinks without failing',
+        () async {
+          linuxProject.exists = true;
+          windowsProject.exists = true;
+          final Directory pluginDir = createFakePlugin(fs);
+          await refreshPluginsList(flutterProject);
+
+          final links = <Link>[
+            linuxProject.pluginSymlinkDirectory.childLink('some_plugin'),
+            windowsProject.pluginSymlinkDirectory.childLink('some_plugin'),
+          ];
+          for (final link in links) {
+            link.deleteSync();
+            link.createSync('/non_existent_target_path');
+          }
+          createPluginSymlinks(flutterProject);
+
+          for (final link in links) {
+            expect(link, exists);
+            expect(fs.path.normalize(link.targetSync()), fs.path.normalize(pluginDir.path));
+          }
+        },
+        overrides: <Type, Generator>{
+          FileSystem: () => fs,
+          ProcessManager: () => FakeProcessManager.any(),
+          FeatureFlags: () => featureFlags,
+        },
+      );
+
+      testUsingContext(
+        'createPluginSymlinks replaces existing files with symlinks without failing',
+        () async {
+          linuxProject.exists = true;
+          windowsProject.exists = true;
+          final Directory pluginDir = createFakePlugin(fs);
+          await refreshPluginsList(flutterProject);
+
+          final files = <File>[
+            linuxProject.pluginSymlinkDirectory.childFile('some_plugin'),
+            windowsProject.pluginSymlinkDirectory.childFile('some_plugin'),
+          ];
+          for (final file in files) {
+            ErrorHandlingFileSystem.deleteIfExists(file, recursive: true);
+            file.createSync(recursive: true);
+            file.writeAsStringSync('stale content');
+          }
+          createPluginSymlinks(flutterProject);
+
+          final links = <Link>[
+            linuxProject.pluginSymlinkDirectory.childLink('some_plugin'),
+            windowsProject.pluginSymlinkDirectory.childLink('some_plugin'),
+          ];
+          for (final link in links) {
+            expect(link, exists);
+            expect(fs.path.normalize(link.targetSync()), fs.path.normalize(pluginDir.path));
+          }
+        },
+        overrides: <Type, Generator>{
+          FileSystem: () => fs,
+          ProcessManager: () => FakeProcessManager.any(),
+          FeatureFlags: () => featureFlags,
+        },
+      );
     });
 
     group('pubspec', () {
@@ -1991,6 +2088,81 @@ flutter:
           webFileName: 'lib/SomeFile.dart',
         );
       });
+
+      testUsingContext(
+        'Plugin.fromYaml rejects a plugin class with code-injection characters',
+        () async {
+          // A (possibly transitive) dependency must not be able to smuggle
+          // arbitrary source into the generated GeneratedPluginRegistrant by
+          // declaring a pluginClass that is not a plain identifier.
+          const maliciousYaml = '''
+platforms:
+  macos:
+    pluginClass: "SomePlugin(); evilInjectedCall(); if (false) { SomePlugin"
+''';
+          expect(
+            () => Plugin.fromYaml(
+              'evil_plugin',
+              '',
+              loadYaml(maliciousYaml) as YamlMap,
+              null,
+              const <String>[],
+              fileSystem: globals.fs,
+              isDevDependency: false,
+            ),
+            throwsToolExit(message: 'Invalid plugin specification evil_plugin'),
+          );
+        },
+      );
+
+      testUsingContext(
+        'Plugin.fromYaml rejects a web plugin whose pluginClass/fileName contain injection',
+        () async {
+          const maliciousYaml = '''
+platforms:
+  web:
+    pluginClass: "P; void pwn() {} //"
+    fileName: some_file.dart
+''';
+          expect(
+            () => Plugin.fromYaml(
+              'evil_web_plugin',
+              '',
+              loadYaml(maliciousYaml) as YamlMap,
+              null,
+              const <String>[],
+              fileSystem: globals.fs,
+              isDevDependency: false,
+            ),
+            throwsToolExit(),
+          );
+        },
+      );
+
+      testUsingContext(
+        'Plugin.fromYaml rejects a dartPluginClass with code-injection characters',
+        () async {
+          // A dart plugin class is also interpolated into generated registrant
+          // source, so it must be a plain identifier like the native one.
+          const maliciousYaml = '''
+platforms:
+  android:
+    dartPluginClass: "Evil(); evilInjectedCall(); class Evil"
+''';
+          expect(
+            () => Plugin.fromYaml(
+              'evil_dart_plugin',
+              '',
+              loadYaml(maliciousYaml) as YamlMap,
+              null,
+              const <String>[],
+              fileSystem: globals.fs,
+              isDevDependency: false,
+            ),
+            throwsToolExit(message: 'Invalid plugin specification evil_dart_plugin'),
+          );
+        },
+      );
 
       testUsingContext('createPlatformsYamlMap should create the correct map', () async {
         final YamlMap map = Plugin.createPlatformsYamlMap(
@@ -2963,6 +3135,128 @@ flutter:
         contains('conflict_foo:ios has conflicting direct dependency implementations'),
       );
     });
+  });
+
+  group('buildPubspecCache', () {
+    late MemoryFileSystem fs;
+
+    setUp(() {
+      fs = MemoryFileSystem.test();
+    });
+
+    PackageConfig makePackageConfig(List<String> names) {
+      return PackageConfig(
+        names
+            .map(
+              (String name) => Package(
+                name,
+                Uri.parse('file:///pkgs/$name/'),
+                packageUriRoot: Uri.parse('file:///pkgs/$name/lib/'),
+              ),
+            )
+            .toList(),
+      );
+    }
+
+    test('populates an entry for every package in PackageConfig', () async {
+      final PackageConfig config = makePackageConfig(<String>['pkg_a', 'pkg_b', 'pkg_c']);
+      for (final Package package in config.packages) {
+        fs.file(package.root.resolve('pubspec.yaml'))
+          ..createSync(recursive: true)
+          ..writeAsStringSync('name: ${package.name}\n');
+      }
+
+      final PubspecCache cache = await buildPubspecCache(config, fileSystem: fs);
+
+      expect(cache.length, 3);
+      for (final Package package in config.packages) {
+        expect(cache.containsKey(package.root.toString()), isTrue);
+      }
+    });
+
+    test('parses pubspec YAML content correctly', () async {
+      final PackageConfig config = makePackageConfig(<String>['my_plugin']);
+      final Package package = config.packages.first;
+      fs.file(package.root.resolve('pubspec.yaml'))
+        ..createSync(recursive: true)
+        ..writeAsStringSync('''
+name: my_plugin
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.example
+        pluginClass: MyPlugin
+''');
+
+      final PubspecCache cache = await buildPubspecCache(config, fileSystem: fs);
+
+      final YamlMap? yaml = cache[package.root.toString()];
+      expect(yaml, isNotNull);
+      expect(yaml!['name'], 'my_plugin');
+      expect(yaml['flutter'], isNotNull);
+    });
+
+    test('stores null for packages with no pubspec.yaml', () async {
+      final PackageConfig config = makePackageConfig(<String>['has_pubspec', 'no_pubspec']);
+      final Package withPubspec = config.packages.first;
+      fs.file(withPubspec.root.resolve('pubspec.yaml'))
+        ..createSync(recursive: true)
+        ..writeAsStringSync('name: has_pubspec\n');
+
+      final PubspecCache cache = await buildPubspecCache(config, fileSystem: fs);
+
+      expect(cache[withPubspec.root.toString()], isNotNull);
+      final Package withoutPubspec = config.packages.last;
+      expect(cache.containsKey(withoutPubspec.root.toString()), isTrue);
+      expect(cache[withoutPubspec.root.toString()], isNull);
+    });
+
+    test('cached data survives deletion of source files', () async {
+      final PackageConfig config = makePackageConfig(<String>['pkg_a', 'pkg_b']);
+      for (final Package package in config.packages) {
+        fs.file(package.root.resolve('pubspec.yaml'))
+          ..createSync(recursive: true)
+          ..writeAsStringSync('name: ${package.name}\n');
+      }
+
+      final PubspecCache cache = await buildPubspecCache(config, fileSystem: fs);
+
+      for (final Package package in config.packages) {
+        fs.file(package.root.resolve('pubspec.yaml')).deleteSync();
+      }
+
+      for (final Package package in config.packages) {
+        expect(cache[package.root.toString()], isNotNull);
+      }
+
+      final PubspecCache freshCache = await buildPubspecCache(config, fileSystem: fs);
+      for (final Package package in config.packages) {
+        expect(freshCache[package.root.toString()], isNull);
+      }
+    });
+
+    test(
+      'packages absent from PackageConfig have no entry, distinguishing them from packages with missing pubspec.yaml',
+      () async {
+        final PackageConfig config = makePackageConfig(<String>['in_resolution']);
+        fs.file(config.packages.first.root.resolve('pubspec.yaml'))
+          ..createSync(recursive: true)
+          ..writeAsStringSync('name: in_resolution\n');
+
+        final PubspecCache cache = await buildPubspecCache(config, fileSystem: fs);
+
+        // Package in resolution with pubspec
+        // this means that the key is present and the value is non-null.
+        expect(cache.containsKey('file:///pkgs/in_resolution/'), isTrue);
+        expect(cache['file:///pkgs/in_resolution/'], isNotNull);
+
+        // Package NOT in resolution (e.g. example-only dep)
+        // this means that the key is absent entirely.
+        // containsKey must return false so callers can fall back to disk reads.
+        expect(cache.containsKey('file:///pkgs/example_only_plugin/'), isFalse);
+      },
+    );
   });
 }
 

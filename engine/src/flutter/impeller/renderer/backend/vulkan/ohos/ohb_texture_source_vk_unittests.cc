@@ -83,7 +83,7 @@ TEST(OHBTextureSourceVKTest, NullBufferYieldsInvalid) {
   EXPECT_FALSE(source.IsValid());
   EXPECT_EQ(source.GetImage(), vk::Image{});
   EXPECT_EQ(source.GetImageView(), vk::ImageView{});
-  EXPECT_EQ(source.GetRenderTargetView(), vk::ImageView{});
+  EXPECT_EQ(source.GetRenderTargetView(0u, 0u), vk::ImageView{});
 
   context->Shutdown();
 }
@@ -107,7 +107,7 @@ TEST(OHBTextureSourceVKTest, CanImportRGBX8888) {
   EXPECT_EQ(source.GetYUVConversion(), nullptr);
   EXPECT_NE(source.GetImage(), vk::Image{});
   EXPECT_NE(source.GetImageView(), vk::ImageView{});
-  EXPECT_NE(source.GetRenderTargetView(), vk::ImageView{});
+  EXPECT_NE(source.GetRenderTargetView(0u, 0u), vk::ImageView{});
 
   OH_NativeWindow_DestroyNativeWindowBuffer(window_buffer);
   OH_NativeBuffer_Unreference(native_buffer);
@@ -137,7 +137,7 @@ TEST(OHBTextureSourceVKTest, CanImportRGBA8888) {
   // The image and image view should be non-null handles.
   EXPECT_NE(source.GetImage(), vk::Image{});
   EXPECT_NE(source.GetImageView(), vk::ImageView{});
-  EXPECT_NE(source.GetRenderTargetView(), vk::ImageView{});
+  EXPECT_NE(source.GetRenderTargetView(0u, 0u), vk::ImageView{});
 
   OH_NativeWindow_DestroyNativeWindowBuffer(window_buffer);
   OH_NativeBuffer_Unreference(native_buffer);
@@ -219,7 +219,7 @@ TEST(OHBTextureSourceVKTest, RenderTargetViewEqualsImageView) {
 
   OHBTextureSourceVK source(context, window_buffer);
   ASSERT_TRUE(source.IsValid());
-  EXPECT_EQ(source.GetRenderTargetView(), source.GetImageView());
+  EXPECT_EQ(source.GetRenderTargetView(0u, 0u), source.GetImageView());
 
   OH_NativeWindow_DestroyNativeWindowBuffer(window_buffer);
   OH_NativeBuffer_Unreference(native_buffer);

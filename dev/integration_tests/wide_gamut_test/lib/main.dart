@@ -264,7 +264,7 @@ Future<ui.Image> _drawImage() async {
           completer.complete(image);
         },
       );
-      return completer.future;
+      return await completer.future;
     }
   } catch (error) {
     // rawExtendedRgba128 not supported on this platform; use original image.

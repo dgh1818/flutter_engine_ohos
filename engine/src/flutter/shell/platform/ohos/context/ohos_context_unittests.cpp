@@ -60,6 +60,9 @@ class FakeImpellerContext final : public impeller::Context {
   RuntimeStageBackend GetRuntimeStageBackend() const override {
     return RuntimeStageBackend::kVulkan;
   }
+  // Upstream impeller::Context grew a pure-virtual FinishQueue(); testing
+  // implementations may simply return false (see context.h).
+  bool FinishQueue() override { return false; }
 
   int shutdown_count_ = 0;
 

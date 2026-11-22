@@ -14,6 +14,7 @@
 #include <sys/mman.h>
 #include <utility>
 
+#include "display_list/image/dl_image_skia.h"
 #include "impeller/toolkit/egl/image.h"
 #include "ohos_main.h"
 #include "third_party/skia/include/core/SkAlphaType.h"
@@ -165,7 +166,7 @@ sk_sp<flutter::DlImage> OHOSExternalTextureGL::CreateDlImage(
   sk_sp<SkImage> image = SkImages::BorrowTextureFrom(
       context.gr_context, backendTexture, grOrigin, kRGBA_8888_SkColorType,
       kPremul_SkAlphaType, nullptr);
-  sk_sp<flutter::DlImage> dl_image = DlImage::Make(image);
+  sk_sp<flutter::DlImage> dl_image = DlImageSkia::Make(image);
 
   // lru: oldest resource need earse
   now_key_ = key;

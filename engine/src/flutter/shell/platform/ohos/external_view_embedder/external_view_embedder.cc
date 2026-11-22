@@ -375,7 +375,8 @@ void OHOSExternalViewEmbedder::SubmitFlutterView(
 
   // Clip the background canvas ("punch holes") and compute the overlay regions.
   std::unordered_map<int64_t, DlRect> overlay_layers = SliceViews(
-      frame->Canvas(), composition_order_, slices_, view_rects);
+      frame->Canvas(), composition_order_, slices_, view_rects,
+      /*views_with_underlay_preserved=*/{});
 
   bool overlay_has_content = false;
   Surface* overlay_surface = EnsureOverlaySurface(context);

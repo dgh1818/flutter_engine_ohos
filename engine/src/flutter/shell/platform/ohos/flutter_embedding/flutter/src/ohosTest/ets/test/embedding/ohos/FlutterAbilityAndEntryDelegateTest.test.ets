@@ -31,6 +31,25 @@ import ActivityControlSurface from '../../../../../main/ets/embedding/engine/plu
 const bundleName = abilityDelegatorRegistry.getArguments().bundleName;
 const delegator = abilityDelegatorRegistry.getAbilityDelegator();
 
+/**
+ * getCurrentTopAbility() queries mission info and needs system permissions this
+ * test app does not hold (module.json5 declares no requestPermissions), so the
+ * call fails systematically here — the same reason FlutterTextFieldUiTest and
+ * WindowCheck wrap it in try/catch. Fall back to the ability-scoped global
+ * context, the idiom already proven by FlutterEngineTest / FlutterNapiTest.
+ */
+async function getTestAbilityContext(): Promise<common.Context> {
+  try {
+    const ability: UIAbility = await delegator.getCurrentTopAbility();
+    if (ability?.context) {
+      return ability.context;
+    }
+  } catch (e) {
+    // fall through to the global context below
+  }
+  return getContext() as common.UIAbilityContext;
+}
+
 class TestPlugin implements FlutterPlugin {
   onAttachedToEngine(binding: FlutterPluginBinding): void {}
   onDetachedFromEngine(binding: FlutterPluginBinding): void {}
@@ -42,13 +61,14 @@ class TestPlugin implements FlutterPlugin {
  * used to drive the plugin state restore branch of the delegate.
  */
 class RestoreTestHost implements Host {
-  private ability: UIAbility;
   private attachToAbility: boolean;
-  constructor(ability: UIAbility, attachToAbility: boolean) {
-    this.ability = ability;
+  constructor(attachToAbility: boolean) {
     this.attachToAbility = attachToAbility;
   }
-  getAbility(): UIAbility { return this.ability; }
+  // Never reached on the tested paths: onRestoreInstanceState() only consults
+  // the should*() booleans and engine channels, and flutterEngine is never
+  // attached in these tests. Fail loudly rather than return a fake ability.
+  getAbility(): UIAbility { throw new Error('RestoreTestHost.getAbility() is not supported in unit tests'); }
   shouldDispatchAppLifecycleState(): boolean { return false; }
   detachFromFlutterEngine(): void {}
   shouldAttachEngineToAbility(): boolean { return this.attachToAbility; }
@@ -384,10 +404,10 @@ export default function FlutterAbilityAndEntryDelegateTest() {
     });
 
     it('TestOnRestoreInstanceState distributes plugin state to registered listeners', 0, async (done: Function) => {
-      const ability: UIAbility = await delegator.getCurrentTopAbility();
+      const context: common.Context = await getTestAbilityContext();
       const spy = new SpyControlSurface();
-      const engine = new SpyEngine(ability.context, spy);
-      const d = new FlutterAbilityAndEntryDelegate(new RestoreTestHost(ability, true));
+      const engine = new SpyEngine(context, spy);
+      const d = new FlutterAbilityAndEntryDelegate(new RestoreTestHost(true));
       d.flutterEngine = engine;
       const pluginState: Record<string, Object> = {};
       pluginState['pluginA'] = 'savedValue';
@@ -401,10 +421,10 @@ export default function FlutterAbilityAndEntryDelegateTest() {
     });
 
     it('TestOnRestoreInstanceState passes empty object when no plugin state key', 0, async (done: Function) => {
-      const ability: UIAbility = await delegator.getCurrentTopAbility();
+      const context: common.Context = await getTestAbilityContext();
       const spy = new SpyControlSurface();
-      const engine = new SpyEngine(ability.context, spy);
-      const d = new FlutterAbilityAndEntryDelegate(new RestoreTestHost(ability, true));
+      const engine = new SpyEngine(context, spy);
+      const d = new FlutterAbilityAndEntryDelegate(new RestoreTestHost(true));
       d.flutterEngine = engine;
       const params: Record<string, Object> = {};
       params['other'] = 'value';
@@ -418,10 +438,10 @@ export default function FlutterAbilityAndEntryDelegateTest() {
     });
 
     it('TestOnRestoreInstanceState does not distribute when host does not attach engine', 0, async (done: Function) => {
-      const ability: UIAbility = await delegator.getCurrentTopAbility();
+      const context: common.Context = await getTestAbilityContext();
       const spy = new SpyControlSurface();
-      const engine = new SpyEngine(ability.context, spy);
-      const d = new FlutterAbilityAndEntryDelegate(new RestoreTestHost(ability, false));
+      const engine = new SpyEngine(context, spy);
+      const d = new FlutterAbilityAndEntryDelegate(new RestoreTestHost(false));
       d.flutterEngine = engine;
       const pluginState: Record<string, Object> = {};
       pluginState['pluginA'] = 'savedValue';
@@ -436,10 +456,10 @@ export default function FlutterAbilityAndEntryDelegateTest() {
     });
 
     it('TestOnRestoreInstanceState supports legacy ActivityControlSurface without restore callback', 0, async (done: Function) => {
-      const ability: UIAbility = await delegator.getCurrentTopAbility();
+      const context: common.Context = await getTestAbilityContext();
       const controlSurface = new LegacyControlSurface();
-      const engine = new SpyEngine(ability.context, controlSurface);
-      const d = new FlutterAbilityAndEntryDelegate(new RestoreTestHost(ability, true));
+      const engine = new SpyEngine(context, controlSurface);
+      const d = new FlutterAbilityAndEntryDelegate(new RestoreTestHost(true));
       d.flutterEngine = engine;
       const pluginState: Record<string, Object> = {};
       pluginState['pluginA'] = 'savedValue';
@@ -453,10 +473,10 @@ export default function FlutterAbilityAndEntryDelegateTest() {
     });
 
     it('TestOnRestoreInstanceState passes empty object for invalid plugin state', 0, async (done: Function) => {
-      const ability: UIAbility = await delegator.getCurrentTopAbility();
+      const context: common.Context = await getTestAbilityContext();
       const spy = new SpyControlSurface();
-      const engine = new SpyEngine(ability.context, spy);
-      const d = new FlutterAbilityAndEntryDelegate(new RestoreTestHost(ability, true));
+      const engine = new SpyEngine(context, spy);
+      const d = new FlutterAbilityAndEntryDelegate(new RestoreTestHost(true));
       d.flutterEngine = engine;
       const params: Record<string, Object> = {};
       params['plugins'] = 'invalid';

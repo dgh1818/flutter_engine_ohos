@@ -19,10 +19,10 @@ $OverrideInstallMode copy
 fuchsia/third_party/clang/linux-amd64 git_revision:80743bd43fd5b38fedc503308e7a652e23d3ec93
 
 @Subdir engine/src/flutter/prebuilts/linux-arm64/dart-sdk
-flutter/dart-sdk/linux-arm64 git_revision:d684a576a6aa954ae107a03b2b4e1d61c3bebe93
+flutter/dart-sdk/linux-arm64 git_revision:416e33b0ffaef062a60ec966bb8c82ed2b83f128
 
 @Subdir engine/src/flutter/prebuilts/linux-x64/dart-sdk
-flutter/dart-sdk/linux-amd64 git_revision:d684a576a6aa954ae107a03b2b4e1d61c3bebe93
+flutter/dart-sdk/linux-amd64 git_revision:416e33b0ffaef062a60ec966bb8c82ed2b83f128
 
 @Subdir engine/src/flutter/prebuilts/linux-x64/esbuild
 flutter/tools/esbuild/linux-amd64 0.19.5
@@ -31,7 +31,7 @@ flutter/tools/esbuild/linux-amd64 0.19.5
 flutter/android/embedding_bundle last_updated:2025-10-15T09:53:03-0700
 
 @Subdir engine/src/flutter/third_party/android_tools
-flutter/android/sdk/all/${platform} version:36v8unmodified
+flutter/android/sdk/all/${platform} version:37v2
 
 @Subdir engine/src/flutter/third_party/android_tools/google-java-format
 flutter/android/google-java-format version:1.7-1
@@ -40,7 +40,7 @@ flutter/android/google-java-format version:1.7-1
 perfetto/trace_to_text/${platform} git_tag:v25.0
 
 @Subdir engine/src/flutter/third_party/dart/tools/sdks/dart-sdk
-dart/dart-sdk/${platform} git_revision:9ac06cdd18015c83a25921e26912c96e3fbe22c2
+dart/dart-sdk/${platform} version:3.13.0-103.1.beta
 
 @Subdir engine/src/flutter/third_party/gn
 gn/gn/${platform} git_revision:81b24e01531ecf0eff12ec9359a555ec3944ec4e
@@ -55,13 +55,13 @@ flutter/gradle version:8.11.1
 flutter/java/openjdk/${platform} version:21
 
 @Subdir engine/src/flutter/tools/fuchsia/gn-sdk
-chromium/fuchsia/gn-sdk JLBh4Z9PKsjIJcqDUDzEL8Q7whJ3CGRd4QmUL6IzizUC
+chromium/fuchsia/gn-sdk a87CbQSWEjkPUK1ZY_zsy8aZ9W-3Z2v73ohzhrWbDQ4C
 
 @Subdir engine/src/flutter/tools/fuchsia/test_scripts
-chromium/fuchsia/test-scripts R2EllDf4DgBXVNuiND77UsIc5t36TtLMwB1a92BF4-oC
+chromium/fuchsia/test-scripts s5_gZFJ8De9AJalTwS3VILkwjTVBmULlkblMqcXLheYC
 
 @Subdir engine/src/third_party/fuchsia-sdk/sdk
-fuchsia/sdk/core/linux-amd64 pDXMXRIjEHTw7B0skTRDSpKChNTGz9I7h61kTq_jD64C
+fuchsia/sdk/core/linux-amd64 QcRFUtvCw2EobfJ8s6m4hND8ABvb6gRzd8JQLrdpVsQC
 
 @Subdir third_party/ninja
 infra/3pp/tools/ninja/${platform} version:2@1.11.1.chromium.4

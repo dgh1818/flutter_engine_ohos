@@ -141,7 +141,6 @@ bool TextureContents::Render(const ContentContext& renderer,
 
   VS::FrameInfo frame_info;
   frame_info.mvp = entity.GetShaderTransform(pass);
-  frame_info.texture_sampler_y_coord_scale = texture_->GetYCoordScale();
 
 #ifdef IMPELLER_DEBUG
   if (label_.empty()) {
@@ -220,15 +219,7 @@ bool TextureContents::Render(const ContentContext& renderer,
         Rect::MakeSize(texture_->GetSize()).Project(source_rect_.Expand(-0.5));
 
     FSStrict::FragInfo frag_info;
-    if (texture_->GetYCoordScale() < 0.0) {
-      FML_DCHECK(texture_->GetYCoordScale() == -1.0f);
-      frag_info.source_rect = Vector4(strict_texture_coords.GetLeft(),
-                                      1.0f - strict_texture_coords.GetBottom(),
-                                      strict_texture_coords.GetRight(),
-                                      1.0f - strict_texture_coords.GetTop());
-    } else {
-      frag_info.source_rect = Vector4(strict_texture_coords.GetLTRB());
-    }
+    frag_info.source_rect = Vector4(strict_texture_coords.GetLTRB());
     frag_info.alpha = GetOpacity();
     frag_info.source_color_space = source_color_space;
     frag_info.target_color_space = target_color_space;

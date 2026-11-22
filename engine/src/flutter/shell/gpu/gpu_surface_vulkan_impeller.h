@@ -17,6 +17,11 @@
 
 namespace flutter {
 
+namespace testing {
+FML_TEST_CLASS(GPUSurfaceVulkanImpeller,
+               RecreatesTransientsWhenFrameSizeChanges);
+}  // namespace testing
+
 class GPUSurfaceVulkanImpeller final : public Surface {
  public:
   explicit GPUSurfaceVulkanImpeller(GPUSurfaceVulkanDelegate* delegate,
@@ -34,11 +39,16 @@ class GPUSurfaceVulkanImpeller final : public Surface {
   };
 
  private:
+  FML_FRIEND_TEST(testing::GPUSurfaceVulkanImpeller,
+                  RecreatesTransientsWhenFrameSizeChanges);
+
   GPUSurfaceVulkanDelegate* delegate_;
   GPUSurfaceVulkanDelegate* ohos_delegate_;
   std::shared_ptr<impeller::Context> impeller_context_;
   std::shared_ptr<impeller::AiksContext> aiks_context_;
   std::shared_ptr<impeller::SwapchainTransientsVK> transients_;
+  /// The size of the textures in [transients_]
+  impeller::ISize transients_size_ = {};
   bool is_valid_ = false;
 
 #ifdef __OHOS__

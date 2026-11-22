@@ -19,15 +19,15 @@ INSTANTIATE_PLAYGROUND_SUITE(EntityPassTargetTest);
 
 TEST_P(EntityPassTargetTest, SwapWithMSAATexture) {
   if (GetContentContext()
-          ->GetDeviceCapabilities()
+          .GetDeviceCapabilities()
           .SupportsImplicitResolvingMSAA()) {
     GTEST_SKIP() << "Implicit MSAA is used on this device.";
   }
-  auto content_context = GetContentContext();
-  auto buffer = content_context->GetContext()->CreateCommandBuffer();
+  ContentContext& content_context = GetContentContext();
+  auto buffer = content_context.GetContext()->CreateCommandBuffer();
   auto render_target =
-      GetContentContext()->GetRenderTargetCache()->CreateOffscreenMSAA(
-          *content_context->GetContext(), {100, 100},
+      GetContentContext().GetRenderTargetCache()->CreateOffscreenMSAA(
+          *content_context.GetContext(), {100, 100},
           /*mip_count=*/1);
 
   auto entity_pass_target = EntityPassTarget(render_target, false, false);
@@ -36,8 +36,7 @@ TEST_P(EntityPassTargetTest, SwapWithMSAATexture) {
   auto msaa_tex = color0.texture;
   auto resolve_tex = color0.resolve_texture;
 
-  FML_DCHECK(content_context);
-  entity_pass_target.Flip(*content_context);
+  entity_pass_target.Flip(content_context);
 
   color0 = entity_pass_target.GetRenderTarget().GetColorAttachment(0);
 
@@ -46,9 +45,9 @@ TEST_P(EntityPassTargetTest, SwapWithMSAATexture) {
 }
 
 TEST_P(EntityPassTargetTest, SwapWithMSAAImplicitResolve) {
-  auto content_context = GetContentContext();
-  auto buffer = content_context->GetContext()->CreateCommandBuffer();
-  auto context = content_context->GetContext();
+  ContentContext& content_context = GetContentContext();
+  auto buffer = content_context.GetContext()->CreateCommandBuffer();
+  auto context = content_context.GetContext();
   auto& allocator = *context->GetResourceAllocator();
 
   // Emulate implicit MSAA resolve by making color resolve and msaa texture the
@@ -98,8 +97,7 @@ TEST_P(EntityPassTargetTest, SwapWithMSAAImplicitResolve) {
 
   ASSERT_EQ(msaa_tex, resolve_tex);
 
-  FML_DCHECK(content_context);
-  entity_pass_target.Flip(*content_context);
+  entity_pass_target.Flip(content_context);
 
   color0 = entity_pass_target.GetRenderTarget().GetColorAttachment(0);
 

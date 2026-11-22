@@ -5,6 +5,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:dwds/data/build_result.dart';
 import 'package:dwds/dwds.dart';
 import 'package:logging/logging.dart' as logging;
@@ -24,6 +25,7 @@ import '../base/platform.dart';
 import '../build_info.dart';
 import '../cache.dart';
 import '../convert.dart';
+import '../dart/package_map.dart';
 import '../globals.dart' as globals;
 import '../web/bootstrap.dart';
 import '../web/chrome.dart';
@@ -326,20 +328,6 @@ class WebAssetServer implements AssetReader {
 
     // Ensure dwds is present and provide middleware to avoid trying to
     // load the through the isolate APIs.
-    final Directory directory = await loadDwdsDirectory(fileSystem, logger);
-    shelf.Handler middleware(FutureOr<shelf.Response> Function(shelf.Request) innerHandler) {
-      return (shelf.Request request) async {
-        if (request.url.path.endsWith('dwds/src/injected/client.js')) {
-          final Uri uri = directory.uri.resolve('src/injected/client.js');
-          final String result = await fileSystem.file(uri.toFilePath()).readAsString();
-          return shelf.Response.ok(
-            result,
-            headers: <String, String>{HttpHeaders.contentTypeHeader: 'application/javascript'},
-          );
-        }
-        return innerHandler(request);
-      };
-    }
 
     logging.Logger.root.level = logging.Level.ALL;
     logging.Logger.root.onRecord.listen((logging.LogRecord event) => log(logger, event));
@@ -360,7 +348,7 @@ class WebAssetServer implements AssetReader {
                 PackageUriMapper(packageConfig),
                 digestProvider,
                 BuildSettings(
-                  appEntrypoint: packageConfig.toPackageUri(
+                  appEntrypoint: packageConfig.toPackageUriForWorkspace(
                     fileSystem.file(entrypoint).absolute.uri,
                   ),
                   canaryFeatures: canaryFeatures,
@@ -374,7 +362,7 @@ class WebAssetServer implements AssetReader {
                 PackageUriMapper(packageConfig),
                 digestProvider,
                 BuildSettings(
-                  appEntrypoint: packageConfig.toPackageUri(
+                  appEntrypoint: packageConfig.toPackageUriForWorkspace(
                     fileSystem.file(entrypoint).absolute.uri,
                   ),
                   canaryFeatures: canaryFeatures,
@@ -397,7 +385,7 @@ class WebAssetServer implements AssetReader {
     );
     var pipeline = const shelf.Pipeline();
     if (shouldEnableMiddleware) {
-      pipeline = pipeline.addMiddleware(middleware).addMiddleware(dwds.middleware);
+      pipeline = pipeline.addMiddleware(dwds.middleware);
     }
     pipeline = pipeline.addMiddleware(proxyMiddleware(proxy, globals.logger));
     final shelf.Handler dwdsHandler = pipeline.addHandler(server.handleRequest);
@@ -612,8 +600,32 @@ class WebAssetServer implements AssetReader {
   final Logger logger;
 
   String get _buildConfigString {
+    final wasmHashes = <String, String>{};
+    for (final String path in _webMemoryFS.files.keys) {
+      if (path.endsWith('.wasm')) {
+        wasmHashes[path] = crypto.sha256.convert(_webMemoryFS.files[path]!).toString();
+      }
+    }
+    final String canvasKitPath = globals.artifacts!
+        .getHostArtifact(HostArtifact.flutterWebSdk)
+        .path;
+    final Directory canvasKitDirectory = fileSystem.directory(
+      fileSystem.path.join(canvasKitPath, 'canvaskit'),
+    );
+    if (canvasKitDirectory.existsSync()) {
+      for (final File file in canvasKitDirectory.listSync(recursive: true).whereType<File>()) {
+        if (file.path.endsWith('.wasm')) {
+          final String relativePath = fileSystem.path
+              .relative(file.path, from: canvasKitDirectory.path)
+              .replaceAll(r'\', '/');
+          wasmHashes[relativePath] = crypto.sha256.convert(file.readAsBytesSync()).toString();
+        }
+      }
+    }
+
     final buildConfig = <String, Object>{
       'engineRevision': globals.flutterVersion.engineRevision,
+      'wasmHashes': wasmHashes,
       'builds': <Object>[
         <String, Object>{
           'compileTarget': 'dartdevc',

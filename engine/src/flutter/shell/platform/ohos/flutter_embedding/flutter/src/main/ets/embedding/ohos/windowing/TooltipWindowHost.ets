@@ -10,7 +10,7 @@ import { BusinessError } from '@ohos.base';
 import Log from '../../../util/Log';
 import { FlutterView } from '../../../view/FlutterView';
 import FlutterNapi, { WindowPositionResult } from '../../engine/FlutterNapi';
-import { FlutterWindowHost } from './FlutterWindowHost';
+import { FlutterHostWindowSized } from './FlutterHostWindowSized';
 import { WindowHostContext } from './WindowHostContext';
 import { TooltipWindowCreationRequest, WindowArchetype } from './WindowingUtils';
 
@@ -22,12 +22,14 @@ const kBirthOffscreenPx: number = -10000;
 
 /** Placement outcome in physical px; placed=false → system default. */
 export class BirthPlacement {
+  /** The placed rect (valid when placed; fallback size otherwise). */
   rect: window.Rect = { left: 0, top: 0, width: 0, height: 0 };
+  /** Whether the positioner produced a rect at all. */
   placed: boolean = false;
 }
 
 /** A parent-bound, decoration-free, never-focusable SubWindow. */
-export class TooltipWindowHost extends FlutterWindowHost {
+export class TooltipWindowHost extends FlutterHostWindowSized {
   protected readonly request: TooltipWindowCreationRequest;
 
   private contentWidthPx: number = 0;
@@ -47,11 +49,22 @@ export class TooltipWindowHost extends FlutterWindowHost {
   private parentWindowEventHandler: ((event: window.WindowEventType) => void) | null = null;
   private parentSizeChangedHandler: ((size: window.Size) => void) | null = null;
 
+  /**
+   * Constructs a TooltipWindowHost.
+   * @param ctx - The manager-facing service surface
+   * @param viewId - The engine numeric view id
+   * @param request - Creation fields (constraints + owning view)
+   */
   constructor(ctx: WindowHostContext, viewId: number, request: TooltipWindowCreationRequest) {
-    super(ctx, viewId, request.parentViewId, '', WindowArchetype.TOOLTIP);
+    super(ctx, viewId, request.parentViewId, '', WindowArchetype.TOOLTIP,
+      true, false, request.preferredConstraints);
     this.request = request;
   }
 
+  /** Creates the tooltip SubWindow (born off-screen, sized from the
+   * constraints), attaches the view to the parent's engine, loads the
+   * app's sub-window page, shows it unfocused and starts listening for
+   * parent-driven dismissal. */
   async attach(): Promise<void> {
     const parentWnd = this.ctx.getHostWindowByView(this.parentViewId)?.getWindow() ?? undefined;
     if (parentWnd === undefined) {
@@ -126,6 +139,10 @@ export class TooltipWindowHost extends FlutterWindowHost {
     }
   }
 
+  /** Creates-or-reuses the tooltip's FlutterView and attaches it to the SAME
+   * engine as the parent view, preserving the engine-wide text input handler
+   * across the attach; false (after failAttach) when the parent view/engine
+   * is unavailable. */
   private viewAttachEngine(): boolean {
     const parentView = this.ctx.getHostWindowByView(this.parentViewId)?.getFlutterView() ?? null;
     if (parentView === null) {
@@ -156,6 +173,9 @@ export class TooltipWindowHost extends FlutterWindowHost {
     return true;
   }
 
+  /** Birth size before any content report: the min constraints when set,
+   * else safe defaults (400x200 logical px) — the positioner re-sizes the
+   * window to its content once raster reports it. */
   private initialWindowRect(): window.Size {
     const c = this.request.preferredConstraints;
     const width = c.hasViewConstraints && c.viewMinWidth > 0 ? c.viewMinWidth : 400;
@@ -178,6 +198,8 @@ export class TooltipWindowHost extends FlutterWindowHost {
     return { width: width, height: height };
   }
 
+  /** detachView override: keep the engine-wide text input handler intact
+   * while the tooltip's view detaches from the shared engine. */
   detachView(): void {
     // Keep the engine-wide text input handler across this view's teardown.
     const fv = this.getFlutterView();
@@ -199,7 +221,7 @@ export class TooltipWindowHost extends FlutterWindowHost {
       const props = parentWnd.getWindowProperties();
       const frame = props.windowRect;
       const dr = props.drawableRect;
-      const wa = await this.workAreaPhysical();
+      const wa = await this.getWorkArea();
       const childPhysical: window.Size =
         this.contentWidthPx > 0 && this.contentHeightPx > 0
           ? { width: this.contentWidthPx, height: this.contentHeightPx }
@@ -226,21 +248,6 @@ export class TooltipWindowHost extends FlutterWindowHost {
     }
   }
 
-  /** Screen work area in physical px. */
-  protected async workAreaPhysical(): Promise<window.Rect> {
-    const disp = display.getDefaultDisplaySync();
-    try {
-      const wa = await disp.getAvailableArea();
-      if (wa.width > 0 && wa.height > 0) {
-        return wa;
-      }
-    } catch (e) {
-      Log.w(TAG, `getAvailableArea failed: ${JSON.stringify(e)}; ` +
-        `constraining against the FULL display instead`);
-    }
-    return { left: 0, top: 0, width: disp.width, height: disp.height };
-  }
-
   protected computePlacement(pos: WindowPositionResult,
                              childSize: window.Size,
                              parentRect: window.Rect,
@@ -249,10 +256,7 @@ export class TooltipWindowHost extends FlutterWindowHost {
       pos, this.viewId, childSize, parentRect, workArea) === 0;
   }
 
-  didUpdateViewSize(widthPx: number, heightPx: number): void {
-    if (widthPx === this.contentWidthPx && heightPx === this.contentHeightPx) {
-      return;
-    }
+  protected applyContentSize(widthPx: number, heightPx: number): void {
     this.contentWidthPx = widthPx;
     this.contentHeightPx = heightPx;
     this.surfaceStorage?.setOrCreate('contentWidth', widthPx);
@@ -260,6 +264,9 @@ export class TooltipWindowHost extends FlutterWindowHost {
     this.scheduleUpdatePosition();
   }
 
+  /** Serializes positioner runs: one updatePosition in flight at a time,
+   * coalescing any reports that arrive meanwhile into a single trailing
+   * re-run. */
   private scheduleUpdatePosition(): void {
     if (this.positionInFlight) {
       this.positionPending = true;
@@ -276,6 +283,8 @@ export class TooltipWindowHost extends FlutterWindowHost {
     this.updatePosition().then(done, done);
   }
 
+  /** The child size handed to the positioner, in LOGICAL px: the reported
+   * content size when known, else the birth size. */
   private childLogicalSize(parentWnd: window.Window): window.Size {
     if (this.contentWidthPx > 0 && this.contentHeightPx > 0) {
       const dpr = this.densityPixels(parentWnd);
@@ -287,6 +296,8 @@ export class TooltipWindowHost extends FlutterWindowHost {
     return this.initialWindowRect();
   }
 
+  /** Re-runs the positioner against the parent and applies the resulting
+   * rect (move then resize, tolerance-filtered; best-effort). */
   async updatePosition(): Promise<void> {
     const win = this.window;
     const parentWnd =
@@ -331,6 +342,8 @@ export class TooltipWindowHost extends FlutterWindowHost {
 
   // ---- Parent-driven dismissal ----------------------------------------------
 
+  /** Parent-driven dismissal hooks: parent INACTIVE/HIDDEN/DESTROYED or a
+   * real parent resize (drag size-same events filtered) closes the tooltip. */
   private registerParentWndEvent(parentWnd: window.Window): void {
     this.parentWnd = parentWnd;
     const onEvent = (event: window.WindowEventType) => {
@@ -367,12 +380,16 @@ export class TooltipWindowHost extends FlutterWindowHost {
     parentWnd.on('windowSizeChange', onSize);
   }
 
+  /** Dismissal path: unhook the parent listeners, report OS-close to Dart,
+   * then drop the sub-window. */
   private closeFromParentEvent(): void {
     this.unregisterParentWndEvent();
     this.handleOsClosed();
     this.closeHost();
   }
 
+  /** Detaches the parent listeners registered by registerParentWndEvent
+   * (idempotent). */
   private unregisterParentWndEvent(): void {
     const parentWnd = this.parentWnd;
     this.parentWnd = null;
@@ -388,6 +405,8 @@ export class TooltipWindowHost extends FlutterWindowHost {
     }
   }
 
+  /** Decoration-free style: transparent background, no shadow, no corner
+   * radius (best-effort — failures only affect visuals). */
   protected async setWindowStyle(subWindow: window.Window): Promise<void> {
     try {
       subWindow.setWindowBackgroundColor('#00000000');
@@ -398,6 +417,8 @@ export class TooltipWindowHost extends FlutterWindowHost {
     }
   }
 
+  /** Late attach failures (after sub-window creation) additionally detach
+   * the view and drop the sub-window so no hidden host lingers. */
   protected failAttach(where: string): void {
     if (this.window !== undefined) {
       this.detachView();
@@ -406,6 +427,8 @@ export class TooltipWindowHost extends FlutterWindowHost {
     super.failAttach(where);
   }
 
+  /** Drops the OS sub-window (unhooking the parent listeners first);
+   * best-effort callback-form destroy. */
   protected closeHost(): void {
     this.unregisterParentWndEvent();
     if (this.window === undefined) {

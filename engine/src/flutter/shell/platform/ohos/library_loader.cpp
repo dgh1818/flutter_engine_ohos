@@ -176,6 +176,9 @@ static napi_value Init(napi_env env, napi_value exports) {
           "nativeNotifyWindowActivated",
           flutter::PlatformViewOHOSNapi::nativeNotifyWindowActivated),
       DECLARE_NAPI_FUNCTION(
+          "nativeSetViewSizedToContent",
+          flutter::PlatformViewOHOSNapi::nativeSetViewSizedToContent),
+      DECLARE_NAPI_FUNCTION(
           "nativeUnicodeIsEmoji",
           flutter::PlatformViewOHOSNapi::nativeUnicodeIsEmoji),
       DECLARE_NAPI_FUNCTION(
@@ -208,6 +211,12 @@ static napi_value Init(napi_env env, napi_value exports) {
       DECLARE_NAPI_FUNCTION(
           "nativeSetSemanticsEnabled",
           flutter::PlatformViewOHOSNapi::nativeSetSemanticsEnabled),
+      DECLARE_NAPI_FUNCTION(
+          "nativeRegisterInspectorTreeGetter",
+          flutter::PlatformViewOHOSNapi::nativeRegisterInspectorTreeGetter),
+      DECLARE_NAPI_FUNCTION(
+          "nativeUnregisterInspectorTreeGetter",
+          flutter::PlatformViewOHOSNapi::nativeUnregisterInspectorTreeGetter),
       DECLARE_NAPI_FUNCTION(
           "nativeSetFontWeightScale",
           flutter::PlatformViewOHOSNapi::nativeSetFontWeightScale),

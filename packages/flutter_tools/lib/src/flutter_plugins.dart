@@ -5,6 +5,7 @@
 import 'package:meta/meta.dart';
 import 'package:package_config/package_config.dart';
 import 'package:path/path.dart' as path; // flutter_ignore: package_path_import
+import 'package:pool/pool.dart';
 import 'package:pub_semver/pub_semver.dart' as semver;
 import 'package:yaml/yaml.dart';
 
@@ -30,6 +31,50 @@ import 'package_graph.dart';
 import 'platform_plugins.dart';
 import 'plugins.dart';
 import 'project.dart';
+
+/// Cache of parsed pubspec YAML content keyed by package root URI string.
+///
+/// Pre-built once per workspace via [buildPubspecCache] and passed to
+/// [findPlugins] to avoid re-reading the same pubspec files for every
+/// workspace project during `flutter pub get`.
+///
+/// A `null` value stored under a key means the package's `pubspec.yaml` was
+/// missing or could not be parsed — i.e. "looked up, no valid pubspec". An
+/// absent key means the package was not included in the cache at all (e.g.
+/// [buildPubspecCache] was not called for it), and a file-system fallback
+/// should be used instead.
+typedef PubspecCache = Map<String, YamlMap?>;
+
+/// Builds a [PubspecCache] for all packages in [packageConfig].
+///
+/// Reads pubspec.yaml files concurrently, capped at 16 parallel reads to
+/// avoid exhausting file descriptors on large workspaces.
+Future<PubspecCache> buildPubspecCache(
+  PackageConfig packageConfig, {
+  FileSystem? fileSystem,
+}) async {
+  final FileSystem fs = fileSystem ?? globals.fs;
+  final cache = <String, YamlMap?>{};
+  await Pool(64).forEach<Package, void>(packageConfig.packages, (Package package) async {
+    final key = package.root.toString();
+    final File pubspecFile = fs.file(package.root.resolve('pubspec.yaml'));
+    if (!pubspecFile.existsSync()) {
+      cache[key] = null;
+      return;
+    }
+    try {
+      final Object? parsed = loadYaml(await pubspecFile.readAsString());
+      cache[key] = parsed is YamlMap ? parsed : null;
+    } on YamlException catch (err) {
+      globals.printTrace('Failed to parse pubspec.yaml for ${package.name}: $err');
+      cache[key] = null;
+    } on FileSystemException catch (err) {
+      globals.printTrace('Failed to read pubspec.yaml for ${package.name}: $err');
+      cache[key] = null;
+    }
+  }).drain<void>();
+  return cache;
+}
 
 Future<bool> _fileContentsUnchanged(File file, String renderedTemplate) async {
   if (!file.existsSync()) {
@@ -60,21 +105,32 @@ Future<Plugin?> _pluginFromPackage(
   Set<String> appDependencies, {
   required bool isDevDependency,
   FileSystem? fileSystem,
+  PubspecCache? pubspecCache,
 }) async {
   final FileSystem fs = fileSystem ?? globals.fs;
-  final File pubspecFile = fs.file(packageRoot.resolve('pubspec.yaml'));
-  if (!pubspecFile.existsSync()) {
-    return null;
+  YamlMap? pubspec;
+  // Use containsKey rather than a null check so that a cached null (meaning
+  // "pubspec.yaml is missing or unparseable") is distinguished from a cache
+  // miss (key absent), which falls back to reading the file from disk
+  if (pubspecCache != null && pubspecCache.containsKey(packageRoot.toString())) {
+    pubspec = pubspecCache[packageRoot.toString()];
+  } else {
+    final File pubspecFile = fs.file(packageRoot.resolve('pubspec.yaml'));
+    if (!pubspecFile.existsSync()) {
+      return null;
+    }
+    try {
+      final Object? parsed = loadYaml(await pubspecFile.readAsString());
+      pubspec = parsed is YamlMap ? parsed : null;
+    } on YamlException catch (err) {
+      globals.printTrace('Failed to parse plugin manifest for $name: $err');
+      // Do nothing, potentially not a plugin.
+    } on FileSystemException catch (err) {
+      globals.printTrace('Failed to read plugin manifest for $name: $err');
+      // Do nothing, potentially not a plugin.
+    }
   }
-  Object? pubspec;
-
-  try {
-    pubspec = loadYaml(await pubspecFile.readAsString());
-  } on YamlException catch (err) {
-    globals.printTrace('Failed to parse plugin manifest for $name: $err');
-    // Do nothing, potentially not a plugin.
-  }
-  if (pubspec == null || pubspec is! YamlMap) {
+  if (pubspec == null) {
     return null;
   }
   final Object? flutterConfig = pubspec['flutter'];
@@ -103,22 +159,42 @@ Future<Plugin?> _pluginFromPackage(
 /// Returns a list of all plugins to be registered with the provided [project].
 ///
 /// If [throwOnError] is `true`, an empty package configuration is an error.
-Future<List<Plugin>> findPlugins(FlutterProject project, {bool throwOnError = true}) async {
+Future<List<Plugin>> findPlugins(
+  FlutterProject project, {
+  bool throwOnError = true,
+  PubspecCache? pubspecCache,
+  PackageGraph? packageGraph,
+  PackageConfig? packageConfig,
+}) async {
   final plugins = <Plugin>[];
   final FileSystem fs = project.directory.fileSystem;
-  final File packageConfigFile = findPackageConfigFileOrDefault(project.directory);
-  final PackageConfig packageConfig = await loadPackageConfigWithLogging(
-    packageConfigFile,
-    logger: globals.logger,
-    throwOnError: throwOnError,
-  );
+
+  // Shared workspace resources (packageGraph, packageConfig) are only valid
+  // when the project is actually a member of the workspace — i.e. its name
+  // appears in the shared graph. Outside a workspace we load project-specific
+  // resources instead.
+  final bool useSharedResources =
+      packageGraph != null && packageGraph.dependencies.containsKey(project.manifest.appName);
+
+  final PackageConfig resolvedPackageConfig;
+  if (useSharedResources && packageConfig != null) {
+    resolvedPackageConfig = packageConfig;
+  } else {
+    final File packageConfigFile = findPackageConfigFileOrDefault(project.directory);
+    resolvedPackageConfig = await loadPackageConfigWithLogging(
+      packageConfigFile,
+      logger: globals.logger,
+      throwOnError: throwOnError,
+    );
+  }
   final List<Dependency> transitiveDependencies = computeTransitiveDependencies(
     project,
-    packageConfig,
+    resolvedPackageConfig,
+    packageGraph: useSharedResources ? packageGraph : null,
   );
   for (final dependency in transitiveDependencies) {
     final String packageName = dependency.name;
-    final Package? package = packageConfig[packageName];
+    final Package? package = resolvedPackageConfig[packageName];
     if (package == null) {
       if (throwOnError) {
         throwToolExit('Could not locate package:$packageName. Try running `flutter pub get`');
@@ -133,6 +209,7 @@ Future<List<Plugin>> findPlugins(FlutterProject project, {bool throwOnError = tr
       project.manifest.dependencies,
       isDevDependency: dependency.isExclusiveDevDependency,
       fileSystem: fs,
+      pubspecCache: pubspecCache,
     );
     if (plugin != null) {
       plugins.add(plugin);
@@ -1253,8 +1330,26 @@ void _createPlatformPluginSymlinks(
     final name = pluginInfo[_kFlutterPluginsNameKey]! as String;
     final path = pluginInfo[_kFlutterPluginsPathKey]! as String;
     final Link link = symlinkDirectory.childLink(name);
-    if (link.existsSync()) {
-      continue;
+    // Inspect the entity on disk without following links. Link.existsSync()
+    // only returns true if the entity is specifically a link; if a conflicting
+    // non-link file or directory occupies link.path, or if an existing link
+    // points to an outdated target, it must be cleaned up before creating the
+    // new link to avoid FileSystemException collisions (such as
+    // ERROR_ALREADY_EXISTS on Windows or EEXIST on POSIX).
+    final FileSystemEntityType entityType = link.fileSystem.typeSync(link.path, followLinks: false);
+    if (entityType == FileSystemEntityType.link) {
+      try {
+        final String target = link.targetSync();
+        if (link.fileSystem.path.canonicalize(target) == link.fileSystem.path.canonicalize(path) &&
+            link.existsSync()) {
+          continue;
+        }
+      } on FileSystemException {
+        // Fall through to delete and recreate if resolving target throws.
+      }
+      ErrorHandlingFileSystem.deleteIfExists(link);
+    } else if (entityType != FileSystemEntityType.notFound) {
+      ErrorHandlingFileSystem.deleteIfExists(link, recursive: true);
     }
     try {
       link.createSync(path);
@@ -1283,8 +1378,16 @@ Future<void> refreshPluginsList(
   bool iosPlatform = false,
   bool macOSPlatform = false,
   bool forceCocoaPodsOnly = false,
+  PubspecCache? pubspecCache,
+  PackageGraph? packageGraph,
+  PackageConfig? packageConfig,
 }) async {
-  final List<Plugin> plugins = await findPlugins(project);
+  final List<Plugin> plugins = await findPlugins(
+    project,
+    pubspecCache: pubspecCache,
+    packageGraph: packageGraph,
+    packageConfig: packageConfig,
+  );
   // Sort the plugins by name to keep ordering stable in generated files.
   plugins.sort((Plugin left, Plugin right) => left.name.compareTo(right.name));
 
@@ -1369,10 +1472,17 @@ Future<void> injectPlugins(
   bool macOSPlatform = false,
   bool windowsPlatform = false,
   DarwinDependencyManagement? darwinDependencyManagement,
-  Iterable<String>? allowedPlugins,
+  PubspecCache? pubspecCache,
+  PackageGraph? packageGraph,
+  PackageConfig? packageConfig,
   bool ohosPlatform = false,
 }) async {
-  final List<Plugin> plugins = await findPlugins(project);
+  final List<Plugin> plugins = await findPlugins(
+    project,
+    pubspecCache: pubspecCache,
+    packageGraph: packageGraph,
+    packageConfig: packageConfig,
+  );
 
   // Filter out dev dependencies for release builds.
   final List<Plugin> filteredPlugins;
@@ -1429,6 +1539,7 @@ Future<void> injectPlugins(
             templateRenderer: globals.templateRenderer,
             processUtils: globals.processUtils,
             config: globals.config,
+            logger: globals.logger,
           ),
           fileSystem: globals.fs,
           featureFlags: featureFlags,
@@ -1895,8 +2006,8 @@ bool _hasPluginInlineDartImpl(Plugin plugin, String platformKey) {
 
 /// Generates the Dart plugin registrant, which allows to bind a platform
 /// implementation of a Dart only plugin to its interface.
-/// The new entrypoint wraps [currentMainUri], adds the `_PluginRegistrant` class,
-/// and writes the file to `newMainDart` at [FlutterProject.dartPluginRegistrant].
+/// The new entrypoint adds the `_PluginRegistrant` class and writes the file to
+/// `newMainDart` at [FlutterProject.dartPluginRegistrant].
 ///
 /// [mainFile] is the main entrypoint file, for example: `/<app>/lib/main.dart`.
 ///
@@ -1907,7 +2018,6 @@ bool _hasPluginInlineDartImpl(Plugin plugin, String platformKey) {
 Future<void> generateMainDartWithPluginRegistrant(
   FlutterProject rootProject,
   PackageConfig packageConfig,
-  String currentMainUri,
   File mainFile,
 ) async {
   final List<Plugin> plugins = await findPlugins(rootProject);
@@ -1921,7 +2031,6 @@ Future<void> generateMainDartWithPluginRegistrant(
     Cache.flutterRoot!,
   );
   final templateContext = <String, Object>{
-    'mainEntrypoint': currentMainUri,
     'dartLanguageVersion': entrypointVersion.toString(),
     AndroidPlugin.kConfigKey: <Object?>[],
     IOSPlugin.kConfigKey: <Object?>[],

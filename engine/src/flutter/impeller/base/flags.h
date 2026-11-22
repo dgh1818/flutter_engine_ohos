@@ -13,6 +13,8 @@ struct Flags {
   bool use_sdfs = false;
   /// Whether to enable parallel glyph rasterization on multiple worker threads.
   bool glyph_raster_parallelization = false;
+
+  bool operator==(const Flags&) const = default;
 };
 }  // namespace impeller
 

@@ -320,6 +320,20 @@ class RenderOhosView extends PlatformViewRenderBox {
   /// restore plain offset positioning when a transform is cleared.
   Offset? _lastPlatformViewOffset;
 
+  /// Clears the platform-side hover flag when the cursor leaves this view.
+  ///
+  /// The base class returns null, discarding the MouseTracker's exit signal.
+  /// The OHOS embedding relies on that flag to decide whether mouse and axis
+  /// events are forwarded to the embedded view; without clearing it on exit,
+  /// the flag stays true after the cursor leaves ("sticky hover") and mouse
+  /// events from other windows keep leaking into this view.
+  @override
+  PointerExitEventListener? get onExit => _handlePointerExit;
+
+  void _handlePointerExit(PointerExitEvent event) {
+    _viewController.sendUnhoverEvent();
+  }
+
   /// The Ohos view controller for the Ohos view associated with this render object.
   @override
   OhosViewController get controller => _viewController;
@@ -754,7 +768,8 @@ abstract class RenderDarwinPlatformView<T extends DarwinPlatformViewController> 
 ///
 ///  * [UiKitView], which is a widget that is used to show a UIView.
 ///  * [PlatformViewsService], which is a service for controlling platform views.
-class RenderUiKitView extends RenderDarwinPlatformView<UiKitViewController> {
+class RenderUiKitView extends RenderDarwinPlatformView<UiKitViewController>
+    with NativeHitTestTarget {
   /// Creates a render object for an iOS UIView.
   RenderUiKitView({
     required super.viewController,

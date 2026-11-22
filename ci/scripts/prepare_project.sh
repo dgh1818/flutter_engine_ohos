@@ -27,8 +27,14 @@ prepare_project() {
     run_cmd "git fetch --all"
     run_cmd "git branch -a"
 
-    log_info "Rebasing to $target_branch"
-    if ! run_cmd "git rebase remotes/gitcode/$target_branch"; then
+    log_info "Syncing to $target_branch"
+    if git rev-list --merges HEAD --not "remotes/gitcode/$target_branch" | grep -q .; then
+        log_info "PR contains merge commits, merging $target_branch instead of rebasing"
+        if ! run_cmd "git merge --no-edit remotes/gitcode/$target_branch"; then
+            log_error "Merge failed!"
+            exit 1
+        fi
+    elif ! run_cmd "git rebase remotes/gitcode/$target_branch"; then
         log_error "Rebase failed!"
         exit 1
     fi

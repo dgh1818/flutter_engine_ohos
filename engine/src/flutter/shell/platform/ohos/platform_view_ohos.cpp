@@ -32,6 +32,7 @@
 #include "ohos_logging.h"
 #include "ohos_surface_gl_impeller.h"
 #include "shell/common/platform_view.h"
+#include "shell/platform/ohos/accessibility/ohos_semantics_inspector.h"
 #include "shell/platform/ohos/accessibility/ohos_semantics_node.h"
 #include "shell/platform/ohos/background_resource_cleanup.h"
 #include "shell/platform/ohos/context/ohos_context.h"
@@ -341,6 +342,33 @@ bool PlatformViewOHOS::NotifyCreateForView(
   return true;
 }
 
+void PlatformViewOHOS::AdoptImplicitViewSizedToContent(
+    bool sized_to_content,
+    bool has_constraints,
+    double min_width_constraint,
+    double max_width_constraint,
+    double min_height_constraint,
+    double max_height_constraint) {
+  const double dpr = viewport_metrics_.device_pixel_ratio > 0
+                         ? viewport_metrics_.device_pixel_ratio
+                         : 1.0;
+  implicit_view_constraints_.has_constraints = has_constraints;
+  implicit_view_constraints_.min_width = min_width_constraint * dpr;
+  implicit_view_constraints_.max_width = max_width_constraint * dpr;
+  implicit_view_constraints_.min_height = min_height_constraint * dpr;
+  implicit_view_constraints_.max_height = max_height_constraint * dpr;
+
+  SetViewSizedToContent(kFlutterImplicitViewId, sized_to_content);
+  if (!sized_to_content) {
+    return;
+  }
+
+  ViewportMetrics view_metrics = BuildViewMetricsForView(
+      kFlutterImplicitViewId, viewport_metrics_.physical_width,
+      viewport_metrics_.physical_height, implicit_view_constraints_);
+  PlatformView::SetViewportMetrics(kFlutterImplicitViewId, view_metrics);
+}
+
 void PlatformViewOHOS::NotifyDestroyForView(int64_t view_id) {
   FML_DCHECK(view_id != kFlutterImplicitViewId);
 
@@ -642,10 +670,27 @@ void PlatformViewOHOS::SetViewportMetrics(int64_t view_id,
     // layer will not take effect.
     metrics.physical_width = display_width_;
     metrics.physical_height = display_height_;
-    metrics.physical_min_width_constraint = display_width_;
-    metrics.physical_max_width_constraint = display_width_;
-    metrics.physical_min_height_constraint = display_height_;
-    metrics.physical_max_height_constraint = display_height_;
+    if (implicit_view_sized_to_content_) {
+      // A sized-to-content implicit view keeps its creation constraint
+      // RANGE across resizes (win32 re-sends the original box constraints;
+      // NotifySurfaceChangedForView parity) instead of pinning min=max to
+      // the window size, so Dart content keeps sizing itself.
+      const ViewportMetrics ranged = BuildViewMetricsForView(
+          view_id, display_width_, display_height_, implicit_view_constraints_);
+      metrics.physical_min_width_constraint =
+          ranged.physical_min_width_constraint;
+      metrics.physical_max_width_constraint =
+          ranged.physical_max_width_constraint;
+      metrics.physical_min_height_constraint =
+          ranged.physical_min_height_constraint;
+      metrics.physical_max_height_constraint =
+          ranged.physical_max_height_constraint;
+    } else {
+      metrics.physical_min_width_constraint = display_width_;
+      metrics.physical_max_width_constraint = display_width_;
+      metrics.physical_min_height_constraint = display_height_;
+      metrics.physical_max_height_constraint = display_height_;
+    }
   }
   FML_LOG(INFO) << "SetViewportMetrics physical size: "
                 << metrics.physical_width << "," << metrics.physical_height
@@ -746,6 +791,7 @@ void PlatformViewOHOS::HandlePlatformMessage(
 // |PlatformView|
 void PlatformViewOHOS::OnPreEngineRestart() const {
   FML_DLOG(INFO) << "OnPreEngineRestart";
+  platform_message_handler_->OnPreEngineRestart();
   // Drop Dart-facing windowing state before the restarting isolate dangles
   // its trampolines. GetWindowController() is null for spawned engines
   // (their shell holder never creates one) — guard or hot-restart crashes
@@ -850,9 +896,7 @@ PlatformViewOHOS::CreateExternalViewEmbedder() {
   FML_DLOG(INFO) << "CreateExternalViewEmbedder";
   external_view_embedder_ = std::make_shared<OHOSWindowingViewEmbedder>(
       // Sized-to-content content-size report (win32 sizing_delegate parity):
-      // raster thread -> platform (napi) thread -> ETS host
-      // TooltipWindowHost.didUpdateViewSize. Same post-then-invoke pattern
-      // as OHOSExternalViewEmbedder's facade calls.
+      // raster thread -> platform (napi) thread -> ETS host didUpdateViewSize.
       [task_runners = task_runners_, napi_facade = napi_facade_](
           int64_t view_id, double width, double height) {
         task_runners.GetPlatformTaskRunner()->PostTask(
@@ -863,6 +907,24 @@ PlatformViewOHOS::CreateExternalViewEmbedder() {
             });
       });
   return external_view_embedder_;
+}
+
+void PlatformViewOHOS::SetViewSizedToContent(int64_t view_id,
+                                             bool sized_to_content) {
+  if (view_id == static_cast<int64_t>(kFlutterImplicitViewId)) {
+    // Keeps the implicit view's metrics path (SetViewportMetrics) in step:
+    // sized-to-content keeps the constraint range, metrics mode re-pins.
+    implicit_view_sized_to_content_ = sized_to_content;
+  }
+  if (!external_view_embedder_) {
+    return;  // No windowing embedder (non-Vulkan backends).
+  }
+
+  std::shared_ptr<OHOSWindowingViewEmbedder> embedder = external_view_embedder_;
+  task_runners_.GetRasterTaskRunner()->PostTask(
+      [embedder, view_id, sized_to_content]() {
+        embedder->SetViewSizedToContent(view_id, sized_to_content);
+      });
 }
 
 void PlatformViewOHOS::SetHybridCompositionOverlayWindow(void* window) {
@@ -972,7 +1034,9 @@ void PlatformViewOHOS::SetSemanticsTreeEnabled(bool enabled) {
   FML_LOG(INFO) << "SetSemanticsTreeEnabled: " << enabled;
   if (!enabled) {
     std::lock_guard<std::mutex> lock(*bridge_mutex_);
+    bridge_->ClearInspectorSidecar();
     bridge_->tree_.ClearSemanticsTree();
+    PublishInspectorSnapshot(bridge_.get());
   }
 }
 
@@ -1283,6 +1347,7 @@ void PlatformViewOHOS::SetSemanticsBridge(
     std::shared_ptr<std::mutex> mutex) {
   bridge_ = std::move(bridge);
   bridge_mutex_ = std::move(mutex);
+  platform_message_handler_->SetSemanticsBridge(bridge_, bridge_mutex_);
 }
 
 void PlatformViewOHOS::AccessibilityAnnounce(std::unique_ptr<char[]>& message) {

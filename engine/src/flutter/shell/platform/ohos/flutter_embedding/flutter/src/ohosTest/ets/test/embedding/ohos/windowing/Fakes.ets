@@ -376,6 +376,14 @@ export class FakeWindow {
     return Promise.resolve();
   }
 
+  /** setResizeByDragEnabled(enabled, callback) recording — the fixed-window
+   * border-drag switch. Callback left uninvoked (err.code check is the
+   * production probe). */
+  resizeByDragCalls: Array<boolean> = new Array<boolean>();
+  setResizeByDragEnabled(enable: boolean, _callback?: (err: object) => void): void {
+    this.resizeByDragCalls.push(enable);
+  }
+
   getWindowProperties(): window.WindowProperties {
     if (this.propsThrows) {
       throw new Error('props-throws');
@@ -591,6 +599,7 @@ export class FakeHostContext implements WindowHostContext {
   restoredForegrounds: Array<string> = new Array<string>();
   activated: Array<Array<number>> = new Array<Array<number>>();
   removedHosts: Array<number> = new Array<number>();
+  osClosedViewIds: Array<number> = new Array<number>();
   deletedAbilities: Array<number> = new Array<number>();
   deletedViews: Array<string> = new Array<string>();
   flutterViews: Map<string, FlutterView> = new Map<string, FlutterView>();
@@ -624,6 +633,16 @@ export class FakeHostContext implements WindowHostContext {
 
   getHostWindowByView(viewId: number): FlutterWindowHost | undefined {
     return this.hosts.get(String(viewId));
+  }
+
+  notifyOsWindowClosed(viewId: number): void {
+    this.osClosedViewIds.push(viewId);
+  }
+
+  sizedToContent: Array<Array<number>> = new Array<Array<number>>();
+
+  setViewSizedToContent(viewId: number, sizedToContent: boolean): void {
+    this.sizedToContent.push([viewId, sizedToContent ? 1 : 0]);
   }
 
   notifyWindowActivated(viewId: number, activated: boolean): void {

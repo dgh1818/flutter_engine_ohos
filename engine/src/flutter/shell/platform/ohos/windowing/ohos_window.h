@@ -7,6 +7,7 @@
 #ifndef FLUTTER_SHELL_PLATFORM_OHOS_WINDOWING_OHOS_WINDOW_H_
 #define FLUTTER_SHELL_PLATFORM_OHOS_WINDOWING_OHOS_WINDOW_H_
 
+#include <atomic>
 #include <cstdint>
 #include <string>
 #include <utility>
@@ -30,7 +31,8 @@ class OHOSWindow {
   void FireWillClose();
   void FireNotifyListeners();
 
-  // Invokes the positioner Dart callback to compute an anchored sub-window's position
+  // Invokes the positioner Dart callback to compute an anchored sub-window's
+  // position
   bool ComputeWindowPosition(const WindowSize& child_size,
                              const WindowRect& parent_rect,
                              const WindowRect& work_area,
@@ -42,12 +44,16 @@ class OHOSWindow {
   bool HasPreferredSize() const { return has_preferred_size_; }
   WindowSize PreferredSize() const { return preferred_size_; }
 
-  // Tooltip AND popup are sized to content (win32 has no popup host to
-  // mirror; the OHOS popup follows its content). True => the raster thread
-  // reports the view's per-frame content size (see
-  // OHOSWindowingViewEmbedder) and the view's metrics carry a constraint
-  // RANGE instead of a pinned size.
+  // Tooltip AND popup are always sized to content (win32 has no popup host
+  // to mirror; the OHOS popup follows its content); regular/dialog when
+  // created WITHOUT a preferred size (3.47 sizedToContent constructors).
+  // True => the raster thread reports the view's per-frame content size
+  // (see OHOSWindowingViewEmbedder) and the view's metrics carry a
+  // constraint RANGE instead of a pinned size.
   bool IsSizedToContent() const { return sized_to_content_; }
+  void SetSizedToContent(bool sized_to_content) {
+    sized_to_content_.store(sized_to_content, std::memory_order_relaxed);
+  }
 
   // The creation request's min/max content constraints, LOGICAL px (max 0 =
   // unbounded). win32 FlutterWindowsView::GetConstraints parity — only
@@ -70,10 +76,11 @@ class OHOSWindow {
   bool has_preferred_size_ = false;
   WindowSize preferred_size_ = {};
   std::string title_cache_;
-  // See IsSizedToContent/GetConstraints. Constraints are seeded from
-  // the request by the tooltip/popup ctors (both carry the field); only the
-  // tooltip sets sized_to_content_ (win32 parity).
-  bool sized_to_content_ = false;
+  // See IsSizedToContent/GetConstraints. Constraints are seeded from the
+  // request by every ctor (all carry the field). Tooltip/popup are always
+  // sized to content; regular/dialog carry the request's explicit
+  // sized_to_content flag.
+  std::atomic<bool> sized_to_content_ = false;
   bool has_constraints_ = false;
   WindowConstraints constraints_ = {};
 };

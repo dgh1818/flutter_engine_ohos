@@ -10,11 +10,11 @@ import 'package:process_runner/process_runner.dart';
 
 /// The default base branch to diff against when computing changed files.
 ///
-/// OHOS fork uses 'oh-3.44.9-dev' as the main branch instead of 'main'.
+/// OHOS fork uses 'oh-3.47.9-dev' as the main branch instead of 'main'.
 /// In CI the [kTargetBranchEnv] environment variable (set by the runner from
 /// `.ci_ohos.yaml`'s `target_branch`) takes precedence so the branch name is
 /// defined in a single place; local development falls back to this default.
-const String kDefaultBaseBranch = 'oh-3.44.9-dev';
+const String kDefaultBaseBranch = 'oh-3.47.9-dev';
 
 /// Environment variable that overrides [kDefaultBaseBranch] in CI.
 const String kTargetBranchEnv = 'TARGET_BRANCH';

@@ -159,7 +159,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
     });
   }
 
-  Widget createImage(final int index, final Completer<bool> completer) {
+  Widget createImage(int index, Completer<bool> completer) {
     return Image.network(
       'https://localhost:${widget.port}/${_counter * images + index}',
       frameBuilder:

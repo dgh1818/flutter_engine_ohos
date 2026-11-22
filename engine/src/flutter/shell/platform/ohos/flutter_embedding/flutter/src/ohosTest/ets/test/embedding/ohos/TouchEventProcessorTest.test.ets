@@ -52,7 +52,9 @@ class PostRecorder {
   touchEvents: CustomTouchEvent[] = [];
   mouseEvents: MouseEvent[] = [];
   axisEvents: AxisEvent[] = [];
-  postEvent(e: CustomTouchEvent, isPx: boolean): boolean { this.touchEvents.push(e); return true; }
+  /** Value postEvent reports as the ArkUI hit-test consumption result. */
+  consumed: boolean = true;
+  postEvent(e: CustomTouchEvent, isPx: boolean): boolean { this.touchEvents.push(e); return this.consumed; }
   postMouseEvent(e: MouseEvent): void { this.mouseEvents.push(e); }
   postAxisEvent(e: AxisEvent): void { this.axisEvents.push(e); }
 }
@@ -490,7 +492,7 @@ export default function touchEventProcessorTest() {
       }
     });
 
-    it('cross-region release with no view down still synthesizes into the topmost view', Level.LEVEL1, () => {
+    it('cross-region release with no view down synthesizes into the topmost hovered view', Level.LEVEL1, () => {
       const view = new FakeProcView();
       const bottomRecorder = new PostRecorder();
       const topRecorder = new PostRecorder();
@@ -501,12 +503,16 @@ export default function touchEventProcessorTest() {
         'width': 100,
         'height': 100
       };
+      // Same-window drag-in: by the time the release arrives the cursor is
+      // over the topmost view, so the framework has set params['hover'] on
+      // it (and only on it) via the hover channel.
       const topParams: Record<string, Any> = {
         'nodeController': topRecorder,
         'left': 0,
         'top': 0,
         'width': 100,
-        'height': 100
+        'height': 100,
+        'hover': true
       };
       view.children.push(mkMouseChild(bottomParams));
       view.children.push(mkMouseChild(topParams));
@@ -518,6 +524,156 @@ export default function touchEventProcessorTest() {
         expect(bottomRecorder.mouseEvents.length).assertEqual(0);
       } finally {
         removeView('tep-mouse-crossregion');
+      }
+    });
+
+    it('release with hover false does not synthesize and is cached (cross-window click leak)', Level.LEVEL1, () => {
+      // Multi-window: the cursor is over another window, so params['hover']
+      // is false on this window's platform view even though the mixed-space
+      // coordinates numerically hit it. The synthesis branch must not engage;
+      // the release falls through to the pending-event cache instead of
+      // being fabricated into a full click.
+      const view = new FakeProcView();
+      const recorder = new PostRecorder();
+      const params: Record<string, Any> = {
+        'nodeController': recorder,
+        'left': 0,
+        'top': 0,
+        'width': 100,
+        'height': 100
+      };
+      view.children.push(mkMouseChild(params));
+      installView('tep-mouse-hovergate-off', view);
+      try {
+        TouchEventProcessor.getInstance().postMouseEvent(mkMouseStrings(2, 1));
+        expect(recorder.mouseEvents.length).assertEqual(0);
+        expect(params['mouseDownSynthesized'] ?? false).assertEqual(false);
+        const cache = params['mouseEvent'] as Array<MouseEvent>;
+        expect(cache.length).assertEqual(1);
+      } finally {
+        removeView('tep-mouse-hovergate-off');
+      }
+    });
+
+    it('press with hover true is cached instead of synthesized', Level.LEVEL1, () => {
+      // A direct in-window click starts with a Press while the cursor is
+      // over the view (hover true). The synthesis branch must still skip
+      // Press events: they belong to the cache branch that the framework
+      // drains on the channel DOWN, otherwise the view would receive a
+      // double Press.
+      const view = new FakeProcView();
+      const recorder = new PostRecorder();
+      const params: Record<string, Any> = {
+        'nodeController': recorder,
+        'left': 0,
+        'top': 0,
+        'width': 100,
+        'height': 100,
+        'hover': true
+      };
+      view.children.push(mkMouseChild(params));
+      installView('tep-mouse-hoverpress', view);
+      try {
+        TouchEventProcessor.getInstance().postMouseEvent(mkMouseStrings(1, 1));
+        expect(recorder.mouseEvents.length).assertEqual(0);
+        expect(params['mouseDownSynthesized'] ?? false).assertEqual(false);
+        const cache = params['mouseEvent'] as Array<MouseEvent>;
+        expect(cache.length).assertEqual(1);
+      } finally {
+        removeView('tep-mouse-hoverpress');
+      }
+    });
+  });
+
+  describe('TouchEventProcessor.postTouchEvent.dispatch', () => {
+    // Everything the two dispatch tests need is declared inside this block so
+    // the suite stays self-contained regardless of where the file's other
+    // packet/view helpers are scoped.
+    const installView = (key: string, view: FakeProcView): void => {
+      (FlutterManager.getInstance().getFlutterViewList() as Any).set(key, view);
+    };
+
+    const removeView = (key: string): void => {
+      (FlutterManager.getInstance().getFlutterViewList() as Any).delete(key);
+    };
+
+    const mkTouchChild = (params: Record<string, Any>): Any => ({
+      getLayoutParams: (): Record<string, Any> => params,
+      params: params,
+      compType: 'NodeContainer',
+      children: []
+    } as Any);
+
+    // Touch packet layout produced by the C++ side (see decodeTouchPacket):
+    // numPoint, changed id/screenX/screenY/x/y/type/size/force/deviceId/timeStamp,
+    // per-point id/screenX/screenY/x/y/type/size/force/deviceId/isPressed, then
+    // toolType/tiltX/tiltY. Coordinates are raw px strings; decoding divides
+    // them by the display density, which does not affect dispatch.
+    const buildTouchPacket = (): Array<string> => ['1', '7', '100', '50', '40', '60', '0', '1.5', '0.6', '9', '12345',
+      '7', '100', '50', '40', '60', '0', '1.5', '0.6', '9', '1', '2', '3', '4'];
+
+    it('stops dispatching at the first consuming view (issue #2500)', Level.LEVEL1, () => {
+      const view = new FakeProcView();
+      const bottomRecorder = new PostRecorder();
+      const topRecorder = new PostRecorder();
+      const bottomParams: Record<string, Any> = {
+        'down': true,
+        'nodeController': bottomRecorder,
+        'left': 0,
+        'top': 0,
+        'width': 100,
+        'height': 100
+      };
+      const topParams: Record<string, Any> = {
+        'down': true,
+        'nodeController': topRecorder,
+        'left': 0,
+        'top': 0,
+        'width': 100,
+        'height': 100
+      };
+      view.children.push(mkTouchChild(bottomParams));
+      view.children.push(mkTouchChild(topParams));
+      installView('tep-touch-consume', view);
+      try {
+        TouchEventProcessor.getInstance().postTouchEvent(buildTouchPacket());
+        expect(topRecorder.touchEvents.length).assertEqual(1);
+        expect(bottomRecorder.touchEvents.length).assertEqual(0);
+      } finally {
+        removeView('tep-touch-consume');
+      }
+    });
+
+    it('continues to the lower down view when the top view does not consume', Level.LEVEL1, () => {
+      const view = new FakeProcView();
+      const bottomRecorder = new PostRecorder();
+      const topRecorder = new PostRecorder();
+      topRecorder.consumed = false;
+      const bottomParams: Record<string, Any> = {
+        'down': true,
+        'nodeController': bottomRecorder,
+        'left': 0,
+        'top': 0,
+        'width': 100,
+        'height': 100
+      };
+      const topParams: Record<string, Any> = {
+        'down': true,
+        'nodeController': topRecorder,
+        'left': 0,
+        'top': 0,
+        'width': 100,
+        'height': 100
+      };
+      view.children.push(mkTouchChild(bottomParams));
+      view.children.push(mkTouchChild(topParams));
+      installView('tep-touch-continue', view);
+      try {
+        TouchEventProcessor.getInstance().postTouchEvent(buildTouchPacket());
+        expect(topRecorder.touchEvents.length).assertEqual(1);
+        expect(bottomRecorder.touchEvents.length).assertEqual(1);
+      } finally {
+        removeView('tep-touch-continue');
       }
     });
   });

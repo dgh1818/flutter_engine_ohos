@@ -405,6 +405,11 @@ abstract class XcodeBasedProject extends FlutterProjectPlatform {
     required ProcessUtils processUtils,
     required Logger logger,
   }) async {
+    // If the project has not migrated to SwiftPM, we don't need to prefetch Swift packages.
+    if (!usesSwiftPackageManager || !flutterPluginSwiftPackageInProjectSettings) {
+      return;
+    }
+
     Status? status;
     try {
       final command = <String>[...xcodebuildProjectCommandArguments, '-resolvePackageDependencies'];
@@ -633,7 +638,7 @@ def __lldb_init_module(debugger: lldb.SBDebugger, _):
       }
     }
 
-    return !buildSettings.contains(RegExp('EXCLUDED_ARCHS.*arm64'));
+    return !buildSettings.contains(RegExp(r'EXCLUDED_ARCHS.*\barm64\b'));
   }
 
   /// Returns a list of targets and their associated plugin (if found) that exclude arm64 architecture.

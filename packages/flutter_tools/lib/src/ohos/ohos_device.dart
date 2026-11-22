@@ -406,6 +406,11 @@ class OhosDevice extends Device {
           'disable-service-auth-codes',
           'true',
         ],
+        if (debuggingOptions.disableServiceOriginCheck) ...<String>[
+          '--pb',
+          'disable-service-origin-check',
+          'true',
+        ],
         if (debuggingOptions.dartFlags.isNotEmpty) ...<String>['--ps', 'dart-flags', dartFlags],
         if (debuggingOptions.useTestFonts) ...<String>['--pb', 'use-test-fonts', 'true'],
         if (debuggingOptions.verboseSystemLogs) ...<String>['--pb', 'verbose-logging', 'true'],

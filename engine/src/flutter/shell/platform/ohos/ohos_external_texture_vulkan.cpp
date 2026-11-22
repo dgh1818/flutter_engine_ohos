@@ -250,8 +250,10 @@ void OHOSExternalTextureVulkan::WaitGPUFence(int fence_fd) {
   }
 
   auto added_fence = impeller_context_->GetFenceWaiter()->AddFence(
-      std::move(complete_fence), fence_callback);
-  if (!added_fence) {
+      std::move(complete_fence),
+      [](impeller::vk::Fence) { return fml::Status(); },
+      fence_callback);
+  if (!added_fence.ok()) {
     // only happen when the FenceWaiter thread is terminated.
     FML_LOG(ERROR) << "failed to add Fence";
     return;

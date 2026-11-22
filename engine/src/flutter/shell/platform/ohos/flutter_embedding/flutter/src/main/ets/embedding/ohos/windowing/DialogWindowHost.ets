@@ -8,16 +8,14 @@ import window from '@ohos.window';
 import { BusinessError } from '@ohos.base';
 import Log from '../../../util/Log';
 import { FlutterView } from '../../../view/FlutterView';
-import { FlutterWindowHost } from './FlutterWindowHost';
+import { FlutterHostWindowSized } from './FlutterHostWindowSized';
 import { WindowHostContext } from './WindowHostContext';
-import { DialogWindowCreationRequest,
+import { DialogWindowCreationRequest, NESTED_DIALOG_CASCADE_PX,
   WindowArchetype, WindowConstraints, WindowSizeRequest } from './WindowingUtils';
 
 const TAG = 'DialogWindowHost'
 
 const SUB_WINDOW_NAME_PREFIX: string = 'Dialog-';
-
-const NESTED_DIALOG_CASCADE_PX: number = 20;
 
 
 /**
@@ -25,16 +23,26 @@ const NESTED_DIALOG_CASCADE_PX: number = 20;
  * to a spawned RegularWindowHost in FlutterManager.createDialogWindow — this
  * host always has a VALID parentViewId). 
  */
-export class DialogWindowHost extends FlutterWindowHost {
+export class DialogWindowHost extends FlutterHostWindowSized {
   protected readonly request: DialogWindowCreationRequest;
   private readonly parentWnd: window.Window | undefined;
 
+  /**
+   * Constructs a DialogWindowHost.
+   * @param ctx - The manager-facing service surface
+   * @param viewId - The engine numeric view id
+   * @param request - Creation fields; parentViewId is always a valid parent
+   */
   constructor(ctx: WindowHostContext, viewId: number, request: DialogWindowCreationRequest) {
-    super(ctx, viewId, request.parentViewId, request.title, WindowArchetype.DIALOG);
+    super(ctx, viewId, request.parentViewId, request.title, WindowArchetype.DIALOG,
+      request.sizedToContent, request.resizable, request.preferredConstraints);
     this.request = request;
     this.parentWnd = ctx.getHostWindowByView(request.parentViewId)?.getWindow() ?? undefined;
   }
 
+  /** Creates the modal SubWindow (cascade-offset from the parent, centered
+   * when both size and owner are known), attaches the view to the parent's
+   * engine, loads the app's sub-window page and shows the dialog. */
   async attach(): Promise<void> {
     if (this.parentWnd === undefined) {
       Log.e(TAG, `attach: no parent window for parentViewId=${this.parentViewId}`);
@@ -43,11 +51,13 @@ export class DialogWindowHost extends FlutterWindowHost {
     }
 
     const rect = this.getInitialRect(this.request.preferredSize, this.request.preferredConstraints, this.parentWnd);
-    rect.left -= NESTED_DIALOG_CASCADE_PX;
-    rect.top -= NESTED_DIALOG_CASCADE_PX; // offset the dialog to cascade from the parent window
+    if (!this.sizedToContent) {
+      rect.left -= NESTED_DIALOG_CASCADE_PX;
+      rect.top -= NESTED_DIALOG_CASCADE_PX; // offset the dialog to cascade from the parent window
+    }
     const options: window.SubWindowOptions = {
       title: this.title,
-      decorEnabled: false,
+      decorEnabled: true,
       isModal: true,
       modalityType: window.ModalityType.WINDOW_MODALITY,
       maximizeSupported: false,
@@ -78,11 +88,15 @@ export class DialogWindowHost extends FlutterWindowHost {
     try {
       await subWindow.loadContent(this.ctx.subWindowPage(), storage);
       await subWindow.showWindow();
+      subWindow.setWindowTitle(this.title).catch((e: Object) => {
+        Log.w(TAG, `setWindowTitle "${this.title}" failed: ${JSON.stringify(e)}`);
+      });
       subWindow.on('windowEvent', (event: window.WindowEventType) => {
         if (event === window.WindowEventType.WINDOW_DESTROYED) {
           this.handleOsClosed();
         }
       });
+      this.setWindowStyleForResizable();
     } catch (e) {
       const err = e as BusinessError;
       Log.e(TAG, `loadContent/showWindow failed for ${String(this.viewId)}: ${JSON.stringify(err)}`);
@@ -91,6 +105,9 @@ export class DialogWindowHost extends FlutterWindowHost {
     }
   }
 
+  /** Creates-or-reuses the dialog's FlutterView and attaches it to the SAME
+   * engine as the parent view (single-engine, multi-view); false (after
+   * failAttach) when the parent view/engine is unavailable. */
   private viewAttachEngine(): boolean {
     const parentView = this.ctx.getHostWindowByView(this.parentViewId)?.getFlutterView() ?? null;
     if (parentView === null) {
@@ -134,13 +151,21 @@ export class DialogWindowHost extends FlutterWindowHost {
       smallest = { width: constraints.viewMinWidth, height: constraints.viewMinHeight };
       biggest = { width: constraints.viewMaxWidth, height: constraints.viewMaxHeight };
     }
+    const clientSize: window.Size = this.request.sizedToContent
+      ? {
+          width: constraints.hasViewConstraints && constraints.viewMinWidth > 0 ? constraints.viewMinWidth : 1,
+          height: constraints.hasViewConstraints && constraints.viewMinHeight > 0 ? constraints.viewMinHeight : 1,
+        }
+      : { width: preferred_size.preferredViewWidth, height: preferred_size.preferredViewHeight };
     const window_size = this.getWindowSizeForClientSize(
-      { width: preferred_size.preferredViewWidth, height: preferred_size.preferredViewHeight },
-      smallest, biggest, owner_window);
+      clientSize, smallest, biggest, owner_window);
+    if (window_size !== undefined) {
+      window_size.height += this.getDecorHeightPx(owner_window);
+    }
     // Origin 0,0 == "system decides" (win32 CW_USEDEFAULT); only a known
     // owner + a known size pin the dialog centered over the owner.
     const window_origin: window.Position = { x: 0, y: 0 };
-    if (window_size !== undefined && owner_props !== undefined) {
+    if (!this.sizedToContent && window_size !== undefined && owner_props !== undefined) {
       const frame: window.Rect = owner_props.windowRect;
       window_origin.x = Math.round(frame.left + (frame.width - window_size.width) * 0.5);
       window_origin.y = Math.round(frame.top + (frame.height - window_size.height) * 0.5);

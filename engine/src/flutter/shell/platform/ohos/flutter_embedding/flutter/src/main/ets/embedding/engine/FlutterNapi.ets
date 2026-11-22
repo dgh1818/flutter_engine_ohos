@@ -149,6 +149,35 @@ export default class FlutterNapi {
   }
 
   /**
+   * Registers the inspector tree getter for this engine instance.
+   * On systems >= 26.1.0 ArkUI invokes the getter while assembling the
+   * inspector tree and merges the Flutter subtree into the output consumed
+   * by DevEco Inspector / getInspectorTree(); below 26.1.0 it is a no-op
+   * with a native-side warning. Must be called on the UI thread.
+   * @param frameNode - the host XComponent's FrameNode
+   *   (this.getUIContext().getFrameNodeById(<xcomponent id>))
+   */
+  registerInspectorTreeGetter(frameNode: object): void {
+    if (this.nativeShellHolderId == null) {
+      Log.e(TAG, 'registerInspectorTreeGetter fail, not attached');
+      return;
+    }
+    flutter.nativeRegisterInspectorTreeGetter(this.nativeShellHolderId, frameNode);
+  }
+
+  /**
+   * Unregisters the inspector tree getter registered by
+   * registerInspectorTreeGetter; call before the engine detaches.
+   * @param frameNode - the same FrameNode passed at registration
+   */
+  unregisterInspectorTreeGetter(frameNode: object): void {
+    if (this.nativeShellHolderId == null) {
+      return;
+    }
+    flutter.nativeUnregisterInspectorTreeGetter(this.nativeShellHolderId, frameNode);
+  }
+
+  /**
    * Updates the pixel density of the display.
    * @param densityPixels - The pixel density value (dots per inch)
    */
@@ -335,6 +364,10 @@ export default class FlutterNapi {
    */
   static nativeNotifyWindowActivated(viewId: number, activated: boolean): void {
     flutter.nativeNotifyWindowActivated(viewId, activated);
+  }
+
+  static nativeSetViewSizedToContent(viewId: number, sizedToContent: boolean): void {
+    flutter.nativeSetViewSizedToContent(viewId, sizedToContent);
   }
 
   /**
@@ -702,6 +735,7 @@ export default class FlutterNapi {
   // parentViewId, LOGICAL px), field-for-field with the C++ structs in
   // ohos_window_types.h.
 
+  /** Regular: spawn a sibling UIAbility-backed host (own task-center card). */
   createRegularWindow(viewId: number, req: RegularWindowCreationRequest): void {
     FlutterManager.getInstance().createRegularWindow(viewId, req);
   }
@@ -763,11 +797,15 @@ export default class FlutterNapi {
     host.destroy();
   }
 
+  /** Native entry (InvokeJsMethod "exitApplication"): main-window close =
+   * quit — run the full shutdown path (cascade close + engine destroy). */
   exitApplication(): void {
     Log.d(TAG, `exitApplication`);
     FlutterManager.getInstance().exitApplication();
   }
 
+  /** Native entry (InvokeJsMethod "setWindowSize"): Dart Window.setSize —
+   * resize the view's OS window to the LOGICAL-px client size. */
   setWindowSize(viewId: number, width: number, height: number): void {
     Log.d(TAG, `setWindowSize viewId=${viewId} size=${width}x${height}`);
     const host = FlutterManager.getInstance().getHostWindowByView(viewId);
@@ -778,6 +816,8 @@ export default class FlutterNapi {
     host.setWindowSize(width, height);
   }
 
+  /** Native entry (InvokeJsMethod "setWindowTitle"): set the OS window
+   * title (hosts with a title bar only). */
   setWindowTitle(viewId: number, title: string): void {
     Log.d(TAG, `setWindowTitle viewId=${viewId} title="${title}"`);
     const host = FlutterManager.getInstance().getHostWindowByView(viewId);
@@ -788,6 +828,8 @@ export default class FlutterNapi {
     host.setWindowTitle(title);
   }
 
+  /** Native entry (InvokeJsMethod "setWindowMaximized"): maximize /
+   * restore the OS window (dialogs refuse the maximize direction). */
   setWindowMaximized(viewId: number, maximized: boolean): void {
     Log.d(TAG, `setWindowMaximized viewId=${viewId} maximized=${maximized}`);
     const host = FlutterManager.getInstance().getHostWindowByView(viewId);
@@ -798,6 +840,8 @@ export default class FlutterNapi {
     host.setWindowMaximized(maximized);
   }
 
+  /** Native entry (InvokeJsMethod "setWindowMinimized"): minimize /
+   * restore the OS window. */
   setWindowMinimized(viewId: number, minimized: boolean): void {
     Log.d(TAG, `setWindowMinimized viewId=${viewId} minimized=${minimized}`);
     const host = FlutterManager.getInstance().getHostWindowByView(viewId);
@@ -808,6 +852,8 @@ export default class FlutterNapi {
     host.setWindowMinimized(minimized);
   }
 
+  /** Native entry (InvokeJsMethod "setWindowFullscreen"): enter / leave
+   * fullscreen (a hard no-op for dialogs). */
   setWindowFullscreen(viewId: number, fullscreen: boolean): void {
     Log.d(TAG, `setWindowFullscreen viewId=${viewId} fullscreen=${fullscreen}`);
     const host = FlutterManager.getInstance().getHostWindowByView(viewId);
@@ -818,7 +864,9 @@ export default class FlutterNapi {
     host.setWindowFullscreen(fullscreen);
   }
 
-  // LOGICAL-px runtime constraint update (max 0 == unbounded).
+  /** Native entry (InvokeJsMethod "setWindowConstraints"): LOGICAL-px
+   * runtime min/max update (0 == unbounded), forwarded to the OS window as
+   * physical-px window limits. */
   setWindowConstraints(viewId: number, constraints: WindowConstraints): void {
     // Wrap the raw napi object (creation bridges do the same).
     const c = new WindowConstraints(constraints);
@@ -837,7 +885,9 @@ export default class FlutterNapi {
     host.setWindowLimits(limits);
   }
 
-  // Brings the window to front.
+  /** Native entry (InvokeJsMethod "activateWindow"): Dart
+   * Window.activate — bring the OS window back to the front
+   * (re-raises an existing window; best-effort). */
   activateWindow(viewId: number): void {
     Log.d(TAG, `activateWindow viewId=${viewId}`);
     const host = FlutterManager.getInstance().getHostWindowByView(viewId);

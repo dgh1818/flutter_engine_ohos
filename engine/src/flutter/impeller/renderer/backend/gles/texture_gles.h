@@ -5,6 +5,7 @@
 #ifndef FLUTTER_IMPELLER_RENDERER_BACKEND_GLES_TEXTURE_GLES_H_
 #define FLUTTER_IMPELLER_RENDERER_BACKEND_GLES_TEXTURE_GLES_H_
 
+#include <array>
 #include <bitset>
 
 #include "fml/logging.h"
@@ -85,7 +86,7 @@ class TextureGLES final : public Texture,
 
   std::optional<GLuint> GetGLHandle() const;
 
-  [[nodiscard]] bool Bind() const;
+  [[nodiscard]] bool Bind();
 
   [[nodiscard]] bool GenerateMipmap();
 
@@ -94,9 +95,10 @@ class TextureGLES final : public Texture,
     kDepth,
     kStencil,
   };
-  [[nodiscard]] bool SetAsFramebufferAttachment(
-      GLenum target,
-      AttachmentType attachment_type) const;
+  [[nodiscard]] bool SetAsFramebufferAttachment(GLenum target,
+                                                AttachmentType attachment_type,
+                                                uint32_t mip_level = 0,
+                                                uint32_t slice = 0);
 
   Type GetType() const;
 
@@ -124,9 +126,26 @@ class TextureGLES final : public Texture,
   ///
   /// @param[in]  slice  The slice to mark as being initialized.
   ///
-  void MarkSliceInitialized(size_t slice) const;
+  void MarkSliceInitialized(size_t slice);
 
   bool IsSliceInitialized(size_t slice) const;
+
+  //----------------------------------------------------------------------------
+  /// @brief      Indicates that storage for `mip_level` of `slice` has been
+  ///             allocated by a `glTexImage2D` call (or equivalent).
+  ///
+  ///             GLES raises `GL_INVALID_OPERATION` when `glTexSubImage2D`
+  ///             targets a level that has not been previously defined, so
+  ///             every per-level upload must check this first and allocate
+  ///             on demand.
+  ///
+  /// @param[in]  slice      The slice (cubemap face for cubemaps, otherwise
+  ///                        always 0).
+  /// @param[in]  mip_level  The mip level whose storage was allocated.
+  ///
+  void MarkSliceMipLevelInitialized(size_t slice, size_t mip_level);
+
+  bool IsSliceMipLevelInitialized(size_t slice, size_t mip_level) const;
 
   //----------------------------------------------------------------------------
   /// @brief      Attach a sync fence to this texture that will be waited on
@@ -145,6 +164,13 @@ class TextureGLES final : public Texture,
   /// Retrieve the cached FBO object, or a dead handle if there is no object.
   const HandleGLES& GetCachedFBO() const;
 
+  /// Records the subresource the cached FBO is currently bound to.
+  void SetCachedFBOSubresource(uint32_t mip_level, uint32_t slice);
+
+  /// Whether the cached FBO is currently bound to `(mip_level, slice)`. When
+  /// false, the FBO must be re-attached before use.
+  bool CachedFBOMatchesSubresource(uint32_t mip_level, uint32_t slice) const;
+
   // Visible for testing.
   std::optional<HandleGLES> GetSyncFence() const;
 
@@ -155,11 +181,22 @@ class TextureGLES final : public Texture,
   std::shared_ptr<ReactorGLES> reactor_;
   const Type type_;
   UniqueHandleGLES handle_;
-  mutable UniqueHandleGLES fence_;
-  mutable std::bitset<6> slices_initialized_ = 0;
+  UniqueHandleGLES fence_;
+  // Tracks which `(slice, mip_level)` pairs have had their storage allocated
+  // by a `glTexImage2D` call. Allocation is performed lazily on first write
+  // to a level so the only-renders-then-mipmaps path (Impeller's snapshot
+  // pipeline) keeps its single base-level allocation, and per-level uploads
+  // only pay for the levels they actually touch.
+  //
+  // Sized for up to 6 cubemap faces × 16 mip levels (covers a 32k base
+  // dimension); requested levels above this are simply not tracked.
+  static constexpr size_t kMaxTrackedMipLevels = 16;
+  std::array<std::bitset<kMaxTrackedMipLevels>, 6> slice_mip_initialized_ = {};
   const bool is_wrapped_;
   const std::optional<GLuint> wrapped_fbo_;
   UniqueHandleGLES cached_fbo_;
+  uint32_t cached_fbo_mip_level_ = 0;
+  uint32_t cached_fbo_slice_ = 0;
   bool is_valid_ = false;
 
   TextureGLES(std::shared_ptr<ReactorGLES> reactor,
@@ -186,10 +223,12 @@ class TextureGLES final : public Texture,
   // |Texture|
   ISize GetSize() const override;
 
-  // |Texture|
-  Scalar GetYCoordScale() const override;
+  void InitializeContentsIfNecessary();
 
-  void InitializeContentsIfNecessary() const;
+  // Allocates storage for `(slice, mip_level)` if it has not been allocated
+  // yet, so the subresource can be attached to a framebuffer. Returns false on
+  // failure.
+  bool EnsureSliceMipLevelStorage(size_t slice, size_t mip_level);
 
   TextureGLES(const TextureGLES&) = delete;
 

@@ -766,10 +766,12 @@ def ensure_ios_tests_are_built(ios_out_dir: str) -> None:
   message = []
   message.append('gn --ios --unoptimized --runtime-mode=debug --no-lto --simulator')
   message.append(f'ninja -C {ios_out_dir} ios_test_flutter')
-  joined_message = '\n'.join(message)
+  joined_message = '\n  '.join(message)
   final_message = (
-      f"{ios_out_dir} or {ios_test_lib} doesn't exist. "
-      f'Please run the following commands: \n{joined_message}'
+      f"{ios_out_dir} or {ios_test_lib} doesn't exist.\n\n"
+      f'Please run the following commands:\n\n'
+      f'  {joined_message}\n\n'
+      f'Alternatively, use --ios-variant to specify a different build configuration.'
   )
   assert os.path.exists(tmp_out_dir) and os.path.exists(ios_test_lib), final_message
 
@@ -1605,7 +1607,10 @@ Flutter Wiki page on the subject: https://github.com/flutter/flutter/wiki/Testin
 
   build_dir = os.path.join(OUT_DIR, args.variant)
   if args.type not in ('java', 'android', 'ohos'):
-    assert os.path.exists(build_dir), f'Build variant directory {build_dir} does not exist!'
+    assert os.path.exists(build_dir), (
+        f'Build directory {build_dir} does not exist!\n\n'
+        'You can use --variant to specify a different build configuration if needed.'
+    )
 
   if args.sanitizer_suppressions:
     assert is_linux() or is_mac(

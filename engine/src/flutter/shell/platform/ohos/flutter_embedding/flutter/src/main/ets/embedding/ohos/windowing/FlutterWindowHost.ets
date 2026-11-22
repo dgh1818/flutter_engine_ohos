@@ -8,8 +8,9 @@ import UIAbility from '@ohos.app.ability.UIAbility';
 import window from '@ohos.window';
 import display from '@ohos.display';
 import Log from '../../../util/Log';
-import { FlutterView } from '../../../view/FlutterView';
-import FlutterNapi from '../../engine/FlutterNapi';
+// Type-only import: keeps the runtime module graph acyclic
+// (FlutterView → FlutterManager → windowing hosts → FlutterWindowHost).
+import type { FlutterView } from '../../../view/FlutterView';
 import { WindowHostContext } from './WindowHostContext';
 import { WindowArchetype } from './WindowingUtils';
 
@@ -46,10 +47,13 @@ export abstract class FlutterWindowHost {
 
   private flutterView: FlutterView | null = null;
 
+  /** Sets the host's FlutterView (seeded by the manager when the view's
+   * surface already exists — ADOPTED main window, SPAWNED after load). */
   setFlutterView(flutterView: FlutterView): void {
     this.flutterView = flutterView;
   }
 
+  /** The host's FlutterView, or null before it was seeded. */
   getFlutterView(): FlutterView | null {
     return this.flutterView;
   }
@@ -58,6 +62,7 @@ export abstract class FlutterWindowHost {
    * modeless Dialog; set by the manager from registerViewAbility). */
   protected ability: UIAbility | undefined;
 
+  /** Sets the backing UIAbility (manager-side, from registerViewAbility). */
   setAbility(ability: UIAbility): void {
     this.ability = ability;
   }
@@ -113,7 +118,9 @@ export abstract class FlutterWindowHost {
   /** OS-initiated destruction: report to native (Dart `destroyed` flips and
    * unregister runs), detach, drop bookkeeping. */
   handleOsClosed(): void {
-    FlutterNapi.nativeHandleOsWindowClosed(this.viewId);
+    // Routed through the context seam: a direct FlutterNapi import here
+    // would close the cycle FlutterNapi → FlutterManager → hosts → this class.
+    this.ctx.notifyOsWindowClosed(this.viewId);
     this.detachView();
     this.cleanupBookkeeping();
   }
@@ -131,6 +138,10 @@ export abstract class FlutterWindowHost {
     }
   }
 
+  /** Converts a LOGICAL-px client (content) size to a PHYSICAL-px window
+   * size: scales by the owner display's density, applies the given min/max
+   * constraints (clamped to the virtual screen), and returns undefined when
+   * the client size carries no meaningful extent (0 width/height). */
   protected getWindowSizeForClientSize(client_size: window.Size,
                                        smallest: window.Size | undefined,
                                        biggest: window.Size | undefined,
@@ -158,6 +169,8 @@ export abstract class FlutterWindowHost {
     return { width: width, height: height };
   }
 
+  /** Clamps a physical size to the default display's bounds (0..width,
+   * 0..height); returns the input unchanged when the display is unavailable. */
   protected ClampToVirtualScreen(size: window.Size): window.Size {
     try {
       const screen = display.getDefaultDisplaySync();
@@ -169,6 +182,9 @@ export abstract class FlutterWindowHost {
     }
   }
 
+  /** Detaches the host's FlutterView from the shared engine (the shared
+   * teardown step of destroy / OS-close / cascade-close; best-effort —
+   * a throwing detach is logged, not propagated). */
   detachView(): void {
     const fv = this.getFlutterView();
     if (fv) {
@@ -195,13 +211,15 @@ export abstract class FlutterWindowHost {
    * unregister runs, then drop this host's bookkeeping. */
   protected failAttach(where: string): void {
     try {
-      FlutterNapi.nativeHandleOsWindowClosed(this.viewId);
+      this.ctx.notifyOsWindowClosed(this.viewId);
     } catch (e) {
-      Log.w(TAG, `${where}: nativeHandleOsWindowClosed failed for ${String(this.viewId)}: ${JSON.stringify(e)}`);
+      Log.w(TAG, `${where}: notifyOsWindowClosed failed for ${String(this.viewId)}: ${JSON.stringify(e)}`);
     }
     this.cleanupBookkeeping();
   }
 
+  /** The window's decoration (title-bar) height in physical px — used to grow
+   * a client size to the outer frame; 0 when unknown or on failure. */
   protected getDecorHeightPx(win: window.Window | undefined): number {
     if (win === undefined) {
       return 0;
@@ -221,6 +239,9 @@ export abstract class FlutterWindowHost {
     minHeight: 0,
   };
 
+  /** Resizes the OS window to a LOGICAL-px client size (scaled to physical
+   * px, clamped to the stored limits, grown by the decor height); no-op
+   * without an OS window. */
   setWindowSize(width: number, height: number): void {
     if (!this.window) {
       Log.e(TAG, `setWindowSize: no window for viewId=${String(this.viewId)}`);
@@ -250,6 +271,9 @@ export abstract class FlutterWindowHost {
     });
   }
 
+  /** Stores the LOGICAL-px limits and (when the OS window exists) pushes
+   * them to the OS as physical px. Later setWindowSize calls clamp against
+   * the stored range. */
   setWindowLimits(limits: window.WindowLimits): void {
     this.windowLimits = limits;
     if (!this.window) {
@@ -285,6 +309,8 @@ export abstract class FlutterWindowHost {
     // Base no-op; hosts with an OS titlebar (dialog / ability) override
   }
 
+  /** Maximizes / restores the OS window (dialogs refuse the maximize
+   * direction; no-op without an OS window). */
   setWindowMaximized(maximized: boolean): void {
     if (maximized && this.archetype === WindowArchetype.DIALOG) {
       // Win32 dialogs carry no WS_MAXIMIZEBOX (host_window_dialog.cc):
@@ -302,6 +328,7 @@ export abstract class FlutterWindowHost {
     });
   }
 
+  /** Minimizes / restores the OS window (no-op without an OS window). */
   setWindowMinimized(minimized: boolean): void {
     if (!this.window) {
       Log.e(TAG, `setWindowMinimized: no window for viewId=${String(this.viewId)}`);

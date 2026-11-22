@@ -5,6 +5,7 @@
 import 'package:file/file.dart';
 import 'package:file/memory.dart';
 import 'package:flutter_tools/src/artifacts.dart';
+import 'package:flutter_tools/src/base/config.dart';
 import 'package:flutter_tools/src/base/file_system.dart';
 import 'package:flutter_tools/src/base/logger.dart';
 import 'package:flutter_tools/src/base/process.dart';
@@ -486,6 +487,19 @@ Could not build the precompiled application for the device.''',
           'plugin_1_name, plugin_2_name.',
         ),
       );
+      expect(
+        fakeAnalytics.sentEvents,
+        containsAll(<Event>[
+          Event.appleUsageEvent(
+            workflow: 'duplicate-modules-build-failure',
+            parameter: 'plugin_1_name',
+          ),
+          Event.appleUsageEvent(
+            workflow: 'duplicate-modules-build-failure',
+            parameter: 'plugin_2_name',
+          ),
+        ]),
+      );
     });
 
     testWithoutContext('parses duplicate symbols error with arch and number', () async {
@@ -532,6 +546,15 @@ duplicate symbol '_$s29plugin_1_name23PluginNamePluginC9setDouble3key5valueySS_S
           'plugin_1_name.',
         ),
       );
+      expect(
+        fakeAnalytics.sentEvents,
+        contains(
+          Event.appleUsageEvent(
+            workflow: 'duplicate-modules-build-failure',
+            parameter: 'plugin_1_name',
+          ),
+        ),
+      );
     });
 
     testWithoutContext('parses duplicate symbols error with number', () async {
@@ -575,6 +598,15 @@ duplicate symbol '_$s29plugin_1_name23PluginNamePluginC9setDouble3key5valueySS_S
           'plugin_1_name.',
         ),
       );
+      expect(
+        fakeAnalytics.sentEvents,
+        contains(
+          Event.appleUsageEvent(
+            workflow: 'duplicate-modules-build-failure',
+            parameter: 'plugin_1_name',
+          ),
+        ),
+      );
     });
 
     testWithoutContext('parses duplicate symbols error without arch and number', () async {
@@ -615,6 +647,15 @@ duplicate symbol '_$s29plugin_1_name23PluginNamePluginC9setDouble3key5valueySS_S
           'cause the above error. It may be caused by there being both a CocoaPod '
           'and Swift Package Manager dependency for the following module(s): '
           'plugin_1_name.',
+        ),
+      );
+      expect(
+        fakeAnalytics.sentEvents,
+        contains(
+          Event.appleUsageEvent(
+            workflow: 'duplicate-modules-build-failure',
+            parameter: 'plugin_1_name',
+          ),
         ),
       );
     });
@@ -831,11 +872,11 @@ duplicate symbol '_$s29plugin_1_name23PluginNamePluginC9setDouble3key5valueySS_S
         final buildResult = XcodeBuildResult(
           success: false,
           stdout:
-              "error: The package product 'some-low-requirement-plugin' requires minimum platform version 14.0 "
-              'for the iOS platform, but this target supports 13.0 '
+              "error: The package product 'some-low-requirement-plugin' requires minimum platform version 16.0 "
+              'for the iOS platform, but this target supports 15.0 '
               "(in target 'FlutterGeneratedPluginSwiftPackage' from project 'FlutterGeneratedPluginSwiftPackage')\n"
-              "error: The package product 'cloud-firestore' requires minimum platform version 15.0 "
-              'for the iOS platform, but this target supports 13.0 '
+              "error: The package product 'cloud-firestore' requires minimum platform version 17.0 "
+              'for the iOS platform, but this target supports 15.0 '
               "(in target 'FlutterGeneratedPluginSwiftPackage' from project 'FlutterGeneratedPluginSwiftPackage')",
           xcodeBuildExecution: XcodeBuildExecution(
             buildCommands: buildCommands,
@@ -848,7 +889,7 @@ duplicate symbol '_$s29plugin_1_name23PluginNamePluginC9setDouble3key5valueySS_S
               XCResultIssue.test(
                 subType: 'Target Integrity',
                 message:
-                    "The package product 'cloud-firestore' requires minimum platform version 15.0 for the iOS platform, but this target supports 13.0",
+                    "The package product 'cloud-firestore' requires minimum platform version 17.0 for the iOS platform, but this target supports 15.0",
               ),
             ],
           ),
@@ -868,7 +909,7 @@ duplicate symbol '_$s29plugin_1_name23PluginNamePluginC9setDouble3key5valueySS_S
         expect(
           logger.errorText,
           contains(
-            "To fix this error, increase your app's minimum platform version from 13.0 to at least 15.0",
+            "To fix this error, increase your app's minimum platform version from 15.0 to at least 17.0",
           ),
         );
         expect(logger.errorText, contains('or remove the cloud-firestore dependency.'));
@@ -888,8 +929,8 @@ duplicate symbol '_$s29plugin_1_name23PluginNamePluginC9setDouble3key5valueySS_S
         final buildResult = XcodeBuildResult(
           success: false,
           stdout:
-              "error: The package product 'cloud-firestore' requires minimum platform version 15.0 "
-              'for the iOS platform, but this target supports 13.0 '
+              "error: The package product 'cloud-firestore' requires minimum platform version 17.0 "
+              'for the iOS platform, but this target supports 15.0 '
               "(in target 'cloud_firestore' from project 'cloud_firestore')",
           xcodeBuildExecution: XcodeBuildExecution(
             buildCommands: buildCommands,
@@ -902,7 +943,7 @@ duplicate symbol '_$s29plugin_1_name23PluginNamePluginC9setDouble3key5valueySS_S
               XCResultIssue.test(
                 subType: 'Target Integrity',
                 message:
-                    "The package product 'cloud-firestore' requires minimum platform version 15.0 for the iOS platform, but this target supports 13.0",
+                    "The package product 'cloud-firestore' requires minimum platform version 17.0 for the iOS platform, but this target supports 15.0",
               ),
             ],
           ),
@@ -922,6 +963,81 @@ duplicate symbol '_$s29plugin_1_name23PluginNamePluginC9setDouble3key5valueySS_S
         expect(
           logger.errorText,
           isNot(contains("To fix this error, increase your app's minimum platform version")),
+        );
+      },
+    );
+
+    testWithoutContext('iOS deployment target too low shows message', () async {
+      final buildResult = XcodeBuildResult(
+        success: false,
+        stdout: '',
+        xcodeBuildExecution: XcodeBuildExecution(
+          buildCommands: <String>['xcrun', 'xcodebuild', 'blah'],
+          appDirectory: '/blah/blah',
+          environmentType: EnvironmentType.physical,
+          buildSettings: buildSettings,
+        ),
+        xcResult: XCResult.test(
+          issues: <XCResultIssue>[
+            XCResultIssue.test(
+              message:
+                  "The iOS deployment target 'IPHONEOS_DEPLOYMENT_TARGET' is set to 13.0, but the range of supported deployment target versions is 15.0 to 27.0.x.",
+              subType: 'Error',
+            ),
+          ],
+        ),
+      );
+      final fs = MemoryFileSystem.test();
+      await diagnoseXcodeBuildFailure(
+        buildResult,
+        logger: logger,
+        analytics: fakeAnalytics,
+        fileSystem: fs,
+        platform: FlutterDarwinPlatform.ios,
+        project: FakeFlutterProject(fileSystem: fs),
+      );
+      expect(
+        logger.errorText,
+        contains('The iOS deployment target is too low. Xcode requires at least 15.0.'),
+      );
+    });
+
+    testWithoutContext(
+      'iOS deployment target too low shows fallback message if version cannot be parsed',
+      () async {
+        final buildResult = XcodeBuildResult(
+          success: false,
+          stdout: '',
+          xcodeBuildExecution: XcodeBuildExecution(
+            buildCommands: <String>['xcrun', 'xcodebuild', 'blah'],
+            appDirectory: '/blah/blah',
+            environmentType: EnvironmentType.physical,
+            buildSettings: buildSettings,
+          ),
+          xcResult: XCResult.test(
+            issues: <XCResultIssue>[
+              XCResultIssue.test(
+                message:
+                    "The iOS deployment target 'IPHONEOS_DEPLOYMENT_TARGET' is set to 10.11, but the range of supported deployment target versions is invalid to 27.0.x.",
+                subType: 'Error',
+              ),
+            ],
+          ),
+        );
+        final fs = MemoryFileSystem.test();
+        await diagnoseXcodeBuildFailure(
+          buildResult,
+          logger: logger,
+          analytics: fakeAnalytics,
+          fileSystem: fs,
+          platform: FlutterDarwinPlatform.ios,
+          project: FakeFlutterProject(fileSystem: fs),
+        );
+        expect(
+          logger.errorText,
+          contains(
+            'The iOS deployment target is too low. Xcode requires at least the minimum supported version.',
+          ),
         );
       },
     );
@@ -1012,6 +1128,101 @@ duplicate symbol '_$s29plugin_1_name23PluginNamePluginC9setDouble3key5valueySS_S
       expect(logger.traceText, contains('Failed to remove com.apple.provenance'));
       expect(processManager, hasNoRemainingExpectations);
     });
+
+    testWithoutContext(
+      'removeExtendedAttributesForProject removes attributes from expected files/directories',
+      () async {
+        final fs = MemoryFileSystem.test();
+
+        // Create project level entities (excluding buildDir)
+        final Directory projectDir = fs.directory('/app_name')..createSync(recursive: true);
+        fs.currentDirectory = projectDir;
+        projectDir.childFile('pubspec.yaml').createSync();
+        projectDir.childDirectory('lib').createSync();
+
+        // Create build directory level entities (excluding iosBuildDir)
+        final Directory buildDir = projectDir.childDirectory('build')..createSync(recursive: true);
+        buildDir.childDirectory('macos').createSync();
+
+        // Create iOS build directory level entities (excluding swiftPackageCacheDir)
+        final Directory iosBuildDir = buildDir.childDirectory('ios')..createSync(recursive: true);
+        iosBuildDir.childDirectory('iphoneos').createSync();
+        iosBuildDir.childDirectory('Release-iphoneos').createSync();
+
+        // swiftPackageCacheDir contains files that should NOT have attributes removed
+        final Directory swiftPackageCacheDir = iosBuildDir.childDirectory('SourcePackages');
+        swiftPackageCacheDir.createSync(recursive: true);
+
+        final processManager = FakeProcessManager.unordered(<FakeCommand>[
+          // Project files FinderInfo
+          const FakeCommand(
+            command: <String>[
+              'xattr',
+              '-r',
+              '-d',
+              'com.apple.FinderInfo',
+              '/app_name/pubspec.yaml',
+            ],
+          ),
+          const FakeCommand(
+            command: <String>[
+              'xattr',
+              '-r',
+              '-d',
+              'com.apple.provenance',
+              '/app_name/pubspec.yaml',
+            ],
+          ),
+          const FakeCommand(
+            command: <String>['xattr', '-r', '-d', 'com.apple.FinderInfo', '/app_name/lib'],
+          ),
+          const FakeCommand(
+            command: <String>['xattr', '-r', '-d', 'com.apple.provenance', '/app_name/lib'],
+          ),
+          // iOS Build directory files FinderInfo
+          const FakeCommand(
+            command: <String>['xattr', '-r', '-d', 'com.apple.FinderInfo', 'build/ios/iphoneos'],
+          ),
+          const FakeCommand(
+            command: <String>['xattr', '-r', '-d', 'com.apple.provenance', 'build/ios/iphoneos'],
+          ),
+          const FakeCommand(
+            command: <String>[
+              'xattr',
+              '-r',
+              '-d',
+              'com.apple.FinderInfo',
+              'build/ios/Release-iphoneos',
+            ],
+          ),
+          const FakeCommand(
+            command: <String>[
+              'xattr',
+              '-r',
+              '-d',
+              'com.apple.provenance',
+              'build/ios/Release-iphoneos',
+            ],
+          ),
+        ]);
+
+        final fakeFlutterProject = FakeFlutterProjectWithAbsoluteDirectory(fileSystem: fs);
+        final xcodeProject = FakeXcodeBasedProject(parent: fakeFlutterProject);
+
+        final config = Config.test(directory: fs.directory('/config_dir'), logger: logger);
+
+        await removeExtendedAttributesForProject(
+          xcodeProject: xcodeProject,
+          processUtils: ProcessUtils(processManager: processManager, logger: logger),
+          logger: logger,
+          fileSystem: fs,
+          config: config,
+          xcodeProjectInterpreter: FakeXcodeProjectInterpreter(),
+        );
+
+        expect(processManager, hasNoRemainingExpectations);
+      },
+    );
   });
 
   group('publicHeadersChanged', () {
@@ -1241,9 +1452,14 @@ class FakeXcodeProjectInterpreter extends Fake implements XcodeProjectInterprete
   Future<List<String>> fetchDependenciesAndGenerateXcodebuildArgs(
     XcodeBasedProject xcodeProject,
     Directory buildDirectory, {
-    bool skipPackageUpdatesAndValidation = true,
+    bool skipPackageValidation = true,
   }) async {
     return <String>['xcrun', 'xcodebuild'];
+  }
+
+  @override
+  String swiftPackageCachePath(Directory buildDirectory) {
+    return buildDirectory.childDirectory('SourcePackages').absolute.path;
   }
 }
 
@@ -1265,4 +1481,18 @@ class FakePlugin extends Fake implements Plugin {
   String? pluginPodspecPath(FileSystem fileSystem, String platform) {
     return 'path/to/$name/$platform/$name.podspec';
   }
+}
+
+class FakeXcodeBasedProject extends Fake implements XcodeBasedProject {
+  FakeXcodeBasedProject({required this.parent});
+
+  @override
+  final FlutterProject parent;
+}
+
+class FakeFlutterProjectWithAbsoluteDirectory extends FakeFlutterProject {
+  FakeFlutterProjectWithAbsoluteDirectory({required super.fileSystem});
+
+  @override
+  Directory get directory => fileSystem.directory('/app_name');
 }

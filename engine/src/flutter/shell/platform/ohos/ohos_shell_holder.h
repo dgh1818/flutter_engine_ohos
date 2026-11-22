@@ -91,6 +91,8 @@ class OHOSShellHolder {
 
   void SetAccessibilityProvider(ArkUI_AccessibilityProvider* provider);
 
+  std::shared_ptr<InspectorSnapshot> GetInspectorSnapshot();
+
   int32_t FindFocusNode(int32_t id,
                         ArkUI_AccessibilityFocusType focusType,
                         ArkUI_AccessibilityElementInfo* info);
@@ -124,6 +126,12 @@ class OHOSShellHolder {
   static constexpr int64_t kDartHeapMemoryThresholdBytes =
       1536LL * 1024 * 1024;  // 1.5GB
   static constexpr int kMemoryMonitorIntervalSeconds = 10;
+
+  // Sets worker thread priorities and registers the OHOS hardware image
+  // decoder on the given shell. Called for both the primary shell and spawned
+  // shells so they share the same image decoding behavior.
+  static void ConfigureShell(Shell* shell);
+
   std::optional<RunConfiguration> BuildRunConfiguration(
       const std::string& entrypoint,
       const std::string& libraryUrl,

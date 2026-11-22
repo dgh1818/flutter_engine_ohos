@@ -356,13 +356,47 @@ void main() {
       });
     });
 
+    late AndroidSdk androidSdk;
     testUsingContext(
       'support ExtraDartFlagOptions',
       () async {
+        // Prepare the fake SDK before createProject: OHOS resolves
+        // globals.androidSdk while running `flutter create`, so the override
+        // generator must find the variable already assigned.
+        final Directory sdkDir = tempDir.childDirectory('android-sdk');
+        sdkDir
+            .childDirectory('ndk')
+            .childDirectory('21.1.6352462')
+            .childFile('source.properties')
+            .createSync(recursive: true);
+        androidSdk = FakeAndroidSdk(sdkDir);
         final String projectPath = await createProject(
           tempDir,
           arguments: <String>['--no-pub', '--template=module'],
         );
+        final List<String> installedNdkVersions =
+            androidSdk.directory
+                .childDirectory('ndk')
+                .listSync()
+                .whereType<Directory>()
+                .map((Directory dir) => dir.basename)
+                .where(
+                  (String version) => androidSdk.directory
+                      .childDirectory('ndk')
+                      .childDirectory(version)
+                      .childFile('source.properties')
+                      .existsSync(),
+                )
+                .toList()
+              ..sort();
+        final ndkProvisioningProperties = <String>[
+          '-Pflutter.androidSdkRoot=${androidSdk.directory.path}',
+          '-Pflutter.installedNdkVersions=${installedNdkVersions.join(',')}',
+          if (androidSdk.sdkManagerPath != null &&
+              androidSdk.cmdlineToolsAvailable &&
+              androidSdk.licensesAvailable)
+            '-Pflutter.sdkManagerPath=${androidSdk.sdkManagerPath!}',
+        ];
 
         processManager.addCommand(
           FakeCommand(
@@ -376,6 +410,8 @@ void main() {
               '-q',
               '-Ptarget=${globals.fs.path.join('lib', 'main.dart')}',
               '-Pdart-defines=${encodeDartDefinesMap(<String, String>{
+                'FLUTTER_BUILD_NAME': '1.0.0',
+                'FLUTTER_BUILD_NUMBER': '1',
                 'FLUTTER_VERSION': '0.0.0', //
                 'FLUTTER_CHANNEL': 'master',
                 'FLUTTER_GIT_URL': 'https://github.com/flutter/flutter.git',
@@ -387,6 +423,7 @@ void main() {
               '-Pextra-front-end-options=foo,bar',
               '-Ptrack-widget-creation=true',
               '-Ptree-shake-icons=true',
+              ...ndkProvisioningProperties,
               '-Ptarget-platform=android-arm,android-arm64,android-x64',
               'assembleAarRelease',
             ],
@@ -415,6 +452,7 @@ void main() {
         ProcessManager: () => processManager,
         FeatureFlags: () => TestFeatureFlags(isIOSEnabled: false),
         AndroidStudio: () => _FakeAndroidStudio(),
+        AndroidSdk: () => androidSdk,
       },
     );
 
@@ -559,6 +597,22 @@ final class _CapturingFakeAndroidBuilder extends Fake implements AndroidBuilder 
     capturedBuildAarCalls.add(invocation);
     return Future<void>.value();
   }
+}
+
+class FakeAndroidSdk extends Fake implements AndroidSdk {
+  FakeAndroidSdk(this.directory, {this.sdkManagerPath});
+
+  @override
+  final Directory directory;
+
+  @override
+  final String? sdkManagerPath;
+
+  @override
+  bool get cmdlineToolsAvailable => true;
+
+  @override
+  bool get licensesAvailable => true;
 }
 
 final class _FakeAndroidSdk with Fake implements AndroidSdk {

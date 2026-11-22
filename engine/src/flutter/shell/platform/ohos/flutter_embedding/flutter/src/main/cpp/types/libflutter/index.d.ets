@@ -290,6 +290,8 @@ export const nativeDestroyAsync: (
  * @param textureId - The ID of the texture to unregister
  */
 export const nativeUnregisterTexture: (nativeShellHolderId: number, textureId: number) => void;
+export const nativeRegisterInspectorTreeGetter: (nativeShellHolderId: number, frameNode: object) => void;
+export const nativeUnregisterInspectorTreeGetter: (nativeShellHolderId: number, frameNode: object) => void;
 
 /**
  * Registers a PixelMap as a texture in the Flutter engine.
@@ -639,6 +641,14 @@ export const nativeLTPODispatchHighFrameRate: (nativeShellHolderId: number) => v
  * @param viewId - The engine view id whose OS window host is gone
  */
 export const nativeHandleOsWindowClosed: (viewId: number) => void;
+
+/**
+ * Flips native's sized-to-content tracking for viewId; disabled when a host
+ * window turns resizable so Dart setSize owns the geometry.
+ * @param viewId - The engine view id whose tracking flag changes
+ * @param sizedToContent - Whether the view's content sizes its host window
+ */
+export const nativeSetViewSizedToContent: (viewId: number, sizedToContent: boolean) => void;
 
 /**
  * Structural type of the embedding's result object; native populates it by

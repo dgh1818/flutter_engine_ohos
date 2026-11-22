@@ -16,6 +16,7 @@ import 'package:flutter_tools/src/build_info.dart';
 import 'package:flutter_tools/src/ios/xcode_build_settings.dart';
 import 'package:flutter_tools/src/ios/xcodeproj.dart';
 import 'package:flutter_tools/src/macos/xcode.dart';
+import 'package:flutter_tools/src/plugins.dart';
 import 'package:flutter_tools/src/project.dart';
 import 'package:test/fake.dart';
 import 'package:unified_analytics/unified_analytics.dart';
@@ -278,7 +279,6 @@ void main() {
             'xcodebuild',
             '-clonedSourcePackagesDirPath',
             '/build/ios/SourcePackages',
-            '-skipPackageUpdates',
             '-skipPackagePluginValidation',
             '-skipPackageSignatureValidation',
             '-project',
@@ -324,7 +324,6 @@ void main() {
             'xcodebuild',
             '-clonedSourcePackagesDirPath',
             '/build/ios/SourcePackages',
-            '-skipPackageUpdates',
             '-skipPackagePluginValidation',
             '-skipPackageSignatureValidation',
             '-project',
@@ -370,7 +369,6 @@ void main() {
             'xcodebuild',
             '-clonedSourcePackagesDirPath',
             '/build/ios/SourcePackages',
-            '-skipPackageUpdates',
             '-skipPackagePluginValidation',
             '-skipPackageSignatureValidation',
             '-project',
@@ -416,7 +414,6 @@ void main() {
             'xcodebuild',
             '-clonedSourcePackagesDirPath',
             '/build/ios/SourcePackages',
-            '-skipPackageUpdates',
             '-skipPackagePluginValidation',
             '-skipPackageSignatureValidation',
             '-project',
@@ -462,7 +459,6 @@ void main() {
             'xcodebuild',
             '-clonedSourcePackagesDirPath',
             '/build/ios/SourcePackages',
-            '-skipPackageUpdates',
             '-skipPackagePluginValidation',
             '-skipPackageSignatureValidation',
             '-project',
@@ -506,7 +502,6 @@ void main() {
             'xcodebuild',
             '-clonedSourcePackagesDirPath',
             '/build/ios/SourcePackages',
-            '-skipPackageUpdates',
             '-skipPackagePluginValidation',
             '-skipPackageSignatureValidation',
             '-project',
@@ -558,7 +553,6 @@ void main() {
             'xcodebuild',
             '-clonedSourcePackagesDirPath',
             '/build/macos/SourcePackages',
-            '-skipPackageUpdates',
             '-skipPackagePluginValidation',
             '-skipPackageSignatureValidation',
             '-project',
@@ -604,7 +598,6 @@ void main() {
           'xcodebuild',
           '-clonedSourcePackagesDirPath',
           '/build/ios/SourcePackages',
-          '-skipPackageUpdates',
           '-skipPackagePluginValidation',
           '-skipPackageSignatureValidation',
           '-workspace',
@@ -643,7 +636,6 @@ void main() {
             'xcodebuild',
             '-clonedSourcePackagesDirPath',
             '/build/ios/SourcePackages',
-            '-skipPackageUpdates',
             '-skipPackagePluginValidation',
             '-skipPackageSignatureValidation',
             '-list',
@@ -687,7 +679,6 @@ void main() {
             'xcodebuild',
             '-clonedSourcePackagesDirPath',
             '/build/ios/SourcePackages',
-            '-skipPackageUpdates',
             '-skipPackagePluginValidation',
             '-skipPackageSignatureValidation',
             '-list',
@@ -733,7 +724,6 @@ void main() {
             'xcodebuild',
             '-clonedSourcePackagesDirPath',
             '/build/ios/SourcePackages',
-            '-skipPackageUpdates',
             '-skipPackagePluginValidation',
             '-skipPackageSignatureValidation',
             '-list',
@@ -757,6 +747,99 @@ void main() {
           buildDirectory: buildDirectory,
         ),
         throwsToolExit(message: stderr),
+      );
+      expect(fakeProcessManager, hasNoRemainingExpectations);
+    },
+  );
+
+  testWithoutContext(
+    'xcodebuild -list getInfo throws a tool exit when xcodebuild is missing (exit code 72)',
+    () async {
+      const workingDirectory = '/';
+      final Directory buildDirectory = fileSystem.directory('build/ios');
+      const stderr =
+          'xcrun: error: unable to find utility "xcodebuild", not a developer tool or in PATH';
+
+      fakeProcessManager.addCommands(const <FakeCommand>[
+        kWhichSysctlCommand,
+        kx64CheckCommand,
+        kResolvePackagesCommand,
+        FakeCommand(
+          command: <String>[
+            'xcrun',
+            'xcodebuild',
+            '-clonedSourcePackagesDirPath',
+            '/build/ios/SourcePackages',
+            '-skipPackagePluginValidation',
+            '-skipPackageSignatureValidation',
+            '-list',
+          ],
+          exitCode: 72,
+          stderr: stderr,
+        ),
+      ]);
+
+      final xcodeProjectInterpreter = XcodeProjectInterpreter(
+        logger: logger,
+        fileSystem: fileSystem,
+        platform: platform,
+        processManager: fakeProcessManager,
+        analytics: const NoOpAnalytics(),
+      );
+
+      await expectLater(
+        () => xcodeProjectInterpreter.getInfo(
+          FakeXcodeBasedProject(workingDirectory, fileSystem),
+          buildDirectory: buildDirectory,
+        ),
+        throwsToolExit(message: stderr),
+      );
+      expect(fakeProcessManager, hasNoRemainingExpectations);
+    },
+  );
+
+  testWithoutContext(
+    'xcodebuild -list getInfo throws a tool exit when process execution throws ProcessException',
+    () async {
+      const workingDirectory = '/';
+      final Directory buildDirectory = fileSystem.directory('build/ios');
+      const errorMessage = 'xcrun: error: unable to find utility "xcodebuild"';
+      const processException = ProcessException('xcrun', <String>['xcodebuild'], errorMessage, 72);
+
+      fakeProcessManager.addCommands(<FakeCommand>[
+        kWhichSysctlCommand,
+        kx64CheckCommand,
+        kResolvePackagesCommand,
+        FakeCommand(
+          command: const <String>[
+            'xcrun',
+            'xcodebuild',
+            '-clonedSourcePackagesDirPath',
+            '/build/ios/SourcePackages',
+            '-skipPackagePluginValidation',
+            '-skipPackageSignatureValidation',
+            '-list',
+          ],
+          onRun: (_) {
+            throw processException;
+          },
+        ),
+      ]);
+
+      final xcodeProjectInterpreter = XcodeProjectInterpreter(
+        logger: logger,
+        fileSystem: fileSystem,
+        platform: platform,
+        processManager: fakeProcessManager,
+        analytics: const NoOpAnalytics(),
+      );
+
+      await expectLater(
+        () => xcodeProjectInterpreter.getInfo(
+          FakeXcodeBasedProject(workingDirectory, fileSystem),
+          buildDirectory: buildDirectory,
+        ),
+        throwsToolExit(message: processException.toString()),
       );
       expect(fakeProcessManager, hasNoRemainingExpectations);
     },
@@ -812,6 +895,76 @@ Information about project "Runner":
       'Release (Free)',
       'Release (Paid)',
     ]);
+  });
+
+  testWithoutContext('getInfo filters Swift package schemes from project schemes', () async {
+    const workingDirectory = '/';
+    final Directory buildDirectory = fileSystem.directory('build/ios');
+    buildDirectory
+        .childDirectory(kSwiftPackageCacheDirectoryName)
+        .childDirectory('checkouts')
+        .childDirectory('purchases-ios')
+        .childDirectory('.swiftpm')
+        .childDirectory('xcode')
+        .childDirectory('xcshareddata')
+        .childDirectory('xcschemes')
+        .childFile('RevenueCatUI.xcscheme')
+        .createSync(recursive: true);
+    fakeProcessManager.addCommands(const <FakeCommand>[
+      kWhichSysctlCommand,
+      kx64CheckCommand,
+      kResolvePackagesCommand,
+      FakeCommand(
+        command: <String>[
+          'xcrun',
+          'xcodebuild',
+          '-clonedSourcePackagesDirPath',
+          '/build/ios/SourcePackages',
+          '-skipPackagePluginValidation',
+          '-skipPackageSignatureValidation',
+          '-list',
+        ],
+        stdout: '''
+Information about project "Runner":
+    Targets:
+        Runner
+
+    Build Configurations:
+        Debug
+        Release
+
+    Schemes:
+        Runner
+        FlutterGeneratedPluginSwiftPackage
+        FlutterFramework
+        advertising-id
+        advertising_id
+        Patrol
+        RevenueCatUI
+        WatchScheme
+
+''',
+      ),
+    ]);
+
+    final xcodeProjectInterpreter = XcodeProjectInterpreter(
+      logger: logger,
+      fileSystem: fileSystem,
+      platform: platform,
+      processManager: fakeProcessManager,
+      analytics: const NoOpAnalytics(),
+    );
+
+    final XcodeProjectInfo? info = await xcodeProjectInterpreter.getInfo(
+      FakeXcodeBasedProject(workingDirectory, fileSystem, <Plugin>[
+        FakePlugin('advertising_id'),
+        FakePlugin('patrol'),
+      ]),
+      buildDirectory: buildDirectory,
+    );
+
+    expect(info!.schemes, <String>['Runner', 'WatchScheme']);
+    expect(fakeProcessManager, hasNoRemainingExpectations);
   });
 
   testWithoutContext('expected scheme for non-flavored build is Runner', () {
@@ -1149,6 +1302,69 @@ Information about project "Runner":
           'PREMIUM',
         ),
         'release-premium',
+      );
+    },
+  );
+
+  testWithoutContext(
+    'build configuration for flavored project falls back to BuildMode when flavor match is unavailable',
+    () {
+      final info = XcodeProjectInfo(
+        <String>['Runner'],
+        <String>['Debug', 'Profile', 'Release'],
+        <String>['Banana'],
+        logger,
+      );
+
+      expect(
+        info.buildConfigurationFor(
+          const BuildInfo(
+            BuildMode.debug,
+            'banana',
+            treeShakeIcons: false,
+            packageConfigPath: '.dart_tool/package_config.json',
+          ),
+          'Banana',
+        ),
+        'Debug',
+      );
+
+      expect(
+        info.buildConfigurationFor(
+          const BuildInfo(
+            BuildMode.release,
+            'banana',
+            treeShakeIcons: false,
+            packageConfigPath: '.dart_tool/package_config.json',
+          ),
+          'Banana',
+        ),
+        'Release',
+      );
+    },
+  );
+
+  testWithoutContext(
+    "build configuration doesn't fall back when multiple matches for mode and flavor are available",
+    () {
+      final info = XcodeProjectInfo(
+        <String>['Runner'],
+        <String>['Debug', 'Profile', 'Release', 'DebugBanana', 'banana debug'],
+        <String>['Banana'],
+        logger,
+      );
+
+      expect(
+        info.buildConfigurationFor(
+          const BuildInfo(
+            BuildMode.debug,
+            'banana',
+            treeShakeIcons: false,
+            packageConfigPath: '.dart_tool/package_config.json',
+          ),
+          'Banana',
+        ),
+        null,
       );
     },
   );
@@ -1540,9 +1756,14 @@ Build settings for action build and target good_plugin:
           );
 
           final File config = fs.file('path/to/project/ios/Flutter/Generated.xcconfig');
+          final String configContents = config.readAsStringSync();
           expect(logger.warningText, isEmpty);
-          expect(config.readAsStringSync(), contains('EXCLUDED_ARCHS[sdk=iphonesimulator*]=i386'));
-          expect(config.readAsStringSync(), contains('EXCLUDED_ARCHS[sdk=iphoneos*]=armv7'));
+          expect(configContents, contains('EXCLUDED_ARCHS[sdk=iphonesimulator*]=i386'));
+          expect(
+            configContents,
+            isNot(contains('EXCLUDED_ARCHS[sdk=iphonesimulator*]=i386 arm64')),
+          );
+          expect(configContents, contains('EXCLUDED_ARCHS[sdk=iphoneos*]=armv7'));
           expect(fakeProcessManager, hasNoRemainingExpectations);
         },
         overrides: <Type, Generator>{
@@ -2398,17 +2619,34 @@ flutter:
       },
     );
   });
+
+  testWithoutContext('swiftPackageCachePath returns the correct cache path', () {
+    final fs = MemoryFileSystem.test();
+    final Directory buildDirectory = fs.directory('/build/ios');
+    final xcodeProjectInterpreter = XcodeProjectInterpreter(
+      logger: logger,
+      fileSystem: fs,
+      platform: platform,
+      processManager: fakeProcessManager,
+      analytics: const NoOpAnalytics(),
+    );
+    expect(
+      xcodeProjectInterpreter.swiftPackageCachePath(buildDirectory),
+      '/build/ios/SourcePackages',
+    );
+  });
 }
 
 class FakeFlutterProject extends Fake implements FlutterProject {}
 
 class FakeXcodeBasedProject extends IosProject {
-  FakeXcodeBasedProject(this.path, [FileSystem? fileSystem])
+  FakeXcodeBasedProject(this.path, [FileSystem? fileSystem, this.plugins = const <Plugin>[]])
     : fs = fileSystem ?? MemoryFileSystem.test(),
       super.fromFlutter(FakeFlutterProject());
 
   final String path;
   final FileSystem fs;
+  final List<Plugin> plugins;
 
   @override
   Directory get hostAppRoot => fs.directory(path);
@@ -2421,4 +2659,14 @@ class FakeXcodeBasedProject extends IosProject {
 
   @override
   bool get flutterPluginSwiftPackageInProjectSettings => true;
+
+  @override
+  Future<List<Plugin>> getPlugins() async => plugins;
+}
+
+class FakePlugin extends Fake implements Plugin {
+  FakePlugin(this.name);
+
+  @override
+  final String name;
 }

@@ -207,6 +207,13 @@ int64_t OHOSWindowController::CreateRegularWindow(
   }
   if (view_id == static_cast<int64_t>(kFlutterImplicitViewId)) {
     facade->BindEntryAbilityToView(view_id, *request);
+    if (PlatformViewOHOS* platform_view =
+            holder_ != nullptr ? holder_->GetPlatformView().get() : nullptr) {
+      const WindowConstraints& c = request->preferred_constraints;
+      platform_view->AdoptImplicitViewSizedToContent(
+          request->sized_to_content, c.has_view_constraints, c.view_min_width,
+          c.view_max_width, c.view_min_height, c.view_max_height);
+    }
   } else {
     facade->CreateRegularWindow(view_id, *request);
   }
@@ -369,6 +376,20 @@ void OHOSWindowController::SetViewActualSize(int64_t view_id,
   {
     std::lock_guard<std::mutex> lock(actual_sizes_mutex_);
     actual_sizes_[view_id] = {logical_w, logical_h};
+  }
+}
+
+void OHOSWindowController::SetViewSizedToContent(int64_t view_id,
+                                                 bool sized_to_content) {
+  if (OHOSWindow* win = LookupWindow(HandleForViewId(view_id))) {
+    win->SetSizedToContent(sized_to_content);
+    if (PlatformViewOHOS* platform_view =
+            holder_ != nullptr ? holder_->GetPlatformView().get() : nullptr) {
+      platform_view->SetViewSizedToContent(view_id, sized_to_content);
+    }
+  } else {
+    FML_LOG(WARNING) << "SetViewSizedToContent: unknown view " << view_id
+                     << "; ignoring";
   }
 }
 

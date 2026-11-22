@@ -35,6 +35,7 @@
 #include "impeller/entity/contents/texture_contents.h"
 #include "impeller/entity/contents/tiled_texture_contents.h"
 #include "impeller/entity/contents/uber_sdf_contents.h"
+#include "impeller/entity/contents/uber_sdf_parameters.h"
 #include "impeller/entity/entity.h"
 #include "impeller/entity/entity_playground.h"
 #include "impeller/entity/geometry/geometry.h"
@@ -42,6 +43,7 @@
 #include "impeller/entity/geometry/round_superellipse_geometry.h"
 #include "impeller/entity/geometry/stroke_path_geometry.h"
 #include "impeller/entity/geometry/superellipse_geometry.h"
+#include "impeller/entity/geometry/uber_sdf_geometry.h"
 #include "impeller/geometry/color.h"
 #include "impeller/geometry/geometry_asserts.h"
 #include "impeller/geometry/point.h"
@@ -66,10 +68,6 @@ namespace testing {
 
 using EntityTest = EntityPlayground;
 INSTANTIATE_PLAYGROUND_SUITE(EntityTest);
-
-Rect RectMakeCenterSize(Point center, Size size) {
-  return Rect::MakeSize(size).Shift(center - size / 2);
-}
 
 TEST_P(EntityTest, CanCreateEntity) {
   Entity entity;
@@ -1232,11 +1230,12 @@ TEST_P(EntityTest, ContentsGetBoundsForEmptyPathReturnsNullopt) {
   ASSERT_FALSE(entity.GetCoverage().has_value());
 }
 
-TEST(EntityTest, UberSDFContentsCoverage) {
+TEST(EntityTest, UberSDFContentsCoverageFillRect) {
   auto rect = Rect::MakeXYWH(100, 100, 200, 200);
-  FillRectGeometry geometry(rect.Expand(1.0f));
-  auto contents = UberSDFContents::MakeRect(Color::Red(), 0.0f, Join::kMiter,
-                                            false, &geometry);
+  auto params =
+      UberSDFParameters::MakeRect(Color::Red(), rect, /*stroke=*/std::nullopt);
+  auto geometry = std::make_unique<UberSDFGeometry>(params);
+  auto contents = UberSDFContents::Make(params, std::move(geometry));
 
   Entity entity;
   auto coverage = contents->GetCoverage(entity);
@@ -1244,6 +1243,51 @@ TEST(EntityTest, UberSDFContentsCoverage) {
   ASSERT_RECT_NEAR(
       coverage.value(),
       Rect::MakeXYWH(100, 100, 200, 200).Expand(1.0f));  // expanded by AA
+}
+
+TEST(EntityTest, UberSDFContentsCoverageStrokeRect) {
+  auto rect = Rect::MakeXYWH(100, 100, 200, 200);
+  auto params = UberSDFParameters::MakeRect(Color::Red(), rect,
+                                            StrokeParameters{.width = 4.0f});
+  auto geometry = std::make_unique<UberSDFGeometry>(params);
+  auto contents = UberSDFContents::Make(params, std::move(geometry));
+
+  Entity entity;
+  auto coverage = contents->GetCoverage(entity);
+  ASSERT_TRUE(coverage.has_value());
+  ASSERT_RECT_NEAR(coverage.value(),
+                   Rect::MakeXYWH(100, 100, 200, 200)
+                       .Expand(3.0f));  // expanded by half stroke width + AA
+}
+
+TEST(EntityTest, UberSDFContentsCoverageFillCircle) {
+  auto params =
+      UberSDFParameters::MakeCircle(Color::Red(), /*center=*/{50, 50},
+                                    /*radius=*/10.0f, /*stroke=*/std::nullopt);
+  auto geometry = std::make_unique<UberSDFGeometry>(params);
+  auto contents = UberSDFContents::Make(params, std::move(geometry));
+
+  Entity entity;
+  auto coverage = contents->GetCoverage(entity);
+  ASSERT_TRUE(coverage.has_value());
+  ASSERT_RECT_NEAR(
+      coverage.value(),
+      Rect::MakeXYWH(40, 40, 20, 20).Expand(1.0f));  // expanded by AA
+}
+
+TEST(EntityTest, UberSDFContentsCoverageStrokeCircle) {
+  auto params = UberSDFParameters::MakeCircle(Color::Red(), /*center=*/{50, 50},
+                                              /*radius=*/10.0f,
+                                              StrokeParameters{.width = 4.0f});
+  auto geometry = std::make_unique<UberSDFGeometry>(params);
+  auto contents = UberSDFContents::Make(params, std::move(geometry));
+
+  Entity entity;
+  auto coverage = contents->GetCoverage(entity);
+  ASSERT_TRUE(coverage.has_value());
+  ASSERT_RECT_NEAR(coverage.value(),
+                   Rect::MakeXYWH(40, 40, 20, 20)
+                       .Expand(3.0f));  // expanded by half stroke width + AA
 }
 
 TEST_P(EntityTest, SolidStrokeCoverageIsCorrect) {
@@ -1706,7 +1750,8 @@ static std::vector<std::shared_ptr<Texture>> CreateTestYUVTextures(
 }
 
 TEST_P(EntityTest, YUVToRGBFilter) {
-  if (GetParam() == PlaygroundBackend::kOpenGLES) {
+  if (GetParam() == PlaygroundBackend::kOpenGLES ||
+      GetParam() == PlaygroundBackend::kOpenGLESSDF) {
     // TODO(114588) : Support YUV to RGB filter on OpenGLES backend.
     GTEST_SKIP()
         << "YUV to RGB filter is not supported on OpenGLES backend yet.";
@@ -1786,15 +1831,15 @@ TEST_P(EntityTest, RuntimeEffect) {
   };
 
   // Simulate some renders and hot reloading of the shader.
-  auto content_context = GetContentContext();
+  ContentContext& content_context = GetContentContext();
   {
     RenderTarget target =
-        content_context->GetRenderTargetCache()->CreateOffscreen(
-            *content_context->GetContext(), {1, 1}, 1u);
+        content_context.GetRenderTargetCache()->CreateOffscreen(
+            *content_context.GetContext(), {1, 1}, 1u);
 
     testing::MockRenderPass mock_pass(GetContext(), target);
-    callback(*content_context, mock_pass);
-    callback(*content_context, mock_pass);
+    callback(content_context, mock_pass);
+    callback(content_context, mock_pass);
 
     // Dirty the runtime stage.
     auto runtime_stages_result =
@@ -1805,7 +1850,7 @@ TEST_P(EntityTest, RuntimeEffect) {
     ASSERT_TRUE(runtime_stage->IsDirty());
     expect_dirty = true;
 
-    callback(*content_context, mock_pass);
+    callback(content_context, mock_pass);
   }
 }
 
@@ -1839,12 +1884,12 @@ TEST_P(EntityTest, RuntimeEffectCanSuccessfullyRender) {
   // Create a render target with a depth-stencil, similar to how EntityPass
   // does.
   RenderTarget target =
-      GetContentContext()->GetRenderTargetCache()->CreateOffscreenMSAA(
+      GetContentContext().GetRenderTargetCache()->CreateOffscreenMSAA(
           *GetContext(), {GetWindowSize().width, GetWindowSize().height}, 1,
           "RuntimeEffect Texture");
   testing::MockRenderPass pass(GetContext(), target);
 
-  ASSERT_TRUE(contents->Render(*GetContentContext(), entity, pass));
+  ASSERT_TRUE(contents->Render(GetContentContext(), entity, pass));
   ASSERT_EQ(pass.GetCommands().size(), 1u);
   const auto& command = pass.GetCommands()[0];
   ASSERT_TRUE(command.pipeline->GetDescriptor()
@@ -1868,7 +1913,7 @@ TEST_P(EntityTest, RuntimeEffectCanPrecache) {
   auto contents = std::make_shared<RuntimeEffectContents>(geom.get());
   contents->SetRuntimeStage(runtime_stage);
 
-  EXPECT_TRUE(contents->BootstrapShader(*GetContentContext()));
+  EXPECT_TRUE(contents->BootstrapShader(GetContentContext()));
 }
 
 TEST_P(EntityTest, RuntimeEffectSetsRightSizeWhenUniformIsStruct) {
@@ -1899,7 +1944,7 @@ TEST_P(EntityTest, RuntimeEffectSetsRightSizeWhenUniformIsStruct) {
   memcpy(uniform_data->data(), &frag_uniforms, sizeof(FragUniforms));
 
   auto buffer_view = RuntimeEffectContents::EmplaceUniform(
-      uniform_data->data(), GetContentContext()->GetTransientsDataBuffer(),
+      uniform_data->data(), GetContentContext().GetTransientsDataBuffer(),
       runtime_stage->GetUniforms()[0]);
 
   // 16 bytes:
@@ -2169,13 +2214,13 @@ TEST_P(EntityTest, TextContentsCeilsGlyphScaleToDecimal) {
 }
 
 TEST_P(EntityTest, SpecializationConstantsAreAppliedToVariants) {
-  auto content_context = GetContentContext();
+  ContentContext& content_context = GetContentContext();
 
-  auto default_gyph = content_context->GetGlyphAtlasPipeline({
+  auto default_gyph = content_context.GetGlyphAtlasPipeline({
       .color_attachment_pixel_format = PixelFormat::kR8G8B8A8UNormInt,
       .has_depth_stencil_attachments = false,
   });
-  auto alt_gyph = content_context->GetGlyphAtlasPipeline(
+  auto alt_gyph = content_context.GetGlyphAtlasPipeline(
       {.color_attachment_pixel_format = PixelFormat::kR8G8B8A8UNormInt,
        .has_depth_stencil_attachments = true});
 
@@ -2192,8 +2237,8 @@ TEST_P(EntityTest, SpecializationConstantsAreAppliedToVariants) {
 }
 
 TEST_P(EntityTest, DecalSpecializationAppliedToMorphologyFilter) {
-  auto content_context = GetContentContext();
-  auto default_color_burn = content_context->GetMorphologyFilterPipeline({
+  ContentContext& content_context = GetContentContext();
+  auto default_color_burn = content_context.GetMorphologyFilterPipeline({
       .color_attachment_pixel_format = PixelFormat::kR8G8B8A8UNormInt,
   });
 
@@ -2258,7 +2303,7 @@ TEST_P(EntityTest, FillPathGeometryGetPositionBufferReturnsExpectedMode) {
   auto get_result = [this, &mock_pass](const flutter::DlPath& path) {
     auto geometry = Geometry::MakeFillPath(
         path, /* inner rect */ Rect::MakeLTRB(0, 0, 100, 100));
-    return geometry->GetPositionBuffer(*GetContentContext(), {}, mock_pass);
+    return geometry->GetPositionBuffer(GetContentContext(), {}, mock_pass);
   };
 
   // Convex path
@@ -2296,7 +2341,7 @@ TEST_P(EntityTest, StrokeArcGeometryGetPositionBufferReturnsExpectedMode) {
                                                  Degrees(sweep), stroke);
 
         GeometryResult result =
-            geometry->GetPositionBuffer(*GetContentContext(), {}, mock_pass);
+            geometry->GetPositionBuffer(GetContentContext(), {}, mock_pass);
 
         EXPECT_EQ(result.mode, GeometryResult::Mode::kNormal)
             << "start: " << start << " sweep: " << sweep;
@@ -2313,7 +2358,7 @@ TEST_P(EntityTest, StrokeArcGeometryGetPositionBufferReturnsExpectedMode) {
                                                  Degrees(sweep), stroke);
 
         GeometryResult result =
-            geometry->GetPositionBuffer(*GetContentContext(), {}, mock_pass);
+            geometry->GetPositionBuffer(GetContentContext(), {}, mock_pass);
 
         if (sweep < 348.6) {
           EXPECT_EQ(result.mode, GeometryResult::Mode::kNormal)
@@ -2335,7 +2380,7 @@ TEST_P(EntityTest, StrokeArcGeometryGetPositionBufferReturnsExpectedMode) {
                                                  Degrees(sweep), stroke);
 
         GeometryResult result =
-            geometry->GetPositionBuffer(*GetContentContext(), {}, mock_pass);
+            geometry->GetPositionBuffer(GetContentContext(), {}, mock_pass);
 
         if (sweep < 300.0) {
           EXPECT_EQ(result.mode, GeometryResult::Mode::kNormal)
@@ -2357,7 +2402,7 @@ TEST_P(EntityTest, StrokeArcGeometryGetPositionBufferReturnsExpectedMode) {
                                                  Degrees(sweep), stroke);
 
         GeometryResult result =
-            geometry->GetPositionBuffer(*GetContentContext(), {}, mock_pass);
+            geometry->GetPositionBuffer(GetContentContext(), {}, mock_pass);
 
         if (sweep < 347.4) {
           EXPECT_EQ(result.mode, GeometryResult::Mode::kNormal)
@@ -2379,7 +2424,7 @@ TEST_P(EntityTest, StrokeArcGeometryGetPositionBufferReturnsExpectedMode) {
                                                  Degrees(sweep), stroke);
 
         GeometryResult result =
-            geometry->GetPositionBuffer(*GetContentContext(), {}, mock_pass);
+            geometry->GetPositionBuffer(GetContentContext(), {}, mock_pass);
 
         if (sweep < 270.1) {
           EXPECT_EQ(result.mode, GeometryResult::Mode::kNormal)
@@ -2400,7 +2445,7 @@ TEST_P(EntityTest, FailOnValidationError) {
   EXPECT_DEATH(
       // The easiest way to trigger a validation error is to try to compile
       // a shader with an unsupported pixel format.
-      GetContentContext()->GetBlendColorBurnPipeline({
+      GetContentContext().GetBlendColorBurnPipeline({
           .color_attachment_pixel_format = PixelFormat::kUnknown,
           .has_depth_stencil_attachments = false,
       }),
@@ -2416,11 +2461,11 @@ TEST_P(EntityTest, CanComputeGeometryForEmptyPathsWithoutCrashing) {
 
   Entity entity;
   RenderTarget target =
-      GetContentContext()->GetRenderTargetCache()->CreateOffscreen(
-          *GetContext(), {1, 1}, 1u);
+      GetContentContext().GetRenderTargetCache()->CreateOffscreen(*GetContext(),
+                                                                  {1, 1}, 1u);
   testing::MockRenderPass render_pass(GetContext(), target);
   auto position_result =
-      geom->GetPositionBuffer(*GetContentContext(), entity, render_pass);
+      geom->GetPositionBuffer(GetContentContext(), entity, render_pass);
 
   EXPECT_EQ(position_result.vertex_buffer.vertex_count, 0u);
 
@@ -2479,8 +2524,8 @@ TEST_P(EntityTest, DrawRoundSuperEllipse) {
   auto callback = [&](ContentContext& context, RenderPass& pass) -> bool {
     // UI state.
     static int style_index = 0;
-    static float center[2] = {830, 830};
-    static float size[2] = {600, 600};
+    static Point center = {830, 830};
+    static Point size = {600, 600};
     static bool horizontal_symmetry = true;
     static bool vertical_symmetry = true;
     static bool corner_symmetry = true;
@@ -2524,8 +2569,8 @@ TEST_P(EntityTest, DrawRoundSuperEllipse) {
     {
       ImGui::Combo("Style", &style_index, style_options,
                    sizeof(style_options) / sizeof(char*));
-      ImGui::SliderFloat2("Center", center, 0, 1000);
-      ImGui::SliderFloat2("Size", size, 0, 1000);
+      ImGui::SliderFloat2("Center", &center.x, 0, 1000);
+      ImGui::SliderFloat2("Size", &size.x, 0, 1000);
       ImGui::Checkbox("Symmetry: Horizontal", &horizontal_symmetry);
       ImGui::Checkbox("Symmetry: Vertical", &vertical_symmetry);
       ImGui::Checkbox("Symmetry: Corners", &corner_symmetry);
@@ -2561,14 +2606,13 @@ TEST_P(EntityTest, DrawRoundSuperEllipse) {
     };
 
     auto rse = RoundSuperellipse::MakeRectRadii(
-        RectMakeCenterSize({center[0], center[1]}, {size[0], size[1]}), radii);
+        Rect::MakeEllipseBounds(center, size * 0.5f), radii);
 
     flutter::DlPath path;
     std::unique_ptr<Geometry> geom;
     if (style_index == 0) {
       geom = std::make_unique<RoundSuperellipseGeometry>(
-          RectMakeCenterSize({center[0], center[1]}, {size[0], size[1]}),
-          radii);
+          Rect::MakeEllipseBounds(center, size * 0.5f), radii);
     } else {
       path = flutter::DlPath::MakeRoundSuperellipse(rse);
       geom = Geometry::MakeStrokePath(path, {.width = 2.0f});

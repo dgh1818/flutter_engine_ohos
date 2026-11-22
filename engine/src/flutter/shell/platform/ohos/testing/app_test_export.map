@@ -3,10 +3,8 @@
     FlutterOhosRunAllTests;
     FlutterOhosWriteCoverageProfile;
     FlutterOhosCopyLiveLog;
-    kDartVmSnapshotData;
-    kDartVmSnapshotInstructions;
-    kDartIsolateSnapshotData;
-    kDartIsolateSnapshotInstructions;
+    kDartSnapshotData;
+    kDartSnapshotText;
   local:
     *;
 };

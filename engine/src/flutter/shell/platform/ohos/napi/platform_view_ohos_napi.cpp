@@ -15,6 +15,8 @@
 #include <rawfile/raw_file_manager.h>
 #include <string>
 
+#include <arkui/native_node_napi.h>
+
 #include "AbilityKit/ability_runtime/application_context.h"
 #include "flutter/common/constants.h"
 #include "flutter/fml/make_copyable.h"
@@ -25,6 +27,7 @@
 #include "flutter/lib/ui/plugins/callback_cache.h"
 #include "flutter/lib/ui/window/pointer_data.h"
 #include "flutter/lib/ui/window/pointer_data_packet.h"
+#include "flutter/shell/platform/ohos/accessibility/ohos_semantics_inspector.h"
 #include "flutter/shell/platform/ohos/context/ohos_context.h"
 #include "flutter/shell/platform/ohos/ohos_logging.h"
 #include "flutter/shell/platform/ohos/ohos_main.h"
@@ -42,6 +45,46 @@
 
 #define OHOS_SHELL_HOLDER (reinterpret_cast<OHOSShellHolder*>(shell_holder))
 namespace flutter {
+
+namespace {
+struct InspectorNodeBinding {
+  napi_env env;
+  int64_t shell_holder;
+  napi_ref frame_node;
+  ArkUI_NodeHandle handle;
+};
+
+std::vector<InspectorNodeBinding>& InspectorBindings() {
+  thread_local auto* bindings = new std::vector<InspectorNodeBinding>();
+  return *bindings;
+}
+
+bool SameInspectorFrameNode(napi_env env, napi_ref ref, napi_value value) {
+  napi_value stored = nullptr;
+  bool equal = false;
+  return napi_get_reference_value(env, ref, &stored) == napi_ok && stored &&
+         napi_strict_equals(env, stored, value, &equal) == napi_ok && equal;
+}
+
+void CleanupInspectorBindings(napi_env env, int64_t shell_holder) {
+  auto& bindings = InspectorBindings();
+  for (auto it = bindings.begin(); it != bindings.end();) {
+    if (it->env != env || it->shell_holder != shell_holder) {
+      ++it;
+      continue;
+    }
+    if (UnregisterInspectorTreeGetter(it->handle) == 0) {
+      napi_delete_reference(env, it->frame_node);
+      it = bindings.erase(it);
+    } else {
+      // Keep the FrameNode alive on failure; the platform may still own the
+      // registration. The callback context has already been deactivated.
+      it->shell_holder = 0;
+      ++it;
+    }
+  }
+}
+}  // namespace
 
 int64_t PlatformViewOHOSNapi::display_width = 0;
 int64_t PlatformViewOHOSNapi::display_height = 0;
@@ -558,6 +601,26 @@ bool MarshalRegularWindowRequest(napi_env env,
     FML_DLOG(ERROR) << "napi_set_named_property title fail ";
     return false;
   }
+  status = napi_get_boolean(env, request.sized_to_content, &value);
+  if (status != napi_ok) {
+    FML_DLOG(ERROR) << "napi_get_boolean sizedToContent fail ";
+    return false;
+  }
+  status = napi_set_named_property(env, *out, "sizedToContent", value);
+  if (status != napi_ok) {
+    FML_DLOG(ERROR) << "napi_set_named_property sizedToContent fail ";
+    return false;
+  }
+  status = napi_get_boolean(env, request.resizable, &value);
+  if (status != napi_ok) {
+    FML_DLOG(ERROR) << "napi_get_boolean resizable fail ";
+    return false;
+  }
+  status = napi_set_named_property(env, *out, "resizable", value);
+  if (status != napi_ok) {
+    FML_DLOG(ERROR) << "napi_set_named_property resizable fail ";
+    return false;
+  }
   return true;
 }
 
@@ -596,6 +659,26 @@ bool MarshalDialogWindowRequest(napi_env env,
   status = napi_set_named_property(env, *out, "title", value);
   if (status != napi_ok) {
     FML_DLOG(ERROR) << "napi_set_named_property title fail ";
+    return false;
+  }
+  status = napi_get_boolean(env, request.sized_to_content, &value);
+  if (status != napi_ok) {
+    FML_DLOG(ERROR) << "napi_get_boolean sizedToContent fail ";
+    return false;
+  }
+  status = napi_set_named_property(env, *out, "sizedToContent", value);
+  if (status != napi_ok) {
+    FML_DLOG(ERROR) << "napi_set_named_property sizedToContent fail ";
+    return false;
+  }
+  status = napi_get_boolean(env, request.resizable, &value);
+  if (status != napi_ok) {
+    FML_DLOG(ERROR) << "napi_get_boolean resizable fail ";
+    return false;
+  }
+  status = napi_set_named_property(env, *out, "resizable", value);
+  if (status != napi_ok) {
+    FML_DLOG(ERROR) << "napi_set_named_property resizable fail ";
     return false;
   }
   status = napi_create_int64(env, request.parent_view_id, &value);
@@ -2293,6 +2376,7 @@ napi_value PlatformViewOHOSNapi::nativeDestroy(napi_env env,
   }
 
   LOGD("nativeDestroy shell_holder: %{public}ld", shell_holder);
+  CleanupInspectorBindings(env, shell_holder);
 
   /**
    * When Shell destroying, the rasterizer will be moved in
@@ -2683,6 +2767,73 @@ napi_value PlatformViewOHOSNapi::nativeUnregisterTexture(
   return nullptr;
 }
 
+napi_value PlatformViewOHOSNapi::nativeRegisterInspectorTreeGetter(
+    napi_env env,
+    napi_callback_info info) {
+  FML_DLOG(INFO) << "PlatformViewOHOSNapi::nativeRegisterInspectorTreeGetter";
+  size_t argc = 2;
+  napi_value args[2] = {nullptr};
+  int64_t shell_holder;
+  NAPI_CALL(env, napi_get_cb_info(env, info, &argc, args, nullptr, nullptr));
+  NAPI_CALL(env, napi_get_value_int64(env, args[0], &shell_holder));
+  if (!shell_holder) {
+    return nullptr;
+  }
+  if (!InspectorTreeGetterAvailable()) {
+    return nullptr;
+  }
+  auto& bindings = InspectorBindings();
+  for (const auto& binding : bindings) {
+    if (binding.env == env &&
+        SameInspectorFrameNode(env, binding.frame_node, args[1])) {
+      FML_LOG(WARNING) << "Inspector getter already bound to FrameNode";
+      return nullptr;
+    }
+  }
+  // args[1] is the host XComponent's FrameNode handed over from ArkTS.
+  ArkUI_NodeHandle handle = nullptr;
+  if (OH_ArkUI_GetNodeHandleFromNapiValue(env, args[1], &handle) != 0 ||
+      handle == nullptr) {
+    FML_LOG(WARNING) << "nativeRegisterInspectorTreeGetter: invalid FrameNode";
+    return nullptr;
+  }
+  napi_ref frame_ref = nullptr;
+  if (napi_create_reference(env, args[1], 1, &frame_ref) != napi_ok) {
+    return nullptr;
+  }
+  const auto result = RegisterInspectorTreeGetter(
+      handle, OHOS_SHELL_HOLDER->GetInspectorSnapshot());
+  if (result == 0) {
+    bindings.push_back({env, shell_holder, frame_ref, handle});
+  } else {
+    napi_delete_reference(env, frame_ref);
+  }
+  return nullptr;
+}
+
+napi_value PlatformViewOHOSNapi::nativeUnregisterInspectorTreeGetter(
+    napi_env env,
+    napi_callback_info info) {
+  FML_DLOG(INFO) << "PlatformViewOHOSNapi::nativeUnregisterInspectorTreeGetter";
+  size_t argc = 2;
+  napi_value args[2] = {nullptr};
+  int64_t shell_holder;
+  NAPI_CALL(env, napi_get_cb_info(env, info, &argc, args, nullptr, nullptr));
+  NAPI_CALL(env, napi_get_value_int64(env, args[0], &shell_holder));
+  auto& bindings = InspectorBindings();
+  for (auto it = bindings.begin(); it != bindings.end(); ++it) {
+    if (it->env == env && it->shell_holder == shell_holder &&
+        SameInspectorFrameNode(env, it->frame_node, args[1])) {
+      if (UnregisterInspectorTreeGetter(it->handle) == 0) {
+        napi_delete_reference(env, it->frame_node);
+        bindings.erase(it);
+      }
+      return nullptr;
+    }
+  }
+  return nullptr;
+}
+
 napi_value PlatformViewOHOSNapi::nativeGetTextureWindowId(
     napi_env env,
     napi_callback_info info) {
@@ -3005,9 +3156,6 @@ void PlatformViewOHOSNapi::NotifyCreateForView(int64_t shell_holder,
   FML_DCHECK(view_id != kFlutterImplicitViewId);
   auto native_window = fml::MakeRefCounted<OHOSNativeWindow>(
       static_cast<OHNativeWindow*>(window));
-  // win32 is_sized_to_content parity: a sized-to-content view
-  // (tooltip/popup) reports per-frame content sizes AND its metrics carry
-  // the request's constraint RANGE instead of a pinned size.
   const bool sized_to_content =
       OHOS_SHELL_HOLDER->GetWindowController()->IsViewSizedToContent(view_id);
   WindowConstraints logical_constraints = {};
@@ -3844,6 +3992,41 @@ napi_value PlatformViewOHOSNapi::nativeNotifyWindowActivated(
 
   if (auto* controller = flutter::OHOSWindowController::ForView(view_id)) {
     controller->SetViewActivated(view_id, activated);
+  }
+
+  napi_close_handle_scope(env, scope);
+  return nullptr;
+}
+
+napi_value PlatformViewOHOSNapi::nativeSetViewSizedToContent(
+    napi_env env,
+    napi_callback_info info) {
+  size_t argc = 2;
+  napi_value args[2] = {nullptr};
+  napi_handle_scope scope;
+  napi_open_handle_scope(env, &scope);
+  napi_status ret = napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+  if (ret != napi_ok || argc < 2) {
+    FML_DLOG(ERROR) << "nativeSetViewSizedToContent napi_get_cb_info error";
+    napi_close_handle_scope(env, scope);
+    return nullptr;
+  }
+  int64_t view_id = 0;
+  bool sized_to_content = false;
+  if (napi_get_value_int64(env, args[0], &view_id) != napi_ok) {
+    FML_DLOG(ERROR) << "nativeSetViewSizedToContent view_id parse failed";
+    napi_close_handle_scope(env, scope);
+    return nullptr;
+  }
+  if (napi_get_value_bool(env, args[1], &sized_to_content) != napi_ok) {
+    FML_DLOG(ERROR)
+        << "nativeSetViewSizedToContent sized_to_content parse failed";
+    napi_close_handle_scope(env, scope);
+    return nullptr;
+  }
+
+  if (auto* controller = flutter::OHOSWindowController::ForView(view_id)) {
+    controller->SetViewSizedToContent(view_id, sized_to_content);
   }
 
   napi_close_handle_scope(env, scope);
@@ -4806,6 +4989,9 @@ napi_value PlatformViewOHOSNapi::nativeDestroyAsync(napi_env env,
     return RejectDeferredWithUndefined(env, deferred, promise);
   }
 
+  if (shell_holder != 0) {
+    CleanupInspectorBindings(env, shell_holder);
+  }
   DestroyAsyncData* async_data = new DestroyAsyncData();
   async_data->deferred = deferred;
   async_data->shell_holder = shell_holder;

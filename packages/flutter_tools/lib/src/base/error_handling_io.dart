@@ -22,8 +22,10 @@ import 'dart:typed_data';
 import 'package:file/file.dart';
 import 'package:path/path.dart' as p; // flutter_ignore: package_path_import
 import 'package:process/process.dart';
+import 'package:unified_analytics/unified_analytics.dart';
 
 import 'common.dart' show ToolExit, throwToolExit;
+import 'context.dart';
 import 'platform.dart';
 
 // The Flutter tool hits file system and process errors that only the end-user can address.
@@ -1178,12 +1180,21 @@ T _runSync<T>(
 /// See also:
 ///   * [ErrorHandlingFileSystem], for a similar file system strategy.
 class ErrorHandlingProcessManager extends ProcessManager {
-  ErrorHandlingProcessManager({required ProcessManager delegate, required Platform platform})
-    : _delegate = delegate,
-      _platform = platform;
+  ErrorHandlingProcessManager({
+    required ProcessManager delegate,
+    required Platform platform,
+
+    /// A lazy callback to prevent eager circular dependency cycles during early
+    /// bootstrapping of the Flutter CLI (where `Analytics` depends on
+    /// `FlutterVersion`, which executes git process commands during construction).
+    required Analytics Function() analytics,
+  }) : _delegate = delegate,
+       _platform = platform,
+       _analytics = analytics;
 
   final ProcessManager _delegate;
   final Platform _platform;
+  final Analytics Function() _analytics;
 
   @override
   bool canRun(dynamic executable, {String? workingDirectory}) {
@@ -1202,6 +1213,36 @@ class ErrorHandlingProcessManager extends ProcessManager {
     return _runSync(() => _delegate.killPid(pid, signal), platform: _platform);
   }
 
+  Map<String, String>? _propagateAnalyticsEnvironment(Map<String, String>? environment) {
+    // Create a mutable copy of the environment map upfront to avoid redundant allocations later.
+    final environmentResult = <String, String>{...?environment};
+    Analytics? analytics;
+    try {
+      analytics = _analytics();
+    } on ContextDependencyCycleException {
+      // This exception is thrown during early startup bootstrapping of the Flutter CLI.
+      // Specifically, `FlutterVersion` runs a synchronous `git log` command during its own
+      // construction to resolve version metadata. Because process execution is intercepted
+      // by this manager, looking up `Analytics` (which in turn depends on `FlutterVersion`)
+      // triggers a circular dependency cycle (`FlutterVersion -> Process -> Analytics -> FlutterVersion`).
+      // Catching `ContextDependencyCycleException` breaks this cycle, allowing us to safely
+      // skip analytics environment propagation for these early initialization commands.
+    }
+
+    // Propagate the unified analytics suppression flag.
+    if (analytics != null) {
+      environmentResult[DashEnvVar.suppressAnalytics.name] = (!analytics.telemetryEnabled)
+          .toString();
+    }
+
+    // Propagate the parent tool identifier down to the spawned process.
+    final String? parentTool = _platform.environment[DashEnvVar.tool.name];
+    environmentResult[DashEnvVar.tool.name] =
+        parentTool ?? environmentResult[DashEnvVar.tool.name] ?? DashTool.flutterTool.label;
+
+    return environmentResult;
+  }
+
   @override
   Future<io.ProcessResult> run(
     List<Object> command, {
@@ -1217,7 +1258,7 @@ class ErrorHandlingProcessManager extends ProcessManager {
         return _delegate.run(
           command,
           workingDirectory: workingDirectory,
-          environment: environment,
+          environment: _propagateAnalyticsEnvironment(environment),
           includeParentEnvironment: includeParentEnvironment,
           runInShell: runInShell,
           stdoutEncoding: stdoutEncoding,
@@ -1243,7 +1284,7 @@ class ErrorHandlingProcessManager extends ProcessManager {
         return _delegate.start(
           command,
           workingDirectory: workingDirectory,
-          environment: environment,
+          environment: _propagateAnalyticsEnvironment(environment),
           includeParentEnvironment: includeParentEnvironment,
           runInShell: runInShell,
           mode: mode,
@@ -1269,7 +1310,7 @@ class ErrorHandlingProcessManager extends ProcessManager {
         return _delegate.runSync(
           command,
           workingDirectory: workingDirectory,
-          environment: environment,
+          environment: _propagateAnalyticsEnvironment(environment),
           includeParentEnvironment: includeParentEnvironment,
           runInShell: runInShell,
           stdoutEncoding: stdoutEncoding,
@@ -1404,10 +1445,14 @@ void _handleWindowsException(Exception e, String? message, int errorCode) {
   const kDeviceFull = 112;
   const kSharingViolation = 32;
   const kLockViolation = 33;
+  const kFilenameExcedRange = 206;
   const kUserMappedSectionOpened = 1224;
   const kAccessDenied = 5;
   const kFatalDeviceHardwareError = 483;
   const kDeviceDoesNotExist = 433;
+  const kApplicationControlPolicyBlocked = 4551;
+  const kAccessDisabledByPolicy = 1260;
+  const kSystemIntegrityPolicyViolation = 454;
 
   // Catch errors and bail when:
   final String? errorMessage = switch (errorCode) {
@@ -1424,6 +1469,11 @@ void _handleWindowsException(Exception e, String? message, int errorCode) {
       '$message. The target device is full.'
           '\n$e\n'
           'Free up space and try again.',
+    kFilenameExcedRange =>
+      '${message != null ? "$message. " : ""}The filename or extension is too long.\n'
+          '$e\n'
+          'Please consider moving the Flutter SDK and/or project to a shorter path, '
+          'or enabling long paths on Windows.',
     kSharingViolation || kLockViolation || kUserMappedSectionOpened =>
       '$message. The file is being used by another program.'
           '\n$e\n'
@@ -1436,6 +1486,13 @@ void _handleWindowsException(Exception e, String? message, int errorCode) {
       '$message. The device was not found.'
           '\n$e\n'
           'Verify the device is mounted and try again.',
+    kApplicationControlPolicyBlocked ||
+    kAccessDisabledByPolicy ||
+    kSystemIntegrityPolicyViolation =>
+      '${message != null ? "$message. " : ""}An Application Control policy or security policy has blocked execution.\n'
+          '$e\n'
+          'Please verify your Windows Security Smart App Control, Application Control policy (WDAC), '
+          'or Group Policy settings, or add an exclusion for the Flutter SDK directory.',
     _ => null,
   };
   _throwFileSystemException(errorMessage);

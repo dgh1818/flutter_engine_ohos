@@ -19,12 +19,19 @@ export interface WindowHostContext {
   /** The WindowStage of an ability, or undefined if it has none registered. */
   getWindowStage(ability: UIAbility): window.WindowStage | undefined;
 
+  /** The UIAbility registered for a (numeric) view id, or undefined when the
+   * view has no ability of its own (sub-window views, or not SPAWNED yet). */
   getAbilityByView(viewId: number): UIAbility | undefined;
 
+  /** The FlutterView of a (string-id) view, or null before the view's surface
+   * was created / after teardown. */
   getFlutterView(viewId: string): FlutterView | null;
 
+  /** Records a FlutterView and feeds it to a materialized host (if any). */
   registerFlutterView(viewId: string, flutterView: FlutterView): void;
 
+  /** Drops a FlutterView record (idempotent); the exact-view overload guards
+   * against dropping a re-registered successor. */
   deleteFlutterView(viewId: string, flutterView?: FlutterView): void;
 
   /** The UIAbility class name SPAWNED regular hosts launch (configurable
@@ -36,6 +43,17 @@ export interface WindowHostContext {
    * undefined when its host has not materialized (or already tore down) —
    * each host carries its own OS-window handle (getWindow). */
   getHostWindowByView(viewId: number): FlutterWindowHost | undefined;
+
+  /** Reports an OS-initiated window destruction to native (Dart `destroyed`
+   * flips and unregister runs). Routed through this seam so window-host
+   * modules need no runtime import of the napi bridge (import-cycle guard:
+   * FlutterNapi → FlutterManager → hosts → FlutterWindowHost). */
+  notifyOsWindowClosed(viewId: number): void;
+
+  /** Clears the native sized-to-content reflow flag after a resize lands.
+   * Routed through this seam (import-cycle guard: FlutterNapi →
+   * FlutterManager → host subclasses → FlutterHostWindowSized). */
+  setViewSizedToContent(viewId: number, sizedToContent: boolean): void;
 
   /** Focus push for a sub-window host: windowEvent WINDOW_ACTIVE↔
    * WINDOW_INACTIVE translated to the view's activation flag and handed to

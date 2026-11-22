@@ -9,7 +9,7 @@
 work_dir_levels: 2
 
 # Target branch for runIf incremental diff
-target_branch: oh-3.44.9-dev
+target_branch: oh-3.47.9-dev
 
 # Environment variables
 env_vars:
@@ -233,7 +233,7 @@ compilation_steps:
   - name: Publish
     script: ci/scripts/publish.sh
     description: Publish build artifacts to cloud storage
-    args: ["flutter_flutter", "flutter_flutter/engine", "3.44"]
+    args: ["flutter_flutter", "flutter_flutter/engine", "3.47"]
     required: false
 
 # Test steps - executed in order

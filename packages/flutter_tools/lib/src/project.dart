@@ -5,30 +5,35 @@
 import 'dart:collection';
 import 'dart:io' as io;
 
+import 'package:glob/glob.dart';
 import 'package:json5/json5.dart';
 import 'package:meta/meta.dart';
+import 'package:package_config/package_config.dart';
 import 'package:xml/xml.dart';
 import 'package:yaml/yaml.dart';
 
-import '../src/convert.dart';
 import 'android/android_builder.dart';
 import 'android/gradle_utils.dart' as gradle;
 import 'base/common.dart';
 import 'base/error_handling_io.dart';
 import 'base/file_system.dart';
 import 'base/logger.dart';
+import 'base/project_migrator.dart';
 import 'base/utils.dart';
 import 'base/version.dart';
 import 'base/yaml.dart';
 import 'bundle.dart' as bundle;
 import 'cmake_project.dart';
+import 'convert.dart';
 import 'dart/package_map.dart';
 import 'features.dart';
 import 'flutter_manifest.dart';
 import 'flutter_plugins.dart';
 import 'globals.dart' as globals;
+import 'migrations/analysis_options_migration.dart';
 import 'ohos/application_package.dart';
 import 'ohos/hvigor_utils.dart' as hvigor;
+import 'package_graph.dart';
 import 'platform_plugins.dart';
 import 'project_validator_result.dart';
 import 'template.dart';
@@ -91,7 +96,9 @@ class FlutterProjectFactory {
 /// cached.
 class FlutterProject {
   @visibleForTesting
-  FlutterProject(this.directory, this._manifest, this._exampleManifest);
+  FlutterProject(this.directory, FlutterManifest manifest, this._exampleManifest) {
+    _setManifest(manifest);
+  }
 
   /// Returns a [FlutterProject] view of the given directory or a ToolExit error,
   /// if `pubspec.yaml` or `example/pubspec.yaml` is invalid.
@@ -135,13 +142,26 @@ class FlutterProject {
   final FlutterManifest _exampleManifest;
 
   /// List of [FlutterProject]s corresponding to the workspace entries.
-  List<FlutterProject> get workspaceProjects => manifest.workspace
-      .map(
-        (String entry) => FlutterProject.fromDirectory(
-          directory.childDirectory(directory.fileSystem.path.normalize(entry)),
-        ),
-      )
-      .toList();
+  List<FlutterProject> get workspaceProjects => _workspaceProjects;
+  late List<FlutterProject> _workspaceProjects;
+
+  void _setManifest(FlutterManifest manifest) {
+    _manifest = manifest;
+
+    // Update the workspace projects based on the new manifest.
+    _workspaceProjects = <FlutterProject>[];
+    for (final String entry in manifest.workspace) {
+      final glob = Glob(entry);
+      for (final Directory globResult
+          in glob
+              .listFileSystemSync(directory.fileSystem, root: directory.path)
+              .whereType<Directory>()) {
+        if (globResult.childFile('pubspec.yaml').existsSync()) {
+          _workspaceProjects.add(FlutterProject.fromDirectory(globResult));
+        }
+      }
+    }
+  }
 
   /// The set of organization names found in this project as
   /// part of iOS product bundle identifier, Android application ID, or
@@ -249,10 +269,7 @@ class FlutterProject {
 
   /// The location of the generated scaffolding project for hosting widget
   /// previews from this project.
-  // TODO(bkonyi): don't create this project in $TMP.
-  // See https://github.com/flutter/flutter/issues/179036
-  late final Directory widgetPreviewScaffold = directory.fileSystem.systemTempDirectory
-      .createTempSync('widget_preview_scaffold');
+  late final Directory widgetPreviewScaffold = directory.childDirectory('.widget_preview');
 
   /// The directory containing the generated code for this project.
   Directory get generated => directory.absolute
@@ -354,7 +371,7 @@ class FlutterProject {
 
   /// Reloads the content of [pubspecFile] and updates the contents of [manifest].
   void reloadManifest({required Logger logger, required FileSystem fs}) {
-    _manifest = _readManifest(pubspecFile.path, logger: logger, fileSystem: fs);
+    _setManifest(_readManifest(pubspecFile.path, logger: logger, fileSystem: fs));
   }
 
   /// Returns the MD5 hash of the contents of [manifest], ensuring [manifest] is up to date before
@@ -369,7 +386,7 @@ class FlutterProject {
   void replacePubspec(FlutterManifest updated) {
     final YamlMap updatedPubspecContents = updated.toYaml();
     pubspecFile.writeAsStringSync(encodeYamlAsString(updatedPubspecContents));
-    _manifest = updated;
+    _setManifest(updated);
   }
 
   /// Reapplies template files and regenerates project files and plugin
@@ -383,6 +400,9 @@ class FlutterProject {
   Future<void> regeneratePlatformSpecificTooling({
     DeprecationBehavior deprecationBehavior = DeprecationBehavior.none,
     required bool releaseMode,
+    PubspecCache? pubspecCache,
+    PackageGraph? packageGraph,
+    PackageConfig? packageConfig,
   }) async {
     return ensureReadyForPlatformSpecificTooling(
       androidPlatform: android.existsSync(),
@@ -396,6 +416,9 @@ class FlutterProject {
       ohosPlatform: featureFlags.isOhosEnabled && ohos.existsSync(),
       deprecationBehavior: deprecationBehavior,
       releaseMode: releaseMode,
+      pubspecCache: pubspecCache,
+      packageGraph: packageGraph,
+      packageConfig: packageConfig,
     );
   }
 
@@ -415,11 +438,40 @@ class FlutterProject {
     bool webPlatform = false,
     bool ohosPlatform = false,
     DeprecationBehavior deprecationBehavior = DeprecationBehavior.none,
+    PubspecCache? pubspecCache,
+    PackageGraph? packageGraph,
+    PackageConfig? packageConfig,
   }) async {
-    if (!directory.existsSync() || isPlugin) {
+    if (!directory.existsSync()) {
       return;
     }
-    await refreshPluginsList(this, iosPlatform: iosPlatform, macOSPlatform: macOSPlatform);
+
+    final migration = ProjectMigration(<ProjectMigrator>[
+      AnalysisOptionsMigration(this, globals.logger, packageConfig: packageConfig),
+    ]);
+    await migration.run();
+
+    // When no platforms are enabled, nothing reads the plugin list or the
+    // injected per-platform files.
+    final bool anyPlatformEnabled =
+        androidPlatform ||
+        iosPlatform ||
+        linuxPlatform ||
+        macOSPlatform ||
+        windowsPlatform ||
+        webPlatform ||
+        ohosPlatform;
+    if (isPlugin || !anyPlatformEnabled) {
+      return;
+    }
+    await refreshPluginsList(
+      this,
+      iosPlatform: iosPlatform,
+      macOSPlatform: macOSPlatform,
+      pubspecCache: pubspecCache,
+      packageGraph: packageGraph,
+      packageConfig: packageConfig,
+    );
     if (androidPlatform) {
       await android.ensureReadyForPlatformSpecificTooling(deprecationBehavior: deprecationBehavior);
     }
@@ -450,6 +502,9 @@ class FlutterProject {
       windowsPlatform: windowsPlatform,
       ohosPlatform: ohosPlatform,
       releaseMode: releaseMode,
+      pubspecCache: pubspecCache,
+      packageGraph: packageGraph,
+      packageConfig: packageConfig,
     );
   }
 

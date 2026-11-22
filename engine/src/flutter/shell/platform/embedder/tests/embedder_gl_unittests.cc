@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "GLES3/gl3.h"
+#include "flutter/display_list/image/dl_image_skia.h"
 #include "flutter/flow/raster_cache.h"
 #include "flutter/fml/file.h"
 #include "flutter/fml/make_copyable.h"
@@ -4312,8 +4313,9 @@ TEST_F(EmbedderTest, SnapshotRenderTargetScalesDownToDriverMax) {
         ASSERT_EQ(big_image->height(), max_size / 2);
 
         CanvasImage* small_image = get_arg(1);
-        ASSERT_TRUE(ImageMatchesFixture("snapshot_large_scene.png",
-                                        small_image->image()->skia_image()));
+        ASSERT_TRUE(ImageMatchesFixture(
+            "snapshot_large_scene.png",
+            small_image->image()->asSkiaImage()->skia_image()));
 
         latch.Signal();
       })));
@@ -4618,6 +4620,31 @@ TEST_F(EmbedderTest, ExternalTextureGLRefreshedTooOften) {
   EXPECT_TRUE(resolve_called);
 
   glFinish();
+}
+
+TEST_F(EmbedderTest, ExternalTextureGLNullContextDoesNotCrash) {
+  EmbedderExternalTextureGL::ExternalTextureCallback callback(
+      [](int64_t, size_t, size_t) {
+        auto res = std::make_unique<FlutterOpenGLTexture>();
+        res->target = GL_TEXTURE_2D;
+        res->name = 1;
+        res->format = GL_RGBA8;
+        res->user_data = nullptr;
+        res->destruction_callback = [](void*) {};
+        res->width = res->height = 100;
+        return res;
+      });
+  EmbedderExternalTextureGL texture(1, callback);
+
+  DisplayListBuilder builder;
+  Texture::PaintContext ctx{
+      .canvas = &builder,
+      .gr_context = nullptr,
+      .aiks_context = nullptr,
+  };
+  // Should not crash even when last_image_ is null and contexts are null.
+  texture.Paint(ctx, DlRect::MakeXYWH(0, 0, 100, 100), false,
+                DlImageSampling::kLinear);
 }
 
 TEST_F(

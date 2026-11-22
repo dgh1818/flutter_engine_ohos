@@ -9,6 +9,7 @@
 #undef private
 
 #include "display_list/image/dl_image.h"
+#include "display_list/image/dl_image_skia.h"
 #include "flutter/fml/log_settings.h"
 #include "fml/time/time_point.h"
 #include "gmock/gmock.h"
@@ -42,7 +43,7 @@ OH_NativeBuffer_Config MakeConfig(int32_t width,
 // pointer and never dereferences the underlying pixels, so a null-backed image
 // is sufficient to validate cache behavior.
 sk_sp<flutter::DlImage> MakeTestImage() {
-  return DlImage::Make(static_cast<SkImage*>(nullptr));
+  return DlImageSkia::Make(static_cast<SkImage*>(nullptr));
 }
 
 }  // namespace

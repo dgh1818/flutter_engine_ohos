@@ -140,6 +140,7 @@ import FlutterCallbackInformationTest from './view/FlutterCallbackInformation.te
 import FlutterViewHybridTest from './view/FlutterViewHybrid.test';
 import windowArchetypeTest from './embedding/ohos/windowing/WindowArchetype.test';
 import flutterWindowHostTest from './embedding/ohos/windowing/FlutterWindowHost.test';
+import flutterHostWindowSizedTest from './embedding/ohos/windowing/FlutterHostWindowSized.test';
 import dialogWindowHostTest from './embedding/ohos/windowing/DialogWindowHost.test';
 import tooltipWindowHostTest from './embedding/ohos/windowing/TooltipWindowHost.test';
 import popupWindowHostTest from './embedding/ohos/windowing/PopupWindowHost.test';
@@ -274,6 +275,7 @@ export default function testsuite() {
   FlutterViewHybridTest();
   windowArchetypeTest();
   flutterWindowHostTest();
+  flutterHostWindowSizedTest();
   dialogWindowHostTest();
   tooltipWindowHostTest();
   popupWindowHostTest();

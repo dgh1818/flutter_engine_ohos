@@ -62,6 +62,9 @@ const FLAG_START_PAUSED: Flag =
 const FLAG_DISABLE_SERVICE_AUTH_CODES: Flag =
   new Flag('--disable-service-auth-codes', 'DisableServiceAuthCodes', false);
 
+const FLAG_DISABLE_SERVICE_ORIGIN_CHECK: Flag =
+  new Flag('--disable-service-origin-check', 'DisableServiceOriginCheck', false);
+
 const FLAG_ENDLESS_TRACE_BUFFER: Flag =
   new Flag('--endless-trace-buffer', 'EndlessTraceBuffer', false);
 
@@ -116,6 +119,7 @@ const FLAG_LIST: Flag[] = [
   FLAG_TRACE_STARTUP,
   FLAG_START_PAUSED,
   FLAG_DISABLE_SERVICE_AUTH_CODES,
+  FLAG_DISABLE_SERVICE_ORIGIN_CHECK,
   FLAG_ENDLESS_TRACE_BUFFER,
   FLAG_USE_TEST_FONTS,
   FLAG_ENABLE_DART_PROFILING,
@@ -142,6 +146,8 @@ export default class FlutterEngineFlags {
   public static readonly START_PAUSED: Flag = FLAG_START_PAUSED;
 
   public static readonly DISABLE_SERVICE_AUTH_CODES: Flag = FLAG_DISABLE_SERVICE_AUTH_CODES;
+
+  public static readonly DISABLE_SERVICE_ORIGIN_CHECK: Flag = FLAG_DISABLE_SERVICE_ORIGIN_CHECK;
 
   public static readonly ENDLESS_TRACE_BUFFER: Flag = FLAG_ENDLESS_TRACE_BUFFER;
 

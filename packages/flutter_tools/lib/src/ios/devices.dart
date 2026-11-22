@@ -38,6 +38,7 @@ import '../protocol_discovery.dart';
 import '../vmservice.dart';
 import 'application_package.dart';
 import 'core_devices.dart';
+import 'device_support.dart';
 import 'ios_deploy.dart';
 import 'ios_workflow.dart';
 import 'iproxy.dart';
@@ -65,6 +66,17 @@ In the meantime, we recommend these temporary workarounds:
 * Use a simulator for development rather than a physical device.
 * If you must use a device updated to $deviceVersion, use Flutter's release or
   profile mode via --release or --profile flags.
+════════════════════════════════════════════════════════════════════════════════''';
+
+/// The error message shown when an iOS app fails to launch because it has not
+/// been migrated to the UIScene lifecycle.
+const String kUISceneMigrationRequiredError = '''
+════════════════════════════════════════════════════════════════════════════════
+Your iOS app has not been migrated to the UIScene lifecycle.
+UIScene lifecycle is required on iOS 27 and later.
+
+To migrate your app, please follow the migration guide at:
+  https://flutter.dev/to/uiscene-migration
 ════════════════════════════════════════════════════════════════════════════════''';
 
 enum IOSDeploymentMethod {
@@ -297,14 +309,19 @@ class IOSDevice extends Device {
   IOSDevice(
     super.id, {
     required FileSystem fileSystem,
+    required FileSystemUtils fileSystemUtils,
+    required ProcessUtils processUtils,
     required this.name,
     required this.cpuArchitecture,
+    String? cpuArchitectureString,
     required this.connectionInterface,
     required this.isConnected,
     required this.isPaired,
     required this.devModeEnabled,
     required this.isCoreDevice,
     String? sdkVersion,
+    String? modelCode,
+    String? operatingSystemVersion,
     required Platform platform,
     required IOSDeploy iosDeploy,
     required IMobileDevice iMobileDevice,
@@ -314,14 +331,21 @@ class IOSDevice extends Device {
     required IProxy iProxy,
     required super.logger,
     required Analytics analytics,
+    required Xcode? xcode,
   }) : _sdkVersion = sdkVersion,
+       _modelCode = modelCode,
+       _operatingSystemVersion = operatingSystemVersion,
+       _cpuArchitectureString = cpuArchitectureString,
        _iosDeploy = iosDeploy,
        _iMobileDevice = iMobileDevice,
        _coreDeviceControl = coreDeviceControl,
        _coreDeviceLauncher = coreDeviceLauncher,
        _xcodeDebug = xcodeDebug,
+       _xcode = xcode,
        _iproxy = iProxy,
        _fileSystem = fileSystem,
+       _fileSystemUtils = fileSystemUtils,
+       _processUtils = processUtils,
        _logger = logger,
        _analytics = analytics,
        _platform = platform,
@@ -333,15 +357,20 @@ class IOSDevice extends Device {
   }
 
   final String? _sdkVersion;
+  final String? _modelCode;
+  final String? _operatingSystemVersion;
   final IOSDeploy _iosDeploy;
   final Analytics _analytics;
   final FileSystem _fileSystem;
+  final FileSystemUtils _fileSystemUtils;
+  final ProcessUtils _processUtils;
   final Logger _logger;
   final Platform _platform;
   final IMobileDevice _iMobileDevice;
   final IOSCoreDeviceControl _coreDeviceControl;
   final IOSCoreDeviceLauncher _coreDeviceLauncher;
   final XcodeDebug _xcodeDebug;
+  final Xcode? _xcode;
   final IProxy _iproxy;
 
   Version? get sdkVersion {
@@ -353,6 +382,19 @@ class IOSDevice extends Device {
     return sdkVersion?.major ?? 0;
   }
 
+  late final IOSDeviceSupport deviceSupport = IOSDeviceSupport(
+    logger: _logger,
+    processUtils: _processUtils,
+    xcode: _xcode,
+    homeDirectory: _fileSystemUtils.homeDirPath == null
+        ? null
+        : _fileSystem.directory(_fileSystemUtils.homeDirPath),
+    modelCode: _modelCode,
+    operatingSystemVersion: _operatingSystemVersion,
+    cpuArchitectureString: _cpuArchitectureString,
+    deviceId: id,
+  );
+
   @override
   final String name;
 
@@ -360,6 +402,8 @@ class IOSDevice extends Device {
   bool supportsRuntimeMode(BuildMode buildMode) => buildMode != BuildMode.jitRelease;
 
   final DarwinArch cpuArchitecture;
+
+  final String? _cpuArchitectureString;
 
   @override
   /// The [connectionInterface] provided from `XCDevice.getAvailableIOSDevices`
@@ -548,6 +592,11 @@ class IOSDevice extends Device {
       return LaunchResult.failed();
     }
 
+    final bool shouldAttachDebugger = shouldAttachLLDBDebugger(debuggingOptions);
+    if (shouldAttachDebugger) {
+      await deviceSupport.prepareDeviceSupport();
+    }
+
     // Step 3: Attempt to install the application on the device.
     final List<String> launchArguments = debuggingOptions.getIOSLaunchArguments(
       EnvironmentType.physical,
@@ -596,6 +645,7 @@ class IOSDevice extends Device {
           mainPath: mainPath,
           discoveryTimeout: discoveryTimeout,
           shutdownHooks: shutdownHooks ?? globals.shutdownHooks,
+          shouldAttachDebugger: shouldAttachDebugger,
         );
         installationResult = result ? 0 : 1;
         deploymentMethod = coreDeviceDeploymentMethod;
@@ -852,13 +902,23 @@ class IOSDevice extends Device {
         pattern: RegExp(
           '`UIScene` lifecycle will soon be required|This process does not adopt UIScene lifecycle',
         ),
-        action: () {
-          globals.printWarning(uisceneWarning);
+        action: (String message) {
+          _logger.printWarning(uisceneWarning);
         },
         excludeFromStream: true,
       );
       deviceLogReader.addLogInterceptor(uisceneWarningInterceptor);
     }
+
+    final uisceneCrashInterceptor = LogInterceptor(
+      identifier: 'uiscene_crash',
+      pattern: RegExp(r'UIScene life\s?cycle is required'),
+      action: (String message) {
+        throwToolExit(kUISceneMigrationRequiredError);
+      },
+      excludeFromStream: false,
+    );
+    deviceLogReader.addLogInterceptor(uisceneCrashInterceptor);
 
     final LogInterceptor? jitCrashInterceptor = await _jitCrashInterceptor();
     if (jitCrashInterceptor != null) {
@@ -868,7 +928,7 @@ class IOSDevice extends Device {
     final appTerminatedInterceptor = LogInterceptor(
       identifier: 'app_terminated',
       pattern: RegExp('^App terminated due to signal'),
-      action: () {
+      action: (String message) {
         if (!appTerminatedCompleter.isCompleted) {
           appTerminatedCompleter.complete();
         }
@@ -876,6 +936,20 @@ class IOSDevice extends Device {
       excludeFromStream: false,
     );
     deviceLogReader.addLogInterceptor(appTerminatedInterceptor);
+
+    final missingSymbolsInterceptor = LogInterceptor(
+      identifier: 'missing_symbols',
+      pattern: LLDB.missingSymbolsPattern,
+      action: (String message) {
+        _logger.printTrace(message);
+        final String? warning = deviceSupport.missingSymbolsWarning(warnWhenSymbolsExist: true);
+        if (warning != null) {
+          _logger.printWarning(warning);
+        }
+      },
+      excludeFromStream: true,
+    );
+    deviceLogReader.addLogInterceptor(missingSymbolsInterceptor);
   }
 
   /// Find the Dart VM url using ProtocolDiscovery (logs from `idevicesyslog`)
@@ -947,7 +1021,7 @@ class IOSDevice extends Device {
     return LogInterceptor(
       identifier: kJITCrashLogInterceptorIdentifier,
       pattern: kJITCrashFailureMessage,
-      action: () {
+      action: (String message) {
         throwToolExit(jitCrashFailureInstructions(deviceSdkVersion));
       },
       excludeFromStream: false,
@@ -993,6 +1067,15 @@ class IOSDevice extends Device {
     );
   }
 
+  /// Whether the LLDB debugger should be attached.
+  ///
+  /// The LLDB debugger should only be attached in debug mode or if the user uses the
+  /// `--ios-profile-debugger` flag in profile mode.
+  bool shouldAttachLLDBDebugger(DebuggingOptions debuggingOptions) {
+    return debuggingOptions.buildInfo.isDebug ||
+        (debuggingOptions.buildInfo.isProfile && (debuggingOptions.iosProfileDebugger ?? false));
+  }
+
   /// Uses either `devicectl` or Xcode automation to install, launch, and debug
   /// apps on physical iOS devices.
   ///
@@ -1016,6 +1099,7 @@ class IOSDevice extends Device {
     required IOSApp package,
     required List<String> launchArguments,
     required String? mainPath,
+    required bool shouldAttachDebugger,
     required ShutdownHooks shutdownHooks,
     @visibleForTesting Duration? discoveryTimeout,
   }) async {
@@ -1058,28 +1142,50 @@ class IOSDevice extends Device {
         await deviceLogReader.listenToCoreDeviceLauncher(_coreDeviceLauncher);
       }
 
-      final bool launchSuccess = await _coreDeviceLauncher.launchAppWithLLDBDebugger(
-        deviceId: id,
-        bundlePath: package.deviceBundlePath,
-        bundleId: package.id,
-        launchArguments: launchArguments,
-        shutdownHooks: globals.shutdownHooks,
-        mode: debuggingOptions.buildInfo.mode,
-      );
-
-      // If it succeeds to launch with LLDB, return, otherwise continue on to
-      // try launching with Xcode.
-      if (launchSuccess) {
-        return (launchSuccess, IOSDeploymentMethod.coreDeviceWithLLDB);
-      } else {
-        deploymentMethod = IOSDeploymentMethod.coreDeviceWithXcodeFallback;
-        _analytics.send(
-          Event.appleUsageEvent(
-            workflow: 'ios-physical-deployment',
-            parameter: IOSDeploymentMethod.coreDeviceWithLLDB.name,
-            result: 'launch failed',
-          ),
+      if (shouldAttachDebugger) {
+        final bool launchSuccess = await _coreDeviceLauncher.launchAppWithLLDBDebugger(
+          deviceId: id,
+          deviceSupport: deviceSupport,
+          bundlePath: package.deviceBundlePath,
+          bundleId: package.id,
+          launchArguments: launchArguments,
+          shutdownHooks: globals.shutdownHooks,
+          mode: debuggingOptions.buildInfo.mode,
         );
+
+        if (launchSuccess) {
+          return (launchSuccess, IOSDeploymentMethod.coreDeviceWithLLDB);
+        } else {
+          deploymentMethod = IOSDeploymentMethod.coreDeviceWithXcodeFallback;
+          _analytics.send(
+            Event.appleUsageEvent(
+              workflow: 'ios-physical-deployment',
+              parameter: IOSDeploymentMethod.coreDeviceWithLLDB.name,
+              result: 'launch failed',
+            ),
+          );
+        }
+      } else {
+        final bool launchSuccess = await _coreDeviceLauncher.launchAppAndStreamLogsWithoutDebugger(
+          deviceId: id,
+          bundlePath: package.deviceBundlePath,
+          bundleId: package.id,
+          launchArguments: launchArguments,
+          shutdownHooks: globals.shutdownHooks,
+        );
+
+        if (launchSuccess) {
+          return (launchSuccess, IOSDeploymentMethod.coreDeviceWithoutDebugger);
+        } else {
+          deploymentMethod = IOSDeploymentMethod.coreDeviceWithXcodeFallback;
+          _analytics.send(
+            Event.appleUsageEvent(
+              workflow: 'ios-physical-deployment',
+              parameter: IOSDeploymentMethod.coreDeviceWithoutDebugger.name,
+              result: 'launch failed',
+            ),
+          );
+        }
       }
     }
 
@@ -1378,7 +1484,7 @@ class LogInterceptor {
   final Pattern pattern;
 
   /// If the log contain the [pattern], the [action] will be called.
-  final void Function() action;
+  final void Function(String message) action;
 
   /// If `true`, the log will be excluded from being added to the stream.
   final bool excludeFromStream;
@@ -1416,7 +1522,7 @@ abstract class SharedIOSDeviceLogReader extends DeviceLogReader {
   bool _interceptLog(String message) {
     for (final LogInterceptor interceptor in _logInterceptors) {
       if (message.contains(interceptor.pattern)) {
-        interceptor.action();
+        interceptor.action(message);
         if (interceptor.excludeFromStream) {
           return true;
         }

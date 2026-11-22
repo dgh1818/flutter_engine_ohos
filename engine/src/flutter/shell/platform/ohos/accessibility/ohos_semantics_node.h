@@ -87,6 +87,10 @@ struct SemanticsNodeExtend : flutter::SemanticsNode {
   uint32_t parentId = 0;
 
   std::string contentString = "";
+  // A11y automation-test attributes (reported via OHOS Inspector `$attrs`).
+  // NaN / -1 mean "not set".
+  double fontSize = std::nan("");
+  int64_t backgroundColor = -1;
   ArkUI_AccessibilityElementInfo* elementInfoOHOS = nullptr;
   const char* componentType = OHWidgetName::kOtherWidgetName;
   std::vector<ArkUI_AccessibleAction> ohActions;
@@ -150,12 +154,8 @@ struct SemanticsNodeExtend : flutter::SemanticsNode {
            flags.isToggled == SemanticsTristate::kTrue;
   }
   bool IsSelected() { return flags.isSelected == SemanticsTristate::kTrue; }
-  bool IsPassword() {
-    return flags.isTextField && flags.isObscured;
-  }
-  bool IsEnabled() {
-    return flags.isEnabled != SemanticsTristate::kFalse;
-  }
+  bool IsPassword() { return flags.isTextField && flags.isObscured; }
+  bool IsEnabled() { return flags.isEnabled != SemanticsTristate::kFalse; }
   bool IsClickable() { return HasAction(ACTIONS_::kTap); }
   bool IsHasLongPress() { return HasAction(ACTIONS_::kLongPress); }
   bool HasScrolled() {
@@ -177,8 +177,7 @@ struct SemanticsNodeExtend : flutter::SemanticsNode {
       return true;
     }
     if (flags.isChecked != SemanticsCheckState::kNone ||
-        flags.isSelected == SemanticsTristate::kTrue ||
-        flags.isTextField ||
+        flags.isSelected == SemanticsTristate::kTrue || flags.isTextField ||
         flags.isFocused == SemanticsTristate::kTrue ||
         flags.isEnabled != SemanticsTristate::kNone ||
         flags.isInMutuallyExclusiveGroup ||

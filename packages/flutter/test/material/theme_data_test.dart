@@ -1856,7 +1856,7 @@ void main() {
     final properties = DiagnosticPropertiesBuilder();
     ThemeData().debugFillProperties(properties);
     final List<String> propertyNameList = properties.properties
-        .map((final DiagnosticsNode node) => node.name)
+        .map((DiagnosticsNode node) => node.name)
         .whereType<String>()
         .toList();
     final Set<String> propertyNames = propertyNameList.toSet();

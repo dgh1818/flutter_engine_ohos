@@ -65,15 +65,32 @@ struct PositionerScope {
 };
 
 WindowRect* OnGetWindowPosition(const WindowSize& child_size,
-                                       const WindowRect& parent_rect,
-                                       const WindowRect& output_rect) {
+                                const WindowRect& parent_rect,
+                                const WindowRect& output_rect) {
   if (g_positioner == nullptr || g_positioner->return_null) {
     return nullptr;
   }
-  WindowRect* out =
-      static_cast<WindowRect*>(malloc(sizeof(WindowRect)));
+  WindowRect* out = static_cast<WindowRect*>(malloc(sizeof(WindowRect)));
   *out = g_positioner->rect;
   return out;
+}
+
+// Minimal VALID regular/dialog requests for tests that don't care about
+// sizing: the OHOSWindow ctor DCHECKs a preferred size or sized-to-content.
+RegularWindowCreationRequest MakeRegularRequest() {
+  RegularWindowCreationRequest request = {};
+  request.preferred_size.has_preferred_view_size = true;
+  request.preferred_size.preferred_view_width = 100.0;
+  request.preferred_size.preferred_view_height = 100.0;
+  return request;
+}
+
+DialogWindowCreationRequest MakeDialogRequest() {
+  DialogWindowCreationRequest request = {};
+  request.preferred_size.has_preferred_view_size = true;
+  request.preferred_size.preferred_view_width = 100.0;
+  request.preferred_size.preferred_view_height = 100.0;
+  return request;
 }
 
 }  // namespace
@@ -111,7 +128,7 @@ TEST(OHOSWindowTest, FireCallbacksInvokeRequestHandlers) {
   CallbackCounters counters;
   CallbackScope scope(&counters);
 
-  RegularWindowCreationRequest request = {};
+  RegularWindowCreationRequest request = MakeRegularRequest();
   request.callbacks.on_should_close = OnShouldClose;
   request.callbacks.on_will_close = OnWillClose;
   request.callbacks.notify_listeners = OnNotifyListeners;
@@ -128,7 +145,7 @@ TEST(OHOSWindowTest, FireCallbacksInvokeRequestHandlers) {
 
 TEST(OHOSWindowTest, FireCallbacksWithNullHandlersIsNoOp) {
   // No callbacks wired: firing must not crash.
-  OHOSWindow window(42, RegularWindowCreationRequest{});
+  OHOSWindow window(42, MakeRegularRequest());
   window.FireShouldClose();
   window.FireWillClose();
   window.FireNotifyListeners();
@@ -153,7 +170,7 @@ TEST(OHOSWindowTest, ComputeWindowPositionRejectsNullOut) {
 }
 
 TEST(OHOSWindowTest, ComputeWindowPositionWithoutPositioner) {
-  OHOSWindow window(42, RegularWindowCreationRequest{});
+  OHOSWindow window(42, MakeRegularRequest());
   WindowRect out{99.0, 99.0, 99.0, 99.0};
   // Untouched on failure.
   EXPECT_FALSE(window.ComputeWindowPosition({10, 10}, {0, 0, 100, 100},
@@ -199,7 +216,7 @@ TEST(OHOSWindowTest, ComputeWindowPositionCopiesResult) {
 // ---------------------------------------------------------------------------
 
 TEST(OHOSWindowTest, TitleCacheRoundTrips) {
-  OHOSWindow window(42, RegularWindowCreationRequest{});
+  OHOSWindow window(42, MakeRegularRequest());
   EXPECT_EQ(window.GetTitle(), "");
   window.SetTitleCache("multi-window title");
   EXPECT_EQ(window.GetTitle(), "multi-window title");
@@ -253,11 +270,11 @@ TEST(OHOSWindowTest, PopupIsSizedToContentRegularAndDialogAreNot) {
   EXPECT_TRUE(popup.GetConstraints(&constraints));
   EXPECT_EQ(constraints.view_min_width, 5.0);
 
-  OHOSWindow regular(9, RegularWindowCreationRequest{});
+  OHOSWindow regular(9, MakeRegularRequest());
   EXPECT_FALSE(regular.IsSizedToContent());
   EXPECT_FALSE(regular.GetConstraints(&constraints));
 
-  OHOSWindow dialog(10, DialogWindowCreationRequest{});
+  OHOSWindow dialog(10, MakeDialogRequest());
   EXPECT_FALSE(dialog.IsSizedToContent());
   EXPECT_FALSE(dialog.GetConstraints(&constraints));
 }

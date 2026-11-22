@@ -244,6 +244,9 @@ class ContextVK final : public Context,
   // | Context |
   bool FlushCommandBuffers() override;
 
+  // | Context |
+  [[nodiscard]] bool FinishQueue() override;
+
   RuntimeStageBackend GetRuntimeStageBackend() const override;
 
   std::shared_ptr<const IdleWaiter> GetIdleWaiter() const override {

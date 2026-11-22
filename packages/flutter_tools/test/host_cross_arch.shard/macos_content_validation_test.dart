@@ -20,104 +20,108 @@ void main() {
   });
 
   for (final buildMode in <BuildMode>[BuildMode.debug, BuildMode.profile, BuildMode.release]) {
-    test('verify ${buildMode.cliName} FlutterMacOS.xcframework artifact', () {
-      final String flutterRoot = getFlutterRoot();
+    test(
+      'verify ${buildMode.cliName} FlutterMacOS.xcframework artifact',
+      () {
+        final String flutterRoot = getFlutterRoot();
 
-      final String artifactDir;
-      switch (buildMode) {
-        case BuildMode.debug:
-        case BuildMode.jitRelease:
-          artifactDir = 'darwin-x64';
-        case BuildMode.profile:
-          artifactDir = 'darwin-x64-profile';
-        case BuildMode.release:
-          artifactDir = 'darwin-x64-release';
-      }
-      final Directory xcframeworkArtifact = fileSystem.directory(
-        fileSystem.path.join(
-          flutterRoot,
-          'bin',
-          'cache',
-          'artifacts',
-          'engine',
-          artifactDir,
-          'FlutterMacOS.xcframework',
-        ),
-      );
+        final String artifactDir;
+        switch (buildMode) {
+          case BuildMode.debug:
+          case BuildMode.jitRelease:
+            artifactDir = 'darwin-x64';
+          case BuildMode.profile:
+            artifactDir = 'darwin-x64-profile';
+          case BuildMode.release:
+            artifactDir = 'darwin-x64-release';
+        }
+        final Directory xcframeworkArtifact = fileSystem.directory(
+          fileSystem.path.join(
+            flutterRoot,
+            'bin',
+            'cache',
+            'artifacts',
+            'engine',
+            artifactDir,
+            'FlutterMacOS.xcframework',
+          ),
+        );
 
-      final Directory tempDir = createResolvedTempDirectorySync('macos_content_validation.');
+        final Directory tempDir = createResolvedTempDirectorySync('macos_content_validation.');
 
-      // Pre-cache macOS engine FlutterMacOS.xcframework artifacts.
-      final ProcessResult result = processManager.runSync(<String>[
-        flutterBin,
-        ...getLocalEngineArguments(),
-        'precache',
-        '--macos',
-      ], workingDirectory: tempDir.path);
+        // Pre-cache macOS engine FlutterMacOS.xcframework artifacts.
+        final ProcessResult result = processManager.runSync(<String>[
+          flutterBin,
+          ...getLocalEngineArguments(),
+          'precache',
+          '--macos',
+        ], workingDirectory: tempDir.path);
 
-      expect(result, const ProcessResultMatcher());
-      expect(xcframeworkArtifact.existsSync(), isTrue);
+        expect(result, const ProcessResultMatcher());
+        expect(xcframeworkArtifact.existsSync(), isTrue);
 
-      final Directory frameworkArtifact = fileSystem.directory(
-        fileSystem.path.joinAll(<String>[
-          xcframeworkArtifact.path,
-          'macos-arm64_x86_64',
-          'FlutterMacOS.framework',
-        ]),
-      );
-      // Check read/write permissions are set correctly in the framework engine artifact.
-      final String artifactStat = frameworkArtifact.statSync().mode.toRadixString(8);
-      expect(artifactStat, '40755');
-
-      // Verify Info.plist has correct engine version and build mode
-      final File engineInfo = fileSystem.file(
-        fileSystem.path.join(flutterRoot, 'bin', 'cache', 'engine_stamp.json'),
-      );
-      expect(engineInfo, exists);
-
-      final String engineVersion;
-      if (json.decode(engineInfo.readAsStringSync().trim()) as Map<String, Object?> case {
-        'git_revision': final String parsedVersion,
-      }) {
-        engineVersion = parsedVersion;
-      } else {
-        fail('engine_stamp.json missing "git_revision" key');
-      }
-
-      final File infoPlist = fileSystem.file(
-        fileSystem.path.joinAll(<String>[
-          xcframeworkArtifact.path,
-          'macos-arm64_x86_64',
-          'FlutterMacOS.framework',
-          'Versions',
-          'A',
-          'Resources',
-          'Info.plist',
-        ]),
-      );
-      expect(infoPlist, exists);
-
-      final String infoPlistContents = infoPlist.readAsStringSync();
-      expect(infoPlistContents, contains(engineVersion));
-      expect(infoPlistContents, contains(buildMode.cliName));
-
-      if (buildMode == BuildMode.release) {
-        final Directory dsymArtifact = fileSystem.directory(
+        final Directory frameworkArtifact = fileSystem.directory(
           fileSystem.path.joinAll(<String>[
             xcframeworkArtifact.path,
             'macos-arm64_x86_64',
-            'dSYMs',
-            'FlutterMacOS.framework.dSYM',
+            'FlutterMacOS.framework',
           ]),
         );
-        // Verify dSYM is present.
-        expect(dsymArtifact.existsSync(), isTrue);
-
         // Check read/write permissions are set correctly in the framework engine artifact.
-        final String artifactStat = dsymArtifact.statSync().mode.toRadixString(8);
+        final String artifactStat = frameworkArtifact.statSync().mode.toRadixString(8);
         expect(artifactStat, '40755');
-      }
-    });
+
+        // Verify Info.plist has correct engine version and build mode
+        final File engineInfo = fileSystem.file(
+          fileSystem.path.join(flutterRoot, 'bin', 'cache', 'engine_stamp.json'),
+        );
+        expect(engineInfo, exists);
+
+        final String engineVersion;
+        if (json.decode(engineInfo.readAsStringSync().trim()) as Map<String, Object?> case {
+          'git_revision': final String parsedVersion,
+        }) {
+          engineVersion = parsedVersion;
+        } else {
+          fail('engine_stamp.json missing "git_revision" key');
+        }
+
+        final File infoPlist = fileSystem.file(
+          fileSystem.path.joinAll(<String>[
+            xcframeworkArtifact.path,
+            'macos-arm64_x86_64',
+            'FlutterMacOS.framework',
+            'Versions',
+            'A',
+            'Resources',
+            'Info.plist',
+          ]),
+        );
+        expect(infoPlist, exists);
+
+        final String infoPlistContents = infoPlist.readAsStringSync();
+        expect(infoPlistContents, contains(engineVersion));
+        expect(infoPlistContents, contains(buildMode.cliName));
+
+        if (buildMode == BuildMode.release) {
+          final Directory dsymArtifact = fileSystem.directory(
+            fileSystem.path.joinAll(<String>[
+              xcframeworkArtifact.path,
+              'macos-arm64_x86_64',
+              'dSYMs',
+              'FlutterMacOS.framework.dSYM',
+            ]),
+          );
+          // Verify dSYM is present.
+          expect(dsymArtifact.existsSync(), isTrue);
+
+          // Check read/write permissions are set correctly in the framework engine artifact.
+          final String artifactStat = dsymArtifact.statSync().mode.toRadixString(8);
+          expect(artifactStat, '40755');
+        }
+      },
+      skip: true, // OHOS not supported
+    );
   }
 
   for (final buildMode in <String>['Debug', 'Release']) {

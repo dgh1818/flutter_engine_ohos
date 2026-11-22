@@ -143,6 +143,8 @@ class OHOSWindowController {
   // parity). Unknown views answer false. Thread-safe (windows_mutex_).
   bool IsViewSizedToContent(int64_t view_id) const;
 
+  void SetViewSizedToContent(int64_t view_id, bool sized_to_content);
+
   // The sized-to-content view's request constraints, LOGICAL px (win32
   // GetConstraints parity); false = pin metrics min=max=size (also what
   // unknown/non-tooltip views get). Thread-safe (windows_mutex_).

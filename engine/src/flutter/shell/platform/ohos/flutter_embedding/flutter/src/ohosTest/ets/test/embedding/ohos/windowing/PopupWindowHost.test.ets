@@ -54,7 +54,7 @@ class TestPopupHost extends PopupWindowHost {
     return false;
   }
 
-  protected async workAreaPhysical(): Promise<window.Rect> {
+  protected async getWorkArea(): Promise<window.Rect> {
     return this.workAreaPhysicalRect;
   }
 

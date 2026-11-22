@@ -11,7 +11,6 @@ copy("impeller") {
     "color_transform.glsl",
     "conical_gradient_uniform_fill.glsl",
     "constants.glsl",
-    "conversions.glsl",
     "dithering.glsl",
     "external_texture_oes.glsl",
     "gaussian.glsl",

@@ -22,6 +22,8 @@ export default class FlutterShellArgs {
   static ARG_START_PAUSED = "--start-paused";
   static ARG_KEY_DISABLE_SERVICE_AUTH_CODES = "disable-service-auth-codes";
   static ARG_DISABLE_SERVICE_AUTH_CODES = "--disable-service-auth-codes";
+  static ARG_KEY_DISABLE_SERVICE_ORIGIN_CHECK = "disable-service-origin-check";
+  static ARG_DISABLE_SERVICE_ORIGIN_CHECK = "--disable-service-origin-check";
   static ARG_KEY_ENDLESS_TRACE_BUFFER = "endless-trace-buffer";
   static ARG_ENDLESS_TRACE_BUFFER = "--endless-trace-buffer";
   static ARG_KEY_USE_TEST_FONTS = "use-test-fonts";
@@ -72,6 +74,8 @@ export default class FlutterShellArgs {
       flutterShellArgs);
     FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_DISABLE_SERVICE_AUTH_CODES,
       FlutterShellArgs.ARG_DISABLE_SERVICE_AUTH_CODES, want, flutterShellArgs);
+    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_DISABLE_SERVICE_ORIGIN_CHECK,
+      FlutterShellArgs.ARG_DISABLE_SERVICE_ORIGIN_CHECK, want, flutterShellArgs);
     FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_ENDLESS_TRACE_BUFFER, FlutterShellArgs.ARG_ENDLESS_TRACE_BUFFER,
       want, flutterShellArgs);
     FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_USE_TEST_FONTS, FlutterShellArgs.ARG_USE_TEST_FONTS, want,

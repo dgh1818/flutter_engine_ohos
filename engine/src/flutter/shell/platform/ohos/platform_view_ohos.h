@@ -110,8 +110,17 @@ class PlatformViewOHOS final : public PlatformView {
   /// @brief Tears down a non-implicit view's surface (paired with RemoveView).
   void NotifyDestroyForView(int64_t view_id);
 
+  void AdoptImplicitViewSizedToContent(bool sized_to_content,
+                                       bool has_constraints,
+                                       double min_width_constraint,
+                                       double max_width_constraint,
+                                       double min_height_constraint,
+                                       double max_height_constraint);
+
   /// @brief Removes a non-implicit view.
   void RemoveViewForWindow(int64_t view_id);
+
+  void SetViewSizedToContent(int64_t view_id, bool sized_to_content);
 
   void Preload(int width, int height);
 
@@ -341,6 +350,15 @@ class PlatformViewOHOS final : public PlatformView {
   // viewport will use this size
   int display_width_ = 0;
   int display_height_ = 0;
+
+  /// Whether the ADOPTED implicit view 0 runs sized-to-content (set via
+  /// SetViewSizedToContent / AdoptImplicitViewSizedToContent); while true,
+  /// SetViewportMetrics keeps the creation constraint RANGE below instead
+  /// of pinning min=max to the window size.
+  bool implicit_view_sized_to_content_ = false;
+  /// The implicit view's creation constraints, PHYSICAL px (logical values
+  /// scaled by the DPR at adopt time).
+  ViewConstraintsPhysical implicit_view_constraints_;
 
   ViewportMetrics viewport_metrics_;
 
