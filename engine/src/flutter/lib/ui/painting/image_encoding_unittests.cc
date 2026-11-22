@@ -20,6 +20,7 @@
 #include "gtest/gtest.h"
 
 #if IMPELLER_SUPPORTS_RENDERING
+#include "flutter/impeller/display_list/dl_image_impeller.h"
 #include "flutter/lib/ui/painting/image_encoding_impeller.h"
 #include "impeller/renderer/testing/mocks.h"
 #endif  // IMPELLER_SUPPORTS_RENDERING
@@ -219,8 +220,26 @@ TEST(ImageEncodingImpellerTest, HdrColorSpaceUsesMetadataNotPixelFormat) {
       const auto texture = std::make_shared<MockTexture>(descriptor);
       EXPECT_EQ(ImageEncodingImpeller::GetHdrColorSpace(texture),
                 static_cast<int>(entry.second));
+      const auto canvas_image = CanvasImage::Create();
+      canvas_image->set_image(impeller::DlImageImpeller::Make(texture));
+      EXPECT_EQ(canvas_image->hdrColorSpace(), static_cast<int>(entry.second));
+      EXPECT_EQ(canvas_image->colorSpace(),
+                ImageEncodingImpeller::GetColorSpace(texture));
     }
   }
+}
+
+TEST(ImageEncodingImpellerTest, MetadataQueryDoesNotCreateTexture) {
+  const auto image = sk_make_sp<::testing::NiceMock<MockDlImage>>();
+  ON_CALL(*image, isUIThreadSafe()).WillByDefault(Return(true));
+  ON_CALL(*image, GetColorSpace()).WillByDefault(Return(DlColorSpace::kSRGB));
+  EXPECT_CALL(*image, GetImpellerTexture(_)).Times(0);
+
+  const auto canvas_image = CanvasImage::Create();
+  canvas_image->set_image(image);
+  EXPECT_EQ(canvas_image->hdrColorSpace(),
+            static_cast<int>(ImageHdrColorSpace::kUnknown));
+  EXPECT_EQ(canvas_image->colorSpace(), ColorSpace::kSRGB);
 }
 
 namespace {

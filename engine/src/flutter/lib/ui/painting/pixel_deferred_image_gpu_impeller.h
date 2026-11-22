@@ -38,6 +38,8 @@ class PixelDeferredImageGPUImpeller final : public impeller::DlImageImpeller {
   std::shared_ptr<impeller::Texture> GetImpellerTexture(
       const std::shared_ptr<impeller::Context>& context) const override;
 
+  std::shared_ptr<impeller::Texture> GetTextureForMetadata() const override;
+
   // |DlImage|
   bool isOpaque() const override;
 

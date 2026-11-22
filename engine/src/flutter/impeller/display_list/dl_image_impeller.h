@@ -28,6 +28,12 @@ class DlImageImpeller : public flutter::DlImage {
   virtual std::shared_ptr<Texture> GetImpellerTexture(
       const std::shared_ptr<Context>& context) const = 0;
 
+  // Returns an already available texture for metadata queries without
+  // creating GPU resources. Images that require a context may return null.
+  virtual std::shared_ptr<Texture> GetTextureForMetadata() const {
+    return nullptr;
+  }
+
   std::shared_ptr<Texture> GetCachedTexture(
       const ContentContext& renderer) const;
 
@@ -52,6 +58,8 @@ class DlImageImpellerTexture final : public DlImageImpeller {
   // |DlImageImpeller|
   std::shared_ptr<Texture> GetImpellerTexture(
       const std::shared_ptr<Context>& context) const override;
+
+  std::shared_ptr<Texture> GetTextureForMetadata() const override;
 
   flutter::DlColorSpace GetColorSpace() const override;
   bool isOpaque() const override;

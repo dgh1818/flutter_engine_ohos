@@ -7,6 +7,7 @@
 #include "tonic/logging/dart_invoke.h"
 
 #if IMPELLER_SUPPORTS_RENDERING
+#include "flutter/impeller/display_list/dl_image_impeller.h"
 #include "flutter/lib/ui/painting/image_encoding_impeller.h"
 #include "flutter/lib/ui/painting/pixel_deferred_image_gpu_impeller.h"
 #endif
@@ -42,7 +43,27 @@ void CanvasImage::dispose() {
   ClearDartWrapper();
 }
 
+#if IMPELLER_SUPPORTS_RENDERING
+namespace {
+
+std::shared_ptr<impeller::Texture> GetTextureForMetadata(
+    const sk_sp<DlImage>& image) {
+  const auto* impeller_image = image ? image->asImpellerImage() : nullptr;
+  return impeller_image ? impeller_image->GetTextureForMetadata() : nullptr;
+}
+
+}  // namespace
+#endif  // IMPELLER_SUPPORTS_RENDERING
+
 int CanvasImage::colorSpace() {
+#if IMPELLER_SUPPORTS_RENDERING
+  if (auto texture = GetTextureForMetadata(image_)) {
+    return ImageEncodingImpeller::GetColorSpace(texture);
+  }
+#endif  // IMPELLER_SUPPORTS_RENDERING
+  if (!image_) {
+    return ColorSpace::kSRGB;
+  }
   DlColorSpace cs = image_->GetColorSpace();
   switch (cs) {
     case DlColorSpace::kExtendedSRGB:
@@ -55,8 +76,8 @@ int CanvasImage::colorSpace() {
 
 int CanvasImage::hdrColorSpace() {
 #if IMPELLER_SUPPORTS_RENDERING
-  if (image_ && image_->impeller_texture()) {
-    return ImageEncodingImpeller::GetHdrColorSpace(image_->impeller_texture());
+  if (auto texture = GetTextureForMetadata(image_)) {
+    return ImageEncodingImpeller::GetHdrColorSpace(texture);
   }
 #endif  // IMPELLER_SUPPORTS_RENDERING
   return static_cast<int>(ImageHdrColorSpace::kUnknown);

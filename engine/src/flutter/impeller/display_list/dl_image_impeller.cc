@@ -72,6 +72,11 @@ DlImageImpellerTexture::~DlImageImpellerTexture() = default;
 // |DlImage|
 std::shared_ptr<impeller::Texture> DlImageImpellerTexture::GetImpellerTexture(
     const std::shared_ptr<impeller::Context>& context) const {
+  return GetTextureForMetadata();
+}
+
+std::shared_ptr<impeller::Texture>
+DlImageImpellerTexture::GetTextureForMetadata() const {
   return texture_;
 }
 

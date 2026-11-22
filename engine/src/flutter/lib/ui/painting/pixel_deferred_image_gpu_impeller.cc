@@ -28,10 +28,12 @@ PixelDeferredImageGPUImpeller::~PixelDeferredImageGPUImpeller() = default;
 std::shared_ptr<impeller::Texture>
 PixelDeferredImageGPUImpeller::GetImpellerTexture(
     const std::shared_ptr<impeller::Context>& context) const {
-  if (!wrapper_) {
-    return nullptr;
-  }
-  return wrapper_->texture();
+  return GetTextureForMetadata();
+}
+
+std::shared_ptr<impeller::Texture>
+PixelDeferredImageGPUImpeller::GetTextureForMetadata() const {
+  return wrapper_ ? wrapper_->texture() : nullptr;
 }
 
 bool PixelDeferredImageGPUImpeller::isOpaque() const {
