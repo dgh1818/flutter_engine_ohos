@@ -374,8 +374,9 @@ vk::ImageView OHBTextureSourceVK::GetImageView() const {
   return image_view_.get();
 }
 
-vk::ImageView OHBTextureSourceVK::GetRenderTargetView(uint32_t mip_level,
-                                                      uint32_t array_layer) const {
+vk::ImageView OHBTextureSourceVK::GetRenderTargetView(
+    uint32_t mip_level,
+    uint32_t array_layer) const {
   // OHB images are always a single 2D mip and layer.
   return image_view_.get();  // Assuming same view can be used for render target
 }
