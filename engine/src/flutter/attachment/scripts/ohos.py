@@ -200,9 +200,21 @@ def engineConfig(buildInfo, args):
   )
 
 
+def ninjaJobsArgument():
+  """Limit Ninja parallelism when explicitly requested for low-memory hosts."""
+  jobs = os.getenv("FLUTTER_OHOS_BUILD_JOBS", "").strip()
+  if not jobs:
+    return ""
+  if not jobs.isascii() or not jobs.isdigit() or int(jobs) < 1:
+    raise ValueError("FLUTTER_OHOS_BUILD_JOBS must be a positive integer")
+  return f" -j {int(jobs)}"
+
+
 # 执行engine编译操作
 def engineCompile(buildInfo, args):
-  command = "ninja -C %s default " % os.path.join("src", "out", getOutput(buildInfo))
+  command = "ninja -C %s%s default " % (
+      os.path.join("src", "out", getOutput(buildInfo)), ninjaJobsArgument()
+  )
   if IS_WINDOWS and buildInfo.buildType != "debug":
     command += "flutter/build/archives:archive_win_gen_snapshot "
   if not IS_WINDOWS and "--coverage" in (args.gn_extra_param or ""):
@@ -388,7 +400,7 @@ def buildLocalEngine(buildType, args):
   append1 = "_unopt" if args.unoptimized else ""
   append2 = "_arm64" if args.host_cpu == "arm64" else ""
   outputName = f"host_{buildType}{append1}{append2}"
-  runCommand(f"ninja -C src/out/{outputName}")
+  runCommand(f"ninja -C src/out/{outputName}{ninjaJobsArgument()}")
 
 
 def uploadFiles():

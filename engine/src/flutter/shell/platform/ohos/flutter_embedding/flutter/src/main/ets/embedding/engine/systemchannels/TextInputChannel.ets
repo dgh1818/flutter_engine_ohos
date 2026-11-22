@@ -17,6 +17,7 @@ import DartExecutor from '../dart/DartExecutor';
 import inputMethod from '@ohos.inputMethod';
 import ArrayList from '@ohos.util.ArrayList';
 import { TextEditingDelta, TextEditingDeltaJson } from '../../../plugin/editing/TextEditingDelta';
+import { ListenableEditingState } from '../../../plugin/editing/ListenableEditingState';
 import Any from '../../../plugin/common/Any';
 import { display, componentUtils } from '@kit.ArkUI'
 import { window } from '@kit.ArkUI';
@@ -45,9 +46,18 @@ export default class TextInputChannel {
   private static CHANNEL_NAME = "flutter/textinput";
   /** The MethodChannel for text input communication with Flutter. */
   public channel: MethodChannel;
-  /** The text input method handler for processing text input requests, or null if not set. */
+  /** The active text input method handler, or null if not set. */
   textInputMethodHandler: TextInputMethodHandler | null = null;
   textInputCallback: TextInputCallback | null = null;
+  /**
+   * Registered per-view handlers, oldest first; the LAST entry is the active
+   * one. The `flutter/textinput` channel is engine-global while
+   * TextInputPlugin instances are per-view (one per attached FlutterView), so
+   * the slot must fall back to a still-attached view's handler when another
+   * view tears down — otherwise the teardown's unregister would kill text
+   * input for every remaining view on a shared (cached) engine.
+   */
+  private handlerEntries: TextInputHandlerEntry[] = [];
 
   /**
    * Constructs a new TextInputChannel instance.
@@ -58,24 +68,117 @@ export default class TextInputChannel {
   }
 
   /**
-   * Sets the text input method handler.
+   * Sets the text input method handler (legacy single-slot API).
+   * A null handler clears every registration; a non-null handler is
+   * registered (or re-activated if already known) and becomes the active one.
    * @param textInputMethodHandler - The TextInputMethodHandler instance, or null to remove
    */
   setTextInputMethodHandler(textInputMethodHandler: TextInputMethodHandler | null): void {
+    if (textInputMethodHandler === null) {
+      this.handlerEntries = [];
+      this.activateTopEntry();
+      return;
+    }
+    this.activateHandler(textInputMethodHandler, undefined);
+  }
+
+  /**
+   * Registers a view-level handler (FlutterView attach path) and makes it the
+   * active one. The entry remembers the registering view's id so a later
+   * release can re-activate the previous view's handler WITH its view context
+   * (caret-rect lookups and requestFocus are view-scoped).
+   * @param handler - The TextInputMethodHandler instance
+   * @param viewId - The id of the view the handler serves
+   * @param editingStateAccessor - Optional accessor returning the handler's
+   *   current ListenableEditingState; enables the channel-side
+   *   getActiveEditingState() routing for key-driven edits WITHOUT adding a
+   *   required method to the exported TextInputMethodHandler interface
+   *   (breaking external implementers is not acceptable).
+   */
+  registerTextInputMethodHandler(handler: TextInputMethodHandler, viewId: string,
+    editingStateAccessor?: () => ListenableEditingState): void {
+    this.activateHandler(handler, viewId, editingStateAccessor);
+  }
+
+  /**
+   * Gets the active (stack-top) handler's current editing state, or null when
+   * the top entry registered without an accessor (legacy single-slot path).
+   * Used by another view's TextInputPlugin to route key-driven edits into the
+   * handler that owns the focused text client on a shared (cached) engine.
+   */
+  getActiveEditingState(): ListenableEditingState | null {
+    if (this.handlerEntries.length === 0) {
+      return null;
+    }
+    const top: TextInputHandlerEntry = this.handlerEntries[this.handlerEntries.length - 1];
+    if (top.editingStateAccessor === undefined) {
+      return null;
+    }
+    return top.editingStateAccessor();
+  }
+
+  /**
+   * Releases a view-level handler (FlutterView detach path). If it was the
+   * active one, the most recently registered still-attached view's handler is
+   * re-activated; with no survivors the slot is cleared as before. Releasing
+   * a NON-top handler must not touch the active callback: activateTopEntry
+   * rebuilds TextInputCallback and would discard the active view's live
+   * cursorPosition / editInputPosition / pendingEditingState.
+   * @param handler - The TextInputMethodHandler instance to release
+   */
+  releaseTextInputMethodHandler(handler: TextInputMethodHandler): void {
+    const before = this.handlerEntries.length;
+    const wasTop = before > 0 && this.handlerEntries[before - 1].handler === handler;
+    this.handlerEntries =
+      this.handlerEntries.filter((entry: TextInputHandlerEntry) => entry.handler !== handler);
+    if (this.handlerEntries.length !== before && wasTop) {
+      this.activateTopEntry();
+    }
+  }
+
+  private activateHandler(handler: TextInputMethodHandler, viewId?: string,
+    editingStateAccessor?: () => ListenableEditingState): void {
+    let knownViewId = '';
+    let knownAccessor: (() => ListenableEditingState) | undefined = undefined;
+    for (const entry of this.handlerEntries) {
+      if (entry.handler === handler) {
+        knownViewId = entry.viewId;
+        knownAccessor = entry.editingStateAccessor;
+        break;
+      }
+    }
+    if (knownViewId === '' && viewId !== undefined) {
+      knownViewId = viewId;
+    }
+    const accessor = editingStateAccessor !== undefined ? editingStateAccessor : knownAccessor;
+    this.handlerEntries =
+      this.handlerEntries.filter((entry: TextInputHandlerEntry) => entry.handler !== handler);
+    const entry: TextInputHandlerEntry =
+    { handler: handler, viewId: knownViewId, editingStateAccessor: accessor };
+    this.handlerEntries.push(entry);
+    this.activateTopEntry();
+  }
+
+  private activateTopEntry(): void {
+    const top: TextInputHandlerEntry | null =
+      this.handlerEntries.length > 0 ? this.handlerEntries[this.handlerEntries.length - 1] : null;
     if (this.textInputCallback !== null) {
       this.textInputCallback.clearEditingStateDebounce();
     }
-    this.textInputMethodHandler = textInputMethodHandler;
+    this.textInputMethodHandler = top === null ? null : top.handler;
     this.textInputCallback = this.textInputMethodHandler == null
       ? null : new TextInputCallback(this.textInputMethodHandler);
     this.channel.setMethodCallHandler(this.textInputCallback);
+    if (top !== null && top.viewId.length > 0) {
+      this.textInputCallback?.setViewId(top.viewId);
+    }
   }
 
   /**
    * Requests the existing input state from Flutter.
    */
   requestExistingInputState(): void {
-    this.channel.invokeMethod("TextInputClient.requestExistingInputState", null);
+    this.channel.invokeMethod('TextInputClient.requestExistingInputState', null);
   }
 
   /**
@@ -302,6 +405,18 @@ interface EditingDelta {
   deltas: Array<TextEditingDeltaJson>;
 }
 
+
+/**
+ * A per-view handler registration on the engine-global text input channel.
+ */
+interface TextInputHandlerEntry {
+  /** The view-level handler (owned by a TextInputPlugin / FlutterView). */
+  handler: TextInputMethodHandler;
+  /** The registering view's id; restored onto the callback on re-activation. */
+  viewId: string;
+  /** Optional accessor to the handler's current ListenableEditingState. */
+  editingStateAccessor: (() => ListenableEditingState) | undefined;
+}
 
 /**
  * Interface for handling text input method operations.

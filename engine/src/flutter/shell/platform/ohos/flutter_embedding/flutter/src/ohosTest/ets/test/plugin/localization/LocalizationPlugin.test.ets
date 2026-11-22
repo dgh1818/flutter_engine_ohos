@@ -70,6 +70,51 @@ export default function LocalizationPluginTest() {
       expect(recorder.args[3]).assertEqual('');
     })
 
+    it('languageIdWithRegion returns original when system region is empty', 0, () => {
+      expect(localizationPlugin.languageIdWithRegion('en', '')).assertEqual('en');
+      expect(localizationPlugin.languageIdWithRegion('zh-Hans', '')).assertEqual('zh-Hans');
+    })
+
+    it('languageIdWithRegion returns original when locale already has a region', 0, () => {
+      expect(localizationPlugin.languageIdWithRegion('zh-Hans-CN', 'US')).assertEqual('zh-Hans-CN');
+      expect(localizationPlugin.languageIdWithRegion('en-US', 'CN')).assertEqual('en-US');
+      expect(localizationPlugin.languageIdWithRegion('fr-FR', 'CN')).assertEqual('fr-FR');
+    })
+
+    it('languageIdWithRegion appends system region after script', 0, () => {
+      expect(localizationPlugin.languageIdWithRegion('zh-Hans', 'CN')).assertEqual('zh-Hans-CN');
+      expect(localizationPlugin.languageIdWithRegion('zh-Hant', 'TW')).assertEqual('zh-Hant-TW');
+    })
+
+    it('languageIdWithRegion appends system region to language only', 0, () => {
+      expect(localizationPlugin.languageIdWithRegion('en', 'US')).assertEqual('en-US');
+      expect(localizationPlugin.languageIdWithRegion('fr', 'FR')).assertEqual('fr-FR');
+    })
+
+    it('composed preferred locales become a 4 field setLocale payload', 0, () => {
+      const recorder = new RecordingInvoke();
+      (localizationChannel as Any).channel = recorder as Any;
+      const preferred: string[] = new Array<string>();
+      preferred.push(localizationPlugin.languageIdWithRegion('en', 'CN'));
+      preferred.push(localizationPlugin.languageIdWithRegion('zh-Hans', 'CN'));
+      preferred.push(localizationPlugin.languageIdWithRegion('fr-FR', 'CN'));
+      localizationChannel.sendLocales(preferred);
+      expect(recorder.method).assertEqual('setLocale');
+      expect(recorder.args.length).assertEqual(12);
+      expect(recorder.args[0]).assertEqual('en');
+      expect(recorder.args[1]).assertEqual('CN');
+      expect(recorder.args[2]).assertEqual('');
+      expect(recorder.args[3]).assertEqual('');
+      expect(recorder.args[4]).assertEqual('zh');
+      expect(recorder.args[5]).assertEqual('CN');
+      expect(recorder.args[6]).assertEqual('Hans');
+      expect(recorder.args[7]).assertEqual('');
+      expect(recorder.args[8]).assertEqual('fr');
+      expect(recorder.args[9]).assertEqual('FR');
+      expect(recorder.args[10]).assertEqual('');
+      expect(recorder.args[11]).assertEqual('');
+    })
+
     it('localeFromString with language, script and region', 0, () => {
       const locale = localizationPlugin.localeFromString('zh_Hans_CN');
       expect(locale.language).assertEqual('zh');

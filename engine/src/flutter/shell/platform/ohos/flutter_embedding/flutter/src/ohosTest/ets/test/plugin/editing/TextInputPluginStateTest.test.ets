@@ -26,6 +26,7 @@ import FlutterInjector from '../../../../../main/ets/FlutterInjector';
 import { PointerDeviceKind } from '../../../../../main/ets/embedding/ohos/OhosTouchProcessor';
 import inputMethod from '@ohos.inputMethod';
 import Any from '../../../../../main/ets/plugin/common/Any';
+import { ListenableEditingState } from '../../../../../main/ets/plugin/editing/ListenableEditingState';
 import { BusinessError } from '@kit.BasicServicesKit';
 
 /**
@@ -77,6 +78,8 @@ class FakeInputMethodController {
   lastSelectionText: string = '';
   lastSelectionStart: number = -1;
   lastSelectionEnd: number = -1;
+  detachCalls: number = 0;
+  hideTextInputCalls: number = 0;
   changeSelection(text: string, selectionStart: number, selectionEnd: number): void;
   changeSelection(text: string, selectionStart: number, selectionEnd: number,
     callback: (err: BusinessError) => void): void;
@@ -90,6 +93,17 @@ class FakeInputMethodController {
     }
   }
   hideTextInput(): void {
+    this.hideTextInputCalls++;
+  }
+  detach(): Promise<void> {
+    this.detachCalls++;
+    return Promise.resolve();
+  }
+  off(type: string, callback?: ESObject): void {
+    // no-op: the fake does not track subscriptions. Aligned with the real
+    // inputMethod.InputMethodController surface so that the non-active
+    // destroy() branch can run cancelListenKeyBoardEvent() (12 off() calls)
+    // without a TypeError before the detach/hide assertions are reached.
   }
 }
 
@@ -531,6 +545,76 @@ export default function TextInputPluginStateTest() {
       expect(h.hasSecureKeyboardInSwitch()).assertEqual(false);
       h.setLastInputType(inputMethod.TextInputType.VISIBLE_PASSWORD);
       expect(h.hasSecureKeyboardInSwitch()).assertEqual(true);
+    })
+
+    it('getEditingState_returns_own_editable_when_self_is_active', 0, () => {
+      // Single-view case: this plugin's handler IS the channel-active one.
+      const own = textInputPlugin.getEditingState();
+      const active: ESObject = textInputChannelMock.textInputMethodHandler!;
+      const ownViaHandler: ListenableEditingState = active.mEditable;
+      expect(own === ownViaHandler).assertTrue();
+    })
+
+    it('getEditingState_routes_to_active_handler_state_across_views', 0, () => {
+      // Multi-view shared-engine case: a second plugin registers AFTER the
+      // first, making the second's handler the channel-active one. The first
+      // plugin's getEditingState() must route to the ACTIVE handler's
+      // editable — key-driven inserts must land in the handler that owns the
+      // focused text client, otherwise the framework drops them (stale
+      // clientId).
+      let secondChannel: TextInputChannel = textInputChannelMock;
+      const secondPlugin = new TextInputPlugin(secondChannel, 'oh_flutter_state_2', undefined);
+      const activeHandler: ESObject = secondChannel.textInputMethodHandler!;
+      const activeEditable: ListenableEditingState = activeHandler.mEditable;
+      expect(textInputPlugin.getEditingState() === activeEditable).assertTrue();
+      // The active plugin itself still returns its own editable.
+      expect(secondPlugin.getEditingState() === activeEditable).assertTrue();
+    })
+
+    it('getEditingState_falls_back_to_own_editable_without_accessor', 0, () => {
+      // Active handler is another view's but registered WITHOUT an editing
+      // state accessor (legacy single-slot path): getActiveEditingState()
+      // returns null and the routing must fall back to this plugin's own
+      // editable rather than null (KeyEventHandler dereferences it).
+      let secondChannel: TextInputChannel = textInputChannelMock;
+      const legacyHandler: ESObject = {} as ESObject;
+      secondChannel.setTextInputMethodHandler(legacyHandler);
+      const own = textInputPlugin.getEditingState();
+      const ownViaHandler: ListenableEditingState =
+        (textInputPlugin as ESObject).mTextInputHandler.mEditable;
+      expect(own === ownViaHandler).assertTrue();
+    })
+
+    it('destroy_active_handler_releases_and_reactivates_previous', 0, () => {
+      // View A attaches first, view B second (B is active). Destroying B
+      // must remove its handler from the stack and re-activate A's handler
+      // with its viewId context — the core multi-view teardown contract.
+      const secondPlugin = new TextInputPlugin(textInputChannelMock, 'oh_flutter_state_2', undefined);
+      expect(textInputChannelMock.textInputMethodHandler === (secondPlugin as ESObject).mTextInputHandler).assertTrue();
+      secondPlugin.destroy();
+      expect(textInputChannelMock.textInputMethodHandler === (textInputPlugin as ESObject).mTextInputHandler).assertTrue();
+      // This describe's plugin was registered with 'oh_flutter_preview_1'
+      // (see the TextInputPluginPreviewTest beforeEach); the re-activated
+      // callback must restore THAT viewId context.
+      expect(textInputChannelMock.textInputCallback?.viewId).assertEqual('oh_flutter_preview_1');
+    })
+
+    it('destroy_non_active_handler_skips_imc_detach', 0, () => {
+      // View B is active; destroying View A (non-active) must NOT touch the
+      // process-wide IMC: no detach()/hideTextInput() on its controller, and
+      // the active handler reference stays unchanged. Guards the regression
+      // where a background view's teardown collapses the active view's
+      // keyboard via the singleton IMC.
+      const secondPlugin = new TextInputPlugin(textInputChannelMock, 'oh_flutter_state_2', undefined);
+      const activeHandler: ESObject = textInputChannelMock.textInputMethodHandler!;
+      // Inject a recording fake into the NON-active handler's controller.
+      const fake = new FakeInputMethodController();
+      const nonActiveHandler: ESObject = (textInputPlugin as ESObject).mTextInputHandler;
+      nonActiveHandler.inputMethodController = fake as ESObject as inputMethod.InputMethodController;
+      textInputPlugin.destroy();
+      expect(fake.detachCalls).assertEqual(0);
+      expect(fake.hideTextInputCalls).assertEqual(0);
+      expect(textInputChannelMock.textInputMethodHandler === activeHandler).assertTrue();
     })
   })
 }

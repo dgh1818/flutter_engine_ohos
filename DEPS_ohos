@@ -852,6 +852,12 @@ recursedeps = [
 
 hooks = [
   {
+    # Apply OHOS-specific BoringSSL patches (e.g., eMudhra intermediate CA blocklist)
+    'name': 'Apply BoringSSL OHOS patches',
+    'pattern': '.',
+    'action': ['python3', 'engine/src/flutter/tools/apply_boringssl_patches.py'],
+  },
+  {
     # Generate the Dart SDK's .dart_tool/package_confg.json file.
     'name': 'Generate .dart_tool/package_confg.json',
     'pattern': '.',

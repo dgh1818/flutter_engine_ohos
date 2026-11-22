@@ -591,6 +591,48 @@ void main() {
     });
   });
 
+  group('Ohos', () {
+    // The hover message sets the platform-side hover flag for the view id it
+    // carries; the unhover notification must carry an id that is guaranteed
+    // to match no registered platform view, so the platform-side
+    // single-selection handler clears the flag on all wrappers.
+    test('hover and unhover notifications', () async {
+      final log = <MethodCall>[];
+      binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform_views, (
+        MethodCall call,
+      ) async {
+        log.add(call);
+        return null;
+      });
+      addTearDown(() {
+        binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform_views,
+          null,
+        );
+      });
+
+      final OhosViewController controller = PlatformViewsService.initOhosView(
+        id: 4,
+        viewType: 'webview',
+        layoutDirection: TextDirection.ltr,
+      );
+      await controller.sendHoverEvent();
+      await controller.sendUnhoverEvent();
+
+      expect(
+        log,
+        unorderedEquals(<Matcher>[
+          isA<MethodCall>()
+              .having((MethodCall call) => call.method, 'method', 'hover')
+              .having((MethodCall call) => call.arguments, 'arguments', 4),
+          isA<MethodCall>()
+              .having((MethodCall call) => call.method, 'method', 'hover')
+              .having((MethodCall call) => call.arguments, 'arguments', -1),
+        ]),
+      );
+    });
+  });
+
   test('toString works as intended', () async {
     const androidPointerProperties = AndroidPointerProperties(id: 0, toolType: 0);
     expect(androidPointerProperties.toString(), 'AndroidPointerProperties(id: 0, toolType: 0)');

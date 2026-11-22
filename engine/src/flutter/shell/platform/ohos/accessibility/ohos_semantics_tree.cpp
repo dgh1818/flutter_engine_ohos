@@ -33,6 +33,13 @@ void SemanticsTree::RemoveNode(int32_t id) {
   delete node;
 }
 
+void SemanticsTree::ClearInspectorAttributes() {
+  for (auto& entry : all_semantics_nodes_) {
+    entry.second->fontSize = std::nan("");
+    entry.second->backgroundColor = -1;
+  }
+}
+
 void SemanticsTree::ClearAccessibilityFocusNode() {
   if (focused_node_) {
     focused_node_->isAccessibilityFocued = false;
@@ -148,10 +155,11 @@ bool SemanticsTree::UpdateNextFocusWhenDisappear(
       !need_request_focused_node_->IsVisible() ||
       !need_request_focused_node_->IsFocusable();
 
-  bool force_update = need_request_focused_node_ &&
-                      (need_remove_ids.count(need_request_focused_node_->id) != 0 ||
-                       !need_request_focused_node_->IsVisible() ||
-                       !need_request_focused_node_->IsFocusable());
+  bool force_update =
+      need_request_focused_node_ &&
+      (need_remove_ids.count(need_request_focused_node_->id) != 0 ||
+       !need_request_focused_node_->IsVisible() ||
+       !need_request_focused_node_->IsFocusable());
 
   bool need_search_from_root = !focused_node_ && !need_request_focused_node_;
 
@@ -626,9 +634,9 @@ bool SemanticsTree::DetectRouteChange() {
   // Detect route change by comparing:
   // 1. The top-most route ID changed, OR
   // 2. The route stack size changed
-  bool route_changed = (!new_routes.empty() &&
-      (new_route_id != previous_route_id_ ||
-       new_routes.size() != previous_routes_.size()));
+  bool route_changed =
+      (!new_routes.empty() && (new_route_id != previous_route_id_ ||
+                               new_routes.size() != previous_routes_.size()));
 
   // Update cached route information
   previous_routes_ = new_routes;

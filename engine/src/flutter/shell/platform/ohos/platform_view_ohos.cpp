@@ -32,6 +32,7 @@
 #include "ohos_logging.h"
 #include "ohos_surface_gl_impeller.h"
 #include "shell/common/platform_view.h"
+#include "shell/platform/ohos/accessibility/ohos_semantics_inspector.h"
 #include "shell/platform/ohos/accessibility/ohos_semantics_node.h"
 #include "shell/platform/ohos/background_resource_cleanup.h"
 #include "shell/platform/ohos/context/ohos_context.h"
@@ -746,6 +747,7 @@ void PlatformViewOHOS::HandlePlatformMessage(
 // |PlatformView|
 void PlatformViewOHOS::OnPreEngineRestart() const {
   FML_DLOG(INFO) << "OnPreEngineRestart";
+  platform_message_handler_->OnPreEngineRestart();
   // Drop Dart-facing windowing state before the restarting isolate dangles
   // its trampolines. GetWindowController() is null for spawned engines
   // (their shell holder never creates one) — guard or hot-restart crashes
@@ -972,7 +974,9 @@ void PlatformViewOHOS::SetSemanticsTreeEnabled(bool enabled) {
   FML_LOG(INFO) << "SetSemanticsTreeEnabled: " << enabled;
   if (!enabled) {
     std::lock_guard<std::mutex> lock(*bridge_mutex_);
+    bridge_->ClearInspectorSidecar();
     bridge_->tree_.ClearSemanticsTree();
+    PublishInspectorSnapshot(bridge_.get());
   }
 }
 
@@ -1283,6 +1287,7 @@ void PlatformViewOHOS::SetSemanticsBridge(
     std::shared_ptr<std::mutex> mutex) {
   bridge_ = std::move(bridge);
   bridge_mutex_ = std::move(mutex);
+  platform_message_handler_->SetSemanticsBridge(bridge_, bridge_mutex_);
 }
 
 void PlatformViewOHOS::AccessibilityAnnounce(std::unique_ptr<char[]>& message) {

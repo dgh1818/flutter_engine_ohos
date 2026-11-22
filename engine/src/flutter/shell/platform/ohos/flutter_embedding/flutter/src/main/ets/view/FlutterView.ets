@@ -20,7 +20,7 @@ import hiTraceMeter from '@ohos.hiTraceMeter'
 import { JSON } from '@kit.ArkTS';
 import TextInputPlugin from '../plugin/editing/TextInputPlugin';
 import { accessibility } from '@kit.AccessibilityKit';
-import { uiObserver } from '@kit.ArkUI';
+import { FrameNode, uiObserver } from '@kit.ArkUI';
 import { common } from '@kit.AbilityKit';
 import { deviceInfo } from '@kit.BasicServicesKit';
 import KeyEventChannel from '../embedding/engine/systemchannels/KeyEventChannel';
@@ -321,6 +321,8 @@ export class FlutterView {
   private platformView: PlatformView | undefined = undefined;
   private isSurfaceAvailableForRendering: boolean = false
   private isXComponentAttachedToEngine: boolean = false
+  /** FrameNode used to register the inspector tree getter; kept for unregister. */
+  private inspectorFrameNode?: FrameNode | undefined
   private viewportMetrics = new ViewportMetrics();
   private displayInfo?: display.Display;
 
@@ -1117,6 +1119,7 @@ export class FlutterView {
       this.onFirstFrame();
     }
     if (this.isSurfaceAvailableForRendering) {
+      this.registerInspectorTreeGetter();
       this.flutterEngine?.processPendingMessages();
     }
 
@@ -1153,6 +1156,7 @@ export class FlutterView {
       Log.d(TAG, "FlutterView not attached to an engine. Not detaching.");
       return;
     }
+    this.unregisterInspectorTreeGetter();
     if (this.isXComponentAttachedToEngine) {
       this.flutterEngine!!.getFlutterNapi().xComponentDetachFlutterEngine(this.id)
       this.isXComponentAttachedToEngine = false;
@@ -1259,6 +1263,7 @@ export class FlutterView {
       this.flutterEngine!!.getFlutterNapi().xComponentAttachFlutterEngine(this.id)
       this.isXComponentAttachedToEngine = true;
     }
+    this.registerInspectorTreeGetter();
     this.isSurfaceAvailableForRendering = true;
     this.flutterEngine?.getPlatformViewsController()?.attachToView(this);
     this.flutterEngine?.processPendingMessages();
@@ -1287,6 +1292,7 @@ export class FlutterView {
       return;
     }
     this.isSurfaceAvailableForRendering = false;
+    this.unregisterInspectorTreeGetter();
     if (this.isAttachedToFlutterEngine() && this.isXComponentAttachedToEngine) {
       this.flutterEngine!!.getFlutterNapi().xComponentDetachFlutterEngine(this.id)
       this.isXComponentAttachedToEngine = false;
@@ -1295,6 +1301,41 @@ export class FlutterView {
     if (surfaceLifecycleToken == this.activeSurfaceLifecycleToken) {
       this.activeSurfaceLifecycleToken = 0;
     }
+  }
+
+  /**
+   * Registers the inspector tree getter with ArkUI (systems >= 26.1.0) so the
+   * Flutter semantics tree is merged into DevEco Inspector / getInspectorTree()
+   * output. Below 26.1.0 the native side logs one warning and inspector
+   * reporting stays disabled. Called from the XComponent onLoad path.
+   */
+  private registerInspectorTreeGetter(): void {
+    if (!this.isAttachedToFlutterEngine()) {
+      return;
+    }
+    this.unregisterInspectorTreeGetter();
+    if (this.uiContext === undefined) {
+      this.uiContext = this.tryGetUIContext();
+    }
+    const frameNode: FrameNode | undefined = this.uiContext?.getFrameNodeById(this.id) ?? undefined;
+    if (frameNode === undefined) {
+      Log.w(TAG, 'registerInspectorTreeGetter: FrameNode ' + this.id + ' not found');
+      return;
+    }
+    this.inspectorFrameNode = frameNode;
+    this.flutterEngine!!.getFlutterNapi().registerInspectorTreeGetter(frameNode);
+  }
+
+  /**
+   * Unregisters the inspector tree getter registered by
+   * {@link registerInspectorTreeGetter}. Called from the XComponent onDestroy path.
+   */
+  private unregisterInspectorTreeGetter(): void {
+    if (this.inspectorFrameNode === undefined) {
+      return;
+    }
+    this.flutterEngine?.getFlutterNapi().unregisterInspectorTreeGetter(this.inspectorFrameNode);
+    this.inspectorFrameNode = undefined;
   }
 
   /**

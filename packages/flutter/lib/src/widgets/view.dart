@@ -467,7 +467,12 @@ class _RawViewElement extends RenderTreeRootElement {
   }
 
   void _handleSemanticsUpdate(SemanticsUpdate update) {
-    (widget as _RawViewInternal).view.updateSemantics(update);
+    final FlutterView view = (widget as _RawViewInternal).view;
+    final SemanticsOwner? semanticsOwner = _effectivePipelineOwner.semanticsOwner;
+    if (semanticsOwner != null) {
+      SemanticsBinding.instance.sendOhosSemanticsAttributes(view.viewId, semanticsOwner);
+    }
+    view.updateSemantics(update);
   }
 
   @override

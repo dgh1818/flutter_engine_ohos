@@ -8540,6 +8540,9 @@ class _RenderColoredBox extends RenderProxyBoxWithHitTestBehavior {
     }
     _color = value;
     markNeedsPaint();
+    if (ohosSemanticsEnabled) {
+      markNeedsSemanticsUpdate();
+    }
   }
 
   bool get isAntiAlias => _isAntiAlias;
@@ -8550,6 +8553,16 @@ class _RenderColoredBox extends RenderProxyBoxWithHitTestBehavior {
     }
     _isAntiAlias = value;
     markNeedsPaint();
+  }
+
+  @override
+  void describeSemanticsConfiguration(SemanticsConfiguration config) {
+    super.describeSemanticsConfiguration(config);
+    // A11y automation-test attribute (OHOS Inspector `$attrs`): the solid
+    // fill color of this box.
+    if (ohosSemanticsEnabled) {
+      config.backgroundColor = color.value;
+    }
   }
 
   @override
