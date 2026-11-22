@@ -7,6 +7,7 @@
 
 #include "flutter/fml/endianness.h"
 #include "impeller/renderer/capabilities.h"
+#include "include/core/SkColorSpace.h"
 #include "include/core/SkColorType.h"
 #include "third_party/skia/include/codec/SkPngDecoder.h"
 
@@ -209,6 +210,41 @@ TEST(ImageDecoderNoGLTest, ImpellerWideGamutIndexedPng) {
   ASSERT_EQ(narrow_result->image_info.format,
             impeller::PixelFormat::kR8G8B8A8UNormInt);
 #endif  // IMPELLER_SUPPORTS_RENDERING
+}
+
+TEST(ImageDecoderNoGLTest, HdrTransferUsesF16WhenExtendedRangeIsSupported) {
+#if IMPELLER_SUPPORTS_RENDERING
+  const uint8_t pixel[] = {192, 192, 192, 255};
+  std::shared_ptr<impeller::Capabilities> capabilities =
+      impeller::CapabilitiesBuilder()
+          .SetSupportsTextureToTextureBlits(true)
+          .Build();
+  const auto allocator = std::make_shared<impeller::TestImpellerAllocator>();
+  for (const auto& transfer :
+       {SkNamedTransferFn::kHLG, SkNamedTransferFn::kPQ}) {
+    for (const auto format : {ImageDescriptor::PixelFormat::kRGBA8888,
+                              ImageDescriptor::PixelFormat::kRGBA1010102}) {
+      // sRGB primaries exercise transfer detection independently of gamut size.
+      auto color_space = SkColorSpace::MakeRGB(transfer, SkNamedGamut::kSRGB);
+      ASSERT_NE(color_space, nullptr);
+      ImageDescriptor::ImageInfo info = {
+          .width = 1,
+          .height = 1,
+          .format = format,
+          .alpha_type = kOpaque_SkAlphaType,
+          .color_space = std::move(color_space),
+      };
+      auto descriptor = fml::MakeRefCounted<ImageDescriptor>(
+          SkData::MakeWithCopy(pixel, sizeof(pixel)), info, sizeof(pixel));
+      auto result = ImageDecoderImpeller::DecompressTexture(
+          descriptor.get(), {.target_width = 1, .target_height = 1}, {1, 1},
+          /*supports_wide_gamut=*/true, capabilities, allocator);
+      ASSERT_TRUE(result.ok()) << result.status();
+      EXPECT_EQ(result->image_info.format,
+                impeller::PixelFormat::kR16G16B16A16Float);
+    }
+  }
+#endif
 }
 
 TEST(ImageDecoderNoGLTest, ImpellerRGBA32FDecode) {

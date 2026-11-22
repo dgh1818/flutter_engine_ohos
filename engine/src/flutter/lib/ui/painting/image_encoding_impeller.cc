@@ -270,15 +270,17 @@ int ImageEncodingImpeller::GetColorSpace(
   const impeller::TextureDescriptor& desc = texture->GetTextureDescriptor();
   switch (desc.color_space) {
     case impeller::TextureColorSpace::kExtendedSRGB:
-      return ColorSpace::kExtendedSRGB;
-    case impeller::TextureColorSpace::kDisplayP3:
-      return ColorSpace::kDisplayP3;
     case impeller::TextureColorSpace::kPQ:
     case impeller::TextureColorSpace::kHLG:
     case impeller::TextureColorSpace::kBT2020PQ:
     case impeller::TextureColorSpace::kBT2020HLG:
+      // ColorSpace cannot represent BT.2020 or HDR transfer functions; the
+      // exact encoding remains available via Image.hdrColorSpace.
+      return ColorSpace::kExtendedSRGB;
+    case impeller::TextureColorSpace::kDisplayP3:
     case impeller::TextureColorSpace::kDisplayP3PQ:
     case impeller::TextureColorSpace::kDisplayP3HLG:
+      return ColorSpace::kDisplayP3;
     case impeller::TextureColorSpace::kSRGB:
       break;
   }
@@ -286,8 +288,6 @@ int ImageEncodingImpeller::GetColorSpace(
     case impeller::PixelFormat::kB10G10R10XR:  // intentional_fallthrough
     case impeller::PixelFormat::kR16G16B16A16Float:
       return ColorSpace::kExtendedSRGB;
-    case impeller::PixelFormat::kB10G10R10A2UNorm:
-      return ColorSpace::kDisplayP3;
     default:
       return ColorSpace::kSRGB;
   }

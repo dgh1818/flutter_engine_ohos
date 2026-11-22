@@ -189,6 +189,11 @@ bool TiledTextureContents::Render(const ContentContext& renderer,
       renderer, entity, pass, pipeline_callback, frame_info,
       [this, &renderer, &entity](RenderPass& pass) {
         auto& data_host_buffer = renderer.GetTransientsDataBuffer();
+        auto sampled_texture =
+            color_filter_ ? CreateFilterTexture(renderer) : texture_;
+        if (!sampled_texture) {
+          return false;
+        }
 #ifdef IMPELLER_DEBUG
         pass.SetCommandLabel("TextureFill");
 #endif  // IMPELLER_DEBUG
@@ -200,7 +205,7 @@ bool TiledTextureContents::Render(const ContentContext& renderer,
         const float target_color_space =
             static_cast<float>(renderer.GetTargetColorSpace());
         float source_color_space = static_cast<float>(ColorSpace::kSRGB);
-        switch (texture_->GetTextureDescriptor().color_space) {
+        switch (sampled_texture->GetTextureDescriptor().color_space) {
           case TextureColorSpace::kDisplayP3:
             source_color_space = static_cast<float>(ColorSpace::kDisplayP3);
             break;
@@ -216,43 +221,41 @@ bool TiledTextureContents::Render(const ContentContext& renderer,
         // Color filter intermediates and render target textures (save
         // layers) already hold data in the working color space.
         const bool writes_hlg_swapchain =
-            impeller::Context::enable_hdr_ &&
+            renderer.GetTargetColorSpace() == ColorSpace::kExtendedSRGB &&
             pass.GetRenderTargetPixelFormat() == PixelFormat::kB10G10R10A2UNorm;
         if (writes_hlg_swapchain || color_filter_ ||
-            (texture_->GetTextureDescriptor().usage &
+            (sampled_texture->GetTextureDescriptor().usage &
              TextureUsage::kRenderTarget)) {
           source_color_space = target_color_space;
         }
 #else
         float source_color_space = 0.0f;
         float target_color_space = 0.0f;
+        const bool writes_hlg_swapchain =
+            impeller::Context::enable_hdr_ &&
+            pass.GetRenderTargetPixelFormat() == PixelFormat::kB10G10R10A2UNorm;
 #endif
 
-        FS::FragInfo frag_info;
+        FS::FragInfo frag_info{};
         frag_info.x_tile_mode = static_cast<Scalar>(x_tile_mode_);
         frag_info.y_tile_mode = static_cast<Scalar>(y_tile_mode_);
         frag_info.alpha =
             GetOpacityFactor() *
             GetGeometry()->ComputeAlphaCoverage(entity.GetTransform());
+        const auto& source = sampled_texture->GetTextureDescriptor();
+        frag_info.source_transfer = TextureTransfer(source.color_space);
+        frag_info.source_primaries = TextureUsesDisplayP3(source.color_space);
+        frag_info.source_limited_10bit =
+            source.color_range_limited &&
+            source.format == PixelFormat::kB10G10R10A2UNorm;
+        frag_info.output_mode = writes_hlg_swapchain ? 1 : 0;
         frag_info.source_color_space = source_color_space;
         frag_info.target_color_space = target_color_space;
         FS::BindFragInfo(pass, data_host_buffer.EmplaceUniform(frag_info));
-
-        if (color_filter_) {
-          auto filtered_texture = CreateFilterTexture(renderer);
-          if (!filtered_texture) {
-            return false;
-          }
-          FS::BindTextureSampler(
-              pass, filtered_texture,
-              renderer.GetContext()->GetSamplerLibrary()->GetSampler(
-                  CreateSamplerDescriptor(renderer.GetDeviceCapabilities())));
-        } else {
-          FS::BindTextureSampler(
-              pass, texture_,
-              renderer.GetContext()->GetSamplerLibrary()->GetSampler(
-                  CreateSamplerDescriptor(renderer.GetDeviceCapabilities())));
-        }
+        FS::BindTextureSampler(
+            pass, sampled_texture,
+            renderer.GetContext()->GetSamplerLibrary()->GetSampler(
+                CreateSamplerDescriptor(renderer.GetDeviceCapabilities())));
 
         return true;
       });

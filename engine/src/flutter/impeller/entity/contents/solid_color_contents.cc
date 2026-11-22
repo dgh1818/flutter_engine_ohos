@@ -95,12 +95,16 @@ bool SolidColorContents::Render(const ContentContext& renderer,
   frag_info.source_color_space = 0.0f;
   frag_info.target_color_space = 0.0f;
 #endif
-  // Encode SDR Flutter UI into HLG only when this pass writes directly to the
-  // final HDR presentation target. Offscreen/filter passes remain linear and
-  // are encoded once when their texture is composed into the swapchain.
+  // Encode SDR Flutter UI only for the actual HLG presentation target.
+#ifdef FML_OS_OHOS
+  const bool writes_hlg_swapchain =
+      renderer.GetTargetColorSpace() == ColorSpace::kExtendedSRGB &&
+      pass.GetRenderTargetPixelFormat() == PixelFormat::kB10G10R10A2UNorm;
+#else
   const bool writes_hlg_swapchain =
       impeller::Context::enable_hdr_ &&
       pass.GetRenderTargetPixelFormat() == PixelFormat::kB10G10R10A2UNorm;
+#endif
   frag_info.output_mode = writes_hlg_swapchain ? 1 : 0;
 
   PipelineBuilderCallback pipeline_callback =

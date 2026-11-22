@@ -46,14 +46,12 @@ class ImageDescriptor : public RefCountedDartWrappable<ImageDescriptor> {
     kRGBA1010102,
   };
 
-  // OHOS fork (AI HDR): members are mutable so a decode request can refresh
-  // the cached info after switching the generator's dynamic range policy.
   struct ImageInfo {
-    uint32_t width;
-    uint32_t height;
-    PixelFormat format;
-    SkAlphaType alpha_type;
-    sk_sp<SkColorSpace> color_space;
+    const uint32_t width;
+    const uint32_t height;
+    const PixelFormat format;
+    const SkAlphaType alpha_type;
+    const sk_sp<SkColorSpace> color_space;
   };
 
   /// @brief  Asynchronously initializes an ImageDescriptor for an encoded
@@ -81,7 +79,7 @@ class ImageDescriptor : public RefCountedDartWrappable<ImageDescriptor> {
                         int32_t target_height,
                         int32_t destination_format);
 
-  // OHOS fork (AI HDR): see instantiateCodecWithDynamicRange impl.
+  // Compatibility for apps compiled against the earlier HDR codec bindings.
   void instantiateCodecWithDynamicRange(Dart_Handle codec_handle,
                                         int32_t target_width,
                                         int32_t target_height,
@@ -150,8 +148,7 @@ class ImageDescriptor : public RefCountedDartWrappable<ImageDescriptor> {
   std::unique_ptr<ExternalTextureSource> CreateExternalTextureSource(
       const SkISize& decode_dimensions,
       unsigned int frame_index = 0,
-      std::optional<unsigned int> prior_frame = std::nullopt,
-      int32_t dynamic_range_policy = 0) const;
+      std::optional<unsigned int> prior_frame = std::nullopt) const;
 #endif  // FML_OS_OHOS && IMPELLER_SUPPORTS_RENDERING
 
   uint32_t get_colorspace();
@@ -173,7 +170,7 @@ class ImageDescriptor : public RefCountedDartWrappable<ImageDescriptor> {
                   std::shared_ptr<ImageGenerator> generator);
 
   sk_sp<SkData> buffer_;
-  ImageInfo image_info_;  // OHOS fork (AI HDR): refreshed on policy switch
+  const ImageInfo image_info_;
   std::shared_ptr<ImageGenerator> generator_;
   std::optional<size_t> row_bytes_;
 

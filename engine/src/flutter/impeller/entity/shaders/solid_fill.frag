@@ -19,11 +19,11 @@ frag_info;
 out vec4 frag_color;
 
 float srgb_to_linear(float c) {
-  c = max(c, 0.0);
-  if (c <= 0.04045) {
+  float value = abs(c);
+  if (value <= 0.04045) {
     return c / 12.92;
   }
-  return pow((c + 0.055) / 1.055, 2.4);
+  return sign(c) * pow((value + 0.055) / 1.055, 2.4);
 }
 
 float linear_to_srgb_clamped(float c) {
@@ -35,11 +35,11 @@ float linear_to_srgb_clamped(float c) {
 }
 
 float linear_to_srgb_extended(float c) {
-  c = max(c, 0.0);
-  if (c <= 0.0031308) {
+  float value = abs(c);
+  if (value <= 0.0031308) {
     return c * 12.92;
   }
-  return 1.055 * pow(c, 1.0 / 2.4) - 0.055;
+  return sign(c) * (1.055 * pow(value, 1.0 / 2.4) - 0.055);
 }
 
 vec3 srgb_to_linear_vec3(vec3 color) {
@@ -110,6 +110,12 @@ void main() {
     return;
   }
 
+  if (color.a <= 0.0) {
+    frag_color = vec4(0.0);
+    return;
+  }
+  color.rgb /= color.a;
+
   if (src_cs < 2 && dst_cs == 2) {
     color.rgb = convert_srgb_family_to_p3(color.rgb);
   } else if (src_cs == 2 && dst_cs < 2) {
@@ -118,5 +124,6 @@ void main() {
     color.rgb = clamp(color.rgb, 0.0, 1.0);
   }
 
+  color.rgb *= color.a;
   frag_color = color;
 }

@@ -87,9 +87,11 @@ static std::optional<vk::SurfaceFormatKHR> ChooseSurfaceFormat(
       const auto color_space = vk::ColorSpaceKHR::eHdr10HlgEXT;
       const auto vk_preference = vk::SurfaceFormatKHR{
           vk::Format::eA2B10G10R10UnormPack32, color_space};
-      FML_LOG(ERROR) << "OHOS: requesting HDR swapchain color space "
-                     << vk::to_string(color_space);
-      return vk_preference;
+      if (ContainsFormat(formats, vk_preference)) {
+        return vk_preference;
+      }
+      FML_LOG(WARNING) << "OHOS: HLG swapchain format is unavailable; "
+                          "using a supported SDR format.";
     }
   }
 
@@ -178,10 +180,10 @@ KHRSwapchainImplVK::KHRSwapchainImplVK(const std::shared_ptr<Context>& context,
   auto format = ChooseSurfaceFormat(
       formats, vk_context.GetCapabilities()->GetDefaultColorFormat());
 #ifdef FML_OS_OHOS
-  hdr_ = impeller::Context::enable_hdr_
-             ? 1
-             : 0;  // match the poll in khr_swapchain_vk.cc
-  if (hdr_ > kSDR && impeller::Context::enable_hdr_) {
+  // Keep the requested mode for the recreation poll, even if the device
+  // cannot provide HLG; the actual mode is determined by the chosen format.
+  hdr_ = impeller::Context::enable_hdr_ ? 1 : 0;
+  if (hdr_ > kSDR) {
     format = ChooseSurfaceFormat(formats, PixelFormat::kB10G10R10A2UNorm);
   } else {
     format = ChooseSurfaceFormat(formats, PixelFormat::kR8G8B8A8UNormInt);
@@ -193,12 +195,10 @@ KHRSwapchainImplVK::KHRSwapchainImplVK(const std::shared_ptr<Context>& context,
   }
 #ifdef FML_OS_OHOS
   PixelFormat offscreen_format;
-  if (hdr_ > kSDR) {
-    // Preserve linear HDR headroom and alpha precision in filters/saveLayers.
-    // The final presentation remains the 10-bit HLG swapchain selected above.
+  if (format->colorSpace == vk::ColorSpaceKHR::eHdr10HlgEXT) {
+    // Preserve HDR headroom and alpha precision in filters and saveLayers.
     offscreen_format = PixelFormat::kR16G16B16A16Float;
-    FML_LOG(INFO) << "OHOS: HDR offscreen uses linear "
-                     "kR16G16B16A16Float working buffers";
+    FML_LOG(INFO) << "OHOS: HDR offscreen uses kR16G16B16A16Float buffers";
   } else if (format.value().format == vk::Format::eA2B10G10R10UnormPack32) {
     FML_LOG(INFO)
         << "OHOS: Swapchain uses A2B10G10R10UnormPack32 (wide gamut), "

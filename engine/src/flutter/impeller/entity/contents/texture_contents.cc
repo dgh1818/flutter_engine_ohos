@@ -150,11 +150,16 @@ bool TextureContents::Render(const ContentContext& renderer,
   }
 #endif  // IMPELLER_DEBUG
 
-  // The unified HDR presentation target is already encoded by our HLG path.
-  // Do not apply the upstream SDR/P3 conversion a second time to that pass.
+#ifdef FML_OS_OHOS
+  // A 10-bit P3 swapchain is not an HLG swapchain; use the negotiated target.
+  const bool writes_hlg_swapchain =
+      renderer.GetTargetColorSpace() == ColorSpace::kExtendedSRGB &&
+      pass.GetRenderTargetPixelFormat() == PixelFormat::kB10G10R10A2UNorm;
+#else
   const bool writes_hlg_swapchain =
       impeller::Context::enable_hdr_ &&
       pass.GetRenderTargetPixelFormat() == PixelFormat::kB10G10R10A2UNorm;
+#endif
 
 #ifdef FML_OS_OHOS
   const float target_color_space =
@@ -211,6 +216,16 @@ bool TextureContents::Render(const ContentContext& renderer,
   pass.SetVertexBuffer(vertex_buffer);
   VS::BindFrameInfo(pass, data_host_buffer.EmplaceUniform(frame_info));
 
+  const auto& source_descriptor = texture_->GetTextureDescriptor();
+  auto set_hdr_uniforms = [&](auto& info) {
+    info.source_transfer = TextureTransfer(source_descriptor.color_space);
+    info.source_primaries = TextureUsesDisplayP3(source_descriptor.color_space);
+    info.source_limited_10bit =
+        source_descriptor.color_range_limited &&
+        source_descriptor.format == PixelFormat::kB10G10R10A2UNorm;
+    info.output_mode = writes_hlg_swapchain ? 1 : 0;
+  };
+
   if (strict_source_rect_enabled_) {
     // For a strict source rect, shrink the texture coordinate range by half a
     // texel to ensure that linear filtering does not sample anything outside
@@ -218,9 +233,10 @@ bool TextureContents::Render(const ContentContext& renderer,
     auto strict_texture_coords =
         Rect::MakeSize(texture_->GetSize()).Project(source_rect_.Expand(-0.5));
 
-    FSStrict::FragInfo frag_info;
+    FSStrict::FragInfo frag_info{};
     frag_info.source_rect = Vector4(strict_texture_coords.GetLTRB());
     frag_info.alpha = GetOpacity();
+    set_hdr_uniforms(frag_info);
     frag_info.source_color_space = source_color_space;
     frag_info.target_color_space = target_color_space;
     FSStrict::BindFragInfo(pass, data_host_buffer.EmplaceUniform((frag_info)));
@@ -255,41 +271,7 @@ bool TextureContents::Render(const ContentContext& renderer,
   } else {
     FS::FragInfo frag_info{};
     frag_info.alpha = GetOpacity();
-    const auto& source_descriptor = texture_->GetTextureDescriptor();
-    frag_info.source_limited_10bit =
-        source_descriptor.color_range_limited &&
-                source_descriptor.format == PixelFormat::kB10G10R10A2UNorm
-            ? 1
-            : 0;
-    // Use the decoded image or video texture metadata for the transfer.
-    // SDR textures use the default sRGB transfer.
-    switch (texture_->GetTextureDescriptor().color_space) {
-      case TextureColorSpace::kHLG:
-      case TextureColorSpace::kBT2020HLG:
-      case TextureColorSpace::kDisplayP3HLG:
-        frag_info.source_transfer = 1;
-        break;
-      case TextureColorSpace::kPQ:
-      case TextureColorSpace::kBT2020PQ:
-      case TextureColorSpace::kDisplayP3PQ:
-        frag_info.source_transfer = 2;
-        break;
-      default:
-        frag_info.source_transfer = 0;
-        break;
-    }
-    // Encode only when writing the final 10-bit HLG presentation target.
-    // Offscreen/filter passes use a different format and must not accumulate
-    // another HLG transfer every time their texture is sampled.
-    frag_info.output_mode = writes_hlg_swapchain ? 1 : 0;
-    const auto texture_color_space =
-        texture_->GetTextureDescriptor().color_space;
-    frag_info.source_primaries =
-        (texture_color_space == TextureColorSpace::kDisplayP3 ||
-         texture_color_space == TextureColorSpace::kDisplayP3HLG ||
-         texture_color_space == TextureColorSpace::kDisplayP3PQ)
-            ? 1
-            : 0;
+    set_hdr_uniforms(frag_info);
     frag_info.source_color_space = source_color_space;
     frag_info.target_color_space = target_color_space;
     FS::BindFragInfo(pass, data_host_buffer.EmplaceUniform((frag_info)));

@@ -25,6 +25,27 @@ enum class TextureColorSpace {
   kDisplayP3HLG,
 };
 
+inline int32_t TextureTransfer(TextureColorSpace color_space) {
+  switch (color_space) {
+    case TextureColorSpace::kHLG:
+    case TextureColorSpace::kBT2020HLG:
+    case TextureColorSpace::kDisplayP3HLG:
+      return 1;
+    case TextureColorSpace::kPQ:
+    case TextureColorSpace::kBT2020PQ:
+    case TextureColorSpace::kDisplayP3PQ:
+      return 2;
+    default:
+      return 0;
+  }
+}
+
+inline bool TextureUsesDisplayP3(TextureColorSpace color_space) {
+  return color_space == TextureColorSpace::kDisplayP3 ||
+         color_space == TextureColorSpace::kDisplayP3HLG ||
+         color_space == TextureColorSpace::kDisplayP3PQ;
+}
+
 //------------------------------------------------------------------------------
 /// @brief      Additional compression to apply to a texture. This value is
 ///             ignored on platforms which do not support it.

@@ -66,6 +66,26 @@ TEST(SwapchainOhosTest, PreloadResetAfterSwapchainCreate) {
   EXPECT_FALSE(context->IsPreload());
 }
 
+TEST(SwapchainOhosTest, UnavailableHdrFormatUsesSdrWithoutRecreationLoop) {
+  struct RestoreHdrFlag {
+    bool previous = Context::enable_hdr_;
+    ~RestoreHdrFlag() { Context::enable_hdr_ = previous; }
+  } restore_hdr_flag;
+  Context::enable_hdr_ = true;
+  auto context = MockVulkanContextBuilder().Build();
+  ASSERT_NE(context, nullptr);
+  SetSwapchainImageSize(ISize{100, 100});
+  auto swapchain = KHRSwapchainVK::Create(context, vk::UniqueSurfaceKHR{},
+                                          ISize{100, 100}, false);
+  ASSERT_NE(swapchain, nullptr);
+  ASSERT_TRUE(swapchain->IsValid());
+  EXPECT_EQ(swapchain->GetSurfaceFormat(), vk::Format::eR8G8B8A8Unorm);
+  EXPECT_EQ(swapchain->GetSurfaceColorSpace(),
+            vk::ColorSpaceKHR::eSrgbNonlinear);
+  EXPECT_NE(swapchain->AcquireNextDrawable(), nullptr);
+  EXPECT_NE(swapchain->AcquireNextDrawable(), nullptr);
+}
+
 }  // namespace testing
 }  // namespace impeller
 

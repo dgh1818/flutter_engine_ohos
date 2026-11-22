@@ -13,19 +13,19 @@ const int kColorSpaceExtendedSRGB = 1;
 const int kColorSpaceDisplayP3 = 2;
 
 float IPSrgbChannelToLinear(float c) {
-  c = max(c, 0.0);
-  if (c <= 0.04045) {
+  float value = abs(c);
+  if (value <= 0.04045) {
     return c / 12.92;
   }
-  return pow((c + 0.055) / 1.055, 2.4);
+  return sign(c) * pow((value + 0.055) / 1.055, 2.4);
 }
 
 float IPLinearChannelToSrgb(float c) {
-  c = max(c, 0.0);
-  if (c <= 0.0031308) {
+  float value = abs(c);
+  if (value <= 0.0031308) {
     return c * 12.92;
   }
-  return 1.055 * pow(c, 1.0 / 2.4) - 0.055;
+  return sign(c) * (1.055 * pow(value, 1.0 / 2.4) - 0.055);
 }
 
 vec3 IPSrgbToLinear(vec3 color) {
@@ -66,6 +66,10 @@ vec4 IPConvertColorSpace(vec4 color,
   if (src == dst) {
     return color;
   }
+  if (color.a <= 0.0) {
+    return vec4(0.0);
+  }
+  color.rgb /= color.a;
   if (src != kColorSpaceDisplayP3 && dst == kColorSpaceDisplayP3) {
     color.rgb =
         IPLinearToSrgb(IPLinearSrgbToLinearP3(IPSrgbToLinear(color.rgb)));
@@ -78,6 +82,7 @@ vec4 IPConvertColorSpace(vec4 color,
   } else if (src == kColorSpaceExtendedSRGB && dst == kColorSpaceSRGB) {
     color.rgb = clamp(color.rgb, 0.0, 1.0);
   }
+  color.rgb *= color.a;
   return color;
 }
 

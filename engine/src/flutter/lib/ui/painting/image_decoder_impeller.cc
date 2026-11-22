@@ -131,6 +131,20 @@ bool IsWideGamut(const SkColorSpace* color_space) {
   return area > kSrgbGamutArea;
 }
 
+// Keep HDR detection and destination selection aligned with upstream's
+// shared Impeller decoder. Platform generators must provide real metadata.
+bool IsHdr(const SkColorSpace* color_space) {
+  if (!color_space || color_space->isSRGB()) {
+    return false;
+  }
+  skcms_TransferFunction fn;
+  color_space->transferFn(&fn);
+  const skcms_TFType type = skcms_TransferFunction_getType(&fn);
+  return type == skcms_TFType_PQ || type == skcms_TFType_PQish ||
+         type == skcms_TFType_HLG || type == skcms_TFType_HLGish ||
+         type == skcms_TFType_HLGinvish;
+}
+
 absl::StatusOr<ImageDecoderImpeller::ImageInfo> ToImageInfo(
     const SkImageInfo& sk_image_format) {
   const std::optional<impeller::PixelFormat> pixel_format =
@@ -176,8 +190,10 @@ absl::StatusOr<SkImageInfo> CreateImageInfo(
     const SkISize& decode_size,
     bool supports_wide_gamut,
     ImageDecoder::TargetPixelFormat target_format) {
-  const bool is_wide_gamut =
-      supports_wide_gamut ? IsWideGamut(base_image_info.colorSpace()) : false;
+  const SkColorSpace* color_space = base_image_info.colorSpace();
+  const bool is_hdr = IsHdr(color_space);
+  const bool is_extended_range =
+      supports_wide_gamut && (IsWideGamut(color_space) || is_hdr);
   SkAlphaType alpha_type =
       ChooseCompatibleAlphaType(base_image_info.alphaType());
   if (target_format != ImageDecoder::TargetPixelFormat::kDontCare) {
@@ -191,19 +207,20 @@ absl::StatusOr<SkImageInfo> CreateImageInfo(
         .makeAlphaType(alpha_type)
         .makeColorSpace(SkColorSpace::MakeSRGB());
 #ifdef FML_OS_OHOS
-  } else if (base_image_info.colorType() == kRGBA_1010102_SkColorType) {
+  } else if (base_image_info.colorType() == kRGBA_1010102_SkColorType &&
+             !color_space) {
     return base_image_info.makeWH(decode_size.width(), decode_size.height())
         .makeColorType(kRGBA_1010102_SkColorType)
         .makeAlphaType(alpha_type)
         // PixelMap metadata is read after decode; do not assume HLG here.
         .makeColorSpace(nullptr);
 #endif
-  } else if (is_wide_gamut) {
-    // Use 10-bit for opaque images (less memory: 4 bytes vs 8 bytes per pixel).
-    // Use F16 for images with alpha channel.
-    SkColorType color_type = alpha_type == SkAlphaType::kOpaque_SkAlphaType
-                                 ? kBGR_101010x_XR_SkColorType
-                                 : kRGBA_F16_SkColorType;
+  } else if (is_extended_range) {
+    // Match upstream: opaque wide-gamut SDR uses XR; HDR and alpha use F16.
+    SkColorType color_type =
+        (!is_hdr && alpha_type == SkAlphaType::kOpaque_SkAlphaType)
+            ? kBGR_101010x_XR_SkColorType
+            : kRGBA_F16_SkColorType;
     return base_image_info.makeWH(decode_size.width(), decode_size.height())
         .makeColorType(color_type)
         .makeAlphaType(alpha_type)
@@ -403,8 +420,7 @@ SkISize GetOhosDmaDecodeDimensions(ImageDescriptor* rawDescriptor,
 bool TryCreateOhosDmaImage(ImageDescriptor* rawDescriptor,
                            const std::shared_ptr<impeller::Context>& context,
                            SkISize targetSize,
-                           const ImageDecoder::ImageResult& result,
-                           int32_t dynamic_range_policy) {
+                           const ImageDecoder::ImageResult& result) {
   if (!rawDescriptor->is_compressed() ||
       context->GetBackendType() != impeller::Context::BackendType::kVulkan) {
     return false;
@@ -414,7 +430,7 @@ bool TryCreateOhosDmaImage(ImageDescriptor* rawDescriptor,
   const SkISize decodeDimensions =
       GetOhosDmaDecodeDimensions(rawDescriptor, targetSize, maxTextureSize);
   auto externalSource = rawDescriptor->CreateExternalTextureSource(
-      decodeDimensions, 0, std::nullopt, dynamic_range_policy);
+      decodeDimensions, 0, std::nullopt);
   if (!externalSource) {
     FML_LOG(INFO) << "OHOS DMA: regular image decode path selected "
                      "(fast path unavailable)";
@@ -610,7 +626,7 @@ ImageDecoderImpeller::UnsafeUploadTextureToPrivate(
     texture_descriptor.mip_count = 1;
   }
   const auto textureColorSpace = OhosColorSpaceToTextureColorSpace(colorspace);
-  FML_LOG(ERROR) << "HDRPhoto colorspace id=" << colorspace
+  FML_DLOG(INFO) << "HDRPhoto colorspace id=" << colorspace
                  << " -> textureColorSpace="
                  << static_cast<int>(textureColorSpace);
   texture_descriptor.color_space = textureColorSpace;
@@ -870,8 +886,7 @@ void ImageDecoderImpeller::Decode(fml::RefPtr<ImageDescriptor> descriptor,
       const SkISize target_size =
           SkISize::Make(static_cast<int32_t>(options.target_width),
                         static_cast<int32_t>(options.target_height));
-      if (TryCreateOhosDmaImage(raw_descriptor, context, target_size, result,
-                                options.dynamic_range_policy)) {
+      if (TryCreateOhosDmaImage(raw_descriptor, context, target_size, result)) {
         return;
       }
     }

@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 
 // HDR color transform helpers for the unified PQ/HLG pipeline
-// (PLAN.md: 统一颜色管线 / Phase 3 统一 shader).
 //
 // All functions operate on highp floats: PQ dark regions and specular
 // highlights lose unacceptable precision in mediump.
@@ -23,10 +22,11 @@
 const float kSrgbAlpha = 0.055;
 
 highp float SRGBToLinearChannel(highp float channel) {
-  if (channel <= 0.04045) {
+  highp float value = abs(channel);
+  if (value <= 0.04045) {
     return channel / 12.92;
   }
-  return pow((channel + kSrgbAlpha) / (1.0 + kSrgbAlpha), 2.4);
+  return sign(channel) * pow((value + kSrgbAlpha) / (1.0 + kSrgbAlpha), 2.4);
 }
 
 highp vec3 SRGBToLinear(highp vec3 color) {
@@ -36,10 +36,12 @@ highp vec3 SRGBToLinear(highp vec3 color) {
 }
 
 highp float LinearToSRGBChannel(highp float channel) {
-  if (channel <= 0.0031308) {
+  highp float value = abs(channel);
+  if (value <= 0.0031308) {
     return channel * 12.92;
   }
-  return (1.0 + kSrgbAlpha) * pow(channel, 1.0 / 2.4) - kSrgbAlpha;
+  return sign(channel) *
+         ((1.0 + kSrgbAlpha) * pow(value, 1.0 / 2.4) - kSrgbAlpha);
 }
 
 highp vec3 LinearToSRGB(highp vec3 color) {
@@ -55,8 +57,7 @@ highp vec3 LinearToSRGB(highp vec3 color) {
 const float kHlgA = 0.17883277;
 const float kHlgB = 0.28466892;  // 1 - 4 * kHlgA
 const float kHlgC = 0.55991073;  // 0.5 - kHlgA * ln(4 * kHlgA)
-const float kHlgGraphicsWhiteSignal = 0.75;
-// HLGToLinear(kHlgGraphicsWhiteSignal) for the 1.2 reference system gamma.
+// Neutral HLG signal 0.75 under the 1.2 reference system gamma.
 // In other words, 203-nit graphics white occupies this fraction of the HLG
 // peak-relative linear range.
 const float kHlgGraphicsWhiteLinear = 0.203152145;
@@ -92,26 +93,23 @@ highp vec3 HLGOETF(highp vec3 scene) {
               HLGOETFChannel(scene.b));
 }
 
-// HLG inverse OOTF (per-channel practical form, BT.2408 system gamma 1.2):
-// relative scene light -> display light normalized so that scene 1.0 maps to
-// the HLG reference white (203 cd/m^2). Highlights keep linear headroom > 1.0.
-highp vec3 HLGInverseOOTF(highp vec3 scene) {
-  return pow(max(scene, 0.0), vec3(1.2));
+// BT.2100 HLG OOTF uses scene luminance, not separate channel powers.
+const highp vec3 kBT2020Luma = vec3(0.2627, 0.6780, 0.0593);
+
+// Linear BT.2020 scene light -> display light in units of 203 nits.
+highp vec3 HLGSceneToWorking203(highp vec3 scene) {
+  highp float luminance = max(dot(scene, kBT2020Luma), 0.0);
+  return scene * pow(luminance, 0.2) / kHlgGraphicsWhiteLinear;
 }
 
-// HLG EOTF (signal -> peak-relative display light).
-highp vec3 HLGToLinear(highp vec3 color) {
-  return HLGInverseOOTF(HLGInverseOETF(color));
-}
-
-// HLG inverse EOTF (peak-relative display light -> signal).
+// Inverse HLG OOTF and OETF (peak-relative BT.2020 display light -> signal).
 highp vec3 LinearToHLG(highp vec3 working) {
-  return HLGOETF(pow(max(working, 0.0), vec3(1.0 / 1.2)));
-}
-
-// HLG signal -> linear BT.2020 working space where 1.0 is 203 nits.
-highp vec3 HLGToWorking203(highp vec3 color) {
-  return HLGToLinear(color) / kHlgGraphicsWhiteLinear;
+  highp vec3 display = max(working, 0.0);
+  highp float luminance = dot(display, kBT2020Luma);
+  if (luminance <= 0.0) {
+    return vec3(0.0);
+  }
+  return HLGOETF(display * pow(luminance, (1.0 / 1.2) - 1.0));
 }
 
 // Linear BT.2020 working space where 1.0 is 203 nits -> HLG signal. Scaling
@@ -147,27 +145,10 @@ highp vec3 PQToNits(highp vec3 color) {
 }
 
 // PQ EOTF: absolute light in cd/m^2 -> signal [0, 1].
-highp float NitsToPQChannel(highp float nits) {
-  highp float y = max(nits, 0.0) / kPqMaxLuminance;
-  highp float ym1 = pow(y, kPqM1);
-  return pow((kPqC1 + kPqC2 * ym1) / (1.0 + kPqC3 * ym1), kPqM2);
-}
-
-highp vec3 NitsToPQ(highp vec3 nits) {
-  return vec3(NitsToPQChannel(nits.r),  //
-              NitsToPQChannel(nits.g),  //
-              NitsToPQChannel(nits.b));
-}
-
 // PQ EOTF (signal -> linear working space in units of reference white).
 // 203 cd/m^2 == 1.0.
 highp vec3 PQToLinear(highp vec3 color) {
   return PQToNits(color) / 203.0;
-}
-
-// PQ inverse EOTF (linear working space -> signal).
-highp vec3 LinearToPQ(highp vec3 working) {
-  return NitsToPQ(working * 203.0);
 }
 
 // -----------------------------------------------------------------------------
@@ -196,20 +177,62 @@ highp vec3 BT2020ToBT709(highp vec3 color) {
 
 // Linear Display P3 (D65) -> linear BT.2020.
 highp vec3 DisplayP3ToBT2020(highp vec3 color) {
-  // Rows: [0.7538, 0.1985, 0.0477], [0.0457, 0.9278, 0.0264],
-  //       [-0.0011, 0.0240, 0.9771]
-  return mat3(0.753845, 0.045742, -0.001111,  //
-              0.198453, 0.927774, 0.024014,   //
-              0.047702, 0.026483, 0.977097) *
+  // D65 primaries, equivalent to the SkNamedGamut matrices in Skia.
+  return mat3(0.75383303, 0.04574385, -0.00121034,  //
+              0.19859737, 0.94177722, 0.01760172,   //
+              0.04756960, 0.01247893, 0.98360862) *
          color;
 }
 
 // Linear BT.2020 -> linear Display P3 (D65).
 highp vec3 BT2020ToDisplayP3(highp vec3 color) {
-  // Rows: [1.4136, -0.3024, -0.1112], [-0.0685, 1.0758, -0.0073],
-  //       [0.0165, -0.0449, 1.0284]
-  return mat3(1.413578, -0.068533, 0.016452,   //
-              -0.302412, 1.075818, -0.044919,  //
-              -0.111167, -0.007286, 1.028467) *
+  return mat3(1.34357825, -0.06529745, 0.00282179,   //
+              -0.28217967, 1.07578792, -0.01959849,  //
+              -0.06139858, -0.01049046, 1.01677671) *
          color;
+}
+
+// Convert premultiplied image pixels to either the HLG presentation encoding
+// or the extended-sRGB/P3 working encoding used by offscreen passes.
+highp vec4 ConvertHdrTexture(highp vec4 sampled,
+                             highp float opacity,
+                             int transfer,
+                             int primaries,
+                             int limited_range,
+                             int output_mode,
+                             int target_color_space) {
+  highp float alpha = sampled.a;
+  if (alpha <= 0.0) {
+    return vec4(0.0);
+  }
+  highp vec3 color = sampled.rgb / alpha;
+  if (limited_range == 1) {
+    color = clamp((color * 1023.0 - 64.0) / 876.0, 0.0, 1.0);
+  }
+
+  highp vec3 working;
+  if (transfer == 1) {
+    highp vec3 scene = HLGInverseOETF(clamp(color, 0.0, 1.0));
+    working =
+        HLGSceneToWorking203(primaries == 1 ? DisplayP3ToBT2020(scene) : scene);
+  } else {
+    working = transfer == 2 ? PQToLinear(clamp(color, 0.0, 1.0))
+                            : SRGBToLinear(color);
+    if (primaries == 1) {
+      working = DisplayP3ToBT2020(working);
+    } else if (transfer == 0) {
+      working = BT709ToBT2020(working);
+    }
+  }
+
+  if (output_mode == 1) {
+    color = Working203ToHLG(working);
+  } else {
+    highp vec3 linear_color = target_color_space == 2
+                                  ? BT2020ToDisplayP3(working)
+                                  : BT2020ToBT709(working);
+    color = LinearToSRGB(linear_color);
+  }
+  alpha *= opacity;
+  return vec4(color * alpha, alpha);
 }

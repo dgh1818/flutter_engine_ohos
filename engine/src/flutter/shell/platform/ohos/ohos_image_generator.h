@@ -18,7 +18,6 @@
 #include <sstream>
 #include <vector>
 #include "flutter/lib/ui/painting/image_generator.h"
-#include "flutter/shell/platform/ohos/mpf_decoder.h"
 #include "include/core/SkRefCnt.h"
 
 #define RBGA8888_BYTES 4
@@ -40,7 +39,10 @@ class OHOSImageGenerator : public ImageGenerator {
     uint32_t height_ = 0;
     uint32_t row_stride_ = 0;
     int32_t pixel_format_ = 0;
+    int32_t alpha_type_ = PIXELMAP_ALPHA_TYPE_UNKNOWN;
     uint32_t color_space_ = 0;
+    bool dynamic_range_known_ = false;
+    bool is_hdr_ = false;
     IMAGE_ALLOCATOR_TYPE allocator_type_ = IMAGE_ALLOCATOR_TYPE_AUTO;
 
     PixelMapOHOS(OH_PixelmapNative* pixelmap,
@@ -99,19 +101,7 @@ class OHOSImageGenerator : public ImageGenerator {
   std::unique_ptr<ExternalTextureSource> CreateExternalTextureSource(
       const SkISize& decode_dimensions,
       unsigned int frame_index,
-      std::optional<unsigned int> prior_frame,
-      int32_t dynamic_range_policy) override;
-
-  // OHOS fork (AI HDR).
-  void SetDynamicRangePolicy(int32_t dynamic_range_policy) override;
-
-  // OHOS fork (AI HDR).
-
-  void ComputeOriginImageInfo();
-
-  // OHOS fork (AI HDR).
-  int32_t dynamic_range_policy_ = 0;
-  bool ai_hdr_active_ = false;
+      std::optional<unsigned int> prior_frame) override;
 #endif  // FML_OS_OHOS && IMPELLER_SUPPORTS_RENDERING
 
   static std::shared_ptr<ImageGenerator> MakeFromData(sk_sp<SkData> data);
@@ -129,15 +119,6 @@ class OHOSImageGenerator : public ImageGenerator {
  private:
   OH_ImageSourceNative* image_source_;
   const sk_sp<SkData> data_;
-
-  OH_ImageSourceNative* mpf_gainmap_image_source_ = nullptr;
-  std::vector<uint8_t> gainmap_data_;
-  bool has_mpf_gainmap_ =
-      false;  // True when gainmap is initialized and usable.
-  bool has_mpf_info_ =
-      false;  // True when MPF metadata is detected in the file.
-  MpfGainmapInfo mpf_info_;
-  float gainmap_headroom_ = kDefaultGainmapHeadroom;
 
   SkImageInfo origin_image_info_;
   float rotate_degree_ = 0.f;
@@ -195,16 +176,7 @@ class OHOSImageGenerator : public ImageGenerator {
 
   bool IsValidImageData();
 
-  bool TryComposeMpfGainmapInternal(const SkImageInfo& info,
-                                    void* pixels,
-                                    size_t row_bytes);
-  bool TryComposeMpfGainmap(const SkImageInfo& info,
-                            void* pixels,
-                            size_t row_bytes,
-                            unsigned int frame_index);
-
-  void InitMpfInfo();
-  void InitMpfGainmap(const sk_sp<SkData>& data);
+  void ComputeOriginImageInfo();
 
   FML_DISALLOW_COPY_ASSIGN_AND_MOVE(OHOSImageGenerator);
 };

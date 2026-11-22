@@ -1,0 +1,4 @@
+# Preserve upstream CRLF bytes for these files; avoid unrelated diff noise.
+ohos_image_generator.cpp -text whitespace=cr-at-eol
+ohos_image_generator.h -text whitespace=cr-at-eol
+ohos_shell_holder.cpp -text whitespace=cr-at-eol

@@ -5,6 +5,7 @@
 precision mediump float;
 
 #include <impeller/color_space.glsl>
+#include <impeller/color_transform.glsl>
 #include <impeller/texture.glsl>
 #include <impeller/types.glsl>
 
@@ -16,6 +17,10 @@ uniform FragInfo {
   float x_tile_mode;
   float y_tile_mode;
   float alpha;
+  int source_transfer;
+  int output_mode;
+  int source_primaries;
+  int source_limited_10bit;
   float source_color_space;
   float target_color_space;
 }
@@ -39,7 +44,14 @@ void main() {
         float16_t(frag_info.y_tile_mode)   // y tile mode
     );
   }
-  frag_color = f16vec4(IPConvertColorSpace(vec4(sampled) * frag_info.alpha,
-                                           frag_info.source_color_space,
-                                           frag_info.target_color_space));
+  if (frag_info.output_mode == 1 || frag_info.source_transfer != 0) {
+    frag_color = f16vec4(ConvertHdrTexture(
+        vec4(sampled), frag_info.alpha, frag_info.source_transfer,
+        frag_info.source_primaries, frag_info.source_limited_10bit,
+        frag_info.output_mode, int(frag_info.target_color_space + 0.5)));
+  } else {
+    frag_color = f16vec4(IPConvertColorSpace(vec4(sampled) * frag_info.alpha,
+                                             frag_info.source_color_space,
+                                             frag_info.target_color_space));
+  }
 }

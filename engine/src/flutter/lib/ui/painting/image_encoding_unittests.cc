@@ -229,6 +229,29 @@ TEST(ImageEncodingImpellerTest, HdrColorSpaceUsesMetadataNotPixelFormat) {
   }
 }
 
+TEST(ImageEncodingImpellerTest, TenBitColorSpaceUsesMetadata) {
+  using TextureColorSpace = impeller::TextureColorSpace;
+  const std::pair<TextureColorSpace, ColorSpace> cases[] = {
+      {TextureColorSpace::kSRGB, ColorSpace::kSRGB},
+      {TextureColorSpace::kExtendedSRGB, ColorSpace::kExtendedSRGB},
+      {TextureColorSpace::kDisplayP3, ColorSpace::kDisplayP3},
+      {TextureColorSpace::kBT2020HLG, ColorSpace::kExtendedSRGB},
+      {TextureColorSpace::kBT2020PQ, ColorSpace::kExtendedSRGB},
+      {TextureColorSpace::kDisplayP3HLG, ColorSpace::kDisplayP3},
+      {TextureColorSpace::kDisplayP3PQ, ColorSpace::kDisplayP3},
+      {TextureColorSpace::kHLG, ColorSpace::kExtendedSRGB},
+      {TextureColorSpace::kPQ, ColorSpace::kExtendedSRGB},
+  };
+  for (const auto& entry : cases) {
+    impeller::TextureDescriptor descriptor;
+    descriptor.format = impeller::PixelFormat::kB10G10R10A2UNorm;
+    descriptor.color_space = entry.first;
+    EXPECT_EQ(ImageEncodingImpeller::GetColorSpace(
+                  std::make_shared<MockTexture>(descriptor)),
+              entry.second);
+  }
+}
+
 TEST(ImageEncodingImpellerTest, MetadataQueryDoesNotCreateTexture) {
   const auto image = sk_make_sp<::testing::NiceMock<MockDlImage>>();
   ON_CALL(*image, isUIThreadSafe()).WillByDefault(Return(true));
